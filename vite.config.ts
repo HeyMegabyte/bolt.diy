@@ -11,6 +11,7 @@ import { join } from 'path';
 
 dotenv.config();
 
+// Get detailed git info with fallbacks
 const getGitInfo = () => {
   try {
     return {
@@ -39,6 +40,7 @@ const getGitInfo = () => {
   }
 };
 
+// Read package.json with detailed dependency info
 const getPackageJson = () => {
   try {
     const pkgPath = join(process.cwd(), 'package.json');
@@ -91,53 +93,11 @@ export default defineConfig((config) => {
     },
     build: {
       target: 'esnext',
-      rollupOptions: {
-        output: {
-          format: 'esm',
-        },
-      },
-      commonjsOptions: {
-        transformMixedEsModules: true,
-      },
-    },
-    optimizeDeps: {
-      esbuildOptions: {
-        define: {
-          global: 'globalThis',
-        },
-      },
-    },
-    resolve: {
-      alias: {
-        buffer: 'vite-plugin-node-polyfills/polyfills/buffer',
-        crypto: 'crypto-browserify',
-        stream: 'stream-browserify',
-      },
     },
     plugins: [
       nodePolyfills({
-        include: ['buffer', 'process', 'util', 'stream', 'crypto'],
-        globals: {
-          Buffer: true,
-          process: true,
-          global: true,
-        },
-        protocolImports: true,
-        exclude: ['child_process', 'fs', 'path'],
+        include: ['path', 'buffer', 'process'],
       }),
-      {
-        name: 'buffer-polyfill',
-        transform(code, id) {
-          if (id.includes('env.mjs')) {
-            return {
-              code: `import { Buffer } from 'buffer';\n${code}`,
-              map: null,
-            };
-          }
-
-          return null;
-        },
-      },
       config.mode !== 'test' && remixCloudflareDevProxy(),
       remixVitePlugin({
         future: {
