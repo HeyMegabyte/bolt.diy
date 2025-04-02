@@ -96,8 +96,28 @@ export default defineConfig((config) => {
     },
     plugins: [
       nodePolyfills({
-        include: ['path', 'buffer', 'process'],
+        include: ['buffer', 'process', 'util', 'stream'],
+        globals: {
+          Buffer: true,
+          process: true,
+          global: true,
+        },
+        protocolImports: true,
+        exclude: ['child_process', 'fs', 'path'],
       }),
+      {
+        name: 'buffer-polyfill',
+        transform(code, id) {
+          if (id.includes('env.mjs')) {
+            return {
+              code: `import { Buffer } from 'buffer';\n${code}`,
+              map: null,
+            };
+          }
+
+          return null;
+        },
+      },
       config.mode !== 'test' && remixCloudflareDevProxy(),
       remixVitePlugin({
         future: {
