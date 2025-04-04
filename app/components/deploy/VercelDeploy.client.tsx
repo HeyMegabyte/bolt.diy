@@ -33,6 +33,20 @@ export function useVercelDeploy() {
         throw new Error('No active project found');
       }
 
+      // Create a deployment artifact for visual feedback
+      const deploymentId = `deploy-vercel-project`;
+      workbenchStore.addArtifact({
+        id: deploymentId,
+        messageId: deploymentId,
+        title: 'Vercel Deployment',
+        type: 'standalone',
+      });
+
+      const deployArtifact = workbenchStore.artifacts.get()[deploymentId];
+
+      // Notify that build is starting
+      deployArtifact.runner.handleDeployAction('building', 'running', { source: 'vercel' });
+
       const actionId = 'build-' + Date.now();
       const actionData: ActionCallbackData = {
         messageId: 'vercel build',
@@ -51,8 +65,16 @@ export function useVercelDeploy() {
       await artifact.runner.runAction(actionData);
 
       if (!artifact.runner.buildOutput) {
+        // Notify that build failed
+        deployArtifact.runner.handleDeployAction('building', 'failed', {
+          error: 'Build failed. Check the terminal for details.',
+          source: 'vercel',
+        });
         throw new Error('Build failed');
       }
+
+      // Notify that build succeeded and deployment is starting
+      deployArtifact.runner.handleDeployAction('deploying', 'running', { source: 'vercel' });
 
       // Get the build files
       const container = await webcontainer;
@@ -133,12 +155,24 @@ export function useVercelDeploy() {
 
       if (!response.ok || !data.deploy || !data.project) {
         console.error('Invalid deploy response:', data);
+
+        // Notify that deployment failed
+        deployArtifact.runner.handleDeployAction('deploying', 'failed', {
+          error: data.error || 'Invalid deployment response',
+          source: 'vercel',
+        });
         throw new Error(data.error || 'Invalid deployment response');
       }
 
       if (data.project) {
         localStorage.setItem(`vercel-project-${currentChatId}`, data.project.id);
       }
+
+      // Notify that deployment completed successfully
+      deployArtifact.runner.handleDeployAction('complete', 'complete', {
+        url: data.deploy.url,
+        source: 'vercel',
+      });
 
       toast.success(
         <div>

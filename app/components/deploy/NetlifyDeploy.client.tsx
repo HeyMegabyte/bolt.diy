@@ -33,6 +33,21 @@ export function useNetlifyDeploy() {
         throw new Error('No active project found');
       }
 
+      // Create a deployment artifact for visual feedback
+      const deploymentId = `deploy-artifact`;
+      workbenchStore.addArtifact({
+        id: deploymentId,
+        messageId: deploymentId,
+        title: 'Netlify Deployment',
+        type: 'standalone',
+      });
+
+      const deployArtifact = workbenchStore.artifacts.get()[deploymentId];
+
+      // Notify that build is starting
+      deployArtifact.runner.handleDeployAction('building', 'running', { source: 'netlify' });
+
+      // Set up build action
       const actionId = 'build-' + Date.now();
       const actionData: ActionCallbackData = {
         messageId: 'netlify build',
@@ -51,8 +66,16 @@ export function useNetlifyDeploy() {
       await artifact.runner.runAction(actionData);
 
       if (!artifact.runner.buildOutput) {
+        // Notify that build failed
+        deployArtifact.runner.handleDeployAction('building', 'failed', {
+          error: 'Build failed. Check the terminal for details.',
+          source: 'netlify',
+        });
         throw new Error('Build failed');
       }
+
+      // Notify that build succeeded and deployment is starting
+      deployArtifact.runner.handleDeployAction('deploying', 'running', { source: 'netlify' });
 
       // Get the build files
       const container = await webcontainer;
@@ -133,6 +156,12 @@ export function useNetlifyDeploy() {
 
       if (!response.ok || !data.deploy || !data.site) {
         console.error('Invalid deploy response:', data);
+
+        // Notify that deployment failed
+        deployArtifact.runner.handleDeployAction('deploying', 'failed', {
+          error: data.error || 'Invalid deployment response',
+          source: 'netlify',
+        });
         throw new Error(data.error || 'Invalid deployment response');
       }
 
@@ -158,6 +187,11 @@ export function useNetlifyDeploy() {
           }
 
           if (deploymentStatus.state === 'error') {
+            // Notify that deployment failed
+            deployArtifact.runner.handleDeployAction('deploying', 'failed', {
+              error: 'Deployment failed: ' + (deploymentStatus.error_message || 'Unknown error'),
+              source: 'netlify',
+            });
             throw new Error('Deployment failed: ' + (deploymentStatus.error_message || 'Unknown error'));
           }
 
@@ -171,6 +205,11 @@ export function useNetlifyDeploy() {
       }
 
       if (attempts >= maxAttempts) {
+        // Notify that deployment timed out
+        deployArtifact.runner.handleDeployAction('deploying', 'failed', {
+          error: 'Deployment timed out',
+          source: 'netlify',
+        });
         throw new Error('Deployment timed out');
       }
 
@@ -178,6 +217,12 @@ export function useNetlifyDeploy() {
       if (data.site) {
         localStorage.setItem(`netlify-site-${currentChatId}`, data.site.id);
       }
+
+      // Notify that deployment completed successfully
+      deployArtifact.runner.handleDeployAction('complete', 'complete', {
+        url: deploymentStatus.ssl_url || deploymentStatus.url,
+        source: 'netlify',
+      });
 
       toast.success(
         <div>
