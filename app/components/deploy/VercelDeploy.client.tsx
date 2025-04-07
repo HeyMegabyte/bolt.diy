@@ -174,15 +174,6 @@ export function useVercelDeploy() {
         source: 'vercel',
       });
 
-      toast.success(
-        <div>
-          Deployed successfully to Vercel!{' '}
-          <a href={data.deploy.url} target="_blank" rel="noopener noreferrer" className="underline">
-            View site
-          </a>
-        </div>,
-      );
-
       return true;
     } catch (err) {
       console.error('Vercel deploy error:', err);
