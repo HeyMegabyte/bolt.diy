@@ -116,9 +116,6 @@ export function DataTab() {
     handleResetChats,
     handleDownloadTemplate,
     handleImportAPIKeys,
-    handleExportAPIKeys,
-    handleUndo,
-    lastOperation,
   } = useDataOperations({
     customDb: db || undefined, // Pass the boltHistory database, converting null to undefined
     onReloadSettings: () => window.location.reload(),
@@ -638,43 +635,6 @@ export function DataTab() {
             <CardHeader>
               <div className="flex items-center mb-2">
                 <motion.div className="text-accent-500 mr-2" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                  <div className="i-ph-download-duotone w-5 h-5" />
-                </motion.div>
-                <CardTitle className="text-lg group-hover:text-bolt-elements-item-contentAccent transition-colors">
-                  Export API Keys
-                </CardTitle>
-              </div>
-              <CardDescription>Export your API keys to a JSON file.</CardDescription>
-            </CardHeader>
-            <CardFooter>
-              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="w-full">
-                <Button
-                  onClick={handleExportAPIKeys}
-                  disabled={isExporting}
-                  variant="outline"
-                  size="sm"
-                  className={classNames(
-                    'hover:text-bolt-elements-item-contentAccent hover:border-bolt-elements-item-backgroundAccent hover:bg-bolt-elements-item-backgroundAccent transition-colors w-full justify-center',
-                    isExporting ? 'cursor-not-allowed' : '',
-                  )}
-                >
-                  {isExporting ? (
-                    <>
-                      <div className="i-ph-spinner-gap-bold animate-spin w-4 h-4 mr-2" />
-                      Exporting...
-                    </>
-                  ) : (
-                    'Export Keys'
-                  )}
-                </Button>
-              </motion.div>
-            </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center mb-2">
-                <motion.div className="text-accent-500 mr-2" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
                   <div className="i-ph-file-text-duotone w-5 h-5" />
                 </motion.div>
                 <CardTitle className="text-lg group-hover:text-bolt-elements-item-contentAccent transition-colors">
@@ -756,23 +716,6 @@ export function DataTab() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Undo Last Operation */}
-      {lastOperation && (
-        <div className="fixed bottom-4 right-4 bg-bolt-elements-bg-depth-3 text-bolt-elements-textPrimary p-4 rounded-lg shadow-lg flex items-center gap-3 z-50">
-          <div className="text-sm">
-            <span className="font-medium">Last action:</span> {lastOperation.type}
-          </div>
-          <Button
-            onClick={handleUndo}
-            variant="outline"
-            size="sm"
-            className="border-bolt-elements-borderColor text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundAccent hover:text-bolt-elements-item-contentAccent"
-          >
-            Undo
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

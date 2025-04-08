@@ -126,9 +126,10 @@ export default function VercelConnection() {
               disabled={connecting || !connection.token}
               className={classNames(
                 'px-4 py-2 rounded-lg text-sm flex items-center gap-2',
-                'bg-bolt-elements-borderColor text-white',
-                'hover:bg-bolt-elements-borderColorActive',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
+                'bg-[#303030] text-white',
+                'hover:bg-[#5E41D0] hover:text-white',
+                'disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200',
+                'transform active:scale-95',
               )}
             >
               {connecting ? (

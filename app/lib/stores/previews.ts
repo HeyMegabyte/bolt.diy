@@ -153,20 +153,20 @@ export class PreviewsStore {
 
     try {
       // Watch for file changes
-      const watcher = await webcontainer.fs.watch('**/*', { persistent: true });
+      webcontainer.internal.watchPaths(
+        { include: ['**/*'], exclude: ['**/node_modules', '.git'], includeContent: true },
+        async (_events) => {
+          const previews = this.previews.get();
 
-      // Use the native watch events
-      (watcher as any).addEventListener('change', async () => {
-        const previews = this.previews.get();
+          for (const preview of previews) {
+            const previewId = this.getPreviewId(preview.baseUrl);
 
-        for (const preview of previews) {
-          const previewId = this.getPreviewId(preview.baseUrl);
-
-          if (previewId) {
-            this.broadcastFileChange(previewId);
+            if (previewId) {
+              this.broadcastFileChange(previewId);
+            }
           }
-        }
-      });
+        },
+      );
 
       // Watch for DOM changes that might affect storage
       if (typeof window !== 'undefined') {

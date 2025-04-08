@@ -609,10 +609,10 @@ export default function GitHubConnection() {
               }`}
               className={classNames(
                 'w-full px-3 py-2 rounded-lg text-sm',
-                'bg-bolt-elements-background-depth-1 dark:bg-bolt-elements-background-depth-1',
-                'border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor',
-                'text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary placeholder-bolt-elements-textTertiary dark:placeholder-bolt-elements-textTertiary',
-                'focus:outline-none focus:ring-1 focus:ring-bolt-elements-item-contentAccent dark:focus:ring-bolt-elements-item-contentAccent',
+                'bg-[#F8F8F8] dark:bg-[#1A1A1A]',
+                'border border-[#E5E5E5] dark:border-[#333333]',
+                'text-bolt-elements-textPrimary placeholder-bolt-elements-textTertiary',
+                'focus:outline-none focus:ring-1 focus:ring-bolt-elements-borderColorActive',
                 'disabled:opacity-50',
               )}
             />
@@ -621,11 +621,10 @@ export default function GitHubConnection() {
                 href={`https://github.com/settings/tokens${connection.tokenType === 'fine-grained' ? '/beta' : '/new'}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-bolt-elements-link-text dark:text-bolt-elements-link-text hover:text-bolt-elements-link-textHover dark:hover:text-bolt-elements-link-textHover flex items-center gap-1"
+                className="text-bolt-elements-borderColorActive hover:underline inline-flex items-center gap-1"
               >
-                <div className="i-ph:key w-4 h-4" />
                 Get your token
-                <div className="i-ph:arrow-square-out w-3 h-3" />
+                <div className="i-ph:arrow-square-out w-4 h-4" />
               </a>
               <span className="mx-2">•</span>
               <span>
@@ -640,58 +639,48 @@ export default function GitHubConnection() {
 
         <div className="flex items-center justify-between">
           {!connection.user ? (
-            <Button
+            <button
               onClick={handleConnect}
               disabled={isConnecting || !connection.token}
-              variant="default"
-              className="flex items-center gap-2"
+              className={classNames(
+                'px-4 py-2 rounded-lg text-sm flex items-center gap-2',
+                'bg-[#303030] text-white',
+                'hover:bg-[#5E41D0] hover:text-white',
+                'disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200',
+                'transform active:scale-95',
+              )}
             >
               {isConnecting ? (
                 <>
-                  <div className="i-ph:spinner-gap animate-spin w-4 h-4" />
+                  <div className="i-ph:spinner-gap animate-spin" />
                   Connecting...
                 </>
               ) : (
                 <>
-                  <div className="i-ph:github-logo w-4 h-4" />
+                  <div className="i-ph:plug-charging w-4 h-4" />
                   Connect
                 </>
               )}
-            </Button>
+            </button>
           ) : (
             <>
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-4">
-                  <Button
+                  <button
                     onClick={handleDisconnect}
-                    variant="destructive"
-                    size="sm"
-                    className="flex items-center gap-2"
-                  >
-                    <div className="i-ph:sign-out w-4 h-4" />
-                    Disconnect
-                  </Button>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <div className="i-ph:check-circle w-4 h-4 text-bolt-elements-icon-success dark:text-bolt-elements-icon-success" />
-                      <span className="text-sm text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary">
-                        Connected to GitHub using{' '}
-                        <span className="text-bolt-elements-item-contentAccent dark:text-bolt-elements-item-contentAccent font-medium">
-                          {connection.tokenType === 'classic' ? 'PAT' : 'Fine-grained Token'}
-                        </span>
-                      </span>
-                    </div>
-                    {connection.rateLimit && (
-                      <div className="flex items-center gap-2 text-xs text-bolt-elements-textSecondary">
-                        <div className="i-ph:chart-line-up w-3.5 h-3.5 text-bolt-elements-icon-success" />
-                        <span>
-                          API Limit: {connection.rateLimit.remaining.toLocaleString()}/
-                          {connection.rateLimit.limit.toLocaleString()} • Resets in{' '}
-                          {Math.max(0, Math.floor((connection.rateLimit.reset * 1000 - Date.now()) / 60000))} min
-                        </span>
-                      </div>
+                    className={classNames(
+                      'px-4 py-2 rounded-lg text-sm flex items-center gap-2',
+                      'bg-red-500 text-white',
+                      'hover:bg-red-600',
                     )}
-                  </div>
+                  >
+                    <div className="i-ph:plug w-4 h-4" />
+                    Disconnect
+                  </button>
+                  <span className="text-sm text-bolt-elements-textSecondary flex items-center gap-1">
+                    <div className="i-ph:check-circle w-4 h-4 text-green-500" />
+                    Connected to GitHub
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
