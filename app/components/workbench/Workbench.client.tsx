@@ -388,11 +388,9 @@ export const Workbench = memo(
                         Toggle Terminal
                       </PanelHeaderButton>
                       <DropdownMenu.Root>
-                        <DropdownMenu.Trigger className="bg-transparent">
-                          <button className="text-sm flex items-center gap-1 text-bolt-elements-item-contentDefault bg-transparent enabled:hover:text-bolt-elements-item-contentActive rounded-md p-1 enabled:hover:bg-bolt-elements-item-backgroundActive disabled:cursor-not-allowed">
-                            <div className="i-ph:box-arrow-up" />
-                            Sync & Export
-                          </button>
+                        <DropdownMenu.Trigger className="text-sm flex items-center gap-1 text-bolt-elements-item-contentDefault bg-transparent enabled:hover:text-bolt-elements-item-contentActive rounded-md p-1 enabled:hover:bg-bolt-elements-item-backgroundActive disabled:cursor-not-allowed">
+                          <div className="i-ph:box-arrow-up" />
+                          Sync & Export
                         </DropdownMenu.Trigger>
                         <DropdownMenu.Content
                           className={classNames(
@@ -491,12 +489,12 @@ export const Workbench = memo(
           <PushToGitHubDialog
             isOpen={isPushDialogOpen}
             onClose={() => setIsPushDialogOpen(false)}
-            onPush={async (repoName, username, token) => {
+            onPush={async (repoName, username, token, isPrivate) => {
               try {
-                const commitMessage = prompt('Please enter a commit message:', 'Initial commit') || 'Initial commit';
-                await workbenchStore.pushToGitHub(repoName, commitMessage, username, token);
+                console.log('Dialog onPush called with isPrivate =', isPrivate);
 
-                const repoUrl = `https://github.com/${username}/${repoName}`;
+                const commitMessage = prompt('Please enter a commit message:', 'Initial commit') || 'Initial commit';
+                const repoUrl = await workbenchStore.pushToGitHub(repoName, commitMessage, username, token, isPrivate);
 
                 if (updateChatMestaData && !metadata?.gitUrl) {
                   updateChatMestaData({
