@@ -237,7 +237,9 @@ export async function action({ request }: ActionFunctionArgs) {
       deploy: {
         id: deployData.id,
         state: deploymentState,
-        url: deploymentUrl || projectInfo.url,
+
+        // Return public domain as deploy URL and private domain as fallback.
+        url: projectInfo.url || deploymentUrl,
       },
       project: projectInfo,
     });
