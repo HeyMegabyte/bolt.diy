@@ -154,7 +154,11 @@ export class PreviewsStore {
     try {
       // Watch for file changes
       webcontainer.internal.watchPaths(
-        { include: ['**/*'], exclude: ['**/node_modules', '.git'], includeContent: true },
+        {
+          // Only watch specific file types that affect the preview
+          include: ['**/*.html', '**/*.css', '**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx', '**/*.json'],
+          exclude: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**', '**/coverage/**'],
+        },
         async (_events) => {
           const previews = this.previews.get();
 
