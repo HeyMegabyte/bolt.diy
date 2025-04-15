@@ -2,7 +2,6 @@ import ignore from 'ignore';
 import type { ProviderInfo } from '~/types/model';
 import type { Template } from '~/types/template';
 import { STARTER_TEMPLATES } from './constants';
-import Cookies from 'js-cookie';
 
 const starterTemplateSelectionPrompt = (templates: Template[]) => `
 You are an experienced developer who helps people choose the best starter template for their projects.
@@ -111,20 +110,18 @@ export const selectStarterTemplate = async (options: { message: string; model: s
   }
 };
 
-const getGitHubRepoContent = async (
-  repoName: string,
-  path: string = '',
-): Promise<{ name: string; path: string; content: string }[]> => {
+const getGitHubRepoContent = async (repoName: string): Promise<{ name: string; path: string; content: string }[]> => {
   try {
     // Instead of directly fetching from GitHub, use our own API endpoint as a proxy
     const response = await fetch(`/api/github-template?repo=${encodeURIComponent(repoName)}`);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     // Our API will return the files in the format we need
-    const files = await response.json() as any;
+    const files = (await response.json()) as any;
+
     return files;
   } catch (error) {
     console.error('Error fetching release contents:', error);
@@ -150,10 +147,16 @@ export async function getTemplates(templateName: string, title?: string) {
    */
   filteredFiles = filteredFiles.filter((x) => x.path.startsWith('.git') == false);
 
-  // exclude    lock files
-  // WE NOW INCLUDE LOCK FILES FOR IMPROVED INSTALL TIMES
-  {/*const comminLockFiles = ['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'];
-  filteredFiles = filteredFiles.filter((x) => comminLockFiles.includes(x.name) == false);*/}
+  /*
+   * exclude    lock files
+   * WE NOW INCLUDE LOCK FILES FOR IMPROVED INSTALL TIMES
+   */
+  {
+    /*
+     *const comminLockFiles = ['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'];
+     *filteredFiles = filteredFiles.filter((x) => comminLockFiles.includes(x.name) == false);
+     */
+  }
 
   // exclude    .bolt
   filteredFiles = filteredFiles.filter((x) => x.path.startsWith('.bolt') == false);

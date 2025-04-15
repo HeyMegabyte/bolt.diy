@@ -773,14 +773,14 @@ export const Preview = memo(() => {
                       <span className="text-sm font-medium text-[#111827] dark:text-gray-300">Device Options</span>
                     </div>
                     <div className="flex flex-col gap-2">
-                    <button
+                      <button
                         className={`flex w-full justify-between items-center text-start bg-transparent text-xs text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary`}
                         onClick={() => {
                           openInNewTab();
                         }}
                       >
                         <span>Open in new tab</span>
-                        <div className='i-ph:arrow-square-out h-5 w-4'/>
+                        <div className="i-ph:arrow-square-out h-5 w-4" />
                       </button>
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-bolt-elements-textTertiary">Show Device Frame</span>
