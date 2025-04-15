@@ -115,77 +115,19 @@ const getGitHubRepoContent = async (
   repoName: string,
   path: string = '',
 ): Promise<{ name: string; path: string; content: string }[]> => {
-  const baseUrl = 'https://api.github.com';
-
   try {
-    const token = Cookies.get('githubToken') || import.meta.env.VITE_GITHUB_ACCESS_TOKEN;
-
-    const headers: HeadersInit = {
-      Accept: 'application/vnd.github.v3+json',
-    };
-
-    // Add your GitHub token if needed
-    if (token) {
-      headers.Authorization = 'Bearer ' + token;
-    }
-
-    // Fetch contents of the path
-    const response = await fetch(`${baseUrl}/repos/${repoName}/contents/${path}`, {
-      headers,
-    });
-
+    // Instead of directly fetching from GitHub, use our own API endpoint as a proxy
+    const response = await fetch(`/api/github-template?repo=${encodeURIComponent(repoName)}`);
+    
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-
-    const data: any = await response.json();
-
-    // If it's a single file, return its content
-    if (!Array.isArray(data)) {
-      if (data.type === 'file') {
-        // If it's a file, get its content
-        const content = atob(data.content); // Decode base64 content
-        return [
-          {
-            name: data.name,
-            path: data.path,
-            content,
-          },
-        ];
-      }
-    }
-
-    // Process directory contents recursively
-    const contents = await Promise.all(
-      data.map(async (item: any) => {
-        if (item.type === 'dir') {
-          // Recursively get contents of subdirectories
-          return await getGitHubRepoContent(repoName, item.path);
-        } else if (item.type === 'file') {
-          // Fetch file content
-          const fileResponse = await fetch(item.url, {
-            headers,
-          });
-          const fileData: any = await fileResponse.json();
-          const content = atob(fileData.content); // Decode base64 content
-
-          return [
-            {
-              name: item.name,
-              path: item.path,
-              content,
-            },
-          ];
-        }
-
-        return [];
-      }),
-    );
-
-    // Flatten the array of contents
-    return contents.flat();
+    
+    // Our API will return the files in the format we need
+    const files = await response.json() as any;
+    return files;
   } catch (error) {
-    console.error('Error fetching repo contents:', error);
+    console.error('Error fetching release contents:', error);
     throw error;
   }
 };
@@ -209,8 +151,9 @@ export async function getTemplates(templateName: string, title?: string) {
   filteredFiles = filteredFiles.filter((x) => x.path.startsWith('.git') == false);
 
   // exclude    lock files
-  const comminLockFiles = ['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'];
-  filteredFiles = filteredFiles.filter((x) => comminLockFiles.includes(x.name) == false);
+  // WE NOW INCLUDE LOCK FILES FOR IMPROVED INSTALL TIMES
+  {/*const comminLockFiles = ['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'];
+  filteredFiles = filteredFiles.filter((x) => comminLockFiles.includes(x.name) == false);*/}
 
   // exclude    .bolt
   filteredFiles = filteredFiles.filter((x) => x.path.startsWith('.bolt') == false);
@@ -255,7 +198,6 @@ ${file.content}
 TEMPLATE INSTRUCTIONS:
 ${templatePromptFile.content}
 
-IMPORTANT: Dont Forget to install the dependencies before running the app
 ---
 `;
   }
@@ -296,6 +238,8 @@ edit only the files that need to be changed, and you can create new files as nee
 NO NOT EDIT/WRITE ANY FILES THAT ALREADY EXIST IN THE PROJECT AND DOES NOT NEED TO BE MODIFIED
 ---
 Now that the Template is imported please continue with my original request
+
+IMPORTANT: Dont Forget to install the dependencies before running the app by using \`npm install && npm run dev\`
 `;
 
   return {
