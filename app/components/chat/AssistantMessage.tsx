@@ -104,7 +104,7 @@ export const AssistantMessage = memo(({ content, annotations, messageId, onRewin
               <div className="context"></div>
             </Popover>
           )}
-          <div className="flex w-full items-center justify-between mb-2">
+          <div className="flex w-full items-center justify-between">
             {usage && (
               <div>
                 Tokens: {usage.totalTokens} (prompt: {usage.promptTokens}, completion: {usage.completionTokens})
