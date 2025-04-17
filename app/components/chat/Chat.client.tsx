@@ -249,6 +249,8 @@ export const ChatImpl = memo(
       });
     }, [messages, isLoading, parseMessages]);
 
+    console.log('messages', messages);
+
     const scrollTextArea = () => {
       const textarea = textareaRef.current;
 

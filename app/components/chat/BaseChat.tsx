@@ -39,6 +39,9 @@ import type { ActionRunner } from '~/lib/runtime/action-runner';
 import { LOCAL_PROVIDERS } from '~/lib/stores/settings';
 import { SupabaseChatAlert } from '~/components/chat/SupabaseAlert';
 import { SupabaseConnection } from './SupabaseConnection';
+import { ExpoQrModal } from '~/components/workbench/ExpoQrModal';
+import { expoUrlAtom } from '~/stores/qrCodeStore';
+import { useStore } from '@nanostores/react';
 
 const TEXTAREA_MIN_HEIGHT = 76;
 
@@ -130,6 +133,15 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     const [transcript, setTranscript] = useState('');
     const [isModelLoading, setIsModelLoading] = useState<string | undefined>('all');
     const [progressAnnotations, setProgressAnnotations] = useState<ProgressAnnotation[]>([]);
+    const expoUrl = useStore(expoUrlAtom);
+    const [qrModalOpen, setQrModalOpen] = useState(false);
+
+    useEffect(() => {
+      if (expoUrl) {
+        setQrModalOpen(true);
+      }
+    }, [expoUrl]);
+
     useEffect(() => {
       if (data) {
         const progressList = data.filter(
@@ -622,6 +634,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                         </div>
                       ) : null}
                       <SupabaseConnection />
+                      <ExpoQrModal open={qrModalOpen} onClose={() => setQrModalOpen(false)} />
                     </div>
                   </div>
                 </div>
