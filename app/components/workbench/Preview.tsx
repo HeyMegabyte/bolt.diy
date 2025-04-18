@@ -58,8 +58,7 @@ export const Preview = memo(() => {
   const hasSelectedPreview = useRef(false);
   const previews = useStore(workbenchStore.previews);
   const activePreview = previews[activePreviewIndex];
-
-  const [url, setUrl] = useState('');
+  const [displayPath, setDisplayPath] = useState('/');
   const [iframeUrl, setIframeUrl] = useState<string | undefined>();
   const [isSelectionMode, setIsSelectionMode] = useState(false);
 
@@ -92,35 +91,16 @@ export const Preview = memo(() => {
 
   useEffect(() => {
     if (!activePreview) {
-      setUrl('');
       setIframeUrl(undefined);
+      setDisplayPath('/');
 
       return;
     }
 
     const { baseUrl } = activePreview;
-    setUrl(baseUrl);
     setIframeUrl(baseUrl);
+    setDisplayPath('/');
   }, [activePreview]);
-
-  const validateUrl = useCallback(
-    (value: string) => {
-      if (!activePreview) {
-        return false;
-      }
-
-      const { baseUrl } = activePreview;
-
-      if (value === baseUrl) {
-        return true;
-      } else if (value.startsWith(baseUrl)) {
-        return ['/', '?', '#'].includes(value.charAt(baseUrl.length));
-      }
-
-      return false;
-    },
-    [activePreview],
-  );
 
   const findMinPortIndex = useCallback(
     (minIndex: number, preview: { port: number }, index: number, array: { port: number }[]) => {
@@ -653,40 +633,46 @@ export const Preview = memo(() => {
           />
         </div>
 
-        <div className="flex-grow flex items-center gap-1 bg-bolt-elements-preview-addressBar-background border border-bolt-elements-borderColor text-bolt-elements-preview-addressBar-text rounded-full px-3 py-1 text-sm hover:bg-bolt-elements-preview-addressBar-backgroundHover hover:focus-within:bg-bolt-elements-preview-addressBar-backgroundActive focus-within:bg-bolt-elements-preview-addressBar-backgroundActive focus-within-border-bolt-elements-borderColorActive focus-within:text-bolt-elements-preview-addressBar-textActive">
+        <div className="flex-grow flex items-center gap-1 bg-bolt-elements-preview-addressBar-background border border-bolt-elements-borderColor text-bolt-elements-preview-addressBar-text rounded-full px-1 py-1 text-sm hover:bg-bolt-elements-preview-addressBar-backgroundHover hover:focus-within:bg-bolt-elements-preview-addressBar-backgroundActive focus-within:bg-bolt-elements-preview-addressBar-backgroundActive focus-within-border-bolt-elements-borderColorActive focus-within:text-bolt-elements-preview-addressBar-textActive">
+          <PortDropdown
+            activePreviewIndex={activePreviewIndex}
+            setActivePreviewIndex={setActivePreviewIndex}
+            isDropdownOpen={isPortDropdownOpen}
+            setHasSelectedPreview={(value) => (hasSelectedPreview.current = value)}
+            setIsDropdownOpen={setIsPortDropdownOpen}
+            previews={previews}
+          />
           <input
-            title="URL"
+            title="URL Path"
             ref={inputRef}
             className="w-full bg-transparent outline-none"
             type="text"
-            value={url}
+            value={displayPath}
             onChange={(event) => {
-              setUrl(event.target.value);
+              setDisplayPath(event.target.value);
             }}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && validateUrl(url)) {
-                setIframeUrl(url);
+              if (event.key === 'Enter' && activePreview) {
+                let targetPath = displayPath.trim();
+
+                if (!targetPath.startsWith('/')) {
+                  targetPath = '/' + targetPath;
+                }
+
+                const fullUrl = activePreview.baseUrl + targetPath;
+                setIframeUrl(fullUrl);
+                setDisplayPath(targetPath);
 
                 if (inputRef.current) {
                   inputRef.current.blur();
                 }
               }
             }}
+            disabled={!activePreview}
           />
         </div>
 
         <div className="flex items-center gap-2">
-          {previews.length > 1 && (
-            <PortDropdown
-              activePreviewIndex={activePreviewIndex}
-              setActivePreviewIndex={setActivePreviewIndex}
-              isDropdownOpen={isPortDropdownOpen}
-              setHasSelectedPreview={(value) => (hasSelectedPreview.current = value)}
-              setIsDropdownOpen={setIsPortDropdownOpen}
-              previews={previews}
-            />
-          )}
-
           <IconButton
             icon="i-ph:devices"
             onClick={toggleDeviceMode}
