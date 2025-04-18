@@ -2,7 +2,7 @@ import type { WebContainer, WebContainerProcess } from '@webcontainer/api';
 import type { ITerminal } from '~/types/terminal';
 import { withResolvers } from './promises';
 import { atom } from 'nanostores';
-import { expoUrlAtom } from '~/stores/qrCodeStore';
+import { expoUrlAtom } from '~/lib/stores/qrCodeStore';
 
 export async function newShellProcess(webcontainer: WebContainer, terminal: ITerminal) {
   const args: string[] = [];

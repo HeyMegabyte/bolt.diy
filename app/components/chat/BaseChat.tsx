@@ -40,7 +40,7 @@ import { LOCAL_PROVIDERS } from '~/lib/stores/settings';
 import { SupabaseChatAlert } from '~/components/chat/SupabaseAlert';
 import { SupabaseConnection } from './SupabaseConnection';
 import { ExpoQrModal } from '~/components/workbench/ExpoQrModal';
-import { expoUrlAtom } from '~/stores/qrCodeStore';
+import { expoUrlAtom } from '~/lib/stores/qrCodeStore';
 import { useStore } from '@nanostores/react';
 
 const TEXTAREA_MIN_HEIGHT = 76;
