@@ -700,7 +700,7 @@ export const Preview = memo(() => {
           {isDeviceModeOn && (
             <>
               <IconButton
-                icon="i-ph:rotate-right"
+                icon="i-ph:device-rotate"
                 onClick={() => setIsLandscape(!isLandscape)}
                 title={isLandscape ? 'Switch to Portrait' : 'Switch to Landscape'}
               />
