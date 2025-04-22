@@ -42,6 +42,7 @@ import { SupabaseConnection } from './SupabaseConnection';
 import { ExpoQrModal } from '~/components/workbench/ExpoQrModal';
 import { expoUrlAtom } from '~/lib/stores/qrCodeStore';
 import { useStore } from '@nanostores/react';
+import { StickToBottom } from '~/lib/hooks';
 
 const TEXTAREA_MIN_HEIGHT = 76;
 
@@ -87,8 +88,6 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
   (
     {
       textareaRef,
-      messageRef,
-      scrollRef,
       showChat = true,
       chatStarted = false,
       isStreaming = false,
@@ -336,7 +335,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
         data-chat-visible={showChat}
       >
         <ClientOnly>{() => <Menu />}</ClientOnly>
-        <div ref={scrollRef} className="flex flex-col lg:flex-row overflow-y-auto w-full h-full">
+        <div className="flex flex-col lg:flex-row overflow-y-auto w-full h-full">
           <div className={classNames(styles.Chat, 'flex flex-col flex-grow lg:min-w-[var(--chat-min-width)] h-full')}>
             {!chatStarted && (
               <div id="intro" className="mt-[16vh] max-w-chat mx-auto text-center px-4 lg:px-0">
@@ -348,24 +347,26 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 </p>
               </div>
             )}
-            <div
-              className={classNames('pt-6 px-2 sm:px-6', {
+            <StickToBottom
+              className={classNames('pt-6 px-2 sm:px-6 relative', {
                 'h-full flex flex-col': chatStarted,
               })}
-              ref={scrollRef}
+              resize="smooth"
+              initial="smooth"
             >
-              <ClientOnly>
-                {() => {
-                  return chatStarted ? (
-                    <Messages
-                      ref={messageRef}
-                      className="flex flex-col w-full flex-1 max-w-chat pb-6 mx-auto z-1"
-                      messages={messages}
-                      isStreaming={isStreaming}
-                    />
-                  ) : null;
-                }}
-              </ClientOnly>
+              <StickToBottom.Content className="flex flex-col gap-4">
+                <ClientOnly>
+                  {() => {
+                    return chatStarted ? (
+                      <Messages
+                        className="flex flex-col w-full flex-1 max-w-chat pb-6 mx-auto z-1"
+                        messages={messages}
+                        isStreaming={isStreaming}
+                      />
+                    ) : null;
+                  }}
+                </ClientOnly>
+              </StickToBottom.Content>
               {deployAlert && (
                 <DeployChatAlert
                   alert={deployAlert}
@@ -387,7 +388,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 />
               )}
               <div
-                className={classNames('flex flex-col gap-2 w-full max-w-chat mx-auto z-prompt mb-6', {
+                className={classNames('my-auto flex flex-col gap-2 w-full max-w-chat mx-auto z-prompt mb-6', {
                   'sticky bottom-2': chatStarted,
                 })}
               >
@@ -639,7 +640,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                   </div>
                 </div>
               </div>
-            </div>
+            </StickToBottom>
             <div className="flex flex-col justify-center gap-5">
               {!chatStarted && (
                 <div className="flex justify-center gap-2">

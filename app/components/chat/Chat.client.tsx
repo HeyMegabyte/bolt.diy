@@ -8,7 +8,7 @@ import { useChat } from 'ai/react';
 import { useAnimate } from 'framer-motion';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { cssTransition, toast, ToastContainer } from 'react-toastify';
-import { useMessageParser, usePromptEnhancer, useShortcuts, useSnapScroll } from '~/lib/hooks';
+import { useMessageParser, usePromptEnhancer, useShortcuts } from '~/lib/hooks';
 import { description, useChatHistory } from '~/lib/persistence';
 import { chatStore } from '~/lib/stores/chat';
 import { workbenchStore } from '~/lib/stores/workbench';
@@ -483,8 +483,6 @@ export const ChatImpl = memo(
       [],
     );
 
-    const [messageRef, scrollRef] = useSnapScroll();
-
     useEffect(() => {
       const storedApiKeys = Cookies.get('apiKeys');
 
@@ -522,8 +520,6 @@ export const ChatImpl = memo(
         provider={provider}
         setProvider={handleProviderChange}
         providerList={activeProviders}
-        messageRef={messageRef}
-        scrollRef={scrollRef}
         handleInputChange={(e) => {
           onTextareaChange(e);
           debouncedCachePrompt(e);
