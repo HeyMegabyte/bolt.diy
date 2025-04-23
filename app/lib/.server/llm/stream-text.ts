@@ -114,16 +114,25 @@ export async function streamText(props: {
     }) ?? getSystemPrompt();
 
   if (files && contextFiles && contextOptimization) {
-    const codeContext = createFilesContext(contextFiles, true);
-    const filePaths = getFilePaths(files);
+    // Filter out package-lock.json from the files used for context
+    const filteredFiles = Object.fromEntries(
+      Object.entries(files).filter(([filePath]) => !filePath.endsWith('package-lock.json')),
+    );
+    const filteredContextFiles = Object.fromEntries(
+      Object.entries(contextFiles).filter(([filePath]) => !filePath.endsWith('package-lock.json')),
+    );
+
+    // Use the filtered maps to generate context
+    const codeContext = createFilesContext(filteredContextFiles, true); // Uses filtered contextFiles
+    const filePaths = getFilePaths(filteredFiles); // Uses filtered files
 
     systemPrompt = `${systemPrompt}
-Below are all the files present in the project:
+Below are all the files present in the project (excluding package-lock.json):
 ---
 ${filePaths.join('\n')}
 ---
 
-Below is the artifact containing the context loaded into context buffer for you to have knowledge of and might need changes to fullfill current user request.
+Below is the artifact containing the context loaded into context buffer for you to have knowledge of and might need changes to fullfill current user request (excluding package-lock.json).
 CONTEXT BUFFER:
 ---
 ${codeContext}

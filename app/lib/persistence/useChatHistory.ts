@@ -130,7 +130,6 @@ export function useChatHistory() {
                   content: ` 📦 Chat Restored from snapshot, You can revert this message to load the full chat history
                   <boltArtifact id="imported-files" title="Project Files Snapshot" type="bundled">
                   ${Object.entries(snapshot?.files || {})
-                    .filter((x) => !x[0].endsWith('lock.json'))
                     .map(([key, value]) => {
                       if (value?.type === 'file') {
                         return `

@@ -2,7 +2,7 @@ import React from 'react';
 import { Dialog, DialogTitle, DialogDescription, DialogRoot } from '~/components/ui/Dialog';
 import { useStore } from '@nanostores/react';
 import { expoUrlAtom } from '~/lib/stores/qrCodeStore';
-import QRCode from 'react-qr-code';
+import { QRCode } from 'react-qrcode-logo';
 
 interface ExpoQrModalProps {
   open: boolean;
@@ -29,9 +29,21 @@ export const ExpoQrModal: React.FC<ExpoQrModalProps> = ({ open, onClose }) => {
           </DialogDescription>
           <div className="my-6 flex flex-col items-center">
             {expoUrl ? (
-              <div className="bg-white p-1 flex flex-col rounded-md justify-center items-center ">
-                <QRCode value={expoUrl} size={180} />
-              </div>
+              <QRCode
+                logoImage="/favicon.svg"
+                removeQrCodeBehindLogo={true}
+                logoPadding={3}
+                logoHeight={50}
+                logoWidth={50}
+                logoPaddingStyle="square"
+                style={{
+                  borderRadius: 16,
+                  padding: 2,
+                  backgroundColor: '#8a5fff',
+                }}
+                value={expoUrl}
+                size={200}
+              />
             ) : (
               <div className="text-gray-500 text-center">No Expo URL detected.</div>
             )}
