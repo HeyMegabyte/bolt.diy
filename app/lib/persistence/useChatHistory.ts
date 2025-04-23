@@ -13,6 +13,8 @@ import {
   setMessages,
   duplicateChat,
   createChatFromMessages,
+  getSnapshot,
+  setSnapshot,
   type IChatMetadata,
 } from './db';
 import type { FileMap } from '~/lib/stores/files';
@@ -61,19 +63,25 @@ export function useChatHistory() {
     }
 
     if (mixedId) {
-      getMessages(db, mixedId)
-        .then(async (storedMessages) => {
+      Promise.all([
+        getMessages(db, mixedId),
+        getSnapshot(db, mixedId), // Fetch snapshot from DB
+      ])
+        .then(async ([storedMessages, snapshot]) => {
           if (storedMessages && storedMessages.messages.length > 0) {
-            const snapshotStr = localStorage.getItem(`snapshot:${mixedId}`);
-            const snapshot: Snapshot = snapshotStr ? JSON.parse(snapshotStr) : { chatIndex: 0, files: {} };
-            const summary = snapshot.summary;
+            /*
+             * const snapshotStr = localStorage.getItem(`snapshot:${mixedId}`); // Remove localStorage usage
+             * const snapshot: Snapshot = snapshotStr ? JSON.parse(snapshotStr) : { chatIndex: 0, files: {} }; // Use snapshot from DB
+             */
+            const validSnapshot = snapshot || { chatIndex: '', files: {} }; // Ensure snapshot is not undefined
+            const summary = validSnapshot.summary;
 
             const rewindId = searchParams.get('rewindTo');
             let startingIdx = -1;
             const endingIdx = rewindId
               ? storedMessages.messages.findIndex((m) => m.id === rewindId) + 1
               : storedMessages.messages.length;
-            const snapshotIndex = storedMessages.messages.findIndex((m) => m.id === snapshot.chatIndex);
+            const snapshotIndex = storedMessages.messages.findIndex((m) => m.id === validSnapshot.chatIndex);
 
             if (snapshotIndex >= 0 && snapshotIndex < endingIdx) {
               startingIdx = snapshotIndex;
@@ -93,7 +101,7 @@ export function useChatHistory() {
             setArchivedMessages(archivedMessages);
 
             if (startingIdx > 0) {
-              const files = Object.entries(snapshot?.files || {})
+              const files = Object.entries(validSnapshot?.files || {})
                 .map(([key, value]) => {
                   if (value?.type !== 'file') {
                     return null;
@@ -197,17 +205,20 @@ ${value.content}
         .catch((error) => {
           console.error(error);
 
-          logStore.logError('Failed to load chat messages', error);
-          toast.error(error.message);
+          logStore.logError('Failed to load chat messages or snapshot', error); // Updated error message
+          toast.error('Failed to load chat: ' + error.message); // More specific error
         });
+    } else {
+      // Handle case where there is no mixedId (e.g., new chat)
+      setReady(true);
     }
-  }, [mixedId]);
+  }, [mixedId, db, navigate, searchParams]); // Added db, navigate, searchParams dependencies
 
   const takeSnapshot = useCallback(
     async (chatIdx: string, files: FileMap, _chatId?: string | undefined, chatSummary?: string) => {
-      const id = _chatId || chatId;
+      const id = _chatId || chatId.get();
 
-      if (!id) {
+      if (!id || !db) {
         return;
       }
 
@@ -216,23 +227,29 @@ ${value.content}
         files,
         summary: chatSummary,
       };
-      localStorage.setItem(`snapshot:${id}`, JSON.stringify(snapshot));
+
+      // localStorage.setItem(`snapshot:${id}`, JSON.stringify(snapshot)); // Remove localStorage usage
+      try {
+        await setSnapshot(db, id, snapshot);
+      } catch (error) {
+        console.error('Failed to save snapshot:', error);
+        toast.error('Failed to save chat snapshot.');
+      }
     },
-    [chatId],
+    [db],
   );
 
-  const restoreSnapshot = useCallback(async (id: string) => {
-    const snapshotStr = localStorage.getItem(`snapshot:${id}`);
+  const restoreSnapshot = useCallback(async (id: string, snapshot?: Snapshot) => {
+    // const snapshotStr = localStorage.getItem(`snapshot:${id}`); // Remove localStorage usage
     const container = await webcontainer;
 
-    // if (snapshotStr)setSnapshot(JSON.parse(snapshotStr));
-    const snapshot: Snapshot = snapshotStr ? JSON.parse(snapshotStr) : { chatIndex: 0, files: {} };
+    const validSnapshot = snapshot || { chatIndex: '', files: {} };
 
-    if (!snapshot?.files) {
+    if (!validSnapshot?.files) {
       return;
     }
 
-    Object.entries(snapshot.files).forEach(async ([key, value]) => {
+    Object.entries(validSnapshot.files).forEach(async ([key, value]) => {
       if (key.startsWith(container.workdir)) {
         key = key.replace(container.workdir, '');
       }
@@ -241,7 +258,7 @@ ${value.content}
         await container.fs.mkdir(key, { recursive: true });
       }
     });
-    Object.entries(snapshot.files).forEach(async ([key, value]) => {
+    Object.entries(validSnapshot.files).forEach(async ([key, value]) => {
       if (value?.type === 'file') {
         if (key.startsWith(container.workdir)) {
           key = key.replace(container.workdir, '');
@@ -311,6 +328,7 @@ ${value.content}
         description.set(firstArtifact?.title);
       }
 
+      // Ensure chatId.get() is used here as well
       if (initialMessages.length === 0 && !chatId.get()) {
         const nextId = await getNextId(db);
 
@@ -321,9 +339,19 @@ ${value.content}
         }
       }
 
+      // Ensure chatId.get() is used for the final setMessages call
+      const finalChatId = chatId.get();
+
+      if (!finalChatId) {
+        console.error('Cannot save messages, chat ID is not set.');
+        toast.error('Failed to save chat messages: Chat ID missing.');
+
+        return;
+      }
+
       await setMessages(
         db,
-        chatId.get() as string,
+        finalChatId, // Use the potentially updated chatId
         [...archivedMessages, ...messages],
         urlId,
         description.get(),
