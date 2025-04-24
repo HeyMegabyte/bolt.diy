@@ -42,7 +42,7 @@ import { SupabaseConnection } from './SupabaseConnection';
 import { ExpoQrModal } from '~/components/workbench/ExpoQrModal';
 import { expoUrlAtom } from '~/lib/stores/qrCodeStore';
 import { useStore } from '@nanostores/react';
-import { StickToBottom } from '~/lib/hooks';
+import { StickToBottom, useStickToBottomContext } from '~/lib/hooks';
 
 const TEXTAREA_MIN_HEIGHT = 76;
 
@@ -217,6 +217,22 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       }
     }, [providerList, provider]);
 
+    function ScrollToBottom() {
+      const { isAtBottom, scrollToBottom } = useStickToBottomContext();
+
+      return (
+        !isAtBottom && (
+          <button
+            className="absolute z-50 top-[50%] translate-y-[-60%] text-4xl rounded-lg left-[50%] translate-x-[-50%] px-1.5 py-0.5 flex items-center gap-2 bg-bolt-elements-background-depth-3 border border-bolt-elements-borderColor text-bolt-elements-textPrimary text-sm"
+            onClick={() => scrollToBottom()}
+          >
+            Go to last message
+            <span className="i-ph:arrow-down animate-bounce" />
+          </button>
+        )
+      );
+    }
+
     const onApiKeysChange = async (providerName: string, apiKey: string) => {
       const newApiKeys = { ...apiKeys, [providerName]: apiKey };
       setApiKeys(newApiKeys);
@@ -387,6 +403,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                   }}
                 />
               )}
+              <ScrollToBottom />
               <div
                 className={classNames('my-auto flex flex-col gap-2 w-full max-w-chat mx-auto z-prompt mb-6', {
                   'sticky bottom-2': chatStarted,
