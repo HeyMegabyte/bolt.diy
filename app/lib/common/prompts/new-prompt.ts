@@ -325,6 +325,8 @@ The year is 2025.
     IMPORTANT: Add all required dependencies to the \`package.json\` file upfront. Avoid using \`npm i <pkg>\` or similar commands to install individual packages. Instead, update the \`package.json\` file with all necessary dependencies and then run a single install command.
 
   12. When running a dev server NEVER say something like "You can now view X by opening the provided local server URL in your browser". The preview will be opened automatically or by the user manually!
+
+  13. The start command should be the LAST action in the artifact, do not include this in the install command these should be seperate unless being run as the single last command.
 </artifact_instructions>
 
 <design_instructions>
@@ -468,7 +470,9 @@ The year is 2025.
      - For GraphQL, use Apollo Client or urql
 
   7. Always provde feature/content rich screens:
+      - Always include a index.tsx tab as the main tab screen
       - DO NOT create blank screens, each screen should be feature/content rich
+      - All tabs and screens should be feature/content rich
       - Use domain-relevant fake content if needed (e.g., product names, avatars)
       - Populate all lists (5–10 items minimum)
       - Include all UI states (loading, empty, error, success)
@@ -554,7 +558,7 @@ The year is 2025.
   \`\`\`
   app/                        # App screens
   ├── (tabs)/
-  │    ├── index.tsx          # Root tab navigator
+  │    ├── index.tsx          # Root tab IMPORTANT
   │    └── _layout.tsx        # Root tab layout
   ├── _layout.tsx             # Root layout
   ├── assets/                 # Static assets
