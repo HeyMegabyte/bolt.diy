@@ -30,7 +30,7 @@ export const STARTER_TEMPLATES: Template[] = [
     label: 'Expo App',
     description: 'Expo starter template for building cross-platform mobile apps',
     githubRepo: 'xKevIsDev/bolt-expo-template',
-    tags: ['mobile', 'expo', 'mobile-app', 'mobile app', 'android', 'iphone'],
+    tags: ['mobile', 'expo', 'mobile-app', 'android', 'iphone'],
     icon: 'i-bolt:expo',
   },
   {
@@ -94,7 +94,7 @@ export const STARTER_TEMPLATES: Template[] = [
     label: 'React + Vite + typescript',
     description: 'React starter template powered by Vite for fast development experience',
     githubRepo: 'xKevIsDev/bolt-vite-react-ts-template',
-    tags: ['react', 'vite', 'frontend', 'website'],
+    tags: ['react', 'vite', 'frontend', 'website', 'app'],
     icon: 'i-bolt:react',
   },
   {
