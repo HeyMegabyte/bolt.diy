@@ -4,7 +4,7 @@ import type { Template } from '~/types/template';
 import { STARTER_TEMPLATES } from './constants';
 
 const starterTemplateSelectionPrompt = (templates: Template[]) => `
-You are an experienced developer who helps people choose the best starter template for their projects.
+You are an experienced developer who helps people choose the best starter template for their projects, Vite is preferred.
 
 Available templates:
 <template>

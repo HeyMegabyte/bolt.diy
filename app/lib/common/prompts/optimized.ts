@@ -373,7 +373,7 @@ Examples:
     - Design must be modern, beautiful, and unique—avoid generic or template-like layouts.
     - Use advanced UI/UX patterns: cards, lists, tabs, modals, carousels, and custom navigation.
     - Ensure the navigation is intuitive and easy to understand.
-    - Integrate high-quality images, icons, and illustrations (e.g., Unsplash, lucide-react-native).
+    - Integrate high-quality images, icons, and illustrations (e.g., Pexels, lucide-react-native).
     - Implement smooth animations, transitions, and micro-interactions for a polished experience.
     - Ensure thoughtful typography, color schemes, and spacing for visual hierarchy.
     - Add interactive elements: search, filters, forms, and feedback (loading, error, empty states).
