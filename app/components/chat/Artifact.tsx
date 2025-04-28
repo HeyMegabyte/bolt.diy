@@ -111,7 +111,7 @@ export const Artifact = memo(({ messageId }: ArtifactProps) => {
             </div>
             <div className="text-bolt-elements-textPrimary font-medium leading-5 text-sm">
               {allActionFinished
-                ? artifact.id === 'imported-files'
+                ? artifact.id === 'restored-project-setup'
                   ? 'Restore files from snapshot'
                   : 'Initial files created'
                 : 'Creating initial files'}
