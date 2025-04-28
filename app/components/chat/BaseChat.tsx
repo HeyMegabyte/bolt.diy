@@ -217,22 +217,6 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       }
     }, [providerList, provider]);
 
-    function ScrollToBottom() {
-      const { isAtBottom, scrollToBottom } = useStickToBottomContext();
-
-      return (
-        !isAtBottom && (
-          <button
-            className="absolute z-50 top-[50%] translate-y-[-60%] text-4xl rounded-lg left-[50%] translate-x-[-50%] px-1.5 py-0.5 flex items-center gap-2 bg-bolt-elements-background-depth-3 border border-bolt-elements-borderColor text-bolt-elements-textPrimary text-sm"
-            onClick={() => scrollToBottom()}
-          >
-            Go to last message
-            <span className="i-ph:arrow-down animate-bounce" />
-          </button>
-        )
-      );
-    }
-
     const onApiKeysChange = async (providerName: string, apiKey: string) => {
       const newApiKeys = { ...apiKeys, [providerName]: apiKey };
       setApiKeys(newApiKeys);
@@ -695,3 +679,19 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     return <Tooltip.Provider delayDuration={200}>{baseChat}</Tooltip.Provider>;
   },
 );
+
+function ScrollToBottom() {
+  const { isAtBottom, scrollToBottom } = useStickToBottomContext();
+
+  return (
+    !isAtBottom && (
+      <button
+        className="absolute z-50 top-[50%] translate-y-[-60%] text-4xl rounded-lg left-[50%] translate-x-[-50%] px-1.5 py-0.5 flex items-center gap-2 bg-bolt-elements-background-depth-3 border border-bolt-elements-borderColor text-bolt-elements-textPrimary text-sm"
+        onClick={() => scrollToBottom()}
+      >
+        Go to last message
+        <span className="i-ph:arrow-down animate-bounce" />
+      </button>
+    )
+  );
+}
