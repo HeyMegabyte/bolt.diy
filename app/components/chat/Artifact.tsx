@@ -54,13 +54,15 @@ export const Artifact = memo(({ messageId }: ArtifactProps) => {
     }
 
     if (actions.length !== 0 && artifact.type === 'bundled') {
-      const finished = !actions.find((action) => action.status !== 'complete');
+      const finished = !actions.find(
+        (action) => action.status !== 'complete' && !(action.type === 'start' && action.status === 'running'),
+      );
 
       if (allActionFinished !== finished) {
         setAllActionFinished(finished);
       }
     }
-  }, [actions]);
+  }, [actions, artifact.type, allActionFinished]);
 
   return (
     <>
