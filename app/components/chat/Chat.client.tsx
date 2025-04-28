@@ -316,14 +316,14 @@ export const ChatImpl = memo(
         setFakeLoading(true);
 
         if (autoSelectTemplate) {
-          const { template, title } = await selectStarterTemplate({
+          const { template } = await selectStarterTemplate({
             message: messageContent,
             model,
             provider,
           });
 
           if (template !== 'blank') {
-            const temResp = await getTemplates(template, title).catch((e) => {
+            const temResp = await getTemplates(template).catch((e) => {
               if (e.message.includes('rate limit')) {
                 toast.warning('Rate limit exceeded. Skipping starter template\n Continuing with blank template');
               } else {

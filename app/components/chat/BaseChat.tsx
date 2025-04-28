@@ -367,33 +367,32 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                   }}
                 </ClientOnly>
               </StickToBottom.Content>
-              {deployAlert && (
-                <DeployChatAlert
-                  alert={deployAlert}
-                  clearAlert={() => clearDeployAlert?.()}
-                  postMessage={(message: string | undefined) => {
-                    sendMessage?.({} as any, message);
-                    clearSupabaseAlert?.();
-                  }}
-                />
-              )}
-              {supabaseAlert && (
-                <SupabaseChatAlert
-                  alert={supabaseAlert}
-                  clearAlert={() => clearSupabaseAlert?.()}
-                  postMessage={(message) => {
-                    sendMessage?.({} as any, message);
-                    clearSupabaseAlert?.();
-                  }}
-                />
-              )}
-              <ScrollToBottom />
               <div
                 className={classNames('my-auto flex flex-col gap-2 w-full max-w-chat mx-auto z-prompt mb-6', {
                   'sticky bottom-2': chatStarted,
                 })}
               >
-                <div className="bg-bolt-elements-background-depth-2">
+                <div className="flex flex-col gap-2">
+                  {deployAlert && (
+                    <DeployChatAlert
+                      alert={deployAlert}
+                      clearAlert={() => clearDeployAlert?.()}
+                      postMessage={(message: string | undefined) => {
+                        sendMessage?.({} as any, message);
+                        clearSupabaseAlert?.();
+                      }}
+                    />
+                  )}
+                  {supabaseAlert && (
+                    <SupabaseChatAlert
+                      alert={supabaseAlert}
+                      clearAlert={() => clearSupabaseAlert?.()}
+                      postMessage={(message) => {
+                        sendMessage?.({} as any, message);
+                        clearSupabaseAlert?.();
+                      }}
+                    />
+                  )}
                   {actionAlert && (
                     <ChatAlert
                       alert={actionAlert}
@@ -405,10 +404,11 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                     />
                   )}
                 </div>
+                <ScrollToBottom />
                 {progressAnnotations && <ProgressCompilation data={progressAnnotations} />}
                 <div
                   className={classNames(
-                    'bg-bolt-elements-background-depth-2 p-3 rounded-lg border border-bolt-elements-borderColor relative w-full max-w-chat mx-auto z-prompt',
+                    'relative bg-bolt-elements-background-depth-2 p-3 rounded-lg border border-bolt-elements-borderColor relative w-full max-w-chat mx-auto z-prompt',
 
                     /*
                      * {
@@ -686,7 +686,7 @@ function ScrollToBottom() {
   return (
     !isAtBottom && (
       <button
-        className="absolute z-50 top-[50%] translate-y-[-60%] text-4xl rounded-lg left-[50%] translate-x-[-50%] px-1.5 py-0.5 flex items-center gap-2 bg-bolt-elements-background-depth-3 border border-bolt-elements-borderColor text-bolt-elements-textPrimary text-sm"
+        className="absolute z-50 top-[0%] translate-y-[-100%] text-4xl rounded-lg left-[50%] translate-x-[-50%] px-1.5 py-0.5 flex items-center gap-2 bg-bolt-elements-background-depth-3 border border-bolt-elements-borderColor text-bolt-elements-textPrimary text-sm"
         onClick={() => scrollToBottom()}
       >
         Go to last message

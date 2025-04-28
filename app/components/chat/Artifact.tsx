@@ -75,7 +75,7 @@ export const Artifact = memo(({ messageId }: ArtifactProps) => {
           >
             <div className="px-5 p-3.5 w-full text-left">
               <div className="w-full text-bolt-elements-textPrimary font-medium leading-5 text-sm">
-                {artifact.type === 'bundled' ? 'Setup Project' : artifact?.title}
+                {artifact?.title}
               </div>
               <div className="w-full w-full text-bolt-elements-textSecondary text-xs mt-0.5">
                 Click to open Workbench
@@ -109,7 +109,13 @@ export const Artifact = memo(({ messageId }: ArtifactProps) => {
                 <div className="i-svg-spinners:90-ring-with-bg"></div>
               )}
             </div>
-            <div className="text-bolt-elements-textPrimary font-medium leading-5 text-sm">Create initial files</div>
+            <div className="text-bolt-elements-textPrimary font-medium leading-5 text-sm">
+              {allActionFinished
+                ? artifact.id === 'imported-files'
+                  ? 'Restore files from snapshot'
+                  : 'Initial files created'
+                : 'Creating initial files'}
+            </div>
           </div>
         )}
         <AnimatePresence>

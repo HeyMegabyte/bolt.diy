@@ -99,7 +99,7 @@ export function SupabaseChatAlert({ alert, clearAlert, postMessage }: Props) {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.3 }}
-        className="max-w-chat rounded-lg border-l-2 border-l-[#098F5F] border-bolt-elements-borderColor bg-bolt-elements-background-depth-2"
+        className="max-w-chat rounded-lg border-l-2 border-l-[#098F5F] border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2"
       >
         {/* Header */}
         <div className="p-4 pb-2">

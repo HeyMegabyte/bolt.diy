@@ -20,7 +20,7 @@ import {
 import type { FileMap } from '~/lib/stores/files';
 import type { Snapshot } from './types';
 import { webcontainer } from '~/lib/webcontainer';
-import { createCommandsMessage, detectProjectCommands } from '~/utils/projectCommands';
+import { detectProjectCommands, createCommandActionsString } from '~/utils/projectCommands';
 import type { ContextAnnotation } from '~/types/context';
 
 export interface ChatHistoryItem {
@@ -112,23 +112,26 @@ export function useChatHistory() {
                     path: key,
                   };
                 })
-                .filter((x) => !!x);
+                .filter((x): x is { content: string; path: string } => !!x); // Type assertion
               const projectCommands = await detectProjectCommands(files);
-              const commands = createCommandsMessage(projectCommands);
+
+              // Call the modified function to get only the command actions string
+              const commandActionsString = createCommandActionsString(projectCommands);
 
               filteredMessages = [
                 {
                   id: generateId(),
                   role: 'user',
-                  content: `Restore project from snapshot
-                  `,
+                  content: `Restore project from snapshot`, // Removed newline
                   annotations: ['no-store', 'hidden'],
                 },
                 {
                   id: storedMessages.messages[snapshotIndex].id,
                   role: 'assistant',
-                  content: ` 📦 Chat Restored from snapshot, You can revert this message to load the full chat history
-                  <boltArtifact id="imported-files" title="Project Files Snapshot" type="bundled">
+
+                  // Combine followup message and the artifact with files and command actions
+                  content: `Bolt Restored your chat from a snapshot. You can revert this message to load the full chat history.
+                  <boltArtifact id="restored-project-setup" title="Restored Project & Setup">
                   ${Object.entries(snapshot?.files || {})
                     .map(([key, value]) => {
                       if (value?.type === 'file') {
@@ -142,8 +145,9 @@ ${value.content}
                       }
                     })
                     .join('\n')}
+                  ${commandActionsString} 
                   </boltArtifact>
-                  `,
+                  `, // Added commandActionsString, followupMessage, updated id and title
                   annotations: [
                     'no-store',
                     ...(summary
@@ -157,33 +161,13 @@ ${value.content}
                       : []),
                   ],
                 },
-                ...(commands !== null
-                  ? [
-                      {
-                        id: `${storedMessages.messages[snapshotIndex].id}-2`,
-                        role: 'user' as const,
-                        content: `setup project`,
-                        annotations: ['no-store', 'hidden'],
-                      },
-                      {
-                        ...commands,
-                        id: `${storedMessages.messages[snapshotIndex].id}-3`,
-                        annotations: [
-                          'no-store',
-                          ...(commands.annotations || []),
-                          ...(summary
-                            ? [
-                                {
-                                  chatId: `${storedMessages.messages[snapshotIndex].id}-3`,
-                                  type: 'chatSummary',
-                                  summary,
-                                } satisfies ContextAnnotation,
-                              ]
-                            : []),
-                        ],
-                      },
-                    ]
-                  : []),
+
+                // Remove the separate user and assistant messages for commands
+                /*
+                 *...(commands !== null // This block is no longer needed
+                 *  ? [ ... ]
+                 *  : []),
+                 */
                 ...filteredMessages,
               ];
               restoreSnapshot(mixedId);

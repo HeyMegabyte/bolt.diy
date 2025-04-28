@@ -26,7 +26,7 @@ PROVIDER_LIST.forEach((provider) => {
 
 export const STARTER_TEMPLATES: Template[] = [
   {
-    name: 'bolt-expo-app',
+    name: 'Expo App',
     label: 'Expo App',
     description: 'Expo starter template for building cross-platform mobile apps',
     githubRepo: 'xKevIsDev/bolt-expo-template',
@@ -34,7 +34,7 @@ export const STARTER_TEMPLATES: Template[] = [
     icon: 'i-bolt:expo',
   },
   {
-    name: 'bolt-astro-basic',
+    name: 'Basic Astro',
     label: 'Astro Basic',
     description: 'Lightweight Astro starter template for building fast static websites',
     githubRepo: 'xKevIsDev/bolt-astro-basic-template',
@@ -42,7 +42,7 @@ export const STARTER_TEMPLATES: Template[] = [
     icon: 'i-bolt:astro',
   },
   {
-    name: 'bolt-nextjs-shadcn',
+    name: 'NextJS Shadcn',
     label: 'Next.js with shadcn/ui',
     description: 'Next.js starter fullstack template integrated with shadcn/ui components and styling system',
     githubRepo: 'xKevIsDev/bolt-nextjs-shadcn-template',
@@ -50,7 +50,7 @@ export const STARTER_TEMPLATES: Template[] = [
     icon: 'i-bolt:nextjs',
   },
   {
-    name: 'bolt-qwik-ts',
+    name: 'Qwik Typescript',
     label: 'Qwik TypeScript',
     description: 'Qwik framework starter with TypeScript for building resumable applications',
     githubRepo: 'xKevIsDev/bolt-qwik-ts-template',
@@ -58,7 +58,7 @@ export const STARTER_TEMPLATES: Template[] = [
     icon: 'i-bolt:qwik',
   },
   {
-    name: 'bolt-remix-ts',
+    name: 'Remix Typescript',
     label: 'Remix TypeScript',
     description: 'Remix framework starter with TypeScript for full-stack web applications',
     githubRepo: 'xKevIsDev/bolt-remix-ts-template',
@@ -66,7 +66,7 @@ export const STARTER_TEMPLATES: Template[] = [
     icon: 'i-bolt:remix',
   },
   {
-    name: 'bolt-slidev',
+    name: 'Slidev',
     label: 'Slidev Presentation',
     description: 'Slidev starter template for creating developer-friendly presentations using Markdown',
     githubRepo: 'xKevIsDev/bolt-slidev-template',
@@ -74,7 +74,7 @@ export const STARTER_TEMPLATES: Template[] = [
     icon: 'i-bolt:slidev',
   },
   {
-    name: 'bolt-sveltekit',
+    name: 'Sveltekit',
     label: 'SvelteKit',
     description: 'SvelteKit starter template for building fast, efficient web applications',
     githubRepo: 'bolt-sveltekit-template',
@@ -82,7 +82,7 @@ export const STARTER_TEMPLATES: Template[] = [
     icon: 'i-bolt:svelte',
   },
   {
-    name: 'vanilla-vite',
+    name: 'Vanilla Vite',
     label: 'Vanilla + Vite',
     description: 'Minimal Vite starter template for vanilla JavaScript projects',
     githubRepo: 'xKevIsDev/vanilla-vite-template',
@@ -90,7 +90,7 @@ export const STARTER_TEMPLATES: Template[] = [
     icon: 'i-bolt:vite',
   },
   {
-    name: 'bolt-vite-react',
+    name: 'Vite React',
     label: 'React + Vite + typescript',
     description: 'React starter template powered by Vite for fast development experience',
     githubRepo: 'xKevIsDev/bolt-vite-react-ts-template',
@@ -98,7 +98,7 @@ export const STARTER_TEMPLATES: Template[] = [
     icon: 'i-bolt:react',
   },
   {
-    name: 'bolt-vite-ts',
+    name: 'Vite Typescript',
     label: 'Vite + TypeScript',
     description: 'Vite starter template with TypeScript configuration for type-safe development',
     githubRepo: 'xKevIsDev/bolt-vite-ts-template',
@@ -106,7 +106,7 @@ export const STARTER_TEMPLATES: Template[] = [
     icon: 'i-bolt:typescript',
   },
   {
-    name: 'bolt-vue',
+    name: 'Vue',
     label: 'Vue.js',
     description: 'Vue.js starter template with modern tooling and best practices',
     githubRepo: 'xKevIsDev/bolt-vue-template',
@@ -114,7 +114,7 @@ export const STARTER_TEMPLATES: Template[] = [
     icon: 'i-bolt:vue',
   },
   {
-    name: 'bolt-angular',
+    name: 'Angular',
     label: 'Angular Starter',
     description: 'A modern Angular starter template with TypeScript support and best practices configuration',
     githubRepo: 'xKevIsDev/bolt-angular-template',
