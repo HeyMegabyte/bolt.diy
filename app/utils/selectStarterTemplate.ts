@@ -129,7 +129,7 @@ const getGitHubRepoContent = async (repoName: string): Promise<{ name: string; p
   }
 };
 
-export async function getTemplates(templateName: string) {
+export async function getTemplates(templateName: string, title?: string) {
   const template = STARTER_TEMPLATES.find((t) => t.name == templateName);
 
   if (!template) {
@@ -183,7 +183,7 @@ export async function getTemplates(templateName: string) {
 
   const assistantMessage = `
 Bolt is initializing your project with the required files using the ${template.name} template.
-<boltArtifact id="imported-files" title="Create initial files" type="bundled">
+<boltArtifact id="imported-files" title="${title || 'Create initial files'}" type="bundled">
 ${filesToImport.files
   .map(
     (file) =>

@@ -64,6 +64,18 @@ export const Artifact = memo(({ messageId }: ArtifactProps) => {
     }
   }, [actions, artifact.type, allActionFinished]);
 
+  // Determine the dynamic title based on state for bundled artifacts
+  const dynamicTitle =
+    artifact?.type === 'bundled'
+      ? allActionFinished
+        ? artifact.id === 'restored-project-setup'
+          ? 'Project Restored' // Title when restore is complete
+          : 'Project Created' // Title when initial creation is complete
+        : artifact.id === 'restored-project-setup'
+          ? 'Restoring Project...' // Title during restore
+          : 'Creating Project...' // Title during initial creation
+      : artifact?.title; // Fallback to original title for non-bundled or if artifact is missing
+
   return (
     <>
       <div className="artifact border border-bolt-elements-borderColor flex flex-col overflow-hidden rounded-lg w-full transition-border duration-150">
@@ -77,7 +89,8 @@ export const Artifact = memo(({ messageId }: ArtifactProps) => {
           >
             <div className="px-5 p-3.5 w-full text-left">
               <div className="w-full text-bolt-elements-textPrimary font-medium leading-5 text-sm">
-                {artifact?.title}
+                {/* Use the dynamic title here */}
+                {dynamicTitle}
               </div>
               <div className="w-full w-full text-bolt-elements-textSecondary text-xs mt-0.5">
                 Click to open Workbench
@@ -112,6 +125,7 @@ export const Artifact = memo(({ messageId }: ArtifactProps) => {
               )}
             </div>
             <div className="text-bolt-elements-textPrimary font-medium leading-5 text-sm">
+              {/* This status text remains the same */}
               {allActionFinished
                 ? artifact.id === 'restored-project-setup'
                   ? 'Restore files from snapshot'
