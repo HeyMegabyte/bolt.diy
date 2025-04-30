@@ -50,6 +50,14 @@ export const STARTER_TEMPLATES: Template[] = [
     icon: 'i-bolt:nextjs',
   },
   {
+    name: 'Vite Shadcn',
+    label: 'Vite with shadcn/ui',
+    description: 'Vite starter fullstack template integrated with shadcn/ui components and styling system',
+    githubRepo: 'xKevIsDev/vite-shadcn',
+    tags: ['vite', 'react', 'typescript', 'shadcn', 'tailwind'],
+    icon: 'i-bolt:shadcn',
+  },
+  {
     name: 'Qwik Typescript',
     label: 'Qwik TypeScript',
     description: 'Qwik framework starter with TypeScript for building resumable applications',
