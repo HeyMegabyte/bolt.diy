@@ -21,14 +21,6 @@ const FrameworkLink: React.FC<FrameworkLinkProps> = ({ template }) => (
 );
 
 const StarterTemplates: React.FC = () => {
-  // Debug: Log available templates and their icons
-  React.useEffect(() => {
-    console.log(
-      'Available templates:',
-      STARTER_TEMPLATES.map((t) => ({ name: t.name, icon: t.icon })),
-    );
-  }, []);
-
   return (
     <div className="flex flex-col items-center gap-4">
       <span className="text-sm text-gray-500">or start a blank app with your favorite stack</span>
