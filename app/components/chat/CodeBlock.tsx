@@ -35,18 +35,21 @@ export const CodeBlock = memo(
     };
 
     useEffect(() => {
+      let effectiveLanguage = language;
+
       if (language && !isSpecialLang(language) && !(language in bundledLanguages)) {
-        logger.warn(`Unsupported language '${language}'`);
+        logger.warn(`Unsupported language '${language}', falling back to plaintext`);
+        effectiveLanguage = 'plaintext';
       }
 
-      logger.trace(`Language = ${language}`);
+      logger.trace(`Language = ${effectiveLanguage}`);
 
       const processCode = async () => {
-        setHTML(await codeToHtml(code, { lang: language, theme }));
+        setHTML(await codeToHtml(code, { lang: effectiveLanguage, theme }));
       };
 
       processCode();
-    }, [code]);
+    }, [code, language, theme]);
 
     return (
       <div className={classNames('relative group text-left', className)}>
