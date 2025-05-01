@@ -47,8 +47,10 @@ type TextEditorDocument = EditorDocument & {
 };
 
 export interface ScrollPosition {
-  top: number;
-  left: number;
+  top?: number;
+  left?: number;
+  line?: number;
+  column?: number;
 }
 
 export interface EditorUpdate {
@@ -158,6 +160,25 @@ export const CodeMirrorEditor = memo(
       docRef.current = doc;
       themeRef.current = theme;
     });
+
+    useEffect(() => {
+      if (!viewRef.current || !doc || doc.isBinary) {
+        return;
+      }
+
+      if (typeof doc.scroll?.line === 'number') {
+        const line = doc.scroll.line;
+        const column = doc.scroll.column ?? 0;
+        const linePos = viewRef.current.state.doc.line(line + 1).from + column;
+        viewRef.current.dispatch({
+          selection: { anchor: linePos },
+          scrollIntoView: true,
+        });
+        viewRef.current.focus();
+      } else if (typeof doc.scroll?.top === 'number' || typeof doc.scroll?.left === 'number') {
+        viewRef.current.scrollDOM.scrollTo(doc.scroll.left ?? 0, doc.scroll.top ?? 0);
+      }
+    }, [doc?.scroll?.line, doc?.scroll?.column, doc?.scroll?.top, doc?.scroll?.left]);
 
     useEffect(() => {
       const onUpdate = debounce((update: EditorUpdate) => {
@@ -417,11 +438,23 @@ function setEditorDocument(
       const newLeft = doc.scroll?.left ?? 0;
       const newTop = doc.scroll?.top ?? 0;
 
+      if (typeof doc.scroll?.line === 'number') {
+        const line = doc.scroll.line;
+        const column = doc.scroll.column ?? 0;
+        const linePos = view.state.doc.line(line + 1).from + column;
+        view.dispatch({
+          selection: { anchor: linePos },
+          scrollIntoView: true,
+        });
+        view.focus();
+
+        return;
+      }
+
       const needsScrolling = currentLeft !== newLeft || currentTop !== newTop;
 
       if (autoFocus && editable) {
         if (needsScrolling) {
-          // we have to wait until the scroll position was changed before we can set the focus
           view.scrollDOM.addEventListener(
             'scroll',
             () => {
@@ -430,7 +463,6 @@ function setEditorDocument(
             { once: true },
           );
         } else {
-          // if the scroll position is still the same we can focus immediately
           view.focus();
         }
       }
