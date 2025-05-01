@@ -21,7 +21,7 @@ mac:
   icon: assets/icons/icon.icns
   target:
     - dmg
-  identity: "Xinzhe Wang (RDQSC33B2X)"
+  identity: null
   category: "public.app-category.developer-tools"
   type: "distribution"
   hardenedRuntime: true
