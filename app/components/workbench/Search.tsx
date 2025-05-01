@@ -3,7 +3,6 @@ import type { TextSearchOptions, TextSearchOnProgressCallback, WebContainer } fr
 import { workbenchStore } from '~/lib/stores/workbench';
 import { webcontainer } from '~/lib/webcontainer';
 import { WORK_DIR } from '~/utils/constants';
-import { Loader2 } from 'lucide-react';
 import { debounce } from '~/utils/debounce';
 
 interface DisplayMatch {
@@ -94,6 +93,7 @@ export function Search() {
   const [searchResults, setSearchResults] = useState<DisplayMatch[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>({});
+  const [hasSearched, setHasSearched] = useState(false);
 
   const groupedResults = useMemo(() => groupResultsByFile(searchResults), [searchResults]);
 
@@ -112,6 +112,7 @@ export function Search() {
       setSearchResults([]);
       setIsSearching(false);
       setExpandedFiles({});
+      setHasSearched(false);
 
       return;
     }
@@ -119,6 +120,10 @@ export function Search() {
     setIsSearching(true);
     setSearchResults([]);
     setExpandedFiles({});
+    setHasSearched(true);
+
+    const minLoaderTime = 300; // ms
+    const start = Date.now();
 
     try {
       const instance = await webcontainer;
@@ -144,7 +149,13 @@ export function Search() {
     } catch (error) {
       console.error('Failed to initiate search:', error);
     } finally {
-      setIsSearching(false);
+      const elapsed = Date.now() - start;
+
+      if (elapsed < minLoaderTime) {
+        setTimeout(() => setIsSearching(false), minLoaderTime - elapsed);
+      } else {
+        setIsSearching(false);
+      }
     }
   }, []);
 
@@ -178,10 +189,10 @@ export function Search() {
       <div className="flex-1 overflow-auto py-2">
         {isSearching && (
           <div className="flex items-center justify-center h-32 text-bolt-elements-textTertiary">
-            <Loader2 className="animate-spin mr-2" /> Searching...
+            <div className="i-ph:circle-notch animate-spin mr-2" /> Searching...
           </div>
         )}
-        {!isSearching && searchResults.length === 0 && (
+        {!isSearching && hasSearched && searchResults.length === 0 && searchQuery.trim() !== '' && (
           <div className="flex items-center justify-center h-32 text-gray-500">No results found.</div>
         )}
         {!isSearching &&
