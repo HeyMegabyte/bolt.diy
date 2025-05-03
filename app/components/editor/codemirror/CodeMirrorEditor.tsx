@@ -169,12 +169,25 @@ export const CodeMirrorEditor = memo(
       if (typeof doc.scroll?.line === 'number') {
         const line = doc.scroll.line;
         const column = doc.scroll.column ?? 0;
-        const linePos = viewRef.current.state.doc.line(line + 1).from + column;
-        viewRef.current.dispatch({
-          selection: { anchor: linePos },
-          scrollIntoView: true,
-        });
-        viewRef.current.focus();
+
+        try {
+          // Check if the line number is valid for the current document
+          const totalLines = viewRef.current.state.doc.lines;
+
+          // Only proceed if the line number is within the document's range
+          if (line < totalLines) {
+            const linePos = viewRef.current.state.doc.line(line + 1).from + column;
+            viewRef.current.dispatch({
+              selection: { anchor: linePos },
+              scrollIntoView: true,
+            });
+            viewRef.current.focus();
+          } else {
+            logger.warn(`Invalid line number ${line + 1} in ${totalLines}-line document`);
+          }
+        } catch (error) {
+          logger.error('Error scrolling to line:', error);
+        }
       } else if (typeof doc.scroll?.top === 'number' || typeof doc.scroll?.left === 'number') {
         viewRef.current.scrollDOM.scrollTo(doc.scroll.left ?? 0, doc.scroll.top ?? 0);
       }
@@ -441,12 +454,25 @@ function setEditorDocument(
       if (typeof doc.scroll?.line === 'number') {
         const line = doc.scroll.line;
         const column = doc.scroll.column ?? 0;
-        const linePos = view.state.doc.line(line + 1).from + column;
-        view.dispatch({
-          selection: { anchor: linePos },
-          scrollIntoView: true,
-        });
-        view.focus();
+
+        try {
+          // Check if the line number is valid for the current document
+          const totalLines = view.state.doc.lines;
+
+          // Only proceed if the line number is within the document's range
+          if (line < totalLines) {
+            const linePos = view.state.doc.line(line + 1).from + column;
+            view.dispatch({
+              selection: { anchor: linePos },
+              scrollIntoView: true,
+            });
+            view.focus();
+          } else {
+            logger.warn(`Invalid line number ${line + 1} in ${totalLines}-line document`);
+          }
+        } catch (error) {
+          logger.error('Error scrolling to line:', error);
+        }
 
         return;
       }
