@@ -12,8 +12,6 @@ jobs:
   prepare-release:
     if: contains(github.event.head_commit.message, '#release')
     runs-on: ubuntu-latest
-    outputs:
-      new_version: ${{ steps.bump_version.outputs.new_version }}
 
     steps:
       - uses: actions/checkout@v4
@@ -90,7 +88,13 @@ jobs:
         env:
           NEW_VERSION: ${{ steps.bump_version.outputs.new_version }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
         run: .github/scripts/generate-changelog.sh
+
+      - name: Get the latest commit hash and version tag
+        run: |
+          echo "COMMIT_HASH=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          echo "NEW_VERSION=${{ steps.bump_version.outputs.new_version }}" >> $GITHUB_ENV
 
       - name: Commit and Tag Release
         run: |
@@ -110,59 +114,14 @@ jobs:
           git merge main --no-ff -m "chore: release version ${{ steps.bump_version.outputs.new_version }}"
           git push --set-upstream origin stable --force
 
-  build-electron:
-    needs: prepare-release
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        node-version: [18.18.0]
-      fail-fast: false
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 9.14.4
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rpm
-
-      - name: Build Electron app
-        env:
-          NODE_OPTIONS: "--max_old_space_size=4096"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            pnpm run electron:build:win
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            pnpm run electron:build:mac
-          else
-            pnpm run electron:build:linux
-          fi
-        shell: bash
-
-      - name: Upload Release Assets
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.prepare-release.outputs.new_version }}
-          files: |
-            dist/*.exe
-            dist/*.dmg
-            dist/*.deb
-            dist/*.AppImage
-            dist/*.zip
+      - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="v${{ steps.bump_version.outputs.new_version }}"
+          # Save changelog to a file
+          echo "${{ steps.changelog.outputs.content }}" > release_notes.md
+          gh release create "$VERSION" \
+            --title "Release $VERSION" \
+            --notes-file release_notes.md \
+            --target stable
