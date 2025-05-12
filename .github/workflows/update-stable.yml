@@ -122,6 +122,10 @@ jobs:
           sudo apt-get install -y rpm
 
       - name: Build Electron app
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: "--max_old_space_size=4096"
         run: |
           if [ "$RUNNER_OS" == "Windows" ]; then
             pnpm run electron:build:win
@@ -130,6 +134,15 @@ jobs:
           else
             pnpm run electron:build:linux
           fi
+
+      - name: Commit and Tag Release
+        run: |
+          git pull
+          git add package.json pnpm-lock.yaml changelog.md
+          git commit -m "chore: release version ${{ steps.bump_version.outputs.new_version }}"
+          git tag "v${{ steps.bump_version.outputs.new_version }}"
+          git push
+          git push --tags
 
       - name: Upload Electron Build as Release Assets
         uses: softprops/action-gh-release@v2
@@ -144,16 +157,6 @@ jobs:
             dist/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Commit and Tag Release
-      - name: Commit and Tag Release
-        run: |
-          git pull
-          git add package.json pnpm-lock.yaml changelog.md
-          git commit -m "chore: release version ${{ steps.bump_version.outputs.new_version }}"
-          git tag "v${{ steps.bump_version.outputs.new_version }}"
-          git push
-          git push --tags
 
       - name: Update Stable Branch
         run: |
