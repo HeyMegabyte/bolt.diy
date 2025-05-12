@@ -39,11 +39,11 @@ export function FileIcon({ filename, size = 'md', className }: FileIconProps) {
     }
 
     if (['java', 'class', 'jar'].includes(extension)) {
-      return 'i-ph:file-code';
+      return 'i-ph:file-java';
     }
 
     if (['php'].includes(extension)) {
-      return 'i-ph:file-code';
+      return 'i-ph:file-php';
     }
 
     if (['rb', 'ruby'].includes(extension)) {
@@ -63,15 +63,15 @@ export function FileIcon({ filename, size = 'md', className }: FileIconProps) {
     }
 
     if (['swift'].includes(extension)) {
-      return 'i-ph:file-code';
+      return 'i-ph:file-swift';
     }
 
     if (['kt', 'kotlin'].includes(extension)) {
-      return 'i-ph:file-code';
+      return 'i-ph:file-kotlin';
     }
 
     if (['dart'].includes(extension)) {
-      return 'i-ph:file-code';
+      return 'i-ph:file-dart';
     }
 
     // Config files
@@ -80,7 +80,7 @@ export function FileIcon({ filename, size = 'md', className }: FileIconProps) {
     }
 
     if (['xml', 'svg'].includes(extension)) {
-      return 'i-ph:file-code';
+      return 'i-ph:file-xml';
     }
 
     if (['toml'].includes(extension)) {
@@ -157,7 +157,7 @@ export function FileIcon({ filename, size = 'md', className }: FileIconProps) {
     }
 
     if (filename.startsWith('Dockerfile')) {
-      return 'i-ph:file-code';
+      return 'i-ph:docker-logo';
     }
 
     // Default
