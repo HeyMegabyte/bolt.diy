@@ -108,6 +108,9 @@ export async function streamText(props: {
   }
 
   const dynamicMaxTokens = modelDetails && modelDetails.maxTokenAllowed ? modelDetails.maxTokenAllowed : MAX_TOKENS;
+  logger.info(
+    `Max tokens for model ${modelDetails.name} is ${dynamicMaxTokens} based on ${modelDetails.maxTokenAllowed} or ${MAX_TOKENS}`,
+  );
 
   let systemPrompt =
     PromptLibrary.getPropmtFromLibrary(promptId || 'default', {
