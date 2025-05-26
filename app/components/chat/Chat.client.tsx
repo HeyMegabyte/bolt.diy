@@ -148,6 +148,7 @@ export const ChatImpl = memo(
 
     const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
 
+    const [chatMode, setChatMode] = useState<'discuss' | 'build'>('build');
     const {
       messages,
       isLoading,
@@ -168,6 +169,7 @@ export const ChatImpl = memo(
         files,
         promptId,
         contextOptimization: contextOptimizationEnabled,
+        chatMode,
         supabase: {
           isConnected: supabaseConn.isConnected,
           hasSelectedProject: !!selectedProject,
@@ -564,6 +566,9 @@ export const ChatImpl = memo(
         deployAlert={deployAlert}
         clearDeployAlert={() => workbenchStore.clearDeployAlert()}
         data={chatData}
+        chatMode={chatMode}
+        setChatMode={setChatMode}
+        append={append}
       />
     );
   },

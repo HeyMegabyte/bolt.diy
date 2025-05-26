@@ -37,11 +37,12 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 }
 
 async function chatAction({ context, request }: ActionFunctionArgs) {
-  const { messages, files, promptId, contextOptimization, supabase } = await request.json<{
+  const { messages, files, promptId, contextOptimization, supabase, chatMode } = await request.json<{
     messages: Messages;
     files: any;
     promptId?: string;
     contextOptimization: boolean;
+    chatMode: 'discuss' | 'build';
     supabase?: {
       isConnected: boolean;
       hasSelectedProject: boolean;
@@ -248,6 +249,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
               promptId,
               contextOptimization,
               contextFiles: filteredFiles,
+              chatMode,
               summary,
               messageSliceId,
             });
@@ -287,6 +289,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           promptId,
           contextOptimization,
           contextFiles: filteredFiles,
+          chatMode,
           summary,
           messageSliceId,
         });

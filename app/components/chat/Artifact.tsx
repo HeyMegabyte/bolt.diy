@@ -184,7 +184,7 @@ const actionVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
-function openArtifactInWorkbench(filePath: any) {
+export function openArtifactInWorkbench(filePath: any) {
   if (workbenchStore.currentView.get() !== 'code') {
     workbenchStore.currentView.set('code');
   }

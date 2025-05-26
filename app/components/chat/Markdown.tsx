@@ -3,9 +3,9 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import type { BundledLanguage } from 'shiki';
 import { createScopedLogger } from '~/utils/logger';
 import { rehypePlugins, remarkPlugins, allowedHTMLElements } from '~/utils/markdown';
-import { Artifact } from './Artifact';
+import { Artifact, openArtifactInWorkbench } from './Artifact';
 import { CodeBlock } from './CodeBlock';
-
+import type { Message } from 'ai';
 import styles from './Markdown.module.scss';
 import ThoughtBox from './ThoughtBox';
 
@@ -15,68 +15,132 @@ interface MarkdownProps {
   children: string;
   html?: boolean;
   limitedMarkdown?: boolean;
+  append?: (message: Message) => void;
+  chatMode?: 'discuss' | 'build';
+  setChatMode?: (mode: 'discuss' | 'build') => void;
 }
 
-export const Markdown = memo(({ children, html = false, limitedMarkdown = false }: MarkdownProps) => {
-  logger.trace('Render');
+export const Markdown = memo(
+  ({ children, html = false, limitedMarkdown = false, append, setChatMode }: MarkdownProps) => {
+    logger.trace('Render');
 
-  const components = useMemo(() => {
-    return {
-      div: ({ className, children, node, ...props }) => {
-        if (className?.includes('__boltArtifact__')) {
-          const messageId = node?.properties.dataMessageId as string;
+    const components = useMemo(() => {
+      return {
+        div: ({ className, children, node, ...props }) => {
+          const dataProps = node?.properties as Record<string, unknown>;
 
-          if (!messageId) {
-            logger.error(`Invalid message id ${messageId}`);
+          if (className?.includes('__boltArtifact__')) {
+            const messageId = node?.properties.dataMessageId as string;
+
+            if (!messageId) {
+              logger.error(`Invalid message id ${messageId}`);
+            }
+
+            return <Artifact messageId={messageId} />;
           }
 
-          return <Artifact messageId={messageId} />;
-        }
+          if (className?.includes('__boltThought__')) {
+            return <ThoughtBox title="Thought process">{children}</ThoughtBox>;
+          }
 
-        if (className?.includes('__boltThought__')) {
-          return <ThoughtBox title="Thought process">{children}</ThoughtBox>;
-        }
+          if (className?.includes('__boltQuickAction__') || dataProps?.dataBoltQuickAction) {
+            return <div className="w-full grid grid-cols-2 gap-4">{children}</div>;
+          }
 
-        return (
-          <div className={className} {...props}>
-            {children}
-          </div>
-        );
-      },
-      pre: (props) => {
-        const { children, node, ...rest } = props;
+          return (
+            <div className={className} {...props}>
+              {children}
+            </div>
+          );
+        },
+        pre: (props) => {
+          const { children, node, ...rest } = props;
 
-        const [firstChild] = node?.children ?? [];
+          const [firstChild] = node?.children ?? [];
 
-        if (
-          firstChild &&
-          firstChild.type === 'element' &&
-          firstChild.tagName === 'code' &&
-          firstChild.children[0].type === 'text'
-        ) {
-          const { className, ...rest } = firstChild.properties;
-          const [, language = 'plaintext'] = /language-(\w+)/.exec(String(className) || '') ?? [];
+          if (
+            firstChild &&
+            firstChild.type === 'element' &&
+            firstChild.tagName === 'code' &&
+            firstChild.children[0].type === 'text'
+          ) {
+            const { className, ...rest } = firstChild.properties;
+            const [, language = 'plaintext'] = /language-(\w+)/.exec(String(className) || '') ?? [];
 
-          return <CodeBlock code={firstChild.children[0].value} language={language as BundledLanguage} {...rest} />;
-        }
+            return <CodeBlock code={firstChild.children[0].value} language={language as BundledLanguage} {...rest} />;
+          }
 
-        return <pre {...rest}>{children}</pre>;
-      },
-    } satisfies Components;
-  }, []);
+          return <pre {...rest}>{children}</pre>;
+        },
+        button: ({ node, children, ...props }) => {
+          const dataProps = node?.properties as Record<string, unknown>;
 
-  return (
-    <ReactMarkdown
-      allowedElements={allowedHTMLElements}
-      className={styles.MarkdownContent}
-      components={components}
-      remarkPlugins={remarkPlugins(limitedMarkdown)}
-      rehypePlugins={rehypePlugins(html)}
-    >
-      {stripCodeFenceFromArtifact(children)}
-    </ReactMarkdown>
-  );
-});
+          if (
+            dataProps?.class?.toString().includes('__boltQuickAction__') ||
+            dataProps?.dataBoltQuickAction === 'true'
+          ) {
+            const type = dataProps['data-type'] || dataProps.dataType;
+            const message = dataProps['data-message'] || dataProps.dataMessage;
+            const path = dataProps['data-path'] || dataProps.dataPath;
+            const href = dataProps['data-href'] || dataProps.dataHref;
+
+            return (
+              <button
+                className=" p-2 rounded-md bg-bolt-elements-item-backgroundAccent hover:opacity-50 text-bolt-elements-item-contentAccent"
+                data-type={type}
+                data-message={message}
+                data-path={path}
+                data-href={href}
+                onClick={() => {
+                  if (type === 'file') {
+                    openArtifactInWorkbench(path);
+                  } else if (type === 'message' && append) {
+                    append({
+                      id: 'random-message', // Replace with your ID generation logic
+                      content: message as string, // The message content from the action
+                      role: 'user', // Or another role as appropriate
+                    });
+                    console.log('Message appended:', message); // Log the appended message
+                  } else if (type === 'implement' && append && setChatMode) {
+                    setChatMode('build');
+                    append({
+                      id: 'implement-message', // Replace with your ID generation logic
+                      content: message as string, // The message content from the action
+                      role: 'user', // Or another role as appropriate
+                    });
+                  } else if (type === 'link' && typeof href === 'string') {
+                    try {
+                      const url = new URL(href, window.location.origin);
+                      window.open(url.toString(), '_blank', 'noopener,noreferrer');
+                    } catch (error) {
+                      console.error('Invalid URL:', href, error);
+                    }
+                  }
+                }}
+              >
+                {children}
+              </button>
+            );
+          }
+
+          return <button {...props}>{children}</button>;
+        },
+      } satisfies Components;
+    }, []);
+
+    return (
+      <ReactMarkdown
+        allowedElements={allowedHTMLElements}
+        className={styles.MarkdownContent}
+        components={components}
+        remarkPlugins={remarkPlugins(limitedMarkdown)}
+        rehypePlugins={rehypePlugins(html)}
+      >
+        {stripCodeFenceFromArtifact(children)}
+      </ReactMarkdown>
+    );
+  },
+);
 
 /**
  * Removes code fence markers (```) surrounding an artifact element while preserving the artifact content.
