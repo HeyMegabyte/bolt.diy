@@ -18,10 +18,11 @@ interface MarkdownProps {
   append?: (message: Message) => void;
   chatMode?: 'discuss' | 'build';
   setChatMode?: (mode: 'discuss' | 'build') => void;
+  isStreaming?: boolean;
 }
 
 export const Markdown = memo(
-  ({ children, html = false, limitedMarkdown = false, append, setChatMode }: MarkdownProps) => {
+  ({ children, html = false, limitedMarkdown = false, append, setChatMode, isStreaming }: MarkdownProps) => {
     logger.trace('Render');
 
     const components = useMemo(() => {
@@ -44,7 +45,7 @@ export const Markdown = memo(
           }
 
           if (className?.includes('__boltQuickAction__') || dataProps?.dataBoltQuickAction) {
-            return <div className="w-full grid grid-cols-2 gap-4">{children}</div>;
+            return <div className="flex items-center gap-2 flex-wrap mt-3.5">{children}</div>;
           }
 
           return (
@@ -84,13 +85,24 @@ export const Markdown = memo(
             const path = dataProps['data-path'] || dataProps.dataPath;
             const href = dataProps['data-href'] || dataProps.dataHref;
 
+            const iconClassMap: Record<string, string> = {
+              file: 'i-ph:file',
+              message: 'i-ph:chats',
+              implement: 'i-ph:code',
+              link: 'i-ph:link',
+            };
+
+            const safeType = typeof type === 'string' ? type : '';
+            const iconClass = iconClassMap[safeType] ?? 'i-ph:question';
+
             return (
               <button
-                className=" p-2 rounded-md bg-bolt-elements-item-backgroundAccent hover:opacity-50 text-bolt-elements-item-contentAccent"
+                className="rounded-md justify-center px-3 py-1.5 text-xs bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent opacity-90 hover:opacity-100 flex items-center gap-2 cursor-pointer"
                 data-type={type}
                 data-message={message}
                 data-path={path}
                 data-href={href}
+                disabled={isStreaming}
                 onClick={() => {
                   if (type === 'file') {
                     openArtifactInWorkbench(path);
@@ -118,6 +130,7 @@ export const Markdown = memo(
                   }
                 }}
               >
+                <div className={`text-lg ${iconClass}`} />
                 {children}
               </button>
             );

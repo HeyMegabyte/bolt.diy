@@ -16,6 +16,7 @@ interface AssistantMessageProps {
   append?: (message: Message) => void;
   chatMode?: 'discuss' | 'build';
   setChatMode?: (mode: 'discuss' | 'build') => void;
+  isStreaming?: boolean;
 }
 
 function openArtifactInWorkbench(filePath: string) {
@@ -43,7 +44,17 @@ function normalizedFilePath(path: string) {
 }
 
 export const AssistantMessage = memo(
-  ({ content, annotations, messageId, onRewind, onFork, append, chatMode, setChatMode }: AssistantMessageProps) => {
+  ({
+    content,
+    annotations,
+    messageId,
+    onRewind,
+    onFork,
+    append,
+    chatMode,
+    setChatMode,
+    isStreaming,
+  }: AssistantMessageProps) => {
     const filteredAnnotations = (annotations?.filter(
       (annotation: JSONValue) =>
         annotation && typeof annotation === 'object' && Object.keys(annotation).includes('type'),
@@ -141,7 +152,7 @@ export const AssistantMessage = memo(
             </div>
           </div>
         </>
-        <Markdown append={append} chatMode={chatMode} setChatMode={setChatMode} html>
+        <Markdown append={append} chatMode={chatMode} setChatMode={setChatMode} isStreaming={isStreaming} html>
           {content}
         </Markdown>
       </div>
