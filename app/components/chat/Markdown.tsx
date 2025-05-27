@@ -18,11 +18,10 @@ interface MarkdownProps {
   append?: (message: Message) => void;
   chatMode?: 'discuss' | 'build';
   setChatMode?: (mode: 'discuss' | 'build') => void;
-  isStreaming?: boolean;
 }
 
 export const Markdown = memo(
-  ({ children, html = false, limitedMarkdown = false, append, setChatMode, isStreaming }: MarkdownProps) => {
+  ({ children, html = false, limitedMarkdown = false, append, setChatMode }: MarkdownProps) => {
     logger.trace('Render');
 
     const components = useMemo(() => {
@@ -102,7 +101,6 @@ export const Markdown = memo(
                 data-message={message}
                 data-path={path}
                 data-href={href}
-                disabled={isStreaming}
                 onClick={() => {
                   if (type === 'file') {
                     openArtifactInWorkbench(path);

@@ -100,7 +100,6 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                         append={props.append}
                         chatMode={props.chatMode}
                         setChatMode={props.setChatMode}
-                        isStreaming={isStreaming}
                       />
                     )}
                   </div>
