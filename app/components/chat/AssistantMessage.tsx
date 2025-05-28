@@ -6,6 +6,7 @@ import { workbenchStore } from '~/lib/stores/workbench';
 import { WORK_DIR } from '~/utils/constants';
 import WithTooltip from '~/components/ui/Tooltip';
 import type { Message } from 'ai';
+import type { ProviderInfo } from '~/types/model';
 
 interface AssistantMessageProps {
   content: string;
@@ -16,6 +17,8 @@ interface AssistantMessageProps {
   append?: (message: Message) => void;
   chatMode?: 'discuss' | 'build';
   setChatMode?: (mode: 'discuss' | 'build') => void;
+  model?: string;
+  provider?: ProviderInfo;
 }
 
 function openArtifactInWorkbench(filePath: string) {
@@ -43,7 +46,18 @@ function normalizedFilePath(path: string) {
 }
 
 export const AssistantMessage = memo(
-  ({ content, annotations, messageId, onRewind, onFork, append, chatMode, setChatMode }: AssistantMessageProps) => {
+  ({
+    content,
+    annotations,
+    messageId,
+    onRewind,
+    onFork,
+    append,
+    chatMode,
+    setChatMode,
+    model,
+    provider,
+  }: AssistantMessageProps) => {
     const filteredAnnotations = (annotations?.filter(
       (annotation: JSONValue) =>
         annotation && typeof annotation === 'object' && Object.keys(annotation).includes('type'),
@@ -141,7 +155,7 @@ export const AssistantMessage = memo(
             </div>
           </div>
         </>
-        <Markdown append={append} chatMode={chatMode} setChatMode={setChatMode} html>
+        <Markdown append={append} chatMode={chatMode} setChatMode={setChatMode} model={model} provider={provider} html>
           {content}
         </Markdown>
       </div>
