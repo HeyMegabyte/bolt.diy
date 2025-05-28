@@ -11,6 +11,7 @@ import { useStore } from '@nanostores/react';
 import { profileStore } from '~/lib/stores/profile';
 import { forwardRef } from 'react';
 import type { ForwardedRef } from 'react';
+import type { ProviderInfo } from '~/types/model';
 
 interface MessagesProps {
   id?: string;
@@ -20,6 +21,8 @@ interface MessagesProps {
   append?: (message: Message) => void;
   chatMode?: 'discuss' | 'build';
   setChatMode?: (mode: 'discuss' | 'build') => void;
+  model?: string;
+  provider?: ProviderInfo;
 }
 
 export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
@@ -65,7 +68,7 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
               return (
                 <div
                   key={index}
-                  className={classNames('flex gap-4 p-6 py-5 w-full rounded-[calc(0.75rem-1px)]', {
+                  className={classNames('flex gap-4 p-3 py-3 w-full rounded-lg', {
                     'bg-bolt-elements-messages-background': isUserMessage || !isStreaming || (isStreaming && !isLast),
                     'bg-gradient-to-b from-bolt-elements-messages-background from-30% to-transparent':
                       isStreaming && isLast,
@@ -100,6 +103,8 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                         append={props.append}
                         chatMode={props.chatMode}
                         setChatMode={props.setChatMode}
+                        model={props.model}
+                        provider={props.provider}
                       />
                     )}
                   </div>

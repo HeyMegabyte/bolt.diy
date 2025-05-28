@@ -27,6 +27,7 @@ import { logStore } from '~/lib/stores/logs';
 import { streamingState } from '~/lib/stores/streaming';
 import { filesToArtifacts } from '~/utils/fileUtils';
 import { supabaseConnection } from '~/lib/stores/supabase';
+import { defaultDesignScheme, type DesignScheme } from '~/types/design-scheme';
 
 const toastAnimation = cssTransition({
   enter: 'animated fadeInRight',
@@ -124,6 +125,10 @@ export const ChatImpl = memo(
     const [searchParams, setSearchParams] = useSearchParams();
     const [fakeLoading, setFakeLoading] = useState(false);
     const files = useStore(workbenchStore.files);
+    const [designScheme, setDesignScheme] = useState<DesignScheme>(defaultDesignScheme);
+
+    console.log(designScheme);
+
     const actionAlert = useStore(workbenchStore.alert);
     const deployAlert = useStore(workbenchStore.deployAlert);
     const supabaseConn = useStore(supabaseConnection); // Add this line to get Supabase connection
@@ -170,6 +175,7 @@ export const ChatImpl = memo(
         promptId,
         contextOptimization: contextOptimizationEnabled,
         chatMode,
+        designScheme,
         supabase: {
           isConnected: supabaseConn.isConnected,
           hasSelectedProject: !!selectedProject,
@@ -569,6 +575,8 @@ export const ChatImpl = memo(
         chatMode={chatMode}
         setChatMode={setChatMode}
         append={append}
+        designScheme={designScheme}
+        setDesignScheme={setDesignScheme}
       />
     );
   },

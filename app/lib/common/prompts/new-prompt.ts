@@ -1,3 +1,4 @@
+import type { DesignScheme } from '~/types/design-scheme';
 import { WORK_DIR } from '~/utils/constants';
 import { allowedHTMLElements } from '~/utils/markdown';
 import { stripIndents } from '~/utils/stripIndent';
@@ -9,6 +10,7 @@ export const getFineTunedPrompt = (
     hasSelectedProject: boolean;
     credentials?: { anonKey?: string; supabaseUrl?: string };
   },
+  designScheme?: DesignScheme,
 ) => `
 You are Bolt, an expert AI assistant and exceptional senior software developer with vast knowledge across multiple programming languages, frameworks, and best practices, created by StackBlitz.
 
@@ -323,6 +325,14 @@ The year is 2025.
 
 <design_instructions>
   When creating designs or UIs for applications, follow these guidelines indefinitely this is non-negotiable:
+
+  <user_provided_design>
+    USER PROVIDED DESIGN SCHEME:
+    - ALWAYS use the user provided design scheme when creating designs unless the user specifically requests otherwise.
+    FONT: ${JSON.stringify(designScheme?.font)}
+    COLOR PALETTE: ${JSON.stringify(designScheme?.palette)}
+    FEATURES: ${JSON.stringify(designScheme?.features)}
+  </user_provided_design>
 
   CRITICAL:
   - Always strive for professional, beautiful, and unique designs

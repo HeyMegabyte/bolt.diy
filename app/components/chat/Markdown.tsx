@@ -8,6 +8,7 @@ import { CodeBlock } from './CodeBlock';
 import type { Message } from 'ai';
 import styles from './Markdown.module.scss';
 import ThoughtBox from './ThoughtBox';
+import type { ProviderInfo } from '~/types/model';
 
 const logger = createScopedLogger('MarkdownComponent');
 
@@ -18,10 +19,12 @@ interface MarkdownProps {
   append?: (message: Message) => void;
   chatMode?: 'discuss' | 'build';
   setChatMode?: (mode: 'discuss' | 'build') => void;
+  model?: string;
+  provider?: ProviderInfo;
 }
 
 export const Markdown = memo(
-  ({ children, html = false, limitedMarkdown = false, append, setChatMode }: MarkdownProps) => {
+  ({ children, html = false, limitedMarkdown = false, append, setChatMode, model, provider }: MarkdownProps) => {
     logger.trace('Render');
 
     const components = useMemo(() => {
@@ -106,17 +109,17 @@ export const Markdown = memo(
                     openArtifactInWorkbench(path);
                   } else if (type === 'message' && append) {
                     append({
-                      id: 'random-message', // Replace with your ID generation logic
-                      content: message as string, // The message content from the action
-                      role: 'user', // Or another role as appropriate
+                      id: `quick-action-message-${Date.now()}`,
+                      content: `[Model: ${model}]\n\n[Provider: ${provider?.name}]\n\n${message}`,
+                      role: 'user',
                     });
-                    console.log('Message appended:', message); // Log the appended message
+                    console.log('Message appended:', message);
                   } else if (type === 'implement' && append && setChatMode) {
                     setChatMode('build');
                     append({
-                      id: 'implement-message', // Replace with your ID generation logic
-                      content: message as string, // The message content from the action
-                      role: 'user', // Or another role as appropriate
+                      id: `quick-action-implement-${Date.now()}`,
+                      content: `[Model: ${model}]\n\n[Provider: ${provider?.name}]\n\n${message}`,
+                      role: 'user',
                     });
                   } else if (type === 'link' && typeof href === 'string') {
                     try {
