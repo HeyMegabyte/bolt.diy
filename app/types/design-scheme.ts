@@ -18,7 +18,7 @@ export const defaultDesignScheme: DesignScheme = {
     warning: '#f59e0b',
     error: '#ef4444',
   },
-  features: ['rounded', 'shadow'],
+  features: ['rounded'],
   font: ['sans-serif'],
 };
 
