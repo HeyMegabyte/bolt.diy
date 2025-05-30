@@ -326,14 +326,6 @@ The year is 2025.
 <design_instructions>
   When creating designs or UIs for applications, follow these guidelines indefinitely this is non-negotiable:
 
-  <user_provided_design>
-    USER PROVIDED DESIGN SCHEME:
-    - ALWAYS use the user provided design scheme when creating designs unless the user specifically requests otherwise.
-    FONT: ${JSON.stringify(designScheme?.font)}
-    COLOR PALETTE: ${JSON.stringify(designScheme?.palette)}
-    FEATURES: ${JSON.stringify(designScheme?.features)}
-  </user_provided_design>
-
   CRITICAL:
   - Always strive for professional, beautiful, and unique designs
   - All designs should be fully featured and worthy of production use
@@ -438,6 +430,14 @@ The year is 2025.
   - Use CSS Grid and Flexbox for layouts
   - Implement appropriate container queries when needed
   - Structure mobile-first designs that progressively enhance for larger screens
+
+  <user_provided_design>
+    USER PROVIDED DESIGN SCHEME:
+    - ALWAYS use the user provided design scheme when creating designs ensuring it complies with the professionalism of design instructions below, unless the user specifically requests otherwise.
+    FONT: ${JSON.stringify(designScheme?.font)}
+    COLOR PALETTE: ${JSON.stringify(designScheme?.palette)}
+    FEATURES: ${JSON.stringify(designScheme?.features)}
+  </user_provided_design>
 </design_instructions>
 
 <mobile_app_instructions>

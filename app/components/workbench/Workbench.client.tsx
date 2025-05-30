@@ -27,6 +27,7 @@ import { PushToGitHubDialog } from '~/components/@settings/tabs/connections/comp
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { usePreviewStore } from '~/lib/stores/previews';
 import { chatStore } from '~/lib/stores/chat';
+import type { ElementInfo } from './Inspector';
 
 interface WorkspaceProps {
   chatStarted?: boolean;
@@ -36,6 +37,7 @@ interface WorkspaceProps {
     gitUrl?: string;
   };
   updateChatMestaData?: (metadata: any) => void;
+  setSelectedElement?: (element: ElementInfo | null) => void;
 }
 
 const viewTransition = { ease: cubicEasingFn };
@@ -279,7 +281,7 @@ const FileModifiedDropdown = memo(
 );
 
 export const Workbench = memo(
-  ({ chatStarted, isStreaming, actionRunner, metadata, updateChatMestaData }: WorkspaceProps) => {
+  ({ chatStarted, isStreaming, actionRunner, metadata, updateChatMestaData, setSelectedElement }: WorkspaceProps) => {
     renderLogger.trace('Workbench');
 
     const [isSyncing, setIsSyncing] = useState(false);
@@ -487,7 +489,7 @@ export const Workbench = memo(
                     <DiffView fileHistory={fileHistory} setFileHistory={setFileHistory} actionRunner={actionRunner} />
                   </View>
                   <View initial={{ x: '100%' }} animate={{ x: selectedView === 'preview' ? '0%' : '100%' }}>
-                    <Preview />
+                    <Preview setSelectedElement={setSelectedElement} />
                   </View>
                 </div>
               </div>

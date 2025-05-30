@@ -56,6 +56,7 @@ export const allowedHTMLElements = [
   'ul',
   'var',
   'think',
+  'header',
 ];
 
 // Add custom rehype plugin
@@ -85,7 +86,7 @@ const rehypeSanitizeOptions: RehypeSanitizeOptions = {
     div: [
       ...(defaultSchema.attributes?.div ?? []),
       'data*',
-      ['className', '__boltArtifact__', '__boltThought__', '__boltQuickAction'],
+      ['className', '__boltArtifact__', '__boltThought__', '__boltQuickAction', '__boltSelectedElement__'],
 
       // ['className', '__boltThought__']
     ],

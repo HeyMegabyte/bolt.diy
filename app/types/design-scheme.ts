@@ -22,7 +22,6 @@ export const defaultDesignScheme: DesignScheme = {
   font: ['sans-serif'],
 };
 
-// Define the semantic color roles for the UI
 export const paletteRoles = [
   {
     key: 'primary',
@@ -84,17 +83,10 @@ export const designFeatures = [
   { key: 'shadow', label: 'Soft Shadow' },
 ];
 
-// Add font options for easy reference
 export const designFonts = [
   { key: 'sans-serif', label: 'Sans Serif', preview: 'Aa' },
   { key: 'serif', label: 'Serif', preview: 'Aa' },
   { key: 'monospace', label: 'Monospace', preview: 'Aa' },
   { key: 'cursive', label: 'Cursive', preview: 'Aa' },
   { key: 'fantasy', label: 'Fantasy', preview: 'Aa' },
-
-  /*
-   * Add custom fonts here if needed
-   * { key: 'Inter', label: 'Inter', preview: 'Aa' },
-   * { key: 'Roboto', label: 'Roboto', preview: 'Aa' },
-   */
 ];
