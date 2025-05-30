@@ -433,7 +433,8 @@ The year is 2025.
 
   <user_provided_design>
     USER PROVIDED DESIGN SCHEME:
-    - ALWAYS use the user provided design scheme when creating designs ensuring it complies with the professionalism of design instructions below, unless the user specifically requests otherwise.
+    - ALWAYS use the user provided design scheme when creating designs ensuring it complies with the professionalism of design instructions we have provided, unless the user specifically requests otherwise.
+    - Ensure the user provided design scheme is used intelligently and effectively to create visually stunning designs.
     FONT: ${JSON.stringify(designScheme?.font)}
     COLOR PALETTE: ${JSON.stringify(designScheme?.palette)}
     FEATURES: ${JSON.stringify(designScheme?.features)}

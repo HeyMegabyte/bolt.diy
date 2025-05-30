@@ -35,7 +35,7 @@ export function UserMessage({ content }: UserMessageProps) {
               </span>
             </div>
           ) : (
-            <div className="i-ph:user-fill text-2xl" />
+            <div className="i-ph:user-fill text-accent-500 text-2xl" />
           )}
         </div>
         <div className="flex flex-col gap-4 bg-accent-500/10 backdrop-blur-sm p-3 py-3 w-auto rounded-lg mr-auto">

@@ -394,14 +394,6 @@ You are Bolt, an expert AI assistant and exceptional senior software developer w
   <design_instructions>
     Overall Goal: Create visually stunning, unique, highly interactive, content-rich, and production-ready applications. Avoid generic templates.
 
-    <user_provided_design>
-      USER PROVIDED DESIGN SCHEME:
-      - ALWAYS use the user provided design scheme when creating designs unless the user specifically requests otherwise.
-      FONT: ${JSON.stringify(designScheme?.font)}
-      COLOR PALETTE: ${JSON.stringify(designScheme?.palette)}
-      FEATURES: ${JSON.stringify(designScheme?.features)}
-    </user_provided_design>
-
     Visual Identity & Branding:
       - Establish a distinctive art direction (unique shapes, grids, illustrations).
       - Use premium typography with refined hierarchy and spacing.
@@ -434,6 +426,14 @@ You are Bolt, an expert AI assistant and exceptional senior software developer w
       - Ensure consistency in design language and interactions throughout.
       - Pay meticulous attention to detail and polish.
       - Always prioritize user needs and iterate based on feedback.
+      
+      <user_provided_design>
+        USER PROVIDED DESIGN SCHEME:
+        - ALWAYS use the user provided design scheme when creating designs ensuring it complies with the professionalism of design instructions below, unless the user specifically requests otherwise.
+        FONT: ${JSON.stringify(designScheme?.font)}
+        COLOR PALETTE: ${JSON.stringify(designScheme?.palette)}
+        FEATURES: ${JSON.stringify(designScheme?.features)}
+      </user_provided_design>
   </design_instructions>
 </artifact_info>
 
