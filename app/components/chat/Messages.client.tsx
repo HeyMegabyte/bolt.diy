@@ -11,12 +11,18 @@ import { useStore } from '@nanostores/react';
 import { profileStore } from '~/lib/stores/profile';
 import { forwardRef } from 'react';
 import type { ForwardedRef } from 'react';
+import type { ProviderInfo } from '~/types/model';
 
 interface MessagesProps {
   id?: string;
   className?: string;
   isStreaming?: boolean;
   messages?: Message[];
+  append?: (message: Message) => void;
+  chatMode?: 'discuss' | 'build';
+  setChatMode?: (mode: 'discuss' | 'build') => void;
+  model?: string;
+  provider?: ProviderInfo;
 }
 
 export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
@@ -94,6 +100,11 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                         messageId={messageId}
                         onRewind={handleRewind}
                         onFork={handleFork}
+                        append={props.append}
+                        chatMode={props.chatMode}
+                        setChatMode={props.setChatMode}
+                        model={props.model}
+                        provider={props.provider}
                       />
                     )}
                   </div>
