@@ -151,7 +151,7 @@ export const Markdown = memo(
                           type: 'text',
                           text: `[Model: ${model}]\n\n[Provider: ${provider?.name}]\n\n${message}`,
                         },
-                      ] as any, // Type assertion to bypass compiler check
+                      ] as any,
                       role: 'user',
                     });
                     console.log('Message appended:', message);
@@ -164,7 +164,7 @@ export const Markdown = memo(
                           type: 'text',
                           text: `[Model: ${model}]\n\n[Provider: ${provider?.name}]\n\n${message}`,
                         },
-                      ] as any, // Type assertion to bypass compiler check
+                      ] as any,
                       role: 'user',
                     });
                   } else if (type === 'link' && typeof href === 'string') {

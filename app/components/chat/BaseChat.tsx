@@ -370,8 +370,8 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                         append={append}
                         chatMode={chatMode}
                         setChatMode={setChatMode}
-                        model={model}
                         provider={provider}
+                        model={model}
                       />
                     ) : null;
                   }}
