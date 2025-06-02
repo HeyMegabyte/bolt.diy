@@ -81,6 +81,7 @@ export const designFeatures = [
   { key: 'border', label: 'Subtle Border' },
   { key: 'gradient', label: 'Gradient Accent' },
   { key: 'shadow', label: 'Soft Shadow' },
+  { key: 'frosted-glass', label: 'Frosted Glass' },
 ];
 
 export const designFonts = [

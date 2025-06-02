@@ -241,6 +241,20 @@ export const ColorSchemeDialog: React.FC<ColorSchemeDialogProps> = ({ setDesignS
                         />
                       </div>
                     )}
+                    {f.key === 'frosted-glass' && (
+                      <div className="relative">
+                        <div
+                          className={`w-6 h-6 rounded-lg transition-all duration-200 backdrop-blur-sm bg-white/20 border border-white/30 ${
+                            isSelected ? 'opacity-90' : 'opacity-70'
+                          }`}
+                        />
+                        <div
+                          className={`absolute inset-0 w-6 h-6 rounded-lg transition-all duration-200 backdrop-blur-md bg-gradient-to-br from-white/10 to-transparent ${
+                            isSelected ? 'opacity-60' : 'opacity-40'
+                          }`}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="text-center">
