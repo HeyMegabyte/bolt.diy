@@ -23,7 +23,7 @@ export const TerminalTabs = memo(() => {
   const terminalToggledByShortcut = useRef(false);
 
   const [activeTerminal, setActiveTerminal] = useState(0);
-  const [terminalCount, setTerminalCount] = useState(1);
+  const [terminalCount, setTerminalCount] = useState(0);
 
   const addTerminal = () => {
     if (terminalCount < MAX_TERMINALS) {
@@ -31,6 +31,48 @@ export const TerminalTabs = memo(() => {
       setActiveTerminal(terminalCount);
     }
   };
+
+  const closeTerminal = (index: number) => {
+    if (index === 0) {
+      return;
+    } // Can't close bolt terminal
+
+    const terminalRef = terminalRefs.current[index];
+
+    if (terminalRef?.getTerminal) {
+      const terminal = terminalRef.getTerminal();
+
+      if (terminal) {
+        workbenchStore.detachTerminal(terminal);
+      }
+    }
+
+    // Remove the terminal from refs
+    terminalRefs.current.splice(index, 1);
+
+    // Adjust terminal count and active terminal
+    setTerminalCount(terminalCount - 1);
+
+    if (activeTerminal === index) {
+      setActiveTerminal(Math.max(0, index - 1));
+    } else if (activeTerminal > index) {
+      setActiveTerminal(activeTerminal - 1);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      terminalRefs.current.forEach((ref, index) => {
+        if (index > 0 && ref?.getTerminal) {
+          const terminal = ref.getTerminal();
+
+          if (terminal) {
+            workbenchStore.detachTerminal(terminal);
+          }
+        }
+      });
+    };
+  }, []);
 
   useEffect(() => {
     const { current: terminal } = terminalPanelRef;
@@ -125,6 +167,15 @@ export const TerminalTabs = memo(() => {
                       >
                         <div className="i-ph:terminal-window-duotone text-lg" />
                         Terminal {terminalCount > 1 && index}
+                        <button
+                          className="bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-transparent rounded"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            closeTerminal(index);
+                          }}
+                        >
+                          <div className="i-ph:x text-xs" />
+                        </button>
                       </button>
                     </React.Fragment>
                   )}
