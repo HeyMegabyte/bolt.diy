@@ -12,11 +12,8 @@ export type TabType =
   | 'local-providers'
   | 'service-status'
   | 'connection'
-  | 'debug'
   | 'event-logs'
   | 'update'
-  | 'task-manager'
-  | 'tab-management'
   | 'mcp';
 
 export type WindowType = 'user' | 'developer';
@@ -64,7 +61,6 @@ export interface UserTabConfig extends TabVisibilityConfig {
 
 export interface TabWindowConfig {
   userTabs: UserTabConfig[];
-  developerTabs: DevTabConfig[];
 }
 
 export const TAB_LABELS: Record<TabType, string> = {
@@ -77,11 +73,8 @@ export const TAB_LABELS: Record<TabType, string> = {
   'local-providers': 'Local Providers',
   'service-status': 'Service Status',
   connection: 'Connections',
-  debug: 'Debug',
   'event-logs': 'Event Logs',
   update: 'Updates',
-  'task-manager': 'Task Manager',
-  'tab-management': 'Tab Management',
   mcp: 'MCP Servers',
 };
 

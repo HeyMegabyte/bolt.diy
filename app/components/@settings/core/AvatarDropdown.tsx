@@ -36,7 +36,7 @@ export const AvatarDropdown = ({ onSelectTab }: AvatarDropdownProps) => {
             />
           ) : (
             <div className="w-full h-full rounded-full flex items-center justify-center bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500">
-              <div className="i-ph:question w-6 h-6" />
+              <div className="i-ph:user w-6 h-6" />
             </div>
           )}
         </motion.button>
@@ -72,7 +72,7 @@ export const AvatarDropdown = ({ onSelectTab }: AvatarDropdownProps) => {
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 font-medium text-lg">
-                  <span className="relative -top-0.5">?</span>
+                  <div className="i-ph:user w-6 h-6" />
                 </div>
               )}
             </div>
@@ -117,24 +117,6 @@ export const AvatarDropdown = ({ onSelectTab }: AvatarDropdownProps) => {
           </DropdownMenu.Item>
 
           <div className="my-1 border-t border-gray-200/50 dark:border-gray-800/50" />
-
-          <DropdownMenu.Item
-            className={classNames(
-              'flex items-center gap-2 px-4 py-2.5',
-              'text-sm text-gray-700 dark:text-gray-200',
-              'hover:bg-purple-50 dark:hover:bg-purple-500/10',
-              'hover:text-purple-500 dark:hover:text-purple-400',
-              'cursor-pointer transition-all duration-200',
-              'outline-none',
-              'group',
-            )}
-            onClick={() => onSelectTab('task-manager')}
-          >
-            <div className="i-ph:activity w-4 h-4 text-gray-400 group-hover:text-purple-500 dark:group-hover:text-purple-400 transition-colors" />
-            Task Manager
-            <BetaLabel />
-          </DropdownMenu.Item>
-
           <DropdownMenu.Item
             className={classNames(
               'flex items-center gap-2 px-4 py-2.5',
