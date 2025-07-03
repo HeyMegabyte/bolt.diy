@@ -29,6 +29,7 @@ import { filesToArtifacts } from '~/utils/fileUtils';
 import { supabaseConnection } from '~/lib/stores/supabase';
 import { defaultDesignScheme, type DesignScheme } from '~/types/design-scheme';
 import type { ElementInfo } from '~/components/workbench/Inspector';
+import type { LlmErrorAlertType } from '~/types/actions';
 
 const toastAnimation = cssTransition({
   enter: 'animated fadeInRight',
@@ -129,12 +130,13 @@ export const ChatImpl = memo(
     const [designScheme, setDesignScheme] = useState<DesignScheme>(defaultDesignScheme);
     const actionAlert = useStore(workbenchStore.alert);
     const deployAlert = useStore(workbenchStore.deployAlert);
-    const supabaseConn = useStore(supabaseConnection); // Add this line to get Supabase connection
+    const supabaseConn = useStore(supabaseConnection);
     const selectedProject = supabaseConn.stats?.projects?.find(
       (project) => project.id === supabaseConn.selectedProjectId,
     );
     const supabaseAlert = useStore(workbenchStore.supabaseAlert);
     const { activeProviders, promptId, autoSelectTemplate, contextOptimizationEnabled } = useSettings();
+    const [llmErrorAlert, setLlmErrorAlert] = useState<LlmErrorAlertType | undefined>(undefined);
     const [model, setModel] = useState(() => {
       const savedModel = Cookies.get('selectedModel');
       return savedModel || DEFAULT_MODEL;
@@ -181,15 +183,8 @@ export const ChatImpl = memo(
       },
       sendExtraMessageFields: true,
       onError: (e) => {
-        logger.error('Request failed\n\n', e, error);
-        logStore.logError('Chat request failed', e, {
-          component: 'Chat',
-          action: 'request',
-          error: e.message,
-        });
-        toast.error(
-          'There was an error processing your request: ' + (e.message ? e.message : 'No details were returned'),
-        );
+        setFakeLoading(false);
+        handleError(e, 'chat');
       },
       onFinish: (message, response) => {
         const usage = response.usage;
@@ -271,6 +266,80 @@ export const ChatImpl = memo(
         provider: provider.name,
       });
     };
+
+    const handleError = useCallback(
+      (error: any, context: 'chat' | 'template' | 'llmcall' = 'chat') => {
+        logger.error(`${context} request failed`, error);
+
+        stop();
+        setFakeLoading(false);
+
+        let errorInfo = {
+          message: 'An unexpected error occurred',
+          isRetryable: true,
+          statusCode: 500,
+          provider: provider.name,
+          type: 'unknown' as const,
+          retryDelay: 0,
+        };
+
+        if (error.message) {
+          try {
+            const parsed = JSON.parse(error.message);
+
+            if (parsed.error || parsed.message) {
+              errorInfo = { ...errorInfo, ...parsed };
+            } else {
+              errorInfo.message = error.message;
+            }
+          } catch {
+            errorInfo.message = error.message;
+          }
+        }
+
+        let errorType: LlmErrorAlertType['errorType'] = 'unknown';
+        let title = 'Request Failed';
+
+        if (errorInfo.statusCode === 401 || errorInfo.message.toLowerCase().includes('api key')) {
+          errorType = 'authentication';
+          title = 'Authentication Error';
+        } else if (errorInfo.statusCode === 429 || errorInfo.message.toLowerCase().includes('rate limit')) {
+          errorType = 'rate_limit';
+          title = 'Rate Limit Exceeded';
+        } else if (errorInfo.message.toLowerCase().includes('quota')) {
+          errorType = 'quota';
+          title = 'Quota Exceeded';
+        } else if (errorInfo.statusCode >= 500) {
+          errorType = 'network';
+          title = 'Server Error';
+        }
+
+        logStore.logError(`${context} request failed`, error, {
+          component: 'Chat',
+          action: 'request',
+          error: errorInfo.message,
+          context,
+          retryable: errorInfo.isRetryable,
+          errorType,
+          provider: provider.name,
+        });
+
+        // Create API error alert
+        setLlmErrorAlert({
+          type: 'error',
+          title,
+          description: errorInfo.message,
+          provider: provider.name,
+          errorType,
+        });
+        setData([]);
+      },
+      [provider.name, stop],
+    );
+
+    const clearApiErrorAlert = useCallback(() => {
+      setLlmErrorAlert(undefined);
+    }, []);
 
     useEffect(() => {
       const textarea = textareaRef.current;
@@ -571,6 +640,8 @@ export const ChatImpl = memo(
         clearSupabaseAlert={() => workbenchStore.clearSupabaseAlert()}
         deployAlert={deployAlert}
         clearDeployAlert={() => workbenchStore.clearDeployAlert()}
+        llmErrorAlert={llmErrorAlert}
+        clearLlmErrorAlert={clearApiErrorAlert}
         data={chatData}
         chatMode={chatMode}
         setChatMode={setChatMode}
