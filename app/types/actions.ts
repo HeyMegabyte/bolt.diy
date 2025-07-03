@@ -62,6 +62,15 @@ export interface DeployAlert {
   source?: 'vercel' | 'netlify' | 'github';
 }
 
+export interface LlmErrorAlertType {
+  type: 'error' | 'warning';
+  title: string;
+  description: string;
+  content?: string;
+  provider?: string;
+  errorType?: 'authentication' | 'rate_limit' | 'quota' | 'network' | 'unknown';
+}
+
 export interface FileHistory {
   originalContent: string;
   lastModified: number;
