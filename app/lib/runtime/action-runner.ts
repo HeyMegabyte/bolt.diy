@@ -435,18 +435,15 @@ export class ActionRunner {
       try {
         await webcontainer.fs.readdir(dirPath);
         buildDir = dirPath;
-        logger.debug(`Found build directory: ${buildDir}`);
         break;
-      } catch (error) {
-        // Directory doesn't exist, try the next one
-        logger.debug(`Build directory ${dir} not found, trying next option. ${error}`);
+      } catch {
+        continue;
       }
     }
 
     // If no build directory was found, use the default (dist)
     if (!buildDir) {
       buildDir = nodePath.join(webcontainer.workdir, 'dist');
-      logger.debug(`No build directory found, defaulting to: ${buildDir}`);
     }
 
     return {
