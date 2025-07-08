@@ -1,4 +1,4 @@
-export type DebugLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error';
+export type DebugLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'none';
 import { Chalk } from 'chalk';
 
 const chalk = new Chalk({ level: 3 });
@@ -14,7 +14,7 @@ interface Logger {
   setLevel: (level: DebugLevel) => void;
 }
 
-let currentLevel: DebugLevel = (import.meta.env.VITE_LOG_LEVEL ?? import.meta.env.DEV) ? 'debug' : 'info';
+let currentLevel: DebugLevel = import.meta.env.VITE_LOG_LEVEL || (import.meta.env.DEV ? 'debug' : 'info');
 
 export const logger: Logger = {
   trace: (...messages: any[]) => log('trace', undefined, messages),
@@ -45,9 +45,14 @@ function setLevel(level: DebugLevel) {
 }
 
 function log(level: DebugLevel, scope: string | undefined, messages: any[]) {
-  const levelOrder: DebugLevel[] = ['trace', 'debug', 'info', 'warn', 'error'];
+  const levelOrder: DebugLevel[] = ['trace', 'debug', 'info', 'warn', 'error', 'none'];
 
   if (levelOrder.indexOf(level) < levelOrder.indexOf(currentLevel)) {
+    return;
+  }
+
+  // If current level is 'none', don't log anything
+  if (currentLevel === 'none') {
     return;
   }
 
