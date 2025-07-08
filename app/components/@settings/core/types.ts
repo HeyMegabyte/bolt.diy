@@ -13,7 +13,6 @@ export type TabType =
   | 'service-status'
   | 'connection'
   | 'event-logs'
-  | 'update'
   | 'mcp';
 
 export type WindowType = 'user' | 'developer';
@@ -74,7 +73,6 @@ export const TAB_LABELS: Record<TabType, string> = {
   'service-status': 'Service Status',
   connection: 'Connections',
   'event-logs': 'Event Logs',
-  update: 'Updates',
   mcp: 'MCP Servers',
 };
 

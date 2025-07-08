@@ -3,7 +3,6 @@ import { useStore } from '@nanostores/react';
 import * as RadixDialog from '@radix-ui/react-dialog';
 import { classNames } from '~/utils/classNames';
 import { TabTile } from '~/components/@settings/shared/components/TabTile';
-import { useUpdateCheck } from '~/lib/hooks/useUpdateCheck';
 import { useFeatures } from '~/lib/hooks/useFeatures';
 import { useNotifications } from '~/lib/hooks/useNotifications';
 import { useConnectionStatus } from '~/lib/hooks/useConnectionStatus';
@@ -22,7 +21,6 @@ import NotificationsTab from '~/components/@settings/tabs/notifications/Notifica
 import FeaturesTab from '~/components/@settings/tabs/features/FeaturesTab';
 import { DataTab } from '~/components/@settings/tabs/data/DataTab';
 import { EventLogsTab } from '~/components/@settings/tabs/event-logs/EventLogsTab';
-import UpdateTab from '~/components/@settings/tabs/update/UpdateTab';
 import ConnectionsTab from '~/components/@settings/tabs/connections/ConnectionsTab';
 import CloudProvidersTab from '~/components/@settings/tabs/providers/cloud/CloudProvidersTab';
 import ServiceStatusTab from '~/components/@settings/tabs/providers/status/ServiceStatusTab';
@@ -35,7 +33,7 @@ interface ControlPanelProps {
 }
 
 // Beta status for experimental features
-const BETA_TABS = new Set<TabType>(['service-status', 'update', 'local-providers']);
+const BETA_TABS = new Set<TabType>(['service-status', 'local-providers']);
 
 const BetaLabel = () => (
   <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-purple-500/10 dark:bg-purple-500/20">
@@ -54,7 +52,6 @@ export const ControlPanel = ({ open, onClose }: ControlPanelProps) => {
   const profile = useStore(profileStore) as Profile;
 
   // Status hooks
-  const { hasUpdate, currentVersion, acknowledgeUpdate } = useUpdateCheck();
   const { hasNewFeatures, unviewedFeatures, acknowledgeAllFeatures } = useFeatures();
   const { hasUnreadNotifications, unreadNotifications, markAllAsRead } = useNotifications();
   const { hasConnectionIssues, currentIssue, acknowledgeIssue } = useConnectionStatus();
@@ -141,8 +138,6 @@ export const ControlPanel = ({ open, onClose }: ControlPanelProps) => {
         return <ConnectionsTab />;
       case 'event-logs':
         return <EventLogsTab />;
-      case 'update':
-        return <UpdateTab />;
       case 'service-status':
         return <ServiceStatusTab />;
       case 'mcp':
@@ -154,8 +149,6 @@ export const ControlPanel = ({ open, onClose }: ControlPanelProps) => {
 
   const getTabUpdateStatus = (tabId: TabType): boolean => {
     switch (tabId) {
-      case 'update':
-        return hasUpdate;
       case 'features':
         return hasNewFeatures;
       case 'notifications':
@@ -169,8 +162,6 @@ export const ControlPanel = ({ open, onClose }: ControlPanelProps) => {
 
   const getStatusMessage = (tabId: TabType): string => {
     switch (tabId) {
-      case 'update':
-        return `New update available (v${currentVersion})`;
       case 'features':
         return `${unviewedFeatures.length} new feature${unviewedFeatures.length === 1 ? '' : 's'} to explore`;
       case 'notifications':
@@ -193,9 +184,6 @@ export const ControlPanel = ({ open, onClose }: ControlPanelProps) => {
 
     // Acknowledge notifications based on tab
     switch (tabId) {
-      case 'update':
-        acknowledgeUpdate();
-        break;
       case 'features':
         acknowledgeAllFeatures();
         break;

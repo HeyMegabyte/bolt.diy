@@ -1,17 +1,16 @@
 import type { TabType } from './types';
 
 export const TAB_ICONS: Record<TabType, string> = {
-  profile: 'i-ph:user-circle-fill',
-  settings: 'i-ph:gear-six-fill',
-  notifications: 'i-ph:bell-fill',
-  features: 'i-ph:star-fill',
-  data: 'i-ph:database-fill',
-  'cloud-providers': 'i-ph:cloud-fill',
-  'local-providers': 'i-ph:desktop-fill',
+  profile: 'i-ph:user-circle',
+  settings: 'i-ph:gear-six',
+  notifications: 'i-ph:bell',
+  features: 'i-ph:star',
+  data: 'i-ph:database',
+  'cloud-providers': 'i-ph:cloud',
+  'local-providers': 'i-ph:laptop',
   'service-status': 'i-ph:activity-bold',
   connection: 'i-ph:wifi-high-fill',
   'event-logs': 'i-ph:list-bullets-fill',
-  update: 'i-ph:arrow-clockwise-fill',
   mcp: 'i-ph:hard-drives-bold',
 };
 
@@ -26,7 +25,6 @@ export const TAB_LABELS: Record<TabType, string> = {
   'service-status': 'Service Status',
   connection: 'Connection',
   'event-logs': 'Event Logs',
-  update: 'Updates',
   mcp: 'MCP Servers',
 };
 
@@ -41,7 +39,6 @@ export const TAB_DESCRIPTIONS: Record<TabType, string> = {
   'service-status': 'Monitor cloud LLM service status',
   connection: 'Check connection status and settings',
   'event-logs': 'View system events and logs',
-  update: 'Check for updates and release notes',
   mcp: 'Configure MCP (Model Context Protocol) servers',
 };
 
@@ -59,6 +56,4 @@ export const DEFAULT_TAB_CONFIG = [
   { id: 'settings', visible: true, window: 'user' as const, order: 9 },
   { id: 'service-status', visible: true, window: 'user' as const, order: 10 },
   { id: 'update', visible: true, window: 'user' as const, order: 11 },
-
-  // User Window Tabs (In dropdown, initially hidden)
 ];
