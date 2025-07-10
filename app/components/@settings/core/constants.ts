@@ -9,8 +9,8 @@ export const TAB_ICONS: Record<TabType, string> = {
   'cloud-providers': 'i-ph:cloud',
   'local-providers': 'i-ph:laptop',
   'service-status': 'i-ph:activity-bold',
-  connection: 'i-ph:wifi-high-fill',
-  'event-logs': 'i-ph:list-bullets-fill',
+  connection: 'i-ph:wifi-high',
+  'event-logs': 'i-ph:list-bullets',
   mcp: 'i-ph:hard-drives-bold',
 };
 
@@ -53,7 +53,8 @@ export const DEFAULT_TAB_CONFIG = [
   { id: 'event-logs', visible: true, window: 'user' as const, order: 6 },
   { id: 'mcp', visible: true, window: 'user' as const, order: 7 },
   { id: 'profile', visible: true, window: 'user' as const, order: 8 },
-  { id: 'settings', visible: true, window: 'user' as const, order: 9 },
-  { id: 'service-status', visible: true, window: 'user' as const, order: 10 },
-  { id: 'update', visible: true, window: 'user' as const, order: 11 },
+  { id: 'service-status', visible: true, window: 'user' as const, order: 9 },
+
+  // User Window Tabs (In dropdown, initially hidden)
+  { id: 'settings', visible: false, window: 'user' as const, order: 10 },
 ];
