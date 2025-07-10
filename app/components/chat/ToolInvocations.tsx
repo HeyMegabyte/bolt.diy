@@ -110,7 +110,7 @@ export const ToolInvocations = memo(({ toolInvocations, toolCallAnnotations, add
           aria-label={showDetails ? 'Collapse details' : 'Expand details'}
         >
           <div className="p-2">
-            <div className="i-ph:wrench-fill text-xl text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary transition-colors"></div>
+            <div className="i-ph:wrench text-xl text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary transition-colors"></div>
           </div>
           <div className="bg-bolt-elements-artifacts-borderColor w-[1px]" />
           <div className="px-5 p-2 w-full text-left">

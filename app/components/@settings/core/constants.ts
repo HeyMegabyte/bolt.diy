@@ -11,7 +11,7 @@ export const TAB_ICONS: Record<TabType, string> = {
   'service-status': 'i-ph:activity-bold',
   connection: 'i-ph:wifi-high',
   'event-logs': 'i-ph:list-bullets',
-  mcp: 'i-ph:hard-drives-bold',
+  mcp: 'i-ph:wrench',
 };
 
 export const TAB_LABELS: Record<TabType, string> = {
