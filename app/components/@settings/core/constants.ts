@@ -54,7 +54,7 @@ export const DEFAULT_TAB_CONFIG = [
   { id: 'mcp', visible: true, window: 'user' as const, order: 7 },
   { id: 'profile', visible: true, window: 'user' as const, order: 8 },
   { id: 'service-status', visible: true, window: 'user' as const, order: 9 },
+  { id: 'settings', visible: true, window: 'user' as const, order: 10 },
 
   // User Window Tabs (In dropdown, initially hidden)
-  { id: 'settings', visible: false, window: 'user' as const, order: 10 },
 ];
