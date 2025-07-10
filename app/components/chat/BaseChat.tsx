@@ -77,6 +77,7 @@ interface BaseChatProps {
   setDesignScheme?: (scheme: DesignScheme) => void;
   selectedElement?: ElementInfo | null;
   setSelectedElement?: (element: ElementInfo | null) => void;
+  addToolResult?: ({ toolCallId, result }: { toolCallId: string; result: any }) => void;
 }
 
 export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
@@ -121,6 +122,9 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       setDesignScheme,
       selectedElement,
       setSelectedElement,
+      addToolResult = () => {
+        throw new Error('addToolResult not implemented');
+      },
     },
     ref,
   ) => {
@@ -369,6 +373,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                         setChatMode={setChatMode}
                         provider={provider}
                         model={model}
+                        addToolResult={addToolResult}
                       />
                     ) : null;
                   }}

@@ -15,6 +15,7 @@ export const TAB_ICONS: Record<TabType, string> = {
   update: 'i-ph:arrow-clockwise-fill',
   'task-manager': 'i-ph:chart-line-fill',
   'tab-management': 'i-ph:squares-four-fill',
+  mcp: 'i-ph:hard-drives-bold',
 };
 
 export const TAB_LABELS: Record<TabType, string> = {
@@ -32,6 +33,7 @@ export const TAB_LABELS: Record<TabType, string> = {
   update: 'Updates',
   'task-manager': 'Task Manager',
   'tab-management': 'Tab Management',
+  mcp: 'MCP Servers',
 };
 
 export const TAB_DESCRIPTIONS: Record<TabType, string> = {
@@ -49,6 +51,7 @@ export const TAB_DESCRIPTIONS: Record<TabType, string> = {
   update: 'Check for updates and release notes',
   'task-manager': 'Monitor system resources and processes',
   'tab-management': 'Configure visible tabs and their order',
+  mcp: 'Configure MCP (Model Context Protocol) servers',
 };
 
 export const DEFAULT_TAB_CONFIG = [
@@ -58,18 +61,19 @@ export const DEFAULT_TAB_CONFIG = [
   { id: 'cloud-providers', visible: true, window: 'user' as const, order: 2 },
   { id: 'local-providers', visible: true, window: 'user' as const, order: 3 },
   { id: 'connection', visible: true, window: 'user' as const, order: 4 },
-  { id: 'notifications', visible: true, window: 'user' as const, order: 5 },
-  { id: 'event-logs', visible: true, window: 'user' as const, order: 6 },
+  { id: 'connection', visible: true, window: 'user' as const, order: 5 },
+  { id: 'notifications', visible: true, window: 'user' as const, order: 6 },
+  { id: 'mcp', visible: true, window: 'user' as const, order: 7 },
 
   // User Window Tabs (In dropdown, initially hidden)
-  { id: 'profile', visible: false, window: 'user' as const, order: 7 },
-  { id: 'settings', visible: false, window: 'user' as const, order: 8 },
-  { id: 'task-manager', visible: false, window: 'user' as const, order: 9 },
-  { id: 'service-status', visible: false, window: 'user' as const, order: 10 },
+  { id: 'profile', visible: false, window: 'user' as const, order: 8 },
+  { id: 'settings', visible: false, window: 'user' as const, order: 9 },
+  { id: 'task-manager', visible: false, window: 'user' as const, order: 10 },
+  { id: 'service-status', visible: false, window: 'user' as const, order: 11 },
 
   // User Window Tabs (Hidden, controlled by TaskManagerTab)
-  { id: 'debug', visible: false, window: 'user' as const, order: 11 },
-  { id: 'update', visible: false, window: 'user' as const, order: 12 },
+  { id: 'debug', visible: false, window: 'user' as const, order: 12 },
+  { id: 'update', visible: false, window: 'user' as const, order: 13 },
 
   // Developer Window Tabs (All visible by default)
   { id: 'features', visible: true, window: 'developer' as const, order: 0 },

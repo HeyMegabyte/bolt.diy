@@ -21,6 +21,7 @@ interface MessagesProps {
   setChatMode?: (mode: 'discuss' | 'build') => void;
   model?: string;
   provider?: ProviderInfo;
+  addToolResult: ({ toolCallId, result }: { toolCallId: string; result: any }) => void;
 }
 
 export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
@@ -52,7 +53,7 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
       <div id={id} className={props.className} ref={ref}>
         {messages.length > 0
           ? messages.map((message, index) => {
-              const { role, content, id: messageId, annotations } = message;
+              const { role, content, id: messageId, annotations, parts } = message;
               const isUserMessage = role === 'user';
               const isFirst = index === 0;
               const isHidden = annotations?.includes('hidden');
@@ -83,6 +84,8 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                         setChatMode={props.setChatMode}
                         model={props.model}
                         provider={props.provider}
+                        parts={parts}
+                        addToolResult={props.addToolResult}
                       />
                     )}
                   </div>

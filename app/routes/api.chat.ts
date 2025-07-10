@@ -12,6 +12,7 @@ import { WORK_DIR } from '~/utils/constants';
 import { createSummary } from '~/lib/.server/llm/create-summary';
 import { extractPropertiesFromMessage } from '~/lib/.server/llm/utils';
 import type { DesignScheme } from '~/types/design-scheme';
+import { MCPService } from '~/lib/services/mcpService';
 
 export async function action(args: ActionFunctionArgs) {
   return chatAction(args);
@@ -38,22 +39,24 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 }
 
 async function chatAction({ context, request }: ActionFunctionArgs) {
-  const { messages, files, promptId, contextOptimization, supabase, chatMode, designScheme } = await request.json<{
-    messages: Messages;
-    files: any;
-    promptId?: string;
-    contextOptimization: boolean;
-    chatMode: 'discuss' | 'build';
-    designScheme?: DesignScheme;
-    supabase?: {
-      isConnected: boolean;
-      hasSelectedProject: boolean;
-      credentials?: {
-        anonKey?: string;
-        supabaseUrl?: string;
+  const { messages, files, promptId, contextOptimization, supabase, chatMode, designScheme, maxLLMSteps } =
+    await request.json<{
+      messages: Messages;
+      files: any;
+      promptId?: string;
+      contextOptimization: boolean;
+      chatMode: 'discuss' | 'build';
+      designScheme?: DesignScheme;
+      supabase?: {
+        isConnected: boolean;
+        hasSelectedProject: boolean;
+        credentials?: {
+          anonKey?: string;
+          supabaseUrl?: string;
+        };
       };
-    };
-  }>();
+      maxLLMSteps: number;
+    }>();
 
   const cookieHeader = request.headers.get('Cookie');
   const apiKeys = JSON.parse(parseCookies(cookieHeader || '').apiKeys || '{}');
@@ -72,6 +75,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
   let progressCounter: number = 1;
 
   try {
+    const mcpService = MCPService.getInstance();
     const totalMessageContent = messages.reduce((acc, message) => acc + message.content, '');
     logger.debug(`Total message length: ${totalMessageContent.split(' ').length}, words`);
 
@@ -84,8 +88,10 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
         let summary: string | undefined = undefined;
         let messageSliceId = 0;
 
-        if (messages.length > 3) {
-          messageSliceId = messages.length - 3;
+        const processedMessage = await mcpService.processToolInvocations(messages, dataStream);
+
+        if (processedMessage.length > 3) {
+          messageSliceId = processedMessage.length - 3;
         }
 
         if (filePaths.length > 0 && contextOptimization) {
@@ -99,10 +105,10 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           } satisfies ProgressAnnotation);
 
           // Create a summary of the chat
-          console.log(`Messages count: ${messages.length}`);
+          console.log(`Messages count: ${processedMessage.length}`);
 
           summary = await createSummary({
-            messages: [...messages],
+            messages: [...processedMessage],
             env: context.cloudflare?.env,
             apiKeys,
             providerSettings,
@@ -128,7 +134,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           dataStream.writeMessageAnnotation({
             type: 'chatSummary',
             summary,
-            chatId: messages.slice(-1)?.[0]?.id,
+            chatId: processedMessage.slice(-1)?.[0]?.id,
           } as ContextAnnotation);
 
           // Update context buffer
@@ -142,9 +148,9 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           } satisfies ProgressAnnotation);
 
           // Select context files
-          console.log(`Messages count: ${messages.length}`);
+          console.log(`Messages count: ${processedMessage.length}`);
           filteredFiles = await selectContext({
-            messages: [...messages],
+            messages: [...processedMessage],
             env: context.cloudflare?.env,
             apiKeys,
             files,
@@ -192,7 +198,15 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
 
         const options: StreamingOptions = {
           supabaseConnection: supabase,
-          toolChoice: 'none',
+          toolChoice: 'auto',
+          tools: mcpService.toolsWithoutExecute,
+          maxSteps: maxLLMSteps,
+          onStepFinish: ({ toolCalls }) => {
+            // add tool call annotations for frontend processing
+            toolCalls.forEach((toolCall) => {
+              mcpService.processToolCall(toolCall, dataStream);
+            });
+          },
           onFinish: async ({ text: content, finishReason, usage }) => {
             logger.debug('usage', JSON.stringify(usage));
 
@@ -232,17 +246,17 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
 
             logger.info(`Reached max token limit (${MAX_TOKENS}): Continuing message (${switchesLeft} switches left)`);
 
-            const lastUserMessage = messages.filter((x) => x.role == 'user').slice(-1)[0];
+            const lastUserMessage = processedMessage.filter((x) => x.role == 'user').slice(-1)[0];
             const { model, provider } = extractPropertiesFromMessage(lastUserMessage);
-            messages.push({ id: generateId(), role: 'assistant', content });
-            messages.push({
+            processedMessage.push({ id: generateId(), role: 'assistant', content });
+            processedMessage.push({
               id: generateId(),
               role: 'user',
               content: `[Model: ${model}]\n\n[Provider: ${provider}]\n\n${CONTINUE_PROMPT}`,
             });
 
             const result = await streamText({
-              messages,
+              messages: [...processedMessage],
               env: context.cloudflare?.env,
               options,
               apiKeys,
@@ -283,7 +297,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
         } satisfies ProgressAnnotation);
 
         const result = await streamText({
-          messages,
+          messages: [...processedMessage],
           env: context.cloudflare?.env,
           options,
           apiKeys,
