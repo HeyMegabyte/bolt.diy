@@ -88,10 +88,10 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
         let summary: string | undefined = undefined;
         let messageSliceId = 0;
 
-        const processedMessage = await mcpService.processToolInvocations(messages, dataStream);
+        const processedMessages = await mcpService.processToolInvocations(messages, dataStream);
 
-        if (processedMessage.length > 3) {
-          messageSliceId = processedMessage.length - 3;
+        if (processedMessages.length > 3) {
+          messageSliceId = processedMessages.length - 3;
         }
 
         if (filePaths.length > 0 && contextOptimization) {
@@ -105,10 +105,10 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           } satisfies ProgressAnnotation);
 
           // Create a summary of the chat
-          console.log(`Messages count: ${processedMessage.length}`);
+          console.log(`Messages count: ${processedMessages.length}`);
 
           summary = await createSummary({
-            messages: [...processedMessage],
+            messages: [...processedMessages],
             env: context.cloudflare?.env,
             apiKeys,
             providerSettings,
@@ -134,7 +134,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           dataStream.writeMessageAnnotation({
             type: 'chatSummary',
             summary,
-            chatId: processedMessage.slice(-1)?.[0]?.id,
+            chatId: processedMessages.slice(-1)?.[0]?.id,
           } as ContextAnnotation);
 
           // Update context buffer
@@ -148,9 +148,9 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           } satisfies ProgressAnnotation);
 
           // Select context files
-          console.log(`Messages count: ${processedMessage.length}`);
+          console.log(`Messages count: ${processedMessages.length}`);
           filteredFiles = await selectContext({
-            messages: [...processedMessage],
+            messages: [...processedMessages],
             env: context.cloudflare?.env,
             apiKeys,
             files,
@@ -246,17 +246,17 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
 
             logger.info(`Reached max token limit (${MAX_TOKENS}): Continuing message (${switchesLeft} switches left)`);
 
-            const lastUserMessage = processedMessage.filter((x) => x.role == 'user').slice(-1)[0];
+            const lastUserMessage = processedMessages.filter((x) => x.role == 'user').slice(-1)[0];
             const { model, provider } = extractPropertiesFromMessage(lastUserMessage);
-            processedMessage.push({ id: generateId(), role: 'assistant', content });
-            processedMessage.push({
+            processedMessages.push({ id: generateId(), role: 'assistant', content });
+            processedMessages.push({
               id: generateId(),
               role: 'user',
               content: `[Model: ${model}]\n\n[Provider: ${provider}]\n\n${CONTINUE_PROMPT}`,
             });
 
             const result = await streamText({
-              messages: [...processedMessage],
+              messages: [...processedMessages],
               env: context.cloudflare?.env,
               options,
               apiKeys,
@@ -297,7 +297,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
         } satisfies ProgressAnnotation);
 
         const result = await streamText({
-          messages: [...processedMessage],
+          messages: [...processedMessages],
           env: context.cloudflare?.env,
           options,
           apiKeys,
