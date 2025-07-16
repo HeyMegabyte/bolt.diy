@@ -26,6 +26,14 @@ export interface StreamingOptions extends Omit<Parameters<typeof _streamText>[0]
 
 const logger = createScopedLogger('stream-text');
 
+function sanitizeText(text: string): string {
+  let sanitized = text.replace(/<div class=\\"__boltThought__\\">.*?<\/div>/s, '');
+  sanitized = sanitized.replace(/<think>.*?<\/think>/s, '');
+  sanitized = sanitized.replace(/<boltAction type="file" filePath="package-lock\.json">[\s\S]*?<\/boltAction>/g, '');
+
+  return sanitized.trim();
+}
+
 export async function streamText(props: {
   messages: Omit<Message, 'id'>[];
   env?: Env;
@@ -58,30 +66,25 @@ export async function streamText(props: {
   let currentModel = DEFAULT_MODEL;
   let currentProvider = DEFAULT_PROVIDER.name;
   let processedMessages = messages.map((message) => {
+    const newMessage = { ...message };
+
     if (message.role === 'user') {
       const { model, provider, content } = extractPropertiesFromMessage(message);
       currentModel = model;
       currentProvider = provider;
-
-      return { ...message, content };
+      newMessage.content = sanitizeText(content);
     } else if (message.role == 'assistant') {
-      let content = message.content;
-      content = content.replace(/<div class=\\"__boltThought__\\">.*?<\/div>/s, '');
-      content = content.replace(/<think>.*?<\/think>/s, '');
-
-      // Remove package-lock.json content specifically keeping token usage MUCH lower
-      content = content.replace(
-        /<boltAction type="file" filePath="package-lock\.json">[\s\S]*?<\/boltAction>/g,
-        '[package-lock.json content removed]',
-      );
-
-      // Trim whitespace potentially left after removals
-      content = content.trim();
-
-      return { ...message, content };
+      newMessage.content = sanitizeText(message.content);
     }
 
-    return message;
+    // Sanitize all text parts in parts array, if present
+    if (Array.isArray(message.parts)) {
+      newMessage.parts = message.parts.map((part) =>
+        part.type === 'text' ? { ...part, text: sanitizeText(part.text) } : part,
+      );
+    }
+
+    return newMessage;
   });
 
   const provider = PROVIDER_LIST.find((p) => p.name === currentProvider) || DEFAULT_PROVIDER;
