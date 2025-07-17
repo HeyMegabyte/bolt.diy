@@ -60,7 +60,7 @@ export default class GroqProvider extends BaseProvider {
       name: m.id,
       label: `${m.id} - context ${m.context_window ? Math.floor(m.context_window / 1000) + 'k' : 'N/A'} [ by ${m.owned_by}]`,
       provider: this.name,
-      maxTokenAllowed: m.context_window || 8000,
+      maxTokenAllowed: Math.min(m.context_window || 8192, 16384),
     }));
   }
 
