@@ -15,6 +15,21 @@ interface ModelSelectorProps {
   modelLoading?: string;
 }
 
+// Helper function to determine if a model is likely free
+const isModelLikelyFree = (model: ModelInfo, providerName?: string): boolean => {
+  // OpenRouter models with zero pricing in the label
+  if (providerName === 'OpenRouter' && model.label.includes('in:$0.00') && model.label.includes('out:$0.00')) {
+    return true;
+  }
+
+  // Models with "free" in the name or label
+  if (model.name.toLowerCase().includes('free') || model.label.toLowerCase().includes('free')) {
+    return true;
+  }
+
+  return false;
+};
+
 export const ModelSelector = ({
   model,
   setModel,
@@ -36,6 +51,7 @@ export const ModelSelector = ({
   const providerSearchInputRef = useRef<HTMLInputElement>(null);
   const providerOptionsRef = useRef<(HTMLDivElement | null)[]>([]);
   const providerDropdownRef = useRef<HTMLDivElement>(null);
+  const [showFreeModelsOnly, setShowFreeModelsOnly] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -57,19 +73,31 @@ export const ModelSelector = ({
 
   const filteredModels = [...modelList]
     .filter((e) => e.provider === provider?.name && e.name)
-    .filter(
-      (model) =>
+    .filter((model) => {
+      // Apply free models filter
+      if (showFreeModelsOnly && !isModelLikelyFree(model, provider?.name)) {
+        return false;
+      }
+
+      // Apply search filter
+      return (
         model.label.toLowerCase().includes(modelSearchQuery.toLowerCase()) ||
-        model.name.toLowerCase().includes(modelSearchQuery.toLowerCase()),
-    );
+        model.name.toLowerCase().includes(modelSearchQuery.toLowerCase())
+      );
+    });
 
   const filteredProviders = providerList.filter((p) =>
     p.name.toLowerCase().includes(providerSearchQuery.toLowerCase()),
   );
 
+  // Reset free models filter when provider changes
+  useEffect(() => {
+    setShowFreeModelsOnly(false);
+  }, [provider?.name]);
+
   useEffect(() => {
     setFocusedModelIndex(-1);
-  }, [modelSearchQuery, isModelDropdownOpen]);
+  }, [modelSearchQuery, isModelDropdownOpen, showFreeModelsOnly]);
 
   useEffect(() => {
     setFocusedProviderIndex(-1);
@@ -384,7 +412,36 @@ export const ModelSelector = ({
             role="listbox"
             id="model-listbox"
           >
-            <div className="px-2 pb-2">
+            <div className="px-2 pb-2 space-y-2">
+              {/* Free Models Filter Toggle - Only show for OpenRouter */}
+              {provider?.name === 'OpenRouter' && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowFreeModelsOnly(!showFreeModelsOnly);
+                    }}
+                    className={classNames(
+                      'flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all',
+                      'hover:bg-bolt-elements-background-depth-3',
+                      showFreeModelsOnly
+                        ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                        : 'bg-bolt-elements-background-depth-3 text-bolt-elements-textSecondary border border-bolt-elements-borderColor',
+                    )}
+                  >
+                    <span className="i-ph:gift text-xs" />
+                    Free models only
+                  </button>
+                  {showFreeModelsOnly && (
+                    <span className="text-xs text-bolt-elements-textTertiary">
+                      {filteredModels.length} free model{filteredModels.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Search Input */}
               <div className="relative">
                 <input
                   ref={modelSearchInputRef}
@@ -428,7 +485,9 @@ export const ModelSelector = ({
               {modelLoading === 'all' || modelLoading === provider?.name ? (
                 <div className="px-3 py-2 text-sm text-bolt-elements-textTertiary">Loading...</div>
               ) : filteredModels.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-bolt-elements-textTertiary">No models found</div>
+                <div className="px-3 py-2 text-sm text-bolt-elements-textTertiary">
+                  {showFreeModelsOnly ? 'No free models found' : 'No models found'}
+                </div>
               ) : (
                 filteredModels.map((modelOption, index) => (
                   <div
@@ -454,7 +513,12 @@ export const ModelSelector = ({
                     }}
                     tabIndex={focusedModelIndex === index ? 0 : -1}
                   >
-                    {modelOption.label}
+                    <div className="flex items-center justify-between">
+                      <span>{modelOption.label}</span>
+                      {isModelLikelyFree(modelOption, provider?.name) && (
+                        <span className="i-ph:gift text-xs text-purple-400 ml-2" title="Free model" />
+                      )}
+                    </div>
                   </div>
                 ))
               )}
