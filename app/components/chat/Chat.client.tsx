@@ -589,8 +589,6 @@ export const ChatImpl = memo(
       textareaRef.current?.blur();
     };
 
-    console.log(messages);
-
     /**
      * Handles the change event for the textarea and updates the input state.
      * @param event - The change event from the textarea.
