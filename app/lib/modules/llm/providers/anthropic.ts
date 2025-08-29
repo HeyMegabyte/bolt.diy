@@ -22,6 +22,7 @@ export default class AnthropicProvider extends BaseProvider {
       label: 'Claude 3.5 Sonnet',
       provider: 'Anthropic',
       maxTokenAllowed: 200000,
+      maxCompletionTokens: 128000,
     },
 
     // Claude 3 Haiku: 200k context, fastest and most cost-effective
@@ -30,6 +31,7 @@ export default class AnthropicProvider extends BaseProvider {
       label: 'Claude 3 Haiku',
       provider: 'Anthropic',
       maxTokenAllowed: 200000,
+      maxCompletionTokens: 128000,
     },
   ];
 
@@ -84,6 +86,7 @@ export default class AnthropicProvider extends BaseProvider {
         label: `${m.display_name} (${Math.floor(contextWindow / 1000)}k context)`,
         provider: this.name,
         maxTokenAllowed: contextWindow,
+        maxCompletionTokens: 128000, // Claude models support up to 128k completion tokens
       };
     });
   }

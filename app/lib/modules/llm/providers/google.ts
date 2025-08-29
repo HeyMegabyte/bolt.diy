@@ -17,10 +17,22 @@ export default class GoogleProvider extends BaseProvider {
      * Essential fallback models - only the most reliable/stable ones
      * Gemini 1.5 Pro: 2M context, excellent for complex reasoning and large codebases
      */
-    { name: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro', provider: 'Google', maxTokenAllowed: 2000000 },
+    {
+      name: 'gemini-1.5-pro',
+      label: 'Gemini 1.5 Pro',
+      provider: 'Google',
+      maxTokenAllowed: 2000000,
+      maxCompletionTokens: 32768,
+    },
 
     // Gemini 1.5 Flash: 1M context, fast and cost-effective
-    { name: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash', provider: 'Google', maxTokenAllowed: 1000000 },
+    {
+      name: 'gemini-1.5-flash',
+      label: 'Gemini 1.5 Flash',
+      provider: 'Google',
+      maxTokenAllowed: 1000000,
+      maxCompletionTokens: 32768,
+    },
   ];
 
   async getDynamicModels(
@@ -89,11 +101,19 @@ export default class GoogleProvider extends BaseProvider {
       const maxAllowed = 2000000; // 2M tokens max
       const finalContext = Math.min(contextWindow, maxAllowed);
 
+      // Get completion token limit from Google API
+      let completionTokens = 32768; // default fallback
+
+      if (m.outputTokenLimit && m.outputTokenLimit > 0) {
+        completionTokens = Math.min(m.outputTokenLimit, 128000); // Cap at reasonable limit
+      }
+
       return {
         name: modelName,
         label: `${m.displayName} (${finalContext >= 1000000 ? Math.floor(finalContext / 1000000) + 'M' : Math.floor(finalContext / 1000) + 'k'} context)`,
         provider: this.name,
         maxTokenAllowed: finalContext,
+        maxCompletionTokens: completionTokens,
       };
     });
   }

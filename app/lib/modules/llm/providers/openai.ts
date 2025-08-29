@@ -17,10 +17,16 @@ export default class OpenAIProvider extends BaseProvider {
      * Essential fallback models - only the most stable/reliable ones
      * GPT-4o: 128k context, high performance, recommended for most tasks
      */
-    { name: 'gpt-4o', label: 'GPT-4o', provider: 'OpenAI', maxTokenAllowed: 128000 },
+    { name: 'gpt-4o', label: 'GPT-4o', provider: 'OpenAI', maxTokenAllowed: 128000, maxCompletionTokens: 16384 },
 
     // GPT-3.5-turbo: 16k context, fast and cost-effective
-    { name: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', provider: 'OpenAI', maxTokenAllowed: 16000 },
+    {
+      name: 'gpt-3.5-turbo',
+      label: 'GPT-3.5 Turbo',
+      provider: 'OpenAI',
+      maxTokenAllowed: 16000,
+      maxCompletionTokens: 4096,
+    },
   ];
 
   async getDynamicModels(

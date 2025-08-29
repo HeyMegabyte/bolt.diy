@@ -1,5 +1,5 @@
 import { convertToCoreMessages, streamText as _streamText, type Message } from 'ai';
-import { MAX_TOKENS, type FileMap } from './constants';
+import { MAX_TOKENS, PROVIDER_COMPLETION_LIMITS, isReasoningModel, type FileMap } from './constants';
 import { getSystemPrompt } from '~/lib/common/prompts/prompts';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER, MODIFICATIONS_TAG_NAME, PROVIDER_LIST, WORK_DIR } from '~/utils/constants';
 import type { IProviderSetting } from '~/types/model';
@@ -25,6 +25,23 @@ export interface StreamingOptions extends Omit<Parameters<typeof _streamText>[0]
 }
 
 const logger = createScopedLogger('stream-text');
+
+function getCompletionTokenLimit(modelDetails: any): number {
+  // 1. If model specifies completion tokens, use that
+  if (modelDetails.maxCompletionTokens && modelDetails.maxCompletionTokens > 0) {
+    return modelDetails.maxCompletionTokens;
+  }
+
+  // 2. Use provider-specific default
+  const providerDefault = PROVIDER_COMPLETION_LIMITS[modelDetails.provider];
+
+  if (providerDefault) {
+    return providerDefault;
+  }
+
+  // 3. Final fallback to MAX_TOKENS, but cap at reasonable limit for safety
+  return Math.min(MAX_TOKENS, 16384);
+}
 
 function sanitizeText(text: string): string {
   let sanitized = text.replace(/<div class=\\"__boltThought__\\">.*?<\/div>/s, '');
@@ -123,10 +140,10 @@ export async function streamText(props: {
     }
   }
 
-  const dynamicMaxTokens = modelDetails && modelDetails.maxTokenAllowed ? modelDetails.maxTokenAllowed : MAX_TOKENS;
+  const dynamicMaxTokens = modelDetails ? getCompletionTokenLimit(modelDetails) : Math.min(MAX_TOKENS, 16384);
 
-  // Ensure we never exceed reasonable token limits to prevent API errors
-  const safeMaxTokens = Math.min(dynamicMaxTokens, 100000); // Cap at 100k for safety
+  // Additional safety cap - should not be needed with proper completion limits, but kept for safety
+  const safeMaxTokens = Math.min(dynamicMaxTokens, 128000);
 
   logger.info(
     `Max tokens for model ${modelDetails.name} is ${safeMaxTokens} (capped from ${dynamicMaxTokens}) based on model limits`,
@@ -204,9 +221,52 @@ export async function streamText(props: {
 
   logger.info(`Sending llm call to ${provider.name} with model ${modelDetails.name}`);
 
+  // DEBUG: Log reasoning model detection
+  const isReasoning = isReasoningModel(modelDetails.name);
+  logger.info(`DEBUG STREAM: Model "${modelDetails.name}" detected as reasoning model: ${isReasoning}`);
+
   // console.log(systemPrompt, processedMessages);
 
-  return await _streamText({
+  // Use maxCompletionTokens for reasoning models (o1, GPT-5), maxTokens for traditional models
+  const tokenParams = isReasoning ? { maxCompletionTokens: safeMaxTokens } : { maxTokens: safeMaxTokens };
+
+  // Filter out unsupported parameters for reasoning models
+  const filteredOptions =
+    isReasoning && options
+      ? Object.fromEntries(
+          Object.entries(options).filter(
+            ([key]) =>
+              ![
+                'temperature',
+                'topP',
+                'presencePenalty',
+                'frequencyPenalty',
+                'logprobs',
+                'topLogprobs',
+                'logitBias',
+              ].includes(key),
+          ),
+        )
+      : options || {};
+
+  // DEBUG: Log filtered options
+  logger.info(
+    `DEBUG STREAM: Options filtering for model "${modelDetails.name}":`,
+    JSON.stringify(
+      {
+        isReasoning,
+        originalOptions: options || {},
+        filteredOptions,
+        originalOptionsKeys: options ? Object.keys(options) : [],
+        filteredOptionsKeys: Object.keys(filteredOptions),
+        removedParams: options ? Object.keys(options).filter((key) => !(key in filteredOptions)) : [],
+      },
+      null,
+      2,
+    ),
+  );
+
+  const streamParams = {
     model: provider.getModelInstance({
       model: modelDetails.name,
       serverEnv,
@@ -214,8 +274,31 @@ export async function streamText(props: {
       providerSettings,
     }),
     system: chatMode === 'build' ? systemPrompt : discussPrompt(),
-    maxTokens: safeMaxTokens,
+    ...tokenParams,
     messages: convertToCoreMessages(processedMessages as any),
-    ...options,
-  });
+    ...filteredOptions,
+
+    // Set temperature to 1 for reasoning models (required by OpenAI API)
+    ...(isReasoning ? { temperature: 1 } : {}),
+  };
+
+  // DEBUG: Log final streaming parameters
+  logger.info(
+    `DEBUG STREAM: Final streaming params for model "${modelDetails.name}":`,
+    JSON.stringify(
+      {
+        hasTemperature: 'temperature' in streamParams,
+        hasMaxTokens: 'maxTokens' in streamParams,
+        hasMaxCompletionTokens: 'maxCompletionTokens' in streamParams,
+        paramKeys: Object.keys(streamParams).filter((key) => !['model', 'messages', 'system'].includes(key)),
+        streamParams: Object.fromEntries(
+          Object.entries(streamParams).filter(([key]) => !['model', 'messages', 'system'].includes(key)),
+        ),
+      },
+      null,
+      2,
+    ),
+  );
+
+  return await _streamText(streamParams);
 }
