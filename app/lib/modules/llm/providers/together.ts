@@ -22,6 +22,7 @@ export default class TogetherProvider extends BaseProvider {
       label: 'Llama 3.2 90B Vision',
       provider: 'Together',
       maxTokenAllowed: 128000,
+      maxCompletionTokens: 8192,
     },
 
     // Mixtral 8x7B: 32k context, strong performance
@@ -30,6 +31,7 @@ export default class TogetherProvider extends BaseProvider {
       label: 'Mixtral 8x7B Instruct',
       provider: 'Together',
       maxTokenAllowed: 32000,
+      maxCompletionTokens: 8192,
     },
   ];
 
@@ -67,6 +69,7 @@ export default class TogetherProvider extends BaseProvider {
       label: `${m.display_name} - in:$${m.pricing.input.toFixed(2)} out:$${m.pricing.output.toFixed(2)} - context ${Math.floor(m.context_length / 1000)}k`,
       provider: this.name,
       maxTokenAllowed: 8000,
+      maxCompletionTokens: 8192,
     }));
   }
 

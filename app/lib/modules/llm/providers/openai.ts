@@ -79,11 +79,26 @@ export default class OpenAIProvider extends BaseProvider {
         contextWindow = 16385; // GPT-3.5-turbo has 16k context
       }
 
+      // Determine completion token limits based on model type
+      let maxCompletionTokens = 16384; // default for most models
+
+      if (m.id?.startsWith('o1-preview') || m.id?.startsWith('o1-mini') || m.id?.startsWith('o1')) {
+        // Reasoning models have specific completion limits
+        maxCompletionTokens = m.id?.includes('mini') ? 8192 : 16384;
+      } else if (m.id?.includes('gpt-4o')) {
+        maxCompletionTokens = 16384;
+      } else if (m.id?.includes('gpt-4')) {
+        maxCompletionTokens = 8192;
+      } else if (m.id?.includes('gpt-3.5-turbo')) {
+        maxCompletionTokens = 4096;
+      }
+
       return {
         name: m.id,
         label: `${m.id} (${Math.floor(contextWindow / 1000)}k context)`,
         provider: this.name,
         maxTokenAllowed: Math.min(contextWindow, 128000), // Cap at 128k for safety
+        maxCompletionTokens,
       };
     });
   }
