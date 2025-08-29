@@ -76,7 +76,7 @@ export const DeployButton = ({ onVercelDeploy, onNetlifyDeploy, onGitHubDeploy }
         await onGitHubDeploy();
       } else {
         const result = await handleGitHubDeploy();
-        
+
         if (result && result.success && result.files) {
           setGithubDeploymentFiles(result.files);
           setGithubProjectName(result.projectName);
@@ -129,7 +129,9 @@ export const DeployButton = ({ onVercelDeploy, onNetlifyDeploy, onGitHubDeploy }
                 crossOrigin="anonymous"
                 src="https://cdn.simpleicons.org/netlify"
               />
-              <span className="mx-auto">{!netlifyConn.user ? 'No Netlify Account Connected' : 'Deploy to Netlify'}</span>
+              <span className="mx-auto">
+                {!netlifyConn.user ? 'No Netlify Account Connected' : 'Deploy to Netlify'}
+              </span>
               {netlifyConn.user && <NetlifyDeploymentLink />}
             </DropdownMenu.Item>
 
@@ -196,7 +198,7 @@ export const DeployButton = ({ onVercelDeploy, onNetlifyDeploy, onGitHubDeploy }
 
       {/* GitHub Deployment Dialog */}
       {showGitHubDeploymentDialog && githubDeploymentFiles && (
-        <GitHubDeploymentDialog 
+        <GitHubDeploymentDialog
           isOpen={showGitHubDeploymentDialog}
           onClose={() => setShowGitHubDeploymentDialog(false)}
           projectName={githubProjectName}
