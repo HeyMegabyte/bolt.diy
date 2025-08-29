@@ -108,7 +108,14 @@ export async function streamText(props: {
     modelDetails = modelsList.find((m) => m.name === currentModel);
 
     if (!modelDetails) {
-      // Fallback to first model
+      // Check if it's a Google provider and the model name looks like it might be incorrect
+      if (provider.name === 'Google' && currentModel.includes('2.5')) {
+        throw new Error(
+          `Model "${currentModel}" not found. Gemini 2.5 Pro doesn't exist. Available Gemini models include: gemini-1.5-pro, gemini-2.0-flash, gemini-1.5-flash. Please select a valid model.`,
+        );
+      }
+
+      // Fallback to first model with warning
       logger.warn(
         `MODEL [${currentModel}] not found in provider [${provider.name}]. Falling back to first model. ${modelsList[0].name}`,
       );
@@ -117,8 +124,12 @@ export async function streamText(props: {
   }
 
   const dynamicMaxTokens = modelDetails && modelDetails.maxTokenAllowed ? modelDetails.maxTokenAllowed : MAX_TOKENS;
+
+  // Ensure we never exceed reasonable token limits to prevent API errors
+  const safeMaxTokens = Math.min(dynamicMaxTokens, 100000); // Cap at 100k for safety
+
   logger.info(
-    `Max tokens for model ${modelDetails.name} is ${dynamicMaxTokens} based on ${modelDetails.maxTokenAllowed} or ${MAX_TOKENS}`,
+    `Max tokens for model ${modelDetails.name} is ${safeMaxTokens} (capped from ${dynamicMaxTokens}) based on model limits`,
   );
 
   let systemPrompt =
@@ -203,7 +214,7 @@ export async function streamText(props: {
       providerSettings,
     }),
     system: chatMode === 'build' ? systemPrompt : discussPrompt(),
-    maxTokens: dynamicMaxTokens,
+    maxTokens: safeMaxTokens,
     messages: convertToCoreMessages(processedMessages as any),
     ...options,
   });
