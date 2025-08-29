@@ -129,9 +129,7 @@ export const DeployButton = ({ onVercelDeploy, onNetlifyDeploy, onGitHubDeploy }
                 crossOrigin="anonymous"
                 src="https://cdn.simpleicons.org/netlify"
               />
-              <span className="mx-auto">
-                {!netlifyConn.user ? 'No Netlify Account Connected' : 'Deploy to Netlify'}
-              </span>
+              <span className="mx-auto">{!netlifyConn.user ? 'No Netlify Account Connected' : 'Deploy to Netlify'}</span>
               {netlifyConn.user && <NetlifyDeploymentLink />}
             </DropdownMenu.Item>
 
