@@ -14,7 +14,7 @@ export function useGitHubDeploy() {
 
   const handleGitHubDeploy = async () => {
     const connection = getLocalStorage('github_connection');
-    
+
     if (!connection?.token || !connection?.user) {
       toast.error('Please connect your GitHub account in Settings > Connections first');
       return false;
@@ -75,8 +75,8 @@ export function useGitHubDeploy() {
       }
 
       // Notify that build succeeded and deployment preparation is starting
-      deployArtifact.runner.handleDeployAction('deploying', 'running', { 
-        source: 'github'
+      deployArtifact.runner.handleDeployAction('deploying', 'running', {
+        source: 'github',
       });
 
       // Get all project files instead of just the build directory since we're deploying to a repository
@@ -89,31 +89,32 @@ export function useGitHubDeploy() {
 
         for (const entry of entries) {
           const fullPath = path.join(dirPath, entry.name);
+
           // Create a relative path without the leading slash for GitHub
           const relativePath = basePath ? `${basePath}/${entry.name}` : entry.name;
 
           // Skip node_modules, .git directories and other common excludes
-          if (entry.isDirectory() && (
-            entry.name === 'node_modules' || 
-            entry.name === '.git' ||
-            entry.name === 'dist' ||
-            entry.name === 'build' ||
-            entry.name === '.cache' ||
-            entry.name === '.next'
-          )) {
+          if (
+            entry.isDirectory() &&
+            (entry.name === 'node_modules' ||
+              entry.name === '.git' ||
+              entry.name === 'dist' ||
+              entry.name === 'build' ||
+              entry.name === '.cache' ||
+              entry.name === '.next')
+          ) {
             continue;
           }
 
           if (entry.isFile()) {
             // Skip binary files, large files and other common excludes
-            if (entry.name.endsWith('.DS_Store') || 
-                entry.name.endsWith('.log') ||
-                entry.name.startsWith('.env')) {
+            if (entry.name.endsWith('.DS_Store') || entry.name.endsWith('.log') || entry.name.startsWith('.env')) {
               continue;
             }
-            
+
             try {
               const content = await container.fs.readFile(fullPath, 'utf-8');
+
               // Store the file with its relative path, not the full system path
               files[relativePath] = content;
             } catch (error) {
@@ -130,24 +131,29 @@ export function useGitHubDeploy() {
       }
 
       const fileContents = await getAllFiles('/');
-      
-      // Show GitHub deployment dialog here - it will handle the actual deployment
-      // and will receive these files to deploy
-      
-      // For now, we'll just complete the deployment with a success message
-      // Notify that deployment preparation is complete
-      deployArtifact.runner.handleDeployAction('deploying', 'complete', { 
-        source: 'github' 
+
+      /*
+       * Show GitHub deployment dialog here - it will handle the actual deployment
+       * and will receive these files to deploy
+       */
+
+      /*
+       * For now, we'll just complete the deployment with a success message
+       * Notify that deployment preparation is complete
+       */
+      deployArtifact.runner.handleDeployAction('deploying', 'complete', {
+        source: 'github',
       });
-      
+
       return {
         success: true,
         files: fileContents,
-        projectName: artifact.title || 'bolt-project'
+        projectName: artifact.title || 'bolt-project',
       };
     } catch (err) {
       console.error('GitHub deploy error:', err);
       toast.error(err instanceof Error ? err.message : 'GitHub deployment preparation failed');
+
       return false;
     } finally {
       setIsDeploying(false);
