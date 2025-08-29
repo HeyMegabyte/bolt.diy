@@ -38,7 +38,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
   useEffect(() => {
     if (isOpen) {
       const connection = getLocalStorage('github_connection');
-      
+
       // Set a default repository name based on the project name
       setRepoName(projectName.replace(/\s+/g, '-').toLowerCase());
 
@@ -80,6 +80,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
     if (!token) {
       logStore.logError('No GitHub token available');
       toast.error('GitHub authentication required');
+
       return;
     }
 
@@ -105,7 +106,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
 
           try {
             errorData = await response.json();
-          } catch (e) {
+          } catch {
             errorData = { message: 'Could not parse error response' };
           }
 
@@ -149,10 +150,11 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
           logStore.logError('Failed to parse GitHub repositories response', { parseError });
           toast.error('Failed to parse repository data');
           setRecentRepos([]);
+
           return;
         }
       }
-      
+
       setRecentRepos(allRepos);
     } catch (error) {
       logStore.logError('Failed to fetch GitHub repositories', { error });
@@ -184,78 +186,79 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
       // Initialize Octokit with the GitHub token
       const octokit = new Octokit({ auth: connection.token });
       let repoExists = false;
-      
+
       try {
         // Check if the repository already exists
         const { data: existingRepo } = await octokit.repos.get({
           owner: connection.user.login,
           repo: repoName,
         });
-        
+
         repoExists = true;
-        
+
         // If we get here, the repo exists - confirm overwrite
         let confirmMessage = `Repository "${repoName}" already exists. Do you want to update it? This will add or modify files in the repository.`;
-        
+
         // Add visibility change warning if needed
         if (existingRepo.private !== isPrivate) {
           const visibilityChange = isPrivate
             ? 'This will also change the repository from public to private.'
             : 'This will also change the repository from private to public.';
-          
+
           confirmMessage += `\n\n${visibilityChange}`;
         }
-        
+
         const confirmOverwrite = window.confirm(confirmMessage);
-        
+
         if (!confirmOverwrite) {
           setIsLoading(false);
           return;
         }
-        
+
         // If visibility needs to be updated
         if (existingRepo.private !== isPrivate) {
           await octokit.repos.update({
             owner: connection.user.login,
             repo: repoName,
-            private: isPrivate
+            private: isPrivate,
           });
         }
-        
       } catch (error: any) {
         // 404 means repo doesn't exist, which is what we want for new repos
         if (error.status !== 404) {
           throw error;
         }
       }
-      
+
       // Create repository if it doesn't exist
       if (!repoExists) {
         const { data: newRepo } = await octokit.repos.createForAuthenticatedUser({
           name: repoName,
           private: isPrivate,
+
           // Initialize with a README to avoid empty repository issues
           auto_init: true,
+
           // Create a .gitignore file for the project
-          gitignore_template: "Node",
+          gitignore_template: 'Node',
         });
-        
+
         // Set the URL for success dialog
         setCreatedRepoUrl(newRepo.html_url);
-        
+
         // Since we created the repo with auto_init, we need to wait for GitHub to initialize it
         console.log('Created new repository with auto_init, waiting for GitHub to initialize it...');
-        
+
         // Wait a moment for GitHub to set up the initial commit
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       } else {
         // Set URL for existing repo
         setCreatedRepoUrl(`https://github.com/${connection.user.login}/${repoName}`);
       }
-      
+
       // Process files to upload
       const fileEntries = Object.entries(files);
-      
+
       // Filter out files and format them for display
       const fileList = fileEntries.map(([filePath, content]) => {
         // The paths are already properly formatted in the GitHubDeploy component
@@ -264,14 +267,16 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
           size: new TextEncoder().encode(content).length,
         };
       });
-      
+
       setPushedFiles(fileList);
-      
-      // Now we need to handle the repository, whether it's new or existing
-      // Get the default branch for the repository
+
+      /*
+       * Now we need to handle the repository, whether it's new or existing
+       * Get the default branch for the repository
+       */
       let defaultBranch: string;
       let baseSha: string | null = null;
-      
+
       try {
         // For both new and existing repos, get the repository info
         const { data: repo } = await octokit.repos.get({
@@ -280,7 +285,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
         });
         defaultBranch = repo.default_branch || 'main';
         console.log(`Repository default branch: ${defaultBranch}`);
-        
+
         // For a newly created repo (or existing one), get the reference to the default branch
         try {
           const { data: refData } = await octokit.git.getRef({
@@ -288,17 +293,17 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
             repo: repoName,
             ref: `heads/${defaultBranch}`,
           });
-          
+
           baseSha = refData.object.sha;
           console.log(`Found existing reference with SHA: ${baseSha}`);
-          
+
           // Get the latest commit to use as a base for our tree
           const { data: commitData } = await octokit.git.getCommit({
             owner: connection.user.login,
             repo: repoName,
             commit_sha: baseSha,
           });
-          
+
           // Store the base tree SHA for tree creation
           baseSha = commitData.tree.sha;
           console.log(`Using base tree SHA: ${baseSha}`);
@@ -311,10 +316,10 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
         defaultBranch = 'main';
         baseSha = null;
       }
-      
+
       try {
         console.log('Creating tree for repository');
-        
+
         // Create a tree with all files
         const tree = fileEntries.map(([filePath, content]) => ({
           path: filePath, // We've already formatted the paths correctly
@@ -322,9 +327,9 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
           type: 'blob' as const,
           content,
         }));
-        
+
         console.log(`Creating tree with ${tree.length} files using base: ${baseSha || 'none'}`);
-        
+
         // Create a tree with all the files, using the base tree if available
         const { data: treeData } = await octokit.git.createTree({
           owner: connection.user.login,
@@ -332,12 +337,12 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
           tree,
           base_tree: baseSha || undefined,
         });
-        
+
         console.log('Tree created successfully', treeData.sha);
-        
+
         // Get the current reference to use as parent for our commit
         let parentCommitSha: string | null = null;
-        
+
         try {
           const { data: refData } = await octokit.git.getRef({
             owner: connection.user.login,
@@ -350,9 +355,10 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
           console.log('No reference found, this is a brand new repo', refError);
           parentCommitSha = null;
         }
-        
+
         // Create a commit with the tree
         console.log('Creating commit');
+
         const { data: commitData } = await octokit.git.createCommit({
           owner: connection.user.login,
           repo: repoName,
@@ -360,9 +366,9 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
           tree: treeData.sha,
           parents: parentCommitSha ? [parentCommitSha] : [], // Use parent if available
         });
-        
+
         console.log('Commit created successfully', commitData.sha);
-        
+
         // Update the reference to point to the new commit
         try {
           console.log(`Updating reference: heads/${defaultBranch} to ${commitData.sha}`);
@@ -376,7 +382,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
           console.log('Reference updated successfully');
         } catch (refError) {
           console.log('Failed to update reference, attempting to create it', refError);
-          
+
           // If the reference doesn't exist, create it (shouldn't happen with auto_init, but just in case)
           try {
             await octokit.git.createRef({
@@ -388,31 +394,42 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
             console.log('Reference created successfully');
           } catch (createRefError) {
             console.error('Error creating reference:', createRefError);
-            const errorMsg = typeof createRefError === 'object' && createRefError !== null && 'message' in createRefError ? String(createRefError.message) : 'Unknown error';
+
+            const errorMsg =
+              typeof createRefError === 'object' && createRefError !== null && 'message' in createRefError
+                ? String(createRefError.message)
+                : 'Unknown error';
             throw new Error(`Failed to create Git reference: ${errorMsg}`);
           }
         }
       } catch (gitError) {
         console.error('Error with git operations:', gitError);
-        const gitErrorMsg = typeof gitError === 'object' && gitError !== null && 'message' in gitError ? String(gitError.message) : 'Unknown error';
+
+        const gitErrorMsg =
+          typeof gitError === 'object' && gitError !== null && 'message' in gitError
+            ? String(gitError.message)
+            : 'Unknown error';
         throw new Error(`Failed during git operations: ${gitErrorMsg}`);
       }
-      
+
       // Save the repository information for this chat
-      localStorage.setItem(`github-repo-${currentChatId}`, JSON.stringify({
-        owner: connection.user.login,
-        name: repoName,
-        url: `https://github.com/${connection.user.login}/${repoName}`,
-      }));
-      
+      localStorage.setItem(
+        `github-repo-${currentChatId}`,
+        JSON.stringify({
+          owner: connection.user.login,
+          name: repoName,
+          url: `https://github.com/${connection.user.login}/${repoName}`,
+        }),
+      );
+
       // Show success dialog
       setShowSuccessDialog(true);
     } catch (error) {
       console.error('Error pushing to GitHub:', error);
-      
+
       // Attempt to extract more specific error information
       let errorMessage = 'Failed to push to GitHub.';
-      
+
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'object' && error !== null) {
@@ -420,13 +437,13 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
         if ('message' in error) {
           errorMessage = error.message as string;
         }
-        
+
         // GitHub API errors
         if ('documentation_url' in error) {
           console.log('GitHub API documentation:', error.documentation_url);
         }
       }
-      
+
       toast.error(`GitHub deployment failed: ${errorMessage}`);
     } finally {
       setIsLoading(false);
@@ -443,9 +460,10 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
 
   const handleAuthDialogClose = () => {
     setShowAuthDialog(false);
-    
+
     // Refresh user data after auth
     const connection = getLocalStorage('github_connection');
+
     if (connection?.user && connection?.token) {
       setUser(connection.user);
       fetchRecentRepos(connection.token);
@@ -657,7 +675,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
             </motion.div>
           </div>
         </Dialog.Portal>
-        
+
         {/* GitHub Auth Dialog */}
         <GitHubAuthDialog isOpen={showAuthDialog} onClose={handleAuthDialogClose} />
       </Dialog.Root>
@@ -906,7 +924,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
           </motion.div>
         </div>
       </Dialog.Portal>
-      
+
       {/* GitHub Auth Dialog */}
       <GitHubAuthDialog isOpen={showAuthDialog} onClose={handleAuthDialogClose} />
     </Dialog.Root>

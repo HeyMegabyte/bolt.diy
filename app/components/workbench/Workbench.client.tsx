@@ -22,7 +22,7 @@ import { renderLogger } from '~/utils/logger';
 import { EditorPanel } from './EditorPanel';
 import { Preview } from './Preview';
 import useViewport from '~/lib/hooks';
-import { PushToGitHubDialog } from '~/components/@settings/tabs/connections/components/PushToGitHubDialog';
+
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { usePreviewStore } from '~/lib/stores/previews';
 import { chatStore } from '~/lib/stores/chat';
@@ -279,11 +279,17 @@ const FileModifiedDropdown = memo(
 );
 
 export const Workbench = memo(
-  ({ chatStarted, isStreaming, metadata, updateChatMestaData, setSelectedElement }: WorkspaceProps) => {
+  ({
+    chatStarted,
+    isStreaming,
+    metadata: _metadata,
+    updateChatMestaData: _updateChatMestaData,
+    setSelectedElement,
+  }: WorkspaceProps) => {
     renderLogger.trace('Workbench');
 
     const [isSyncing, setIsSyncing] = useState(false);
-    const [isPushDialogOpen, setIsPushDialogOpen] = useState(false);
+
     const [fileHistory, setFileHistory] = useState<Record<string, FileHistory>>({});
 
     // const modifiedFiles = Array.from(useStore(workbenchStore.unsavedFiles).keys());
@@ -436,17 +442,6 @@ export const Workbench = memo(
                               <span>{isSyncing ? 'Syncing...' : 'Sync Files'}</span>
                             </div>
                           </DropdownMenu.Item>
-                          <DropdownMenu.Item
-                            className={classNames(
-                              'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
-                            )}
-                            onClick={() => setIsPushDialogOpen(true)}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className="i-ph:git-branch" />
-                              Push to GitHub
-                            </div>
-                          </DropdownMenu.Item>
                         </DropdownMenu.Content>
                       </DropdownMenu.Root>
                     </div>
@@ -493,31 +488,6 @@ export const Workbench = memo(
               </div>
             </div>
           </div>
-          <PushToGitHubDialog
-            isOpen={isPushDialogOpen}
-            onClose={() => setIsPushDialogOpen(false)}
-            onPush={async (repoName, username, token, isPrivate) => {
-              try {
-                console.log('Dialog onPush called with isPrivate =', isPrivate);
-
-                const commitMessage = prompt('Please enter a commit message:', 'Initial commit') || 'Initial commit';
-                const repoUrl = await workbenchStore.pushToGitHub(repoName, commitMessage, username, token, isPrivate);
-
-                if (updateChatMestaData && !metadata?.gitUrl) {
-                  updateChatMestaData({
-                    ...(metadata || {}),
-                    gitUrl: repoUrl,
-                  });
-                }
-
-                return repoUrl;
-              } catch (error) {
-                console.error('Error pushing to GitHub:', error);
-                toast.error('Failed to push to GitHub');
-                throw error;
-              }
-            }}
-          />
         </motion.div>
       )
     );
