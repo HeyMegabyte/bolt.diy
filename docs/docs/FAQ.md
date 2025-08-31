@@ -97,6 +97,24 @@ xAI has released several new Grok models with enhanced capabilities:
 
 ## Best Practices
 
+??? question "How do I access help and documentation?"
+bolt.diy provides multiple ways to access help and documentation:
+
+    **Help Icon in Sidebar:**
+    - Look for the question mark (?) icon in the sidebar
+    - Click it to open the full documentation in a new tab
+    - Provides instant access to guides, troubleshooting, and FAQs
+
+    **Documentation Resources:**
+    - **Main Documentation**: Complete setup and feature guides
+    - **FAQ Section**: Answers to common questions
+    - **Troubleshooting**: Solutions for common issues
+    - **Best Practices**: Tips for optimal usage
+
+    **Community Support:**
+    - **GitHub Issues**: Report bugs and request features
+    - **Community Forum**: [thinktank.ottomator.ai](https://thinktank.ottomator.ai)
+
 ??? question "How do I get the best results with bolt.diy?"
 Follow these proven strategies for optimal results:
 

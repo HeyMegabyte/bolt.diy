@@ -54,6 +54,7 @@ Also [this pinned post in our community](https://thinktank.ottomator.ai/t/videos
 - **Docker support** for containerized development environments
 - **Electron app** for native desktop experience
 - **Theme customization** and accessibility features
+- **Help icon** in sidebar linking to comprehensive documentation
 
 ---
 
@@ -607,6 +608,23 @@ This will start the Remix Vite development server. You will need Google Chrome C
 
 ---
 
+## Getting Help & Resources
+
+### Help Icon in Sidebar
+bolt.diy includes a convenient help icon (?) in the sidebar that provides quick access to comprehensive documentation. Simply click the help icon to open the full documentation in a new tab.
+
+The documentation includes:
+- **Complete setup guides** for all supported providers
+- **Feature explanations** for advanced capabilities
+- **Troubleshooting guides** for common issues
+- **Best practices** for optimal usage
+- **FAQ section** with detailed answers
+
+### Community Support
+- **GitHub Issues**: Report bugs and request features
+- **Community Forum**: Join discussions at [thinktank.ottomator.ai](https://thinktank.ottomator.ai)
+- **Contributing Guide**: Learn how to contribute to the project
+
 ## Tips and Tricks
 
 Here are some tips to get the most out of bolt.diy:
@@ -618,3 +636,5 @@ Here are some tips to get the most out of bolt.diy:
 - **Scaffold the basics first, then add features**: Make sure the basic structure of your application is in place before diving into more advanced functionality. This helps Bolt understand the foundation of your project and ensure everything is wired up right before building out more advanced functionality.
 
 - **Batch simple instructions**: Save time by combining simple instructions into one message. For example, you can ask Bolt to change the color scheme, add mobile responsiveness, and restart the dev server, all in one go saving you time and reducing API credit consumption significantly.
+
+- **Access documentation quickly**: Use the help icon (?) in the sidebar for instant access to guides, troubleshooting, and best practices.
