@@ -142,11 +142,11 @@ export async function streamText(props: {
 
   const dynamicMaxTokens = modelDetails ? getCompletionTokenLimit(modelDetails) : Math.min(MAX_TOKENS, 16384);
 
-  // Additional safety cap - should not be needed with proper completion limits, but kept for safety
-  const safeMaxTokens = Math.min(dynamicMaxTokens, 128000);
+  // Use model-specific limits directly - no artificial cap needed
+  const safeMaxTokens = dynamicMaxTokens;
 
   logger.info(
-    `Max tokens for model ${modelDetails.name} is ${safeMaxTokens} (capped from ${dynamicMaxTokens}) based on model limits`,
+    `Token limits for model ${modelDetails.name}: maxTokens=${safeMaxTokens}, maxTokenAllowed=${modelDetails.maxTokenAllowed}, maxCompletionTokens=${modelDetails.maxCompletionTokens}`,
   );
 
   let systemPrompt =
@@ -221,11 +221,18 @@ export async function streamText(props: {
 
   logger.info(`Sending llm call to ${provider.name} with model ${modelDetails.name}`);
 
-  // DEBUG: Log reasoning model detection
+  // Log reasoning model detection and token parameters
   const isReasoning = isReasoningModel(modelDetails.name);
-  logger.info(`DEBUG STREAM: Model "${modelDetails.name}" detected as reasoning model: ${isReasoning}`);
+  logger.info(
+    `Model "${modelDetails.name}" is reasoning model: ${isReasoning}, using ${isReasoning ? 'maxCompletionTokens' : 'maxTokens'}: ${safeMaxTokens}`,
+  );
 
-  // console.log(systemPrompt, processedMessages);
+  // Validate token limits before API call
+  if (safeMaxTokens > (modelDetails.maxTokenAllowed || 128000)) {
+    logger.warn(
+      `Token limit warning: requesting ${safeMaxTokens} tokens but model supports max ${modelDetails.maxTokenAllowed || 128000}`,
+    );
+  }
 
   // Use maxCompletionTokens for reasoning models (o1, GPT-5), maxTokens for traditional models
   const tokenParams = isReasoning ? { maxCompletionTokens: safeMaxTokens } : { maxTokens: safeMaxTokens };

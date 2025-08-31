@@ -13,6 +13,7 @@ import { OpenRouterStatusChecker } from './providers/openrouter';
 import { PerplexityStatusChecker } from './providers/perplexity';
 import { TogetherStatusChecker } from './providers/together';
 import { XAIStatusChecker } from './providers/xai';
+import { MoonshotStatusChecker } from './providers/moonshot';
 
 export class ProviderStatusCheckerFactory {
   private static _providerConfigs: Record<ProviderName, ProviderConfig> = {
@@ -82,6 +83,12 @@ export class ProviderStatusCheckerFactory {
       headers: {},
       testModel: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
     },
+    Moonshot: {
+      statusUrl: 'https://status.moonshot.ai/',
+      apiUrl: 'https://api.moonshot.ai/v1/models',
+      headers: {},
+      testModel: 'moonshot-v1-8k',
+    },
     XAI: {
       statusUrl: 'https://status.x.ai/',
       apiUrl: 'https://api.x.ai/v1/models',
@@ -120,6 +127,8 @@ export class ProviderStatusCheckerFactory {
         return new PerplexityStatusChecker(config);
       case 'Together':
         return new TogetherStatusChecker(config);
+      case 'Moonshot':
+        return new MoonshotStatusChecker(config);
       case 'XAI':
         return new XAIStatusChecker(config);
       default:

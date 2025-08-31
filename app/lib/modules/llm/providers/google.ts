@@ -15,23 +15,23 @@ export default class GoogleProvider extends BaseProvider {
   staticModels: ModelInfo[] = [
     /*
      * Essential fallback models - only the most reliable/stable ones
-     * Gemini 1.5 Pro: 2M context, excellent for complex reasoning and large codebases
+     * Gemini 1.5 Pro: 2M context, 8K output limit (verified from API docs)
      */
     {
       name: 'gemini-1.5-pro',
       label: 'Gemini 1.5 Pro',
       provider: 'Google',
       maxTokenAllowed: 2000000,
-      maxCompletionTokens: 32768,
+      maxCompletionTokens: 8192,
     },
 
-    // Gemini 1.5 Flash: 1M context, fast and cost-effective
+    // Gemini 1.5 Flash: 1M context, 8K output limit, fast and cost-effective
     {
       name: 'gemini-1.5-flash',
       label: 'Gemini 1.5 Flash',
       provider: 'Google',
       maxTokenAllowed: 1000000,
-      maxCompletionTokens: 32768,
+      maxCompletionTokens: 8192,
     },
   ];
 
@@ -102,10 +102,10 @@ export default class GoogleProvider extends BaseProvider {
       const finalContext = Math.min(contextWindow, maxAllowed);
 
       // Get completion token limit from Google API
-      let completionTokens = 32768; // default fallback
+      let completionTokens = 8192; // default fallback (Gemini 1.5 standard limit)
 
       if (m.outputTokenLimit && m.outputTokenLimit > 0) {
-        completionTokens = Math.min(m.outputTokenLimit, 128000); // Cap at reasonable limit
+        completionTokens = Math.min(m.outputTokenLimit, 128000); // Use API value, cap at reasonable limit
       }
 
       return {

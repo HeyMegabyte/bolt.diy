@@ -41,6 +41,29 @@ function getCompletionTokenLimit(modelDetails: ModelInfo): number {
   return Math.min(MAX_TOKENS, 16384);
 }
 
+function validateTokenLimits(modelDetails: ModelInfo, requestedTokens: number): { valid: boolean; error?: string } {
+  const modelMaxTokens = modelDetails.maxTokenAllowed || 128000;
+  const maxCompletionTokens = getCompletionTokenLimit(modelDetails);
+
+  // Check against model's context window
+  if (requestedTokens > modelMaxTokens) {
+    return {
+      valid: false,
+      error: `Requested tokens (${requestedTokens}) exceed model's context window (${modelMaxTokens}). Please reduce your request size.`,
+    };
+  }
+
+  // Check against completion token limits
+  if (requestedTokens > maxCompletionTokens) {
+    return {
+      valid: false,
+      error: `Requested tokens (${requestedTokens}) exceed model's completion limit (${maxCompletionTokens}). Consider using a model with higher token limits.`,
+    };
+  }
+
+  return { valid: true };
+}
+
 async function llmCallAction({ context, request }: ActionFunctionArgs) {
   const { system, message, model, provider, streamOutput } = await request.json<{
     system: string;
@@ -104,6 +127,23 @@ async function llmCallAction({ context, request }: ActionFunctionArgs) {
         });
       }
 
+      // Handle token limit errors with helpful messages
+      if (
+        error instanceof Error &&
+        (error.message?.includes('max_tokens') ||
+          error.message?.includes('token') ||
+          error.message?.includes('exceeds') ||
+          error.message?.includes('maximum'))
+      ) {
+        throw new Response(
+          `Token limit error: ${error.message}. Try reducing your request size or using a model with higher token limits.`,
+          {
+            status: 400,
+            statusText: 'Token Limit Exceeded',
+          },
+        );
+      }
+
       throw new Response(null, {
         status: 500,
         statusText: 'Internal Server Error',
@@ -119,6 +159,16 @@ async function llmCallAction({ context, request }: ActionFunctionArgs) {
       }
 
       const dynamicMaxTokens = modelDetails ? getCompletionTokenLimit(modelDetails) : Math.min(MAX_TOKENS, 16384);
+
+      // Validate token limits before making API request
+      const validation = validateTokenLimits(modelDetails, dynamicMaxTokens);
+
+      if (!validation.valid) {
+        throw new Response(validation.error, {
+          status: 400,
+          statusText: 'Token Limit Exceeded',
+        });
+      }
 
       const providerInfo = PROVIDER_LIST.find((p) => p.name === provider.name);
 
@@ -211,6 +261,29 @@ async function llmCallAction({ context, request }: ActionFunctionArgs) {
             status: 401,
             headers: { 'Content-Type': 'application/json' },
             statusText: 'Unauthorized',
+          },
+        );
+      }
+
+      // Handle token limit errors with helpful messages
+      if (
+        error instanceof Error &&
+        (error.message?.includes('max_tokens') ||
+          error.message?.includes('token') ||
+          error.message?.includes('exceeds') ||
+          error.message?.includes('maximum'))
+      ) {
+        return new Response(
+          JSON.stringify({
+            ...errorResponse,
+            message: `Token limit error: ${error.message}. Try reducing your request size or using a model with higher token limits.`,
+            statusCode: 400,
+            isRetryable: false,
+          }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+            statusText: 'Token Limit Exceeded',
           },
         );
       }

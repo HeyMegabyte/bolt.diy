@@ -9,6 +9,7 @@ export type ProviderName =
   | 'HuggingFace'
   | 'Hyperbolic'
   | 'Mistral'
+  | 'Moonshot'
   | 'OpenRouter'
   | 'Perplexity'
   | 'Together'

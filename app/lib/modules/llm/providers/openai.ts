@@ -15,9 +15,18 @@ export default class OpenAIProvider extends BaseProvider {
   staticModels: ModelInfo[] = [
     /*
      * Essential fallback models - only the most stable/reliable ones
-     * GPT-4o: 128k context, high performance, recommended for most tasks
+     * GPT-4o: 128k context, 4k standard output (64k with long output mode)
      */
-    { name: 'gpt-4o', label: 'GPT-4o', provider: 'OpenAI', maxTokenAllowed: 128000, maxCompletionTokens: 16384 },
+    { name: 'gpt-4o', label: 'GPT-4o', provider: 'OpenAI', maxTokenAllowed: 128000, maxCompletionTokens: 4096 },
+
+    // GPT-4o Mini: 128k context, cost-effective alternative
+    {
+      name: 'gpt-4o-mini',
+      label: 'GPT-4o Mini',
+      provider: 'OpenAI',
+      maxTokenAllowed: 128000,
+      maxCompletionTokens: 4096,
+    },
 
     // GPT-3.5-turbo: 16k context, fast and cost-effective
     {
@@ -27,6 +36,18 @@ export default class OpenAIProvider extends BaseProvider {
       maxTokenAllowed: 16000,
       maxCompletionTokens: 4096,
     },
+
+    // o1-preview: 128k context, 32k output limit (reasoning model)
+    {
+      name: 'o1-preview',
+      label: 'o1-preview',
+      provider: 'OpenAI',
+      maxTokenAllowed: 128000,
+      maxCompletionTokens: 32000,
+    },
+
+    // o1-mini: 128k context, 65k output limit (reasoning model)
+    { name: 'o1-mini', label: 'o1-mini', provider: 'OpenAI', maxTokenAllowed: 128000, maxCompletionTokens: 65000 },
   ];
 
   async getDynamicModels(
@@ -79,18 +100,23 @@ export default class OpenAIProvider extends BaseProvider {
         contextWindow = 16385; // GPT-3.5-turbo has 16k context
       }
 
-      // Determine completion token limits based on model type
-      let maxCompletionTokens = 16384; // default for most models
+      // Determine completion token limits based on model type (accurate 2025 limits)
+      let maxCompletionTokens = 4096; // default for most models
 
-      if (m.id?.startsWith('o1-preview') || m.id?.startsWith('o1-mini') || m.id?.startsWith('o1')) {
-        // Reasoning models have specific completion limits
-        maxCompletionTokens = m.id?.includes('mini') ? 8192 : 16384;
+      if (m.id?.startsWith('o1-preview')) {
+        maxCompletionTokens = 32000; // o1-preview: 32K output limit
+      } else if (m.id?.startsWith('o1-mini')) {
+        maxCompletionTokens = 65000; // o1-mini: 65K output limit
+      } else if (m.id?.startsWith('o1')) {
+        maxCompletionTokens = 32000; // Other o1 models: 32K limit
+      } else if (m.id?.includes('o3') || m.id?.includes('o4')) {
+        maxCompletionTokens = 100000; // o3/o4 models: 100K output limit
       } else if (m.id?.includes('gpt-4o')) {
-        maxCompletionTokens = 16384;
+        maxCompletionTokens = 4096; // GPT-4o standard: 4K (64K with long output mode)
       } else if (m.id?.includes('gpt-4')) {
-        maxCompletionTokens = 8192;
+        maxCompletionTokens = 8192; // Standard GPT-4: 8K output limit
       } else if (m.id?.includes('gpt-3.5-turbo')) {
-        maxCompletionTokens = 4096;
+        maxCompletionTokens = 4096; // GPT-3.5-turbo: 4K output limit
       }
 
       return {
