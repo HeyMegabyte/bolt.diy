@@ -18,7 +18,7 @@ jobs:
   codeql:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 45
     
     strategy:
       fail-fast: false
@@ -35,23 +35,22 @@ jobs:
           languages: ${{ matrix.language }}
           queries: security-extended,security-and-quality
 
-      - name: Setup and Build
-        uses: ./.github/actions/setup-and-build
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{matrix.language}}"
           upload: false
+          output: "codeql-results"
 
       - name: Upload CodeQL results as artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: codeql-results-${{ matrix.language }}
-          path: |
-            **/results/**/*.sarif
-            **/results/**/*.sarif.json
+          path: codeql-results
 
   dependency-scan:
     name: Dependency Vulnerability Scan
@@ -90,7 +89,9 @@ jobs:
         if: always()
         with:
           name: sbom-results
-          path: sbom.spdx.json
+          path: |
+            sbom.spdx.json
+            **/sbom.spdx.json
 
   secrets-scan:
     name: Secrets Detection
