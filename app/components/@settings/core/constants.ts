@@ -12,6 +12,7 @@ export const TAB_ICONS: Record<TabType, string> = {
   connection: 'i-ph:wifi-high',
   'event-logs': 'i-ph:list-bullets',
   mcp: 'i-ph:wrench',
+  'bug-report': 'i-ph:bug',
 };
 
 export const TAB_LABELS: Record<TabType, string> = {
@@ -26,6 +27,7 @@ export const TAB_LABELS: Record<TabType, string> = {
   connection: 'Connection',
   'event-logs': 'Event Logs',
   mcp: 'MCP Servers',
+  'bug-report': 'Bug Report',
 };
 
 export const TAB_DESCRIPTIONS: Record<TabType, string> = {
@@ -40,6 +42,7 @@ export const TAB_DESCRIPTIONS: Record<TabType, string> = {
   connection: 'Check connection status and settings',
   'event-logs': 'View system events and logs',
   mcp: 'Configure MCP (Model Context Protocol) servers',
+  'bug-report': 'Report bugs and issues directly to developers',
 };
 
 export const DEFAULT_TAB_CONFIG = [
@@ -52,9 +55,10 @@ export const DEFAULT_TAB_CONFIG = [
   { id: 'notifications', visible: true, window: 'user' as const, order: 5 },
   { id: 'event-logs', visible: true, window: 'user' as const, order: 6 },
   { id: 'mcp', visible: true, window: 'user' as const, order: 7 },
-  { id: 'profile', visible: true, window: 'user' as const, order: 8 },
-  { id: 'service-status', visible: true, window: 'user' as const, order: 9 },
-  { id: 'settings', visible: true, window: 'user' as const, order: 10 },
+  { id: 'bug-report', visible: true, window: 'user' as const, order: 8 },
+  { id: 'profile', visible: true, window: 'user' as const, order: 9 },
+  { id: 'service-status', visible: true, window: 'user' as const, order: 10 },
+  { id: 'settings', visible: true, window: 'user' as const, order: 11 },
 
   // User Window Tabs (In dropdown, initially hidden)
 ];
