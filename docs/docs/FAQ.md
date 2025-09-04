@@ -3,7 +3,7 @@
 ## Models and Setup
 
 ??? question "What are the best models for bolt.diy?"
-For the best experience with bolt.diy, we recommend using the following models from our 20+ supported providers:
+For the best experience with bolt.diy, we recommend using the following models from our 19 supported providers:
 
     **Top Recommended Models:**
     - **Claude 3.5 Sonnet** (Anthropic): Best overall coder, excellent for complex applications
@@ -42,10 +42,13 @@ You can configure API keys in two ways:
     ```
 
     **Option 2: In-App Configuration**
-    - Go to Settings → Providers
-    - Select a provider
-    - Click the pencil icon next to the provider
-    - Enter your API key directly in the interface
+    - Click the settings icon (⚙️) in the sidebar
+    - Navigate to the "Providers" tab
+    - Switch between "Cloud Providers" and "Local Providers" tabs
+    - Click on a provider card to expand its configuration
+    - Click on the "API Key" field to enter edit mode
+    - Paste your API key and press Enter to save
+    - Look for the green checkmark to confirm proper configuration
 
     !!! note "Security Note"
         Never commit API keys to version control. The `.env.local` file is already in `.gitignore`.
@@ -67,7 +70,7 @@ Moonshot AI provides access to advanced Kimi models with excellent reasoning cap
     1. Visit [Moonshot AI Platform](https://platform.moonshot.ai/console/api-keys)
     2. Create an account and generate an API key
     3. Add `MOONSHOT_API_KEY=your_key_here` to your `.env.local` file
-    4. Or configure it directly in Settings → Providers → Moonshot
+    4. Or configure it directly in Settings → Providers → Cloud Providers → Moonshot
 
     **Available Models:**
     - **Kimi K2 Preview**: Latest Kimi model with 128K context
@@ -200,7 +203,7 @@ bolt.diy began as a small showcase project on @ColeMedin's YouTube channel to ex
 Recent major additions to bolt.diy include:
 
     **Advanced AI Capabilities:**
-    - **20+ LLM Providers**: Support for Anthropic, OpenAI, Google, DeepSeek, Cohere, and more
+    - **19 LLM Providers**: Support for Anthropic, OpenAI, Google, DeepSeek, Cohere, and more
     - **MCP Integration**: Model Context Protocol for enhanced AI tool calling
     - **Dynamic Model Loading**: Automatic model discovery from provider APIs
 

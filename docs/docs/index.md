@@ -1,6 +1,6 @@
 # Welcome to bolt diy
 
-bolt.diy allows you to choose the LLM that you use for each prompt! Currently, you can use models from 20+ providers including OpenAI, Anthropic, Ollama, OpenRouter, Google/Gemini, LMStudio, Mistral, xAI, HuggingFace, DeepSeek, Groq, Cohere, Together AI, Perplexity AI, Hyperbolic, Moonshot AI (Kimi), Amazon Bedrock, GitHub Models, and more - with easy extensibility to add any other model supported by the Vercel AI SDK! See the instructions below for running this locally and extending it to include more models.
+bolt.diy allows you to choose the LLM that you use for each prompt! Currently, you can use models from 19 providers including OpenAI, Anthropic, Ollama, OpenRouter, Google/Gemini, LMStudio, Mistral, xAI, HuggingFace, DeepSeek, Groq, Cohere, Together AI, Perplexity AI, Hyperbolic, Moonshot AI (Kimi), Amazon Bedrock, GitHub Models, and more - with easy extensibility to add any other model supported by the Vercel AI SDK! See the instructions below for running this locally and extending it to include more models.
 
 ## Table of Contents
 
@@ -40,7 +40,7 @@ Also [this pinned post in our community](https://thinktank.ottomator.ai/t/videos
 ## Features
 
 - **AI-powered full-stack web development** directly in your browser with live preview
-- **Support for 20+ LLM providers** with an extensible architecture to integrate additional models
+- **Support for 19 LLM providers** with an extensible architecture to integrate additional models
 - **Attach images and files to prompts** for better contextual understanding
 - **Integrated terminal** with WebContainer sandbox for running commands and testing
 - **Version control with Git** - import/export projects, connect to GitHub repositories
@@ -123,14 +123,20 @@ Once you've set your keys, you can proceed with running the app. You will set th
 
 #### 2. Configure API Keys Directly in the Application
 
-Alternatively, you can configure your API keys directly in the application once it's running. To do this:
+Alternatively, you can configure your API keys directly in the application using the modern settings interface:
 
-1. Launch the application and navigate to the provider selection dropdown.
-2. Select the provider you wish to configure.
-3. Click the pencil icon next to the selected provider.
-4. Enter your API key in the provided field.
+1. **Open Settings**: Click the settings icon (⚙️) in the sidebar to access the settings panel
+2. **Navigate to Providers**: Select the "Providers" tab from the settings menu
+3. **Choose Provider Type**: Switch between "Cloud Providers" and "Local Providers" tabs
+4. **Select Provider**: Browse the grid of available providers and click on the provider card you want to configure
+5. **Configure API Key**: Click on the "API Key" field to enter edit mode, then paste your API key and press Enter
+6. **Verify Configuration**: Look for the green checkmark indicator showing the provider is properly configured
 
-This method allows you to easily add or update your keys without needing to modify files directly.
+The interface provides:
+- **Real-time validation** with visual status indicators
+- **Bulk operations** to enable/disable multiple providers at once
+- **Secure storage** of API keys in browser cookies
+- **Environment variable auto-detection** for server-side configurations
 
 Once you've configured your keys, the application will be ready to use the selected LLMs.
 
