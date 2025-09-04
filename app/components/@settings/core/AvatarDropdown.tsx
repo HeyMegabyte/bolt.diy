@@ -5,12 +5,6 @@ import { classNames } from '~/utils/classNames';
 import { profileStore } from '~/lib/stores/profile';
 import type { TabType, Profile } from './types';
 
-const BetaLabel = () => (
-  <span className="px-1.5 py-0.5 rounded-full bg-purple-500/10 dark:bg-purple-500/20 text-[10px] font-medium text-purple-600 dark:text-purple-400 ml-2">
-    BETA
-  </span>
-);
-
 interface AvatarDropdownProps {
   onSelectTab: (tab: TabType) => void;
 }
@@ -117,22 +111,6 @@ export const AvatarDropdown = ({ onSelectTab }: AvatarDropdownProps) => {
           </DropdownMenu.Item>
 
           <div className="my-1 border-t border-gray-200/50 dark:border-gray-800/50" />
-          <DropdownMenu.Item
-            className={classNames(
-              'flex items-center gap-2 px-4 py-2.5',
-              'text-sm text-gray-700 dark:text-gray-200',
-              'hover:bg-purple-50 dark:hover:bg-purple-500/10',
-              'hover:text-purple-500 dark:hover:text-purple-400',
-              'cursor-pointer transition-all duration-200',
-              'outline-none',
-              'group',
-            )}
-            onClick={() => onSelectTab('service-status')}
-          >
-            <div className="i-ph:heartbeat w-4 h-4 text-gray-400 group-hover:text-purple-500 dark:group-hover:text-purple-400 transition-colors" />
-            Service Status
-            <BetaLabel />
-          </DropdownMenu.Item>
 
           <DropdownMenu.Item
             className={classNames(
@@ -150,6 +128,22 @@ export const AvatarDropdown = ({ onSelectTab }: AvatarDropdownProps) => {
           >
             <div className="i-ph:bug w-4 h-4 text-gray-400 group-hover:text-purple-500 dark:group-hover:text-purple-400 transition-colors" />
             Report Bug
+          </DropdownMenu.Item>
+
+          <DropdownMenu.Item
+            className={classNames(
+              'flex items-center gap-2 px-4 py-2.5',
+              'text-sm text-gray-700 dark:text-gray-200',
+              'hover:bg-purple-50 dark:hover:bg-purple-500/10',
+              'hover:text-purple-500 dark:hover:text-purple-400',
+              'cursor-pointer transition-all duration-200',
+              'outline-none',
+              'group',
+            )}
+            onClick={() => window.open('https://stackblitz-labs.github.io/bolt.diy/', '_blank')}
+          >
+            <div className="i-ph:question w-4 h-4 text-gray-400 group-hover:text-purple-500 dark:group-hover:text-purple-400 transition-colors" />
+            Help & Documentation
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
