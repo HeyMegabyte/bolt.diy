@@ -17,10 +17,13 @@ bolt.diy was originally started by [Cole Medin](https://www.youtube.com/@ColeMed
 ## Table of Contents
 
 - [Join the Community](#join-the-community)
-- [Requested Additions](#requested-additions)
+- [Recent Major Additions](#recent-major-additions)
 - [Features](#features)
 - [Setup](#setup)
-- [Run the Application](#run-the-application)
+- [Quick Installation](#quick-installation)
+- [Manual Installation](#manual-installation)
+- [Configuring API Keys and Providers](#configuring-api-keys-and-providers)
+- [Setup Using Git (For Developers only)](#setup-using-git-for-developers-only)
 - [Available Scripts](#available-scripts)
 - [Contributing](#contributing)
 - [Roadmap](#roadmap)
