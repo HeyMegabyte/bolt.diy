@@ -506,7 +506,7 @@ export class ActionRunner {
     details?: {
       url?: string;
       error?: string;
-      source?: 'netlify' | 'vercel' | 'github';
+      source?: 'netlify' | 'vercel' | 'github' | 'gitlab';
     },
   ): void {
     if (!this.onDeployAlert) {

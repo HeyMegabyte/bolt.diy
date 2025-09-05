@@ -1,75 +1,58 @@
 import * as Dialog from '@radix-ui/react-dialog';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { motion } from 'framer-motion';
-import { Octokit } from '@octokit/rest';
-
-// Internal imports
-import { getLocalStorage } from '~/lib/persistence';
 import { classNames } from '~/utils/classNames';
-import type { GitHubUserResponse } from '~/types/GitHub';
+import { getLocalStorage } from '~/lib/persistence/localStorage';
+import type { GitLabUserResponse, GitLabProjectInfo } from '~/types/GitLab';
 import { logStore } from '~/lib/stores/logs';
-import { workbenchStore } from '~/lib/stores/workbench';
-import { extractRelativePath } from '~/utils/diff';
+import { chatId } from '~/lib/persistence/useChatHistory';
+import { useStore } from '@nanostores/react';
+import { GitLabApiService } from '~/lib/services/gitlabApiService';
+import { SearchInput, EmptyState, StatusIndicator, Badge } from '~/components/ui';
 import { formatSize } from '~/utils/formatSize';
-import type { FileMap, File } from '~/lib/stores/files';
 
-// UI Components
-import { Badge, EmptyState, StatusIndicator, SearchInput } from '~/components/ui';
-
-interface PushToGitHubDialogProps {
+interface GitLabDeploymentDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onPush: (repoName: string, username?: string, token?: string, isPrivate?: boolean) => Promise<string>;
+  projectName: string;
+  files: Record<string, string>;
 }
 
-interface GitHubRepo {
-  name: string;
-  full_name: string;
-  html_url: string;
-  description: string;
-  stargazers_count: number;
-  forks_count: number;
-  default_branch: string;
-  updated_at: string;
-  language: string;
-  private: boolean;
-}
-
-export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDialogProps) {
+export function GitLabDeploymentDialog({ isOpen, onClose, projectName, files }: GitLabDeploymentDialogProps) {
   const [repoName, setRepoName] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [user, setUser] = useState<GitHubUserResponse | null>(null);
-  const [recentRepos, setRecentRepos] = useState<GitHubRepo[]>([]);
-  const [filteredRepos, setFilteredRepos] = useState<GitHubRepo[]>([]);
+  const [user, setUser] = useState<GitLabUserResponse | null>(null);
+  const [recentRepos, setRecentRepos] = useState<GitLabProjectInfo[]>([]);
+  const [filteredRepos, setFilteredRepos] = useState<GitLabProjectInfo[]>([]);
   const [repoSearchQuery, setRepoSearchQuery] = useState('');
   const [isFetchingRepos, setIsFetchingRepos] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [createdRepoUrl, setCreatedRepoUrl] = useState('');
   const [pushedFiles, setPushedFiles] = useState<{ path: string; size: number }[]>([]);
+  const currentChatId = useStore(chatId);
 
-  // Load GitHub connection on mount
+  // Load GitLab connection on mount
   useEffect(() => {
     if (isOpen) {
-      const connection = getLocalStorage('github_connection');
+      const connection = getLocalStorage('gitlab_connection');
+
+      // Set a default repository name based on the project name
+      setRepoName(projectName.replace(/\s+/g, '-').toLowerCase());
 
       if (connection?.user && connection?.token) {
         setUser(connection.user);
 
         // Only fetch if we have both user and token
         if (connection.token.trim()) {
-          fetchRecentRepos(connection.token);
+          fetchRecentRepos(connection.token, connection.gitlabUrl || 'https://gitlab.com');
         }
       }
     }
-  }, [isOpen]);
+  }, [isOpen, projectName]);
 
-  /*
-   * Filter repositories based on search query
-   * const debouncedSetRepoSearchQuery = useDebouncedCallback((value: string) => setRepoSearchQuery(value), 300);
-   */
-
+  // Filter repositories based on search query
   useEffect(() => {
     if (recentRepos.length === 0) {
       setFilteredRepos([]);
@@ -84,113 +67,43 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
     const query = repoSearchQuery.toLowerCase().trim();
     const filtered = recentRepos.filter(
       (repo) =>
-        repo.name.toLowerCase().includes(query) ||
-        (repo.description && repo.description.toLowerCase().includes(query)) ||
-        (repo.language && repo.language.toLowerCase().includes(query)),
+        repo.name.toLowerCase().includes(query) || (repo.description && repo.description.toLowerCase().includes(query)),
     );
 
     setFilteredRepos(filtered);
   }, [recentRepos, repoSearchQuery]);
 
-  const fetchRecentRepos = useCallback(async (token: string) => {
+  const fetchRecentRepos = async (token: string, gitlabUrl = 'https://gitlab.com') => {
     if (!token) {
-      logStore.logError('No GitHub token available');
-      toast.error('GitHub authentication required');
+      logStore.logError('No GitLab token available');
+      toast.error('GitLab authentication required');
 
       return;
     }
 
     try {
       setIsFetchingRepos(true);
-      console.log('Fetching GitHub repositories with token:', token.substring(0, 5) + '...');
 
-      // Fetch ALL repos by paginating through all pages
-      let allRepos: GitHubRepo[] = [];
-      let page = 1;
-      let hasMore = true;
-
-      while (hasMore) {
-        const requestUrl = `https://api.github.com/user/repos?sort=updated&per_page=100&page=${page}&affiliation=owner,organization_member`;
-        const response = await fetch(requestUrl, {
-          headers: {
-            Accept: 'application/vnd.github.v3+json',
-            Authorization: `Bearer ${token.trim()}`,
-          },
-        });
-
-        if (!response.ok) {
-          let errorData: { message?: string } = {};
-
-          try {
-            errorData = await response.json();
-            console.error('Error response data:', errorData);
-          } catch (e) {
-            errorData = { message: 'Could not parse error response' };
-            console.error('Could not parse error response:', e);
-          }
-
-          if (response.status === 401) {
-            toast.error('GitHub token expired. Please reconnect your account.');
-
-            // Clear invalid token
-            const connection = getLocalStorage('github_connection');
-
-            if (connection) {
-              localStorage.removeItem('github_connection');
-              setUser(null);
-            }
-          } else if (response.status === 403 && response.headers.get('x-ratelimit-remaining') === '0') {
-            // Rate limit exceeded
-            const resetTime = response.headers.get('x-ratelimit-reset');
-            const resetDate = resetTime ? new Date(parseInt(resetTime) * 1000).toLocaleTimeString() : 'soon';
-            toast.error(`GitHub API rate limit exceeded. Limit resets at ${resetDate}`);
-          } else {
-            logStore.logError('Failed to fetch GitHub repositories', {
-              status: response.status,
-              statusText: response.statusText,
-              error: errorData,
-            });
-            toast.error(`Failed to fetch repositories: ${errorData.message || response.statusText}`);
-          }
-
-          return;
-        }
-
-        try {
-          const repos = (await response.json()) as GitHubRepo[];
-          allRepos = allRepos.concat(repos);
-
-          if (repos.length < 100) {
-            hasMore = false;
-          } else {
-            page += 1;
-          }
-        } catch (parseError) {
-          console.error('Error parsing JSON response:', parseError);
-          logStore.logError('Failed to parse GitHub repositories response', { parseError });
-          toast.error('Failed to parse repository data');
-          setRecentRepos([]);
-
-          return;
-        }
-      }
-      setRecentRepos(allRepos);
+      const apiService = new GitLabApiService(token, gitlabUrl);
+      const repos = await apiService.getProjects();
+      setRecentRepos(repos);
     } catch (error) {
-      console.error('Exception while fetching GitHub repositories:', error);
-      logStore.logError('Failed to fetch GitHub repositories', { error });
+      console.error('Failed to fetch GitLab repositories:', error);
+      logStore.logError('Failed to fetch GitLab repositories', { error });
       toast.error('Failed to fetch recent repositories');
     } finally {
       setIsFetchingRepos(false);
     }
-  }, []);
+  };
 
-  async function handleSubmit(e: React.FormEvent) {
+  // Function to create a new repository or push to an existing one
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const connection = getLocalStorage('github_connection');
+    const connection = getLocalStorage('gitlab_connection');
 
     if (!connection?.token || !connection?.user) {
-      toast.error('Please connect your GitHub account in Settings > Connections first');
+      toast.error('Please connect your GitLab account in Settings > Connections first');
       return;
     }
 
@@ -202,61 +115,115 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
     setIsLoading(true);
 
     try {
-      // Check if repository exists first
-      const octokit = new Octokit({ auth: connection.token });
+      const gitlabUrl = connection.gitlabUrl || 'https://gitlab.com';
+      const apiService = new GitLabApiService(connection.token, gitlabUrl);
 
-      try {
-        const { data: existingRepo } = await octokit.repos.get({
-          owner: connection.user.login,
-          repo: repoName,
-        });
+      // Check if project exists
+      const projectPath = `${connection.user.username}/${repoName}`;
+      const existingProject = await apiService.getProjectByPath(projectPath);
+      const projectExists = existingProject !== null;
 
-        // If we get here, the repo exists
-        let confirmMessage = `Repository "${repoName}" already exists. Do you want to update it? This will add or modify files in the repository.`;
+      if (projectExists && existingProject) {
+        // Confirm overwrite
+        const visibilityChange =
+          existingProject.visibility !== (isPrivate ? 'private' : 'public')
+            ? `\n\nThis will also change the repository from ${existingProject.visibility} to ${isPrivate ? 'private' : 'public'}.`
+            : '';
 
-        // Add visibility change warning if needed
-        if (existingRepo.private !== isPrivate) {
-          const visibilityChange = isPrivate
-            ? 'This will also change the repository from public to private.'
-            : 'This will also change the repository from private to public.';
-
-          confirmMessage += `\n\n${visibilityChange}`;
-        }
-
-        const confirmOverwrite = window.confirm(confirmMessage);
+        const confirmOverwrite = window.confirm(
+          `Repository "${repoName}" already exists. Do you want to update it? This will add or modify files in the repository.${visibilityChange}`,
+        );
 
         if (!confirmOverwrite) {
           setIsLoading(false);
           return;
         }
-      } catch (error) {
-        // 404 means repo doesn't exist, which is what we want for new repos
-        if (error instanceof Error && 'status' in error && error.status !== 404) {
-          throw error;
+
+        // Update visibility if needed
+        if (existingProject.visibility !== (isPrivate ? 'private' : 'public')) {
+          toast.info('Updating repository visibility...');
+          await apiService.updateProjectVisibility(existingProject.id, isPrivate ? 'private' : 'public');
+        }
+
+        // Update project with files
+        toast.info('Uploading files to existing repository...');
+        await apiService.updateProjectWithFiles(existingProject.id, files);
+        setCreatedRepoUrl(existingProject.http_url_to_repo);
+        toast.success('Repository updated successfully!');
+      } else {
+        // Create new project with files
+        toast.info('Creating new repository...');
+
+        const newProject = await apiService.createProjectWithFiles(repoName, isPrivate, files);
+        setCreatedRepoUrl(newProject.http_url_to_repo);
+        toast.success('Repository created successfully!');
+      }
+
+      // Set pushed files for display
+      const fileList = Object.entries(files).map(([filePath, content]) => ({
+        path: filePath,
+        size: new TextEncoder().encode(content).length,
+      }));
+
+      setPushedFiles(fileList);
+      setShowSuccessDialog(true);
+
+      // Save repository info
+      localStorage.setItem(
+        `gitlab-repo-${currentChatId}`,
+        JSON.stringify({
+          owner: connection.user.username,
+          name: repoName,
+          url: createdRepoUrl,
+        }),
+      );
+
+      logStore.logInfo('GitLab deployment completed successfully', {
+        type: 'system',
+        message: `Successfully deployed ${fileList.length} files to ${projectExists ? 'existing' : 'new'} GitLab repository: ${projectPath}`,
+        repoName,
+        projectPath,
+        filesCount: fileList.length,
+        isNewProject: !projectExists,
+      });
+    } catch (error) {
+      console.error('Error pushing to GitLab:', error);
+      logStore.logError('GitLab deployment failed', {
+        error,
+        repoName,
+        projectPath: `${connection.user.username}/${repoName}`,
+      });
+
+      // Provide specific error messages based on error type
+      let errorMessage = 'Failed to push to GitLab';
+
+      if (error instanceof Error) {
+        const errorMsg = error.message.toLowerCase();
+
+        if (errorMsg.includes('404') || errorMsg.includes('not found')) {
+          errorMessage =
+            'Repository or GitLab instance not found. Please check your GitLab URL and repository permissions.';
+        } else if (errorMsg.includes('401') || errorMsg.includes('unauthorized')) {
+          errorMessage = 'GitLab authentication failed. Please check your access token and permissions.';
+        } else if (errorMsg.includes('403') || errorMsg.includes('forbidden')) {
+          errorMessage =
+            'Access denied. Your GitLab token may not have sufficient permissions to create/modify repositories.';
+        } else if (errorMsg.includes('network') || errorMsg.includes('fetch')) {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+        } else if (errorMsg.includes('timeout')) {
+          errorMessage = 'Request timed out. Please try again or check your connection.';
+        } else if (errorMsg.includes('rate limit')) {
+          errorMessage = 'GitLab API rate limit exceeded. Please wait a moment and try again.';
+        } else {
+          errorMessage = `GitLab error: ${error.message}`;
         }
       }
 
-      const repoUrl = await onPush(repoName, connection.user.login, connection.token, isPrivate);
-      setCreatedRepoUrl(repoUrl);
-
-      // Get list of pushed files
-      const files = workbenchStore.files.get();
-      const filesList = Object.entries(files as FileMap)
-        .filter(([, dirent]) => dirent?.type === 'file' && !dirent.isBinary)
-        .map(([path, dirent]) => ({
-          path: extractRelativePath(path),
-          size: new TextEncoder().encode((dirent as File).content || '').length,
-        }));
-
-      setPushedFiles(filesList);
-      setShowSuccessDialog(true);
-    } catch (error) {
-      console.error('Error pushing to GitHub:', error);
-      toast.error('Failed to push to GitHub. Please check your repository name and try again.');
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
-  }
+  };
 
   const handleClose = () => {
     setRepoName('');
@@ -284,6 +251,7 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                 className="bg-white dark:bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark shadow-xl"
                 aria-describedby="success-dialog-description"
               >
+                <Dialog.Title className="sr-only">Successfully pushed to GitLab</Dialog.Title>
                 <div className="p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -292,13 +260,13 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                       </div>
                       <div>
                         <h3 className="text-lg font-medium text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark">
-                          Successfully pushed to GitHub
+                          Successfully pushed to GitLab
                         </h3>
                         <p
                           id="success-dialog-description"
                           className="text-sm text-bolt-elements-textSecondary dark:text-bolt-elements-textSecondary-dark"
                         >
-                          Your code is now available on GitHub
+                          Your code is now available on GitLab
                         </p>
                       </div>
                     </div>
@@ -315,7 +283,7 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
 
                   <div className="bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 rounded-lg p-4 text-left border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark">
                     <p className="text-sm font-medium text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark mb-2 flex items-center gap-2">
-                      <span className="i-ph:github-logo w-4 h-4 text-purple-500" />
+                      <span className="i-ph:gitlab-logo w-4 h-4 text-orange-500" />
                       Repository URL
                     </p>
                     <div className="flex items-center gap-2">
@@ -342,7 +310,7 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                       Pushed Files ({pushedFiles.length})
                     </p>
                     <div className="max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
-                      {pushedFiles.map((file) => (
+                      {pushedFiles.slice(0, 100).map((file) => (
                         <div
                           key={file.path}
                           className="flex items-center justify-between py-1.5 text-sm text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark border-b border-bolt-elements-borderColor/30 dark:border-bolt-elements-borderColor-dark/30 last:border-0"
@@ -353,6 +321,11 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                           </span>
                         </div>
                       ))}
+                      {pushedFiles.length > 100 && (
+                        <div className="py-2 text-center text-xs text-bolt-elements-textSecondary dark:text-bolt-elements-textSecondary-dark">
+                          +{pushedFiles.length - 100} more files
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -361,11 +334,11 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                       href={createdRepoUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-4 py-2 rounded-lg bg-purple-500 text-white hover:bg-purple-600 text-sm inline-flex items-center gap-2"
+                      className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 text-sm inline-flex items-center gap-2"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
-                      <div className="i-ph:github-logo w-4 h-4" />
+                      <div className="i-ph:gitlab-logo w-4 h-4" />
                       View Repository
                     </motion.a>
                     <motion.button
@@ -415,6 +388,7 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                 className="bg-white dark:bg-bolt-elements-background-depth-1 rounded-lg p-6 border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark shadow-xl"
                 aria-describedby="connection-required-description"
               >
+                <Dialog.Title className="sr-only">GitLab Connection Required</Dialog.Title>
                 <div className="relative text-center space-y-4">
                   <Dialog.Close asChild>
                     <button
@@ -429,19 +403,18 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                     initial={{ scale: 0.8 }}
                     animate={{ scale: 1 }}
                     transition={{ delay: 0.1 }}
-                    className="mx-auto w-16 h-16 rounded-xl bg-bolt-elements-background-depth-3 flex items-center justify-center text-purple-500"
+                    className="mx-auto w-16 h-16 rounded-xl bg-bolt-elements-background-depth-3 flex items-center justify-center text-orange-500"
                   >
-                    <div className="i-ph:github-logo w-8 h-8" />
+                    <div className="i-ph:gitlab-logo w-8 h-8" />
                   </motion.div>
                   <h3 className="text-lg font-medium text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark">
-                    GitHub Connection Required
+                    GitLab Connection Required
                   </h3>
                   <p
                     id="connection-required-description"
                     className="text-sm text-bolt-elements-textSecondary dark:text-bolt-elements-textSecondary-dark max-w-md mx-auto"
                   >
-                    To push your code to GitHub, you need to connect your GitHub account in Settings {'>'} Connections
-                    first.
+                    To deploy your code to GitLab, you need to connect your GitLab account first.
                   </p>
                   <div className="pt-2 flex justify-center gap-3">
                     <motion.button
@@ -454,7 +427,7 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                     </motion.button>
                     <motion.a
                       href="/settings/connections"
-                      className="px-4 py-2 rounded-lg bg-purple-500 text-white text-sm hover:bg-purple-600 inline-flex items-center gap-2"
+                      className="px-4 py-2 rounded-lg bg-orange-500 text-white text-sm hover:bg-orange-600 inline-flex items-center gap-2"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
@@ -493,19 +466,19 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                     initial={{ scale: 0.8 }}
                     animate={{ scale: 1 }}
                     transition={{ delay: 0.1 }}
-                    className="w-10 h-10 rounded-xl bg-bolt-elements-background-depth-3 flex items-center justify-center text-purple-500"
+                    className="w-10 h-10 rounded-xl bg-bolt-elements-background-depth-3 flex items-center justify-center text-orange-500"
                   >
-                    <div className="i-ph:github-logo w-5 h-5" />
+                    <div className="i-ph:gitlab-logo w-5 h-5" />
                   </motion.div>
                   <div>
                     <Dialog.Title className="text-lg font-medium text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark">
-                      Push to GitHub
+                      Deploy to GitLab
                     </Dialog.Title>
                     <p
                       id="push-dialog-description"
                       className="text-sm text-bolt-elements-textSecondary dark:text-bolt-elements-textSecondary-dark"
                     >
-                      Push your code to a new or existing GitHub repository
+                      Deploy your code to a new or existing GitLab repository
                     </p>
                   </div>
                   <Dialog.Close asChild>
@@ -521,17 +494,60 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
 
                 <div className="flex items-center gap-3 mb-6 p-4 bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 rounded-lg border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark">
                   <div className="relative">
-                    <img src={user.avatar_url} alt={user.login} className="w-10 h-10 rounded-full" />
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-white">
-                      <div className="i-ph:github-logo w-3 h-3" />
+                    {user.avatar_url && user.avatar_url !== 'null' && user.avatar_url !== '' ? (
+                      <img
+                        src={user.avatar_url}
+                        alt={user.username}
+                        className="w-10 h-10 rounded-full object-cover"
+                        onError={(e) => {
+                          // Handle CORS/COEP errors by hiding the image and showing fallback
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+
+                          const fallback = target.parentElement?.querySelector('.avatar-fallback') as HTMLElement;
+
+                          if (fallback) {
+                            fallback.style.display = 'flex';
+                          }
+                        }}
+                        onLoad={(e) => {
+                          // Ensure fallback is hidden when image loads successfully
+                          const target = e.target as HTMLImageElement;
+
+                          const fallback = target.parentElement?.querySelector('.avatar-fallback') as HTMLElement;
+
+                          if (fallback) {
+                            fallback.style.display = 'none';
+                          }
+                        }}
+                      />
+                    ) : null}
+
+                    <div
+                      className="avatar-fallback w-10 h-10 rounded-full bg-bolt-elements-background-depth-4 flex items-center justify-center text-bolt-elements-textSecondary font-semibold text-sm"
+                      style={{
+                        display:
+                          user.avatar_url && user.avatar_url !== 'null' && user.avatar_url !== '' ? 'none' : 'flex',
+                      }}
+                    >
+                      {user.name ? (
+                        user.name.charAt(0).toUpperCase()
+                      ) : user.username ? (
+                        user.username.charAt(0).toUpperCase()
+                      ) : (
+                        <div className="i-ph:user w-5 h-5" />
+                      )}
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center text-white">
+                      <div className="i-ph:gitlab-logo w-3 h-3" />
                     </div>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark">
-                      {user.name || user.login}
+                      {user.name || user.username}
                     </p>
                     <p className="text-sm text-bolt-elements-textSecondary dark:text-bolt-elements-textSecondary-dark">
-                      @{user.login}
+                      @{user.username}
                     </p>
                   </div>
                 </div>
@@ -554,7 +570,7 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                         value={repoName}
                         onChange={(e) => setRepoName(e.target.value)}
                         placeholder="my-awesome-project"
-                        className="w-full pl-10 px-4 py-2 rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark placeholder-bolt-elements-textTertiary dark:placeholder-bolt-elements-textTertiary-dark focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="w-full pl-10 px-4 py-2 rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark placeholder-bolt-elements-textTertiary dark:placeholder-bolt-elements-textTertiary-dark focus:outline-none focus:ring-2 focus:ring-orange-500"
                         required
                       />
                     </div>
@@ -582,9 +598,9 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
 
                     {recentRepos.length === 0 && !isFetchingRepos ? (
                       <EmptyState
-                        icon="i-ph:github-logo"
+                        icon="i-ph:gitlab-logo"
                         title="No repositories found"
-                        description="We couldn't find any repositories in your GitHub account."
+                        description="We couldn't find any repositories in your GitLab account."
                         variant="compact"
                       />
                     ) : (
@@ -599,21 +615,21 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                         ) : (
                           filteredRepos.map((repo) => (
                             <motion.button
-                              key={repo.full_name}
+                              key={repo.id}
                               type="button"
                               onClick={() => setRepoName(repo.name)}
-                              className="w-full p-3 text-left rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 hover:bg-bolt-elements-background-depth-3 dark:hover:bg-bolt-elements-background-depth-4 transition-colors group border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark hover:border-purple-500/30"
+                              className="w-full p-3 text-left rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 hover:bg-bolt-elements-background-depth-3 dark:hover:bg-bolt-elements-background-depth-4 transition-colors group border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark hover:border-orange-500/30"
                               whileHover={{ scale: 1.01 }}
                               whileTap={{ scale: 0.99 }}
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <div className="i-ph:git-branch w-4 h-4 text-purple-500" />
-                                  <span className="text-sm font-medium text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark group-hover:text-purple-500">
+                                  <div className="i-ph:git-branch w-4 h-4 text-orange-500" />
+                                  <span className="text-sm font-medium text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark group-hover:text-orange-500">
                                     {repo.name}
                                   </span>
                                 </div>
-                                {repo.private && (
+                                {repo.visibility === 'private' && (
                                   <Badge variant="primary" size="sm" icon="i-ph:lock w-3 h-3">
                                     Private
                                   </Badge>
@@ -625,13 +641,8 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                                 </p>
                               )}
                               <div className="mt-2 flex items-center gap-2 flex-wrap">
-                                {repo.language && (
-                                  <Badge variant="subtle" size="sm" icon="i-ph:code w-3 h-3">
-                                    {repo.language}
-                                  </Badge>
-                                )}
                                 <Badge variant="subtle" size="sm" icon="i-ph:star w-3 h-3">
-                                  {repo.stargazers_count.toLocaleString()}
+                                  {repo.star_count.toLocaleString()}
                                 </Badge>
                                 <Badge variant="subtle" size="sm" icon="i-ph:git-fork w-3 h-3">
                                   {repo.forks_count.toLocaleString()}
@@ -652,6 +663,7 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                       <StatusIndicator status="loading" pulse={true} label="Loading repositories..." />
                     </div>
                   )}
+
                   <div className="p-3 bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 rounded-lg border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark">
                     <div className="flex items-center gap-2">
                       <input
@@ -659,7 +671,7 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                         id="private"
                         checked={isPrivate}
                         onChange={(e) => setIsPrivate(e.target.checked)}
-                        className="rounded border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark text-purple-500 focus:ring-purple-500 dark:bg-bolt-elements-background-depth-3"
+                        className="rounded border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark text-orange-500 focus:ring-orange-500 dark:bg-bolt-elements-background-depth-3"
                       />
                       <label
                         htmlFor="private"
@@ -687,7 +699,7 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                       type="submit"
                       disabled={isLoading}
                       className={classNames(
-                        'flex-1 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 text-sm inline-flex items-center justify-center gap-2',
+                        'flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm inline-flex items-center justify-center gap-2',
                         isLoading ? 'opacity-50 cursor-not-allowed' : '',
                       )}
                       whileHover={!isLoading ? { scale: 1.02 } : {}}
@@ -696,12 +708,12 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                       {isLoading ? (
                         <>
                           <div className="i-ph:spinner-gap animate-spin w-4 h-4" />
-                          Pushing...
+                          Deploying...
                         </>
                       ) : (
                         <>
-                          <div className="i-ph:github-logo w-4 h-4" />
-                          Push to GitHub
+                          <div className="i-ph:gitlab-logo w-4 h-4" />
+                          Deploy to GitLab
                         </>
                       )}
                     </motion.button>

@@ -9,7 +9,7 @@ import type { GitHubUserResponse, GitHubRepoInfo } from '~/types/GitHub';
 import { logStore } from '~/lib/stores/logs';
 import { chatId } from '~/lib/persistence/useChatHistory';
 import { useStore } from '@nanostores/react';
-import { GitHubAuthDialog } from '~/components/@settings/tabs/connections/components/GitHubAuthDialog';
+import { AuthDialog as GitHubAuthDialog } from '~/components/@settings/tabs/connections/github/AuthDialog';
 import { SearchInput, EmptyState, StatusIndicator, Badge } from '~/components/ui';
 
 interface GitHubDeploymentDialogProps {

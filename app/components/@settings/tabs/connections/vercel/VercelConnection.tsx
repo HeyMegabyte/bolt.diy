@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { useStore } from '@nanostores/react';
@@ -10,22 +10,64 @@ import {
   isFetchingStats,
   updateVercelConnection,
   fetchVercelStats,
+  autoConnectVercel,
 } from '~/lib/stores/vercel';
 
 export default function VercelConnection() {
+  console.log('VercelConnection component mounted');
+
   const connection = useStore(vercelConnection);
   const connecting = useStore(isConnecting);
   const fetchingStats = useStore(isFetchingStats);
   const [isProjectsExpanded, setIsProjectsExpanded] = useState(false);
+  const hasInitialized = useRef(false);
+
+  console.log('VercelConnection initial state:', {
+    connection: {
+      user: connection.user,
+      token: connection.token ? '[TOKEN_EXISTS]' : '[NO_TOKEN]',
+    },
+    envToken: import.meta.env?.VITE_VERCEL_ACCESS_TOKEN ? '[ENV_TOKEN_EXISTS]' : '[NO_ENV_TOKEN]',
+  });
 
   useEffect(() => {
-    const fetchProjects = async () => {
-      if (connection.user && connection.token) {
+    // Prevent multiple initializations
+    if (hasInitialized.current) {
+      console.log('Vercel: Already initialized, skipping');
+      return;
+    }
+
+    const initializeConnection = async () => {
+      console.log('Vercel initializeConnection:', {
+        user: connection.user,
+        token: connection.token ? '[TOKEN_EXISTS]' : '[NO_TOKEN]',
+        envToken: import.meta.env?.VITE_VERCEL_ACCESS_TOKEN ? '[ENV_TOKEN_EXISTS]' : '[NO_ENV_TOKEN]',
+      });
+
+      hasInitialized.current = true;
+
+      // Auto-connect using environment variable if no existing connection but token exists
+      if (!connection.user && connection.token && import.meta.env?.VITE_VERCEL_ACCESS_TOKEN) {
+        console.log('Vercel: Attempting auto-connection');
+
+        const result = await autoConnectVercel();
+
+        if (result.success) {
+          toast.success('Connected to Vercel automatically');
+        } else {
+          console.error('Vercel auto-connection failed:', result.error);
+        }
+      } else if (connection.user && connection.token) {
+        // Fetch stats for existing connection
+        console.log('Vercel: Fetching stats for existing connection');
         await fetchVercelStats(connection.token);
+      } else {
+        console.log('Vercel: No auto-connection conditions met');
       }
     };
-    fetchProjects();
-  }, [connection.user, connection.token]);
+
+    initializeConnection();
+  }, []); // Empty dependency array to run only once
 
   const handleConnect = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -118,32 +160,68 @@ export default function VercelConnection() {
                   Get your token
                   <div className="i-ph:arrow-square-out w-4 h-4" />
                 </a>
+                <div className="mt-2 text-xs text-bolt-elements-textSecondary bg-bolt-elements-background-depth-1 p-2 rounded">
+                  <p className="flex items-center gap-1">
+                    <span className="i-ph:lightbulb w-3.5 h-3.5 text-bolt-elements-icon-success" />
+                    <span className="font-medium">Tip:</span> You can also set{' '}
+                    <code className="px-1 py-0.5 bg-bolt-elements-background-depth-2 rounded text-xs">
+                      VITE_VERCEL_ACCESS_TOKEN
+                    </code>{' '}
+                    in your .env.local for automatic connection.
+                  </p>
+                </div>
+                {/* Debug info - remove this later */}
+                <div className="mt-2 text-xs text-gray-500">
+                  <p>Debug: Token present: {connection.token ? '✅' : '❌'}</p>
+                  <p>Debug: User present: {connection.user ? '✅' : '❌'}</p>
+                  <p>Debug: Env token: {import.meta.env?.VITE_VERCEL_ACCESS_TOKEN ? '✅' : '❌'}</p>
+                </div>
               </div>
             </div>
 
-            <button
-              onClick={handleConnect}
-              disabled={connecting || !connection.token}
-              className={classNames(
-                'px-4 py-2 rounded-lg text-sm flex items-center gap-2',
-                'bg-[#303030] text-white',
-                'hover:bg-[#5E41D0] hover:text-white',
-                'disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200',
-                'transform active:scale-95',
-              )}
-            >
-              {connecting ? (
-                <>
-                  <div className="i-ph:spinner-gap animate-spin" />
-                  Connecting...
-                </>
-              ) : (
-                <>
-                  <div className="i-ph:plug-charging w-4 h-4" />
-                  Connect
-                </>
-              )}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleConnect}
+                disabled={connecting || !connection.token}
+                className={classNames(
+                  'px-4 py-2 rounded-lg text-sm flex items-center gap-2',
+                  'bg-[#303030] text-white',
+                  'hover:bg-[#5E41D0] hover:text-white',
+                  'disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200',
+                  'transform active:scale-95',
+                )}
+              >
+                {connecting ? (
+                  <>
+                    <div className="i-ph:spinner-gap animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <div className="i-ph:plug-charging w-4 h-4" />
+                    Connect
+                  </>
+                )}
+              </button>
+
+              {/* Debug button - remove this later */}
+              <button
+                onClick={async () => {
+                  console.log('Manual auto-connect test');
+
+                  const result = await autoConnectVercel();
+
+                  if (result.success) {
+                    toast.success('Manual auto-connect successful');
+                  } else {
+                    toast.error(`Manual auto-connect failed: ${result.error}`);
+                  }
+                }}
+                className="px-3 py-2 rounded-lg text-xs bg-blue-500 text-white hover:bg-blue-600"
+              >
+                Test Auto-Connect
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
