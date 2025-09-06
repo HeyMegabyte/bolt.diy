@@ -10,7 +10,6 @@ export type TabType =
   | 'data'
   | 'cloud-providers'
   | 'local-providers'
-  | 'service-status'
   | 'connection'
   | 'event-logs'
   | 'mcp';
@@ -70,7 +69,6 @@ export const TAB_LABELS: Record<TabType, string> = {
   data: 'Data Management',
   'cloud-providers': 'Cloud Providers',
   'local-providers': 'Local Providers',
-  'service-status': 'Service Status',
   connection: 'Connections',
   'event-logs': 'Event Logs',
   mcp: 'MCP Servers',

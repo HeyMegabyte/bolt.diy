@@ -8,7 +8,6 @@ export const TAB_ICONS: Record<TabType, string> = {
   data: 'i-ph:database',
   'cloud-providers': 'i-ph:cloud',
   'local-providers': 'i-ph:laptop',
-  'service-status': 'i-ph:activity-bold',
   connection: 'i-ph:wifi-high',
   'event-logs': 'i-ph:list-bullets',
   mcp: 'i-ph:wrench',
@@ -22,7 +21,6 @@ export const TAB_LABELS: Record<TabType, string> = {
   data: 'Data Management',
   'cloud-providers': 'Cloud Providers',
   'local-providers': 'Local Providers',
-  'service-status': 'Service Status',
   connection: 'Connection',
   'event-logs': 'Event Logs',
   mcp: 'MCP Servers',
@@ -36,7 +34,6 @@ export const TAB_DESCRIPTIONS: Record<TabType, string> = {
   data: 'Manage your data and storage',
   'cloud-providers': 'Configure cloud AI providers and models',
   'local-providers': 'Configure local AI providers and models',
-  'service-status': 'Monitor cloud LLM service status',
   connection: 'Check connection status and settings',
   'event-logs': 'View system events and logs',
   mcp: 'Configure MCP (Model Context Protocol) servers',
@@ -54,8 +51,7 @@ export const DEFAULT_TAB_CONFIG = [
   { id: 'mcp', visible: true, window: 'user' as const, order: 7 },
 
   { id: 'profile', visible: true, window: 'user' as const, order: 9 },
-  { id: 'service-status', visible: true, window: 'user' as const, order: 10 },
-  { id: 'settings', visible: true, window: 'user' as const, order: 11 },
+  { id: 'settings', visible: true, window: 'user' as const, order: 10 },
 
   // User Window Tabs (In dropdown, initially hidden)
 ];
