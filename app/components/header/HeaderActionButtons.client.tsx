@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useStore } from '@nanostores/react';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { DeployButton } from '~/components/deploy/DeployButton';
-import { MultiUserToggle } from '~/components/multiuser/MultiUserToggle';
 
 interface HeaderActionButtonsProps {
   chatStarted: boolean;
@@ -16,10 +15,7 @@ export function HeaderActionButtons({ chatStarted: _chatStarted }: HeaderActionB
   const shouldShowButtons = activePreview;
 
   return (
-    <div className="flex items-center gap-2">
-      {/* Multi-User Sessions Toggle (Bolt.gives Exclusive) */}
-      <MultiUserToggle />
-
+    <div className="flex items-center gap-1">
       {/* Deploy Button */}
       {shouldShowButtons && <DeployButton />}
 

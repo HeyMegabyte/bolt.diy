@@ -176,18 +176,9 @@ export const AssistantMessage = memo(
             </div>
           </div>
         </>
-        <div className="prose prose-invert max-w-none text-bolt-elements-textPrimary">
-          <Markdown
-            append={append}
-            chatMode={chatMode}
-            setChatMode={setChatMode}
-            model={model}
-            provider={provider}
-            html
-          >
-            {content}
-          </Markdown>
-        </div>
+        <Markdown append={append} chatMode={chatMode} setChatMode={setChatMode} model={model} provider={provider} html>
+          {content}
+        </Markdown>
         {toolInvocations && toolInvocations.length > 0 && (
           <ToolInvocations
             toolInvocations={toolInvocations}

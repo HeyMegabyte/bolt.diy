@@ -5,7 +5,7 @@ import { classNames } from '~/utils/classNames';
 import { HeaderActionButtons } from './HeaderActionButtons.client';
 import { ChatDescription } from '~/lib/persistence/ChatDescription.client';
 
-export function Header({ children }: { children?: React.ReactNode }) {
+export function Header() {
   const chat = useStore(chatStore);
 
   return (
@@ -37,8 +37,6 @@ export function Header({ children }: { children?: React.ReactNode }) {
           </ClientOnly>
         </>
       )}
-      {!chat.started && <div className="flex-1" />}
-      {children}
     </header>
   );
 }
