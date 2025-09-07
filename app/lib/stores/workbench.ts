@@ -466,17 +466,17 @@ export class WorkbenchStore {
   }
 
   addArtifact({ messageId, title, id, type }: ArtifactCallbackData) {
-    const artifact = this.#getArtifact(messageId);
+    const artifact = this.#getArtifact(id);
 
     if (artifact) {
       return;
     }
 
-    if (!this.artifactIdList.includes(messageId)) {
-      this.artifactIdList.push(messageId);
+    if (!this.artifactIdList.includes(id)) {
+      this.artifactIdList.push(id);
     }
 
-    this.artifacts.setKey(messageId, {
+    this.artifacts.setKey(id, {
       id,
       title,
       closed: false,
@@ -509,14 +509,18 @@ export class WorkbenchStore {
     });
   }
 
-  updateArtifact({ messageId }: ArtifactCallbackData, state: Partial<ArtifactUpdateState>) {
-    const artifact = this.#getArtifact(messageId);
+  updateArtifact({ artifactId }: ArtifactCallbackData, state: Partial<ArtifactUpdateState>) {
+    if (!artifactId) {
+      return;
+    }
+
+    const artifact = this.#getArtifact(artifactId);
 
     if (!artifact) {
       return;
     }
 
-    this.artifacts.setKey(messageId, { ...artifact, ...state });
+    this.artifacts.setKey(artifactId, { ...artifact, ...state });
   }
   addAction(data: ActionCallbackData) {
     // this._addAction(data);
@@ -524,9 +528,9 @@ export class WorkbenchStore {
     this.addToExecutionQueue(() => this._addAction(data));
   }
   async _addAction(data: ActionCallbackData) {
-    const { messageId } = data;
+    const { artifactId } = data;
 
-    const artifact = this.#getArtifact(messageId);
+    const artifact = this.#getArtifact(artifactId);
 
     if (!artifact) {
       unreachable('Artifact not found');
@@ -543,9 +547,9 @@ export class WorkbenchStore {
     }
   }
   async _runAction(data: ActionCallbackData, isStreaming: boolean = false) {
-    const { messageId } = data;
+    const { artifactId } = data;
 
-    const artifact = this.#getArtifact(messageId);
+    const artifact = this.#getArtifact(artifactId);
 
     if (!artifact) {
       unreachable('Artifact not found');

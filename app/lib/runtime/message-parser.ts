@@ -14,6 +14,7 @@ const logger = createScopedLogger('MessageParser');
 
 export interface ArtifactCallbackData extends BoltArtifactData {
   messageId: string;
+  artifactId?: string;
 }
 
 export interface ActionCallbackData {
@@ -36,6 +37,7 @@ export interface ParserCallbacks {
 
 interface ElementFactoryProps {
   messageId: string;
+  artifactId?: string;
 }
 
 type ElementFactory = (props: ElementFactoryProps) => string;
@@ -49,6 +51,7 @@ interface MessageState {
   position: number;
   insideArtifact: boolean;
   insideAction: boolean;
+  artifactCounter: number;
   currentArtifact?: BoltArtifactData;
   currentAction: BoltActionData;
   actionId: number;
@@ -84,6 +87,7 @@ export class StreamingMessageParser {
         position: 0,
         insideAction: false,
         insideArtifact: false,
+        artifactCounter: 0,
         currentAction: { content: '' },
         actionId: 0,
       };
@@ -97,8 +101,6 @@ export class StreamingMessageParser {
 
     while (i < input.length) {
       if (input.startsWith(BOLT_QUICK_ACTIONS_OPEN, i)) {
-        console.log('input:', input.slice(i));
-
         const actionsBlockEnd = input.indexOf(BOLT_QUICK_ACTIONS_CLOSE, i);
 
         if (actionsBlockEnd !== -1) {
@@ -223,7 +225,11 @@ export class StreamingMessageParser {
               break;
             }
           } else if (artifactCloseIndex !== -1) {
-            this._options.callbacks?.onArtifactClose?.({ messageId, ...currentArtifact });
+            this._options.callbacks?.onArtifactClose?.({
+              messageId,
+              artifactId: currentArtifact.id,
+              ...currentArtifact,
+            });
 
             state.insideArtifact = false;
             state.currentArtifact = undefined;
@@ -256,7 +262,9 @@ export class StreamingMessageParser {
 
               const artifactTitle = this.#extractAttribute(artifactTag, 'title') as string;
               const type = this.#extractAttribute(artifactTag, 'type') as string;
-              const artifactId = this.#extractAttribute(artifactTag, 'id') as string;
+
+              // const artifactId = this.#extractAttribute(artifactTag, 'id') as string;
+              const artifactId = `${messageId}-${state.artifactCounter++}`;
 
               if (!artifactTitle) {
                 logger.warn('Artifact title missing');
@@ -276,11 +284,15 @@ export class StreamingMessageParser {
 
               state.currentArtifact = currentArtifact;
 
-              this._options.callbacks?.onArtifactOpen?.({ messageId, ...currentArtifact });
+              this._options.callbacks?.onArtifactOpen?.({
+                messageId,
+                artifactId: currentArtifact.id,
+                ...currentArtifact,
+              });
 
               const artifactFactory = this._options.artifactElement ?? createArtifactElement;
 
-              output += artifactFactory({ messageId });
+              output += artifactFactory({ messageId, artifactId });
 
               i = openTagEnd + 1;
             } else {
@@ -301,69 +313,10 @@ export class StreamingMessageParser {
           break;
         }
       } else {
-        // Check for code blocks outside of artifacts
-        if (!state.insideArtifact && input[i] === '`' && input[i + 1] === '`' && input[i + 2] === '`') {
-          // Find the end of the code block
-          const languageEnd = input.indexOf('\n', i + 3);
-
-          if (languageEnd !== -1) {
-            const codeBlockEnd = input.indexOf('\n```', languageEnd + 1);
-
-            if (codeBlockEnd !== -1) {
-              // Extract language and code content
-              const language = input.slice(i + 3, languageEnd).trim();
-              const codeContent = input.slice(languageEnd + 1, codeBlockEnd);
-
-              // Determine file extension based on language
-              const fileExtension = this.#getFileExtension(language);
-              const fileName = `code_${++this.#artifactCounter}${fileExtension}`;
-
-              // Auto-generate artifact and action tags
-              const artifactId = `artifact_${Date.now()}_${this.#artifactCounter}`;
-              const autoArtifact = {
-                id: artifactId,
-                title: fileName,
-                type: 'code',
-              };
-
-              // Emit artifact open callback
-              this._options.callbacks?.onArtifactOpen?.({ messageId, ...autoArtifact });
-
-              // Add artifact element to output
-              const artifactFactory = this._options.artifactElement ?? createArtifactElement;
-              output += artifactFactory({ messageId });
-
-              // Emit action for file creation
-              const fileAction = {
-                type: 'file' as const,
-                filePath: fileName,
-                content: codeContent + '\n',
-              };
-
-              this._options.callbacks?.onActionOpen?.({
-                artifactId,
-                messageId,
-                actionId: String(state.actionId++),
-                action: fileAction,
-              });
-
-              this._options.callbacks?.onActionClose?.({
-                artifactId,
-                messageId,
-                actionId: String(state.actionId - 1),
-                action: fileAction,
-              });
-
-              // Emit artifact close callback
-              this._options.callbacks?.onArtifactClose?.({ messageId, ...autoArtifact });
-
-              // Move position past the code block
-              i = codeBlockEnd + 4; // +4 for \n```
-              continue;
-            }
-          }
-        }
-
+        /*
+         * Note: Auto-file-creation from code blocks is now handled by EnhancedMessageParser
+         * to avoid duplicate processing and provide better shell command detection
+         */
         output += input[i];
         i++;
       }
@@ -431,78 +384,6 @@ export class StreamingMessageParser {
     const match = tag.match(new RegExp(`${attributeName}="([^"]*)"`, 'i'));
     return match ? match[1] : undefined;
   }
-
-  #getFileExtension(language: string): string {
-    const languageMap: Record<string, string> = {
-      javascript: '.js',
-      js: '.js',
-      typescript: '.ts',
-      ts: '.ts',
-      jsx: '.jsx',
-      tsx: '.tsx',
-      python: '.py',
-      py: '.py',
-      java: '.java',
-      c: '.c',
-      cpp: '.cpp',
-      'c++': '.cpp',
-      csharp: '.cs',
-      'c#': '.cs',
-      php: '.php',
-      ruby: '.rb',
-      rb: '.rb',
-      go: '.go',
-      rust: '.rs',
-      rs: '.rs',
-      kotlin: '.kt',
-      kt: '.kt',
-      swift: '.swift',
-      html: '.html',
-      css: '.css',
-      scss: '.scss',
-      sass: '.sass',
-      less: '.less',
-      xml: '.xml',
-      json: '.json',
-      yaml: '.yaml',
-      yml: '.yml',
-      toml: '.toml',
-      markdown: '.md',
-      md: '.md',
-      sql: '.sql',
-      sh: '.sh',
-      bash: '.sh',
-      zsh: '.sh',
-      fish: '.fish',
-      powershell: '.ps1',
-      ps1: '.ps1',
-      dockerfile: '.dockerfile',
-      docker: '.dockerfile',
-      makefile: '.makefile',
-      make: '.makefile',
-      vim: '.vim',
-      lua: '.lua',
-      perl: '.pl',
-      r: '.r',
-      matlab: '.m',
-      julia: '.jl',
-      scala: '.scala',
-      clojure: '.clj',
-      haskell: '.hs',
-      erlang: '.erl',
-      elixir: '.ex',
-      nim: '.nim',
-      crystal: '.cr',
-      dart: '.dart',
-      vue: '.vue',
-      svelte: '.svelte',
-      astro: '.astro',
-    };
-
-    const normalized = language.toLowerCase();
-
-    return languageMap[normalized] || '.txt';
-  }
 }
 
 const createArtifactElement: ElementFactory = (props) => {
@@ -526,8 +407,6 @@ function createQuickActionElement(props: Record<string, string>, label: string) 
     'data-bolt-quick-action="true"',
     ...Object.entries(props).map(([key, value]) => `data-${camelToDashCase(key)}=${JSON.stringify(value)}`),
   ];
-
-  console.log('elementProps', `<button ${elementProps.join(' ')}>${label}</button>`);
 
   return `<button ${elementProps.join(' ')}>${label}</button>`;
 }
