@@ -224,7 +224,8 @@ class GitLabConnectionStore {
 
   // Auto-connect using environment token
   async autoConnect() {
-    if (!envToken) {
+    // Check if token exists and is not empty
+    if (!envToken || envToken.trim() === '') {
       return { success: false, error: 'No GitLab token found in environment' };
     }
 
@@ -266,14 +267,21 @@ class GitLabConnectionStore {
     } catch (error) {
       console.error('Failed to auto-connect to GitLab:', error);
 
-      logStore.logError(`GitLab auto-connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+      // Log more detailed error information
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('GitLab auto-connect error details:', {
+        token: envToken.substring(0, 10) + '...', // Log first 10 chars for debugging
+        error: errorMessage,
+      });
+
+      logStore.logError(`GitLab auto-connection failed: ${errorMessage}`, {
         type: 'system',
         message: 'GitLab auto-connection failed',
       });
 
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: errorMessage,
       };
     }
   }

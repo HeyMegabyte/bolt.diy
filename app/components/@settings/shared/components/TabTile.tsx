@@ -70,16 +70,20 @@ export const TabTile: React.FC<TabTileProps> = ({
                     isActive ? 'bg-purple-500/10 dark:bg-purple-500/10 ring-purple-500/30 dark:ring-purple-500/20' : '',
                   )}
                 >
-                  <div
-                    className={classNames(
-                      TAB_ICONS[tab.id],
-                      'w-8 h-8',
-                      'text-gray-600 dark:text-gray-300',
-                      'group-hover:text-purple-500 dark:group-hover:text-purple-400/80',
-                      'transition-colors duration-100 ease-out',
-                      isActive ? 'text-purple-500 dark:text-purple-400/90' : '',
-                    )}
-                  />
+                  {(() => {
+                    const IconComponent = TAB_ICONS[tab.id];
+                    return (
+                      <IconComponent
+                        className={classNames(
+                          'w-8 h-8',
+                          'text-gray-600 dark:text-gray-300',
+                          'group-hover:text-purple-500 dark:group-hover:text-purple-400/80',
+                          'transition-colors duration-100 ease-out',
+                          isActive ? 'text-purple-500 dark:text-purple-400/90' : '',
+                        )}
+                      />
+                    );
+                  })()}
                 </div>
 
                 {/* Label and Description */}

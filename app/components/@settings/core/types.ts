@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { User, Folder, Wifi, Settings, Box, Sliders } from 'lucide-react';
 
 export type SettingCategory = 'profile' | 'file_sharing' | 'connectivity' | 'system' | 'services' | 'preferences';
 
@@ -10,7 +11,11 @@ export type TabType =
   | 'data'
   | 'cloud-providers'
   | 'local-providers'
-  | 'connection'
+  | 'github'
+  | 'gitlab'
+  | 'netlify'
+  | 'vercel'
+  | 'supabase'
   | 'event-logs'
   | 'mcp';
 
@@ -69,7 +74,11 @@ export const TAB_LABELS: Record<TabType, string> = {
   data: 'Data Management',
   'cloud-providers': 'Cloud Providers',
   'local-providers': 'Local Providers',
-  connection: 'Connections',
+  github: 'GitHub',
+  gitlab: 'GitLab',
+  netlify: 'Netlify',
+  vercel: 'Vercel',
+  supabase: 'Supabase',
   'event-logs': 'Event Logs',
   mcp: 'MCP Servers',
 };
@@ -83,13 +92,13 @@ export const categoryLabels: Record<SettingCategory, string> = {
   preferences: 'Preferences',
 };
 
-export const categoryIcons: Record<SettingCategory, string> = {
-  profile: 'i-ph:user-circle',
-  file_sharing: 'i-ph:folder-simple',
-  connectivity: 'i-ph:wifi-high',
-  system: 'i-ph:gear',
-  services: 'i-ph:cube',
-  preferences: 'i-ph:sliders',
+export const categoryIcons: Record<SettingCategory, React.ComponentType<{ className?: string }>> = {
+  profile: User,
+  file_sharing: Folder,
+  connectivity: Wifi,
+  system: Settings,
+  services: Box,
+  preferences: Sliders,
 };
 
 export interface Profile {

@@ -7,15 +7,14 @@ import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { LoadingOverlay } from '~/components/ui/LoadingOverlay';
 
-// import { RepositorySelectionDialog } from '~/components/@settings/tabs/connections/components/RepositorySelectionDialog';
 import { classNames } from '~/utils/classNames';
 import { Button } from '~/components/ui/Button';
 import type { IChatMetadata } from '~/lib/persistence/db';
 import { X, Github, GitBranch } from 'lucide-react';
 
-// Import GitLab and GitHub connections for unified repository access
-import GitLabConnection from '~/components/@settings/tabs/connections/gitlab/GitLabConnection';
-import GitHubConnection from '~/components/@settings/tabs/connections/github/GitHubConnection';
+// Import the new repository selector components
+import { GitHubRepositorySelector } from '~/components/@settings/tabs/github/components/GitHubRepositorySelector';
+import { GitLabRepositorySelector } from '~/components/@settings/tabs/gitlab/components/GitLabRepositorySelector';
 
 const IGNORE_PATTERNS = [
   'node_modules/**',
@@ -280,7 +279,7 @@ ${escapeBoltTags(file.content)}
             </div>
 
             <div className="p-6 max-h-[calc(90vh-140px)] overflow-y-auto">
-              <GitHubConnection onCloneRepository={handleClone} />
+              <GitHubRepositorySelector onClone={handleClone} />
             </div>
           </div>
         </div>
@@ -316,7 +315,7 @@ ${escapeBoltTags(file.content)}
             </div>
 
             <div className="p-6 max-h-[calc(90vh-140px)] overflow-y-auto">
-              <GitLabConnection onCloneRepository={handleClone} />
+              <GitLabRepositorySelector onClone={handleClone} />
             </div>
           </div>
         </div>

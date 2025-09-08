@@ -9,7 +9,7 @@ import type { GitHubUserResponse, GitHubRepoInfo } from '~/types/GitHub';
 import { logStore } from '~/lib/stores/logs';
 import { chatId } from '~/lib/persistence/useChatHistory';
 import { useStore } from '@nanostores/react';
-import { AuthDialog as GitHubAuthDialog } from '~/components/@settings/tabs/connections/github/AuthDialog';
+import { GitHubAuthDialog } from '~/components/@settings/tabs/github/components/GitHubAuthDialog';
 import { SearchInput, EmptyState, StatusIndicator, Badge } from '~/components/ui';
 
 interface GitHubDeploymentDialogProps {
@@ -34,13 +34,33 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const currentChatId = useStore(chatId);
 
-  // Load GitHub connection on mount
+  /*
+   * Load GitHub connection on mount
+   * Helper function to sanitize repository name
+   */
+  const sanitizeRepoName = (name: string): string => {
+    return (
+      name
+        .toLowerCase()
+        // Replace spaces and underscores with hyphens
+        .replace(/[\s_]+/g, '-')
+        // Remove special characters except hyphens and alphanumeric
+        .replace(/[^a-z0-9-]/g, '')
+        // Remove multiple consecutive hyphens
+        .replace(/-+/g, '-')
+        // Remove leading/trailing hyphens
+        .replace(/^-+|-+$/g, '')
+        // Ensure it's not empty and has reasonable length
+        .substring(0, 100) || 'my-project'
+    );
+  };
+
   useEffect(() => {
     if (isOpen) {
       const connection = getLocalStorage('github_connection');
 
-      // Set a default repository name based on the project name
-      setRepoName(projectName.replace(/\s+/g, '-').toLowerCase());
+      // Set a default repository name based on the project name with proper sanitization
+      setRepoName(sanitizeRepoName(projectName));
 
       if (connection?.user && connection?.token) {
         setUser(connection.user);
@@ -180,6 +200,25 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
       return;
     }
 
+    // Validate repository name
+    const sanitizedName = sanitizeRepoName(repoName);
+
+    if (!sanitizedName || sanitizedName.length < 1) {
+      toast.error('Repository name must contain at least one alphanumeric character');
+      return;
+    }
+
+    if (sanitizedName.length > 100) {
+      toast.error('Repository name is too long (maximum 100 characters)');
+      return;
+    }
+
+    // Update the repo name field with the sanitized version if it was changed
+    if (sanitizedName !== repoName) {
+      setRepoName(sanitizedName);
+      toast.info(`Repository name sanitized to: ${sanitizedName}`);
+    }
+
     setIsLoading(true);
 
     try {
@@ -188,10 +227,11 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
       let repoExists = false;
 
       try {
-        // Check if the repository already exists
+        // Check if the repository already exists - ensure repo name is properly sanitized
+        const sanitizedRepoName = sanitizeRepoName(repoName);
         const { data: existingRepo } = await octokit.repos.get({
           owner: connection.user.login,
-          repo: repoName,
+          repo: sanitizedRepoName,
         });
 
         repoExists = true;
@@ -219,7 +259,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
         if (existingRepo.private !== isPrivate) {
           await octokit.repos.update({
             owner: connection.user.login,
-            repo: repoName,
+            repo: sanitizedRepoName,
             private: isPrivate,
           });
         }
@@ -232,8 +272,9 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
 
       // Create repository if it doesn't exist
       if (!repoExists) {
+        const sanitizedRepoName = sanitizeRepoName(repoName);
         const { data: newRepo } = await octokit.repos.createForAuthenticatedUser({
-          name: repoName,
+          name: sanitizedRepoName,
           private: isPrivate,
 
           // Initialize with a README to avoid empty repository issues
@@ -253,7 +294,8 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
         await new Promise((resolve) => setTimeout(resolve, 2000));
       } else {
         // Set URL for existing repo
-        setCreatedRepoUrl(`https://github.com/${connection.user.login}/${repoName}`);
+        const sanitizedRepoName = sanitizeRepoName(repoName);
+        setCreatedRepoUrl(`https://github.com/${connection.user.login}/${sanitizedRepoName}`);
       }
 
       // Process files to upload
@@ -279,9 +321,10 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
 
       try {
         // For both new and existing repos, get the repository info
+        const sanitizedRepoName = sanitizeRepoName(repoName);
         const { data: repo } = await octokit.repos.get({
           owner: connection.user.login,
-          repo: repoName,
+          repo: sanitizedRepoName,
         });
         defaultBranch = repo.default_branch || 'main';
         console.log(`Repository default branch: ${defaultBranch}`);
@@ -290,7 +333,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
         try {
           const { data: refData } = await octokit.git.getRef({
             owner: connection.user.login,
-            repo: repoName,
+            repo: sanitizedRepoName,
             ref: `heads/${defaultBranch}`,
           });
 
@@ -300,7 +343,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
           // Get the latest commit to use as a base for our tree
           const { data: commitData } = await octokit.git.getCommit({
             owner: connection.user.login,
-            repo: repoName,
+            repo: sanitizedRepoName,
             commit_sha: baseSha,
           });
 
@@ -331,9 +374,10 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
         console.log(`Creating tree with ${tree.length} files using base: ${baseSha || 'none'}`);
 
         // Create a tree with all the files, using the base tree if available
+        const sanitizedRepoName = sanitizeRepoName(repoName);
         const { data: treeData } = await octokit.git.createTree({
           owner: connection.user.login,
-          repo: repoName,
+          repo: sanitizedRepoName,
           tree,
           base_tree: baseSha || undefined,
         });
@@ -346,7 +390,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
         try {
           const { data: refData } = await octokit.git.getRef({
             owner: connection.user.login,
-            repo: repoName,
+            repo: sanitizedRepoName,
             ref: `heads/${defaultBranch}`,
           });
           parentCommitSha = refData.object.sha;
@@ -361,7 +405,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
 
         const { data: commitData } = await octokit.git.createCommit({
           owner: connection.user.login,
-          repo: repoName,
+          repo: sanitizedRepoName,
           message: !repoExists ? 'Initial commit from Bolt.diy' : 'Update from Bolt.diy',
           tree: treeData.sha,
           parents: parentCommitSha ? [parentCommitSha] : [], // Use parent if available
@@ -374,7 +418,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
           console.log(`Updating reference: heads/${defaultBranch} to ${commitData.sha}`);
           await octokit.git.updateRef({
             owner: connection.user.login,
-            repo: repoName,
+            repo: sanitizedRepoName,
             ref: `heads/${defaultBranch}`,
             sha: commitData.sha,
             force: true, // Use force to ensure the update works
@@ -387,7 +431,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
           try {
             await octokit.git.createRef({
               owner: connection.user.login,
-              repo: repoName,
+              repo: sanitizedRepoName,
               ref: `refs/heads/${defaultBranch}`,
               sha: commitData.sha,
             });
@@ -413,12 +457,13 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
       }
 
       // Save the repository information for this chat
+      const sanitizedRepoName = sanitizeRepoName(repoName);
       localStorage.setItem(
         `github-repo-${currentChatId}`,
         JSON.stringify({
           owner: connection.user.login,
-          name: repoName,
-          url: `https://github.com/${connection.user.login}/${repoName}`,
+          name: sanitizedRepoName,
+          url: `https://github.com/${connection.user.login}/${sanitizedRepoName}`,
         }),
       );
 
@@ -428,14 +473,42 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
       console.error('Error pushing to GitHub:', error);
 
       // Attempt to extract more specific error information
-      let errorMessage = 'Failed to push to GitHub.';
+      let errorMessage = 'Failed to push to GitHub';
+      let isRetryable = false;
 
       if (error instanceof Error) {
-        errorMessage = error.message;
+        const errorMsg = error.message.toLowerCase();
+
+        if (errorMsg.includes('network') || errorMsg.includes('fetch failed') || errorMsg.includes('connection')) {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+          isRetryable = true;
+        } else if (errorMsg.includes('401') || errorMsg.includes('unauthorized')) {
+          errorMessage = 'GitHub authentication failed. Please check your access token in Settings > Connections.';
+        } else if (errorMsg.includes('403') || errorMsg.includes('forbidden')) {
+          errorMessage =
+            'Access denied. Your GitHub token may not have sufficient permissions to create/modify repositories.';
+        } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
+          errorMessage = 'Repository or resource not found. Please check the repository name and your permissions.';
+        } else if (errorMsg.includes('422') || errorMsg.includes('validation failed')) {
+          if (errorMsg.includes('name already exists')) {
+            errorMessage =
+              'A repository with this name already exists in your account. Please choose a different name.';
+          } else {
+            errorMessage = 'Repository validation failed. Please check the repository name and settings.';
+          }
+        } else if (errorMsg.includes('rate limit') || errorMsg.includes('429')) {
+          errorMessage = 'GitHub API rate limit exceeded. Please wait a moment and try again.';
+          isRetryable = true;
+        } else if (errorMsg.includes('timeout')) {
+          errorMessage = 'Request timed out. Please check your connection and try again.';
+          isRetryable = true;
+        } else {
+          errorMessage = `GitHub error: ${error.message}`;
+        }
       } else if (typeof error === 'object' && error !== null) {
         // Octokit errors
         if ('message' in error) {
-          errorMessage = error.message as string;
+          errorMessage = `GitHub API error: ${error.message as string}`;
         }
 
         // GitHub API errors
@@ -444,7 +517,17 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
         }
       }
 
-      toast.error(`GitHub deployment failed: ${errorMessage}`);
+      // Show error with retry suggestion if applicable
+      const finalMessage = isRetryable ? `${errorMessage} Click to retry.` : errorMessage;
+      toast.error(finalMessage);
+
+      // Log detailed error for debugging
+      console.error('Detailed GitHub deployment error:', {
+        error,
+        repoName: sanitizeRepoName(repoName),
+        user: connection?.user?.login,
+        isRetryable,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -488,6 +571,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                 className="bg-white dark:bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark shadow-xl"
                 aria-describedby="success-dialog-description"
               >
+                <Dialog.Title className="sr-only">Successfully pushed to GitHub</Dialog.Title>
                 <div className="p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -624,6 +708,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                 className="bg-white dark:bg-bolt-elements-background-depth-1 rounded-lg p-6 border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark shadow-xl"
                 aria-describedby="connection-required-description"
               >
+                <Dialog.Title className="sr-only">GitHub Connection Required</Dialog.Title>
                 <div className="relative text-center space-y-4">
                   <Dialog.Close asChild>
                     <button
@@ -763,12 +848,36 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                         id="repoName"
                         type="text"
                         value={repoName}
-                        onChange={(e) => setRepoName(e.target.value)}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setRepoName(value);
+
+                          // Show real-time feedback for invalid characters
+                          const sanitized = sanitizeRepoName(value);
+
+                          if (value && value !== sanitized) {
+                            // Show preview of sanitized name without being too intrusive
+                            e.target.setAttribute('data-sanitized', sanitized);
+                          } else {
+                            e.target.removeAttribute('data-sanitized');
+                          }
+                        }}
                         placeholder="my-awesome-project"
                         className="w-full pl-10 px-4 py-2 rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark placeholder-bolt-elements-textTertiary dark:placeholder-bolt-elements-textTertiary-dark focus:outline-none focus:ring-2 focus:ring-purple-500"
                         required
+                        maxLength={100}
+                        pattern="[a-zA-Z0-9\-_\s]+"
+                        title="Repository name can contain letters, numbers, hyphens, underscores, and spaces"
                       />
                     </div>
+                    {repoName && sanitizeRepoName(repoName) !== repoName && (
+                      <p className="text-xs text-bolt-elements-textSecondary dark:text-bolt-elements-textSecondary-dark mt-1">
+                        Will be created as:{' '}
+                        <span className="font-mono text-purple-600 dark:text-purple-400">
+                          {sanitizeRepoName(repoName)}
+                        </span>
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">

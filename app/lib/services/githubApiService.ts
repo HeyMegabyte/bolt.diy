@@ -1,338 +1,450 @@
 import type {
   GitHubUserResponse,
   GitHubRepoInfo,
-  GitHubEvent,
+  GitHubBranch,
+  GitHubOrganization,
   GitHubStats,
   GitHubLanguageStats,
-  GitHubRateLimits,
 } from '~/types/GitHub';
 
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-  expiresAt: number;
+export interface GitHubApiServiceConfig {
+  token?: string;
+  tokenType?: 'classic' | 'fine-grained';
+  baseURL?: string;
 }
 
-class GitHubCache {
-  private _cache = new Map<string, CacheEntry<any>>();
-
-  set<T>(key: string, data: T, duration = CACHE_DURATION): void {
-    const timestamp = Date.now();
-    this._cache.set(key, {
-      data,
-      timestamp,
-      expiresAt: timestamp + duration,
-    });
-  }
-
-  get<T>(key: string): T | null {
-    const entry = this._cache.get(key);
-
-    if (!entry) {
-      return null;
-    }
-
-    if (Date.now() > entry.expiresAt) {
-      this._cache.delete(key);
-      return null;
-    }
-
-    return entry.data;
-  }
-
-  clear(): void {
-    this._cache.clear();
-  }
-
-  isExpired(key: string): boolean {
-    const entry = this._cache.get(key);
-    return !entry || Date.now() > entry.expiresAt;
-  }
-
-  delete(key: string): void {
-    this._cache.delete(key);
-  }
+export interface DetailedRepoInfo extends GitHubRepoInfo {
+  branches_count?: number;
+  contributors_count?: number;
+  issues_count?: number;
+  pull_requests_count?: number;
 }
 
-class GitHubApiService {
-  private _cache = new GitHubCache();
-  private _baseUrl = 'https://api.github.com';
+export interface GitHubApiError {
+  message: string;
+  status: number;
+  code?: string;
+}
 
-  private async _makeRequest<T>(
-    endpoint: string,
-    token: string,
-    tokenType: 'classic' | 'fine-grained' = 'classic',
-    options: RequestInit = {},
-  ): Promise<{ data: T; rateLimit?: GitHubRateLimits }> {
-    const authHeader = tokenType === 'classic' ? `token ${token}` : `Bearer ${token}`;
+export class GitHubApiServiceClass {
+  private _config: GitHubApiServiceConfig;
+  private _baseURL: string;
 
-    const response = await fetch(`${this._baseUrl}${endpoint}`, {
-      ...options,
+  constructor(config: GitHubApiServiceConfig = {}) {
+    this._config = config;
+    this._baseURL = config.baseURL || 'https://api.github.com';
+  }
+
+  /**
+   * Configure the service with authentication details
+   */
+  configure(config: GitHubApiServiceConfig): void {
+    this._config = { ...this._config, ...config };
+    this._baseURL = config.baseURL || this._baseURL;
+  }
+
+  private async _makeRequestInternal<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    if (!this._config.token) {
+      throw new Error('GitHub token is required. Call configure() first.');
+    }
+
+    const response = await fetch(`${this._baseURL}${endpoint}`, {
       headers: {
-        'Content-Type': 'application/json',
-        Authorization: authHeader,
-        'User-Agent': 'bolt.diy-app',
+        Accept: 'application/vnd.github.v3+json',
+        Authorization: `${this._config.tokenType === 'classic' ? 'token' : 'Bearer'} ${this._config.token}`,
+        'User-Agent': 'Bolt.diy',
         ...options.headers,
+      },
+      ...options,
+    });
+
+    if (!response.ok) {
+      const errorData: any = await response.json().catch(() => ({ message: response.statusText }));
+      const error: GitHubApiError = {
+        message: errorData.message || response.statusText,
+        status: response.status,
+        code: errorData.code,
+      };
+      throw error;
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Fetch all user repositories with pagination
+   */
+  async getAuthenticatedUser(): Promise<GitHubUserResponse> {
+    return this._makeRequestInternal<GitHubUserResponse>('/user');
+  }
+
+  async getAllUserRepositories(): Promise<GitHubRepoInfo[]> {
+    const allRepos: GitHubRepoInfo[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const repos = await this._makeRequestInternal<GitHubRepoInfo[]>(
+        `/user/repos?per_page=100&page=${page}&sort=updated`,
+      );
+
+      allRepos.push(...repos);
+      hasMore = repos.length === 100; // If we got 100 repos, there might be more
+      page++;
+    }
+
+    return allRepos;
+  }
+
+  /**
+   * Fetch detailed information for a repository including additional metrics
+   */
+  async getDetailedRepositoryInfo(owner: string, repo: string): Promise<DetailedRepoInfo> {
+    const [repoInfo, branches] = await Promise.all([
+      this._makeRequestInternal<GitHubRepoInfo>(`/repos/${owner}/${repo}`),
+      this.getRepositoryBranches(owner, repo).catch(() => []),
+    ]);
+
+    // Try to get additional metrics
+    const [contributors, issues, pullRequests] = await Promise.allSettled([
+      this._getRepositoryContributorsCount(owner, repo),
+      this._getRepositoryIssuesCount(owner, repo),
+      this._getRepositoryPullRequestsCount(owner, repo),
+    ]);
+
+    const detailedInfo: DetailedRepoInfo = {
+      ...repoInfo,
+      branches_count: branches.length,
+      contributors_count: contributors.status === 'fulfilled' ? contributors.value : undefined,
+      issues_count: issues.status === 'fulfilled' ? issues.value : undefined,
+      pull_requests_count: pullRequests.status === 'fulfilled' ? pullRequests.value : undefined,
+    };
+
+    return detailedInfo;
+  }
+
+  /**
+   * Get repository branches
+   */
+  async getRepositoryBranches(owner: string, repo: string): Promise<GitHubBranch[]> {
+    return this._makeRequestInternal<GitHubBranch[]>(`/repos/${owner}/${repo}/branches`);
+  }
+
+  /**
+   * Get contributors count using Link header pagination info
+   */
+  private async _getRepositoryContributorsCount(owner: string, repo: string): Promise<number> {
+    const response = await fetch(`${this._baseURL}/repos/${owner}/${repo}/contributors?per_page=1`, {
+      headers: {
+        Accept: 'application/vnd.github.v3+json',
+        Authorization: `${this._config.tokenType === 'classic' ? 'token' : 'Bearer'} ${this._config.token}`,
+        'User-Agent': 'Bolt.diy',
       },
     });
 
-    // Extract rate limit information
-    const rateLimit: GitHubRateLimits = {
-      limit: parseInt(response.headers.get('x-ratelimit-limit') || '5000'),
-      remaining: parseInt(response.headers.get('x-ratelimit-remaining') || '5000'),
-      reset: new Date(parseInt(response.headers.get('x-ratelimit-reset') || '0') * 1000),
-      used: parseInt(response.headers.get('x-ratelimit-used') || '0'),
-    };
+    if (!response.ok) {
+      return 0;
+    }
+
+    const linkHeader = response.headers.get('Link');
+
+    if (linkHeader) {
+      const match = linkHeader.match(/page=(\d+)>; rel="last"/);
+      return match ? parseInt(match[1], 10) : 1;
+    }
+
+    const data = await response.json();
+
+    return Array.isArray(data) ? data.length : 0;
+  }
+
+  /**
+   * Get issues count using Link header pagination info
+   */
+  private async _getRepositoryIssuesCount(owner: string, repo: string): Promise<number> {
+    const response = await fetch(`${this._baseURL}/repos/${owner}/${repo}/issues?state=all&per_page=1`, {
+      headers: {
+        Accept: 'application/vnd.github.v3+json',
+        Authorization: `${this._config.tokenType === 'classic' ? 'token' : 'Bearer'} ${this._config.token}`,
+        'User-Agent': 'Bolt.diy',
+      },
+    });
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`GitHub API Error (${response.status}): ${response.statusText}. ${errorBody}`);
+      return 0;
     }
 
-    const data = (await response.json()) as T;
+    const linkHeader = response.headers.get('Link');
 
-    return { data, rateLimit };
+    if (linkHeader) {
+      const match = linkHeader.match(/page=(\d+)>; rel="last"/);
+      return match ? parseInt(match[1], 10) : 1;
+    }
+
+    const data = await response.json();
+
+    return Array.isArray(data) ? data.length : 0;
   }
 
-  async fetchUser(
-    token: string,
-    _tokenType: 'classic' | 'fine-grained' = 'classic',
-  ): Promise<{
-    user: GitHubUserResponse;
-    rateLimit: GitHubRateLimits;
-  }> {
-    const cacheKey = `user:${token.slice(0, 8)}`;
-    const cached = this._cache.get<{ user: GitHubUserResponse; rateLimit: GitHubRateLimits }>(cacheKey);
+  /**
+   * Get pull requests count using Link header pagination info
+   */
+  private async _getRepositoryPullRequestsCount(owner: string, repo: string): Promise<number> {
+    const response = await fetch(`${this._baseURL}/repos/${owner}/${repo}/pulls?state=all&per_page=1`, {
+      headers: {
+        Accept: 'application/vnd.github.v3+json',
+        Authorization: `${this._config.tokenType === 'classic' ? 'token' : 'Bearer'} ${this._config.token}`,
+        'User-Agent': 'Bolt.diy',
+      },
+    });
 
-    if (cached) {
-      return cached;
+    if (!response.ok) {
+      return 0;
     }
 
-    try {
-      // Use server-side API endpoint for user validation
-      const response = await fetch('/api/system/git-info?action=getUser', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    const linkHeader = response.headers.get('Link');
 
-      if (!response.ok) {
-        throw new Error(`GitHub API Error (${response.status}): ${response.statusText}`);
-      }
-
-      // Get rate limit information from headers
-      const rateLimit: GitHubRateLimits = {
-        limit: parseInt(response.headers.get('x-ratelimit-limit') || '5000'),
-        remaining: parseInt(response.headers.get('x-ratelimit-remaining') || '5000'),
-        reset: new Date(parseInt(response.headers.get('x-ratelimit-reset') || '0') * 1000),
-        used: parseInt(response.headers.get('x-ratelimit-used') || '0'),
-      };
-
-      const data = (await response.json()) as { user: GitHubUserResponse };
-      const user = data.user;
-
-      if (!user || !user.login) {
-        throw new Error('Invalid user data received');
-      }
-
-      const result = { user, rateLimit };
-      this._cache.set(cacheKey, result);
-
-      return result;
-    } catch (error) {
-      console.error('Failed to fetch GitHub user:', error);
-      throw error;
+    if (linkHeader) {
+      const match = linkHeader.match(/page=(\d+)>; rel="last"/);
+      return match ? parseInt(match[1], 10) : 1;
     }
+
+    const data = await response.json();
+
+    return Array.isArray(data) ? data.length : 0;
   }
 
-  async fetchRepositories(token: string, tokenType: 'classic' | 'fine-grained' = 'classic'): Promise<GitHubRepoInfo[]> {
-    const cacheKey = `repos:${token.slice(0, 8)}`;
-    const cached = this._cache.get<GitHubRepoInfo[]>(cacheKey);
+  /**
+   * Fetch detailed information for multiple repositories in batches
+   */
+  async getDetailedRepositoriesInfo(
+    repos: GitHubRepoInfo[],
+    batchSize: number = 5,
+    delayMs: number = 100,
+  ): Promise<DetailedRepoInfo[]> {
+    const detailedRepos: DetailedRepoInfo[] = [];
 
-    if (cached) {
-      return cached;
-    }
-
-    try {
-      let allRepos: any[] = [];
-      let page = 1;
-      let hasMore = true;
-
-      while (hasMore) {
-        const { data: repos } = await this._makeRequest<any[]>(
-          `/user/repos?per_page=100&page=${page}`,
-          token,
-          tokenType,
-        );
-
-        allRepos = [...allRepos, ...repos];
-
-        hasMore = repos.length === 100;
-        page++;
-      }
-
-      const repositories: GitHubRepoInfo[] = allRepos.map((repo) => ({
-        id: repo.id.toString(),
-        name: repo.name,
-        full_name: repo.full_name,
-        html_url: repo.html_url,
-        description: repo.description || '',
-        stargazers_count: repo.stargazers_count || 0,
-        forks_count: repo.forks_count || 0,
-        default_branch: repo.default_branch || 'main',
-        updated_at: repo.updated_at,
-        language: repo.language || '',
-        languages_url: repo.languages_url,
-        private: repo.private || false,
-        topics: repo.topics || [],
-      }));
-
-      this._cache.set(cacheKey, repositories);
-
-      return repositories;
-    } catch (error) {
-      console.error('Failed to fetch GitHub repositories:', error);
-      throw error;
-    }
-  }
-
-  async fetchRecentActivity(
-    username: string,
-    token: string,
-    tokenType: 'classic' | 'fine-grained' = 'classic',
-  ): Promise<GitHubEvent[]> {
-    const cacheKey = `activity:${username}:${token.slice(0, 8)}`;
-    const cached = this._cache.get<GitHubEvent[]>(cacheKey);
-
-    if (cached) {
-      return cached;
-    }
-
-    try {
-      const { data: events } = await this._makeRequest<any[]>(
-        `/users/${username}/events?per_page=10`,
-        token,
-        tokenType,
+    for (let i = 0; i < repos.length; i += batchSize) {
+      const batch = repos.slice(i, i + batchSize);
+      const batchResults = await Promise.allSettled(
+        batch.map((repo) => {
+          const [owner, repoName] = repo.full_name.split('/');
+          return this.getDetailedRepositoryInfo(owner, repoName);
+        }),
       );
 
-      const recentActivity: GitHubEvent[] = events.slice(0, 5).map((event) => ({
-        id: event.id,
-        type: event.type,
-        created_at: event.created_at,
-        repo: {
-          name: event.repo?.name || '',
-          url: event.repo?.url || '',
-        },
-        payload: {
-          action: event.payload?.action,
-          ref: event.payload?.ref,
-          ref_type: event.payload?.ref_type,
-          description: event.payload?.description,
-        },
-      }));
+      // Collect successful results
+      batchResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          detailedRepos.push(result.value);
+        } else {
+          console.error(`Failed to fetch details for ${batch[index].full_name}:`, result.reason);
 
-      this._cache.set(cacheKey, recentActivity);
-
-      return recentActivity;
-    } catch (error) {
-      console.error('Failed to fetch GitHub recent activity:', error);
-      throw error;
-    }
-  }
-
-  async fetchRepositoryLanguages(languagesUrl: string, token: string): Promise<GitHubLanguageStats> {
-    const cacheKey = `languages:${languagesUrl}`;
-    const cached = this._cache.get<GitHubLanguageStats>(cacheKey);
-
-    if (cached) {
-      return cached;
-    }
-
-    try {
-      const response = await fetch(languagesUrl, {
-        headers: {
-          Authorization: `token ${token}`,
-          'User-Agent': 'bolt.diy-app',
-        },
+          // Fallback to original repo data
+          detailedRepos.push(batch[index]);
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch languages: ${response.statusText}`);
+      // Add delay between batches to be respectful to the API
+      if (i + batchSize < repos.length) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
-
-      const languages = (await response.json()) as GitHubLanguageStats;
-      this._cache.set(cacheKey, languages);
-
-      return languages;
-    } catch (error) {
-      console.error('Failed to fetch repository languages:', error);
-      return {};
     }
+
+    return detailedRepos;
   }
 
-  async fetchStats(token: string, tokenType: 'classic' | 'fine-grained' = 'classic'): Promise<GitHubStats> {
-    try {
-      // Fetch user data
-      const { user } = await this.fetchUser(token, tokenType);
+  /**
+   * Calculate comprehensive statistics from repositories
+   */
+  calculateRepositoryStats(repos: DetailedRepoInfo[]): {
+    languages: GitHubLanguageStats;
+    mostUsedLanguages: Array<{ language: string; bytes: number; repos: number }>;
+    totalBranches: number;
+    totalContributors: number;
+    totalIssues: number;
+    totalPullRequests: number;
+    repositoryHealth: {
+      healthy: number;
+      active: number;
+      archived: number;
+      forked: number;
+    };
+  } {
+    const languages: GitHubLanguageStats = {};
+    const languageBytes: Record<string, number> = {};
+    const languageRepos: Record<string, number> = {};
 
-      // Fetch repositories
-      const repositories = await this.fetchRepositories(token, tokenType);
+    let totalBranches = 0;
+    let totalContributors = 0;
+    let totalIssues = 0;
+    let totalPullRequests = 0;
 
-      // Fetch recent activity
-      const recentActivity = await this.fetchRecentActivity(user.login, token, tokenType);
+    let healthyRepos = 0;
+    let activeRepos = 0;
+    let archivedRepos = 0;
+    let forkedRepos = 0;
 
-      // Calculate stats
-      const totalStars = repositories.reduce((sum, repo) => sum + repo.stargazers_count, 0);
-      const totalForks = repositories.reduce((sum, repo) => sum + repo.forks_count, 0);
-      const privateRepos = repositories.filter((repo) => repo.private).length;
-
-      // Calculate language statistics
-      const languages: GitHubLanguageStats = {};
-
-      for (const repo of repositories) {
-        if (repo.language) {
-          languages[repo.language] = (languages[repo.language] || 0) + 1;
-        }
+    repos.forEach((repo) => {
+      // Language statistics
+      if (repo.language) {
+        languages[repo.language] = (languages[repo.language] || 0) + 1;
+        languageBytes[repo.language] = (languageBytes[repo.language] || 0) + (repo.size || 0);
+        languageRepos[repo.language] = (languageRepos[repo.language] || 0) + 1;
       }
 
-      const stats: GitHubStats = {
-        repos: repositories,
-        totalStars,
-        totalForks,
-        organizations: [], // TODO: Implement organizations fetching if needed
-        recentActivity,
-        languages,
-        totalGists: user.public_gists || 0,
-        publicRepos: user.public_repos || 0,
+      // Aggregate metrics
+      totalBranches += repo.branches_count || 0;
+      totalContributors += repo.contributors_count || 0;
+      totalIssues += repo.issues_count || 0;
+      totalPullRequests += repo.pull_requests_count || 0;
+
+      // Repository health analysis
+      const daysSinceUpdate = Math.floor((Date.now() - new Date(repo.updated_at).getTime()) / (1000 * 60 * 60 * 24));
+
+      if (repo.archived) {
+        archivedRepos++;
+      } else if (repo.fork) {
+        forkedRepos++;
+      } else if (daysSinceUpdate < 7) {
+        activeRepos++;
+      } else if (daysSinceUpdate < 30 && repo.stargazers_count > 0) {
+        healthyRepos++;
+      }
+    });
+
+    // Create most used languages array sorted by bytes
+    const mostUsedLanguages = Object.entries(languageBytes)
+      .map(([language, bytes]) => ({
+        language,
+        bytes,
+        repos: languageRepos[language] || 0,
+      }))
+      .sort((a, b) => b.bytes - a.bytes)
+      .slice(0, 20);
+
+    return {
+      languages,
+      mostUsedLanguages,
+      totalBranches,
+      totalContributors,
+      totalIssues,
+      totalPullRequests,
+      repositoryHealth: {
+        healthy: healthyRepos,
+        active: activeRepos,
+        archived: archivedRepos,
+        forked: forkedRepos,
+      },
+    };
+  }
+
+  /**
+   * Generate comprehensive GitHub stats for a user
+   */
+  async generateComprehensiveStats(userData: GitHubUserResponse): Promise<GitHubStats> {
+    try {
+      // Fetch all repositories
+      const allRepos = await this.getAllUserRepositories();
+
+      // Get detailed information for repositories (in batches)
+      const detailedRepos = await this.getDetailedRepositoriesInfo(allRepos);
+
+      // Calculate statistics
+      const stats = this.calculateRepositoryStats(detailedRepos);
+
+      // Fetch additional data in parallel
+      const [organizations, recentActivity] = await Promise.allSettled([
+        this._makeRequestInternal<GitHubOrganization[]>('/user/orgs'),
+        this._makeRequestInternal<any[]>(`/users/${userData.login}/events?per_page=10`),
+      ]);
+
+      // Calculate aggregated metrics
+      const totalStars = detailedRepos.reduce((sum, repo) => sum + repo.stargazers_count, 0);
+      const totalForks = detailedRepos.reduce((sum, repo) => sum + repo.forks_count, 0);
+      const privateRepos = detailedRepos.filter((repo) => repo.private).length;
+
+      const githubStats: GitHubStats = {
+        repos: detailedRepos,
+        recentActivity:
+          recentActivity.status === 'fulfilled'
+            ? recentActivity.value.slice(0, 10).map((event: any) => ({
+                id: event.id,
+                type: event.type,
+                repo: { name: event.repo.name, url: event.repo.url },
+                created_at: event.created_at,
+                payload: event.payload || {},
+              }))
+            : [],
+        languages: stats.languages,
+        totalGists: userData.public_gists || 0,
+        publicRepos: userData.public_repos || 0,
         privateRepos,
         stars: totalStars,
         forks: totalForks,
-        followers: user.followers || 0,
-        publicGists: user.public_gists || 0,
-        privateGists: 0, // GitHub API doesn't provide private gists count directly
+        followers: userData.followers || 0,
+        publicGists: userData.public_gists || 0,
+        privateGists: 0, // This would need additional API call
         lastUpdated: new Date().toISOString(),
+        totalStars,
+        totalForks,
+        organizations: organizations.status === 'fulfilled' ? organizations.value : [],
+        totalBranches: stats.totalBranches,
+        totalContributors: stats.totalContributors,
+        totalIssues: stats.totalIssues,
+        totalPullRequests: stats.totalPullRequests,
+        mostUsedLanguages: stats.mostUsedLanguages,
       };
 
-      return stats;
+      return githubStats;
     } catch (error) {
-      console.error('Failed to fetch GitHub stats:', error);
+      console.error('Error generating comprehensive stats:', error);
       throw error;
     }
   }
 
-  clearCache(): void {
-    this._cache.clear();
+  /**
+   * Fetch authenticated user and rate limit info
+   */
+  async fetchUser(
+    token: string,
+    tokenType: 'classic' | 'fine-grained' = 'classic',
+  ): Promise<{ user: GitHubUserResponse; rateLimit: any }> {
+    this.configure({ token, tokenType });
+
+    const [user, rateLimit] = await Promise.all([
+      this.getAuthenticatedUser(),
+      this._makeRequestInternal('/rate_limit'),
+    ]);
+
+    return { user, rateLimit };
   }
 
-  clearUserCache(token: string): void {
-    const keyPrefix = token.slice(0, 8);
-    this._cache.delete(`user:${keyPrefix}`);
-    this._cache.delete(`repos:${keyPrefix}`);
+  /**
+   * Fetch comprehensive GitHub stats for authenticated user
+   */
+  async fetchStats(token: string, tokenType: 'classic' | 'fine-grained' = 'classic'): Promise<GitHubStats> {
+    this.configure({ token, tokenType });
+
+    const user = await this.getAuthenticatedUser();
+
+    return this.generateComprehensiveStats(user);
+  }
+
+  /**
+   * Clear all cached data
+   */
+  clearCache(): void {
+    // This is a placeholder - implement caching if needed
+  }
+
+  /**
+   * Clear user-specific cache
+   */
+  clearUserCache(_token: string): void {
+    // This is a placeholder - implement user-specific caching if needed
   }
 }
 
-export const gitHubApiService = new GitHubApiService();
+// Export an instance of the service
+export const gitHubApiService = new GitHubApiServiceClass();

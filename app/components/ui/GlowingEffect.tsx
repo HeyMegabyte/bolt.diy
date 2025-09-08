@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef } from 'react';
-import { cn } from '~/utils/cn';
+import { classNames } from '~/utils/classNames';
 import { animate } from 'framer-motion';
 
 interface GlowingEffectProps {
@@ -122,7 +122,7 @@ const GlowingEffect = memo(
     return (
       <>
         <div
-          className={cn(
+          className={classNames(
             'pointer-events-none absolute -inset-px hidden rounded-[inherit] border opacity-0 transition-opacity',
             glow && 'opacity-100',
             variant === 'white' && 'border-white',
@@ -160,7 +160,7 @@ const GlowingEffect = memo(
                     )`,
             } as React.CSSProperties
           }
-          className={cn(
+          className={classNames(
             'pointer-events-none absolute inset-0 rounded-[inherit] opacity-100 transition-opacity',
             glow && 'opacity-100',
             blur > 0 && 'blur-[var(--blur)] ',
@@ -169,7 +169,7 @@ const GlowingEffect = memo(
           )}
         >
           <div
-            className={cn(
+            className={classNames(
               'glow',
               'rounded-[inherit]',
               'after:content-[""] after:rounded-[inherit] after:absolute after:inset-[calc(-1*var(--glowingeffect-border-width))]',

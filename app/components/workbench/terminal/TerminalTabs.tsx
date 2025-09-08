@@ -241,13 +241,6 @@ export const TerminalTabs = memo(() => {
                   <TerminalManager
                     terminal={terminalRefs.current.get(index)?.getTerminal() || null}
                     isActive={isActive}
-                    onReconnect={() => {
-                      const ref = terminalRefs.current.get(index);
-
-                      if (ref?.getTerminal()) {
-                        workbenchStore.attachBoltTerminal(ref.getTerminal()!);
-                      }
-                    }}
                   />
                 </React.Fragment>
               );
@@ -272,13 +265,6 @@ export const TerminalTabs = memo(() => {
                   <TerminalManager
                     terminal={terminalRefs.current.get(index)?.getTerminal() || null}
                     isActive={isActive}
-                    onReconnect={() => {
-                      const ref = terminalRefs.current.get(index);
-
-                      if (ref?.getTerminal()) {
-                        workbenchStore.attachTerminal(ref.getTerminal()!);
-                      }
-                    }}
                   />
                 </React.Fragment>
               );

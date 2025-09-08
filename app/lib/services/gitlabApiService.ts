@@ -103,6 +103,13 @@ export class GitLabApiService {
   }
 
   private get _headers() {
+    // Log token format for debugging
+    console.log('GitLab API token info:', {
+      tokenLength: this._token.length,
+      tokenPrefix: this._token.substring(0, 10) + '...',
+      tokenType: this._token.startsWith('glpat-') ? 'personal-access-token' : 'unknown',
+    });
+
     return {
       'Content-Type': 'application/json',
       'PRIVATE-TOKEN': this._token,
@@ -124,7 +131,32 @@ export class GitLabApiService {
     const response = await this._request('/user');
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch user: ${response.status}`);
+      let errorMessage = `Failed to fetch user: ${response.status}`;
+
+      // Provide more specific error messages based on status code
+      if (response.status === 401) {
+        errorMessage =
+          '401 Unauthorized: Invalid or expired GitLab access token. Please check your token and ensure it has the required scopes (api, read_repository).';
+      } else if (response.status === 403) {
+        errorMessage = '403 Forbidden: GitLab access token does not have sufficient permissions.';
+      } else if (response.status === 404) {
+        errorMessage = '404 Not Found: GitLab API endpoint not found. Please check your GitLab URL configuration.';
+      } else if (response.status === 429) {
+        errorMessage = '429 Too Many Requests: GitLab API rate limit exceeded. Please try again later.';
+      }
+
+      // Try to get more details from response body
+      try {
+        const errorData = (await response.json()) as any;
+
+        if (errorData.message) {
+          errorMessage += ` Details: ${errorData.message}`;
+        }
+      } catch {
+        // If we can't parse the error response, continue with the default message
+      }
+
+      throw new Error(errorMessage);
     }
 
     const user: GitLabUserResponse = await response.json();
@@ -163,7 +195,16 @@ export class GitLabApiService {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch projects: ${response.statusText}`);
+        let errorMessage = `Failed to fetch projects: ${response.status} ${response.statusText}`;
+
+        try {
+          const errorData = await response.json();
+          console.error('GitLab projects API error:', errorData);
+          errorMessage = `Failed to fetch projects: ${JSON.stringify(errorData)}`;
+        } catch (parseError) {
+          console.error('Could not parse GitLab error response:', parseError);
+        }
+        throw new Error(errorMessage);
       }
 
       const projects: any[] = await response.json();
@@ -240,18 +281,47 @@ export class GitLabApiService {
   }
 
   async createProject(name: string, isPrivate: boolean = false): Promise<GitLabProjectResponse> {
+    // Sanitize project name to ensure it's valid for GitLab
+    const sanitizedName = name
+      .replace(/[^a-zA-Z0-9-_.]/g, '-') // Replace invalid chars with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+      .replace(/^-|-$/g, '') // Remove leading/trailing hyphens
+      .toLowerCase();
+
     const response = await this._request('/projects', {
       method: 'POST',
       body: JSON.stringify({
-        name,
+        name: sanitizedName,
+        path: sanitizedName, // Explicitly set path to match name
         visibility: isPrivate ? 'private' : 'public',
         initialize_with_readme: false, // Don't initialize with README to avoid conflicts
         default_branch: 'main', // Explicitly set default branch
+        description: `Project created from Bolt.diy`,
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to create project: ${response.statusText}`);
+      let errorMessage = `Failed to create project: ${response.status} ${response.statusText}`;
+
+      try {
+        const errorData = (await response.json()) as any;
+
+        if (errorData.message) {
+          if (typeof errorData.message === 'object') {
+            // Handle validation errors
+            const messages = Object.entries(errorData.message as Record<string, any>)
+              .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+              .join('; ');
+            errorMessage = `Failed to create project: ${messages}`;
+          } else {
+            errorMessage = `Failed to create project: ${errorData.message}`;
+          }
+        }
+      } catch (parseError) {
+        console.error('Could not parse error response:', parseError);
+      }
+
+      throw new Error(errorMessage);
     }
 
     return await response.json();
@@ -316,19 +386,24 @@ export class GitLabApiService {
 
   async getProjectByPath(projectPath: string): Promise<GitLabProjectResponse | null> {
     try {
-      const response = await this._request(`/projects/${encodeURIComponent(projectPath)}`);
+      // Double encode the project path as GitLab API requires it
+      const encodedPath = encodeURIComponent(projectPath);
+      const response = await this._request(`/projects/${encodedPath}`);
 
       if (response.ok) {
         return await response.json();
       }
 
       if (response.status === 404) {
+        console.log(`Project not found: ${projectPath}`);
         return null;
       }
 
+      const errorText = await response.text();
+      console.error(`Failed to fetch project ${projectPath}:`, response.status, errorText);
       throw new Error(`Failed to fetch project: ${response.status} ${response.statusText}`);
     } catch (error) {
-      if (error instanceof Error && error.message.includes('404')) {
+      if (error instanceof Error && (error.message.includes('404') || error.message.includes('Not Found'))) {
         return null;
       }
 
@@ -357,6 +432,9 @@ export class GitLabApiService {
 
     // If we have files to commit, commit them
     if (Object.keys(files).length > 0) {
+      // Wait a moment for the project to be fully created
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       const actions = Object.entries(files).map(([filePath, content]) => ({
         action: 'create' as const,
         file_path: filePath,
@@ -369,7 +447,16 @@ export class GitLabApiService {
         actions,
       };
 
-      await this.commitFiles(project.id, commitRequest);
+      try {
+        await this.commitFiles(project.id, commitRequest);
+      } catch (error) {
+        console.error('Failed to commit files to new project:', error);
+
+        /*
+         * Don't throw the error, as the project was created successfully
+         * The user can still access it and add files manually
+         */
+      }
     }
 
     return project;
