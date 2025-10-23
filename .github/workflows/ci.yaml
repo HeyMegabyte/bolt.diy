@@ -74,7 +74,7 @@ jobs:
       - name: Validate Docker production build
         run: |
           echo "🐳 Testing Docker production target..."
-          docker build --target runtime . --no-cache --progress=plain
+          docker build --target bolt-ai-production . --no-cache --progress=plain
           echo "✅ Production target builds successfully"
 
       - name: Validate Docker development build
