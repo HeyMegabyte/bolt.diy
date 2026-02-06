@@ -3,33 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Project Sites - AI-Powered Websites for Small Businesses</title>
-  <meta name="description" content="AI-powered websites for small businesses. $50/mo. No lock-in. Your website, handled. Finally.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+  <title>Project Sites - Your Website, Handled. Finally.</title>
+  <meta name="description" content="AI-powered websites for small businesses. Search for your business and get a professional site in minutes.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x1f680;</text></svg>">
   <link href="https://releases.transloadit.com/uppy/v4.12.1/uppy.min.css" rel="stylesheet">
   <style>
+    /* ======================================================
+       CSS Custom Properties
+       ====================================================== */
     :root {
       --bg-primary: #0a0a1a;
       --bg-secondary: #111128;
       --bg-card: #161635;
       --bg-card-hover: #1c1c45;
+      --bg-input: #0f0f2a;
       --accent: #64ffda;
-      --accent-dim: rgba(100, 255, 218, 0.15);
-      --accent-glow: rgba(100, 255, 218, 0.3);
+      --accent-dim: rgba(100, 255, 218, 0.12);
+      --accent-glow: rgba(100, 255, 218, 0.25);
+      --secondary: #7c3aed;
+      --secondary-dim: rgba(124, 58, 237, 0.15);
       --text-primary: #e2e8f0;
       --text-secondary: #94a3b8;
       --text-muted: #64748b;
       --border: rgba(100, 255, 218, 0.1);
       --border-hover: rgba(100, 255, 218, 0.3);
-      --gradient-1: #64ffda;
-      --gradient-2: #7c3aed;
-      --gradient-3: #f472b6;
+      --error: #ef4444;
+      --error-dim: rgba(239, 68, 68, 0.12);
+      --success: #22c55e;
       --radius: 12px;
-      --radius-lg: 20px;
+      --radius-lg: 16px;
       --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
       --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
       --shadow-accent: 0 0 30px rgba(100, 255, 218, 0.15);
-      --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
@@ -37,7 +43,7 @@
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html { scroll-behavior: smooth; }
+    html { scroll-behavior: smooth; height: 100%; }
 
     body {
       font-family: var(--font);
@@ -46,1240 +52,1677 @@
       line-height: 1.6;
       overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
     }
 
-    /* --- Scrollbar --- */
-    ::-webkit-scrollbar { width: 8px; }
+    /* ======================================================
+       Scrollbar
+       ====================================================== */
+    ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--bg-primary); }
-    ::-webkit-scrollbar-thumb { background: var(--bg-card); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--bg-card); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
 
-    /* --- Animations --- */
+    /* ======================================================
+       Animations
+       ====================================================== */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
     @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(40px); }
+      from { opacity: 0; transform: translateY(30px); }
       to { opacity: 1; transform: translateY(0); }
     }
-
     @keyframes fadeInScale {
-      from { opacity: 0; transform: scale(0.92); }
+      from { opacity: 0; transform: scale(0.95); }
       to { opacity: 1; transform: scale(1); }
     }
-
-    @keyframes slideInLeft {
-      from { opacity: 0; transform: translateX(-40px); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-
-    @keyframes slideInRight {
-      from { opacity: 0; transform: translateX(40px); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-
     @keyframes gradientShift {
       0% { background-position: 0% 50%; }
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-
     @keyframes pulse {
       0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
+      50% { opacity: 0.5; }
     }
-
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
-
     @keyframes shimmer {
       0% { background-position: -200% center; }
       100% { background-position: 200% center; }
     }
-
-    @keyframes borderGlow {
-      0%, 100% { border-color: rgba(100, 255, 218, 0.15); }
-      50% { border-color: rgba(100, 255, 218, 0.4); }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
     }
-
     @keyframes orbFloat1 {
       0%, 100% { transform: translate(0, 0) scale(1); }
       33% { transform: translate(60px, -40px) scale(1.1); }
       66% { transform: translate(-30px, 30px) scale(0.95); }
     }
-
     @keyframes orbFloat2 {
       0%, 100% { transform: translate(0, 0) scale(1); }
       33% { transform: translate(-50px, 50px) scale(0.9); }
       66% { transform: translate(40px, -20px) scale(1.05); }
     }
-
-    .reveal {
-      opacity: 0;
-      transform: translateY(40px);
-      transition: opacity 0.8s var(--transition), transform 0.8s var(--transition);
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
-    .reveal.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    .reveal-scale {
-      opacity: 0;
-      transform: scale(0.92);
-      transition: opacity 0.8s var(--transition), transform 0.8s var(--transition);
-    }
-    .reveal-scale.visible {
-      opacity: 1;
-      transform: scale(1);
-    }
-    .stagger-1 { transition-delay: 0.1s; }
-    .stagger-2 { transition-delay: 0.2s; }
-    .stagger-3 { transition-delay: 0.3s; }
-    .stagger-4 { transition-delay: 0.4s; }
-    .stagger-5 { transition-delay: 0.5s; }
-    .stagger-6 { transition-delay: 0.6s; }
-
-    /* --- Layout --- */
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 24px;
+    @keyframes dotPulse {
+      0%, 80%, 100% { transform: scale(0); opacity: 0; }
+      40% { transform: scale(1); opacity: 1; }
     }
 
-    section {
-      padding: 100px 0;
-      position: relative;
-    }
-
-    .section-label {
-      display: inline-block;
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--accent);
-      background: var(--accent-dim);
-      padding: 6px 16px;
-      border-radius: 100px;
-      margin-bottom: 16px;
-    }
-
-    .section-title {
-      font-size: clamp(2rem, 4vw, 3rem);
-      font-weight: 800;
-      line-height: 1.15;
-      margin-bottom: 16px;
-      letter-spacing: -0.02em;
-    }
-
-    .section-subtitle {
-      font-size: 1.125rem;
-      color: var(--text-secondary);
-      max-width: 600px;
-      margin: 0 auto 48px;
-    }
-
-    .text-center { text-align: center; }
-
-    /* --- Navigation --- */
-    nav {
+    /* ======================================================
+       Header / Nav
+       ====================================================== */
+    .header {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
       z-index: 1000;
-      padding: 16px 0;
-      background: rgba(10, 10, 26, 0.8);
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      background: rgba(10, 10, 26, 0.85);
       backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--border);
-      transition: var(--transition);
     }
-    nav .container {
+    .header-inner {
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-    .nav-logo {
-      font-size: 1.25rem;
-      font-weight: 800;
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
       color: var(--text-primary);
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      cursor: pointer;
     }
-    .nav-logo span {
+    .logo svg { flex-shrink: 0; }
+    .logo em {
+      font-style: normal;
       color: var(--accent);
-    }
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 32px;
-      list-style: none;
-    }
-    .nav-links a {
-      color: var(--text-secondary);
-      text-decoration: none;
-      font-size: 0.9rem;
-      font-weight: 500;
-      transition: color var(--transition);
-    }
-    .nav-links a:hover { color: var(--accent); }
-    .nav-cta {
-      background: var(--accent) !important;
-      color: var(--bg-primary) !important;
-      padding: 8px 20px;
-      border-radius: 8px;
-      font-weight: 600 !important;
-      transition: transform var(--transition), box-shadow var(--transition) !important;
-    }
-    .nav-cta:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-accent);
     }
 
-    /* --- Hero --- */
-    .hero {
+    /* ======================================================
+       Screens Container
+       ====================================================== */
+    .app {
       min-height: 100vh;
+      padding-top: 60px;
+      position: relative;
+    }
+    .screen {
+      display: none;
+      min-height: calc(100vh - 60px);
+      animation: fadeIn 0.3s ease;
+    }
+    .screen.active {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      text-align: center;
-      position: relative;
-      padding-top: 80px;
+    }
+
+    /* ======================================================
+       Background Orbs (shared)
+       ====================================================== */
+    .bg-orbs {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
       overflow: hidden;
     }
-    .hero-bg {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 25%, #0a1628 50%, #0a0a1a 75%, #1a0a2e 100%);
-      background-size: 400% 400%;
-      animation: gradientShift 15s ease infinite;
-    }
-    .hero-orb {
+    .bg-orbs .orb {
       position: absolute;
       border-radius: 50%;
-      filter: blur(80px);
-      opacity: 0.3;
-      pointer-events: none;
+      filter: blur(100px);
+      opacity: 0.18;
     }
-    .hero-orb-1 {
-      width: 500px;
-      height: 500px;
-      background: radial-gradient(circle, var(--gradient-2), transparent 70%);
-      top: -100px;
-      right: -100px;
+    .bg-orbs .orb-1 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, var(--secondary), transparent 70%);
+      top: -120px; right: -120px;
       animation: orbFloat1 20s ease-in-out infinite;
     }
-    .hero-orb-2 {
-      width: 400px;
-      height: 400px;
+    .bg-orbs .orb-2 {
+      width: 400px; height: 400px;
       background: radial-gradient(circle, var(--accent), transparent 70%);
-      bottom: -50px;
-      left: -100px;
+      bottom: -80px; left: -100px;
       animation: orbFloat2 18s ease-in-out infinite;
     }
-    .hero-orb-3 {
-      width: 300px;
-      height: 300px;
-      background: radial-gradient(circle, var(--gradient-3), transparent 70%);
-      top: 40%;
-      left: 50%;
+    .bg-orbs .orb-3 {
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, #f472b6, transparent 70%);
+      top: 40%; left: 50%;
       animation: orbFloat1 22s ease-in-out infinite reverse;
     }
-    .hero-content {
+
+    /* ======================================================
+       Screen 1: Search / Hero
+       ====================================================== */
+    .screen-search {
+      padding: 0 24px;
+      text-align: center;
       position: relative;
-      z-index: 2;
-      max-width: 800px;
+      z-index: 1;
     }
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: var(--accent-dim);
-      border: 1px solid var(--border);
-      padding: 8px 20px;
-      border-radius: 100px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--accent);
-      margin-bottom: 32px;
-      animation: fadeInUp 0.8s ease forwards, borderGlow 3s ease-in-out infinite;
+    .hero-brand {
+      margin-bottom: 16px;
+      animation: fadeInUp 0.6s ease;
     }
-    .hero-badge .dot {
-      width: 8px;
-      height: 8px;
-      background: var(--accent);
-      border-radius: 50%;
-      animation: pulse 2s ease-in-out infinite;
-    }
-    .hero h1 {
-      font-size: clamp(2.75rem, 6.5vw, 5rem);
+    .hero-brand h1 {
+      font-size: clamp(2.2rem, 5.5vw, 3.8rem);
       font-weight: 900;
-      line-height: 1.05;
       letter-spacing: -0.03em;
-      margin-bottom: 24px;
-      animation: fadeInUp 0.8s ease 0.2s forwards;
-      opacity: 0;
+      line-height: 1.1;
+      margin-bottom: 12px;
     }
-    .hero h1 .gradient-text {
-      background: linear-gradient(135deg, var(--gradient-1), var(--gradient-2), var(--gradient-3));
+    .hero-brand h1 .gradient-text {
+      background: linear-gradient(135deg, var(--accent), var(--secondary), #f472b6);
       background-size: 200% auto;
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      animation: shimmer 4s linear infinite;
+      animation: shimmer 5s linear infinite;
     }
-    .hero p {
-      font-size: clamp(1.1rem, 2vw, 1.35rem);
+    .hero-brand .tagline {
+      font-size: clamp(1rem, 2vw, 1.25rem);
       color: var(--text-secondary);
-      max-width: 560px;
-      margin: 0 auto 40px;
-      animation: fadeInUp 0.8s ease 0.4s forwards;
-      opacity: 0;
+      font-weight: 400;
     }
-    .hero-actions {
+
+    /* Search box */
+    .search-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 640px;
+      margin: 32px auto 0;
+      animation: fadeInUp 0.6s ease 0.15s both;
+    }
+    .search-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .search-icon {
+      position: absolute;
+      left: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+      display: flex;
+    }
+    .search-input {
+      width: 100%;
+      padding: 18px 20px 18px 52px;
+      font-size: 1.1rem;
+      font-family: var(--font);
+      background: var(--bg-input);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-lg);
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-dim), 0 0 40px var(--accent-glow);
+    }
+    .search-spinner {
+      position: absolute;
+      right: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: none;
+    }
+    .search-spinner.visible { display: block; }
+
+    /* Dropdown */
+    .search-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border-hover);
+      border-radius: 0 0 var(--radius) var(--radius);
+      max-height: 400px;
+      overflow-y: auto;
+      z-index: 100;
+      display: none;
+      box-shadow: var(--shadow-lg);
+    }
+    .search-dropdown.open {
+      display: block;
+      animation: fadeInScale 0.2s ease;
+    }
+    .search-result {
+      padding: 14px 20px;
+      cursor: pointer;
+      transition: background var(--transition);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      text-align: left;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .search-result:last-child { border-bottom: none; }
+    .search-result:hover {
+      background: var(--bg-card-hover);
+    }
+    .search-result-icon {
+      flex-shrink: 0;
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--accent-dim);
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 16px;
-      flex-wrap: wrap;
-      animation: fadeInUp 0.8s ease 0.6s forwards;
-      opacity: 0;
+      margin-top: 2px;
     }
-
-    /* --- Buttons --- */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 14px 32px;
-      border-radius: 10px;
-      font-size: 1rem;
-      font-weight: 600;
-      text-decoration: none;
-      cursor: pointer;
-      border: none;
-      transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
-    }
-    .btn-primary {
-      background: var(--accent);
-      color: var(--bg-primary);
-    }
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 0 40px rgba(100, 255, 218, 0.3), 0 0 80px rgba(100, 255, 218, 0.1);
-    }
-    .btn-secondary {
-      background: transparent;
-      color: var(--text-primary);
-      border: 1px solid var(--border);
-    }
-    .btn-secondary:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-      transform: translateY(-2px);
-    }
-    .btn-large {
-      padding: 18px 40px;
-      font-size: 1.1rem;
-      border-radius: 12px;
-    }
-    .btn svg {
+    .search-result-icon svg {
       width: 18px;
       height: 18px;
+      color: var(--accent);
+    }
+    .search-result-text { flex: 1; min-width: 0; }
+    .search-result-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .search-result-address {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-style: italic;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    /* --- How It Works --- */
-    .steps-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 32px;
-      position: relative;
+    /* Custom website option */
+    .search-result-custom {
+      background: var(--secondary-dim);
+      border-top: 1px solid rgba(124, 58, 237, 0.2);
     }
-    .steps-grid::before {
-      content: '';
-      position: absolute;
-      top: 60px;
-      left: 15%;
-      right: 15%;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--accent-dim), var(--accent), var(--accent-dim), transparent);
-      z-index: 0;
-      display: none;
+    .search-result-custom:hover {
+      background: rgba(124, 58, 237, 0.22);
     }
-    @media (min-width: 900px) {
-      .steps-grid::before { display: block; }
+    .search-result-custom .search-result-icon {
+      background: var(--secondary-dim);
     }
-    .step-card {
+    .search-result-custom .search-result-icon svg {
+      color: var(--secondary);
+    }
+    .search-result-custom .search-result-name {
+      color: #c4b5fd;
+    }
+    .search-result-custom .search-result-address {
+      color: #a78bfa;
+      font-style: normal;
+    }
+
+    .search-hint {
+      margin-top: 20px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      animation: fadeInUp 0.6s ease 0.3s both;
+    }
+
+    /* ======================================================
+       Screen 3: Sign-In Gate
+       ====================================================== */
+    .screen-signin {
+      padding: 0 24px;
       text-align: center;
-      padding: 40px 28px;
       position: relative;
       z-index: 1;
     }
-    .step-number {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--gradient-2));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.5rem;
-      font-weight: 800;
-      color: var(--bg-primary);
-      margin: 0 auto 24px;
-      box-shadow: 0 0 30px rgba(100, 255, 218, 0.2);
-      transition: transform var(--transition), box-shadow var(--transition);
-    }
-    .step-card:hover .step-number {
-      transform: scale(1.1);
-      box-shadow: 0 0 50px rgba(100, 255, 218, 0.35);
-    }
-    .step-card h3 {
-      font-size: 1.25rem;
-      font-weight: 700;
-      margin-bottom: 12px;
-    }
-    .step-card p {
-      color: var(--text-secondary);
-      font-size: 0.95rem;
-    }
-
-    /* --- Feature Cards --- */
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 24px;
-    }
-    .feature-card {
+    .signin-card {
+      width: 100%;
+      max-width: 440px;
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      padding: 36px 28px;
-      transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition), background var(--transition);
-      position: relative;
-      overflow: hidden;
+      padding: 40px 32px;
+      animation: fadeInScale 0.35s ease;
     }
-    .feature-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, var(--accent), var(--gradient-2));
-      opacity: 0;
-      transition: opacity var(--transition);
+    .signin-card h2 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
     }
-    .feature-card:hover {
-      transform: translateY(-6px);
-      border-color: var(--border-hover);
-      box-shadow: var(--shadow-accent);
-      background: var(--bg-card-hover);
+    .signin-card .signin-subtitle {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 32px;
     }
-    .feature-card:hover::before { opacity: 1; }
-    .feature-icon {
-      width: 52px;
-      height: 52px;
-      border-radius: 14px;
-      background: var(--accent-dim);
+
+    .signin-methods { display: flex; flex-direction: column; gap: 12px; }
+
+    .signin-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.5rem;
-      margin-bottom: 20px;
-      transition: transform var(--transition);
-    }
-    .feature-card:hover .feature-icon { transform: scale(1.1) rotate(-3deg); }
-    .feature-card h3 {
-      font-size: 1.15rem;
-      font-weight: 700;
-      margin-bottom: 10px;
-    }
-    .feature-card p {
-      color: var(--text-secondary);
+      gap: 12px;
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: var(--radius);
       font-size: 0.95rem;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: transform var(--transition), box-shadow var(--transition), background var(--transition), border-color var(--transition);
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text-primary);
+    }
+    .signin-btn:hover {
+      transform: translateY(-1px);
+      border-color: var(--border-hover);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    .signin-btn svg { flex-shrink: 0; }
+
+    .signin-btn-google {
+      background: #fff;
+      color: #1f1f1f;
+      border-color: #dadce0;
+    }
+    .signin-btn-google:hover {
+      background: #f8f9fa;
+      border-color: #c4c7cc;
+    }
+
+    .signin-divider {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 20px 0;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .signin-divider::before,
+    .signin-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Phone / Email form panels */
+    .signin-panel {
+      display: none;
+      animation: fadeInUp 0.3s ease;
+    }
+    .signin-panel.active { display: block; }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+      text-align: left;
+    }
+    .input-group label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .input-field {
+      width: 100%;
+      padding: 14px 16px;
+      font-size: 1rem;
+      font-family: var(--font);
+      background: var(--bg-input);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .input-field::placeholder { color: var(--text-muted); }
+    .input-field:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    textarea.input-field {
+      resize: vertical;
+      min-height: 120px;
       line-height: 1.6;
     }
 
-    /* --- Comparison Table --- */
-    .comparison-section { background: var(--bg-secondary); }
-    .comparison-wrapper {
-      overflow-x: auto;
-      border-radius: var(--radius-lg);
-      border: 1px solid var(--border);
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      margin-top: 20px;
+      transition: color var(--transition);
+      background: none;
+      border: none;
+      font-family: var(--font);
     }
-    .comparison-table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 640px;
+    .back-link:hover { color: var(--accent); }
+
+    /* ======================================================
+       Buttons (shared)
+       ====================================================== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: var(--radius);
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: var(--font);
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: transform var(--transition), box-shadow var(--transition), background var(--transition), opacity var(--transition);
     }
-    .comparison-table thead th {
-      padding: 20px 24px;
-      font-size: 0.95rem;
-      font-weight: 700;
-      text-align: center;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg-card);
-      color: var(--text-secondary);
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
     }
-    .comparison-table thead th:first-child {
-      text-align: left;
-      color: var(--text-primary);
-    }
-    .comparison-table thead th.highlight {
-      color: var(--accent);
-      background: rgba(100, 255, 218, 0.05);
-      position: relative;
-    }
-    .comparison-table thead th.highlight::after {
-      content: 'BEST VALUE';
-      position: absolute;
-      top: 6px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 0.6rem;
-      font-weight: 800;
-      letter-spacing: 0.1em;
+    .btn-accent {
       background: var(--accent);
       color: var(--bg-primary);
-      padding: 2px 8px;
-      border-radius: 4px;
     }
-    .comparison-table tbody td {
-      padding: 18px 24px;
-      text-align: center;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.95rem;
-      color: var(--text-secondary);
-      background: var(--bg-primary);
+    .btn-accent:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 0 40px rgba(100, 255, 218, 0.3), 0 0 80px rgba(100, 255, 218, 0.1);
     }
-    .comparison-table tbody td:first-child {
-      text-align: left;
-      font-weight: 600;
+    .btn-secondary-outline {
+      background: transparent;
       color: var(--text-primary);
+      border: 1.5px solid var(--border);
     }
-    .comparison-table tbody td.highlight {
-      background: rgba(100, 255, 218, 0.03);
+    .btn-secondary-outline:hover:not(:disabled) {
+      border-color: var(--accent);
       color: var(--accent);
-      font-weight: 600;
+      transform: translateY(-1px);
     }
-    .comparison-table tbody tr:last-child td { border-bottom: none; }
-    .check {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      background: rgba(100, 255, 218, 0.15);
-      color: var(--accent);
-      font-size: 0.85rem;
-      font-weight: 700;
-    }
-    .cross {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      background: rgba(239, 68, 68, 0.15);
-      color: #ef4444;
-      font-size: 0.85rem;
-      font-weight: 700;
-    }
-    .limited {
-      color: #f59e0b;
-      font-weight: 500;
+    .btn-full { width: 100%; }
+    .btn-large {
+      padding: 16px 32px;
+      font-size: 1.05rem;
+      border-radius: var(--radius-lg);
     }
 
-    /* --- Pricing --- */
-    .pricing-card {
-      max-width: 480px;
+    /* ======================================================
+       Inline Error / Success Messages
+       ====================================================== */
+    .msg {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-top: 12px;
+      display: none;
+      text-align: left;
+    }
+    .msg.visible { display: block; animation: fadeIn 0.2s ease; }
+    .msg-error {
+      background: var(--error-dim);
+      color: var(--error);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    .msg-success {
+      background: rgba(34, 197, 94, 0.1);
+      color: var(--success);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+    .msg-info {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(100, 255, 218, 0.15);
+    }
+
+    /* ======================================================
+       Loading dots
+       ====================================================== */
+    .loading-dots {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .loading-dots span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: dotPulse 1.4s ease-in-out infinite;
+    }
+    .loading-dots span:nth-child(2) { animation-delay: 0.16s; }
+    .loading-dots span:nth-child(3) { animation-delay: 0.32s; }
+
+    /* ======================================================
+       Screen 3b: Details + Upload
+       ====================================================== */
+    .screen-details {
+      padding: 24px;
+      position: relative;
+      z-index: 1;
+      width: 100%;
+    }
+    .details-card {
+      width: 100%;
+      max-width: 600px;
       margin: 0 auto;
       background: var(--bg-card);
-      border: 2px solid var(--accent);
+      border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      padding: 48px 40px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-      box-shadow: 0 0 60px rgba(100, 255, 218, 0.1);
+      padding: 36px 32px;
+      animation: fadeInScale 0.35s ease;
     }
-    .pricing-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: linear-gradient(90deg, var(--gradient-1), var(--gradient-2), var(--gradient-3));
-    }
-    .pricing-popular {
-      display: inline-block;
-      background: var(--accent);
-      color: var(--bg-primary);
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      padding: 4px 16px;
-      border-radius: 100px;
-      margin-bottom: 24px;
-    }
-    .pricing-name {
-      font-size: 1.5rem;
-      font-weight: 700;
+    .details-card h2 {
+      font-size: 1.4rem;
+      font-weight: 800;
       margin-bottom: 8px;
+      letter-spacing: -0.02em;
     }
-    .pricing-desc {
+    .details-card .details-subtitle {
+      font-size: 0.88rem;
       color: var(--text-secondary);
-      font-size: 0.95rem;
       margin-bottom: 24px;
     }
-    .pricing-amount {
-      display: flex;
-      align-items: baseline;
-      justify-content: center;
-      gap: 4px;
-      margin-bottom: 32px;
-    }
-    .pricing-currency {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--text-secondary);
-    }
-    .pricing-value {
-      font-size: 4rem;
-      font-weight: 900;
-      letter-spacing: -0.03em;
-      line-height: 1;
-    }
-    .pricing-period {
-      font-size: 1rem;
-      color: var(--text-muted);
-    }
-    .pricing-features {
-      list-style: none;
-      text-align: left;
-      margin-bottom: 36px;
-    }
-    .pricing-features li {
+
+    .selected-business-badge {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 10px 0;
-      font-size: 0.95rem;
-      color: var(--text-secondary);
-      border-bottom: 1px solid var(--border);
-    }
-    .pricing-features li:last-child { border-bottom: none; }
-    .pricing-features li .feature-check {
-      flex-shrink: 0;
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
+      padding: 12px 16px;
       background: var(--accent-dim);
-      color: var(--accent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.7rem;
-    }
-    .pricing-features li .info-icon {
-      margin-left: auto;
-      flex-shrink: 0;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      border: 1px solid var(--text-muted);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.65rem;
-      color: var(--text-muted);
-      cursor: help;
-      transition: border-color var(--transition), color var(--transition);
-    }
-    .pricing-features li .info-icon:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-
-    /* --- Upload Section --- */
-    .upload-section {
-      background: var(--bg-secondary);
-    }
-    .upload-area {
-      max-width: 640px;
-      margin: 0 auto;
-      background: var(--bg-card);
-      border: 2px dashed var(--border);
-      border-radius: var(--radius-lg);
-      padding: 48px 32px;
-      text-align: center;
-      transition: border-color var(--transition), background var(--transition);
-    }
-    .upload-area:hover {
-      border-color: var(--accent);
-      background: var(--bg-card-hover);
-    }
-    .upload-icon {
-      font-size: 3rem;
-      margin-bottom: 16px;
-      animation: float 3s ease-in-out infinite;
-    }
-    .upload-area h3 {
-      font-size: 1.25rem;
-      margin-bottom: 8px;
-    }
-    .upload-area p {
-      color: var(--text-secondary);
-      font-size: 0.95rem;
+      border: 1px solid rgba(100, 255, 218, 0.15);
+      border-radius: var(--radius);
       margin-bottom: 24px;
     }
-    #uppy-dashboard { margin-top: 16px; }
-
-    /* --- Footer --- */
-    footer {
-      padding: 60px 0 32px;
-      border-top: 1px solid var(--border);
-    }
-    .footer-grid {
-      display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr;
-      gap: 40px;
-      margin-bottom: 48px;
-    }
-    .footer-brand p {
-      color: var(--text-secondary);
-      font-size: 0.9rem;
-      margin-top: 12px;
-      max-width: 280px;
-    }
-    .footer-col h4 {
-      font-size: 0.8rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--text-muted);
-      margin-bottom: 16px;
-    }
-    .footer-col ul { list-style: none; }
-    .footer-col ul li { margin-bottom: 10px; }
-    .footer-col a {
-      color: var(--text-secondary);
-      text-decoration: none;
-      font-size: 0.9rem;
-      transition: color var(--transition);
-    }
-    .footer-col a:hover { color: var(--accent); }
-    .footer-bottom {
+    .selected-business-badge .badge-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: var(--accent-dim);
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding-top: 24px;
-      border-top: 1px solid var(--border);
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .selected-business-badge .badge-text { text-align: left; }
+    .selected-business-badge .badge-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .selected-business-badge .badge-addr {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .uppy-section {
+      margin: 20px 0;
+    }
+    .uppy-section label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+      text-align: left;
+    }
+    #uppy-dashboard-area {
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    /* Uppy dark theme overrides */
+    .uppy-Dashboard-inner {
+      background: var(--bg-input) !important;
+      border-color: var(--border) !important;
+    }
+
+    /* ======================================================
+       Screen 4: Waiting
+       ====================================================== */
+    .screen-waiting {
+      padding: 24px;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+    .waiting-content {
+      max-width: 480px;
+      animation: fadeInScale 0.4s ease;
+    }
+    .waiting-content lottie-player {
+      margin: 0 auto 24px;
+      max-width: 280px;
+    }
+    .waiting-title {
+      font-size: clamp(1.4rem, 3vw, 1.8rem);
+      font-weight: 800;
+      margin-bottom: 10px;
+      letter-spacing: -0.02em;
+    }
+    .waiting-subtitle {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .waiting-contact {
       font-size: 0.85rem;
       color: var(--text-muted);
-      flex-wrap: wrap;
-      gap: 16px;
+      margin-top: 16px;
     }
-    .footer-bottom a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-
-    /* --- Responsive --- */
-    @media (max-width: 768px) {
-      section { padding: 64px 0; }
-      .features-grid { grid-template-columns: 1fr; }
-      .footer-grid { grid-template-columns: 1fr 1fr; }
-      .nav-links { display: none; }
-      .pricing-card { padding: 32px 24px; }
-    }
-    @media (max-width: 480px) {
-      .footer-grid { grid-template-columns: 1fr; }
-      .hero-actions { flex-direction: column; }
-      .btn-large { width: 100%; justify-content: center; }
-    }
-
-    /* --- Tippy Customization --- */
-    .tippy-box[data-theme~='projectsites'] {
-      background: var(--bg-card);
-      border: 1px solid var(--border-hover);
-      border-radius: 8px;
-      color: var(--text-secondary);
+    .waiting-status {
+      margin-top: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
       font-size: 0.85rem;
-      box-shadow: var(--shadow-lg);
+      color: var(--text-muted);
     }
-    .tippy-box[data-theme~='projectsites'] .tippy-arrow { color: var(--bg-card); }
+    .waiting-status .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    /* ======================================================
+       Responsive
+       ====================================================== */
+    @media (max-width: 640px) {
+      .signin-card, .details-card {
+        padding: 28px 20px;
+      }
+      .search-input {
+        font-size: 1rem;
+        padding: 16px 18px 16px 48px;
+      }
+      .hero-brand h1 {
+        font-size: 2rem;
+      }
+    }
+    @media (max-width: 380px) {
+      .header { padding: 0 16px; }
+      .screen-search, .screen-signin, .screen-details, .screen-waiting {
+        padding: 16px;
+      }
+    }
   </style>
 
   <!-- PostHog Tracking -->
-  <script>!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing startSessionRecording stopSessionRecording isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getBootstrapData setPersonProperties setPersonPropertiesForFlags".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);posthog.init('POSTHOG_API_KEY',{api_host:'https://us.i.posthog.com',person_profiles:'identified_only'})</script>
+  <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing startSessionRecording stopSessionRecording isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getBootstrapData setPersonProperties setPersonPropertiesForFlags".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_placeholder', { api_host: 'https://us.i.posthog.com', person_profiles: 'identified_only' });
+  </script>
 </head>
 <body>
 
-  <!-- Navigation -->
-  <nav>
-    <div class="container">
-      <a href="#" class="nav-logo">
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#64ffda"/><path d="M8 14l4 4 8-8" stroke="#0a0a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Project <span>Sites</span>
+  <!-- Background orbs -->
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <a class="logo" onclick="navigateTo('search')">
+        <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+          <rect width="28" height="28" rx="6" fill="#64ffda"/>
+          <path d="M8 14l4 4 8-8" stroke="#0a0a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Project <em>Sites</em>
       </a>
-      <ul class="nav-links">
-        <li><a href="#how-it-works">How It Works</a></li>
-        <li><a href="#features">Features</a></li>
-        <li><a href="#comparison">Compare</a></li>
-        <li><a href="#pricing">Pricing</a></li>
-        <li><a href="#pricing" class="nav-cta">Get Started</a></li>
-      </ul>
     </div>
-  </nav>
+  </header>
 
-  <!-- Hero Section -->
-  <section class="hero">
-    <div class="hero-bg"></div>
-    <div class="hero-orb hero-orb-1"></div>
-    <div class="hero-orb hero-orb-2"></div>
-    <div class="hero-orb hero-orb-3"></div>
-    <div class="hero-content container">
-      <div class="hero-badge">
-        <span class="dot"></span>
-        Now in public beta
+  <!-- App Container -->
+  <div class="app">
+
+    <!-- ==========================================
+         Screen 1: Hero / Search
+         ========================================== -->
+    <div id="screen-search" class="screen screen-search active">
+      <div class="hero-brand">
+        <h1>Your Website &mdash;<br><span class="gradient-text">Handled. Finally.</span></h1>
+        <p class="tagline">AI-powered websites for small businesses. Search and claim yours in minutes.</p>
       </div>
-      <h1>Your Website&mdash;<br><span class="gradient-text">Handled. Finally.</span></h1>
-      <p>AI-powered websites for small businesses. <strong>$50/mo.</strong> No lock-in. No tech skills needed. Just results.</p>
-      <div class="hero-actions">
-        <a href="#pricing" class="btn btn-primary btn-large">
-          Get Started Free
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L11.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 11-1.04-1.08l3.158-2.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
-        </a>
-        <a href="#how-it-works" class="btn btn-secondary btn-large">
-          See How It Works
-        </a>
+
+      <div class="search-wrapper">
+        <div class="search-input-wrap">
+          <span class="search-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+          </span>
+          <input
+            type="text"
+            id="search-input"
+            class="search-input"
+            placeholder="Search for your business..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <div id="search-spinner" class="search-spinner"></div>
+        </div>
+
+        <div id="search-dropdown" class="search-dropdown"></div>
       </div>
+
+      <p class="search-hint">Search by business name to get started, or build a custom site from scratch.</p>
+
+      <div id="search-error" class="msg msg-error"></div>
     </div>
-  </section>
 
-  <!-- How It Works -->
-  <section id="how-it-works">
-    <div class="container text-center">
-      <div class="reveal">
-        <span class="section-label">How It Works</span>
-        <h2 class="section-title">Three steps. Five minutes.<br>Done.</h2>
-        <p class="section-subtitle">No designers, no developers, no headaches. Just tell us about your business and watch the magic happen.</p>
-      </div>
-      <div class="steps-grid">
-        <div class="step-card reveal stagger-1">
-          <div class="step-number">1</div>
-          <h3>Tell us about your business</h3>
-          <p>Answer a few quick questions about what you do, who you serve, and what makes you different.</p>
-        </div>
-        <div class="step-card reveal stagger-2">
-          <div class="step-number">2</div>
-          <h3>AI builds your site in minutes</h3>
-          <p>Our AI generates professional copy, selects layouts, and builds a complete website tailored to your brand.</p>
-        </div>
-        <div class="step-card reveal stagger-3">
-          <div class="step-number">3</div>
-          <h3>Go live with your own domain</h3>
-          <p>Connect your custom domain or use ours. Your site is live, fast, and ready for customers.</p>
-        </div>
-      </div>
-    </div>
-  </section>
+    <!-- ==========================================
+         Screen 3: Sign-In Gate
+         ========================================== -->
+    <div id="screen-signin" class="screen screen-signin">
+      <div class="signin-card">
+        <h2>Sign in to claim your website</h2>
+        <p class="signin-subtitle">Create your account to get started.</p>
 
-  <!-- Features -->
-  <section id="features">
-    <div class="container text-center">
-      <div class="reveal">
-        <span class="section-label">Features</span>
-        <h2 class="section-title">Everything you need.<br>Nothing you don't.</h2>
-        <p class="section-subtitle">Built for business owners who want a great website without the complexity.</p>
-      </div>
-      <div class="features-grid">
-        <div class="feature-card reveal stagger-1">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64ffda" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        <!-- Main sign-in options -->
+        <div id="signin-methods" class="signin-methods">
+          <button class="signin-btn signin-btn-google" onclick="signInWithGoogle()">
+            <svg width="20" height="20" viewBox="0 0 48 48">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            </svg>
+            Continue with Google
+          </button>
+
+          <div class="signin-divider">or</div>
+
+          <button class="signin-btn" onclick="showSigninPanel('phone')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><path d="M12 18h.01"/>
+            </svg>
+            Sign in with Phone
+          </button>
+
+          <button class="signin-btn" onclick="showSigninPanel('email')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+            </svg>
+            Sign in with Email
+          </button>
+        </div>
+
+        <!-- Phone panel -->
+        <div id="signin-phone-panel" class="signin-panel">
+          <div id="phone-step-input">
+            <div class="input-group">
+              <label for="phone-input">Phone Number</label>
+              <input type="tel" id="phone-input" class="input-field" placeholder="+1 (555) 123-4567" />
+            </div>
+            <button class="btn btn-accent btn-full" id="phone-send-btn" onclick="sendPhoneOtp()">
+              Send Verification Code
+            </button>
+            <div id="phone-send-msg" class="msg"></div>
           </div>
-          <h3>AI-Generated Content</h3>
-          <p>Professional copy written by AI, tailored to your industry and brand voice. Headlines, descriptions, CTAs&mdash;all done for you.</p>
-        </div>
-        <div class="feature-card reveal stagger-2">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64ffda" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+
+          <div id="phone-step-otp" style="display:none;">
+            <div class="input-group">
+              <label for="otp-input">Verification Code</label>
+              <input type="text" id="otp-input" class="input-field" placeholder="123456" maxlength="6" inputmode="numeric" pattern="[0-9]*" />
+            </div>
+            <button class="btn btn-accent btn-full" id="otp-verify-btn" onclick="verifyPhoneOtp()">
+              Verify Code
+            </button>
+            <div id="phone-verify-msg" class="msg"></div>
           </div>
-          <h3>Custom Domains</h3>
-          <p>Use your own domain name with automatic DNS configuration. No extra fees. Professional URLs from day one.</p>
+
+          <button class="back-link" onclick="showSigninPanel('main')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m15 18-6-6 6-6"/>
+            </svg>
+            Back to sign-in options
+          </button>
         </div>
-        <div class="feature-card reveal stagger-3">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64ffda" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+
+        <!-- Email panel -->
+        <div id="signin-email-panel" class="signin-panel">
+          <div id="email-step-input">
+            <div class="input-group">
+              <label for="email-input">Email Address</label>
+              <input type="email" id="email-input" class="input-field" placeholder="you@example.com" />
+            </div>
+            <button class="btn btn-accent btn-full" id="email-send-btn" onclick="sendMagicLink()">
+              Send Magic Link
+            </button>
+            <div id="email-send-msg" class="msg"></div>
           </div>
-          <h3>Mobile-First Design</h3>
-          <p>Every site is built mobile-first and looks stunning on all devices. Responsive layouts that adapt perfectly to any screen.</p>
+
+          <div id="email-step-sent" style="display:none;">
+            <div class="msg msg-success visible" style="text-align:center; margin-top:0;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:6px;">
+                <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+              </svg>
+              Check your email for a sign-in link. You can close this tab.
+            </div>
+          </div>
+
+          <button class="back-link" onclick="showSigninPanel('main')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m15 18-6-6 6-6"/>
+            </svg>
+            Back to sign-in options
+          </button>
         </div>
-        <div class="feature-card reveal stagger-4">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64ffda" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+
+        <!-- Back to search -->
+        <button class="back-link" id="signin-back-to-search" onclick="navigateTo('search')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m15 18-6-6 6-6"/>
+          </svg>
+          Back to search
+        </button>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         Screen 3b: Details + File Upload
+         ========================================== -->
+    <div id="screen-details" class="screen screen-details">
+      <div class="details-card">
+        <h2 id="details-title">Tell us more about your business</h2>
+        <p class="details-subtitle" id="details-subtitle">Any extra info helps us build the perfect website for you.</p>
+
+        <!-- Selected business display -->
+        <div id="details-business-badge" class="selected-business-badge" style="display:none;">
+          <div class="badge-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64ffda" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
           </div>
-          <h3>Built-in Analytics</h3>
-          <p>See who visits your site, where they come from, and what they do. Simple dashboards, no code required.</p>
+          <div class="badge-text">
+            <div class="badge-name" id="badge-biz-name"></div>
+            <div class="badge-addr" id="badge-biz-addr"></div>
+          </div>
         </div>
-        <div class="feature-card reveal stagger-5">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64ffda" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          </div>
-          <h3>SSL Included</h3>
-          <p>Free SSL certificates automatically provisioned and renewed. Your site is secure with HTTPS from the start.</p>
+
+        <div class="input-group">
+          <label for="details-textarea">Additional Context / Instructions</label>
+          <textarea
+            id="details-textarea"
+            class="input-field"
+            placeholder="Tell us about your business, what services you offer, preferred style, brand colors, or any specific features you'd like on your website..."
+          ></textarea>
         </div>
-        <div class="feature-card reveal stagger-6">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64ffda" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-          </div>
-          <h3>24/7 Uptime</h3>
-          <p>Powered by Cloudflare's global edge network. Your site loads fast everywhere with 99.99% uptime guaranteed.</p>
+
+        <div class="uppy-section">
+          <label>Upload Logos, Photos, Menus, or Documents</label>
+          <div id="uppy-dashboard-area"></div>
+        </div>
+
+        <button class="btn btn-accent btn-large btn-full" id="build-btn" onclick="submitBuild()">
+          Build My Website
+        </button>
+
+        <div id="build-msg" class="msg"></div>
+
+        <button class="back-link" onclick="navigateTo('signin')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m15 18-6-6 6-6"/>
+          </svg>
+          Back
+        </button>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         Screen 4: Waiting (Lottie Cat)
+         ========================================== -->
+    <div id="screen-waiting" class="screen screen-waiting">
+      <div class="waiting-content">
+        <lottie-player
+          src="https://lottie.host/embed/54023765-9df7-415f-968c-5fff79dba43a/lottie.json"
+          background="transparent"
+          speed="1"
+          style="width: 260px; height: 260px;"
+          loop
+          autoplay
+        ></lottie-player>
+
+        <h2 class="waiting-title">We're building your website...</h2>
+        <p class="waiting-subtitle">Give us a few minutes. We'll notify you when it's ready.</p>
+        <p class="waiting-contact" id="waiting-contact"></p>
+
+        <div class="waiting-status">
+          <span class="status-dot"></span>
+          <span>Build in progress</span>
+          <span class="loading-dots"><span></span><span></span><span></span></span>
         </div>
       </div>
     </div>
-  </section>
 
-  <!-- Competitor Comparison -->
-  <section id="comparison" class="comparison-section">
-    <div class="container text-center">
-      <div class="reveal">
-        <span class="section-label">Compare</span>
-        <h2 class="section-title">See how we stack up.</h2>
-        <p class="section-subtitle">We built Project Sites to be simpler, faster, and more affordable than the alternatives.</p>
-      </div>
-      <div class="comparison-wrapper reveal-scale">
-        <table class="comparison-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th class="highlight">Project Sites</th>
-              <th>Squarespace</th>
-              <th>Wix</th>
-              <th>WordPress</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>
-                <span data-tippy-content="Monthly subscription cost for a standard business website" class="tooltip-trigger">Price</span>
-              </td>
-              <td class="highlight"><strong>$50/mo</strong></td>
-              <td>$16&ndash;65/mo</td>
-              <td>$17&ndash;159/mo</td>
-              <td>$25&ndash;45/mo + hosting</td>
-            </tr>
-            <tr>
-              <td>
-                <span data-tippy-content="Time from signup to having a live, functional website" class="tooltip-trigger">Setup Time</span>
-              </td>
-              <td class="highlight"><strong>5 minutes</strong></td>
-              <td>Hours</td>
-              <td>Hours</td>
-              <td>Days</td>
-            </tr>
-            <tr>
-              <td>
-                <span data-tippy-content="AI-generated copy, headlines, and content tailored to your business" class="tooltip-trigger">AI Content</span>
-              </td>
-              <td class="highlight"><span class="check">&#10003;</span></td>
-              <td><span class="cross">&#10007;</span></td>
-              <td><span class="limited">Limited</span></td>
-              <td><span class="cross">&#10007;</span></td>
-            </tr>
-            <tr>
-              <td>
-                <span data-tippy-content="Use your own domain name (e.g., yourbusiness.com) at no extra cost" class="tooltip-trigger">Custom Domain</span>
-              </td>
-              <td class="highlight"><strong>Included</strong></td>
-              <td>Extra</td>
-              <td>Extra</td>
-              <td>Extra</td>
-            </tr>
-            <tr>
-              <td>
-                <span data-tippy-content="Technical knowledge needed to set up and maintain your website" class="tooltip-trigger">Technical Skills</span>
-              </td>
-              <td class="highlight"><strong>None</strong></td>
-              <td>Low</td>
-              <td>Low</td>
-              <td>High</td>
-            </tr>
-            <tr>
-              <td>
-                <span data-tippy-content="Free SSL certificate automatically provisioned for your domain" class="tooltip-trigger">SSL Certificate</span>
-              </td>
-              <td class="highlight"><span class="check">&#10003;</span></td>
-              <td><span class="check">&#10003;</span></td>
-              <td><span class="check">&#10003;</span></td>
-              <td>Varies</td>
-            </tr>
-            <tr>
-              <td>
-                <span data-tippy-content="Global CDN ensuring fast page loads worldwide" class="tooltip-trigger">Edge Network</span>
-              </td>
-              <td class="highlight"><span class="check">&#10003;</span></td>
-              <td><span class="check">&#10003;</span></td>
-              <td><span class="check">&#10003;</span></td>
-              <td><span class="cross">&#10007;</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
+  </div>
 
-  <!-- Pricing -->
-  <section id="pricing">
-    <div class="container text-center">
-      <div class="reveal">
-        <span class="section-label">Pricing</span>
-        <h2 class="section-title">One plan. Everything included.</h2>
-        <p class="section-subtitle">No tiers, no upsells, no surprises. Just one fair price for a complete business website.</p>
-      </div>
-      <div class="pricing-card reveal-scale">
-        <span class="pricing-popular">Most Popular</span>
-        <h3 class="pricing-name">Business Website</h3>
-        <p class="pricing-desc">Everything you need to get online and grow.</p>
-        <div class="pricing-amount">
-          <span class="pricing-currency">$</span>
-          <span class="pricing-value">50</span>
-          <span class="pricing-period">/month</span>
-        </div>
-        <ul class="pricing-features">
-          <li>
-            <span class="feature-check">&#10003;</span>
-            AI-generated website &amp; content
-            <span class="info-icon" data-tippy-content="Our AI writes professional copy tailored to your business, including headlines, descriptions, about pages, and calls to action.">?</span>
-          </li>
-          <li>
-            <span class="feature-check">&#10003;</span>
-            Custom domain included
-            <span class="info-icon" data-tippy-content="Connect your own domain name at no extra charge. We handle DNS configuration and SSL certificate provisioning automatically.">?</span>
-          </li>
-          <li>
-            <span class="feature-check">&#10003;</span>
-            Mobile-responsive design
-            <span class="info-icon" data-tippy-content="Your site automatically adapts to look great on phones, tablets, laptops, and desktop screens of all sizes.">?</span>
-          </li>
-          <li>
-            <span class="feature-check">&#10003;</span>
-            Built-in analytics dashboard
-            <span class="info-icon" data-tippy-content="Track visitors, page views, referral sources, and engagement metrics through a simple, easy-to-understand dashboard.">?</span>
-          </li>
-          <li>
-            <span class="feature-check">&#10003;</span>
-            SSL &amp; security
-            <span class="info-icon" data-tippy-content="Free SSL/TLS certificate is automatically provisioned and renewed. Your site is served over HTTPS with enterprise-grade security.">?</span>
-          </li>
-          <li>
-            <span class="feature-check">&#10003;</span>
-            Global edge network (Cloudflare)
-            <span class="info-icon" data-tippy-content="Your site is served from 300+ data centers worldwide via Cloudflare's edge network, ensuring fast load times for visitors everywhere.">?</span>
-          </li>
-          <li>
-            <span class="feature-check">&#10003;</span>
-            99.99% uptime guarantee
-            <span class="info-icon" data-tippy-content="We guarantee your site will be available 99.99% of the time. That's less than 53 minutes of downtime per year.">?</span>
-          </li>
-          <li>
-            <span class="feature-check">&#10003;</span>
-            No lock-in &mdash; cancel anytime
-            <span class="info-icon" data-tippy-content="There are no contracts or commitments. Cancel your subscription at any time and export your content with one click.">?</span>
-          </li>
-        </ul>
-        <a href="#" class="btn btn-primary btn-large" style="width: 100%; justify-content: center;">
-          Start Your Free Trial
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L11.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 11-1.04-1.08l3.158-2.96H3.75A.75.75 0 013 10z" clip-rule="evenodd"/></svg>
-        </a>
-        <p style="margin-top: 16px; font-size: 0.85rem; color: var(--text-muted);">14-day free trial. No credit card required.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Upload Section -->
-  <section id="upload" class="upload-section">
-    <div class="container text-center">
-      <div class="reveal">
-        <span class="section-label">Get Started</span>
-        <h2 class="section-title">Upload your business assets</h2>
-        <p class="section-subtitle">Share your logo, photos, and brand assets. Our AI will incorporate them into your site design.</p>
-      </div>
-      <div class="upload-area reveal-scale">
-        <div class="upload-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#64ffda" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        </div>
-        <h3>Upload your business logo and photos</h3>
-        <p>Drag and drop files here, or click to browse. Supports PNG, JPG, SVG, and WebP.</p>
-        <div id="uppy-dashboard"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer>
-    <div class="container">
-      <div class="footer-grid">
-        <div class="footer-brand">
-          <a href="#" class="nav-logo">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#64ffda"/><path d="M8 14l4 4 8-8" stroke="#0a0a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Project <span>Sites</span>
-          </a>
-          <p>AI-powered websites for small businesses. Built on Cloudflare's global edge network for speed, security, and reliability.</p>
-        </div>
-        <div class="footer-col">
-          <h4>Product</h4>
-          <ul>
-            <li><a href="#features">Features</a></li>
-            <li><a href="#pricing">Pricing</a></li>
-            <li><a href="#comparison">Compare</a></li>
-            <li><a href="#how-it-works">How It Works</a></li>
-          </ul>
-        </div>
-        <div class="footer-col">
-          <h4>Company</h4>
-          <ul>
-            <li><a href="#">About</a></li>
-            <li><a href="#">Blog</a></li>
-            <li><a href="#">Careers</a></li>
-            <li><a href="#">Contact</a></li>
-          </ul>
-        </div>
-        <div class="footer-col">
-          <h4>Legal</h4>
-          <ul>
-            <li><a href="#">Privacy Policy</a></li>
-            <li><a href="#">Terms of Service</a></li>
-            <li><a href="#">Cookie Policy</a></li>
-            <li><a href="#">GDPR</a></li>
-          </ul>
-        </div>
-      </div>
-      <div class="footer-bottom">
-        <span>&copy; 2026 Project Sites. All rights reserved.</span>
-        <span>Powered by <a href="https://cloudflare.com" target="_blank" rel="noopener">Cloudflare</a></span>
-      </div>
-    </div>
-  </footer>
-
-  <!-- Tippy.js -->
-  <script src="https://unpkg.com/@popperjs/core@2"></script>
-  <script src="https://unpkg.com/tippy.js@6"></script>
+  <!-- Lottie Player -->
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@2.0.8/dist/lottie-player.js"></script>
 
   <!-- Uppy -->
   <script src="https://releases.transloadit.com/uppy/v4.12.1/uppy.min.js"></script>
 
   <script>
-    // --- Scroll reveal animations via IntersectionObserver ---
-    (function() {
-      var revealElements = document.querySelectorAll('.reveal, .reveal-scale');
-      if ('IntersectionObserver' in window) {
-        var observer = new IntersectionObserver(function(entries) {
-          entries.forEach(function(entry) {
-            if (entry.isIntersecting) {
-              entry.target.classList.add('visible');
-              observer.unobserve(entry.target);
-            }
-          });
-        }, {
-          threshold: 0.12,
-          rootMargin: '0px 0px -40px 0px'
-        });
-        revealElements.forEach(function(el) { observer.observe(el); });
-      } else {
-        // Fallback: show all
-        revealElements.forEach(function(el) { el.classList.add('visible'); });
-      }
-    })();
+    /* ===========================================================
+       State Machine
+       =========================================================== */
+    var state = {
+      screen: 'search',
+      searchQuery: '',
+      searchResults: [],
+      selectedBusiness: null,
+      mode: 'business',      // 'business' | 'custom'
+      session: null,          // { token, identifier }
+      siteId: null,
+      slug: null,
+      signinPanel: 'main'    // 'main' | 'phone' | 'email'
+    };
 
-    // --- Tippy.js tooltips ---
-    (function() {
-      function initTippy() {
-        if (typeof tippy === 'undefined') {
-          setTimeout(initTippy, 200);
-          return;
-        }
-        tippy('[data-tippy-content]', {
-          theme: 'projectsites',
-          placement: 'top',
-          animation: 'shift-toward',
-          delay: [100, 50],
-          maxWidth: 280,
-          arrow: true,
-          allowHTML: false
-        });
-      }
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initTippy);
-      } else {
-        initTippy();
-      }
-    })();
+    var searchDebounceTimer = null;
+    var pollTimer = null;
+    var uppyInstance = null;
 
-    // --- Uppy file uploader ---
-    (function() {
-      function initUppy() {
-        if (typeof Uppy === 'undefined') {
-          setTimeout(initUppy, 200);
-          return;
-        }
-        var uppy = new Uppy.Uppy({
-          restrictions: {
-            maxFileSize: 10 * 1024 * 1024, // 10MB
-            maxNumberOfFiles: 10,
-            allowedFileTypes: ['image/*', '.svg']
-          },
-          autoProceed: false,
-          locale: {
-            strings: {
-              dropHereOr: 'Drop files here or %{browse}',
-              browse: 'browse your computer'
-            }
-          }
-        });
-        uppy.use(Uppy.Dashboard, {
-          target: '#uppy-dashboard',
-          inline: true,
-          width: '100%',
-          height: 280,
-          hideUploadButton: false,
-          proudlyDisplayPoweredByUppy: false,
-          theme: 'dark',
-          note: 'Images only, up to 10MB each. Max 10 files.'
-        });
-        uppy.on('complete', function(result) {
-          if (result.successful && result.successful.length > 0) {
-            console.log('Upload complete:', result.successful.length, 'files');
-          }
-        });
+    /* ===========================================================
+       Screen Navigation
+       =========================================================== */
+    function navigateTo(screen) {
+      state.screen = screen;
+      render();
+
+      if (typeof posthog !== 'undefined' && posthog.capture) {
+        posthog.capture('screen_view', { screen: screen });
       }
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initUppy);
-      } else {
+    }
+
+    function render() {
+      var screens = document.querySelectorAll('.screen');
+      for (var i = 0; i < screens.length; i++) {
+        screens[i].classList.remove('active');
+      }
+      var target = document.getElementById('screen-' + state.screen);
+      if (target) {
+        target.classList.add('active');
+      }
+
+      // Initialize Uppy when details screen is shown
+      if (state.screen === 'details' && !uppyInstance) {
         initUppy();
       }
+
+      // Start polling when on waiting screen
+      if (state.screen === 'waiting') {
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    }
+
+    /* ===========================================================
+       Search Logic
+       =========================================================== */
+    var searchInput = document.getElementById('search-input');
+    var searchDropdown = document.getElementById('search-dropdown');
+    var searchSpinner = document.getElementById('search-spinner');
+
+    searchInput.addEventListener('input', function() {
+      var query = searchInput.value.trim();
+      state.searchQuery = query;
+
+      clearTimeout(searchDebounceTimer);
+      hideMsg('search-error');
+
+      if (query.length < 2) {
+        closeDropdown();
+        return;
+      }
+
+      searchSpinner.classList.add('visible');
+
+      searchDebounceTimer = setTimeout(function() {
+        performSearch(query);
+      }, 300);
+    });
+
+    searchInput.addEventListener('focus', function() {
+      if (state.searchResults.length > 0 || state.searchQuery.length >= 2) {
+        renderDropdown();
+      }
+    });
+
+    // Close dropdown on click outside
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.search-wrapper')) {
+        closeDropdown();
+      }
+    });
+
+    function performSearch(query) {
+      fetch('/api/search/businesses?q=' + encodeURIComponent(query))
+        .then(function(res) {
+          if (!res.ok) throw new Error('Search failed (status ' + res.status + ')');
+          return res.json();
+        })
+        .then(function(data) {
+          searchSpinner.classList.remove('visible');
+          state.searchResults = Array.isArray(data) ? data : (data.results || []);
+          renderDropdown();
+        })
+        .catch(function(err) {
+          searchSpinner.classList.remove('visible');
+          state.searchResults = [];
+          // Still show dropdown with custom option
+          renderDropdown();
+        });
+    }
+
+    function renderDropdown() {
+      var html = '';
+
+      // Business results
+      for (var i = 0; i < state.searchResults.length; i++) {
+        var r = state.searchResults[i];
+        html += '<div class="search-result" onclick="selectBusiness(' + i + ')">'
+              +   '<div class="search-result-icon">'
+              +     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+              +       '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>'
+              +     '</svg>'
+              +   '</div>'
+              +   '<div class="search-result-text">'
+              +     '<div class="search-result-name">' + escapeHtml(r.name || r.business_name || '') + '</div>'
+              +     '<div class="search-result-address">' + escapeHtml(r.address || r.formatted_address || r.street_address || '') + '</div>'
+              +   '</div>'
+              + '</div>';
+      }
+
+      // Custom website option (always shown)
+      html += '<div class="search-result search-result-custom" onclick="selectCustom()">'
+            +   '<div class="search-result-icon">'
+            +     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+            +       '<path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="m2 2 7.586 7.586"/><circle cx="11" cy="11" r="2"/>'
+            +     '</svg>'
+            +   '</div>'
+            +   '<div class="search-result-text">'
+            +     '<div class="search-result-name">Custom Website</div>'
+            +     '<div class="search-result-address">Build a custom website from scratch</div>'
+            +   '</div>'
+            + '</div>';
+
+      searchDropdown.innerHTML = html;
+      searchDropdown.classList.add('open');
+    }
+
+    function closeDropdown() {
+      searchDropdown.classList.remove('open');
+    }
+
+    /* ===========================================================
+       Business Selection
+       =========================================================== */
+    function selectBusiness(index) {
+      var biz = state.searchResults[index];
+      state.selectedBusiness = biz;
+      state.mode = 'business';
+      closeDropdown();
+
+      if (typeof posthog !== 'undefined' && posthog.capture) {
+        posthog.capture('business_selected', { name: biz.name || biz.business_name });
+      }
+
+      // Check if a site already exists
+      var placeId = biz.place_id || biz.id || '';
+      if (!placeId) {
+        navigateTo('signin');
+        return;
+      }
+
+      showInlineLoading('search-error', 'Checking if a site exists...');
+
+      fetch('/api/sites/lookup?place_id=' + encodeURIComponent(placeId))
+        .then(function(res) {
+          if (res.status === 404) return null;
+          if (!res.ok) throw new Error('Lookup failed');
+          return res.json();
+        })
+        .then(function(site) {
+          hideMsg('search-error');
+          if (!site) {
+            // No existing site -> sign in
+            navigateTo('signin');
+            return;
+          }
+
+          state.siteId = site.id || site.site_id;
+          state.slug = site.slug;
+
+          if (site.status === 'published' && site.slug) {
+            // Redirect to the live site
+            window.location.href = 'https://' + site.slug + '.sites.megabyte.space';
+          } else if (site.status === 'queued' || site.status === 'building') {
+            navigateTo('waiting');
+          } else {
+            navigateTo('signin');
+          }
+        })
+        .catch(function(err) {
+          hideMsg('search-error');
+          // On error, just proceed to sign-in
+          navigateTo('signin');
+        });
+    }
+
+    function selectCustom() {
+      state.selectedBusiness = null;
+      state.mode = 'custom';
+      closeDropdown();
+
+      if (typeof posthog !== 'undefined' && posthog.capture) {
+        posthog.capture('custom_website_selected');
+      }
+
+      navigateTo('signin');
+    }
+
+    /* ===========================================================
+       Sign-In Logic
+       =========================================================== */
+    function showSigninPanel(panel) {
+      state.signinPanel = panel;
+
+      var methodsEl = document.getElementById('signin-methods');
+      var phonePanel = document.getElementById('signin-phone-panel');
+      var emailPanel = document.getElementById('signin-email-panel');
+      var backToSearch = document.getElementById('signin-back-to-search');
+
+      methodsEl.style.display = 'none';
+      phonePanel.classList.remove('active');
+      emailPanel.classList.remove('active');
+
+      if (panel === 'main') {
+        methodsEl.style.display = 'flex';
+        backToSearch.style.display = '';
+      } else if (panel === 'phone') {
+        phonePanel.classList.add('active');
+        backToSearch.style.display = 'none';
+        document.getElementById('phone-input').focus();
+      } else if (panel === 'email') {
+        emailPanel.classList.add('active');
+        backToSearch.style.display = 'none';
+        document.getElementById('email-input').focus();
+      }
+    }
+
+    // Reset panels whenever we navigate to signin
+    var origNavigateTo = navigateTo;
+    navigateTo = function(screen) {
+      if (screen === 'signin') {
+        setTimeout(function() { showSigninPanel('main'); }, 10);
+      }
+      if (screen === 'details') {
+        updateDetailsScreen();
+      }
+      if (screen === 'waiting') {
+        updateWaitingScreen();
+      }
+      origNavigateTo(screen);
+    };
+
+    function signInWithGoogle() {
+      if (typeof posthog !== 'undefined' && posthog.capture) {
+        posthog.capture('signin_google_clicked');
+      }
+
+      var redirectUrl = window.location.origin + window.location.pathname + '?auth_callback=google';
+      window.location.href = '/api/auth/google?redirect_url=' + encodeURIComponent(redirectUrl);
+    }
+
+    function sendPhoneOtp() {
+      var phone = document.getElementById('phone-input').value.trim();
+      if (!phone) {
+        showMsg('phone-send-msg', 'error', 'Please enter your phone number.');
+        return;
+      }
+
+      var btn = document.getElementById('phone-send-btn');
+      btn.disabled = true;
+      btn.innerHTML = 'Sending <span class="loading-dots"><span></span><span></span><span></span></span>';
+      hideMsg('phone-send-msg');
+
+      fetch('/api/auth/phone/otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone })
+      })
+        .then(function(res) {
+          if (!res.ok) return res.json().then(function(d) { throw new Error(d.error || 'Failed to send code'); });
+          return res.json();
+        })
+        .then(function(data) {
+          btn.disabled = false;
+          btn.textContent = 'Send Verification Code';
+          // Show OTP step
+          document.getElementById('phone-step-input').style.display = 'none';
+          document.getElementById('phone-step-otp').style.display = 'block';
+          document.getElementById('otp-input').focus();
+          state._phoneNumber = phone;
+        })
+        .catch(function(err) {
+          btn.disabled = false;
+          btn.textContent = 'Send Verification Code';
+          showMsg('phone-send-msg', 'error', err.message || 'Failed to send verification code. Please try again.');
+        });
+    }
+
+    function verifyPhoneOtp() {
+      var code = document.getElementById('otp-input').value.trim();
+      if (!code || code.length < 4) {
+        showMsg('phone-verify-msg', 'error', 'Please enter the verification code.');
+        return;
+      }
+
+      var btn = document.getElementById('otp-verify-btn');
+      btn.disabled = true;
+      btn.innerHTML = 'Verifying <span class="loading-dots"><span></span><span></span><span></span></span>';
+      hideMsg('phone-verify-msg');
+
+      fetch('/api/auth/phone/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: state._phoneNumber, code: code })
+      })
+        .then(function(res) {
+          if (!res.ok) return res.json().then(function(d) { throw new Error(d.error || 'Invalid code'); });
+          return res.json();
+        })
+        .then(function(data) {
+          btn.disabled = false;
+          btn.textContent = 'Verify Code';
+          state.session = {
+            token: data.token || data.access_token || '',
+            identifier: state._phoneNumber
+          };
+
+          if (typeof posthog !== 'undefined' && posthog.capture) {
+            posthog.capture('signin_phone_success');
+          }
+
+          navigateTo('details');
+        })
+        .catch(function(err) {
+          btn.disabled = false;
+          btn.textContent = 'Verify Code';
+          showMsg('phone-verify-msg', 'error', err.message || 'Verification failed. Please try again.');
+        });
+    }
+
+    function sendMagicLink() {
+      var email = document.getElementById('email-input').value.trim();
+      if (!email || !email.includes('@')) {
+        showMsg('email-send-msg', 'error', 'Please enter a valid email address.');
+        return;
+      }
+
+      var btn = document.getElementById('email-send-btn');
+      btn.disabled = true;
+      btn.innerHTML = 'Sending <span class="loading-dots"><span></span><span></span><span></span></span>';
+      hideMsg('email-send-msg');
+
+      fetch('/api/auth/magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email })
+      })
+        .then(function(res) {
+          if (!res.ok) return res.json().then(function(d) { throw new Error(d.error || 'Failed to send link'); });
+          return res.json();
+        })
+        .then(function(data) {
+          btn.disabled = false;
+          btn.textContent = 'Send Magic Link';
+          document.getElementById('email-step-input').style.display = 'none';
+          document.getElementById('email-step-sent').style.display = 'block';
+
+          // Store session for optimistic flow (real auth comes via redirect)
+          state.session = {
+            token: data.token || '',
+            identifier: email
+          };
+
+          if (typeof posthog !== 'undefined' && posthog.capture) {
+            posthog.capture('signin_email_sent', { email: email });
+          }
+        })
+        .catch(function(err) {
+          btn.disabled = false;
+          btn.textContent = 'Send Magic Link';
+          showMsg('email-send-msg', 'error', err.message || 'Failed to send magic link. Please try again.');
+        });
+    }
+
+    /* ===========================================================
+       Details Screen
+       =========================================================== */
+    function updateDetailsScreen() {
+      var titleEl = document.getElementById('details-title');
+      var subtitleEl = document.getElementById('details-subtitle');
+      var badgeEl = document.getElementById('details-business-badge');
+
+      if (state.mode === 'custom') {
+        titleEl.textContent = 'Describe your custom website';
+        subtitleEl.textContent = 'Tell us what you\'d like and we\'ll build it for you.';
+        badgeEl.style.display = 'none';
+      } else {
+        titleEl.textContent = 'Tell us more about your business';
+        subtitleEl.textContent = 'Any extra info helps us build the perfect website for you.';
+
+        if (state.selectedBusiness) {
+          var biz = state.selectedBusiness;
+          document.getElementById('badge-biz-name').textContent = biz.name || biz.business_name || 'Selected Business';
+          document.getElementById('badge-biz-addr').textContent = biz.address || biz.formatted_address || biz.street_address || '';
+          badgeEl.style.display = 'flex';
+        } else {
+          badgeEl.style.display = 'none';
+        }
+      }
+    }
+
+    function initUppy() {
+      if (typeof Uppy === 'undefined') {
+        setTimeout(initUppy, 200);
+        return;
+      }
+
+      var dashboardTarget = document.getElementById('uppy-dashboard-area');
+      if (!dashboardTarget) return;
+
+      uppyInstance = new Uppy.Uppy({
+        restrictions: {
+          maxFileSize: 10 * 1024 * 1024,
+          maxNumberOfFiles: 5,
+          allowedFileTypes: ['.jpg', '.jpeg', '.png', '.svg', '.webp', '.pdf']
+        },
+        autoProceed: false
+      });
+
+      uppyInstance.use(Uppy.Dashboard, {
+        target: '#uppy-dashboard-area',
+        inline: true,
+        width: '100%',
+        height: 220,
+        hideUploadButton: true,
+        proudlyDisplayPoweredByUppy: false,
+        theme: 'dark',
+        note: 'Images (JPG, PNG, SVG, WebP) and PDFs. Max 10MB each, up to 5 files.'
+      });
+    }
+
+    function submitBuild() {
+      var additionalContext = document.getElementById('details-textarea').value.trim();
+      var btn = document.getElementById('build-btn');
+
+      btn.disabled = true;
+      btn.innerHTML = 'Building <span class="loading-dots"><span></span><span></span><span></span></span>';
+      hideMsg('build-msg');
+
+      var payload = {
+        mode: state.mode,
+        additional_context: additionalContext
+      };
+
+      if (state.selectedBusiness) {
+        payload.business = {
+          name: state.selectedBusiness.name || state.selectedBusiness.business_name,
+          address: state.selectedBusiness.address || state.selectedBusiness.formatted_address || state.selectedBusiness.street_address,
+          place_id: state.selectedBusiness.place_id || state.selectedBusiness.id,
+          phone: state.selectedBusiness.phone || state.selectedBusiness.phone_number,
+          website: state.selectedBusiness.website,
+          types: state.selectedBusiness.types
+        };
+      }
+
+      var headers = { 'Content-Type': 'application/json' };
+      if (state.session && state.session.token) {
+        headers['Authorization'] = 'Bearer ' + state.session.token;
+      }
+
+      fetch('/api/sites/create-from-search', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(payload)
+      })
+        .then(function(res) {
+          if (!res.ok) return res.json().then(function(d) { throw new Error(d.error || 'Failed to create site'); });
+          return res.json();
+        })
+        .then(function(data) {
+          btn.disabled = false;
+          btn.textContent = 'Build My Website';
+          state.siteId = data.id || data.site_id;
+          state.slug = data.slug;
+
+          if (typeof posthog !== 'undefined' && posthog.capture) {
+            posthog.capture('site_build_started', { mode: state.mode, site_id: state.siteId });
+          }
+
+          // Upload files if any
+          if (uppyInstance && uppyInstance.getFiles().length > 0 && state.siteId) {
+            uppyInstance.use(Uppy.XHRUpload, {
+              endpoint: '/api/sites/' + state.siteId + '/uploads',
+              headers: headers,
+              fieldName: 'file',
+              formData: true
+            });
+            uppyInstance.upload().then(function() {
+              navigateTo('waiting');
+            }).catch(function() {
+              // Even if upload fails, proceed to waiting
+              navigateTo('waiting');
+            });
+          } else {
+            navigateTo('waiting');
+          }
+        })
+        .catch(function(err) {
+          btn.disabled = false;
+          btn.textContent = 'Build My Website';
+          showMsg('build-msg', 'error', err.message || 'Something went wrong. Please try again.');
+        });
+    }
+
+    /* ===========================================================
+       Waiting Screen
+       =========================================================== */
+    function updateWaitingScreen() {
+      var contactEl = document.getElementById('waiting-contact');
+      if (state.session && state.session.identifier) {
+        contactEl.textContent = 'Signed in as ' + state.session.identifier;
+      } else {
+        contactEl.textContent = '';
+      }
+    }
+
+    function startPolling() {
+      stopPolling();
+      if (!state.siteId) return;
+
+      pollTimer = setInterval(function() {
+        var headers = {};
+        if (state.session && state.session.token) {
+          headers['Authorization'] = 'Bearer ' + state.session.token;
+        }
+
+        fetch('/api/sites/' + state.siteId, { headers: headers })
+          .then(function(res) {
+            if (!res.ok) return null;
+            return res.json();
+          })
+          .then(function(site) {
+            if (!site) return;
+            if (site.status === 'published' && (site.slug || state.slug)) {
+              stopPolling();
+              var slug = site.slug || state.slug;
+              window.location.href = 'https://' + slug + '.sites.megabyte.space';
+            }
+          })
+          .catch(function() {
+            // Silently continue polling
+          });
+      }, 10000);
+    }
+
+    function stopPolling() {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+
+    /* ===========================================================
+       Message Helpers
+       =========================================================== */
+    function showMsg(id, type, text) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.className = 'msg msg-' + type + ' visible';
+      el.textContent = text;
+    }
+
+    function hideMsg(id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('visible');
+    }
+
+    function showInlineLoading(id, text) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.className = 'msg msg-info visible';
+      el.innerHTML = text + ' <span class="loading-dots"><span></span><span></span><span></span></span>';
+    }
+
+    /* ===========================================================
+       Utilities
+       =========================================================== */
+    function escapeHtml(str) {
+      if (!str) return '';
+      var div = document.createElement('div');
+      div.appendChild(document.createTextNode(str));
+      return div.innerHTML;
+    }
+
+    /* ===========================================================
+       Handle Auth Callback
+       =========================================================== */
+    (function handleAuthCallback() {
+      var params = new URLSearchParams(window.location.search);
+
+      if (params.has('auth_callback') || params.has('token') || params.has('access_token')) {
+        var token = params.get('token') || params.get('access_token') || '';
+        var email = params.get('email') || '';
+        var phone = params.get('phone') || '';
+
+        if (token) {
+          state.session = {
+            token: token,
+            identifier: email || phone || 'Authenticated'
+          };
+
+          // Clean URL
+          var cleanUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, cleanUrl);
+
+          // Restore any selected business from sessionStorage
+          var savedBiz = sessionStorage.getItem('ps_selected_business');
+          var savedMode = sessionStorage.getItem('ps_mode');
+          if (savedBiz) {
+            try {
+              state.selectedBusiness = JSON.parse(savedBiz);
+              state.mode = savedMode || 'business';
+            } catch (e) { /* ignore */ }
+            sessionStorage.removeItem('ps_selected_business');
+            sessionStorage.removeItem('ps_mode');
+          }
+
+          navigateTo('details');
+        }
+      }
     })();
 
-    // --- Smooth nav background on scroll ---
-    (function() {
-      var nav = document.querySelector('nav');
-      window.addEventListener('scroll', function() {
-        if (window.scrollY > 50) {
-          nav.style.background = 'rgba(10, 10, 26, 0.95)';
-          nav.style.boxShadow = '0 4px 24px rgba(0,0,0,0.3)';
-        } else {
-          nav.style.background = 'rgba(10, 10, 26, 0.8)';
-          nav.style.boxShadow = 'none';
-        }
-      }, { passive: true });
-    })();
+    // Save business selection before Google redirect
+    var origSignInWithGoogle = signInWithGoogle;
+    signInWithGoogle = function() {
+      if (state.selectedBusiness) {
+        sessionStorage.setItem('ps_selected_business', JSON.stringify(state.selectedBusiness));
+        sessionStorage.setItem('ps_mode', state.mode);
+      }
+      origSignInWithGoogle();
+    };
+
+    /* ===========================================================
+       Keyboard: Enter to select first result
+       =========================================================== */
+    searchInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeDropdown();
+        searchInput.blur();
+      }
+    });
+
+    /* ===========================================================
+       Init
+       =========================================================== */
+    render();
   </script>
 </body>
 </html>
