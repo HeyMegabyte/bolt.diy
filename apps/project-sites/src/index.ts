@@ -76,7 +76,7 @@ app.all('*', async (c) => {
   if (
     hostname === DOMAINS.SITES_BASE ||
     hostname === DOMAINS.SITES_STAGING ||
-    hostname === `www.${DOMAINS.SITES_BASE}` ||
+    hostname === `www.${DOMAINS.SITES_BASE}` || // legacy support
     hostname.startsWith('localhost')
   ) {
     // Try to serve from R2 first (for production)
@@ -84,7 +84,7 @@ app.all('*', async (c) => {
     const marketingAsset = await c.env.SITES_BUCKET.get(marketingPath);
 
     if (marketingAsset) {
-      const ext = path.split('.').pop()?.toLowerCase() ?? 'html';
+      const ext = marketingPath.split('.').pop()?.toLowerCase() ?? 'html';
       const mimeTypes: Record<string, string> = {
         html: 'text/html',
         css: 'text/css',

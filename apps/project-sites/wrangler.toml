@@ -41,15 +41,16 @@ binding = "SITES_BUCKET"
 bucket_name = "project-sites"
 
 # ─── Queue producer for workflow jobs ─────────────────────────
-[[queues.producers]]
-binding = "QUEUE"
-queue = "project-sites-workflow"
+# Uncomment when Queues is enabled on the Cloudflare account
+# [[queues.producers]]
+# binding = "QUEUE"
+# queue = "project-sites-workflow"
 
 # ─── Queue consumer ──────────────────────────────────────────
-[[queues.consumers]]
-queue = "project-sites-workflow"
-max_batch_size = 10
-max_retries = 3
+# [[queues.consumers]]
+# queue = "project-sites-workflow"
+# max_batch_size = 10
+# max_retries = 3
 
 # ─── AI binding for Cloudflare Workers AI ─────────────────────
 [ai]
@@ -98,14 +99,15 @@ database_id = "7bdf6256-7b5d-417f-9b29-c7466ec78508"
 binding = "SITES_BUCKET"
 bucket_name = "project-sites-staging"
 
-[[env.staging.queues.producers]]
-binding = "QUEUE"
-queue = "project-sites-workflows-staging"
+# Uncomment when Queues is enabled on the Cloudflare account
+# [[env.staging.queues.producers]]
+# binding = "QUEUE"
+# queue = "project-sites-workflows-staging"
 
-[[env.staging.queues.consumers]]
-queue = "project-sites-workflows-staging"
-max_batch_size = 10
-max_retries = 3
+# [[env.staging.queues.consumers]]
+# queue = "project-sites-workflows-staging"
+# max_batch_size = 10
+# max_retries = 3
 
 # ─── Production ──────────────────────────────────────────────
 [env.production]
@@ -150,11 +152,12 @@ database_id = "ea3e839a-c641-4861-ae30-dfc63bff8032"
 binding = "SITES_BUCKET"
 bucket_name = "project-sites-production"
 
-[[env.production.queues.producers]]
-binding = "QUEUE"
-queue = "project-sites-workflows-production"
+# Uncomment when Queues is enabled on the Cloudflare account
+# [[env.production.queues.producers]]
+# binding = "QUEUE"
+# queue = "project-sites-workflows-production"
 
-[[env.production.queues.consumers]]
-queue = "project-sites-workflows-production"
-max_batch_size = 10
-max_retries = 3
+# [[env.production.queues.consumers]]
+# queue = "project-sites-workflows-production"
+# max_batch_size = 10
+# max_retries = 3

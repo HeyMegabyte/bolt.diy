@@ -13,8 +13,8 @@ export interface Env {
   // R2
   SITES_BUCKET: R2Bucket;
 
-  // Queue
-  QUEUE: Queue;
+  // Queue (optional until Queues is enabled on the account)
+  QUEUE?: Queue;
 
   // Workers AI
   AI: Ai;

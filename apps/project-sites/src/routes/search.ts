@@ -166,14 +166,16 @@ search.post('/api/sites/create-from-search', async (c) => {
     throw badRequest(`Failed to create site: ${result.error}`);
   }
 
-  // Enqueue AI workflow
-  await c.env.QUEUE.send({
-    job_name: 'generate_site',
-    site_id: siteId,
-    business_name: body.business_name,
-    google_place_id: body.google_place_id ?? null,
-    additional_context: body.additional_context ?? null,
-  });
+  // Enqueue AI workflow (if Queues is enabled)
+  if (c.env.QUEUE) {
+    await c.env.QUEUE.send({
+      job_name: 'generate_site',
+      site_id: siteId,
+      business_name: body.business_name,
+      google_place_id: body.google_place_id ?? null,
+      additional_context: body.additional_context ?? null,
+    });
+  }
 
   // Log audit
   await writeAuditLog(db, {
