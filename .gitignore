@@ -32,6 +32,8 @@ functions/build/
 *.vars
 .wrangler
 _worker.bundle
+test-results/
+playwright-report/
 
 Modelfile
 modelfiles
