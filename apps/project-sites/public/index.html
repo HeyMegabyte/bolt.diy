@@ -248,6 +248,7 @@
     /* Search box */
     .search-wrapper {
       position: relative;
+      z-index: 10;
       width: 100%;
       max-width: 640px;
       margin: 32px auto 0;
@@ -1074,6 +1075,11 @@
     var pollTimer = null;
     var uppyInstance = null;
 
+    /** Redirect helper - stubbable in E2E tests */
+    function redirectTo(url) {
+      window.location.href = url;
+    }
+
     /* ===========================================================
        Screen Navigation
        =========================================================== */
@@ -1156,7 +1162,8 @@
         })
         .then(function(data) {
           searchSpinner.classList.remove('visible');
-          state.searchResults = Array.isArray(data) ? data : (data.results || []);
+          var results = data.data || data.results || data;
+          state.searchResults = Array.isArray(results) ? results : [];
           renderDropdown();
         })
         .catch(function(err) {
@@ -1235,9 +1242,10 @@
           if (!res.ok) throw new Error('Lookup failed');
           return res.json();
         })
-        .then(function(site) {
+        .then(function(json) {
           hideMsg('search-error');
-          if (!site) {
+          var site = json && json.data ? json.data : json;
+          if (!site || site.exists === false) {
             // No existing site -> sign in
             navigateTo('signin');
             return;
@@ -1248,7 +1256,7 @@
 
           if (site.status === 'published' && site.slug) {
             // Redirect to the live site
-            window.location.href = 'https://' + site.slug + '.sites.megabyte.space';
+            redirectTo('https://' + site.slug + '.sites.megabyte.space');
           } else if (site.status === 'queued' || site.status === 'building') {
             navigateTo('waiting');
           } else {
@@ -1324,7 +1332,7 @@
       }
 
       var redirectUrl = window.location.origin + window.location.pathname + '?auth_callback=google';
-      window.location.href = '/api/auth/google?redirect_url=' + encodeURIComponent(redirectUrl);
+      redirectTo('/api/auth/google?redirect_url=' + encodeURIComponent(redirectUrl));
     }
 
     function sendPhoneOtp() {
@@ -1612,7 +1620,7 @@
             if (site.status === 'published' && (site.slug || state.slug)) {
               stopPolling();
               var slug = site.slug || state.slug;
-              window.location.href = 'https://' + slug + '.sites.megabyte.space';
+              redirectTo('https://' + slug + '.sites.megabyte.space');
             }
           })
           .catch(function() {
