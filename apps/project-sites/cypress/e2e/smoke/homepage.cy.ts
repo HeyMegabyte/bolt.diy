@@ -25,7 +25,7 @@ describe('Homepage', () => {
   });
 
   it('displays the tagline text', () => {
-    cy.contains('handled').should('be.visible');
+    cy.contains(/handled/i).should('be.visible');
   });
 });
 
@@ -120,8 +120,8 @@ describe('Business Selection Flow', () => {
     cy.get('input[placeholder*="Search for your business"]').type('New Business');
     cy.wait('@search');
 
-    // Click the result
-    cy.contains('New Business').click();
+    // Click the dropdown result specifically
+    cy.get('.search-result').contains('New Business').click();
     cy.wait('@lookup');
 
     // Should navigate to sign-in screen
@@ -129,6 +129,12 @@ describe('Business Selection Flow', () => {
   });
 
   it('redirects to existing published site', () => {
+    // Stub the global redirectTo function to prevent cross-origin navigation
+    cy.window().then((win) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (win as any).redirectTo = cy.stub().as('redirectTo');
+    });
+
     cy.intercept('GET', '/api/search/businesses*', {
       body: {
         data: [
@@ -158,12 +164,15 @@ describe('Business Selection Flow', () => {
     cy.get('input[placeholder*="Search for your business"]').type('Existing Biz');
     cy.wait('@search');
 
-    // Click the result - should attempt to redirect
-    cy.contains('Existing Biz').click();
+    // Click the dropdown result - should attempt to redirect
+    cy.get('.search-result').contains('Existing Biz').click();
     cy.wait('@lookup');
 
-    // The app should try to redirect (we can't follow cross-origin redirects in Cypress)
-    // But we can verify it attempted to navigate
+    // Verify redirect was attempted to the correct URL
+    cy.get('@redirectTo').should(
+      'have.been.calledWith',
+      'https://existing-biz.sites.megabyte.space',
+    );
   });
 
   it('shows waiting screen for queued sites', () => {
@@ -196,7 +205,8 @@ describe('Business Selection Flow', () => {
     cy.get('input[placeholder*="Search for your business"]').type('Queued Business');
     cy.wait('@search');
 
-    cy.contains('Queued Business').click();
+    // Click on the dropdown result specifically (not the input which contains the typed text)
+    cy.get('.search-result').contains('Queued Business').click();
     cy.wait('@lookup');
 
     // Should show the waiting screen
@@ -229,7 +239,8 @@ describe('Sign-In Screen', () => {
 
     cy.get('input[placeholder*="Search for your business"]').type('Test Business');
     cy.wait('@search');
-    cy.contains('Test Business').click();
+    // Click on the dropdown result, not the input (which also contains "Test Business" as value)
+    cy.get('.search-result').contains('Test Business').click();
     cy.wait('@lookup');
   });
 
