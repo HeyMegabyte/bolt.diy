@@ -299,17 +299,17 @@ test.describe('Homepage Marketing Sections', () => {
     const section = page.locator('#comparison');
     await expect(section).toBeVisible();
 
-    // Check column headers in thead
-    const thead = section.locator('thead');
-    await expect(thead.getByText('Project Sites')).toBeVisible();
-    await expect(thead.getByText('Squarespace')).toBeVisible();
-    await expect(thead.getByText('Wix')).toBeVisible();
-    await expect(thead.getByText('WordPress')).toBeVisible();
+    // Check column headers in thead (desktop table view)
+    const table = section.locator('.comparison-table');
+    await expect(table.locator('thead').getByText('Project Sites')).toBeVisible();
+    await expect(table.locator('thead').getByText('Squarespace')).toBeVisible();
+    await expect(table.locator('thead').getByText('Wix')).toBeVisible();
+    await expect(table.locator('thead').getByText('WordPress')).toBeVisible();
 
-    // Check row categories
-    await expect(section.getByText(/price/i)).toBeVisible();
-    await expect(section.getByText(/setup time/i)).toBeVisible();
-    await expect(section.getByText(/ai content/i)).toBeVisible();
+    // Check row categories in the table
+    await expect(table.getByText(/price/i)).toBeVisible();
+    await expect(table.getByText(/setup time/i)).toBeVisible();
+    await expect(table.getByText(/ai content/i)).toBeVisible();
   });
 
   test('renders Pricing section with $50/mo plan', async ({ page }) => {

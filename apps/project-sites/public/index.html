@@ -431,6 +431,8 @@
       color: var(--text-primary);
       outline: none;
       transition: border-color var(--transition), box-shadow var(--transition);
+      position: relative;
+      z-index: 2;
     }
     .search-input::placeholder {
       color: var(--text-muted);
@@ -442,8 +444,10 @@
     .search-spinner {
       position: absolute;
       right: 18px;
-      top: 50%;
-      transform: translateY(-50%);
+      top: 0;
+      bottom: 0;
+      margin-top: auto;
+      margin-bottom: auto;
       width: 20px;
       height: 20px;
       border: 2px solid var(--border);
@@ -460,7 +464,7 @@
     .search-dropdown {
       position: absolute;
       top: 100%;
-      margin-top: -2px;
+      margin-top: -14px;
       left: 0;
       right: 0;
       background: var(--bg-card);
@@ -469,7 +473,7 @@
       border-radius: 0 0 var(--radius) var(--radius);
       max-height: 400px;
       overflow-y: auto;
-      z-index: 100;
+      z-index: 1;
       display: none;
       box-shadow: var(--shadow-lg);
     }
@@ -487,6 +491,7 @@
       align-items: flex-start;
       gap: 14px;
     }
+    .search-result:first-child { padding-top: 28px; }
     .search-result:last-child { border-bottom: none; }
     .search-result:hover {
       background: var(--bg-card-hover);
@@ -1098,7 +1103,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 16px;
+      margin: 0 auto 16px;
     }
     .feature-icon svg {
       width: 24px;
@@ -1301,13 +1306,67 @@
     }
     .footer-bottom a:hover { color: var(--accent); }
 
+    /* ── Mobile comparison cards (replaces table at ≤720px) ── */
+    .comparison-cards { display: none; }
+
+    @media (max-width: 720px) {
+      .comparison-table { display: none; }
+      .comparison-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .compare-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+      }
+      .compare-card.compare-highlight {
+        border-color: var(--accent);
+        box-shadow: 0 0 24px rgba(100,255,218,0.08);
+      }
+      .compare-card-header {
+        padding: 16px 20px;
+        font-weight: 700;
+        font-size: 1rem;
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .compare-highlight .compare-card-header {
+        color: var(--accent);
+        background: rgba(100,255,218,0.06);
+      }
+      .compare-card-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.9rem;
+      }
+      .compare-card-row:last-child { border-bottom: none; }
+      .compare-card-label {
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+      .compare-card-value {
+        color: var(--text-secondary);
+        text-align: right;
+      }
+      .compare-highlight .compare-card-value {
+        color: var(--accent);
+        font-weight: 600;
+      }
+    }
+
     /* ── Responsive (marketing) ───────────────────── */
     @media (max-width: 768px) {
       .steps-row { grid-template-columns: 1fr; }
       .features-grid { grid-template-columns: 1fr; }
       .feature-card:last-child { grid-column: auto; }
-      .comparison-table { font-size: 0.8rem; }
-      .comparison-table th, .comparison-table td { padding: 10px 8px; }
       .pricing-card { padding: 36px 24px; }
     }
   </style>
@@ -1509,6 +1568,46 @@
               </tr>
             </tbody>
           </table>
+
+          <!-- Mobile-friendly cards (shown ≤720px, table hidden) -->
+          <div class="comparison-cards">
+            <div class="compare-card compare-highlight">
+              <div class="compare-card-header">Project Sites</div>
+              <div class="compare-card-row"><span class="compare-card-label">Price</span><span class="compare-card-value">$50/mo</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Setup Time</span><span class="compare-card-value">~5 minutes</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">AI Content</span><span class="compare-card-value"><span class="check-icon">&#10003;</span> Full site</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Custom Domain</span><span class="compare-card-value"><span class="check-icon">&#10003;</span> Included</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Skills Required</span><span class="compare-card-value">None</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Maintenance</span><span class="compare-card-value"><span class="check-icon">&#10003;</span> Handled</span></div>
+            </div>
+            <div class="compare-card">
+              <div class="compare-card-header">Squarespace</div>
+              <div class="compare-card-row"><span class="compare-card-label">Price</span><span class="compare-card-value">$16&ndash;$49/mo</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Setup Time</span><span class="compare-card-value">Hours&ndash;days</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">AI Content</span><span class="compare-card-value">&mdash;</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Custom Domain</span><span class="compare-card-value"><span class="check-icon">&#10003;</span></span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Skills Required</span><span class="compare-card-value">Some</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Maintenance</span><span class="compare-card-value">Self-managed</span></div>
+            </div>
+            <div class="compare-card">
+              <div class="compare-card-header">Wix</div>
+              <div class="compare-card-row"><span class="compare-card-label">Price</span><span class="compare-card-value">$17&ndash;$159/mo</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Setup Time</span><span class="compare-card-value">Hours&ndash;days</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">AI Content</span><span class="compare-card-value">Limited</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Custom Domain</span><span class="compare-card-value"><span class="check-icon">&#10003;</span></span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Skills Required</span><span class="compare-card-value">Some</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Maintenance</span><span class="compare-card-value">Self-managed</span></div>
+            </div>
+            <div class="compare-card">
+              <div class="compare-card-header">WordPress</div>
+              <div class="compare-card-row"><span class="compare-card-label">Price</span><span class="compare-card-value">$25&ndash;$45/mo + hosting</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Setup Time</span><span class="compare-card-value">Days&ndash;weeks</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">AI Content</span><span class="compare-card-value">&mdash;</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Custom Domain</span><span class="compare-card-value"><span class="check-icon">&#10003;</span></span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Skills Required</span><span class="compare-card-value">Technical</span></div>
+              <div class="compare-card-row"><span class="compare-card-label">Maintenance</span><span class="compare-card-value">Self-managed</span></div>
+            </div>
+          </div>
         </section>
 
         <!-- Pricing -->
