@@ -208,11 +208,122 @@ const server = http.createServer(async (req, res) => {
 
   // ─── Create from Search (requires auth) ─────────────
   if (pathname === '/api/sites/create-from-search' && method === 'POST') {
-    return sendJson(res, 401, {
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Must be authenticated',
-        request_id: requestId,
+    // Check for auth header (mock: accept any Bearer token)
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return sendJson(res, 401, {
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Must be authenticated',
+          request_id: requestId,
+        },
+      });
+    }
+    let body;
+    try {
+      const raw = await readBody(req);
+      body = raw ? JSON.parse(raw) : {};
+    } catch {
+      body = {};
+    }
+    const businessName = (body.business && body.business.name) || body.business_name;
+    if (!businessName) {
+      return sendJson(res, 400, {
+        error: {
+          code: 'BAD_REQUEST',
+          message: 'Missing required field: business_name (or business.name)',
+          request_id: requestId,
+        },
+      });
+    }
+    const slug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 63);
+    const siteId = `site-e2e-${crypto.randomUUID()}`;
+    const workflowInstanceId = `wf-${siteId}`;
+
+    // Store in-memory for status polling
+    if (!global.__e2eWorkflows) global.__e2eWorkflows = {};
+    global.__e2eWorkflows[siteId] = {
+      instanceId: workflowInstanceId,
+      status: 'running',
+      steps: ['research-profile'],
+      createdAt: Date.now(),
+    };
+
+    // Simulate workflow progression over time
+    setTimeout(() => {
+      if (global.__e2eWorkflows[siteId]) {
+        global.__e2eWorkflows[siteId].steps.push('research-social', 'research-brand', 'research-selling-points', 'research-images');
+      }
+    }, 2000);
+    setTimeout(() => {
+      if (global.__e2eWorkflows[siteId]) {
+        global.__e2eWorkflows[siteId].steps.push('generate-website');
+      }
+    }, 4000);
+    setTimeout(() => {
+      if (global.__e2eWorkflows[siteId]) {
+        global.__e2eWorkflows[siteId].steps.push('generate-privacy-page', 'generate-terms-page', 'score-website');
+      }
+    }, 6000);
+    setTimeout(() => {
+      if (global.__e2eWorkflows[siteId]) {
+        global.__e2eWorkflows[siteId].steps.push('upload-to-r2', 'update-site-status');
+        global.__e2eWorkflows[siteId].status = 'complete';
+      }
+    }, 8000);
+
+    return sendJson(res, 201, {
+      data: {
+        site_id: siteId,
+        slug,
+        status: 'building',
+        workflow_instance_id: workflowInstanceId,
+      },
+    });
+  }
+
+  // ─── Workflow Status (auth-gated) ─────────────────────
+  const workflowMatch = pathname.match(/^\/api\/sites\/([^/]+)\/workflow$/);
+  if (workflowMatch && method === 'GET') {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return sendJson(res, 401, {
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Must be authenticated',
+          request_id: requestId,
+        },
+      });
+    }
+    const siteId = workflowMatch[1];
+    const wf = (global.__e2eWorkflows || {})[siteId];
+    if (!wf) {
+      return sendJson(res, 200, {
+        data: {
+          site_id: siteId,
+          workflow_available: true,
+          instance_id: null,
+          workflow_status: null,
+          site_status: 'building',
+        },
+      });
+    }
+    return sendJson(res, 200, {
+      data: {
+        site_id: siteId,
+        workflow_available: true,
+        instance_id: wf.instanceId,
+        workflow_status: wf.status,
+        workflow_steps_completed: wf.steps,
+        workflow_error: null,
+        workflow_output: wf.status === 'complete' ? {
+          siteId,
+          slug: 'test-site',
+          version: new Date().toISOString(),
+          quality: 0.85,
+          pages: ['index.html', 'privacy.html', 'terms.html', 'research.json'],
+        } : null,
+        site_status: wf.status === 'complete' ? 'published' : 'building',
       },
     });
   }
