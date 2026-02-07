@@ -56,6 +56,10 @@ export interface Env {
   /** Background job queue. Optional until Queues is enabled on the account. */
   QUEUE?: Queue;
 
+  // ── Workflow ─────────────────────────────────────────────
+  /** Cloudflare Workflow binding for AI site generation. */
+  SITE_WORKFLOW: Workflow;
+
   // ── Workers AI ────────────────────────────────────────────
   /** Cloudflare Workers AI binding for LLM inference. */
   AI: Ai;

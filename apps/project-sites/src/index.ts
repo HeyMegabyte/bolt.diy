@@ -43,6 +43,7 @@ import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbUpdate } from './services/db.js';
 import { registerAllPrompts } from './services/ai_workflows.js';
 import { DOMAINS } from '@project-sites/shared';
+export { SiteGenerationWorkflow } from './workflows/site-generation.js';
 
 // Register all prompt definitions at module load
 registerAllPrompts();

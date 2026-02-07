@@ -258,8 +258,25 @@ search.post('/api/sites/create-from-search', async (c) => {
     throw badRequest(`Failed to create site: ${result.error}`);
   }
 
-  // Enqueue AI workflow (if Queues is enabled)
-  if (c.env.QUEUE) {
+  // Trigger AI site generation workflow
+  let workflowInstanceId: string | null = null;
+  if (c.env.SITE_WORKFLOW) {
+    const instance = await c.env.SITE_WORKFLOW.create({
+      id: siteId,
+      params: {
+        siteId,
+        slug,
+        businessName,
+        businessAddress: businessAddress ?? undefined,
+        businessPhone: businessPhone ?? undefined,
+        googlePlaceId: googlePlaceId ?? undefined,
+        additionalContext: body.additional_context ?? undefined,
+        orgId: orgId,
+      },
+    });
+    workflowInstanceId = instance.id;
+  } else if (c.env.QUEUE) {
+    // Fallback to queue if workflow binding is unavailable
     await c.env.QUEUE.send({
       job_name: 'generate_site',
       site_id: siteId,
@@ -290,6 +307,7 @@ search.post('/api/sites/create-from-search', async (c) => {
         site_id: siteId,
         slug,
         status: 'building',
+        workflow_instance_id: workflowInstanceId,
       },
     },
     201,

@@ -52,6 +52,12 @@ bucket_name = "project-sites"
 # max_batch_size = 10
 # max_retries = 3
 
+# ─── Cloudflare Workflow for AI site generation ────────────────
+[[workflows]]
+name = "site-generation-workflow"
+binding = "SITE_WORKFLOW"
+class_name = "SiteGenerationWorkflow"
+
 # ─── AI binding for Cloudflare Workers AI ─────────────────────
 [ai]
 binding = "AI"
@@ -65,6 +71,11 @@ routes = [
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
+
+[[env.staging.workflows]]
+name = "site-generation-workflow-staging"
+binding = "SITE_WORKFLOW"
+class_name = "SiteGenerationWorkflow"
 
 [env.staging.ai]
 binding = "AI"
@@ -118,6 +129,11 @@ routes = [
 
 [env.production.vars]
 ENVIRONMENT = "production"
+
+[[env.production.workflows]]
+name = "site-generation-workflow-production"
+binding = "SITE_WORKFLOW"
+class_name = "SiteGenerationWorkflow"
 
 [env.production.ai]
 binding = "AI"

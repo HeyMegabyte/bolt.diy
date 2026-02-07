@@ -229,6 +229,63 @@ api.get('/api/sites/:id', async (c) => {
   return c.json({ data: site });
 });
 
+// ─── Workflow Status ─────────────────────────────────────────
+
+api.get('/api/sites/:id/workflow', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('id');
+
+  // Verify the site belongs to this org
+  const site = await dbQueryOne<Record<string, unknown>>(
+    c.env.DB,
+    'SELECT id, status FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [siteId, orgId],
+  );
+
+  if (!site) {
+    throw notFound('Site not found');
+  }
+
+  if (!c.env.SITE_WORKFLOW) {
+    return c.json({
+      data: {
+        site_id: siteId,
+        workflow_available: false,
+        site_status: site.status,
+      },
+    });
+  }
+
+  try {
+    const instance = await c.env.SITE_WORKFLOW.get(siteId);
+    const status = await instance.status();
+    return c.json({
+      data: {
+        site_id: siteId,
+        workflow_available: true,
+        instance_id: instance.id,
+        workflow_status: status.status,
+        workflow_error: status.error ?? null,
+        workflow_output: status.output ?? null,
+        site_status: site.status,
+      },
+    });
+  } catch {
+    // Instance not found — may have been created before workflows were enabled
+    return c.json({
+      data: {
+        site_id: siteId,
+        workflow_available: true,
+        instance_id: null,
+        workflow_status: null,
+        site_status: site.status,
+      },
+    });
+  }
+});
+
 // ─── Billing Routes ──────────────────────────────────────────
 
 api.post('/api/billing/checkout', async (c) => {
