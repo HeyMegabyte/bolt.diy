@@ -288,7 +288,7 @@ describe('POST /api/sites/create-from-search', () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error.code).toBe('BAD_REQUEST');
-    expect(body.error.message).toContain('Missing required field: business_name');
+    expect(body.error.message).toContain('Missing required field: business_name (or business.name)');
   });
 
   it('creates site, enqueues workflow, and returns 201', async () => {
@@ -321,7 +321,7 @@ describe('POST /api/sites/create-from-search', () => {
     const body = await res.json();
     expect(body.data).toHaveProperty('site_id');
     expect(body.data).toHaveProperty('slug');
-    expect(body.data.status).toBe('queued');
+    expect(body.data.status).toBe('building');
     expect(body.data.slug).toBe('joe-s-pizza-palace');
 
     // Verify workflow was queued
@@ -344,7 +344,7 @@ describe('POST /api/sites/create-from-search', () => {
       expect.objectContaining({
         business_name: "Joe's Pizza Palace",
         org_id: '00000000-0000-4000-8000-000000000001',
-        status: 'queued',
+        status: 'building',
         google_place_id: 'ChIJ_joes_pizza',
         business_address: '100 Broadway, New York',
       }),
@@ -352,5 +352,102 @@ describe('POST /api/sites/create-from-search', () => {
 
     // Verify audit log was written
     expect(writeAuditLog).toHaveBeenCalled();
+  });
+
+  it('creates site from nested v2 payload format (business object)', async () => {
+    mockDbInsert.mockResolvedValueOnce({ error: null });
+
+    const authedApp = makeAuthenticatedApp({
+      orgId: '00000000-0000-4000-8000-000000000001',
+      userId: '00000000-0000-4000-8000-000000000002',
+      requestId: 'req-v2-001',
+    });
+
+    const requestBody = {
+      mode: 'business',
+      additional_context: 'We specialize in wood-fired pizza',
+      business: {
+        name: 'Napoli Pizza',
+        address: '200 Market St, San Francisco',
+        place_id: 'ChIJ_napoli',
+        phone: '+1-415-555-0100',
+        website: 'https://napolipizza.example.com',
+        types: ['restaurant', 'food'],
+      },
+    };
+
+    const res = await authedApp.request(
+      '/api/sites/create-from-search',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      },
+      mockEnv,
+    );
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.data).toHaveProperty('site_id');
+    expect(body.data.status).toBe('building');
+    expect(body.data.slug).toBe('napoli-pizza');
+
+    // Verify DB insert was called with fields extracted from nested business object
+    expect(mockDbInsert).toHaveBeenCalledTimes(1);
+    expect(mockDbInsert).toHaveBeenCalledWith(
+      mockDb,
+      'sites',
+      expect.objectContaining({
+        business_name: 'Napoli Pizza',
+        business_address: '200 Market St, San Francisco',
+        google_place_id: 'ChIJ_napoli',
+        business_phone: '+1-415-555-0100',
+        org_id: '00000000-0000-4000-8000-000000000001',
+        status: 'building',
+      }),
+    );
+
+    // Verify workflow was queued with correct data
+    expect(mockQueueSend).toHaveBeenCalledTimes(1);
+    expect(mockQueueSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        job_name: 'generate_site',
+        business_name: 'Napoli Pizza',
+        google_place_id: 'ChIJ_napoli',
+        additional_context: 'We specialize in wood-fired pizza',
+      }),
+    );
+
+    // Verify audit log includes mode
+    expect(writeAuditLog).toHaveBeenCalledWith(
+      mockDb,
+      expect.objectContaining({
+        action: 'site.created_from_search',
+        metadata_json: expect.objectContaining({
+          business_name: 'Napoli Pizza',
+          google_place_id: 'ChIJ_napoli',
+          mode: 'business',
+        }),
+      }),
+    );
+  });
+
+  it('returns 400 when nested business.name is also empty', async () => {
+    const authedApp = makeAuthenticatedApp({ orgId: 'org-123', userId: 'user-456' });
+
+    const res = await authedApp.request(
+      '/api/sites/create-from-search',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'business', business: { name: '' } }),
+      },
+      mockEnv,
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe('BAD_REQUEST');
+    expect(body.error.message).toContain('Missing required field');
   });
 });

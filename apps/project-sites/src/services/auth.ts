@@ -442,11 +442,11 @@ export async function handleGoogleOAuthCallback(
   env: Env,
   code: string,
   state: string,
-): Promise<{ email: string; display_name: string | null; avatar_url: string | null }> {
+): Promise<{ email: string; display_name: string | null; avatar_url: string | null; redirect_url: string | null }> {
   // Verify state
-  const stateRecord = await dbQueryOne<{ id: string; state: string; expires_at: string }>(
+  const stateRecord = await dbQueryOne<{ id: string; state: string; redirect_url: string | null; expires_at: string }>(
     db,
-    'SELECT id, state, expires_at FROM oauth_states WHERE state = ? AND provider = ?',
+    'SELECT id, state, redirect_url, expires_at FROM oauth_states WHERE state = ? AND provider = ?',
     [state, 'google'],
   );
 
@@ -504,6 +504,7 @@ export async function handleGoogleOAuthCallback(
     email: userInfo.email,
     display_name: userInfo.name ?? null,
     avatar_url: userInfo.picture ?? null,
+    redirect_url: stateRecord.redirect_url ?? null,
   };
 }
 
@@ -641,4 +642,99 @@ export async function getUserSessions(
   );
 
   return data;
+}
+
+/**
+ * Find an existing user by email or phone, or create a new user with an org and membership.
+ *
+ * When a new user is created, a personal org is provisioned automatically
+ * with the user as `owner` and `billing_admin`.
+ *
+ * @param db   - D1Database binding.
+ * @param opts - Lookup/creation parameters. At least one of `email` or `phone` is required.
+ * @returns The user's ID, org ID, and whether the user was newly created.
+ *
+ * @example
+ * ```ts
+ * const { user_id, org_id, is_new } = await findOrCreateUser(env.DB, {
+ *   email: 'jane@example.com',
+ *   display_name: 'Jane Doe',
+ * });
+ * ```
+ */
+export async function findOrCreateUser(
+  db: D1Database,
+  opts: { email?: string; phone?: string; display_name?: string; avatar_url?: string },
+): Promise<{ user_id: string; org_id: string; is_new: boolean }> {
+  // Look up existing user by email or phone
+  let existingUser: { id: string; email: string | null; phone: string | null } | null = null;
+
+  if (opts.email) {
+    existingUser = await dbQueryOne<{ id: string; email: string | null; phone: string | null }>(
+      db,
+      'SELECT id, email, phone FROM users WHERE email = ? AND deleted_at IS NULL',
+      [opts.email],
+    );
+  } else if (opts.phone) {
+    existingUser = await dbQueryOne<{ id: string; email: string | null; phone: string | null }>(
+      db,
+      'SELECT id, email, phone FROM users WHERE phone = ? AND deleted_at IS NULL',
+      [opts.phone],
+    );
+  }
+
+  if (existingUser) {
+    // Find their org
+    const membership = await dbQueryOne<{ org_id: string }>(
+      db,
+      'SELECT org_id FROM memberships WHERE user_id = ? AND deleted_at IS NULL LIMIT 1',
+      [existingUser.id],
+    );
+
+    return {
+      user_id: existingUser.id,
+      org_id: membership?.org_id ?? '',
+      is_new: false,
+    };
+  }
+
+  // Create new user
+  const now = new Date().toISOString();
+  const userId = crypto.randomUUID();
+  const orgId = crypto.randomUUID();
+  const membershipId = crypto.randomUUID();
+
+  const identifier = opts.email ?? opts.phone ?? 'user';
+  const slugBase = opts.email
+    ? opts.email.split('@')[0]!.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 63)
+    : identifier.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 63);
+  const randomSuffix = crypto.randomUUID().substring(0, 6);
+  const slug = `${slugBase}-${randomSuffix}`;
+
+  await dbInsert(db, 'users', {
+    id: userId,
+    email: opts.email ?? null,
+    phone: opts.phone ?? null,
+    display_name: opts.display_name ?? null,
+    avatar_url: opts.avatar_url ?? null,
+    deleted_at: null,
+  });
+
+  await dbInsert(db, 'orgs', {
+    id: orgId,
+    name: opts.email ?? opts.phone ?? 'Personal',
+    slug,
+    deleted_at: null,
+  });
+
+  await dbInsert(db, 'memberships', {
+    id: membershipId,
+    org_id: orgId,
+    user_id: userId,
+    role: 'owner',
+    billing_admin: 1,
+    deleted_at: null,
+  });
+
+  return { user_id: userId, org_id: orgId, is_new: true };
 }

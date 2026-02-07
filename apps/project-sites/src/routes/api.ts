@@ -64,7 +64,25 @@ api.post('/api/auth/magic-link/verify', async (c) => {
   const body = await c.req.json();
   const validated = verifyMagicLinkSchema.parse(body);
   const result = await authService.verifyMagicLink(c.env.DB, validated);
-  return c.json({ data: result });
+
+  const user = await authService.findOrCreateUser(c.env.DB, { email: result.email });
+  const session = await authService.createSession(c.env.DB, user.user_id);
+
+  if (result.redirect_url) {
+    const redirectTarget = new URL(result.redirect_url);
+    redirectTarget.searchParams.set('token', session.token);
+    redirectTarget.searchParams.set('email', result.email);
+    return c.redirect(redirectTarget.toString());
+  }
+
+  return c.json({
+    data: {
+      token: session.token,
+      email: result.email,
+      user_id: user.user_id,
+      org_id: user.org_id,
+    },
+  });
 });
 
 api.post('/api/auth/phone/otp', async (c) => {
@@ -77,8 +95,19 @@ api.post('/api/auth/phone/otp', async (c) => {
 api.post('/api/auth/phone/verify', async (c) => {
   const body = await c.req.json();
   const validated = verifyPhoneOtpSchema.parse(body);
-  const result = await authService.verifyPhoneOtp(c.env.DB, validated);
-  return c.json({ data: result });
+  await authService.verifyPhoneOtp(c.env.DB, validated);
+
+  const user = await authService.findOrCreateUser(c.env.DB, { phone: validated.phone });
+  const session = await authService.createSession(c.env.DB, user.user_id);
+
+  return c.json({
+    data: {
+      token: session.token,
+      expires_at: session.expires_at,
+      user_id: user.user_id,
+      org_id: user.org_id,
+    },
+  });
 });
 
 api.get('/api/auth/google', async (c) => {
@@ -96,7 +125,24 @@ api.get('/api/auth/google/callback', async (c) => {
   }
 
   const result = await authService.handleGoogleOAuthCallback(c.env.DB, c.env, code, state);
-  return c.json({ data: result });
+
+  const user = await authService.findOrCreateUser(c.env.DB, {
+    email: result.email,
+    display_name: result.display_name ?? undefined,
+    avatar_url: result.avatar_url ?? undefined,
+  });
+  const session = await authService.createSession(c.env.DB, user.user_id);
+
+  // Redirect to the original redirect_url (or homepage) with token and email
+  const baseUrl =
+    c.env.ENVIRONMENT === 'production'
+      ? 'https://sites.megabyte.space'
+      : 'https://sites-staging.megabyte.space';
+
+  const redirectTarget = new URL(result.redirect_url ?? baseUrl);
+  redirectTarget.searchParams.set('token', session.token);
+  redirectTarget.searchParams.set('email', result.email);
+  return c.redirect(redirectTarget.toString());
 });
 
 // ─── Sites Routes ────────────────────────────────────────────

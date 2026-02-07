@@ -166,11 +166,41 @@ search.get('/api/sites/lookup', async (c) => {
 
 // ─── Create Site from Search ────────────────────────────────
 
+/**
+ * Nested business object sent by the homepage SPA (v2 payload format).
+ *
+ * The frontend wraps business details under a `business` key.
+ */
+interface BusinessPayload {
+  name: string;
+  address?: string;
+  place_id?: string;
+  phone?: string;
+  website?: string;
+  types?: string[];
+}
+
+/**
+ * Request body for POST /api/sites/create-from-search.
+ *
+ * Supports two payload formats for backward compatibility:
+ *
+ * **v1 (flat):** `{ business_name, business_address, google_place_id, additional_context }`
+ *
+ * **v2 (nested):** `{ mode, business: { name, address, place_id, phone, website, types }, additional_context }`
+ */
 interface CreateFromSearchBody {
-  business_name: string;
+  /** @deprecated Use `business.name` instead */
+  business_name?: string;
+  /** @deprecated Use `business.address` instead */
   business_address?: string;
+  /** @deprecated Use `business.place_id` instead */
   google_place_id?: string;
   additional_context?: string;
+  /** Nested business object (v2 format from homepage SPA) */
+  business?: BusinessPayload;
+  /** Creation mode: 'business' or 'custom' */
+  mode?: string;
 }
 
 search.post('/api/sites/create-from-search', async (c) => {
@@ -182,11 +212,22 @@ search.post('/api/sites/create-from-search', async (c) => {
 
   const body = (await c.req.json()) as CreateFromSearchBody;
 
-  if (!body.business_name || body.business_name.trim().length === 0) {
-    throw badRequest('Missing required field: business_name');
+  // Normalize: support both v1 (flat) and v2 (nested business object) payload formats
+  const businessName = body.business?.name || body.business_name;
+  const businessAddress = body.business?.address || body.business_address;
+  const googlePlaceId = body.business?.place_id || body.google_place_id;
+  const businessPhone = body.business?.phone ?? null;
+  const mode = body.mode ?? null;
+
+  if (!businessName || businessName.trim().length === 0) {
+    throw badRequest('Missing required field: business_name (or business.name)');
   }
 
-  const slug = body.business_name
+  if (mode) {
+    console.warn(`[create-from-search] mode=${mode}, business=${businessName}`);
+  }
+
+  const slug = businessName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
@@ -198,14 +239,14 @@ search.post('/api/sites/create-from-search', async (c) => {
     id: siteId,
     org_id: orgId,
     slug,
-    business_name: body.business_name,
-    business_phone: null,
+    business_name: businessName,
+    business_phone: businessPhone,
     business_email: null,
-    business_address: body.business_address ?? null,
-    google_place_id: body.google_place_id ?? null,
+    business_address: businessAddress ?? null,
+    google_place_id: googlePlaceId ?? null,
     bolt_chat_id: null,
     current_build_version: null,
-    status: 'queued',
+    status: 'building',
     lighthouse_score: null,
     lighthouse_last_run: null,
     deleted_at: null,
@@ -222,8 +263,8 @@ search.post('/api/sites/create-from-search', async (c) => {
     await c.env.QUEUE.send({
       job_name: 'generate_site',
       site_id: siteId,
-      business_name: body.business_name,
-      google_place_id: body.google_place_id ?? null,
+      business_name: businessName,
+      google_place_id: googlePlaceId ?? null,
       additional_context: body.additional_context ?? null,
     });
   }
@@ -236,8 +277,9 @@ search.post('/api/sites/create-from-search', async (c) => {
     target_type: 'site',
     target_id: siteId,
     metadata_json: {
-      business_name: body.business_name,
-      google_place_id: body.google_place_id ?? null,
+      business_name: businessName,
+      google_place_id: googlePlaceId ?? null,
+      mode,
     },
     request_id: c.get('requestId'),
   });
@@ -247,7 +289,7 @@ search.post('/api/sites/create-from-search', async (c) => {
       data: {
         site_id: siteId,
         slug,
-        status: 'queued',
+        status: 'building',
       },
     },
     201,
