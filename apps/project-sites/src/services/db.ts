@@ -189,7 +189,7 @@ export async function dbInsert(
   row: Record<string, unknown>,
 ): Promise<{ error: string | null }> {
   const now = new Date().toISOString();
-  const withTimestamps = {
+  const withTimestamps: Record<string, unknown> = {
     created_at: now,
     updated_at: now,
     ...row,
@@ -231,7 +231,7 @@ export async function dbUpdate(
   whereClause: string,
   whereParams: unknown[] = [],
 ): Promise<{ error: string | null; changes: number }> {
-  const withTimestamp = {
+  const withTimestamp: Record<string, unknown> = {
     ...updates,
     updated_at: new Date().toISOString(),
   };

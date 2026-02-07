@@ -34,6 +34,7 @@ import { requestIdMiddleware } from './middleware/request_id.js';
 import { errorHandler } from './middleware/error_handler.js';
 import { payloadLimitMiddleware } from './middleware/payload_limit.js';
 import { securityHeadersMiddleware } from './middleware/security_headers.js';
+import { authMiddleware } from './middleware/auth.js';
 import { health } from './routes/health.js';
 import { api } from './routes/api.js';
 import { search } from './routes/search.js';
@@ -83,6 +84,9 @@ app.use(
     maxAge: 86400,
   }),
 );
+
+// Auth middleware for API routes (sets userId/orgId if valid session)
+app.use('/api/*', authMiddleware);
 
 // Global error handler
 app.onError(errorHandler);
