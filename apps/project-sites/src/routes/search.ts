@@ -49,6 +49,24 @@ search.get('/api/search/businesses', async (c) => {
     throw badRequest('Missing required query parameter: q');
   }
 
+  // Build request body with optional location bias from browser geolocation
+  const requestBody: Record<string, unknown> = { textQuery: q };
+
+  const lat = c.req.query('lat');
+  const lng = c.req.query('lng');
+  if (lat && lng) {
+    const latitude = parseFloat(lat);
+    const longitude = parseFloat(lng);
+    if (!isNaN(latitude) && !isNaN(longitude)) {
+      requestBody.locationBias = {
+        circle: {
+          center: { latitude, longitude },
+          radius: 50000.0, // 50 km radius
+        },
+      };
+    }
+  }
+
   const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
     method: 'POST',
     headers: {
@@ -56,7 +74,7 @@ search.get('/api/search/businesses', async (c) => {
       'X-Goog-Api-Key': c.env.GOOGLE_PLACES_API_KEY,
       'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.id,places.types',
     },
-    body: JSON.stringify({ textQuery: q }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
@@ -71,8 +89,14 @@ search.get('/api/search/businesses', async (c) => {
         query: q,
       }),
     );
-    // Return empty results instead of erroring so the UI still works
-    return c.json({ data: [] });
+    // Return empty results with error info so the UI still works but we can debug
+    return c.json({
+      data: [],
+      _error: {
+        status: response.status,
+        message: errorText.slice(0, 200),
+      },
+    });
   }
 
   const json = (await response.json()) as GooglePlacesResponse;
