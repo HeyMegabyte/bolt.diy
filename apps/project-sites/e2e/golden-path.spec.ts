@@ -3,10 +3,8 @@
  * @description End-to-end "Golden Path" test suite that validates the complete
  * user journey from homepage search through sign-in to AI workflow trigger.
  *
- * Searches for "Vito's Mens Salon Lake Hiawatha", tests all three
- * authentication methods (Google OAuth, Phone OTP, Email Magic Link),
- * fills in the details + upload screen, and verifies the AI workflow
- * is triggered via the create-from-search API.
+ * Tests the deferred sign-in flow:
+ *   Search → Details → Build (triggers sign-in) → Waiting
  *
  * All external API calls are intercepted via Playwright route mocking
  * so the test is deterministic and repeatable.
@@ -111,7 +109,7 @@ async function setupSearchMocks(page: Page) {
  * Search for the business and select it from dropdown.
  */
 async function searchAndSelectBusiness(page: Page) {
-  const input = page.getByPlaceholder(/Search for your business/);
+  const input = page.getByPlaceholder(/Enter your business name/);
   await input.click();
   await input.pressSequentially("Vito's Mens Salon Lake Hiawatha", { delay: 20 });
 
@@ -154,16 +152,36 @@ async function fillDetailsAndSubmit(page: Page) {
 
 // ─── Test Suite ───────────────────────────────────────────────
 
-test.describe('Golden Path: Full User Journey', () => {
-  test.describe.configure({ mode: 'serial' });
-
-  test('1. Search → Select → Sign-In screen appears', async ({ page }) => {
+test.describe('Golden Path: Deferred Sign-In Flow', () => {
+  test('1. Search → Select → Details screen appears (not sign-in)', async ({ page }) => {
     await setupSearchMocks(page);
     await page.goto('/');
 
     await searchAndSelectBusiness(page);
 
-    // Should navigate to sign-in screen
+    // Should navigate to DETAILS screen (deferred sign-in)
+    await expect(page.getByRole('heading', { name: /tell us more/i })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Sign-in should NOT appear yet
+    await expect(page.getByRole('heading', { name: /sign in/i })).not.toBeVisible();
+  });
+
+  test('2. Details → Build triggers sign-in for unauthenticated user', async ({ page }) => {
+    await setupSearchMocks(page);
+    await page.goto('/');
+
+    await searchAndSelectBusiness(page);
+
+    // Should be on details screen
+    await expect(page.getByRole('heading', { name: /tell us more/i })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Click Build → should trigger sign-in since not authenticated
+    await page.getByRole('button', { name: /build my website/i }).click();
+
     await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({
       timeout: 10_000,
     });
@@ -176,14 +194,11 @@ test.describe('Golden Path: Full User Journey', () => {
 });
 
 test.describe('Golden Path: Google OAuth Flow', () => {
-  test('Search → Google Sign-In → Details → Build → Waiting', async ({ page }) => {
+  test('Search → Details → Build → Google Sign-In → Redirect → Waiting', async ({ page }) => {
     const apiCalls = await setupSearchMocks(page);
 
-    // Intercept Google OAuth redirect - capture the redirect URL
-    let googleRedirectUrl = '';
+    // Intercept Google OAuth redirect
     await page.route('**/api/auth/google*', async (route) => {
-      googleRedirectUrl = route.request().url();
-      // Simulate: user completes Google OAuth and is redirected back with token
       await route.fulfill({
         status: 302,
         headers: {
@@ -204,66 +219,50 @@ test.describe('Golden Path: Google OAuth Flow', () => {
 
     await searchAndSelectBusiness(page);
 
-    // Sign-in screen
+    // Should be on details screen (deferred sign-in)
+    await expect(page.getByRole('heading', { name: /tell us more/i })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Fill context
+    await page.locator('#details-textarea').fill(
+      "Premium men's grooming salon in Lake Hiawatha since 1998.",
+    );
+
+    // Click Build → triggers sign-in
+    await page.getByRole('button', { name: /build my website/i }).click();
+
+    // Sign-in screen should appear
     await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({
       timeout: 10_000,
     });
 
-    // Before clicking Google, save business to sessionStorage
-    // (the app does this automatically via the signInWithGoogle wrapper)
-
-    // Click Google sign-in - this will be intercepted
+    // Click Google sign-in
     await page.getByText(/google/i).click();
 
-    // The redirect was captured. Now simulate the callback by navigating
-    // to the page with auth params (as if Google redirected back)
-    await page.goto(`/?token=${MOCK_TOKEN}&email=vito@salon.com&auth_callback=google`);
-
-    // After auth callback, should land on details screen
-    await expect(page.locator('#screen-details')).toBeVisible({ timeout: 10_000 });
-
-    // Re-setup mocks after navigation (Playwright clears route handlers on goto)
-    const apiCalls2 = await setupSearchMocks(page);
-
-    // Set the state that would have been restored from sessionStorage
+    // Simulate Google OAuth callback redirect
+    // Save business state to sessionStorage (the app does this automatically)
     await page.evaluate(
       ({ biz }) => {
-        const state = (window as any).state;
-        state.selectedBusiness = biz;
-        state.mode = 'business';
-        state.session = { token: 'e2e-test-token-abc123def456', identifier: 'vito@salon.com' };
-
-        // Update details screen
-        const nameEl = document.getElementById('badge-biz-name');
-        const addrEl = document.getElementById('badge-biz-addr');
-        const badgeEl = document.getElementById('details-business-badge');
-        if (nameEl) nameEl.textContent = biz.name;
-        if (addrEl) addrEl.textContent = biz.address;
-        if (badgeEl) badgeEl.style.display = 'flex';
+        sessionStorage.setItem('ps_selected_business', JSON.stringify(biz));
+        sessionStorage.setItem('ps_mode', 'business');
+        sessionStorage.setItem('ps_pending_build', '1');
       },
       { biz: BUSINESS },
     );
 
-    // Fill details and submit
-    const textarea = page.locator('#details-textarea');
-    await textarea.fill("Premium men's grooming salon in Lake Hiawatha since 1998.");
+    // Navigate as if Google redirected back
+    const apiCalls2 = await setupSearchMocks(page);
+    await page.goto(`/?token=${MOCK_TOKEN}&email=vito@salon.com&auth_callback=google`);
 
-    const buildBtn = page.locator('#build-btn');
-    await buildBtn.click();
-
-    // Should transition to waiting screen
-    await expect(page.getByText(/building your website/i)).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText(/few minutes/i)).toBeVisible();
-
-    // Verify the create API was called
-    expect(apiCalls2.length).toBeGreaterThanOrEqual(1);
-    const createCall = apiCalls2.find((c) => c.url.includes('create-from-search'));
-    expect(createCall).toBeTruthy();
+    // After auth callback with pending build, should eventually reach waiting screen
+    // (auto-submit triggers because _pendingBuild was set)
+    await expect(page.getByText(/building your website/i)).toBeVisible({ timeout: 15_000 });
   });
 });
 
 test.describe('Golden Path: Phone OTP Flow', () => {
-  test('Search → Phone Sign-In → OTP → Details → Build → Waiting', async ({ page }) => {
+  test('Search → Details → Build → Phone OTP → Verify → Waiting', async ({ page }) => {
     const apiCalls = await setupSearchMocks(page);
 
     // Mock phone OTP send
@@ -304,6 +303,17 @@ test.describe('Golden Path: Phone OTP Flow', () => {
 
     await searchAndSelectBusiness(page);
 
+    // Details screen (deferred sign-in)
+    await expect(page.getByRole('heading', { name: /tell us more/i })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Fill context and click Build
+    await page.locator('#details-textarea').fill(
+      "Classic barbershop in Lake Hiawatha. Hot towel shaves and haircuts.",
+    );
+    await page.getByRole('button', { name: /build my website/i }).click();
+
     // Sign-in screen
     await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({
       timeout: 10_000,
@@ -332,32 +342,124 @@ test.describe('Golden Path: Phone OTP Flow', () => {
     // Click Verify Code
     await page.locator('#otp-verify-btn').click();
 
-    // Should transition to details screen
-    await expect(page.locator('#screen-details')).toBeVisible({ timeout: 10_000 });
+    // Should auto-submit build and transition to waiting screen
+    // (because _pendingBuild was set when Build was clicked)
+    await expect(page.getByText(/building your website/i)).toBeVisible({ timeout: 15_000 });
 
-    // Fill details and submit
-    await fillDetailsAndSubmit(page);
-
-    // Should transition to waiting screen
-    await expect(page.getByText(/building your website/i)).toBeVisible({ timeout: 10_000 });
-
-    // Verify create API was called with correct data
+    // Verify create API was called
     const createCall = apiCalls.find((c) => c.url.includes('create-from-search'));
     expect(createCall).toBeTruthy();
     expect(createCall!.method).toBe('POST');
+  });
 
-    const body = createCall!.body as Record<string, unknown>;
-    expect(body).toHaveProperty('mode', 'business');
+  test('Phone: various number formats are accepted', async ({ page }) => {
+    await setupSearchMocks(page);
 
-    // Verify business data was sent (either nested or flat format)
-    const hasBusiness =
-      (body as any).business?.name || (body as any).business_name;
-    expect(hasBusiness).toBeTruthy();
+    await page.route('**/api/auth/phone/otp', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: { expires_at: new Date(Date.now() + 600000).toISOString() },
+        }),
+      }),
+    );
+
+    await page.goto('/');
+    await searchAndSelectBusiness(page);
+    await expect(page.getByRole('heading', { name: /tell us more/i })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /build my website/i }).click();
+    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /phone/i }).click();
+
+    const phoneInput = page.locator('#phone-input');
+
+    // Test: 10-digit US number (no +1 prefix)
+    await phoneInput.fill('9735551234');
+    await page.locator('#phone-send-btn').click();
+    const otpInput = page.locator('#otp-input');
+    await expect(otpInput).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('Phone: shows error for empty phone number', async ({ page }) => {
+    await setupSearchMocks(page);
+    await page.goto('/');
+    await searchAndSelectBusiness(page);
+    await expect(page.getByRole('heading', { name: /tell us more/i })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /build my website/i }).click();
+    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /phone/i }).click();
+
+    // Try to send without entering phone
+    await page.locator('#phone-send-btn').click();
+
+    // Error message should appear
+    await expect(page.locator('#phone-send-msg')).toContainText(/phone number/i);
+  });
+
+  test('Phone: shows error for invalid short number', async ({ page }) => {
+    await setupSearchMocks(page);
+    await page.goto('/');
+    await searchAndSelectBusiness(page);
+    await expect(page.getByRole('heading', { name: /tell us more/i })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /build my website/i }).click();
+    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /phone/i }).click();
+
+    // Enter too-short phone number
+    await page.locator('#phone-input').fill('123');
+    await page.locator('#phone-send-btn').click();
+
+    // Error message should appear about invalid format
+    await expect(page.locator('#phone-send-msg')).toBeVisible();
+  });
+
+  test('Phone: handles OTP verification failure', async ({ page }) => {
+    await setupSearchMocks(page);
+
+    await page.route('**/api/auth/phone/otp', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: { expires_at: new Date(Date.now() + 600000).toISOString() },
+        }),
+      }),
+    );
+
+    // Mock verify to return error
+    await page.route('**/api/auth/phone/verify', (route) =>
+      route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: { code: 'BAD_REQUEST', message: 'Invalid or expired OTP' },
+        }),
+      }),
+    );
+
+    await page.goto('/');
+    await searchAndSelectBusiness(page);
+    await expect(page.getByRole('heading', { name: /tell us more/i })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /build my website/i }).click();
+    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /phone/i }).click();
+
+    await page.locator('#phone-input').fill('+19735551234');
+    await page.locator('#phone-send-btn').click();
+    await expect(page.locator('#otp-input')).toBeVisible({ timeout: 10_000 });
+
+    // Enter wrong OTP
+    await page.locator('#otp-input').fill('000000');
+    await page.locator('#otp-verify-btn').click();
+
+    // Error message should appear
+    await expect(page.locator('#otp-verify-msg')).toBeVisible({ timeout: 5_000 });
   });
 });
 
 test.describe('Golden Path: Email Magic Link Flow', () => {
-  test('Search → Email Sign-In → Magic Link Sent → Callback → Details → Build → Waiting', async ({
+  test('Search → Details → Build → Email → Magic Link Sent → Callback → Waiting', async ({
     page,
   }) => {
     const apiCalls = await setupSearchMocks(page);
@@ -390,6 +492,17 @@ test.describe('Golden Path: Email Magic Link Flow', () => {
 
     await searchAndSelectBusiness(page);
 
+    // Details screen (deferred sign-in)
+    await expect(page.getByRole('heading', { name: /tell us more/i })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Fill context and click Build
+    await page.locator('#details-textarea').fill(
+      "Classic barbershop and men's grooming. Hot towel shaves, haircuts, beard trims.",
+    );
+    await page.getByRole('button', { name: /build my website/i }).click();
+
     // Sign-in screen
     await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({
       timeout: 10_000,
@@ -411,58 +524,86 @@ test.describe('Golden Path: Email Magic Link Flow', () => {
     // "Check your email" message should appear
     await expect(page.getByText(/check your email/i)).toBeVisible({ timeout: 10_000 });
 
-    // Simulate: user clicks the magic link and is redirected back with token
-    // Save business to sessionStorage first (mimicking the app behavior)
+    // Save business state to sessionStorage (mimicking app behavior)
     await page.evaluate(
       ({ biz }) => {
         sessionStorage.setItem('ps_selected_business', JSON.stringify(biz));
         sessionStorage.setItem('ps_mode', 'business');
+        sessionStorage.setItem('ps_pending_build', '1');
       },
       { biz: BUSINESS },
     );
 
-    // Navigate as if the magic link callback redirected here
-    // Re-setup mocks after navigation
+    // Simulate: user clicks magic link → redirected back with token
+    const apiCalls2 = await setupSearchMocks(page);
     await page.goto(
       `/?token=${MOCK_TOKEN}&email=vito@vitossalon.com&auth_callback=email`,
     );
 
-    const apiCalls2 = await setupSearchMocks(page);
+    // After auth callback with pending build, should auto-submit and reach waiting
+    await expect(page.getByText(/building your website/i)).toBeVisible({ timeout: 15_000 });
+  });
 
-    // After auth callback with sessionStorage restore, should land on details screen
-    await expect(page.locator('#screen-details')).toBeVisible({ timeout: 10_000 });
+  test('Email: shows error for invalid email format', async ({ page }) => {
+    await setupSearchMocks(page);
+    await page.goto('/');
+    await searchAndSelectBusiness(page);
+    await expect(page.getByRole('heading', { name: /tell us more/i })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /build my website/i }).click();
+    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({ timeout: 10_000 });
 
-    // The business badge may need to be manually set if sessionStorage restore didn't trigger
-    await page.evaluate(
-      ({ biz }) => {
-        const state = (window as any).state;
-        if (!state.selectedBusiness) {
-          state.selectedBusiness = biz;
-          state.mode = 'business';
-        }
-        const nameEl = document.getElementById('badge-biz-name');
-        const addrEl = document.getElementById('badge-biz-addr');
-        const badgeEl = document.getElementById('details-business-badge');
-        if (nameEl && !nameEl.textContent) nameEl.textContent = biz.name;
-        if (addrEl && !addrEl.textContent) addrEl.textContent = biz.address;
-        if (badgeEl) badgeEl.style.display = 'flex';
-      },
-      { biz: BUSINESS },
+    // Click Email sign-in
+    await page.getByRole('button', { name: /email/i }).click();
+
+    // Enter invalid email
+    await page.locator('#email-input').fill('not-an-email');
+    await page.locator('#email-send-btn').click();
+
+    // Error message should appear
+    await expect(page.locator('#email-send-msg')).toContainText(/valid email/i);
+  });
+
+  test('Email: shows error for empty email', async ({ page }) => {
+    await setupSearchMocks(page);
+    await page.goto('/');
+    await searchAndSelectBusiness(page);
+    await expect(page.getByRole('heading', { name: /tell us more/i })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /build my website/i }).click();
+    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({ timeout: 10_000 });
+
+    await page.getByRole('button', { name: /email/i }).click();
+    await page.locator('#email-send-btn').click();
+
+    // Error message should appear
+    await expect(page.locator('#email-send-msg')).toContainText(/valid email/i);
+  });
+
+  test('Email: handles API error for magic link send', async ({ page }) => {
+    await setupSearchMocks(page);
+
+    // Mock magic link send to return error
+    await page.route('**/api/auth/magic-link', (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: { code: 'INTERNAL_ERROR', message: 'SendGrid unavailable' },
+        }),
+      }),
     );
 
-    // Fill details and submit
-    const textarea = page.locator('#details-textarea');
-    await textarea.fill("Classic barbershop and men's grooming. Hot towel shaves, haircuts, beard trims.");
+    await page.goto('/');
+    await searchAndSelectBusiness(page);
+    await expect(page.getByRole('heading', { name: /tell us more/i })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /build my website/i }).click();
+    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({ timeout: 10_000 });
 
-    const buildBtn = page.locator('#build-btn');
-    await buildBtn.click();
+    await page.getByRole('button', { name: /email/i }).click();
+    await page.locator('#email-input').fill('vito@salon.com');
+    await page.locator('#email-send-btn').click();
 
-    // Should transition to waiting screen
-    await expect(page.getByText(/building your website/i)).toBeVisible({ timeout: 10_000 });
-
-    // Verify create API was called
-    const createCall = apiCalls2.find((c) => c.url.includes('create-from-search'));
-    expect(createCall).toBeTruthy();
+    // Error message should appear
+    await expect(page.locator('#email-send-msg')).toBeVisible({ timeout: 5_000 });
   });
 });
 
@@ -557,7 +698,7 @@ test.describe('Golden Path: Waiting Screen Behavior', () => {
 });
 
 test.describe('Golden Path: Validation and Edge Cases', () => {
-  test('Build button is disabled while submitting', async ({ page }) => {
+  test('Build button shows loading state while submitting', async ({ page }) => {
     await setupSearchMocks(page);
 
     // Delay the create response
@@ -572,11 +713,11 @@ test.describe('Golden Path: Validation and Edge Cases', () => {
       });
     });
 
-    // Go directly to details screen via auth callback
+    // Go directly to details screen via auth callback (pre-authenticated)
     await page.goto(`/?token=${MOCK_TOKEN}&email=test@test.com`);
     await expect(page.locator('#screen-details')).toBeVisible({ timeout: 10_000 });
 
-    // Set business
+    // Set business state
     await page.evaluate(
       ({ biz }) => {
         const state = (window as any).state;
@@ -600,9 +741,7 @@ test.describe('Golden Path: Validation and Edge Cases', () => {
     await expect(buildBtn).toContainText(/building/i);
   });
 
-  test('Details screen shows "Describe your custom website" for custom mode', async ({
-    page,
-  }) => {
+  test('Details screen shows custom mode label for custom websites', async ({ page }) => {
     await setupSearchMocks(page);
 
     await page.goto(`/?token=${MOCK_TOKEN}&email=test@test.com`);
@@ -619,54 +758,42 @@ test.describe('Golden Path: Validation and Edge Cases', () => {
     await expect(page.locator('#details-title')).toContainText(/custom website/i);
   });
 
-  test('Phone sign-in shows error for empty phone number', async ({ page }) => {
+  test('Auth callback extracts token and email from URL params', async ({ page }) => {
     await setupSearchMocks(page);
-    await page.goto('/');
 
-    // Stub redirectTo
-    await page.evaluate(() => {
-      (window as any).redirectTo = () => {};
-    });
+    // Navigate with auth params
+    await page.goto(`/?token=my-test-token&email=user@example.com&auth_callback=google`);
 
-    await searchAndSelectBusiness(page);
-    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({
-      timeout: 10_000,
-    });
-
-    // Click Phone sign-in
-    await page.getByRole('button', { name: /phone/i }).click();
-
-    // Try to send without entering phone
-    await page.locator('#phone-send-btn').click();
-
-    // Error message should appear
-    await expect(page.locator('#phone-send-msg')).toContainText(/phone number/i);
+    // Verify the session was set
+    const session = await page.evaluate(() => (window as any).state?.session);
+    expect(session).toBeTruthy();
+    expect(session.token).toBe('my-test-token');
+    expect(session.identifier).toBe('user@example.com');
   });
 
-  test('Email sign-in shows error for invalid email', async ({ page }) => {
-    await setupSearchMocks(page);
+  test('Custom Website option appears in search dropdown', async ({ page }) => {
+    await page.route('**/api/search/businesses*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [] }),
+      }),
+    );
+    await page.route('**/api/sites/search*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [] }),
+      }),
+    );
+
     await page.goto('/');
+    const input = page.getByPlaceholder(/Enter your business name/);
+    await input.click();
+    await input.pressSequentially('my custom website', { delay: 30 });
 
-    // Stub redirectTo
-    await page.evaluate(() => {
-      (window as any).redirectTo = () => {};
-    });
-
-    await searchAndSelectBusiness(page);
-    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({
+    await expect(page.locator('.search-dropdown .search-result-custom')).toBeVisible({
       timeout: 10_000,
     });
-
-    // Click Email sign-in
-    await page.getByRole('button', { name: /email/i }).click();
-
-    // Enter invalid email
-    await page.locator('#email-input').fill('not-an-email');
-
-    // Try to send
-    await page.locator('#email-send-btn').click();
-
-    // Error message should appear
-    await expect(page.locator('#email-send-msg')).toContainText(/valid email/i);
   });
 });

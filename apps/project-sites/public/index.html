@@ -1204,6 +1204,7 @@
       color: var(--text-primary);
       line-height: 1;
       margin-bottom: 4px;
+      min-height: 3.5rem;
     }
     .pricing-price span {
       font-size: 1.2rem;
@@ -1684,9 +1685,14 @@
     .pricing-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
+      align-items: start;
       gap: 24px;
       max-width: 840px;
       margin: 0 auto;
+    }
+    .pricing-grid > .pricing-card {
+      max-width: none;
+      margin: 0;
     }
     .pricing-card-free {
       background: var(--bg-card);
@@ -2459,8 +2465,22 @@
       session: null,          // { token, identifier }
       siteId: null,
       slug: null,
-      signinPanel: 'main'    // 'main' | 'phone' | 'email'
+      signinPanel: 'main',   // 'main' | 'phone' | 'email'
+      userLat: null,
+      userLng: null
     };
+
+    // Request browser geolocation for better local search results
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        function(pos) {
+          state.userLat = pos.coords.latitude;
+          state.userLng = pos.coords.longitude;
+        },
+        function() { /* user denied or unavailable - that's fine */ },
+        { timeout: 5000, maximumAge: 300000 }
+      );
+    }
 
     var searchDebounceTimer = null;
     var pollTimer = null;
@@ -2547,18 +2567,27 @@
     });
 
     function performSearch(query) {
+      // Build search URL with optional geolocation for local-biased results
+      var searchUrl = '/api/search/businesses?q=' + encodeURIComponent(query);
+      if (state.userLat !== null && state.userLng !== null) {
+        searchUrl += '&lat=' + state.userLat + '&lng=' + state.userLng;
+      }
+
       // Search both pre-built sites and Google Places in parallel
       var sitesPromise = fetch('/api/sites/search?q=' + encodeURIComponent(query))
         .then(function(res) { return res.ok ? res.json() : { data: [] }; })
         .then(function(d) { return d.data || []; })
         .catch(function() { return []; });
 
-      var placesPromise = fetch('/api/search/businesses?q=' + encodeURIComponent(query))
-        .then(function(res) {
-          if (!res.ok) throw new Error('Search failed');
-          return res.json();
+      var placesPromise = fetch(searchUrl)
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          // Surface API errors to the user
+          if (d._error) {
+            console.warn('Search API error:', d._error);
+          }
+          return d.data || [];
         })
-        .then(function(d) { return d.data || d.results || d || []; })
         .catch(function() { return []; });
 
       Promise.all([sitesPromise, placesPromise])
