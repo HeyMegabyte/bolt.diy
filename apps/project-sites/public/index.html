@@ -287,19 +287,10 @@
     .logo {
       display: flex;
       align-items: center;
-      gap: 10px;
       text-decoration: none;
-      color: var(--text-primary);
-      font-size: 1.15rem;
-      font-weight: 800;
-      letter-spacing: -0.01em;
       cursor: pointer;
     }
-    .logo img, .logo svg { flex-shrink: 0; }
-    .logo em {
-      font-style: normal;
-      color: var(--accent);
-    }
+    .logo img { flex-shrink: 0; }
 
     /* ======================================================
        Screens Container
@@ -1790,8 +1781,7 @@
   <header class="header">
     <div class="header-inner">
       <a class="logo" onclick="navigateTo('search')">
-        <img src="/logo.svg" alt="Project Sites" width="28" height="28" style="flex-shrink:0">
-        Project <em>Sites</em>
+        <img src="/logo-header.svg" alt="Project Sites" height="32" style="flex-shrink:0">
       </a>
     </div>
   </header>
