@@ -359,6 +359,459 @@ test.describe('Granular Full Flow: Search → Select → Details → Build → S
   });
 });
 
+// ─── GRANULAR FULL FLOW: Google OAuth ────────────────────────
+
+test.describe('Granular Full Flow: Google OAuth Sign-In', () => {
+  test('Verifies every micro-step of search → details → Google redirect → callback → waiting', async ({ page }) => {
+    // ────────────────────────────────────────────────────────
+    // STEP 1: Open page and verify initial state
+    // ────────────────────────────────────────────────────────
+    await page.goto('/');
+    const getRedirects = await stubRedirects(page);
+
+    const searchScreen = page.locator('#screen-search');
+    await expect(searchScreen).toBeVisible();
+    await expect(searchScreen).toHaveClass(/active/);
+
+    const searchInput = page.locator('#search-input');
+    await expect(searchInput).toBeVisible();
+    await expect(searchInput).toHaveValue('');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 2: Focus input and type a business name
+    // ────────────────────────────────────────────────────────
+    await searchInput.click();
+    await expect(searchInput).toBeFocused();
+    await searchInput.pressSequentially('Mountain Coffee', { delay: 30 });
+    await expect(searchInput).toHaveValue('Mountain Coffee');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 3: Wait for live search dropdown
+    // ────────────────────────────────────────────────────────
+    const dropdown = page.locator('#search-dropdown');
+    await expect(dropdown).toHaveClass(/open/, { timeout: 10_000 });
+
+    const results = dropdown.locator('.search-result');
+    await expect(results).toHaveCount(3, { timeout: 5_000 });
+
+    // Verify first result structure
+    const firstResult = results.nth(0);
+    await expect(firstResult.locator('.search-result-name')).toContainText('Mountain Coffee Pizza');
+    await expect(firstResult.locator('.search-result-address')).toContainText('123 Main St, New York, NY');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 4: Click first result and verify lookup API fires
+    // ────────────────────────────────────────────────────────
+    const lookupPromise = page.waitForResponse((resp) =>
+      resp.url().includes('/api/sites/lookup') && resp.status() === 200,
+    );
+    await firstResult.click();
+    await expect(dropdown).not.toHaveClass(/open/, { timeout: 3_000 });
+
+    const lookupResp = await lookupPromise;
+    expect(lookupResp.url()).toContain('place_id=ChIJ_mock_1');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 5: Verify Details screen
+    // ────────────────────────────────────────────────────────
+    const detailsScreen = page.locator('#screen-details');
+    await expect(detailsScreen).toBeVisible({ timeout: 10_000 });
+    await expect(detailsScreen).toHaveClass(/active/);
+    await expect(searchScreen).not.toHaveClass(/active/);
+
+    // Business badge populated
+    await expect(page.locator('#details-title')).toHaveText('Tell us more about your business');
+    await expect(page.locator('#badge-biz-name')).toHaveText('Mountain Coffee Pizza');
+    await expect(page.locator('#badge-biz-addr')).toHaveText('123 Main St, New York, NY');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 6: Fill details and click Build
+    // ────────────────────────────────────────────────────────
+    const textarea = page.locator('#details-textarea');
+    await textarea.fill('Specialty coffee roaster and cafe. Single-origin beans, pour-over bar, cozy atmosphere.');
+    await expect(textarea).toHaveValue(/Specialty coffee roaster/);
+
+    const buildBtn = page.locator('#build-btn');
+    await expect(buildBtn).toBeEnabled();
+    await buildBtn.click();
+
+    // ────────────────────────────────────────────────────────
+    // STEP 7: Verify Sign-In screen appears
+    // ────────────────────────────────────────────────────────
+    const signinScreen = page.locator('#screen-signin');
+    await expect(signinScreen).toBeVisible({ timeout: 10_000 });
+    await expect(signinScreen).toHaveClass(/active/);
+    await expect(detailsScreen).not.toHaveClass(/active/);
+
+    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
+    await expect(page.locator('.signin-subtitle')).toContainText(/create your account/i);
+
+    // All three sign-in buttons visible
+    const googleBtn = page.getByRole('button', { name: /google/i });
+    await expect(googleBtn).toBeVisible();
+    await expect(page.getByRole('button', { name: /phone/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /email/i })).toBeVisible();
+
+    // ────────────────────────────────────────────────────────
+    // STEP 8: Click "Continue with Google"
+    // ────────────────────────────────────────────────────────
+    await googleBtn.click();
+
+    // The signInWithGoogle wrapper saves state to sessionStorage before redirect
+    const savedBiz = await page.evaluate(() => sessionStorage.getItem('ps_selected_business'));
+    expect(savedBiz).toBeTruthy();
+
+    // Verify the saved business data is correct
+    const parsedBiz = JSON.parse(savedBiz!);
+    expect(parsedBiz.name).toBe('Mountain Coffee Pizza');
+    expect(parsedBiz.address).toBe('123 Main St, New York, NY');
+    expect(parsedBiz.place_id).toBe('ChIJ_mock_1');
+
+    // Verify mode and pending build saved
+    const savedMode = await page.evaluate(() => sessionStorage.getItem('ps_mode'));
+    expect(savedMode).toBe('business');
+
+    const savedPending = await page.evaluate(() => sessionStorage.getItem('ps_pending_build'));
+    expect(savedPending).toBe('1');
+
+    // Verify redirect was captured (redirectTo was stubbed)
+    const redirects = await getRedirects();
+    expect(redirects.length).toBe(1);
+    expect(redirects[0]).toContain('/api/auth/google');
+    expect(redirects[0]).toContain('redirect_url=');
+    // auth_callback=google is URL-encoded inside the redirect_url param
+    expect(redirects[0]).toContain('auth_callback');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 9: Simulate Google OAuth callback (user returns from Google)
+    // ────────────────────────────────────────────────────────
+    // In real flow: Google redirects back with token. We simulate this.
+    await page.goto('/?token=e2e-google-oauth-token&email=user@gmail.com&auth_callback=google');
+
+    // handleAuthCallback IIFE fires:
+    //   → sets state.session with token
+    //   → cleans URL
+    //   → restores selectedBusiness from sessionStorage
+    //   → detects _pendingBuild
+    //   → navigateTo('details')
+    //   → navigateTo wrapper detects _pendingBuild + session → auto-submitBuild()
+
+    // ────────────────────────────────────────────────────────
+    // STEP 10: Verify sessionStorage was consumed (cleaned up)
+    // ────────────────────────────────────────────────────────
+    const clearedBiz = await page.evaluate(() => sessionStorage.getItem('ps_selected_business'));
+    expect(clearedBiz).toBeNull();
+    const clearedPending = await page.evaluate(() => sessionStorage.getItem('ps_pending_build'));
+    expect(clearedPending).toBeNull();
+
+    // ────────────────────────────────────────────────────────
+    // STEP 11: Verify auto-submit fires create-from-search API
+    // ────────────────────────────────────────────────────────
+    // The auto-submit should POST to create-from-search with the restored business
+    // Wait for the waiting screen (create API + navigateTo('waiting'))
+    const waitingScreen = page.locator('#screen-waiting');
+    await expect(waitingScreen).toBeVisible({ timeout: 15_000 });
+    await expect(waitingScreen).toHaveClass(/active/);
+
+    // ────────────────────────────────────────────────────────
+    // STEP 12: Verify waiting screen elements
+    // ────────────────────────────────────────────────────────
+    await expect(page.locator('.waiting-title')).toContainText(/building your website/i);
+    await expect(page.locator('.waiting-subtitle')).toContainText(/few minutes/i);
+    await expect(page.locator('.status-dot')).toBeVisible();
+    await expect(page.locator('.waiting-status')).toContainText('Build in progress');
+    await expect(page.locator('.waiting-anim')).toBeVisible();
+    await expect(page.locator('.waiting-anim-ring')).toHaveCount(3);
+
+    // Contact shows the Google email from callback
+    await expect(page.locator('#waiting-contact')).toContainText('user@gmail.com');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 13: Verify internal state
+    // ────────────────────────────────────────────────────────
+    const appState = await page.evaluate(() => {
+      const s = (window as any).state;
+      return {
+        screen: s.screen,
+        mode: s.mode,
+        hasSession: !!s.session && !!s.session.token,
+        sessionIdentifier: s.session?.identifier || null,
+        selectedBusinessName: s.selectedBusiness?.name || null,
+        pendingBuild: s._pendingBuild,
+      };
+    });
+
+    expect(appState.screen).toBe('waiting');
+    expect(appState.mode).toBe('business');
+    expect(appState.hasSession).toBe(true);
+    expect(appState.sessionIdentifier).toBe('user@gmail.com');
+    expect(appState.selectedBusinessName).toBe('Mountain Coffee Pizza');
+    expect(appState.pendingBuild).toBeFalsy();
+  });
+});
+
+// ─── GRANULAR FULL FLOW: Email Magic Link ────────────────────
+
+test.describe('Granular Full Flow: Email Magic Link Sign-In', () => {
+  test('Verifies every micro-step of search → details → email → check-email → callback → waiting', async ({ page }) => {
+    // ────────────────────────────────────────────────────────
+    // STEP 1: Open page and verify initial state
+    // ────────────────────────────────────────────────────────
+    await page.goto('/');
+
+    const searchScreen = page.locator('#screen-search');
+    await expect(searchScreen).toBeVisible();
+
+    const searchInput = page.locator('#search-input');
+    await expect(searchInput).toBeVisible();
+    await expect(searchInput).toHaveValue('');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 2: Focus input and type a business name
+    // ────────────────────────────────────────────────────────
+    await searchInput.click();
+    await expect(searchInput).toBeFocused();
+    await searchInput.pressSequentially('Harbor Sushi', { delay: 30 });
+    await expect(searchInput).toHaveValue('Harbor Sushi');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 3: Wait for live search dropdown
+    // ────────────────────────────────────────────────────────
+    const dropdown = page.locator('#search-dropdown');
+    await expect(dropdown).toHaveClass(/open/, { timeout: 10_000 });
+
+    const results = dropdown.locator('.search-result');
+    await expect(results).toHaveCount(3, { timeout: 5_000 });
+
+    // Verify result structure
+    const firstResult = results.nth(0);
+    await expect(firstResult.locator('.search-result-name')).toContainText('Harbor Sushi Pizza');
+    await expect(firstResult.locator('.search-result-address')).toContainText('123 Main St, New York, NY');
+    await expect(firstResult.locator('.search-result-icon')).toBeVisible();
+
+    // Second result
+    await expect(results.nth(1).locator('.search-result-name')).toContainText('Harbor Sushi Plumbing');
+
+    // Custom option always present
+    await expect(results.nth(2)).toHaveClass(/search-result-custom/);
+
+    // ────────────────────────────────────────────────────────
+    // STEP 4: Click first result and verify lookup API
+    // ────────────────────────────────────────────────────────
+    const lookupPromise = page.waitForResponse((resp) =>
+      resp.url().includes('/api/sites/lookup') && resp.status() === 200,
+    );
+    await firstResult.click();
+    await expect(dropdown).not.toHaveClass(/open/, { timeout: 3_000 });
+
+    const lookupResp = await lookupPromise;
+    expect(lookupResp.url()).toContain('place_id=ChIJ_mock_1');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 5: Verify Details screen
+    // ────────────────────────────────────────────────────────
+    const detailsScreen = page.locator('#screen-details');
+    await expect(detailsScreen).toBeVisible({ timeout: 10_000 });
+    await expect(detailsScreen).toHaveClass(/active/);
+
+    await expect(page.locator('#details-title')).toHaveText('Tell us more about your business');
+    await expect(page.locator('#badge-biz-name')).toHaveText('Harbor Sushi Pizza');
+    await expect(page.locator('#badge-biz-addr')).toHaveText('123 Main St, New York, NY');
+
+    const textarea = page.locator('#details-textarea');
+    await expect(textarea).toHaveValue('');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 6: Fill details and click Build
+    // ────────────────────────────────────────────────────────
+    await textarea.fill('Authentic Japanese sushi bar. Omakase menu, fresh fish daily, sake selection.');
+    await expect(textarea).toHaveValue(/Authentic Japanese sushi/);
+
+    const buildBtn = page.locator('#build-btn');
+    await expect(buildBtn).toBeEnabled();
+    await expect(buildBtn).toHaveText('Build My Website');
+    await buildBtn.click();
+
+    // ────────────────────────────────────────────────────────
+    // STEP 7: Verify Sign-In screen
+    // ────────────────────────────────────────────────────────
+    const signinScreen = page.locator('#screen-signin');
+    await expect(signinScreen).toBeVisible({ timeout: 10_000 });
+    await expect(signinScreen).toHaveClass(/active/);
+    await expect(detailsScreen).not.toHaveClass(/active/);
+
+    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
+    await expect(page.locator('.signin-subtitle')).toContainText(/create your account/i);
+
+    // All three buttons visible on main panel
+    await expect(page.getByRole('button', { name: /google/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /phone/i })).toBeVisible();
+    const emailBtn = page.getByRole('button', { name: /email/i });
+    await expect(emailBtn).toBeVisible();
+
+    // Phone and email panels not active yet
+    await expect(page.locator('#signin-phone-panel')).not.toHaveClass(/active/);
+    await expect(page.locator('#signin-email-panel')).not.toHaveClass(/active/);
+
+    // ────────────────────────────────────────────────────────
+    // STEP 8: Click "Sign in with Email"
+    // ────────────────────────────────────────────────────────
+    await emailBtn.click();
+
+    // Email panel becomes active
+    await expect(page.locator('#signin-email-panel')).toHaveClass(/active/);
+
+    // Email input step is visible, sent step is hidden
+    await expect(page.locator('#email-step-input')).toBeVisible();
+    await expect(page.locator('#email-step-sent')).not.toBeVisible();
+
+    // Email input field
+    const emailInput = page.locator('#email-input');
+    await expect(emailInput).toBeVisible();
+    await expect(emailInput).toHaveAttribute('placeholder', 'you@example.com');
+    await expect(emailInput).toHaveAttribute('type', 'email');
+    await expect(emailInput).toHaveValue('');
+
+    // Send button
+    const sendBtn = page.locator('#email-send-btn');
+    await expect(sendBtn).toBeVisible();
+    await expect(sendBtn).toBeEnabled();
+    await expect(sendBtn).toContainText('Send Magic Link');
+
+    // Error message area hidden
+    await expect(page.locator('#email-send-msg')).not.toBeVisible();
+
+    // Back to sign-in options link
+    await expect(page.locator('#signin-email-panel .back-link')).toContainText('Back to sign-in options');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 9: Try empty email (validation)
+    // ────────────────────────────────────────────────────────
+    await sendBtn.click();
+    await expect(page.locator('#email-send-msg')).toContainText(/valid email/i);
+
+    // ────────────────────────────────────────────────────────
+    // STEP 10: Try invalid email (validation)
+    // ────────────────────────────────────────────────────────
+    await emailInput.fill('not-a-real-email');
+    await sendBtn.click();
+    await expect(page.locator('#email-send-msg')).toContainText(/valid email/i);
+
+    // ────────────────────────────────────────────────────────
+    // STEP 11: Enter valid email and send magic link
+    // ────────────────────────────────────────────────────────
+    await emailInput.fill('chef@harborsushi.com');
+    await expect(emailInput).toHaveValue('chef@harborsushi.com');
+
+    // Intercept magic link API call
+    const magicLinkPromise = page.waitForResponse((resp) =>
+      resp.url().includes('/api/auth/magic-link') && resp.status() === 200,
+    );
+
+    await sendBtn.click();
+
+    // Verify API call
+    const mlResp = await magicLinkPromise;
+    const mlJson = await mlResp.json();
+    expect(mlJson.data).toHaveProperty('expires_at');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 12: Verify "Check your email" confirmation
+    // ────────────────────────────────────────────────────────
+    // email-step-input hides, email-step-sent shows
+    await expect(page.locator('#email-step-input')).not.toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('#email-step-sent')).toBeVisible();
+    await expect(page.getByText(/check your email/i)).toBeVisible();
+    await expect(page.getByText(/sign-in link/i)).toBeVisible();
+
+    // ────────────────────────────────────────────────────────
+    // STEP 13: Save state to sessionStorage (simulate pre-redirect state)
+    // ────────────────────────────────────────────────────────
+    // In the real flow, the user clicks the magic link in their email,
+    // which redirects back to the app with a token. We need to save
+    // the current state to sessionStorage so handleAuthCallback can restore it.
+    await page.evaluate(() => {
+      const s = (window as any).state;
+      if (s.selectedBusiness) {
+        sessionStorage.setItem('ps_selected_business', JSON.stringify(s.selectedBusiness));
+        sessionStorage.setItem('ps_mode', s.mode);
+      }
+      sessionStorage.setItem('ps_pending_build', '1');
+    });
+
+    // Verify sessionStorage was set correctly
+    const savedBiz = await page.evaluate(() => sessionStorage.getItem('ps_selected_business'));
+    expect(savedBiz).toBeTruthy();
+    const parsedBiz = JSON.parse(savedBiz!);
+    expect(parsedBiz.name).toBe('Harbor Sushi Pizza');
+
+    const savedPending = await page.evaluate(() => sessionStorage.getItem('ps_pending_build'));
+    expect(savedPending).toBe('1');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 14: Simulate magic link callback (user clicks link in email)
+    // ────────────────────────────────────────────────────────
+    await page.goto('/?token=e2e-magic-link-token&email=chef@harborsushi.com&auth_callback=email');
+
+    // handleAuthCallback IIFE:
+    //   → sets state.session with token + email
+    //   → cleans URL params
+    //   → restores selectedBusiness from sessionStorage
+    //   → detects _pendingBuild
+    //   → navigateTo('details') → auto-submitBuild()
+
+    // ────────────────────────────────────────────────────────
+    // STEP 15: Verify sessionStorage was consumed
+    // ────────────────────────────────────────────────────────
+    const clearedBiz = await page.evaluate(() => sessionStorage.getItem('ps_selected_business'));
+    expect(clearedBiz).toBeNull();
+    const clearedPending = await page.evaluate(() => sessionStorage.getItem('ps_pending_build'));
+    expect(clearedPending).toBeNull();
+
+    // ────────────────────────────────────────────────────────
+    // STEP 16: Verify Waiting screen
+    // ────────────────────────────────────────────────────────
+    const waitingScreen = page.locator('#screen-waiting');
+    await expect(waitingScreen).toBeVisible({ timeout: 15_000 });
+    await expect(waitingScreen).toHaveClass(/active/);
+
+    await expect(page.locator('.waiting-title')).toContainText(/building your website/i);
+    await expect(page.locator('.waiting-subtitle')).toContainText(/few minutes/i);
+    await expect(page.locator('.status-dot')).toBeVisible();
+    await expect(page.locator('.waiting-status')).toContainText('Build in progress');
+    await expect(page.locator('.waiting-status .loading-dots')).toBeVisible();
+    await expect(page.locator('.waiting-anim')).toBeVisible();
+    await expect(page.locator('.waiting-anim-ring')).toHaveCount(3);
+
+    // Contact shows email from magic link callback
+    await expect(page.locator('#waiting-contact')).toContainText('chef@harborsushi.com');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 17: Verify internal state
+    // ────────────────────────────────────────────────────────
+    const appState = await page.evaluate(() => {
+      const s = (window as any).state;
+      return {
+        screen: s.screen,
+        mode: s.mode,
+        hasSession: !!s.session && !!s.session.token,
+        sessionToken: s.session?.token || null,
+        sessionIdentifier: s.session?.identifier || null,
+        selectedBusinessName: s.selectedBusiness?.name || null,
+        pendingBuild: s._pendingBuild,
+      };
+    });
+
+    expect(appState.screen).toBe('waiting');
+    expect(appState.mode).toBe('business');
+    expect(appState.hasSession).toBe(true);
+    expect(appState.sessionToken).toBe('e2e-magic-link-token');
+    expect(appState.sessionIdentifier).toBe('chef@harborsushi.com');
+    expect(appState.selectedBusinessName).toBe('Harbor Sushi Pizza');
+    expect(appState.pendingBuild).toBeFalsy();
+  });
+});
+
 // ─── FULL FLOW: Phone OTP ─────────────────────────────────────
 
 test.describe('Full Flow: Phone OTP Sign-In', () => {
