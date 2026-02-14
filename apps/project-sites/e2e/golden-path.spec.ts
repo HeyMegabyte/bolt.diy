@@ -36,6 +36,329 @@ async function stubRedirects(page: Page): Promise<() => Promise<string[]>> {
   return async () => page.evaluate(() => (window as any).__redirects as string[]);
 }
 
+// ─── GRANULAR FULL FLOW: Every Micro-Step ────────────────────
+
+test.describe('Granular Full Flow: Search → Select → Details → Build → Sign-In → OTP → Waiting', () => {
+  test('Verifies every single micro-interaction from page load to waiting screen', async ({ page }) => {
+    // ────────────────────────────────────────────────────────
+    // STEP 1: Open the page and verify initial state
+    // ────────────────────────────────────────────────────────
+    await page.goto('/');
+
+    // Search screen should be active (the default screen)
+    const searchScreen = page.locator('#screen-search');
+    await expect(searchScreen).toBeVisible();
+    await expect(searchScreen).toHaveClass(/active/);
+
+    // Other screens should NOT be active
+    await expect(page.locator('#screen-details')).not.toHaveClass(/active/);
+    await expect(page.locator('#screen-signin')).not.toHaveClass(/active/);
+    await expect(page.locator('#screen-waiting')).not.toHaveClass(/active/);
+
+    // Logo and hero branding visible
+    await expect(page.locator('.logo').getByText('Project')).toBeVisible();
+    await expect(page.locator('.hero-brand').getByText(/handled/i)).toBeVisible();
+
+    // Search input is present and empty
+    const searchInput = page.locator('#search-input');
+    await expect(searchInput).toBeVisible();
+    await expect(searchInput).toHaveAttribute('placeholder', 'Enter your business name...');
+    await expect(searchInput).toHaveValue('');
+
+    // Dropdown should be closed (no .open class)
+    const dropdown = page.locator('#search-dropdown');
+    await expect(dropdown).not.toHaveClass(/open/);
+
+    // ────────────────────────────────────────────────────────
+    // STEP 2: Focus the search input and type a business name
+    // ────────────────────────────────────────────────────────
+    await searchInput.click();
+    await expect(searchInput).toBeFocused();
+
+    // Type a business name character by character (triggers 300ms debounce)
+    await searchInput.pressSequentially('Sunrise Bakery', { delay: 30 });
+    await expect(searchInput).toHaveValue('Sunrise Bakery');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 3: Wait for live search dropdown to appear
+    // ────────────────────────────────────────────────────────
+    // The E2E server returns "{query} Pizza" and "{query} Plumbing" for any query
+    // After debounce + fetch, the dropdown should open with results
+    await expect(dropdown).toHaveClass(/open/, { timeout: 10_000 });
+
+    // Verify search results are rendered with correct structure
+    const results = dropdown.locator('.search-result');
+    // Should have: 2 Google Places results + 1 Custom Website = 3 total
+    await expect(results).toHaveCount(3, { timeout: 5_000 });
+
+    // First result: "Sunrise Bakery Pizza" (E2E server returns "{query} Pizza")
+    const firstResult = results.nth(0);
+    await expect(firstResult.locator('.search-result-name')).toContainText('Sunrise Bakery Pizza');
+    await expect(firstResult.locator('.search-result-address')).toContainText('123 Main St, New York, NY');
+    await expect(firstResult.locator('.search-result-icon')).toBeVisible();
+
+    // Second result: "Sunrise Bakery Plumbing"
+    const secondResult = results.nth(1);
+    await expect(secondResult.locator('.search-result-name')).toContainText('Sunrise Bakery Plumbing');
+    await expect(secondResult.locator('.search-result-address')).toContainText('456 Oak Ave, Brooklyn, NY');
+
+    // Third result: Custom Website option (always present)
+    const customResult = results.nth(2);
+    await expect(customResult).toHaveClass(/search-result-custom/);
+    await expect(customResult.locator('.search-result-name')).toContainText('Custom Website');
+    await expect(customResult.locator('.search-result-address')).toContainText('Build a custom website from scratch');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 4: Click the first search result
+    // ────────────────────────────────────────────────────────
+    // Intercept the lookup API call to verify it fires
+    const lookupPromise = page.waitForResponse((resp) =>
+      resp.url().includes('/api/sites/lookup') && resp.status() === 200,
+    );
+
+    await firstResult.click();
+
+    // Dropdown should close after selection
+    await expect(dropdown).not.toHaveClass(/open/, { timeout: 3_000 });
+
+    // Lookup API call should have fired with the place_id
+    const lookupResp = await lookupPromise;
+    expect(lookupResp.url()).toContain('place_id=ChIJ_mock_1');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 5: Verify Details screen appears with correct data
+    // ────────────────────────────────────────────────────────
+    const detailsScreen = page.locator('#screen-details');
+    await expect(detailsScreen).toBeVisible({ timeout: 10_000 });
+    await expect(detailsScreen).toHaveClass(/active/);
+
+    // Search screen is no longer active
+    await expect(searchScreen).not.toHaveClass(/active/);
+
+    // Title says "Tell us more about your business" (business mode, not custom)
+    await expect(page.locator('#details-title')).toHaveText('Tell us more about your business');
+    await expect(page.locator('#details-subtitle')).toContainText('Any extra info helps us build the perfect website');
+
+    // Business badge is visible and populated with selected business data
+    const badge = page.locator('#details-business-badge');
+    await expect(badge).toBeVisible();
+    await expect(page.locator('#badge-biz-name')).toHaveText('Sunrise Bakery Pizza');
+    await expect(page.locator('#badge-biz-addr')).toHaveText('123 Main St, New York, NY');
+
+    // Textarea is empty and ready for input
+    const textarea = page.locator('#details-textarea');
+    await expect(textarea).toBeVisible();
+    await expect(textarea).toHaveValue('');
+    await expect(textarea).toHaveAttribute(
+      'placeholder',
+      /Tell us about your business/,
+    );
+
+    // Build button is enabled and shows correct text
+    const buildBtn = page.locator('#build-btn');
+    await expect(buildBtn).toBeVisible();
+    await expect(buildBtn).toBeEnabled();
+    await expect(buildBtn).toHaveText('Build My Website');
+
+    // Back to search button is present
+    await expect(detailsScreen.getByText('Back to search')).toBeVisible();
+
+    // ────────────────────────────────────────────────────────
+    // STEP 6: Fill in additional context and click Build
+    // ────────────────────────────────────────────────────────
+    await textarea.click();
+    await textarea.fill(
+      'We are a family-owned bakery specializing in sourdough bread and French pastries. Open since 1998. Warm rustic interior.',
+    );
+    await expect(textarea).toHaveValue(
+      /family-owned bakery specializing in sourdough/,
+    );
+
+    // Click the Build button
+    await buildBtn.click();
+
+    // ────────────────────────────────────────────────────────
+    // STEP 7: Verify Sign-In screen appears (not authenticated)
+    // ────────────────────────────────────────────────────────
+    // submitBuild() detects no session token → sets _pendingBuild → navigateTo('signin')
+    const signinScreen = page.locator('#screen-signin');
+    await expect(signinScreen).toBeVisible({ timeout: 10_000 });
+    await expect(signinScreen).toHaveClass(/active/);
+    await expect(detailsScreen).not.toHaveClass(/active/);
+
+    // Sign-in heading and subtitle
+    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
+    await expect(page.locator('.signin-subtitle')).toContainText(/create your account/i);
+
+    // All three sign-in method buttons visible (main panel)
+    const googleBtn = page.getByRole('button', { name: /google/i });
+    const phoneBtn = page.getByRole('button', { name: /phone/i });
+    const emailBtn = page.getByRole('button', { name: /email/i });
+    await expect(googleBtn).toBeVisible();
+    await expect(phoneBtn).toBeVisible();
+    await expect(emailBtn).toBeVisible();
+
+    // Phone and email panels should NOT be active yet
+    await expect(page.locator('#signin-phone-panel')).not.toHaveClass(/active/);
+    await expect(page.locator('#signin-email-panel')).not.toHaveClass(/active/);
+
+    // ────────────────────────────────────────────────────────
+    // STEP 8: Click "Sign in with Phone" button
+    // ────────────────────────────────────────────────────────
+    await phoneBtn.click();
+
+    // Phone panel becomes active, methods panel hides
+    await expect(page.locator('#signin-phone-panel')).toHaveClass(/active/);
+
+    // Phone input step is visible, OTP step is hidden
+    await expect(page.locator('#phone-step-input')).toBeVisible();
+    await expect(page.locator('#phone-step-otp')).not.toBeVisible();
+
+    // Phone input field is visible and focused
+    const phoneInput = page.locator('#phone-input');
+    await expect(phoneInput).toBeVisible();
+    await expect(phoneInput).toHaveAttribute('placeholder', '+1 (555) 123-4567');
+    await expect(phoneInput).toHaveValue('');
+
+    // Send button is visible and enabled
+    const sendBtn = page.locator('#phone-send-btn');
+    await expect(sendBtn).toBeVisible();
+    await expect(sendBtn).toBeEnabled();
+    await expect(sendBtn).toContainText('Send Verification Code');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 9: Enter phone number and send OTP
+    // ────────────────────────────────────────────────────────
+    await phoneInput.fill('+19735551234');
+    await expect(phoneInput).toHaveValue('+19735551234');
+
+    // Intercept the OTP API call
+    const otpPromise = page.waitForResponse((resp) =>
+      resp.url().includes('/api/auth/phone/otp') && resp.status() === 200,
+    );
+
+    await sendBtn.click();
+
+    // Send button should show "Sending" loading state briefly
+    // (it resets quickly, so we just wait for the API response)
+    const otpResp = await otpPromise;
+    const otpJson = await otpResp.json();
+    expect(otpJson.data).toHaveProperty('expires_at');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 10: Verify OTP input appears (phone step transitions)
+    // ────────────────────────────────────────────────────────
+    // After successful OTP send: phone-step-input hides, phone-step-otp shows
+    await expect(page.locator('#phone-step-input')).not.toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('#phone-step-otp')).toBeVisible();
+
+    // OTP input field
+    const otpInput = page.locator('#otp-input');
+    await expect(otpInput).toBeVisible();
+    await expect(otpInput).toHaveAttribute('placeholder', '123456');
+    await expect(otpInput).toHaveAttribute('maxlength', '6');
+    await expect(otpInput).toHaveAttribute('inputmode', 'numeric');
+    await expect(otpInput).toHaveValue('');
+
+    // Verify button
+    const verifyBtn = page.locator('#otp-verify-btn');
+    await expect(verifyBtn).toBeVisible();
+    await expect(verifyBtn).toBeEnabled();
+    await expect(verifyBtn).toContainText('Verify Code');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 11: Enter OTP code and verify
+    // ────────────────────────────────────────────────────────
+    await otpInput.fill('123456');
+    await expect(otpInput).toHaveValue('123456');
+
+    // Intercept the verify API call
+    const verifyPromise = page.waitForResponse((resp) =>
+      resp.url().includes('/api/auth/phone/verify') && resp.status() === 200,
+    );
+
+    await verifyBtn.click();
+
+    // Verify API call succeeds and returns a token
+    const verifyResp = await verifyPromise;
+    const verifyJson = await verifyResp.json();
+    expect(verifyJson.data).toHaveProperty('token');
+    expect(verifyJson.data).toHaveProperty('user_id');
+    expect(verifyJson.data).toHaveProperty('org_id');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 12: Auto-navigation back to details, auto-submit build
+    // ────────────────────────────────────────────────────────
+    // After verify: verifyPhoneOtp sets state.session → navigateTo('details')
+    // navigateTo wrapper detects _pendingBuild + session.token → auto-calls submitBuild()
+    // submitBuild sends POST /api/sites/create-from-search with auth header
+
+    // Intercept the create-from-search API call
+    const createPromise = page.waitForResponse(
+      (resp) => resp.url().includes('/api/sites/create-from-search') && resp.status() === 201,
+    );
+
+    const createResp = await createPromise;
+    const createJson = await createResp.json();
+    expect(createJson.data).toHaveProperty('site_id');
+    expect(createJson.data).toHaveProperty('slug');
+    expect(createJson.data).toHaveProperty('workflow_instance_id');
+    expect(createJson.data.status).toBe('building');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 13: Verify Waiting screen appears with all elements
+    // ────────────────────────────────────────────────────────
+    const waitingScreen = page.locator('#screen-waiting');
+    await expect(waitingScreen).toBeVisible({ timeout: 15_000 });
+    await expect(waitingScreen).toHaveClass(/active/);
+
+    // Sign-in screen is no longer active
+    await expect(signinScreen).not.toHaveClass(/active/);
+
+    // Waiting title and subtitle
+    await expect(page.locator('.waiting-title')).toContainText(/building your website/i);
+    await expect(page.locator('.waiting-subtitle')).toContainText(/few minutes/i);
+
+    // Status indicator with pulsing dot
+    const statusDot = page.locator('.status-dot');
+    await expect(statusDot).toBeVisible();
+    await expect(page.locator('.waiting-status')).toContainText('Build in progress');
+
+    // Loading dots animation in status bar
+    await expect(page.locator('.waiting-status .loading-dots')).toBeVisible();
+
+    // Animated loading rings
+    await expect(page.locator('.waiting-anim')).toBeVisible();
+    await expect(page.locator('.waiting-anim-ring')).toHaveCount(3);
+    await expect(page.locator('.waiting-anim-icon')).toBeVisible();
+
+    // Contact line shows signed-in identity (phone number)
+    const contactEl = page.locator('#waiting-contact');
+    await expect(contactEl).toContainText('+19735551234');
+
+    // ────────────────────────────────────────────────────────
+    // STEP 14: Verify internal state via JS evaluation
+    // ────────────────────────────────────────────────────────
+    const appState = await page.evaluate(() => {
+      const s = (window as any).state;
+      return {
+        screen: s.screen,
+        mode: s.mode,
+        hasSession: !!s.session && !!s.session.token,
+        hasSiteId: !!s.siteId,
+        selectedBusinessName: s.selectedBusiness?.name || null,
+        pendingBuild: s._pendingBuild,
+      };
+    });
+
+    expect(appState.screen).toBe('waiting');
+    expect(appState.mode).toBe('business');
+    expect(appState.hasSession).toBe(true);
+    expect(appState.selectedBusinessName).toBe('Sunrise Bakery Pizza');
+    expect(appState.pendingBuild).toBeFalsy();
+  });
+});
+
 // ─── FULL FLOW: Phone OTP ─────────────────────────────────────
 
 test.describe('Full Flow: Phone OTP Sign-In', () => {
