@@ -248,11 +248,11 @@ search.post('/api/sites/create-from-search', async (c) => {
   const body = (await c.req.json()) as CreateFromSearchBody;
 
   // Normalize: support both v1 (flat) and v2 (nested business object) payload formats
-  const businessName = body.business?.name || body.business_name;
+  const mode = body.mode ?? null;
+  const businessName = body.business?.name || body.business_name || (mode === 'custom' ? 'Custom Website' : null);
   const businessAddress = body.business?.address || body.business_address;
   const googlePlaceId = body.business?.place_id || body.google_place_id;
   const businessPhone = body.business?.phone ?? null;
-  const mode = body.mode ?? null;
 
   if (!businessName || businessName.trim().length === 0) {
     throw badRequest('Missing required field: business_name (or business.name)');

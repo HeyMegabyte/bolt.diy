@@ -115,10 +115,16 @@ app.all('*', async (c) => {
   ) {
     // Try to serve from R2 first (for production)
     const marketingPath = `marketing${path === '/' ? '/index.html' : path}`;
-    const marketingAsset = await c.env.SITES_BUCKET.get(marketingPath);
+    let marketingAsset = await c.env.SITES_BUCKET.get(marketingPath);
+
+    // If no extension in path, try appending .html (e.g. /privacy → marketing/privacy.html)
+    if (!marketingAsset && !path.includes('.') && path !== '/') {
+      marketingAsset = await c.env.SITES_BUCKET.get(`marketing${path}.html`);
+    }
 
     if (marketingAsset) {
-      const ext = marketingPath.split('.').pop()?.toLowerCase() ?? 'html';
+      const resolvedPath = marketingAsset.key;
+      const ext = resolvedPath.split('.').pop()?.toLowerCase() ?? 'html';
       const mimeTypes: Record<string, string> = {
         html: 'text/html',
         css: 'text/css',

@@ -507,7 +507,23 @@ const server = http.createServer(async (req, res) => {
       return;
     }
   } catch {
-    // File not found, fall through
+    // File not found - try appending .html for extensionless paths (e.g. /privacy → privacy.html)
+    if (!path.extname(filePath)) {
+      try {
+        const htmlPath = filePath + '.html';
+        const stat2 = fs.statSync(htmlPath);
+        if (stat2.isFile()) {
+          const content = fs.readFileSync(htmlPath);
+          res.setHeader('Content-Type', 'text/html');
+          res.setHeader('Cache-Control', 'public, max-age=60');
+          res.writeHead(200);
+          res.end(content);
+          return;
+        }
+      } catch {
+        // Also not found, fall through
+      }
+    }
   }
 
   // Fallback: for SPA paths, serve index.html

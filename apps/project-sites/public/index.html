@@ -22,8 +22,8 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png">
   <link rel="manifest" href="/site.webmanifest">
 
-  <!-- Apple Mobile Web App -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <!-- Mobile Web App -->
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Project Sites">
   <meta name="application-name" content="Project Sites">
@@ -1057,7 +1057,7 @@
       height: 48px;
       border-radius: 50%;
       background: linear-gradient(135deg, var(--accent), var(--secondary));
-      color: var(--bg-primary);
+      color: #ffffff;
       font-weight: 800;
       font-size: 1.2rem;
       margin-bottom: 20px;
@@ -1279,16 +1279,18 @@
       width: 36px;
       height: 36px;
       border-radius: 8px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
+      background: transparent;
+      border: none;
       color: var(--text-secondary);
-      transition: color var(--transition), border-color var(--transition), background var(--transition);
+      transition: color 0.2s ease, transform 0.2s ease;
     }
-    .footer-social a:hover {
-      color: var(--accent);
-      border-color: var(--border-hover);
-      background: var(--accent-dim);
-    }
+    .footer-social a:hover { transform: scale(1.15); }
+    .footer-social a[aria-label="GitHub"]:hover { color: #f0f6fc; }
+    .footer-social a[aria-label="X"]:hover { color: #f0f6fc; }
+    .footer-social a[aria-label="LinkedIn"]:hover { color: #0a66c2; }
+    .footer-social a[aria-label="YouTube"]:hover { color: #ff0000; }
+    .footer-social a[aria-label="Instagram"]:hover { color: #e4405f; }
+    .footer-social a[aria-label="Facebook"]:hover { color: #1877f2; }
     .footer-social a svg {
       width: 18px;
       height: 18px;
@@ -1633,6 +1635,7 @@
     }
     .faq-answer-inner {
       padding: 0 0 20px;
+      text-align: left;
       font-size: 0.92rem;
       color: var(--text-secondary);
       line-height: 1.7;
@@ -1695,11 +1698,22 @@
       margin: 0;
     }
     .pricing-card-free {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
+      background: linear-gradient(135deg, rgba(100,255,218,0.04), rgba(124,58,237,0.04));
+      border: 2px dashed var(--accent);
       border-radius: var(--radius-lg);
       padding: 36px 28px;
       text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .pricing-card-free::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--secondary));
     }
     .pricing-save-badge {
       display: inline-block;
@@ -2144,7 +2158,7 @@
 
           <div class="pricing-grid">
             <div class="pricing-card-free">
-              <div class="plan-label" style="background:var(--bg-secondary); color:var(--text-secondary);">Free Preview</div>
+              <div class="plan-label" style="background:linear-gradient(135deg, var(--accent), var(--secondary)); color:#fff;">Free Preview</div>
               <div class="pricing-price">$0</div>
               <p class="pricing-desc">See your AI-generated site before committing.</p>
               <ul class="pricing-features">
@@ -2409,9 +2423,9 @@
   <footer class="site-footer">
     <div class="footer-inner">
       <div class="footer-links">
-        <a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
-        <a href="/legal/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a>
-        <a href="/legal/content-policy" target="_blank" rel="noopener noreferrer">Content Policy</a>
+        <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+        <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a>
+        <a href="/content" target="_blank" rel="noopener noreferrer">Content Policy</a>
         <a href="mailto:support@megabyte.space">Support</a>
         <a href="mailto:hey@megabyte.space">Contact</a>
       </div>
