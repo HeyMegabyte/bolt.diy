@@ -82,8 +82,9 @@ export const envConfigSchema = z
     CF_API_TOKEN: z.string().min(1),
     CF_ZONE_ID: z.string().min(1),
 
-    // SendGrid
-    SENDGRID_API_KEY: z.string().min(1),
+    // Email (Resend primary, SendGrid fallback — at least one should be set)
+    RESEND_API_KEY: z.string().min(1).optional(),
+    SENDGRID_API_KEY: z.string().min(1).optional(),
 
     // Chatwoot
     CHATWOOT_API_URL: z.string().url().optional(),

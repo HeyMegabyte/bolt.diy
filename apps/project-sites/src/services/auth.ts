@@ -65,7 +65,23 @@ async function sendEmail(
   opts: { to: string; subject: string; html: string },
 ): Promise<void> {
   if (env.RESEND_API_KEY) {
-    return sendViaResend(env.RESEND_API_KEY, opts);
+    try {
+      return await sendViaResend(env.RESEND_API_KEY, opts);
+    } catch (err) {
+      if (env.SENDGRID_API_KEY) {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            service: 'auth',
+            message: 'Resend failed, falling back to SendGrid',
+            error: err instanceof Error ? err.message : String(err),
+            to: opts.to,
+          }),
+        );
+        return sendViaSendGrid(env.SENDGRID_API_KEY, opts);
+      }
+      throw err;
+    }
   }
 
   if (env.SENDGRID_API_KEY) {
