@@ -213,6 +213,63 @@ cd apps/project-sites && npx wrangler deploy --env production
 npx wrangler r2 object put project-sites-staging/marketing/index.html --file public/index.html --content-type text/html --remote
 ```
 
+## WebContainer / Cross-Origin Isolation (bolt.diy Main App)
+
+### Cross-Origin Headers
+- `public/_headers` serves COOP/COEP headers for Cloudflare Pages
+- Required for `SharedArrayBuffer` which WebContainers need
+- Headers: `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: credentialless`, `Origin-Agent-Cluster: ?1`
+- Verify on deployed site: `crossOriginIsolated` should be `true` in DevTools console
+
+### WebContainer Iframe Override
+- `globalThis.WEBCONTAINER_API_IFRAME_URL` is set in `app/root.tsx` Head before app bundle loads
+- This overrides the default `/headless` iframe URL used by `@webcontainer/api`
+- WebContainer.boot() is called in `app/lib/webcontainer/index.ts` with `coep: 'credentialless'`
+- If WebContainer fails to boot/populate, check: (1) cross-origin headers, (2) WEBCONTAINER_API_IFRAME_URL, (3) browser privacy/tracking blocking
+
+### Browser Compatibility
+- Third-party storage/cookies blocking can break WebContainer in subtle ways
+- Users may need to add site exceptions for `stackblitz.com`, `webcontainer.io`, `webcontainer-api.io`
+- Preview iframe at `app/routes/webcontainer.preview.$id.tsx` uses `sandbox` and `allow="cross-origin-isolated"`
+
+## Email Configuration (Project Sites Worker)
+
+### Provider Stack
+- **Primary**: Resend (`RESEND_API_KEY` secret)
+- **Fallback**: SendGrid (`SENDGRID_API_KEY` secret)
+- Both are optional in `Env` interface and config schema
+- If neither is configured, magic link emails will fail with "Email delivery is not configured"
+- From address: `noreply@megabyte.space` — domain must be verified in provider
+
+### After Deploying, Verify Secrets Are Set
+```bash
+# List secrets (requires CLOUDFLARE_API_KEY + CLOUDFLARE_EMAIL)
+npx wrangler secret list --env staging
+npx wrangler secret list --env production
+
+# Set a secret if missing
+npx wrangler secret put SENDGRID_API_KEY --env staging
+npx wrangler secret put RESEND_API_KEY --env staging
+```
+
+### Phone Feature Was Removed
+- Commit `b555680` removed: Twilio SMS, phone OTP endpoints, phone schemas
+- `phone_otps` D1 table still exists but is unused (orphaned)
+- `users.phone` column still exists but always set to NULL
+- No Twilio secrets needed anymore (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` removed)
+
+## UI Design Rules (Marketing Homepage)
+
+### Icons
+- Feature icons should NOT have background boxes or borders — just the SVG icon floating freely
+- SVG icons use `stroke="currentColor"` with appropriate `stroke-width` (1.5–2.5)
+- No `border-radius` + `background` containers around individual icons
+
+### General Style
+- Dark theme: `--bg-primary: #0a0a1a`, accent `#64ffda`, secondary `#7c3aed`
+- Cards have subtle borders: `1px solid var(--border)` with `var(--border): rgba(100, 255, 218, 0.1)`
+- Hover states: `translateY(-3px)`, `border-color: var(--border-hover)`, accent glow shadow
+
 ## Further Documentation
 
 - **[apps/project-sites/CLAUDE.md](apps/project-sites/CLAUDE.md)** — Worker API surface, middleware, services

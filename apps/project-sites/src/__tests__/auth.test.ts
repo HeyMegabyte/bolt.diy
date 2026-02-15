@@ -155,6 +155,77 @@ describe('verifyMagicLink', () => {
 });
 
 // ---------------------------------------------------------------------------
+// sendEmail fallback behavior
+// ---------------------------------------------------------------------------
+describe('sendEmail fallback (Resend → SendGrid)', () => {
+  const input = { email: 'fallback@example.com' };
+
+  beforeEach(() => {
+    mockDbInsert.mockResolvedValue({ error: null });
+  });
+
+  it('falls back to SendGrid when Resend returns a non-200 status', async () => {
+    const envWithBoth = {
+      ...mockEnv,
+      RESEND_API_KEY: 'test-resend-key',
+      SENDGRID_API_KEY: 'test-sendgrid-key',
+    } as any;
+
+    const mockFetch = jest.fn()
+      // First call (Resend) → 403 error
+      .mockResolvedValueOnce(
+        new Response('Domain not verified', { status: 403 }),
+      )
+      // Second call (SendGrid) → 202 success
+      .mockResolvedValueOnce(
+        new Response('', { status: 202 }),
+      );
+    global.fetch = mockFetch;
+
+    const result = await createMagicLink(mockDb, envWithBoth, input);
+    expect(result.token).toMatch(/^[0-9a-f]{64}$/);
+
+    // Verify both providers were called
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch.mock.calls[0][0]).toBe('https://api.resend.com/emails');
+    expect(mockFetch.mock.calls[1][0]).toBe('https://api.sendgrid.com/v3/mail/send');
+  });
+
+  it('uses only Resend when it succeeds', async () => {
+    const envWithBoth = {
+      ...mockEnv,
+      RESEND_API_KEY: 'test-resend-key',
+      SENDGRID_API_KEY: 'test-sendgrid-key',
+    } as any;
+
+    const mockFetch = jest.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 'msg-1' }), { status: 200 }),
+    );
+    global.fetch = mockFetch;
+
+    await createMagicLink(mockDb, envWithBoth, input);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch.mock.calls[0][0]).toBe('https://api.resend.com/emails');
+  });
+
+  it('throws when Resend fails and SendGrid is not configured', async () => {
+    const envResendOnly = {
+      ...mockEnv,
+      RESEND_API_KEY: 'test-resend-key',
+    } as any;
+
+    global.fetch = jest.fn().mockResolvedValueOnce(
+      new Response('Unauthorized', { status: 401 }),
+    );
+
+    await expect(createMagicLink(mockDb, envResendOnly, input)).rejects.toThrow(
+      'Failed to send email (status 401)',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // createGoogleOAuthState
 // ---------------------------------------------------------------------------
 describe('createGoogleOAuthState', () => {
