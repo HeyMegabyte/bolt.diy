@@ -45,6 +45,7 @@ import * as authService from '../services/auth.js';
 import * as billingService from '../services/billing.js';
 import * as domainService from '../services/domains.js';
 import * as auditService from '../services/audit.js';
+import * as contactService from '../services/contact.js';
 import * as posthog from '../lib/posthog.js';
 import { captureError } from '../lib/sentry.js';
 
@@ -403,6 +404,14 @@ api.get('/api/audit-logs', async (c) => {
 
   const result = await auditService.getAuditLogs(c.env.DB, orgId, { limit, offset });
   return c.json({ data: result.data });
+});
+
+// ─── Contact Form Route ─────────────────────────────────────
+
+api.post('/api/contact', async (c) => {
+  const body = await c.req.json();
+  await contactService.handleContactForm(c.env, body);
+  return c.json({ data: { success: true } });
 });
 
 export { api };

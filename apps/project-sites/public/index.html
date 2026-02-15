@@ -1369,6 +1369,17 @@
       border-radius: 20px;
       margin-bottom: 20px;
     }
+    .pricing-card-free .plan-label {
+      display: inline-block;
+      padding: 5px 15px;
+      margin-bottom: 15px;
+      margin-top: 10px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-radius: 20px;
+    }
     .pricing-price {
       font-size: 3.5rem;
       font-weight: 900;
@@ -1962,7 +1973,7 @@
   <header class="header">
     <div class="header-inner">
       <a class="logo" onclick="navigateTo('search')">
-        <img src="/logo-header.svg" alt="Project Sites" height="32" style="flex-shrink:0">
+        <img src="/logo-header.png" alt="Project Sites" style="flex-shrink:0; height:auto; max-height:48px; max-width:300px;">
       </a>
     </div>
   </header>
@@ -2475,7 +2486,7 @@
     <div id="screen-details" class="screen screen-details">
       <div class="details-card">
         <h2 id="details-title">Tell us more about your business</h2>
-        <p class="details-subtitle" id="details-subtitle">Any extra info helps us build the perfect website for you.</p>
+        <p class="details-subtitle" id="details-subtitle">Include everything important for your website. We'll also search the web for public info about your business.</p>
 
         <!-- Selected business display -->
         <div id="details-business-badge" class="selected-business-badge" style="display:none;">
@@ -2490,13 +2501,25 @@
           </div>
         </div>
 
+        <!-- Manual business info (shown when no business selected from search) -->
+        <div id="details-manual-fields" style="display:none;">
+          <div class="input-group">
+            <label for="business-name-input">Business Name</label>
+            <input type="text" id="business-name-input" class="input-field" placeholder="e.g. Vito's Men's Salon" maxlength="200" />
+          </div>
+          <div class="input-group">
+            <label for="business-address-input">Business Address (optional)</label>
+            <input type="text" id="business-address-input" class="input-field" placeholder="e.g. 74 N Beverwyck Rd, Lake Hiawatha, NJ 07034" maxlength="500" />
+          </div>
+        </div>
+
         <div class="input-group">
-          <label for="details-textarea">Additional Context / Instructions</label>
+          <label for="details-textarea">Tell us about your business</label>
           <textarea
             id="details-textarea"
             class="input-field"
             maxlength="5000"
-            placeholder="Tell us about your business, what services you offer, preferred style, brand colors, or any specific features you'd like on your website..."
+            placeholder="Share details like your phone number, email address, physical address, business hours, services offered, brand colors, style preferences, or any specific features you'd like on your website. On top of the information you provide here, we'll also intelligently search the internet for public data about your business to help build the best possible site."
           ></textarea>
         </div>
 
@@ -2773,6 +2796,43 @@
     </div>
   </div>
 
+  <!-- ==========================================
+       Screen: Contact Form
+       ========================================== -->
+  <div id="screen-contact" class="screen screen-legal">
+    <div class="legal-container">
+      <button class="legal-back" onclick="navigateToLegal(null)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        Back to home
+      </button>
+      <h2>Contact Us</h2>
+      <p style="color:var(--text-secondary);margin-bottom:32px;">Have a question, feedback, or need help? We'd love to hear from you.</p>
+
+      <form id="contact-form" onsubmit="event.preventDefault();submitContactForm();" novalidate>
+        <div class="input-group">
+          <label for="contact-name">Name <span style="color:var(--accent);">*</span></label>
+          <input type="text" id="contact-name" class="input-field" placeholder="Your full name" maxlength="200" required />
+        </div>
+        <div class="input-group">
+          <label for="contact-email">Email <span style="color:var(--accent);">*</span></label>
+          <input type="email" id="contact-email" class="input-field" placeholder="you@example.com" maxlength="254" required />
+        </div>
+        <div class="input-group">
+          <label for="contact-phone">Phone <span style="color:var(--text-muted);">(optional)</span></label>
+          <input type="tel" id="contact-phone" class="input-field" placeholder="+1 (555) 123-4567" maxlength="20" />
+        </div>
+        <div class="input-group">
+          <label for="contact-message">Message <span style="color:var(--accent);">*</span></label>
+          <textarea id="contact-message" class="input-field" placeholder="How can we help you?" maxlength="5000" required style="min-height:150px;"></textarea>
+        </div>
+        <button class="btn btn-accent btn-large btn-full" id="contact-submit-btn" type="submit">
+          Send Message
+        </button>
+        <div id="contact-msg" class="msg"></div>
+      </form>
+    </div>
+  </div>
+
   <!-- Location Permission Modal -->
   <div id="location-modal" class="location-modal-overlay" style="display:none;">
     <div class="location-modal">
@@ -2798,7 +2858,7 @@
         <a href="/terms" onclick="event.preventDefault();navigateToLegal('terms')">Terms of Service</a>
         <a href="/content" onclick="event.preventDefault();navigateToLegal('content')">Content Policy</a>
         <a href="mailto:support@megabyte.space">Support</a>
-        <a href="mailto:hey@megabyte.space">Contact</a>
+        <a href="/contact" onclick="event.preventDefault();navigateToLegal('contact')">Contact</a>
       </div>
       <div class="footer-social">
         <!-- GitHub -->
@@ -2946,7 +3006,7 @@
         render();
       } else {
         var path = window.location.pathname;
-        if (path === '/privacy' || path === '/terms' || path === '/content') {
+        if (path === '/privacy' || path === '/terms' || path === '/content' || path === '/contact') {
           state.screen = path.slice(1);
           render();
         } else {
@@ -2956,10 +3016,10 @@
       }
     });
 
-    // Deep-link: if URL is /privacy, /terms, or /content on page load
+    // Deep-link: if URL is /privacy, /terms, /content, or /contact on page load
     (function handleLegalDeepLink() {
       var path = window.location.pathname;
-      if (path === '/privacy' || path === '/terms' || path === '/content') {
+      if (path === '/privacy' || path === '/terms' || path === '/content' || path === '/contact') {
         state.screen = path.slice(1);
         render();
       }
@@ -3266,6 +3326,10 @@
       } else if (panel === 'email') {
         emailPanel.classList.add('active');
         backToSearch.style.display = 'none';
+        // Reset to fresh input state so "Check your email" message is cleared
+        document.getElementById('email-step-input').style.display = '';
+        document.getElementById('email-step-sent').style.display = 'none';
+        hideMsg('email-send-msg');
         document.getElementById('email-input').focus();
       }
     }
@@ -3365,22 +3429,26 @@
       var titleEl = document.getElementById('details-title');
       var subtitleEl = document.getElementById('details-subtitle');
       var badgeEl = document.getElementById('details-business-badge');
+      var manualFields = document.getElementById('details-manual-fields');
 
       if (state.mode === 'custom') {
         titleEl.textContent = 'Describe your custom website';
         subtitleEl.textContent = 'Tell us what you\'d like and we\'ll build it for you.';
         badgeEl.style.display = 'none';
+        manualFields.style.display = 'block';
       } else {
         titleEl.textContent = 'Tell us more about your business';
-        subtitleEl.textContent = 'Any extra info helps us build the perfect website for you.';
+        subtitleEl.textContent = 'Include everything important for your website. We\'ll also search the web for public info about your business.';
 
         if (state.selectedBusiness) {
           var biz = state.selectedBusiness;
           document.getElementById('badge-biz-name').textContent = biz.name || biz.business_name || 'Selected Business';
           document.getElementById('badge-biz-addr').textContent = biz.address || biz.formatted_address || biz.street_address || '';
           badgeEl.style.display = 'flex';
+          manualFields.style.display = 'none';
         } else {
           badgeEl.style.display = 'none';
+          manualFields.style.display = 'block';
         }
       }
     }
@@ -3452,6 +3520,12 @@
           website: state.selectedBusiness.website,
           types: state.selectedBusiness.types
         };
+      } else {
+        var manualName = document.getElementById('business-name-input').value.trim();
+        var manualAddr = document.getElementById('business-address-input').value.trim();
+        if (manualName) {
+          payload.business = { name: manualName, address: manualAddr || undefined };
+        }
       }
 
       var headers = { 'Content-Type': 'application/json' };
@@ -3696,9 +3770,90 @@
     }
 
     /* ===========================================================
+       Contact Form
+       =========================================================== */
+    function submitContactForm() {
+      var name = document.getElementById('contact-name').value.trim();
+      var email = document.getElementById('contact-email').value.trim().toLowerCase();
+      var phone = document.getElementById('contact-phone').value.trim();
+      var message = document.getElementById('contact-message').value.trim();
+
+      // Client-side validation
+      if (!name || name.length < 1) {
+        showMsg('contact-msg', 'error', 'Please enter your name.');
+        return;
+      }
+      if (name.length > 200) {
+        showMsg('contact-msg', 'error', 'Name is too long (max 200 characters).');
+        return;
+      }
+      var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email || !emailRegex.test(email)) {
+        showMsg('contact-msg', 'error', 'Please enter a valid email address.');
+        return;
+      }
+      if (email.length > 254) {
+        showMsg('contact-msg', 'error', 'Email address is too long.');
+        return;
+      }
+      if (phone && phone.length > 20) {
+        showMsg('contact-msg', 'error', 'Phone number is too long (max 20 characters).');
+        return;
+      }
+      if (!message || message.length < 10) {
+        showMsg('contact-msg', 'error', 'Please enter a message (at least 10 characters).');
+        return;
+      }
+      if (message.length > 5000) {
+        showMsg('contact-msg', 'error', 'Message is too long (max 5000 characters).');
+        return;
+      }
+      if (/<script/i.test(name) || /<script/i.test(message) || /javascript:/i.test(message)) {
+        showMsg('contact-msg', 'error', 'Invalid characters detected. Please remove any HTML or script tags.');
+        return;
+      }
+
+      var btn = document.getElementById('contact-submit-btn');
+      btn.disabled = true;
+      btn.innerHTML = 'Sending <span class="loading-dots"><span></span><span></span><span></span></span>';
+      hideMsg('contact-msg');
+
+      var payload = { name: name, email: email, message: message };
+      if (phone) payload.phone = phone;
+
+      fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(function(res) {
+          if (!res.ok) return res.json().then(function(d) { throw new Error(extractErrorMsg(d, 'Failed to send message')); });
+          return res.json();
+        })
+        .then(function() {
+          btn.disabled = false;
+          btn.textContent = 'Send Message';
+          showMsg('contact-msg', 'success', 'Message sent successfully! We\'ll get back to you soon.');
+          document.getElementById('contact-form').reset();
+        })
+        .catch(function(err) {
+          btn.disabled = false;
+          btn.textContent = 'Send Message';
+          showMsg('contact-msg', 'error', err.message || 'Failed to send message. Please try again.');
+        });
+    }
+
+    /* ===========================================================
        Init
        =========================================================== */
     render();
+
+    // Register service worker for PWA support
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(function() {
+        // Service worker registration failed - non-critical
+      });
+    }
   </script>
 </body>
 </html>

@@ -160,7 +160,23 @@ app.all('*', async (c) => {
       });
     }
 
-    // Fallback: return JSON info when no static assets deployed
+    // SPA fallback: serve index.html for client-side routes (/content, /contact, etc.)
+    if (!path.includes('.') || path === '/') {
+      const spaFallback = await c.env.SITES_BUCKET.get('marketing/index.html');
+      if (spaFallback) {
+        let spaHtml = await spaFallback.text();
+        const spaPhKey = c.env.POSTHOG_API_KEY ?? 'none';
+        spaHtml = spaHtml.replace('</head>', `<meta name="x-posthog-key" content="${spaPhKey}">\n</head>`);
+        return new Response(spaHtml, {
+          headers: {
+            'Content-Type': 'text/html',
+            'Cache-Control': 'public, max-age=60',
+          },
+        });
+      }
+    }
+
+    // Final fallback: return JSON info when no static assets deployed at all
     return c.json(
       {
         name: 'Project Sites',

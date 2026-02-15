@@ -62,6 +62,8 @@ export const securityHeadersMiddleware: MiddlewareHandler<{
   c.header('X-Frame-Options', 'DENY');
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
   c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=self');
+  c.header('Cross-Origin-Opener-Policy', 'same-origin');
+  c.header('Cross-Origin-Embedder-Policy', 'credentialless');
   c.header(
     'Content-Security-Policy',
     [

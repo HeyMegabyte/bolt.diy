@@ -49,3 +49,4 @@ export * from './config.js';
 export * from './analytics.js';
 export * from './hostname.js';
 export * from './api.js';
+export * from './contact.js';
