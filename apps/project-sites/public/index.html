@@ -2525,7 +2525,7 @@
         <input type="text" id="domain-add-input" placeholder="e.g. www.mybusiness.com" />
         <button onclick="addHostname()">Add Domain</button>
       </div>
-      <p style="font-size:0.7rem;color:var(--text-muted);margin-top:10px;">Custom domains require a paid plan. Point a CNAME to <code>sites.megabyte.space</code>.</p>
+      <p style="font-size:0.7rem;color:var(--text-muted);margin-top:10px;">Custom domains require a paid plan and a CNAME record pointing to <code>sites.megabyte.space</code>. Add the CNAME in your DNS provider first, then add the domain here.</p>
     </div>
   </div>
 
@@ -3252,7 +3252,8 @@
         var name = s.business_name || s.slug || 'Unnamed';
         var status = s.status || 'draft';
         var slug = s.slug || '';
-        var siteUrl = slug ? 'https://' + slug + '-sites.megabyte.space' : '';
+        var defaultUrl = slug ? 'https://' + slug + '-sites.megabyte.space' : '';
+        var siteUrl = s.primary_hostname ? 'https://' + s.primary_hostname : defaultUrl;
         var statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
         var created = s.created_at ? new Date(s.created_at).toLocaleDateString() : '';
 
@@ -3297,9 +3298,9 @@
 
         // Domain link with copy button
         if (siteUrl) {
-          var domain = slug + '-sites.megabyte.space';
+          var displayDomain = s.primary_hostname || (slug + '-sites.megabyte.space');
           html += '<div class="site-card-url-row">';
-          html += '<div class="site-card-domain"><a href="' + escapeHtml(siteUrl) + '" target="_blank">' + escapeHtml(domain) + '</a></div>';
+          html += '<div class="site-card-domain"><a href="' + escapeHtml(siteUrl) + '" target="_blank">' + escapeHtml(displayDomain) + '</a></div>';
           html += '<button class="site-card-copy-btn" onclick="copyUrl(\'' + escapeHtml(siteUrl) + '\', this)" title="Copy URL"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
           html += '</div>';
         }
@@ -3315,6 +3316,9 @@
           html += '<button class="site-card-btn" onclick="window.open(\'' + escapeHtml(siteUrl) + '\', \'_blank\')">Visit</button>';
         } else if (status === 'building') {
           html += '<button class="site-card-btn" onclick="state.siteId=\'' + escapeHtml(s.id) + '\';state.slug=\'' + escapeHtml(slug) + '\';navigateTo(\'waiting\');">Status</button>';
+        }
+        if (status === 'published' && slug) {
+          html += '<button class="site-card-btn" onclick="editSiteInBolt(\'' + escapeHtml(slug) + '\')">Edit</button>';
         }
         if (sitePlan === 'paid') {
           html += '<button class="site-card-btn" onclick="openDomainModal(\'' + escapeHtml(s.id) + '\', \'' + escapeHtml(name) + '\')">Domains</button>';
@@ -3340,6 +3344,12 @@
           setTimeout(function() { btn.classList.remove('copied'); }, 1500);
         });
       }
+    }
+
+    function editSiteInBolt(slug) {
+      var chatApiUrl = window.location.origin + '/api/sites/by-slug/' + encodeURIComponent(slug) + '/chat';
+      var boltUrl = 'https://bolt.megabyte.space/?importChatFrom=' + encodeURIComponent(chatApiUrl);
+      window.open(boltUrl, '_blank');
     }
 
     function renderAdminBilling() {
@@ -3392,17 +3402,58 @@
             var h = hostnames[i];
             var url = 'https://' + h.hostname;
             var typeLabel = h.type === 'custom_cname' ? 'Custom' : 'Free subdomain';
+            var isPrimary = h.is_primary === 1 || h.is_primary === true;
             html += '<div class="hostname-item">';
-            html += '<div><div class="hostname-item-name"><a href="' + escapeHtml(url) + '" target="_blank">' + escapeHtml(h.hostname) + '</a></div>';
-            html += '<div class="hostname-item-type">' + typeLabel + '</div></div>';
+            html += '<div style="flex:1;min-width:0;">';
+            html += '<div class="hostname-item-name" style="display:flex;align-items:center;gap:6px;">';
+            html += '<a href="' + escapeHtml(url) + '" target="_blank">' + escapeHtml(h.hostname) + '</a>';
+            if (isPrimary) {
+              html += '<span style="font-size:0.6rem;background:rgba(80,165,219,0.15);color:var(--accent);padding:1px 6px;border-radius:3px;font-weight:600;">PRIMARY</span>';
+            }
+            html += '</div>';
+            html += '<div class="hostname-item-type">' + typeLabel + ' &middot; ' + escapeHtml(h.status || 'pending') + '</div>';
+            html += '</div>';
+            html += '<div style="display:flex;align-items:center;gap:4px;">';
+            if (!isPrimary) {
+              html += '<button class="hostname-delete-btn" onclick="setPrimaryHostname(\'' + escapeHtml(adminDomainModalSiteId) + '\', \'' + escapeHtml(h.id) + '\')" title="Set as primary" style="color:var(--text-muted);">';
+              html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
+              html += '</button>';
+            }
             html += '<button class="hostname-delete-btn" onclick="deleteHostname(\'' + escapeHtml(adminDomainModalSiteId) + '\', \'' + escapeHtml(h.id) + '\')" title="Remove">';
             html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
-            html += '</button></div>';
+            html += '</button>';
+            html += '</div>';
+            html += '</div>';
           }
           container.innerHTML = html;
         })
         .catch(function(err) {
           container.innerHTML = '<div style="color:var(--error);font-size:0.85rem;padding:8px;">' + escapeHtml(err.message || 'Failed to load domains.') + '</div>';
+        });
+    }
+
+    function setPrimaryHostname(siteId, hostnameId) {
+      var headers = { 'Content-Type': 'application/json' };
+      if (state.session && state.session.token) {
+        headers['Authorization'] = 'Bearer ' + state.session.token;
+      }
+
+      fetch('/api/sites/' + siteId + '/hostnames/' + hostnameId + '/primary', {
+        method: 'PUT',
+        headers: headers
+      })
+        .then(function(res) {
+          if (!res.ok) return res.json().then(function(d) {
+            var msg = 'Failed to set primary domain';
+            if (d && d.error) {
+              msg = typeof d.error === 'string' ? d.error : (d.error.message || d.error.code || msg);
+            }
+            throw new Error(msg);
+          });
+          loadHostnames(siteId);
+        })
+        .catch(function(err) {
+          showMsg('domain-modal-msg', 'error', err.message || 'Failed to set primary domain');
         });
     }
 

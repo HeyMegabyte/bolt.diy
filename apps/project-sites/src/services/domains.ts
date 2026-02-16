@@ -315,17 +315,17 @@ export async function provisionCustomDomain(
 }
 
 /**
- * Get all hostnames for a site.
+ * Get all hostnames for a site (includes is_primary flag).
  *
  * @param db     - D1Database binding.
  * @param siteId - The site to query hostnames for.
- * @returns Array of hostname records.
+ * @returns Array of hostname records with is_primary flag.
  */
 export async function getSiteHostnames(
   db: D1Database,
   siteId: string,
 ): Promise<
-  Array<{ id: string; hostname: string; type: string; status: string; ssl_status: string }>
+  Array<{ id: string; hostname: string; type: string; status: string; ssl_status: string; is_primary: number }>
 > {
   const { data } = await dbQuery<{
     id: string;
@@ -333,13 +333,100 @@ export async function getSiteHostnames(
     type: string;
     status: string;
     ssl_status: string;
+    is_primary: number;
   }>(
     db,
-    'SELECT id, hostname, type, status, ssl_status FROM hostnames WHERE site_id = ? AND deleted_at IS NULL ORDER BY created_at ASC',
+    'SELECT id, hostname, type, status, ssl_status, COALESCE(is_primary, 0) as is_primary FROM hostnames WHERE site_id = ? AND deleted_at IS NULL ORDER BY is_primary DESC, created_at ASC',
     [siteId],
   );
 
   return data;
+}
+
+/**
+ * Set a hostname as the primary for its site.
+ *
+ * Clears primary from all other hostnames on the same site, then sets the
+ * specified hostname as primary.
+ *
+ * @param db         - D1Database binding.
+ * @param siteId     - The site ID.
+ * @param hostnameId - The hostname ID to set as primary.
+ * @throws {notFound} If the hostname doesn't exist for this site.
+ */
+export async function setPrimaryHostname(
+  db: D1Database,
+  siteId: string,
+  hostnameId: string,
+): Promise<void> {
+  // Verify the hostname belongs to this site
+  const hostname = await dbQueryOne<{ id: string }>(
+    db,
+    'SELECT id FROM hostnames WHERE id = ? AND site_id = ? AND deleted_at IS NULL',
+    [hostnameId, siteId],
+  );
+
+  if (!hostname) {
+    throw notFound('Hostname not found for this site');
+  }
+
+  // Clear primary from all hostnames on this site
+  await dbUpdate(db, 'hostnames', { is_primary: 0 }, 'site_id = ?', [siteId]);
+
+  // Set the selected hostname as primary
+  await dbUpdate(db, 'hostnames', { is_primary: 1 }, 'id = ?', [hostnameId]);
+}
+
+/**
+ * Check if a hostname has a CNAME record pointing to the expected target.
+ *
+ * Uses Cloudflare's DNS over HTTPS resolver to look up CNAME records.
+ *
+ * @param hostname - The domain to check.
+ * @returns The CNAME target (without trailing dot), or null if no CNAME found.
+ */
+export async function checkCnameTarget(hostname: string): Promise<string | null> {
+  try {
+    const resp = await fetch(
+      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=CNAME`,
+      { headers: { accept: 'application/dns-json' } },
+    );
+
+    if (!resp.ok) return null;
+
+    const data = (await resp.json()) as {
+      Answer?: Array<{ type: number; data: string }>;
+    };
+    const cnameRecord = data.Answer?.find((a) => a.type === 5);
+
+    if (cnameRecord) {
+      return cnameRecord.data.replace(/\.$/, '');
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get the primary hostname for a site (or first hostname if none set as primary).
+ *
+ * @param db     - D1Database binding.
+ * @param siteId - The site to query.
+ * @returns The primary hostname string, or null if no hostnames exist.
+ */
+export async function getPrimaryHostname(
+  db: D1Database,
+  siteId: string,
+): Promise<string | null> {
+  const primary = await dbQueryOne<{ hostname: string }>(
+    db,
+    'SELECT hostname FROM hostnames WHERE site_id = ? AND deleted_at IS NULL ORDER BY COALESCE(is_primary, 0) DESC, created_at ASC LIMIT 1',
+    [siteId],
+  );
+
+  return primary?.hostname ?? null;
 }
 
 /**
