@@ -117,108 +117,17 @@ app.all('*', async (c) => {
     const marketingPath = `marketing${path === '/' ? '/index.html' : path}`;
     let marketingAsset = await c.env.SITES_BUCKET.get(marketingPath);
 
-    // SSR routing: for extension-less paths (/privacy, /terms, /content, /contact),
-    // serve index.html with the correct screen pre-activated (server-side rendering)
+    // Removed pages (/privacy, /terms, /content) redirect to homepage.
+    // /contact scrolls to contact section on homepage.
     if (!marketingAsset && !path.includes('.') && path !== '/') {
-      const spaAsset = await c.env.SITES_BUCKET.get('marketing/index.html');
-      if (spaAsset) {
-        let spaHtml = await spaAsset.text();
-        const spaPhKey = c.env.POSTHOG_API_KEY ?? 'none';
-        spaHtml = spaHtml.replace('</head>', `<meta name="x-posthog-key" content="${spaPhKey}">\n</head>`);
-
-        // SSR: pre-activate the target screen so the page renders correctly without JS
-        const screenName = path.slice(1); // '/privacy' → 'privacy'
-        const screenMeta: Record<string, { title: string; description: string; url: string }> = {
-          privacy: {
-            title: 'Privacy Policy - Project Sites',
-            description: 'Privacy Policy for Project Sites by Megabyte LLC. Learn how we collect, use, and protect your personal information.',
-            url: `https://${DOMAINS.SITES_BASE}/privacy`,
-          },
-          terms: {
-            title: 'Terms of Service - Project Sites',
-            description: 'Terms of Service for Project Sites by Megabyte LLC. Please read these terms carefully before using our platform.',
-            url: `https://${DOMAINS.SITES_BASE}/terms`,
-          },
-          content: {
-            title: 'Content Policy - Project Sites',
-            description: 'Content Policy for Project Sites by Megabyte LLC. Guidelines for acceptable content on our AI website generation platform.',
-            url: `https://${DOMAINS.SITES_BASE}/content`,
-          },
-          contact: {
-            title: 'Contact Us - Project Sites',
-            description: 'Get in touch with the Project Sites team at Megabyte LLC. We are here to help with your AI-powered website.',
-            url: `https://${DOMAINS.SITES_BASE}/contact`,
-          },
-        };
-
-        // Hide the default search screen, show the target screen
-        spaHtml = spaHtml.replace(
-          'id="screen-search" class="screen screen-search active"',
-          'id="screen-search" class="screen screen-search"',
-        );
-        spaHtml = spaHtml.replace(
-          `id="screen-${screenName}" class="screen screen-legal"`,
-          `id="screen-${screenName}" class="screen screen-legal active"`,
-        );
-
-        const meta = screenMeta[screenName];
-        if (meta) {
-          // Update <title> for SEO
-          spaHtml = spaHtml.replace(/<title>[^<]*<\/title>/, `<title>${meta.title}</title>`);
-
-          // Update meta description
-          spaHtml = spaHtml.replace(
-            /<meta name="description" content="[^"]*">/,
-            `<meta name="description" content="${meta.description}">`,
-          );
-
-          // Update canonical URL
-          spaHtml = spaHtml.replace(
-            /<link rel="canonical" href="[^"]*">/,
-            `<link rel="canonical" href="${meta.url}">`,
-          );
-
-          // Update Open Graph tags
-          spaHtml = spaHtml.replace(
-            /<meta property="og:title" content="[^"]*">/,
-            `<meta property="og:title" content="${meta.title}">`,
-          );
-          spaHtml = spaHtml.replace(
-            /<meta property="og:description" content="[^"]*">/,
-            `<meta property="og:description" content="${meta.description}">`,
-          );
-          spaHtml = spaHtml.replace(
-            /<meta property="og:url" content="[^"]*">/,
-            `<meta property="og:url" content="${meta.url}">`,
-          );
-          spaHtml = spaHtml.replace(
-            /<meta property="og:type" content="[^"]*">/,
-            `<meta property="og:type" content="article">`,
-          );
-
-          // Update Twitter Card tags
-          spaHtml = spaHtml.replace(
-            /<meta name="twitter:title" content="[^"]*">/,
-            `<meta name="twitter:title" content="${meta.title}">`,
-          );
-          spaHtml = spaHtml.replace(
-            /<meta name="twitter:description" content="[^"]*">/,
-            `<meta name="twitter:description" content="${meta.description}">`,
-          );
-
-          // Update al:web:url
-          spaHtml = spaHtml.replace(
-            /<meta property="al:web:url" content="[^"]*">/,
-            `<meta property="al:web:url" content="${meta.url}">`,
-          );
-        }
-
-        return new Response(spaHtml, {
-          headers: {
-            'Content-Type': 'text/html',
-            'Cache-Control': 'public, max-age=60',
-          },
-        });
+      const redirectPaths = ['/privacy', '/terms', '/content', '/contact'];
+      if (redirectPaths.includes(path)) {
+        const baseUrl =
+          hostname === DOMAINS.SITES_STAGING
+            ? `https://${DOMAINS.SITES_STAGING}`
+            : `https://${DOMAINS.SITES_BASE}`;
+        const target = path === '/contact' ? `${baseUrl}/#contact-section` : `${baseUrl}/`;
+        return Response.redirect(target, 301);
       }
     }
 

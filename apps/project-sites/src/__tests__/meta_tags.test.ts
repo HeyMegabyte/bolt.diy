@@ -1,11 +1,9 @@
 /**
  * @module meta_tags.test
  * @description Tests for meta tag presence and correctness across all pages,
- * including static HTML pages, SSR-injected meta tags, and the marketing homepage.
+ * including the marketing homepage and color scheme consistency.
  *
  * Covers:
- * - Static page meta tags (privacy.html, terms.html, content.html)
- * - SSR dynamic meta tag injection in the catch-all handler
  * - Marketing homepage meta tag completeness
  * - Color scheme consistency (megabyte.space brand colors)
  * - Top bar accent color consistency
@@ -22,88 +20,6 @@ const PUBLIC_DIR = path.resolve(__dirname, '../../public');
 function readPublicFile(filename: string): string {
   return fs.readFileSync(path.join(PUBLIC_DIR, filename), 'utf-8');
 }
-
-// ─── Static Legal Page Meta Tags ───────────────────────────────
-
-describe('Static Legal Page Meta Tags', () => {
-  const pages = [
-    {
-      file: 'privacy.html',
-      title: 'Privacy Policy - Project Sites',
-      description: 'Privacy Policy for Project Sites by Megabyte LLC',
-      canonical: 'https://sites.megabyte.space/privacy',
-      ogType: 'article',
-    },
-    {
-      file: 'terms.html',
-      title: 'Terms of Service - Project Sites',
-      description: 'Terms of Service for Project Sites by Megabyte LLC',
-      canonical: 'https://sites.megabyte.space/terms',
-      ogType: 'article',
-    },
-    {
-      file: 'content.html',
-      title: 'Content Policy - Project Sites',
-      description: 'Content Policy for Project Sites by Megabyte LLC',
-      canonical: 'https://sites.megabyte.space/content',
-      ogType: 'article',
-    },
-  ];
-
-  it.each(pages)('$file has correct <title>', ({ file, title }) => {
-    const html = readPublicFile(file);
-    expect(html).toContain(`<title>${title}</title>`);
-  });
-
-  it.each(pages)('$file has meta description', ({ file, description }) => {
-    const html = readPublicFile(file);
-    expect(html).toMatch(new RegExp(`<meta name="description" content="[^"]*${description.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^"]*">`));
-  });
-
-  it.each(pages)('$file has canonical URL', ({ file, canonical }) => {
-    const html = readPublicFile(file);
-    expect(html).toContain(`<link rel="canonical" href="${canonical}">`);
-  });
-
-  it.each(pages)('$file has Open Graph tags', ({ file, title, canonical, ogType }) => {
-    const html = readPublicFile(file);
-    expect(html).toContain(`<meta property="og:site_name" content="Project Sites">`);
-    expect(html).toContain(`<meta property="og:type" content="${ogType}">`);
-    expect(html).toContain(`<meta property="og:title" content="${title}">`);
-    expect(html).toMatch(/<meta property="og:description" content="[^"]+">/)
-    expect(html).toContain(`<meta property="og:image" content="https://sites.megabyte.space/icon-512.png">`);
-    expect(html).toContain(`<meta property="og:url" content="${canonical}">`);
-  });
-
-  it.each(pages)('$file has Twitter Card tags', ({ file, title }) => {
-    const html = readPublicFile(file);
-    expect(html).toContain(`<meta name="twitter:card" content="summary">`);
-    expect(html).toContain(`<meta name="twitter:site" content="@MegabyteLabs">`);
-    expect(html).toContain(`<meta name="twitter:creator" content="@MegabyteLabs">`);
-    expect(html).toContain(`<meta name="twitter:title" content="${title}">`);
-    expect(html).toMatch(/<meta name="twitter:description" content="[^"]+">/)
-    expect(html).toContain(`<meta name="twitter:image" content="https://sites.megabyte.space/icon-512.png">`);
-  });
-
-  it.each(pages)('$file has favicon links', ({ file }) => {
-    const html = readPublicFile(file);
-    expect(html).toContain('rel="icon" href="/favicon.ico"');
-    expect(html).toContain('rel="icon" type="image/svg+xml" href="/logo-icon.svg"');
-  });
-
-  it.each(pages)('$file loads Inter font', ({ file }) => {
-    const html = readPublicFile(file);
-    expect(html).toContain('fonts.googleapis.com/css2?family=Inter');
-    expect(html).toMatch(/font-family:\s*'Inter'/);
-  });
-
-  it.each(pages)('$file uses megabyte.space accent color #50a5db', ({ file }) => {
-    const html = readPublicFile(file);
-    expect(html).toContain('#50a5db');
-    expect(html).not.toContain('#64ffda');
-    expect(html).not.toContain('#4ade80');
-  });
-});
 
 // ─── Marketing Homepage Meta Tags ──────────────────────────────
 
@@ -238,12 +154,6 @@ describe('Marketing Homepage Meta Tags', () => {
     expect(html).toContain('"name": "Megabyte Labs"');
   });
 
-  it('has legal pages JSON-LD', () => {
-    expect(html).toContain('"headline": "Privacy Policy"');
-    expect(html).toContain('"headline": "Terms of Service"');
-    expect(html).toContain('"headline": "Content Policy"');
-  });
-
   // Font
   it('loads Inter font', () => {
     expect(html).toContain('fonts.googleapis.com/css2?family=Inter');
@@ -264,6 +174,19 @@ describe('Marketing Homepage Meta Tags', () => {
   it('has PostHog tracking script with meta key reader', () => {
     expect(html).toContain('x-posthog-key');
     expect(html).toContain('posthog.init');
+  });
+
+  // Contact form on homepage
+  it('has contact form section on homepage', () => {
+    expect(html).toContain('id="contact-section"');
+    expect(html).toContain('id="contact-form"');
+    expect(html).toContain('id="contact-name"');
+    expect(html).toContain('id="contact-email"');
+    expect(html).toContain('id="contact-message"');
+  });
+
+  it('has hey@megabyte.space as support email', () => {
+    expect(html).toContain('hey@megabyte.space');
   });
 });
 
@@ -309,281 +232,6 @@ describe('Brand Color Consistency', () => {
     const topBar = generateTopBar('test-slug');
     expect(topBar).toContain('#50a5db');
     expect(topBar).not.toContain('#64ffda');
-  });
-
-  it.each(['privacy.html', 'terms.html', 'content.html'])(
-    '%s uses #50a5db accent color',
-    (file) => {
-      const html = readPublicFile(file);
-      expect(html).toContain('#50a5db');
-      expect(html).not.toContain('#64ffda');
-      expect(html).not.toContain('#4ade80');
-    },
-  );
-});
-
-// ─── SSR Meta Tag Injection ────────────────────────────────────
-
-describe('SSR Meta Tag Injection', () => {
-  /**
-   * Simulates the SSR meta tag injection logic from index.ts catch-all handler.
-   * This mirrors the production code so we can test it in isolation.
-   */
-  function simulateSSR(spaHtml: string, screenPath: string): string {
-    const screenName = screenPath.slice(1);
-    const SITES_BASE = 'sites.megabyte.space';
-
-    const screenMeta: Record<string, { title: string; description: string; url: string }> = {
-      privacy: {
-        title: 'Privacy Policy - Project Sites',
-        description: 'Privacy Policy for Project Sites by Megabyte LLC. Learn how we collect, use, and protect your personal information.',
-        url: `https://${SITES_BASE}/privacy`,
-      },
-      terms: {
-        title: 'Terms of Service - Project Sites',
-        description: 'Terms of Service for Project Sites by Megabyte LLC. Please read these terms carefully before using our platform.',
-        url: `https://${SITES_BASE}/terms`,
-      },
-      content: {
-        title: 'Content Policy - Project Sites',
-        description: 'Content Policy for Project Sites by Megabyte LLC. Guidelines for acceptable content on our AI website generation platform.',
-        url: `https://${SITES_BASE}/content`,
-      },
-      contact: {
-        title: 'Contact Us - Project Sites',
-        description: 'Get in touch with the Project Sites team at Megabyte LLC. We are here to help with your AI-powered website.',
-        url: `https://${SITES_BASE}/contact`,
-      },
-    };
-
-    // PostHog injection
-    let html = spaHtml.replace('</head>', `<meta name="x-posthog-key" content="test-key">\n</head>`);
-
-    // Screen activation
-    html = html.replace(
-      'id="screen-search" class="screen screen-search active"',
-      'id="screen-search" class="screen screen-search"',
-    );
-    html = html.replace(
-      `id="screen-${screenName}" class="screen screen-legal"`,
-      `id="screen-${screenName}" class="screen screen-legal active"`,
-    );
-
-    const meta = screenMeta[screenName];
-    if (meta) {
-      html = html.replace(/<title>[^<]*<\/title>/, `<title>${meta.title}</title>`);
-      html = html.replace(
-        /<meta name="description" content="[^"]*">/,
-        `<meta name="description" content="${meta.description}">`,
-      );
-      html = html.replace(
-        /<link rel="canonical" href="[^"]*">/,
-        `<link rel="canonical" href="${meta.url}">`,
-      );
-      html = html.replace(
-        /<meta property="og:title" content="[^"]*">/,
-        `<meta property="og:title" content="${meta.title}">`,
-      );
-      html = html.replace(
-        /<meta property="og:description" content="[^"]*">/,
-        `<meta property="og:description" content="${meta.description}">`,
-      );
-      html = html.replace(
-        /<meta property="og:url" content="[^"]*">/,
-        `<meta property="og:url" content="${meta.url}">`,
-      );
-      html = html.replace(
-        /<meta property="og:type" content="[^"]*">/,
-        `<meta property="og:type" content="article">`,
-      );
-      html = html.replace(
-        /<meta name="twitter:title" content="[^"]*">/,
-        `<meta name="twitter:title" content="${meta.title}">`,
-      );
-      html = html.replace(
-        /<meta name="twitter:description" content="[^"]*">/,
-        `<meta name="twitter:description" content="${meta.description}">`,
-      );
-      html = html.replace(
-        /<meta property="al:web:url" content="[^"]*">/,
-        `<meta property="al:web:url" content="${meta.url}">`,
-      );
-    }
-
-    return html;
-  }
-
-  let spaHtml: string;
-
-  beforeAll(() => {
-    spaHtml = readPublicFile('index.html');
-  });
-
-  describe('/privacy SSR', () => {
-    let result: string;
-
-    beforeAll(() => {
-      result = simulateSSR(spaHtml, '/privacy');
-    });
-
-    it('replaces <title> with privacy policy title', () => {
-      expect(result).toContain('<title>Privacy Policy - Project Sites</title>');
-      expect(result).not.toContain('<title>Project Sites - Your Website, Handled. Finally.</title>');
-    });
-
-    it('replaces meta description', () => {
-      expect(result).toContain('content="Privacy Policy for Project Sites by Megabyte LLC');
-    });
-
-    it('replaces canonical URL', () => {
-      expect(result).toContain('<link rel="canonical" href="https://sites.megabyte.space/privacy">');
-    });
-
-    it('replaces og:title', () => {
-      expect(result).toContain('<meta property="og:title" content="Privacy Policy - Project Sites">');
-    });
-
-    it('replaces og:description', () => {
-      expect(result).toMatch(/<meta property="og:description" content="Privacy Policy for Project Sites/);
-    });
-
-    it('replaces og:url', () => {
-      expect(result).toContain('<meta property="og:url" content="https://sites.megabyte.space/privacy">');
-    });
-
-    it('replaces og:type to article', () => {
-      expect(result).toContain('<meta property="og:type" content="article">');
-    });
-
-    it('replaces twitter:title', () => {
-      expect(result).toContain('<meta name="twitter:title" content="Privacy Policy - Project Sites">');
-    });
-
-    it('replaces twitter:description', () => {
-      expect(result).toMatch(/<meta name="twitter:description" content="Privacy Policy for Project Sites/);
-    });
-
-    it('replaces al:web:url', () => {
-      expect(result).toContain('<meta property="al:web:url" content="https://sites.megabyte.space/privacy">');
-    });
-
-    it('injects PostHog meta key', () => {
-      expect(result).toContain('<meta name="x-posthog-key" content="test-key">');
-    });
-
-    it('hides search screen', () => {
-      expect(result).toContain('id="screen-search" class="screen screen-search"');
-      expect(result).not.toContain('id="screen-search" class="screen screen-search active"');
-    });
-
-    it('activates privacy screen', () => {
-      expect(result).toContain('id="screen-privacy" class="screen screen-legal active"');
-    });
-
-    it('preserves og:image', () => {
-      expect(result).toContain('<meta property="og:image" content="https://sites.megabyte.space/icon-512.png">');
-    });
-
-    it('preserves twitter:image', () => {
-      expect(result).toContain('<meta name="twitter:image" content="https://sites.megabyte.space/icon-512.png">');
-    });
-
-    it('preserves og:site_name', () => {
-      expect(result).toContain('<meta property="og:site_name" content="Project Sites">');
-    });
-  });
-
-  describe('/terms SSR', () => {
-    let result: string;
-
-    beforeAll(() => {
-      result = simulateSSR(spaHtml, '/terms');
-    });
-
-    it('replaces <title> with terms title', () => {
-      expect(result).toContain('<title>Terms of Service - Project Sites</title>');
-    });
-
-    it('replaces og:title', () => {
-      expect(result).toContain('<meta property="og:title" content="Terms of Service - Project Sites">');
-    });
-
-    it('replaces canonical URL', () => {
-      expect(result).toContain('<link rel="canonical" href="https://sites.megabyte.space/terms">');
-    });
-
-    it('replaces og:url', () => {
-      expect(result).toContain('<meta property="og:url" content="https://sites.megabyte.space/terms">');
-    });
-
-    it('replaces twitter:title', () => {
-      expect(result).toContain('<meta name="twitter:title" content="Terms of Service - Project Sites">');
-    });
-
-    it('sets og:type to article', () => {
-      expect(result).toContain('<meta property="og:type" content="article">');
-    });
-  });
-
-  describe('/content SSR', () => {
-    let result: string;
-
-    beforeAll(() => {
-      result = simulateSSR(spaHtml, '/content');
-    });
-
-    it('replaces <title> with content policy title', () => {
-      expect(result).toContain('<title>Content Policy - Project Sites</title>');
-    });
-
-    it('replaces og:title', () => {
-      expect(result).toContain('<meta property="og:title" content="Content Policy - Project Sites">');
-    });
-
-    it('replaces canonical URL', () => {
-      expect(result).toContain('<link rel="canonical" href="https://sites.megabyte.space/content">');
-    });
-
-    it('replaces og:url', () => {
-      expect(result).toContain('<meta property="og:url" content="https://sites.megabyte.space/content">');
-    });
-
-    it('replaces meta description', () => {
-      expect(result).toContain('content="Content Policy for Project Sites by Megabyte LLC');
-    });
-  });
-
-  describe('/contact SSR', () => {
-    let result: string;
-
-    beforeAll(() => {
-      result = simulateSSR(spaHtml, '/contact');
-    });
-
-    it('replaces <title> with contact title', () => {
-      expect(result).toContain('<title>Contact Us - Project Sites</title>');
-    });
-
-    it('replaces og:title', () => {
-      expect(result).toContain('<meta property="og:title" content="Contact Us - Project Sites">');
-    });
-
-    it('replaces canonical URL', () => {
-      expect(result).toContain('<link rel="canonical" href="https://sites.megabyte.space/contact">');
-    });
-
-    it('replaces meta description', () => {
-      expect(result).toContain('content="Get in touch with the Project Sites team at Megabyte LLC');
-    });
-  });
-
-  describe('Unknown screens are unmodified', () => {
-    it('does not replace meta tags for unknown paths', () => {
-      const result = simulateSSR(spaHtml, '/unknown');
-      // Title should remain unchanged (SSR meta injection only fires for known screens)
-      expect(result).toContain('<title>Project Sites - Your Website, Handled. Finally.</title>');
-      expect(result).toContain('<meta property="og:type" content="website">');
-    });
   });
 });
 
