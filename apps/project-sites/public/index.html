@@ -340,8 +340,8 @@
       display: none;
       background: linear-gradient(135deg, rgba(15, 15, 35, 0.95), rgba(10, 10, 26, 0.98));
       border-bottom: 1px solid var(--border);
+      margin-top: 60px;
       padding: 24px 0;
-      padding-top: 84px;
       animation: fadeIn 0.3s ease;
     }
     .admin-panel.visible { display: block; }
@@ -2513,7 +2513,7 @@
   </div>
 
   <!-- Domain Management Modal -->
-  <div id="domain-modal" class="modal-overlay">
+  <div id="domain-modal" class="modal-overlay" onclick="if(event.target===this)closeDomainModal()">
     <div class="modal">
       <div class="modal-title">
         <span id="domain-modal-title">Manage Domains</span>
@@ -2530,7 +2530,7 @@
   </div>
 
   <!-- Delete Confirmation Modal -->
-  <div id="delete-modal" class="modal-overlay">
+  <div id="delete-modal" class="modal-overlay" onclick="if(event.target===this)closeDeleteModal()">
     <div class="modal" style="max-width:400px;">
       <div class="modal-title">
         <span>Delete Website?</span>
@@ -2545,7 +2545,7 @@
   </div>
 
   <!-- Details Modal (Describe your custom website) -->
-  <div id="details-modal" class="details-modal-overlay">
+  <div id="details-modal" class="details-modal-overlay" onclick="if(event.target===this)closeDetailsModal()">
     <div class="details-card">
       <button class="details-modal-close" onclick="closeDetailsModal()" title="Close">&times;</button>
       <h2 id="details-title">Describe your custom website</h2>
@@ -3276,12 +3276,13 @@
         html += '</div>';
 
         // Plan badge row (Free / Paid per site)
+        var sitePlan = s.plan || 'free';
         html += '<div class="site-card-plan-row">';
-        if (isPaidOrg) {
+        if (sitePlan === 'paid') {
           html += '<span class="plan-badge paid">Paid</span>';
         } else {
           html += '<span class="plan-badge free">Free</span>';
-          html += '<button class="site-card-upgrade-btn" onclick="openSiteCheckout(\'' + escapeHtml(s.id) + '\')">Upgrade</button>';
+          html += '<button class="site-card-upgrade-btn" onclick="openSiteCheckout(\'' + escapeHtml(s.id) + '\')">Upgrade to Paid</button>';
         }
         html += '</div>';
 
@@ -3315,7 +3316,7 @@
         } else if (status === 'building') {
           html += '<button class="site-card-btn" onclick="state.siteId=\'' + escapeHtml(s.id) + '\';state.slug=\'' + escapeHtml(slug) + '\';navigateTo(\'waiting\');">Status</button>';
         }
-        if (isPaidOrg) {
+        if (sitePlan === 'paid') {
           html += '<button class="site-card-btn" onclick="openDomainModal(\'' + escapeHtml(s.id) + '\', \'' + escapeHtml(name) + '\')">Domains</button>';
         }
         html += '<button class="site-card-btn danger" onclick="openDeleteModal(\'' + escapeHtml(s.id) + '\', \'' + escapeHtml(name) + '\')">Delete</button>';

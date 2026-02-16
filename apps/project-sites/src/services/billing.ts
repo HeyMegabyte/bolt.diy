@@ -244,6 +244,12 @@ export async function handleCheckoutCompleted(
     [orgId],
   );
 
+  // Mark the specific site as paid if site_id is present
+  const siteId = event.metadata?.site_id;
+  if (siteId) {
+    await dbUpdate(db, 'sites', { plan: 'paid' }, 'id = ? AND org_id = ?', [siteId, orgId]);
+  }
+
   // Call optional sale webhook
   if (env.SALE_WEBHOOK_URL && env.SALE_WEBHOOK_SECRET) {
     await callSaleWebhook(env, {
@@ -339,6 +345,9 @@ export async function handleSubscriptionDeleted(
     'org_id = ?',
     [orgId],
   );
+
+  // Downgrade all org sites to free
+  await dbUpdate(db, 'sites', { plan: 'free' }, 'org_id = ?', [orgId]);
 }
 
 /**
