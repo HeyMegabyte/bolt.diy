@@ -201,6 +201,13 @@ export class LLMManager {
   }
 
   getDefaultProvider(): BaseProvider {
+    // Explicitly default to Anthropic if available
+    const anthropic = this._providers.get('Anthropic');
+
+    if (anthropic) {
+      return anthropic;
+    }
+
     const firstProvider = this._providers.values().next().value;
 
     if (!firstProvider) {
