@@ -304,6 +304,35 @@
     }
     .logo img { flex-shrink: 0; }
 
+    .header-auth {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-auth-user {
+      color: rgba(255,255,255,0.7);
+      font-size: 0.85rem;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .header-auth-btn {
+      padding: 6px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--accent);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .header-auth-btn:hover {
+      background: rgba(100, 255, 218, 0.1);
+      border-color: var(--accent);
+    }
+
     /* ======================================================
        Screens Container
        ====================================================== */
@@ -2027,6 +2056,10 @@
       <a class="logo" onclick="navigateTo('search')">
         <img src="/logo-header.svg" alt="Project Sites" style="flex-shrink:0; height:auto; max-height:48px; max-width:300px;">
       </a>
+      <div id="header-auth" class="header-auth">
+        <span id="header-auth-user" class="header-auth-user" style="display:none;"></span>
+        <button id="header-auth-btn" class="header-auth-btn" onclick="handleHeaderAuth()">Sign In</button>
+      </div>
     </div>
   </header>
 
@@ -2745,6 +2778,82 @@
       userLng: null
     };
 
+    /* ===========================================================
+       Session Persistence + Navbar Auth
+       =========================================================== */
+    function saveSession() {
+      if (state.session && state.session.token) {
+        try { localStorage.setItem('ps_session', JSON.stringify(state.session)); } catch(e) {}
+      }
+    }
+
+    function clearSession() {
+      state.session = null;
+      try { localStorage.removeItem('ps_session'); } catch(e) {}
+    }
+
+    function updateNavAuth() {
+      var userEl = document.getElementById('header-auth-user');
+      var btnEl = document.getElementById('header-auth-btn');
+      if (!userEl || !btnEl) return;
+
+      if (state.session && state.session.token) {
+        userEl.textContent = state.session.identifier || 'Signed In';
+        userEl.style.display = '';
+        btnEl.textContent = 'Sign Out';
+      } else {
+        userEl.style.display = 'none';
+        userEl.textContent = '';
+        btnEl.textContent = 'Sign In';
+      }
+    }
+
+    function handleHeaderAuth() {
+      if (state.session && state.session.token) {
+        logout();
+      } else {
+        navigateTo('signin');
+      }
+    }
+
+    function logout() {
+      clearSession();
+      updateNavAuth();
+      navigateTo('search');
+    }
+
+    // Restore session from localStorage on page load
+    (function restoreSession() {
+      var saved;
+      try { saved = localStorage.getItem('ps_session'); } catch(e) { return; }
+      if (!saved) return;
+      try {
+        var parsed = JSON.parse(saved);
+        if (parsed && parsed.token) {
+          state.session = parsed;
+          updateNavAuth();
+          // Validate token with server
+          fetch('/api/auth/me', {
+            headers: { 'Authorization': 'Bearer ' + parsed.token }
+          }).then(function(res) {
+            if (!res.ok) { clearSession(); updateNavAuth(); return; }
+            return res.json();
+          }).then(function(data) {
+            if (data && data.data) {
+              state.session.identifier = data.data.email || data.data.display_name || state.session.identifier;
+              saveSession();
+              updateNavAuth();
+            }
+          }).catch(function() {
+            clearSession();
+            updateNavAuth();
+          });
+        }
+      } catch(e) {
+        clearSession();
+      }
+    })();
+
     // Request browser geolocation with custom modal
     // Only show if: (1) geolocation is supported, (2) user hasn't declined before,
     // (3) location isn't already available, (4) we're on the homepage with search input visible,
@@ -3314,6 +3423,8 @@
             token: data.token || '',
             identifier: email
           };
+          saveSession();
+          updateNavAuth();
 
           if (typeof posthog !== 'undefined' && posthog.capture) {
             posthog.capture('signin_email_sent', { email: email });
@@ -3709,6 +3820,8 @@
             token: token,
             identifier: email || phone || 'Authenticated'
           };
+          saveSession();
+          updateNavAuth();
 
           // Read business info from URL params (carried through magic link redirect_url)
           var bizName = params.get('biz_name') || '';
