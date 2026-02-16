@@ -1132,12 +1132,11 @@ test.describe('Homepage: Marketing Sections & Interactive Features', () => {
     // ── Footer ───────────────────────────────────────────
     const footer = page.locator('footer');
     await expect(footer).toBeVisible();
-    await expect(footer.getByText(/© 2025 Megabyte LLC/)).toBeVisible();
+    await expect(footer.getByText(/© 2026 Megabyte LLC/)).toBeVisible();
 
-    // Legal links
-    await expect(footer.getByRole('link', { name: /privacy/i })).toHaveAttribute('href', '/privacy');
-    await expect(footer.getByRole('link', { name: /terms/i })).toHaveAttribute('href', '/terms');
-    await expect(footer.getByRole('link', { name: /content policy/i })).toHaveAttribute('href', '/content');
+    // Footer links
+    await expect(footer.getByRole('link', { name: /support/i })).toHaveAttribute('href', 'mailto:hey@megabyte.space');
+    await expect(footer.getByRole('link', { name: /contact/i })).toBeVisible();
 
     // Social links
     await expect(footer.locator('a[href*="github.com/HeyMegabyte"]')).toBeVisible();
