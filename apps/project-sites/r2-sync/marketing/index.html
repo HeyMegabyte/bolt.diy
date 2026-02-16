@@ -10,20 +10,27 @@
   <meta name="author" content="Brian Zalewski">
   <meta name="copyright" content="Megabyte LLC">
   <meta name="robots" content="index, follow">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
   <meta name="format-detection" content="telephone=no">
   <meta name="HandheldFriendly" content="True">
   <meta name="MobileOptimized" content="400">
+  <meta name="contact" content="help@megabyte.space">
+  <meta name="geography" content="USA">
+  <meta itemprop="image" content="https://sites.megabyte.space/icon-512.png">
 
   <!-- Favicons & App Icons -->
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/svg+xml" href="/logo-icon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png">
+  <link rel="apple-touch-icon" type="image/png" sizes="180x180" href="/icon-180.png">
+  <link rel="mask-icon" href="/logo-icon.svg" color="#50a5db">
   <link rel="manifest" href="/site.webmanifest">
 
   <!-- Mobile Web App -->
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Project Sites">
   <meta name="application-name" content="Project Sites">
@@ -34,6 +41,9 @@
   <meta name="msapplication-starturl" content="https://sites.megabyte.space">
   <meta name="msapplication-tap-highlight" content="no">
   <meta name="msapplication-tooltip" content="Project Sites: AI-powered websites for small businesses">
+  <meta name="msapplication-task" content="name=Home;action-uri=https://sites.megabyte.space;icon-uri=https://sites.megabyte.space/favicon.ico">
+  <meta name="msapplication-task" content="name=Privacy Policy;action-uri=https://sites.megabyte.space/privacy;icon-uri=https://sites.megabyte.space/favicon.ico">
+  <meta name="msapplication-task" content="name=Terms of Service;action-uri=https://sites.megabyte.space/terms;icon-uri=https://sites.megabyte.space/favicon.ico">
   <meta name="theme-color" content="#0a0a1a">
 
   <!-- Open Graph -->
@@ -106,7 +116,7 @@
     ],
     "softwareVersion": "1.0.0",
     "thumbnailUrl": "https://sites.megabyte.space/icon-180.png",
-    "copyrightYear": 2025,
+    "copyrightYear": 2026,
     "copyrightHolder": "Megabyte LLC",
     "creator": "Brian Zalewski"
   }
@@ -138,11 +148,42 @@
       "streetAddress": "63 James Street"
     },
     "sameAs": [
-      "https://github.com/megabyte-labs",
+      "https://github.com/HeyMegabyte",
       "https://gitlab.com/megabyte-labs",
-      "https://linkedin.com/company/megabyte-labs"
+      "https://linkedin.com/company/megabyte-labs",
+      "https://www.youtube.com/@HeyMegabyte",
+      "https://x.com/HeyMegabyte",
+      "https://www.instagram.com/heymegabyteofficial/",
+      "https://www.facebook.com/HeyMegabyte"
     ]
   }
+  </script>
+
+  <!-- JSON-LD: Legal Pages -->
+  <script type="application/ld+json">
+  [
+    {
+      "@context": "http://schema.org",
+      "@type": "Article",
+      "url": "https://sites.megabyte.space/privacy",
+      "headline": "Privacy Policy",
+      "image": { "@list": [{ "@type": "ImageObject", "url": "https://sites.megabyte.space/icon-512.png" }] }
+    },
+    {
+      "@context": "http://schema.org",
+      "@type": "Article",
+      "url": "https://sites.megabyte.space/terms",
+      "headline": "Terms of Service",
+      "image": { "@list": [{ "@type": "ImageObject", "url": "https://sites.megabyte.space/icon-512.png" }] }
+    },
+    {
+      "@context": "http://schema.org",
+      "@type": "Article",
+      "url": "https://sites.megabyte.space/content",
+      "headline": "Content Policy",
+      "image": { "@list": [{ "@type": "ImageObject", "url": "https://sites.megabyte.space/icon-512.png" }] }
+    }
+  ]
   </script>
 
   <!-- Preconnect to key CDNs -->
@@ -162,16 +203,16 @@
       --bg-card: #161635;
       --bg-card-hover: #1c1c45;
       --bg-input: #0f0f2a;
-      --accent: #64ffda;
-      --accent-dim: rgba(100, 255, 218, 0.12);
-      --accent-glow: rgba(100, 255, 218, 0.25);
+      --accent: #50a5db;
+      --accent-dim: rgba(80, 165, 219, 0.12);
+      --accent-glow: rgba(80, 165, 219, 0.25);
       --secondary: #7c3aed;
       --secondary-dim: rgba(124, 58, 237, 0.15);
       --text-primary: #e2e8f0;
       --text-secondary: #94a3b8;
       --text-muted: #64748b;
-      --border: rgba(100, 255, 218, 0.1);
-      --border-hover: rgba(100, 255, 218, 0.3);
+      --border: rgba(80, 165, 219, 0.1);
+      --border-hover: rgba(80, 165, 219, 0.3);
       --error: #ef4444;
       --error-dim: rgba(239, 68, 68, 0.12);
       --success: #22c55e;
@@ -179,7 +220,7 @@
       --radius-lg: 16px;
       --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
       --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
-      --shadow-accent: 0 0 30px rgba(100, 255, 218, 0.15);
+      --shadow-accent: 0 0 30px rgba(80, 165, 219, 0.15);
       --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
@@ -725,7 +766,7 @@
     }
     .btn-accent:hover:not(:disabled) {
       transform: translateY(-2px);
-      box-shadow: 0 0 40px rgba(100, 255, 218, 0.3), 0 0 80px rgba(100, 255, 218, 0.1);
+      box-shadow: 0 0 40px rgba(80, 165, 219, 0.3), 0 0 80px rgba(80, 165, 219, 0.1);
     }
     .btn-secondary-outline {
       background: transparent;
@@ -769,7 +810,78 @@
     .msg-info {
       background: var(--accent-dim);
       color: var(--accent);
-      border: 1px solid rgba(100, 255, 218, 0.15);
+      border: 1px solid rgba(80, 165, 219, 0.15);
+    }
+
+    /* ======================================================
+       Location Permission Modal
+       ====================================================== */
+    .location-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.3s ease;
+    }
+    .location-modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+      animation: fadeInScale 0.3s ease;
+    }
+    .location-modal-icon {
+      margin-bottom: 16px;
+      color: var(--accent);
+    }
+    .location-modal h3 {
+      color: var(--text-primary);
+      font-size: 1.15rem;
+      margin-bottom: 8px;
+    }
+    .location-modal p {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+    .location-modal-actions {
+      display: flex;
+      gap: 12px;
+    }
+    .location-modal-actions button {
+      flex: 1;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: var(--transition);
+    }
+    .location-modal-actions .btn-allow {
+      background: linear-gradient(135deg, var(--accent), var(--secondary));
+      color: #fff;
+    }
+    .location-modal-actions .btn-allow:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-accent);
+    }
+    .location-modal-actions .btn-skip {
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .location-modal-actions .btn-skip:hover {
+      border-color: var(--border-hover);
+      color: var(--text-primary);
     }
 
     /* ======================================================
@@ -827,7 +939,7 @@
       gap: 12px;
       padding: 12px 16px;
       background: var(--accent-dim);
-      border: 1px solid rgba(100, 255, 218, 0.15);
+      border: 1px solid rgba(80, 165, 219, 0.15);
       border-radius: var(--radius);
       margin-bottom: 24px;
     }
@@ -985,10 +1097,81 @@
     }
     @media (max-width: 380px) {
       .header { padding: 0 16px; }
-      .screen-search, .screen-signin, .screen-details, .screen-waiting {
+      .screen-search, .screen-signin, .screen-details, .screen-waiting, .screen-legal {
         padding: 16px;
       }
     }
+
+    /* ======================================================
+       Legal Pages (Privacy, Terms, Content Policy)
+       ====================================================== */
+    .screen-legal {
+      padding: 40px 24px 80px;
+      min-height: auto;
+    }
+    .screen-legal.active {
+      justify-content: flex-start;
+      align-items: flex-start;
+    }
+    .legal-container {
+      max-width: 760px;
+      width: 100%;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+    .legal-container h2 {
+      font-size: 2rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--accent), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .legal-container .legal-updated {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-bottom: 32px;
+    }
+    .legal-container h3 {
+      color: var(--accent);
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin: 28px 0 12px;
+    }
+    .legal-container p,
+    .legal-container li {
+      color: var(--text-secondary);
+      font-size: 0.92rem;
+      line-height: 1.7;
+      margin-bottom: 12px;
+    }
+    .legal-container ul {
+      padding-left: 20px;
+      margin-bottom: 16px;
+    }
+    .legal-container a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .legal-container a:hover {
+      text-decoration: underline;
+    }
+    .legal-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      margin-bottom: 24px;
+      transition: color 0.2s;
+    }
+    .legal-back:hover { color: var(--accent); }
 
     /* ======================================================
        Marketing Sections (visible on search screen)
@@ -1090,8 +1273,6 @@
     .feature-icon {
       width: 48px;
       height: 48px;
-      border-radius: 12px;
-      background: var(--accent-dim);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1145,7 +1326,7 @@
     }
     .comparison-table thead th.highlight {
       color: var(--accent);
-      background: rgba(100, 255, 218, 0.06);
+      background: rgba(80, 165, 219, 0.06);
     }
     .comparison-table tbody td:first-child {
       text-align: left;
@@ -1153,7 +1334,7 @@
       color: var(--text-primary);
     }
     .comparison-table tbody td.highlight {
-      background: rgba(100, 255, 218, 0.04);
+      background: rgba(80, 165, 219, 0.04);
       color: var(--accent);
       font-weight: 600;
     }
@@ -1187,6 +1368,17 @@
       padding: 4px 14px;
       border-radius: 20px;
       margin-bottom: 20px;
+    }
+    .pricing-card-free .plan-label {
+      display: inline-block;
+      padding: 5px 15px;
+      margin-bottom: 15px;
+      margin-top: 10px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-radius: 20px;
     }
     .pricing-price {
       font-size: 3.5rem;
@@ -1512,7 +1704,7 @@
       margin-top: 32px;
       padding: 24px;
       background: var(--accent-dim);
-      border: 1px solid rgba(100,255,218,0.15);
+      border: 1px solid rgba(80,165,219,0.15);
       border-radius: var(--radius-lg);
       font-size: 0.95rem;
       color: var(--text-primary);
@@ -1547,7 +1739,7 @@
       letter-spacing: 0.04em;
     }
     .dvd-highlight .dvd-header {
-      background: rgba(100,255,218,0.06);
+      background: rgba(80,165,219,0.06);
       color: var(--accent);
     }
     .dvd-other .dvd-header {
@@ -1689,7 +1881,7 @@
       margin: 0;
     }
     .pricing-card-free {
-      background: linear-gradient(135deg, rgba(100,255,218,0.04), rgba(124,58,237,0.04));
+      background: linear-gradient(135deg, rgba(80,165,219,0.04), rgba(124,58,237,0.04));
       border: 2px dashed var(--accent);
       border-radius: var(--radius-lg);
       padding: 36px 28px;
@@ -1781,7 +1973,7 @@
   <header class="header">
     <div class="header-inner">
       <a class="logo" onclick="navigateTo('search')">
-        <img src="/logo-header.svg" alt="Project Sites" height="32" style="flex-shrink:0">
+        <img src="/logo-header.png" alt="Project Sites" style="flex-shrink:0; height:auto; max-height:48px; max-width:300px;">
       </a>
     </div>
   </header>
@@ -2262,11 +2454,11 @@
           </div>
 
           <div id="email-step-sent" style="display:none;">
-            <div class="msg msg-success visible" style="text-align:center; margin-top:0;">
+            <div class="msg msg-success visible" style="text-align:center; margin-top:12px;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:6px;">
                 <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
               </svg>
-              Check your email for a sign-in link. You can close this tab.
+              Check your email for a sign-in link. You can also try a different email above.
             </div>
           </div>
 
@@ -2294,12 +2486,12 @@
     <div id="screen-details" class="screen screen-details">
       <div class="details-card">
         <h2 id="details-title">Tell us more about your business</h2>
-        <p class="details-subtitle" id="details-subtitle">Any extra info helps us build the perfect website for you.</p>
+        <p class="details-subtitle" id="details-subtitle">Include everything important for your website. We'll also search the web for public info about your business.</p>
 
         <!-- Selected business display -->
         <div id="details-business-badge" class="selected-business-badge" style="display:none;">
           <div class="badge-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64ffda" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#50a5db" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
             </svg>
           </div>
@@ -2309,13 +2501,25 @@
           </div>
         </div>
 
+        <!-- Manual business info (shown when no business selected from search) -->
+        <div id="details-manual-fields" style="display:none;">
+          <div class="input-group">
+            <label for="business-name-input">Business Name</label>
+            <input type="text" id="business-name-input" class="input-field" placeholder="e.g. Vito's Men's Salon" maxlength="200" />
+          </div>
+          <div class="input-group">
+            <label for="business-address-input">Business Address (optional)</label>
+            <input type="text" id="business-address-input" class="input-field" placeholder="e.g. 74 N Beverwyck Rd, Lake Hiawatha, NJ 07034" maxlength="500" />
+          </div>
+        </div>
+
         <div class="input-group">
-          <label for="details-textarea">Additional Context / Instructions</label>
+          <label for="details-textarea">Tell us about your business</label>
           <textarea
             id="details-textarea"
             class="input-field"
             maxlength="5000"
-            placeholder="Tell us about your business, what services you offer, preferred style, brand colors, or any specific features you'd like on your website..."
+            placeholder="Share details like your phone number, email address, physical address, business hours, services offered, brand colors, style preferences, or any specific features you'd like on your website. On top of the information you provide here, we'll also intelligently search the internet for public data about your business to help build the best possible site."
           ></textarea>
         </div>
 
@@ -2371,15 +2575,290 @@
 
   </div>
 
+  <!-- ==========================================
+       Screen: Privacy Policy
+       ========================================== -->
+  <div id="screen-privacy" class="screen screen-legal">
+    <div class="legal-container">
+      <button class="legal-back" onclick="navigateToLegal(null)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        Back to home
+      </button>
+      <h2>Privacy Policy</h2>
+      <p class="legal-updated">Last updated: February 15, 2026</p>
+
+      <h3>1. Introduction</h3>
+      <p>Megabyte LLC ("we," "us," or "our") operates Project Sites (sites.megabyte.space). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our service.</p>
+
+      <h3>2. Information We Collect</h3>
+      <p>We collect information you provide directly to us:</p>
+      <ul>
+        <li><strong>Account Information:</strong> Email address when you sign in via magic link or Google OAuth.</li>
+        <li><strong>Business Information:</strong> Business name, address, and other details you provide for website generation.</li>
+        <li><strong>Uploaded Content:</strong> Logos, photos, documents, and other files you upload.</li>
+        <li><strong>Usage Data:</strong> Pages viewed, features used, and interactions with the service.</li>
+      </ul>
+
+      <h3>3. How We Use Your Information</h3>
+      <ul>
+        <li>Generate and host your website</li>
+        <li>Authenticate your identity and manage your account</li>
+        <li>Process payments and manage subscriptions</li>
+        <li>Send transactional emails (sign-in links, build notifications)</li>
+        <li>Improve our service through anonymized analytics</li>
+        <li>Respond to support requests</li>
+      </ul>
+
+      <h3>4. Information Sharing</h3>
+      <p>We do not sell your personal information. We may share information with:</p>
+      <ul>
+        <li><strong>Service Providers:</strong> Cloudflare (hosting), Stripe (payments), Resend/SendGrid (email delivery), PostHog (analytics), Google (business search).</li>
+        <li><strong>Legal Requirements:</strong> When required by law, subpoena, or legal process.</li>
+        <li><strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets.</li>
+      </ul>
+
+      <h3>5. Data Storage and Security</h3>
+      <p>Your data is stored on Cloudflare's global network using D1 (database), R2 (file storage), and KV (caching). We use encryption in transit (TLS) and at rest. Session tokens are hashed using SHA-256 before storage.</p>
+
+      <h3>6. Your Rights</h3>
+      <p>You may request to:</p>
+      <ul>
+        <li>Access, correct, or delete your personal data</li>
+        <li>Export your data in a portable format</li>
+        <li>Opt out of analytics tracking</li>
+        <li>Delete your account and all associated data</li>
+      </ul>
+      <p>Contact us at <a href="mailto:privacy@megabyte.space">privacy@megabyte.space</a> to exercise these rights.</p>
+
+      <h3>7. Cookies and Tracking</h3>
+      <p>We use session tokens stored in your browser's sessionStorage (not cookies) for authentication. PostHog analytics collects anonymized usage data. You can opt out by enabling Do Not Track in your browser.</p>
+
+      <h3>8. Location Data</h3>
+      <p>We may request your browser's geolocation to provide distance-based search results. This data is used only during your session and is never stored on our servers.</p>
+
+      <h3>9. Children's Privacy</h3>
+      <p>Our service is not intended for children under 13. We do not knowingly collect information from children under 13.</p>
+
+      <h3>10. Changes to This Policy</h3>
+      <p>We may update this policy from time to time. We will notify you of material changes by posting the updated policy on this page with a new "Last updated" date.</p>
+
+      <h3>11. Contact Us</h3>
+      <p>Megabyte LLC<br>63 James Street, Morristown, NJ 07960<br>Email: <a href="mailto:privacy@megabyte.space">privacy@megabyte.space</a></p>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Screen: Terms of Service
+       ========================================== -->
+  <div id="screen-terms" class="screen screen-legal">
+    <div class="legal-container">
+      <button class="legal-back" onclick="navigateToLegal(null)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        Back to home
+      </button>
+      <h2>Terms of Service</h2>
+      <p class="legal-updated">Last updated: February 15, 2026</p>
+
+      <h3>1. Acceptance of Terms</h3>
+      <p>By accessing or using Project Sites (sites.megabyte.space), operated by Megabyte LLC, you agree to be bound by these Terms of Service. If you do not agree, do not use the service.</p>
+
+      <h3>2. Description of Service</h3>
+      <p>Project Sites is an AI-powered website generation and hosting platform. We use artificial intelligence to create professional websites for small businesses based on business information you provide.</p>
+
+      <h3>3. Account Registration</h3>
+      <ul>
+        <li>You must provide a valid email address to create an account.</li>
+        <li>You are responsible for maintaining the security of your account credentials.</li>
+        <li>You must be at least 18 years old or have parental consent to use the service.</li>
+        <li>One person or entity may not maintain more than one free account.</li>
+      </ul>
+
+      <h3>4. Free and Paid Plans</h3>
+      <ul>
+        <li><strong>Free Plan:</strong> Includes AI-generated website with a Project Sites promotional bar. Hosted on a subdomain (slug-sites.megabyte.space).</li>
+        <li><strong>Paid Plan ($50/month or $480/year):</strong> Removes promotional bar, enables custom domains, priority support, and advanced features.</li>
+        <li>Payments are processed by Stripe. Subscriptions renew automatically unless cancelled.</li>
+        <li>Refunds are available within 14 days of initial purchase if you are not satisfied.</li>
+      </ul>
+
+      <h3>5. Acceptable Use</h3>
+      <p>You agree not to use the service to:</p>
+      <ul>
+        <li>Violate any applicable laws or regulations</li>
+        <li>Host malicious content, malware, or phishing pages</li>
+        <li>Infringe on intellectual property rights of others</li>
+        <li>Distribute spam or unsolicited communications</li>
+        <li>Impersonate another person or entity</li>
+        <li>Attempt to circumvent rate limits, security measures, or access controls</li>
+        <li>Host content that promotes violence, discrimination, or illegal activities</li>
+      </ul>
+
+      <h3>6. Content Ownership</h3>
+      <ul>
+        <li>You retain ownership of content you upload (logos, photos, text).</li>
+        <li>AI-generated website code and design are licensed to you for use with the service.</li>
+        <li>You grant us a limited license to host and serve your content as part of the service.</li>
+        <li>We may showcase your site (with branding removed) in marketing materials unless you opt out.</li>
+      </ul>
+
+      <h3>7. Service Availability</h3>
+      <p>We strive for 99.9% uptime but do not guarantee uninterrupted service. We are not liable for downtime due to maintenance, infrastructure issues, or circumstances beyond our control.</p>
+
+      <h3>8. Termination</h3>
+      <ul>
+        <li>You may delete your account at any time by contacting support.</li>
+        <li>We may suspend or terminate accounts that violate these terms.</li>
+        <li>Upon termination, your site will be taken offline and data deleted within 30 days.</li>
+      </ul>
+
+      <h3>9. Limitation of Liability</h3>
+      <p>To the maximum extent permitted by law, Megabyte LLC shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of the service. Our total liability shall not exceed the amount you paid us in the 12 months preceding the claim.</p>
+
+      <h3>10. Governing Law</h3>
+      <p>These terms are governed by the laws of the State of New Jersey, United States. Any disputes shall be resolved in the courts of Morris County, New Jersey.</p>
+
+      <h3>11. Changes to Terms</h3>
+      <p>We may modify these terms at any time. Continued use after changes constitutes acceptance of the new terms.</p>
+
+      <h3>12. Contact</h3>
+      <p>Megabyte LLC<br>63 James Street, Morristown, NJ 07960<br>Email: <a href="mailto:legal@megabyte.space">legal@megabyte.space</a></p>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Screen: Content Policy
+       ========================================== -->
+  <div id="screen-content" class="screen screen-legal">
+    <div class="legal-container">
+      <button class="legal-back" onclick="navigateToLegal(null)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        Back to home
+      </button>
+      <h2>Content Policy</h2>
+      <p class="legal-updated">Last updated: February 15, 2026</p>
+
+      <h3>1. Overview</h3>
+      <p>This Content Policy outlines what content is and is not allowed on websites generated and hosted by Project Sites. We reserve the right to remove content or suspend accounts that violate this policy.</p>
+
+      <h3>2. Prohibited Content</h3>
+      <p>The following content is not allowed on any Project Sites-hosted website:</p>
+      <ul>
+        <li><strong>Illegal Content:</strong> Anything that violates local, state, federal, or international law.</li>
+        <li><strong>Harmful Content:</strong> Content that promotes violence, self-harm, terrorism, or extremism.</li>
+        <li><strong>Hate Speech:</strong> Content that attacks individuals or groups based on race, ethnicity, religion, gender, sexual orientation, disability, or national origin.</li>
+        <li><strong>Adult Content:</strong> Explicit sexual content or pornography.</li>
+        <li><strong>Fraud and Deception:</strong> Phishing, scam websites, counterfeit goods, or misleading health/financial claims.</li>
+        <li><strong>Malware:</strong> Code designed to harm, exploit, or gain unauthorized access to systems.</li>
+        <li><strong>Intellectual Property Violations:</strong> Content that infringes on copyrights, trademarks, or other IP rights.</li>
+        <li><strong>Privacy Violations:</strong> Doxxing, non-consensual intimate imagery, or unauthorized disclosure of personal information.</li>
+        <li><strong>Spam:</strong> Deceptive SEO, link farms, or auto-generated content designed to manipulate search rankings.</li>
+      </ul>
+
+      <h3>3. AI-Generated Content Guidelines</h3>
+      <p>Websites generated by our AI must:</p>
+      <ul>
+        <li>Accurately represent the business or entity they describe</li>
+        <li>Not contain fabricated reviews, testimonials, or credentials</li>
+        <li>Include factual information based on publicly available data</li>
+        <li>Clearly indicate AI involvement if required by applicable regulations</li>
+      </ul>
+
+      <h3>4. User-Uploaded Content</h3>
+      <p>When uploading logos, photos, or documents:</p>
+      <ul>
+        <li>You must have the right to use all uploaded content</li>
+        <li>Images must not contain prohibited content as described above</li>
+        <li>File uploads are scanned for malware and inappropriate content</li>
+        <li>Maximum file size: 10MB per file, 5 files per submission</li>
+      </ul>
+
+      <h3>5. Reporting Violations</h3>
+      <p>If you encounter content that violates this policy, please report it to <a href="mailto:abuse@megabyte.space">abuse@megabyte.space</a> with:</p>
+      <ul>
+        <li>The URL of the offending website</li>
+        <li>A description of the violation</li>
+        <li>Any supporting evidence</li>
+      </ul>
+
+      <h3>6. Enforcement</h3>
+      <ul>
+        <li><strong>First Violation:</strong> Warning and request to remove offending content within 48 hours.</li>
+        <li><strong>Second Violation:</strong> Temporary suspension of the site (7 days).</li>
+        <li><strong>Severe or Repeated Violations:</strong> Permanent account termination and content removal.</li>
+        <li><strong>Illegal Content:</strong> Immediate removal and report to appropriate authorities.</li>
+      </ul>
+
+      <h3>7. Appeals</h3>
+      <p>If you believe your content was removed in error, contact <a href="mailto:appeals@megabyte.space">appeals@megabyte.space</a>. We will review appeals within 5 business days.</p>
+
+      <h3>8. Contact</h3>
+      <p>Megabyte LLC<br>63 James Street, Morristown, NJ 07960<br>Email: <a href="mailto:abuse@megabyte.space">abuse@megabyte.space</a></p>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       Screen: Contact Form
+       ========================================== -->
+  <div id="screen-contact" class="screen screen-legal">
+    <div class="legal-container">
+      <button class="legal-back" onclick="navigateToLegal(null)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        Back to home
+      </button>
+      <h2>Contact Us</h2>
+      <p style="color:var(--text-secondary);margin-bottom:32px;">Have a question, feedback, or need help? We'd love to hear from you.</p>
+
+      <form id="contact-form" onsubmit="event.preventDefault();submitContactForm();" novalidate>
+        <div class="input-group">
+          <label for="contact-name">Name <span style="color:var(--accent);">*</span></label>
+          <input type="text" id="contact-name" class="input-field" placeholder="Your full name" maxlength="200" required />
+        </div>
+        <div class="input-group">
+          <label for="contact-email">Email <span style="color:var(--accent);">*</span></label>
+          <input type="email" id="contact-email" class="input-field" placeholder="you@example.com" maxlength="254" required />
+        </div>
+        <div class="input-group">
+          <label for="contact-phone">Phone <span style="color:var(--text-muted);">(optional)</span></label>
+          <input type="tel" id="contact-phone" class="input-field" placeholder="+1 (555) 123-4567" maxlength="20" />
+        </div>
+        <div class="input-group">
+          <label for="contact-message">Message <span style="color:var(--accent);">*</span></label>
+          <textarea id="contact-message" class="input-field" placeholder="How can we help you?" maxlength="5000" required style="min-height:150px;"></textarea>
+        </div>
+        <button class="btn btn-accent btn-large btn-full" id="contact-submit-btn" type="submit">
+          Send Message
+        </button>
+        <div id="contact-msg" class="msg"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Location Permission Modal -->
+  <div id="location-modal" class="location-modal-overlay" style="display:none;">
+    <div class="location-modal">
+      <div class="location-modal-icon">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+        </svg>
+      </div>
+      <h3>Enable location for better results?</h3>
+      <p>We can show businesses near you and sort results by distance. Your location is never stored or shared.</p>
+      <div class="location-modal-actions">
+        <button class="btn-skip" onclick="dismissLocationModal()">Skip</button>
+        <button class="btn-allow" onclick="allowLocation()">Allow</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Footer -->
   <footer class="site-footer">
     <div class="footer-inner">
       <div class="footer-links">
-        <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
-        <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a>
-        <a href="/content" target="_blank" rel="noopener noreferrer">Content Policy</a>
+        <a href="/privacy" onclick="event.preventDefault();navigateToLegal('privacy')">Privacy Policy</a>
+        <a href="/terms" onclick="event.preventDefault();navigateToLegal('terms')">Terms of Service</a>
+        <a href="/content" onclick="event.preventDefault();navigateToLegal('content')">Content Policy</a>
         <a href="mailto:support@megabyte.space">Support</a>
-        <a href="mailto:hey@megabyte.space">Contact</a>
+        <a href="/contact" onclick="event.preventDefault();navigateToLegal('contact')">Contact</a>
       </div>
       <div class="footer-social">
         <!-- GitHub -->
@@ -2408,7 +2887,7 @@
         </a>
       </div>
       <div class="footer-bottom">
-        <span>&copy; 2025 Megabyte LLC</span>
+        <span>&copy; 2026 Megabyte LLC</span>
         <span>Powered by <a href="https://megabyte.space" target="_blank" rel="noopener noreferrer">Megabyte Labs</a></span>
       </div>
     </div>
@@ -2436,16 +2915,27 @@
       userLng: null
     };
 
-    // Request browser geolocation for better local search results
+    // Request browser geolocation after 5-second delay with custom modal
+    function dismissLocationModal() {
+      document.getElementById('location-modal').style.display = 'none';
+    }
+    function allowLocation() {
+      document.getElementById('location-modal').style.display = 'none';
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          function(pos) {
+            state.userLat = pos.coords.latitude;
+            state.userLng = pos.coords.longitude;
+          },
+          function() { /* user denied or unavailable - that's fine */ },
+          { timeout: 5000, maximumAge: 300000 }
+        );
+      }
+    }
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        function(pos) {
-          state.userLat = pos.coords.latitude;
-          state.userLng = pos.coords.longitude;
-        },
-        function() { /* user denied or unavailable - that's fine */ },
-        { timeout: 5000, maximumAge: 300000 }
-      );
+      setTimeout(function() {
+        document.getElementById('location-modal').style.display = 'flex';
+      }, 5000);
     }
 
     var searchDebounceTimer = null;
@@ -2491,6 +2981,49 @@
         stopPolling();
       }
     }
+
+    /* ===========================================================
+       Legal Page Navigation (SPA routing)
+       =========================================================== */
+    var _prevScreen = 'search';
+    function navigateToLegal(page) {
+      if (page) {
+        _prevScreen = state.screen;
+        navigateTo(page);
+        window.history.pushState({ legal: page }, '', '/' + page);
+        window.scrollTo(0, 0);
+      } else {
+        navigateTo(_prevScreen || 'search');
+        window.history.pushState({}, '', '/');
+        window.scrollTo(0, 0);
+      }
+    }
+
+    // Handle browser back/forward for legal pages
+    window.addEventListener('popstate', function(e) {
+      if (e.state && e.state.legal) {
+        state.screen = e.state.legal;
+        render();
+      } else {
+        var path = window.location.pathname;
+        if (path === '/privacy' || path === '/terms' || path === '/content' || path === '/contact') {
+          state.screen = path.slice(1);
+          render();
+        } else {
+          state.screen = _prevScreen || 'search';
+          render();
+        }
+      }
+    });
+
+    // Deep-link: if URL is /privacy, /terms, /content, or /contact on page load
+    (function handleLegalDeepLink() {
+      var path = window.location.pathname;
+      if (path === '/privacy' || path === '/terms' || path === '/content' || path === '/contact') {
+        state.screen = path.slice(1);
+        render();
+      }
+    })();
 
     /* ===========================================================
        Search Logic
@@ -2793,6 +3326,10 @@
       } else if (panel === 'email') {
         emailPanel.classList.add('active');
         backToSearch.style.display = 'none';
+        // Reset to fresh input state so "Check your email" message is cleared
+        document.getElementById('email-step-input').style.display = '';
+        document.getElementById('email-step-sent').style.display = 'none';
+        hideMsg('email-send-msg');
         document.getElementById('email-input').focus();
       }
     }
@@ -2865,7 +3402,7 @@
         .then(function(data) {
           btn.disabled = false;
           btn.textContent = 'Send Magic Link';
-          document.getElementById('email-step-input').style.display = 'none';
+          // Keep input visible so user can sign in with a different email
           document.getElementById('email-step-sent').style.display = 'block';
 
           // Store session for optimistic flow (real auth comes via redirect)
@@ -2892,22 +3429,26 @@
       var titleEl = document.getElementById('details-title');
       var subtitleEl = document.getElementById('details-subtitle');
       var badgeEl = document.getElementById('details-business-badge');
+      var manualFields = document.getElementById('details-manual-fields');
 
       if (state.mode === 'custom') {
         titleEl.textContent = 'Describe your custom website';
         subtitleEl.textContent = 'Tell us what you\'d like and we\'ll build it for you.';
         badgeEl.style.display = 'none';
+        manualFields.style.display = 'block';
       } else {
         titleEl.textContent = 'Tell us more about your business';
-        subtitleEl.textContent = 'Any extra info helps us build the perfect website for you.';
+        subtitleEl.textContent = 'Include everything important for your website. We\'ll also search the web for public info about your business.';
 
         if (state.selectedBusiness) {
           var biz = state.selectedBusiness;
           document.getElementById('badge-biz-name').textContent = biz.name || biz.business_name || 'Selected Business';
           document.getElementById('badge-biz-addr').textContent = biz.address || biz.formatted_address || biz.street_address || '';
           badgeEl.style.display = 'flex';
+          manualFields.style.display = 'none';
         } else {
           badgeEl.style.display = 'none';
+          manualFields.style.display = 'block';
         }
       }
     }
@@ -2979,6 +3520,12 @@
           website: state.selectedBusiness.website,
           types: state.selectedBusiness.types
         };
+      } else {
+        var manualName = document.getElementById('business-name-input').value.trim();
+        var manualAddr = document.getElementById('business-address-input').value.trim();
+        if (manualName) {
+          payload.business = { name: manualName, address: manualAddr || undefined };
+        }
       }
 
       var headers = { 'Content-Type': 'application/json' };
@@ -3223,9 +3770,90 @@
     }
 
     /* ===========================================================
+       Contact Form
+       =========================================================== */
+    function submitContactForm() {
+      var name = document.getElementById('contact-name').value.trim();
+      var email = document.getElementById('contact-email').value.trim().toLowerCase();
+      var phone = document.getElementById('contact-phone').value.trim();
+      var message = document.getElementById('contact-message').value.trim();
+
+      // Client-side validation
+      if (!name || name.length < 1) {
+        showMsg('contact-msg', 'error', 'Please enter your name.');
+        return;
+      }
+      if (name.length > 200) {
+        showMsg('contact-msg', 'error', 'Name is too long (max 200 characters).');
+        return;
+      }
+      var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email || !emailRegex.test(email)) {
+        showMsg('contact-msg', 'error', 'Please enter a valid email address.');
+        return;
+      }
+      if (email.length > 254) {
+        showMsg('contact-msg', 'error', 'Email address is too long.');
+        return;
+      }
+      if (phone && phone.length > 20) {
+        showMsg('contact-msg', 'error', 'Phone number is too long (max 20 characters).');
+        return;
+      }
+      if (!message || message.length < 10) {
+        showMsg('contact-msg', 'error', 'Please enter a message (at least 10 characters).');
+        return;
+      }
+      if (message.length > 5000) {
+        showMsg('contact-msg', 'error', 'Message is too long (max 5000 characters).');
+        return;
+      }
+      if (/<script/i.test(name) || /<script/i.test(message) || /javascript:/i.test(message)) {
+        showMsg('contact-msg', 'error', 'Invalid characters detected. Please remove any HTML or script tags.');
+        return;
+      }
+
+      var btn = document.getElementById('contact-submit-btn');
+      btn.disabled = true;
+      btn.innerHTML = 'Sending <span class="loading-dots"><span></span><span></span><span></span></span>';
+      hideMsg('contact-msg');
+
+      var payload = { name: name, email: email, message: message };
+      if (phone) payload.phone = phone;
+
+      fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(function(res) {
+          if (!res.ok) return res.json().then(function(d) { throw new Error(extractErrorMsg(d, 'Failed to send message')); });
+          return res.json();
+        })
+        .then(function() {
+          btn.disabled = false;
+          btn.textContent = 'Send Message';
+          showMsg('contact-msg', 'success', 'Message sent successfully! We\'ll get back to you soon.');
+          document.getElementById('contact-form').reset();
+        })
+        .catch(function(err) {
+          btn.disabled = false;
+          btn.textContent = 'Send Message';
+          showMsg('contact-msg', 'error', err.message || 'Failed to send message. Please try again.');
+        });
+    }
+
+    /* ===========================================================
        Init
        =========================================================== */
     render();
+
+    // Register service worker for PWA support
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(function() {
+        // Service worker registration failed - non-critical
+      });
+    }
   </script>
 </body>
 </html>

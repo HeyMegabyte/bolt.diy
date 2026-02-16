@@ -142,14 +142,14 @@ function buildContactNotificationEmail(data: ContactForm): string {
 <html>
 <head><meta charset="utf-8"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:transparent;color:#e2e8f0;padding:40px 20px;">
-  <div style="max-width:560px;margin:0 auto;background:#161635;border-radius:12px;padding:40px;border:1px solid rgba(100,255,218,0.1);">
-    <h1 style="color:#64ffda;font-size:24px;margin:0 0 20px;">New Contact Form Submission</h1>
+  <div style="max-width:560px;margin:0 auto;background:#161635;border-radius:12px;padding:40px;border:1px solid rgba(80,165,219,0.1);">
+    <h1 style="color:#50a5db;font-size:24px;margin:0 0 20px;">New Contact Form Submission</h1>
     <table style="width:100%;color:#94a3b8;font-size:14px;line-height:1.8;border-collapse:collapse;">
       <tr><td style="font-weight:700;color:#e2e8f0;padding:6px 16px 6px 0;vertical-align:top;">Name:</td><td style="padding:6px 0;">${escapeHtml(data.name)}</td></tr>
-      <tr><td style="font-weight:700;color:#e2e8f0;padding:6px 16px 6px 0;vertical-align:top;">Email:</td><td style="padding:6px 0;"><a href="mailto:${escapeHtml(data.email)}" style="color:#64ffda;text-decoration:none;">${escapeHtml(data.email)}</a></td></tr>
+      <tr><td style="font-weight:700;color:#e2e8f0;padding:6px 16px 6px 0;vertical-align:top;">Email:</td><td style="padding:6px 0;"><a href="mailto:${escapeHtml(data.email)}" style="color:#50a5db;text-decoration:none;">${escapeHtml(data.email)}</a></td></tr>
       ${data.phone ? `<tr><td style="font-weight:700;color:#e2e8f0;padding:6px 16px 6px 0;vertical-align:top;">Phone:</td><td style="padding:6px 0;">${escapeHtml(data.phone)}</td></tr>` : ''}
     </table>
-    <hr style="border:none;border-top:1px solid rgba(100,255,218,0.1);margin:20px 0;">
+    <hr style="border:none;border-top:1px solid rgba(80,165,219,0.1);margin:20px 0;">
     <p style="font-weight:700;color:#e2e8f0;font-size:14px;margin:0 0 8px;">Message:</p>
     <p style="color:#94a3b8;line-height:1.7;white-space:pre-wrap;margin:0;">${escapeHtml(data.message)}</p>
   </div>
@@ -163,11 +163,11 @@ function buildContactConfirmationEmail(data: ContactForm): string {
 <html>
 <head><meta charset="utf-8"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:transparent;color:#e2e8f0;padding:40px 20px;">
-  <div style="max-width:480px;margin:0 auto;background:#161635;border-radius:12px;padding:40px;border:1px solid rgba(100,255,218,0.1);">
-    <h1 style="color:#64ffda;font-size:24px;margin:0 0 16px;">Thanks for reaching out!</h1>
+  <div style="max-width:480px;margin:0 auto;background:#161635;border-radius:12px;padding:40px;border:1px solid rgba(80,165,219,0.1);">
+    <h1 style="color:#50a5db;font-size:24px;margin:0 0 16px;">Thanks for reaching out!</h1>
     <p style="color:#94a3b8;line-height:1.6;margin:0 0 12px;">Hi ${escapeHtml(data.name)},</p>
     <p style="color:#94a3b8;line-height:1.6;margin:0 0 24px;">We've received your message and will get back to you shortly. Here's a copy of what you sent:</p>
-    <div style="background:rgba(100,255,218,0.05);border-radius:8px;padding:16px;border:1px solid rgba(100,255,218,0.08);">
+    <div style="background:rgba(80,165,219,0.05);border-radius:8px;padding:16px;border:1px solid rgba(80,165,219,0.08);">
       <p style="color:#94a3b8;line-height:1.6;white-space:pre-wrap;margin:0;font-size:13px;">${escapeHtml(data.message)}</p>
     </div>
     <p style="color:#64748b;font-size:13px;margin:24px 0 0;">&mdash; The Project Sites Team</p>

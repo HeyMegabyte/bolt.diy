@@ -50,9 +50,9 @@ import { dbQuery, dbQueryOne } from './db.js';
 export function generateTopBar(slug: string): string {
   return `<!-- Project Sites Top Bar -->
 <div id="ps-topbar" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#1a1a2e;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,0.2)">
-  <span>This site is powered by <a href="https://${DOMAINS.SITES_BASE}" style="color:#64ffda;text-decoration:none;font-weight:600">Project Sites</a></span>
+  <span>This site is powered by <a href="https://${DOMAINS.SITES_BASE}" style="color:#50a5db;text-decoration:none;font-weight:600">Project Sites</a></span>
   <span style="display:flex;gap:12px;align-items:center">
-    <a href="https://${DOMAINS.SITES_BASE}/?upgrade=${encodeURIComponent(slug)}" style="background:#64ffda;color:#1a1a2e;padding:4px 12px;border-radius:4px;text-decoration:none;font-weight:600;font-size:13px">${BRAND.PRIMARY_CTA}</a>
+    <a href="https://${DOMAINS.SITES_BASE}/?upgrade=${encodeURIComponent(slug)}" style="background:#50a5db;color:#1a1a2e;padding:4px 12px;border-radius:4px;text-decoration:none;font-weight:600;font-size:13px">${BRAND.PRIMARY_CTA}</a>
     <a href="javascript:void(0)" onclick="document.getElementById('ps-topbar').style.display='none';document.body.style.paddingTop='0'" style="color:#aaa;font-size:18px;text-decoration:none" aria-label="Close">&times;</a>
   </span>
 </div>
