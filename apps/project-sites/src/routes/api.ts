@@ -162,6 +162,25 @@ api.get('/api/auth/google/callback', async (c) => {
   return c.redirect(redirectTarget.toString());
 });
 
+// ─── Session Validation ─────────────────────────────────────
+
+api.get('/api/auth/me', async (c) => {
+  const userId = c.get('userId');
+  const orgId = c.get('orgId');
+  if (!userId) throw unauthorized('Must be authenticated');
+
+  const user = await dbQueryOne<{ email: string; display_name: string | null }>(
+    c.env.DB,
+    'SELECT email, display_name FROM users WHERE id = ? AND deleted_at IS NULL',
+    [userId],
+  );
+  if (!user) throw unauthorized('User not found');
+
+  return c.json({
+    data: { user_id: userId, org_id: orgId, email: user.email, display_name: user.display_name },
+  });
+});
+
 // ─── Sites Routes ────────────────────────────────────────────
 
 api.post('/api/sites', async (c) => {

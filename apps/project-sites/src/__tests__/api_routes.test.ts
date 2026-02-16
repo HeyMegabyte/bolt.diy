@@ -32,6 +32,9 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
+import { dbQueryOne } from '../services/db.js';
+
+const mockDbQueryOne = dbQueryOne as jest.Mock;
 
 const originalFetch = global.fetch;
 let mockFetch: jest.Mock;
@@ -64,6 +67,23 @@ function makeRequest(
   options?: RequestInit,
 ) {
   return app.request(path, options, env);
+}
+
+function createAuthenticatedApp(
+  vars: Partial<Variables> = {},
+  envOverrides: Partial<Env> = {},
+) {
+  const authedApp = new Hono<{ Bindings: Env; Variables: Variables }>();
+  authedApp.onError(errorHandler);
+  authedApp.use('*', async (c, next) => {
+    if (vars.userId) c.set('userId', vars.userId);
+    if (vars.orgId) c.set('orgId', vars.orgId);
+    if (vars.requestId) c.set('requestId', vars.requestId);
+    await next();
+  });
+  authedApp.route('/', api);
+  const env = createMockEnv(envOverrides);
+  return { app: authedApp, env };
 }
 
 beforeEach(() => {
@@ -242,5 +262,57 @@ describe('POST /api/auth/magic-link', () => {
     });
 
     expect(res.status).toBe(400);
+  });
+});
+
+// ─── GET /api/auth/me ───────────────────────────────────────
+
+describe('GET /api/auth/me', () => {
+  it('returns 401 when not authenticated', async () => {
+    const { app, env } = createApp();
+
+    const res = await makeRequest(app, env, '/api/auth/me');
+
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error.code).toBe('UNAUTHORIZED');
+  });
+
+  it('returns user info when authenticated', async () => {
+    mockDbQueryOne.mockResolvedValueOnce({
+      email: 'alice@example.com',
+      display_name: 'Alice',
+    });
+
+    const { app, env } = createAuthenticatedApp({
+      userId: 'user-123',
+      orgId: 'org-456',
+    });
+
+    const res = await makeRequest(app, env, '/api/auth/me');
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data).toEqual({
+      user_id: 'user-123',
+      org_id: 'org-456',
+      email: 'alice@example.com',
+      display_name: 'Alice',
+    });
+  });
+
+  it('returns 401 when user not found in DB', async () => {
+    mockDbQueryOne.mockResolvedValueOnce(null);
+
+    const { app, env } = createAuthenticatedApp({
+      userId: 'deleted-user',
+      orgId: 'org-456',
+    });
+
+    const res = await makeRequest(app, env, '/api/auth/me');
+
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error.code).toBe('UNAUTHORIZED');
   });
 });
