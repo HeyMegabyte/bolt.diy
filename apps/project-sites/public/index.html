@@ -2054,7 +2054,7 @@
   <header class="header">
     <div class="header-inner">
       <a class="logo" onclick="navigateTo('search')">
-        <img src="/logo-header.png" alt="Project Sites" style="flex-shrink:0; height:auto; max-height:48px; max-width:300px;">
+        <img src="/logo-header.svg" alt="Project Sites" style="flex-shrink:0; height:auto; max-height:48px; max-width:300px;">
       </a>
     </div>
   </header>
@@ -3550,10 +3550,27 @@
         try { localStorage.setItem('ps_pending_build', '1'); } catch(e) {}
       }
 
+      // Build a redirect_url that carries business info so the magic link
+      // callback can restore the badge even in a new browser tab
+      var redirectParams = new URLSearchParams();
+      if (state.selectedBusiness) {
+        var biz = state.selectedBusiness;
+        var bn = biz.name || biz.business_name || '';
+        var ba = biz.address || biz.formatted_address || biz.street_address || '';
+        var bp = biz.place_id || biz.id || '';
+        if (bn) redirectParams.set('biz_name', bn);
+        if (ba) redirectParams.set('biz_address', ba);
+        if (bp) redirectParams.set('biz_place_id', bp);
+        redirectParams.set('mode', state.mode || 'business');
+      }
+      var redirectUrl = window.location.origin + window.location.pathname;
+      var rp = redirectParams.toString();
+      if (rp) redirectUrl += '?' + rp;
+
       fetch('/api/auth/magic-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email })
+        body: JSON.stringify({ email: email, redirect_url: redirectUrl })
       })
         .then(function(res) {
           if (!res.ok) return res.json().then(function(d) { throw new Error(extractErrorMsg(d, 'Failed to send link')); });
@@ -3562,7 +3579,8 @@
         .then(function(data) {
           btn.disabled = false;
           btn.textContent = 'Send Magic Link';
-          // Hide the input form and show the success message
+          // Clear the email input and hide the form, show success message
+          document.getElementById('email-input').value = '';
           document.getElementById('email-step-input').style.display = 'none';
           document.getElementById('email-step-sent').style.display = 'block';
 
@@ -3614,8 +3632,16 @@
       }
     }
 
-    /** Dismiss the business badge: clear selection and show manual fields. */
+    /** Dismiss the business badge: transfer data to manual fields. */
     function dismissBusinessBadge() {
+      // Preserve business data to pre-populate the manual input fields
+      var prevName = '';
+      var prevAddr = '';
+      if (state.selectedBusiness) {
+        prevName = state.selectedBusiness.name || state.selectedBusiness.business_name || '';
+        prevAddr = state.selectedBusiness.address || state.selectedBusiness.formatted_address || state.selectedBusiness.street_address || '';
+      }
+
       state.selectedBusiness = null;
       state.mode = 'custom';
       var badgeEl = document.getElementById('details-business-badge');
@@ -3626,6 +3652,12 @@
       if (manualFields) manualFields.style.display = 'block';
       if (titleEl) titleEl.textContent = 'Tell us about your business';
       if (subtitleEl) subtitleEl.textContent = 'Enter your business details and we\'ll build your website.';
+
+      // Pre-populate manual fields with the dismissed badge data
+      var nameInput = document.getElementById('business-name-input');
+      var addressInput = document.getElementById('business-address-input');
+      if (nameInput && prevName) nameInput.value = prevName;
+      if (addressInput && prevAddr) addressInput.value = prevAddr;
     }
 
     /* ===========================================================
@@ -3948,6 +3980,12 @@
             identifier: email || phone || 'Authenticated'
           };
 
+          // Read business info from URL params (carried through magic link redirect_url)
+          var bizName = params.get('biz_name') || '';
+          var bizAddr = params.get('biz_address') || '';
+          var bizPlaceId = params.get('biz_place_id') || '';
+          var bizMode = params.get('mode') || '';
+
           // Clean URL
           var cleanUrl = window.location.pathname;
           window.history.replaceState({}, document.title, cleanUrl);
@@ -3969,6 +4007,13 @@
               localStorage.removeItem('ps_mode');
             } catch(e) {}
           }
+
+          // Fallback: restore business from URL params if not found in storage
+          if (!state.selectedBusiness && bizName) {
+            state.selectedBusiness = { name: bizName, address: bizAddr, place_id: bizPlaceId };
+            state.mode = bizMode || 'business';
+          }
+
           if (savedPendingBuild) {
             state._pendingBuild = true;
             sessionStorage.removeItem('ps_pending_build');
