@@ -244,7 +244,15 @@ api.get('/api/sites', async (c) => {
     [orgId],
   );
 
-  return c.json({ data });
+  // Enrich each site with its primary hostname
+  const enriched = await Promise.all(
+    data.map(async (site) => {
+      const primaryHostname = await domainService.getPrimaryHostname(c.env.DB, site.id as string);
+      return { ...site, primary_hostname: primaryHostname };
+    }),
+  );
+
+  return c.json({ data: enriched });
 });
 
 api.get('/api/sites/:id', async (c) => {
@@ -393,6 +401,15 @@ api.post('/api/sites/:siteId/hostnames', async (c) => {
       throw forbidden('Custom domains require a paid plan');
     }
 
+    // Validate CNAME points to sites.megabyte.space
+    const cnameTarget = await domainService.checkCnameTarget(validated.hostname);
+    if (!cnameTarget || cnameTarget !== DOMAINS.SITES_BASE) {
+      throw badRequest(
+        `The domain "${validated.hostname}" does not have a CNAME record pointing to ${DOMAINS.SITES_BASE}. ` +
+        `Please add a CNAME record for "${validated.hostname}" pointing to "${DOMAINS.SITES_BASE}" in your DNS settings, then try again.`,
+      );
+    }
+
     result = await domainService.provisionCustomDomain(c.env.DB, c.env, {
       org_id: orgId,
       site_id: siteId,
@@ -449,6 +466,38 @@ api.delete('/api/sites/:id', async (c) => {
   });
 
   return c.json({ data: { deleted: true } });
+});
+
+// ─── Set Primary Hostname ────────────────────────────────────
+
+api.put('/api/sites/:siteId/hostnames/:hostnameId/primary', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('siteId');
+  const hostnameId = c.req.param('hostnameId');
+
+  // Verify ownership
+  const site = await dbQueryOne<Record<string, unknown>>(
+    c.env.DB,
+    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [siteId, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  await domainService.setPrimaryHostname(c.env.DB, siteId, hostnameId);
+
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: c.get('userId') ?? null,
+    action: 'hostname.set_primary',
+    target_type: 'hostname',
+    target_id: hostnameId,
+    metadata_json: { site_id: siteId },
+    request_id: c.get('requestId'),
+  });
+
+  return c.json({ data: { primary: true } });
 });
 
 // ─── Delete Hostname ────────────────────────────────────────
@@ -715,6 +764,53 @@ async function ensureUniqueSlug(env: Env, slug: string): Promise<string> {
   // All attempts exhausted — use random suffix
   return `${slug}-${Date.now().toString(36).slice(-4)}`;
 }
+
+// ─── Chat Export Retrieval Route ─────────────────────────────
+
+/**
+ * Retrieve the bolt.diy chat JSON for a given site slug.
+ *
+ * Reads the _manifest.json to find the current version, then returns
+ * the chat export stored at sites/{slug}/{version}/_meta/chat.json.
+ *
+ * No auth required — the slug serves as an access token.
+ */
+api.get('/api/sites/by-slug/:slug/chat', async (c) => {
+  const slug = c.req.param('slug');
+
+  // Read manifest to get current version
+  const manifest = await c.env.SITES_BUCKET.get(`sites/${slug}/_manifest.json`);
+
+  if (!manifest) {
+    throw notFound('Site not found or no version published');
+  }
+
+  const manifestData = (await manifest.json()) as { current_version: string };
+
+  if (!manifestData.current_version) {
+    throw notFound('No published version found');
+  }
+
+  // Read chat JSON from R2
+  const chatObj = await c.env.SITES_BUCKET.get(
+    `sites/${slug}/${manifestData.current_version}/_meta/chat.json`,
+  );
+
+  if (!chatObj) {
+    throw notFound('No chat export found for this site');
+  }
+
+  const chatData = await chatObj.text();
+
+  return new Response(chatData, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
+});
 
 // ─── Contact Form Route ─────────────────────────────────────
 

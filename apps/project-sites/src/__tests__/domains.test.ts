@@ -15,6 +15,9 @@ import {
   getSiteHostnames,
   getHostnameByDomain,
   verifyPendingHostnames,
+  setPrimaryHostname,
+  checkCnameTarget,
+  getPrimaryHostname,
 } from '../services/domains.js';
 import { AppError } from '@project-sites/shared';
 
@@ -563,5 +566,143 @@ describe('verifyPendingHostnames', () => {
 
     expect(result).toEqual({ verified: 0, failed: 0 });
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// setPrimaryHostname
+// ---------------------------------------------------------------------------
+describe('setPrimaryHostname', () => {
+  it('sets a hostname as primary and clears others', async () => {
+    mockQueryOne.mockResolvedValueOnce({ id: 'h-123' });
+    mockUpdate.mockResolvedValueOnce({ error: null, changes: 3 });
+    mockUpdate.mockResolvedValueOnce({ error: null, changes: 1 });
+
+    await setPrimaryHostname(mockDb, 'site-1', 'h-123');
+
+    expect(mockQueryOne).toHaveBeenCalledWith(
+      mockDb,
+      expect.stringContaining('SELECT id FROM hostnames'),
+      ['h-123', 'site-1'],
+    );
+
+    // First call: clear all primary
+    expect(mockUpdate).toHaveBeenCalledWith(
+      mockDb,
+      'hostnames',
+      { is_primary: 0 },
+      'site_id = ?',
+      ['site-1'],
+    );
+
+    // Second call: set primary
+    expect(mockUpdate).toHaveBeenCalledWith(
+      mockDb,
+      'hostnames',
+      { is_primary: 1 },
+      'id = ?',
+      ['h-123'],
+    );
+  });
+
+  it('throws notFound if hostname does not belong to site', async () => {
+    mockQueryOne.mockResolvedValueOnce(null);
+
+    const err = await setPrimaryHostname(mockDb, 'site-1', 'h-missing').catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(AppError);
+    expect((err as AppError).statusCode).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// checkCnameTarget
+// ---------------------------------------------------------------------------
+describe('checkCnameTarget', () => {
+  it('returns CNAME target when record exists', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        Answer: [{ type: 5, data: 'sites.megabyte.space.' }],
+      }),
+    });
+
+    const result = await checkCnameTarget('www.example.com');
+
+    expect(result).toBe('sites.megabyte.space');
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('cloudflare-dns.com/dns-query'),
+      expect.objectContaining({
+        headers: { accept: 'application/dns-json' },
+      }),
+    );
+  });
+
+  it('returns null when no CNAME record exists', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ Answer: [] }),
+    });
+
+    const result = await checkCnameTarget('www.example.com');
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null when DNS query fails', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+    });
+
+    const result = await checkCnameTarget('www.example.com');
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null when fetch throws', async () => {
+    (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+
+    const result = await checkCnameTarget('www.example.com');
+
+    expect(result).toBeNull();
+  });
+
+  it('strips trailing dot from CNAME data', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        Answer: [{ type: 5, data: 'target.example.com.' }],
+      }),
+    });
+
+    const result = await checkCnameTarget('alias.example.com');
+
+    expect(result).toBe('target.example.com');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getPrimaryHostname
+// ---------------------------------------------------------------------------
+describe('getPrimaryHostname', () => {
+  it('returns primary hostname when one exists', async () => {
+    mockQueryOne.mockResolvedValueOnce({ hostname: 'www.custom.com' });
+
+    const result = await getPrimaryHostname(mockDb, 'site-1');
+
+    expect(result).toBe('www.custom.com');
+    expect(mockQueryOne).toHaveBeenCalledWith(
+      mockDb,
+      expect.stringContaining('ORDER BY COALESCE(is_primary, 0) DESC'),
+      ['site-1'],
+    );
+  });
+
+  it('returns null when no hostnames exist', async () => {
+    mockQueryOne.mockResolvedValueOnce(null);
+
+    const result = await getPrimaryHostname(mockDb, 'site-empty');
+
+    expect(result).toBeNull();
   });
 });
