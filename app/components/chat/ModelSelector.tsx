@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { ModelInfo } from '~/lib/modules/llm/types';
 import { classNames } from '~/utils/classNames';
+import { DEFAULT_MODEL } from '~/utils/constants';
 import { LOCAL_PROVIDERS } from '~/lib/stores/settings';
 
 // Fuzzy search utilities
@@ -366,7 +367,10 @@ export const ModelSelector = ({
           if (setProvider) {
             setProvider(selectedProvider);
 
-            const firstModel = modelList.find((m) => m.provider === selectedProvider.name);
+            const defaultModel = modelList.find(
+              (m) => m.provider === selectedProvider.name && m.name === DEFAULT_MODEL,
+            );
+            const firstModel = defaultModel || modelList.find((m) => m.provider === selectedProvider.name);
 
             if (firstModel && setModel) {
               setModel(firstModel.name);
@@ -422,7 +426,8 @@ export const ModelSelector = ({
       const firstEnabledProvider = providerList[0];
       setProvider?.(firstEnabledProvider);
 
-      const firstModel = modelList.find((m) => m.provider === firstEnabledProvider.name);
+      const defaultModel = modelList.find((m) => m.provider === firstEnabledProvider.name && m.name === DEFAULT_MODEL);
+      const firstModel = defaultModel || modelList.find((m) => m.provider === firstEnabledProvider.name);
 
       if (firstModel) {
         setModel?.(firstModel.name);
@@ -594,7 +599,10 @@ export const ModelSelector = ({
                       if (setProvider) {
                         setProvider(providerOption);
 
-                        const firstModel = modelList.find((m) => m.provider === providerOption.name);
+                        const defaultModel = modelList.find(
+                          (m) => m.provider === providerOption.name && m.name === DEFAULT_MODEL,
+                        );
+                        const firstModel = defaultModel || modelList.find((m) => m.provider === providerOption.name);
 
                         if (firstModel && setModel) {
                           setModel(firstModel.name);
