@@ -341,6 +341,7 @@
       background: linear-gradient(135deg, rgba(15, 15, 35, 0.95), rgba(10, 10, 26, 0.98));
       border-bottom: 1px solid var(--border);
       padding: 24px 0;
+      padding-top: 84px;
       animation: fadeIn 0.3s ease;
     }
     .admin-panel.visible { display: block; }
@@ -398,7 +399,7 @@
     /* Site Cards Grid */
     .site-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      grid-template-columns: repeat(2, 1fr);
       gap: 16px;
     }
     .site-card {
@@ -633,32 +634,40 @@
     .hostname-add-form button:hover { background: rgba(100, 255, 218, 0.2); }
 
     /* Billing info row */
-    .admin-billing-row {
+    /* Per-site plan badge */
+    .site-card-plan-row {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-top: 16px;
-      padding: 12px 16px;
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 10px;
-      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
     }
-    .admin-billing-plan {
-      font-size: 0.85rem;
-      color: var(--text-primary);
-      font-weight: 600;
-    }
-    .admin-billing-plan .plan-badge {
+    .plan-badge {
       display: inline-block;
       padding: 2px 8px;
       border-radius: 4px;
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       font-weight: 700;
-      margin-left: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
     .plan-badge.free { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
     .plan-badge.paid { background: rgba(100, 255, 218, 0.15); color: var(--accent); }
+    .site-card-upgrade-btn {
+      padding: 3px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      font-size: 0.65rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .site-card-upgrade-btn:hover {
+      background: rgba(80, 165, 219, 0.12);
+      box-shadow: 0 0 12px rgba(80, 165, 219, 0.2);
+    }
 
     .admin-site-count {
       font-size: 0.7rem;
@@ -701,7 +710,7 @@
     }
 
     @media (max-width: 600px) {
-      .site-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .site-grid { grid-template-columns: 1fr; gap: 10px; }
       .admin-panel-header { flex-direction: column; align-items: flex-start; }
       .admin-panel-actions { width: 100%; }
     }
@@ -1287,6 +1296,35 @@
       z-index: 1;
       width: 100%;
     }
+    /* Details Modal Overlay */
+    .details-modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.15s ease;
+      overflow-y: auto;
+      padding: 24px;
+    }
+    .details-modal-overlay.visible { display: flex; }
+    .details-modal-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px;
+      font-size: 1.4rem;
+      line-height: 1;
+      z-index: 2;
+      transition: color 0.2s;
+    }
+    .details-modal-close:hover { color: var(--text-primary); }
     .details-card {
       width: 100%;
       max-width: 600px;
@@ -1296,6 +1334,7 @@
       border-radius: var(--radius-lg);
       padding: 36px 32px;
       animation: fadeInScale 0.35s ease;
+      position: relative;
     }
     .details-card h2 {
       font-size: 1.4rem;
@@ -2387,6 +2426,9 @@
     }
 
     /* ── Responsive (marketing) ───────────────────── */
+    @media (max-width: 720px) {
+      .header-auth-user { display: none !important; }
+    }
     @media (max-width: 768px) {
       .steps-row { grid-template-columns: 1fr; }
       .features-grid { grid-template-columns: 1fr; }
@@ -2454,7 +2496,7 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
             Billing
           </button>
-          <button class="admin-btn admin-btn-accent" onclick="navigateTo('search'); document.getElementById('search-input').focus();">
+          <button class="admin-btn admin-btn-accent" onclick="openNewWebsiteModal()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             New Website
           </button>
@@ -2466,13 +2508,7 @@
         <div class="admin-empty">Loading your websites...</div>
       </div>
 
-      <!-- Billing Info Row -->
-      <div id="admin-billing-row" class="admin-billing-row" style="display:none;">
-        <div class="admin-billing-plan" id="admin-plan-label">Plan: <span class="plan-badge free">Free</span></div>
-        <span id="admin-sites-usage" class="admin-sites-usage"></span>
-        <div style="flex:1;"></div>
-        <button class="admin-btn admin-btn-accent" id="admin-upgrade-btn" onclick="openBillingCheckout()" style="display:none;">Upgrade to Pro</button>
-      </div>
+      <!-- Billing info moved to per-site cards -->
     </div>
   </div>
 
@@ -2505,6 +2541,67 @@
         <button class="admin-btn" onclick="closeDeleteModal()">Cancel</button>
         <button class="admin-btn" style="border-color:var(--error);color:var(--error);" onclick="confirmDeleteSite()">Delete</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Details Modal (Describe your custom website) -->
+  <div id="details-modal" class="details-modal-overlay">
+    <div class="details-card">
+      <button class="details-modal-close" onclick="closeDetailsModal()" title="Close">&times;</button>
+      <h2 id="details-title">Describe your custom website</h2>
+      <p class="details-subtitle" id="details-subtitle">Include everything important for your website. We'll also search the web for public info about your business.</p>
+
+      <!-- Selected business display -->
+      <div id="details-business-badge" class="selected-business-badge" style="display:none;">
+        <div class="badge-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#50a5db" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+        <div class="badge-text">
+          <div class="badge-name" id="badge-biz-name"></div>
+          <div class="badge-addr" id="badge-biz-addr"></div>
+        </div>
+        <button class="badge-dismiss" onclick="dismissBusinessBadge()" title="Remove selection">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Manual business info (shown when no business selected from search) -->
+      <div id="details-manual-fields" style="display:none;">
+        <div class="input-group">
+          <label for="business-name-input">Business Name <span style="color:var(--accent);">*</span></label>
+          <input type="text" id="business-name-input" class="input-field" placeholder="e.g. Vito's Men's Salon" maxlength="200" required />
+        </div>
+        <div class="input-group" style="position:relative;">
+          <label for="business-address-input">Business Address <span style="color:var(--accent);">*</span></label>
+          <input type="text" id="business-address-input" class="input-field" placeholder="Start typing an address..." maxlength="500" autocomplete="off" required />
+          <div id="address-dropdown" class="address-dropdown"></div>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label for="details-textarea">Tell us about your business</label>
+        <textarea
+          id="details-textarea"
+          class="input-field"
+          maxlength="5000"
+          placeholder="Share details like your phone number, email address, physical address, business hours, services offered, brand colors, style preferences, or any specific features you'd like on your website. On top of the information you provide here, we'll also intelligently search the internet for public data about your business to help build the best possible site."
+        ></textarea>
+      </div>
+
+      <div class="uppy-section">
+        <label>Upload Logos, Photos, Menus, or Documents</label>
+        <div id="uppy-dashboard-area"></div>
+      </div>
+
+      <button class="btn btn-accent btn-large btn-full" id="build-btn" onclick="submitBuild()">
+        Build My Website
+      </button>
+
+      <div id="build-msg" class="msg"></div>
     </div>
   </div>
 
@@ -2544,7 +2641,7 @@
       <p class="search-hint">Search for your business to generate a free preview &mdash; no account or credit card required.</p>
 
       <div class="hero-ctas">
-        <a href="#proof" class="btn-ghost">See examples &darr;</a>
+        <a href="#how-it-works" class="btn-ghost">How it works &darr;</a>
       </div>
       <p class="hero-clarify"><strong>Free preview</strong> includes a full AI-generated site. Pay only when you're ready to go live.</p>
 
@@ -2555,119 +2652,8 @@
            ========================================== -->
       <div class="marketing-sections">
 
-        <!-- Example Sites Gallery + Testimonials -->
-        <section id="proof">
-          <h2 class="section-title">Sites We've Built</h2>
-          <p class="section-subtitle">Real businesses, real websites &mdash; generated in minutes, not months.</p>
-
-          <div class="gallery-grid">
-            <div class="site-thumb">
-              <div class="site-thumb-preview">
-                <div class="site-thumb-bar"><span class="site-thumb-dot"></span><span class="site-thumb-dot"></span><span class="site-thumb-dot"></span></div>
-                <div class="site-thumb-body">
-                  <div class="site-thumb-hero-block" style="background:linear-gradient(135deg,#065f46,#10b981)"></div>
-                  <div class="site-thumb-line" style="width:75%"></div>
-                  <div class="site-thumb-line short"></div>
-                </div>
-              </div>
-              <div class="site-thumb-label"><div class="site-thumb-name">Greenleaf Landscaping</div><div class="site-thumb-industry">Landscaping</div></div>
-            </div>
-            <div class="site-thumb">
-              <div class="site-thumb-preview">
-                <div class="site-thumb-bar"><span class="site-thumb-dot"></span><span class="site-thumb-dot"></span><span class="site-thumb-dot"></span></div>
-                <div class="site-thumb-body">
-                  <div class="site-thumb-hero-block" style="background:linear-gradient(135deg,#1e3a5f,#3b82f6)"></div>
-                  <div class="site-thumb-line" style="width:80%"></div>
-                  <div class="site-thumb-line short"></div>
-                </div>
-              </div>
-              <div class="site-thumb-label"><div class="site-thumb-name">Precision Plumbing Co.</div><div class="site-thumb-industry">Home Services</div></div>
-            </div>
-            <div class="site-thumb">
-              <div class="site-thumb-preview">
-                <div class="site-thumb-bar"><span class="site-thumb-dot"></span><span class="site-thumb-dot"></span><span class="site-thumb-dot"></span></div>
-                <div class="site-thumb-body">
-                  <div class="site-thumb-hero-block" style="background:linear-gradient(135deg,#7c2d12,#f97316)"></div>
-                  <div class="site-thumb-line" style="width:70%"></div>
-                  <div class="site-thumb-line short"></div>
-                </div>
-              </div>
-              <div class="site-thumb-label"><div class="site-thumb-name">Bella's Italian Kitchen</div><div class="site-thumb-industry">Restaurant</div></div>
-            </div>
-            <div class="site-thumb">
-              <div class="site-thumb-preview">
-                <div class="site-thumb-bar"><span class="site-thumb-dot"></span><span class="site-thumb-dot"></span><span class="site-thumb-dot"></span></div>
-                <div class="site-thumb-body">
-                  <div class="site-thumb-hero-block" style="background:linear-gradient(135deg,#581c87,#a855f7)"></div>
-                  <div class="site-thumb-line" style="width:85%"></div>
-                  <div class="site-thumb-line short"></div>
-                </div>
-              </div>
-              <div class="site-thumb-label"><div class="site-thumb-name">Serenity Spa &amp; Wellness</div><div class="site-thumb-industry">Health &amp; Beauty</div></div>
-            </div>
-            <div class="site-thumb">
-              <div class="site-thumb-preview">
-                <div class="site-thumb-bar"><span class="site-thumb-dot"></span><span class="site-thumb-dot"></span><span class="site-thumb-dot"></span></div>
-                <div class="site-thumb-body">
-                  <div class="site-thumb-hero-block" style="background:linear-gradient(135deg,#1e3a5f,#06b6d4)"></div>
-                  <div class="site-thumb-line" style="width:72%"></div>
-                  <div class="site-thumb-line short"></div>
-                </div>
-              </div>
-              <div class="site-thumb-label"><div class="site-thumb-name">Summit Auto Repair</div><div class="site-thumb-industry">Automotive</div></div>
-            </div>
-            <div class="site-thumb">
-              <div class="site-thumb-preview">
-                <div class="site-thumb-bar"><span class="site-thumb-dot"></span><span class="site-thumb-dot"></span><span class="site-thumb-dot"></span></div>
-                <div class="site-thumb-body">
-                  <div class="site-thumb-hero-block" style="background:linear-gradient(135deg,#4a1d96,#ec4899)"></div>
-                  <div class="site-thumb-line" style="width:78%"></div>
-                  <div class="site-thumb-line short"></div>
-                </div>
-              </div>
-              <div class="site-thumb-label"><div class="site-thumb-name">Swift Tax Advisors</div><div class="site-thumb-industry">Professional Services</div></div>
-            </div>
-          </div>
-
-          <h3 class="section-title" style="font-size:1.4rem; margin-bottom:8px;">What Business Owners Say</h3>
-          <p class="section-subtitle">Join hundreds of small businesses that stopped worrying about their website.</p>
-
-          <div class="testimonials-grid">
-            <div class="testimonial-card">
-              <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-              <p class="testimonial-quote">"I searched my business name and had a professional website in under 10 minutes. I've been paying a web guy $200/month for years &mdash; wish I found this sooner."</p>
-              <div class="testimonial-author">
-                <div class="testimonial-avatar" style="background:#10b981">MR</div>
-                <div>
-                  <div class="testimonial-name">Maria R.</div>
-                  <div class="testimonial-role">Owner, Greenleaf Landscaping</div>
-                </div>
-              </div>
-            </div>
-            <div class="testimonial-card">
-              <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-              <p class="testimonial-quote">"The AI actually researched my business and wrote accurate copy. I changed two sentences and went live. Best part: I never have to think about updates."</p>
-              <div class="testimonial-author">
-                <div class="testimonial-avatar" style="background:#3b82f6">JT</div>
-                <div>
-                  <div class="testimonial-name">James T.</div>
-                  <div class="testimonial-role">Owner, Precision Plumbing Co.</div>
-                </div>
-              </div>
-            </div>
-            <div class="testimonial-card">
-              <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-              <p class="testimonial-quote">"I tried Wix and Squarespace but never finished building my site. With Project Sites, it was done for me. I just approved it and went live the same day."</p>
-              <div class="testimonial-author">
-                <div class="testimonial-avatar" style="background:#a855f7">SK</div>
-                <div>
-                  <div class="testimonial-name">Sarah K.</div>
-                  <div class="testimonial-role">Owner, Serenity Spa &amp; Wellness</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        <!-- Anchor for scroll targets -->
+        <section id="proof"></section>
 
         <!-- How It Works -->
         <section id="how-it-works">
@@ -2704,8 +2690,8 @@
                   <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
                 </svg>
               </div>
-              <h3>Unlimited Change Requests</h3>
-              <p>Need to update your hours, add a new service, or change a photo? Just tell us. Most changes go live within 24 hours.</p>
+              <h3>AI-Powered Customization</h3>
+              <p>As a paid subscriber ($50/mo), you can customize your website anytime using our AI-powered editor at <a href="https://bolt.megabyte.space" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">bolt.megabyte.space</a>. Update hours, swap photos, add services &mdash; changes go live in real time, no coding required.</p>
             </div>
             <div class="handled-card">
               <div class="handled-icon">
@@ -2714,7 +2700,7 @@
                 </svg>
               </div>
               <h3>Security &amp; Uptime</h3>
-              <p>SSL certificates, DDoS protection, and 99.9% uptime &mdash; all included. We monitor your site so you never have to worry.</p>
+              <p>SSL certificates, DDoS protection, and 99.9% uptime &mdash; all included. We host everything on Cloudflare, so your site is served from edge locations closest to your visitors for blazing-fast load times worldwide.</p>
             </div>
             <div class="handled-card">
               <div class="handled-icon">
@@ -2722,13 +2708,13 @@
                   <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
                 </svg>
               </div>
-              <h3>Local SEO Basics</h3>
-              <p>NAP consistency, schema markup, meta tags, sitemap, and indexability &mdash; all configured out of the box for local search visibility.</p>
+              <h3>Expert-Crafted &amp; SEO-Ready</h3>
+              <p>Our templates are built on 15+ years of senior engineering experience. Every site starts with a deep business entity research crawl &mdash; then gets schema markup, meta tags, sitemaps, and performance tuning baked in from day one.</p>
             </div>
           </div>
 
           <div class="handled-summary">
-            <strong>In short:</strong> You tell us what to change, we do it. You never touch code, fight with a page builder, or worry about hosting. That's what "handled" means.
+            <strong>In short:</strong> You never have to touch code or fight with a page builder. But if you want to go deeper, our <a href="https://bolt.megabyte.space" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">AI editor</a> makes it as easy as describing what you want. That's what "handled" means.
           </div>
         </section>
 
@@ -2891,7 +2877,7 @@
                   Includes "Powered by Project Sites" banner
                 </li>
               </ul>
-              <button class="btn btn-secondary-outline btn-large btn-full" onclick="searchInput.focus(); window.scrollTo({top:0,behavior:'smooth'})">
+              <button class="btn btn-secondary-outline btn-large btn-full" onclick="openDetailsModal()">
                 Generate Free Preview
               </button>
             </div>
@@ -2926,7 +2912,7 @@
                   No branding &mdash; 100% your brand
                 </li>
               </ul>
-              <button class="btn btn-accent btn-large btn-full" onclick="searchInput.focus(); window.scrollTo({top:0,behavior:'smooth'})">
+              <button class="btn btn-accent btn-large btn-full" onclick="handleGetStartedPaid()">
                 Get Started
               </button>
               <div class="pricing-guarantee">
@@ -3041,74 +3027,8 @@
       </div>
     </div>
 
-    <!-- ==========================================
-         Screen 3b: Details + File Upload
-         ========================================== -->
-    <div id="screen-details" class="screen screen-details">
-      <div class="details-card">
-        <h2 id="details-title">Tell us more about your business</h2>
-        <p class="details-subtitle" id="details-subtitle">Include everything important for your website. We'll also search the web for public info about your business.</p>
-
-        <!-- Selected business display -->
-        <div id="details-business-badge" class="selected-business-badge" style="display:none;">
-          <div class="badge-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#50a5db" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
-            </svg>
-          </div>
-          <div class="badge-text">
-            <div class="badge-name" id="badge-biz-name"></div>
-            <div class="badge-addr" id="badge-biz-addr"></div>
-          </div>
-          <button class="badge-dismiss" onclick="dismissBusinessBadge()" title="Remove selection">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
-
-        <!-- Manual business info (shown when no business selected from search) -->
-        <div id="details-manual-fields" style="display:none;">
-          <div class="input-group">
-            <label for="business-name-input">Business Name <span style="color:var(--accent);">*</span></label>
-            <input type="text" id="business-name-input" class="input-field" placeholder="e.g. Vito's Men's Salon" maxlength="200" required />
-          </div>
-          <div class="input-group" style="position:relative;">
-            <label for="business-address-input">Business Address <span style="color:var(--accent);">*</span></label>
-            <input type="text" id="business-address-input" class="input-field" placeholder="Start typing an address..." maxlength="500" autocomplete="off" required />
-            <div id="address-dropdown" class="address-dropdown"></div>
-          </div>
-        </div>
-
-        <div class="input-group">
-          <label for="details-textarea">Tell us about your business</label>
-          <textarea
-            id="details-textarea"
-            class="input-field"
-            maxlength="5000"
-            placeholder="Share details like your phone number, email address, physical address, business hours, services offered, brand colors, style preferences, or any specific features you'd like on your website. On top of the information you provide here, we'll also intelligently search the internet for public data about your business to help build the best possible site."
-          ></textarea>
-        </div>
-
-        <div class="uppy-section">
-          <label>Upload Logos, Photos, Menus, or Documents</label>
-          <div id="uppy-dashboard-area"></div>
-        </div>
-
-        <button class="btn btn-accent btn-large btn-full" id="build-btn" onclick="submitBuild()">
-          Build My Website
-        </button>
-
-        <div id="build-msg" class="msg"></div>
-
-        <button class="back-link" onclick="navigateTo('search')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m15 18-6-6 6-6"/>
-          </svg>
-          Back to search
-        </button>
-      </div>
-    </div>
+    <!-- Details screen is now a modal, kept as hidden placeholder -->
+    <div id="screen-details" class="screen screen-details" style="display:none !important;"></div>
 
     <!-- ==========================================
          Screen 4: Waiting (Lottie Cat)
@@ -3164,10 +3084,7 @@
   <!-- Footer -->
   <footer class="site-footer">
     <div class="footer-inner">
-      <div class="footer-links">
-        <a href="mailto:hey@megabyte.space">Support</a>
-        <a href="#contact" onclick="event.preventDefault();document.getElementById('contact-section').scrollIntoView({behavior:'smooth'})">Contact</a>
-      </div>
+      <div class="footer-links"></div>
       <div class="footer-social">
         <!-- GitHub -->
         <a href="https://github.com/HeyMegabyte" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
@@ -3196,7 +3113,7 @@
       </div>
       <div class="footer-bottom">
         <span>&copy; 2026 Megabyte LLC</span>
-        <span>Powered by <a href="https://megabyte.space" target="_blank" rel="noopener noreferrer">Megabyte Labs</a></span>
+        <span>Powered by <a href="https://megabyte.space" target="_blank" rel="noopener noreferrer">Megabyte Labs</a> | <a href="https://megabyte.space/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> | <a href="https://megabyte.space/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> | <a href="https://megabyte.space/content" target="_blank" rel="noopener noreferrer">Content Policy</a></span>
       </div>
     </div>
   </footer>
@@ -3312,6 +3229,9 @@
       var grid = document.getElementById('admin-sites-grid');
       if (!grid) return;
 
+      // Determine org plan from subscription data
+      var isPaidOrg = adminSubscription && adminSubscription.plan === 'paid' && adminSubscription.status === 'active';
+
       // Update site count badge
       var countEl = document.getElementById('admin-site-count');
       if (countEl) {
@@ -3319,7 +3239,7 @@
       }
 
       if (!adminSites.length) {
-        grid.innerHTML = '<div class="site-card-new" onclick="navigateTo(\'search\'); document.getElementById(\'search-input\').focus();">'
+        grid.innerHTML = '<div class="site-card-new" onclick="openNewWebsiteModal()">'
           + '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
           + '<span>Create your first website</span>'
           + '</div>';
@@ -3355,6 +3275,16 @@
         }
         html += '</div>';
 
+        // Plan badge row (Free / Paid per site)
+        html += '<div class="site-card-plan-row">';
+        if (isPaidOrg) {
+          html += '<span class="plan-badge paid">Paid</span>';
+        } else {
+          html += '<span class="plan-badge free">Free</span>';
+          html += '<button class="site-card-upgrade-btn" onclick="openSiteCheckout(\'' + escapeHtml(s.id) + '\')">Upgrade</button>';
+        }
+        html += '</div>';
+
         // Site name
         html += '<div class="site-card-name" title="' + escapeHtml(name) + '">' + escapeHtml(name) + '</div>';
 
@@ -3385,14 +3315,16 @@
         } else if (status === 'building') {
           html += '<button class="site-card-btn" onclick="state.siteId=\'' + escapeHtml(s.id) + '\';state.slug=\'' + escapeHtml(slug) + '\';navigateTo(\'waiting\');">Status</button>';
         }
-        html += '<button class="site-card-btn" onclick="openDomainModal(\'' + escapeHtml(s.id) + '\', \'' + escapeHtml(name) + '\')">Domains</button>';
+        if (isPaidOrg) {
+          html += '<button class="site-card-btn" onclick="openDomainModal(\'' + escapeHtml(s.id) + '\', \'' + escapeHtml(name) + '\')">Domains</button>';
+        }
         html += '<button class="site-card-btn danger" onclick="openDeleteModal(\'' + escapeHtml(s.id) + '\', \'' + escapeHtml(name) + '\')">Delete</button>';
         html += '</div>';
         html += '</div>';
       }
 
       // "+" card for creating new site
-      html += '<div class="site-card-new" onclick="navigateTo(\'search\'); document.getElementById(\'search-input\').focus();">'
+      html += '<div class="site-card-new" onclick="openNewWebsiteModal()">'
         + '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
         + '<span>New Website</span>'
         + '</div>';
@@ -3410,28 +3342,9 @@
     }
 
     function renderAdminBilling() {
-      var row = document.getElementById('admin-billing-row');
-      var planLabel = document.getElementById('admin-plan-label');
-      var upgradeBtn = document.getElementById('admin-upgrade-btn');
+      // Billing info is now shown per-site card — just toggle Billing button visibility
       var billingBtn = document.getElementById('admin-billing-btn');
-      var usageEl = document.getElementById('admin-sites-usage');
-      if (!row) return;
-
-      row.style.display = 'flex';
-
-      var siteCount = adminSites.length;
-      if (usageEl) {
-        usageEl.textContent = siteCount + ' website' + (siteCount !== 1 ? 's' : '') + ' active';
-      }
-
-      if (adminSubscription && adminSubscription.plan === 'paid' && adminSubscription.status === 'active') {
-        planLabel.innerHTML = 'Plan: <span class="plan-badge paid">Pro</span>';
-        upgradeBtn.style.display = 'none';
-        billingBtn.style.display = '';
-      } else {
-        planLabel.innerHTML = 'Plan: <span class="plan-badge free">Free</span>';
-        upgradeBtn.style.display = '';
-        upgradeBtn.textContent = 'Upgrade to Pro';
+      if (billingBtn) {
         billingBtn.style.display = adminSubscription && adminSubscription.stripe_customer_id ? '' : 'none';
       }
     }
@@ -3457,7 +3370,16 @@
       container.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;padding:8px;">Loading...</div>';
 
       fetch('/api/sites/' + siteId + '/hostnames')
-        .then(function(r) { return r.ok ? r.json() : { data: [] }; })
+        .then(function(r) {
+          if (!r.ok) return r.json().then(function(d) {
+            var msg = 'Failed to load domains';
+            if (d && d.error) {
+              msg = typeof d.error === 'string' ? d.error : (d.error.message || d.error.code || msg);
+            }
+            throw new Error(msg);
+          });
+          return r.json();
+        })
         .then(function(d) {
           var hostnames = d.data || [];
           if (!hostnames.length) {
@@ -3478,8 +3400,8 @@
           }
           container.innerHTML = html;
         })
-        .catch(function() {
-          container.innerHTML = '<div style="color:var(--error);font-size:0.85rem;padding:8px;">Failed to load domains.</div>';
+        .catch(function(err) {
+          container.innerHTML = '<div style="color:var(--error);font-size:0.85rem;padding:8px;">' + escapeHtml(err.message || 'Failed to load domains.') + '</div>';
         });
     }
 
@@ -3506,7 +3428,13 @@
         body: JSON.stringify({ hostname: hostname, type: type })
       })
         .then(function(res) {
-          if (!res.ok) return res.json().then(function(d) { throw new Error(d.error || 'Failed to add domain'); });
+          if (!res.ok) return res.json().then(function(d) {
+            var msg = 'Failed to add domain';
+            if (d && d.error) {
+              msg = typeof d.error === 'string' ? d.error : (d.error.message || d.error.code || msg);
+            }
+            throw new Error(msg);
+          });
           return res.json();
         })
         .then(function() {
@@ -3575,6 +3503,64 @@
         });
     }
 
+    /* ── New Website Modal ─────────────────────────── */
+
+    function openNewWebsiteModal() {
+      // Reset the details modal fields
+      var badge = document.getElementById('details-business-badge');
+      if (badge) badge.style.display = 'none';
+      var manualFields = document.getElementById('details-manual-fields');
+      if (manualFields) manualFields.style.display = '';
+      var textarea = document.getElementById('details-textarea');
+      if (textarea) textarea.value = '';
+      var nameInput = document.getElementById('business-name-input');
+      if (nameInput) nameInput.value = '';
+      var addrInput = document.getElementById('business-address-input');
+      if (addrInput) addrInput.value = '';
+      // Clear selected business from state
+      state.selectedBusiness = null;
+      openDetailsModal();
+    }
+
+    /* ── Per-site Checkout ────────────────────────── */
+
+    function openSiteCheckout(siteId) {
+      if (!state.session || !state.session.token) return;
+
+      var headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + state.session.token
+      };
+
+      fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + state.session.token } })
+        .then(function(res) { return res.ok ? res.json() : null; })
+        .then(function(d) {
+          if (!d || !d.data || !d.data.org_id) return;
+          return fetch('/api/billing/checkout', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({
+              org_id: d.data.org_id,
+              site_id: siteId,
+              success_url: window.location.origin + '/?billing=success',
+              cancel_url: window.location.origin + '/?billing=cancel'
+            })
+          });
+        })
+        .then(function(res) {
+          if (!res || !res.ok) return;
+          return res.json();
+        })
+        .then(function(d) {
+          if (d && d.data && d.data.checkout_url) {
+            window.location.href = d.data.checkout_url;
+          }
+        })
+        .catch(function() {
+          /* silently fail - billing may not be configured */
+        });
+    }
+
     /* ── Billing Actions ─────────────────────────── */
 
     function openBillingPortal() {
@@ -3591,7 +3577,13 @@
         body: JSON.stringify({ return_url: window.location.href })
       })
         .then(function(res) {
-          if (!res.ok) return res.json().then(function(d) { throw new Error(d.error || 'Failed'); });
+          if (!res.ok) return res.json().then(function(d) {
+            var msg = 'Failed';
+            if (d && d.error) {
+              msg = typeof d.error === 'string' ? d.error : (d.error.message || d.error.code || msg);
+            }
+            throw new Error(msg);
+          });
           return res.json();
         })
         .then(function(d) {
@@ -3639,6 +3631,48 @@
         })
         .catch(function() {
           /* silently fail - billing may not be configured */
+        });
+    }
+
+    /* ── Get Started (Paid) — pricing CTA ─────── */
+
+    function handleGetStartedPaid() {
+      // 1. If not logged in, save intent and show sign-in
+      if (!state.session || !state.session.token) {
+        try {
+          localStorage.setItem('ps_paid_intent', '1');
+        } catch(e) {}
+        // Scroll to top and prompt search / sign-in flow
+        navigateTo('signin');
+        return;
+      }
+      // 2. Logged in — check if user already has an active subscription
+      var headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + state.session.token
+      };
+      fetch('/api/billing/subscription', { headers: headers })
+        .then(function(res) { return res.ok ? res.json() : null; })
+        .then(function(d) {
+          var sub = d && d.data ? d.data : null;
+          if (sub && (sub.status === 'active' || sub.status === 'trialing')) {
+            // Already subscribed — open build modal directly
+            try { localStorage.removeItem('ps_paid_intent'); } catch(e) {}
+            openDetailsModal();
+          } else {
+            // Not subscribed — redirect to checkout
+            try {
+              localStorage.setItem('ps_paid_intent', '1');
+            } catch(e) {}
+            openBillingCheckout();
+          }
+        })
+        .catch(function() {
+          // On error, try checkout anyway
+          try {
+            localStorage.setItem('ps_paid_intent', '1');
+          } catch(e) {}
+          openBillingCheckout();
         });
     }
 
@@ -3771,12 +3805,36 @@
        Screen Navigation
        =========================================================== */
     function navigateTo(screen) {
+      // Intercept details navigation to open modal instead
+      if (screen === 'details') {
+        openDetailsModal();
+        return;
+      }
+      // Close details modal when navigating to any other screen
+      closeDetailsModal();
       state.screen = screen;
       render();
 
       if (typeof posthog !== 'undefined' && posthog.capture) {
         posthog.capture('screen_view', { screen: screen });
       }
+    }
+
+    function openDetailsModal() {
+      var modal = document.getElementById('details-modal');
+      if (modal) modal.classList.add('visible');
+      // Initialize Uppy if not already done
+      if (!uppyInstance) {
+        initUppy();
+      }
+      if (typeof posthog !== 'undefined' && posthog.capture) {
+        posthog.capture('screen_view', { screen: 'details' });
+      }
+    }
+
+    function closeDetailsModal() {
+      var modal = document.getElementById('details-modal');
+      if (modal) modal.classList.remove('visible');
     }
 
     function render() {
@@ -3787,11 +3845,6 @@
       var target = document.getElementById('screen-' + state.screen);
       if (target) {
         target.classList.add('active');
-      }
-
-      // Initialize Uppy when details screen is shown
-      if (state.screen === 'details' && !uppyInstance) {
-        initUppy();
       }
 
       // Start polling when on waiting screen
@@ -4725,6 +4778,25 @@
       }
       origSignInWithGoogle();
     };
+
+    /* ===========================================================
+       Billing Success: handle ?billing=success return
+       =========================================================== */
+    (function handleBillingReturn() {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get('billing') === 'success') {
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        // Check if user had a paid intent (came from Get Started button)
+        var paidIntent;
+        try { paidIntent = localStorage.getItem('ps_paid_intent'); } catch(e) {}
+        if (paidIntent) {
+          try { localStorage.removeItem('ps_paid_intent'); } catch(e) {}
+          // Payment succeeded — open the build modal so user can build their site
+          setTimeout(function() { openDetailsModal(); }, 300);
+        }
+      }
+    })();
 
     /* ===========================================================
        Keyboard: Enter to select first result
