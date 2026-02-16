@@ -83,7 +83,7 @@ export async function getOrCreateStripeCustomer(
     },
     body: new URLSearchParams({
       email,
-      metadata: JSON.stringify({ org_id: orgId }),
+      'metadata[org_id]': orgId,
     }),
   });
 
