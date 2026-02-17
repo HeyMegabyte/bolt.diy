@@ -994,16 +994,20 @@
       color: var(--text-primary);
       font-size: 0.9rem;
       font-family: var(--font);
+      z-index: 99;
+      position: relative;
     }
     .domain-search-input:focus {
       outline: none;
-      border-color: var(--accent);
+      border-color: white;
     }
     .domain-search-results {
       position: absolute;
       top: 100%;
       left: 0;
       right: 0;
+      padding-top: 10px;
+      margin-top: -10px;
       background: var(--bg-card);
       border: 1px solid var(--border-hover);
       border-top: none;
@@ -3039,7 +3043,7 @@
 
   <!-- Domain Management Modal -->
   <div id="domain-modal" class="modal-overlay" onclick="if(event.target===this)closeDomainModal()">
-    <div class="modal" style="max-width:560px;">
+    <div class="modal" style="max-width:560px;min-height:510px;">
       <div class="modal-title">
         <span id="domain-modal-title">Manage Domains</span>
         <button class="modal-close" onclick="closeDomainModal()">&times;</button>
@@ -3144,13 +3148,13 @@
       </div>
 
       <div class="input-group">
-        <label>Chat JSON <span style="color:var(--text-muted);">(optional)</span></label>
+        <label>Chat / Document <span style="color:var(--text-muted);">(optional)</span></label>
         <div class="deploy-upload-zone" id="deploy-json-zone" onclick="document.getElementById('deploy-json-input').click()" style="padding:16px;">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Bolt.diy chat export (enables restore)</div>
+          <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Chat export, markdown, PDF, or any document</div>
           <div id="deploy-json-name" class="deploy-file-name" style="display:none;"></div>
         </div>
-        <input type="file" id="deploy-json-input" accept=".json" style="display:none;" onchange="handleDeployJsonSelect(this)" />
+        <input type="file" id="deploy-json-input" accept=".json,.md,.markdown,.txt,.csv,.tsv,.pdf,.doc,.docx,.rtf,.html,.htm,.xml,.yaml,.yml,.toml,.ini,.cfg,.log,.tex,.rst,.org,.adoc,.asciidoc" style="display:none;" onchange="handleDeployJsonSelect(this)" />
       </div>
 
       <!-- File Manager — appears after ZIP upload -->
