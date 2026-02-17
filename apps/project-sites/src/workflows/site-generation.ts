@@ -21,6 +21,7 @@
 import { WorkflowEntrypoint } from 'cloudflare:workers';
 import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types/env.js';
+import { extractJsonFromText } from '../services/ai_workflows.js';
 
 /** Parameters passed when creating a workflow instance. */
 export interface SiteGenerationParams {
@@ -89,7 +90,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         additional_context: params.additionalContext ?? '',
       });
 
-      const validated = validatePromptOutput('research_profile', JSON.parse(result.output));
+      const validated = validatePromptOutput('research_profile', extractJsonFromText(result.output));
       return JSON.stringify(validated);
     });
 
@@ -106,7 +107,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         business_address: params.businessAddress ?? '',
         business_type: profile.business_type,
       });
-      return JSON.stringify(validatePromptOutput('research_social', JSON.parse(result.output)));
+      return JSON.stringify(validatePromptOutput('research_social', extractJsonFromText(result.output)));
     });
 
     const brandJsonPromise = step.do('research-brand', RETRY_3, async () => {
@@ -119,7 +120,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         website_url: '',
         additional_context: params.additionalContext ?? '',
       });
-      return JSON.stringify(validatePromptOutput('research_brand', JSON.parse(result.output)));
+      return JSON.stringify(validatePromptOutput('research_brand', extractJsonFromText(result.output)));
     });
 
     const sellingPointsJsonPromise = step.do('research-selling-points', RETRY_3, async () => {
@@ -133,7 +134,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         additional_context: params.additionalContext ?? '',
       });
       return JSON.stringify(
-        validatePromptOutput('research_selling_points', JSON.parse(result.output)),
+        validatePromptOutput('research_selling_points', extractJsonFromText(result.output)),
       );
     });
 
@@ -147,7 +148,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         services_json: servicesJson,
         additional_context: params.additionalContext ?? '',
       });
-      return JSON.stringify(validatePromptOutput('research_images', JSON.parse(result.output)));
+      return JSON.stringify(validatePromptOutput('research_images', extractJsonFromText(result.output)));
     });
 
     const [socialJson, brandJson, sellingPointsJson, imagesJson] = await Promise.all([
@@ -230,7 +231,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           business_name: params.businessName,
         });
         return JSON.stringify(
-          validatePromptOutput('score_website', JSON.parse(result.output)),
+          validatePromptOutput('score_website', extractJsonFromText(result.output)),
         );
       },
     );

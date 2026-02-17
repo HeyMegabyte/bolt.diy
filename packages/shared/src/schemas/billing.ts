@@ -106,14 +106,14 @@ export type StripeEventType = (typeof stripeEventTypes)[number];
  * Returned by the entitlements API endpoint to inform the front-end which
  * features are available. Includes boolean flags (`topBarHidden`,
  * `chatEnabled`, `analyticsEnabled`) and numeric limits
- * (`maxCustomDomains` 0-5). The values mirror the static
+ * (`maxCustomDomains` 0-10). The values mirror the static
  * {@link ENTITLEMENTS} constant but are resolved at runtime per-org.
  */
 export const entitlementsSchema = z.object({
   org_id: uuidSchema,
   plan: z.enum(['free', 'paid']),
   topBarHidden: z.boolean(),
-  maxCustomDomains: z.number().int().min(0).max(5),
+  maxCustomDomains: z.number().int().min(0).max(10),
   chatEnabled: z.boolean(),
   analyticsEnabled: z.boolean(),
 });

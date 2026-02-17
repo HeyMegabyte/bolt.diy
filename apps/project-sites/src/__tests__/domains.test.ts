@@ -347,14 +347,14 @@ describe('provisionCustomDomain', () => {
   });
 
   it('throws conflict when max domains reached', async () => {
-    const fiveDomains = Array.from({ length: 5 }, (_, i) => ({ id: `dom-${i}` }));
-    mockQuery.mockResolvedValueOnce({ data: fiveDomains, error: null });
+    const tenDomains = Array.from({ length: 10 }, (_, i) => ({ id: `dom-${i}` }));
+    mockQuery.mockResolvedValueOnce({ data: tenDomains, error: null });
 
     await expect(
       provisionCustomDomain(mockDb, mockEnv, {
         org_id: 'org-full',
         site_id: 'site-1',
-        hostname: 'sixth.example.com',
+        hostname: 'eleventh.example.com',
       }),
     ).rejects.toThrow(/Maximum custom domains/);
   });

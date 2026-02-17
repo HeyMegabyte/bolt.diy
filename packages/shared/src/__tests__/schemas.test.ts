@@ -357,12 +357,12 @@ describe('entitlementsSchema', () => {
       org_id: validUuid,
       plan: 'paid',
       topBarHidden: true,
-      maxCustomDomains: 5,
+      maxCustomDomains: 10,
       chatEnabled: true,
       analyticsEnabled: true,
     });
     expect(result.topBarHidden).toBe(true);
-    expect(result.maxCustomDomains).toBe(5);
+    expect(result.maxCustomDomains).toBe(10);
   });
 });
 

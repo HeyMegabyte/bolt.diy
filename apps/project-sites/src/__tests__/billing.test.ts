@@ -403,7 +403,7 @@ describe('getOrgEntitlements', () => {
       org_id: 'org_1',
       plan: 'paid',
       topBarHidden: true,
-      maxCustomDomains: 5,
+      maxCustomDomains: 10,
       chatEnabled: true,
       analyticsEnabled: true,
     });

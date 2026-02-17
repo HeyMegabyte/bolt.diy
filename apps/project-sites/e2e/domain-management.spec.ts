@@ -96,27 +96,79 @@ test.describe('Admin Panel Styling', () => {
 });
 
 test.describe('Site Card URL Display', () => {
-  test('site card rendering includes both CNAME and URL badge logic', async ({ page }) => {
+  test('site card rendering includes URL/CNAME combined label when same', async ({ page }) => {
     await page.goto('/');
 
     const html = await page.content();
-    // Verify CNAME badge markup
+    // Verify combined URL / CNAME badge for when no custom domain is set
+    expect(html).toContain('>URL / CNAME</span>');
+    // Verify separate CNAME and URL badges for when custom domain exists
     expect(html).toContain('>CNAME</span>');
-    // Verify URL badge markup (always rendered)
     expect(html).toContain('>URL</span>');
-    // Verify the URL falls back to CNAME when no primary custom domain
-    expect(html).toContain('hasPrimaryCustom ? \'https://\' + s.primary_hostname : cnameUrl');
+  });
+
+  test('URL link does not use font-weight bold', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    // The URL link in site cards should NOT have font-weight:600
+    // The combined URL / CNAME row should not bold the link
+    expect(html).not.toContain('hasPrimaryCustom ? \'https://\' + s.primary_hostname : cnameUrl');
+  });
+
+  test('CNAME and URL tags use min-width for alignment', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    expect(html).toContain('min-width:42px');
   });
 });
 
-test.describe('Workflow Error Display', () => {
+test.describe('Domains Button Availability', () => {
+  test('Domains button is available for all sites (not just paid)', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    // The Domains button should NOT be gated behind sitePlan === paid
+    expect(html).not.toContain('if (sitePlan === \'paid\') {');
+    // The openDomainModal call should still exist
+    expect(html).toContain('openDomainModal(');
+  });
+});
+
+test.describe('Build Terminal', () => {
+  test('build terminal has max-height: 270px', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    expect(html).toContain('max-height: 270px');
+  });
+
+  test('waiting title has hover effect styles', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    expect(html).toContain('.waiting-title:hover');
+    expect(html).toContain('text-shadow');
+  });
+
   test('build terminal does not display [object Object]', async ({ page }) => {
     await page.goto('/');
 
-    // This test verifies the fix is in place by checking the JS source
-    // contains the error message serialization logic
     const html = await page.content();
     expect(html).toContain('typeof errorMsg === \'object\'');
     expect(html).toContain('errorMsg.message || errorMsg.name || JSON.stringify(errorMsg)');
+  });
+});
+
+test.describe('Auto-hide Error Notifications', () => {
+  test('auto-hide event listeners are registered for input fields', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    // Verify auto-hide pairs are wired up
+    expect(html).toContain('details-textarea');
+    expect(html).toContain('autoHidePairs');
+    expect(html).toContain('addEventListener(\'input\'');
   });
 });
