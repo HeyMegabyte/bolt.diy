@@ -924,6 +924,60 @@
       font-weight: 600;
     }
 
+    /* Deploy File Manager */
+    .deploy-file-manager {
+      display: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: #0d0d1f;
+      max-height: 220px;
+      overflow-y: auto;
+      margin-bottom: 16px;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 0.78rem;
+    }
+    .deploy-file-manager.visible { display: block; animation: fadeIn 0.2s ease; }
+    .deploy-file-manager-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+    .deploy-folder-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+      color: var(--text-secondary);
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .deploy-folder-item:last-child { border-bottom: none; }
+    .deploy-folder-item:hover { background: rgba(100, 255, 218, 0.05); }
+    .deploy-folder-item.selected {
+      background: rgba(100, 255, 218, 0.1);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .deploy-folder-item.selected svg { stroke: var(--accent); }
+    .deploy-folder-icon { flex-shrink: 0; }
+    .deploy-folder-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .deploy-folder-count { font-size: 0.68rem; color: var(--text-muted); flex-shrink: 0; }
+    .deploy-selected-path {
+      font-size: 0.75rem;
+      color: var(--accent);
+      margin-top: 8px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
     /* ======================================================
        Domain Search Results
        ====================================================== */
@@ -1017,20 +1071,25 @@
        ====================================================== */
     .details-biz-search-wrap {
       position: relative;
-      z-index: 999;
+      z-index: 99999;
+    }
+    .details-biz-search-wrap #business-name-input {
+      position: relative;
+      z-index: 99999;
     }
     .details-biz-dropdown {
       position: absolute;
-      top: 100%;
+      top: 70px;
       left: 0;
       right: 0;
+      padding-top: 20px;
       background: var(--bg-card);
       border: 1px solid var(--border-hover);
       border-top: none;
       border-radius: 0 0 var(--radius) var(--radius);
       max-height: 280px;
       overflow-y: auto;
-      z-index: 999;
+      z-index: 9999;
       display: none;
       box-shadow: var(--shadow-lg);
     }
@@ -3094,11 +3153,18 @@
         <input type="file" id="deploy-json-input" accept=".json" style="display:none;" onchange="handleDeployJsonSelect(this)" />
       </div>
 
-      <div class="edit-site-row">
-        <label for="deploy-dist-path" style="width:70px;">Dist Dir</label>
-        <input type="text" id="deploy-dist-path" value="dist/" placeholder="dist/" />
+      <!-- File Manager — appears after ZIP upload -->
+      <div class="deploy-file-manager" id="deploy-file-manager">
+        <div class="deploy-file-manager-header">
+          <span>Select deploy folder</span>
+          <span id="deploy-folder-count"></span>
+        </div>
+        <div id="deploy-folder-list"></div>
       </div>
-      <p style="font-size:0.72rem;color:var(--text-muted);margin-bottom:16px;">The directory inside the ZIP to sync files from. Usually <code>dist/</code> for Vite builds.</p>
+      <input type="hidden" id="deploy-dist-path" value="dist/" />
+      <div id="deploy-selected-info" class="deploy-selected-path" style="display:none;">
+        Deploy from: <strong id="deploy-selected-folder">dist/</strong>
+      </div>
 
       <div id="deploy-msg" class="msg" style="margin-bottom:12px;"></div>
       <button class="btn btn-accent btn-full" id="deploy-submit-btn" onclick="submitDeploy()">Deploy</button>
@@ -3709,6 +3775,8 @@
 
   <!-- Uppy -->
   <script src="https://releases.transloadit.com/uppy/v4.12.1/uppy.min.js"></script>
+  <!-- JSZip for deploy file manager -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
   <script>
     /* ===========================================================
@@ -5901,6 +5969,9 @@
       document.getElementById('deploy-zip-input').value = '';
       document.getElementById('deploy-json-input').value = '';
       document.getElementById('deploy-dist-path').value = 'dist/';
+      document.getElementById('deploy-file-manager').classList.remove('visible');
+      document.getElementById('deploy-folder-list').innerHTML = '';
+      document.getElementById('deploy-selected-info').style.display = 'none';
       hideMsg('deploy-msg');
       document.getElementById('deploy-modal').classList.add('visible');
     }
@@ -5917,7 +5988,124 @@
         nameEl.textContent = deployZipFile.name + ' (' + (deployZipFile.size / 1024 / 1024).toFixed(2) + ' MB)';
         nameEl.style.display = 'block';
         document.getElementById('deploy-zip-zone').classList.add('has-file');
+        hideMsg('deploy-msg');
+
+        // Parse ZIP and show file manager
+        parseZipFolders(deployZipFile);
       }
+    }
+
+    function parseZipFolders(file) {
+      var fm = document.getElementById('deploy-file-manager');
+      var listEl = document.getElementById('deploy-folder-list');
+      var countEl = document.getElementById('deploy-folder-count');
+
+      if (typeof JSZip === 'undefined') {
+        // Fallback: if JSZip not loaded, default to dist/
+        selectDeployFolder('dist/');
+        return;
+      }
+
+      listEl.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:0.78rem;">Scanning ZIP contents...</div>';
+      fm.classList.add('visible');
+
+      JSZip.loadAsync(file).then(function(zip) {
+        // Collect all unique top-level directories and the root
+        var folders = {};
+        var rootFileCount = 0;
+        var totalFiles = 0;
+
+        zip.forEach(function(relativePath) {
+          totalFiles++;
+          var parts = relativePath.split('/');
+
+          if (parts.length === 1 || (parts.length === 2 && parts[1] === '')) {
+            // Root-level file or root directory entry
+            if (parts[0] && !relativePath.endsWith('/')) {
+              rootFileCount++;
+            }
+          }
+
+          // Track all directories
+          if (parts.length >= 2 && parts[0]) {
+            var dirName = parts[0] + '/';
+            if (!folders[dirName]) {
+              folders[dirName] = { name: dirName, count: 0 };
+            }
+            if (!relativePath.endsWith('/')) {
+              folders[dirName].count++;
+            }
+          }
+        });
+
+        // Build folder list: root first, then sorted folders
+        var folderList = [];
+
+        // Add root option
+        folderList.push({ name: './', label: '/ (root)', count: rootFileCount });
+
+        // Add each folder sorted alphabetically
+        var sortedFolders = Object.keys(folders).sort();
+        for (var i = 0; i < sortedFolders.length; i++) {
+          var f = folders[sortedFolders[i]];
+          folderList.push({ name: f.name, label: f.name, count: f.count });
+        }
+
+        countEl.textContent = totalFiles + ' files';
+
+        // Render
+        var html = '';
+        for (var j = 0; j < folderList.length; j++) {
+          var item = folderList[j];
+          var isRoot = item.name === './';
+          var iconSvg = isRoot
+            ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'
+            : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+
+          html += '<div class="deploy-folder-item" data-path="' + escapeHtml(item.name) + '" onclick="selectDeployFolder(\'' + escapeHtml(item.name) + '\')">';
+          html += '<span class="deploy-folder-icon">' + iconSvg + '</span>';
+          html += '<span class="deploy-folder-name">' + escapeHtml(item.label) + '</span>';
+          html += '<span class="deploy-folder-count">' + item.count + ' file' + (item.count !== 1 ? 's' : '') + '</span>';
+          html += '</div>';
+        }
+
+        listEl.innerHTML = html;
+
+        // Auto-select the best folder
+        var autoSelected = './';
+        var assetFolders = ['dist/', 'build/', 'out/', 'public/', 'output/'];
+        for (var k = 0; k < assetFolders.length; k++) {
+          if (folders[assetFolders[k]]) {
+            autoSelected = assetFolders[k];
+            break;
+          }
+        }
+
+        selectDeployFolder(autoSelected);
+      }).catch(function() {
+        listEl.innerHTML = '<div style="padding:12px;color:var(--error);font-size:0.78rem;">Could not read ZIP file. Defaulting to dist/.</div>';
+        selectDeployFolder('dist/');
+      });
+    }
+
+    function selectDeployFolder(folderPath) {
+      document.getElementById('deploy-dist-path').value = folderPath === './' ? '' : folderPath;
+
+      // Update visual selection
+      var items = document.querySelectorAll('.deploy-folder-item');
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].getAttribute('data-path') === folderPath) {
+          items[i].classList.add('selected');
+        } else {
+          items[i].classList.remove('selected');
+        }
+      }
+
+      // Show selected path info
+      var infoEl = document.getElementById('deploy-selected-info');
+      var folderEl = document.getElementById('deploy-selected-folder');
+      infoEl.style.display = 'block';
+      folderEl.textContent = folderPath === './' ? '/ (root)' : folderPath;
     }
 
     function handleDeployJsonSelect(input) {
@@ -5937,7 +6125,7 @@
         return;
       }
 
-      var distPath = document.getElementById('deploy-dist-path').value.trim() || 'dist/';
+      var distPath = document.getElementById('deploy-dist-path').value.trim();
       var btn = document.getElementById('deploy-submit-btn');
       btn.disabled = true;
       btn.innerHTML = 'Deploying <span class="loading-dots"><span></span><span></span><span></span></span>';

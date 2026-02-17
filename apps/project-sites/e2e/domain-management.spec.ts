@@ -172,3 +172,62 @@ test.describe('Auto-hide Error Notifications', () => {
     expect(html).toContain('addEventListener(\'input\'');
   });
 });
+
+test.describe('Deploy File Manager', () => {
+  test('deploy modal has file manager markup', async ({ page }) => {
+    await page.goto('/');
+
+    const fm = page.locator('#deploy-file-manager');
+    await expect(fm).toBeAttached();
+  });
+
+  test('deploy modal has hidden dist path input', async ({ page }) => {
+    await page.goto('/');
+
+    const distInput = page.locator('#deploy-dist-path');
+    await expect(distInput).toBeAttached();
+    expect(await distInput.getAttribute('type')).toBe('hidden');
+  });
+
+  test('deploy modal includes JSZip library', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    expect(html).toContain('jszip');
+  });
+
+  test('parseZipFolders function exists', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    expect(html).toContain('function parseZipFolders');
+    expect(html).toContain('function selectDeployFolder');
+  });
+
+  test('auto-selects dist/ folder from ZIP contents', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    // Verify the auto-selection logic checks for dist/ first
+    expect(html).toContain("['dist/', 'build/', 'out/', 'public/', 'output/']");
+  });
+});
+
+test.describe('Business Name Dropdown Styling', () => {
+  test('business name dropdown has correct z-index', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    expect(html).toContain('z-index: 99999');
+    expect(html).toContain('z-index: 9999');
+  });
+
+  test('business name dropdown has absolute positioning with top offset', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    expect(html).toContain('.details-biz-dropdown');
+    expect(html).toContain('top: 70px');
+    expect(html).toContain('padding-top: 20px');
+  });
+});
