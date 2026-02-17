@@ -35,6 +35,7 @@ _worker.bundle
 package-lock.json
 test-results/
 playwright-report/
+coverage/
 
 Modelfile
 modelfiles
