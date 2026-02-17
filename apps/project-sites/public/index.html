@@ -766,7 +766,7 @@
     }
     .build-terminal-body {
       padding: 12px;
-      max-height: 200px;
+      max-height: 400px;
       overflow-y: auto;
       font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
       font-size: 0.75rem;
@@ -774,9 +774,8 @@
     }
     .build-terminal-line {
       color: var(--text-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
     .build-terminal-line.active {
       color: var(--accent);
@@ -784,16 +783,19 @@
     .build-terminal-line.done {
       color: var(--success);
     }
+    .build-terminal-line.error {
+      color: var(--error);
+    }
     .build-terminal-line.done::before {
       content: '\2713 ';
       color: var(--success);
-      margin-right: 14px;
+      margin-right: 8px;
     }
     .build-terminal-line.active::before {
       content: '\25B6 ';
       color: var(--accent);
       animation: pulse 1.5s ease-in-out infinite;
-      margin-right: 14px;
+      margin-right: 8px;
     }
     .build-terminal-line.pending {
       color: var(--text-muted);
@@ -801,7 +803,17 @@
     }
     .build-terminal-line.pending::before {
       content: '\25CB ';
-      margin-right: 14px;
+      margin-right: 8px;
+    }
+    .build-terminal-line.error::before {
+      content: '\2717 ';
+      color: var(--error);
+      margin-right: 8px;
+    }
+    .build-terminal-line.info {
+      color: #94a3b8;
+      font-size: 0.68rem;
+      padding-left: 22px;
     }
 
     /* ======================================================
@@ -1678,7 +1690,7 @@
     /* ── Address Autocomplete Dropdown ────────── */
     #business-address-input {
       position: relative;
-      z-index: 999;
+      z-index: 9999;
     }
     .address-dropdown {
       position: absolute;
@@ -1907,22 +1919,7 @@
       color: var(--text-muted);
       margin-top: 16px;
     }
-    .waiting-status {
-      margin-top: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      font-size: 0.85rem;
-      color: var(--text-muted);
-    }
-    .waiting-status .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--accent);
-      animation: pulse 2s ease-in-out infinite;
-    }
+    /* waiting-status removed */
 
     /* ======================================================
        Responsive
@@ -3070,7 +3067,7 @@
         </button>
       </div>
 
-      <!-- Manual business info (shown when no business selected from search) -->
+      <!-- Manual business info (always shown with live search) -->
       <div id="details-manual-fields" style="display:none;">
         <div class="input-group details-biz-search-wrap">
           <label for="business-name-input">Business Name <span style="color:var(--accent);">*</span></label>
@@ -3083,6 +3080,13 @@
           <input type="text" id="business-address-input" class="input-field" placeholder="Start typing an address..." maxlength="500" autocomplete="off" />
           <div id="address-dropdown" class="address-dropdown"></div>
           <p style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Select a suggestion or enter a custom address.</p>
+        </div>
+        <!-- Google Place ID info (shown when a business is selected from search) -->
+        <div id="details-place-id-info" style="display:none;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(100,255,218,0.05);border:1px solid rgba(100,255,218,0.15);border-radius:var(--radius);font-size:0.72rem;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span style="color:var(--text-secondary);">Google Place ID: <code id="details-place-id-text" style="color:var(--accent);font-size:0.68rem;"></code></span>
+          </div>
         </div>
       </div>
 
@@ -3303,52 +3307,59 @@
           <div class="faq-list">
             <div class="faq-item">
               <button class="faq-question" onclick="toggleFaq(this)">
+                How does the AI build my website?
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="faq-answer"><div class="faq-answer-inner">When you search for your business, we pull data from Google Places, public listings, and social profiles. Our AI then runs a multi-step pipeline: it researches your business profile, analyzes your brand identity and services, generates selling points, creates a fully designed website with responsive layouts, and produces legal pages (privacy policy &amp; terms of service). The whole process takes just a few minutes and you can watch each step in real time.</div></div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-question" onclick="toggleFaq(this)">
                 How accurate is the AI-generated content?
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
-              <div class="faq-answer"><div class="faq-answer-inner">Our AI researches your business using Google, public listings, and any info you provide. It generates original, accurate content specific to your services, location, and industry. You review everything before going live and can request unlimited changes.</div></div>
-            </div>
-            <div class="faq-item">
-              <button class="faq-question" onclick="toggleFaq(this)">
-                Can I edit the content myself?
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <div class="faq-answer"><div class="faq-answer-inner">Yes. You can request any changes &mdash; text, images, layout, colors &mdash; and we'll make them for you, typically within 24 hours. You never need to learn a page builder or write code.</div></div>
-            </div>
-            <div class="faq-item">
-              <button class="faq-question" onclick="toggleFaq(this)">
-                What if my business info is wrong online?
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <div class="faq-answer"><div class="faq-answer-inner">No problem. After the AI generates your site, you can provide corrections and additional context. We'll update the content to match the real details of your business. The preview is a starting point, not the final product.</div></div>
-            </div>
-            <div class="faq-item">
-              <button class="faq-question" onclick="toggleFaq(this)">
-                Do I own the website and content?
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <div class="faq-answer"><div class="faq-answer-inner">Yes. All content generated for your site belongs to you. If you cancel, you can request an export of your site's content. Your business data is never shared or sold.</div></div>
-            </div>
-            <div class="faq-item">
-              <button class="faq-question" onclick="toggleFaq(this)">
-                Can I use my own domain or transfer my site out?
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <div class="faq-answer"><div class="faq-answer-inner">Absolutely. Every paid plan includes a custom domain with automatic SSL. You can bring your own domain or register a new one. If you ever want to leave, we'll help you export your content.</div></div>
-            </div>
-            <div class="faq-item">
-              <button class="faq-question" onclick="toggleFaq(this)">
-                What happens if I cancel?
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <div class="faq-answer"><div class="faq-answer-inner">You can cancel anytime with no penalty. Your site stays live through the end of your billing period. We offer a 14-day money-back guarantee on your first payment &mdash; if it's not right for you, you get a full refund.</div></div>
+              <div class="faq-answer"><div class="faq-answer-inner">Our AI researches your business using Google Places data, public listings, social media profiles, and any additional context you provide. It generates original content specific to your services, location, and industry. Every site goes through an 8-dimension quality scoring check. You can review and request changes before going live.</div></div>
             </div>
             <div class="faq-item">
               <button class="faq-question" onclick="toggleFaq(this)">
                 What's included in the free preview?
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
-              <div class="faq-answer"><div class="faq-answer-inner">The free preview gives you a fully AI-generated website for your business &mdash; no account or credit card required. You can see exactly what your site will look like before paying anything. Pay only when you're ready to publish with a custom domain.</div></div>
+              <div class="faq-answer"><div class="faq-answer-inner">The free preview gives you a fully AI-generated website hosted on a subdomain (e.g. your-business-sites.megabyte.space) &mdash; no credit card required. It includes AI-generated content, responsive mobile design, privacy policy, and terms of service. The site is live and accessible immediately. Upgrade when you want a custom domain and to remove the branding bar.</div></div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-question" onclick="toggleFaq(this)">
+                Can I use my own domain?
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="faq-answer"><div class="faq-answer-inner">Yes. On a paid plan, you can connect your own domain by pointing a CNAME record to sites.megabyte.space. SSL is automatic. You can also purchase a premium domain directly through us. Free sites are hosted on a subdomain (your-slug-sites.megabyte.space).</div></div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-question" onclick="toggleFaq(this)">
+                Can I edit the website after it's built?
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="faq-answer"><div class="faq-answer-inner">Yes. You can rebuild your site at any time from the admin dashboard &mdash; just click "Reset" to regenerate with updated info, or use the AI Editor to make changes directly. You can also upload your own HTML/CSS builds via the deploy feature. No page builders to learn, no code to write.</div></div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-question" onclick="toggleFaq(this)">
+                What if my business isn't on Google?
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="faq-answer"><div class="faq-answer-inner">No problem. You can choose "Build a custom website" and manually enter your business name, address, and description. The AI will use whatever you provide, plus anything it can find from public web sources, to build your site. The more details you share, the better the result.</div></div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-question" onclick="toggleFaq(this)">
+                Do I own the website and content?
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="faq-answer"><div class="faq-answer-inner">Yes. All content generated for your site belongs to you. If you cancel, you can export your site files. Your business data is never shared or sold. Sites are hosted on Cloudflare's global CDN for fast loading worldwide.</div></div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-question" onclick="toggleFaq(this)">
+                What happens if I cancel?
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="faq-answer"><div class="faq-answer-inner">You can cancel anytime. Your site stays live through the end of your billing period. After that, it reverts to the free tier (subdomain hosting with a branding bar). We offer a 14-day money-back guarantee on your first payment.</div></div>
             </div>
           </div>
         </section>
@@ -3395,7 +3406,7 @@
             <div class="pricing-card">
               <div class="plan-label">All-Inclusive</div>
               <div class="pricing-price" id="pricing-amount">$50<span>/mo</span></div>
-              <p class="pricing-desc" id="pricing-desc-text">Everything you need to run a professional business website.</p>
+              <p class="pricing-desc" id="pricing-desc-text">Everything you need from a business website.</p>
               <ul class="pricing-features">
                 <li>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -3560,12 +3571,6 @@
 
         <h2 class="waiting-title">We're building your website...</h2>
         <p class="waiting-subtitle">Give us a few minutes. We'll notify you when it's ready.</p>
-
-        <div class="waiting-status">
-          <span class="status-dot"></span>
-          <span>Working on it</span>
-          <span class="loading-dots"><span></span><span></span><span></span></span>
-        </div>
 
         <!-- Build Progress Terminal -->
         <div class="build-terminal" id="build-terminal">
@@ -4429,6 +4434,8 @@
       if (!uppyInstance) {
         initUppy();
       }
+      // Update the details screen fields and title
+      updateDetailsScreen();
       if (typeof posthog !== 'undefined' && posthog.capture) {
         posthog.capture('screen_view', { screen: 'details' });
       }
@@ -4453,11 +4460,13 @@
         target.classList.add('active');
       }
 
-      // Start polling when on waiting screen
+      // Start polling and build terminal when on waiting screen
       if (state.screen === 'waiting') {
+        updateWaitingScreen();
         startPolling();
       } else {
         stopPolling();
+        stopBuildTerminal();
       }
     }
 
@@ -4730,14 +4739,22 @@
             return;
           }
 
-          state.siteId = site.id || site.site_id;
-          state.slug = site.slug;
-
+          // A site already exists for this business.
+          // If the user is signed in and owns the site, use it. Otherwise,
+          // proceed to details to create a new one (backend ensures unique slug).
           if (site.status === 'published' && site.slug) {
-            // Redirect to the live site
+            // Show the published site but also allow creating a new one
             redirectTo('https://' + site.slug + '-sites.megabyte.space');
           } else if (site.status === 'queued' || site.status === 'building') {
-            navigateTo('waiting');
+            // Check if the user owns this building site
+            if (state.session && state.session.token) {
+              state.siteId = site.id || site.site_id;
+              state.slug = site.slug;
+              navigateTo('waiting');
+            } else {
+              // Not signed in - let them create their own version
+              navigateTo('details');
+            }
           } else {
             // Draft or other - go to details
             navigateTo('details');
@@ -4951,8 +4968,9 @@
 
       if (state.mode === 'custom') {
         titleEl.textContent = 'Describe your custom website';
-        subtitleEl.textContent = 'Tell us what you\'d like and we\'ll build it for you.';
+        subtitleEl.textContent = 'Search for your business or enter details manually. We\'ll also search the web for public info.';
         badgeEl.style.display = 'none';
+        // Always show the business name/address live search fields
         manualFields.style.display = 'block';
       } else {
         titleEl.textContent = 'Tell us more about your business';
@@ -4963,10 +4981,25 @@
           document.getElementById('badge-biz-name').textContent = biz.name || biz.business_name || 'Selected Business';
           document.getElementById('badge-biz-addr').textContent = biz.address || biz.formatted_address || biz.street_address || '';
           badgeEl.style.display = 'flex';
+          // Show manual fields below the badge so users can still see/edit
           manualFields.style.display = 'none';
         } else {
           badgeEl.style.display = 'none';
+          // Always show business name/address fields with live search
           manualFields.style.display = 'block';
+        }
+      }
+
+      // Show/hide Google Place ID info if available
+      var placeId = state.selectedBusiness ? (state.selectedBusiness.place_id || state.selectedBusiness.id || '') : '';
+      var placeIdEl = document.getElementById('details-place-id-info');
+      if (placeIdEl) {
+        if (placeId) {
+          placeIdEl.style.display = 'block';
+          var placeIdText = document.getElementById('details-place-id-text');
+          if (placeIdText) placeIdText.textContent = placeId;
+        } else {
+          placeIdEl.style.display = 'none';
         }
       }
     }
@@ -5238,6 +5271,9 @@
       stopPolling();
       if (!state.siteId) return;
 
+      // Start the real build terminal
+      startBuildTerminal();
+
       pollTimer = setInterval(function() {
         var headers = {};
         if (state.session && state.session.token) {
@@ -5249,12 +5285,17 @@
             if (!res.ok) return null;
             return res.json();
           })
-          .then(function(site) {
-            if (!site) return;
+          .then(function(resp) {
+            if (!resp) return;
+            var site = resp.data || resp;
             if (site.status === 'published' && (site.slug || state.slug)) {
               stopPolling();
+              stopBuildTerminal();
               var slug = site.slug || state.slug;
-              redirectTo('https://' + slug + '-sites.megabyte.space');
+              // Let the terminal show completion for a moment before redirect
+              setTimeout(function() {
+                redirectTo('https://' + slug + '-sites.megabyte.space');
+              }, 3000);
             }
           })
           .catch(function() {
@@ -5450,7 +5491,7 @@
         monthlyLabel.classList.add('active');
         annualLabel.classList.remove('active');
         amount.innerHTML = '$50<span>/mo</span>';
-        desc.textContent = 'Everything you need to run a professional business website.';
+        desc.textContent = 'Everything you need from a business website.';
       }
     }
 
@@ -5918,81 +5959,221 @@
     }
 
     /* ===========================================================
-       Build Terminal (Progress Messages)
+       Build Terminal (Real Workflow Status Polling)
        =========================================================== */
-    function getBuildSteps() {
+
+    /** Map workflow step names to human-readable descriptions */
+    var WORKFLOW_STEP_LABELS = {
+      'research-profile': 'Researching business profile & entity data',
+      'research-social': 'Crawling social profiles & public web presence',
+      'research-brand': 'Analyzing brand identity, colors & fonts',
+      'research-selling-points': 'Generating selling points & hero content',
+      'research-images': 'Researching image strategies & visual assets',
+      'generate-website': 'AI generating full website HTML & content',
+      'generate-privacy-page': 'Generating privacy policy page',
+      'generate-terms-page': 'Generating terms of service page',
+      'score-website': 'Running 8-dimension quality score check',
+      'upload-to-r2': 'Uploading files to CDN edge network',
+      'update-site-status': 'Finalizing & publishing site'
+    };
+
+    /** Ordered steps for the build pipeline display */
+    var WORKFLOW_STEP_ORDER = [
+      'research-profile',
+      'research-social',
+      'research-brand',
+      'research-selling-points',
+      'research-images',
+      'generate-website',
+      'generate-privacy-page',
+      'generate-terms-page',
+      'score-website',
+      'upload-to-r2',
+      'update-site-status'
+    ];
+
+    var buildTerminalTimer = null;
+    var lastWorkflowStatus = null;
+    var terminalLogLines = [];
+
+    function addTerminalLine(text, cls) {
+      var body = document.getElementById('build-terminal-body');
+      if (!body) return;
+      var line = document.createElement('div');
+      line.className = 'build-terminal-line ' + (cls || '');
+      line.textContent = text;
+      body.appendChild(line);
+      terminalLogLines.push({ text: text, cls: cls });
+      line.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function updateTerminalLine(index, text, cls) {
+      var body = document.getElementById('build-terminal-body');
+      if (!body) return;
+      var lines = body.querySelectorAll('.build-terminal-line');
+      if (index < lines.length) {
+        lines[index].textContent = text;
+        lines[index].className = 'build-terminal-line ' + (cls || '');
+      }
+    }
+
+    function startBuildTerminal() {
+      terminalLogLines = [];
+      var body = document.getElementById('build-terminal-body');
+      if (!body) return;
+      body.innerHTML = '';
+
+      // Initial context lines
       var bizName = '';
       var bizAddr = '';
+      var placeId = '';
       if (state.selectedBusiness) {
         bizName = state.selectedBusiness.name || state.selectedBusiness.business_name || '';
         bizAddr = state.selectedBusiness.address || state.selectedBusiness.formatted_address || state.selectedBusiness.street_address || '';
+        placeId = state.selectedBusiness.place_id || state.selectedBusiness.id || '';
       } else {
         var nameInput = document.getElementById('business-name-input');
         var addrInput = document.getElementById('business-address-input');
         if (nameInput) bizName = nameInput.value.trim();
         if (addrInput) bizAddr = addrInput.value.trim();
       }
-      var placeId = state.selectedBusiness ? (state.selectedBusiness.place_id || state.selectedBusiness.id || '') : '';
-      var steps = [
-        'Initializing build pipeline...'
-      ];
-      if (bizName) steps.push('Business: ' + bizName);
-      if (bizAddr) steps.push('Address: ' + bizAddr);
-      if (placeId) steps.push('Google Place ID: ' + placeId);
-      steps.push('Researching business entity data...');
-      steps.push('Crawling public data sources & social profiles...');
-      steps.push('AI analyzing business category & services...');
-      steps.push('AI generating brand colors, fonts & identity...');
-      steps.push('AI researching selling points & hero content...');
-      steps.push('AI generating full website HTML & content...');
-      steps.push('Creating page layouts & responsive sections...');
-      steps.push('Generating privacy policy & terms of service...');
-      steps.push('Running 8-dimension quality score check...');
-      steps.push('Optimizing images & building SEO metadata...');
-      steps.push('Compiling & uploading to CDN edge network...');
-      steps.push('Configuring SSL certificate & domain routing...');
-      if (state.slug) steps.push('Slug: ' + state.slug + '-sites.megabyte.space');
-      steps.push('Publishing your website!');
-      return steps;
-    }
-    var buildSteps = getBuildSteps();
-    var currentBuildStep = 0;
-    var buildTerminalTimer = null;
 
-    function startBuildTerminal() {
-      currentBuildStep = 0;
-      buildSteps = getBuildSteps();
-      var body = document.getElementById('build-terminal-body');
-      if (!body) return;
-      body.innerHTML = '<div class="build-terminal-line active">' + escapeHtml(buildSteps[0]) + '</div>';
-      for (var i = 1; i < buildSteps.length; i++) {
-        body.innerHTML += '<div class="build-terminal-line pending">' + escapeHtml(buildSteps[i]) + '</div>';
+      addTerminalLine('Initializing build pipeline...', 'active');
+      if (bizName) addTerminalLine('Business: ' + bizName, 'info');
+      if (bizAddr) addTerminalLine('Address: ' + bizAddr, 'info');
+      if (placeId) addTerminalLine('Google Place ID: ' + placeId, 'info');
+      if (state.slug) addTerminalLine('Target: ' + state.slug + '-sites.megabyte.space', 'info');
+      addTerminalLine('', '');
+
+      // Add pending steps for each workflow stage
+      for (var i = 0; i < WORKFLOW_STEP_ORDER.length; i++) {
+        var stepKey = WORKFLOW_STEP_ORDER[i];
+        addTerminalLine(WORKFLOW_STEP_LABELS[stepKey] || stepKey, 'pending');
       }
 
+      // Start polling the workflow endpoint
+      lastWorkflowStatus = null;
       clearInterval(buildTerminalTimer);
       buildTerminalTimer = setInterval(function() {
-        advanceBuildStep();
-      }, 8000 + Math.random() * 7000); // 8-15s per step for realism
+        pollWorkflowStatus();
+      }, 3000);
+      // Immediate first poll
+      pollWorkflowStatus();
     }
 
-    function advanceBuildStep() {
-      var body = document.getElementById('build-terminal-body');
-      if (!body) return;
-      var lines = body.querySelectorAll('.build-terminal-line');
-      if (currentBuildStep < lines.length) {
-        lines[currentBuildStep].classList.remove('active');
-        lines[currentBuildStep].classList.add('done');
+    function pollWorkflowStatus() {
+      if (!state.siteId) return;
+      var headers = {};
+      if (state.session && state.session.token) {
+        headers['Authorization'] = 'Bearer ' + state.session.token;
       }
-      currentBuildStep++;
-      if (currentBuildStep < lines.length) {
-        lines[currentBuildStep].classList.remove('pending');
-        lines[currentBuildStep].classList.add('active');
-        // Auto-scroll
-        lines[currentBuildStep].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      } else {
-        // All done - stop timer
-        clearInterval(buildTerminalTimer);
-      }
+
+      fetch('/api/sites/' + state.siteId + '/workflow', { headers: headers })
+        .then(function(res) {
+          if (!res.ok) return null;
+          return res.json();
+        })
+        .then(function(resp) {
+          if (!resp || !resp.data) return;
+          var data = resp.data;
+
+          // Update the first line based on workflow availability
+          var body = document.getElementById('build-terminal-body');
+          if (!body) return;
+          var lines = body.querySelectorAll('.build-terminal-line');
+          if (lines.length === 0) return;
+
+          // Mark initialization as done
+          if (lines[0].classList.contains('active')) {
+            lines[0].textContent = 'Build pipeline initialized';
+            lines[0].className = 'build-terminal-line done';
+          }
+
+          // Determine completed steps from workflow output
+          var wfStatus = data.workflow_status;
+          var siteStatus = data.site_status;
+          var wfOutput = data.workflow_output;
+          var wfError = data.workflow_error;
+
+          // Find the step lines (skip info/context lines at the top)
+          var stepLineStart = -1;
+          for (var j = 0; j < lines.length; j++) {
+            if (lines[j].classList.contains('pending') || lines[j].classList.contains('done') || lines[j].classList.contains('active')) {
+              var txt = lines[j].textContent;
+              for (var k = 0; k < WORKFLOW_STEP_ORDER.length; k++) {
+                if (txt === (WORKFLOW_STEP_LABELS[WORKFLOW_STEP_ORDER[k]] || WORKFLOW_STEP_ORDER[k])) {
+                  if (stepLineStart === -1) stepLineStart = j;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (stepLineStart === -1) return;
+
+          // If site is published, mark everything done
+          if (siteStatus === 'published') {
+            for (var si = 0; si < WORKFLOW_STEP_ORDER.length; si++) {
+              var lineIdx = stepLineStart + si;
+              if (lineIdx < lines.length) {
+                lines[lineIdx].className = 'build-terminal-line done';
+              }
+            }
+            clearInterval(buildTerminalTimer);
+
+            // Add completion message
+            var slug = state.slug || '';
+            addTerminalLine('', '');
+            addTerminalLine('Build completed successfully!', 'done');
+            if (slug) {
+              addTerminalLine('Deployed to https://' + slug + '-sites.megabyte.space', 'done');
+              addTerminalLine('', '');
+              addTerminalLine('To use a custom domain, set a CNAME record pointing to sites.megabyte.space', 'info');
+            }
+            return;
+          }
+
+          // If workflow errored, show error
+          if (wfStatus === 'errored' || wfStatus === 'failed') {
+            clearInterval(buildTerminalTimer);
+            addTerminalLine('', '');
+            addTerminalLine('Build failed: ' + (wfError || 'Unknown error'), 'error');
+            addTerminalLine('Please try rebuilding from the admin panel.', 'info');
+            return;
+          }
+
+          // If workflow completed but site not yet published, it's finishing up
+          if (wfStatus === 'complete' && wfOutput) {
+            for (var ci = 0; ci < WORKFLOW_STEP_ORDER.length; ci++) {
+              var cLineIdx = stepLineStart + ci;
+              if (cLineIdx < lines.length) {
+                lines[cLineIdx].className = 'build-terminal-line done';
+              }
+            }
+            addTerminalLine('', '');
+            addTerminalLine('Workflow complete. Publishing site...', 'active');
+            return;
+          }
+
+          // For running workflows, estimate which steps are done based on timing
+          // The workflow runs steps sequentially with some parallel batches
+          // Step 1: research-profile (sequential)
+          // Steps 2-5: research-social, research-brand, research-selling-points, research-images (parallel)
+          // Step 6: generate-website (sequential)
+          // Steps 7-9: generate-privacy-page, generate-terms-page, score-website (parallel)
+          // Steps 10-11: upload-to-r2, update-site-status (sequential)
+          if (wfStatus === 'running') {
+            // We can't know exact step from the API alone,
+            // but the site_status and timing give us hints.
+            // Mark first step as active at minimum
+            if (stepLineStart < lines.length && lines[stepLineStart].classList.contains('pending')) {
+              lines[stepLineStart].className = 'build-terminal-line active';
+            }
+          }
+        })
+        .catch(function() {
+          // Silently continue polling
+        });
     }
 
     function stopBuildTerminal() {

@@ -25,11 +25,17 @@ const mockQueueSend = jest.fn().mockResolvedValue(undefined);
 
 const mockDb = {} as D1Database;
 
+const mockSitesBucket = {
+  get: jest.fn().mockResolvedValue(null),
+  put: jest.fn().mockResolvedValue({}),
+} as unknown as R2Bucket;
+
 const mockEnv = {
   GOOGLE_PLACES_API_KEY: 'test-google-key',
   ENVIRONMENT: 'test',
   QUEUE: { send: mockQueueSend },
   DB: mockDb,
+  SITES_BUCKET: mockSitesBucket,
 } as unknown as Env;
 
 // ─── App setup ──────────────────────────────────────────────────────────────
@@ -326,7 +332,7 @@ describe('POST /api/sites/create-from-search', () => {
     expect(body.data).toHaveProperty('site_id');
     expect(body.data).toHaveProperty('slug');
     expect(body.data.status).toBe('building');
-    expect(body.data.slug).toBe('joe-s-pizza-palace');
+    expect(body.data.slug).toBe('joes-pizza-palace');
 
     // Verify workflow was queued
     expect(mockQueueSend).toHaveBeenCalledTimes(1);

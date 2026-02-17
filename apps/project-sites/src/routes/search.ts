@@ -417,11 +417,16 @@ search.post('/api/sites/create-from-search', async (c) => {
     console.warn(`[create-from-search] mode=${mode}, business=${sanitizedName}`);
   }
 
-  const slug = sanitizedName
+  const baseSlug = sanitizedName
     .toLowerCase()
+    .replace(/'/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
-    .substring(0, 63);
+    .substring(0, 63) || `site-${Date.now().toString(36)}`;
+
+  // Ensure slug uniqueness: check D1 for existing sites with the same slug
+  // and R2 for published content, then append suffix if needed
+  const slug = await ensureUniqueSlug(c.env, baseSlug);
 
   const siteId = crypto.randomUUID();
 
@@ -565,5 +570,38 @@ search.post('/api/sites/improve-prompt', async (c) => {
     return c.json({ data: { improved_text: text } });
   }
 });
+
+// ─── Slug Uniqueness Helper ──────────────────────────────────
+
+/**
+ * Ensure the slug is unique by checking both D1 (sites table) and R2.
+ * Appends incrementing suffix (-2, -3, ...) if already taken.
+ * Falls back to random suffix after 10 attempts.
+ */
+async function ensureUniqueSlug(env: Env, slug: string): Promise<string> {
+  let candidate = slug;
+
+  for (let attempt = 0; attempt < 10; attempt++) {
+    // Check D1 for existing site with this slug
+    const existingInDb = await dbQueryOne<{ id: string }>(
+      env.DB,
+      'SELECT id FROM sites WHERE slug = ? AND deleted_at IS NULL',
+      [candidate],
+    );
+
+    if (!existingInDb) {
+      // Also check R2 for orphaned content
+      const manifestInR2 = await env.SITES_BUCKET.get(`sites/${candidate}/_manifest.json`);
+      if (!manifestInR2) {
+        return candidate;
+      }
+    }
+
+    candidate = `${slug}-${attempt + 2}`;
+  }
+
+  // All attempts exhausted — use random suffix
+  return `${slug}-${Date.now().toString(36).slice(-4)}`;
+}
 
 export { search };
