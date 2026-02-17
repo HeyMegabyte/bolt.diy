@@ -231,3 +231,84 @@ test.describe('Business Name Dropdown Styling', () => {
     expect(html).toContain('padding-top: 20px');
   });
 });
+
+test.describe('Domain Modal Styling', () => {
+  test('domain modal has min-height: 510px', async ({ page }) => {
+    await page.goto('/');
+
+    const domainModal = page.locator('#domain-modal .modal');
+    await expect(domainModal).toBeAttached();
+    const style = await domainModal.getAttribute('style');
+    expect(style).toContain('min-height:510px');
+  });
+});
+
+test.describe('Domain Search Input Styling', () => {
+  test('domain search input has z-index and position relative', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    expect(html).toContain('z-index: 99');
+    expect(html).toContain('position: relative');
+  });
+
+  test('domain search input focus uses white border', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    expect(html).toContain('.domain-search-input:focus');
+    expect(html).toContain('border-color: white');
+  });
+
+  test('domain search results has padding-top and negative margin', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    expect(html).toContain('padding-top: 10px');
+    expect(html).toContain('margin-top: -10px');
+  });
+});
+
+test.describe('Deploy Upload File Types', () => {
+  test('deploy chat input accepts document formats', async ({ page }) => {
+    await page.goto('/');
+
+    const jsonInput = page.locator('#deploy-json-input');
+    await expect(jsonInput).toBeAttached();
+    const accept = await jsonInput.getAttribute('accept');
+    expect(accept).toContain('.json');
+    expect(accept).toContain('.md');
+    expect(accept).toContain('.pdf');
+    expect(accept).toContain('.txt');
+    expect(accept).toContain('.csv');
+    expect(accept).toContain('.doc');
+    expect(accept).toContain('.docx');
+  });
+
+  test('deploy chat label says document instead of just JSON', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    expect(html).toContain('Chat / Document');
+    expect(html).toContain('Chat export, markdown, PDF, or any document');
+  });
+});
+
+test.describe('Edit Feature', () => {
+  test('editSiteInBolt function connects to bolt.megabyte.space', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    expect(html).toContain('function editSiteInBolt');
+    expect(html).toContain('bolt.megabyte.space');
+    expect(html).toContain('importChatFrom');
+  });
+
+  test('AI Edit button markup exists for published sites', async ({ page }) => {
+    await page.goto('/');
+
+    const html = await page.content();
+    expect(html).toContain('editSiteInBolt(');
+    expect(html).toContain('AI Edit');
+  });
+});
