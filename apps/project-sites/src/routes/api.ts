@@ -1380,7 +1380,7 @@ api.get('/api/admin/domains', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const limit = Math.min(Number(c.req.query('limit') ?? '50'), 200);
-  const offset = Number(c.req.query('offset') ?? '0');
+  const offset = Math.max(Number(c.req.query('offset') ?? '0'), 0);
   const statusFilter = c.req.query('status');
   const typeFilter = c.req.query('type');
 

@@ -483,6 +483,7 @@
     .site-card-preview-placeholder {
       color: var(--text-muted);
       font-size: 0.75rem;
+      text-align: center;
     }
     .site-card-name {
       font-size: 0.9rem;
@@ -570,6 +571,15 @@
     .site-card-new:hover {
       border-color: var(--accent);
       background: rgba(100, 255, 218, 0.03);
+    }
+    .site-card-new:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .site-card-new:active {
+      transform: scale(0.98);
+      background: rgba(100, 255, 218, 0.06);
     }
     .site-card-new svg { color: var(--text-muted); transition: color 0.2s; }
     .site-card-new:hover svg { color: var(--accent); }
@@ -794,7 +804,10 @@
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
-    .plan-badge.free { background: rgba(148, 163, 184, 0.15); color: #94a3b8; cursor: pointer; }
+    .plan-badge.free { background: rgba(148, 163, 184, 0.15); color: #94a3b8; cursor: pointer; transition: all 0.2s; }
+    .plan-badge.free:hover { background: rgba(148, 163, 184, 0.25); color: #cbd5e1; }
+    .plan-badge.free:focus { outline: none; box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.3); }
+    .plan-badge.free:active { transform: scale(0.95); }
     .plan-badge.paid { background: rgba(100, 255, 218, 0.15); color: var(--accent); }
     .site-card-upgrade-btn {
       padding: 8px 16px;
@@ -815,6 +828,14 @@
       background: linear-gradient(135deg, rgba(80, 165, 219, 0.25), rgba(124, 58, 237, 0.2));
       box-shadow: 0 0 20px rgba(80, 165, 219, 0.35), 0 0 40px rgba(80, 165, 219, 0.15);
       transform: translateY(-1px);
+    }
+    .site-card-upgrade-btn:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--accent-dim), 0 0 20px rgba(80, 165, 219, 0.25);
+    }
+    .site-card-upgrade-btn:active {
+      transform: scale(0.97);
+      box-shadow: 0 0 10px rgba(80, 165, 219, 0.2);
     }
     @keyframes upgradeGlow {
       0%, 100% { box-shadow: 0 0 8px rgba(80, 165, 219, 0.15); }
@@ -859,6 +880,8 @@
       flex-shrink: 0;
     }
     .site-card-copy-btn:hover { color: var(--accent); }
+    .site-card-copy-btn:focus { outline: none; color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); border-radius: 3px; }
+    .site-card-copy-btn:active { transform: scale(0.9); }
     .site-card-copy-btn.copied { color: #22c55e; }
     .site-card-date {
       font-size: 0.7rem;
@@ -2866,6 +2889,12 @@
       font-size: 0.95rem;
       color: var(--text-primary);
       line-height: 1.7;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+    }
+    .handled-summary:hover {
+      border-color: rgba(80,165,219,0.3);
+      box-shadow: 0 4px 20px rgba(80,165,219,0.08);
+      transform: translateY(-1px);
     }
     .handled-summary strong { color: var(--accent); }
 
@@ -3515,30 +3544,36 @@
         <!-- How It Works -->
         <section id="how-it-works">
           <h2 class="section-title">How It Works</h2>
-          <p class="section-subtitle">Three steps. Five minutes. Zero technical skills required.</p>
+          <p class="section-subtitle">Three steps. Five minutes. Zero technical skills. <strong style="color:var(--text-primary);">No account needed until you're ready to go live.</strong></p>
           <div class="steps-row">
             <div class="step-card">
               <div class="step-number">1</div>
-              <h3>Search for Your Business</h3>
-              <p>Type your business name above. We pull in your info from Google and start building a preview instantly &mdash; no account needed.</p>
+              <h3>Search &amp; Preview Free</h3>
+              <p>Type your business name above. Our AI pulls data from Google, social profiles, and public listings &mdash; then builds a full preview site in minutes. <strong>No sign-up. No credit card.</strong></p>
             </div>
             <div class="step-card">
               <div class="step-number">2</div>
-              <h3>Review Your AI-Built Site</h3>
-              <p>Our AI researches your business, writes original content, and designs a mobile-first site with local SEO built in. Review and request changes.</p>
+              <h3>Review &amp; Customize</h3>
+              <p>Get a mobile-first site with original copy, local SEO, and legal pages. Add details, upload photos, or hit "Improve with AI" to polish it. Your preview is live and shareable immediately.</p>
             </div>
             <div class="step-card">
               <div class="step-number">3</div>
-              <h3>Go Live &mdash; We Handle the Rest</h3>
-              <p>Approve your site and it goes live. We maintain it, keep it updated, and handle any change requests. You focus on your business.</p>
+              <h3>Go Live on Your Domain</h3>
+              <p>Sign in and upgrade to connect your own domain (or buy one through us at cost). We handle hosting, SSL, performance, and ongoing updates. <strong>$50/mo &mdash; everything included.</strong></p>
             </div>
+          </div>
+
+          <!-- ROI anchor + no-account microcopy -->
+          <div style="text-align:center;margin-top:28px;display:flex;flex-direction:column;gap:10px;align-items:center;">
+            <p style="color:var(--text-muted);font-size:0.85rem;max-width:540px;">Most small businesses spend $2,000&ndash;$5,000 on a website that takes weeks. With Project Sites, yours is live in five minutes for $50/mo &mdash; with unlimited changes included.</p>
+            <button class="btn btn-accent" onclick="startBuildFlow()" style="margin-top:4px;">See My Free Preview</button>
           </div>
         </section>
 
         <!-- What's Handled (value prop) -->
         <section id="handled">
           <h2 class="section-title">What "Handled" Actually Means</h2>
-          <p class="section-subtitle">We set it up, keep it updated, and you can request changes anytime.</p>
+          <p class="section-subtitle">Everything you need to run a professional web presence &mdash; without lifting a finger.</p>
 
           <div class="handled-grid">
             <div class="handled-card">
@@ -3547,8 +3582,8 @@
                   <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
                 </svg>
               </div>
-              <h3>AI-Powered Customization</h3>
-              <p>As a paid subscriber ($50/mo), you can customize your website anytime using our <a href="https://bolt.megabyte.space" target="_blank" rel="noopener noreferrer" style="color:var(--accent);font-weight:600;">AI Editor &rarr;</a>. Update hours, swap photos, add services &mdash; changes go live in real time, no coding required.</p>
+              <h3>Unlimited AI Edits</h3>
+              <p>Change hours, add services, swap photos, rewrite copy &mdash; anytime. Use the built-in <a href="https://bolt.megabyte.space" target="_blank" rel="noopener noreferrer" style="color:var(--accent);font-weight:600;">Project Sites Editor &rarr;</a> or just tell us what you want. Changes go live instantly.</p>
             </div>
             <div class="handled-card">
               <div class="handled-icon">
@@ -3556,8 +3591,8 @@
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                 </svg>
               </div>
-              <h3>Security &amp; Uptime</h3>
-              <p>SSL certificates, DDoS protection, and 99.9% uptime &mdash; all included. We host everything on Cloudflare, so your site is served from edge locations closest to your visitors for blazing-fast load times worldwide.</p>
+              <h3>Hosting, SSL &amp; Security</h3>
+              <p>Cloudflare edge hosting, automatic SSL, DDoS protection, and 99.9% uptime. Your site loads in under 1 second from 300+ global locations. No server bills, no config.</p>
             </div>
             <div class="handled-card">
               <div class="handled-icon">
@@ -3565,13 +3600,14 @@
                   <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
                 </svg>
               </div>
-              <h3>Expert-Crafted &amp; SEO-Ready</h3>
-              <p>Our templates are built on 15+ years of senior engineering experience. Every site starts with a deep business entity research crawl &mdash; then gets schema markup, meta tags, sitemaps, and performance tuning baked in from day one.</p>
+              <h3>SEO &amp; Local Search</h3>
+              <p>Schema markup, meta tags, sitemaps, and performance tuning &mdash; baked in from day one. Built on 15+ years of engineering experience so your business ranks where customers are searching.</p>
             </div>
           </div>
 
+          <!-- Concrete "what's included" bullets -->
           <div class="handled-summary">
-            <strong>In short:</strong> You never have to touch code or fight with a page builder. But if you want to go deeper, our <a href="https://bolt.megabyte.space" target="_blank" rel="noopener noreferrer" style="color:var(--accent);font-weight:600;">AI Editor &rarr;</a> makes it as easy as describing what you want. That's what "handled" means.
+            <strong>Included in every paid plan:</strong> Custom domain support (bring your own, or buy through us at registrar cost) &middot; Unlimited change requests &middot; AI-powered content editor &middot; Mobile-responsive design &middot; Legal pages (privacy &amp; terms) &middot; Analytics dashboard &middot; Priority support &middot; No contracts, cancel anytime
           </div>
         </section>
 
@@ -4172,7 +4208,7 @@
       }
 
       if (!adminSites.length) {
-        grid.innerHTML = '<div class="site-card-new" onclick="openNewWebsiteModal()">'
+        grid.innerHTML = '<div class="site-card-new" tabindex="0" role="button" onclick="openNewWebsiteModal()" onkeydown="if(event.key===\'Enter\')openNewWebsiteModal()">'
           + '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
           + '<span>Create your first website</span>'
           + '</div>';
@@ -4293,7 +4329,7 @@
       }
 
       // "+" card for creating new site
-      html += '<div class="site-card-new" onclick="openNewWebsiteModal()">'
+      html += '<div class="site-card-new" tabindex="0" role="button" onclick="openNewWebsiteModal()" onkeydown="if(event.key===\'Enter\')openNewWebsiteModal()">'
         + '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
         + '<span>New Website</span>'
         + '</div>';
