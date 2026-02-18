@@ -516,38 +516,67 @@ search.post('/api/sites/improve-prompt', async (c) => {
   const businessName = typeof body.business_name === 'string' ? body.business_name.trim() : '';
   const businessAddress = typeof body.business_address === 'string' ? body.business_address.trim() : '';
 
-  if (!text || text.length < 5) {
-    throw badRequest('Text must be at least 5 characters long');
-  }
-
   if (text.length > 5000) {
     throw badRequest('Text must not exceed 5000 characters');
   }
 
   // Build the AI improvement prompt
-  const systemPrompt =
-    'You are a professional website copywriter and business consultant. ' +
-    'Your job is to take rough notes about a business and improve them into clear, well-structured ' +
-    'information that would help an AI build a great website. ' +
-    'Fix grammar, spelling, and formatting. Organize the information logically. ' +
-    'Where information seems missing or incomplete, insert FILL_ME_IN as a placeholder and ' +
-    'add a brief comment about what should go there. ' +
-    'Keep the same general meaning but make it professional and comprehensive. ' +
-    'Return ONLY the improved text, nothing else.';
+  let systemPrompt: string;
+  let userPrompt: string;
 
-  let userPrompt = 'Here is the rough text to improve:\n\n' + text;
-  if (businessName) {
-    userPrompt += '\n\nBusiness name: ' + businessName;
-  }
-  if (businessAddress) {
-    userPrompt += '\nBusiness address: ' + businessAddress;
+  if (!text) {
+    // No text provided — generate a template with placeholders
+    systemPrompt =
+      'You are a professional website copywriter and business consultant. ' +
+      'Generate a comprehensive business profile template for a small business portfolio website. ' +
+      'Use placeholders in [BRACKETS] for information the business owner needs to fill in. ' +
+      'Include sections for: business description, services/products offered, business hours, ' +
+      'contact information (phone, email, physical address), about the owner/team, ' +
+      'and any unique selling points. Make it professional and ready to customize. ' +
+      'Return ONLY the template text, nothing else.';
+
+    userPrompt = 'Generate a business profile template with placeholders for a small business website.';
+    if (businessName) {
+      userPrompt += '\n\nBusiness name: ' + businessName;
+    }
+    if (businessAddress) {
+      userPrompt += '\nBusiness address: ' + businessAddress;
+    }
+  } else {
+    systemPrompt =
+      'You are a professional website copywriter and business consultant. ' +
+      'Your job is to take rough notes about a business and improve them into clear, well-structured ' +
+      'information that would help an AI build a great website. ' +
+      'Fix grammar, spelling, and formatting. Organize the information logically. ' +
+      'Where information seems missing or incomplete, insert placeholders in [BRACKETS] and ' +
+      'add a brief comment about what should go there. ' +
+      'Keep the same general meaning but make it professional and comprehensive. ' +
+      'Return ONLY the improved text, nothing else.';
+
+    userPrompt = 'Here is the rough text to improve:\n\n' + text;
+    if (businessName) {
+      userPrompt += '\n\nBusiness name: ' + businessName;
+    }
+    if (businessAddress) {
+      userPrompt += '\nBusiness address: ' + businessAddress;
+    }
   }
 
   try {
     const ai = c.env.AI;
     if (!ai) {
-      // Fallback: return original text if AI binding not available
-      return c.json({ data: { improved_text: text } });
+      // Fallback: return a static template if AI binding not available
+      const fallbackText = text || (
+        (businessName ? businessName + ' — ' : '[Business Name] — ') +
+        'Welcome to our business!\n\n' +
+        '[Brief description of what your business does]\n\n' +
+        'Services:\n- [Service 1]\n- [Service 2]\n- [Service 3]\n\n' +
+        'Hours: [Mon-Fri 9AM-5PM]\n' +
+        'Phone: [Your phone number]\n' +
+        'Email: [Your email address]\n' +
+        'Address: ' + (businessAddress || '[Your business address]')
+      );
+      return c.json({ data: { improved_text: fallbackText } });
     }
 
     const result = await ai.run('@cf/meta/llama-3.1-8b-instruct' as Parameters<typeof ai.run>[0], {

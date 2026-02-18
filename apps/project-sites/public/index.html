@@ -3298,7 +3298,8 @@
         <div id="details-place-id-info" style="display:none;margin-bottom:12px;">
           <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(100,255,218,0.05);border:1px solid rgba(100,255,218,0.15);border-radius:var(--radius);font-size:0.72rem;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            <span style="color:var(--text-secondary);">Google Place ID: <code id="details-place-id-text" style="color:var(--accent);font-size:0.68rem;"></code></span>
+            <span style="color:var(--text-secondary);flex:1;">Google Place ID: <a id="details-place-id-text" href="#" target="_blank" rel="noopener noreferrer" style="color:var(--accent);font-size:0.68rem;font-family:monospace;text-decoration:underline;text-underline-offset:2px;"></a></span>
+            <button onclick="removeGooglePlaceId()" title="Remove Google Place ID" style="background:none;border:none;cursor:pointer;padding:2px;line-height:1;color:var(--text-muted);font-size:1rem;opacity:0.7;transition:opacity 0.2s;" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'" onmouseout="this.style.opacity='0.7';this.style.color='var(--text-muted)'">&times;</button>
           </div>
         </div>
       </div>
@@ -3368,7 +3369,7 @@
       <p class="search-hint">Search for your business to generate a free preview &mdash; no account or credit card required.</p>
 
       <div class="hero-ctas">
-        <button class="btn btn-accent" onclick="document.getElementById('search-input').focus()">Build Your Free Website</button>
+        <button class="btn btn-accent" onclick="startBuildFlow()">Build Your Free Website</button>
         <a href="#how-it-works" class="btn-ghost">How it works &darr;</a>
       </div>
       <p class="hero-clarify"><strong>Free preview</strong> includes a full AI-generated site. Pay only when you're ready to go live.</p>
@@ -3826,7 +3827,7 @@
     <div style="max-width:640px;margin:0 auto;padding:36px 32px;background:linear-gradient(135deg,rgba(80,165,219,0.08),rgba(124,58,237,0.08));border:1px solid var(--border);border-radius:var(--radius-lg);animation:fadeInUp 0.6s ease both;">
       <h3 style="font-size:1.4rem;font-weight:800;margin-bottom:8px;letter-spacing:-0.02em;">What are you waiting for?</h3>
       <p style="color:var(--text-secondary);font-size:1rem;margin-bottom:20px;">Build your next gorgeous website for <strong style="color:var(--accent);">FREE</strong>. No credit card required.</p>
-      <button class="btn btn-accent btn-large" onclick="document.getElementById('search-input').focus();window.scrollTo({top:0,behavior:'smooth'})">Get Started Now</button>
+      <button class="btn btn-accent btn-large" onclick="startBuildFlow()">Get Started Now</button>
     </div>
   </div>
 
@@ -4816,6 +4817,20 @@
       resetSiteId = null;
     }
 
+    /** CTA entry point: if logged in open the build modal; otherwise go to sign-in first. */
+    function startBuildFlow() {
+      if (state.session && state.session.token) {
+        // Already logged in — go to search screen and open the details modal
+        navigateTo('search');
+        openDetailsModal();
+      } else {
+        // Not logged in — remember that we want to open the modal after auth
+        try { sessionStorage.setItem('ps_open_modal_after_auth', '1'); } catch(e) {}
+        try { localStorage.setItem('ps_open_modal_after_auth', '1'); } catch(e) {}
+        navigateTo('signin');
+      }
+    }
+
     function render() {
       var screens = document.querySelectorAll('.screen');
       for (var i = 0; i < screens.length; i++) {
@@ -5363,7 +5378,10 @@
         if (placeId) {
           placeIdEl.style.display = 'block';
           var placeIdText = document.getElementById('details-place-id-text');
-          if (placeIdText) placeIdText.textContent = placeId;
+          if (placeIdText) {
+            placeIdText.textContent = placeId;
+            placeIdText.href = 'https://www.google.com/maps/place/?q=place_id:' + encodeURIComponent(placeId);
+          }
         } else {
           placeIdEl.style.display = 'none';
         }
@@ -5396,6 +5414,16 @@
       var addressInput = document.getElementById('business-address-input');
       if (nameInput && prevName) nameInput.value = prevName;
       if (addressInput && prevAddr) addressInput.value = prevAddr;
+    }
+
+    /** Remove the Google Place ID from the selected business without dismissing the entire badge. */
+    function removeGooglePlaceId() {
+      if (state.selectedBusiness) {
+        delete state.selectedBusiness.place_id;
+        delete state.selectedBusiness.id;
+      }
+      var placeIdEl = document.getElementById('details-place-id-info');
+      if (placeIdEl) placeIdEl.style.display = 'none';
     }
 
     /* ===========================================================
@@ -5769,12 +5797,16 @@
             try { localStorage.removeItem('ps_pending_build'); } catch(e) {}
           }
 
+          // Clean up CTA open-modal flag
+          sessionStorage.removeItem('ps_open_modal_after_auth');
+          try { localStorage.removeItem('ps_open_modal_after_auth'); } catch(e) {}
+
           navigateTo('details');
         }
       }
     })();
 
-    // Save business selection + pending build before Google redirect
+    // Save business selection + pending build + open-modal flag before Google redirect
     var origSignInWithGoogle = signInWithGoogle;
     signInWithGoogle = function() {
       if (state.selectedBusiness) {
@@ -5784,6 +5816,11 @@
       if (state._pendingBuild) {
         sessionStorage.setItem('ps_pending_build', '1');
       }
+      // Preserve CTA open-modal flag across the OAuth redirect
+      try {
+        var openModal = localStorage.getItem('ps_open_modal_after_auth');
+        if (openModal) sessionStorage.setItem('ps_open_modal_after_auth', '1');
+      } catch(e) {}
       origSignInWithGoogle();
     };
 
@@ -6867,10 +6904,6 @@
       var improveBtn = document.getElementById('improve-ai-btn');
 
       var text = textarea.value.trim();
-      if (!text || text.length < 5) {
-        showMsg('build-msg', 'error', 'Please write some text first so AI can improve it.');
-        return;
-      }
 
       // Show overlay, prevent modification
       overlay.classList.add('visible');
