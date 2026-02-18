@@ -23,6 +23,33 @@ import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types/env.js';
 import { extractJsonFromText } from '../services/ai_workflows.js';
 
+/** Write a workflow audit log entry (best-effort, never throws). */
+async function workflowLog(
+  db: D1Database,
+  orgId: string,
+  siteId: string,
+  action: string,
+  metadata: Record<string, unknown> = {},
+): Promise<void> {
+  try {
+    await db
+      .prepare(
+        `INSERT INTO audit_logs (id, org_id, actor_id, action, target_type, target_id, metadata_json, created_at)
+         VALUES (?, ?, NULL, ?, 'site', ?, ?, datetime('now'))`,
+      )
+      .bind(
+        crypto.randomUUID(),
+        orgId,
+        action,
+        siteId,
+        JSON.stringify(metadata),
+      )
+      .run();
+  } catch {
+    // Best-effort logging — workflow must not fail due to audit log errors
+  }
+}
+
 /** Parameters passed when creating a workflow instance. */
 export interface SiteGenerationParams {
   siteId: string;
@@ -76,6 +103,16 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     const params = event.payload;
     const env = this.env;
 
+    // Log workflow start
+    await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.started', {
+      slug: params.slug,
+      business_name: params.businessName,
+      business_address: params.businessAddress ?? null,
+      google_place_id: params.googlePlaceId ?? null,
+      has_additional_context: !!params.additionalContext,
+      has_uploaded_assets: !!(params.uploadedAssets && params.uploadedAssets.length),
+    });
+
     // ── Step 1: Profile Research ──────────────────────────────
     // Returns JSON-stringified validated profile data
     const profileJson = await step.do('research-profile', RETRY_3, async () => {
@@ -95,6 +132,13 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     });
 
     const profile = JSON.parse(profileJson) as ProfileData;
+
+    await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.profile_research_complete', {
+      business_type: profile.business_type,
+      services_count: profile.services?.length ?? 0,
+      has_email: !!profile.email,
+      has_address: !!(profile.address?.city || profile.address?.state),
+    });
 
     // ── Step 2: Parallel Research ─────────────────────────────
     const servicesJson = JSON.stringify(profile.services.map((s) => s.name));
@@ -164,6 +208,14 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     const images = JSON.parse(imagesJson) as Record<string, unknown>;
     const research = { profile, social, brand, sellingPoints, images };
 
+    await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.parallel_research_complete', {
+      has_social: !!social,
+      has_website_url: !!social.website_url,
+      brand_keys: Object.keys(brand),
+      selling_points_keys: Object.keys(sellingPoints),
+      images_keys: Object.keys(images),
+    });
+
     // ── Step 3: Generate Website HTML ─────────────────────────
     const html = await step.do('generate-website', RETRY_HTML, async () => {
       const { runPrompt } = await import('../services/ai_workflows.js');
@@ -178,6 +230,11 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       });
       validatePromptOutput('generate_website', result.output);
       return result.output;
+    });
+
+    await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.html_generation_complete', {
+      html_length: html.length,
+      has_uploads: !!(params.uploadedAssets && params.uploadedAssets.length),
     });
 
     // ── Step 4: Legal Pages + Quality Score (parallel) ────────
@@ -244,6 +301,12 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
 
     const quality = JSON.parse(qualityJson) as QualityData;
 
+    await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.legal_and_scoring_complete', {
+      quality_score: quality.overall,
+      privacy_html_length: privacyHtml.length,
+      terms_html_length: termsHtml.length,
+    });
+
     // ── Step 5: Upload to R2 ──────────────────────────────────
     const version = await step.do(
       'upload-to-r2',
@@ -276,6 +339,12 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       },
     );
 
+    await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.upload_to_r2_complete', {
+      version,
+      slug: params.slug,
+      files: ['index.html', 'privacy.html', 'terms.html', 'research.json'],
+    });
+
     // ── Step 6: Update D1 status ──────────────────────────────
     await step.do(
       'update-site-status',
@@ -298,6 +367,14 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         return `published:${version}`;
       },
     );
+
+    await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.completed', {
+      slug: params.slug,
+      version,
+      quality_score: quality.overall,
+      pages: ['index.html', 'privacy.html', 'terms.html', 'research.json'],
+      url: `https://${params.slug}-sites.megabyte.space`,
+    });
 
     return {
       siteId: params.siteId,

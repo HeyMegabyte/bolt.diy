@@ -150,13 +150,12 @@ test.describe('Material Ripple Animation', () => {
 });
 
 test.describe('Site Card Animation', () => {
-  test('site-card starts with opacity 0 and uses card-visible class', async ({ page }) => {
+  test('site-card renders immediately without opacity-0 flicker', async ({ page }) => {
     await page.goto('/');
 
     const hasRules = await page.evaluate(() => {
       const sheets = document.styleSheets;
       let hasOpacity0 = false;
-      let hasCardVisible = false;
       for (let s = 0; s < sheets.length; s++) {
         try {
           const rules = sheets[s].cssRules;
@@ -165,16 +164,13 @@ test.describe('Site Card Animation', () => {
             if (rule.selectorText === '.site-card') {
               if (rule.style.opacity === '0') hasOpacity0 = true;
             }
-            if (rule.selectorText === '.site-card.card-visible') {
-              hasCardVisible = true;
-            }
           }
         } catch { /* cross-origin sheets */ }
       }
-      return { hasOpacity0, hasCardVisible };
+      return { hasOpacity0 };
     });
-    expect(hasRules.hasOpacity0).toBe(true);
-    expect(hasRules.hasCardVisible).toBe(true);
+    // Cards should NOT start with opacity 0 (causes flicker)
+    expect(hasRules.hasOpacity0).toBe(false);
   });
 });
 

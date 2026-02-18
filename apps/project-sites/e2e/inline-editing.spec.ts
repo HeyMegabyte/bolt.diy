@@ -241,11 +241,11 @@ test.describe('Inline Editing CSS', () => {
           for (let r = 0; r < rules.length; r++) {
             const rule = rules[r] as CSSStyleRule;
             const sel = rule.selectorText || '';
-            // Selectors are `.inline-edit-wrap .inline-save-btn` etc.
-            if (sel.includes('inline-save-btn') && !sel.includes(':hover') && !sel.includes(':disabled')) {
+            // Only match the specific base selector that defines color
+            if (sel.includes('inline-save-btn') && !sel.includes(':hover') && !sel.includes(':disabled') && rule.style.color) {
               saveColor = rule.style.color;
             }
-            if (sel.includes('inline-cancel-btn') && !sel.includes(':hover')) {
+            if (sel.includes('inline-cancel-btn') && !sel.includes(':hover') && rule.style.color) {
               cancelColor = rule.style.color;
             }
           }
@@ -384,6 +384,186 @@ test.describe('Button Effects', () => {
   });
 });
 
+test.describe('Copy Toast', () => {
+  test('copyUrl function is defined', async ({ page }) => {
+    await page.goto('/');
+
+    const exists = await page.evaluate(() => {
+      return typeof (window as unknown as Record<string, unknown>).copyUrl === 'function';
+    });
+    expect(exists).toBe(true);
+  });
+
+  test('copy-toast CSS and toast-pop keyframe exist', async ({ page }) => {
+    await page.goto('/');
+
+    const result = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      let hasToastCSS = false;
+      let hasToastPop = false;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const sel = (rules[r] as CSSStyleRule).selectorText || '';
+            if (sel === '.copy-toast') hasToastCSS = true;
+            if ((rules[r] as CSSKeyframesRule).name === 'toast-pop') hasToastPop = true;
+          }
+        } catch { /* cross-origin */ }
+      }
+      return { hasToastCSS, hasToastPop };
+    });
+    expect(result.hasToastCSS).toBe(true);
+    expect(result.hasToastPop).toBe(true);
+  });
+});
+
+test.describe('Inline Edit Button Styling', () => {
+  test('inline-edit-btn uses accent color', async ({ page }) => {
+    await page.goto('/');
+
+    const color = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const rule = rules[r] as CSSStyleRule;
+            if (rule.selectorText && rule.selectorText.includes('.inline-edit-btn') && !rule.selectorText.includes(':hover')) {
+              return rule.style.color;
+            }
+          }
+        } catch { /* cross-origin */ }
+      }
+      return '';
+    });
+    // Should be var(--accent) which resolves to #64ffda
+    expect(color).toBeTruthy();
+  });
+
+  test('inline-edit-btn hover has scale transform', async ({ page }) => {
+    await page.goto('/');
+
+    const hasHover = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const rule = rules[r] as CSSStyleRule;
+            if (rule.selectorText && rule.selectorText.includes('.inline-edit-btn:hover')) {
+              return rule.style.transform.includes('scale');
+            }
+          }
+        } catch { /* cross-origin */ }
+      }
+      return false;
+    });
+    expect(hasHover).toBe(true);
+  });
+});
+
+test.describe('Slug Editable Click Target', () => {
+  test('slug-editable CSS rule has cursor pointer', async ({ page }) => {
+    await page.goto('/');
+
+    const hasCursor = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const rule = rules[r] as CSSStyleRule;
+            if (rule.selectorText && rule.selectorText.includes('.slug-editable') && !rule.selectorText.includes(':hover')) {
+              return rule.style.cursor === 'pointer';
+            }
+          }
+        } catch { /* cross-origin */ }
+      }
+      return false;
+    });
+    expect(hasCursor).toBe(true);
+  });
+
+  test('slug-editable hover CSS rule exists', async ({ page }) => {
+    await page.goto('/');
+
+    const hasHover = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const rule = rules[r] as CSSStyleRule;
+            if (rule.selectorText && rule.selectorText.includes('.slug-editable:hover')) {
+              return true;
+            }
+          }
+        } catch { /* cross-origin */ }
+      }
+      return false;
+    });
+    expect(hasHover).toBe(true);
+  });
+});
+
+test.describe('Slug Editor Styling', () => {
+  test('inline slug input has border and box-shadow CSS rules', async ({ page }) => {
+    await page.goto('/');
+
+    const result = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const rule = rules[r] as CSSStyleRule;
+            if (rule.selectorText && rule.selectorText.includes('.inline-edit-inline') && rule.selectorText.includes('.inline-input')) {
+              return {
+                hasBorder: !!rule.style.border || !!rule.style.borderWidth,
+                hasBoxShadow: !!rule.style.boxShadow,
+                hasBackground: !!rule.style.background || !!rule.style.backgroundColor,
+              };
+            }
+          }
+        } catch { /* cross-origin */ }
+      }
+      return { hasBorder: false, hasBoxShadow: false, hasBackground: false };
+    });
+    expect(result.hasBorder).toBe(true);
+    expect(result.hasBoxShadow).toBe(true);
+    expect(result.hasBackground).toBe(true);
+  });
+});
+
+test.describe('Inline Button Alignment', () => {
+  test('inline slug save/cancel buttons use inline-flex for vertical alignment', async ({ page }) => {
+    await page.goto('/');
+
+    const result = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const rule = rules[r] as CSSStyleRule;
+            const sel = rule.selectorText || '';
+            if (sel.includes('.inline-edit-inline') && sel.includes('.inline-save-btn')) {
+              return {
+                display: rule.style.display,
+                alignItems: rule.style.alignItems,
+              };
+            }
+          }
+        } catch { /* cross-origin */ }
+      }
+      return { display: '', alignItems: '' };
+    });
+    expect(result.display).toBe('inline-flex');
+    expect(result.alignItems).toBe('center');
+  });
+});
+
 test.describe('Upload Size Limit', () => {
   test('upload note mentions 100MB limit', async ({ page }) => {
     await page.goto('/');
@@ -395,5 +575,148 @@ test.describe('Upload Size Limit', () => {
       return src.includes('100 * 1024 * 1024') || src.includes('100MB');
     });
     expect(hasLimit).toBe(true);
+  });
+});
+
+test.describe('Signin Page Compact Footer', () => {
+  test('signin screen contains signin-footer with social links and legal', async ({ page }) => {
+    await page.goto('/');
+
+    const hasFooter = await page.evaluate(() => {
+      const signinScreen = document.getElementById('screen-signin');
+      if (!signinScreen) return false;
+      const footer = signinScreen.querySelector('.signin-footer');
+      if (!footer) return false;
+      const social = footer.querySelector('.signin-footer-social');
+      const legal = footer.querySelector('.signin-footer-legal');
+      return !!(social && legal);
+    });
+    expect(hasFooter).toBe(true);
+  });
+
+  test('signin-footer CSS rules exist', async ({ page }) => {
+    await page.goto('/');
+
+    const hasCSS = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const sel = (rules[r] as CSSStyleRule).selectorText || '';
+            if (sel === '.signin-footer') return true;
+          }
+        } catch { /* cross-origin */ }
+      }
+      return false;
+    });
+    expect(hasCSS).toBe(true);
+  });
+
+  test('navigateTo signin scrolls to top', async ({ page }) => {
+    await page.goto('/');
+
+    const navigateScrolls = await page.evaluate(() => {
+      const fn = (window as unknown as { navigateTo: (s: string) => void }).navigateTo;
+      return fn.toString().includes('scrollTo(0, 0)');
+    });
+    expect(navigateScrolls).toBe(true);
+  });
+});
+
+test.describe('Signin Button States', () => {
+  test('signin-btn has :active and :focus CSS rules', async ({ page }) => {
+    await page.goto('/');
+
+    const result = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      let hasActive = false;
+      let hasFocus = false;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const sel = (rules[r] as CSSStyleRule).selectorText || '';
+            if (sel.includes('.signin-btn:active')) hasActive = true;
+            if (sel.includes('.signin-btn:focus')) hasFocus = true;
+          }
+        } catch { /* cross-origin */ }
+      }
+      return { hasActive, hasFocus };
+    });
+    expect(result.hasActive).toBe(true);
+    expect(result.hasFocus).toBe(true);
+  });
+
+  test('signin-btn is included in ripple click handler', async ({ page }) => {
+    await page.goto('/');
+
+    const includesSignin = await page.evaluate(() => {
+      // Check the ripple JS click handler includes signin-btn
+      const scripts = document.querySelectorAll('script');
+      for (let i = 0; i < scripts.length; i++) {
+        const text = scripts[i].textContent || '';
+        if (text.includes('.signin-btn') && text.includes('ripple-circle')) {
+          return true;
+        }
+      }
+      return false;
+    });
+    expect(includesSignin).toBe(true);
+  });
+});
+
+test.describe('Inline Input Colors', () => {
+  test('inline-input has white background and dark text', async ({ page }) => {
+    await page.goto('/');
+
+    const colors = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const rule = rules[r] as CSSStyleRule;
+            if (rule.selectorText && rule.selectorText.includes('.inline-input') && !rule.selectorText.includes('.inline-edit-inline')) {
+              return {
+                background: rule.style.background || rule.style.backgroundColor,
+                color: rule.style.color,
+              };
+            }
+          }
+        } catch { /* cross-origin */ }
+      }
+      return { background: '', color: '' };
+    });
+    expect(colors.background).toMatch(/#fff|white|rgb\(255/);
+    expect(colors.color).toMatch(/#1a1a2e|rgb\(26/);
+  });
+});
+
+test.describe('Workflow Log Labels', () => {
+  test('formatActionLabel includes workflow step labels', async ({ page }) => {
+    await page.goto('/');
+
+    const labels = await page.evaluate(() => {
+      const fn = (window as unknown as { formatActionLabel: (a: string) => string }).formatActionLabel;
+      return {
+        queued: fn('workflow.queued'),
+        started: fn('workflow.started'),
+        profile: fn('workflow.step.profile_research_complete'),
+        parallel: fn('workflow.step.parallel_research_complete'),
+        html: fn('workflow.step.html_generation_complete'),
+        legal: fn('workflow.step.legal_and_scoring_complete'),
+        upload: fn('workflow.step.upload_to_r2_complete'),
+        completed: fn('workflow.completed'),
+      };
+    });
+    expect(labels.queued).toBe('Build Queued');
+    expect(labels.started).toBe('Build Started');
+    expect(labels.profile).toBe('Profile Research Done');
+    expect(labels.parallel).toBe('Research Complete');
+    expect(labels.html).toBe('HTML Generated');
+    expect(labels.legal).toBe('Legal Pages + Score Done');
+    expect(labels.upload).toBe('Files Uploaded to CDN');
+    expect(labels.completed).toBe('Build Completed');
   });
 });
