@@ -268,7 +268,7 @@
       100% { background-position: 200% center; }
     }
     @keyframes ripple-expand {
-      0% { transform: scale(0); opacity: 0.4; }
+      0% { transform: scale(0); opacity: 0.5; }
       100% { transform: scale(4); opacity: 0; }
     }
     @keyframes float {
@@ -292,6 +292,16 @@
     @keyframes dotPulse {
       0%, 80%, 100% { transform: scale(0); opacity: 0; }
       40% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Respect user's reduced-motion preference */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
     }
 
     /* ======================================================
@@ -638,6 +648,8 @@
       line-height: 1;
     }
     .modal-close:hover { color: var(--text-primary); }
+    .modal-close:focus { outline: none; color: var(--accent); }
+    .modal-close:active { transform: scale(0.85); transition: transform 0.06s; }
 
     /* Site Logs Modal */
     .logs-modal { max-width: 860px; width: 95%; max-height: 90vh; padding: 24px; }
@@ -821,7 +833,9 @@
     .plan-badge.free:hover { background: rgba(148, 163, 184, 0.25); color: #cbd5e1; }
     .plan-badge.free:focus { outline: none; box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.3); }
     .plan-badge.free:active { transform: scale(0.95); }
-    .plan-badge.paid { background: rgba(100, 255, 218, 0.15); color: var(--accent); }
+    .plan-badge.paid { background: rgba(100, 255, 218, 0.15); color: var(--accent); cursor: default; }
+    .plan-badge.paid:hover { background: rgba(100, 255, 218, 0.22); }
+    .plan-badge.paid:focus { outline: none; box-shadow: 0 0 0 2px var(--accent-dim); }
     .site-card-upgrade-btn {
       padding: 8px 16px;
       border-radius: 8px;
@@ -1096,6 +1110,15 @@
       opacity: 1;
       color: #4ecdc4;
       transform: scale(1.15);
+    }
+    .inline-edit-wrap .inline-edit-btn:focus {
+      outline: none;
+      opacity: 1;
+      color: var(--accent);
+    }
+    .inline-edit-wrap .inline-edit-btn:active {
+      transform: scale(0.9);
+      transition-duration: 0.06s;
     }
     .inline-edit-wrap .inline-input {
       flex: 0 1 auto;
@@ -1961,20 +1984,33 @@
     }
 
     /* Material-style ripple effect */
-    .btn, .site-card-btn, .admin-btn, .logs-refresh-btn, .domain-tab, .hostname-delete-btn, .signin-btn, .back-link {
+    .btn, .site-card-btn, .admin-btn, .admin-btn-accent, .logs-refresh-btn,
+    .domain-tab, .hostname-delete-btn, .signin-btn, .back-link,
+    .modal-close, .details-modal-close, .header-auth-btn,
+    .site-card-new, .site-card-copy-btn, .site-card-upgrade-btn,
+    .inline-edit-btn, .inline-save-btn, .inline-cancel-btn,
+    .faq-question, .btn-allow, .btn-skip, .improve-ai-link,
+    .plan-badge {
       position: relative;
       overflow: hidden;
     }
     .ripple-circle {
       position: absolute;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.3);
-      width: 40px;
-      height: 40px;
-      margin-top: -20px;
-      margin-left: -20px;
+      background: rgba(255, 255, 255, 0.35);
       pointer-events: none;
-      animation: ripple-expand 0.5s ease-out forwards;
+      animation: ripple-expand 0.65s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+    /* Brighter ripple on accent/bright buttons for visibility */
+    .btn-accent .ripple-circle,
+    .btn-allow .ripple-circle,
+    .site-card-upgrade-btn .ripple-circle {
+      background: rgba(255, 255, 255, 0.5);
+    }
+    /* Tinted ripple on outlined/ghost buttons */
+    .btn-secondary-outline .ripple-circle,
+    .btn-ghost .ripple-circle {
+      background: rgba(80, 165, 219, 0.2);
     }
 
     /* ======================================================
@@ -2066,6 +2102,14 @@
       transform: translateY(-1px);
       box-shadow: var(--shadow-accent);
     }
+    .location-modal-actions .btn-allow:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--accent-dim), var(--shadow-accent);
+    }
+    .location-modal-actions .btn-allow:active {
+      transform: translateY(1px) scale(0.97);
+      transition-duration: 0.06s;
+    }
     .location-modal-actions .btn-skip {
       background: var(--bg-input);
       color: var(--text-secondary);
@@ -2074,6 +2118,15 @@
     .location-modal-actions .btn-skip:hover {
       border-color: var(--border-hover);
       color: var(--text-primary);
+    }
+    .location-modal-actions .btn-skip:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-dim);
+    }
+    .location-modal-actions .btn-skip:active {
+      transform: scale(0.97);
+      transition-duration: 0.06s;
     }
 
     /* ======================================================
@@ -2132,6 +2185,8 @@
       transition: color 0.2s;
     }
     .details-modal-close:hover { color: var(--text-primary); }
+    .details-modal-close:focus { outline: none; color: var(--accent); }
+    .details-modal-close:active { transform: scale(0.85); transition: transform 0.06s; }
     .details-card {
       width: 100%;
       max-width: 600px;
@@ -2297,6 +2352,8 @@
       gap: 4px;
     }
     .improve-ai-link:hover { color: #7c3aed; }
+    .improve-ai-link:focus { outline: none; text-decoration: underline; }
+    .improve-ai-link:active { opacity: 0.7; transition: opacity 0.06s; }
     .improve-ai-overlay {
       display: none;
       position: absolute;
@@ -3241,6 +3298,8 @@
       transition: color var(--transition);
     }
     .faq-question:hover { color: var(--accent); }
+    .faq-question:focus { outline: none; color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); border-radius: 4px; }
+    .faq-question:active { opacity: 0.8; transition: opacity 0.06s; }
     .faq-question svg {
       flex-shrink: 0;
       width: 20px;
@@ -6316,15 +6375,43 @@
 
     /* Material-style ripple effect on button clicks */
     document.addEventListener('click', function(e) {
-      var btn = e.target.closest('.btn, .site-card-btn, .admin-btn, .logs-refresh-btn, .domain-tab, .hostname-delete-btn, .signin-btn, .back-link');
+      var btn = e.target.closest('.btn, .site-card-btn, .admin-btn, .admin-btn-accent, .logs-refresh-btn, .domain-tab, .hostname-delete-btn, .signin-btn, .back-link, .modal-close, .details-modal-close, .header-auth-btn, .site-card-new, .site-card-copy-btn, .site-card-upgrade-btn, .inline-edit-btn, .inline-save-btn, .inline-cancel-btn, .faq-question, .btn-allow, .btn-skip, .improve-ai-link, .plan-badge');
       if (!btn) return;
       var circle = document.createElement('span');
       circle.className = 'ripple-circle';
       var rect = btn.getBoundingClientRect();
+      // Size ripple to max(width, height) so it fills the button
+      var size = Math.max(rect.width, rect.height);
+      // Ensure minimum 40px so tiny buttons still get a visible ripple
+      size = Math.max(size, 40);
+      circle.style.width = size + 'px';
+      circle.style.height = size + 'px';
+      circle.style.marginTop = -(size / 2) + 'px';
+      circle.style.marginLeft = -(size / 2) + 'px';
       circle.style.left = (e.clientX - rect.left) + 'px';
       circle.style.top = (e.clientY - rect.top) + 'px';
       btn.appendChild(circle);
-      setTimeout(function() { circle.remove(); }, 500);
+      setTimeout(function() { circle.remove(); }, 650);
+    });
+
+    /* Global Escape key handler for all modals */
+    document.addEventListener('keydown', function(e) {
+      if (e.key !== 'Escape') return;
+      var modals = [
+        { id: 'details-modal', close: typeof closeDetailsModal === 'function' ? closeDetailsModal : null },
+        { id: 'domain-modal', close: typeof closeDomainModal === 'function' ? closeDomainModal : null },
+        { id: 'delete-modal', close: typeof closeDeleteModal === 'function' ? closeDeleteModal : null },
+        { id: 'site-logs-modal', close: typeof closeSiteLogsModal === 'function' ? closeSiteLogsModal : null },
+        { id: 'deploy-modal', close: typeof closeDeployModal === 'function' ? closeDeployModal : null },
+        { id: 'new-website-modal', close: typeof closeNewWebsiteModal === 'function' ? closeNewWebsiteModal : null },
+      ];
+      for (var i = 0; i < modals.length; i++) {
+        var el = document.getElementById(modals[i].id);
+        if (el && el.classList.contains('visible') && modals[i].close) {
+          modals[i].close();
+          return;
+        }
+      }
     });
 
     /* ===========================================================

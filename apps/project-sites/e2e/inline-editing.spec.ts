@@ -720,3 +720,281 @@ test.describe('Workflow Log Labels', () => {
     expect(labels.completed).toBe('Build Completed');
   });
 });
+
+test.describe('Material Ripple Effect Coverage', () => {
+  test('ripple CSS selector covers all button classes', async ({ page }) => {
+    await page.goto('/');
+
+    const result = await page.evaluate(() => {
+      const requiredClasses = [
+        '.btn', '.site-card-btn', '.admin-btn', '.admin-btn-accent',
+        '.logs-refresh-btn', '.domain-tab', '.hostname-delete-btn',
+        '.signin-btn', '.back-link', '.modal-close', '.details-modal-close',
+        '.header-auth-btn', '.site-card-new', '.site-card-copy-btn',
+        '.site-card-upgrade-btn', '.inline-edit-btn', '.inline-save-btn',
+        '.inline-cancel-btn', '.faq-question', '.btn-allow', '.btn-skip',
+        '.improve-ai-link', '.plan-badge',
+      ];
+
+      const sheets = document.styleSheets;
+      let rippleSelector = '';
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const rule = rules[r] as CSSStyleRule;
+            const sel = rule.selectorText || '';
+            if (sel.includes('.btn') && rule.style.overflow === 'hidden' && rule.style.position === 'relative') {
+              rippleSelector = sel;
+              break;
+            }
+          }
+        } catch { /* cross-origin */ }
+        if (rippleSelector) break;
+      }
+
+      const missing: string[] = [];
+      for (const cls of requiredClasses) {
+        if (!rippleSelector.includes(cls)) {
+          missing.push(cls);
+        }
+      }
+      return { found: !!rippleSelector, missing };
+    });
+    expect(result.found).toBe(true);
+    expect(result.missing).toEqual([]);
+  });
+
+  test('ripple JS handler covers all button classes', async ({ page }) => {
+    await page.goto('/');
+
+    const result = await page.evaluate(() => {
+      const required = [
+        'modal-close', 'details-modal-close', 'header-auth-btn',
+        'site-card-new', 'site-card-copy-btn', 'site-card-upgrade-btn',
+        'inline-edit-btn', 'inline-save-btn', 'inline-cancel-btn',
+        'faq-question', 'btn-allow', 'btn-skip', 'improve-ai-link',
+        'plan-badge', 'signin-btn', 'back-link',
+      ];
+      const scripts = document.querySelectorAll('script');
+      let handlerCode = '';
+      for (let i = 0; i < scripts.length; i++) {
+        const text = scripts[i].textContent || '';
+        if (text.includes('ripple-circle') && text.includes('.closest(')) {
+          handlerCode = text;
+          break;
+        }
+      }
+      const missing: string[] = [];
+      for (const cls of required) {
+        if (!handlerCode.includes('.' + cls)) {
+          missing.push(cls);
+        }
+      }
+      return { found: !!handlerCode, missing };
+    });
+    expect(result.found).toBe(true);
+    expect(result.missing).toEqual([]);
+  });
+
+  test('ripple-circle CSS keyframe and style exist', async ({ page }) => {
+    await page.goto('/');
+
+    const result = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      let hasKeyframe = false;
+      let hasClass = false;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            if ((rules[r] as CSSKeyframesRule).name === 'ripple-expand') hasKeyframe = true;
+            if ((rules[r] as CSSStyleRule).selectorText === '.ripple-circle') hasClass = true;
+          }
+        } catch { /* cross-origin */ }
+      }
+      return { hasKeyframe, hasClass };
+    });
+    expect(result.hasKeyframe).toBe(true);
+    expect(result.hasClass).toBe(true);
+  });
+});
+
+test.describe('Button State Coverage', () => {
+  test('modal-close has :active and :focus states', async ({ page }) => {
+    await page.goto('/');
+
+    const result = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      let hasActive = false;
+      let hasFocus = false;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const sel = (rules[r] as CSSStyleRule).selectorText || '';
+            if (sel.includes('.modal-close:active')) hasActive = true;
+            if (sel.includes('.modal-close:focus')) hasFocus = true;
+          }
+        } catch { /* cross-origin */ }
+      }
+      return { hasActive, hasFocus };
+    });
+    expect(result.hasActive).toBe(true);
+    expect(result.hasFocus).toBe(true);
+  });
+
+  test('faq-question has :active and :focus states', async ({ page }) => {
+    await page.goto('/');
+
+    const result = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      let hasActive = false;
+      let hasFocus = false;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const sel = (rules[r] as CSSStyleRule).selectorText || '';
+            if (sel.includes('.faq-question:active')) hasActive = true;
+            if (sel.includes('.faq-question:focus')) hasFocus = true;
+          }
+        } catch { /* cross-origin */ }
+      }
+      return { hasActive, hasFocus };
+    });
+    expect(result.hasActive).toBe(true);
+    expect(result.hasFocus).toBe(true);
+  });
+
+  test('inline-edit-btn has :active and :focus states', async ({ page }) => {
+    await page.goto('/');
+
+    const result = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      let hasActive = false;
+      let hasFocus = false;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const sel = (rules[r] as CSSStyleRule).selectorText || '';
+            if (sel.includes('.inline-edit-btn:active')) hasActive = true;
+            if (sel.includes('.inline-edit-btn:focus')) hasFocus = true;
+          }
+        } catch { /* cross-origin */ }
+      }
+      return { hasActive, hasFocus };
+    });
+    expect(result.hasActive).toBe(true);
+    expect(result.hasFocus).toBe(true);
+  });
+
+  test('btn-allow and btn-skip have :active and :focus states', async ({ page }) => {
+    await page.goto('/');
+
+    const result = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      let allowActive = false;
+      let allowFocus = false;
+      let skipActive = false;
+      let skipFocus = false;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const sel = (rules[r] as CSSStyleRule).selectorText || '';
+            if (sel.includes('.btn-allow:active')) allowActive = true;
+            if (sel.includes('.btn-allow:focus')) allowFocus = true;
+            if (sel.includes('.btn-skip:active')) skipActive = true;
+            if (sel.includes('.btn-skip:focus')) skipFocus = true;
+          }
+        } catch { /* cross-origin */ }
+      }
+      return { allowActive, allowFocus, skipActive, skipFocus };
+    });
+    expect(result.allowActive).toBe(true);
+    expect(result.allowFocus).toBe(true);
+    expect(result.skipActive).toBe(true);
+    expect(result.skipFocus).toBe(true);
+  });
+});
+
+test.describe('Ripple Dynamic Sizing', () => {
+  test('ripple JS handler dynamically sizes circles based on button dimensions', async ({ page }) => {
+    await page.goto('/');
+
+    const hasSizing = await page.evaluate(() => {
+      const scripts = document.querySelectorAll('script');
+      for (let i = 0; i < scripts.length; i++) {
+        const text = scripts[i].textContent || '';
+        if (text.includes('ripple-circle') && text.includes('rect.width') && text.includes('rect.height')) {
+          return true;
+        }
+      }
+      return false;
+    });
+    expect(hasSizing).toBe(true);
+  });
+
+  test('btn-accent has custom brighter ripple color', async ({ page }) => {
+    await page.goto('/');
+
+    const hasRule = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const rule = rules[r] as CSSStyleRule;
+            const sel = rule.selectorText || '';
+            if (sel.includes('.btn-accent') && sel.includes('.ripple-circle')) {
+              return true;
+            }
+          }
+        } catch { /* cross-origin */ }
+      }
+      return false;
+    });
+    expect(hasRule).toBe(true);
+  });
+});
+
+test.describe('Accessibility Improvements', () => {
+  test('Escape key handler is registered for modals', async ({ page }) => {
+    await page.goto('/');
+
+    const hasEscHandler = await page.evaluate(() => {
+      const scripts = document.querySelectorAll('script');
+      for (let i = 0; i < scripts.length; i++) {
+        const text = scripts[i].textContent || '';
+        if (text.includes("e.key !== 'Escape'") || text.includes("e.key === 'Escape'")) {
+          return true;
+        }
+      }
+      return false;
+    });
+    expect(hasEscHandler).toBe(true);
+  });
+
+  test('prefers-reduced-motion CSS media query exists', async ({ page }) => {
+    await page.goto('/');
+
+    const hasMediaQuery = await page.evaluate(() => {
+      const sheets = document.styleSheets;
+      for (let s = 0; s < sheets.length; s++) {
+        try {
+          const rules = sheets[s].cssRules;
+          for (let r = 0; r < rules.length; r++) {
+            const rule = rules[r] as CSSMediaRule;
+            if (rule.media && rule.media.mediaText && rule.media.mediaText.includes('prefers-reduced-motion')) {
+              return true;
+            }
+          }
+        } catch { /* cross-origin */ }
+      }
+      return false;
+    });
+    expect(hasMediaQuery).toBe(true);
+  });
+});
