@@ -34,7 +34,7 @@
  */
 
 import { PRICING, type Entitlements, getEntitlements, badRequest } from '@project-sites/shared';
-import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from './db.js';
+import { dbQueryOne, dbInsert, dbUpdate } from './db.js';
 import type { Env } from '../types/env.js';
 
 /**

@@ -30,7 +30,7 @@
 
 import { DOMAINS, BRAND } from '@project-sites/shared';
 import type { Env } from '../types/env.js';
-import { dbQuery, dbQueryOne } from './db.js';
+import { dbQueryOne } from './db.js';
 
 /**
  * Generate the promotional top bar HTML injected into unpaid sites.

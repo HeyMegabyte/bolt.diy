@@ -267,6 +267,10 @@
       0% { background-position: -200% center; }
       100% { background-position: 200% center; }
     }
+    @keyframes ripple-expand {
+      0% { transform: scale(0); opacity: 0.4; }
+      100% { transform: scale(4); opacity: 0; }
+    }
     @keyframes float {
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-8px); }
@@ -447,18 +451,16 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      animation: fadeInUp 0.4s ease forwards;
+      opacity: 0;
+    }
+    .site-card.card-visible {
+      animation: fadeIn 0.35s ease forwards;
     }
     .site-card:hover {
       border-color: var(--border-hover);
       transform: translateY(-2px);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
     }
-    .site-card:nth-child(2) { animation-delay: 0.06s; }
-    .site-card:nth-child(3) { animation-delay: 0.12s; }
-    .site-card:nth-child(4) { animation-delay: 0.18s; }
-    .site-card:nth-child(5) { animation-delay: 0.24s; }
-    .site-card:nth-child(6) { animation-delay: 0.3s; }
     .site-card-preview {
       height: 100px;
       border-radius: 8px;
@@ -630,16 +632,16 @@
     .modal-close:hover { color: var(--text-primary); }
 
     /* Site Logs Modal */
-    .logs-modal { max-width: 680px; width: 95%; max-height: 85vh; padding: 24px; }
+    .logs-modal { max-width: 860px; width: 95%; max-height: 90vh; padding: 24px; }
     .logs-container {
       background: #0c0c1e;
       border: 1px solid rgba(100, 255, 218, 0.1);
       border-radius: 8px;
       padding: 0;
-      max-height: 55vh;
+      max-height: 65vh;
       overflow-y: auto;
       font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
-      font-size: 0.72rem;
+      font-size: 0.75rem;
       line-height: 1.6;
     }
     .logs-container::-webkit-scrollbar { width: 6px; }
@@ -681,10 +683,13 @@
     .log-action.hostname-unsubscribed { color: #fbbf24; }
     .log-action.hostname-verified { color: #22c55e; }
     .log-action.hostname-deprovisioned { color: #ef4444; }
+    .log-action.hostname-deleted { color: #ef4444; }
     .log-action.hostname-set-primary { color: #a78bfa; }
     .log-action.workflow-started { color: var(--accent); }
     .log-action.workflow-completed { color: #22c55e; }
     .log-action.workflow-failed { color: #ef4444; }
+    .log-action.auth-magic_link_verified { color: #06b6d4; }
+    .log-action.auth-google_oauth_verified { color: #06b6d4; }
     .log-action.default-action { color: var(--text-secondary); }
     .log-meta {
       color: var(--text-muted);
@@ -1746,6 +1751,23 @@
       padding: 16px 32px;
       font-size: 1.05rem;
       border-radius: var(--radius-lg);
+    }
+
+    /* Material-style ripple effect */
+    .btn, .site-card-btn, .admin-btn, .logs-refresh-btn {
+      position: relative;
+      overflow: hidden;
+    }
+    .ripple-circle {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      width: 40px;
+      height: 40px;
+      margin-top: -20px;
+      margin-left: -20px;
+      pointer-events: none;
+      animation: ripple-expand 0.5s ease-out forwards;
     }
 
     /* ======================================================
@@ -2898,6 +2920,22 @@
     }
     .handled-summary strong { color: var(--accent); }
 
+    /* ── Trust Bar ─────────────────────── */
+    .trust-bar {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 24px 40px;
+    }
+    .trust-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
     /* ── Done-for-you vs DIY ─────────────────────── */
     #dvd { padding: 60px 0; }
     .dvd-grid {
@@ -3499,7 +3537,7 @@
     <div id="screen-search" class="screen screen-search active">
       <div class="hero-brand">
         <h1>Your Website &mdash;<br><span class="gradient-text">Handled. Finally.</span></h1>
-        <p class="tagline">We build, launch, and maintain your business website so you don't have to.</p>
+        <p class="tagline">AI builds your business website in minutes. We handle hosting, updates, and everything else &mdash; for $50/mo.</p>
       </div>
 
       <div class="search-wrapper">
@@ -3608,6 +3646,28 @@
           <!-- Concrete "what's included" bullets -->
           <div class="handled-summary">
             <strong>Included in every paid plan:</strong> Custom domain support (bring your own, or buy through us at registrar cost) &middot; Unlimited change requests &middot; AI-powered content editor &middot; Mobile-responsive design &middot; Legal pages (privacy &amp; terms) &middot; Analytics dashboard &middot; Priority support &middot; No contracts, cancel anytime
+          </div>
+        </section>
+
+        <!-- Social Proof / Trust Signals -->
+        <section id="trust" style="padding:40px 0 20px;">
+          <div class="trust-bar">
+            <div class="trust-item">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span>SSL &amp; DDoS Protection</span>
+            </div>
+            <div class="trust-item">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span>99.9% Uptime Guarantee</span>
+            </div>
+            <div class="trust-item">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+              <span>No Contracts, Cancel Anytime</span>
+            </div>
+            <div class="trust-item">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <span>Priority Support Included</span>
+            </div>
           </div>
         </section>
 
@@ -3989,8 +4049,8 @@
   <!-- Footer CTA -->
   <div style="text-align:center;padding:48px 24px 0;position:relative;z-index:1;">
     <div style="max-width:640px;margin:0 auto;padding:36px 32px;background:linear-gradient(135deg,rgba(80,165,219,0.08),rgba(124,58,237,0.08));border:1px solid var(--border);border-radius:var(--radius-lg);animation:fadeInUp 0.6s ease both;">
-      <h3 style="font-size:1.4rem;font-weight:800;margin-bottom:8px;letter-spacing:-0.02em;">What are you waiting for?</h3>
-      <p style="color:var(--text-secondary);font-size:1rem;margin-bottom:20px;">Build your next gorgeous website for <strong style="color:var(--accent);">FREE</strong>. No credit card required.</p>
+      <h3 style="font-size:1.4rem;font-weight:800;margin-bottom:8px;letter-spacing:-0.02em;">Your Website Is 5 Minutes Away</h3>
+      <p style="color:var(--text-secondary);font-size:1rem;margin-bottom:20px;">See your free AI-generated preview &mdash; no account, no credit card, no commitment.</p>
       <button class="btn btn-accent btn-large" onclick="startBuildFlow()">Get Started Now</button>
     </div>
   </div>
@@ -4308,22 +4368,22 @@
         // Action buttons - Row 1 (primary actions)
         html += '<div class="site-card-actions">';
         if (status === 'published' && siteUrl) {
-          html += '<button class="site-card-btn" onclick="window.open(\'' + escapeAttr(siteUrl) + '\', \'_blank\')">Visit</button>';
+          html += '<button class="site-card-btn" onclick="window.open(\'' + escapeJsString(siteUrl) + '\', \'_blank\')">Visit</button>';
         } else if (status === 'building') {
-          html += '<button class="site-card-btn" onclick="state.siteId=\'' + escapeAttr(s.id) + '\';state.slug=\'' + escapeAttr(slug) + '\';navigateTo(\'waiting\');">Status</button>';
+          html += '<button class="site-card-btn" onclick="state.siteId=\'' + escapeJsString(s.id) + '\';state.slug=\'' + escapeJsString(slug) + '\';navigateTo(\'waiting\');">Status</button>';
         }
         if (status === 'published' && slug) {
-          html += '<button class="site-card-btn" onclick="editSiteInBolt(\'' + escapeAttr(slug) + '\')" title="Edit in AI Editor">AI Edit</button>';
+          html += '<button class="site-card-btn" onclick="editSiteInBolt(\'' + escapeJsString(slug) + '\')" title="Edit in AI Editor">AI Edit</button>';
         }
-        html += '<button class="site-card-btn" onclick="openEditSiteModal(\'' + escapeAttr(s.id) + '\', \'' + escapeAttr(name) + '\', \'' + escapeAttr(slug) + '\')">Rename</button>';
-        html += '<button class="site-card-btn" onclick="openSiteLogsModal(\'' + escapeAttr(s.id) + '\', \'' + escapeAttr(name) + '\')">Logs</button>';
+        html += '<button class="site-card-btn" onclick="openEditSiteModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\', \'' + escapeJsString(slug) + '\')">Rename</button>';
+        html += '<button class="site-card-btn" onclick="openSiteLogsModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\')">Logs</button>';
         html += '</div>';
         // Action buttons - Row 2 (management)
         html += '<div class="site-card-actions">';
-        html += '<button class="site-card-btn" onclick="openDomainModal(\'' + escapeAttr(s.id) + '\', \'' + escapeAttr(name) + '\', \'' + escapeAttr(slug) + '\')">Domains</button>';
-        html += '<button class="site-card-btn" onclick="openResetModal(\'' + escapeAttr(s.id) + '\', \'' + escapeAttr(name) + '\', \'' + escapeAttr(s.business_address || '') + '\', \'' + escapeAttr(s.google_place_id || '') + '\', \'' + escapeAttr(s.additional_context || '') + '\')">Reset</button>';
-        html += '<button class="site-card-btn" onclick="openDeployModal(\'' + escapeAttr(s.id) + '\', \'' + escapeAttr(name) + '\')">Deploy</button>';
-        html += '<button class="site-card-btn danger" onclick="openDeleteModal(\'' + escapeAttr(s.id) + '\', \'' + escapeAttr(name) + '\')">Delete</button>';
+        html += '<button class="site-card-btn" onclick="openDomainModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\', \'' + escapeJsString(slug) + '\')">Domains</button>';
+        html += '<button class="site-card-btn" onclick="openResetModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\', \'' + escapeJsString(s.business_address || '') + '\', \'' + escapeJsString(s.google_place_id || '') + '\', \'' + escapeJsString(s.additional_context || '') + '\')">Reset</button>';
+        html += '<button class="site-card-btn" onclick="openDeployModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\')">Deploy</button>';
+        html += '<button class="site-card-btn danger" onclick="openDeleteModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\')">Delete</button>';
         html += '</div>';
         html += '</div>';
       }
@@ -4335,6 +4395,16 @@
         + '</div>';
 
       grid.innerHTML = html;
+
+      // Animate cards in after DOM paint to prevent flash/twitch
+      requestAnimationFrame(function() {
+        var cards = grid.querySelectorAll('.site-card');
+        for (var ci = 0; ci < cards.length; ci++) {
+          (function(card, delay) {
+            setTimeout(function() { card.classList.add('card-visible'); }, delay);
+          })(cards[ci], ci * 50);
+        }
+      });
     }
 
     function copyUrl(url, btn) {
@@ -5272,6 +5342,15 @@
         return true;
       });
 
+      // Deduplicate by name + address (same business appearing multiple times)
+      var seen = {};
+      results = results.filter(function(r) {
+        var key = ((r.name || r.business_name || '') + '|' + (r.address || r.formatted_address || '')).toLowerCase().trim();
+        if (seen[key]) return false;
+        seen[key] = true;
+        return true;
+      });
+
       // Google Places results (sorted by distance when location available)
       // Update state.searchResults to match sorted order so selectBusiness(index) works
       state.searchResults = results;
@@ -5974,6 +6053,26 @@
       return escapeHtml(str).replace(/'/g, '&#39;');
     }
 
+    /** Escape a string for safe use inside JavaScript string literals within HTML attributes.
+     *  Handles apostrophes, backslashes, and other JS-breaking characters. */
+    function escapeJsString(str) {
+      if (!str) return '';
+      return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/</g, '\\x3C').replace(/>/g, '\\x3E');
+    }
+
+    /* Material-style ripple effect on button clicks */
+    document.addEventListener('click', function(e) {
+      var btn = e.target.closest('.btn, .site-card-btn, .admin-btn, .logs-refresh-btn');
+      if (!btn) return;
+      var circle = document.createElement('span');
+      circle.className = 'ripple-circle';
+      var rect = btn.getBoundingClientRect();
+      circle.style.left = (e.clientX - rect.left) + 'px';
+      circle.style.top = (e.clientY - rect.top) + 'px';
+      btn.appendChild(circle);
+      setTimeout(function() { circle.remove(); }, 500);
+    });
+
     /* ===========================================================
        Handle Auth Callback
        =========================================================== */
@@ -6336,6 +6435,7 @@
     function formatActionLabel(action) {
       var map = {
         'site.created': 'Site Created',
+        'site.created_from_search': 'Site Created',
         'site.deleted': 'Site Deleted',
         'site.updated': 'Site Updated',
         'site.reset': 'Site Reset',
@@ -6344,10 +6444,13 @@
         'hostname.unsubscribed': 'Domain Removed',
         'hostname.verified': 'Domain Verified',
         'hostname.deprovisioned': 'Domain Removed',
+        'hostname.deleted': 'Domain Deleted',
         'hostname.set_primary': 'Primary Domain Set',
         'workflow.started': 'Build Started',
         'workflow.completed': 'Build Completed',
-        'workflow.failed': 'Build Failed'
+        'workflow.failed': 'Build Failed',
+        'auth.magic_link_verified': 'Signed In (Email)',
+        'auth.google_oauth_verified': 'Signed In (Google)'
       };
       return map[action] || action.replace(/\./g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
     }
@@ -6369,7 +6472,16 @@
       if (meta.business_name) parts.push(escapeHtml(meta.business_name));
       if (meta.workflow_step) parts.push('step: ' + escapeHtml(meta.workflow_step));
       if (meta.social_profiles) parts.push('socials: ' + escapeHtml(String(meta.social_profiles)));
-      if (meta.error) parts.push('<span style="color:var(--error);">error: ' + escapeHtml(String(meta.error).slice(0, 200)) + '</span>');
+      if (meta.error) {
+        // Clean up ZodError/validation noise — show a short, human-readable message
+        var errStr = String(meta.error);
+        if (errStr.indexOf('ZodError') !== -1 || errStr.indexOf('Validation') !== -1) {
+          errStr = 'Validation error';
+        } else if (errStr.length > 120) {
+          errStr = errStr.slice(0, 120) + '…';
+        }
+        parts.push('<span style="color:var(--error);">' + escapeHtml(errStr) + '</span>');
+      }
       return parts.join(' &middot; ');
     }
 
