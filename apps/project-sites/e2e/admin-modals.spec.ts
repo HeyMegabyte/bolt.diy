@@ -7,12 +7,22 @@
 import { test, expect } from './fixtures.js';
 
 test.describe('Admin Dashboard Modals', () => {
-  test('Edit site modal exists and is initially hidden', async ({ page }) => {
+  test('Inline editing functions exist (edit-site-modal removed)', async ({ page }) => {
     await page.goto('/');
 
-    const editModal = page.locator('#edit-site-modal');
-    await expect(editModal).toBeAttached();
-    await expect(editModal).not.toHaveClass(/visible/);
+    const fns = await page.evaluate(() => {
+      const w = window as unknown as Record<string, unknown>;
+      return {
+        startInlineEdit: typeof w.startInlineEdit === 'function',
+        saveInlineEdit: typeof w.saveInlineEdit === 'function',
+        cancelInlineEdit: typeof w.cancelInlineEdit === 'function',
+        onSlugInput: typeof w.onSlugInput === 'function',
+      };
+    });
+    expect(fns.startInlineEdit).toBe(true);
+    expect(fns.saveInlineEdit).toBe(true);
+    expect(fns.cancelInlineEdit).toBe(true);
+    expect(fns.onSlugInput).toBe(true);
   });
 
   test('Delete modal exists and is initially hidden', async ({ page }) => {

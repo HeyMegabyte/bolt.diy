@@ -1036,46 +1036,92 @@
     /* ======================================================
        Edit Site Modal
        ====================================================== */
-    .edit-site-row {
+    /* Inline editable fields on site cards */
+    .inline-edit-wrap {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 16px;
+      gap: 4px;
+      min-height: 26px;
     }
-    .edit-site-row label {
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      width: 50px;
+    .inline-edit-wrap .inline-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: default;
+    }
+    .inline-edit-wrap .inline-edit-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      padding: 2px;
       flex-shrink: 0;
+      opacity: 0.7;
+      transition: opacity 0.2s, color 0.2s;
+      line-height: 1;
     }
-    .edit-site-row input {
+    .inline-edit-wrap .inline-edit-btn:hover {
+      opacity: 1;
+      color: var(--accent);
+    }
+    .inline-edit-wrap .inline-input {
       flex: 1;
-      padding: 10px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
+      min-width: 0;
+      padding: 3px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--accent);
       background: var(--bg-primary);
       color: var(--text-primary);
-      font-size: 0.9rem;
-      font-family: var(--font);
-    }
-    .edit-site-row input:focus {
+      font-size: inherit;
+      font-family: inherit;
       outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-dim);
+      box-shadow: 0 0 0 2px var(--accent-dim);
     }
-    .edit-site-note {
-      font-size: 0.75rem;
+    .inline-edit-wrap .inline-input.slug-input {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 0.72rem;
+    }
+    .inline-edit-wrap .inline-save-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #22c55e;
+      padding: 2px;
+      flex-shrink: 0;
+      transition: color 0.2s;
+      line-height: 1;
+    }
+    .inline-edit-wrap .inline-save-btn:hover { color: #16a34a; }
+    .inline-edit-wrap .inline-save-btn:disabled {
       color: var(--text-muted);
-      margin-bottom: 20px;
-      line-height: 1.5;
-      padding: 10px 12px;
-      background: rgba(251,191,36,0.06);
-      border: 1px solid rgba(251,191,36,0.15);
-      border-radius: 8px;
+      cursor: not-allowed;
+      opacity: 0.4;
     }
+    .inline-edit-wrap .inline-cancel-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #ef4444;
+      padding: 2px;
+      flex-shrink: 0;
+      transition: color 0.2s;
+      line-height: 1;
+    }
+    .inline-edit-wrap .inline-cancel-btn:hover { color: #dc2626; }
+    .inline-slug-url {
+      font-size: 0.68rem;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      margin-top: 2px;
+      transition: color 0.2s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .inline-slug-url.status-default { color: var(--accent); }
+    .inline-slug-url.status-available { color: #22c55e; }
+    .inline-slug-url.status-taken { color: #ef4444; }
+    .inline-slug-url.status-invalid { color: #ef4444; }
+    .inline-slug-url.status-checking { color: #fbbf24; }
 
     /* ======================================================
        Deploy Modal
@@ -3286,7 +3332,7 @@
   </div>
 
   <!-- Domain Management Modal -->
-  <div id="domain-modal" class="modal-overlay" onclick="if(event.target===this)closeDomainModal()">
+  <div id="domain-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Manage Domains" onclick="if(event.target===this)closeDomainModal()">
     <div class="modal" style="max-width:560px;min-height:510px;">
       <div class="modal-title">
         <span id="domain-modal-title">Manage Domains</span>
@@ -3336,7 +3382,7 @@
   </div>
 
   <!-- Delete Confirmation Modal -->
-  <div id="delete-modal" class="modal-overlay" onclick="if(event.target===this)closeDeleteModal()">
+  <div id="delete-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Delete Site" onclick="if(event.target===this)closeDeleteModal()">
     <div class="modal" style="max-width:440px;">
       <div class="modal-title">
         <span>Delete Website?</span>
@@ -3357,35 +3403,8 @@
     </div>
   </div>
 
-  <!-- Edit Site Modal (Title / Slug) -->
-  <div id="edit-site-modal" class="modal-overlay" onclick="if(event.target===this)closeEditSiteModal()">
-    <div class="modal" style="max-width:480px;">
-      <div class="modal-title">
-        <span>Edit Website</span>
-        <button class="modal-close" onclick="closeEditSiteModal()">&times;</button>
-      </div>
-      <div class="edit-site-row">
-        <label for="edit-site-title">Title</label>
-        <input type="text" id="edit-site-title" placeholder="Website title" maxlength="200" />
-      </div>
-      <div class="edit-site-row">
-        <label for="edit-site-slug">Slug</label>
-        <input type="text" id="edit-site-slug" placeholder="url-friendly-slug" maxlength="100" />
-      </div>
-      <div id="edit-site-slug-preview" style="font-size:0.75rem;color:var(--accent);margin-top:-10px;margin-bottom:12px;font-family:'SF Mono','Fira Code',monospace;transition:opacity 0.2s;"></div>
-      <div class="edit-site-note">
-        Title changes apply to the dashboard only. Use <strong>Reset</strong> or <strong>AI Edit</strong> to update the live site. Slug changes update the subdomain URL.
-      </div>
-      <div id="edit-site-msg" class="msg" style="margin-bottom:12px;"></div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;">
-        <button class="admin-btn" onclick="closeEditSiteModal()">Cancel</button>
-        <button class="admin-btn admin-btn-accent" id="edit-site-save-btn" onclick="saveEditSite()">Save Changes</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Site Logs Modal -->
-  <div id="site-logs-modal" class="modal-overlay" onclick="if(event.target===this)closeSiteLogsModal()">
+  <div id="site-logs-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Site Activity Logs" onclick="if(event.target===this)closeSiteLogsModal()">
     <div class="modal logs-modal">
       <div class="modal-title">
         <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Logs: <span id="logs-modal-site-name"></span></span>
@@ -3404,7 +3423,7 @@
   </div>
 
   <!-- Deploy Modal (Upload ZIP / JSON) -->
-  <div id="deploy-modal" class="modal-overlay" onclick="if(event.target===this)closeDeployModal()">
+  <div id="deploy-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Deploy Website" onclick="if(event.target===this)closeDeployModal()">
     <div class="modal" style="max-width:520px;">
       <div class="modal-title">
         <span id="deploy-modal-title">Deploy to Site</span>
@@ -4316,8 +4335,22 @@
         }
         html += '</div>';
 
-        // Site name
-        html += '<div class="site-card-name" title="' + escapeHtml(name) + '">' + escapeHtml(name) + '</div>';
+        // Site name — inline editable
+        html += '<div class="inline-edit-wrap" id="inline-name-' + s.id + '">';
+        html += '<span class="inline-text site-card-name" title="' + escapeHtml(name) + '">' + escapeHtml(name) + '</span>';
+        html += '<button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'name\', \'' + escapeJsString(name) + '\')" title="Edit title" aria-label="Edit title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>';
+        html += '</div>';
+
+        // Slug — inline editable
+        if (slug) {
+          html += '<div id="inline-slug-wrap-' + s.id + '">';
+          html += '<div class="inline-edit-wrap" id="inline-slug-' + s.id + '">';
+          html += '<span class="inline-text" style="font-family:\'SF Mono\',\'Fira Code\',monospace;font-size:0.72rem;color:var(--text-muted);">' + escapeHtml(slug) + '</span>';
+          html += '<button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')" title="Edit slug" aria-label="Edit slug"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>';
+          html += '</div>';
+          html += '<div class="inline-slug-url status-default" id="inline-slug-url-' + s.id + '">https://' + escapeHtml(slug) + '-sites.megabyte.space</div>';
+          html += '</div>';
+        }
 
         // Status badge
         html += '<div class="site-card-status ' + status + '">';
@@ -4375,7 +4408,6 @@
         if (status === 'published' && slug) {
           html += '<button class="site-card-btn" onclick="editSiteInBolt(\'' + escapeJsString(slug) + '\')" title="Edit in AI Editor">AI Edit</button>';
         }
-        html += '<button class="site-card-btn" onclick="openEditSiteModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\', \'' + escapeJsString(slug) + '\')">Rename</button>';
         html += '<button class="site-card-btn" onclick="openSiteLogsModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\')">Logs</button>';
         html += '</div>';
         // Action buttons - Row 2 (management)
@@ -5286,6 +5318,15 @@
     function renderDropdown() {
       var html = '';
       var preBuilt = state.preBuiltResults || [];
+
+      // Deduplicate pre-built sites by name + address
+      var preBuiltSeen = {};
+      preBuilt = preBuilt.filter(function(pb) {
+        var key = ((pb.business_name || pb.name || '') + '|' + (pb.business_address || pb.address || '')).toLowerCase().trim();
+        if (preBuiltSeen[key]) return false;
+        preBuiltSeen[key] = true;
+        return true;
+      });
 
       // Sort Google Places results by distance when location is available
       var results = state.searchResults || [];
@@ -6308,46 +6349,271 @@
     }
 
     /* ===========================================================
-       Edit Site Modal (Title / Slug)
+       Inline Editing (Title / Slug) on Site Cards
        =========================================================== */
-    var editSiteModalId = null;
+    var inlineSlugCheckTimer = null;
+    var inlineSlugCheckCounter = 0; // monotonic counter to ignore stale responses
 
-    function updateSlugPreview() {
-      var slugInput = document.getElementById('edit-site-slug');
-      var preview = document.getElementById('edit-site-slug-preview');
-      if (!slugInput || !preview) return;
-      var val = slugInput.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/--+/g, '-').replace(/^-|-$/g, '');
-      if (val) {
-        preview.textContent = val + '-sites.megabyte.space';
-        preview.style.opacity = '1';
+    /** Validate a slug string — returns { valid: boolean, reason?: string, normalized: string } */
+    function validateSlugLocal(raw) {
+      if (!raw || !raw.trim()) return { valid: false, reason: 'Slug is required', normalized: '' };
+      var n = raw.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/--+/g, '-').replace(/^-|-$/g, '').slice(0, 100);
+      if (!n || n.length < 2) return { valid: false, reason: 'At least 2 characters', normalized: n };
+      if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(n)) return { valid: false, reason: 'Must start/end with letter or number', normalized: n };
+      return { valid: true, normalized: n };
+    }
+
+    /** Validate a title string — returns { valid: boolean, reason?: string } */
+    function validateTitle(raw) {
+      if (!raw || !raw.trim()) return { valid: false, reason: 'Title is required' };
+      var t = raw.trim();
+      if (t.length < 1) return { valid: false, reason: 'Title is required' };
+      if (t.length > 200) return { valid: false, reason: 'Max 200 characters' };
+      if (/<script/i.test(t) || /javascript:/i.test(t)) return { valid: false, reason: 'Invalid characters' };
+      return { valid: true };
+    }
+
+    function startInlineEdit(siteId, field, currentValue) {
+      var wrap = document.getElementById('inline-' + field + '-' + siteId);
+      if (!wrap) return;
+
+      var isSlug = (field === 'slug');
+      var inputClass = isSlug ? 'inline-input slug-input' : 'inline-input';
+
+      wrap.innerHTML = '<input type="text" class="' + inputClass + '" id="inline-input-' + field + '-' + siteId + '" value="' + escapeHtml(currentValue) + '" maxlength="' + (isSlug ? '100' : '200') + '" />'
+        + '<button class="inline-save-btn" id="inline-save-' + field + '-' + siteId + '" onclick="saveInlineEdit(\'' + escapeJsString(siteId) + '\', \'' + field + '\', \'' + escapeJsString(currentValue) + '\')" title="Save" aria-label="Save"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>'
+        + '<button class="inline-cancel-btn" onclick="cancelInlineEdit(\'' + escapeJsString(siteId) + '\', \'' + field + '\', \'' + escapeJsString(currentValue) + '\')" title="Cancel" aria-label="Cancel"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
+
+      var input = document.getElementById('inline-input-' + field + '-' + siteId);
+      if (input) {
+        input.focus();
+        input.select();
+
+        // For slug: live validation + availability check
+        if (isSlug) {
+          input.addEventListener('input', function() {
+            onSlugInput(siteId, currentValue);
+          });
+          // Show initial state as default (unchanged)
+          var urlEl = document.getElementById('inline-slug-url-' + siteId);
+          if (urlEl) {
+            urlEl.className = 'inline-slug-url status-default';
+            urlEl.textContent = 'https://' + currentValue + '-sites.megabyte.space';
+          }
+        }
+
+        // Submit on Enter, cancel on Escape
+        input.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            saveInlineEdit(siteId, field, currentValue);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelInlineEdit(siteId, field, currentValue);
+          }
+        });
+      }
+    }
+
+    function onSlugInput(siteId, originalSlug) {
+      var input = document.getElementById('inline-input-slug-' + siteId);
+      var urlEl = document.getElementById('inline-slug-url-' + siteId);
+      var saveBtn = document.getElementById('inline-save-slug-' + siteId);
+      if (!input || !urlEl) return;
+
+      var raw = input.value;
+      var result = validateSlugLocal(raw);
+
+      if (!result.valid) {
+        urlEl.className = 'inline-slug-url status-invalid';
+        urlEl.textContent = result.reason;
+        if (saveBtn) saveBtn.disabled = true;
+        return;
+      }
+
+      var normalized = result.normalized;
+      urlEl.textContent = 'https://' + normalized + '-sites.megabyte.space';
+
+      // If same as original, show default blue
+      if (normalized === originalSlug) {
+        urlEl.className = 'inline-slug-url status-default';
+        if (saveBtn) saveBtn.disabled = false;
+        return;
+      }
+
+      // Changed — check availability with debounce
+      urlEl.className = 'inline-slug-url status-checking';
+      urlEl.textContent = 'Checking availability...';
+      if (saveBtn) saveBtn.disabled = true;
+
+      if (inlineSlugCheckTimer) clearTimeout(inlineSlugCheckTimer);
+      inlineSlugCheckTimer = setTimeout(function() {
+        checkSlugAvailability(siteId, normalized, originalSlug);
+      }, 400);
+    }
+
+    function checkSlugAvailability(siteId, slug, originalSlug) {
+      if (!state.session || !state.session.token) return;
+      var urlEl = document.getElementById('inline-slug-url-' + siteId);
+      var saveBtn = document.getElementById('inline-save-slug-' + siteId);
+
+      var excludeId = siteId;
+      var requestId = ++inlineSlugCheckCounter; // track this request
+
+      fetch('/api/slug/check?slug=' + encodeURIComponent(slug) + '&exclude_id=' + encodeURIComponent(excludeId), {
+        headers: { 'Authorization': 'Bearer ' + state.session.token }
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          // Ignore stale responses (newer request already in flight)
+          if (requestId !== inlineSlugCheckCounter) return;
+          if (!urlEl) return;
+          var input = document.getElementById('inline-input-slug-' + siteId);
+          if (!input) return;
+          var currentNormalized = validateSlugLocal(input.value).normalized;
+          if (currentNormalized !== slug) return;
+
+          if (d.data && d.data.available) {
+            urlEl.className = 'inline-slug-url status-available';
+            urlEl.textContent = 'https://' + slug + '-sites.megabyte.space';
+            if (saveBtn) saveBtn.disabled = false;
+          } else {
+            urlEl.className = 'inline-slug-url status-taken';
+            urlEl.textContent = (d.data && d.data.reason) || 'Slug is already taken';
+            if (saveBtn) saveBtn.disabled = true;
+          }
+        })
+        .catch(function() {
+          if (requestId !== inlineSlugCheckCounter) return;
+          if (urlEl) {
+            urlEl.className = 'inline-slug-url status-invalid';
+            urlEl.textContent = 'Error checking availability';
+          }
+        });
+    }
+
+    function cancelInlineEdit(siteId, field, originalValue) {
+      var wrap = document.getElementById('inline-' + field + '-' + siteId);
+      if (!wrap) return;
+
+      // Clear any pending slug check timer
+      if (inlineSlugCheckTimer) { clearTimeout(inlineSlugCheckTimer); inlineSlugCheckTimer = null; }
+
+      var isSlug = (field === 'slug');
+      if (isSlug) {
+        wrap.innerHTML = '<span class="inline-text" style="font-family:\'SF Mono\',\'Fira Code\',monospace;font-size:0.72rem;color:var(--text-muted);">' + escapeHtml(originalValue) + '</span>'
+          + '<button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(siteId) + '\', \'slug\', \'' + escapeJsString(originalValue) + '\')" title="Edit slug" aria-label="Edit slug"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>';
+        // Reset URL display
+        var urlEl = document.getElementById('inline-slug-url-' + siteId);
+        if (urlEl) {
+          urlEl.className = 'inline-slug-url status-default';
+          urlEl.textContent = 'https://' + originalValue + '-sites.megabyte.space';
+        }
       } else {
-        preview.textContent = '';
-        preview.style.opacity = '0';
+        wrap.innerHTML = '<span class="inline-text site-card-name" title="' + escapeHtml(originalValue) + '">' + escapeHtml(originalValue) + '</span>'
+          + '<button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(siteId) + '\', \'name\', \'' + escapeJsString(originalValue) + '\')" title="Edit title" aria-label="Edit title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>';
       }
     }
 
-    // Wire up live slug preview
-    (function() {
-      var slugInput = document.getElementById('edit-site-slug');
-      if (slugInput) {
-        slugInput.addEventListener('input', updateSlugPreview);
+    function saveInlineEdit(siteId, field, originalValue) {
+      if (!state.session || !state.session.token) return;
+
+      var input = document.getElementById('inline-input-' + field + '-' + siteId);
+      if (!input) return;
+
+      var value = input.value.trim();
+      var isSlug = (field === 'slug');
+
+      // Validate
+      if (isSlug) {
+        var slugResult = validateSlugLocal(value);
+        if (!slugResult.valid) {
+          var slugUrlEl = document.getElementById('inline-slug-url-' + siteId);
+          if (slugUrlEl) { slugUrlEl.className = 'inline-slug-url status-invalid'; slugUrlEl.textContent = slugResult.reason; }
+          return;
+        }
+        value = slugResult.normalized;
+        if (value === originalValue) {
+          cancelInlineEdit(siteId, field, originalValue);
+          return;
+        }
+      } else {
+        var titleResult = validateTitle(value);
+        if (!titleResult.valid) {
+          input.style.borderColor = '#ef4444';
+          input.title = titleResult.reason;
+          return;
+        }
+        if (value === originalValue) {
+          cancelInlineEdit(siteId, field, originalValue);
+          return;
+        }
       }
-    })();
 
-    function openEditSiteModal(siteId, currentName, currentSlug) {
-      editSiteModalId = siteId;
-      document.getElementById('edit-site-title').value = currentName || '';
-      document.getElementById('edit-site-slug').value = currentSlug || '';
-      updateSlugPreview();
-      hideMsg('edit-site-msg');
-      document.getElementById('edit-site-modal').classList.add('visible');
-      // Focus first input
-      setTimeout(function() { document.getElementById('edit-site-title').focus(); }, 100);
-    }
+      // Show saving feedback
+      var saveBtn = document.getElementById('inline-save-' + field + '-' + siteId);
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<span style="font-size:10px;">...</span>'; }
+      input.disabled = true;
+      input.style.opacity = '0.6';
 
-    function closeEditSiteModal() {
-      document.getElementById('edit-site-modal').classList.remove('visible');
-      editSiteModalId = null;
+      var payload = {};
+      if (isSlug) {
+        payload.slug = value;
+      } else {
+        payload.business_name = value;
+      }
+
+      fetch('/api/sites/' + siteId, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + state.session.token
+        },
+        body: JSON.stringify(payload)
+      })
+        .then(function(res) {
+          if (!res.ok) return res.json().then(function(d) { throw new Error(extractErrorMsg(d, 'Failed to update')); });
+          return res.json();
+        })
+        .then(function() {
+          // Update the adminSites data locally
+          for (var i = 0; i < adminSites.length; i++) {
+            if (adminSites[i].id === siteId) {
+              if (isSlug) {
+                adminSites[i].slug = value;
+              } else {
+                adminSites[i].business_name = value;
+              }
+              break;
+            }
+          }
+          // Targeted update — restore display mode with new value (no full re-render)
+          cancelInlineEdit(siteId, field, value);
+          // Update site card preview URL if slug changed
+          if (isSlug) {
+            var previewLink = document.querySelector('#site-card-' + siteId + ' .site-card-preview a');
+            if (previewLink) previewLink.href = 'https://' + value + '-sites.megabyte.space';
+            var visitBtn = document.querySelector('#site-card-' + siteId + ' .btn-visit');
+            if (visitBtn) visitBtn.setAttribute('onclick', "window.open('https://" + escapeJsString(value) + "-sites.megabyte.space','_blank')");
+          }
+        })
+        .catch(function(err) {
+          if (input) { input.disabled = false; input.style.opacity = '1'; }
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+          }
+          if (isSlug) {
+            var urlEl = document.getElementById('inline-slug-url-' + siteId);
+            if (urlEl) {
+              urlEl.className = 'inline-slug-url status-taken';
+              urlEl.textContent = err.message || 'Failed to save';
+            }
+          } else {
+            input.style.borderColor = '#ef4444';
+            input.title = err.message || 'Failed to save';
+          }
+        });
     }
 
     /* ===========================================================
@@ -6483,46 +6749,6 @@
         parts.push('<span style="color:var(--error);">' + escapeHtml(errStr) + '</span>');
       }
       return parts.join(' &middot; ');
-    }
-
-    function saveEditSite() {
-      if (!editSiteModalId || !state.session || !state.session.token) return;
-
-      var title = document.getElementById('edit-site-title').value.trim();
-      var slug = document.getElementById('edit-site-slug').value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/--+/g, '-').replace(/^-|-$/g, '');
-
-      if (!title) {
-        showMsg('edit-site-msg', 'error', 'Title is required.');
-        return;
-      }
-
-      var btn = document.getElementById('edit-site-save-btn');
-      btn.disabled = true;
-      btn.textContent = 'Saving...';
-
-      fetch('/api/sites/' + editSiteModalId, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + state.session.token
-        },
-        body: JSON.stringify({ business_name: title, slug: slug || undefined })
-      })
-        .then(function(res) {
-          if (!res.ok) return res.json().then(function(d) { throw new Error(extractErrorMsg(d, 'Failed to update')); });
-          return res.json();
-        })
-        .then(function() {
-          btn.disabled = false;
-          btn.textContent = 'Save Changes';
-          closeEditSiteModal();
-          loadAdminDashboard();
-        })
-        .catch(function(err) {
-          btn.disabled = false;
-          btn.textContent = 'Save Changes';
-          showMsg('edit-site-msg', 'error', err.message || 'Failed to save changes.');
-        });
     }
 
     /* ===========================================================
