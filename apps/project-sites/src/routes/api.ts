@@ -76,6 +76,16 @@ api.get('/api/auth/magic-link/verify', async (c) => {
     const user = await authService.findOrCreateUser(c.env.DB, { email: result.email });
     const session = await authService.createSession(c.env.DB, user.user_id);
 
+    await auditService.writeAuditLog(c.env.DB, {
+      org_id: user.org_id,
+      actor_id: user.user_id,
+      action: 'auth.magic_link_verified',
+      target_type: 'user',
+      target_id: user.user_id,
+      metadata_json: { method: 'magic_link' },
+      request_id: c.get('requestId'),
+    });
+
     if (result.redirect_url) {
       const redirectTarget = new URL(result.redirect_url);
       redirectTarget.searchParams.set('token', session.token);
@@ -108,6 +118,16 @@ api.post('/api/auth/magic-link/verify', async (c) => {
 
   const user = await authService.findOrCreateUser(c.env.DB, { email: result.email });
   const session = await authService.createSession(c.env.DB, user.user_id);
+
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: user.org_id,
+    actor_id: user.user_id,
+    action: 'auth.magic_link_verified',
+    target_type: 'user',
+    target_id: user.user_id,
+    metadata_json: { method: 'magic_link' },
+    request_id: c.get('requestId'),
+  });
 
   if (result.redirect_url) {
     const redirectTarget = new URL(result.redirect_url);
@@ -148,6 +168,16 @@ api.get('/api/auth/google/callback', async (c) => {
     avatar_url: result.avatar_url ?? undefined,
   });
   const session = await authService.createSession(c.env.DB, user.user_id);
+
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: user.org_id,
+    actor_id: user.user_id,
+    action: 'auth.google_oauth_verified',
+    target_type: 'user',
+    target_id: user.user_id,
+    metadata_json: { method: 'google_oauth' },
+    request_id: c.get('requestId'),
+  });
 
   // Redirect to the original redirect_url (or homepage) with token and email
   const baseUrl =
@@ -596,6 +626,16 @@ api.delete('/api/sites/:siteId/hostnames/:hostnameId', async (c) => {
 
   // Invalidate KV cache
   await c.env.CACHE_KV.delete(`host:${hostname.hostname}`).catch(() => {});
+
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: c.get('userId') ?? null,
+    action: 'hostname.deleted',
+    target_type: 'hostname',
+    target_id: hostnameId,
+    metadata_json: { hostname: hostname.hostname, site_id: siteId },
+    request_id: c.get('requestId'),
+  });
 
   return c.json({ data: { deleted: true } });
 });
