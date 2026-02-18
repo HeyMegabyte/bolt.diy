@@ -496,6 +496,22 @@ search.post('/api/sites/create-from-search', async (c) => {
     request_id: c.get('requestId'),
   });
 
+  // Log enrichment/build pipeline start
+  await writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: c.get('userId') ?? null,
+    action: 'workflow.queued',
+    target_type: 'site',
+    target_id: siteId,
+    metadata_json: {
+      business_name: sanitizedName,
+      slug,
+      workflow_instance_id: workflowInstanceId ?? null,
+      has_additional_context: !!additionalContext,
+    },
+    request_id: c.get('requestId'),
+  });
+
   return c.json(
     {
       data: {
