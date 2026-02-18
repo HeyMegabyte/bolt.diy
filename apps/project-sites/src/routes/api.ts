@@ -264,6 +264,53 @@ api.post('/api/sites', async (c) => {
   return c.json({ data: site }, 201);
 });
 
+// ─── Check Slug Availability (must be before /api/sites/:id) ──
+
+api.get('/api/slug/check', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const slug = c.req.query('slug');
+  const excludeId = c.req.query('exclude_id');
+
+  if (!slug || !slug.trim()) {
+    return c.json({ data: { available: false, reason: 'Slug is required' } });
+  }
+
+  const normalized = slug
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/--+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 100);
+
+  if (!normalized || normalized.length < 2) {
+    return c.json({ data: { available: false, reason: 'Slug must be at least 2 characters' } });
+  }
+
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(normalized)) {
+    return c.json({ data: { available: false, reason: 'Slug must start and end with a letter or number' } });
+  }
+
+  const query = excludeId
+    ? 'SELECT id FROM sites WHERE slug = ? AND id != ? AND deleted_at IS NULL'
+    : 'SELECT id FROM sites WHERE slug = ? AND deleted_at IS NULL';
+  const params = excludeId ? [normalized, excludeId] : [normalized];
+
+  const existing = await dbQueryOne<{ id: string }>(c.env.DB, query, params);
+
+  return c.json({
+    data: {
+      available: !existing,
+      slug: normalized,
+      reason: existing ? 'Slug is already taken' : null,
+    },
+  });
+});
+
+// ─── List Sites ─────────────────────────────────────────────
+
 api.get('/api/sites', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
