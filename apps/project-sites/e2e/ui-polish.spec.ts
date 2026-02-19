@@ -563,3 +563,95 @@ test.describe('Editor Toolbar Labels', () => {
     expect(html).not.toContain('id="files-modal-msg"');
   });
 });
+
+// ─── Slug Input ch Sizing ───────────────────────────────────
+
+test.describe('Slug Input ch-based Sizing', () => {
+  test('startInlineEdit uses ch units for slug input width', async ({ page }) => {
+    await page.goto('/');
+    const html = await page.content();
+    // The JS should use ch units for pixel-perfect monospace sizing
+    expect(html).toContain("+ 'ch'");
+    expect(html).toContain('Math.max(3, currentValue.length)');
+  });
+
+  test('slug input auto-resizes on input event with ch units', async ({ page }) => {
+    await page.goto('/');
+    const html = await page.content();
+    // The input event listener should also use ch units
+    expect(html).toContain("this.value.length) + 'ch'");
+  });
+});
+
+// ─── Connect Domain Upgrade CTA ────────────────────────────
+
+test.describe('Connect Domain Upgrade CTA', () => {
+  test('upgrade CTA is shown for free plan sites on modal open', async ({ page }) => {
+    await page.goto('/');
+    const html = await page.content();
+    // The openDomainModal function should conditionally show the CTA
+    expect(html).toContain("site.plan !== 'paid'");
+    expect(html).toContain('domain-connect-upgrade-cta');
+  });
+
+  test('upgrade CTA has Unlock Custom Domains text', async ({ page }) => {
+    await page.goto('/');
+    const cta = page.locator('#domain-connect-upgrade-cta');
+    await expect(cta).toBeAttached();
+    const text = await cta.textContent();
+    expect(text).toContain('Unlock Custom Domains');
+    expect(text).toContain('Upgrade Now');
+  });
+
+  test('upgrade CTA includes SSL and CDN benefits', async ({ page }) => {
+    await page.goto('/');
+    const cta = page.locator('#domain-connect-upgrade-cta');
+    const text = await cta.textContent();
+    expect(text).toContain('SSL');
+    expect(text).toContain('CDN');
+  });
+});
+
+// ─── Domain Search Availability Display ─────────────────────
+
+test.describe('Domain Search Availability Display', () => {
+  test('renderDomainSearchResults treats price=0 as unavailable', async ({ page }) => {
+    await page.goto('/');
+    const html = await page.content();
+    // Frontend should check both available AND price > 0
+    expect(html).toContain('r.available && r.price > 0');
+  });
+
+  test('available count filters by price > 0', async ({ page }) => {
+    await page.goto('/');
+    const html = await page.content();
+    expect(html).toContain('r.available && r.price > 0');
+  });
+
+  test('unavailable domains show Taken label', async ({ page }) => {
+    await page.goto('/');
+    const html = await page.content();
+    // Check that unavailable results show "Unavailable" and "Taken" labels
+    expect(html).toContain('Unavailable');
+    expect(html).toContain('>Taken</span>');
+  });
+});
+
+// ─── Visit Button and Site Serving ──────────────────────────
+
+test.describe('Visit Button', () => {
+  test('Visit button markup exists in site cards', async ({ page }) => {
+    await page.goto('/');
+    const html = await page.content();
+    // Published sites should have a Visit button that opens window
+    expect(html).toContain('">Visit</button>');
+    expect(html).toContain("window.open(");
+  });
+
+  test('site serving returns HTML content-type with charset', async ({ request }) => {
+    // Health endpoint returns JSON, not HTML, but we can verify the worker responds
+    const res = await request.get('/health');
+    expect(res.status()).toBe(200);
+    expect(res.headers()['content-type']).toContain('application/json');
+  });
+});

@@ -257,7 +257,7 @@ export async function serveSiteFromR2(
       const fallback = await env.SITES_BUCKET.get(fallbackPath);
 
       if (fallback) {
-        return buildSiteResponse(fallback, site, 'text/html');
+        return buildSiteResponse(fallback, site, 'text/html; charset=utf-8');
       }
     }
 
@@ -291,7 +291,7 @@ async function buildSiteResponse(
   });
 
   // For HTML responses, inject top bar if unpaid
-  if (contentType === 'text/html' && site.plan !== 'paid') {
+  if (contentType.startsWith('text/html') && site.plan !== 'paid') {
     const html = await object.text();
     const topBar = generateTopBar(site.slug);
 
@@ -313,7 +313,7 @@ async function buildSiteResponse(
 function getContentType(path: string): string {
   const ext = path.split('.').pop()?.toLowerCase();
   const types: Record<string, string> = {
-    html: 'text/html',
+    html: 'text/html; charset=utf-8',
     css: 'text/css',
     js: 'application/javascript',
     json: 'application/json',
