@@ -3784,6 +3784,70 @@
     @media (max-width: 480px) {
       .gallery-grid { grid-template-columns: 1fr; }
     }
+
+    /* ── Error Toast ────────────────────────────────── */
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 100000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      pointer-events: auto;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      line-height: 1.4;
+      max-width: 380px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      animation: toastSlideIn 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .toast-error {
+      background: rgba(220, 38, 38, 0.95);
+      color: #fff;
+      border: 1px solid rgba(248, 113, 113, 0.3);
+    }
+    .toast-success {
+      background: rgba(16, 185, 129, 0.95);
+      color: #fff;
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+    .toast-info {
+      background: rgba(59, 130, 246, 0.95);
+      color: #fff;
+      border: 1px solid rgba(96, 165, 250, 0.3);
+    }
+    .toast-icon { font-size: 1rem; flex-shrink: 0; }
+    .toast-dismiss {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 0 0 0 8px;
+    }
+    .toast-dismiss:hover { color: #fff; }
+    @keyframes toastSlideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* ── File browser file size ──────────────────────── */
+    .file-item-size {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-left: auto;
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+    }
   </style>
 
   <!-- PostHog Tracking -->
@@ -3957,6 +4021,9 @@
       <div id="files-modal-msg" class="msg" style="margin-top:12px;"></div>
     </div>
   </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
 
   <!-- Delete Confirmation Modal -->
   <div id="delete-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Delete Site" onclick="if(event.target===this)closeDeleteModal()">
@@ -5368,6 +5435,7 @@
           } else {
             showMsg('domain-modal-msg', 'error', msg);
           }
+          showToast(msg, 'error');
         });
     }
 
@@ -6927,6 +6995,32 @@
       return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/</g, '\\x3C').replace(/>/g, '\\x3E');
     }
 
+    /** Show a toast notification (type: 'error' | 'success' | 'info') */
+    function showToast(message, type, duration) {
+      type = type || 'info';
+      duration = duration || 5000;
+      var container = document.getElementById('toast-container');
+      if (!container) return;
+      var icons = { error: '✕', success: '✓', info: 'ℹ' };
+      var toast = document.createElement('div');
+      toast.className = 'toast toast-' + type;
+      toast.innerHTML = '<span class="toast-icon">' + (icons[type] || '') + '</span>' +
+        '<span>' + escapeHtml(message) + '</span>' +
+        '<button class="toast-dismiss" onclick="this.parentElement.remove()">&times;</button>';
+      container.appendChild(toast);
+      setTimeout(function() { if (toast.parentElement) toast.remove(); }, duration);
+    }
+
+    /** Format file size in human-readable format */
+    function formatFileSize(bytes) {
+      if (bytes == null || bytes === 0) return '0 B';
+      var units = ['B', 'KB', 'MB', 'GB'];
+      var i = 0;
+      var size = bytes;
+      while (size >= 1024 && i < units.length - 1) { size /= 1024; i++; }
+      return (i === 0 ? size : size.toFixed(1)) + ' ' + units[i];
+    }
+
     /* Material-style ripple effect on button clicks */
     document.addEventListener('click', function(e) {
       var btn = e.target.closest('.btn, .site-card-btn, .admin-btn, .admin-btn-accent, .logs-refresh-btn, .domain-tab, .hostname-delete-btn, .signin-btn, .back-link, .modal-close, .details-modal-close, .header-auth-btn, .site-card-new, .site-card-upgrade-btn, .inline-edit-btn, .inline-save-btn, .inline-cancel-btn, .faq-question, .btn-allow, .btn-skip, .improve-ai-link, .plan-badge');
@@ -8282,7 +8376,7 @@
           var html = '';
           for (var i = 0; i < files.length; i++) {
             var f = files[i];
-            var sizeStr = f.size < 1024 ? f.size + ' B' : (f.size / 1024).toFixed(1) + ' KB';
+            var sizeStr = formatFileSize(f.size);
             var isEditable = /\.(html|css|js|json|txt|md|xml|svg)$/i.test(f.name);
             var icon = isEditable
               ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
@@ -8352,10 +8446,12 @@
         .then(function() {
           if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
           showMsg('files-editor-msg', 'success', 'File saved successfully!');
+          showToast('File saved successfully', 'success', 3000);
         })
         .catch(function(err) {
           if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
           showMsg('files-editor-msg', 'error', err.message || 'Failed to save');
+          showToast(err.message || 'Failed to save file', 'error');
         });
     }
 
@@ -8466,6 +8562,9 @@
       pollWorkflowStatus();
     }
 
+    /** Track which log IDs we've already processed to avoid duplicates */
+    var processedLogIds = {};
+
     function pollWorkflowStatus() {
       if (!state.siteId) return;
       var headers = {};
@@ -8483,7 +8582,6 @@
           var data = resp.data;
 
           requestAnimationFrame(function() {
-          // Update the first line based on workflow availability
           var body = document.getElementById('build-terminal-body');
           if (!body) return;
           var lines = body.querySelectorAll('.build-terminal-line');
@@ -8495,17 +8593,17 @@
             lines[0].className = 'build-terminal-line done';
           }
 
-          // Determine completed steps from workflow output
           var wfStatus = data.workflow_status;
           var siteStatus = data.site_status;
           var wfOutput = data.workflow_output;
           var wfError = data.workflow_error;
+          var recentLogs = data.recent_logs || [];
 
           // Find the step lines (skip info/context lines at the top)
           var stepLineStart = -1;
           for (var j = 0; j < lines.length; j++) {
             if (lines[j].classList.contains('pending') || lines[j].classList.contains('done') || lines[j].classList.contains('active')) {
-              var txt = lines[j].textContent;
+              var txt = lines[j].textContent.replace(/ — .*$/, ''); // Strip timing suffix
               for (var k = 0; k < WORKFLOW_STEP_ORDER.length; k++) {
                 if (txt === (WORKFLOW_STEP_LABELS[WORKFLOW_STEP_ORDER[k]] || WORKFLOW_STEP_ORDER[k])) {
                   if (stepLineStart === -1) stepLineStart = j;
@@ -8517,17 +8615,76 @@
 
           if (stepLineStart === -1) return;
 
+          // ── Use audit logs to update step status with timing ──
+          if (recentLogs.length > 0) {
+            // Build a map of completed/started steps from logs
+            var completedSteps = {};
+            var startedSteps = {};
+
+            // Process logs chronologically (they come newest-first from API)
+            var chronoLogs = recentLogs.slice().reverse();
+            for (var li = 0; li < chronoLogs.length; li++) {
+              var log = chronoLogs[li];
+              if (!log.metadata) continue;
+              var step = log.metadata.step;
+              if (!step) continue;
+
+              if (log.action === 'workflow.step.complete') {
+                completedSteps[step] = log.metadata;
+              } else if (log.action === 'workflow.step.started') {
+                startedSteps[step] = log.metadata;
+              }
+            }
+
+            // Update terminal lines based on actual step status
+            for (var si = 0; si < WORKFLOW_STEP_ORDER.length; si++) {
+              var stepKey = WORKFLOW_STEP_ORDER[si];
+              var lineIdx = stepLineStart + si;
+              if (lineIdx >= lines.length) break;
+
+              var label = WORKFLOW_STEP_LABELS[stepKey] || stepKey;
+
+              if (completedSteps[stepKey]) {
+                var elapsedMs = completedSteps[stepKey].elapsed_ms;
+                var timing = elapsedMs ? ' — ' + (elapsedMs / 1000).toFixed(1) + 's' : '';
+                var msg = completedSteps[stepKey].message;
+                lines[lineIdx].textContent = label + timing;
+                lines[lineIdx].className = 'build-terminal-line done';
+                if (msg && !processedLogIds[stepKey + ':msg']) {
+                  processedLogIds[stepKey + ':msg'] = true;
+                  addTerminalLine('  → ' + msg, 'info');
+                }
+              } else if (startedSteps[stepKey]) {
+                lines[lineIdx].textContent = label;
+                lines[lineIdx].className = 'build-terminal-line active';
+              }
+            }
+
+            // Show status_update messages from logs
+            for (var sui = 0; sui < chronoLogs.length; sui++) {
+              var sLog = chronoLogs[sui];
+              if (sLog.action === 'workflow.status_update' && sLog.metadata && sLog.metadata.message) {
+                var logKey = 'su:' + sLog.created_at;
+                if (!processedLogIds[logKey]) {
+                  processedLogIds[logKey] = true;
+                  addTerminalLine('▸ ' + sLog.metadata.message, 'info');
+                }
+              }
+            }
+          }
+
+          // ── Handle terminal states ──
+
           // If site is published, mark everything done
           if (siteStatus === 'published') {
-            for (var si = 0; si < WORKFLOW_STEP_ORDER.length; si++) {
-              var lineIdx = stepLineStart + si;
-              if (lineIdx < lines.length) {
-                lines[lineIdx].className = 'build-terminal-line done';
+            for (var pi = 0; pi < WORKFLOW_STEP_ORDER.length; pi++) {
+              var pLineIdx = stepLineStart + pi;
+              if (pLineIdx < lines.length) {
+                lines[pLineIdx].className = 'build-terminal-line done';
               }
             }
             clearInterval(buildTerminalTimer);
 
-            // Add completion message
             var slug = state.slug || '';
             addTerminalLine('', '');
             addTerminalLine('Build completed successfully!', 'done');
@@ -8565,17 +8722,8 @@
             return;
           }
 
-          // For running workflows, estimate which steps are done based on timing
-          // The workflow runs steps sequentially with some parallel batches
-          // Step 1: research-profile (sequential)
-          // Steps 2-5: research-social, research-brand, research-selling-points, research-images (parallel)
-          // Step 6: generate-website (sequential)
-          // Steps 7-9: generate-privacy-page, generate-terms-page, score-website (parallel)
-          // Steps 10-11: upload-to-r2, update-site-status (sequential)
-          if (wfStatus === 'running') {
-            // We can't know exact step from the API alone,
-            // but the site_status and timing give us hints.
-            // Mark first step as active at minimum
+          // For running workflows without logs, mark first step as active
+          if (wfStatus === 'running' && recentLogs.length === 0) {
             if (stepLineStart < lines.length && lines[stepLineStart].classList.contains('pending')) {
               lines[stepLineStart].className = 'build-terminal-line active';
             }

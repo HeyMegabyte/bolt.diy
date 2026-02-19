@@ -307,6 +307,90 @@ describe('PUT /api/sites/:id/files/:path', () => {
     expect(res.status).toBe(403);
   });
 
+  it('blocks traversal: dot-dot in GET resolved by URL normalization stays in scope', async () => {
+    // Hono resolves `..` in URLs before routing. A path like
+    // sites/slug/v1/../../other-site/secret.html resolves to sites/other-site/secret.html
+    // which fails the prefix check → 403
+    const mockBucket = {
+      list: jest.fn(),
+      get: jest.fn(),
+      put: jest.fn(),
+    };
+    const { app, env } = createAuthenticatedApp({
+      SITES_BUCKET: mockBucket as unknown as R2Bucket,
+    });
+    mockDbQueryOne.mockResolvedValueOnce({ slug: TEST_SLUG });
+    const res = await app.request(
+      `/api/sites/${TEST_SITE_ID}/files/sites/${TEST_SLUG}/v1/../../other-site/secret.html`,
+      {},
+      env,
+    );
+    expect(res.status).toBe(403);
+    expect(mockBucket.get).not.toHaveBeenCalled();
+  });
+
+  it('blocks traversal: cross-site path via direct slug in GET', async () => {
+    // Directly trying to access another site's files
+    const mockBucket = {
+      list: jest.fn(),
+      get: jest.fn(),
+      put: jest.fn(),
+    };
+    const { app, env } = createAuthenticatedApp({
+      SITES_BUCKET: mockBucket as unknown as R2Bucket,
+    });
+    mockDbQueryOne.mockResolvedValueOnce({ slug: TEST_SLUG });
+    const res = await app.request(
+      `/api/sites/${TEST_SITE_ID}/files/sites/attacker-site/v1/index.html`,
+      {},
+      env,
+    );
+    expect(res.status).toBe(403);
+    expect(mockBucket.get).not.toHaveBeenCalled();
+  });
+
+  it('blocks traversal: cross-site path via direct slug in PUT', async () => {
+    const mockBucket = {
+      list: jest.fn(),
+      get: jest.fn(),
+      put: jest.fn(),
+    };
+    const { app, env } = createAuthenticatedApp({
+      SITES_BUCKET: mockBucket as unknown as R2Bucket,
+    });
+    mockDbQueryOne.mockResolvedValueOnce({ slug: TEST_SLUG });
+    const res = await app.request(
+      `/api/sites/${TEST_SITE_ID}/files/sites/attacker-site/v1/index.html`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: 'malicious' }),
+      },
+      env,
+    );
+    expect(res.status).toBe(403);
+    expect(mockBucket.put).not.toHaveBeenCalled();
+  });
+
+  it('rejects null bytes in file path', async () => {
+    const mockBucket = {
+      list: jest.fn(),
+      get: jest.fn(),
+      put: jest.fn(),
+    };
+    const { app, env } = createAuthenticatedApp({
+      SITES_BUCKET: mockBucket as unknown as R2Bucket,
+    });
+    mockDbQueryOne.mockResolvedValueOnce({ slug: TEST_SLUG });
+    const res = await app.request(
+      `/api/sites/${TEST_SITE_ID}/files/index.html%00.jpg`,
+      {},
+      env,
+    );
+    expect(res.status).toBe(403);
+    expect(mockBucket.get).not.toHaveBeenCalled();
+  });
+
   it('detects content type from file extension', async () => {
     const mockPut = jest.fn().mockResolvedValue(undefined);
     const mockBucket = {

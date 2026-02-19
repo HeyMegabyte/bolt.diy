@@ -390,6 +390,27 @@ api.get('/api/sites/:id/workflow', async (c) => {
     });
   }
 
+  // Fetch recent audit logs for this site's workflow (best-effort)
+  let recentLogs: Array<{ action: string; metadata: Record<string, unknown> | null; created_at: string }> = [];
+  try {
+    const logsResult = await auditService.getSiteAuditLogs(c.env.DB, orgId, siteId, { limit: 50 });
+    recentLogs = (logsResult.data as Array<Record<string, unknown>>)
+      .filter((l) => typeof l.action === 'string' && (l.action as string).startsWith('workflow.'))
+      .map((l) => {
+        let metadata: Record<string, unknown> | null = null;
+        if (l.metadata_json) {
+          try {
+            metadata = typeof l.metadata_json === 'string' ? JSON.parse(l.metadata_json as string) : l.metadata_json as Record<string, unknown>;
+          } catch { /* ignore parse errors */ }
+        }
+        return {
+          action: l.action as string,
+          metadata,
+          created_at: l.created_at as string,
+        };
+      });
+  } catch { /* audit log fetch is best-effort */ }
+
   try {
     const instance = await c.env.SITE_WORKFLOW.get(siteId);
     const status = await instance.status();
@@ -420,6 +441,7 @@ api.get('/api/sites/:id/workflow', async (c) => {
         workflow_error: workflowError,
         workflow_output: status.output ?? null,
         site_status: site.status,
+        recent_logs: recentLogs,
       },
     });
   } catch {
@@ -431,6 +453,7 @@ api.get('/api/sites/:id/workflow', async (c) => {
         instance_id: null,
         workflow_status: null,
         site_status: site.status,
+        recent_logs: recentLogs,
       },
     });
   }
@@ -1364,7 +1387,7 @@ api.post('/api/sites/:id/deploy', async (c) => {
 
 api.get('/api/domains/search', async (c) => {
   const query = c.req.query('q');
-  if (!query || query.trim().length < 3) {
+  if (!query || query.trim().length < 3 || query.trim().length > 63) {
     return c.json({ data: [] });
   }
 
@@ -1885,6 +1908,23 @@ Response:`;
 
 // ─── R2 File Browser ──────────────────────────────────────────
 
+/**
+ * Validate an R2 file path and reject path traversal attempts.
+ * Rejects paths with `..`, null bytes, or backslashes.
+ * Returns the cleaned path or null if the path is invalid/malicious.
+ */
+function sanitizeFilePath(raw: string): string | null {
+  if (!raw || raw.includes('\0')) return null;
+  // Decode percent-encoded dots and slashes to detect traversal in encoded form
+  const decoded = raw.replace(/%2e/gi, '.').replace(/%2f/gi, '/').replace(/\\/g, '/');
+  // Reject any path containing dot-dot traversal sequences
+  if (decoded.includes('..')) return null;
+  // Remove leading slashes and return
+  const cleaned = decoded.replace(/^\/+/, '');
+  if (!cleaned) return null;
+  return cleaned;
+}
+
 /** List files in R2 for a specific site (scoped to the site's slug) */
 api.get('/api/sites/:id/files', async (c) => {
   const orgId = c.get('orgId');
@@ -1920,8 +1960,12 @@ api.get('/api/sites/:id/files/:path{.+}', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('id');
-  const filePath = c.req.param('path');
-  if (!filePath) throw badRequest('File path is required');
+  const rawPath = c.req.param('path');
+  if (!rawPath) throw badRequest('File path is required');
+
+  // Sanitize path to prevent traversal attacks
+  const filePath = sanitizeFilePath(rawPath);
+  if (!filePath) throw forbidden('Invalid file path');
 
   const site = await dbQueryOne<{ slug: string }>(
     c.env.DB,
@@ -1930,7 +1974,7 @@ api.get('/api/sites/:id/files/:path{.+}', async (c) => {
   );
   if (!site) throw notFound('Site not found');
 
-  // Validate path stays within the site's R2 scope
+  // Build scoped key and validate it stays within the site's R2 scope
   const fullKey = filePath.startsWith('sites/') ? filePath : `sites/${site.slug}/${filePath}`;
   if (!fullKey.startsWith(`sites/${site.slug}/`)) {
     throw forbidden('Access denied to this file path');
@@ -1956,8 +2000,12 @@ api.put('/api/sites/:id/files/:path{.+}', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('id');
-  const filePath = c.req.param('path');
-  if (!filePath) throw badRequest('File path is required');
+  const rawPath = c.req.param('path');
+  if (!rawPath) throw badRequest('File path is required');
+
+  // Sanitize path to prevent traversal attacks
+  const filePath = sanitizeFilePath(rawPath);
+  if (!filePath) throw forbidden('Invalid file path');
 
   const site = await dbQueryOne<{ slug: string }>(
     c.env.DB,
