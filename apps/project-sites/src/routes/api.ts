@@ -298,6 +298,12 @@ api.post('/api/sites', async (c) => {
     action: 'site.created',
     target_type: 'site',
     target_id: site.id,
+    metadata_json: {
+      site_id: site.id,
+      slug,
+      business_name: validated.business_name,
+      message: 'New site created: ' + validated.business_name + ' (' + slug + '-sites.megabyte.space)',
+    },
     request_id: c.get('requestId'),
   });
 
@@ -696,7 +702,12 @@ api.delete('/api/sites/:id', async (c) => {
     action: 'site.deleted',
     target_type: 'site',
     target_id: siteId,
-    metadata_json: { site_id: siteId, slug, subscription_canceled: subscriptionCanceled },
+    metadata_json: {
+      site_id: siteId,
+      slug,
+      subscription_canceled: subscriptionCanceled,
+      message: 'Site deleted: ' + slug + (subscriptionCanceled ? ' (subscription cancellation requested)' : ''),
+    },
     request_id: c.get('requestId'),
   });
 
@@ -730,7 +741,7 @@ api.put('/api/sites/:siteId/hostnames/:hostnameId/primary', async (c) => {
     action: 'hostname.set_primary',
     target_type: 'hostname',
     target_id: hostnameId,
-    metadata_json: { site_id: siteId },
+    metadata_json: { site_id: siteId, message: 'Primary domain changed' },
     request_id: c.get('requestId'),
   });
 
@@ -765,7 +776,7 @@ api.post('/api/sites/:siteId/hostnames/reset-primary', async (c) => {
     action: 'hostname.reset_primary',
     target_type: 'site',
     target_id: siteId,
-    metadata_json: { note: 'Reset primary to default subdomain' },
+    metadata_json: { site_id: siteId, message: 'Primary domain reset to default subdomain' },
     request_id: c.get('requestId'),
   });
 
@@ -807,7 +818,7 @@ api.delete('/api/sites/:siteId/hostnames/:hostnameId', async (c) => {
     action: 'hostname.deleted',
     target_type: 'hostname',
     target_id: hostnameId,
-    metadata_json: { hostname: hostname.hostname, site_id: siteId },
+    metadata_json: { hostname: hostname.hostname, site_id: siteId, message: 'Domain removed: ' + hostname.hostname },
     request_id: c.get('requestId'),
   });
 
@@ -853,7 +864,7 @@ api.post('/api/sites/:siteId/hostnames/:hostnameId/unsubscribe', async (c) => {
     action: 'hostname.unsubscribed',
     target_type: 'hostname',
     target_id: hostnameId,
-    metadata_json: { site_id: siteId, hostname: hostname.hostname, type: hostname.type },
+    metadata_json: { site_id: siteId, hostname: hostname.hostname, type: hostname.type, message: 'Domain unsubscribed: ' + hostname.hostname },
     request_id: c.get('requestId'),
   });
 
@@ -1501,65 +1512,62 @@ api.post('/api/sites/:id/reset', async (c) => {
     }
   }
 
-  try {
-    await auditService.writeAuditLog(c.env.DB, {
-      org_id: orgId,
-      actor_id: c.get('userId') ?? null,
-      action: 'site.reset',
-      target_type: 'site',
-      target_id: siteId,
-      metadata_json: {
-        site_id: siteId,
-        slug: site.slug,
-        message: 'Site rebuild triggered for ' + site.slug,
-        business_name: body.business?.name || null,
-        has_context: !!body.additional_context,
-      },
-      request_id: c.get('requestId'),
-    });
-  } catch {
-    // Audit log failure should not block reset
-    console.warn('Failed to write audit log for site.reset');
-  }
+  // Always write audit logs regardless of workflow availability
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: c.get('userId') ?? null,
+    action: 'site.reset',
+    target_type: 'site',
+    target_id: siteId,
+    metadata_json: {
+      site_id: siteId,
+      slug: site.slug,
+      message: 'Site rebuild triggered for ' + site.slug,
+      business_name: body.business?.name || null,
+      has_context: !!body.additional_context,
+      workflow_available: !!workflowInstanceId,
+    },
+    request_id: c.get('requestId'),
+  });
 
-  // Write workflow logs so the Logs modal shows the trigger event and pipeline phases
-  if (workflowInstanceId) {
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: c.get('userId') ?? null,
+    action: 'workflow.queued',
+    target_type: 'site',
+    target_id: siteId,
+    metadata_json: {
+      site_id: siteId,
+      slug: site.slug,
+      workflow_instance_id: workflowInstanceId ?? 'not_available',
+      message: workflowInstanceId
+        ? 'AI rebuild pipeline queued — will re-research and regenerate website'
+        : 'Rebuild requested — workflow binding not available, site status set to building',
+    },
+    request_id: c.get('requestId'),
+  });
+
+  // Log anticipated build phases
+  const resetPhases = [
+    { action: 'workflow.phase.research', message: 'Phase 1: Re-analyzing business profile & gathering fresh data' },
+    { action: 'workflow.phase.generation', message: 'Phase 2: Regenerating website HTML with updated information' },
+    { action: 'workflow.phase.deployment', message: 'Phase 3: Uploading new files & publishing updated site' },
+  ];
+  for (const phase of resetPhases) {
     await auditService.writeAuditLog(c.env.DB, {
       org_id: orgId,
       actor_id: c.get('userId') ?? null,
-      action: 'workflow.queued',
+      action: phase.action,
       target_type: 'site',
       target_id: siteId,
       metadata_json: {
         site_id: siteId,
         slug: site.slug,
-        workflow_instance_id: workflowInstanceId,
-        message: 'AI rebuild pipeline queued — will re-research and regenerate website',
+        workflow_instance_id: workflowInstanceId ?? null,
+        message: phase.message,
       },
       request_id: c.get('requestId'),
     }).catch(() => {});
-
-    // Log anticipated build phases
-    const resetPhases = [
-      { action: 'workflow.phase.research', message: 'Phase 1: Re-analyzing business profile & gathering fresh data' },
-      { action: 'workflow.phase.generation', message: 'Phase 2: Regenerating website HTML with updated information' },
-      { action: 'workflow.phase.deployment', message: 'Phase 3: Uploading new files & publishing updated site' },
-    ];
-    for (const phase of resetPhases) {
-      await auditService.writeAuditLog(c.env.DB, {
-        org_id: orgId,
-        actor_id: c.get('userId') ?? null,
-        action: phase.action,
-        target_type: 'site',
-        target_id: siteId,
-        metadata_json: {
-          slug: site.slug,
-          workflow_instance_id: workflowInstanceId,
-          message: phase.message,
-        },
-        request_id: c.get('requestId'),
-      }).catch(() => {});
-    }
   }
 
   return c.json({

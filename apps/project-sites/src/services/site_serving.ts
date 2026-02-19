@@ -49,14 +49,12 @@ import { dbQueryOne } from './db.js';
  */
 export function generateTopBar(slug: string): string {
   return `<!-- Project Sites Top Bar -->
-<div id="ps-topbar" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#1a1a2e;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,0.2)">
-  <span>This site is powered by <a href="https://${DOMAINS.SITES_BASE}" style="color:#50a5db;text-decoration:none;font-weight:600">Project Sites</a></span>
-  <span style="display:flex;gap:12px;align-items:center">
-    <a href="https://${DOMAINS.SITES_BASE}/?upgrade=${encodeURIComponent(slug)}" style="background:#50a5db;color:#1a1a2e;padding:4px 12px;border-radius:4px;text-decoration:none;font-weight:600;font-size:13px">${BRAND.PRIMARY_CTA}</a>
-    <a href="javascript:void(0)" onclick="document.getElementById('ps-topbar').style.display='none';document.body.style.paddingTop='0'" style="color:#aaa;font-size:18px;text-decoration:none" aria-label="Close">&times;</a>
-  </span>
+<div id="ps-topbar" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(90deg,#7c3aed,#50a5db);color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;padding:6px 16px;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,0.2)">
+  <span>Remove this bar, add a custom domain, and make edits &mdash; <strong>$50/mo</strong></span>
+  <a href="https://${DOMAINS.SITES_BASE}/?upgrade=${encodeURIComponent(slug)}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 12px;background:rgba(255,255,255,0.18);color:#fff;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none">Register Now &#8250;</a>
+  <a href="javascript:void(0)" onclick="document.getElementById('ps-topbar').style.display='none';document.body.style.paddingTop='0'" style="color:rgba(255,255,255,0.7);font-size:18px;text-decoration:none;margin-left:4px" aria-label="Close">&times;</a>
 </div>
-<style>body{padding-top:44px !important}</style>
+<style>body{padding-top:36px !important}</style>
 <!-- End Project Sites Top Bar -->`;
 }
 

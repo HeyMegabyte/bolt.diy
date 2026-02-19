@@ -185,6 +185,8 @@
   <link href="https://releases.transloadit.com/uppy/v4.12.1/uppy.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css" rel="stylesheet">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
     /* ======================================================
        CSS Custom Properties
        ====================================================== */
@@ -215,8 +217,6 @@
       --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
-
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
@@ -309,38 +309,6 @@
     /* ======================================================
        Header / Nav
        ====================================================== */
-    /* Promo topbar */
-    #ps-topbar {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      z-index: 1001;
-      height: 36px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      background: linear-gradient(90deg, #7c3aed, #50a5db);
-      font-size: 0.72rem;
-      color: rgba(255,255,255,0.92);
-      font-weight: 500;
-      letter-spacing: 0.01em;
-    }
-    #ps-topbar.hidden { display: none; }
-    #ps-topbar a.topbar-cta {
-      display: inline-flex; align-items: center; gap: 4px;
-      padding: 3px 12px;
-      background: rgba(255,255,255,0.18);
-      color: #fff;
-      border-radius: 6px;
-      font-size: 0.68rem;
-      font-weight: 700;
-      text-decoration: none;
-      transition: background 0.2s;
-    }
-    #ps-topbar a.topbar-cta:hover { background: rgba(255,255,255,0.3); }
-    body.has-topbar .header { top: 36px; }
-    body.has-topbar .admin-panel { margin-top: 96px; }
-    body.has-topbar .main-app { margin-top: 96px; }
     .header {
       position: fixed;
       top: 0;
@@ -2581,7 +2549,7 @@
     .site-card-new, .site-card-upgrade-btn,
     .inline-edit-btn, .inline-save-btn, .inline-cancel-btn,
     .faq-question, .btn-allow, .btn-skip, .improve-ai-link,
-    .plan-badge, .dc-btn, .editor-toolbar-btn, .topbar-cta {
+    .plan-badge, .dc-btn, .editor-toolbar-btn {
       position: relative;
       overflow: hidden;
     }
@@ -4320,7 +4288,7 @@
     }
   </script>
 </head>
-<body class="has-topbar">
+<body>
   <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-T48Z6BJJ"
   height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
@@ -4331,12 +4299,6 @@
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
     <div class="orb orb-3"></div>
-  </div>
-
-  <!-- Promo Topbar (hidden for paid users) -->
-  <div id="ps-topbar">
-    <span>Remove this bar, add a custom domain, and make edits &mdash; <strong>$50/mo</strong></span>
-    <a href="javascript:void(0)" class="topbar-cta" onclick="openBillingCheckout()">Register Now <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="9 18 15 12 9 6"/></svg></a>
   </div>
 
   <!-- Header -->
@@ -4425,7 +4387,7 @@
       <!-- Tab: Existing Domains -->
       <div id="domain-panel-existing" role="tabpanel" aria-labelledby="domain-tab-existing">
         <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg,rgba(148,163,184,0.04),rgba(80,165,219,0.03));border:1px solid rgba(148,163,184,0.08);border-radius:12px;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><path d="M15 7h3a5 5 0 0 1 0 10h-3m-6 0H6a5 5 0 0 1 0-10h3"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           <div>
             <div style="font-size:0.85rem;color:var(--text-primary);font-weight:600;margin-bottom:3px;">Your Domains</div>
             <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.5;">All domains currently connected to this site. Set a primary domain to enable automatic redirects.</div>
@@ -4576,7 +4538,7 @@
       <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:16px;">Upload your built site files. The ZIP will be extracted and deployed to your website.</p>
 
       <div class="input-group">
-        <label>ZIP File <span style="color:var(--accent);">*</span></label>
+        <label for="deploy-zip-input">ZIP File <span style="color:var(--accent);">*</span></label>
         <div class="deploy-upload-zone" id="deploy-zip-zone" onclick="document.getElementById('deploy-zip-input').click()">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           <div style="font-size:0.85rem;color:var(--text-muted);margin-top:8px;">Click to select or drag & drop a ZIP file</div>
@@ -4586,7 +4548,7 @@
       </div>
 
       <div class="input-group">
-        <label>Chat / Document <span style="color:var(--text-muted);">(optional)</span></label>
+        <label for="deploy-json-input">Chat / Document <span style="color:var(--text-muted);">(optional)</span></label>
         <div class="deploy-upload-zone" id="deploy-json-zone" onclick="document.getElementById('deploy-json-input').click()" style="padding:16px;">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Chat export, markdown, PDF, or any document</div>
@@ -4680,8 +4642,8 @@
       </div>
 
       <div class="uppy-section">
-        <label>Upload Logos, Photos, Menus, or Documents</label>
-        <div id="uppy-dashboard-area"></div>
+        <label id="uppy-label">Upload Logos, Photos, Menus, or Documents</label>
+        <div id="uppy-dashboard-area" role="group" aria-labelledby="uppy-label"></div>
       </div>
 
       <button class="btn btn-accent btn-large btn-full" id="build-btn" onclick="submitBuild()">
@@ -5721,18 +5683,6 @@
       var billingBtn = document.getElementById('admin-billing-btn');
       if (billingBtn) {
         billingBtn.style.display = adminSubscription && adminSubscription.stripe_customer_id ? '' : 'none';
-      }
-      // Hide topbar for paid users
-      var topbar = document.getElementById('ps-topbar');
-      if (topbar) {
-        var isPaid = adminSubscription && (adminSubscription.status === 'active' || adminSubscription.status === 'trialing');
-        if (isPaid) {
-          topbar.classList.add('hidden');
-          document.body.classList.remove('has-topbar');
-        } else {
-          topbar.classList.remove('hidden');
-          document.body.classList.add('has-topbar');
-        }
       }
     }
 
@@ -7685,7 +7635,7 @@
 
     /* Material-style ripple effect on button clicks */
     document.addEventListener('click', function(e) {
-      var btn = e.target.closest('.btn, .site-card-btn, .admin-btn, .admin-btn-accent, .logs-refresh-btn, .domain-tab, .hostname-delete-btn, .signin-btn, .back-link, .modal-close, .details-modal-close, .header-auth-btn, .site-card-new, .site-card-upgrade-btn, .inline-edit-btn, .inline-save-btn, .inline-cancel-btn, .faq-question, .btn-allow, .btn-skip, .improve-ai-link, .plan-badge, .dc-btn, .editor-toolbar-btn, .topbar-cta');
+      var btn = e.target.closest('.btn, .site-card-btn, .admin-btn, .admin-btn-accent, .logs-refresh-btn, .domain-tab, .hostname-delete-btn, .signin-btn, .back-link, .modal-close, .details-modal-close, .header-auth-btn, .site-card-new, .site-card-upgrade-btn, .inline-edit-btn, .inline-save-btn, .inline-cancel-btn, .faq-question, .btn-allow, .btn-skip, .improve-ai-link, .plan-badge, .dc-btn, .editor-toolbar-btn');
       if (!btn) return;
       var circle = document.createElement('span');
       circle.className = 'ripple-circle';

@@ -53,33 +53,47 @@ import { dbInsert, dbQuery } from './db.js';
  * @param entry - Audit log fields (validated via Zod).
  */
 export async function writeAuditLog(db: D1Database, entry: CreateAuditLog): Promise<void> {
-  const validated = createAuditLogSchema.parse(entry);
+  try {
+    const validated = createAuditLogSchema.parse(entry);
 
-  const { error } = await dbInsert(db, 'audit_logs', {
-    id: crypto.randomUUID(),
-    org_id: validated.org_id,
-    actor_id: validated.actor_id ?? null,
-    action: validated.action,
-    target_type: validated.target_type ?? null,
-    target_id: validated.target_id ?? null,
-    metadata_json: validated.metadata_json ? JSON.stringify(validated.metadata_json) : null,
-    ip_address: null,
-    request_id: validated.request_id ?? null,
-    created_at: new Date().toISOString(),
-  });
+    const { error } = await dbInsert(db, 'audit_logs', {
+      id: crypto.randomUUID(),
+      org_id: validated.org_id,
+      actor_id: validated.actor_id ?? null,
+      action: validated.action,
+      target_type: validated.target_type ?? null,
+      target_id: validated.target_id ?? null,
+      metadata_json: validated.metadata_json ? JSON.stringify(validated.metadata_json) : null,
+      ip_address: null,
+      request_id: validated.request_id ?? null,
+      created_at: new Date().toISOString(),
+    });
 
-  if (error) {
+    if (error) {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          service: 'audit',
+          message: 'Failed to write audit log',
+          error,
+          entry: {
+            org_id: validated.org_id,
+            action: validated.action,
+            request_id: validated.request_id,
+          },
+        }),
+      );
+    }
+  } catch (err) {
+    // Truly never throw — audit logging must not break request flow
     console.error(
       JSON.stringify({
         level: 'error',
         service: 'audit',
-        message: 'Failed to write audit log',
-        error,
-        entry: {
-          org_id: validated.org_id,
-          action: validated.action,
-          request_id: validated.request_id,
-        },
+        message: 'Audit log write threw unexpectedly',
+        error: err instanceof Error ? err.message : String(err),
+        action: entry?.action,
+        org_id: entry?.org_id,
       }),
     );
   }
