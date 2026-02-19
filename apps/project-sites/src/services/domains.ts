@@ -106,6 +106,7 @@ export async function createCustomHostname(
 
   if (!response.ok) {
     const err = await response.text();
+    console.warn(JSON.stringify({ level: 'error', service: 'domains', message: 'CF custom hostname creation failed', hostname, status: response.status }));
     throw badRequest(`Failed to create custom hostname: ${err}`);
   }
 
@@ -113,6 +114,7 @@ export async function createCustomHostname(
     result: { id: string; status: string; ssl: { status: string } };
   };
 
+  console.warn(JSON.stringify({ level: 'info', service: 'domains', message: 'CF custom hostname created', hostname, cf_id: data.result.id, cf_status: data.result.status }));
   return {
     cf_id: data.result.id,
     status: data.result.status,
@@ -175,8 +177,11 @@ export async function deleteCustomHostname(env: Env, cfCustomHostnameId: string)
 
   if (!response.ok && response.status !== 404) {
     const err = await response.text();
+    console.warn(JSON.stringify({ level: 'error', service: 'domains', message: 'CF hostname deletion failed', cf_id: cfCustomHostnameId, status: response.status }));
     throw badRequest(`Failed to delete custom hostname: ${err}`);
   }
+
+  console.warn(JSON.stringify({ level: 'info', service: 'domains', message: 'CF hostname deleted', cf_id: cfCustomHostnameId }));
 }
 
 /**
@@ -236,6 +241,7 @@ export async function provisionFreeDomain(
     deleted_at: null,
   });
 
+  console.warn(JSON.stringify({ level: 'info', service: 'domains', message: 'Free subdomain provisioned', hostname, org_id: opts.org_id, site_id: opts.site_id }));
   return {
     hostname,
     status: cfResult.status === 'active' ? 'active' : 'pending',
@@ -325,6 +331,7 @@ export async function provisionCustomDomain(
     await dbUpdate(db, 'hostnames', { is_primary: 1 }, 'id = ?', [hostnameId]);
   }
 
+  console.warn(JSON.stringify({ level: 'info', service: 'domains', message: 'Custom domain provisioned', hostname: opts.hostname, org_id: opts.org_id, site_id: opts.site_id, is_primary: isFirstCustomDomain }));
   return {
     hostname: opts.hostname,
     status: cfResult.status === 'active' ? 'active' : 'pending',
@@ -533,12 +540,20 @@ export async function verifyPendingHostnames(
         [record.id],
       );
 
-      if (newStatus === 'active') verified++;
-      if (newStatus === 'verification_failed') failed++;
-    } catch {
+      if (newStatus === 'active') {
+        verified++;
+        console.warn(JSON.stringify({ level: 'info', service: 'domains', message: 'Hostname verified', hostname: record.hostname, cf_id: record.cf_custom_hostname_id }));
+      }
+      if (newStatus === 'verification_failed') {
+        failed++;
+        console.warn(JSON.stringify({ level: 'warn', service: 'domains', message: 'Hostname verification failed', hostname: record.hostname, errors: status.verification_errors }));
+      }
+    } catch (err) {
       failed++;
+      console.warn(JSON.stringify({ level: 'error', service: 'domains', message: 'Hostname verification error', hostname: record.hostname, error: err instanceof Error ? err.message : String(err) }));
     }
   }
 
+  console.warn(JSON.stringify({ level: 'info', service: 'domains', message: 'Pending hostname verification complete', total: pending.length, verified, failed }));
   return { verified, failed };
 }

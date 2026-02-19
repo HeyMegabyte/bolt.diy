@@ -89,10 +89,12 @@ export async function getOrCreateStripeCustomer(
 
   if (!response.ok) {
     const err = await response.text();
+    console.warn(JSON.stringify({ level: 'error', service: 'billing', message: 'Stripe customer creation failed', org_id: orgId, status: response.status }));
     throw badRequest(`Failed to create Stripe customer: ${err}`);
   }
 
   const customer = (await response.json()) as { id: string };
+  console.warn(JSON.stringify({ level: 'info', service: 'billing', message: 'Stripe customer created', org_id: orgId, stripe_customer_id: customer.id }));
 
   // Insert subscription record with free plan defaults
   await dbInsert(db, 'subscriptions', {
@@ -188,10 +190,12 @@ export async function createCheckoutSession(
 
   if (!response.ok) {
     const err = await response.text();
+    console.warn(JSON.stringify({ level: 'error', service: 'billing', message: 'Stripe checkout creation failed', org_id: opts.orgId, status: response.status }));
     throw badRequest(`Failed to create Stripe checkout: ${err}`);
   }
 
   const session = (await response.json()) as { id: string; url: string };
+  console.warn(JSON.stringify({ level: 'info', service: 'billing', message: 'Checkout session created', org_id: opts.orgId, session_id: session.id }));
 
   return { checkout_url: session.url, session_id: session.id };
 }
@@ -227,8 +231,11 @@ export async function handleCheckoutCompleted(
 ): Promise<void> {
   const orgId = event.metadata?.org_id;
   if (!orgId) {
+    console.warn(JSON.stringify({ level: 'error', service: 'billing', message: 'Checkout completed but missing org_id in metadata', customer: event.customer }));
     throw badRequest('Missing org_id in checkout metadata');
   }
+
+  console.warn(JSON.stringify({ level: 'info', service: 'billing', message: 'Checkout completed — upgrading to paid', org_id: orgId, subscription: event.subscription }));
 
   await dbUpdate(
     db,
@@ -248,6 +255,7 @@ export async function handleCheckoutCompleted(
   const siteId = event.metadata?.site_id;
   if (siteId) {
     await dbUpdate(db, 'sites', { plan: 'paid' }, 'id = ? AND org_id = ?', [siteId, orgId]);
+    console.warn(JSON.stringify({ level: 'info', service: 'billing', message: 'Site upgraded to paid', org_id: orgId, site_id: siteId }));
   }
 
   // Call optional sale webhook
@@ -296,6 +304,8 @@ export async function handleSubscriptionUpdated(
   const orgId = event.metadata?.org_id;
   if (!orgId) return;
 
+  console.warn(JSON.stringify({ level: 'info', service: 'billing', message: 'Subscription updated', org_id: orgId, status: event.status, cancel_at_period_end: event.cancel_at_period_end }));
+
   await dbUpdate(
     db,
     'subscriptions',
@@ -333,6 +343,8 @@ export async function handleSubscriptionDeleted(
 ): Promise<void> {
   const orgId = event.metadata?.org_id;
   if (!orgId) return;
+
+  console.warn(JSON.stringify({ level: 'warn', service: 'billing', message: 'Subscription canceled — downgrading to free', org_id: orgId, subscription_id: event.id }));
 
   await dbUpdate(
     db,
@@ -373,6 +385,8 @@ export async function handlePaymentFailed(
 ): Promise<void> {
   const orgId = event.metadata?.org_id;
   if (!orgId) return;
+
+  console.warn(JSON.stringify({ level: 'warn', service: 'billing', message: 'Payment failed — marking past_due', org_id: orgId, subscription: event.subscription }));
 
   await dbUpdate(
     db,
@@ -511,10 +525,12 @@ export async function createBillingPortalSession(
 
   if (!response.ok) {
     const err = await response.text();
+    console.warn(JSON.stringify({ level: 'error', service: 'billing', message: 'Billing portal creation failed', status: response.status }));
     throw badRequest(`Failed to create billing portal: ${err}`);
   }
 
   const session = (await response.json()) as { url: string };
+  console.warn(JSON.stringify({ level: 'info', service: 'billing', message: 'Billing portal session created', customer_id: stripeCustomerId }));
   return { portal_url: session.url };
 }
 

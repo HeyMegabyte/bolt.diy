@@ -309,6 +309,38 @@
     /* ======================================================
        Header / Nav
        ====================================================== */
+    /* Promo topbar */
+    #ps-topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1001;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: linear-gradient(90deg, #7c3aed, #50a5db);
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.92);
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+    #ps-topbar.hidden { display: none; }
+    #ps-topbar a.topbar-cta {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 12px;
+      background: rgba(255,255,255,0.18);
+      color: #fff;
+      border-radius: 6px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    #ps-topbar a.topbar-cta:hover { background: rgba(255,255,255,0.3); }
+    body.has-topbar .header { top: 36px; }
+    body.has-topbar .admin-panel { margin-top: 96px; }
+    body.has-topbar .main-app { margin-top: 96px; }
     .header {
       position: fixed;
       top: 0;
@@ -387,6 +419,8 @@
       padding: 28px 0;
       min-height: 500px;
       animation: fadeIn 0.3s ease;
+      position: relative;
+      z-index: 999;
     }
     .admin-panel.visible { display: block; }
     .admin-panel-inner {
@@ -609,24 +643,19 @@
       flex: 1;
       display: flex;
     }
-    .site-card-dropdown-wrap .site-card-btn { border-radius: 6px 0 0 6px; flex: 1; }
-    .site-card-dropdown-toggle {
-      padding: 6px 5px;
-      border-radius: 0 6px 6px 0;
-      border: 1px solid var(--border);
-      border-left: none;
-      background: transparent;
-      color: var(--text-muted);
-      cursor: pointer;
-      font-size: 0.6rem;
-      transition: border-color 0.2s, background 0.2s, color 0.2s;
-      display: flex; align-items: center;
+    .site-card-dropdown-wrap .site-card-btn {
+      border-radius: 6px;
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
     }
-    .site-card-dropdown-toggle:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-      background: rgba(80, 165, 219, 0.06);
+    .site-card-dropdown-wrap .site-card-btn svg.dd-chevron {
+      opacity: 0.5;
+      transition: transform 0.2s, opacity 0.2s;
     }
+    .site-card-dropdown-wrap .site-card-btn:hover svg.dd-chevron { opacity: 1; }
     .site-card-dropdown-menu {
       display: none;
       position: absolute;
@@ -4249,7 +4278,7 @@
     }
   </script>
 </head>
-<body>
+<body class="has-topbar">
   <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-T48Z6BJJ"
   height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
@@ -4260,6 +4289,12 @@
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
     <div class="orb orb-3"></div>
+  </div>
+
+  <!-- Promo Topbar (hidden for paid users) -->
+  <div id="ps-topbar">
+    <span>Remove this bar, add a custom domain, and make edits &mdash; <strong>$50/mo</strong></span>
+    <a href="javascript:void(0)" class="topbar-cta" onclick="openBillingCheckout()">Register Now <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="9 18 15 12 9 6"/></svg></a>
   </div>
 
   <!-- Header -->
@@ -5562,8 +5597,7 @@
         html += '<button class="site-card-btn" onclick="openSiteLogsModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\')">Logs</button>';
         // "More" dropdown for less-frequent actions
         html += '<div class="site-card-dropdown-wrap">';
-        html += '<button class="site-card-btn" onclick="toggleCardDropdown(this.parentNode)">More</button>';
-        html += '<button class="site-card-dropdown-toggle" onclick="toggleCardDropdown(this.parentNode)" aria-label="More actions"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button>';
+        html += '<button class="site-card-btn" onclick="toggleCardDropdown(this.parentNode)">More <svg class="dd-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button>';
         html += '<div class="site-card-dropdown-menu">';
         html += '<button class="site-card-dropdown-item" onclick="openResetModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\', \'' + escapeJsString(s.business_address || '') + '\', \'' + escapeJsString(s.google_place_id || '') + '\', \'' + escapeJsString(s.additional_context || '') + '\');closeAllDropdowns()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/></svg>Reset &amp; Rebuild</button>';
         html += '<button class="site-card-dropdown-item" onclick="openDeployModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\');closeAllDropdowns()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Deploy ZIP</button>';
@@ -5638,6 +5672,18 @@
       var billingBtn = document.getElementById('admin-billing-btn');
       if (billingBtn) {
         billingBtn.style.display = adminSubscription && adminSubscription.stripe_customer_id ? '' : 'none';
+      }
+      // Hide topbar for paid users
+      var topbar = document.getElementById('ps-topbar');
+      if (topbar) {
+        var isPaid = adminSubscription && (adminSubscription.status === 'active' || adminSubscription.status === 'trialing');
+        if (isPaid) {
+          topbar.classList.add('hidden');
+          document.body.classList.remove('has-topbar');
+        } else {
+          topbar.classList.remove('hidden');
+          document.body.classList.add('has-topbar');
+        }
       }
     }
 
@@ -5952,8 +5998,15 @@
         });
     }
 
-    // Auto-reopen domain modal if returning from Stripe with pending domain
+    // Auto-reopen domain modal ONLY if returning from Stripe billing (not on every page load)
     function checkPendingDomain() {
+      var params = new URLSearchParams(window.location.search);
+      // Only process pending domain if we just returned from Stripe billing
+      if (params.get('billing') !== 'success') {
+        // Not a billing return — clean up stale pending domain data
+        try { localStorage.removeItem('ps_pending_domain'); } catch(e) {}
+        return;
+      }
       var pending = localStorage.getItem('ps_pending_domain');
       if (!pending) return;
       try {
@@ -8096,10 +8149,16 @@
       }
     }
 
+    var _slugSaving = {}; // Per-site slug save lock
     function saveInlineEdit(siteId, field, originalValue, ctx) {
       if (!state.session || !state.session.token) return;
 
       var isSlug = (field === 'slug');
+      // Prevent concurrent slug saves
+      if (isSlug && _slugSaving[siteId]) {
+        showToast('Slug change in progress\u2026 please wait.', 'info');
+        return;
+      }
       var input = document.getElementById(isSlug ? getSlugElId('input', siteId, ctx) : ('inline-input-' + field + '-' + siteId));
       if (!input) return;
 
@@ -8136,6 +8195,7 @@
       if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<span style="font-size:10px;">...</span>'; }
       input.disabled = true;
       input.style.opacity = '0.6';
+      if (isSlug) _slugSaving[siteId] = true;
 
       var payload = {};
       if (isSlug) {
@@ -8191,9 +8251,11 @@
               if (copyBtns.length >= 1) copyBtns[0].setAttribute('onclick', "copyUrl('https://" + escapeJsString(value) + "-sites.megabyte.space', this)");
               if (copyBtns.length >= 2) copyBtns[1].setAttribute('onclick', "window.open('https://" + escapeJsString(value) + "-sites.megabyte.space', '_blank')");
             }
+            delete _slugSaving[siteId];
           }
         })
         .catch(function(err) {
+          if (isSlug) delete _slugSaving[siteId];
           if (input) { input.disabled = false; input.style.opacity = '1'; }
           if (saveBtn) {
             saveBtn.disabled = false;
@@ -9000,10 +9062,14 @@
       filesModalSiteId = null;
     }
 
+    var _filesTreeData = []; // flat file list from API
+    var _expandedFolders = {}; // which folders are expanded
+    var _LARGE_FOLDER_THRESHOLD = 10; // folders with more items start collapsed/grayed
+
     function loadFilesForSite() {
       if (!filesModalSiteId) return;
       var list = document.getElementById('files-list');
-      list.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:0.85rem;">Loading files...</div>';
+      list.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:0.85rem;">Loading files\u2026</div>';
 
       var hdrs = {};
       if (state.session && state.session.token) hdrs['Authorization'] = 'Bearer ' + state.session.token;
@@ -9014,51 +9080,150 @@
           return r.json();
         })
         .then(function(d) {
-          var files = d.data.files || [];
+          _filesTreeData = d.data.files || [];
           document.getElementById('files-breadcrumb').textContent = d.data.prefix || '';
-          document.getElementById('files-count').textContent = files.length + ' files';
+          document.getElementById('files-count').textContent = _filesTreeData.length + ' files';
 
-          if (!files.length) {
+          if (!_filesTreeData.length) {
             list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:0.85rem;">No files found. Build or deploy your site first.</div>';
             return;
           }
-
-          var html = '';
-          for (var i = 0; i < files.length; i++) {
-            var f = files[i];
-            var sizeStr = formatFileSize(f.size);
-            var isEditable = /\.(html|css|js|json|txt|md|xml|svg)$/i.test(f.name);
-            var icon = isEditable
-              ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
-              : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
-            html += '<div class="file-item" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:' + (isEditable ? 'pointer' : 'default') + ';transition:background 0.15s;" ' + (isEditable ? 'onclick="openFileForEdit(\'' + escapeAttr(f.key) + '\', \'' + escapeAttr(f.name) + '\')"' : '') + ' onmouseover="this.style.background=\'rgba(80,165,219,0.04)\'" onmouseout="this.style.background=\'transparent\'">';
-            html += '<span style="color:' + (isEditable ? 'var(--accent)' : 'var(--text-muted)') + ';flex-shrink:0;">' + icon + '</span>';
-            html += '<span style="flex:1;font-size:0.78rem;font-family:\'SF Mono\',\'Fira Code\',monospace;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(f.name) + '</span>';
-            html += '<span style="font-size:0.68rem;color:var(--text-muted);flex-shrink:0;">' + sizeStr + '</span>';
-            if (isEditable) html += '<span style="font-size:0.6rem;color:var(--accent);flex-shrink:0;padding:2px 6px;border:1px solid var(--accent-dim);border-radius:4px;">Edit</span>';
-            html += '</div>';
-          }
-          // Add new file button
-          html += '<div class="file-item" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;transition:background 0.15s;border-top:1px solid rgba(255,255,255,0.06);" onclick="promptNewFile()" onmouseover="this.style.background=\'rgba(34,197,94,0.04)\'" onmouseout="this.style.background=\'transparent\'">';
-          html += '<span style="color:#22c55e;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>';
-          html += '<span style="flex:1;font-size:0.78rem;color:#22c55e;font-weight:500;">Add new file</span>';
-          html += '</div>';
-          list.innerHTML = html;
+          renderFileTree();
         })
         .catch(function(err) {
           list.innerHTML = '<div style="padding:16px;color:var(--error);font-size:0.85rem;">' + escapeHtml(err.message) + '</div>';
         });
     }
 
+    function buildFolderTree(files) {
+      var root = { name: '', children: {}, files: [] };
+      for (var i = 0; i < files.length; i++) {
+        var parts = files[i].name.split('/');
+        var node = root;
+        for (var j = 0; j < parts.length - 1; j++) {
+          if (!node.children[parts[j]]) node.children[parts[j]] = { name: parts[j], children: {}, files: [] };
+          node = node.children[parts[j]];
+        }
+        node.files.push(files[i]);
+      }
+      return root;
+    }
+
+    function countFolderItems(node) {
+      var count = node.files.length;
+      var childKeys = Object.keys(node.children);
+      for (var i = 0; i < childKeys.length; i++) {
+        count += countFolderItems(node.children[childKeys[i]]);
+      }
+      return count;
+    }
+
+    function renderFileTree() {
+      var list = document.getElementById('files-list');
+      var tree = buildFolderTree(_filesTreeData);
+      var html = renderFolderNode(tree, '', 0);
+      // Add new file button at bottom
+      html += '<div class="file-item" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;transition:background 0.15s;border-top:1px solid rgba(255,255,255,0.06);" onclick="promptNewFile()" onmouseover="this.style.background=\'rgba(34,197,94,0.04)\'" onmouseout="this.style.background=\'transparent\'">';
+      html += '<span style="color:#22c55e;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>';
+      html += '<span style="flex:1;font-size:0.78rem;color:#22c55e;font-weight:500;">Add new file</span>';
+      html += '</div>';
+      list.innerHTML = html;
+    }
+
+    function renderFolderNode(node, path, depth) {
+      var html = '';
+      var indent = depth * 16;
+      // Render child folders first (sorted)
+      var folderNames = Object.keys(node.children).sort();
+      for (var fi = 0; fi < folderNames.length; fi++) {
+        var fname = folderNames[fi];
+        var child = node.children[fname];
+        var folderPath = path ? path + '/' + fname : fname;
+        var itemCount = countFolderItems(child);
+        var isLarge = itemCount > _LARGE_FOLDER_THRESHOLD;
+        var isExpanded = !!_expandedFolders[folderPath];
+        var grayed = isLarge && !isExpanded;
+
+        html += '<div class="file-item" style="display:flex;align-items:center;gap:8px;padding:6px 12px 6px ' + (12 + indent) + 'px;cursor:pointer;transition:background 0.15s;border-bottom:1px solid rgba(255,255,255,0.02);' + (grayed ? 'opacity:0.45;' : '') + '" onclick="toggleFolder(\'' + escapeAttr(folderPath) + '\')" onmouseover="this.style.background=\'rgba(80,165,219,0.04)\'" onmouseout="this.style.background=\'transparent\'">';
+        html += '<span style="color:var(--text-muted);flex-shrink:0;transition:transform 0.15s;transform:rotate(' + (isExpanded ? '90' : '0') + 'deg);"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></span>';
+        html += '<span style="color:#fbbf24;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>';
+        html += '<span style="flex:1;font-size:0.78rem;font-family:\'SF Mono\',\'Fira Code\',monospace;color:var(--text-primary);font-weight:' + (isLarge ? '500' : '400') + ';">' + escapeHtml(fname) + '/</span>';
+        html += '<span style="font-size:0.62rem;color:var(--text-muted);flex-shrink:0;">' + itemCount + ' item' + (itemCount !== 1 ? 's' : '') + '</span>';
+        if (grayed) html += '<span style="font-size:0.58rem;color:var(--text-muted);padding:1px 5px;border:1px solid var(--border);border-radius:3px;">Click to expand</span>';
+        html += '</div>';
+
+        if (isExpanded) {
+          html += renderFolderNode(child, folderPath, depth + 1);
+        }
+      }
+      // Render files in this folder (sorted)
+      var sortedFiles = node.files.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
+      for (var i = 0; i < sortedFiles.length; i++) {
+        var f = sortedFiles[i];
+        var fileName = f.name.split('/').pop();
+        var sizeStr = formatFileSize(f.size);
+        var isEditable = /\.(html|css|js|json|txt|md|xml|svg|mjs|ts|jsx|tsx)$/i.test(fileName);
+        html += '<div class="file-item" style="display:flex;align-items:center;gap:10px;padding:6px 12px 6px ' + (12 + indent) + 'px;border-bottom:1px solid rgba(255,255,255,0.02);cursor:' + (isEditable ? 'pointer' : 'default') + ';transition:background 0.15s;" ' + (isEditable ? 'onclick="openFileForEdit(\'' + escapeAttr(f.key) + '\', \'' + escapeAttr(fileName) + '\')"' : '') + ' onmouseover="this.style.background=\'rgba(80,165,219,0.04)\'" onmouseout="this.style.background=\'transparent\'">';
+        html += '<span style="width:10px;flex-shrink:0;"></span>'; // indent spacer for alignment
+        html += '<span style="color:' + (isEditable ? 'var(--accent)' : 'var(--text-muted)') + ';flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>';
+        html += '<span style="flex:1;font-size:0.76rem;font-family:\'SF Mono\',\'Fira Code\',monospace;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(fileName) + '</span>';
+        html += '<span style="font-size:0.65rem;color:var(--text-muted);flex-shrink:0;">' + sizeStr + '</span>';
+        if (isEditable) html += '<span style="font-size:0.58rem;color:var(--accent);flex-shrink:0;padding:1px 5px;border:1px solid var(--accent-dim);border-radius:3px;">Edit</span>';
+        html += '</div>';
+      }
+      return html;
+    }
+
+    function toggleFolder(folderPath) {
+      if (_expandedFolders[folderPath]) {
+        delete _expandedFolders[folderPath];
+      } else {
+        _expandedFolders[folderPath] = true;
+      }
+      renderFileTree();
+    }
+
     function promptNewFile() {
-      var path = prompt('Enter file path (e.g. styles/custom.css):');
-      if (!path || !path.trim()) return;
-      path = path.trim().replace(/^\/+/, '');
+      // Insert inline input row at bottom of file list
+      var list = document.getElementById('files-list');
+      var existing = document.getElementById('new-file-input-row');
+      if (existing) { existing.querySelector('input').focus(); return; }
+      var row = document.createElement('div');
+      row.id = 'new-file-input-row';
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid rgba(34,197,94,0.15);background:rgba(34,197,94,0.03);';
+      row.innerHTML = '<span style="color:#22c55e;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>'
+        + '<input type="text" id="new-file-path-input" placeholder="e.g. styles/custom.css" style="flex:1;background:rgba(0,0,0,0.3);border:1px solid rgba(34,197,94,0.3);border-radius:5px;padding:5px 8px;color:var(--text-primary);font-size:0.76rem;font-family:\'SF Mono\',monospace;outline:none;" />'
+        + '<button onclick="submitNewFile()" style="padding:4px 10px;background:#22c55e;color:#000;border:none;border-radius:5px;font-size:0.7rem;font-weight:600;cursor:pointer;">Create</button>'
+        + '<button onclick="cancelNewFile()" style="padding:4px 8px;background:transparent;color:var(--text-muted);border:1px solid var(--border);border-radius:5px;font-size:0.7rem;cursor:pointer;">Cancel</button>';
+      // Insert before the add-new-file button
+      var addBtn = list.querySelector('[onclick="promptNewFile()"]');
+      if (addBtn) list.insertBefore(row, addBtn);
+      else list.appendChild(row);
+      var inp = row.querySelector('input');
+      inp.focus();
+      inp.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); submitNewFile(); }
+        if (e.key === 'Escape') { e.preventDefault(); cancelNewFile(); }
+      });
+    }
+
+    function submitNewFile() {
+      var inp = document.getElementById('new-file-path-input');
+      if (!inp) return;
+      var path = inp.value.trim().replace(/^\/+/, '');
+      if (!path) { inp.style.borderColor = '#ef4444'; return; }
       if (!/^[a-zA-Z0-9._\-\/]+$/.test(path)) {
-        alert('Invalid file path. Use only letters, numbers, dots, hyphens, underscores, and forward slashes.');
+        inp.style.borderColor = '#ef4444';
+        inp.title = 'Use only letters, numbers, dots, hyphens, underscores, and forward slashes.';
         return;
       }
+      cancelNewFile();
       createNewFile(path);
+    }
+
+    function cancelNewFile() {
+      var row = document.getElementById('new-file-input-row');
+      if (row) row.remove();
     }
 
     function createNewFile(relativePath) {
