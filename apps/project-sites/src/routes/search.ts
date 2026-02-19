@@ -481,7 +481,7 @@ search.post('/api/sites/create-from-search', async (c) => {
     });
   }
 
-  // Log audit
+  // Log audit — site creation
   await writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
@@ -490,13 +490,16 @@ search.post('/api/sites/create-from-search', async (c) => {
     target_id: siteId,
     metadata_json: {
       business_name: sanitizedName,
+      slug,
       google_place_id: googlePlaceId ?? null,
+      business_address: businessAddress ?? null,
       mode,
+      message: 'New site created: ' + sanitizedName + ' (' + slug + '-sites.megabyte.space)',
     },
     request_id: c.get('requestId'),
   });
 
-  // Log enrichment/build pipeline start
+  // Log workflow pipeline start with detailed info
   await writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
@@ -508,9 +511,32 @@ search.post('/api/sites/create-from-search', async (c) => {
       slug,
       workflow_instance_id: workflowInstanceId ?? null,
       has_additional_context: !!additionalContext,
+      message: 'AI build pipeline queued — will research, generate, and deploy website',
     },
     request_id: c.get('requestId'),
   });
+
+  // Log anticipated build phases so the Logs modal shows pipeline stages
+  const buildPhases = [
+    { action: 'workflow.phase.research', message: 'Phase 1: Business profile research & data collection' },
+    { action: 'workflow.phase.generation', message: 'Phase 2: AI website HTML generation & content creation' },
+    { action: 'workflow.phase.deployment', message: 'Phase 3: Upload to CDN & publish live site' },
+  ];
+  for (const phase of buildPhases) {
+    await writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: phase.action,
+      target_type: 'site',
+      target_id: siteId,
+      metadata_json: {
+        slug,
+        workflow_instance_id: workflowInstanceId ?? null,
+        message: phase.message,
+      },
+      request_id: c.get('requestId'),
+    }).catch(() => {});
+  }
 
   return c.json(
     {

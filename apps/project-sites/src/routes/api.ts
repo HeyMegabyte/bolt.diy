@@ -561,7 +561,13 @@ api.post('/api/sites/:siteId/hostnames', async (c) => {
     actor_id: c.get('userId') ?? null,
     action: 'hostname.provisioned',
     target_type: 'hostname',
-    metadata_json: { site_id: siteId, hostname: result.hostname, type: validated.type },
+    target_id: siteId,
+    metadata_json: {
+      site_id: siteId,
+      hostname: result.hostname,
+      type: validated.type,
+      message: 'Domain added: ' + result.hostname + (validated.type === 'custom_cname' ? ' (custom CNAME)' : ''),
+    },
     request_id: c.get('requestId'),
   });
 
@@ -1161,6 +1167,41 @@ api.patch('/api/sites/:id', async (c) => {
     .bind(...params)
     .run();
 
+  // Write specific audit logs for slug and name changes
+  if (body.slug && body.slug.trim()) {
+    const newSlug = body.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/--+/g, '-').replace(/^-|-$/g, '').slice(0, 100);
+    if (newSlug && newSlug !== site.slug) {
+      await auditService.writeAuditLog(c.env.DB, {
+        org_id: orgId,
+        actor_id: c.get('userId') ?? null,
+        action: 'site.slug_changed',
+        target_type: 'site',
+        target_id: siteId,
+        metadata_json: {
+          old_slug: site.slug,
+          new_slug: newSlug,
+          message: 'URL changed from ' + site.slug + '-sites.megabyte.space to ' + newSlug + '-sites.megabyte.space',
+        },
+        request_id: c.get('requestId'),
+      }).catch(() => {});
+    }
+  }
+
+  if (body.business_name && body.business_name.trim()) {
+    await auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'site.name_changed',
+      target_type: 'site',
+      target_id: siteId,
+      metadata_json: {
+        new_name: body.business_name.trim().slice(0, 200),
+        message: 'Site name updated to "' + body.business_name.trim().slice(0, 200) + '"',
+      },
+      request_id: c.get('requestId'),
+    }).catch(() => {});
+  }
+
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
@@ -1267,12 +1308,58 @@ api.post('/api/sites/:id/reset', async (c) => {
       action: 'site.reset',
       target_type: 'site',
       target_id: siteId,
-      metadata_json: { site_id: siteId, slug: site.slug },
+      metadata_json: {
+        site_id: siteId,
+        slug: site.slug,
+        message: 'Site rebuild triggered for ' + site.slug,
+        business_name: body.business?.name || null,
+        has_context: !!body.additional_context,
+      },
       request_id: c.get('requestId'),
     });
   } catch {
     // Audit log failure should not block reset
     console.warn('Failed to write audit log for site.reset');
+  }
+
+  // Write workflow logs so the Logs modal shows the trigger event and pipeline phases
+  if (workflowInstanceId) {
+    await auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'workflow.queued',
+      target_type: 'site',
+      target_id: siteId,
+      metadata_json: {
+        site_id: siteId,
+        slug: site.slug,
+        workflow_instance_id: workflowInstanceId,
+        message: 'AI rebuild pipeline queued — will re-research and regenerate website',
+      },
+      request_id: c.get('requestId'),
+    }).catch(() => {});
+
+    // Log anticipated build phases
+    const resetPhases = [
+      { action: 'workflow.phase.research', message: 'Phase 1: Re-analyzing business profile & gathering fresh data' },
+      { action: 'workflow.phase.generation', message: 'Phase 2: Regenerating website HTML with updated information' },
+      { action: 'workflow.phase.deployment', message: 'Phase 3: Uploading new files & publishing updated site' },
+    ];
+    for (const phase of resetPhases) {
+      await auditService.writeAuditLog(c.env.DB, {
+        org_id: orgId,
+        actor_id: c.get('userId') ?? null,
+        action: phase.action,
+        target_type: 'site',
+        target_id: siteId,
+        metadata_json: {
+          slug: site.slug,
+          workflow_instance_id: workflowInstanceId,
+          message: phase.message,
+        },
+        request_id: c.get('requestId'),
+      }).catch(() => {});
+    }
   }
 
   return c.json({
@@ -1368,7 +1455,14 @@ api.post('/api/sites/:id/deploy', async (c) => {
     action: 'site.deployed',
     target_type: 'site',
     target_id: siteId,
-    metadata_json: { site_id: siteId, slug, version, file_count: uploadedFiles.length },
+    metadata_json: {
+      site_id: siteId,
+      slug,
+      version,
+      file_count: uploadedFiles.length,
+      url: 'https://' + slug + '-sites.megabyte.space',
+      message: 'Manual deploy: ' + uploadedFiles.length + ' files uploaded · Version ' + version,
+    },
     request_id: c.get('requestId'),
   });
 
@@ -2031,13 +2125,22 @@ api.put('/api/sites/:id/files/:path{.+}', async (c) => {
   // Invalidate KV cache
   await c.env.CACHE_KV.delete(`host:${site.slug}-sites.megabyte.space`).catch(() => {});
 
+  // Extract just the filename from the full key for display
+  const fileName = fullKey.split('/').pop() || fullKey;
+  const fileSizeKb = Math.round(body.content.length / 1024);
+
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'file.updated',
     target_type: 'site',
     target_id: siteId,
-    metadata_json: { key: fullKey, size: body.content.length },
+    metadata_json: {
+      key: fullKey,
+      file_name: fileName,
+      size: body.content.length,
+      message: 'File updated: ' + fileName + ' (' + fileSizeKb + ' KB)',
+    },
     request_id: c.get('requestId'),
   });
 
