@@ -22,6 +22,7 @@ import { WorkflowEntrypoint } from 'cloudflare:workers';
 import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types/env.js';
 import { extractJsonFromText } from '../services/ai_workflows.js';
+import { notifySiteBuilt } from '../services/notifications.js';
 
 /** Update site status in D1 (best-effort, never throws). */
 async function updateSiteStatus(db: D1Database, siteId: string, status: string): Promise<void> {
@@ -614,6 +615,30 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       message: 'Site published successfully · ' + totalSeconds + 's total · Score: ' + quality.overall + '/100',
       phase: 'complete',
     });
+
+    // Send build-complete email to site owner
+    try {
+      const owner = await env.DB
+        .prepare('SELECT u.email FROM users u JOIN organizations o ON u.id = o.owner_id WHERE o.id = ?')
+        .bind(params.orgId)
+        .first<{ email: string }>();
+      if (owner?.email) {
+        await notifySiteBuilt(env, {
+          email: owner.email,
+          siteName: params.businessName || params.slug,
+          slug: params.slug,
+          siteUrl: `https://${params.slug}-sites.megabyte.space`,
+          version,
+          pagesGenerated: 4,
+        });
+        await workflowLog(env.DB, params.orgId, params.siteId, 'notification.build_complete_sent', {
+          email: owner.email,
+          message: 'Build complete email sent to ' + owner.email,
+        });
+      }
+    } catch {
+      // Email failure should not break the workflow
+    }
 
     return {
       siteId: params.siteId,

@@ -59,6 +59,22 @@ api.post('/api/auth/magic-link', async (c) => {
   const validated = createMagicLinkSchema.parse(body);
   const result = await authService.createMagicLink(c.env.DB, c.env, validated);
   posthog.trackAuth(c.env, c.executionCtx, 'magic_link', 'requested', validated.email);
+
+  // Audit: magic link requested (no org_id yet since user may not exist)
+  auditService.writeAuditLog(c.env.DB, {
+    org_id: 'system',
+    actor_id: null,
+    action: 'auth.magic_link_requested',
+    target_type: 'auth',
+    target_id: validated.email,
+    metadata_json: {
+      email: validated.email,
+      expires_at: result.expires_at,
+      message: 'Magic link email sent to ' + validated.email,
+    },
+    request_id: c.get('requestId'),
+  }).catch(() => {});
+
   return c.json({ data: { expires_at: result.expires_at } });
 });
 
@@ -153,6 +169,21 @@ api.post('/api/auth/magic-link/verify', async (c) => {
 api.get('/api/auth/google', async (c) => {
   const redirectUrl = c.req.query('redirect_url');
   const result = await authService.createGoogleOAuthState(c.env.DB, c.env, redirectUrl);
+
+  // Audit: Google OAuth initiated
+  auditService.writeAuditLog(c.env.DB, {
+    org_id: 'system',
+    actor_id: null,
+    action: 'auth.google_oauth_started',
+    target_type: 'auth',
+    target_id: 'google',
+    metadata_json: {
+      redirect_url: redirectUrl || '/',
+      message: 'Google OAuth sign-in flow initiated',
+    },
+    request_id: c.get('requestId'),
+  }).catch(() => {});
+
   return c.redirect(result.authUrl);
 });
 
@@ -269,6 +300,8 @@ api.post('/api/sites', async (c) => {
     target_id: site.id,
     request_id: c.get('requestId'),
   });
+
+  try { posthog.trackSite(c.env, c.executionCtx, 'created', c.get('userId') || orgId, { site_id: site.id, slug: site.slug }); } catch { /* fire-and-forget */ }
 
   return c.json({ data: site }, 201);
 });
@@ -487,6 +520,23 @@ api.post('/api/billing/checkout', async (c) => {
     cancelUrl: validated.cancel_url,
   });
 
+  // Audit: billing checkout session created
+  auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: c.get('userId') ?? null,
+    action: 'billing.checkout_created',
+    target_type: 'billing',
+    target_id: validated.site_id || orgId,
+    metadata_json: {
+      site_id: validated.site_id,
+      session_id: result.session_id || null,
+      message: 'Stripe checkout session created for plan upgrade',
+    },
+    request_id: c.get('requestId'),
+  }).catch(() => {});
+
+  try { posthog.trackSite(c.env, c.executionCtx, 'checkout_created', c.get('userId') || orgId, { site_id: validated.site_id }); } catch { /* fire-and-forget */ }
+
   return c.json({ data: result });
 });
 
@@ -580,6 +630,8 @@ api.post('/api/sites/:siteId/hostnames', async (c) => {
     request_id: c.get('requestId'),
   });
 
+  try { posthog.trackDomain(c.env, c.executionCtx, 'provisioned', c.get('userId') || orgId, { hostname: result.hostname, type: validated.type, site_id: siteId }); } catch { /* fire-and-forget */ }
+
   return c.json({ data: result }, 201);
 });
 
@@ -647,6 +699,8 @@ api.delete('/api/sites/:id', async (c) => {
     metadata_json: { site_id: siteId, slug, subscription_canceled: subscriptionCanceled },
     request_id: c.get('requestId'),
   });
+
+  try { posthog.trackSite(c.env, c.executionCtx, 'deleted', c.get('userId') || orgId, { site_id: siteId, slug }); } catch { /* analytics fire-and-forget */ }
 
   return c.json({ data: { deleted: true, subscription_canceled: subscriptionCanceled } });
 });
@@ -969,6 +1023,24 @@ api.post('/api/publish/bolt', async (c) => {
 
   const siteUrl = `https://${slug}${hostSuffix}`;
 
+  // Audit: bolt.diy project published (no auth — system-level log)
+  auditService.writeAuditLog(c.env.DB, {
+    org_id: 'bolt',
+    actor_id: null,
+    action: 'site.published_from_bolt',
+    target_type: 'site',
+    target_id: slug,
+    metadata_json: {
+      slug,
+      version,
+      files_uploaded: files.length,
+      url: siteUrl,
+      had_existing_slug: !!existingSlug,
+      message: 'bolt.diy project published — ' + files.length + ' files → ' + slug + ' (version ' + version + ')',
+    },
+    request_id: c.get('requestId'),
+  }).catch(() => {});
+
   return c.json({
     data: {
       slug,
@@ -1161,12 +1233,45 @@ api.patch('/api/sites/:id', async (c) => {
       // Invalidate old KV cache
       if (site.slug) {
         await c.env.CACHE_KV.delete(`host:${site.slug}-sites.megabyte.space`).catch(() => {});
+
+        // Audit: KV cache invalidated for old hostname
+        auditService.writeAuditLog(c.env.DB, {
+          org_id: orgId,
+          actor_id: c.get('userId') ?? null,
+          action: 'site.cache_invalidated',
+          target_type: 'site',
+          target_id: siteId,
+          metadata_json: {
+            cache_key: `host:${site.slug}-sites.megabyte.space`,
+            reason: 'slug_change',
+            message: 'KV cache invalidated for ' + site.slug + '-sites.megabyte.space (slug renamed to ' + newSlug + ')',
+          },
+          request_id: c.get('requestId'),
+        }).catch(() => {});
       }
 
       // Copy R2 files from old slug to new slug
       try {
         const oldPrefix = `sites/${site.slug}/`;
         const listed = await c.env.SITES_BUCKET.list({ prefix: oldPrefix, limit: 500 });
+
+        // Audit: R2 migration started
+        auditService.writeAuditLog(c.env.DB, {
+          org_id: orgId,
+          actor_id: c.get('userId') ?? null,
+          action: 'site.r2_migration_started',
+          target_type: 'site',
+          target_id: siteId,
+          metadata_json: {
+            old_prefix: oldPrefix,
+            new_prefix: `sites/${newSlug}/`,
+            file_count: listed.objects.length,
+            message: 'Migrating R2 files from sites/' + site.slug + '/ to sites/' + newSlug + '/ (' + listed.objects.length + ' objects)',
+          },
+          request_id: c.get('requestId'),
+        }).catch(() => {});
+
+        let migratedCount = 0;
         for (const obj of listed.objects) {
           const newKey = `sites/${newSlug}/${obj.key.slice(oldPrefix.length)}`;
           const source = await c.env.SITES_BUCKET.get(obj.key);
@@ -1174,11 +1279,44 @@ api.patch('/api/sites/:id', async (c) => {
             await c.env.SITES_BUCKET.put(newKey, source.body, {
               httpMetadata: source.httpMetadata,
             });
+            migratedCount++;
           }
         }
+
+        // Audit: R2 migration completed
+        auditService.writeAuditLog(c.env.DB, {
+          org_id: orgId,
+          actor_id: c.get('userId') ?? null,
+          action: 'site.r2_migration_complete',
+          target_type: 'site',
+          target_id: siteId,
+          metadata_json: {
+            old_slug: site.slug,
+            new_slug: newSlug,
+            files_migrated: migratedCount,
+            total_objects: listed.objects.length,
+            message: 'R2 migration complete — ' + migratedCount + '/' + listed.objects.length + ' files copied to sites/' + newSlug + '/',
+          },
+          request_id: c.get('requestId'),
+        }).catch(() => {});
       } catch {
         // R2 migration failure should not block the slug update
         console.warn(`Failed to migrate R2 files from sites/${site.slug}/ to sites/${newSlug}/`);
+
+        // Audit: R2 migration failed
+        auditService.writeAuditLog(c.env.DB, {
+          org_id: orgId,
+          actor_id: c.get('userId') ?? null,
+          action: 'site.r2_migration_failed',
+          target_type: 'site',
+          target_id: siteId,
+          metadata_json: {
+            old_slug: site.slug,
+            new_slug: newSlug,
+            message: 'R2 file migration failed from sites/' + site.slug + '/ to sites/' + newSlug + '/ — slug updated but old files may still exist',
+          },
+          request_id: c.get('requestId'),
+        }).catch(() => {});
       }
     }
   }
@@ -1633,6 +1771,22 @@ api.post('/api/domains/purchase', async (c) => {
 
   const session = (await stripeRes.json()) as { url: string; id: string };
 
+  // Audit: domain purchase checkout initiated
+  auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: c.get('userId') ?? null,
+    action: 'domain.purchase_initiated',
+    target_type: 'domain',
+    target_id: body.site_id,
+    metadata_json: {
+      domain: body.domain,
+      site_id: body.site_id,
+      stripe_session_id: session.id,
+      message: 'Domain purchase started for ' + body.domain + ' — Stripe checkout created',
+    },
+    request_id: c.get('requestId'),
+  }).catch(() => {});
+
   return c.json({
     data: {
       checkout_url: session.url,
@@ -1799,6 +1953,54 @@ api.post('/api/admin/domains/:hostnameId/verify', async (c) => {
     },
     request_id: c.get('requestId'),
   });
+
+  // Send email notification when domain just became active
+  if (newStatus === 'active' && hostname.status !== 'active') {
+    try {
+      const { notifyDomainVerified } = await import('../services/notifications.js');
+      const owner = await dbQueryOne<{ email: string }>(
+        c.env.DB,
+        'SELECT u.email FROM users u JOIN organizations o ON u.id = o.owner_id WHERE o.id = ?',
+        [orgId],
+      );
+      if (owner?.email) {
+        const site = await dbQueryOne<{ slug: string; business_name: string }>(
+          c.env.DB,
+          'SELECT slug, business_name FROM sites WHERE id = ? AND deleted_at IS NULL',
+          [hostname.site_id],
+        );
+        const defaultDomain = (site?.slug || 'unknown') + '-sites.megabyte.space';
+        // Find primary hostname
+        const primary = await dbQueryOne<{ hostname: string }>(
+          c.env.DB,
+          'SELECT hostname FROM hostnames WHERE site_id = ? AND is_primary = 1 AND deleted_at IS NULL',
+          [hostname.site_id],
+        );
+        await notifyDomainVerified(c.env, {
+          email: owner.email,
+          hostname: hostname.hostname,
+          primaryDomain: primary?.hostname || null,
+          defaultDomain,
+          siteName: site?.business_name || defaultDomain,
+        });
+        auditService.writeAuditLog(c.env.DB, {
+          org_id: orgId,
+          actor_id: c.get('userId') ?? null,
+          action: 'notification.domain_verified_sent',
+          target_type: 'hostname',
+          target_id: hostnameId,
+          metadata_json: {
+            email: owner.email,
+            hostname: hostname.hostname,
+            message: 'Domain verification email sent to ' + owner.email,
+          },
+          request_id: c.get('requestId'),
+        }).catch(() => {});
+      }
+    } catch {
+      // Email failure should not break verification
+    }
+  }
 
   return c.json({
     data: {
