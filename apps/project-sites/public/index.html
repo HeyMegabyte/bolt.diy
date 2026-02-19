@@ -1140,6 +1140,16 @@
       text-overflow: ellipsis;
       cursor: default;
     }
+    /* Fixed-width action zone: same space for edit icon vs save/cancel */
+    .inline-edit-actions {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      min-width: 34px;
+      flex-shrink: 0;
+      gap: 2px;
+    }
     .inline-edit-wrap .inline-edit-btn {
       background: none;
       border: none;
@@ -1218,7 +1228,7 @@
       cursor: pointer;
       color: #22c55e;
       padding: 1px;
-      margin-left: 2px;
+      margin: 0;
       flex-shrink: 0;
       transition: color 0.2s;
       line-height: 1;
@@ -1235,7 +1245,7 @@
       cursor: pointer;
       color: #ef4444;
       padding: 1px;
-      margin-left: 0;
+      margin: 0;
       flex-shrink: 0;
       transition: color 0.2s;
       line-height: 1;
@@ -1303,7 +1313,7 @@
       display: inline-flex;
       align-items: center;
       vertical-align: middle;
-      padding: 0 2px;
+      padding: 0 1px;
       background: transparent;
       border: none;
       outline: none;
@@ -1314,6 +1324,32 @@
       outline: none;
       box-shadow: none;
     }
+    /* Fixed-width action zone for slug edit icons */
+    .inline-slug-actions {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      min-width: 28px;
+      flex-shrink: 0;
+      gap: 1px;
+      vertical-align: middle;
+    }
+    .inline-slug-actions .inline-edit-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--accent);
+      padding: 0 1px;
+      opacity: 0.7;
+      transition: opacity 0.2s, color 0.2s;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      vertical-align: middle;
+    }
+    .inline-slug-actions .inline-edit-btn:hover { opacity: 1; color: #4ecdc4; }
+    .inline-slug-actions .inline-edit-btn:focus { outline: none; }
     .inline-slug-url {
       font-size: 0.78rem;
       font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
@@ -1326,19 +1362,20 @@
       flex: 1;
       min-width: 0;
     }
-    /* Save/cancel buttons when inside slug URL (not inside .inline-edit-wrap) */
+    /* Save/cancel buttons when inside slug URL */
     .inline-slug-url .inline-save-btn,
     .inline-slug-url .inline-cancel-btn {
       background: none;
       border: none;
       cursor: pointer;
-      padding: 0 2px;
+      padding: 0 1px;
+      margin: 0;
       flex-shrink: 0;
       transition: color 0.2s, opacity 0.15s;
       line-height: 1;
       display: inline-flex;
       align-items: center;
-      vertical-align: baseline;
+      vertical-align: middle;
       text-decoration: none;
     }
     .inline-slug-url .inline-save-btn { color: #22c55e; }
@@ -3848,6 +3885,99 @@
       font-family: 'JetBrains Mono', monospace;
       white-space: nowrap;
     }
+
+    /* ── Code editor with line numbers ────────────── */
+    .code-editor-wrap {
+      display: flex;
+      flex: 1;
+      min-height: 280px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-primary);
+      overflow: hidden;
+      position: relative;
+    }
+    .code-line-numbers {
+      width: 40px;
+      min-width: 40px;
+      padding: 12px 6px 12px 0;
+      text-align: right;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.72rem;
+      line-height: 1.6;
+      color: rgba(100, 255, 218, 0.25);
+      background: rgba(0,0,0,0.15);
+      border-right: 1px solid var(--border);
+      user-select: none;
+      overflow: hidden;
+      white-space: pre;
+    }
+    .code-editor-wrap textarea {
+      flex: 1;
+      width: 100%;
+      min-height: 280px;
+      padding: 12px;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      color: var(--text-primary);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.78rem;
+      line-height: 1.6;
+      resize: vertical;
+      outline: none;
+      tab-size: 2;
+    }
+    /* Editor toolbar */
+    .editor-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+    .editor-toolbar-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px 6px;
+      font-size: 0.68rem;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      position: relative;
+    }
+    .editor-toolbar-btn:hover {
+      color: var(--accent);
+      border-color: var(--accent-dim);
+      background: rgba(100, 255, 218, 0.04);
+    }
+    .editor-toolbar-btn svg { flex-shrink: 0; }
+    .editor-toolbar-sep {
+      width: 1px;
+      height: 16px;
+      background: var(--border);
+      margin: 0 4px;
+    }
+    /* Files modal toolbar compact */
+    .files-toolbar-compact {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 2px;
+      margin-bottom: 10px;
+    }
+    .files-toolbar-compact .files-breadcrumb {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   </style>
 
   <!-- PostHog Tracking -->
@@ -3998,24 +4128,31 @@
   <!-- R2 File Browser Modal -->
   <div id="files-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="File Browser" onclick="if(event.target===this)closeFilesModal()">
     <div class="modal" style="max-width:720px;min-height:500px;display:flex;flex-direction:column;">
-      <div class="modal-title">
-        <span id="files-modal-title">Files</span>
+      <div class="modal-title" style="display:flex;align-items:center;gap:8px;">
+        <span id="files-modal-title" style="flex:1;">Files</span>
+        <span id="files-count" style="font-size:0.68rem;color:var(--text-muted);"></span>
+        <button class="editor-toolbar-btn" onclick="loadFilesForSite()" title="Refresh file list"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
         <button class="modal-close" onclick="closeFilesModal()">&times;</button>
       </div>
-      <div id="files-toolbar" style="display:flex;gap:8px;align-items:center;margin-bottom:12px;padding:0 2px;">
-        <button class="site-card-btn" onclick="loadFilesForSite()" style="font-size:0.72rem;padding:4px 10px;" title="Refresh">Refresh</button>
-        <span id="files-breadcrumb" style="font-size:0.72rem;color:var(--text-muted);font-family:'SF Mono','Fira Code',monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
-        <span id="files-count" style="font-size:0.72rem;color:var(--text-muted);"></span>
+      <div id="files-toolbar" class="files-toolbar-compact">
+        <span id="files-breadcrumb" class="files-breadcrumb"></span>
       </div>
       <div id="files-list" style="flex:1;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-primary);min-height:200px;"></div>
       <!-- Inline file editor -->
       <div id="files-editor" style="display:none;flex:1;flex-direction:column;min-height:300px;margin-top:10px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <button class="site-card-btn" onclick="closeFileEditor()" style="font-size:0.72rem;padding:4px 10px;">Back</button>
-          <span id="files-editor-name" style="font-size:0.78rem;color:var(--accent);font-family:'SF Mono','Fira Code',monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
-          <button class="btn btn-accent" id="files-save-btn" onclick="saveCurrentFile()" style="font-size:0.72rem;padding:5px 14px;">Save</button>
+        <div class="editor-toolbar">
+          <button class="editor-toolbar-btn" onclick="closeFileEditor()" title="Back to file list"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
+          <span class="editor-toolbar-sep"></span>
+          <span id="files-editor-name" style="font-size:0.75rem;color:var(--accent);font-family:'SF Mono','Fira Code',monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          <span id="files-editor-size" style="font-size:0.68rem;color:var(--text-muted);"></span>
+          <span class="editor-toolbar-sep"></span>
+          <button class="editor-toolbar-btn" onclick="editorWordWrap()" title="Toggle word wrap" id="editor-wrap-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h15a3 3 0 1 1 0 6h-4"/><polyline points="16 16 14 18 16 20"/><path d="M3 18h7"/></svg></button>
+          <button class="btn btn-accent" id="files-save-btn" onclick="saveCurrentFile()" style="font-size:0.72rem;padding:4px 14px;" title="Save file (Ctrl+S)">Save</button>
         </div>
-        <textarea id="files-editor-content" spellcheck="false" style="flex:1;width:100%;min-height:280px;padding:12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-family:'SF Mono','Fira Code',monospace;font-size:0.78rem;line-height:1.6;resize:vertical;outline:none;tab-size:2;" onkeydown="if(event.key==='Tab'){event.preventDefault();var s=this.selectionStart,e=this.selectionEnd;this.value=this.value.substring(0,s)+'  '+this.value.substring(e);this.selectionStart=this.selectionEnd=s+2;}"></textarea>
+        <div class="code-editor-wrap">
+          <div class="code-line-numbers" id="code-line-numbers"></div>
+          <textarea id="files-editor-content" spellcheck="false" onkeydown="handleEditorKeydown(event)" oninput="updateLineNumbers()" onscroll="syncLineScroll()"></textarea>
+        </div>
         <div id="files-editor-msg" class="msg" style="margin-top:8px;"></div>
       </div>
       <div id="files-modal-msg" class="msg" style="margin-top:12px;"></div>
@@ -5074,7 +5211,7 @@
         // Site name — inline editable (click title to edit)
         html += '<div class="inline-edit-wrap" id="inline-name-' + s.id + '" style="flex:1;min-width:0;">';
         html += '<span class="inline-text site-card-name" tabindex="0" role="button" title="' + escapeHtml(name) + '" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'name\', \'' + escapeJsString(name) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(s.id) + '\', \'name\', \'' + escapeJsString(name) + '\')}" style="cursor:pointer;">' + escapeHtml(name) + '</span>';
-        html += '<button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'name\', \'' + escapeJsString(name) + '\')" title="Edit title" aria-label="Edit title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>';
+        html += '<span class="inline-edit-actions"><button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'name\', \'' + escapeJsString(name) + '\')" title="Edit title" aria-label="Edit title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></span>';
         html += '</div>';
         html += '</div>';
 
@@ -5083,7 +5220,7 @@
           var cnameHost = slug + '-sites.megabyte.space';
           var cnameUrl = 'https://' + cnameHost;
           html += '<div class="site-card-url-row" id="inline-slug-wrap-' + s.id + '">';
-          html += '<span class="inline-slug-url status-default" id="inline-slug-url-' + s.id + '">https://<span class="inline-edit-wrap inline-edit-inline" id="inline-slug-' + s.id + '"><span class="inline-text slug-editable" tabindex="0" role="button" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')}">' + escapeHtml(slug) + '</span></span>-sites.megabyte.space</span>';
+          html += '<span class="inline-slug-url status-default" id="inline-slug-url-' + s.id + '">https://<span class="inline-edit-wrap inline-edit-inline" id="inline-slug-' + s.id + '"><span class="inline-text slug-editable" tabindex="0" role="button" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')}">' + escapeHtml(slug) + '</span></span>-sites.megabyte.space<span class="inline-slug-actions"><button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')" title="Edit URL slug" aria-label="Edit URL slug"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></span></span>';
           html += '<button class="site-card-copy-btn" onclick="copyUrl(\'' + escapeAttr(cnameUrl) + '\', this)" title="Copy URL"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
           html += '<button class="site-card-copy-btn" onclick="window.open(\'' + escapeAttr(cnameUrl) + '\', \'_blank\')" title="Open in new tab"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>';
           html += '</div>';
@@ -5223,7 +5360,7 @@
           var hostnames = d.data || [];
           var html = '';
 
-          // Always show the CNAME subdomain as the primary URL entry (no edit icon)
+          // Always show the CNAME subdomain as the primary URL entry — matches site card URL styling
           if (adminDomainModalSlug) {
             var cnameHost = adminDomainModalSlug + '-sites.megabyte.space';
             var cnameUrl = 'https://' + cnameHost;
@@ -5231,14 +5368,15 @@
             for (var pi = 0; pi < hostnames.length; pi++) {
               if (hostnames[pi].is_primary === 1 || hostnames[pi].is_primary === true) { cnameIsPrimary = false; break; }
             }
-            html += '<div class="hostname-item" style="background:rgba(80,165,219,0.04);border:1px solid rgba(80,165,219,0.12);border-radius:8px;padding:10px 12px;margin-bottom:8px;">';
-            html += '<div style="display:flex;align-items:center;gap:10px;width:100%;">';
+            html += '<div class="hostname-item site-card-url-row" style="background:rgba(80,165,219,0.04);border:1px solid rgba(80,165,219,0.12);border-radius:8px;padding:10px 12px;margin-bottom:8px;">';
+            html += '<div style="display:flex;align-items:center;gap:8px;width:100%;">';
             html += '<span class="hostname-status-square active"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>';
             html += '<div style="flex:1;min-width:0;">';
-            html += '<div class="hostname-item-name" style="display:flex;align-items:center;gap:6px;">';
-            html += '<span class="hostname-url-expandable" data-url="' + escapeAttr(cnameUrl) + '" onclick="toggleHostnameUrl(this)" style="color:var(--accent);font-size:0.8rem;font-family:\'SF Mono\',\'Fira Code\',monospace;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;transition:max-width 0.3s,color 0.2s;" title="Click to expand">' + escapeHtml(cnameHost) + '</span>';
-            html += '<button class="site-card-copy-btn" onclick="copyUrl(\'' + escapeAttr(cnameUrl) + '\', this)" title="Copy URL" style="position:relative;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
-            html += '<button class="site-card-copy-btn" onclick="window.open(\'' + escapeAttr(cnameUrl) + '\', \'_blank\')" title="Open in new tab"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>';
+            // URL row — same styling as site card (editable slug, monospace, copy/open buttons)
+            html += '<div style="display:flex;align-items:center;gap:4px;">';
+            html += '<span class="inline-slug-url status-default" id="domain-modal-slug-url" style="font-size:0.78rem;">https://<span class="inline-edit-wrap inline-edit-inline" id="domain-modal-slug-edit"><span class="inline-text slug-editable" tabindex="0" role="button" onclick="startInlineEdit(\'' + escapeJsString(adminDomainModalSiteId) + '\', \'slug\', \'' + escapeJsString(adminDomainModalSlug) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(adminDomainModalSiteId) + '\', \'slug\', \'' + escapeJsString(adminDomainModalSlug) + '\')}">' + escapeHtml(adminDomainModalSlug) + '</span></span>-sites.megabyte.space<span class="inline-slug-actions"><button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(adminDomainModalSiteId) + '\', \'slug\', \'' + escapeJsString(adminDomainModalSlug) + '\')" title="Edit URL slug" aria-label="Edit URL slug"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></span></span>';
+            html += '<button class="site-card-copy-btn" onclick="copyUrl(\'' + escapeAttr(cnameUrl) + '\', this)" title="Copy URL" style="position:relative;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
+            html += '<button class="site-card-copy-btn" onclick="window.open(\'' + escapeAttr(cnameUrl) + '\', \'_blank\')" title="Open in new tab"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>';
             html += '</div>';
             // Chips below URL
             html += '<div class="hostname-chips">';
@@ -7331,16 +7469,20 @@
         if (!urlEl) return;
         urlEl.className = 'inline-slug-url status-default';
         urlEl.innerHTML = 'https://<input type="text" class="inline-input slug-input" id="inline-input-slug-' + siteId + '" value="' + escapeHtml(currentValue) + '" maxlength="100" />'
-          + '<button class="inline-save-btn" id="inline-save-slug-' + siteId + '" onclick="saveInlineEdit(\'' + escapeJsString(siteId) + '\', \'slug\', \'' + escapeJsString(currentValue) + '\')" title="Save" aria-label="Save"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>'
-          + '<button class="inline-cancel-btn" onclick="cancelInlineEdit(\'' + escapeJsString(siteId) + '\', \'slug\', \'' + escapeJsString(currentValue) + '\')" title="Cancel" aria-label="Cancel"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
-          + '-sites.megabyte.space';
+          + '-sites.megabyte.space'
+          + '<span class="inline-slug-actions">'
+          + '<button class="inline-save-btn" id="inline-save-slug-' + siteId + '" onclick="saveInlineEdit(\'' + escapeJsString(siteId) + '\', \'slug\', \'' + escapeJsString(currentValue) + '\')" title="Save" aria-label="Save"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>'
+          + '<button class="inline-cancel-btn" onclick="cancelInlineEdit(\'' + escapeJsString(siteId) + '\', \'slug\', \'' + escapeJsString(currentValue) + '\')" title="Cancel" aria-label="Cancel"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+          + '</span>';
       } else {
-        // For name: replace the wrap content with input + save/cancel
+        // For name: replace the wrap content with input + save/cancel in fixed action zone
         var wrap = document.getElementById('inline-name-' + siteId);
         if (!wrap) return;
         wrap.innerHTML = '<input type="text" class="inline-input" id="inline-input-name-' + siteId + '" value="' + escapeHtml(currentValue) + '" maxlength="200" />'
-          + '<button class="inline-save-btn" id="inline-save-name-' + siteId + '" onclick="saveInlineEdit(\'' + escapeJsString(siteId) + '\', \'name\', \'' + escapeJsString(currentValue) + '\')" title="Save" aria-label="Save"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>'
-          + '<button class="inline-cancel-btn" onclick="cancelInlineEdit(\'' + escapeJsString(siteId) + '\', \'name\', \'' + escapeJsString(currentValue) + '\')" title="Cancel" aria-label="Cancel"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
+          + '<span class="inline-edit-actions">'
+          + '<button class="inline-save-btn" id="inline-save-name-' + siteId + '" onclick="saveInlineEdit(\'' + escapeJsString(siteId) + '\', \'name\', \'' + escapeJsString(currentValue) + '\')" title="Save" aria-label="Save"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>'
+          + '<button class="inline-cancel-btn" onclick="cancelInlineEdit(\'' + escapeJsString(siteId) + '\', \'name\', \'' + escapeJsString(currentValue) + '\')" title="Cancel" aria-label="Cancel"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+          + '</span>';
       }
 
       var input = document.getElementById('inline-input-' + field + '-' + siteId);
@@ -7493,17 +7635,17 @@
       var isSlug = (field === 'slug');
       if (isSlug) {
         clearSlugHint(siteId);
-        // Restore the combined URL line: https://[slug-editable]-sites.megabyte.space (no edit icon)
+        // Restore the combined URL line with edit icon in fixed action zone
         var urlEl = document.getElementById('inline-slug-url-' + siteId);
         if (urlEl) {
           urlEl.className = 'inline-slug-url status-default';
-          urlEl.innerHTML = 'https://<span class="inline-edit-wrap inline-edit-inline" id="inline-slug-' + siteId + '"><span class="inline-text slug-editable" tabindex="0" role="button" onclick="startInlineEdit(\'' + escapeJsString(siteId) + '\', \'slug\', \'' + escapeJsString(originalValue) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(siteId) + '\', \'slug\', \'' + escapeJsString(originalValue) + '\')}">' + escapeHtml(originalValue) + '</span></span>-sites.megabyte.space';
+          urlEl.innerHTML = 'https://<span class="inline-edit-wrap inline-edit-inline" id="inline-slug-' + siteId + '"><span class="inline-text slug-editable" tabindex="0" role="button" onclick="startInlineEdit(\'' + escapeJsString(siteId) + '\', \'slug\', \'' + escapeJsString(originalValue) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(siteId) + '\', \'slug\', \'' + escapeJsString(originalValue) + '\')}">' + escapeHtml(originalValue) + '</span></span>-sites.megabyte.space<span class="inline-slug-actions"><button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(siteId) + '\', \'slug\', \'' + escapeJsString(originalValue) + '\')" title="Edit URL slug" aria-label="Edit URL slug"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></span>';
         }
       } else {
         var wrap = document.getElementById('inline-name-' + siteId);
         if (!wrap) return;
         wrap.innerHTML = '<span class="inline-text site-card-name" tabindex="0" role="button" title="' + escapeHtml(originalValue) + '" onclick="startInlineEdit(\'' + escapeJsString(siteId) + '\', \'name\', \'' + escapeJsString(originalValue) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(siteId) + '\', \'name\', \'' + escapeJsString(originalValue) + '\')}" style="cursor:pointer;">' + escapeHtml(originalValue) + '</span>'
-          + '<button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(siteId) + '\', \'name\', \'' + escapeJsString(originalValue) + '\')" title="Edit title" aria-label="Edit title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>';
+          + '<span class="inline-edit-actions"><button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(siteId) + '\', \'name\', \'' + escapeJsString(originalValue) + '\')" title="Edit title" aria-label="Edit title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></span>';
       }
     }
 
@@ -7595,7 +7737,7 @@
           if (input) { input.disabled = false; input.style.opacity = '1'; }
           if (saveBtn) {
             saveBtn.disabled = false;
-            saveBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+            saveBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
           }
           if (isSlug) {
             var urlEl = document.getElementById('inline-slug-url-' + siteId);
@@ -7717,6 +7859,9 @@
         'site.updated': 'Site Updated',
         'site.reset': 'Site Reset',
         'site.deployed': 'Site Deployed',
+        'site.slug_changed': 'URL Changed',
+        'site.name_changed': 'Name Changed',
+        'file.updated': 'File Saved',
         'hostname.provisioned': 'Domain Added',
         'hostname.unsubscribed': 'Domain Removed',
         'hostname.verified': 'Domain Verified',
@@ -7725,6 +7870,12 @@
         'hostname.set_primary': 'Primary Domain Set',
         'workflow.queued': 'Build Queued',
         'workflow.started': 'Build Started',
+        'workflow.phase.research': 'Research Phase',
+        'workflow.phase.generation': 'Generation Phase',
+        'workflow.phase.deployment': 'Deployment Phase',
+        'workflow.status_update': 'Status Update',
+        'workflow.step.started': 'Step Started',
+        'workflow.step.complete': 'Step Complete',
         'workflow.step.profile_research_started': 'Researching Business',
         'workflow.step.profile_research_complete': 'Profile Research Done',
         'workflow.step.parallel_research_started': 'Researching Details',
@@ -7752,27 +7903,35 @@
         meta = typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson;
       } catch (e) { return ''; }
       var parts = [];
-      // Show relevant fields but redact PII
-      if (meta.step) parts.push('step: ' + escapeHtml(meta.step));
-      if (meta.slug) parts.push('slug: <code>' + escapeHtml(meta.slug) + '</code>');
+
+      // Show the human-readable message first (most important)
+      if (meta.message) {
+        parts.push(escapeHtml(meta.message));
+      }
+
+      // Timing info
+      if (meta.elapsed_ms) {
+        parts.push('<span style="color:var(--accent);font-size:0.72rem;">' + (meta.elapsed_ms / 1000).toFixed(1) + 's</span>');
+      }
+      if (meta.total_seconds) {
+        parts.push('<span style="color:var(--accent);font-size:0.72rem;">total: ' + meta.total_seconds + 's</span>');
+      }
+
+      // Structured data fields
+      if (meta.step && !meta.message) parts.push('step: <code>' + escapeHtml(meta.step) + '</code>');
+      if (meta.slug && !meta.message) parts.push('slug: <code>' + escapeHtml(meta.slug) + '</code>');
       if (meta.hostname) parts.push('domain: <code>' + escapeHtml(meta.hostname) + '</code>');
-      if (meta.type) parts.push('type: ' + escapeHtml(meta.type));
       if (meta.old_slug && meta.new_slug) parts.push('slug: <code>' + escapeHtml(meta.old_slug) + '</code> &rarr; <code>' + escapeHtml(meta.new_slug) + '</code>');
       if (meta.old_name && meta.new_name) parts.push('name: ' + escapeHtml(meta.old_name) + ' &rarr; ' + escapeHtml(meta.new_name));
-      if (meta.build_version) parts.push('v' + escapeHtml(meta.build_version));
-      if (meta.version) parts.push('v' + escapeHtml(meta.version));
-      if (meta.business_name) parts.push(escapeHtml(meta.business_name));
-      if (meta.business_type) parts.push('type: ' + escapeHtml(meta.business_type));
-      if (meta.workflow_step) parts.push('step: ' + escapeHtml(meta.workflow_step));
-      if (meta.workflow_instance_id) parts.push('workflow: ' + escapeHtml(meta.workflow_instance_id.substring(0, 8)));
-      if (meta.quality_score !== undefined) parts.push('quality: ' + escapeHtml(String(meta.quality_score)));
-      if (meta.html_length) parts.push(escapeHtml(String(Math.round(meta.html_length / 1024))) + ' KB HTML');
-      if (meta.services_count !== undefined) parts.push(escapeHtml(String(meta.services_count)) + ' services found');
-      if (meta.files && Array.isArray(meta.files)) parts.push(escapeHtml(meta.files.join(', ')));
-      if (meta.url) parts.push('<code>' + escapeHtml(meta.url) + '</code>');
-      if (meta.social_profiles) parts.push('socials: ' + escapeHtml(String(meta.social_profiles)));
+      if (meta.version && !meta.message) parts.push('v' + escapeHtml(meta.version));
+      if (meta.business_name && !meta.message) parts.push(escapeHtml(meta.business_name));
+      if (meta.quality_score !== undefined && !meta.message) parts.push('quality: ' + escapeHtml(String(meta.quality_score)) + '/100');
+      if (meta.html_size_kb && !meta.message) parts.push(escapeHtml(String(meta.html_size_kb)) + ' KB');
+      if (meta.services_count !== undefined && !meta.message) parts.push(escapeHtml(String(meta.services_count)) + ' services');
+      if (meta.file_count && !meta.message) parts.push(meta.file_count + ' files');
+      if (meta.url && !meta.message) parts.push('<code>' + escapeHtml(meta.url) + '</code>');
+      if (meta.workflow_instance_id) parts.push('wf: ' + escapeHtml(meta.workflow_instance_id.substring(0, 8)));
       if (meta.error) {
-        // Clean up ZodError/validation noise — show a short, human-readable message
         var errStr = String(meta.error);
         if (errStr.indexOf('ZodError') !== -1 || errStr.indexOf('Validation') !== -1) {
           errStr = 'Validation error';
@@ -8401,7 +8560,9 @@
       document.getElementById('files-editor-content').value = 'Loading...';
       document.getElementById('files-editor').style.display = 'flex';
       document.getElementById('files-list').style.display = 'none';
+      document.getElementById('files-toolbar').style.display = 'none';
       hideMsg('files-editor-msg');
+      updateLineNumbers();
 
       var hdrs = {};
       if (state.session && state.session.token) hdrs['Authorization'] = 'Bearer ' + state.session.token;
@@ -8412,7 +8573,11 @@
           return r.json();
         })
         .then(function(d) {
-          document.getElementById('files-editor-content').value = d.data.content || '';
+          var content = d.data.content || '';
+          document.getElementById('files-editor-content').value = content;
+          var sizeEl = document.getElementById('files-editor-size');
+          if (sizeEl) sizeEl.textContent = formatFileSize(content.length);
+          updateLineNumbers();
         })
         .catch(function(err) {
           showMsg('files-editor-msg', 'error', err.message || 'Failed to load file');
@@ -8422,7 +8587,57 @@
     function closeFileEditor() {
       document.getElementById('files-editor').style.display = 'none';
       document.getElementById('files-list').style.display = '';
+      document.getElementById('files-toolbar').style.display = '';
       filesModalCurrentKey = null;
+    }
+
+    /** Update line number gutter to match textarea content */
+    function updateLineNumbers() {
+      var textarea = document.getElementById('files-editor-content');
+      var gutter = document.getElementById('code-line-numbers');
+      if (!textarea || !gutter) return;
+      var lines = (textarea.value || '').split('\n').length;
+      var nums = '';
+      for (var i = 1; i <= lines; i++) { nums += i + '\n'; }
+      gutter.textContent = nums;
+    }
+
+    /** Sync line number scroll with textarea scroll */
+    function syncLineScroll() {
+      var textarea = document.getElementById('files-editor-content');
+      var gutter = document.getElementById('code-line-numbers');
+      if (textarea && gutter) gutter.scrollTop = textarea.scrollTop;
+    }
+
+    /** Handle editor keydown: Tab indent, Ctrl+S save */
+    function handleEditorKeydown(event) {
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        var t = event.target;
+        var s = t.selectionStart, e = t.selectionEnd;
+        t.value = t.value.substring(0, s) + '  ' + t.value.substring(e);
+        t.selectionStart = t.selectionEnd = s + 2;
+        updateLineNumbers();
+      } else if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault();
+        saveCurrentFile();
+      }
+    }
+
+    /** Toggle word wrap on editor textarea */
+    var editorWrapping = false;
+    function editorWordWrap() {
+      editorWrapping = !editorWrapping;
+      var textarea = document.getElementById('files-editor-content');
+      var btn = document.getElementById('editor-wrap-btn');
+      if (textarea) {
+        textarea.style.whiteSpace = editorWrapping ? 'pre-wrap' : 'pre';
+        textarea.style.wordBreak = editorWrapping ? 'break-all' : 'normal';
+      }
+      if (btn) {
+        btn.style.color = editorWrapping ? 'var(--accent)' : '';
+        btn.style.borderColor = editorWrapping ? 'var(--accent-dim)' : '';
+      }
     }
 
     function saveCurrentFile() {
@@ -8447,6 +8662,8 @@
           if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
           showMsg('files-editor-msg', 'success', 'File saved successfully!');
           showToast('File saved successfully', 'success', 3000);
+          var sizeEl = document.getElementById('files-editor-size');
+          if (sizeEl) sizeEl.textContent = formatFileSize(content.length);
         })
         .catch(function(err) {
           if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
