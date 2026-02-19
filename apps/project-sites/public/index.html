@@ -1217,7 +1217,8 @@
       border: none;
       cursor: pointer;
       color: #22c55e;
-      padding: 2px;
+      padding: 1px;
+      margin-left: 2px;
       flex-shrink: 0;
       transition: color 0.2s;
       line-height: 1;
@@ -1233,7 +1234,8 @@
       border: none;
       cursor: pointer;
       color: #ef4444;
-      padding: 2px;
+      padding: 1px;
+      margin-left: 0;
       flex-shrink: 0;
       transition: color 0.2s;
       line-height: 1;
@@ -1241,7 +1243,7 @@
     .inline-edit-wrap .inline-cancel-btn:hover { color: #dc2626; }
     .inline-edit-wrap.inline-edit-inline {
       display: inline-flex;
-      gap: 2px;
+      gap: 1px;
       min-height: auto;
       vertical-align: baseline;
     }
@@ -1460,8 +1462,8 @@
     }
     .domain-search-input {
       width: 100%;
-      padding: 10px 14px;
-      border-radius: 8px;
+      padding: 12px 16px;
+      border-radius: 10px;
       border: 1px solid var(--border);
       background: var(--bg-primary);
       color: var(--text-primary);
@@ -1469,46 +1471,60 @@
       font-family: var(--font);
       z-index: 99;
       position: relative;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
     .domain-search-input:focus {
       outline: none;
-      border-color: white;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
     }
     .domain-search-results {
       position: relative;
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      max-height: 320px;
+      max-height: 340px;
       overflow-y: auto;
       margin-top: 12px;
       display: none;
     }
     .domain-search-results.open { display: block; }
-    .domain-results-table { padding: 0; }
+    .domain-results-table { padding: 8px; }
     .domain-result-item {
-      padding: 10px 0;
+      padding: 12px 14px;
       display: flex;
       align-items: center;
-      gap: 10px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      transition: background 0.15s;
+      gap: 12px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      margin-bottom: 6px;
+      transition: background 0.15s, border-color 0.2s, transform 0.15s;
+      background: rgba(255,255,255,0.02);
     }
-    .domain-result-item:last-child { border-bottom: none; }
-    .domain-result-item:hover { background: rgba(100, 255, 218, 0.03); }
-    .domain-result-item.domain-taken { opacity: 0.6; }
-    .domain-result-status { flex-shrink: 0; width: 18px; display: flex; align-items: center; }
+    .domain-result-item:last-child { margin-bottom: 0; }
+    .domain-result-item:hover { background: rgba(80, 165, 219, 0.06); border-color: rgba(80, 165, 219, 0.15); transform: translateX(2px); }
+    .domain-result-item.domain-taken { opacity: 0.5; }
+    .domain-result-item.domain-available { border-color: rgba(34, 197, 94, 0.12); }
+    .domain-result-item.domain-available:hover { border-color: rgba(34, 197, 94, 0.3); background: rgba(34, 197, 94, 0.04); }
+    .domain-result-status { flex-shrink: 0; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+    .domain-result-item.domain-available .domain-result-status { background: rgba(34, 197, 94, 0.12); }
+    .domain-result-item.domain-taken .domain-result-status { background: rgba(239, 68, 68, 0.12); }
     .domain-result-item .domain-result-name { flex: 1; }
     .domain-result-item .domain-result-price { flex-shrink: 0; min-width: 70px; text-align: right; }
     .domain-result-name {
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       font-weight: 600;
       color: var(--text-primary);
     }
+    .domain-result-tld {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
     .domain-result-price {
-      font-size: 0.8rem;
+      font-size: 0.82rem;
       color: var(--accent);
-      font-weight: 600;
+      font-weight: 700;
     }
     .domain-result-unavailable {
       font-size: 0.75rem;
@@ -1542,15 +1558,17 @@
     .domain-tab:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent-dim); }
     .domain-tab:active { opacity: 0.7; }
 
-    /* Hostname status squares */
+    /* Hostname status squares — fill parent height, square aspect ratio */
     .hostname-status-square {
-      width: 20px;
-      height: 20px;
-      border-radius: 4px;
+      width: 36px;
+      min-height: 36px;
+      align-self: stretch;
+      border-radius: 6px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      aspect-ratio: 1 / 1;
     }
     .hostname-status-square.active {
       background: #22c55e;
@@ -1558,7 +1576,7 @@
     .hostname-status-square.inactive {
       background: #ef4444;
     }
-    .hostname-status-square svg { width: 12px; height: 12px; }
+    .hostname-status-square svg { width: 16px; height: 16px; }
 
     /* Hostname chips below URL */
     .hostname-chips {
@@ -3887,8 +3905,10 @@
           <input type="text" id="domain-add-input" inputmode="url" placeholder="e.g. www.mybusiness.com" onkeydown="if(event.key==='Enter'){event.preventDefault();addHostname();}" />
           <button id="domain-add-btn" onclick="addHostname()">Add Domain</button>
         </div>
-        <div id="domain-connect-upgrade-cta" style="display:none;margin-top:10px;padding:10px 14px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:var(--radius);font-size:0.8rem;color:var(--text-secondary);">
-          Custom domains require a paid plan. <a href="javascript:void(0)" onclick="openBillingCheckout()" style="color:var(--accent);font-weight:600;text-decoration:underline;">Upgrade now</a>
+        <div id="domain-connect-upgrade-cta" style="display:none;margin-top:14px;padding:16px 20px;background:linear-gradient(135deg,rgba(124,58,237,0.08),rgba(80,165,219,0.06));border:1px solid rgba(124,58,237,0.2);border-radius:var(--radius);text-align:center;">
+          <div style="font-size:0.9rem;font-weight:600;color:var(--text-primary);margin-bottom:6px;">Unlock Custom Domains</div>
+          <div style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:12px;">Connect your own domain with automatic SSL, CDN, and DNS management</div>
+          <button class="btn btn-accent" onclick="openBillingCheckout()" style="padding:8px 24px;font-size:0.82rem;font-weight:600;">Upgrade to Paid Plan</button>
         </div>
         <div id="domain-cname-status" style="display:none;margin-top:10px;"></div>
         <p style="font-size:0.7rem;color:var(--text-muted);margin-top:10px;">Add the CNAME record in your DNS provider, then add the domain here. We'll monitor it until it resolves.</p>
@@ -3908,6 +3928,33 @@
       </div>
 
       <div id="domain-modal-msg" class="msg" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <!-- R2 File Browser Modal -->
+  <div id="files-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="File Browser" onclick="if(event.target===this)closeFilesModal()">
+    <div class="modal" style="max-width:720px;min-height:500px;display:flex;flex-direction:column;">
+      <div class="modal-title">
+        <span id="files-modal-title">Files</span>
+        <button class="modal-close" onclick="closeFilesModal()">&times;</button>
+      </div>
+      <div id="files-toolbar" style="display:flex;gap:8px;align-items:center;margin-bottom:12px;padding:0 2px;">
+        <button class="site-card-btn" onclick="loadFilesForSite()" style="font-size:0.72rem;padding:4px 10px;" title="Refresh">Refresh</button>
+        <span id="files-breadcrumb" style="font-size:0.72rem;color:var(--text-muted);font-family:'SF Mono','Fira Code',monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        <span id="files-count" style="font-size:0.72rem;color:var(--text-muted);"></span>
+      </div>
+      <div id="files-list" style="flex:1;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-primary);min-height:200px;"></div>
+      <!-- Inline file editor -->
+      <div id="files-editor" style="display:none;flex:1;flex-direction:column;min-height:300px;margin-top:10px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <button class="site-card-btn" onclick="closeFileEditor()" style="font-size:0.72rem;padding:4px 10px;">Back</button>
+          <span id="files-editor-name" style="font-size:0.78rem;color:var(--accent);font-family:'SF Mono','Fira Code',monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          <button class="btn btn-accent" id="files-save-btn" onclick="saveCurrentFile()" style="font-size:0.72rem;padding:5px 14px;">Save</button>
+        </div>
+        <textarea id="files-editor-content" spellcheck="false" style="flex:1;width:100%;min-height:280px;padding:12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-family:'SF Mono','Fira Code',monospace;font-size:0.78rem;line-height:1.6;resize:vertical;outline:none;tab-size:2;" onkeydown="if(event.key==='Tab'){event.preventDefault();var s=this.selectionStart,e=this.selectionEnd;this.value=this.value.substring(0,s)+'  '+this.value.substring(e);this.selectionStart=this.selectionEnd=s+2;}"></textarea>
+        <div id="files-editor-msg" class="msg" style="margin-top:8px;"></div>
+      </div>
+      <div id="files-modal-msg" class="msg" style="margin-top:12px;"></div>
     </div>
   </div>
 
@@ -4971,6 +5018,7 @@
           html += '<div class="site-card-url-row" id="inline-slug-wrap-' + s.id + '">';
           html += '<span class="inline-slug-url status-default" id="inline-slug-url-' + s.id + '">https://<span class="inline-edit-wrap inline-edit-inline" id="inline-slug-' + s.id + '"><span class="inline-text slug-editable" tabindex="0" role="button" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')}">' + escapeHtml(slug) + '</span></span>-sites.megabyte.space</span>';
           html += '<button class="site-card-copy-btn" onclick="copyUrl(\'' + escapeAttr(cnameUrl) + '\', this)" title="Copy URL"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
+          html += '<button class="site-card-copy-btn" onclick="window.open(\'' + escapeAttr(cnameUrl) + '\', \'_blank\')" title="Open in new tab"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>';
           html += '</div>';
           // If custom primary domain, show it separately
           var hasPrimaryCustom = s.primary_hostname && s.primary_hostname !== cnameHost;
@@ -4982,6 +5030,7 @@
               html += '<span class="premium-domain-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>PREMIUM</span>';
             }
             html += '<button class="site-card-copy-btn" onclick="copyUrl(\'' + escapeAttr(primaryUrl) + '\', this)" title="Copy URL"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
+            html += '<button class="site-card-copy-btn" onclick="window.open(\'' + escapeAttr(primaryUrl) + '\', \'_blank\')" title="Open in new tab"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>';
             html += '</div>';
           }
         }
@@ -5009,6 +5058,7 @@
         // Action buttons - Row 2 (management)
         html += '<div class="site-card-actions">';
         html += '<button class="site-card-btn" onclick="openDomainModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\', \'' + escapeJsString(slug) + '\')">Domains</button>';
+        html += '<button class="site-card-btn" onclick="openFilesModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\', \'' + escapeJsString(slug) + '\')">Files</button>';
         html += '<button class="site-card-btn" onclick="openResetModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\', \'' + escapeJsString(s.business_address || '') + '\', \'' + escapeJsString(s.google_place_id || '') + '\', \'' + escapeJsString(s.additional_context || '') + '\')">Reset</button>';
         html += '<button class="site-card-btn" onclick="openDeployModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\')">Deploy</button>';
         html += '<button class="site-card-btn danger" onclick="openDeleteModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\')">Delete</button>';
@@ -5109,16 +5159,19 @@
           // Always show the CNAME subdomain as the primary URL entry (no edit icon)
           if (adminDomainModalSlug) {
             var cnameHost = adminDomainModalSlug + '-sites.megabyte.space';
+            var cnameUrl = 'https://' + cnameHost;
             var cnameIsPrimary = true; // Default is primary unless custom domain set
             for (var pi = 0; pi < hostnames.length; pi++) {
               if (hostnames[pi].is_primary === 1 || hostnames[pi].is_primary === true) { cnameIsPrimary = false; break; }
             }
             html += '<div class="hostname-item" style="background:rgba(80,165,219,0.04);border:1px solid rgba(80,165,219,0.12);border-radius:8px;padding:10px 12px;margin-bottom:8px;">';
-            html += '<div style="display:flex;align-items:center;gap:8px;">';
+            html += '<div style="display:flex;align-items:center;gap:10px;width:100%;">';
             html += '<span class="hostname-status-square active"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>';
             html += '<div style="flex:1;min-width:0;">';
             html += '<div class="hostname-item-name" style="display:flex;align-items:center;gap:6px;">';
-            html += '<a href="https://' + escapeHtml(cnameHost) + '" target="_blank" style="color:var(--accent);text-decoration:none;font-size:0.82rem;">' + escapeHtml(cnameHost) + '</a>';
+            html += '<span class="hostname-url-expandable" data-url="' + escapeAttr(cnameUrl) + '" onclick="toggleHostnameUrl(this)" style="color:var(--accent);font-size:0.8rem;font-family:\'SF Mono\',\'Fira Code\',monospace;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;transition:max-width 0.3s,color 0.2s;" title="Click to expand">' + escapeHtml(cnameHost) + '</span>';
+            html += '<button class="site-card-copy-btn" onclick="copyUrl(\'' + escapeAttr(cnameUrl) + '\', this)" title="Copy URL" style="position:relative;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
+            html += '<button class="site-card-copy-btn" onclick="window.open(\'' + escapeAttr(cnameUrl) + '\', \'_blank\')" title="Open in new tab"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>';
             html += '</div>';
             // Chips below URL
             html += '<div class="hostname-chips">';
@@ -5237,6 +5290,19 @@
       var type = hostname.endsWith('sites.megabyte.space') || hostname.endsWith('-sites.megabyte.space')
         ? 'free_subdomain' : 'custom_cname';
 
+      // If custom domain and site is not paid, redirect to checkout directly
+      if (type === 'custom_cname') {
+        var site = null;
+        for (var si = 0; si < adminSites.length; si++) {
+          if (adminSites[si].id === siteId) { site = adminSites[si]; break; }
+        }
+        if (site && site.plan !== 'paid') {
+          closeDomainModal();
+          openSiteCheckout(siteId);
+          return;
+        }
+      }
+
       var headers = { 'Content-Type': 'application/json' };
       if (state.session && state.session.token) {
         headers['Authorization'] = 'Bearer ' + state.session.token;
@@ -5263,11 +5329,11 @@
               if (d && d.error) {
                 msg = typeof d.error === 'string' ? d.error : (d.error.message || d.error.code || msg);
               }
-              // Show upgrade CTA if custom domain requires paid plan
+              // Show upgrade CTA if custom domain requires paid plan — redirect to checkout
               if (res.status === 403) {
                 if (msg.toLowerCase().indexOf('paid') !== -1) {
-                  var ctaEl2 = document.getElementById('domain-connect-upgrade-cta');
-                  if (ctaEl2) ctaEl2.style.display = 'block';
+                  closeDomainModal();
+                  openSiteCheckout(siteId);
                 } else {
                   showMsg('domain-modal-msg', 'error', msg);
                 }
@@ -5303,6 +5369,19 @@
             showMsg('domain-modal-msg', 'error', msg);
           }
         });
+    }
+
+    function toggleHostnameUrl(el) {
+      var expanded = el.getAttribute('data-expanded') === 'true';
+      if (expanded) {
+        el.style.maxWidth = '240px';
+        el.style.color = 'var(--accent)';
+        el.setAttribute('data-expanded', 'false');
+      } else {
+        el.style.maxWidth = '500px';
+        el.style.color = '#22c55e';
+        el.setAttribute('data-expanded', 'true');
+      }
     }
 
     function showCnameMonitor(hostname) {
@@ -6879,6 +6958,7 @@
         { id: 'site-logs-modal', close: typeof closeSiteLogsModal === 'function' ? closeSiteLogsModal : null },
         { id: 'deploy-modal', close: typeof closeDeployModal === 'function' ? closeDeployModal : null },
         { id: 'new-website-modal', close: typeof closeNewWebsiteModal === 'function' ? closeNewWebsiteModal : null },
+        { id: 'files-modal', close: typeof closeFilesModal === 'function' ? closeFilesModal : null },
       ];
       for (var i = 0; i < modals.length; i++) {
         var el = document.getElementById(modals[i].id);
@@ -8035,8 +8115,12 @@
 
     function renderDomainSearchResults(results, query) {
       var container = document.getElementById('domain-search-results');
-      // Sort by price (lowest first)
-      results.sort(function(a, b) { return (a.price || 0) - (b.price || 0); });
+      // Sort: available first (by price), then unavailable
+      results.sort(function(a, b) {
+        if (a.available && !b.available) return -1;
+        if (!a.available && b.available) return 1;
+        return (a.price || 0) - (b.price || 0);
+      });
 
       // Always show queried domain at top with availability indicator
       var queriedDomain = (query || '').toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').trim();
@@ -8051,29 +8135,53 @@
       }
 
       var html = '<div class="domain-results-table">';
-      // Show queried domain first
+
+      // Results heading
+      var availCount = results.filter(function(r) { return r.available; }).length;
+      if (results.length > 0) {
+        html += '<div style="padding:4px 6px 10px;font-size:0.72rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">' + availCount + ' available · ' + results.length + ' results</div>';
+      }
+
+      // Show queried domain first (highlighted)
       if (queriedResult) {
         var isAvail = queriedResult.available;
-        html += '<div class="domain-result-item ' + (isAvail ? 'domain-available' : 'domain-taken') + '">';
-        html += '<div class="domain-result-status">' + (isAvail ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>') + '</div>';
+        html += '<div class="domain-result-item ' + (isAvail ? 'domain-available' : 'domain-taken') + '" style="' + (isAvail ? 'border-color:rgba(34,197,94,0.25);background:rgba(34,197,94,0.04);' : '') + '">';
+        html += '<div class="domain-result-status">' + (isAvail ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>') + '</div>';
+        html += '<div style="flex:1;min-width:0;">';
         html += '<div class="domain-result-name" style="font-weight:700;">' + escapeHtml(queriedResult.domain) + '</div>';
-        html += '<div class="domain-result-price">' + (isAvail ? '$' + ((queriedResult.price || 0) / 100).toFixed(2) + '/yr' : 'Taken') + '</div>';
-        if (isAvail) html += '<button class="btn btn-accent" style="padding:6px 14px;font-size:0.75rem;" onclick="selectDomainForPurchase(\'' + escapeAttr(queriedResult.domain) + '\', ' + (queriedResult.price || 0) + ')">Get</button>';
+        if (isAvail) html += '<div class="domain-result-tld">Exact match</div>';
+        else html += '<div class="domain-result-tld" style="color:var(--error);">Unavailable</div>';
+        html += '</div>';
+        html += '<div class="domain-result-price">' + (isAvail ? '$' + ((queriedResult.price || 0) / 100).toFixed(2) + '/yr' : '<span style="color:var(--text-muted);font-weight:400;font-size:0.75rem;">Taken</span>') + '</div>';
+        if (isAvail) html += '<button class="btn btn-accent" style="padding:7px 16px;font-size:0.75rem;border-radius:8px;" onclick="selectDomainForPurchase(\'' + escapeAttr(queriedResult.domain) + '\', ' + (queriedResult.price || 0) + ')">Get</button>';
         html += '</div>';
       }
-      // Show other results
+
+      // Show all other results (available AND unavailable)
       for (var j = 0; j < otherResults.length; j++) {
         var r = otherResults[j];
-        if (!r.available) continue;
-        html += '<div class="domain-result-item domain-available">';
-        html += '<div class="domain-result-status"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>';
+        var rAvail = r.available;
+        html += '<div class="domain-result-item ' + (rAvail ? 'domain-available' : 'domain-taken') + '">';
+        html += '<div class="domain-result-status">' + (rAvail ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>') + '</div>';
+        html += '<div style="flex:1;min-width:0;">';
         html += '<div class="domain-result-name">' + escapeHtml(r.domain) + '</div>';
-        html += '<div class="domain-result-price">$' + ((r.price || 0) / 100).toFixed(2) + '/yr</div>';
-        html += '<button class="btn btn-accent" style="padding:6px 14px;font-size:0.75rem;" onclick="selectDomainForPurchase(\'' + escapeAttr(r.domain) + '\', ' + (r.price || 0) + ')">Get</button>';
+        var tld = r.domain ? '.' + r.domain.split('.').pop() : '';
+        html += '<div class="domain-result-tld">' + escapeHtml(tld) + ' domain</div>';
+        html += '</div>';
+        if (rAvail) {
+          html += '<div class="domain-result-price">$' + ((r.price || 0) / 100).toFixed(2) + '/yr</div>';
+          html += '<button class="btn btn-accent" style="padding:7px 16px;font-size:0.75rem;border-radius:8px;" onclick="selectDomainForPurchase(\'' + escapeAttr(r.domain) + '\', ' + (r.price || 0) + ')">Get</button>';
+        } else {
+          html += '<div class="domain-result-price"><span style="color:var(--text-muted);font-weight:400;font-size:0.75rem;">Taken</span></div>';
+        }
         html += '</div>';
       }
-      if (!queriedResult && !otherResults.filter(function(r) { return r.available; }).length) {
-        html += '<div style="padding:16px;color:var(--text-muted);font-size:0.85rem;text-align:center;">No available domains found. Try a different name.</div>';
+
+      if (!queriedResult && !results.length) {
+        html += '<div style="padding:20px;color:var(--text-muted);font-size:0.85rem;text-align:center;">';
+        html += '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:8px;opacity:0.5;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><br>';
+        html += 'No domains found. Try a different name.';
+        html += '</div>';
       }
       html += '</div>';
       container.innerHTML = html;
@@ -8121,6 +8229,133 @@
         })
         .catch(function(err) {
           showMsg('domain-modal-msg', 'error', err.message || 'Failed to purchase domain.');
+        });
+    }
+
+    /* ===========================================================
+       R2 File Browser
+       =========================================================== */
+
+    var filesModalSiteId = null;
+    var filesModalSlug = null;
+    var filesModalCurrentKey = null;
+
+    function openFilesModal(siteId, siteName, slug) {
+      filesModalSiteId = siteId;
+      filesModalSlug = slug;
+      document.getElementById('files-modal-title').textContent = 'Files: ' + siteName;
+      document.getElementById('files-modal').classList.add('visible');
+      document.getElementById('files-editor').style.display = 'none';
+      document.getElementById('files-list').style.display = '';
+      hideMsg('files-modal-msg');
+      loadFilesForSite();
+    }
+
+    function closeFilesModal() {
+      document.getElementById('files-modal').classList.remove('visible');
+      filesModalSiteId = null;
+    }
+
+    function loadFilesForSite() {
+      if (!filesModalSiteId) return;
+      var list = document.getElementById('files-list');
+      list.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:0.85rem;">Loading files...</div>';
+
+      var hdrs = {};
+      if (state.session && state.session.token) hdrs['Authorization'] = 'Bearer ' + state.session.token;
+
+      fetch('/api/sites/' + filesModalSiteId + '/files', { headers: hdrs })
+        .then(function(r) {
+          if (!r.ok) return r.json().then(function(d) { throw new Error(d && d.error ? (typeof d.error === 'string' ? d.error : d.error.message || 'Failed') : 'Failed to load files'); });
+          return r.json();
+        })
+        .then(function(d) {
+          var files = d.data.files || [];
+          document.getElementById('files-breadcrumb').textContent = d.data.prefix || '';
+          document.getElementById('files-count').textContent = files.length + ' files';
+
+          if (!files.length) {
+            list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:0.85rem;">No files found. Build or deploy your site first.</div>';
+            return;
+          }
+
+          var html = '';
+          for (var i = 0; i < files.length; i++) {
+            var f = files[i];
+            var sizeStr = f.size < 1024 ? f.size + ' B' : (f.size / 1024).toFixed(1) + ' KB';
+            var isEditable = /\.(html|css|js|json|txt|md|xml|svg)$/i.test(f.name);
+            var icon = isEditable
+              ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+              : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+            html += '<div class="file-item" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:' + (isEditable ? 'pointer' : 'default') + ';transition:background 0.15s;" ' + (isEditable ? 'onclick="openFileForEdit(\'' + escapeAttr(f.key) + '\', \'' + escapeAttr(f.name) + '\')"' : '') + ' onmouseover="this.style.background=\'rgba(80,165,219,0.04)\'" onmouseout="this.style.background=\'transparent\'">';
+            html += '<span style="color:' + (isEditable ? 'var(--accent)' : 'var(--text-muted)') + ';flex-shrink:0;">' + icon + '</span>';
+            html += '<span style="flex:1;font-size:0.78rem;font-family:\'SF Mono\',\'Fira Code\',monospace;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(f.name) + '</span>';
+            html += '<span style="font-size:0.68rem;color:var(--text-muted);flex-shrink:0;">' + sizeStr + '</span>';
+            if (isEditable) html += '<span style="font-size:0.6rem;color:var(--accent);flex-shrink:0;padding:2px 6px;border:1px solid var(--accent-dim);border-radius:4px;">Edit</span>';
+            html += '</div>';
+          }
+          list.innerHTML = html;
+        })
+        .catch(function(err) {
+          list.innerHTML = '<div style="padding:16px;color:var(--error);font-size:0.85rem;">' + escapeHtml(err.message) + '</div>';
+        });
+    }
+
+    function openFileForEdit(key, name) {
+      filesModalCurrentKey = key;
+      document.getElementById('files-editor-name').textContent = name;
+      document.getElementById('files-editor-content').value = 'Loading...';
+      document.getElementById('files-editor').style.display = 'flex';
+      document.getElementById('files-list').style.display = 'none';
+      hideMsg('files-editor-msg');
+
+      var hdrs = {};
+      if (state.session && state.session.token) hdrs['Authorization'] = 'Bearer ' + state.session.token;
+
+      fetch('/api/sites/' + filesModalSiteId + '/files/' + encodeURIComponent(key), { headers: hdrs })
+        .then(function(r) {
+          if (!r.ok) return r.json().then(function(d) { throw new Error(d && d.error ? (typeof d.error === 'string' ? d.error : d.error.message || 'Failed') : 'Failed to load file'); });
+          return r.json();
+        })
+        .then(function(d) {
+          document.getElementById('files-editor-content').value = d.data.content || '';
+        })
+        .catch(function(err) {
+          showMsg('files-editor-msg', 'error', err.message || 'Failed to load file');
+        });
+    }
+
+    function closeFileEditor() {
+      document.getElementById('files-editor').style.display = 'none';
+      document.getElementById('files-list').style.display = '';
+      filesModalCurrentKey = null;
+    }
+
+    function saveCurrentFile() {
+      if (!filesModalSiteId || !filesModalCurrentKey) return;
+      var content = document.getElementById('files-editor-content').value;
+      var saveBtn = document.getElementById('files-save-btn');
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving\u2026'; }
+
+      var hdrs = { 'Content-Type': 'application/json' };
+      if (state.session && state.session.token) hdrs['Authorization'] = 'Bearer ' + state.session.token;
+
+      fetch('/api/sites/' + filesModalSiteId + '/files/' + encodeURIComponent(filesModalCurrentKey), {
+        method: 'PUT',
+        headers: hdrs,
+        body: JSON.stringify({ content: content })
+      })
+        .then(function(r) {
+          if (!r.ok) return r.json().then(function(d) { throw new Error(d && d.error ? (typeof d.error === 'string' ? d.error : d.error.message || 'Failed') : 'Failed to save file'); });
+          return r.json();
+        })
+        .then(function() {
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+          showMsg('files-editor-msg', 'success', 'File saved successfully!');
+        })
+        .catch(function(err) {
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+          showMsg('files-editor-msg', 'error', err.message || 'Failed to save');
         });
     }
 

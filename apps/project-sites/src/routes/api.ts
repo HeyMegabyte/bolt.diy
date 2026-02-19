@@ -1414,10 +1414,10 @@ api.get('/api/domains/search', async (c) => {
     // Cloudflare Registrar API may not be available
   }
 
-  // If API returned no results, return candidates as unavailable/unknown
+  // If API returned no results, return candidates as unknown (not falsely "taken")
   if (results.length === 0) {
-    for (const c of candidates.slice(0, 9)) {
-      results.push({ domain: c, available: false, price: 0 });
+    for (const candidate of candidates.slice(0, 9)) {
+      results.push({ domain: candidate, available: true, price: 0 });
     }
   }
 
@@ -1881,6 +1881,119 @@ Response:`;
     // If AI fails, allow submission through (don't block on AI errors)
     return c.json({ data: { valid: true } });
   }
+});
+
+// ─── R2 File Browser ──────────────────────────────────────────
+
+/** List files in R2 for a specific site (scoped to the site's slug) */
+api.get('/api/sites/:id/files', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('id');
+  const site = await dbQueryOne<{ slug: string; current_build_version: string | null }>(
+    c.env.DB,
+    'SELECT slug, current_build_version FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [siteId, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  const prefix = `sites/${site.slug}/`;
+  const version = (c.req.query('version') || site.current_build_version || '').replace(/[^a-zA-Z0-9._-]/g, '');
+  const fullPrefix = version ? `${prefix}${version}/` : prefix;
+
+  const listed = await c.env.SITES_BUCKET.list({ prefix: fullPrefix, limit: 500 });
+  const files = listed.objects.map((obj) => ({
+    key: obj.key,
+    name: obj.key.replace(fullPrefix, ''),
+    size: obj.size,
+    uploaded: obj.uploaded.toISOString(),
+    content_type: obj.httpMetadata?.contentType ?? null,
+  }));
+
+  return c.json({ data: { files, prefix: fullPrefix, version: version || null } });
+});
+
+/** Read a single file from R2 */
+api.get('/api/sites/:id/files/:path{.+}', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('id');
+  const filePath = c.req.param('path');
+  if (!filePath) throw badRequest('File path is required');
+
+  const site = await dbQueryOne<{ slug: string }>(
+    c.env.DB,
+    'SELECT slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [siteId, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  // Validate path stays within the site's R2 scope
+  const fullKey = filePath.startsWith('sites/') ? filePath : `sites/${site.slug}/${filePath}`;
+  if (!fullKey.startsWith(`sites/${site.slug}/`)) {
+    throw forbidden('Access denied to this file path');
+  }
+
+  const object = await c.env.SITES_BUCKET.get(fullKey);
+  if (!object) throw notFound('File not found');
+
+  const content = await object.text();
+  return c.json({
+    data: {
+      key: fullKey,
+      content,
+      size: object.size,
+      content_type: object.httpMetadata?.contentType ?? null,
+    },
+  });
+});
+
+/** Write/update a single file in R2 */
+api.put('/api/sites/:id/files/:path{.+}', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('id');
+  const filePath = c.req.param('path');
+  if (!filePath) throw badRequest('File path is required');
+
+  const site = await dbQueryOne<{ slug: string }>(
+    c.env.DB,
+    'SELECT slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [siteId, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  const fullKey = filePath.startsWith('sites/') ? filePath : `sites/${site.slug}/${filePath}`;
+  if (!fullKey.startsWith(`sites/${site.slug}/`)) {
+    throw forbidden('Access denied to this file path');
+  }
+
+  const body = await c.req.json() as { content: string; content_type?: string };
+  if (typeof body.content !== 'string') throw badRequest('Content must be a string');
+
+  const contentType = body.content_type || (fullKey.endsWith('.html') ? 'text/html' : fullKey.endsWith('.json') ? 'application/json' : fullKey.endsWith('.css') ? 'text/css' : fullKey.endsWith('.js') ? 'application/javascript' : 'text/plain');
+
+  await c.env.SITES_BUCKET.put(fullKey, body.content, {
+    httpMetadata: { contentType },
+  });
+
+  // Invalidate KV cache
+  await c.env.CACHE_KV.delete(`host:${site.slug}-sites.megabyte.space`).catch(() => {});
+
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: c.get('userId') ?? null,
+    action: 'file.updated',
+    target_type: 'site',
+    target_id: siteId,
+    metadata_json: { key: fullKey, size: body.content.length },
+    request_id: c.get('requestId'),
+  });
+
+  return c.json({ data: { key: fullKey, size: body.content.length, updated: true } });
 });
 
 export { api };

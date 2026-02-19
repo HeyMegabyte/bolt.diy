@@ -35,6 +35,18 @@ async function updateSiteStatus(db: D1Database, siteId: string, status: string):
   }
 }
 
+/** Workflow step timing tracker for granular logs. */
+const stepTimers: Record<string, number> = {};
+
+function startTimer(step: string): void {
+  stepTimers[step] = Date.now();
+}
+
+function elapsed(step: string): number {
+  const start = stepTimers[step];
+  return start ? Date.now() - start : 0;
+}
+
 /** Write a workflow audit log entry (best-effort, never throws). */
 async function workflowLog(
   db: D1Database,
@@ -116,6 +128,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     const env = this.env;
 
     // Log workflow start and set status to 'collecting'
+    startTimer('workflow');
     await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.started', {
       slug: params.slug,
       business_name: params.businessName,
@@ -123,16 +136,27 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       google_place_id: params.googlePlaceId ?? null,
       has_additional_context: !!params.additionalContext,
       has_uploaded_assets: !!(params.uploadedAssets && params.uploadedAssets.length),
+      uploaded_asset_count: params.uploadedAssets?.length ?? 0,
+      phase: 'initialization',
     });
 
     // Update site status to 'collecting' for real-time UI
     await updateSiteStatus(env.DB, params.siteId, 'collecting');
 
+    await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.status_update', {
+      status: 'collecting',
+      phase: 'data_collection',
+      message: 'Starting AI-powered business research',
+    });
+
     // ── Step 1: Profile Research ──────────────────────────────
     // Returns JSON-stringified validated profile data
+    startTimer('research-profile');
     await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.profile_research_started', {
       step: 'research-profile',
       business_name: params.businessName,
+      business_address: params.businessAddress ?? '',
+      message: 'Analyzing business type, services, and contact information',
     });
 
     let profileJson: string;
@@ -153,9 +177,14 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         return JSON.stringify(validated);
       });
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
       await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.failed', {
         step: 'research-profile',
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMsg,
+        elapsed_ms: elapsed('research-profile'),
+        message: 'Profile research failed: ' + errorMsg,
+        phase: 'data_collection',
+        recoverable: false,
       });
       await updateSiteStatus(env.DB, params.siteId, 'error');
       throw err;
@@ -166,16 +195,24 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.profile_research_complete', {
       business_type: profile.business_type,
       services_count: profile.services?.length ?? 0,
+      services: profile.services?.map((s) => s.name) ?? [],
       has_email: !!profile.email,
       has_address: !!(profile.address?.city || profile.address?.state),
+      city: profile.address?.city ?? null,
+      state: profile.address?.state ?? null,
+      elapsed_ms: elapsed('research-profile'),
+      message: 'Found business type: ' + profile.business_type + ' · ' + (profile.services?.length ?? 0) + ' services found',
     });
 
     // ── Step 2: Parallel Research ─────────────────────────────
     const servicesJson = JSON.stringify(profile.services.map((s) => s.name));
 
+    startTimer('parallel-research');
     await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.parallel_research_started', {
       steps: ['research-social', 'research-brand', 'research-selling-points', 'research-images'],
       business_type: profile.business_type,
+      message: 'Running 4 parallel research streams: social profiles, brand identity, selling points, and image strategy',
+      phase: 'data_collection',
     });
 
     const socialJsonPromise = step.do('research-social', RETRY_3, async () => {
@@ -239,9 +276,14 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         imagesJsonPromise,
       ]);
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
       await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.failed', {
         step: 'parallel-research',
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMsg,
+        elapsed_ms: elapsed('parallel-research'),
+        message: 'Parallel research failed: ' + errorMsg,
+        phase: 'data_collection',
+        recoverable: false,
       });
       await updateSiteStatus(env.DB, params.siteId, 'error');
       throw err;
@@ -256,17 +298,31 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.parallel_research_complete', {
       has_social: !!social,
       has_website_url: !!social.website_url,
+      website_url: social.website_url ?? null,
       brand_keys: Object.keys(brand),
       selling_points_keys: Object.keys(sellingPoints),
       images_keys: Object.keys(images),
+      elapsed_ms: elapsed('parallel-research'),
+      message: 'Parallel research complete · social' + (social.website_url ? ' (website found)' : '') + ' · brand · USPs · images',
+      phase: 'data_collection',
     });
 
     // Update status to 'generating' — data collection done, now generating HTML
     await updateSiteStatus(env.DB, params.siteId, 'generating');
 
+    await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.status_update', {
+      status: 'generating',
+      phase: 'generation',
+      message: 'Data collection complete — generating website HTML',
+    });
+
     // ── Step 3: Generate Website HTML ─────────────────────────
+    startTimer('generate-website');
     await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.html_generation_started', {
       step: 'generate-website',
+      message: 'Generating complete self-contained HTML website from research data',
+      phase: 'generation',
+      has_uploads: !!(params.uploadedAssets && params.uploadedAssets.length),
     });
 
     let html: string;
@@ -286,22 +342,35 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       return result.output;
     });
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
       await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.failed', {
         step: 'generate-website',
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMsg,
+        elapsed_ms: elapsed('generate-website'),
+        message: 'HTML generation failed: ' + errorMsg,
+        phase: 'generation',
+        recoverable: false,
       });
       await updateSiteStatus(env.DB, params.siteId, 'error');
       throw err;
     }
 
+    const htmlSizeKb = Math.round(html.length / 1024);
     await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.html_generation_complete', {
       html_length: html.length,
+      html_size_kb: htmlSizeKb,
       has_uploads: !!(params.uploadedAssets && params.uploadedAssets.length),
+      elapsed_ms: elapsed('generate-website'),
+      message: 'Website HTML generated · ' + htmlSizeKb + 'KB',
+      phase: 'generation',
     });
 
     // ── Step 4: Legal Pages + Quality Score (parallel) ────────
+    startTimer('legal-scoring');
     await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.legal_scoring_started', {
       steps: ['generate-privacy-page', 'generate-terms-page', 'score-website'],
+      message: 'Generating privacy policy, terms of service, and scoring website quality',
+      phase: 'generation',
     });
 
     const addr = profile.address;
@@ -367,9 +436,14 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         qualityJsonPromise,
       ]);
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
       await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.failed', {
         step: 'legal-and-scoring',
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMsg,
+        elapsed_ms: elapsed('legal-scoring'),
+        message: 'Legal pages / quality scoring failed: ' + errorMsg,
+        phase: 'generation',
+        recoverable: false,
       });
       await updateSiteStatus(env.DB, params.siteId, 'error');
       throw err;
@@ -381,16 +455,29 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       quality_score: quality.overall,
       privacy_html_length: privacyHtml.length,
       terms_html_length: termsHtml.length,
+      elapsed_ms: elapsed('legal-scoring'),
+      message: 'Legal pages generated · Quality score: ' + quality.overall + '/100',
+      phase: 'generation',
     });
 
     // Update status to 'uploading' — generating done, now uploading
     await updateSiteStatus(env.DB, params.siteId, 'uploading');
 
+    await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.status_update', {
+      status: 'uploading',
+      phase: 'deployment',
+      message: 'All content generated — uploading files to storage',
+    });
+
     // ── Step 5: Upload to R2 ──────────────────────────────────
+    startTimer('upload-to-r2');
     await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.upload_started', {
       step: 'upload-to-r2',
       slug: params.slug,
       files: ['index.html', 'privacy.html', 'terms.html', 'research.json'],
+      file_count: 4,
+      message: 'Uploading 4 files to R2 storage: index.html, privacy.html, terms.html, research.json',
+      phase: 'deployment',
     });
 
     let version: string;
@@ -426,9 +513,14 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       },
     );
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
       await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.failed', {
         step: 'upload-to-r2',
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMsg,
+        elapsed_ms: elapsed('upload-to-r2'),
+        message: 'R2 upload failed: ' + errorMsg,
+        phase: 'deployment',
+        recoverable: false,
       });
       await updateSiteStatus(env.DB, params.siteId, 'error');
       throw err;
@@ -438,12 +530,19 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       version,
       slug: params.slug,
       files: ['index.html', 'privacy.html', 'terms.html', 'research.json'],
+      r2_prefix: 'sites/' + params.slug + '/' + version + '/',
+      elapsed_ms: elapsed('upload-to-r2'),
+      message: 'Files uploaded to R2 · Version: ' + version,
+      phase: 'deployment',
     });
 
     // ── Step 6: Update D1 status ──────────────────────────────
+    startTimer('publish');
     await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.publishing_started', {
       step: 'update-site-status',
       version,
+      message: 'Publishing site — updating database to mark as live',
+      phase: 'deployment',
     });
 
     try {
@@ -469,19 +568,30 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       },
     );
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
       await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.failed', {
         step: 'update-site-status',
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMsg,
+        elapsed_ms: elapsed('publish'),
+        message: 'Database publish failed: ' + errorMsg,
+        phase: 'deployment',
+        recoverable: false,
       });
       throw err;
     }
 
+    const totalElapsed = elapsed('workflow');
+    const totalSeconds = Math.round(totalElapsed / 1000);
     await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.completed', {
       slug: params.slug,
       version,
       quality_score: quality.overall,
       pages: ['index.html', 'privacy.html', 'terms.html', 'research.json'],
       url: `https://${params.slug}-sites.megabyte.space`,
+      total_elapsed_ms: totalElapsed,
+      total_seconds: totalSeconds,
+      message: 'Site published successfully · ' + totalSeconds + 's total · Score: ' + quality.overall + '/100',
+      phase: 'complete',
     });
 
     return {
