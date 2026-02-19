@@ -163,17 +163,18 @@ describe('GET /api/domains/search', () => {
     expect(domains).toContain('testbusiness.net');
   });
 
-  it('returns fallback results when Cloudflare API fails', async () => {
+  it('returns fallback results as unavailable when Cloudflare API fails', async () => {
     const { app, env } = createAuthenticatedApp();
     // fetch is already mocked to fail
     const res = await app.request('/api/domains/search?q=mybusiness', {}, env);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.length).toBeGreaterThan(0);
-    // Fallback results should have unverified flag
+    // Fallback results should be marked unavailable with price 0
     for (const r of body.data) {
       expect(r).toHaveProperty('domain');
-      expect(r).toHaveProperty('available');
+      expect(r.available).toBe(false);
+      expect(r.price).toBe(0);
     }
   });
 });

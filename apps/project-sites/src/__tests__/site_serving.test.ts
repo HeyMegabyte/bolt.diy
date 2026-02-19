@@ -107,7 +107,7 @@ describe('serveSiteFromR2', () => {
 
     const response = await serveSiteFromR2(env, baseSite, '/');
     expect(response.status).toBe(200);
-    expect(response.headers.get('Content-Type')).toBe('text/html');
+    expect(response.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
   });
 
   it('does NOT download root path as application/octet-stream', async () => {
@@ -152,7 +152,7 @@ describe('serveSiteFromR2', () => {
 
     const response = await serveSiteFromR2(env, baseSite, '/about');
     expect(response.status).toBe(200);
-    expect(response.headers.get('Content-Type')).toBe('text/html');
+    expect(response.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
   });
 
   it('injects top bar for free plan HTML', async () => {

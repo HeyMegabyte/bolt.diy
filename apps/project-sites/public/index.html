@@ -5490,6 +5490,15 @@
       document.getElementById('domain-add-input').value = '';
       hideMsg('domain-modal-msg');
       loadHostnames(siteId);
+      // Show upgrade CTA on Connect Domain tab if site is on free plan
+      var ctaEl = document.getElementById('domain-connect-upgrade-cta');
+      if (ctaEl) {
+        var site = null;
+        for (var si = 0; si < adminSites.length; si++) {
+          if (adminSites[si].id === siteId) { site = adminSites[si]; break; }
+        }
+        ctaEl.style.display = (site && site.plan !== 'paid') ? 'block' : 'none';
+      }
       // Focus the first input
       setTimeout(function() {
         var firstInput = document.querySelector('#domain-modal input:not([type=hidden])');
@@ -7679,16 +7688,16 @@
           input.addEventListener('input', function() {
             onSlugInput(siteId, currentValue, ctx);
           });
-          // Size input to content width
-          input.style.width = Math.max(40, Math.min(160, currentValue.length * 7 + 16)) + 'px';
+          // Size input to content width using ch units (1ch = exact monospace char width)
+          input.style.width = Math.max(3, currentValue.length) + 'ch';
           input.addEventListener('input', function() {
-            this.style.width = Math.max(40, Math.min(160, this.value.length * 7 + 16)) + 'px';
+            this.style.width = Math.max(3, this.value.length) + 'ch';
           });
         } else {
-          // Size name input to content width (stay inline, don't stretch)
-          input.style.width = Math.max(60, Math.min(220, currentValue.length * 8 + 16)) + 'px';
+          // Size name input to content width using ch (stay inline, don't stretch)
+          input.style.width = Math.max(4, currentValue.length) + 'ch';
           input.addEventListener('input', function() {
-            this.style.width = Math.max(60, Math.min(220, this.value.length * 8 + 16)) + 'px';
+            this.style.width = Math.max(4, this.value.length) + 'ch';
           });
         }
 
@@ -8593,19 +8602,19 @@
       var html = '<div class="domain-results-table">';
 
       // Results heading
-      var availCount = results.filter(function(r) { return r.available; }).length;
+      var availCount = results.filter(function(r) { return r.available && r.price > 0; }).length;
       if (results.length > 0) {
         html += '<div style="padding:4px 6px 10px;font-size:0.72rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">' + availCount + ' available · ' + results.length + ' results</div>';
       }
 
       // Show queried domain first (highlighted)
       if (queriedResult) {
-        var isAvail = queriedResult.available;
+        var isAvail = queriedResult.available && queriedResult.price > 0;
         html += '<div class="domain-result-item ' + (isAvail ? 'domain-available' : 'domain-taken') + '" style="' + (isAvail ? 'border-color:rgba(34,197,94,0.25);background:rgba(34,197,94,0.04);' : '') + '">';
         html += '<div class="domain-result-status">' + (isAvail ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>') + '</div>';
         html += '<div style="flex:1;min-width:0;">';
         html += '<div class="domain-result-name" style="font-weight:700;">' + escapeHtml(queriedResult.domain) + '</div>';
-        if (isAvail) html += '<div class="domain-result-tld">Exact match</div>';
+        if (isAvail) html += '<div class="domain-result-tld">Exact match &middot; Available</div>';
         else html += '<div class="domain-result-tld" style="color:var(--error);">Unavailable</div>';
         html += '</div>';
         html += '<div class="domain-result-price">' + (isAvail ? '$' + ((queriedResult.price || 0) / 100).toFixed(2) + '/yr' : '<span style="color:var(--text-muted);font-weight:400;font-size:0.75rem;">Taken</span>') + '</div>';
@@ -8613,16 +8622,16 @@
         html += '</div>';
       }
 
-      // Show all other results (available AND unavailable)
+      // Show other results — only available domains with real prices
       for (var j = 0; j < otherResults.length; j++) {
         var r = otherResults[j];
-        var rAvail = r.available;
+        var rAvail = r.available && r.price > 0;
         html += '<div class="domain-result-item ' + (rAvail ? 'domain-available' : 'domain-taken') + '">';
         html += '<div class="domain-result-status">' + (rAvail ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>') + '</div>';
         html += '<div style="flex:1;min-width:0;">';
         html += '<div class="domain-result-name">' + escapeHtml(r.domain) + '</div>';
         var tld = r.domain ? '.' + r.domain.split('.').pop() : '';
-        html += '<div class="domain-result-tld">' + escapeHtml(tld) + ' domain</div>';
+        html += '<div class="domain-result-tld">' + (rAvail ? escapeHtml(tld) + ' domain' : 'Unavailable') + '</div>';
         html += '</div>';
         if (rAvail) {
           html += '<div class="domain-result-price">$' + ((r.price || 0) / 100).toFixed(2) + '/yr</div>';

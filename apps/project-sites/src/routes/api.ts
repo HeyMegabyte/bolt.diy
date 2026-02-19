@@ -1540,10 +1540,10 @@ api.get('/api/domains/search', async (c) => {
     // Cloudflare Registrar API may not be available
   }
 
-  // If API returned no results, return candidates as unknown (not falsely "taken")
+  // If API returned no results, return candidates as unknown/unavailable
   if (results.length === 0) {
     for (const candidate of candidates.slice(0, 9)) {
-      results.push({ domain: candidate, available: true, price: 0 });
+      results.push({ domain: candidate, available: false, price: 0 });
     }
   }
 
