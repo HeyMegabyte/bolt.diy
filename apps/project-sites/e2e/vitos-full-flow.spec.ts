@@ -69,7 +69,20 @@ test.describe('Vito\'s Men\'s Salon — Full Flow', () => {
     const detailsScreen = page.locator('#screen-details');
     await expect(detailsScreen).toBeVisible({ timeout: 10_000 });
     await expect(detailsScreen).toHaveClass(/active/);
+    await expect(searchScreen).not.toHaveClass(/active/);
     await expect(page.locator('#details-title')).toContainText(/tell us/i);
+
+    // Business badge should show selected business
+    const badge = page.locator('#details-business-badge');
+    await expect(badge).toBeVisible();
+    await expect(page.locator('#badge-biz-name')).toContainText("Vito's");
+
+    // Textarea should be empty and ready
+    await expect(page.locator('#details-textarea')).toHaveValue('');
+    await expect(page.locator('#details-textarea')).toHaveAttribute('placeholder', /Tell us about your business/);
+
+    // Back link should be visible
+    await expect(detailsScreen.getByText('Back to search')).toBeVisible();
 
     // ── Step 6: Fill in details with sample context ─────────
     const textarea = page.locator('#details-textarea');
@@ -130,9 +143,28 @@ test.describe('Vito\'s Men\'s Salon — Full Flow', () => {
     const waitingScreen = page.locator('#screen-waiting');
     await expect(waitingScreen).toBeVisible({ timeout: 15_000 });
     await expect(waitingScreen).toHaveClass(/active/);
+    await expect(signinScreen).not.toHaveClass(/active/);
+
+    // Waiting screen elements
     await expect(page.locator('.waiting-title')).toContainText(/building/i);
+    await expect(page.locator('.waiting-subtitle')).toContainText(/few minutes/i);
     await expect(page.locator('.waiting-status')).toContainText(/build in progress/i);
     await expect(page.locator('#waiting-contact')).toContainText('vito@example.com');
+
+    // Animated elements
+    await expect(page.locator('.status-dot')).toBeVisible();
+    await expect(page.locator('.waiting-anim')).toBeVisible();
+    await expect(page.locator('.waiting-anim-ring')).toHaveCount(3);
+
+    // Build terminal should be visible with step lines
+    const terminalBody = page.locator('#build-terminal-body');
+    await expect(terminalBody).toBeVisible({ timeout: 5_000 });
+    const terminalLines = terminalBody.locator('.build-terminal-line');
+    const lineCount = await terminalLines.count();
+    expect(lineCount).toBeGreaterThan(5);
+
+    // First line should reference initialization
+    await expect(terminalLines.first()).toContainText(/initializ|pipeline/i);
 
     // ── Step 11: Verify internal state ──────────────────────
     const appState = await page.evaluate(() => {
