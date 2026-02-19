@@ -603,6 +603,63 @@
       background: rgba(239, 68, 68, 0.14);
       border-color: #dc2626;
     }
+    /* Dropdown button group */
+    .site-card-dropdown-wrap {
+      position: relative;
+      flex: 1;
+      display: flex;
+    }
+    .site-card-dropdown-wrap .site-card-btn { border-radius: 6px 0 0 6px; flex: 1; }
+    .site-card-dropdown-toggle {
+      padding: 6px 5px;
+      border-radius: 0 6px 6px 0;
+      border: 1px solid var(--border);
+      border-left: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.6rem;
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
+      display: flex; align-items: center;
+    }
+    .site-card-dropdown-toggle:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(80, 165, 219, 0.06);
+    }
+    .site-card-dropdown-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0; right: 0;
+      background: rgba(15, 15, 42, 0.98);
+      border: 1px solid var(--border-hover);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      z-index: 100;
+      overflow: hidden;
+      min-width: 140px;
+    }
+    .site-card-dropdown-menu.open { display: block; }
+    .site-card-dropdown-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px;
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      background: none; border: none; width: 100%;
+      text-align: left;
+      transition: background 0.15s, color 0.15s;
+    }
+    .site-card-dropdown-item:hover {
+      background: rgba(80,165,219,0.08);
+      color: var(--accent);
+    }
+    .site-card-dropdown-item.danger-item:hover {
+      background: rgba(239,68,68,0.08);
+      color: var(--error);
+    }
+    .site-card-dropdown-item svg { flex-shrink: 0; opacity: 0.7; }
 
     /* New Site Card */
     .site-card-new {
@@ -657,9 +714,9 @@
       border: 1px solid rgba(80, 165, 219, 0.12);
       border-radius: 20px;
       padding: 28px;
-      max-width: 500px;
-      width: 90%;
-      max-height: 80vh;
+      max-width: 700px;
+      width: 95%;
+      max-height: 85vh;
       overflow-y: auto;
       animation: fadeInScale 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
       box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(80, 165, 219, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.03);
@@ -688,111 +745,121 @@
     .modal-close:focus { outline: none; color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
     .modal-close:active { opacity: 0.6; transition: opacity 0.06s; }
 
-    /* Site Logs Modal */
-    .logs-modal { max-width: 860px; width: 95%; max-height: 90vh; padding: 24px; border-radius: 20px; }
+    /* Site Logs Modal — Timeline Design */
+    .logs-modal { max-width: 700px; width: 95%; max-height: 90vh; padding: 24px; border-radius: 20px; }
     .logs-container {
-      background: rgba(8, 8, 22, 0.8);
-      border: 1px solid rgba(80, 165, 219, 0.08);
-      border-radius: 10px;
+      background: rgba(6, 6, 18, 0.85);
+      border: 1px solid rgba(80, 165, 219, 0.06);
+      border-radius: 12px;
       padding: 0;
       max-height: 65vh;
       overflow-y: auto;
       font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
-      font-size: 0.75rem;
-      line-height: 1.6;
+      font-size: 0.72rem;
+      line-height: 1.5;
     }
-    .logs-container::-webkit-scrollbar { width: 6px; }
+    .logs-container::-webkit-scrollbar { width: 5px; }
     .logs-container::-webkit-scrollbar-track { background: transparent; }
-    .logs-container::-webkit-scrollbar-thumb { background: rgba(100, 255, 218, 0.2); border-radius: 3px; }
+    .logs-container::-webkit-scrollbar-thumb { background: rgba(80, 165, 219, 0.15); border-radius: 3px; }
     .logs-empty {
-      padding: 32px;
+      padding: 40px 20px;
       text-align: center;
       color: var(--text-muted);
-      font-style: italic;
+      font-size: 0.8rem;
     }
     .log-entry {
-      display: flex;
-      gap: 10px;
-      padding: 6px 12px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-      align-items: flex-start;
-      transition: background 0.15s ease;
+      display: grid;
+      grid-template-columns: 3px 28px 1fr;
+      gap: 0;
+      padding: 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.025);
+      align-items: stretch;
+      transition: background 0.12s;
     }
-    .log-entry:hover { background: rgba(100, 255, 218, 0.03); }
+    .log-entry:hover { background: rgba(80, 165, 219, 0.025); }
     .log-entry:last-child { border-bottom: none; }
-    .log-ts {
-      color: #6b7280;
-      flex-shrink: 0;
-      white-space: nowrap;
-      min-width: 140px;
-      font-size: 0.68rem;
-      letter-spacing: 0.02em;
-      padding: 2px 8px;
-      background: rgba(107, 114, 128, 0.08);
-      border-radius: 4px;
-      border-left: 2px solid rgba(100, 255, 218, 0.3);
+    .log-edge {
+      border-radius: 2px 0 0 2px;
+    }
+    .log-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 2px;
+      opacity: 0.7;
+    }
+    .log-body {
+      padding: 7px 12px 7px 6px;
+      min-width: 0;
+    }
+    .log-header {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
     }
     .log-action {
       font-weight: 600;
-      flex-shrink: 0;
-      min-width: 140px;
+      font-size: 0.72rem;
+      white-space: nowrap;
     }
-    .log-action.site-created { color: #22c55e; }
-    .log-action.site-deleted { color: #ef4444; }
-    .log-action.site-updated { color: #3b82f6; }
-    .log-action.site-reset { color: #f59e0b; }
-    .log-action.site-deployed { color: #8b5cf6; }
-    .log-action.hostname-provisioned { color: #06b6d4; }
-    .log-action.hostname-unsubscribed { color: #fbbf24; }
-    .log-action.hostname-verified { color: #22c55e; }
-    .log-action.hostname-deprovisioned { color: #ef4444; }
-    .log-action.hostname-deleted { color: #ef4444; }
-    .log-action.hostname-set-primary { color: #a78bfa; }
-    .log-action.workflow-queued { color: #fbbf24; }
-    .log-action.workflow-started { color: var(--accent); }
-    .log-action.workflow-step-profile_research_complete { color: #06b6d4; }
-    .log-action.workflow-step-parallel_research_complete { color: #06b6d4; }
-    .log-action.workflow-step-html_generation_complete { color: #8b5cf6; }
-    .log-action.workflow-step-legal_and_scoring_complete { color: #a78bfa; }
-    .log-action.workflow-step-upload_to_r2_complete { color: #3b82f6; }
-    .log-action.workflow-completed { color: #22c55e; }
-    .log-action.workflow-failed { color: #ef4444; }
-    .log-action.auth-magic_link_verified { color: #06b6d4; }
-    .log-action.auth-google_oauth_verified { color: #06b6d4; }
-    .log-action.default-action { color: var(--text-secondary); }
+    .log-ts {
+      color: rgba(148,163,184,0.5);
+      font-size: 0.62rem;
+      white-space: nowrap;
+      margin-left: auto;
+    }
     .log-meta {
-      color: var(--text-muted);
+      color: rgba(148,163,184,0.55);
+      font-size: 0.65rem;
+      margin-top: 2px;
       word-break: break-word;
-      flex: 1;
+      line-height: 1.4;
     }
     .log-meta code {
-      background: rgba(100, 255, 218, 0.08);
-      padding: 1px 4px;
+      background: rgba(80, 165, 219, 0.08);
+      padding: 1px 5px;
       border-radius: 3px;
-      font-size: 0.68rem;
+      font-size: 0.63rem;
     }
+    /* Log colors by category */
+    .log-c-green .log-edge { background: #22c55e; }
+    .log-c-green .log-action { color: #22c55e; }
+    .log-c-red .log-edge { background: #ef4444; }
+    .log-c-red .log-action { color: #ef4444; }
+    .log-c-blue .log-edge { background: #3b82f6; }
+    .log-c-blue .log-action { color: #3b82f6; }
+    .log-c-amber .log-edge { background: #f59e0b; }
+    .log-c-amber .log-action { color: #f59e0b; }
+    .log-c-purple .log-edge { background: #8b5cf6; }
+    .log-c-purple .log-action { color: #8b5cf6; }
+    .log-c-cyan .log-edge { background: #06b6d4; }
+    .log-c-cyan .log-action { color: #06b6d4; }
+    .log-c-muted .log-edge { background: rgba(148,163,184,0.3); }
+    .log-c-muted .log-action { color: var(--text-secondary); }
     .logs-toolbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       gap: 8px;
     }
     .logs-toolbar .logs-count {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       color: var(--text-muted);
     }
     .logs-toolbar .logs-refresh-btn {
-      background: none;
-      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
       border-radius: 6px;
       color: var(--text-secondary);
       cursor: pointer;
-      padding: 4px 10px;
+      padding: 5px 12px;
       font-size: 0.72rem;
-      transition: border-color 0.2s, color 0.2s;
+      font-weight: 500;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
     }
-    .logs-toolbar .logs-refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .logs-toolbar .logs-refresh-btn:hover { border-color: rgba(80,165,219,0.25); color: var(--accent); background: rgba(80,165,219,0.06); }
 
     .hostname-list {
       display: flex;
@@ -1643,6 +1710,14 @@
     .hostname-status-square.inactive {
       background: #ef4444;
     }
+    .hostname-status-square.pending {
+      background: #fbbf24;
+      animation: pulse-yellow 2s ease-in-out infinite;
+    }
+    @keyframes pulse-yellow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.65; }
+    }
     .hostname-status-square svg { width: 16px; height: 16px; }
 
     /* Hostname chips below URL */
@@ -1662,8 +1737,33 @@
       border-radius: 4px;
       letter-spacing: 0.02em;
     }
-    .hostname-chip.default { background: rgba(148,163,184,0.15); color: #94a3b8; }
-    .hostname-chip.primary { background: rgba(80,165,219,0.15); color: var(--accent); }
+    .hostname-chip.default { background: rgba(148,163,184,0.15); color: #94a3b8; position: relative; cursor: help; }
+    .hostname-chip.primary { background: rgba(80,165,219,0.15); color: var(--accent); position: relative; cursor: help; }
+    .hostname-chip[data-tip]::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15,15,42,0.96);
+      color: var(--text-secondary);
+      font-size: 0.62rem;
+      font-weight: 400;
+      letter-spacing: 0;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 10;
+      max-width: 220px;
+      white-space: normal;
+      text-align: center;
+      line-height: 1.3;
+    }
+    .hostname-chip[data-tip]:hover::after { opacity: 1; }
     .hostname-chip-setprimary {
       font-size: 0.62rem;
       color: var(--accent);
@@ -4120,12 +4220,22 @@
     }
     .files-toolbar-compact .files-breadcrumb {
       font-size: 0.72rem;
-      color: var(--text-muted);
-      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: rgba(148,163,184,0.8);
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
       flex: 1;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      padding: 4px 10px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .files-breadcrumb.editor-filename {
+      color: rgba(148,163,184,0.6);
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+      font-size: 0.7rem;
+      flex: 0 1 auto;
     }
   </style>
 
@@ -4274,7 +4384,7 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
           <div>
             <div style="font-size:0.85rem;color:var(--text-primary);font-weight:600;margin-bottom:3px;">Register a new domain</div>
-            <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.5;">Domains are billed at <span style="color:#22c55e;font-weight:600;">Cloudflare wholesale prices</span> &mdash; no markup.</div>
+            <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.5;">Domains are billed at <span style="display:inline-flex;align-items:center;gap:4px;"><svg width="14" height="14" viewBox="0 0 100 100" style="flex-shrink:0;"><path d="M72.8 42.6c-.3 0-.6.1-.9.1-.2-6.5-5.5-11.7-12.1-11.7-4.2 0-7.9 2.1-10.1 5.4-1.4-1-3.2-1.6-5-1.6-4.8 0-8.7 3.9-8.7 8.7v.4c-4.3 1-7.5 4.8-7.5 9.4 0 5.3 4.3 9.6 9.6 9.6h34.7c5.3 0 9.6-4.3 9.6-9.6 0-5.3-4.3-9.7-9.6-10.7z" fill="#F6821F"/><path d="M66.1 55.9l3.1-10.7c.2-.6.1-1.2-.2-1.7-.3-.5-.8-.8-1.3-.9l-31.4-.8c-.1 0-.2-.1-.3-.1 0-.1 0-.2.1-.3l.6-1.5c.2-.4.5-.6.9-.6l32.2.9c2.8.1 5.7 2.3 6.6 5l1.1 3.3c-1.3-.6-2.8-1-4.3-1h-.6l-.1-.2z" fill="#FAAD3F"/></svg><span style="color:#F6821F;font-weight:700;">CloudFlare</span></span> wholesale prices &mdash; no markup.</div>
           </div>
         </div>
         <div class="domain-search-wrap">
@@ -4309,7 +4419,7 @@
         <div class="editor-toolbar">
           <button class="editor-toolbar-btn" onclick="closeFileEditor()" title="Back to file list"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
           <span class="editor-toolbar-sep"></span>
-          <span id="files-editor-name" class="files-breadcrumb" style="color:var(--accent);"></span>
+          <span id="files-editor-name" class="files-breadcrumb editor-filename"></span>
           <span id="files-editor-size" style="font-size:0.68rem;color:var(--text-muted);"></span>
           <span class="editor-toolbar-sep"></span>
           <button class="editor-toolbar-btn" onclick="editorWordWrap()" title="Toggle word wrap" id="editor-wrap-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h15a3 3 0 1 1 0 6h-4"/><polyline points="16 16 14 18 16 20"/><path d="M3 18h7"/></svg>Wrap</button>
@@ -5087,6 +5197,20 @@
 
   <script>
     /* ===========================================================
+       Unified Analytics (GA + PostHog)
+       =========================================================== */
+    function trackEvent(eventName, props) {
+      // Google Analytics
+      if (typeof gtag === 'function') {
+        gtag('event', eventName, props || {});
+      }
+      // PostHog
+      if (typeof posthog !== 'undefined' && posthog.capture) {
+        posthog.capture(eventName, props || {});
+      }
+    }
+
+    /* ===========================================================
        State Machine
        =========================================================== */
     var state = {
@@ -5191,6 +5315,8 @@
         renderDomainSummary(results[2]);
         // Start real-time polling for building sites
         startSiteStatusPolling();
+        // Auto-reopen domain modal if returning from Stripe
+        checkPendingDomain();
       });
     }
 
@@ -5420,7 +5546,7 @@
           html += '</div>';
         }
 
-        // Action buttons - Row 1 (primary actions)
+        // Action buttons — Row 1: primary actions
         html += '<div class="site-card-actions">';
         if (status === 'published' && siteUrl) {
           html += '<button class="site-card-btn btn-visit" onclick="window.open(\'' + escapeJsString(siteUrl) + '\', \'_blank\')">Visit</button>';
@@ -5428,15 +5554,23 @@
         if (status === 'published' && slug) {
           html += '<button class="site-card-btn" onclick="editSiteInBolt(\'' + escapeJsString(slug) + '\')" title="Edit in AI Editor">AI Edit</button>';
         }
-        html += '<button class="site-card-btn" onclick="openSiteLogsModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\')">Logs</button>';
-        html += '</div>';
-        // Action buttons - Row 2 (management)
-        html += '<div class="site-card-actions">';
         html += '<button class="site-card-btn" onclick="openDomainModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\', \'' + escapeJsString(slug) + '\')">Domains</button>';
+        html += '</div>';
+        // Action buttons — Row 2: management dropdown
+        html += '<div class="site-card-actions">';
         html += '<button class="site-card-btn" onclick="openFilesModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\', \'' + escapeJsString(slug) + '\')">Files</button>';
-        html += '<button class="site-card-btn" onclick="openResetModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\', \'' + escapeJsString(s.business_address || '') + '\', \'' + escapeJsString(s.google_place_id || '') + '\', \'' + escapeJsString(s.additional_context || '') + '\')">Reset</button>';
-        html += '<button class="site-card-btn" onclick="openDeployModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\')">Deploy</button>';
-        html += '<button class="site-card-btn danger" onclick="openDeleteModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\')">Delete</button>';
+        html += '<button class="site-card-btn" onclick="openSiteLogsModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\')">Logs</button>';
+        // "More" dropdown for less-frequent actions
+        html += '<div class="site-card-dropdown-wrap">';
+        html += '<button class="site-card-btn" onclick="toggleCardDropdown(this.parentNode)">More</button>';
+        html += '<button class="site-card-dropdown-toggle" onclick="toggleCardDropdown(this.parentNode)" aria-label="More actions"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button>';
+        html += '<div class="site-card-dropdown-menu">';
+        html += '<button class="site-card-dropdown-item" onclick="openResetModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\', \'' + escapeJsString(s.business_address || '') + '\', \'' + escapeJsString(s.google_place_id || '') + '\', \'' + escapeJsString(s.additional_context || '') + '\');closeAllDropdowns()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/></svg>Reset &amp; Rebuild</button>';
+        html += '<button class="site-card-dropdown-item" onclick="openDeployModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\');closeAllDropdowns()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Deploy ZIP</button>';
+        html += '<button class="site-card-dropdown-item" onclick="openSettingsModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\');closeAllDropdowns()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>Settings</button>';
+        html += '<div style="height:1px;background:rgba(255,255,255,0.05);margin:2px 0;"></div>';
+        html += '<button class="site-card-dropdown-item danger-item" onclick="openDeleteModal(\'' + escapeJsString(s.id) + '\', \'' + escapeJsString(name) + '\');closeAllDropdowns()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Delete Site</button>';
+        html += '</div></div>';
         html += '</div>';
         html += '</div>';
       }
@@ -5448,6 +5582,29 @@
         + '</div>';
 
       grid.innerHTML = html;
+    }
+
+    /* ── Dropdown helpers ─────────────────────────── */
+    function toggleCardDropdown(wrap) {
+      var menu = wrap.querySelector('.site-card-dropdown-menu');
+      if (!menu) return;
+      var wasOpen = menu.classList.contains('open');
+      closeAllDropdowns();
+      if (!wasOpen) menu.classList.add('open');
+    }
+    function closeAllDropdowns() {
+      var menus = document.querySelectorAll('.site-card-dropdown-menu.open');
+      for (var i = 0; i < menus.length; i++) menus[i].classList.remove('open');
+    }
+    // Close dropdowns on outside click
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.site-card-dropdown-wrap')) closeAllDropdowns();
+    });
+
+    /* ── Settings modal (stub) ────────────────────── */
+    function openSettingsModal(siteId, siteName) {
+      // For now, show an info message — this will be expanded
+      showToast('Settings for ' + siteName + ' coming soon', 'info');
     }
 
     function copyUrl(url, btn) {
@@ -5495,6 +5652,7 @@
       document.getElementById('domain-modal').classList.add('visible');
       document.getElementById('domain-add-input').value = '';
       hideMsg('domain-modal-msg');
+      trackEvent('domain_modal_opened', { site_id: siteId, site_name: siteName });
       loadHostnames(siteId);
       // Show upgrade CTA on Connect Domain tab if site is on free plan
       var ctaEl = document.getElementById('domain-connect-upgrade-cta');
@@ -5560,8 +5718,8 @@
             html += '</div>';
             // Chips below URL
             html += '<div class="hostname-chips">';
-            html += '<span class="hostname-chip default">Default</span>';
-            if (cnameIsPrimary) html += '<span class="hostname-chip primary">Primary</span>';
+            html += '<span class="hostname-chip default" data-tip="Free subdomain included with your site. Upgrade for a custom domain.">Default</span>';
+            if (cnameIsPrimary) html += '<span class="hostname-chip primary" data-tip="Your main URL. All other domains redirect here.">Primary</span>';
             else html += '<button class="hostname-chip-setprimary" onclick="resetPrimaryToDefault(\'' + escapeAttr(adminDomainModalSiteId) + '\')">Set as primary</button>';
             html += '</div>';
             html += '</div>';
@@ -5569,15 +5727,25 @@
             html += '</div>';
           }
 
-          // Upgrade CTA if no custom domains
+          // Upgrade CTA: only show if no custom domains AND plan is not paid
           var hasCustom = false;
           for (var ci = 0; ci < hostnames.length; ci++) { if (hostnames[ci].type === 'custom_cname') hasCustom = true; }
-          if (!hasCustom) {
+          var siteForCta = null;
+          for (var csi = 0; csi < adminSites.length; csi++) { if (adminSites[csi].id === adminDomainModalSiteId) siteForCta = adminSites[csi]; }
+          var isPaid = siteForCta && siteForCta.plan === 'paid';
+          var hasSub = adminSubscription && adminSubscription.stripe_customer_id;
+          if (!hasCustom && !isPaid && !hasSub) {
             html += '<div style="margin:8px 0 12px;padding:14px 16px;background:linear-gradient(135deg,rgba(100,255,218,0.04),rgba(124,58,237,0.04));border:1px solid rgba(100,255,218,0.12);border-radius:var(--radius);text-align:center;">';
             html += '<div style="font-size:0.85rem;color:var(--text-primary);font-weight:600;margin-bottom:4px;">Want a custom domain?</div>';
             html += '<div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:10px;">Get a free domain or point your own for <strong style="color:var(--accent);">$50/mo</strong></div>';
             html += '<button class="btn btn-accent" onclick="openBillingCheckout()" style="padding:8px 20px;font-size:0.8rem;">Upgrade Now</button>';
             html += '</div>';
+          }
+          // Domain count limit for custom domains
+          var customCount = 0;
+          for (var cci = 0; cci < hostnames.length; cci++) { if (hostnames[cci].type === 'custom_cname') customCount++; }
+          if (customCount >= 5) {
+            html += '<div style="margin:4px 0 8px;padding:8px 12px;font-size:0.72rem;color:var(--text-muted);background:rgba(255,255,255,0.02);border-radius:8px;text-align:center;">Maximum of 5 custom domains reached.</div>';
           }
 
           if (!hostnames.length && !adminDomainModalSlug) {
@@ -5590,12 +5758,15 @@
             var url = 'https://' + h.hostname;
             var isPrimary = h.is_primary === 1 || h.is_primary === true;
             var isVerified = h.status === 'active' || h.status === 'verified';
+            var isPending = h.status === 'pending' || h.status === 'verification_failed';
             var hasDomainSub = (h.type === 'custom_cname');
             html += '<div class="hostname-item">';
-            // Red/green status square
-            html += '<span class="hostname-status-square ' + (isVerified ? 'active' : 'inactive') + '">';
+            // Green/yellow/red status square
+            html += '<span class="hostname-status-square ' + (isVerified ? 'active' : (isPending ? 'pending' : 'inactive')) + '">';
             if (isVerified) {
               html += '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+            } else if (isPending) {
+              html += '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="6" r="1"/><circle cx="12" cy="18" r="1"/></svg>';
             } else {
               html += '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
             }
@@ -5607,15 +5778,30 @@
               html += '<span class="premium-domain-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>PREMIUM</span>';
             }
             html += '</div>';
+            // CNAME verification status for pending custom domains
+            if (hasDomainSub && isPending) {
+              html += '<div style="margin-top:4px;padding:6px 8px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.15);border-radius:6px;font-size:0.68rem;line-height:1.4;">';
+              html += '<span style="color:#fbbf24;font-weight:600;">CNAME pending</span> <span style="color:var(--text-muted);">&mdash; Point your CNAME to <code style="background:rgba(80,165,219,0.1);padding:1px 5px;border-radius:3px;font-size:0.65rem;color:var(--accent);">sites.megabyte.space</code></span>';
+              html += '<div style="margin-top:4px;color:var(--text-muted);">DNS propagation usually takes 24&ndash;72 hours.</div>';
+              // DomainConnect auto-setup link
+              var dcHost = h.hostname.split('.').slice(-2).join('.');
+              var dcUrl = 'https://domainconnect.org/redirect?domain=' + encodeURIComponent(h.hostname) + '&host=' + encodeURIComponent(h.hostname.split('.')[0]) + '&type=CNAME&value=sites.megabyte.space&ttl=3600';
+              html += '<a href="' + escapeAttr(dcUrl) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;margin-top:5px;font-size:0.65rem;color:#F6821F;font-weight:600;text-decoration:none;" data-tip="Auto-configure CNAME via DomainConnect protocol">';
+              html += '<svg width="12" height="12" viewBox="0 0 100 100" style="flex-shrink:0;"><path d="M72.8 42.6c-.3 0-.6.1-.9.1-.2-6.5-5.5-11.7-12.1-11.7-4.2 0-7.9 2.1-10.1 5.4-1.4-1-3.2-1.6-5-1.6-4.8 0-8.7 3.9-8.7 8.7v.4c-4.3 1-7.5 4.8-7.5 9.4 0 5.3 4.3 9.6 9.6 9.6h34.7c5.3 0 9.6-4.3 9.6-9.6 0-5.3-4.3-9.7-9.6-10.7z" fill="#F6821F"/></svg>';
+              html += 'Auto-setup via CloudFlare</a>';
+              html += '</div>';
+            } else if (hasDomainSub && isVerified) {
+              html += '<div style="margin-top:3px;font-size:0.65rem;color:#22c55e;font-weight:500;">CNAME verified &mdash; connected to sites.megabyte.space</div>';
+            }
             // Chips below URL
             html += '<div class="hostname-chips">';
-            if (isPrimary) html += '<span class="hostname-chip primary">Primary</span>';
+            if (isPrimary) html += '<span class="hostname-chip primary" data-tip="Your main URL. All other domains redirect here.">Primary</span>';
             else html += '<button class="hostname-chip-setprimary" onclick="setPrimaryHostname(\'' + escapeAttr(adminDomainModalSiteId) + '\', \'' + escapeAttr(h.id) + '\')">Set as primary</button>';
             html += '</div>';
             html += '</div>';
             html += '<div style="display:flex;align-items:center;gap:4px;">';
             // Re-verify button for pending/failed hostnames
-            if (h.status === 'pending' || h.status === 'verification_failed') {
+            if (isPending) {
               html += '<button class="hostname-delete-btn" onclick="verifyHostname(\'' + escapeAttr(h.id) + '\')" title="Re-verify domain" style="color:#22c55e;">';
               html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
               html += '</button>';
@@ -5675,19 +5861,29 @@
       var type = hostname.endsWith('sites.megabyte.space') || hostname.endsWith('-sites.megabyte.space')
         ? 'free_subdomain' : 'custom_cname';
 
-      // If custom domain and site is not paid, redirect to checkout directly
+      // If custom domain and site is not paid, store pending domain and redirect to Stripe
       if (type === 'custom_cname') {
         var site = null;
         for (var si = 0; si < adminSites.length; si++) {
           if (adminSites[si].id === siteId) { site = adminSites[si]; break; }
         }
         if (site && site.plan !== 'paid') {
-          closeDomainModal();
+          // Store the pending domain so we can add it after Stripe return
+          localStorage.setItem('ps_pending_domain', JSON.stringify({
+            hostname: hostname, siteId: siteId, siteName: site.business_name || '', siteSlug: site.slug || ''
+          }));
+          showMsg('domain-modal-msg', 'info', 'Redirecting to billing to unlock custom domains\u2026');
+          // Redirect to Stripe checkout (don't close modal — the page navigates away)
           openSiteCheckout(siteId);
           return;
         }
       }
 
+      _postHostname(siteId, hostname, type);
+    }
+
+    function _postHostname(siteId, hostname, type) {
+      var input = document.getElementById('domain-add-input');
       var headers = { 'Content-Type': 'application/json' };
       if (state.session && state.session.token) {
         headers['Authorization'] = 'Bearer ' + state.session.token;
@@ -5714,15 +5910,14 @@
               if (d && d.error) {
                 msg = typeof d.error === 'string' ? d.error : (d.error.message || d.error.code || msg);
               }
-              // Show upgrade CTA if custom domain requires paid plan — redirect to checkout
-              if (res.status === 403) {
-                if (msg.toLowerCase().indexOf('paid') !== -1) {
-                  closeDomainModal();
-                  openSiteCheckout(siteId);
-                } else {
-                  showMsg('domain-modal-msg', 'error', msg);
-                }
-                return null; // Signal to skip the next .then
+              if (res.status === 403 && msg.toLowerCase().indexOf('paid') !== -1) {
+                // Store and redirect to Stripe
+                localStorage.setItem('ps_pending_domain', JSON.stringify({
+                  hostname: hostname, siteId: siteId, siteName: '', siteSlug: ''
+                }));
+                showMsg('domain-modal-msg', 'info', 'Redirecting to billing to unlock custom domains\u2026');
+                openSiteCheckout(siteId);
+                return null;
               }
               throw new Error(msg);
             });
@@ -5731,22 +5926,22 @@
         })
         .then(function(d) {
           if (addBtn) { addBtn.disabled = false; addBtn.textContent = addBtnText; }
-          if (!d) return; // Skipped due to 403 handled above
-          input.value = '';
+          if (!d) return;
+          if (input) input.value = '';
           hideMsg('domain-modal-msg');
           loadHostnames(siteId);
 
-          // Show CNAME status based on result
+          // Show CNAME verification status inline
           var hostnameData = d.data || d;
           if (hostnameData && (hostnameData.status === 'active' || hostnameData.status === 'verified')) {
-            showMsg('domain-modal-msg', 'info', 'Domain added successfully! CNAME verified.');
+            showMsg('domain-modal-msg', 'info', 'Domain added! CNAME verified \u2714');
           } else if (hostnameData && hostnameData.status === 'pending' && hostname) {
             showCnameMonitor(hostname);
+            startCnamePolling(siteId);
           }
         })
         .catch(function(err) {
           if (addBtn) { addBtn.disabled = false; addBtn.textContent = addBtnText; }
-          // For CNAME errors, show detailed diagnostics
           var msg = err.message || 'Failed to add domain';
           if (msg.indexOf('CNAME') !== -1 || msg.indexOf('cname') !== -1) {
             showCnameDiagnostics(hostname, msg);
@@ -5755,6 +5950,43 @@
           }
           showToast(msg, 'error');
         });
+    }
+
+    // Auto-reopen domain modal if returning from Stripe with pending domain
+    function checkPendingDomain() {
+      var pending = localStorage.getItem('ps_pending_domain');
+      if (!pending) return;
+      try {
+        var pd = JSON.parse(pending);
+        localStorage.removeItem('ps_pending_domain');
+        if (pd.siteId) {
+          // Wait for session/data to load, then open the domain modal
+          setTimeout(function() {
+            openDomainModal(pd.siteId, pd.siteName || '', pd.siteSlug || '');
+            // Switch to connect tab
+            switchDomainTab('connect');
+            // If subscription is now active, auto-add the pending hostname
+            setTimeout(function() {
+              _postHostname(pd.siteId, pd.hostname, 'custom_cname');
+            }, 500);
+          }, 1500);
+        }
+      } catch(e) { /* ignore */ }
+    }
+
+    // CNAME polling — keep checking pending hostnames while modal is open
+    var _cnamePollingInterval = null;
+    function startCnamePolling(siteId) {
+      if (_cnamePollingInterval) return;
+      _cnamePollingInterval = setInterval(function() {
+        if (!adminDomainModalSiteId || adminDomainModalSiteId !== siteId) {
+          clearInterval(_cnamePollingInterval);
+          _cnamePollingInterval = null;
+          return;
+        }
+        // Re-fetch hostnames to check for status changes
+        loadHostnames(siteId);
+      }, 15000); // Check every 15 seconds
     }
 
     function toggleHostnameUrl(el) {
@@ -7948,7 +8180,11 @@
             if (previewLink) previewLink.href = 'https://' + value + '-sites.megabyte.space';
             var visitBtn = document.querySelector('#site-card-' + siteId + ' .btn-visit');
             if (visitBtn) visitBtn.setAttribute('onclick', "window.open('https://" + escapeJsString(value) + "-sites.megabyte.space','_blank')");
-            // Update copy/open buttons on both homepage card and domain modal
+            // Re-render domain modal hostnames if open (reflects new slug everywhere)
+            if (adminDomainModalSiteId === siteId) {
+              loadHostnames(siteId);
+            }
+            // Update copy/open buttons on homepage card
             var wrapRow = document.getElementById('inline-slug-wrap-' + siteId);
             if (wrapRow) {
               var copyBtns = wrapRow.querySelectorAll('.site-card-copy-btn');
@@ -7982,6 +8218,7 @@
 
     function openSiteLogsModal(siteId, siteName) {
       siteLogsModalId = siteId;
+      trackEvent('logs_modal_opened', { site_id: siteId });
       var nameEl = document.getElementById('logs-modal-site-name');
       if (nameEl) nameEl.textContent = siteName || siteId;
       document.getElementById('site-logs-modal').classList.add('visible');
@@ -8029,13 +8266,17 @@
             var log = logs[i];
             var ts = log.created_at ? formatLogTimestamp(log.created_at) : '—';
             var action = log.action || 'unknown';
-            var actionClass = action.replace(/\./g, '-');
             var actionLabel = formatActionLabel(action);
             var meta = formatLogMeta(log.metadata_json, action);
-            html += '<div class="log-entry">';
-            html += '<span class="log-ts">' + escapeHtml(ts) + '</span>';
-            html += '<span class="log-action ' + escapeHtml(actionClass) + '">' + escapeHtml(actionLabel) + '</span>';
-            html += '<span class="log-meta">' + meta + '</span>';
+            var colorClass = getLogColorClass(action);
+            var iconSvg = getLogIcon(action);
+            html += '<div class="log-entry ' + colorClass + '">';
+            html += '<div class="log-edge"></div>';
+            html += '<div class="log-icon">' + iconSvg + '</div>';
+            html += '<div class="log-body">';
+            html += '<div class="log-header"><span class="log-action">' + escapeHtml(actionLabel) + '</span><span class="log-ts">' + escapeHtml(ts) + '</span></div>';
+            if (meta) html += '<div class="log-meta">' + meta + '</div>';
+            html += '</div>';
             html += '</div>';
           }
           container.innerHTML = html;
@@ -8073,6 +8314,31 @@
         if (months < 18) return 'a year ago';
         return years + ' years ago';
       } catch (e) { return iso; }
+    }
+
+    function getLogColorClass(action) {
+      if (action.includes('created') || action.includes('verified') || action.includes('completed') || action.includes('published')) return 'log-c-green';
+      if (action.includes('deleted') || action.includes('failed') || action.includes('error')) return 'log-c-red';
+      if (action.includes('reset') || action.includes('queued') || action.includes('warning')) return 'log-c-amber';
+      if (action.includes('generation') || action.includes('deployed') || action.includes('upload')) return 'log-c-purple';
+      if (action.includes('research') || action.includes('auth') || action.includes('hostname') || action.includes('dns')) return 'log-c-cyan';
+      if (action.includes('updated') || action.includes('changed') || action.includes('renamed')) return 'log-c-blue';
+      return 'log-c-muted';
+    }
+
+    function getLogIcon(action) {
+      var s = 'width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+      if (action.includes('created')) return '<svg ' + s + '><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
+      if (action.includes('deleted')) return '<svg ' + s + '><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      if (action.includes('reset')) return '<svg ' + s + '><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+      if (action.includes('generation') || action.includes('html')) return '<svg ' + s + '><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>';
+      if (action.includes('research') || action.includes('profile')) return '<svg ' + s + '><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+      if (action.includes('upload') || action.includes('deploy')) return '<svg ' + s + '><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>';
+      if (action.includes('auth')) return '<svg ' + s + '><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+      if (action.includes('hostname') || action.includes('dns') || action.includes('domain')) return '<svg ' + s + '><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+      if (action.includes('slug') || action.includes('renamed') || action.includes('changed')) return '<svg ' + s + '><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
+      if (action.includes('workflow') || action.includes('step')) return '<svg ' + s + '><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>';
+      return '<svg ' + s + '><circle cx="12" cy="12" r="3"/></svg>';
     }
 
     function formatActionLabel(action) {
@@ -8599,67 +8865,67 @@
         return (a.price || 0) - (b.price || 0);
       });
 
-      // Always show queried domain at top with availability indicator
+      // Separate: exact queried domain vs alternatives
       var queriedDomain = (query || '').toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').trim();
       var queriedResult = null;
-      var otherResults = [];
+      var availableResults = [];
       for (var i = 0; i < results.length; i++) {
         if (results[i].domain && results[i].domain.toLowerCase() === queriedDomain) {
           queriedResult = results[i];
-        } else {
-          otherResults.push(results[i]);
+        } else if (results[i].available && results[i].price > 0) {
+          // Only keep available alternatives (never show "taken" for non-exact matches)
+          availableResults.push(results[i]);
         }
       }
 
       var html = '<div class="domain-results-table">';
 
-      // Results heading
-      var availCount = results.filter(function(r) { return r.available && r.price > 0; }).length;
-      if (results.length > 0) {
-        html += '<div style="padding:4px 6px 10px;font-size:0.72rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">' + availCount + ' available · ' + results.length + ' results</div>';
-      }
-
-      // Show queried domain first (highlighted)
+      // Show exact-match queried domain at top (show taken only for exact match)
       if (queriedResult) {
         var isAvail = queriedResult.available && queriedResult.price > 0;
-        html += '<div class="domain-result-item ' + (isAvail ? 'domain-available' : 'domain-taken') + '" style="' + (isAvail ? 'border-color:rgba(34,197,94,0.25);background:rgba(34,197,94,0.04);' : '') + '">';
-        html += '<div class="domain-result-status">' + (isAvail ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>') + '</div>';
-        html += '<div style="flex:1;min-width:0;">';
-        html += '<div class="domain-result-name" style="font-weight:700;">' + escapeHtml(queriedResult.domain) + '</div>';
-        if (isAvail) html += '<div class="domain-result-tld">Exact match &middot; Available</div>';
-        else html += '<div class="domain-result-tld" style="color:var(--error);">Unavailable</div>';
-        html += '</div>';
-        html += '<div class="domain-result-price">' + (isAvail ? '$' + ((queriedResult.price || 0) / 100).toFixed(2) + '/yr' : '<span style="color:var(--text-muted);font-weight:400;font-size:0.75rem;">Taken</span>') + '</div>';
-        if (isAvail) html += '<button class="btn btn-accent" style="padding:7px 16px;font-size:0.75rem;border-radius:8px;" onclick="selectDomainForPurchase(\'' + escapeAttr(queriedResult.domain) + '\', ' + (queriedResult.price || 0) + ')">Get</button>';
-        html += '</div>';
+        if (isAvail) {
+          html += '<div class="domain-result-item domain-available" style="border-color:rgba(34,197,94,0.25);background:rgba(34,197,94,0.04);">';
+          html += '<div class="domain-result-status"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>';
+          html += '<div style="flex:1;min-width:0;">';
+          html += '<div class="domain-result-name" style="font-weight:700;">' + escapeHtml(queriedResult.domain) + '</div>';
+          html += '<div class="domain-result-tld">Exact match &middot; Available</div>';
+          html += '</div>';
+          html += '<div class="domain-result-price">$' + ((queriedResult.price || 0) / 100).toFixed(2) + '/yr</div>';
+          html += '<button class="btn btn-accent" style="padding:7px 16px;font-size:0.75rem;border-radius:8px;" onclick="selectDomainForPurchase(\'' + escapeAttr(queriedResult.domain) + '\', ' + (queriedResult.price || 0) + ')">Get</button>';
+          html += '</div>';
+        } else {
+          // Show taken notice for exact match only
+          html += '<div style="padding:12px 14px;margin-bottom:8px;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.12);border-radius:10px;display:flex;align-items:center;gap:10px;">';
+          html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+          html += '<div style="flex:1;"><span style="font-weight:600;color:var(--text-primary);font-size:0.82rem;">' + escapeHtml(queriedResult.domain) + '</span> <span style="color:var(--text-muted);font-size:0.75rem;">is already registered.</span></div>';
+          html += '</div>';
+        }
       }
 
-      // Show other results — only available domains with real prices
-      for (var j = 0; j < otherResults.length; j++) {
-        var r = otherResults[j];
-        var rAvail = r.available && r.price > 0;
-        html += '<div class="domain-result-item ' + (rAvail ? 'domain-available' : 'domain-taken') + '">';
-        html += '<div class="domain-result-status">' + (rAvail ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>') + '</div>';
-        html += '<div style="flex:1;min-width:0;">';
-        html += '<div class="domain-result-name">' + escapeHtml(r.domain) + '</div>';
-        var tld = r.domain ? '.' + r.domain.split('.').pop() : '';
-        html += '<div class="domain-result-tld">' + (rAvail ? escapeHtml(tld) + ' domain' : 'Unavailable') + '</div>';
-        html += '</div>';
-        if (rAvail) {
+      // Show only available alternative domains
+      if (availableResults.length > 0) {
+        html += '<div style="padding:4px 6px 10px;font-size:0.72rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">' + availableResults.length + ' available domain' + (availableResults.length !== 1 ? 's' : '') + '</div>';
+        for (var j = 0; j < availableResults.length; j++) {
+          var r = availableResults[j];
+          var tld = r.domain ? '.' + r.domain.split('.').pop() : '';
+          html += '<div class="domain-result-item domain-available">';
+          html += '<div class="domain-result-status"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>';
+          html += '<div style="flex:1;min-width:0;">';
+          html += '<div class="domain-result-name">' + escapeHtml(r.domain) + '</div>';
+          html += '<div class="domain-result-tld">' + escapeHtml(tld) + ' domain</div>';
+          html += '</div>';
           html += '<div class="domain-result-price">$' + ((r.price || 0) / 100).toFixed(2) + '/yr</div>';
           html += '<button class="btn btn-accent" style="padding:7px 16px;font-size:0.75rem;border-radius:8px;" onclick="selectDomainForPurchase(\'' + escapeAttr(r.domain) + '\', ' + (r.price || 0) + ')">Get</button>';
-        } else {
-          html += '<div class="domain-result-price"><span style="color:var(--text-muted);font-weight:400;font-size:0.75rem;">Taken</span></div>';
+          html += '</div>';
         }
+      } else if (!queriedResult || !(queriedResult.available && queriedResult.price > 0)) {
+        // No available domains and queried was taken/missing
+        html += '<div style="padding:20px;color:var(--text-muted);font-size:0.82rem;text-align:center;">';
+        html += '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:8px;opacity:0.4;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><br>';
+        html += 'No matching domains available. Try a different name.';
         html += '</div>';
       }
 
-      if (!queriedResult && !results.length) {
-        html += '<div style="padding:20px;color:var(--text-muted);font-size:0.85rem;text-align:center;">';
-        html += '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:8px;opacity:0.5;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><br>';
-        html += 'No domains found. Try a different name.';
-        html += '</div>';
-      }
       html += '</div>';
       container.innerHTML = html;
       container.classList.add('open');
@@ -8718,12 +8984,14 @@
     var filesModalCurrentKey = null;
 
     function openFilesModal(siteId, siteName, slug) {
+      trackEvent('files_modal_opened', { site_id: siteId, slug: slug });
       filesModalSiteId = siteId;
       filesModalSlug = slug;
       document.getElementById('files-modal-title').textContent = 'Files: ' + siteName;
       document.getElementById('files-modal').classList.add('visible');
       document.getElementById('files-editor').style.display = 'none';
       document.getElementById('files-list').style.display = '';
+      document.getElementById('files-toolbar').style.display = '';
       loadFilesForSite();
     }
 
@@ -8770,10 +9038,55 @@
             if (isEditable) html += '<span style="font-size:0.6rem;color:var(--accent);flex-shrink:0;padding:2px 6px;border:1px solid var(--accent-dim);border-radius:4px;">Edit</span>';
             html += '</div>';
           }
+          // Add new file button
+          html += '<div class="file-item" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;transition:background 0.15s;border-top:1px solid rgba(255,255,255,0.06);" onclick="promptNewFile()" onmouseover="this.style.background=\'rgba(34,197,94,0.04)\'" onmouseout="this.style.background=\'transparent\'">';
+          html += '<span style="color:#22c55e;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>';
+          html += '<span style="flex:1;font-size:0.78rem;color:#22c55e;font-weight:500;">Add new file</span>';
+          html += '</div>';
           list.innerHTML = html;
         })
         .catch(function(err) {
           list.innerHTML = '<div style="padding:16px;color:var(--error);font-size:0.85rem;">' + escapeHtml(err.message) + '</div>';
+        });
+    }
+
+    function promptNewFile() {
+      var path = prompt('Enter file path (e.g. styles/custom.css):');
+      if (!path || !path.trim()) return;
+      path = path.trim().replace(/^\/+/, '');
+      if (!/^[a-zA-Z0-9._\-\/]+$/.test(path)) {
+        alert('Invalid file path. Use only letters, numbers, dots, hyphens, underscores, and forward slashes.');
+        return;
+      }
+      createNewFile(path);
+    }
+
+    function createNewFile(relativePath) {
+      if (!filesModalSiteId || !state.session || !state.session.token) return;
+      var prefix = document.getElementById('files-breadcrumb').textContent || '';
+      var fullKey = prefix + relativePath;
+
+      fetch('/api/sites/' + filesModalSiteId + '/files/' + encodeURIComponent(fullKey), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + state.session.token
+        },
+        body: JSON.stringify({ content: '' })
+      })
+        .then(function(r) {
+          if (!r.ok) return r.json().then(function(d) { throw new Error(extractErrorMsg(d, 'Failed to create file')); });
+          return r.json();
+        })
+        .then(function() {
+          // Reload file list then open the new file for editing
+          loadFilesForSite();
+          setTimeout(function() {
+            openFileForEdit(fullKey, relativePath.split('/').pop());
+          }, 500);
+        })
+        .catch(function(err) {
+          alert('Error: ' + err.message);
         });
     }
 
@@ -8879,7 +9192,9 @@
       var langEl = document.getElementById('files-editor-lang');
       if (langEl) {
         var langMap = { 'htmlmixed': 'HTML', 'css': 'CSS', 'javascript': 'JavaScript', 'application/json': 'JSON', 'xml': 'XML' };
-        langEl.textContent = langMap[mode] || mode || 'Text';
+        var modeKey = (typeof mode === 'object' && mode !== null) ? mode.name : mode;
+        var isJson = (typeof mode === 'object' && mode !== null && mode.json);
+        langEl.textContent = isJson ? 'JSON' : (langMap[modeKey] || modeKey || 'Text');
       }
       var editor = ensureCMEditor(mode);
       if (editor) {
