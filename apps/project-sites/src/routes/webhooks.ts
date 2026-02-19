@@ -162,7 +162,8 @@ webhooks.post('/webhooks/stripe', async (c) => {
     }
 
     // Log audit
-    const orgId = (event.data.object.metadata as Record<string, string> | undefined)?.org_id;
+    const objMeta = event.data.object.metadata as Record<string, string> | undefined;
+    const orgId = objMeta?.org_id;
     if (orgId) {
       await auditService.writeAuditLog(db, {
         org_id: orgId,
@@ -170,7 +171,11 @@ webhooks.post('/webhooks/stripe', async (c) => {
         action: `webhook.stripe.${event.type}`,
         target_type: 'webhook',
         target_id: event.id,
-        metadata_json: { event_type: event.type },
+        metadata_json: {
+          event_type: event.type,
+          site_id: objMeta?.site_id ?? null,
+          message: 'Stripe webhook: ' + event.type,
+        },
         request_id: requestId,
       });
     }
