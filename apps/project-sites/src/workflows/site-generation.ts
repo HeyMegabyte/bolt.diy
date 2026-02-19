@@ -23,6 +23,18 @@ import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types/env.js';
 import { extractJsonFromText } from '../services/ai_workflows.js';
 
+/** Update site status in D1 (best-effort, never throws). */
+async function updateSiteStatus(db: D1Database, siteId: string, status: string): Promise<void> {
+  try {
+    await db
+      .prepare('UPDATE sites SET status = ?, updated_at = datetime(\'now\') WHERE id = ?')
+      .bind(status, siteId)
+      .run();
+  } catch {
+    // Best-effort — workflow must not fail due to status update errors
+  }
+}
+
 /** Write a workflow audit log entry (best-effort, never throws). */
 async function workflowLog(
   db: D1Database,
@@ -103,7 +115,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     const params = event.payload;
     const env = this.env;
 
-    // Log workflow start
+    // Log workflow start and set status to 'collecting'
     await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.started', {
       slug: params.slug,
       business_name: params.businessName,
@@ -112,6 +124,9 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       has_additional_context: !!params.additionalContext,
       has_uploaded_assets: !!(params.uploadedAssets && params.uploadedAssets.length),
     });
+
+    // Update site status to 'collecting' for real-time UI
+    await updateSiteStatus(env.DB, params.siteId, 'collecting');
 
     // ── Step 1: Profile Research ──────────────────────────────
     // Returns JSON-stringified validated profile data
@@ -216,6 +231,9 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       images_keys: Object.keys(images),
     });
 
+    // Update status to 'generating' — data collection done, now generating HTML
+    await updateSiteStatus(env.DB, params.siteId, 'generating');
+
     // ── Step 3: Generate Website HTML ─────────────────────────
     const html = await step.do('generate-website', RETRY_HTML, async () => {
       const { runPrompt } = await import('../services/ai_workflows.js');
@@ -306,6 +324,9 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       privacy_html_length: privacyHtml.length,
       terms_html_length: termsHtml.length,
     });
+
+    // Update status to 'uploading' — generating done, now uploading
+    await updateSiteStatus(env.DB, params.siteId, 'uploading');
 
     // ── Step 5: Upload to R2 ──────────────────────────────────
     const version = await step.do(
