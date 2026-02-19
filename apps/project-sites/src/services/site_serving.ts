@@ -96,6 +96,7 @@ export async function resolveSite(
   const cached = await env.CACHE_KV.get(cacheKey, 'json');
 
   if (cached) {
+    console.warn(JSON.stringify({ level: 'debug', service: 'site_serving', message: 'KV cache hit', hostname }));
     return cached as {
       site_id: string;
       slug: string;
@@ -210,6 +211,7 @@ export async function resolveSite(
     }
   }
 
+  console.warn(JSON.stringify({ level: 'debug', service: 'site_serving', message: 'Site not found for hostname', hostname }));
   return null;
 }
 

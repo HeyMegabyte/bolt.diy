@@ -881,6 +881,17 @@ api.post('/api/billing/portal', async (c) => {
   }
 
   const result = await billingService.createBillingPortalSession(c.env, sub.stripe_customer_id, returnUrl);
+
+  auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: c.get('userId') ?? null,
+    action: 'billing.portal_opened',
+    target_type: 'billing',
+    target_id: orgId,
+    metadata_json: { stripe_customer_id: sub.stripe_customer_id },
+    request_id: c.get('requestId'),
+  }).catch(() => {});
+
   return c.json({ data: result });
 });
 
@@ -1219,6 +1230,27 @@ api.patch('/api/sites/:id', async (c) => {
       .slice(0, 100);
 
     if (newSlug && newSlug !== site.slug) {
+      // Rate limit: max 10 slug changes per hour per site
+      const slugChangeCount = await dbQueryOne<{ cnt: number }>(
+        c.env.DB,
+        `SELECT COUNT(*) as cnt FROM audit_logs
+         WHERE target_id = ? AND action = 'site.slug_changed'
+         AND created_at > datetime('now', '-1 hour')`,
+        [siteId],
+      );
+      if (slugChangeCount && slugChangeCount.cnt >= 10) {
+        throw badRequest('Slug change rate limit exceeded. Maximum 10 changes per hour.');
+      }
+
+      // Check if there's an ongoing R2 migration (lock via KV)
+      const migrationLockKey = `slug_migration:${siteId}`;
+      const lockValue = await c.env.CACHE_KV.get(migrationLockKey);
+      if (lockValue) {
+        throw badRequest('A slug change is already in progress. Please wait for it to complete.');
+      }
+      // Set migration lock (auto-expires in 120s)
+      await c.env.CACHE_KV.put(migrationLockKey, 'locked', { expirationTtl: 120 });
+
       // Check uniqueness
       const existing = await dbQueryOne<{ id: string }>(
         c.env.DB,
@@ -1318,6 +1350,8 @@ api.patch('/api/sites/:id', async (c) => {
           request_id: c.get('requestId'),
         }).catch(() => {});
       }
+      // Release migration lock
+      await c.env.CACHE_KV.delete(`slug_migration:${siteId}`).catch(() => {});
     }
   }
 
@@ -2167,6 +2201,17 @@ api.delete('/api/admin/domains/:hostnameId', async (c) => {
 api.post('/api/contact', async (c) => {
   const body = await c.req.json();
   await contactService.handleContactForm(c.env, body);
+
+  auditService.writeAuditLog(c.env.DB, {
+    org_id: 'system',
+    actor_id: c.get('userId') ?? null,
+    action: 'contact.form_submitted',
+    target_type: 'contact',
+    target_id: 'system',
+    metadata_json: { email: typeof body.email === 'string' ? body.email : 'unknown' },
+    request_id: c.get('requestId'),
+  }).catch(() => {});
+
   return c.json({ data: { success: true } });
 });
 
