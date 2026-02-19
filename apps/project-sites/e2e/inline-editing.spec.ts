@@ -495,7 +495,7 @@ test.describe('Inline Edit Button Styling', () => {
 });
 
 test.describe('Slug Editable Click Target', () => {
-  test('slug-editable CSS rule has cursor pointer', async ({ page }) => {
+  test('slug-editable CSS rule has cursor text (click to edit)', async ({ page }) => {
     await page.goto('/');
 
     const hasCursor = await page.evaluate(() => {
@@ -510,7 +510,7 @@ test.describe('Slug Editable Click Target', () => {
               rule.selectorText.includes('.slug-editable') &&
               !rule.selectorText.includes(':hover')
             ) {
-              return rule.style.cursor === 'pointer';
+              return rule.style.cursor === 'text';
             }
           }
         } catch {

@@ -504,15 +504,29 @@
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       font-weight: 600;
       padding: 3px 8px;
       border-radius: 4px;
       width: fit-content;
+      flex-shrink: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
     .site-card-status.published { background: rgba(34, 197, 94, 0.12); color: #22c55e; }
-    .site-card-status.building { background: rgba(251, 191, 36, 0.12); color: #fbbf24; }
+    .site-card-status.building, .site-card-status.queued { background: rgba(251, 191, 36, 0.12); color: #fbbf24; }
+    .site-card-status.collecting { background: rgba(80, 165, 219, 0.12); color: var(--accent); }
+    .site-card-status.generating { background: rgba(124, 58, 237, 0.12); color: #a78bfa; }
+    .site-card-status.uploading { background: rgba(34, 197, 94, 0.12); color: #4ade80; }
+    .site-card-status.error, .site-card-status.failed { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
     .site-card-status.draft { background: rgba(148, 163, 184, 0.12); color: #94a3b8; }
+    /* Status + title row */
+    .site-card-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
     .site-card-domain {
       font-size: 0.75rem;
       color: var(--text-muted);
@@ -546,17 +560,16 @@
       border-color: var(--accent);
       color: var(--accent);
       background: rgba(80, 165, 219, 0.06);
-      transform: translateY(-1px);
       box-shadow: 0 2px 8px rgba(80, 165, 219, 0.12);
     }
-    .site-card-btn:focus {
+    .site-card-btn:focus-visible {
       outline: none;
       border-color: var(--accent);
       box-shadow: 0 0 0 2px var(--accent-dim), 0 0 12px rgba(80, 165, 219, 0.1);
     }
+    .site-card-btn:focus:not(:focus-visible) { outline: none; }
     .site-card-btn:active {
-      transform: translateY(1px) scale(0.96);
-      background: rgba(80, 165, 219, 0.12);
+      background: rgba(80, 165, 219, 0.14);
       border-color: #4ecdc4;
       box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.15);
       transition-duration: 0.08s;
@@ -567,8 +580,11 @@
       background: rgba(239, 68, 68, 0.06);
       box-shadow: 0 2px 8px rgba(239, 68, 68, 0.12);
     }
+    .site-card-btn.danger:focus-visible {
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
+    }
     .site-card-btn.danger:active {
-      background: rgba(239, 68, 68, 0.12);
+      background: rgba(239, 68, 68, 0.14);
       border-color: #dc2626;
     }
 
@@ -945,9 +961,14 @@
       100% { opacity: 0; transform: translateY(-4px); }
     }
     .site-card-date {
+      display: flex;
+      justify-content: space-between;
       font-size: 0.7rem;
       color: var(--text-muted);
       opacity: 0.6;
+    }
+    .site-card-date-modified {
+      text-align: right;
     }
     .admin-empty {
       text-align: center;
@@ -1135,13 +1156,15 @@
       min-width: 60px;
       max-width: 220px;
       padding: 0;
+      margin: 0;
       border: none;
-      border-bottom: 1px dashed var(--accent);
       border-radius: 0;
       background: transparent;
       color: inherit;
       font-size: inherit;
+      font-weight: inherit;
       font-family: inherit;
+      line-height: inherit;
       outline: none;
       box-shadow: none;
       caret-color: var(--accent);
@@ -1187,18 +1210,11 @@
       font-family: inherit;
       font-size: inherit;
       color: inherit;
-      border-bottom: 1px dashed currentColor;
-      padding-bottom: 0;
-      cursor: pointer;
+      cursor: text;
       transition: color 0.15s;
     }
     .inline-edit-wrap.inline-edit-inline .slug-editable:hover {
       color: #4ecdc4;
-    }
-    .inline-edit-wrap.inline-edit-inline .inline-edit-btn {
-      vertical-align: middle;
-      padding: 0 1px;
-      opacity: 0.75;
     }
     .inline-edit-wrap.inline-edit-inline .inline-input {
       display: inline;
@@ -1381,13 +1397,13 @@
       display: none;
     }
     .domain-search-results.open { display: block; }
-    .domain-results-table { padding: 4px 0; }
+    .domain-results-table { padding: 0; }
     .domain-result-item {
-      padding: 10px 14px;
+      padding: 10px 0;
       display: flex;
       align-items: center;
       gap: 10px;
-      border-bottom: 1px solid rgba(255,255,255,0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
       transition: background 0.15s;
     }
     .domain-result-item:last-child { border-bottom: none; }
@@ -1435,6 +1451,146 @@
       border-bottom-color: var(--accent);
     }
     .domain-tab:hover { color: var(--text-primary); }
+    .domain-tab:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent-dim); }
+    .domain-tab:active { opacity: 0.7; }
+
+    /* Hostname status squares */
+    .hostname-status-square {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .hostname-status-square.active {
+      background: #22c55e;
+    }
+    .hostname-status-square.inactive {
+      background: #ef4444;
+    }
+    .hostname-status-square svg { width: 12px; height: 12px; }
+
+    /* Hostname chips below URL */
+    .hostname-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .hostname-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.02em;
+    }
+    .hostname-chip.default { background: rgba(148,163,184,0.15); color: #94a3b8; }
+    .hostname-chip.primary { background: rgba(80,165,219,0.15); color: var(--accent); }
+    .hostname-chip-setprimary {
+      font-size: 0.62rem;
+      color: var(--accent);
+      text-decoration: underline;
+      cursor: pointer;
+      margin-left: 4px;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit;
+    }
+    .hostname-chip-setprimary:hover { color: #4ecdc4; }
+
+    /* AI Validation Tooltip */
+    .ai-validation-tooltip {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(80, 165, 219, 0.95);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 6px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 100;
+      animation: tooltip-fade 0.3s ease;
+    }
+    .ai-validation-tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: rgba(80, 165, 219, 0.95);
+    }
+    @keyframes tooltip-fade {
+      from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    /* Login page centered layout */
+    .screen-signin-centered {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - 60px);
+      padding: 24px 16px;
+    }
+    .signin-content-centered {
+      width: 100%;
+      max-width: 400px;
+    }
+    .signin-footer-fixed {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      text-align: center;
+      padding: 12px 16px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      background: var(--bg-primary);
+      border-top: 1px solid var(--border);
+      z-index: 10;
+    }
+    @media (max-height: 600px) {
+      .signin-footer-fixed {
+        position: static;
+        margin-top: 24px;
+      }
+      .screen-signin-centered {
+        min-height: auto;
+      }
+    }
+
+    /* Gorgeous button states - global refinements */
+    .btn:focus-visible, .admin-btn:focus-visible, .header-auth-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--accent-dim), 0 0 16px rgba(80, 165, 219, 0.15);
+    }
+    .btn:focus:not(:focus-visible), .admin-btn:focus:not(:focus-visible) { outline: none; }
+    .hostname-delete-btn {
+      transition: color 0.2s, opacity 0.2s, background 0.2s;
+      border-radius: 4px;
+    }
+    .hostname-delete-btn:hover {
+      background: rgba(255,255,255,0.06);
+    }
+    .hostname-delete-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--accent-dim);
+    }
+    .hostname-delete-btn:active {
+      opacity: 0.6;
+    }
 
     /* ======================================================
        Details Business Name Search
@@ -4513,6 +4669,8 @@
         renderAdminSites();
         renderAdminBilling();
         renderDomainSummary(results[2]);
+        // Start real-time polling for building sites
+        startSiteStatusPolling();
       });
     }
 
@@ -4537,6 +4695,66 @@
     function hideAdminDashboard() {
       var panel = document.getElementById('admin-panel');
       if (panel) panel.classList.remove('visible');
+    }
+
+    /** Map a site status to a human-readable label for the status badge. */
+    function mapStatusLabel(status) {
+      var labels = {
+        'published': 'Live',
+        'building': 'Building',
+        'queued': 'Queued',
+        'collecting': 'Collecting Data',
+        'generating': 'Generating',
+        'uploading': 'Uploading',
+        'error': 'Error',
+        'failed': 'Error',
+        'draft': 'Draft'
+      };
+      return labels[status] || status.charAt(0).toUpperCase() + status.slice(1);
+    }
+
+    /** Map a site status to its CSS class. */
+    function mapStatusClass(status) {
+      if (status === 'failed') return 'error';
+      return status;
+    }
+
+    /** Real-time status polling for building sites (lightweight, 5s interval). */
+    var siteStatusPollTimer = null;
+    function startSiteStatusPolling() {
+      stopSiteStatusPolling();
+      siteStatusPollTimer = setInterval(function() {
+        if (!state.session || !state.session.token) return;
+        if (!adminSites || !adminSites.length) return;
+        var buildingSites = adminSites.filter(function(s) {
+          return s.status === 'building' || s.status === 'queued' || s.status === 'collecting' || s.status === 'generating' || s.status === 'uploading';
+        });
+        if (!buildingSites.length) { stopSiteStatusPolling(); return; }
+        // Fetch fresh site data
+        fetch('/api/sites', { headers: { 'Authorization': 'Bearer ' + state.session.token } })
+          .then(function(r) { return r.ok ? r.json() : { data: [] }; })
+          .then(function(d) {
+            var freshSites = d.data || [];
+            var changed = false;
+            for (var i = 0; i < freshSites.length; i++) {
+              for (var j = 0; j < adminSites.length; j++) {
+                if (freshSites[i].id === adminSites[j].id && freshSites[i].status !== adminSites[j].status) {
+                  adminSites[j].status = freshSites[i].status;
+                  adminSites[j].updated_at = freshSites[i].updated_at;
+                  changed = true;
+                }
+              }
+            }
+            if (changed) {
+              state._adminSites = adminSites;
+              renderAdminSites();
+            }
+          })
+          .catch(function() {});
+      }, 5000);
+    }
+    function stopSiteStatusPolling() {
+      if (siteStatusPollTimer) { clearInterval(siteStatusPollTimer); siteStatusPollTimer = null; }
     }
 
     function renderAdminSites() {
@@ -4595,10 +4813,13 @@
         var slug = s.slug || '';
         var defaultUrl = slug ? 'https://' + slug + '-sites.megabyte.space' : '';
         var siteUrl = s.primary_hostname ? 'https://' + s.primary_hostname : defaultUrl;
-        var statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
         var created = s.created_at ? new Date(s.created_at).toLocaleDateString() : '';
 
-        html += '<div class="site-card">';
+        // Map status to display label
+        var statusLabel = mapStatusLabel(status);
+        var statusClass = mapStatusClass(status);
+
+        html += '<div class="site-card" id="site-card-' + s.id + '" data-site-id="' + s.id + '">';
 
         // Preview thumbnail
         html += '<div class="site-card-preview">';
@@ -4606,9 +4827,12 @@
           html += '<iframe src="' + escapeHtml(siteUrl) + '" loading="lazy" sandbox tabindex="-1"></iframe>';
         } else {
           html += '<div class="site-card-preview-placeholder">';
-          if (status === 'building') {
+          if (status === 'building' || status === 'queued') {
             html += '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="1.5"><path d="M12 2v4m0 12v4m-7-10H1m22 0h-4m-2.636-6.364L14.95 7.05m-5.9 9.9l-1.414 1.414m0-12.728L9.05 7.05m5.9 9.9l1.414 1.414"/></svg>';
-            html += '<div style="font-size:0.65rem;margin-top:6px;color:#fbbf24;">Building...</div>';
+            html += '<div style="font-size:0.65rem;margin-top:6px;color:#fbbf24;">' + escapeHtml(statusLabel) + '</div>';
+          } else if (status === 'error' || status === 'failed') {
+            html += '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+            html += '<div style="font-size:0.65rem;margin-top:6px;color:#ef4444;">Error</div>';
           } else {
             html += '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>';
             html += '<div style="font-size:0.65rem;margin-top:6px;">Draft</div>';
@@ -4628,34 +4852,33 @@
         }
         html += '</div>';
 
+        // Status badge + Site name row (status left of title)
+        html += '<div class="site-card-title-row">';
+        html += '<div class="site-card-status ' + statusClass + '">';
+        if (status === 'published') html += '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+        if (status === 'building' || status === 'queued') html += '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+        if (status === 'error' || status === 'failed') html += '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        html += statusLabel + '</div>';
         // Site name — inline editable (click title to edit)
-        html += '<div class="inline-edit-wrap" id="inline-name-' + s.id + '">';
+        html += '<div class="inline-edit-wrap" id="inline-name-' + s.id + '" style="flex:1;min-width:0;">';
         html += '<span class="inline-text site-card-name" tabindex="0" role="button" title="' + escapeHtml(name) + '" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'name\', \'' + escapeJsString(name) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(s.id) + '\', \'name\', \'' + escapeJsString(name) + '\')}" style="cursor:pointer;">' + escapeHtml(name) + '</span>';
         html += '<button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'name\', \'' + escapeJsString(name) + '\')" title="Edit title" aria-label="Edit title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>';
         html += '</div>';
+        html += '</div>';
 
-        // Status badge
-        html += '<div class="site-card-status ' + status + '">';
-        if (status === 'published') html += '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
-        if (status === 'building') html += '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
-        html += statusLabel + '</div>';
-
-        // Slug — displayed as embedded editable part of the URL line
-        // Combines: slug editor, URL display, and CNAME into a single line
+        // Slug — displayed as URL with copy button floating right (no edit icon)
         if (slug) {
           var cnameHost = slug + '-sites.megabyte.space';
           var cnameUrl = 'https://' + cnameHost;
           html += '<div class="site-card-url-row" id="inline-slug-wrap-' + s.id + '">';
-          html += '<span class="inline-slug-url status-default" id="inline-slug-url-' + s.id + '">https://<span class="inline-edit-wrap inline-edit-inline" id="inline-slug-' + s.id + '"><span class="inline-text slug-editable" tabindex="0" role="button" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')}">' + escapeHtml(slug) + '</span><button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')" title="Edit slug" aria-label="Edit slug"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></span>-sites.megabyte.space</span>';
+          html += '<span class="inline-slug-url status-default" id="inline-slug-url-' + s.id + '">https://<span class="inline-edit-wrap inline-edit-inline" id="inline-slug-' + s.id + '"><span class="inline-text slug-editable" tabindex="0" role="button" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')}">' + escapeHtml(slug) + '</span></span>-sites.megabyte.space</span>';
           html += '<button class="site-card-copy-btn" onclick="copyUrl(\'' + escapeAttr(cnameUrl) + '\', this)" title="Copy URL"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
           html += '</div>';
           // If custom primary domain, show it separately
           var hasPrimaryCustom = s.primary_hostname && s.primary_hostname !== cnameHost;
           if (hasPrimaryCustom) {
             var primaryUrl = 'https://' + s.primary_hostname;
-            var tagStyle = 'display:inline-block;font-size:0.6rem;padding:1px 5px;border-radius:3px;font-weight:600;flex-shrink:0;min-width:42px;text-align:center;';
             html += '<div class="site-card-url-row">';
-            html += '<span style="' + tagStyle + 'background:rgba(80,165,219,0.15);color:var(--accent);">URL</span>';
             html += '<div class="site-card-domain"><a href="' + escapeHtml(primaryUrl) + '" target="_blank">' + escapeHtml(s.primary_hostname) + '</a></div>';
             if (s.has_premium_domain) {
               html += '<span class="premium-domain-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>PREMIUM</span>';
@@ -4665,12 +4888,13 @@
           }
         }
 
-        // Created + Modified dates
+        // Created + Modified dates (modified right-aligned)
         var modified = s.updated_at ? new Date(s.updated_at).toLocaleDateString() : '';
         if (created || modified) {
           html += '<div class="site-card-date">';
-          if (created) html += 'Created ' + created;
-          if (modified && modified !== created) html += '<span class="site-card-date-sep">&nbsp;&middot;&nbsp;</span>Modified ' + modified;
+          if (created) html += '<span>Created ' + created + '</span>';
+          if (modified && modified !== created) html += '<span class="site-card-date-modified">Modified ' + modified + '</span>';
+          else html += '<span></span>';
           html += '</div>';
         }
 
@@ -4784,17 +5008,27 @@
           var hostnames = d.data || [];
           var html = '';
 
-          // Always show the CNAME subdomain as the primary URL entry (editable slug)
+          // Always show the CNAME subdomain as the primary URL entry (no edit icon)
           if (adminDomainModalSlug) {
             var cnameHost = adminDomainModalSlug + '-sites.megabyte.space';
+            var cnameIsPrimary = true; // Default is primary unless custom domain set
+            for (var pi = 0; pi < hostnames.length; pi++) {
+              if (hostnames[pi].is_primary === 1 || hostnames[pi].is_primary === true) { cnameIsPrimary = false; break; }
+            }
             html += '<div class="hostname-item" style="background:rgba(80,165,219,0.04);border:1px solid rgba(80,165,219,0.12);border-radius:8px;padding:10px 12px;margin-bottom:8px;">';
+            html += '<div style="display:flex;align-items:center;gap:8px;">';
+            html += '<span class="hostname-status-square active"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>';
             html += '<div style="flex:1;min-width:0;">';
             html += '<div class="hostname-item-name" style="display:flex;align-items:center;gap:6px;">';
-            html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
-            html += '<span class="inline-slug-url status-default" id="domain-modal-slug-url" style="font-size:0.82rem;">https://<span class="inline-edit-wrap inline-edit-inline" id="inline-slug-domain-modal"><span class="inline-text slug-editable" tabindex="0" role="button" onclick="startInlineEdit(\'' + escapeJsString(adminDomainModalSiteId) + '\', \'slug\', \'' + escapeJsString(adminDomainModalSlug) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(adminDomainModalSiteId) + '\', \'slug\', \'' + escapeJsString(adminDomainModalSlug) + '\')}">' + escapeHtml(adminDomainModalSlug) + '</span><button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(adminDomainModalSiteId) + '\', \'slug\', \'' + escapeJsString(adminDomainModalSlug) + '\')" title="Edit slug" aria-label="Edit slug"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></span>-sites.megabyte.space</span>';
-            html += '<span style="font-size:0.6rem;background:rgba(80,165,219,0.15);color:var(--accent);padding:1px 6px;border-radius:3px;font-weight:600;">PRIMARY</span>';
+            html += '<a href="https://' + escapeHtml(cnameHost) + '" target="_blank" style="color:var(--accent);text-decoration:none;font-size:0.82rem;">' + escapeHtml(cnameHost) + '</a>';
             html += '</div>';
-            html += '<div class="hostname-item-type" style="color:var(--text-muted);">Default subdomain &middot; always active</div>';
+            // Chips below URL
+            html += '<div class="hostname-chips">';
+            html += '<span class="hostname-chip default">Default</span>';
+            if (cnameIsPrimary) html += '<span class="hostname-chip primary">Primary</span>';
+            else html += '<button class="hostname-chip-setprimary" onclick="resetPrimaryToDefault(\'' + escapeAttr(adminDomainModalSiteId) + '\')">Set as primary</button>';
+            html += '</div>';
+            html += '</div>';
             html += '</div>';
             html += '</div>';
           }
@@ -4818,27 +5052,29 @@
           for (var i = 0; i < hostnames.length; i++) {
             var h = hostnames[i];
             var url = 'https://' + h.hostname;
-            var typeLabel = h.type === 'custom_cname' ? 'Custom' : 'Free subdomain';
             var isPrimary = h.is_primary === 1 || h.is_primary === true;
+            var isVerified = h.status === 'active' || h.status === 'verified';
+            var hasDomainSub = (h.type === 'custom_cname');
             html += '<div class="hostname-item">';
+            // Red/green status square
+            html += '<span class="hostname-status-square ' + (isVerified ? 'active' : 'inactive') + '">';
+            if (isVerified) {
+              html += '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+            } else {
+              html += '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+            }
+            html += '</span>';
             html += '<div style="flex:1;min-width:0;">';
             html += '<div class="hostname-item-name" style="display:flex;align-items:center;gap:6px;">';
-            var isVerified = h.status === 'active' || h.status === 'verified';
-            if (isVerified) {
-              html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
-            } else {
-              html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
-            }
-            html += '<a href="' + escapeHtml(url) + '" target="_blank">' + escapeHtml(h.hostname) + '</a>';
-            if (isPrimary) {
-              html += '<span style="font-size:0.6rem;background:rgba(80,165,219,0.15);color:var(--accent);padding:1px 6px;border-radius:3px;font-weight:600;">PRIMARY</span>';
+            html += '<a href="' + escapeHtml(url) + '" target="_blank" style="color:var(--text-primary);text-decoration:none;">' + escapeHtml(h.hostname) + '</a>';
+            if (hasDomainSub) {
+              html += '<span class="premium-domain-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>PREMIUM</span>';
             }
             html += '</div>';
-            var hasDomainSub = (h.type === 'custom_cname');
-            html += '<div class="hostname-item-type">' + typeLabel + ' &middot; ' + escapeHtml(h.status || 'pending');
-            if (hasDomainSub) {
-              html += ' &middot; <span class="premium-domain-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>PREMIUM</span>';
-            }
+            // Chips below URL
+            html += '<div class="hostname-chips">';
+            if (isPrimary) html += '<span class="hostname-chip primary">Primary</span>';
+            else html += '<button class="hostname-chip-setprimary" onclick="setPrimaryHostname(\'' + escapeAttr(adminDomainModalSiteId) + '\', \'' + escapeAttr(h.id) + '\')">Set as primary</button>';
             html += '</div>';
             html += '</div>';
             html += '<div style="display:flex;align-items:center;gap:4px;">';
@@ -4846,11 +5082,6 @@
             if (h.status === 'pending' || h.status === 'verification_failed') {
               html += '<button class="hostname-delete-btn" onclick="verifyHostname(\'' + escapeAttr(h.id) + '\')" title="Re-verify domain" style="color:#22c55e;">';
               html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
-              html += '</button>';
-            }
-            if (!isPrimary) {
-              html += '<button class="hostname-delete-btn" onclick="setPrimaryHostname(\'' + escapeAttr(adminDomainModalSiteId) + '\', \'' + escapeAttr(h.id) + '\')" title="Set as primary" style="color:var(--text-muted);">';
-              html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
               html += '</button>';
             }
             if (hasDomainSub) {
@@ -4923,31 +5154,38 @@
         body: JSON.stringify({ hostname: hostname, type: type })
       })
         .then(function(res) {
-          if (!res.ok) return res.json().then(function(d) {
-            var msg = 'Failed to add domain';
-            if (d && d.error) {
-              msg = typeof d.error === 'string' ? d.error : (d.error.message || d.error.code || msg);
-            }
-            // Show upgrade CTA if custom domain requires paid plan (don't also show red error)
-            if (res.status === 403 && msg.toLowerCase().indexOf('paid') !== -1) {
-              var ctaEl = document.getElementById('domain-connect-upgrade-cta');
-              if (ctaEl) ctaEl.style.display = 'block';
-              return; // Don't throw — the CTA is enough feedback
-            }
-            throw new Error(msg);
-          });
+          if (!res.ok) {
+            return res.json().catch(function() { return {}; }).then(function(d) {
+              var msg = 'Unable to connect this domain. Please check your plan and try again.';
+              if (d && d.error) {
+                msg = typeof d.error === 'string' ? d.error : (d.error.message || d.error.code || msg);
+              }
+              // Show upgrade CTA if custom domain requires paid plan
+              if (res.status === 403) {
+                if (msg.toLowerCase().indexOf('paid') !== -1) {
+                  var ctaEl2 = document.getElementById('domain-connect-upgrade-cta');
+                  if (ctaEl2) ctaEl2.style.display = 'block';
+                } else {
+                  showMsg('domain-modal-msg', 'error', msg);
+                }
+                return null; // Signal to skip the next .then
+              }
+              throw new Error(msg);
+            });
+          }
           return res.json();
         })
         .then(function(d) {
+          if (!d) return; // Skipped due to 403 handled above
           input.value = '';
           hideMsg('domain-modal-msg');
           loadHostnames(siteId);
 
           // Show CNAME status based on result
           var hostnameData = d.data || d;
-          if (hostnameData.status === 'active' || hostnameData.status === 'verified') {
+          if (hostnameData && (hostnameData.status === 'active' || hostnameData.status === 'verified')) {
             showMsg('domain-modal-msg', 'info', 'Domain added successfully! CNAME verified.');
-          } else if (hostnameData.status === 'pending' && hostname) {
+          } else if (hostnameData && hostnameData.status === 'pending' && hostname) {
             showCnameMonitor(hostname);
           }
         })
@@ -5919,7 +6157,7 @@
         // Instead of showing waiting screen, go to admin dashboard and open logs
         stopBuildTerminal();
         origNavigateTo('admin');
-        loadAdminSites();
+        loadAdminDashboard();
         setTimeout(function() {
           var siteName = state.businessName || state.slug || 'Building site';
           if (state.siteId) openSiteLogsModal(state.siteId, siteName);
@@ -6238,6 +6476,22 @@
       });
     }
 
+    function showAiValidationTooltip(btn) {
+      hideAiValidationTooltip(btn);
+      if (!btn || !btn.parentElement) return;
+      btn.parentElement.style.position = 'relative';
+      var tip = document.createElement('div');
+      tip.className = 'ai-validation-tooltip';
+      tip.textContent = 'Validating with AI\u2026';
+      tip.id = 'ai-tooltip-' + (btn.id || 'build');
+      btn.parentElement.appendChild(tip);
+    }
+    function hideAiValidationTooltip(btn) {
+      if (!btn || !btn.parentElement) return;
+      var existing = btn.parentElement.querySelector('.ai-validation-tooltip');
+      if (existing) existing.remove();
+    }
+
     function submitBuild() {
       // If not signed in, require sign-in first, then auto-build after callback
       if (!state.session || !state.session.token) {
@@ -6307,6 +6561,9 @@
         headers['Authorization'] = 'Bearer ' + state.session.token;
       }
 
+      // Show AI validation tooltip
+      showAiValidationTooltip(btn);
+
       // AI validation check before submitting
       fetch('/api/validate-business', {
         method: 'POST',
@@ -6319,6 +6576,7 @@
       })
         .then(function(res) { return res.ok ? res.json() : null; })
         .then(function(d) {
+          hideAiValidationTooltip(btn);
           if (d && d.data && !d.data.valid) {
             showMsg('build-msg', 'error', d.data.reason || 'Business data does not appear to be legitimate.');
             btn.disabled = false;
@@ -6329,6 +6587,7 @@
           createSiteFromSearch(payload, headers, btn);
         })
         .catch(function() {
+          hideAiValidationTooltip(btn);
           // If AI validation fails, proceed anyway
           createSiteFromSearch(payload, headers, btn);
         });
@@ -6953,11 +7212,11 @@
       var isSlug = (field === 'slug');
       if (isSlug) {
         clearSlugHint(siteId);
-        // Restore the combined URL line: https://[slug-editable]-sites.megabyte.space
+        // Restore the combined URL line: https://[slug-editable]-sites.megabyte.space (no edit icon)
         var urlEl = document.getElementById('inline-slug-url-' + siteId);
         if (urlEl) {
           urlEl.className = 'inline-slug-url status-default';
-          urlEl.innerHTML = 'https://<span class="inline-edit-wrap inline-edit-inline" id="inline-slug-' + siteId + '"><span class="inline-text slug-editable" tabindex="0" role="button" onclick="startInlineEdit(\'' + escapeJsString(siteId) + '\', \'slug\', \'' + escapeJsString(originalValue) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(siteId) + '\', \'slug\', \'' + escapeJsString(originalValue) + '\')}">' + escapeHtml(originalValue) + '</span><button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(siteId) + '\', \'slug\', \'' + escapeJsString(originalValue) + '\')" title="Edit slug" aria-label="Edit slug"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></span>-sites.megabyte.space';
+          urlEl.innerHTML = 'https://<span class="inline-edit-wrap inline-edit-inline" id="inline-slug-' + siteId + '"><span class="inline-text slug-editable" tabindex="0" role="button" onclick="startInlineEdit(\'' + escapeJsString(siteId) + '\', \'slug\', \'' + escapeJsString(originalValue) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(siteId) + '\', \'slug\', \'' + escapeJsString(originalValue) + '\')}">' + escapeHtml(originalValue) + '</span></span>-sites.megabyte.space';
         }
       } else {
         var wrap = document.getElementById('inline-name-' + siteId);
@@ -8241,6 +8500,26 @@
         })
         .catch(function(err) {
           showMsg('domain-modal-msg', 'error', err.message || 'Failed to unsubscribe from domain.');
+        });
+    }
+
+    function resetPrimaryToDefault(siteId) {
+      if (!state.session || !state.session.token || !siteId) return;
+      showMsg('domain-modal-msg', 'info', 'Resetting primary to default subdomain...');
+      fetch('/api/sites/' + siteId + '/hostnames/reset-primary', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + state.session.token }
+      })
+        .then(function(res) {
+          if (!res.ok) return res.json().then(function(d) { throw new Error(extractErrorMsg(d, 'Failed to reset primary')); });
+          return res.json();
+        })
+        .then(function() {
+          showMsg('domain-modal-msg', 'success', 'Primary domain reset to default subdomain.');
+          loadHostnames(siteId);
+        })
+        .catch(function(err) {
+          showMsg('domain-modal-msg', 'error', err.message || 'Failed to reset primary domain.');
         });
     }
 

@@ -645,6 +645,41 @@ api.put('/api/sites/:siteId/hostnames/:hostnameId/primary', async (c) => {
   return c.json({ data: { primary: true } });
 });
 
+// ─── Reset Primary to Default Subdomain ─────────────────────
+
+api.post('/api/sites/:siteId/hostnames/reset-primary', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('siteId');
+
+  // Verify ownership
+  const site = await dbQueryOne<Record<string, unknown>>(
+    c.env.DB,
+    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [siteId, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  // Clear is_primary on all hostnames for this site
+  await c.env.DB
+    .prepare('UPDATE hostnames SET is_primary = 0 WHERE site_id = ?')
+    .bind(siteId)
+    .run();
+
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: c.get('userId') ?? null,
+    action: 'hostname.reset_primary',
+    target_type: 'site',
+    target_id: siteId,
+    metadata_json: { note: 'Reset primary to default subdomain' },
+    request_id: c.get('requestId'),
+  });
+
+  return c.json({ data: { primary_reset: true } });
+});
+
 // ─── Delete Hostname ────────────────────────────────────────
 
 api.delete('/api/sites/:siteId/hostnames/:hostnameId', async (c) => {
