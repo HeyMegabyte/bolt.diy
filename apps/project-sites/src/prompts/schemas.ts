@@ -209,9 +209,23 @@ export const ResearchSellingPointsOutput = z.object({
   })).min(1).max(6),
   hero_slogans: z.array(z.object({
     headline: z.string(),
-    subheadline: z.string().optional().default(''),
-    cta_primary: z.object({ text: z.string(), action: z.string() }).optional().default({ text: 'Get Started', action: '#contact' }),
-    cta_secondary: z.object({ text: z.string(), action: z.string() }).optional().default({ text: 'Learn More', action: '#services' }),
+    subheadline: z.string().nullable().optional().default(''),
+    cta_primary: z.union([
+      z.object({ text: z.string(), action: z.string() }),
+      z.string(),
+    ]).nullable().optional().transform((v) => {
+      if (!v) return { text: 'Get Started', action: '#contact' };
+      if (typeof v === 'string') return { text: v, action: '#contact' };
+      return v;
+    }),
+    cta_secondary: z.union([
+      z.object({ text: z.string(), action: z.string() }),
+      z.string(),
+    ]).nullable().optional().transform((v) => {
+      if (!v) return { text: 'Learn More', action: '#services' };
+      if (typeof v === 'string') return { text: v, action: '#services' };
+      return v;
+    }),
   })).optional().default([]),
   benefit_bullets: z.array(z.string()).optional().default([]),
 });
@@ -230,28 +244,32 @@ export type ResearchImagesInput = z.infer<typeof ResearchImagesInput>;
 
 export const ResearchImagesOutput = z.object({
   hero_images: z.array(z.object({
-    concept: z.string(),
-    search_query_specific: z.string(),
-    search_query_stock: z.string(),
-    aspect_ratio: z.string().optional().default('16:9'),
-    confidence_specific: z.number().optional().default(0.5),
-  })).optional().default([]),
+    concept: z.string().nullable().optional().default(''),
+    search_query_specific: z.string().nullable().optional().default(''),
+    search_query_stock: z.string().nullable().optional().default(''),
+    search_query: z.string().nullable().optional().default(''),
+    aspect_ratio: z.string().nullable().optional().default('16:9'),
+    confidence_specific: z.number().nullable().optional().default(0.5),
+    confidence: z.number().nullable().optional().default(0.5),
+  }).passthrough()).optional().default([]),
   storefront_image: z.object({
-    search_query: z.string(),
-    confidence: z.number().optional().default(0.5),
-    fallback_description: z.string().optional().default(''),
-  }).optional().default({ search_query: '', confidence: 0, fallback_description: '' }),
+    search_query: z.string().nullable().optional().default(''),
+    confidence: z.number().nullable().optional().default(0.5),
+    fallback_description: z.string().nullable().optional().default(''),
+  }).passthrough().optional().default({ search_query: '', confidence: 0, fallback_description: '' }),
   team_image: z.object({
-    search_query: z.string(),
-    confidence: z.number().optional().default(0.5),
-    fallback_description: z.string().optional().default(''),
-  }).optional().default({ search_query: '', confidence: 0, fallback_description: '' }),
+    search_query: z.string().nullable().optional().default(''),
+    confidence: z.number().nullable().optional().default(0.5),
+    fallback_description: z.string().nullable().optional().default(''),
+  }).passthrough().optional().default({ search_query: '', confidence: 0, fallback_description: '' }),
   service_images: z.array(z.object({
-    service_name: z.string(),
-    search_query_stock: z.string(),
-    alt_text: z.string().optional().default(''),
-  })).optional().default([]),
-  placeholder_strategy: z.string().optional().default('stock'),
+    service_name: z.string().nullable().optional().default(''),
+    search_query_stock: z.string().nullable().optional().default(''),
+    search_query: z.string().nullable().optional().default(''),
+    alt_text: z.string().nullable().optional().default(''),
+    name: z.string().nullable().optional().default(''),
+  }).passthrough()).optional().default([]),
+  placeholder_strategy: z.string().nullable().optional().default('stock'),
 });
 export type ResearchImagesOutput = z.infer<typeof ResearchImagesOutput>;
 
