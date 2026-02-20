@@ -96,33 +96,33 @@ export type ResearchProfileInput = z.infer<typeof ResearchProfileInput>;
 
 export const ResearchProfileOutput = z.object({
   business_name: z.string(),
-  tagline: z.string(),
-  description: z.string(),
-  mission_statement: z.string(),
-  business_type: z.string(),
+  tagline: z.string().optional().default(''),
+  description: z.string().optional().default(''),
+  mission_statement: z.string().optional().default(''),
+  business_type: z.string().optional().default('general'),
   services: z.array(z.object({
     name: z.string(),
-    description: z.string(),
-    price_hint: z.string().nullable(),
-  })),
+    description: z.string().optional().default(''),
+    price_hint: z.string().nullable().optional().default(null),
+  })).optional().default([]),
   hours: z.array(z.object({
     day: z.string(),
-    open: z.string(),
-    close: z.string(),
-    closed: z.boolean(),
-  })),
-  phone: z.string().nullable(),
-  email: z.string().nullable(),
+    open: z.string().optional().default(''),
+    close: z.string().optional().default(''),
+    closed: z.boolean().optional().default(false),
+  })).optional().default([]),
+  phone: z.string().nullable().optional().default(null),
+  email: z.string().nullable().optional().default(null),
   address: z.object({
-    street: z.string().nullable(),
-    city: z.string().nullable(),
-    state: z.string().nullable(),
-    zip: z.string().nullable(),
-    country: z.string().default('US'),
-  }),
-  faq: z.array(z.object({ question: z.string(), answer: z.string() })),
-  seo_title: z.string(),
-  seo_description: z.string(),
+    street: z.string().nullable().optional().default(null),
+    city: z.string().nullable().optional().default(null),
+    state: z.string().nullable().optional().default(null),
+    zip: z.string().nullable().optional().default(null),
+    country: z.string().optional().default('US'),
+  }).optional().default({}),
+  faq: z.array(z.object({ question: z.string(), answer: z.string() })).optional().default([]),
+  seo_title: z.string().optional().default(''),
+  seo_description: z.string().optional().default(''),
 });
 export type ResearchProfileOutput = z.infer<typeof ResearchProfileOutput>;
 
@@ -140,13 +140,13 @@ export const ResearchSocialOutput = z.object({
     platform: z.string(),
     url: z.string().nullable(),
     confidence: z.number().min(0).max(1),
-  })),
-  website_url: z.string().nullable(),
+  })).optional().default([]),
+  website_url: z.string().nullable().optional().default(null),
   review_platforms: z.array(z.object({
     platform: z.string(),
     url: z.string().nullable(),
     rating: z.string().nullable(),
-  })),
+  })).optional().default([]),
 });
 export type ResearchSocialOutput = z.infer<typeof ResearchSocialOutput>;
 
@@ -163,30 +163,30 @@ export type ResearchBrandInput = z.infer<typeof ResearchBrandInput>;
 
 export const ResearchBrandOutput = z.object({
   logo: z.object({
-    found_online: z.boolean(),
-    search_query: z.string(),
+    found_online: z.boolean().optional().default(false),
+    search_query: z.string().optional().default(''),
     fallback_design: z.object({
-      text: z.string(),
-      font: z.string(),
-      accent_shape: z.string(),
-      accent_color: z.string(),
-    }),
-  }),
+      text: z.string().optional().default(''),
+      font: z.string().optional().default('Inter'),
+      accent_shape: z.string().optional().default('circle'),
+      accent_color: z.string().optional().default('#64ffda'),
+    }).optional().default({}),
+  }).optional().default({}),
   colors: z.object({
-    primary: z.string(),
-    secondary: z.string(),
-    accent: z.string(),
-    background: z.string(),
-    surface: z.string(),
-    text_primary: z.string(),
-    text_secondary: z.string(),
-  }),
+    primary: z.string().optional().default('#2563eb'),
+    secondary: z.string().optional().default('#7c3aed'),
+    accent: z.string().optional().default('#64ffda'),
+    background: z.string().optional().default('#ffffff'),
+    surface: z.string().optional().default('#f8fafc'),
+    text_primary: z.string().optional().default('#1e293b'),
+    text_secondary: z.string().optional().default('#64748b'),
+  }).optional().default({}),
   fonts: z.object({
-    heading: z.string(),
-    body: z.string(),
-  }),
-  brand_personality: z.string(),
-  style_notes: z.string(),
+    heading: z.string().optional().default('Inter'),
+    body: z.string().optional().default('Inter'),
+  }).optional().default({}),
+  brand_personality: z.string().optional().default(''),
+  style_notes: z.string().optional().default(''),
 });
 export type ResearchBrandOutput = z.infer<typeof ResearchBrandOutput>;
 
@@ -205,15 +205,15 @@ export const ResearchSellingPointsOutput = z.object({
   selling_points: z.array(z.object({
     headline: z.string(),
     description: z.string(),
-    icon: z.string(),
-  })).min(3).max(3),
+    icon: z.string().optional().default('star'),
+  })).min(1).max(6),
   hero_slogans: z.array(z.object({
     headline: z.string(),
-    subheadline: z.string(),
-    cta_primary: z.object({ text: z.string(), action: z.string() }),
-    cta_secondary: z.object({ text: z.string(), action: z.string() }),
-  })),
-  benefit_bullets: z.array(z.string()),
+    subheadline: z.string().optional().default(''),
+    cta_primary: z.object({ text: z.string(), action: z.string() }).optional().default({ text: 'Get Started', action: '#contact' }),
+    cta_secondary: z.object({ text: z.string(), action: z.string() }).optional().default({ text: 'Learn More', action: '#services' }),
+  })).optional().default([]),
+  benefit_bullets: z.array(z.string()).optional().default([]),
 });
 export type ResearchSellingPointsOutput = z.infer<typeof ResearchSellingPointsOutput>;
 
@@ -233,25 +233,25 @@ export const ResearchImagesOutput = z.object({
     concept: z.string(),
     search_query_specific: z.string(),
     search_query_stock: z.string(),
-    aspect_ratio: z.string(),
-    confidence_specific: z.number(),
-  })),
+    aspect_ratio: z.string().optional().default('16:9'),
+    confidence_specific: z.number().optional().default(0.5),
+  })).optional().default([]),
   storefront_image: z.object({
     search_query: z.string(),
-    confidence: z.number(),
-    fallback_description: z.string(),
-  }),
+    confidence: z.number().optional().default(0.5),
+    fallback_description: z.string().optional().default(''),
+  }).optional().default({ search_query: '', confidence: 0, fallback_description: '' }),
   team_image: z.object({
     search_query: z.string(),
-    confidence: z.number(),
-    fallback_description: z.string(),
-  }),
+    confidence: z.number().optional().default(0.5),
+    fallback_description: z.string().optional().default(''),
+  }).optional().default({ search_query: '', confidence: 0, fallback_description: '' }),
   service_images: z.array(z.object({
     service_name: z.string(),
     search_query_stock: z.string(),
-    alt_text: z.string(),
-  })),
-  placeholder_strategy: z.string(),
+    alt_text: z.string().optional().default(''),
+  })).optional().default([]),
+  placeholder_strategy: z.string().optional().default('stock'),
 });
 export type ResearchImagesOutput = z.infer<typeof ResearchImagesOutput>;
 
@@ -305,19 +305,19 @@ export type ScoreWebsiteInput = z.infer<typeof ScoreWebsiteInput>;
 
 export const ScoreWebsiteOutput = z.object({
   scores: z.object({
-    visual_design: z.number().min(0).max(1),
-    content_quality: z.number().min(0).max(1),
-    completeness: z.number().min(0).max(1),
-    responsiveness: z.number().min(0).max(1),
-    accessibility: z.number().min(0).max(1),
-    seo: z.number().min(0).max(1),
-    performance: z.number().min(0).max(1),
-    brand_consistency: z.number().min(0).max(1),
-  }),
-  overall: z.number().min(0).max(1),
-  issues: z.array(z.string()),
-  suggestions: z.array(z.string()),
-  missing_sections: z.array(z.string()),
+    visual_design: z.number().min(0).max(1).optional().default(0.5),
+    content_quality: z.number().min(0).max(1).optional().default(0.5),
+    completeness: z.number().min(0).max(1).optional().default(0.5),
+    responsiveness: z.number().min(0).max(1).optional().default(0.5),
+    accessibility: z.number().min(0).max(1).optional().default(0.5),
+    seo: z.number().min(0).max(1).optional().default(0.5),
+    performance: z.number().min(0).max(1).optional().default(0.5),
+    brand_consistency: z.number().min(0).max(1).optional().default(0.5),
+  }).optional().default({}),
+  overall: z.number().min(0).max(1).optional().default(0.5),
+  issues: z.array(z.string()).optional().default([]),
+  suggestions: z.array(z.string()).optional().default([]),
+  missing_sections: z.array(z.string()).optional().default([]),
 });
 export type ScoreWebsiteOutput = z.infer<typeof ScoreWebsiteOutput>;
 

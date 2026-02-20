@@ -201,12 +201,21 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
+      // Extract ZodError details for better debugging
+      let zodDetails = '';
+      if (err && typeof err === 'object' && 'issues' in err) {
+        const issues = (err as { issues: Array<{ path: (string | number)[]; message: string }> }).issues;
+        zodDetails = issues.map((i) => i.path.join('.') + ': ' + i.message).join('; ');
+      }
       await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.failed', {
         step: 'research-profile',
         error: errorMsg,
+        zod_details: zodDetails || null,
         elapsed_ms: elapsed('research-profile'),
-        message: 'Profile research failed: ' + errorMsg,
+        message: 'Profile research failed: ' + (zodDetails ? 'Validation error — ' + zodDetails : errorMsg),
         phase: 'data_collection',
+        business_name: params.businessName,
+        slug: params.slug,
         recoverable: false,
       });
       await updateSiteStatus(env.DB, params.siteId, 'error');
@@ -300,12 +309,20 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       ]);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
+      let zodDetails = '';
+      if (err && typeof err === 'object' && 'issues' in err) {
+        const issues = (err as { issues: Array<{ path: (string | number)[]; message: string }> }).issues;
+        zodDetails = issues.map((i) => i.path.join('.') + ': ' + i.message).join('; ');
+      }
       await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.failed', {
         step: 'parallel-research',
         error: errorMsg,
+        zod_details: zodDetails || null,
         elapsed_ms: elapsed('parallel-research'),
-        message: 'Parallel research failed: ' + errorMsg,
+        message: 'Parallel research failed: ' + (zodDetails || errorMsg),
         phase: 'data_collection',
+        business_name: params.businessName,
+        slug: params.slug,
         recoverable: false,
       });
       await updateSiteStatus(env.DB, params.siteId, 'error');
@@ -372,6 +389,8 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         elapsed_ms: elapsed('generate-website'),
         message: 'HTML generation failed: ' + errorMsg,
         phase: 'generation',
+        business_name: params.businessName,
+        slug: params.slug,
         recoverable: false,
       });
       await updateSiteStatus(env.DB, params.siteId, 'error');
@@ -466,6 +485,8 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         elapsed_ms: elapsed('legal-scoring'),
         message: 'Legal pages / quality scoring failed: ' + errorMsg,
         phase: 'generation',
+        business_name: params.businessName,
+        slug: params.slug,
         recoverable: false,
       });
       await updateSiteStatus(env.DB, params.siteId, 'error');
@@ -543,6 +564,8 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         elapsed_ms: elapsed('upload-to-r2'),
         message: 'R2 upload failed: ' + errorMsg,
         phase: 'deployment',
+        business_name: params.businessName,
+        slug: params.slug,
         recoverable: false,
       });
       await updateSiteStatus(env.DB, params.siteId, 'error');
@@ -598,6 +621,8 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         elapsed_ms: elapsed('publish'),
         message: 'Database publish failed: ' + errorMsg,
         phase: 'deployment',
+        business_name: params.businessName,
+        slug: params.slug,
         recoverable: false,
       });
       throw err;
@@ -637,8 +662,12 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           message: 'Build complete email sent to ' + owner.email,
         });
       }
-    } catch {
-      // Email failure should not break the workflow
+    } catch (emailErr) {
+      // Email failure should not break the workflow — but log it
+      await workflowLog(env.DB, params.orgId, params.siteId, 'notification.email_failed', {
+        error: emailErr instanceof Error ? emailErr.message : String(emailErr),
+        message: 'Build notification email failed: ' + (emailErr instanceof Error ? emailErr.message : String(emailErr)),
+      });
     }
 
     return {
