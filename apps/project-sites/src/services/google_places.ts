@@ -15,7 +15,7 @@ export interface PlacesResult {
   website: string | null;
   rating: number | null;
   review_count: number | null;
-  hours: Array<{ day: string; open: string; close: string; closed: boolean }> | null;
+  hours: Array<{ day: string; open: string | null; close: string | null; closed: boolean }> | null;
   geo: { lat: number; lng: number } | null;
   maps_url: string | null;
   photos: Array<{ url: string; attribution: string; width: number; height: number }>;
