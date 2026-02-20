@@ -622,6 +622,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         const ver = new Date().toISOString().replace(/[:.]/g, '-');
         const slug = params.slug;
 
+        const files = ['index.html', 'privacy.html', 'terms.html', 'research.json'];
         await Promise.all([
           env.SITES_BUCKET.put(`sites/${slug}/${ver}/index.html`, html, {
             httpMetadata: { contentType: 'text/html' },
@@ -638,6 +639,17 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             { httpMetadata: { contentType: 'application/json' } },
           ),
         ]);
+
+        // Update manifest so site-serving and research.json endpoint use new version
+        await env.SITES_BUCKET.put(
+          `sites/${slug}/_manifest.json`,
+          JSON.stringify({
+            current_version: ver,
+            updated_at: new Date().toISOString(),
+            files,
+          }),
+          { httpMetadata: { contentType: 'application/json' } },
+        );
 
         return ver;
       },
