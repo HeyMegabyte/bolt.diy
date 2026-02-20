@@ -803,8 +803,8 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     // Send build-complete email to site owner
     try {
       const owner = await env.DB
-        .prepare('SELECT u.email FROM users u JOIN organizations o ON u.id = o.owner_id WHERE o.id = ?')
-        .bind(params.orgId)
+        .prepare('SELECT u.email FROM users u JOIN memberships m ON u.id = m.user_id WHERE m.org_id = ? AND m.role = ? AND m.deleted_at IS NULL')
+        .bind(params.orgId, 'owner')
         .first<{ email: string }>();
       if (owner?.email) {
         await notifySiteBuilt(env, {

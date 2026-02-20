@@ -18,7 +18,7 @@ describe('Confidence — wrapConf', () => {
   it('wraps a string value with llm_generated confidence', () => {
     const c = wrapConf('hello', 'llm_generated', { rationale: 'test' });
     expect(c.value).toBe('hello');
-    expect(c.confidence).toBe(0.60);
+    expect(c.confidence).toBe(0.50);
     expect(c.sources).toHaveLength(1);
     expect(c.sources[0].kind).toBe('llm_generated');
     expect(c.rationale).toBe('test');
@@ -27,8 +27,8 @@ describe('Confidence — wrapConf', () => {
 
   it('applies empty penalty for null values', () => {
     const c = wrapConf(null, 'llm_generated');
-    // 0.60 - 0.15 = 0.45
-    expect(c.confidence).toBe(0.45);
+    // 0.50 - 0.15 = 0.35
+    expect(c.confidence).toBe(0.35);
   });
 
   it('applies empty penalty for empty string', () => {
@@ -39,20 +39,20 @@ describe('Confidence — wrapConf', () => {
 
   it('applies placeholder penalty', () => {
     const c = wrapConf('placeholder', 'internal_inference', { isPlaceholder: true });
-    // 0.55 - 0.10 = 0.45
-    expect(c.confidence).toBe(0.45);
+    // 0.45 - 0.10 = 0.35
+    expect(c.confidence).toBe(0.35);
     expect(c.isPlaceholder).toBe(true);
   });
 
   it('applies both empty + placeholder penalties', () => {
     const c = wrapConf('', 'stock_photo', { isPlaceholder: true });
-    // 0.40 - 0.15 (empty) - 0.10 (placeholder) = 0.15
-    expect(c.confidence).toBe(0.15);
+    // 0.30 - 0.15 (empty) - 0.10 (placeholder) = 0.05
+    expect(c.confidence).toBe(0.05);
   });
 
   it('uses google_places base confidence', () => {
     const c = wrapConf('ChIJ123', 'google_places', { sourceId: 'abc' });
-    expect(c.confidence).toBe(0.90);
+    expect(c.confidence).toBe(0.92);
     expect(c.sources[0].id).toBe('abc');
   });
 
@@ -64,15 +64,15 @@ describe('Confidence — wrapConf', () => {
   it('uses correct base confidence for all source kinds', () => {
     expect(BASE_CONFIDENCE.business_owner).toBe(0.95);
     expect(BASE_CONFIDENCE.user_provided).toBe(0.90);
-    expect(BASE_CONFIDENCE.google_places).toBe(0.90);
+    expect(BASE_CONFIDENCE.google_places).toBe(0.92);
     expect(BASE_CONFIDENCE.osm).toBe(0.80);
     expect(BASE_CONFIDENCE.review_platform).toBe(0.80);
     expect(BASE_CONFIDENCE.domain_whois).toBe(0.70);
     expect(BASE_CONFIDENCE.street_view).toBe(0.70);
     expect(BASE_CONFIDENCE.social_profile).toBe(0.70);
-    expect(BASE_CONFIDENCE.llm_generated).toBe(0.60);
-    expect(BASE_CONFIDENCE.internal_inference).toBe(0.55);
-    expect(BASE_CONFIDENCE.stock_photo).toBe(0.40);
+    expect(BASE_CONFIDENCE.llm_generated).toBe(0.50);
+    expect(BASE_CONFIDENCE.internal_inference).toBe(0.45);
+    expect(BASE_CONFIDENCE.stock_photo).toBe(0.30);
   });
 });
 
@@ -82,8 +82,8 @@ describe('Confidence — mergeConf', () => {
     const b = wrapConf('new', 'google_places');
     const merged = mergeConf(a, b);
     expect(merged.value).toBe('new');
-    // google_places (0.90) + corroboration boost (0.05) = 0.95
-    expect(merged.confidence).toBe(0.95);
+    // google_places (0.92) + graduated corroboration boost for 2 sources (0.08) = 0.98 (capped)
+    expect(merged.confidence).toBe(0.98);
     expect(merged.sources).toHaveLength(2);
   });
 
@@ -91,22 +91,22 @@ describe('Confidence — mergeConf', () => {
     const a = wrapConf('val', 'llm_generated');
     const b = wrapConf('val', 'user_provided');
     const merged = mergeConf(a, b);
-    // user_provided 0.90 + 0.05 boost = 0.95
-    expect(merged.confidence).toBe(0.95);
+    // user_provided 0.90 + 0.08 boost = 0.98
+    expect(merged.confidence).toBe(0.98);
   });
 
   it('does not boost when same source kind', () => {
     const a = wrapConf('v1', 'llm_generated');
     const b = wrapConf('v2', 'llm_generated', { rationale: 'second try' });
     const merged = mergeConf(a, b);
-    expect(merged.confidence).toBe(0.60);
+    expect(merged.confidence).toBe(0.50);
   });
 
   it('caps corroboration boost at 0.98', () => {
     const a = wrapConf('val', 'business_owner'); // 0.95
-    const b = wrapConf('val', 'google_places');  // 0.90
+    const b = wrapConf('val', 'google_places');  // 0.92
     const merged = mergeConf(a, b);
-    // 0.95 + 0.05 = 1.00 → capped at 0.98
+    // 0.95 + 0.08 = 1.03 -> capped at 0.98
     expect(merged.confidence).toBe(0.98);
   });
 
@@ -136,19 +136,20 @@ describe('Confidence — applyBoostPenalties', () => {
       ],
     };
     const score = applyBoostPenalties(c);
-    expect(score).toBe(0.85);
+    // 0.80 + 0.08 (graduated boost for 2 sources) = 0.88
+    expect(score).toBe(0.88);
   });
 
   it('applies empty penalty', () => {
     const c = wrapConf('test', 'llm_generated');
     const score = applyBoostPenalties(c, { isEmpty: true });
-    expect(score).toBe(0.45); // 0.60 - 0.15
+    expect(score).toBe(0.35); // 0.50 - 0.15
   });
 
   it('applies stale penalty', () => {
     const c = wrapConf('test', 'google_places');
     const score = applyBoostPenalties(c, { isStale: true });
-    expect(score).toBe(0.80); // 0.90 - 0.10
+    expect(score).toBe(0.82); // 0.92 - 0.10
   });
 
   it('applies format validation penalty', () => {
@@ -159,7 +160,7 @@ describe('Confidence — applyBoostPenalties', () => {
 
   it('never goes below 0', () => {
     const c = wrapConf('', 'stock_photo', { isPlaceholder: true });
-    // already 0.15, apply isEmpty and stale and formatValid
+    // already 0.05, apply isEmpty and stale and formatValid
     const score = applyBoostPenalties(c, { isEmpty: true, isStale: true, formatValid: false });
     expect(score).toBe(0);
   });
@@ -169,21 +170,21 @@ describe('Confidence — computeAggregateConfidence', () => {
   it('computes weighted mean of Conf leaves', () => {
     const obj = {
       name: wrapConf('Test', 'user_provided'),    // 0.90
-      phone: wrapConf('+1234', 'google_places'),   // 0.90
+      phone: wrapConf('+1234', 'google_places'),   // 0.92
     };
     const agg = computeAggregateConfidence(obj);
-    expect(agg).toBe(0.90);
+    expect(agg).toBe(0.91); // (0.90 + 0.92) / 2
   });
 
   it('handles nested objects', () => {
     const obj = {
       identity: {
-        name: wrapConf('Test', 'llm_generated'),    // 0.60
-        phone: wrapConf('+1234', 'google_places'),   // 0.90
+        name: wrapConf('Test', 'llm_generated'),    // 0.50
+        phone: wrapConf('+1234', 'google_places'),   // 0.92
       },
     };
     const agg = computeAggregateConfidence(obj);
-    expect(agg).toBe(0.75); // (0.60 + 0.90) / 2
+    expect(agg).toBe(0.71); // (0.50 + 0.92) / 2
   });
 
   it('handles empty objects', () => {
@@ -193,11 +194,11 @@ describe('Confidence — computeAggregateConfidence', () => {
   it('applies section weights', () => {
     const obj = {
       identity: wrapConf('high', 'user_provided'),   // 0.90, weight 5
-      media: wrapConf('low', 'stock_photo'),          // 0.40, weight 1
+      media: wrapConf('low', 'stock_photo'),          // 0.30, weight 1
     };
     const agg = computeAggregateConfidence(obj, SECTION_WEIGHTS);
-    // (0.90*5 + 0.40*1) / (5+1) = 4.90/6 = 0.82
-    expect(agg).toBe(0.82);
+    // (0.90*5 + 0.30*1) / (5+1) = 4.80/6 = 0.80
+    expect(agg).toBe(0.8);
   });
 });
 

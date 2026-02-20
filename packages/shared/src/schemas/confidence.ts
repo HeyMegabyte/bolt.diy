@@ -39,16 +39,89 @@ export type SourceRef = z.infer<typeof sourceRefSchema>;
 export const BASE_CONFIDENCE: Record<SourceKind, number> = {
   business_owner: 0.95,
   user_provided: 0.90,
-  google_places: 0.90,
+  google_places: 0.92,
   osm: 0.80,
   review_platform: 0.80,
   domain_whois: 0.70,
   street_view: 0.70,
   social_profile: 0.70,
-  llm_generated: 0.60,
-  internal_inference: 0.55,
-  stock_photo: 0.40,
+  llm_generated: 0.50,
+  internal_inference: 0.45,
+  stock_photo: 0.30,
 };
+
+/**
+ * Graduated corroboration boosts based on number of distinct confirming sources.
+ * More sources = stronger confidence that the data is real.
+ */
+export const CORROBORATION_BOOSTS: Record<number, number> = {
+  1: 0.00,  // single source: no boost
+  2: 0.08,  // 2 sources confirm: moderate boost
+  3: 0.15,  // 3 sources confirm: strong boost
+  4: 0.20,  // 4+ sources: very strong boost (e.g. Google + YellowPages + Maps + Yelp)
+};
+
+/** Max corroboration boost cap */
+export function getCorroborationBoost(uniqueSourceCount: number): number {
+  if (uniqueSourceCount >= 4) return CORROBORATION_BOOSTS[4];
+  return CORROBORATION_BOOSTS[uniqueSourceCount] ?? 0;
+}
+
+/**
+ * Fields categorized by verifiability.
+ * 'verified' fields can be confirmed by multiple public sources (phone, hours, name, address).
+ * 'inferred' fields are educated guesses by the LLM (payment methods, amenities, policies).
+ * 'generated' fields are creative output (taglines, descriptions, marketing copy).
+ */
+export type FieldCategory = 'verified' | 'inferred' | 'generated';
+
+export const FIELD_CATEGORIES: Record<string, FieldCategory> = {
+  // Verified: these should appear on Google, YellowPages, Maps, etc.
+  'identity.business_name': 'verified',
+  'identity.phone': 'verified',
+  'identity.address': 'verified',
+  'identity.geo': 'verified',
+  'identity.google': 'verified',
+  'identity.website_url': 'verified',
+  'identity.business_type': 'verified',
+  'identity.categories': 'verified',
+  'operations.hours': 'verified',
+  'trust.reviews': 'verified',
+
+  // Inferred: LLM guesses from context, not directly verifiable
+  'operations.payments': 'inferred',
+  'operations.amenities': 'inferred',
+  'operations.accessibility': 'inferred',
+  'operations.booking': 'inferred',
+  'operations.policies': 'inferred',
+  'operations.languages_spoken': 'inferred',
+  'offerings.services': 'inferred',
+  'offerings.products_sold': 'inferred',
+  'trust.team': 'inferred',
+  'trust.social_links': 'inferred',
+
+  // Generated: creative content produced by LLM
+  'identity.tagline': 'generated',
+  'identity.description': 'generated',
+  'identity.mission_statement': 'generated',
+  'marketing.selling_points': 'generated',
+  'marketing.hero_slogans': 'generated',
+  'marketing.benefit_bullets': 'generated',
+  'brand.colors': 'generated',
+  'brand.fonts': 'generated',
+  'brand.brand_personality': 'generated',
+  'seo.title': 'generated',
+  'seo.description': 'generated',
+  'seo.primary_keywords': 'generated',
+  'media.hero_images': 'generated',
+};
+
+/**
+ * Penalty applied to LLM-only data for 'inferred' fields.
+ * Payment methods, amenities etc. that are only guessed should be penalized
+ * since the LLM might hallucinate "accepts Apple Pay" without evidence.
+ */
+export const LLM_ONLY_INFERRED_PENALTY = 0.15;
 
 // ── Confidence Wrapper ───────────────────────────────────────
 
@@ -156,23 +229,24 @@ export function wrapConf<T>(
 
 /**
  * Apply deterministic boosts and penalties to a confidence score.
- * +0.05 if corroborated by 2+ sources (cap at 0.98)
+ * Uses graduated corroboration boosts based on source count.
  * -0.15 if value is empty/missing
  * -0.10 if isPlaceholder
  * -0.10 if format validation fails
+ * -0.10 if stale data
  */
 export function applyBoostPenalties(conf: Conf<unknown>, options?: {
   isEmpty?: boolean;
   isStale?: boolean;
   formatValid?: boolean;
+  fieldCategory?: FieldCategory;
 }): number {
   let score = conf.confidence;
 
-  // Corroboration boost: 2+ distinct source kinds
+  // Graduated corroboration boost based on distinct source kinds
   const uniqueKinds = new Set(conf.sources.map((s) => s.kind));
-  if (uniqueKinds.size >= 2) {
-    score = Math.min(0.98, score + 0.05);
-  }
+  const boost = getCorroborationBoost(uniqueKinds.size);
+  score = Math.min(0.98, score + boost);
 
   // Penalties
   if (options?.isEmpty || conf.value === null || conf.value === undefined || conf.value === '') {
@@ -188,12 +262,18 @@ export function applyBoostPenalties(conf: Conf<unknown>, options?: {
     score = Math.max(0, score - 0.10);
   }
 
+  // Extra penalty for inferred fields from LLM-only sources
+  if (options?.fieldCategory === 'inferred' && uniqueKinds.size === 1 && uniqueKinds.has('llm_generated')) {
+    score = Math.max(0, score - LLM_ONLY_INFERRED_PENALTY);
+  }
+
   return Math.round(score * 100) / 100;
 }
 
 /**
  * Merge two Conf wrappers for the same field.
- * Higher confidence wins; sources are combined; corroboration boost applies.
+ * Higher confidence wins; sources are combined; graduated corroboration boost applies.
+ * Multiple confirming sources dramatically increase confidence.
  */
 export function mergeConf<T>(a: Conf<T>, b: Conf<T>): Conf<T> {
   const primary = a.confidence >= b.confidence ? a : b;
@@ -208,12 +288,11 @@ export function mergeConf<T>(a: Conf<T>, b: Conf<T>): Conf<T> {
     return true;
   });
 
-  // Corroboration boost
+  // Graduated corroboration boost based on number of distinct source kinds
   const uniqueKinds = new Set(uniqueSources.map((s) => s.kind));
   let confidence = primary.confidence;
-  if (uniqueKinds.size >= 2) {
-    confidence = Math.min(0.98, confidence + 0.05);
-  }
+  const boost = getCorroborationBoost(uniqueKinds.size);
+  confidence = Math.min(0.98, confidence + boost);
 
   return {
     value: primary.value,

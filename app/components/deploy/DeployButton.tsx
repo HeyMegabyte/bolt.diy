@@ -13,14 +13,17 @@ import { useVercelDeploy } from '~/components/deploy/VercelDeploy.client';
 import { useNetlifyDeploy } from '~/components/deploy/NetlifyDeploy.client';
 import { useGitHubDeploy } from '~/components/deploy/GitHubDeploy.client';
 import { useGitLabDeploy } from '~/components/deploy/GitLabDeploy.client';
+import { useS3Deploy } from '~/components/deploy/S3Deploy.client';
 import { GitHubDeploymentDialog } from '~/components/deploy/GitHubDeploymentDialog';
 import { GitLabDeploymentDialog } from '~/components/deploy/GitLabDeploymentDialog';
+import { s3Connection } from '~/lib/stores/s3';
 
 interface DeployButtonProps {
   onVercelDeploy?: () => Promise<void>;
   onNetlifyDeploy?: () => Promise<void>;
   onGitHubDeploy?: () => Promise<void>;
   onGitLabDeploy?: () => Promise<void>;
+  onS3Deploy?: () => Promise<void>;
 }
 
 export const DeployButton = ({
@@ -28,20 +31,23 @@ export const DeployButton = ({
   onNetlifyDeploy,
   onGitHubDeploy,
   onGitLabDeploy,
+  onS3Deploy,
 }: DeployButtonProps) => {
   const netlifyConn = useStore(netlifyConnection);
   const vercelConn = useStore(vercelConnection);
   const gitlabIsConnected = useStore(isGitLabConnected);
+  const s3Conn = useStore(s3Connection);
   const [activePreviewIndex] = useState(0);
   const previews = useStore(workbenchStore.previews);
   const activePreview = previews[activePreviewIndex];
   const [isDeploying, setIsDeploying] = useState(false);
-  const [deployingTo, setDeployingTo] = useState<'netlify' | 'vercel' | 'github' | 'gitlab' | null>(null);
+  const [deployingTo, setDeployingTo] = useState<'netlify' | 'vercel' | 'github' | 'gitlab' | 's3' | null>(null);
   const isStreaming = useStore(streamingState);
   const { handleVercelDeploy } = useVercelDeploy();
   const { handleNetlifyDeploy } = useNetlifyDeploy();
   const { handleGitHubDeploy } = useGitHubDeploy();
   const { handleGitLabDeploy } = useGitLabDeploy();
+  const { handleS3Deploy } = useS3Deploy();
   const [showGitHubDeploymentDialog, setShowGitHubDeploymentDialog] = useState(false);
   const [showGitLabDeploymentDialog, setShowGitLabDeploymentDialog] = useState(false);
   const [githubDeploymentFiles, setGithubDeploymentFiles] = useState<Record<string, string> | null>(null);
@@ -118,6 +124,22 @@ export const DeployButton = ({
           setGitlabProjectName(result.projectName);
           setShowGitLabDeploymentDialog(true);
         }
+      }
+    } finally {
+      setIsDeploying(false);
+      setDeployingTo(null);
+    }
+  };
+
+  const handleS3DeployClick = async () => {
+    setIsDeploying(true);
+    setDeployingTo('s3');
+
+    try {
+      if (onS3Deploy) {
+        await onS3Deploy();
+      } else {
+        await handleS3Deploy();
       }
     } finally {
       setIsDeploying(false);
@@ -236,18 +258,28 @@ export const DeployButton = ({
             </DropdownMenu.Item>
 
             <DropdownMenu.Item
-              disabled
-              className="flex items-center w-full rounded-md px-4 py-2 text-sm text-bolt-elements-textTertiary gap-2 opacity-60 cursor-not-allowed"
+              className={classNames(
+                'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
+                {
+                  'opacity-60 cursor-not-allowed': isDeploying || !activePreview || !s3Conn.connected,
+                },
+              )}
+              disabled={isDeploying || !activePreview || !s3Conn.connected}
+              onClick={handleS3DeployClick}
             >
               <img
                 className="w-5 h-5"
                 height="24"
                 width="24"
                 crossOrigin="anonymous"
-                src="https://cdn.simpleicons.org/cloudflare"
-                alt="cloudflare"
+                src="https://cdn.simpleicons.org/amazons3"
+                alt="s3"
               />
-              <span className="mx-auto">Deploy to Cloudflare (Coming Soon)</span>
+              <span className="mx-auto">
+                {!s3Conn.connected
+                  ? 'No S3/R2 Connection Configured'
+                  : `Deploy to ${s3Conn.provider === 'r2' ? 'Cloudflare R2' : 'AWS S3'}`}
+              </span>
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Root>

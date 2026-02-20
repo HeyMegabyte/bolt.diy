@@ -1501,6 +1501,35 @@
     .inline-slug-url.status-taken { color: #ef4444; }
     .inline-slug-url.status-invalid { color: #ef4444; }
     .inline-slug-url.status-checking { color: #fbbf24; animation: slug-pulse 1s ease-in-out infinite; }
+
+    /* URL link parts: make non-slug portions (https:// and -sites.megabyte.space) clickable */
+    .slug-url-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      cursor: pointer;
+      transition: color 0.2s, text-decoration-color 0.2s;
+      text-decoration: underline;
+      text-decoration-color: transparent;
+      text-underline-offset: 2px;
+    }
+    .slug-url-link:hover {
+      color: var(--accent);
+      text-decoration-color: var(--accent);
+    }
+    .slug-url-link:active {
+      color: #4ecdc4;
+      text-decoration-color: #4ecdc4;
+    }
+    .slug-url-link:focus-visible {
+      outline: 1px solid var(--accent);
+      outline-offset: 1px;
+      border-radius: 2px;
+    }
+    /* The editable slug part stands out differently */
+    .slug-editable-part {
+      color: var(--accent);
+      font-weight: 500;
+    }
     @keyframes slug-pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
@@ -5592,7 +5621,7 @@
           var cnameHost = slug + '-sites.megabyte.space';
           var cnameUrl = 'https://' + cnameHost;
           html += '<div class="site-card-url-row" id="inline-slug-wrap-' + s.id + '">';
-          html += '<span class="inline-slug-url status-default" id="inline-slug-url-' + s.id + '">https://<span class="inline-edit-wrap inline-edit-inline" id="inline-slug-' + s.id + '"><span class="inline-text slug-editable" tabindex="0" role="button" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')}">' + escapeHtml(slug) + '</span></span><span class="inline-slug-actions"><button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')" title="Edit URL slug" aria-label="Edit URL slug"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></span>-sites.megabyte.space</span>';
+          html += '<span class="inline-slug-url status-default" id="inline-slug-url-' + s.id + '"><a class="slug-url-link" href="' + escapeAttr(cnameUrl) + '" target="_blank" onclick="event.stopPropagation()">https://</a><span class="inline-edit-wrap inline-edit-inline" id="inline-slug-' + s.id + '"><span class="inline-text slug-editable" tabindex="0" role="button" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')}">' + escapeHtml(slug) + '</span></span><span class="inline-slug-actions"><button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(s.id) + '\', \'slug\', \'' + escapeJsString(slug) + '\')" title="Edit URL slug" aria-label="Edit URL slug"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></span><a class="slug-url-link" href="' + escapeAttr(cnameUrl) + '" target="_blank" onclick="event.stopPropagation()">-sites.megabyte.space</a></span>';
           html += '<button class="site-card-copy-btn" onclick="copyUrl(\'' + escapeAttr(cnameUrl) + '\', this)" title="Copy URL"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
           html += '<button class="site-card-copy-btn" onclick="window.open(\'' + escapeAttr(cnameUrl) + '\', \'_blank\')" title="Open in new tab"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>';
           html += '</div>';
@@ -5785,7 +5814,7 @@
             html += '<div style="flex:1;min-width:0;">';
             // URL row — independent slug editing (uses 'dm' context to avoid touching homepage card)
             html += '<div style="display:flex;align-items:center;gap:4px;">';
-            html += '<span class="inline-slug-url status-default" id="dm-slug-url" style="font-size:0.78rem;">https://<span class="inline-edit-wrap inline-edit-inline" id="dm-slug-edit"><span class="inline-text slug-editable" tabindex="0" role="button" onclick="startInlineEdit(\'' + escapeJsString(adminDomainModalSiteId) + '\', \'slug\', \'' + escapeJsString(adminDomainModalSlug) + '\', \'dm\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(adminDomainModalSiteId) + '\', \'slug\', \'' + escapeJsString(adminDomainModalSlug) + '\', \'dm\')}">' + escapeHtml(adminDomainModalSlug) + '</span></span><span class="inline-slug-actions"><button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(adminDomainModalSiteId) + '\', \'slug\', \'' + escapeJsString(adminDomainModalSlug) + '\', \'dm\')" title="Edit URL slug" aria-label="Edit URL slug"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></span>-sites.megabyte.space</span>';
+            html += '<span class="inline-slug-url status-default" id="dm-slug-url" style="font-size:0.78rem;"><a class="slug-url-link" href="' + escapeAttr(cnameUrl) + '" target="_blank" onclick="event.stopPropagation()">https://</a><span class="inline-edit-wrap inline-edit-inline" id="dm-slug-edit"><span class="inline-text slug-editable" tabindex="0" role="button" onclick="startInlineEdit(\'' + escapeJsString(adminDomainModalSiteId) + '\', \'slug\', \'' + escapeJsString(adminDomainModalSlug) + '\', \'dm\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startInlineEdit(\'' + escapeJsString(adminDomainModalSiteId) + '\', \'slug\', \'' + escapeJsString(adminDomainModalSlug) + '\', \'dm\')}">' + escapeHtml(adminDomainModalSlug) + '</span></span><span class="inline-slug-actions"><button class="inline-edit-btn" onclick="startInlineEdit(\'' + escapeJsString(adminDomainModalSiteId) + '\', \'slug\', \'' + escapeJsString(adminDomainModalSlug) + '\', \'dm\')" title="Edit URL slug" aria-label="Edit URL slug"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></span><a class="slug-url-link" href="' + escapeAttr(cnameUrl) + '" target="_blank" onclick="event.stopPropagation()">-sites.megabyte.space</a></span>';
             html += '<button class="site-card-copy-btn" onclick="copyUrl(\'' + escapeAttr(cnameUrl) + '\', this)" title="Copy URL" style="position:relative;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
             html += '<button class="site-card-copy-btn" onclick="window.open(\'' + escapeAttr(cnameUrl) + '\', \'_blank\')" title="Open in new tab"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>';
             html += '</div>';
