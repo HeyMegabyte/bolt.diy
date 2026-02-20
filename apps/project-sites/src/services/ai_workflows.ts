@@ -490,11 +490,14 @@ export async function runSiteGenerationWorkflowV2(
   // Phase 2: Parallel research (all depend on profile.business_type)
   const servicesJson = JSON.stringify(profile.services.map((s) => s.name));
 
+  const bizType = profile.business_type ?? 'general';
+  const bizDesc = profile.description ?? '';
+
   const [social, brand, sellingPoints, images] = await Promise.all([
-    runResearchSocial(env, input, profile.business_type),
-    runResearchBrand(env, input, profile.business_type, ''),
-    runResearchSellingPoints(env, input, profile.business_type, servicesJson, profile.description),
-    runResearchImages(env, input, profile.business_type, servicesJson),
+    runResearchSocial(env, input, bizType),
+    runResearchBrand(env, input, bizType, ''),
+    runResearchSellingPoints(env, input, bizType, servicesJson, bizDesc),
+    runResearchImages(env, input, bizType, servicesJson),
   ]);
 
   const research: WorkflowResearch = { profile, social, brand, sellingPoints, images };
@@ -502,7 +505,7 @@ export async function runSiteGenerationWorkflowV2(
   console.warn(JSON.stringify({
     level: 'info', service: 'ai_workflow', phase: 2,
     message: 'Parallel research complete',
-    social_links_found: social.social_links.filter((l) => l.url && l.confidence >= 0.9).length,
+    social_links_found: social.social_links.filter((l) => l.url && (l.confidence ?? 0) >= 0.9).length,
     logo_found: brand.logo.found_online,
   }));
 

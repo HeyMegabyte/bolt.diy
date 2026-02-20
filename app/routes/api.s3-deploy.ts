@@ -40,6 +40,7 @@ function getMimeType(filePath: string): string {
     map: 'application/json',
     webmanifest: 'application/manifest+json',
   };
+
   return mimeTypes[ext] || 'application/octet-stream';
 }
 
@@ -60,7 +61,10 @@ async function signS3Request(
 ): Promise<Record<string, string>> {
   const urlObj = new URL(url);
   const now = new Date();
-  const dateStamp = now.toISOString().replace(/[:-]|\.\d{3}/g, '').substring(0, 8);
+  const dateStamp = now
+    .toISOString()
+    .replace(/[:-]|\.\d{3}/g, '')
+    .substring(0, 8);
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
 
   const credentialScope = `${dateStamp}/${opts.region}/${opts.service}/aws4_request`;
@@ -107,9 +111,8 @@ async function signS3Request(
   // Signing key
   async function hmac(key: ArrayBuffer | string, message: string): Promise<ArrayBuffer> {
     const keyData = typeof key === 'string' ? new TextEncoder().encode(key) : key;
-    const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, [
-      'sign',
-    ]);
+    const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+
     return crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(message));
   }
 
@@ -118,9 +121,7 @@ async function signS3Request(
   const kService = await hmac(kRegion, opts.service);
   const kSigning = await hmac(kService, 'aws4_request');
 
-  const signature = Array.from(
-    new Uint8Array(await hmac(kSigning, stringToSign)),
-  )
+  const signature = Array.from(new Uint8Array(await hmac(kSigning, stringToSign)))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 
@@ -164,6 +165,7 @@ export async function action({ request }: ActionFunctionArgs) {
         }
 
         const errorText = await res.text();
+
         return json({ ok: false, error: `Connection failed (${res.status}): ${errorText.substring(0, 200)}` });
       } catch (err) {
         return json({ ok: false, error: `Connection error: ${err instanceof Error ? err.message : 'Unknown'}` });
@@ -220,9 +222,7 @@ export async function action({ request }: ActionFunctionArgs) {
         );
       }
 
-      const url = body.pathPrefix
-        ? `${baseUrl}/${bucket}/${prefix}index.html`
-        : `${baseUrl}/${bucket}/index.html`;
+      const url = body.pathPrefix ? `${baseUrl}/${bucket}/${prefix}index.html` : `${baseUrl}/${bucket}/index.html`;
 
       return json({
         ok: true,

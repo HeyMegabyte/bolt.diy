@@ -268,7 +268,7 @@ export function transformToV3(
     description: llm(str(p.description), 'LLM-generated description'),
     mission_statement: llm(str(p.mission_statement), 'LLM-generated mission'),
     business_type: llm(str(p.business_type) || 'general', 'LLM-inferred type'),
-    categories: llm(arr(p.categories) as string[], 'LLM-inferred categories'),
+    categories: llm(strArr(p.categories), 'LLM-inferred categories'),
     phone: phoneConf,
     email: emailConf,
     website_url: websiteConf,
@@ -285,7 +285,7 @@ export function transformToV3(
     neighborhood: llm(str(p.neighborhood), 'LLM-inferred neighborhood'),
     parking: llm(str(p.parking), 'LLM-inferred parking'),
     public_transit: llm(str(p.public_transit), 'LLM-inferred transit'),
-    landmarks_nearby: llm(arr(p.landmarks_nearby) as string[], 'LLM-inferred landmarks'),
+    landmarks_nearby: llm(strArr(p.landmarks_nearby), 'LLM-inferred landmarks'),
   };
 
   // ── Operations ───────────────────────────────────────────
@@ -314,15 +314,15 @@ export function transformToV3(
       age: str(policiesRaw.age),
       discount_rules: str(policiesRaw.discount_rules),
     }, 'LLM-inferred policies'),
-    payments: llmInferred(arr(p.payments) as string[], 'LLM-inferred payment methods — unverified, may not be accurate'),
-    amenities: llmInferred(arr(p.amenities) as string[], 'LLM-inferred amenities — unverified'),
+    payments: llmInferred(strArr(p.payments), 'LLM-inferred payment methods — unverified, may not be accurate'),
+    amenities: llmInferred(strArr(p.amenities), 'LLM-inferred amenities — unverified'),
     accessibility: llmInferred({
       wheelchair: !!accessRaw.wheelchair,
       hearing_loop: !!accessRaw.hearing_loop,
       service_animals: accessRaw.service_animals !== false,
       notes: str(accessRaw.notes),
     }, 'LLM-inferred accessibility — unverified'),
-    languages_spoken: llmInferred(arr(p.languages_spoken) as string[], 'LLM-inferred languages — unverified'),
+    languages_spoken: llmInferred(strArr(p.languages_spoken), 'LLM-inferred languages — unverified'),
   };
 
   // ── Offerings ────────────────────────────────────────────
@@ -334,7 +334,7 @@ export function transformToV3(
     price_hint: llm(str(svc.price_hint), 'LLM-estimated price range'),
     price_from: llm(num(svc.price_from), 'LLM-estimated starting price'),
     duration_minutes: llm(num(svc.duration_minutes), 'LLM-estimated duration'),
-    variants: llm(arr(svc.variants) as string[], 'LLM-suggested variants'),
+    variants: llm(strArr(svc.variants), 'LLM-suggested variants'),
     add_ons: llm(arr(svc.add_ons) as Array<{ name: string; price_from: number | null; duration_minutes: number | null }>, 'LLM-suggested add-ons'),
     requirements: llm(str(svc.requirements), 'LLM-inferred requirements'),
     category: llm(str(svc.category), 'LLM-inferred category'),
@@ -342,7 +342,7 @@ export function transformToV3(
 
   const offerings = {
     services: llm(services, 'LLM-generated service menu'),
-    products_sold: llm(arr(p.products_sold) as string[], 'LLM-inferred products'),
+    products_sold: llm(strArr(p.products_sold), 'LLM-inferred products'),
     guarantee_details: llm(str(p.guarantee_details), 'LLM-inferred guarantee'),
     faq: llm(arr(p.faq).map((f: Record<string, unknown>) => ({
       question: str(f.question), answer: str(f.answer),
@@ -356,7 +356,7 @@ export function transformToV3(
     name: llm(str(m.name), 'LLM-inferred team member'),
     role: llm(str(m.role), 'LLM-inferred role'),
     bio: llm(str(m.bio), 'LLM-generated bio'),
-    specialties: llm(arr(m.specialties) as string[], 'LLM-inferred specialties'),
+    specialties: llm(strArr(m.specialties), 'LLM-inferred specialties'),
     years_experience: llm(num(m.years_experience), 'LLM-estimated experience'),
     instagram: llm(str(m.instagram), 'LLM-inferred social'),
     headshot_url: placeholder(null as string | null, 'No headshot available'),
@@ -491,7 +491,7 @@ export function transformToV3(
         ? sl.cta_secondary as { text: string; action: string }
         : { text: 'Learn More', action: '#services' },
     })), 'LLM-generated hero slogans'),
-    benefit_bullets: llm(arr(sp.benefit_bullets) as string[], 'LLM-generated benefits'),
+    benefit_bullets: llm(strArr(sp.benefit_bullets), 'LLM-generated benefits'),
   };
 
   // ── Media ────────────────────────────────────────────────
@@ -510,7 +510,7 @@ export function transformToV3(
 
   // Filter gallery photos: remove images that clearly don't match the business
   const filteredPhotos = photos.filter((ph) =>
-    isImageRelevant(ph.alt_text, businessType, userInputs.businessName),
+    isImageRelevant(ph.alt_text ?? '', businessType, userInputs.businessName),
   );
 
   const media = {
@@ -565,10 +565,10 @@ export function transformToV3(
   const seo = {
     title: llm(str(rawSeo.title) || str(p.seo_title) || `${userInputs.businessName}`, 'LLM-generated SEO title'),
     description: llm(str(rawSeo.description) || str(p.seo_description) || '', 'LLM-generated SEO description'),
-    primary_keywords: llm(arr(rawSeo.primary_keywords) as string[], 'LLM-generated primary keywords'),
-    secondary_keywords: llm(arr(rawSeo.secondary_keywords) as string[], 'LLM-generated secondary keywords'),
-    service_keywords: llm(arr(rawSeo.service_keywords) as string[], 'LLM-generated service keywords'),
-    neighborhood_keywords: llm(arr(rawSeo.neighborhood_keywords) as string[], 'LLM-generated local keywords'),
+    primary_keywords: llm(strArr(rawSeo.primary_keywords), 'LLM-generated primary keywords'),
+    secondary_keywords: llm(strArr(rawSeo.secondary_keywords), 'LLM-generated secondary keywords'),
+    service_keywords: llm(strArr(rawSeo.service_keywords), 'LLM-generated service keywords'),
+    neighborhood_keywords: llm(strArr(rawSeo.neighborhood_keywords), 'LLM-generated local keywords'),
     schema_org: llm({
       type: str(p.schema_org_type) || 'LocalBusiness',
       priceRange: rawServices.length > 0 ? str(rawServices[0].price_hint) : undefined,
@@ -659,6 +659,11 @@ function num(v: unknown): number | null {
 
 function arr(v: unknown): Array<Record<string, unknown>> {
   return Array.isArray(v) ? v : [];
+}
+
+function strArr(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((item): item is string => typeof item === 'string');
 }
 
 function computeSectionConfidence(obj: unknown): number {
