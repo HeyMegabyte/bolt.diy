@@ -115,12 +115,15 @@ interface ProfileData {
   services: Array<{ name: string }>;
   description: string;
   email?: string;
+  website_url?: string;
   address: { street?: string; city?: string; state?: string; zip?: string };
+  [key: string]: unknown;
 }
 
 /** Shape of the social data returned from research-social step. */
 interface SocialData {
   website_url?: string;
+  [key: string]: unknown;
 }
 
 /** Shape of the quality score data. */
@@ -277,6 +280,45 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
 
     const profile = JSON.parse(profileJson) as ProfileData;
 
+    // ── Step 1b: Google Places Enrichment (optional) ────────
+    let placesData: import('../services/google_places.js').PlacesResult | null = null;
+    try {
+      if (env.GOOGLE_PLACES_API_KEY) {
+        const { lookupBusiness } = await import('../services/google_places.js');
+        placesData = await step.do('google-places-lookup', {
+          retries: { limit: 1, delay: '5 seconds', backoff: 'exponential' },
+          timeout: '30 seconds',
+        }, async () => {
+          const result = await lookupBusiness(
+            env.GOOGLE_PLACES_API_KEY,
+            params.businessName,
+            params.businessAddress ?? '',
+          );
+          return result ? JSON.stringify(result) : 'null';
+        }).then((r: string) => {
+          try { return JSON.parse(r) as import('../services/google_places.js').PlacesResult | null; } catch { return null; }
+        });
+
+        if (placesData) {
+          await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.google_places_enriched', {
+            place_id: placesData.place_id,
+            rating: placesData.rating,
+            review_count: placesData.review_count,
+            has_hours: !!placesData.hours,
+            photo_count: placesData.photos?.length ?? 0,
+            has_phone: !!placesData.phone,
+            has_website: !!placesData.website,
+            message: 'Google Places enrichment: ' + (placesData.rating ?? 'N/A') + ' stars, ' + (placesData.review_count ?? 0) + ' reviews, ' + (placesData.photos?.length ?? 0) + ' photos',
+          });
+        }
+      }
+    } catch (gpErr) {
+      await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.debug.google_places_failed', {
+        error: gpErr instanceof Error ? gpErr.message : String(gpErr),
+        message: 'Google Places lookup failed (non-blocking): ' + (gpErr instanceof Error ? gpErr.message : String(gpErr)),
+      });
+    }
+
     await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.profile_research_complete', {
       business_type: profile.business_type,
       services_count: profile.services?.length ?? 0,
@@ -374,7 +416,25 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     const brand = JSON.parse(brandJson) as Record<string, unknown>;
     const sellingPoints = JSON.parse(sellingPointsJson) as Record<string, unknown>;
     const images = JSON.parse(imagesJson) as Record<string, unknown>;
-    const research = { profile, social, brand, sellingPoints, images };
+    const researchRaw = { profile, social, brand, sellingPoints, images };
+
+    // Transform to confidence-weighted v3 format
+    const { transformToV3 } = await import('../services/confidence.js');
+    const researchV3 = transformToV3(
+      researchRaw as import('../services/confidence.js').RawResearch,
+      placesData,
+      {
+        businessName: params.businessName,
+        businessAddress: params.businessAddress,
+        businessPhone: params.businessPhone,
+      },
+    );
+
+    // Expose both legacy and v3 under research
+    const research = {
+      ...researchRaw,
+      _v3: researchV3,
+    };
 
     await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.step.parallel_research_complete', {
       has_social: !!social,
