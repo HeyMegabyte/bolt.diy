@@ -34,15 +34,49 @@ interface Conf<T> {
 const BASE_CONFIDENCE: Record<SourceKind, number> = {
   business_owner: 0.95,
   user_provided: 0.90,
-  google_places: 0.90,
+  google_places: 0.92,
   osm: 0.80,
   review_platform: 0.80,
   domain_whois: 0.70,
   street_view: 0.70,
   social_profile: 0.70,
-  llm_generated: 0.60,
-  internal_inference: 0.55,
-  stock_photo: 0.40,
+  llm_generated: 0.50,
+  internal_inference: 0.45,
+  stock_photo: 0.30,
+};
+
+/**
+ * Graduated corroboration boosts. More confirming sources = higher confidence.
+ * e.g. Google Places + YellowPages + Google Maps all showing same phone = 3 sources = +0.15
+ */
+const CORROBORATION_BOOSTS: Record<number, number> = {
+  1: 0.00,
+  2: 0.08,
+  3: 0.15,
+  4: 0.20,
+};
+
+function getCorroborationBoost(uniqueSourceCount: number): number {
+  if (uniqueSourceCount >= 4) return CORROBORATION_BOOSTS[4];
+  return CORROBORATION_BOOSTS[uniqueSourceCount] ?? 0;
+}
+
+/**
+ * Extra penalty for LLM-only inferred data (payment methods, amenities, etc.)
+ * that cannot be verified from public sources.
+ */
+const LLM_ONLY_INFERRED_PENALTY = 0.15;
+
+/**
+ * Business-type image relevance keywords. Used to filter out images
+ * that are clearly not related to the business type.
+ */
+const BUSINESS_IMAGE_KEYWORDS: Record<string, string[]> = {
+  barber: ['barber', 'haircut', 'salon', 'shave', 'fade', 'grooming', 'hair', 'men'],
+  salon: ['salon', 'hair', 'beauty', 'style', 'cut', 'color', 'women', 'nails'],
+  restaurant: ['food', 'restaurant', 'dining', 'meal', 'kitchen', 'chef', 'plate'],
+  dentist: ['dental', 'dentist', 'teeth', 'smile', 'clinic', 'office'],
+  plumber: ['plumbing', 'pipe', 'water', 'repair', 'faucet', 'bathroom'],
 };
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -92,7 +126,9 @@ function mergeConf<T>(a: Conf<T>, b: Conf<T>): Conf<T> {
   });
   const uniqueKinds = new Set(uniqueSources.map((s) => s.kind));
   let confidence = primary.confidence;
-  if (uniqueKinds.size >= 2) confidence = Math.min(0.98, confidence + 0.05);
+  // Graduated corroboration boost
+  const boost = getCorroborationBoost(uniqueKinds.size);
+  confidence = Math.min(0.98, confidence + boost);
   return {
     value: primary.value,
     confidence: Math.round(confidence * 100) / 100,
@@ -101,6 +137,44 @@ function mergeConf<T>(a: Conf<T>, b: Conf<T>): Conf<T> {
     lastVerifiedAt: primary.lastVerifiedAt,
     isPlaceholder: false,
   };
+}
+
+/**
+ * Apply LLM-only inferred penalty. For fields like payment methods, amenities, etc.
+ * that are only guessed by the LLM without any confirming source.
+ */
+function llmInferred<T>(value: T, rationale?: string): Conf<T> {
+  const base = llm(value, rationale);
+  // Apply extra penalty for inferred-only data
+  base.confidence = Math.max(0, Math.round((base.confidence - LLM_ONLY_INFERRED_PENALTY) * 100) / 100);
+  return base;
+}
+
+/**
+ * Filter images that are irrelevant to the business type.
+ * Returns true if the image metadata suggests it matches the business.
+ */
+function isImageRelevant(imageAltText: string, businessType: string, businessName: string): boolean {
+  const text = (imageAltText || '').toLowerCase();
+  const name = businessName.toLowerCase();
+
+  // Always include if it mentions the business name
+  if (name && text.includes(name)) return true;
+
+  // Always include if alt text is empty or very generic
+  if (text.length === 0 || text === 'photo' || text === 'image') return true;
+
+  // Always include generic business terms like "shop front", "exterior", etc.
+  const genericTerms = ['shop', 'store', 'front', 'exterior', 'interior', 'entrance', 'sign', 'logo', 'building', 'office', 'staff', 'team', 'professional'];
+  if (genericTerms.some((t) => text.includes(t))) return true;
+
+  // Check business-type keywords
+  const typeKey = Object.keys(BUSINESS_IMAGE_KEYWORDS).find((k) => businessType.toLowerCase().includes(k));
+  if (!typeKey) return true; // No filter for unknown types
+
+  // Include if alt text has relevant keywords for the business type
+  const keywords = BUSINESS_IMAGE_KEYWORDS[typeKey];
+  return keywords.some((kw) => text.includes(kw));
 }
 
 // ── Main Transformer ─────────────────────────────────────────
@@ -240,15 +314,15 @@ export function transformToV3(
       age: str(policiesRaw.age),
       discount_rules: str(policiesRaw.discount_rules),
     }, 'LLM-inferred policies'),
-    payments: llm(arr(p.payments) as string[], 'LLM-inferred payment methods'),
-    amenities: llm(arr(p.amenities) as string[], 'LLM-inferred amenities'),
-    accessibility: llm({
+    payments: llmInferred(arr(p.payments) as string[], 'LLM-inferred payment methods — unverified, may not be accurate'),
+    amenities: llmInferred(arr(p.amenities) as string[], 'LLM-inferred amenities — unverified'),
+    accessibility: llmInferred({
       wheelchair: !!accessRaw.wheelchair,
       hearing_loop: !!accessRaw.hearing_loop,
       service_animals: accessRaw.service_animals !== false,
       notes: str(accessRaw.notes),
-    }, 'LLM-inferred accessibility'),
-    languages_spoken: llm(arr(p.languages_spoken) as string[], 'LLM-inferred languages'),
+    }, 'LLM-inferred accessibility — unverified'),
+    languages_spoken: llmInferred(arr(p.languages_spoken) as string[], 'LLM-inferred languages — unverified'),
   };
 
   // ── Offerings ────────────────────────────────────────────
@@ -426,48 +500,63 @@ export function transformToV3(
   const rawServiceImages = arr(img.service_images) as Array<Record<string, unknown>>;
   const rawGallery = arr(img.gallery) as Array<Record<string, unknown>>;
 
+  // Determine business type for image filtering
+  const businessType = str(p.business_type) || 'general';
+
+  // Filter hero images: only keep concepts relevant to the business
+  const filteredHeroImages = rawHeroImages.filter((hi) =>
+    isImageRelevant(str(hi.concept) || str(hi.alt_text) || '', businessType, userInputs.businessName),
+  );
+
+  // Filter gallery photos: remove images that clearly don't match the business
+  const filteredPhotos = photos.filter((ph) =>
+    isImageRelevant(ph.alt_text, businessType, userInputs.businessName),
+  );
+
   const media = {
-    hero_images: llm(rawHeroImages.map((hi) => ({
+    hero_images: llm(filteredHeroImages.map((hi) => ({
       concept: str(hi.concept),
       url: str(hi.url),
       search_query: str(hi.search_query) || str(hi.search_query_stock) || str(hi.search_query_specific),
-      stock_fallback: str(hi.stock_fallback),
+      stock_fallback: null as string | null, // No Getty/stock fallbacks — use CSS placeholders
       alt_text: str(hi.alt_text) || str(hi.concept),
       aspect_ratio: str(hi.aspect_ratio) || '16:9',
-    })), 'LLM-generated hero image concepts'),
+    })), 'LLM-generated hero image concepts (filtered for relevance)'),
     storefront_image: img.storefront_image && typeof img.storefront_image === 'object'
       ? llm({
         url: str((img.storefront_image as Record<string, unknown>).url),
         search_query: str((img.storefront_image as Record<string, unknown>).search_query),
         alt_text: `Storefront of ${userInputs.businessName}`,
         source: 'inference',
-        license: '',
+        license: 'free',
         width: 1920,
         height: 1080,
         aspect_ratio: '16:9',
-      }, 'LLM-suggested storefront image')
+      }, 'LLM-suggested storefront image (actual business only)')
       : placeholder({
-        url: null as string | null, search_query: '', alt_text: '', source: 'placeholder',
+        url: null as string | null, search_query: '', alt_text: '', source: 'css_placeholder',
         license: '', width: 0, height: 0, aspect_ratio: '16:9',
-      }, 'No storefront image'),
+      }, 'No storefront image — use CSS gradient placeholder'),
     team_image: placeholder({
-      url: null as string | null, search_query: '', alt_text: '', source: 'placeholder',
+      url: null as string | null, search_query: '', alt_text: '', source: 'css_placeholder',
       license: '', width: 0, height: 0, aspect_ratio: '16:9',
-    }, 'No team photo available'),
+    }, 'No team photo available — use CSS placeholder'),
     service_images: llm(rawServiceImages.map((si) => ({
       service_name: str(si.service_name) || str(si.name),
-      url: str(si.url),
+      url: null as string | null, // Do not use stock images
       search_query: str(si.search_query) || str(si.search_query_stock),
       alt_text: str(si.alt_text),
-    })), 'LLM-suggested service images'),
-    gallery: photos.length > 0
-      ? conf(photos.map((ph) => ({
-        url: ph.url, alt_text: ph.alt_text, source: ph.source, license: '',
-      })), photos[0].source === 'google_places' ? 'google_places' : 'llm_generated', 'Business photos')
-      : llm(rawGallery.map((gi) => ({
-        url: str(gi.url), alt_text: str(gi.alt_text), source: str(gi.source), license: str(gi.license),
-      })), 'LLM-suggested gallery'),
-    placeholder_strategy: llm(str(img.placeholder_strategy) || 'stock', 'Fallback image strategy'),
+    })), 'Service image concepts — actual photos only, no stock'),
+    gallery: filteredPhotos.length > 0
+      ? conf(filteredPhotos.map((ph) => ({
+        url: ph.url, alt_text: ph.alt_text, source: ph.source, license: 'google_places',
+      })), filteredPhotos[0].source === 'google_places' ? 'google_places' : 'llm_generated',
+        'Business photos (filtered for relevance, ' + filteredPhotos.length + ' of ' + photos.length + ' kept)')
+      : placeholder([] as Array<{ url: string; alt_text: string; source: string; license: string }>,
+        'No verified business photos — use CSS gradient/pattern placeholders'),
+    // NEVER use stock photos or Getty images. CSS gradients/patterns/illustrations only.
+    placeholder_strategy: conf('css_gradient', 'internal_inference',
+      'CSS gradients and patterns only — no stock photos, no Getty, no copyrighted images'),
   };
 
   // ── SEO ──────────────────────────────────────────────────
