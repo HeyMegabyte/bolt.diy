@@ -261,6 +261,7 @@ describe('PUT /api/sites/:id/files/:path', () => {
       list: jest.fn(),
       get: jest.fn(),
       put: mockPut,
+      head: jest.fn().mockResolvedValue({ size: 100 }),
     };
     const { app, env } = createAuthenticatedApp({
       SITES_BUCKET: mockBucket as unknown as R2Bucket,
@@ -397,6 +398,7 @@ describe('PUT /api/sites/:id/files/:path', () => {
       list: jest.fn(),
       get: jest.fn(),
       put: mockPut,
+      head: jest.fn().mockResolvedValue(null),
     };
     const { app, env } = createAuthenticatedApp({
       SITES_BUCKET: mockBucket as unknown as R2Bucket,

@@ -741,7 +741,11 @@ api.put('/api/sites/:siteId/hostnames/:hostnameId/primary', async (c) => {
     action: 'hostname.set_primary',
     target_type: 'hostname',
     target_id: hostnameId,
-    metadata_json: { site_id: siteId, message: 'Primary domain changed' },
+    metadata_json: {
+      site_id: siteId,
+      hostname_id: hostnameId,
+      message: 'Primary domain changed for this site',
+    },
     request_id: c.get('requestId'),
   });
 
@@ -899,7 +903,7 @@ api.post('/api/billing/portal', async (c) => {
     action: 'billing.portal_opened',
     target_type: 'billing',
     target_id: orgId,
-    metadata_json: { stripe_customer_id: sub.stripe_customer_id },
+    metadata_json: { stripe_customer_id: sub.stripe_customer_id, message: 'Billing portal session opened' },
     request_id: c.get('requestId'),
   }).catch(() => {});
 
@@ -1342,9 +1346,10 @@ api.patch('/api/sites/:id', async (c) => {
           },
           request_id: c.get('requestId'),
         }).catch(() => {});
-      } catch {
+      } catch (migrationErr) {
         // R2 migration failure should not block the slug update
-        console.warn(`Failed to migrate R2 files from sites/${site.slug}/ to sites/${newSlug}/`);
+        const migErrMsg = migrationErr instanceof Error ? migrationErr.message : String(migrationErr);
+        console.warn(`Failed to migrate R2 files from sites/${site.slug}/ to sites/${newSlug}/: ${migErrMsg}`);
 
         // Audit: R2 migration failed
         auditService.writeAuditLog(c.env.DB, {
@@ -1356,7 +1361,8 @@ api.patch('/api/sites/:id', async (c) => {
           metadata_json: {
             old_slug: site.slug,
             new_slug: newSlug,
-            message: 'R2 file migration failed from sites/' + site.slug + '/ to sites/' + newSlug + '/ — slug updated but old files may still exist',
+            error: migErrMsg,
+            message: 'R2 file migration failed: ' + migErrMsg + ' — slug updated but old files may still exist',
           },
           request_id: c.get('requestId'),
         }).catch(() => {});
@@ -1418,7 +1424,7 @@ api.patch('/api/sites/:id', async (c) => {
     action: 'site.updated',
     target_type: 'site',
     target_id: siteId,
-    metadata_json: { site_id: siteId, ...body },
+    metadata_json: { site_id: siteId, ...body, message: 'Site settings updated' },
     request_id: c.get('requestId'),
   });
 
@@ -1490,9 +1496,10 @@ api.post('/api/sites/:id/reset', async (c) => {
         },
       });
       workflowInstanceId = instance.id;
-    } catch {
+    } catch (firstErr) {
       // Workflow creation may fail if instance with same ID exists
       // Try with a unique suffix
+      const firstErrMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
       try {
         const resetId = `${siteId}-reset-${Date.now()}`;
         const instance = await c.env.SITE_WORKFLOW.create({
@@ -1508,8 +1515,41 @@ api.post('/api/sites/:id/reset', async (c) => {
           },
         });
         workflowInstanceId = instance.id;
-      } catch {
-        // Workflow not available
+
+        // Log that we had to use a retry ID
+        auditService.writeAuditLog(c.env.DB, {
+          org_id: orgId,
+          actor_id: c.get('userId') ?? null,
+          action: 'workflow.retry_created',
+          target_type: 'site',
+          target_id: siteId,
+          metadata_json: {
+            site_id: siteId,
+            slug: site.slug,
+            first_error: firstErrMsg,
+            retry_id: resetId,
+            message: 'Workflow instance recreated with new ID (original ID was in use)',
+          },
+          request_id: c.get('requestId'),
+        }).catch(() => {});
+      } catch (retryErr) {
+        // Workflow not available — log it
+        const retryErrMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+        auditService.writeAuditLog(c.env.DB, {
+          org_id: orgId,
+          actor_id: c.get('userId') ?? null,
+          action: 'workflow.creation_failed',
+          target_type: 'site',
+          target_id: siteId,
+          metadata_json: {
+            site_id: siteId,
+            slug: site.slug,
+            first_error: firstErrMsg,
+            retry_error: retryErrMsg,
+            message: 'Workflow creation failed: ' + retryErrMsg + ' (first attempt: ' + firstErrMsg + ')',
+          },
+          request_id: c.get('requestId'),
+        }).catch(() => {});
       }
     }
   }
@@ -2011,6 +2051,7 @@ api.post('/api/admin/domains/:hostnameId/verify', async (c) => {
       previous_status: hostname.status,
       new_status: newStatus,
       ssl_status: cfStatus.ssl_status,
+      message: 'Domain verification: ' + hostname.hostname + ' — ' + hostname.status + ' → ' + newStatus + (cfStatus.ssl_status ? ' (SSL: ' + cfStatus.ssl_status + ')' : ''),
     },
     request_id: c.get('requestId'),
   });
@@ -2216,6 +2257,8 @@ api.delete('/api/admin/domains/:hostnameId', async (c) => {
       hostname: hostname.hostname,
       type: hostname.type,
       had_cf_id: !!hostname.cf_custom_hostname_id,
+      site_id: hostname.site_id,
+      message: 'Domain deprovisioned: ' + hostname.hostname + (hostname.cf_custom_hostname_id ? ' (CF hostname removed)' : ''),
     },
     request_id: c.get('requestId'),
   });
@@ -2235,7 +2278,10 @@ api.post('/api/contact', async (c) => {
     action: 'contact.form_submitted',
     target_type: 'contact',
     target_id: 'system',
-    metadata_json: { email: typeof body.email === 'string' ? body.email : 'unknown' },
+    metadata_json: {
+      email: typeof body.email === 'string' ? body.email : 'unknown',
+      message: 'Contact form submitted by ' + (typeof body.email === 'string' ? body.email : 'unknown'),
+    },
     request_id: c.get('requestId'),
   }).catch(() => {});
 
@@ -2425,6 +2471,10 @@ api.put('/api/sites/:id/files/:path{.+}', async (c) => {
 
   const contentType = body.content_type || (fullKey.endsWith('.html') ? 'text/html' : fullKey.endsWith('.json') ? 'application/json' : fullKey.endsWith('.css') ? 'text/css' : fullKey.endsWith('.js') ? 'application/javascript' : 'text/plain');
 
+  // Check if file already exists (to differentiate create vs update)
+  const existingFile = await c.env.SITES_BUCKET.head(fullKey);
+  const isNewFile = !existingFile;
+
   await c.env.SITES_BUCKET.put(fullKey, body.content, {
     httpMetadata: { contentType },
   });
@@ -2439,14 +2489,14 @@ api.put('/api/sites/:id/files/:path{.+}', async (c) => {
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
-    action: 'file.updated',
+    action: isNewFile ? 'file.created' : 'file.updated',
     target_type: 'site',
     target_id: siteId,
     metadata_json: {
       key: fullKey,
       file_name: fileName,
       size: body.content.length,
-      message: 'File updated: ' + fileName + ' (' + fileSizeKb + ' KB)',
+      message: (isNewFile ? 'File created: ' : 'File updated: ') + fileName + ' (' + fileSizeKb + ' KB)',
     },
     request_id: c.get('requestId'),
   });

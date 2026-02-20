@@ -8340,11 +8340,36 @@
       if (siteLogsModalId) fetchSiteLogs(siteLogsModalId);
     }
 
+    var _lastLogIds = [];
+    var _logsInitialLoad = true;
+
+    function renderLogEntry(log) {
+      var ts = log.created_at ? formatLogTimestamp(log.created_at) : '—';
+      var action = log.action || 'unknown';
+      var actionLabel = formatActionLabel(action);
+      var meta = formatLogMeta(log.metadata_json, action);
+      var colorClass = getLogColorClass(action);
+      var iconSvg = getLogIcon(action);
+      var html = '<div class="log-entry ' + colorClass + '" data-log-id="' + escapeAttr(log.id || '') + '">';
+      html += '<div class="log-edge"></div>';
+      html += '<div class="log-icon">' + iconSvg + '</div>';
+      html += '<div class="log-body">';
+      html += '<div class="log-header"><span class="log-action">' + escapeHtml(actionLabel) + '</span><span class="log-ts">' + escapeHtml(ts) + '</span></div>';
+      if (meta) html += '<div class="log-meta">' + meta + '</div>';
+      html += '</div>';
+      html += '</div>';
+      return html;
+    }
+
     function fetchSiteLogs(siteId) {
       var container = document.getElementById('logs-container');
       var countLabel = document.getElementById('logs-count-label');
-      container.innerHTML = '<div class="logs-empty">Loading logs...</div>';
-      if (countLabel) countLabel.textContent = '';
+
+      // Only show loading on first load (not on polls)
+      if (_logsInitialLoad) {
+        container.innerHTML = '<div class="logs-empty">Loading logs...</div>';
+        if (countLabel) countLabel.textContent = '';
+      }
 
       if (!state.session || !state.session.token) {
         container.innerHTML = '<div class="logs-empty">Sign in to view logs.</div>';
@@ -8363,30 +8388,70 @@
           if (countLabel) countLabel.textContent = logs.length + ' log entr' + (logs.length === 1 ? 'y' : 'ies');
           if (!logs.length) {
             container.innerHTML = '<div class="logs-empty">No logs yet for this site.</div>';
+            _lastLogIds = [];
+            _logsInitialLoad = false;
             return;
           }
-          var html = '';
-          for (var i = 0; i < logs.length; i++) {
-            var log = logs[i];
-            var ts = log.created_at ? formatLogTimestamp(log.created_at) : '—';
-            var action = log.action || 'unknown';
-            var actionLabel = formatActionLabel(action);
-            var meta = formatLogMeta(log.metadata_json, action);
-            var colorClass = getLogColorClass(action);
-            var iconSvg = getLogIcon(action);
-            html += '<div class="log-entry ' + colorClass + '">';
-            html += '<div class="log-edge"></div>';
-            html += '<div class="log-icon">' + iconSvg + '</div>';
-            html += '<div class="log-body">';
-            html += '<div class="log-header"><span class="log-action">' + escapeHtml(actionLabel) + '</span><span class="log-ts">' + escapeHtml(ts) + '</span></div>';
-            if (meta) html += '<div class="log-meta">' + meta + '</div>';
-            html += '</div>';
-            html += '</div>';
+
+          // Build new ID list (logs come newest-first)
+          var newIds = logs.map(function(l) { return l.id || l.created_at; });
+
+          // If same count and same first + last IDs, only update timestamps
+          if (!_logsInitialLoad && newIds.length === _lastLogIds.length && newIds[0] === _lastLogIds[0]) {
+            // Just update relative timestamps without full re-render
+            var entries = container.querySelectorAll('.log-entry');
+            for (var t = 0; t < entries.length && t < logs.length; t++) {
+              var tsEl = entries[t].querySelector('.log-ts');
+              if (tsEl && logs[t].created_at) {
+                tsEl.textContent = formatLogTimestamp(logs[t].created_at);
+              }
+            }
+            _logsInitialLoad = false;
+            return;
           }
-          container.innerHTML = html;
+
+          // New logs arrived — find which are new and prepend them
+          if (!_logsInitialLoad && _lastLogIds.length > 0) {
+            var existingSet = {};
+            for (var e = 0; e < _lastLogIds.length; e++) existingSet[_lastLogIds[e]] = true;
+            var newEntries = [];
+            for (var n = 0; n < logs.length; n++) {
+              var lid = logs[n].id || logs[n].created_at;
+              if (!existingSet[lid]) newEntries.push(logs[n]);
+            }
+            if (newEntries.length > 0) {
+              // Prepend new entries at the top
+              var frag = '';
+              for (var p = 0; p < newEntries.length; p++) {
+                frag += renderLogEntry(newEntries[p]);
+              }
+              container.insertAdjacentHTML('afterbegin', frag);
+              // Also update existing timestamps
+              var allEntries = container.querySelectorAll('.log-entry');
+              for (var u = newEntries.length; u < allEntries.length && (u - newEntries.length) < logs.length; u++) {
+                var uTsEl = allEntries[u].querySelector('.log-ts');
+                if (uTsEl && logs[u].created_at) {
+                  uTsEl.textContent = formatLogTimestamp(logs[u].created_at);
+                }
+              }
+            }
+          } else {
+            // Initial load or reset — full render
+            var html = '';
+            for (var i = 0; i < logs.length; i++) {
+              html += renderLogEntry(logs[i]);
+            }
+            container.innerHTML = html;
+          }
+
+          _lastLogIds = newIds;
+          _logsInitialLoad = false;
         })
         .catch(function(err) {
-          container.innerHTML = '<div class="logs-empty" style="color:var(--error);">' + escapeHtml(err.message) + '</div>';
+          if (_logsInitialLoad) {
+            container.innerHTML = '<div class="logs-empty" style="color:var(--error);">' + escapeHtml(err.message) + '</div>';
+          }
+          _logsInitialLoad = false;
         });
     }
 
@@ -8509,10 +8574,16 @@
         'hostname.reset_primary': 'Primary Domain Reset',
         'notification.domain_verified_sent': 'Domain Notification Sent',
         'notification.build_complete_sent': 'Build Notification Sent',
+        'notification.email_failed': 'Email Notification Failed',
+        'webhook.processing_failed': 'Webhook Processing Failed',
+        'workflow.retry_created': 'Workflow Retried',
+        'workflow.creation_failed': 'Workflow Failed to Start',
         'webhook.stripe.checkout.session.completed': 'Payment Received',
         'webhook.stripe.customer.subscription.updated': 'Subscription Updated',
         'webhook.stripe.customer.subscription.deleted': 'Subscription Canceled',
-        'webhook.stripe.invoice.payment_failed': 'Payment Failed'
+        'webhook.stripe.invoice.payment_failed': 'Payment Failed',
+        'webhook.stripe.charge.refunded': 'Payment Refunded',
+        'webhook.stripe.invoice.paid': 'Invoice Paid'
       };
       return map[action] || action.replace(/\./g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
     }
@@ -8552,14 +8623,24 @@
       if (meta.file_count && !meta.message) parts.push(meta.file_count + ' files');
       if (meta.url && !meta.message) parts.push('<code>' + escapeHtml(meta.url) + '</code>');
       if (meta.workflow_instance_id) parts.push('wf: ' + escapeHtml(meta.workflow_instance_id.substring(0, 8)));
+      // Show ZodError field-level details if available
+      if (meta.zod_details) {
+        parts.push('<span style="color:var(--error);font-size:0.72rem;">Fields: ' + escapeHtml(String(meta.zod_details).slice(0, 200)) + '</span>');
+      }
       if (meta.error) {
         var errStr = String(meta.error);
-        if (errStr.indexOf('ZodError') !== -1 || errStr.indexOf('Validation') !== -1) {
+        if (meta.zod_details) {
+          errStr = 'Validation error';
+        } else if (errStr.indexOf('ZodError') !== -1 || errStr.indexOf('Validation') !== -1) {
           errStr = 'Validation error';
         } else if (errStr.length > 120) {
           errStr = errStr.slice(0, 120) + '…';
         }
         parts.push('<span style="color:var(--error);">' + escapeHtml(errStr) + '</span>');
+      }
+      // Show retry info
+      if (meta.first_error && !meta.error) {
+        parts.push('<span style="color:var(--text-secondary);font-size:0.72rem;">prev: ' + escapeHtml(String(meta.first_error).slice(0, 80)) + '</span>');
       }
       return parts.join(' &middot; ');
     }
@@ -8959,6 +9040,7 @@
         clearTimeout(domainSearchTimer);
         if (q.length < 3) {
           closeDomainSearchResults();
+          document.getElementById('domain-search-spinner').style.display = 'none';
           return;
         }
         document.getElementById('domain-search-spinner').style.display = '';
