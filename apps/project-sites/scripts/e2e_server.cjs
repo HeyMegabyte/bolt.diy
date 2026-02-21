@@ -352,6 +352,37 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { data: [] });
   }
 
+  // ─── Chat Export (AI Edit) ────────────────────────────
+  const chatMatch = pathname.match(/^\/api\/sites\/by-slug\/([^/]+)\/chat$/);
+  if (chatMatch && method === 'GET') {
+    const slug = decodeURIComponent(chatMatch[1]);
+
+    // "test-site" is our known mock site with chat data
+    if (slug === 'test-site' || slug === 'example-business') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'no-cache');
+      return sendJson(res, 200, {
+        messages: [
+          { id: 'msg-1', role: 'user', content: 'Build me a website for my pizza shop called Best Pizza' },
+          { id: 'msg-2', role: 'assistant', content: 'I\'ll create a professional website for Best Pizza with a modern design, menu section, and contact information.' },
+          { id: 'msg-3', role: 'user', content: 'Add an online ordering section' },
+          { id: 'msg-4', role: 'assistant', content: 'I\'ve added an online ordering section with a cart system and checkout flow.' },
+        ],
+        description: 'Best Pizza Website',
+        exportDate: new Date().toISOString(),
+      });
+    }
+
+    // Unknown slug → 404
+    return sendJson(res, 404, {
+      error: {
+        code: 'NOT_FOUND',
+        message: 'Site not found or no version published',
+        request_id: requestId,
+      },
+    });
+  }
+
   // ─── Auth endpoints ─────────────────────────────────
   if (pathname === '/api/auth/magic-link' && method === 'POST') {
     let body;
