@@ -179,59 +179,47 @@ test.describe('Domain Tabs Styling', () => {
 // ─── Connect Domain Tab ─────────────────────────────────────
 
 test.describe('Connect Domain Tab', () => {
-  test('Connect Domain panel has link icon SVG', async ({ page }) => {
-    await page.goto('/');
-    const panel = page.locator('#domain-panel-connect');
-    const svg = panel.locator('svg').first();
-    expect(await svg.count()).toBeGreaterThanOrEqual(1);
-  });
-
-  test('Connect Domain panel has instructional info card', async ({ page }) => {
+  test('Connect Domain panel has CNAME instructions', async ({ page }) => {
     await page.goto('/');
     const html = await page.locator('#domain-panel-connect').innerHTML();
-    expect(html).toContain('Connect your own domain');
+    expect(html).toContain('Point a CNAME to');
     expect(html).toContain('sites.megabyte.space');
   });
 
-  test('Connect Domain upgrade CTA has star icon with gradient', async ({ page }) => {
+  test('Connect Domain upgrade CTA has Unlock text', async ({ page }) => {
     await page.goto('/');
     const html = await page.locator('#domain-connect-upgrade-cta').innerHTML();
-    expect(html).toContain('upgrade-grad');
     expect(html).toContain('Unlock Custom Domains');
-    expect(html).toContain('Upgrade Now');
+    expect(html).toContain('Upgrade');
   });
 
-  test('Connect Domain has info tip with icon at bottom', async ({ page }) => {
+  test('Connect Domain has DNS propagation note', async ({ page }) => {
     await page.goto('/');
     const html = await page.locator('#domain-panel-connect').innerHTML();
-    expect(html).toContain('CNAME record');
-    expect(html).toContain("We'll monitor it");
-    // Should have an info (i) icon circle
-    expect(html).toContain('circle cx="12" cy="12" r="10"');
+    expect(html).toContain('DNS');
   });
 });
 
 // ─── Register New Tab ───────────────────────────────────────
 
 test.describe('Register New Tab', () => {
-  test('Register panel has globe icon SVG', async ({ page }) => {
+  test('Register panel has domain search input', async ({ page }) => {
     await page.goto('/');
-    const panel = page.locator('#domain-panel-register');
-    const svg = panel.locator('svg').first();
-    expect(await svg.count()).toBeGreaterThanOrEqual(1);
+    const searchInput = page.locator('#domain-search-input');
+    await expect(searchInput).toBeAttached();
   });
 
-  test('Register panel highlights wholesale pricing', async ({ page }) => {
+  test('Register panel has pricing info', async ({ page }) => {
     await page.goto('/');
     const html = await page.locator('#domain-panel-register').innerHTML();
-    expect(html).toContain('Cloudflare wholesale prices');
-    expect(html).toContain('no markup');
+    expect(html).toContain('Pricing shown per year');
   });
 
-  test('Register panel has green color for wholesale text', async ({ page }) => {
+  test('Register panel does not mention CloudFlare or wholesale', async ({ page }) => {
     await page.goto('/');
     const html = await page.locator('#domain-panel-register').innerHTML();
-    expect(html).toContain('#22c55e');
+    expect(html).not.toContain('Cloudflare');
+    expect(html).not.toContain('wholesale');
   });
 });
 
@@ -600,7 +588,7 @@ test.describe('Connect Domain Upgrade CTA', () => {
     await expect(cta).toBeAttached();
     const text = await cta.textContent();
     expect(text).toContain('Unlock Custom Domains');
-    expect(text).toContain('Upgrade Now');
+    expect(text).toContain('Upgrade');
   });
 
   test('upgrade CTA includes SSL and CDN benefits', async ({ page }) => {

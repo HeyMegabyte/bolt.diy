@@ -497,19 +497,15 @@
     }
     .site-card-preview {
       width: 100%;
-      max-height: 120px;
+      height: 140px;
       border-radius: 10px;
       background: linear-gradient(135deg, rgba(80, 165, 219, 0.06), rgba(124, 58, 237, 0.08));
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
       overflow: hidden;
       position: relative;
     }
     .site-card-preview iframe {
-      width: 1280px;
-      height: 800px;
-      transform: scale(0.22);
+      width: 1440px;
+      height: 900px;
       transform-origin: top left;
       pointer-events: none;
       border: none;
@@ -722,23 +718,29 @@
       display: none;
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.82);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       z-index: 1000;
-      animation: fadeIn 0.15s ease;
       align-items: center;
       justify-content: center;
-      will-change: opacity;
       isolation: isolate;
       pointer-events: auto;
+      /* Prevent flicker: force GPU compositing layer for the overlay */
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
     }
-    .modal-overlay.visible { display: flex; }
+    .modal-overlay.visible { display: flex; animation: fadeIn 0.15s ease; }
     .modal-overlay > .modal,
     .modal-overlay > .logs-modal,
     .modal-overlay > div {
       position: relative;
       z-index: 1001;
+      /* Ensure modal content is on its own compositing layer to prevent repaints */
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
     }
     .modal {
       background: linear-gradient(145deg, rgba(22, 22, 53, 0.98), rgba(15, 15, 42, 1));
@@ -4299,38 +4301,38 @@
       background: rgba(255,255,255,0.06);
       margin: 0 2px;
     }
-    /* Files modal toolbar compact — merged with file list */
+    /* Files modal toolbar compact — seamlessly merged with file list */
     .files-toolbar-compact {
       display: flex;
       align-items: center;
       gap: 0;
-      padding: 8px 12px;
+      padding: 7px 12px;
       margin-bottom: 0;
-      background: var(--bg-primary);
+      background: linear-gradient(145deg, rgba(22, 22, 53, 0.95), rgba(15, 15, 42, 0.98));
       border: 1px solid var(--border);
-      border-bottom: none;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
       border-radius: var(--radius) var(--radius) 0 0;
     }
     .files-breadcrumb-label {
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      font-size: 0.62rem;
+      font-size: 0.58rem;
       font-weight: 600;
-      color: var(--accent);
+      color: rgba(148,163,184,0.45);
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
       flex-shrink: 0;
-      padding: 3px 8px 3px 0;
+      padding: 2px 8px 2px 0;
       background: none;
       border: none;
-      border-right: 1px solid rgba(255,255,255,0.06);
+      border-right: 1px solid rgba(255,255,255,0.04);
       border-radius: 0;
       margin-right: 8px;
     }
     .files-toolbar-compact .files-breadcrumb {
-      font-size: 0.72rem;
-      color: rgba(148,163,184,0.8);
+      font-size: 0.7rem;
+      color: rgba(148,163,184,0.55);
       font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
       flex: 1;
       overflow: hidden;
@@ -4342,10 +4344,15 @@
       border: none;
     }
     .files-breadcrumb.editor-filename {
-      color: rgba(148,163,184,0.6);
+      color: var(--text-primary);
       font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
-      font-size: 0.7rem;
+      font-size: 0.72rem;
+      font-weight: 500;
       flex: 0 1 auto;
+      padding: 2px 8px;
+      background: rgba(80,165,219,0.06);
+      border-radius: 4px;
+      border: 1px solid rgba(80,165,219,0.1);
     }
   </style>
 
@@ -4457,53 +4464,30 @@
 
       <!-- Tab: Existing Domains -->
       <div id="domain-panel-existing" role="tabpanel" aria-labelledby="domain-tab-existing">
-        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg,rgba(148,163,184,0.04),rgba(80,165,219,0.03));border:1px solid rgba(148,163,184,0.08);border-radius:12px;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><path d="M15 7h3a5 5 0 0 1 0 10h-3m-6 0H6a5 5 0 0 1 0-10h3"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-          <div>
-            <div style="font-size:0.85rem;color:var(--text-primary);font-weight:600;margin-bottom:3px;">Your Domains</div>
-            <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.5;">All domains currently connected to this site. Set a primary domain to enable automatic redirects.</div>
-          </div>
-        </div>
         <div id="domain-modal-hostnames" class="hostname-list"></div>
+        <div style="margin-top:10px;font-size:0.68rem;color:var(--text-muted);line-height:1.4;text-align:center;">Set a primary domain to enable automatic redirects.</div>
       </div>
 
       <!-- Tab: Connect Domain (CNAME) -->
       <div id="domain-panel-connect" role="tabpanel" aria-labelledby="domain-tab-connect" style="display:none;">
-        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg,rgba(80,165,219,0.05),rgba(124,58,237,0.03));border:1px solid rgba(80,165,219,0.08);border-radius:12px;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          <div>
-            <div style="font-size:0.85rem;color:var(--text-primary);font-weight:600;margin-bottom:3px;">Connect your own domain</div>
-            <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.5;">Point a CNAME record to <code style="background:rgba(80,165,219,0.1);padding:2px 6px;border-radius:4px;font-size:0.75rem;color:var(--accent);">sites.megabyte.space</code> in your DNS provider.</div>
-          </div>
-        </div>
+        <div style="margin-bottom:12px;font-size:0.75rem;color:var(--text-secondary);line-height:1.5;">Point a CNAME to <code style="background:rgba(80,165,219,0.1);padding:1px 5px;border-radius:3px;font-size:0.7rem;color:var(--accent);">sites.megabyte.space</code> then add your domain below.</div>
         <div class="hostname-add-form">
           <label for="domain-add-input" class="sr-only">Domain name</label>
-          <input type="text" id="domain-add-input" inputmode="url" placeholder="e.g. www.mybusiness.com" onkeydown="if(event.key==='Enter'){event.preventDefault();addHostname();}" />
-          <button id="domain-add-btn" onclick="addHostname()">Add Domain</button>
+          <input type="text" id="domain-add-input" inputmode="url" placeholder="www.mybusiness.com" onkeydown="if(event.key==='Enter'){event.preventDefault();addHostname();}" />
+          <button id="domain-add-btn" onclick="addHostname()">Add</button>
         </div>
-        <div id="domain-connect-upgrade-cta" style="display:none;margin-top:16px;padding:20px 24px;background:linear-gradient(135deg,rgba(124,58,237,0.1),rgba(80,165,219,0.08));border:1px solid rgba(124,58,237,0.2);border-radius:14px;text-align:center;position:relative;overflow:hidden;">
-          <div style="position:absolute;inset:-1px;border-radius:15px;padding:1px;background:linear-gradient(135deg,rgba(124,58,237,0.3),transparent 50%,rgba(80,165,219,0.2));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;"></div>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="url(#upgrade-grad)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px;"><defs><linearGradient id="upgrade-grad" x1="0" y1="0" x2="24" y2="24"><stop offset="0%" stop-color="#50a5db"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient></defs><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          <div style="font-size:0.95rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Unlock Custom Domains</div>
-          <div style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;">Automatic SSL, global CDN, and DNS management included</div>
-          <button class="btn btn-accent" onclick="openBillingCheckout()" style="padding:10px 28px;font-size:0.85rem;font-weight:700;border-radius:10px;">Upgrade Now</button>
+        <div id="domain-connect-upgrade-cta" style="display:none;margin-top:14px;padding:14px 18px;background:linear-gradient(135deg,rgba(124,58,237,0.08),rgba(80,165,219,0.06));border:1px solid rgba(124,58,237,0.15);border-radius:10px;text-align:center;">
+          <div style="font-size:0.82rem;font-weight:600;color:var(--text-primary);margin-bottom:4px;">Unlock Custom Domains</div>
+          <div style="font-size:0.72rem;color:var(--text-secondary);margin-bottom:10px;">SSL, CDN, and DNS management included</div>
+          <button class="btn btn-accent" onclick="openBillingCheckout()" style="padding:8px 22px;font-size:0.78rem;font-weight:600;border-radius:8px;">Upgrade</button>
         </div>
         <div id="domain-cname-status" style="display:none;margin-top:10px;"></div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px 12px;background:rgba(255,255,255,0.02);border-radius:8px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          <p style="font-size:0.72rem;color:var(--text-muted);margin:0;line-height:1.4;">Add the CNAME record in your DNS provider, then add the domain here. We'll monitor it until it resolves.</p>
-        </div>
+        <div style="margin-top:10px;font-size:0.65rem;color:var(--text-muted);text-align:center;line-height:1.4;">We'll monitor DNS until it resolves. Usually 24&ndash;72 hours.</div>
       </div>
 
       <!-- Tab: Register New Domain -->
       <div id="domain-panel-register" role="tabpanel" aria-labelledby="domain-tab-register" style="display:none;">
-        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg,rgba(34,197,94,0.04),rgba(80,165,219,0.03));border:1px solid rgba(34,197,94,0.1);border-radius:12px;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          <div>
-            <div style="font-size:0.85rem;color:var(--text-primary);font-weight:600;margin-bottom:3px;">Register a new domain</div>
-            <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.5;">Search available domains &mdash; competitive annual pricing with instant activation.</div>
-          </div>
-        </div>
+        <div style="margin-bottom:12px;font-size:0.75rem;color:var(--text-secondary);line-height:1.5;">Search for available domains. Pricing shown per year.</div>
         <div class="domain-search-wrap">
           <label for="domain-search-input" class="sr-only">Domain search</label>
           <input type="text" id="domain-search-input" class="domain-search-input" inputmode="url" placeholder="Search for a domain name..." autocomplete="off" />
@@ -4531,20 +4515,21 @@
         <span class="files-breadcrumb-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Path</span>
         <span id="files-breadcrumb" class="files-breadcrumb"></span>
       </div>
-      <div id="files-list" style="flex:1;overflow-y:auto;border:1px solid var(--border);border-top:1px solid rgba(255,255,255,0.04);border-radius:0 0 var(--radius) var(--radius);background:var(--bg-primary);min-height:200px;"></div>
+      <div id="files-list" style="flex:1;overflow-y:auto;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-primary);min-height:200px;"></div>
       <!-- Inline file editor -->
       <div id="files-editor" style="display:none;flex:1;flex-direction:column;min-height:300px;margin-top:10px;">
         <div class="editor-toolbar">
           <button class="editor-toolbar-btn" onclick="closeFileEditor()" title="Back to file list"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
           <span class="editor-toolbar-sep"></span>
-          <!-- Filename display with inline rename -->
-          <div id="files-editor-name-wrap" style="display:flex;align-items:center;gap:6px;min-width:0;flex:0 1 auto;">
-            <span id="files-editor-name" class="files-breadcrumb editor-filename" style="cursor:default;"></span>
-            <button class="editor-toolbar-btn" id="files-rename-btn" onclick="startFileRename()" title="Rename file" style="font-size:0.68rem;padding:2px 8px;">Rename</button>
-            <div id="files-rename-wrap" style="display:none;align-items:center;gap:4px;">
-              <input type="text" id="files-rename-input" style="background:transparent;border:none;color:var(--text-primary);font-size:0.72rem;font-family:'SF Mono','Fira Code',Consolas,monospace;padding:2px 4px;outline:none;min-width:120px;max-width:260px;" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmFileRename();}if(event.key==='Escape'){cancelFileRename();}" />
-              <button class="editor-toolbar-btn" onclick="confirmFileRename()" title="Confirm rename" style="color:#22c55e;padding:2px 4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></button>
-              <button class="editor-toolbar-btn" onclick="cancelFileRename()" title="Cancel rename" style="color:#ef4444;padding:2px 4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          <!-- Filename display with inline rename (matches slug URL edit style) -->
+          <div id="files-editor-name-wrap" style="display:flex;align-items:center;gap:4px;min-width:0;flex:1 1 auto;">
+            <span id="files-editor-path-prefix" style="font-size:0.65rem;color:rgba(148,163,184,0.4);font-family:'SF Mono','Fira Code',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
+            <span id="files-editor-name" class="files-breadcrumb editor-filename" style="cursor:pointer;" onclick="startFileRename()" title="Click to rename"></span>
+            <button class="editor-toolbar-btn" id="files-rename-btn" onclick="startFileRename()" title="Rename file" style="font-size:0.62rem;padding:2px 6px;color:rgba(148,163,184,0.4);border:none;background:none;">Rename</button>
+            <div id="files-rename-wrap" style="display:none;align-items:center;gap:3px;flex:1;min-width:0;">
+              <input type="text" id="files-rename-input" style="background:transparent;border:none;border-bottom:1px solid rgba(80,165,219,0.3);color:var(--text-primary);font-size:0.72rem;font-family:'SF Mono','Fira Code',Consolas,monospace;padding:2px 4px;outline:none;min-width:100px;max-width:260px;flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmFileRename();}if(event.key==='Escape'){cancelFileRename();}" />
+              <button onclick="confirmFileRename()" title="Confirm" style="background:none;border:none;padding:2px;cursor:pointer;color:#22c55e;display:flex;align-items:center;transition:opacity 0.15s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></button>
+              <button onclick="cancelFileRename()" title="Cancel" style="background:none;border:none;padding:2px;cursor:pointer;color:#ef4444;display:flex;align-items:center;transition:opacity 0.15s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
           </div>
           <span id="files-editor-size" style="font-size:0.68rem;color:var(--text-muted);"></span>
@@ -5533,6 +5518,20 @@
       if (siteStatusPollTimer) { clearInterval(siteStatusPollTimer); siteStatusPollTimer = null; }
     }
 
+    /* Scale preview iframe to fill card width */
+    function scalePreviewIframe(iframe) {
+      var container = iframe.parentElement;
+      if (!container) return;
+      var containerWidth = container.offsetWidth;
+      var scale = containerWidth / 1440;
+      iframe.style.transform = 'scale(' + scale + ')';
+    }
+    // Re-scale all preview iframes on window resize
+    window.addEventListener('resize', function() {
+      var iframes = document.querySelectorAll('.site-card-preview iframe');
+      for (var i = 0; i < iframes.length; i++) scalePreviewIframe(iframes[i]);
+    });
+
     function renderAdminSites() {
       var grid = document.getElementById('admin-sites-grid');
       if (!grid) return;
@@ -5600,7 +5599,7 @@
         // Preview thumbnail
         html += '<div class="site-card-preview">';
         if (status === 'published' && siteUrl) {
-          html += '<iframe src="' + escapeHtml(siteUrl) + '?_t=' + (s.updated_at ? new Date(s.updated_at).getTime() : Date.now()) + '" loading="lazy" sandbox="allow-scripts allow-same-origin" tabindex="-1" data-site-id="' + escapeAttr(s.id) + '" referrerpolicy="no-referrer"></iframe>';
+          html += '<iframe src="' + escapeHtml(siteUrl) + '?_t=' + (s.updated_at ? new Date(s.updated_at).getTime() : Date.now()) + '" loading="lazy" sandbox="allow-scripts allow-same-origin" tabindex="-1" data-site-id="' + escapeAttr(s.id) + '" referrerpolicy="no-referrer" onload="scalePreviewIframe(this)"></iframe>';
         } else {
           html += '<div class="site-card-preview-placeholder">';
           if (status === 'building' || status === 'queued') {
@@ -5911,21 +5910,17 @@
               html += '<div style="margin-top:4px;padding:6px 8px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.15);border-radius:6px;font-size:0.68rem;line-height:1.4;">';
               html += '<span style="color:#fbbf24;font-weight:600;">CNAME pending</span> <span style="color:var(--text-muted);">&mdash; Point your CNAME to <code style="background:rgba(80,165,219,0.1);padding:1px 5px;border-radius:3px;font-size:0.65rem;color:var(--accent);">sites.megabyte.space</code></span>';
               html += '<div style="margin-top:4px;color:var(--text-muted);">DNS propagation usually takes 24&ndash;72 hours.</div>';
-              // DomainConnect auto-setup buttons for GoDaddy + CloudFlare
+              // DomainConnect auto-setup for GoDaddy
               var dcParts = h.hostname.split('.');
               var dcDomain = dcParts.slice(-2).join('.');
               var dcSubdomain = dcParts.length > 2 ? dcParts.slice(0, -2).join('.') : '';
               var dcHostParam = dcSubdomain ? '&host=' + encodeURIComponent(dcSubdomain) : '';
               var gdUrl = 'https://dcc.godaddy.com/manage/v2/domainTemplates/providers/megabyte.space/services/cname/apply?domain=' + encodeURIComponent(dcDomain) + dcHostParam;
-              var cfUrl = 'https://dash.cloudflare.com/domainconnect/v2/domainTemplates/providers/megabyte.space/services/cname/apply?domain=' + encodeURIComponent(dcDomain) + dcHostParam;
               html += '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;">';
-              html += '<span style="font-size:0.6rem;color:var(--text-muted);">Auto-setup:</span>';
+              html += '<span style="font-size:0.6rem;color:var(--text-muted);">One-click setup:</span>';
               html += '<a href="' + escapeAttr(gdUrl) + '" target="_blank" rel="noopener" class="dc-btn dc-btn-gd" title="Auto-configure CNAME via GoDaddy DomainConnect">';
               html += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
               html += 'GoDaddy</a>';
-              html += '<a href="' + escapeAttr(cfUrl) + '" target="_blank" rel="noopener" class="dc-btn dc-btn-cf" title="Auto-configure CNAME via CloudFlare DomainConnect">';
-              html += '<svg width="12" height="12" viewBox="0 0 100 100" style="flex-shrink:0;"><path d="M72.8 42.6c-.3 0-.6.1-.9.1-.2-6.5-5.5-11.7-12.1-11.7-4.2 0-7.9 2.1-10.1 5.4-1.4-1-3.2-1.6-5-1.6-4.8 0-8.7 3.9-8.7 8.7v.4c-4.3 1-7.5 4.8-7.5 9.4 0 5.3 4.3 9.6 9.6 9.6h34.7c5.3 0 9.6-4.3 9.6-9.6 0-5.3-4.3-9.7-9.6-10.7z" fill="#F6821F"/></svg>';
-              html += 'CloudFlare</a>';
               html += '</div>';
               html += '</div>';
             } else if (hasDomainSub && isVerified) {
@@ -9481,7 +9476,7 @@
         html += '<span style="color:' + (isEditable ? 'var(--accent)' : 'var(--text-muted)') + ';flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>';
         html += '<span style="flex:1;font-size:0.76rem;font-family:\'SF Mono\',\'Fira Code\',monospace;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(fileName) + '</span>';
         html += '<span style="font-size:0.65rem;color:var(--text-muted);flex-shrink:0;">' + sizeStr + '</span>';
-        if (isEditable) html += '<span style="font-size:0.58rem;color:var(--accent);flex-shrink:0;padding:1px 5px;border:1px solid var(--accent-dim);border-radius:3px;">Edit</span>';
+        if (isEditable) html += '<span style="font-size:0.56rem;color:rgba(148,163,184,0.5);flex-shrink:0;letter-spacing:0.03em;">editable</span>';
         html += '<button onclick="event.stopPropagation();confirmDeleteFile(\'' + escapeAttr(f.key) + '\', \'' + escapeAttr(fileName) + '\')" title="Delete file" style="flex-shrink:0;background:none;border:1px solid rgba(239,68,68,0.15);border-radius:4px;padding:2px 4px;cursor:pointer;color:var(--text-muted);transition:all 0.15s;display:flex;align-items:center;" onmouseover="this.style.color=\'#ef4444\';this.style.borderColor=\'rgba(239,68,68,0.4)\'" onmouseout="this.style.color=\'var(--text-muted)\';this.style.borderColor=\'rgba(239,68,68,0.15)\'"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>';
         html += '</div>';
       }
@@ -9844,6 +9839,13 @@
     function openFileForEdit(key, name) {
       filesModalCurrentKey = key;
       document.getElementById('files-editor-name').textContent = name;
+      // Show directory path prefix (everything before the filename)
+      var pathPrefix = document.getElementById('files-editor-path-prefix');
+      if (pathPrefix) {
+        var parts = key.split('/');
+        parts.pop(); // remove filename
+        pathPrefix.textContent = parts.length > 0 ? parts.join('/') + '/' : '';
+      }
       document.getElementById('files-editor').style.display = 'flex';
       document.getElementById('files-list').style.display = 'none';
       document.getElementById('files-toolbar').style.display = 'none';
