@@ -287,11 +287,15 @@ export async function serveSiteFromR2(
 ): Promise<Response> {
   // Block access to meta files and manifests
   if (requestPath.startsWith('/_meta/') || requestPath === '/_manifest.json') {
+    console.warn(JSON.stringify({ level: 'warn', action: 'serve_blocked_path', slug: site.slug, path: requestPath }));
+
     return new Response('Not Found', { status: 404 });
   }
 
   const version = site.current_build_version ?? 'latest';
   const r2Path = `sites/${site.slug}/${version}${requestPath === '/' ? '/index.html' : requestPath}`;
+
+  console.warn(JSON.stringify({ level: 'info', action: 'serve_site_lookup', slug: site.slug, version, r2Path }));
 
   const object = await env.SITES_BUCKET.get(r2Path);
 
@@ -302,9 +306,13 @@ export async function serveSiteFromR2(
       const fallback = await env.SITES_BUCKET.get(fallbackPath);
 
       if (fallback) {
+        console.warn(JSON.stringify({ level: 'info', action: 'serve_spa_fallback', slug: site.slug, requestPath }));
+
         return buildSiteResponse(fallback, site, 'text/html; charset=utf-8');
       }
     }
+
+    console.warn(JSON.stringify({ level: 'warn', action: 'serve_not_found', slug: site.slug, r2Path, requestPath }));
 
     return new Response('Not Found', { status: 404 });
   }
