@@ -18,6 +18,8 @@ import { GitHubDeploymentDialog } from '~/components/deploy/GitHubDeploymentDial
 import { GitLabDeploymentDialog } from '~/components/deploy/GitLabDeploymentDialog';
 import { s3Connection } from '~/lib/stores/s3';
 import { toast } from 'react-toastify';
+import { db, chatId, description as chatDescription } from '~/lib/persistence/useChatHistory';
+import { getMessages } from '~/lib/persistence/db';
 
 interface DeployButtonProps {
   onVercelDeploy?: () => Promise<void>;
@@ -191,10 +193,28 @@ export const DeployButton = ({
         return;
       }
 
-      // Also get the chat export
+      // Get actual chat messages from current session
+      let chatMessages: unknown[] = [];
+      let chatDesc = 'Deployed from Bolt';
+
+      try {
+        const currentChatId = chatId.get();
+
+        if (db && currentChatId) {
+          const chat = await getMessages(db, currentChatId);
+
+          if (chat && chat.messages && chat.messages.length > 0) {
+            chatMessages = chat.messages;
+            chatDesc = chat.description || chatDescription.get() || 'Deployed from Bolt';
+          }
+        }
+      } catch {
+        // Fall back to empty messages if chat retrieval fails
+      }
+
       const chatData = {
-        messages: [],
-        description: 'Deployed from Bolt',
+        messages: chatMessages,
+        description: chatDesc,
         exportDate: new Date().toISOString(),
       };
 
