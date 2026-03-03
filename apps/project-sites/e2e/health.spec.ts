@@ -83,7 +83,7 @@ test.describe('Request Tracing', () => {
 test.describe('CORS', () => {
   test('includes request-id for allowed origin', async ({ request }) => {
     const res = await request.get('/health', {
-      headers: { Origin: 'https://sites.megabyte.space' },
+      headers: { Origin: 'https://projectsites.dev' },
     });
     expect(res.headers()).toHaveProperty('x-request-id');
   });

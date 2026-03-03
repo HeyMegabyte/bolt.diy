@@ -349,22 +349,22 @@ describe('securityHeadersMiddleware', () => {
       expect(scriptSrc).toContain('https://static.cloudflareinsights.com');
     });
 
-    it('frame-src uses *.megabyte.space for dash-based subdomains', async () => {
+    it('frame-src uses *.projectsites.dev for site subdomains', async () => {
       const app = createApp();
       const res = await app.request('/test');
       const csp = res.headers.get('Content-Security-Policy')!;
       const frameSrc = csp.split(';').find(d => d.trim().startsWith('frame-src'))!;
-      // Must allow foo-sites.megabyte.space via *.megabyte.space wildcard
-      expect(frameSrc).toContain('https://*.megabyte.space');
+      // Must allow slug.projectsites.dev via *.projectsites.dev wildcard
+      expect(frameSrc).toContain('https://*.projectsites.dev');
     });
 
-    it('frame-src does NOT use *.sites.megabyte.space (wrong subdomain pattern)', async () => {
+    it('frame-src does NOT use *.sites.projectsites.dev (wrong subdomain pattern)', async () => {
       const app = createApp();
       const res = await app.request('/test');
       const csp = res.headers.get('Content-Security-Policy')!;
       const frameSrc = csp.split(';').find(d => d.trim().startsWith('frame-src'))!;
-      // *.sites.megabyte.space matches foo.sites.megabyte.space but NOT foo-sites.megabyte.space
-      expect(frameSrc).not.toContain('*.sites.megabyte.space');
+      // *.sites.projectsites.dev would match foo.sites.projectsites.dev but NOT foo.projectsites.dev
+      expect(frameSrc).not.toContain('*.sites.projectsites.dev');
     });
   });
 });

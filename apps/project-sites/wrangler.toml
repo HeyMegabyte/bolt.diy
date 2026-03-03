@@ -124,7 +124,7 @@ bucket_name = "project-sites-staging"
 [env.production]
 name = "project-sites"
 routes = [
-  { pattern = "sites.megabyte.space", custom_domain = true }
+  { pattern = "projectsites.dev", custom_domain = true }
 ]
 
 [env.production.vars]

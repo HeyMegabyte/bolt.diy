@@ -164,7 +164,7 @@ export class SearchComponent implements OnInit, OnDestroy {
 
     if (item.type === 'prebuilt') {
       if (item.status === 'published' && item.slug) {
-        window.location.href = `https://${item.slug}-sites.megabyte.space`;
+        window.location.href = `https://${item.slug}.projectsites.dev`;
         return;
       }
       // If building, navigate to waiting

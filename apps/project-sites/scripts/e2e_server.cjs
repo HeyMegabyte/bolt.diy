@@ -100,16 +100,16 @@ const server = http.createServer(async (req, res) => {
 
   // ─── CORS ──────────────────────────────────────────
   const ALLOWED_ORIGINS = [
-    'https://sites.megabyte.space',
+    'https://projectsites.dev',
     'https://sites-staging.megabyte.space',
-    'https://bolt.megabyte.space',
+    'https://editor.projectsites.dev',
     'http://localhost:3000',
     'http://localhost:5173',
   ];
   const origin = req.headers.origin;
   if (origin) {
     const isDashSub =
-      /^https:\/\/[a-z0-9-]+-sites\.megabyte\.space$/.test(origin) ||
+      /^https:\/\/[a-z0-9-]+\.projectsites\.dev$/.test(origin) ||
       /^https:\/\/[a-z0-9-]+-sites-staging\.megabyte\.space$/.test(origin);
     if (ALLOWED_ORIGINS.includes(origin) || isDashSub) {
       res.setHeader('Access-Control-Allow-Origin', origin);
@@ -132,11 +132,11 @@ const server = http.createServer(async (req, res) => {
   const isBaseDomain =
     host === 'localhost' ||
     host === '127.0.0.1' ||
-    host === 'sites.megabyte.space' ||
+    host === 'projectsites.dev' ||
     host === 'sites-staging.megabyte.space';
 
-  // Check for customer site subdomains: {slug}-sites.megabyte.space
-  if (host.endsWith('-sites.megabyte.space') || host.endsWith('-sites-staging.megabyte.space')) {
+  // Check for customer site subdomains: {slug}.projectsites.dev
+  if (host.endsWith('.projectsites.dev') || host.endsWith('-sites-staging.megabyte.space')) {
     return sendJson(res, 404, {
       error: {
         code: 'NOT_FOUND',

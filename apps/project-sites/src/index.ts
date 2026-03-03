@@ -67,20 +67,19 @@ app.use(
   cors({
     origin: (origin) => {
       if (!origin) return '';
-      // Allow requests from our domains and any *sites.megabyte.space subdomain
       const allowed = [
         `https://${DOMAINS.SITES_BASE}`,
         `https://${DOMAINS.SITES_STAGING}`,
         `https://${DOMAINS.BOLT_BASE}`,
+        `https://${DOMAINS.LEGACY_SITES_BASE}`,
         'http://localhost:3000',
         'http://localhost:5173',
       ];
       if (allowed.includes(origin)) return origin;
-      // Allow any subdomain of sites.megabyte.space
-      if (origin.endsWith(DOMAINS.SITES_SUFFIX.replace('-sites.', 'sites.')) ||
-          origin.endsWith(`-${DOMAINS.SITES_BASE}`)) {
-        return origin;
-      }
+      // Allow any subdomain of projectsites.dev
+      if (origin.endsWith(DOMAINS.SITES_SUFFIX)) return origin;
+      // Legacy: allow old subdomains during transition
+      if (origin.endsWith(DOMAINS.LEGACY_SITES_SUFFIX)) return origin;
       return '';
     },
     allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -114,7 +113,9 @@ app.all('*', async (c) => {
   if (
     hostname === DOMAINS.SITES_BASE ||
     hostname === DOMAINS.SITES_STAGING ||
-    hostname === `www.${DOMAINS.SITES_BASE}` || // legacy support
+    hostname === DOMAINS.LEGACY_SITES_BASE ||
+    hostname === `www.${DOMAINS.SITES_BASE}` ||
+    hostname === `www.${DOMAINS.LEGACY_SITES_BASE}` ||
     hostname.startsWith('localhost')
   ) {
     // Try to serve from R2 first (for production)

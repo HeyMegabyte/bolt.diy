@@ -10,7 +10,7 @@
  * ```
  * Request hostname
  *   ├─ KV cache hit → return cached site info
- *   ├─ Dash-based subdomain (slug-sites.megabyte.space) → lookup by slug
+ *   ├─ Subdomain (slug.projectsites.dev) → lookup by slug
  *   └─ Custom domain → lookup in hostnames table → join sites → join subscriptions
  *       └─ Cache result in KV for 60 s
  * ```
@@ -107,8 +107,9 @@ export function generateTopBar(slug: string): string {
  * Resolve a hostname to a site record.
  *
  * Uses a two-tier lookup: KV cache (60 s TTL) → D1 database.
- * Supports both dash-based subdomains (`slug-sites.megabyte.space`) and
- * custom CNAME domains (looked up in the `hostnames` table).
+ * Supports dot-based subdomains (`slug.projectsites.dev`), legacy dash-based
+ * subdomains (`slug-sites.megabyte.space`), and custom CNAME domains
+ * (looked up in the `hostnames` table).
  *
  * @param env      - Worker environment (needs `CACHE_KV`, `DB`).
  * @param db       - D1Database binding.
@@ -117,7 +118,7 @@ export function generateTopBar(slug: string): string {
  *
  * @example
  * ```ts
- * const site = await resolveSite(env, env.DB, 'vitos-mens-salon-sites.megabyte.space');
+ * const site = await resolveSite(env, env.DB, 'vitos-mens-salon.projectsites.dev');
  * if (site) {
  *   return serveSiteFromR2(env, site, '/');
  * }
@@ -149,13 +150,21 @@ export async function resolveSite(
     };
   }
 
-  // Extract slug from hostname (e.g., slug-sites.megabyte.space)
+  // Extract slug from hostname (e.g., slug.projectsites.dev)
   let slug: string | null = null;
+  const RESERVED_SLUGS = new Set(['editor', 'www', 'api', 'admin', 'staging', 'mail', 'smtp']);
 
   if (hostname.endsWith(DOMAINS.SITES_SUFFIX)) {
     slug = hostname.slice(0, -DOMAINS.SITES_SUFFIX.length);
   } else if (hostname.endsWith(DOMAINS.SITES_STAGING_SUFFIX)) {
     slug = hostname.slice(0, -DOMAINS.SITES_STAGING_SUFFIX.length);
+  } else if (hostname.endsWith(DOMAINS.LEGACY_SITES_SUFFIX)) {
+    slug = hostname.slice(0, -DOMAINS.LEGACY_SITES_SUFFIX.length);
+  }
+
+  // Don't resolve reserved subdomains as sites
+  if (slug && RESERVED_SLUGS.has(slug)) {
+    slug = null;
   }
 
   // Try hostname table lookup first (for custom domains)

@@ -224,7 +224,7 @@ export const DeployButton = ({
       formData.append('dist_path', projectSitesBuildFolder || 'dist/');
 
       // Find or create the site, then deploy
-      const siteBaseUrl = 'https://sites.megabyte.space';
+      const siteBaseUrl = 'https://projectsites.dev';
       const lookupRes = await fetch(`${siteBaseUrl}/api/sites/lookup?slug=${encodeURIComponent(projectSitesSlug)}`);
 
       let siteId: string | null = null;
@@ -235,7 +235,7 @@ export const DeployButton = ({
       }
 
       if (!siteId) {
-        toast.info('Site not found. Please create the site at sites.megabyte.space first, then deploy.');
+        toast.info('Site not found. Please create the site at projectsites.dev first, then deploy.');
         window.open(`${siteBaseUrl}/?create=${encodeURIComponent(projectSitesSlug)}`, '_blank');
 
         return;
@@ -255,7 +255,7 @@ export const DeployButton = ({
         return;
       }
 
-      toast.success(`Deployed to ${projectSitesSlug}-sites.megabyte.space!`);
+      toast.success(`Deployed to ${projectSitesSlug}.projectsites.dev!`);
     } catch (err) {
       toast.error('Deploy failed: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
@@ -463,7 +463,7 @@ export const DeployButton = ({
                 />
                 <p className="text-xs text-bolt-elements-textTertiary mt-1">
                   Your site will be at{' '}
-                  <span className="text-purple-400">{projectSitesSlug || 'slug'}-sites.megabyte.space</span>
+                  <span className="text-purple-400">{projectSitesSlug || 'slug'}.projectsites.dev</span>
                 </p>
               </div>
 

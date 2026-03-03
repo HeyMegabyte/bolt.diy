@@ -1,7 +1,7 @@
 /**
  * @module e2e/vitos-full-flow
  * @description End-to-end test for the full Vito's Men's Salon flow:
- *   1. Open sites.megabyte.space
+ *   1. Open projectsites.dev
  *   2. Enter "Vito's" in the search input
  *   3. Select "Vito's Men's Salon" from results
  *   4. Fill out the "Tell us about your website" form with sample details

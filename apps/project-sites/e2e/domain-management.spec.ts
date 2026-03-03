@@ -73,9 +73,9 @@ test.describe('Domain Management UI', () => {
     const connectPanel = page.locator('#domain-panel-connect');
     await expect(connectPanel).toBeAttached();
 
-    // Check that it mentions sites.megabyte.space as CNAME target
+    // Check that it mentions projectsites.dev as CNAME target
     const text = await connectPanel.textContent();
-    expect(text).toContain('sites.megabyte.space');
+    expect(text).toContain('projectsites.dev');
   });
 
   test('domain search input exists in register tab', async ({ page }) => {
@@ -295,12 +295,12 @@ test.describe('Deploy Upload File Types', () => {
 });
 
 test.describe('Edit Feature', () => {
-  test('editSiteInBolt function connects to bolt.megabyte.space', async ({ page }) => {
+  test('editSiteInBolt function connects to editor.projectsites.dev', async ({ page }) => {
     await page.goto('/');
 
     const html = await page.content();
     expect(html).toContain('function editSiteInBolt');
-    expect(html).toContain('bolt.megabyte.space');
+    expect(html).toContain('editor.projectsites.dev');
     expect(html).toContain('importChatFrom');
   });
 

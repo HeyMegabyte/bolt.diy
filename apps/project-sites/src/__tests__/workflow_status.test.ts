@@ -396,7 +396,7 @@ describe('Clean URL routing for marketing pages', () => {
     const path = '/contact';
     const isContact = path === '/contact';
     expect(isContact).toBe(true);
-    const target = 'https://sites.megabyte.space/#contact-section';
+    const target = 'https://projectsites.dev/#contact-section';
     expect(target).toContain('#contact-section');
   });
 });

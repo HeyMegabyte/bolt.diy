@@ -1007,7 +1007,7 @@ test.describe('Full Flow: Pre-Authenticated User', () => {
     // Should redirect to the published site
     await page.waitForTimeout(2000);
     const redirects = await getRedirects();
-    expect(redirects).toContain('https://existing-biz-sites.megabyte.space');
+    expect(redirects).toContain('https://existing-biz.projectsites.dev');
   });
 
   test('Queued/building site goes directly to waiting', async ({ page }) => {

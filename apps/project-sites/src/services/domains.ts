@@ -2,7 +2,7 @@
  * @module domains
  * @description Domain provisioning service using Cloudflare for SaaS.
  *
- * Manages both free subdomains (`slug-sites.megabyte.space`) and custom
+ * Manages both free subdomains (`slug.projectsites.dev`) and custom
  * CNAME domains for paid plans. Integrates with the Cloudflare Custom
  * Hostnames API for SSL provisioning and verification.
  *
@@ -185,7 +185,7 @@ export async function deleteCustomHostname(env: Env, cfCustomHostnameId: string)
 }
 
 /**
- * Provision a free subdomain for a site (e.g. `slug-sites.megabyte.space`).
+ * Provision a free subdomain for a site (e.g. `slug.projectsites.dev`).
  *
  * If the hostname already exists in D1, returns its current status without
  * creating a duplicate.
@@ -202,7 +202,7 @@ export async function deleteCustomHostname(env: Env, cfCustomHostnameId: string)
  *   site_id: siteId,
  *   slug: 'vitos-mens-salon',
  * });
- * // hostname = 'vitos-mens-salon-sites.megabyte.space'
+ * // hostname = 'vitos-mens-salon.projectsites.dev'
  * ```
  */
 export async function provisionFreeDomain(

@@ -22,7 +22,7 @@ export const DeployPanel = memo(() => {
   const [showTooltip, setShowTooltip] = useState(false);
 
   const baseUrl = workbenchStore.getProjectSitesBaseUrl();
-  const siteUrl = slug ? `https://${slug}-sites.megabyte.space` : '';
+  const siteUrl = slug ? `https://${slug}.projectsites.dev` : '';
 
   useEffect(() => {
     const loadMeta = async () => {
@@ -230,7 +230,7 @@ export const DeployPanel = memo(() => {
               <div>
                 <span className="text-sm text-bolt-elements-textTertiary">UUID: </span>
                 <span className="text-sm font-mono font-medium text-bolt-elements-textPrimary">{slug}</span>
-                <span className="text-sm text-bolt-elements-textTertiary ml-2">({slug}-sites.megabyte.space)</span>
+                <span className="text-sm text-bolt-elements-textTertiary ml-2">({slug}.projectsites.dev)</span>
               </div>
               <button
                 onClick={() => {
@@ -268,7 +268,7 @@ export const DeployPanel = memo(() => {
                     to:
                   </p>
                   <code className="block bg-bolt-elements-background-depth-1 px-2 py-1 rounded font-mono text-xs mb-2">
-                    {slug}-sites.megabyte.space
+                    {slug}.projectsites.dev
                   </code>
                   <p>
                     Go to your domain registrar's DNS settings and add a CNAME record for each custom domain pointing to
@@ -284,7 +284,7 @@ export const DeployPanel = memo(() => {
             <div className="flex items-center gap-2 py-2 px-3 bg-bolt-elements-background-depth-1 rounded-md border border-bolt-elements-borderColor">
               <div className="i-ph:lock-simple text-sm text-bolt-elements-textTertiary" />
               <span className="flex-1 text-sm font-mono text-bolt-elements-textPrimary">
-                {slug}-sites.megabyte.space
+                {slug}.projectsites.dev
               </span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
                 Primary
@@ -374,7 +374,7 @@ export const DeployPanel = memo(() => {
             <p className="text-xs text-bolt-elements-textTertiary">
               You can add up to 4 custom domains (5 total). Each must have a CNAME pointing to{' '}
               <code className="font-mono bg-bolt-elements-background-depth-1 px-1 rounded">
-                {slug}-sites.megabyte.space
+                {slug}.projectsites.dev
               </code>
             </p>
           </div>
@@ -438,7 +438,7 @@ export const DeployPanel = memo(() => {
                   </p>
                 )}
                 <p className="text-xs text-bolt-elements-textTertiary mt-1">
-                  Your site will be available at <strong>{newSlug || '...'}-sites.megabyte.space</strong>
+                  Your site will be available at <strong>{newSlug || '...'}.projectsites.dev</strong>
                 </p>
               </div>
             </div>

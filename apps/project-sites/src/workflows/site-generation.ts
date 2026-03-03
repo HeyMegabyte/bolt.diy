@@ -23,6 +23,7 @@ import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types/env.js';
 import { extractJsonFromText } from '../services/ai_workflows.js';
 import { notifySiteBuilt } from '../services/notifications.js';
+import { DOMAINS } from '@project-sites/shared';
 
 /** Update site status in D1 (best-effort, never throws). */
 async function updateSiteStatus(db: D1Database, siteId: string, status: string): Promise<void> {
@@ -874,7 +875,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       version,
       quality_score: quality.overall,
       pages: ['index.html', 'privacy.html', 'terms.html', 'research.json'],
-      url: `https://${params.slug}-sites.megabyte.space`,
+      url: `https://${params.slug}${DOMAINS.SITES_SUFFIX}`,
       total_elapsed_ms: totalElapsed,
       total_seconds: totalSeconds,
       message: 'Site published successfully · ' + totalSeconds + 's total · Score: ' + quality.overall + '/100',
@@ -892,7 +893,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           email: owner.email,
           siteName: params.businessName || params.slug,
           slug: params.slug,
-          siteUrl: `https://${params.slug}-sites.megabyte.space`,
+          siteUrl: `https://${params.slug}${DOMAINS.SITES_SUFFIX}`,
           version,
           pagesGenerated: 4,
         });

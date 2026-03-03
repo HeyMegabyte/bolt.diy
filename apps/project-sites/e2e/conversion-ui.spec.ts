@@ -79,7 +79,7 @@ test.describe('Handled Section', () => {
     expect(text).toContain('cancel anytime');
   });
 
-  test('references "Project Sites Editor" instead of bolt.megabyte.space', async ({ page }) => {
+  test('references "Project Sites Editor" instead of editor.projectsites.dev', async ({ page }) => {
     await page.goto('/');
 
     const handledSection = page.locator('#handled');

@@ -41,7 +41,7 @@ test.describe('Domain Management v2', () => {
     const html = await page.content();
     // Simplified CNAME instruction
     expect(html).toContain('Point a CNAME to');
-    expect(html).toContain('sites.megabyte.space');
+    expect(html).toContain('projectsites.dev');
   });
 
   test('register tab has pricing note', async ({ page }) => {

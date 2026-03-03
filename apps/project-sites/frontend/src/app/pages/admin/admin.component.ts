@@ -103,7 +103,7 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   getSiteUrl(site: Site): string {
     if (site.primary_hostname) return `https://${site.primary_hostname}`;
-    return `https://${site.slug}-sites.megabyte.space`;
+    return `https://${site.slug}.projectsites.dev`;
   }
 
   visitSite(site: Site): void {
