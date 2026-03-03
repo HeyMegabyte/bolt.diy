@@ -141,7 +141,7 @@ describe('GET /api/admin/domains', () => {
     const domains = [
       {
         id: 'h-1',
-        hostname: 'test-sites.megabyte.space',
+        hostname: 'test.projectsites.dev',
         type: 'free_subdomain',
         status: 'active',
         ssl_status: 'active',
@@ -178,7 +178,7 @@ describe('GET /api/admin/domains', () => {
 
     const body = await res.json();
     expect(body.data).toHaveLength(2);
-    expect(body.data[0].hostname).toBe('test-sites.megabyte.space');
+    expect(body.data[0].hostname).toBe('test.projectsites.dev');
     expect(body.data[1].hostname).toBe('custom.example.com');
   });
 
@@ -590,7 +590,7 @@ describe('GET /api/admin/domains/:hostnameId/health', () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        Answer: [{ type: 5, data: 'sites.megabyte.space.' }],
+        Answer: [{ type: 5, data: 'projectsites.dev.' }],
       }),
     });
 
@@ -607,7 +607,7 @@ describe('GET /api/admin/domains/:hostnameId/health', () => {
     expect(body.data.cf_status).toBe('active');
     expect(body.data.ssl_status).toBe('active');
     expect(body.data.dns_configured).toBe(true);
-    expect(body.data.cname_target).toBe('sites.megabyte.space');
+    expect(body.data.cname_target).toBe('projectsites.dev');
   });
 
   it('returns 404 when hostname not found or not owned', async () => {

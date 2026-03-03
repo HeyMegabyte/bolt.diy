@@ -105,8 +105,13 @@ api.get('/api/auth/magic-link/verify', async (c) => {
 
     if (result.redirect_url) {
       const redirectTarget = new URL(result.redirect_url);
-      // Only allow redirects to *.megabyte.space to prevent open redirect attacks
-      if (!redirectTarget.hostname.endsWith('.megabyte.space') && redirectTarget.hostname !== 'megabyte.space') {
+      // Only allow redirects to *.projectsites.dev or *.megabyte.space to prevent open redirect attacks
+      if (
+        !redirectTarget.hostname.endsWith('.projectsites.dev') &&
+        redirectTarget.hostname !== 'projectsites.dev' &&
+        !redirectTarget.hostname.endsWith('.megabyte.space') &&
+        redirectTarget.hostname !== 'megabyte.space'
+      ) {
         return c.redirect('/?error=invalid_redirect');
       }
       redirectTarget.searchParams.set('token', session.token);
@@ -118,8 +123,8 @@ api.get('/api/auth/magic-link/verify', async (c) => {
     // Default: redirect to homepage with auth params
     const baseUrl =
       c.env.ENVIRONMENT === 'production'
-        ? 'https://sites.megabyte.space'
-        : 'https://sites-staging.megabyte.space';
+        ? `https://${DOMAINS.SITES_BASE}`
+        : `https://${DOMAINS.SITES_STAGING}`;
     posthog.trackAuth(c.env, c.executionCtx, 'magic_link', 'verified', result.email);
     return c.redirect(
       `${baseUrl}/?token=${encodeURIComponent(session.token)}&email=${encodeURIComponent(result.email)}&auth_callback=email`,
@@ -218,13 +223,18 @@ api.get('/api/auth/google/callback', async (c) => {
   // Redirect to the original redirect_url (or homepage) with token and email
   const baseUrl =
     c.env.ENVIRONMENT === 'production'
-      ? 'https://sites.megabyte.space'
-      : 'https://sites-staging.megabyte.space';
+      ? `https://${DOMAINS.SITES_BASE}`
+      : `https://${DOMAINS.SITES_STAGING}`;
 
   const rawRedirect = result.redirect_url ?? baseUrl;
   const redirectTarget = new URL(rawRedirect);
-  // Only allow redirects to *.megabyte.space to prevent open redirect attacks
-  if (!redirectTarget.hostname.endsWith('.megabyte.space') && redirectTarget.hostname !== 'megabyte.space') {
+  // Only allow redirects to *.projectsites.dev or *.megabyte.space to prevent open redirect attacks
+  if (
+    !redirectTarget.hostname.endsWith('.projectsites.dev') &&
+    redirectTarget.hostname !== 'projectsites.dev' &&
+    !redirectTarget.hostname.endsWith('.megabyte.space') &&
+    redirectTarget.hostname !== 'megabyte.space'
+  ) {
     return c.redirect(`${baseUrl}/?error=invalid_redirect`);
   }
   redirectTarget.searchParams.set('token', session.token);
@@ -303,7 +313,7 @@ api.post('/api/sites', async (c) => {
       site_id: site.id,
       slug,
       business_name: validated.business_name,
-      message: 'New site created: ' + validated.business_name + ' (' + slug + '-sites.megabyte.space)',
+      message: 'New site created: ' + validated.business_name + ' (' + slug + DOMAINS.SITES_SUFFIX + ')',
     },
     request_id: c.get('requestId'),
   });
@@ -640,9 +650,9 @@ api.post('/api/sites/:siteId/hostnames', async (c) => {
       throw forbidden('Custom domains require a paid plan');
     }
 
-    // Validate CNAME points to sites.megabyte.space
+    // Validate CNAME points to projectsites.dev or sites.megabyte.space (legacy)
     const cnameTarget = await domainService.checkCnameTarget(validated.hostname);
-    if (!cnameTarget || cnameTarget !== DOMAINS.SITES_BASE) {
+    if (!cnameTarget || (cnameTarget !== DOMAINS.SITES_BASE && cnameTarget !== DOMAINS.LEGACY_SITES_BASE)) {
       throw badRequest(
         `The domain "${validated.hostname}" does not have a CNAME record pointing to ${DOMAINS.SITES_BASE}. ` +
         `Please add a CNAME record for "${validated.hostname}" pointing to "${DOMAINS.SITES_BASE}" in your DNS settings, then try again.`,
@@ -704,7 +714,8 @@ api.delete('/api/sites/:id', async (c) => {
   // Invalidate KV cache for the site's subdomain
   const slug = site.slug as string;
   if (slug) {
-    await c.env.CACHE_KV.delete(`host:${slug}-sites.megabyte.space`).catch(() => {});
+    await c.env.CACHE_KV.delete(`host:${slug}${DOMAINS.SITES_SUFFIX}`).catch(() => {});
+    await c.env.CACHE_KV.delete(`host:${slug}${DOMAINS.LEGACY_SITES_SUFFIX}`).catch(() => {});
   }
 
   // Optionally cancel the Stripe subscription
@@ -918,7 +929,7 @@ api.post('/api/billing/portal', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const body = await c.req.json();
-  const returnUrl = (body as { return_url?: string }).return_url || 'https://sites.megabyte.space';
+  const returnUrl = (body as { return_url?: string }).return_url || `https://${DOMAINS.SITES_BASE}`;
 
   // Look up Stripe customer ID for this org
   const sub = await dbQueryOne<{ stripe_customer_id: string | null }>(
@@ -988,7 +999,7 @@ api.get('/api/sites/:id/logs', async (c) => {
  * Publish a bolt.diy project to Project Sites R2 storage.
  *
  * Accepts dist/ files and chat export, generates a slug via AI if needed,
- * and makes the site available at {slug}-sites.megabyte.space.
+ * and makes the site available at {slug}.projectsites.dev.
  *
  * No auth required — bolt.diy users publish freely under the "free" plan.
  */
@@ -1376,7 +1387,8 @@ api.patch('/api/sites/:id', async (c) => {
 
       // Invalidate old KV cache
       if (site.slug) {
-        await c.env.CACHE_KV.delete(`host:${site.slug}-sites.megabyte.space`).catch(() => {});
+        await c.env.CACHE_KV.delete(`host:${site.slug}${DOMAINS.SITES_SUFFIX}`).catch(() => {});
+        await c.env.CACHE_KV.delete(`host:${site.slug}${DOMAINS.LEGACY_SITES_SUFFIX}`).catch(() => {});
 
         // Audit: KV cache invalidated for old hostname
         auditService.writeAuditLog(c.env.DB, {
@@ -1386,9 +1398,9 @@ api.patch('/api/sites/:id', async (c) => {
           target_type: 'site',
           target_id: siteId,
           metadata_json: {
-            cache_key: `host:${site.slug}-sites.megabyte.space`,
+            cache_key: `host:${site.slug}${DOMAINS.SITES_SUFFIX}`,
             reason: 'slug_change',
-            message: 'KV cache invalidated for ' + site.slug + '-sites.megabyte.space (slug renamed to ' + newSlug + ')',
+            message: 'KV cache invalidated for ' + site.slug + DOMAINS.SITES_SUFFIX + ' (slug renamed to ' + newSlug + ')',
           },
           request_id: c.get('requestId'),
         }).catch(() => {});
@@ -1493,7 +1505,7 @@ api.patch('/api/sites/:id', async (c) => {
         metadata_json: {
           old_slug: site.slug,
           new_slug: newSlug,
-          message: 'URL changed from ' + site.slug + '-sites.megabyte.space to ' + newSlug + '-sites.megabyte.space',
+          message: 'URL changed from ' + site.slug + DOMAINS.SITES_SUFFIX + ' to ' + newSlug + DOMAINS.SITES_SUFFIX,
         },
         request_id: c.get('requestId'),
       }).catch(() => {});
@@ -1811,7 +1823,8 @@ api.post('/api/sites/:id/deploy', async (c) => {
     .run();
 
   // Invalidate KV cache
-  await c.env.CACHE_KV.delete(`host:${slug}-sites.megabyte.space`).catch(() => {});
+  await c.env.CACHE_KV.delete(`host:${slug}${DOMAINS.SITES_SUFFIX}`).catch(() => {});
+  await c.env.CACHE_KV.delete(`host:${slug}${DOMAINS.LEGACY_SITES_SUFFIX}`).catch(() => {});
 
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,
@@ -1824,7 +1837,7 @@ api.post('/api/sites/:id/deploy', async (c) => {
       slug,
       version,
       file_count: uploadedFiles.length,
-      url: 'https://' + slug + '-sites.megabyte.space',
+      url: 'https://' + slug + DOMAINS.SITES_SUFFIX,
       message: 'Manual deploy: ' + uploadedFiles.length + ' files uploaded · Version ' + version,
     },
     request_id: c.get('requestId'),
@@ -2204,7 +2217,7 @@ api.post('/api/admin/domains/:hostnameId/verify', async (c) => {
           'SELECT slug, business_name FROM sites WHERE id = ? AND deleted_at IS NULL',
           [hostname.site_id],
         );
-        const defaultDomain = (site?.slug || 'unknown') + '-sites.megabyte.space';
+        const defaultDomain = (site?.slug || 'unknown') + DOMAINS.SITES_SUFFIX;
         // Find primary hostname (use COALESCE for optional is_primary column)
         const primary = await dbQueryOne<{ hostname: string }>(
           c.env.DB,
@@ -2613,7 +2626,8 @@ api.put('/api/sites/:id/files/:path{.+}', async (c) => {
   });
 
   // Invalidate KV cache
-  await c.env.CACHE_KV.delete(`host:${site.slug}-sites.megabyte.space`).catch(() => {});
+  await c.env.CACHE_KV.delete(`host:${site.slug}${DOMAINS.SITES_SUFFIX}`).catch(() => {});
+  await c.env.CACHE_KV.delete(`host:${site.slug}${DOMAINS.LEGACY_SITES_SUFFIX}`).catch(() => {});
 
   // Extract just the filename from the full key for display
   const fileName = fullKey.split('/').pop() || fullKey;
@@ -2664,7 +2678,8 @@ api.delete('/api/sites/:id/files/:path{.+}', async (c) => {
   await c.env.SITES_BUCKET.delete(fullKey);
 
   // Invalidate KV cache
-  await c.env.CACHE_KV.delete(`host:${site.slug}-sites.megabyte.space`).catch(() => {});
+  await c.env.CACHE_KV.delete(`host:${site.slug}${DOMAINS.SITES_SUFFIX}`).catch(() => {});
+  await c.env.CACHE_KV.delete(`host:${site.slug}${DOMAINS.LEGACY_SITES_SUFFIX}`).catch(() => {});
 
   const fileName = fullKey.split('/').pop() || fullKey;
 

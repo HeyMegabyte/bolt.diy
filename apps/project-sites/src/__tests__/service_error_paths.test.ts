@@ -446,7 +446,7 @@ describe('Domains Service Error Paths', () => {
       });
 
       expect(result).toEqual({
-        hostname: 'existing-app-sites.megabyte.space',
+        hostname: 'existing-app.projectsites.dev',
         status: 'active',
       });
       expect(mockFetch).not.toHaveBeenCalled();

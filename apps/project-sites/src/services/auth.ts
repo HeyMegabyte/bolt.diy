@@ -30,6 +30,7 @@
 
 import {
   AUTH,
+  DOMAINS,
   randomHex,
   sha256Hex,
   type CreateMagicLink,
@@ -206,7 +207,7 @@ function buildMagicLinkEmail(verifyUrl: string): string {
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:transparent;color:#e2e8f0;padding:40px 20px;">
   <div style="max-width:480px;margin:0 auto;background:#161635;border-radius:12px;padding:40px;border:1px solid rgba(80,165,219,0.1);">
     <div style="text-align:center;margin-bottom:24px;">
-      <img src="https://sites.megabyte.space/logo-header.png" alt="Project Sites" style="max-height:44px;max-width:260px;height:auto;" />
+      <img src="https://projectsites.dev/logo-header.png" alt="Project Sites" style="max-height:44px;max-width:260px;height:auto;" />
     </div>
     <h1 style="color:#50a5db;font-size:24px;margin:0 0 16px;">Sign in to Project Sites</h1>
     <p style="color:#94a3b8;line-height:1.6;margin:0 0 24px;">Click the button below to sign in. This link expires in ${AUTH.MAGIC_LINK_EXPIRY_HOURS} hour(s).</p>
@@ -232,7 +233,7 @@ function buildMagicLinkEmail(verifyUrl: string): string {
  * ```ts
  * const { expires_at } = await createMagicLink(env.DB, env, {
  *   email: 'brian@megabyte.space',
- *   redirect_url: 'https://sites.megabyte.space/',
+ *   redirect_url: 'https://projectsites.dev/',
  * });
  * ```
  */
@@ -262,8 +263,8 @@ export async function createMagicLink(
   // Build verify URL and send email
   const baseUrl =
     env.ENVIRONMENT === 'production'
-      ? 'https://sites.megabyte.space'
-      : 'https://sites-staging.megabyte.space';
+      ? `https://${DOMAINS.SITES_BASE}`
+      : `https://${DOMAINS.SITES_STAGING}`;
   const verifyUrl = `${baseUrl}/api/auth/magic-link/verify?token=${encodeURIComponent(token)}`;
 
   await sendEmail(env, {
@@ -363,8 +364,8 @@ export async function createGoogleOAuthState(
 
   const callbackBase =
     env.ENVIRONMENT === 'production'
-      ? 'https://sites.megabyte.space'
-      : 'https://sites-staging.megabyte.space';
+      ? `https://${DOMAINS.SITES_BASE}`
+      : `https://${DOMAINS.SITES_STAGING}`;
 
   const params = new URLSearchParams({
     client_id: env.GOOGLE_CLIENT_ID,
@@ -431,8 +432,8 @@ export async function handleGoogleOAuthCallback(
   // Exchange code for tokens
   const callbackBase =
     env.ENVIRONMENT === 'production'
-      ? 'https://sites.megabyte.space'
-      : 'https://sites-staging.megabyte.space';
+      ? `https://${DOMAINS.SITES_BASE}`
+      : `https://${DOMAINS.SITES_STAGING}`;
 
   const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',

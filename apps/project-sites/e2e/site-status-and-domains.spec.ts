@@ -134,13 +134,13 @@ test.describe('Slug Edit Button Position', () => {
     await page.goto('/');
 
     // The slug line in renderAdminSites should have the edit button inside
-    // .inline-slug-actions BETWEEN the slug text and -sites.megabyte.space
+    // .inline-slug-actions BETWEEN the slug text and .projectsites.dev
     const hasCorrectLayout = await page.evaluate(() => {
       const scripts = document.querySelectorAll('script');
       for (let i = 0; i < scripts.length; i++) {
         const text = scripts[i].textContent || '';
         if (text.includes('slug-editable') && text.includes('renderAdminSites')) {
-          // New layout: slug</span></span><span class="inline-slug-actions">...pencil...</span>-sites.megabyte.space
+          // New layout: slug</span></span><span class="inline-slug-actions">...pencil...</span>.projectsites.dev
           const pattern = 'inline-slug-actions';
           const hasPencilInActions = text.includes(pattern) && text.includes('Edit URL slug');
           return hasPencilInActions;

@@ -194,7 +194,7 @@ jobs:
     needs: [deploy-production]
     runs-on: ubuntu-latest
     env:
-      BASE_URL: https://sites.megabyte.space
+      BASE_URL: https://projectsites.dev
     steps:
       - uses: actions/checkout@v4
 

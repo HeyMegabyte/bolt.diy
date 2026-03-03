@@ -5,6 +5,8 @@
  * Uses Resend (primary) or SendGrid (fallback) to deliver notifications.
  */
 
+import { DOMAINS } from '@project-sites/shared';
+
 import type { Env } from '../types/env.js';
 
 interface EmailOpts {
@@ -77,7 +79,7 @@ function emailWrap(content: string): string {
 </div>
 ${content}
 <div style="margin-top:28px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;">
-<span style="font-size:12px;color:rgba(148,163,184,0.5);">Powered by Megabyte Labs &middot; sites.megabyte.space</span>
+<span style="font-size:12px;color:rgba(148,163,184,0.5);">Powered by Megabyte Labs &middot; ${DOMAINS.SITES_BASE}</span>
 </div>
 </td></tr></table>
 </td></tr></table></body></html>`;

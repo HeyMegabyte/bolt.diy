@@ -27,6 +27,7 @@
 
 import type { MiddlewareHandler } from 'hono';
 import type { Env, Variables } from '../types/env.js';
+import { DOMAINS } from '@project-sites/shared';
 
 /**
  * Hono middleware that appends security headers to every response.
@@ -61,7 +62,7 @@ export const securityHeadersMiddleware: MiddlewareHandler<{
   const hostname = url.hostname;
 
   // Determine if this is a served site (not the dashboard/API)
-  const isDashboard = hostname === 'sites.megabyte.space' || hostname === 'sites-staging.megabyte.space' || hostname === 'localhost';
+  const isDashboard = hostname === DOMAINS.SITES_BASE || hostname === DOMAINS.SITES_STAGING || hostname === DOMAINS.LEGACY_SITES_BASE || hostname === 'localhost';
   const isServedSite = !isDashboard && !url.pathname.startsWith('/api/');
 
   c.header('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
@@ -94,8 +95,8 @@ export const securityHeadersMiddleware: MiddlewareHandler<{
         "img-src 'self' data: https: https://www.googletagmanager.com https://www.google-analytics.com",
         "font-src 'self' https://fonts.gstatic.com",
         "connect-src 'self' https://api.stripe.com https://us.i.posthog.com https://us-assets.i.posthog.com https://releases.transloadit.com https://www.google-analytics.com https://www.googletagmanager.com https://region1.google-analytics.com https://domainr.p.rapidapi.com",
-        "frame-src https://js.stripe.com https://www.googletagmanager.com https://*.megabyte.space",
-        "frame-ancestors 'self' https://*.megabyte.space",
+        "frame-src https://js.stripe.com https://www.googletagmanager.com https://*.projectsites.dev https://*.megabyte.space",
+        "frame-ancestors 'self' https://*.projectsites.dev https://*.megabyte.space",
         "object-src 'none'",
         "base-uri 'self'",
       ].join('; '),

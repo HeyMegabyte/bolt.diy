@@ -79,7 +79,7 @@ describe('Workflow log message format', () => {
       version: '2026-02-19T10-30-00-000Z',
       quality_score: 85,
       pages: ['index.html', 'privacy.html', 'terms.html', 'research.json'],
-      url: 'https://test-site-sites.megabyte.space',
+      url: 'https://test-site.projectsites.dev',
       total_elapsed_ms: 45000,
       total_seconds: 45,
       message: 'Site published successfully · 45s total · Score: 85/100',

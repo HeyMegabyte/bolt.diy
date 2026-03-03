@@ -128,15 +128,20 @@ export const BRAND = {
 
 /** Domain configuration */
 export const DOMAINS = {
-  /** Base domain for the marketing homepage (sites.megabyte.space) */
-  SITES_BASE: 'sites.megabyte.space',
+  /** Base domain for the marketing homepage (projectsites.dev) */
+  SITES_BASE: 'projectsites.dev',
   /** Base domain for staging (sites-staging.megabyte.space) */
   SITES_STAGING: 'sites-staging.megabyte.space',
-  /** Suffix for customer site subdomains: {slug}-sites.megabyte.space */
-  SITES_SUFFIX: '-sites.megabyte.space',
+  /** Suffix for customer site subdomains: {slug}.projectsites.dev */
+  SITES_SUFFIX: '.projectsites.dev',
   /** Suffix for staging customer sites: {slug}-sites-staging.megabyte.space */
   SITES_STAGING_SUFFIX: '-sites-staging.megabyte.space',
-  BOLT_BASE: 'bolt.megabyte.space',
+  /** Editor domain */
+  BOLT_BASE: 'editor.projectsites.dev',
   BOLT_STAGING: 'bolt-staging.megabyte.space',
   CLAIM_BASE: 'claimyour.site',
+  /** Legacy base domain for backward compat during migration */
+  LEGACY_SITES_BASE: 'sites.megabyte.space',
+  /** Legacy suffix for backward compat during migration */
+  LEGACY_SITES_SUFFIX: '-sites.megabyte.space',
 } as const;

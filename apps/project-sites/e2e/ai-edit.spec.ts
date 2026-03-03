@@ -1,10 +1,10 @@
 /**
  * E2E tests for the "AI Edit" feature:
- * - Clicking "AI Edit" opens bolt.megabyte.space with the correct importChatFrom URL
+ * - Clicking "AI Edit" opens editor.projectsites.dev with the correct importChatFrom URL
  * - The /api/sites/by-slug/:slug/chat endpoint returns valid chat JSON
  * - The editSiteInBolt() function constructs the correct URL
  * - Chat data has messages array and description
- * - Full flow: sites.megabyte.space → AI Edit → bolt.megabyte.space import
+ * - Full flow: projectsites.dev → AI Edit → editor.projectsites.dev import
  */
 import { test, expect } from './fixtures';
 
@@ -94,7 +94,7 @@ test.describe('AI Edit – editSiteInBolt() URL construction', () => {
       return capturedUrl;
     });
 
-    expect(boltUrl).toContain('bolt.megabyte.space');
+    expect(boltUrl).toContain('editor.projectsites.dev');
     expect(boltUrl).toContain('importChatFrom=');
 
     const url = new URL(boltUrl);
@@ -128,7 +128,7 @@ test.describe('AI Edit – editSiteInBolt() URL construction', () => {
 
 test.describe('AI Edit – full import flow simulation', () => {
   test('complete flow: AI Edit → fetch chat → validate importable data', async ({ page, request }) => {
-    // STEP 1: Visit sites.megabyte.space and get the import URL
+    // STEP 1: Visit projectsites.dev and get the import URL
     await page.goto('/');
 
     const chatApiUrl = await page.evaluate(() => {
@@ -223,7 +223,7 @@ test.describe('AI Edit – admin dashboard integration', () => {
       };
     });
 
-    expect(result.host).toBe('bolt.megabyte.space');
+    expect(result.host).toBe('editor.projectsites.dev');
     expect(result.importChatFrom).toBeTruthy();
     expect(result.importChatFrom).toContain('/api/sites/by-slug/example-business/chat');
   });

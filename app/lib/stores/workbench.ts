@@ -630,8 +630,8 @@ export class WorkbenchStore {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
 
-      if (hostname === 'bolt.megabyte.space') {
-        return 'https://sites.megabyte.space';
+      if (hostname === 'editor.projectsites.dev' || hostname === 'bolt.megabyte.space') {
+        return 'https://projectsites.dev';
       }
     }
 

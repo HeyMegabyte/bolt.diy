@@ -6,8 +6,8 @@
 #
 # The r2-sync/ folder mirrors the R2 bucket structure:
 #   r2-sync/
-#     marketing/index.html         → marketing homepage (sites.megabyte.space)
-#     sites/{slug}/{version}/...   → customer sites ({slug}-sites.megabyte.space)
+#     marketing/index.html         → marketing homepage (projectsites.dev)
+#     sites/{slug}/{version}/...   → customer sites ({slug}.projectsites.dev)
 #
 # Prerequisites:
 #   - wrangler authenticated (CLOUDFLARE_API_TOKEN or `wrangler login`)
@@ -79,5 +79,5 @@ echo ""
 echo "=== Sync Complete ==="
 echo "Uploaded $UPLOADED files to $BUCKET"
 echo ""
-echo "Marketing homepage:  https://sites.megabyte.space/"
-echo "Demo site:           https://bella-cucina-sites.megabyte.space/"
+echo "Marketing homepage:  https://projectsites.dev/"
+echo "Demo site:           https://bella-cucina.projectsites.dev/"

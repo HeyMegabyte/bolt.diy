@@ -215,7 +215,7 @@ test.describe('Research JSON Endpoint', () => {
     let res;
     try {
       res = await request.fetch(
-        'https://sites.megabyte.space/api/sites/by-slug/vitos-mens-saln/research.json',
+        'https://projectsites.dev/api/sites/by-slug/vitos-mens-saln/research.json',
         { timeout: 10000 },
       );
     } catch {

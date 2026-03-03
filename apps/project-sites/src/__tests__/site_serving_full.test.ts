@@ -75,10 +75,10 @@ describe('resolveSite', () => {
     const cached = makeSite();
     (env.CACHE_KV.get as jest.Mock).mockResolvedValue(cached);
 
-    const result = await resolveSite(env as any, db, 'my-site-sites.megabyte.space');
+    const result = await resolveSite(env as any, db, 'my-site.projectsites.dev');
 
     expect(result).toEqual(cached);
-    expect(env.CACHE_KV.get).toHaveBeenCalledWith('host:my-site-sites.megabyte.space', 'json');
+    expect(env.CACHE_KV.get).toHaveBeenCalledWith('host:my-site.projectsites.dev', 'json');
     // Should NOT have queried the database
     expect(mockQueryOne).not.toHaveBeenCalled();
   });

@@ -52,7 +52,7 @@ describe('Marketing Homepage Meta Tags', () => {
   });
 
   it('has canonical URL', () => {
-    expect(html).toContain('<link rel="canonical" href="https://sites.megabyte.space/">');
+    expect(html).toContain('<link rel="canonical" href="https://projectsites.dev/">');
   });
 
   // Open Graph
@@ -73,15 +73,15 @@ describe('Marketing Homepage Meta Tags', () => {
   });
 
   it('has og:image', () => {
-    expect(html).toContain('<meta property="og:image" content="https://sites.megabyte.space/icon-512.png">');
+    expect(html).toContain('<meta property="og:image" content="https://projectsites.dev/icon-512.png">');
   });
 
   it('has og:url', () => {
-    expect(html).toContain('<meta property="og:url" content="https://sites.megabyte.space/">');
+    expect(html).toContain('<meta property="og:url" content="https://projectsites.dev/">');
   });
 
   it('has al:web:url', () => {
-    expect(html).toContain('<meta property="al:web:url" content="https://sites.megabyte.space/">');
+    expect(html).toContain('<meta property="al:web:url" content="https://projectsites.dev/">');
   });
 
   // Twitter Card
@@ -106,7 +106,7 @@ describe('Marketing Homepage Meta Tags', () => {
   });
 
   it('has twitter:image', () => {
-    expect(html).toContain('<meta name="twitter:image" content="https://sites.megabyte.space/icon-512.png">');
+    expect(html).toContain('<meta name="twitter:image" content="https://projectsites.dev/icon-512.png">');
   });
 
   // PWA

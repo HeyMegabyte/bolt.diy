@@ -3,7 +3,7 @@ import { test, expect } from './fixtures.js';
 test.describe('Site Serving', () => {
   test('returns 404 for unknown subdomains', async ({ request }) => {
     const res = await request.get('/', {
-      headers: { Host: 'nonexistent-site-xyz-sites.megabyte.space' },
+      headers: { Host: 'nonexistent-site-xyz.projectsites.dev' },
     });
     expect(res.status()).toBe(404);
   });

@@ -23,7 +23,7 @@
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
-import { badRequest, unauthorized, sanitizeHtml, stripHtml } from '@project-sites/shared';
+import { badRequest, unauthorized, sanitizeHtml, stripHtml, DOMAINS } from '@project-sites/shared';
 import { dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
 
@@ -499,7 +499,7 @@ search.post('/api/sites/create-from-search', async (c) => {
       google_place_id: googlePlaceId ?? null,
       business_address: businessAddress ?? null,
       mode,
-      message: 'New site created: ' + sanitizedName + ' (' + slug + '-sites.megabyte.space)',
+      message: 'New site created: ' + sanitizedName + ' (' + slug + DOMAINS.SITES_SUFFIX + ')',
     },
     request_id: c.get('requestId'),
   });

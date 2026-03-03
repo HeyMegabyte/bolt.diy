@@ -224,7 +224,7 @@ describe('deleteCustomHostname', () => {
 // provisionFreeDomain
 // ---------------------------------------------------------------------------
 describe('provisionFreeDomain', () => {
-  it('returns hostname in format slug-sites.megabyte.space', async () => {
+  it('returns hostname in format slug.projectsites.dev', async () => {
     mockQueryOne.mockResolvedValueOnce(null);
 
     (global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -243,7 +243,7 @@ describe('provisionFreeDomain', () => {
       slug: 'my-app',
     });
 
-    expect(result.hostname).toBe('my-app-sites.megabyte.space');
+    expect(result.hostname).toBe('my-app.projectsites.dev');
     expect(result.status).toBe('pending');
   });
 
@@ -257,7 +257,7 @@ describe('provisionFreeDomain', () => {
     });
 
     expect(result).toEqual({
-      hostname: 'existing-app-sites.megabyte.space',
+      hostname: 'existing-app.projectsites.dev',
       status: 'active',
     });
     expect(global.fetch).not.toHaveBeenCalled();
@@ -283,7 +283,7 @@ describe('provisionFreeDomain', () => {
     });
 
     expect(result).toEqual({
-      hostname: 'new-app-sites.megabyte.space',
+      hostname: 'new-app.projectsites.dev',
       status: 'active',
     });
 
@@ -298,7 +298,7 @@ describe('provisionFreeDomain', () => {
       expect.objectContaining({
         org_id: 'org-2',
         site_id: 'site-2',
-        hostname: 'new-app-sites.megabyte.space',
+        hostname: 'new-app.projectsites.dev',
         type: 'free_subdomain',
         status: 'active',
         cf_custom_hostname_id: 'cf-new-1',
@@ -482,7 +482,7 @@ describe('getSiteHostnames', () => {
     const hostnames = [
       {
         id: 'h1',
-        hostname: 'app-sites.megabyte.space',
+        hostname: 'app.projectsites.dev',
         type: 'free_subdomain',
         status: 'active',
         ssl_status: 'active',
@@ -682,13 +682,13 @@ describe('checkCnameTarget', () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        Answer: [{ type: 5, data: 'sites.megabyte.space.' }],
+        Answer: [{ type: 5, data: 'projectsites.dev.' }],
       }),
     });
 
     const result = await checkCnameTarget('www.example.com');
 
-    expect(result).toBe('sites.megabyte.space');
+    expect(result).toBe('projectsites.dev');
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('cloudflare-dns.com/dns-query'),
       expect.objectContaining({

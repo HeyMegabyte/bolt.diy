@@ -67,7 +67,7 @@ export class WaitingComponent implements OnInit, OnDestroy {
             this.alive = false;
             this.toast.success('Your site is live!');
             setTimeout(() => {
-              window.location.href = `https://${this.slug}-sites.megabyte.space`;
+              window.location.href = `https://${this.slug}.projectsites.dev`;
             }, 3000);
           }
 

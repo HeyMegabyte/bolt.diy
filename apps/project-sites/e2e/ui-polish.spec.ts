@@ -183,7 +183,7 @@ test.describe('Connect Domain Tab', () => {
     await page.goto('/');
     const html = await page.locator('#domain-panel-connect').innerHTML();
     expect(html).toContain('Point a CNAME to');
-    expect(html).toContain('sites.megabyte.space');
+    expect(html).toContain('projectsites.dev');
   });
 
   test('Connect Domain upgrade CTA has Unlock text', async ({ page }) => {
