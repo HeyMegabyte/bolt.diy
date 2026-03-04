@@ -47,6 +47,6 @@ test.describe('Header', () => {
 
   test('header shows sign-in button when logged out', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('app-header ion-button')).toBeAttached();
+    await expect(page.locator('app-header .header-btn-signin')).toBeAttached();
   });
 });

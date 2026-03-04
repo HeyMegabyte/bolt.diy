@@ -1,6 +1,7 @@
 .screen-waiting {
   min-height: calc(100vh - 60px);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 24px;
@@ -11,12 +12,13 @@
 .waiting-card {
   width: 100%;
   max-width: 560px;
-  background: linear-gradient(145deg, rgba(22, 22, 53, 0.95), rgba(15, 15, 42, 0.98));
-  border: 1px solid rgba(80, 165, 219, 0.12);
+  background: rgba(10, 10, 20, 0.95);
+  border: 1px solid rgba(0, 229, 255, 0.10);
   border-radius: 16px;
   overflow: hidden;
   animation: fadeInScale 0.3s ease;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  position: relative;
 }
 
 .waiting-header {
@@ -24,8 +26,8 @@
   align-items: center;
   gap: 12px;
   padding: 14px 20px;
-  background: rgba(0, 0, 0, 0.3);
-  border-bottom: 1px solid rgba(80, 165, 219, 0.06);
+  background: rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid rgba(0, 229, 255, 0.06);
 }
 
 .terminal-dots {
@@ -77,11 +79,11 @@
 }
 
 .step-dot {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--text-muted);
-  opacity: 0.4;
+  opacity: 0.5;
 }
 
 .spinner-small {
@@ -122,9 +124,29 @@
   p { color: var(--error); font-size: 0.9rem; }
 }
 
+.progress-bar {
+  height: 3px;
+  background: rgba(0, 229, 255, 0.06);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--secondary));
+  transition: width 0.8s ease;
+  border-radius: 0 2px 2px 0;
+}
+
 .waiting-actions {
   padding: 16px 20px;
-  border-top: 1px solid rgba(80, 165, 219, 0.06);
+  border-top: 1px solid rgba(0, 229, 255, 0.06);
   display: flex;
   justify-content: center;
+}
+
+.waiting-hint {
+  margin-top: 20px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
 }

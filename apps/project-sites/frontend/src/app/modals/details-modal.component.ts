@@ -94,8 +94,11 @@ import { ToastService } from '../services/toast.service';
     .clickable {
       cursor: pointer;
       display: flex; align-items: center; gap: 6px;
-      svg { color: var(--text-muted); }
-      &:hover svg { color: var(--accent); }
+      border-radius: 4px; padding: 2px 4px; margin: -2px -4px;
+      transition: background 0.15s;
+      svg { color: var(--text-muted); transition: color 0.15s; }
+      &:hover { background: rgba(0, 229, 255, 0.04); svg { color: var(--accent); } }
+      &:active { background: rgba(0, 229, 255, 0.08); }
     }
     ion-button[expand="block"] { margin-top: 20px; }
   `],

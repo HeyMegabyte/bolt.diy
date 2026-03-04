@@ -1,3 +1,11 @@
+<ion-content>
+<!-- Background orbs -->
+<div class="bg-orbs">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
 <!-- Hero Section -->
 <section class="screen-search">
   <div class="hero-brand">
@@ -6,14 +14,14 @@
       <span class="gradient-text">Handled.</span>
       Finally.
     </h1>
-    <p class="tagline">AI-powered websites for small businesses. Search and get yours in minutes.</p>
+    <p class="tagline">AI-powered websites for small businesses. $50/mo — everything included.</p>
     <div class="hero-cta">
-      <ion-button fill="solid" size="large" (click)="startBuildFlow()">
-        Get Started Free
-      </ion-button>
-      <ion-button fill="outline" size="large" color="light" (click)="startBuildFlow()">
+      <button class="btn btn-accent btn-large" (click)="startBuildFlow()">
+        Build Your Free Website
+      </button>
+      <button class="btn btn-secondary-outline btn-large" (click)="scrollToSection('how-it-works')">
         See How It Works
-      </ion-button>
+      </button>
     </div>
   </div>
 
@@ -78,7 +86,27 @@
     }
   </div>
 
-  <p class="search-hint">Type your business name to get started</p>
+  <p class="search-hint">No account or credit card required to preview</p>
+</section>
+
+<!-- Trust Bar -->
+<section class="trust-bar">
+  <div class="trust-item">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <span>SSL &amp; DDoS Protection</span>
+  </div>
+  <div class="trust-item">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>
+    <span>99.9% Uptime Guarantee</span>
+  </div>
+  <div class="trust-item">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <span>No Contracts, Cancel Anytime</span>
+  </div>
+  <div class="trust-item">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="m22 6-10 7L2 6"/></svg>
+    <span>Priority Support Included</span>
+  </div>
 </section>
 
 <!-- How It Works -->
@@ -99,9 +127,10 @@
     <div class="step-card">
       <div class="step-number">3</div>
       <h3>Go Live Instantly</h3>
-      <p>Your site is deployed to our global CDN with SSL. Connect a custom domain or use the free subdomain we provide.</p>
+      <p>Your site is deployed to our global CDN with SSL. Connect a custom domain or use the free subdomain. $50/mo — everything included.</p>
     </div>
   </div>
+  <p class="roi-text">Most small businesses spend $2,000-$5,000 on a website. Yours is live in 5 minutes for $50/mo.</p>
 </section>
 
 <!-- Pricing Section -->
@@ -117,30 +146,76 @@
 
   <div class="pricing-grid">
     <div class="pricing-card">
-      <h3>Free</h3>
+      <h3>Free Preview</h3>
       <div class="price">$0<span>/forever</span></div>
+      <p class="pricing-tagline">See your AI-generated site before committing.</p>
       <ul>
-        <li>AI-generated website</li>
-        <li>Free subdomain</li>
-        <li>SSL included</li>
-        <li>Global CDN hosting</li>
-        <li>Small branding bar</li>
+        <li>Full AI-generated website preview</li>
+        <li>Free subdomain included</li>
+        <li>SSL &amp; CDN hosting</li>
+        <li>Legal pages auto-generated</li>
+        <li>Small branding banner</li>
       </ul>
-      <ion-button expand="block" fill="outline" (click)="startBuildFlow()">Get Started</ion-button>
+      <button class="btn btn-secondary-outline btn-full" (click)="startBuildFlow()">Generate Free Preview</button>
     </div>
     <div class="pricing-card featured">
       <div class="popular-badge">Most Popular</div>
-      <h3>Pro</h3>
-      <div class="price">{{ getPrice(29) }}<span>{{ getPeriod() }}</span></div>
+      <h3>All-Inclusive</h3>
+      <div class="price">{{ getPrice(50) }}<span>{{ getPeriod() }}</span></div>
+      <p class="pricing-tagline">Everything you need from a business website.</p>
       <ul>
-        <li>Everything in Free</li>
-        <li>Custom domain</li>
-        <li>No branding bar</li>
-        <li>Priority AI generation</li>
-        <li>File editor access</li>
-        <li>ZIP deploy</li>
+        <li>AI-generated content &amp; design</li>
+        <li>Custom domain + SSL included</li>
+        <li>Mobile-first, SEO-optimized</li>
+        <li>Built-in file editor &amp; ZIP deploy</li>
+        <li>Unlimited updates &amp; maintenance</li>
+        <li>No branding — 100% your brand</li>
       </ul>
-      <ion-button expand="block" fill="solid" (click)="startBuildFlow()">Start Free Trial</ion-button>
+      <button class="btn btn-accent btn-full" (click)="startBuildFlow()">Get Started</button>
+      <p class="guarantee-text">14-day money-back guarantee — cancel anytime</p>
+    </div>
+  </div>
+</section>
+
+<!-- Comparison Section -->
+<section class="section compare-section">
+  <h2 class="section-title">Done-for-You vs. DIY Builders</h2>
+  <p class="section-subtitle">See how Project Sites compares to doing it yourself</p>
+  <div class="compare-table">
+    <div class="compare-header">
+      <div class="compare-feature">Feature</div>
+      <div class="compare-us" style="color: var(--accent)">Project Sites</div>
+      <div class="compare-them">DIY Builders</div>
+    </div>
+    <div class="compare-row">
+      <div class="compare-feature">Content creation</div>
+      <div class="compare-us"><span class="check">&#10003;</span> AI writes it for you</div>
+      <div class="compare-them"><span class="cross">&#10007;</span> You write everything</div>
+    </div>
+    <div class="compare-row">
+      <div class="compare-feature">Time to launch</div>
+      <div class="compare-us"><span class="check">&#10003;</span> Under 15 minutes</div>
+      <div class="compare-them"><span class="cross">&#10007;</span> Days to weeks</div>
+    </div>
+    <div class="compare-row">
+      <div class="compare-feature">Updates &amp; changes</div>
+      <div class="compare-us"><span class="check">&#10003;</span> Unlimited, included</div>
+      <div class="compare-them"><span class="cross">&#10007;</span> Extra cost or DIY</div>
+    </div>
+    <div class="compare-row">
+      <div class="compare-feature">Hosting &amp; SSL</div>
+      <div class="compare-us"><span class="check">&#10003;</span> Global CDN, included</div>
+      <div class="compare-them"><span class="cross">&#10007;</span> Extra $10-30/mo</div>
+    </div>
+    <div class="compare-row">
+      <div class="compare-feature">Maintenance</div>
+      <div class="compare-us"><span class="check">&#10003;</span> Zero maintenance</div>
+      <div class="compare-them"><span class="cross">&#10007;</span> Constant upkeep</div>
+    </div>
+    <div class="compare-row">
+      <div class="compare-feature">Technical skills</div>
+      <div class="compare-us"><span class="check">&#10003;</span> None required</div>
+      <div class="compare-them"><span class="cross">&#10007;</span> HTML/CSS knowledge</div>
     </div>
   </div>
 </section>
@@ -151,36 +226,49 @@
   <p class="section-subtitle">Focus on your business. We handle the tech.</p>
   <div class="handled-grid">
     <div class="handled-item">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      <h4>SSL & Security</h4>
+      <div class="handled-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <h4>SSL &amp; Security</h4>
       <p>Automatic HTTPS, security headers, and DDoS protection on every site.</p>
     </div>
     <div class="handled-item">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <div class="handled-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      </div>
       <h4>Global CDN</h4>
       <p>Sites served from Cloudflare's edge network — fast everywhere in the world.</p>
     </div>
     <div class="handled-item">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
+      <div class="handled-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
+      </div>
       <h4>Legal Pages</h4>
       <p>Privacy policy and terms of service generated and included automatically.</p>
     </div>
     <div class="handled-item">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      <div class="handled-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      </div>
       <h4>Responsive Design</h4>
       <p>Your website looks great on desktop, tablet, and mobile — out of the box.</p>
     </div>
     <div class="handled-item">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      <div class="handled-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      </div>
       <h4>SEO Optimized</h4>
       <p>Meta tags, structured data, and fast load times for better search rankings.</p>
     </div>
     <div class="handled-item">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="m22 6-10 7L2 6"/></svg>
+      <div class="handled-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="m22 6-10 7L2 6"/></svg>
+      </div>
       <h4>No Maintenance</h4>
       <p>No servers, no updates, no hassle. We keep everything running smoothly.</p>
     </div>
   </div>
+  <p class="handled-summary">Custom domain support &middot; Unlimited changes &middot; AI editor &middot; Mobile-responsive &middot; Legal pages &middot; Analytics &middot; Priority support &middot; No contracts</p>
 </section>
 
 <!-- FAQ Section -->
@@ -219,9 +307,8 @@
       <label>Message</label>
       <textarea class="input-field" placeholder="How can we help?" [(ngModel)]="contactMessage" rows="4"></textarea>
     </div>
-    <ion-button
-      fill="solid"
-      expand="block"
+    <button
+      class="btn btn-accent btn-full"
       [disabled]="contactSending()"
       (click)="submitContactForm()"
     >
@@ -230,7 +317,7 @@
       } @else {
         Send Message
       }
-    </ion-button>
+    </button>
   </div>
 </section>
 
@@ -247,9 +334,11 @@
       <a href="https://github.com/HeyMegabyte" target="_blank" rel="noopener">GitHub</a>
       <a href="https://x.com/HeyMegabyte" target="_blank" rel="noopener">X</a>
     </div>
-    <div class="footer-copy">&copy; 2026 Megabyte LLC. All rights reserved.</div>
+    <div class="footer-copy">&copy; 2026 <a href="https://megabyte.space" target="_blank" rel="noopener">Megabyte LLC</a>. All rights reserved.</div>
   </div>
 </footer>
+
+</ion-content>
 
 <!-- Location permission modal -->
 <ion-modal [isOpen]="showLocationPrompt()" [breakpoints]="[0, 0.5]" [initialBreakpoint]="0.5" (didDismiss)="skipLocation()">
@@ -263,8 +352,8 @@
       <h3>Find nearby businesses</h3>
       <p>Allow location access to sort search results by distance and find businesses near you.</p>
       <div class="location-modal-actions">
-        <ion-button fill="outline" color="medium" (click)="skipLocation()">Not now</ion-button>
-        <ion-button fill="solid" (click)="allowLocation()">Allow</ion-button>
+        <button class="btn btn-secondary-outline" (click)="skipLocation()">Not now</button>
+        <button class="btn btn-accent" (click)="allowLocation()">Allow</button>
       </div>
     </div>
   </ng-template>

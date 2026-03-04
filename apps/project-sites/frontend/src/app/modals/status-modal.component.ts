@@ -90,7 +90,7 @@ import { ApiService, Site, WorkflowStatus } from '../services/api.service';
     .label { color: var(--text-muted); }
     .value { color: var(--text-primary); }
     .status-published { color: var(--success); }
-    .status-building, .status-queued { color: #fbbf24; }
+    .status-building, .status-queued { color: #ffab00; }
     .status-error { color: var(--error); }
     .workflow-steps { margin-top: 12px; }
     .workflow-step {

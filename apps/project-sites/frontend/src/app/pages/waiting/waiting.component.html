@@ -1,3 +1,4 @@
+<ion-content>
 <section class="screen-waiting">
   <div class="waiting-card">
     <div class="waiting-header">
@@ -9,13 +10,17 @@
       <span class="terminal-title">Building your website...</span>
     </div>
 
+    <div class="progress-bar">
+      <div class="progress-fill" [style.width.%]="progressPercent()"></div>
+    </div>
+
     <div class="terminal-body">
       @for (step of steps(); track step.label; let i = $index) {
         <div class="terminal-line" [class]="'step-' + step.status">
           <span class="step-indicator">
             @switch (step.status) {
               @case ('done') {
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00e676" stroke-width="2">
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
               }
@@ -23,7 +28,7 @@
                 <ion-spinner name="crescent" class="step-spinner"></ion-spinner>
               }
               @case ('error') {
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff1744" stroke-width="2">
                   <path d="M18 6 6 18M6 6l12 12" />
                 </svg>
               }
@@ -39,7 +44,7 @@
 
     @if (status() === 'published') {
       <div class="waiting-success">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00e676" stroke-width="2">
           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="M22 4 12 14.01l-3-3" />
         </svg>
         <p>Your site is live! Redirecting...</p>
@@ -57,4 +62,7 @@
       <ion-button fill="outline" color="medium" (click)="goAdmin()">Go to Dashboard</ion-button>
     </div>
   </div>
+
+  <p class="waiting-hint">This usually takes 5-15 minutes. You can close this page and come back later.</p>
 </section>
+</ion-content>

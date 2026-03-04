@@ -330,7 +330,7 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { data: { success: true } });
   }
   const hostnamePrimaryMatch = pathname.match(/^\/api\/sites\/([^/]+)\/hostnames\/([^/]+)\/primary$/);
-  if (hostnamePrimaryMatch && method === 'POST') {
+  if (hostnamePrimaryMatch && (method === 'POST' || method === 'PUT')) {
     return sendJson(res, 200, { data: { success: true } });
   }
 
@@ -339,6 +339,11 @@ const server = http.createServer(async (req, res) => {
   if (filesMatch && method === 'GET') {
     const siteId = filesMatch[1];
     return sendJson(res, 200, { data: MOCK_FILES[siteId] || [] });
+  }
+  if (filesMatch && (method === 'PUT' || method === 'POST')) {
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
+    return sendJson(res, 200, { data: { path: body.path || 'new-file.html', content: body.content || '', size: (body.content || '').length } });
   }
   const fileUpdateMatch = pathname.match(/^\/api\/sites\/([^/]+)\/files\/(.+)$/);
   if (fileUpdateMatch && (method === 'PUT' || method === 'POST')) {

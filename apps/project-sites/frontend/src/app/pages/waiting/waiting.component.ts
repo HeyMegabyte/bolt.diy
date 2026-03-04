@@ -1,7 +1,7 @@
-import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { interval, takeWhile, switchMap } from 'rxjs';
-import { IonButton, IonSpinner } from '@ionic/angular/standalone';
+import { IonButton, IonSpinner, IonContent } from '@ionic/angular/standalone';
 import { ApiService } from '../../services/api.service';
 import { ToastService } from '../../services/toast.service';
 
@@ -13,7 +13,7 @@ interface BuildStep {
 @Component({
   selector: 'app-waiting',
   standalone: true,
-  imports: [IonButton, IonSpinner],
+  imports: [IonButton, IonSpinner, IonContent],
   templateUrl: './waiting.component.html',
   styleUrl: './waiting.component.scss',
 })
@@ -36,6 +36,13 @@ export class WaitingComponent implements OnInit, OnDestroy {
     { label: 'Uploading to CDN', status: 'pending' },
     { label: 'Publishing site', status: 'pending' },
   ]);
+
+  progressPercent = computed(() => {
+    const s = this.steps();
+    const done = s.filter((step) => step.status === 'done').length;
+    const active = s.filter((step) => step.status === 'active').length;
+    return Math.round(((done + active * 0.5) / s.length) * 100);
+  });
 
   ngOnInit(): void {
     this.siteId = this.route.snapshot.queryParams['id'] || '';

@@ -1,7 +1,3 @@
-/* AG Grid CSS */
-@import 'ag-grid-community/styles/ag-grid.css';
-@import 'ag-grid-community/styles/ag-theme-alpine.css';
-
 /* Ionic CSS */
 @import '@ionic/angular/css/core.css';
 @import '@ionic/angular/css/normalize.css';
@@ -17,53 +13,53 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 :root {
-  /* App design tokens */
-  --bg-primary: #0a0a1a;
-  --bg-secondary: #111128;
-  --bg-card: #161635;
-  --bg-card-hover: #1c1c45;
-  --bg-input: #0f0f2a;
-  --accent: #50a5db;
-  --accent-dim: rgba(80, 165, 219, 0.12);
-  --accent-glow: rgba(80, 165, 219, 0.25);
-  --secondary: #7c3aed;
-  --secondary-dim: rgba(124, 58, 237, 0.15);
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --border: rgba(80, 165, 219, 0.1);
-  --border-hover: rgba(80, 165, 219, 0.3);
-  --error: #ef4444;
-  --error-dim: rgba(239, 68, 68, 0.12);
-  --success: #22c55e;
+  /* ─── Cyan / Black / White design tokens ─────────────── */
+  --bg-primary: #000000;
+  --bg-secondary: #060610;
+  --bg-card: #0a0a14;
+  --bg-card-hover: #0f0f1a;
+  --bg-input: #050510;
+  --accent: #00e5ff;
+  --accent-dim: rgba(0, 229, 255, 0.10);
+  --accent-glow: rgba(0, 229, 255, 0.25);
+  --secondary: #00b8d4;
+  --secondary-dim: rgba(0, 184, 212, 0.12);
+  --text-primary: #ffffff;
+  --text-secondary: #b0bec5;
+  --text-muted: #607d8b;
+  --border: rgba(0, 229, 255, 0.10);
+  --border-hover: rgba(0, 229, 255, 0.30);
+  --error: #ff1744;
+  --error-dim: rgba(255, 23, 68, 0.12);
+  --success: #00e676;
   --radius: 12px;
   --radius-lg: 16px;
-  --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
-  --shadow-accent: 0 0 30px rgba(80, 165, 219, 0.15);
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.7);
+  --shadow-accent: 0 0 30px rgba(0, 229, 255, 0.12);
   --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Ionic CSS variable overrides for dark theme */
   --ion-background-color: var(--bg-primary);
-  --ion-background-color-rgb: 10, 10, 26;
+  --ion-background-color-rgb: 0, 0, 0;
   --ion-text-color: var(--text-primary);
-  --ion-text-color-rgb: 226, 232, 240;
+  --ion-text-color-rgb: 255, 255, 255;
   --ion-color-primary: var(--accent);
-  --ion-color-primary-rgb: 80, 165, 219;
-  --ion-color-primary-contrast: var(--bg-primary);
-  --ion-color-primary-contrast-rgb: 10, 10, 26;
-  --ion-color-primary-shade: #4691c1;
-  --ion-color-primary-tint: #62aee0;
+  --ion-color-primary-rgb: 0, 229, 255;
+  --ion-color-primary-contrast: #000000;
+  --ion-color-primary-contrast-rgb: 0, 0, 0;
+  --ion-color-primary-shade: #00c9e0;
+  --ion-color-primary-tint: #1ae8ff;
   --ion-color-secondary: var(--secondary);
-  --ion-color-secondary-rgb: 124, 58, 237;
+  --ion-color-secondary-rgb: 0, 184, 212;
   --ion-color-danger: var(--error);
-  --ion-color-danger-rgb: 239, 68, 68;
+  --ion-color-danger-rgb: 255, 23, 68;
   --ion-color-success: var(--success);
-  --ion-color-success-rgb: 34, 197, 94;
-  --ion-color-warning: #fbbf24;
-  --ion-color-warning-rgb: 251, 191, 36;
-  --ion-toolbar-background: rgba(10, 10, 26, 0.88);
+  --ion-color-success-rgb: 0, 230, 118;
+  --ion-color-warning: #ffab00;
+  --ion-color-warning-rgb: 255, 171, 0;
+  --ion-toolbar-background: rgba(0, 0, 0, 0.92);
   --ion-toolbar-color: var(--text-primary);
   --ion-item-background: transparent;
   --ion-card-background: var(--bg-card);
@@ -82,7 +78,10 @@ html { scroll-behavior: smooth; height: 100%; }
 
 body {
   font-family: var(--font);
-  background: var(--bg-primary);
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0, 229, 255, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 40% at 80% 100%, rgba(0, 184, 212, 0.03) 0%, transparent 40%),
+    var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
   overflow-x: hidden;
@@ -175,19 +174,32 @@ ion-accordion {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   padding: 14px 28px; border-radius: var(--radius); font-size: 1rem;
   font-weight: 600; font-family: var(--font); text-decoration: none;
-  cursor: pointer; border: none;
-  transition: box-shadow var(--transition), background var(--transition), opacity var(--transition);
+  cursor: pointer; border: none; outline: none;
+  transition: box-shadow var(--transition), background var(--transition),
+              opacity var(--transition), transform 0.1s ease, filter 0.15s ease;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--accent-dim);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
 
 .btn-accent {
-  background: linear-gradient(135deg, var(--accent) 0%, #4ecdc4 50%, var(--accent) 100%);
-  background-size: 200% 200%; color: var(--bg-primary);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--secondary) 50%, var(--accent) 100%);
+  background-size: 200% 200%; color: #000;
 }
 .btn-accent:hover:not(:disabled) {
   background-position: 100% 0;
-  box-shadow: 0 0 20px rgba(80, 165, 219, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 24px rgba(0, 229, 255, 0.4), 0 4px 16px rgba(0, 0, 0, 0.4);
   filter: brightness(1.1);
+}
+.btn-accent:active:not(:disabled) {
+  filter: brightness(0.92);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
 }
 
 .btn-secondary-outline {
@@ -195,7 +207,11 @@ ion-accordion {
 }
 .btn-secondary-outline:hover:not(:disabled) {
   border-color: var(--accent); color: var(--accent);
-  background: rgba(80, 165, 219, 0.04);
+  background: rgba(0, 229, 255, 0.04);
+}
+.btn-secondary-outline:active:not(:disabled) {
+  background: rgba(0, 229, 255, 0.08);
+  border-color: var(--accent);
 }
 
 .btn-full { width: 100%; }
@@ -208,22 +224,22 @@ ion-accordion {
 }
 .input-field {
   width: 100%; padding: 14px 16px; font-size: 1rem; font-family: var(--font);
-  background: linear-gradient(145deg, rgba(10, 10, 26, 0.8), rgba(15, 15, 42, 0.5));
-  border: 1.5px solid rgba(80, 165, 219, 0.1); border-radius: var(--radius);
+  background: rgba(5, 5, 16, 0.8);
+  border: 1.5px solid rgba(0, 229, 255, 0.10); border-radius: var(--radius);
   color: var(--text-primary); outline: none;
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 .input-field::placeholder { color: var(--text-muted); }
 .input-field:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-dim), 0 0 20px rgba(80, 165, 219, 0.06);
+  box-shadow: 0 0 0 3px var(--accent-dim), 0 0 20px rgba(0, 229, 255, 0.08);
 }
 textarea.input-field { resize: vertical; min-height: 120px; line-height: 1.6; }
 
 .msg { padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-top: 12px; text-align: left; }
 .msg-error { background: var(--error-dim); color: var(--error); border: 1px solid rgba(239, 68, 68, 0.2); }
 .msg-success { background: rgba(34, 197, 94, 0.1); color: var(--success); border: 1px solid rgba(34, 197, 94, 0.2); }
-.msg-info { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(80, 165, 219, 0.15); }
+.msg-info { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(0, 229, 255, 0.15); }
 
 .loading-dots { display: inline-flex; gap: 4px; align-items: center; }
 .loading-dots span {

@@ -19,8 +19,8 @@ test.describe('Homepage - Hero Section', () => {
 
   test('shows Get Started and See How It Works buttons', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.hero-cta ion-button').first()).toContainText('Get Started Free');
-    await expect(page.locator('.hero-cta ion-button').nth(1)).toContainText('See How It Works');
+    await expect(page.locator('.hero-cta .btn').first()).toContainText('Build Your Free Website');
+    await expect(page.locator('.hero-cta .btn').nth(1)).toContainText('See How It Works');
   });
 
   test('shows search bar with placeholder', async ({ page }) => {
@@ -31,7 +31,7 @@ test.describe('Homepage - Hero Section', () => {
 
   test('shows search hint text', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.search-hint')).toContainText('Type your business name');
+    await expect(page.locator('.search-hint')).toContainText('No account or credit card required');
   });
 });
 
@@ -117,12 +117,12 @@ test.describe('Homepage - Pricing Section', () => {
     await expect(page.locator('.pricing-section .section-title')).toContainText('Simple, Transparent Pricing');
   });
 
-  test('shows Free and Pro pricing cards', async ({ page }) => {
+  test('shows Free and All-Inclusive pricing cards', async ({ page }) => {
     await page.goto('/');
     const cards = page.locator('.pricing-card');
     await expect(cards).toHaveCount(2);
-    await expect(cards.first()).toContainText('Free');
-    await expect(cards.nth(1)).toContainText('Pro');
+    await expect(cards.first()).toContainText('Free Preview');
+    await expect(cards.nth(1)).toContainText('All-Inclusive');
   });
 
   test('free plan shows $0', async ({ page }) => {
@@ -130,19 +130,19 @@ test.describe('Homepage - Pricing Section', () => {
     await expect(page.locator('.pricing-card').first().locator('.price')).toContainText('$0');
   });
 
-  test('pro plan shows $29/month by default', async ({ page }) => {
+  test('pro plan shows $50/month by default', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.pricing-card.featured .price')).toContainText('$29');
+    await expect(page.locator('.pricing-card.featured .price')).toContainText('$50');
   });
 
-  test('annual toggle updates pro price to $23', async ({ page }) => {
+  test('annual toggle updates pro price to $40', async ({ page }) => {
     await page.goto('/');
     const toggle = page.locator('.pricing-toggle ion-toggle');
     await expect(toggle).toBeAttached();
     // Scroll into view then use Playwright dispatchEvent for Angular zone detection
     await toggle.evaluate((el: HTMLElement) => el.scrollIntoView({ block: 'center' }));
     await toggle.dispatchEvent('click');
-    await expect(page.locator('.pricing-card.featured .price')).toContainText('$23');
+    await expect(page.locator('.pricing-card.featured .price')).toContainText('$40');
   });
 
   test('annual toggle shows save badge', async ({ page }) => {
@@ -181,7 +181,7 @@ test.describe('Homepage - FAQ Section', () => {
 
   test('shows all FAQ items', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('ion-accordion')).toHaveCount(6);
+    await expect(page.locator('ion-accordion')).toHaveCount(8);
   });
 
   test('FAQ accordion expands on click', async ({ page }) => {
@@ -215,7 +215,7 @@ test.describe('Homepage - Contact Section', () => {
 
   test('has send button', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.contact-form ion-button')).toContainText('Send Message');
+    await expect(page.locator('.contact-form .btn')).toContainText('Send Message');
   });
 });
 

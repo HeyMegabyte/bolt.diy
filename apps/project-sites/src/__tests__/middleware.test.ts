@@ -291,7 +291,7 @@ describe('securityHeadersMiddleware', () => {
     expect(csp).toContain('https://cdnjs.cloudflare.com');
     expect(csp).toContain("style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://releases.transloadit.com");
     expect(csp).toContain("img-src 'self' data: https:");
-    expect(csp).toContain("font-src 'self' https://fonts.gstatic.com");
+    expect(csp).toContain("font-src 'self' data: https://fonts.gstatic.com");
     expect(csp).toContain("connect-src 'self' https://api.stripe.com https://us.i.posthog.com");
     expect(csp).toContain('frame-src https://js.stripe.com');
     expect(csp).toContain("object-src 'none'");

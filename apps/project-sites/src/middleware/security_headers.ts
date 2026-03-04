@@ -93,7 +93,7 @@ export const securityHeadersMiddleware: MiddlewareHandler<{
         "script-src 'self' 'unsafe-inline' https://releases.transloadit.com https://js.stripe.com https://us.i.posthog.com https://us-assets.i.posthog.com https://static.cloudflareinsights.com https://cdnjs.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://releases.transloadit.com https://cdnjs.cloudflare.com",
         "img-src 'self' data: https: https://www.googletagmanager.com https://www.google-analytics.com",
-        "font-src 'self' https://fonts.gstatic.com",
+        "font-src 'self' data: https://fonts.gstatic.com",
         "connect-src 'self' https://api.stripe.com https://us.i.posthog.com https://us-assets.i.posthog.com https://releases.transloadit.com https://www.google-analytics.com https://www.googletagmanager.com https://region1.google-analytics.com https://domainr.p.rapidapi.com",
         "frame-src https://js.stripe.com https://www.googletagmanager.com https://*.projectsites.dev https://*.megabyte.space",
         "frame-ancestors 'self' https://*.projectsites.dev https://*.megabyte.space",

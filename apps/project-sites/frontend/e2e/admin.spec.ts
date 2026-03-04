@@ -1,8 +1,8 @@
 /**
  * Admin Dashboard E2E tests.
  *
- * Covers: page rendering, AG Grid, site cards, action buttons,
- * modal triggers, billing controls.
+ * Covers: page rendering, rich site cards, inline slug editing,
+ * action buttons, modal triggers, billing controls.
  */
 import { test, expect } from './fixtures.js';
 
@@ -21,9 +21,9 @@ test.describe('Admin Page - Authenticated', () => {
     await expect(page.locator('.admin-panel-title')).toContainText('My Sites');
   });
 
-  test('shows New Site button', async ({ authedPage: page }) => {
+  test('shows New Website button', async ({ authedPage: page }) => {
     await page.goto('/admin');
-    await expect(page.locator('.admin-panel-actions ion-button').last()).toContainText('New Site');
+    await expect(page.locator('.admin-panel-actions ion-button').last()).toContainText('New Website');
   });
 
   test('shows Manage Billing button', async ({ authedPage: page }) => {
@@ -36,89 +36,121 @@ test.describe('Admin Page - Authenticated', () => {
     await expect(page.locator('.plan-indicator')).toBeVisible();
   });
 
-  test('shows AG Grid when sites are loaded', async ({ authedPage: page }) => {
+  test('shows site count badge when sites are loaded', async ({ authedPage: page }) => {
     await page.goto('/admin');
-    await expect(page.locator('ag-grid-angular')).toBeAttached({ timeout: 5000 });
+    await expect(page.locator('.site-count-badge')).toBeVisible({ timeout: 5000 });
   });
 
-  test('AG Grid has correct columns', async ({ authedPage: page }) => {
+  test('shows site cards when sites are loaded', async ({ authedPage: page }) => {
     await page.goto('/admin');
-    await expect(page.locator('ag-grid-angular')).toBeAttached({ timeout: 5000 });
-  });
-
-  test('shows site action cards', async ({ authedPage: page }) => {
-    await page.goto('/admin');
-    await expect(page.locator('.site-action-card').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.site-card').first()).toBeVisible({ timeout: 5000 });
   });
 
   test('site card shows business name', async ({ authedPage: page }) => {
     await page.goto('/admin');
-    await expect(page.locator('.sac-name').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.sc-name').first()).toBeVisible({ timeout: 5000 });
   });
 
   test('site card shows status badge', async ({ authedPage: page }) => {
     await page.goto('/admin');
-    await expect(page.locator('.site-action-card ion-badge').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.sc-status').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('site card shows slug URL', async ({ authedPage: page }) => {
+    await page.goto('/admin');
+    await expect(page.locator('.sc-url').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('site card shows split URL with slug and domain parts', async ({ authedPage: page }) => {
+    await page.goto('/admin');
+    await expect(page.locator('.sc-slug-part').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.sc-domain-part').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('site card has slug edit trigger button', async ({ authedPage: page }) => {
+    await page.goto('/admin');
+    await expect(page.locator('[data-testid="slug-edit-trigger"]').first()).toBeVisible({ timeout: 5000 });
   });
 
   test('site card shows action buttons', async ({ authedPage: page }) => {
     await page.goto('/admin');
-    const card = page.locator('.site-action-card').first();
+    const card = page.locator('.site-card').first();
     await expect(card).toBeVisible({ timeout: 5000 });
-    await expect(card.locator('.sac-buttons ion-button').first()).toBeVisible();
+    await expect(card.locator('.action-btn').first()).toBeVisible();
   });
 
-  test('site card shows Details button', async ({ authedPage: page }) => {
+  test('site card shows More menu with Details', async ({ authedPage: page }) => {
     await page.goto('/admin');
-    const card = page.locator('.site-action-card').first();
+    const card = page.locator('.site-card').first();
     await expect(card).toBeVisible({ timeout: 5000 });
-    await expect(card.locator('ion-button', { hasText: 'Details' })).toBeVisible();
+    await card.locator('[data-testid="more-btn"]').click();
+    await expect(card.locator('[data-testid="details-btn"]')).toBeVisible();
   });
 
   test('site card shows Files button', async ({ authedPage: page }) => {
     await page.goto('/admin');
-    const card = page.locator('.site-action-card').first();
+    const card = page.locator('.site-card').first();
     await expect(card).toBeVisible({ timeout: 5000 });
-    await expect(card.locator('ion-button', { hasText: 'Files' })).toBeVisible();
+    await expect(card.locator('[data-testid="files-btn"]')).toBeVisible();
   });
 
   test('site card shows Domains button', async ({ authedPage: page }) => {
     await page.goto('/admin');
-    const card = page.locator('.site-action-card').first();
+    const card = page.locator('.site-card').first();
     await expect(card).toBeVisible({ timeout: 5000 });
-    await expect(card.locator('ion-button', { hasText: 'Domains' })).toBeVisible();
+    await expect(card.locator('[data-testid="domains-btn"]')).toBeVisible();
   });
 
-  test('site card shows Logs button', async ({ authedPage: page }) => {
+  test('More menu shows Logs button', async ({ authedPage: page }) => {
     await page.goto('/admin');
-    const card = page.locator('.site-action-card').first();
+    const card = page.locator('.site-card').first();
     await expect(card).toBeVisible({ timeout: 5000 });
-    await expect(card.locator('ion-button', { hasText: 'Logs' })).toBeVisible();
+    await card.locator('[data-testid="more-btn"]').click();
+    await expect(card.locator('[data-testid="logs-btn"]')).toBeVisible();
   });
 
-  test('site card shows Deploy button', async ({ authedPage: page }) => {
+  test('More menu shows Deploy button', async ({ authedPage: page }) => {
     await page.goto('/admin');
-    const card = page.locator('.site-action-card').first();
+    const card = page.locator('.site-card').first();
     await expect(card).toBeVisible({ timeout: 5000 });
-    await expect(card.locator('ion-button', { hasText: 'Deploy' })).toBeVisible();
+    await card.locator('[data-testid="more-btn"]').click();
+    await expect(card.locator('[data-testid="deploy-btn"]')).toBeVisible();
   });
 
-  test('site card shows Reset button', async ({ authedPage: page }) => {
+  test('More menu shows Reset button', async ({ authedPage: page }) => {
     await page.goto('/admin');
-    const card = page.locator('.site-action-card').first();
+    const card = page.locator('.site-card').first();
     await expect(card).toBeVisible({ timeout: 5000 });
-    await expect(card.locator('ion-button', { hasText: 'Reset' })).toBeVisible();
+    await card.locator('[data-testid="more-btn"]').click();
+    await expect(card.locator('[data-testid="reset-btn"]')).toBeVisible();
   });
 
-  test('site card shows Delete button', async ({ authedPage: page }) => {
+  test('More menu shows Delete button', async ({ authedPage: page }) => {
     await page.goto('/admin');
-    const card = page.locator('.site-action-card').first();
+    const card = page.locator('.site-card').first();
     await expect(card).toBeVisible({ timeout: 5000 });
-    await expect(card.locator('ion-button', { hasText: 'Delete' })).toBeVisible();
+    await card.locator('[data-testid="more-btn"]').click();
+    await expect(card.locator('[data-testid="delete-btn"]')).toBeVisible();
   });
 
-  test('site card shows site URL', async ({ authedPage: page }) => {
+  test('More menu shows Upgrade button for free plan', async ({ authedPage: page }) => {
     await page.goto('/admin');
-    await expect(page.locator('.sac-url a').first()).toBeVisible({ timeout: 5000 });
+    const card = page.locator('.site-card').first();
+    await expect(card).toBeVisible({ timeout: 5000 });
+    await card.locator('[data-testid="more-btn"]').click();
+    await expect(card.locator('[data-testid="upgrade-btn"]')).toBeVisible();
+  });
+
+  test('published site shows View Live button', async ({ authedPage: page }) => {
+    await page.goto('/admin');
+    // First site is published
+    const card = page.locator('.site-card').first();
+    await expect(card).toBeVisible({ timeout: 5000 });
+    await expect(card.locator('[data-testid="view-live-btn"]')).toBeVisible();
+  });
+
+  test('domain summary is visible when domains exist', async ({ authedPage: page }) => {
+    await page.goto('/admin');
+    await expect(page.locator('.domain-summary')).toBeVisible({ timeout: 5000 });
   });
 });

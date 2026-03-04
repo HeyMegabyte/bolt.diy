@@ -57,8 +57,6 @@
               }
             ],
             "styles": [
-              "node_modules/ag-grid-community/styles/ag-grid.css",
-              "node_modules/ag-grid-community/styles/ag-theme-alpine.css",
               "src/styles.scss"
             ],
             "scripts": [],

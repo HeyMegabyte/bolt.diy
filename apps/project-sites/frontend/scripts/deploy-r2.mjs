@@ -14,7 +14,7 @@ if (!env || !['staging', 'production'].includes(env)) {
   process.exit(1);
 }
 
-const bucket = env === 'staging' ? 'project-sites-staging' : 'project-sites';
+const bucket = env === 'staging' ? 'project-sites-staging' : 'project-sites-production';
 const distDir = join(import.meta.dirname, '..', 'dist', 'project-sites-frontend', 'browser');
 
 const CONTENT_TYPES = {

@@ -1,3 +1,4 @@
+<ion-content>
 <section class="admin-panel">
   <div class="admin-panel-inner">
     <!-- Header -->
@@ -8,15 +9,18 @@
           <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
         </svg>
         My Sites
+        @if (!loading() && sites().length > 0) {
+          <span class="site-count-badge">{{ sites().length }}</span>
+        }
       </div>
       <div class="admin-panel-actions">
         <span class="plan-indicator">{{ getSubscriptionLabel() }}</span>
         <ion-button fill="outline" size="small" (click)="openBillingPortal()">Manage Billing</ion-button>
-        <ion-button fill="solid" size="small" (click)="newSite()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" slot="start">
+        <ion-button fill="solid" size="small" class="new-site-btn" (click)="newSite()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" slot="start">
             <path d="M12 5v14M5 12h14" />
           </svg>
-          New Site
+          New Website
         </ion-button>
       </div>
     </div>
@@ -35,11 +39,16 @@
       </div>
     }
 
-    <!-- Loading -->
+    <!-- Loading skeletons -->
     @if (loading()) {
-      <div class="admin-loading">
-        <ion-spinner name="crescent"></ion-spinner>
-        Loading your sites...
+      <div class="skeleton-grid">
+        @for (i of [1, 2, 3]; track i) {
+          <div class="skeleton-card">
+            <div class="skeleton-line skeleton-title"></div>
+            <div class="skeleton-line skeleton-url"></div>
+            <div class="skeleton-line skeleton-actions"></div>
+          </div>
+        }
       </div>
     }
 
@@ -47,58 +56,185 @@
     @if (!loading()) {
       @if (sites().length === 0) {
         <div class="admin-empty">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" />
-          </svg>
-          <p>No sites yet. Create your first AI-powered website!</p>
-          <ion-button fill="solid" (click)="newSite()">Create Site</ion-button>
+          <div class="empty-illustration">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+              <rect x="2" y="3" width="20" height="14" rx="2" />
+              <path d="M8 21h8M12 17v4" />
+              <circle cx="12" cy="10" r="2" stroke-dasharray="2 2" />
+            </svg>
+          </div>
+          <h3 class="empty-title">No sites yet</h3>
+          <p class="empty-text">Create your first AI-powered website in minutes.</p>
+          <ion-button fill="solid" class="new-site-btn" (click)="newSite()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" slot="start">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Create Your Website
+          </ion-button>
         </div>
       } @else {
-        <!-- AG Grid -->
-        <div class="grid-container">
-          <ag-grid-angular
-            class="ag-theme-alpine-dark"
-            [rowData]="sites()"
-            [columnDefs]="columnDefs"
-            [defaultColDef]="defaultColDef"
-            [animateRows]="true"
-            [domLayout]="'autoHeight'"
-            (gridReady)="onGridReady($event)"
-            (cellEditingStopped)="onCellEditingStopped($any($event))"
-          />
-        </div>
-
-        <!-- Site cards (action buttons below grid) -->
-        <div class="site-actions-grid">
+        <!-- Site cards -->
+        <div class="site-cards-grid">
           @for (site of sites(); track site.id) {
-            <div class="site-action-card">
-              <div class="sac-header">
-                <span class="sac-name">{{ site.business_name }}</span>
-                <ion-badge [color]="site.status === 'published' ? 'success' : site.status === 'error' ? 'danger' : 'warning'">
-                  {{ site.status }}
-                </ion-badge>
+            <div class="site-card" [class.site-card-active]="isActiveStatus(site.status)">
+              <!-- Card header with status -->
+              <div class="sc-header">
+                <div class="sc-info">
+                  <h3 class="sc-name">{{ site.business_name }}</h3>
+                  @if (site.business_address) {
+                    <p class="sc-address">{{ site.business_address }}</p>
+                  }
+                </div>
+                <div class="sc-status-wrap">
+                  <span class="sc-status" [style.--status-color]="getStatusColor(site.status)"
+                        [class.sc-status-pulse]="isActiveStatus(site.status)">
+                    {{ site.status }}
+                  </span>
+                  @if (site.plan === 'paid') {
+                    <span class="sc-plan-badge sc-plan-pro">PRO</span>
+                  }
+                </div>
               </div>
-              <div class="sac-url">
-                <a [href]="(site.primary_hostname ? 'https://' + site.primary_hostname : 'https://' + site.slug + '.projectsites.dev')"
-                   target="_blank" rel="noopener">
-                  {{ site.primary_hostname || site.slug + '.projectsites.dev' }}
-                </a>
+
+              <!-- URL / Slug display -->
+              <div class="sc-url-row">
+                @if (isEditingSlug(site.id)) {
+                  <div class="slug-edit-container" [class]="getSlugStatusClass()">
+                    <input
+                      type="text"
+                      class="slug-edit-input"
+                      [value]="slugEdit()!.value"
+                      (input)="onSlugInput($event)"
+                      (keyup.enter)="saveSlug(site)"
+                      (keyup.escape)="cancelSlugEdit()"
+                      spellcheck="false"
+                      data-testid="slug-edit-input"
+                    />
+                    <span class="slug-suffix">.projectsites.dev</span>
+                    <div class="slug-edit-actions">
+                      @if (slugEdit()!.status === 'checking') {
+                        <span class="slug-indicator slug-checking">
+                          <ion-spinner name="dots"></ion-spinner>
+                        </span>
+                      } @else if (slugEdit()!.status === 'available') {
+                        <span class="slug-indicator slug-available">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </span>
+                      } @else if (slugEdit()!.status === 'taken') {
+                        <span class="slug-indicator slug-taken">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </span>
+                      }
+                      <button class="slug-btn slug-btn-save" (click)="saveSlug(site)"
+                              [disabled]="slugEdit()!.status === 'taken' || slugEdit()!.status === 'checking'"
+                              data-testid="slug-save-btn">Save</button>
+                      <button class="slug-btn slug-btn-cancel" (click)="cancelSlugEdit()"
+                              data-testid="slug-cancel-btn">Cancel</button>
+                    </div>
+                  </div>
+                } @else {
+                  <a class="sc-url" [href]="getSiteUrl(site)" target="_blank" rel="noopener">
+                    <span class="sc-slug-part">{{ site.slug }}</span><span class="sc-domain-part">.projectsites.dev</span>
+                  </a>
+                  <button class="slug-edit-trigger" (click)="startSlugEdit(site)" title="Edit slug"
+                          data-testid="slug-edit-trigger">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                    </svg>
+                  </button>
+                }
               </div>
-              <div class="sac-buttons">
+
+              <!-- Action buttons -->
+              <div class="sc-actions">
                 @if (site.status === 'published') {
-                  <ion-button size="small" fill="outline" (click)="visitSite(site)">View</ion-button>
+                  <button class="action-btn action-btn-primary" (click)="visitSite(site)" data-testid="view-live-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                    View Live
+                  </button>
                 }
-                <ion-button size="small" fill="outline" (click)="openDetails(site)">Details</ion-button>
-                <ion-button size="small" fill="outline" (click)="openFiles(site)">Files</ion-button>
-                <ion-button size="small" fill="outline" (click)="openDomains(site)">Domains</ion-button>
-                <ion-button size="small" fill="outline" (click)="openLogs(site)">Logs</ion-button>
-                <ion-button size="small" fill="outline" (click)="openStatus(site)">Status</ion-button>
-                <ion-button size="small" fill="outline" (click)="openDeploy(site)">Deploy</ion-button>
-                <ion-button size="small" fill="outline" color="warning" (click)="openReset(site)">Reset</ion-button>
-                <ion-button size="small" fill="outline" color="danger" (click)="openDelete(site)">Delete</ion-button>
-                @if (site.plan !== 'paid') {
-                  <ion-button size="small" fill="solid" color="success" (click)="openCheckout(site)">Upgrade</ion-button>
-                }
+                <button class="action-btn" (click)="openFiles(site)" data-testid="files-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>
+                  </svg>
+                  Files
+                </button>
+                <button class="action-btn" (click)="openDomains(site)" data-testid="domains-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                  </svg>
+                  Domains
+                </button>
+
+                <!-- More dropdown -->
+                <div class="more-menu-wrap">
+                  <button class="action-btn action-btn-more" (click)="toggleMoreMenu(site.id, $event)" data-testid="more-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>
+                    </svg>
+                    More
+                  </button>
+                  @if (moreMenuOpen() === site.id) {
+                    <div class="more-dropdown" (click)="$event.stopPropagation()">
+                      <button class="more-item" (click)="openDetails(site); moreMenuOpen.set(null)" data-testid="details-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                        </svg>
+                        Details
+                      </button>
+                      <button class="more-item" (click)="openLogs(site); moreMenuOpen.set(null)" data-testid="logs-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                        </svg>
+                        Logs
+                      </button>
+                      <button class="more-item" (click)="openStatus(site); moreMenuOpen.set(null)" data-testid="status-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                        </svg>
+                        Status
+                      </button>
+                      <button class="more-item" (click)="openDeploy(site); moreMenuOpen.set(null)" data-testid="deploy-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                          <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        Deploy
+                      </button>
+                      @if (site.plan !== 'paid') {
+                        <button class="more-item more-item-upgrade" (click)="openCheckout(site); moreMenuOpen.set(null)" data-testid="upgrade-btn">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                          </svg>
+                          Upgrade
+                        </button>
+                      }
+                      <div class="more-divider"></div>
+                      <button class="more-item more-item-warn" (click)="openReset(site); moreMenuOpen.set(null)" data-testid="reset-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <polyline points="1 4 1 10 7 10"/>
+                          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                        </svg>
+                        Reset &amp; Rebuild
+                      </button>
+                      <button class="more-item more-item-danger" (click)="openDelete(site); moreMenuOpen.set(null)" data-testid="delete-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                        Delete
+                      </button>
+                    </div>
+                  }
+                </div>
               </div>
             </div>
           }
@@ -107,3 +243,4 @@
     }
   </div>
 </section>
+</ion-content>

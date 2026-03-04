@@ -1,9 +1,9 @@
-import { Component, OnInit, OnDestroy, inject, signal, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, forkJoin, of, takeUntil } from 'rxjs';
 import {
-  IonSearchbar, IonList, IonItem, IonLabel, IonBadge, IonButton,
+  IonContent, IonSearchbar, IonList, IonItem, IonLabel, IonBadge,
   IonSpinner, IonAccordionGroup, IonAccordion,
   IonToggle, IonModal,
 } from '@ionic/angular/standalone';
@@ -33,8 +33,8 @@ interface SearchItem {
   selector: 'app-search',
   standalone: true,
   imports: [
-    FormsModule, IonSearchbar, IonList, IonItem, IonLabel, IonBadge,
-    IonButton, IonSpinner, IonAccordionGroup, IonAccordion,
+    FormsModule, IonContent, IonSearchbar, IonList, IonItem, IonLabel, IonBadge,
+    IonSpinner, IonAccordionGroup, IonAccordion,
     IonToggle, IonModal,
   ],
   templateUrl: './search.component.html',
@@ -62,12 +62,14 @@ export class SearchComponent implements OnInit, OnDestroy {
 
   // FAQ items
   faqItems = [
-    { question: 'How long does it take to build my website?', answer: 'Most websites are generated and live within 5-15 minutes. Our AI researches your business, designs your brand, writes content, and publishes — all automatically.' },
-    { question: 'Can I use my own domain name?', answer: 'Yes! You can connect your custom domain in the admin dashboard. Just add a CNAME record pointing to projectsites.dev and we handle SSL automatically.' },
-    { question: 'What if I want to make changes to my website?', answer: 'You can edit files directly in the built-in code editor, upload custom assets, or regenerate the entire site with new context. Changes deploy instantly.' },
-    { question: 'Is there a free plan?', answer: 'Yes! Every site starts on the free plan which includes AI generation, CDN hosting, and SSL. Upgrade to remove the branding bar and get custom domain support.' },
-    { question: 'What AI model powers the generation?', answer: 'We use Cloudflare Workers AI with Llama models for content generation. The AI researches your business across the web to create accurate, professional content.' },
-    { question: 'Can I cancel anytime?', answer: 'Absolutely. No contracts, no commitments. Cancel your subscription anytime from the billing portal and your site stays live on the free plan.' },
+    { question: 'How does the AI build my website?', answer: 'Our AI researches your business across the web — pulling data from Google, social media, and review sites. It then generates professional copy, selects a design, and builds a complete website with legal pages, SEO, and mobile responsiveness.' },
+    { question: 'How long does it take to build my website?', answer: 'Most websites are generated and live within 5-15 minutes. The AI handles research, writing, design, legal pages, and deployment — all automatically.' },
+    { question: 'Can I use my own domain name?', answer: 'Yes! Pro plan includes custom domain support. Just add a CNAME record pointing to projectsites.dev and we handle SSL automatically. Setup takes under 5 minutes.' },
+    { question: 'What if I want to make changes to my website?', answer: 'You can edit files directly in the built-in code editor, upload custom assets via ZIP deploy, or regenerate the entire site with new context. Changes deploy instantly to the global CDN.' },
+    { question: "What's included in the free preview?", answer: 'The free plan includes a full AI-generated website hosted on a free subdomain with SSL, CDN hosting, and legal pages. It includes a small "Powered by Project Sites" banner.' },
+    { question: 'Can I edit the website after it\'s built?', answer: 'Absolutely. The built-in file editor lets you modify HTML, CSS, and JavaScript directly. You can also upload a ZIP file to replace the entire site, or use the Reset feature to regenerate with updated context.' },
+    { question: 'Do I own the website and content?', answer: 'Yes, you own all content generated for your website. You can export your files at any time. If you cancel, your site stays live on the free plan with the branding banner.' },
+    { question: 'What happens if I cancel?', answer: 'No contracts, no commitments. Cancel anytime from the billing portal. Your site stays live on the free plan (with branding banner). We offer a 14-day money-back guarantee.' },
   ];
 
   private searchSubject = new Subject<string>();
@@ -157,9 +159,8 @@ export class SearchComponent implements OnInit, OnDestroy {
         this.dropdownOpen.set(true);
       });
 
-    if (!this.auth.isLocationDeclined()) {
-      setTimeout(() => this.checkGeolocation(), 5000);
-    }
+    // Location prompt is deferred until the user interacts with the search bar
+    // (see onSearchInput). This avoids the modal covering all page content.
   }
 
   ngOnDestroy(): void {
@@ -167,10 +168,18 @@ export class SearchComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  private locationChecked = false;
+
   onSearchInput(event: Event): void {
     const val = (event as CustomEvent).detail?.value ?? this.query;
     this.query = val;
     this.searchSubject.next(val);
+
+    // Prompt for location on first search interaction (not on page load)
+    if (!this.locationChecked && !this.auth.isLocationDeclined()) {
+      this.locationChecked = true;
+      this.checkGeolocation();
+    }
   }
 
   selectItem(item: SearchItem): void {
@@ -226,6 +235,13 @@ export class SearchComponent implements OnInit, OnDestroy {
     this.navigateToDetailsOrSignin();
   }
 
+  scrollToSection(selector: string): void {
+    const el = document.querySelector(`.${selector}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
   togglePricing(): void {
     this.isAnnual.update((v) => !v);
   }
@@ -238,7 +254,7 @@ export class SearchComponent implements OnInit, OnDestroy {
   }
 
   getPeriod(): string {
-    return this.isAnnual() ? '/year' : '/month';
+    return this.isAnnual() ? '/yr' : '/mo';
   }
 
   submitContactForm(): void {
