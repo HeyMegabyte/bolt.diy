@@ -27,6 +27,7 @@
 <div class="flex min-h-screen bg-dark-surface animate-fade-in" (click)="closeDropdowns()">
   <!-- Mobile hamburger -->
   <button
+    aria-label="Open navigation menu"
     class="fixed top-3 left-3 z-[1001] p-2 rounded-md border border-white/[0.06] bg-dark/95 text-text-secondary backdrop-blur-lg cursor-pointer hover:text-primary hover:border-primary/30 hidden max-md:flex"
     (click)="toggleSidebar(); $event.stopPropagation()">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
@@ -43,7 +44,7 @@
     <a class="flex items-center gap-2.5 px-5 pt-[18px] pb-3.5 border-b border-white/[0.06] no-underline cursor-pointer transition-opacity hover:opacity-85" routerLink="/">
       <img src="/logo-header-icon.png" alt="Project Sites" width="32" height="32" class="flex-shrink-0" />
       <img src="/logo-text.png" alt="projectsites.dev" height="28" class="flex-shrink-0 opacity-90" />
-      <button class="hidden max-md:flex items-center justify-center bg-transparent border-none text-text-secondary cursor-pointer p-1 rounded ml-auto hover:text-white" (click)="sidebarCollapsed.set(true); $event.preventDefault(); $event.stopPropagation()">
+      <button aria-label="Close navigation menu" class="hidden max-md:flex items-center justify-center bg-transparent border-none text-text-secondary cursor-pointer p-1 rounded ml-auto hover:text-white" (click)="sidebarCollapsed.set(true); $event.preventDefault(); $event.stopPropagation()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </a>
@@ -51,6 +52,8 @@
     <!-- Site Selector -->
     <div class="px-3 pt-3 relative" (click)="$event.stopPropagation()">
       <button
+        aria-label="Select site"
+        [attr.aria-expanded]="siteDropdownOpen()"
         class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] border border-white/[0.06] bg-white/[0.02] cursor-pointer transition-all duration-200 text-left hover:border-primary/20 hover:bg-primary/[0.04]"
         (click)="toggleSiteDropdown($event)">
         @if (state.selectedSite(); as site) {
@@ -113,8 +116,23 @@
       }
     </div>
 
-    <!-- Navigation -->
-    <nav class="px-3 pt-3 pb-6 flex flex-col gap-0.5 flex-1">
+    <!-- Sidebar nav-search + recently-viewed -->
+    <div class="px-3 pt-2 pb-1" (click)="$event.stopPropagation()">
+      <div class="relative">
+        <svg class="absolute left-2 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input
+          type="text"
+          placeholder="/ to filter nav…"
+          class="w-full pl-7 pr-2 py-1.5 bg-white/[0.04] border border-white/[0.06] rounded-md text-[0.72rem] text-white placeholder:text-text-secondary/55 outline-none focus:border-primary/30 focus:bg-primary/[0.04] transition-colors"
+          [(ngModel)]="navFilter"
+          (ngModelChange)="applyNavFilter()"
+          (keydown.enter)="jumpFirstFilteredNav()"
+        />
+      </div>
+    </div>
+
+<!-- Navigation -->
+    <nav class="px-3 pt-3 pb-6 flex flex-col gap-0.5 flex-1" [class.nav-filtered]="!!navFilter">
       <a class="nav-item nav-item-editor" routerLink="/admin" routerLinkActive="nav-item-active" [routerLinkActiveOptions]="{ exact: true }">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
         <span>Editor</span>
@@ -128,34 +146,28 @@
         <span>Analytics</span>
       </a>
 
-      <div class="h-px mx-3.5 my-2 bg-white/[0.06]"></div>
-      <div class="text-text-secondary/40 text-[0.55rem] font-bold uppercase tracking-wider px-3.5 mt-3 mb-1">AI</div>
-      <a class="nav-item" routerLink="/admin/forms" routerLinkActive="nav-item-active">
+      <a class="nav-item" routerLink="/admin/forms" routerLinkActive="nav-item-active" title="Form submissions + routing">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         <span>Forms</span>
       </a>
-      <a class="nav-item" routerLink="/admin/ai-logs" routerLinkActive="nav-item-active">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg>
-        <span>AI Logs</span>
+      <a class="nav-item" routerLink="/admin/traces" routerLinkActive="nav-item-active" title="Every AI call — form, chat, endpoint, search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="3"/><path d="M2 12h6m6 0h8"/><path d="M11 2v6m0 6v8"/></svg>
+        <span>Traces</span>
       </a>
-      <a class="nav-item" routerLink="/admin/ai-chat" routerLinkActive="nav-item-active">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-        <span>AI Chat</span>
-      </a>
-      <a class="nav-item" routerLink="/admin/ai-endpoints" routerLinkActive="nav-item-active">
+      <a class="nav-item" routerLink="/admin/ai-endpoints" routerLinkActive="nav-item-active" title="Custom AI endpoints (prompt or worker)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-        <span>AI Endpoints</span>
+        <span>Endpoints</span>
       </a>
 
       <div class="h-px mx-3.5 my-2 bg-white/[0.06]"></div>
 
-      <a class="nav-item" routerLink="/admin/billing" routerLinkActive="nav-item-active">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-        <span>Billing & Plan</span>
-      </a>
       <a class="nav-item" routerLink="/admin/audit" routerLinkActive="nav-item-active">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         <span>Audit Log</span>
+      </a>
+      <a class="nav-item" routerLink="/admin/docs" routerLinkActive="nav-item-active" title="Interactive API explorer — every endpoint, live calls from your session">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>Docs</span>
       </a>
       <a class="nav-item" routerLink="/admin/settings" routerLinkActive="nav-item-active">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -163,16 +175,6 @@
       </a>
     </nav>
 
-    <!-- Bottom: user info -->
-    <div class="px-3 py-3 border-t border-white/[0.06] flex items-center gap-2.5">
-      <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold flex-shrink-0">
-        {{ (auth.email() || '?')[0].toUpperCase() }}
-      </div>
-      <div class="flex-1 min-w-0">
-        <div class="text-[0.75rem] text-white truncate">{{ auth.email() || 'User' }}</div>
-        <div class="text-[0.62rem] text-text-secondary uppercase tracking-wide font-semibold">{{ state.subscription()?.status === 'active' ? 'Pro' : 'Free' }} Plan</div>
-      </div>
-    </div>
   </aside>
 
   <!-- Sidebar overlay for mobile -->
@@ -197,12 +199,18 @@
         <span class="text-white font-semibold">{{ currentSection() }}</span>
       </div>
       <div class="flex items-center gap-2">
-        <button class="top-btn" (click)="state.loadData()" title="Refresh">
+        <!-- Cmd-K palette opener -->
+        <button class="top-btn cmdk-btn" (click)="openPalette()" title="Open command palette (⌘K / Ctrl-K)" aria-label="Open command palette">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span class="cmdk-label">Quick find</span>
+          <kbd class="cmdk-kbd">⌘K</kbd>
+        </button>
+<button class="top-btn" (click)="state.loadData()" title="Refresh" aria-label="Refresh dashboard data">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
         </button>
         @if (state.selectedSite(); as site) {
           @if (site.status === 'published') {
-            <button class="top-btn" (click)="state.visitSite(site)" title="Preview site">
+            <button class="top-btn" (click)="state.visitSite(site)" title="Preview site" aria-label="Preview site in new tab">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
               Preview
             </button>
@@ -215,12 +223,103 @@
           </button>
         }
         <div class="w-px h-6 bg-white/[0.06] mx-1"></div>
-        <button class="top-btn" (click)="state.signOut()" title="Sign out">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Sign Out
+
+        <!-- Notifications bell — wrapped in .avatar-wrap to provide the
+             positioning context for the absolutely-positioned .notif-pop. -->
+        <div class="avatar-wrap">
+        <button class="top-btn relative" (click)="toggleNotifications($event)" title="Notifications" aria-label="Notifications">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          @if (unreadCount() > 0) {
+            <span class="notif-dot" [attr.aria-label]="unreadCount() + ' new'">{{ unreadCount() }}</span>
+          }
         </button>
+        @if (notifOpen()) {
+          <div class="notif-pop" (click)="$event.stopPropagation()">
+            <header class="flex items-center justify-between mb-2 px-1">
+              <div class="text-[0.7rem] text-text-secondary uppercase tracking-wider font-bold">Inbox</div>
+              <button class="text-[0.66rem] text-primary hover:underline" (click)="markAllRead()" [disabled]="unreadCount() === 0">
+                {{ unreadCount() === 0 ? 'All caught up ✓' : 'Mark all read' }}
+              </button>
+            </header>
+            @if (notifications().length === 0) {
+              <div class="text-center text-text-secondary text-[0.78rem] py-6">
+                <div class="opacity-40 mb-1">✦</div>
+                No notifications.
+              </div>
+            } @else {
+              @for (group of groupedNotifications(); track group.label) {
+                <div class="text-[0.6rem] text-text-secondary/70 uppercase tracking-wider font-bold mt-3 mb-1 px-1">{{ group.label }}</div>
+                @for (n of group.items; track n.id) {
+                  <div class="notif-item" [class.is-unread]="!n.read" (click)="openNotification(n)">
+                    <div class="notif-icon" [class.is-warn]="n.kind === 'warn'" [class.is-info]="n.kind === 'info'" [class.is-ok]="n.kind === 'ok'">{{ n.kind === 'warn' ? '!' : n.kind === 'ok' ? '✓' : '●' }}</div>
+                    <div class="flex-1 min-w-0">
+                      <div class="text-[0.78rem] text-white truncate">{{ n.title }}</div>
+                      <div class="text-[0.66rem] text-text-secondary">{{ n.time }}</div>
+                    </div>
+                    @if (!n.read) { <span class="notif-dot-mini" aria-label="unread"></span> }
+                  </div>
+                }
+              }
+            }
+          </div>
+        }
+        </div><!-- /.avatar-wrap (notif) -->
+
+        <!-- User avatar menu — wrapped in .avatar-wrap so the .user-pop's
+             absolute positioning resolves against the avatar, not <main>. -->
+        <div class="avatar-wrap">
+        <button class="avatar-btn" (click)="toggleUserMenu($event)" [title]="userEmail() || 'Account'" [attr.aria-label]="'Account menu for ' + (userEmail() || 'current user')" [attr.aria-expanded]="userMenuOpen()" data-testid="user-avatar-btn">
+          {{ userInitial() }}
+        </button>
+        @if (userMenuOpen()) {
+          <div class="user-pop" [focusTrap]="userMenuOpen()" role="menu" (click)="$event.stopPropagation()" data-testid="user-menu">
+            <div class="px-3 py-2">
+              <div class="text-[0.85rem] font-semibold text-white">{{ userName() || 'Account' }}</div>
+              <div class="text-[0.7rem] text-text-secondary truncate">{{ userEmail() }}</div>
+              <span class="glow-chip mt-1.5">{{ planLabel() }}</span>
+            </div>
+            <div class="glow-divider"></div>
+            <a routerLink="/admin/billing" class="user-item" (click)="userMenuOpen.set(false)">Billing &amp; credits</a>
+            <a routerLink="/admin/user" class="user-item flex items-center" (click)="userMenuOpen.set(false)">User settings <span class="ml-auto text-[0.62rem] text-text-secondary/70">theme · API keys</span></a>
+            <a routerLink="/admin/settings" class="user-item" (click)="userMenuOpen.set(false)">Project settings</a>
+            <button class="user-item flex items-center" (click)="openShortcuts()">Keyboard shortcuts <span class="ml-auto opacity-50 text-[0.7rem]">?</span></button>
+            <button class="user-item flex items-center" data-testid="user-menu-language" (click)="toggleLanguage()" [attr.aria-label]="'Switch language, current ' + currentLang()">Language: {{ currentLang() === 'es' ? 'Español' : 'English' }}<span class="ml-auto text-[0.62rem] text-text-secondary/70">{{ currentLang() === 'es' ? 'EN' : 'ES' }}</span></button>
+            <button class="user-item user-item-danger" (click)="state.signOut()">Sign out</button>
+          </div>
+        }
+        </div><!-- /.avatar-wrap (user) -->
       </div>
     </div>
+
+    <!-- Site-status banner — surfaces when the current site is in `error` so the user
+         immediately knows why downstream sections may look broken. Polish idea #9. -->
+    @if (state.selectedSite()?.status === 'error') {
+      <div class="site-error-banner" role="alert" data-testid="site-error-banner">
+        <span class="flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <strong>This site failed its last build.</strong>
+          <span class="opacity-80">Open the Snapshots tab to retry or roll back.</span>
+        </span>
+        <a routerLink="/admin/snapshots" class="text-white underline text-[0.74rem]">View snapshots →</a>
+      </div>
+    }
+
+    <!-- Recently-visited pages strip — quick jumpback for power users. Polish idea #11. -->
+    @if (recents().length > 1) {
+      <nav class="recents-strip" aria-label="Recently visited">
+        <span class="text-[0.6rem] uppercase tracking-wider text-text-secondary/60 flex items-center mr-1">Recent</span>
+        @for (r of recents(); track r.path) {
+          <a [routerLink]="r.path" class="recent-chip" [class.is-active]="r.path === router.url.split('?')[0]">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            {{ r.label }}
+          </a>
+        }
+      </nav>
+    }
+
+    <!-- Cmd-K palette + shortcuts cheat-sheet (mounted globally) -->
+    <app-command-palette #palette></app-command-palette>
+    <app-shortcuts-modal #shortcuts></app-shortcuts-modal>
 
     <!-- Content area -->
     @if (state.loading()) {
@@ -240,9 +339,16 @@
         </button>
       </div>
     } @else {
-      <router-outlet></router-outlet>
+      <!-- Item #53: section-level error boundary so a crash in one section
+           (analytics, forms, billing) leaves the rest of the admin shell
+           working. Captures via the GlobalErrorHandler bus. -->
+      <app-section-error-boundary>
+        <router-outlet></router-outlet>
+      </app-section-error-boundary>
     }
   </main>
 </div>
+
+<app-ai-chat-widget />
 
 } <!-- end @else (auth.isLoggedIn) -->

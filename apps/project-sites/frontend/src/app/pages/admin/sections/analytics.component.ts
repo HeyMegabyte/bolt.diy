@@ -30,20 +30,42 @@ interface Overview {
             Live data from <strong>Cloudflare Workers Analytics Engine</strong> — every admin visit gets one data point. Refreshes every 30 s.
           </p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
           @if ((data()?.last_hour_visits ?? 0) > 0) {
             <span class="pulse-dot" aria-label="Live"></span>
             <span class="text-[0.72rem] text-emerald-400">{{ data()?.last_hour_visits }} in the last hour</span>
           } @else {
             <span class="text-[0.72rem] text-text-secondary">Quiet — no visits in the last hour</span>
           }
-          <button class="btn-ghost" (click)="reload()" [disabled]="loading()">{{ loading() ? '…' : 'Refresh' }}</button>
+          <!-- Refresh sits LEFT of the date range so the loading state doesn't shift the strip horizontally. Fixed-width wrapper keeps everything stable. -->
+          <button class="btn-ghost refresh-btn" (click)="reload()" [disabled]="loading()" title="Refresh data">{{ loading() ? '…' : 'Refresh' }}</button>
+          <div class="range-chip-strip">
+            @for (r of ranges; track r.id) {
+              <button class="range-chip" [class.active]="range() === r.id" (click)="setRange(r.id)">{{ r.label }}</button>
+            }
+          </div>
+          <button class="btn-ghost" (click)="exportCsv()" [disabled]="!data()" title="Download visible data as CSV">Export CSV</button>
         </div>
       </header>
 
-      @if (error()) {
+      @if (cfStatus(); as cfs) {
+        <div class="card flex items-center justify-between gap-3 text-[0.74rem]" [style.border-color]="cfs.analytics_configured ? 'rgba(16,185,129,0.32)' : 'rgba(245,158,11,0.32)'" [style.background]="cfs.analytics_configured ? 'rgba(16,185,129,0.04)' : 'rgba(245,158,11,0.06)'">
+          <div class="flex items-center gap-2">
+            <span class="font-semibold" [style.color]="cfs.analytics_configured ? '#34d399' : '#fcd34d'">
+              {{ cfs.analytics_configured ? 'Cloudflare Analytics · Configured' : 'Cloudflare Analytics · Setup needed' }}
+            </span>
+            @if (cfs.account_id_masked) {
+              <span class="text-text-secondary">· account {{ cfs.account_id_masked }} · {{ cfs.auth_mode === 'scoped_token' ? 'scoped token' : 'global key' }}</span>
+            }
+          </div>
+          @if (!cfs.analytics_configured) {
+            <button class="btn-primary" (click)="autoSetup()" [disabled]="settingUp()" title="Run Cloudflare auto-config now">{{ settingUp() ? 'Configuring…' : 'Auto-configure now' }}</button>
+          }
+        </div>
+      }
+      @if (error() && !cfStatus()?.analytics_configured) {
         <div class="card bg-amber-500/[0.06] border border-amber-500/30 text-[0.78rem]">
-          <strong class="text-amber-300">Analytics setup needed.</strong>
+          <strong class="text-amber-300">Analytics returned an error.</strong>
           {{ error() }} — visits are still being recorded; once the worker has <code class="font-mono">CF_API_TOKEN</code> + the Analytics Engine SQL permission, this page will populate.
         </div>
       }
@@ -178,11 +200,17 @@ interface Overview {
     .kpi { padding: 1.1rem; }
     .muted-h { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; }
     .btn-ghost { padding: 0.4rem 0.9rem; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #e5e7eb; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
+    /* Fixed-width Refresh button so the date strip never shifts when label flips between "Refresh" and "…". */
+    .refresh-btn { min-width: 78px; text-align: center; }
+    .refresh-btn:disabled { opacity: 0.5; cursor: progress; }
     .pulse-dot { width: 9px; height: 9px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 0 rgba(16,185,129,0.7); animation: pulse 1.5s infinite; }
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.7); } 70% { box-shadow: 0 0 0 8px rgba(16,185,129,0); } 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } }
     .bar-row { margin-bottom: 0.55rem; }
     .bar { height: 6px; background: rgba(255,255,255,0.05); border-radius: 999px; overflow: hidden; }
     .bar-fill { height: 100%; background: linear-gradient(90deg, #00E5FF, #7C3AED); transition: width 250ms ease; }
+    .range-chip-strip { display: inline-flex; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; padding: 2px; gap: 2px; }
+    .range-chip { padding: 4px 10px; border-radius: 999px; background: transparent; border: 0; color: rgba(255,255,255,0.65); font-size: 0.7rem; font-weight: 600; cursor: pointer; }
+    .range-chip.active { background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.18)); color: #00E5FF; }
   `],
 })
 export class AdminAnalyticsComponent implements OnInit, OnDestroy {
@@ -193,7 +221,52 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   error = signal<string | null>(null);
   loading = signal(false);
   refreshedAt = signal<Date | null>(null);
+  cfStatus = signal<{
+    account_id_masked: string | null;
+    wfp_namespace_name: string | null;
+    analytics_configured: boolean;
+    wfp_configured: boolean;
+    auth_mode: 'scoped_token' | 'global_key' | 'none';
+    dispatch_binding_present: boolean;
+  } | null>(null);
+  settingUp = signal(false);
   private timer?: ReturnType<typeof setInterval>;
+  ranges = [
+    { id: '1d', label: 'Today' },
+    { id: '7d', label: '7 days' },
+    { id: '30d', label: '30 days' },
+    { id: '90d', label: '90 days' },
+  ] as const;
+  range = signal<'1d' | '7d' | '30d' | '90d'>(((): '1d' | '7d' | '30d' | '90d' => {
+    try { return (localStorage.getItem('ps_analytics_range') as '1d' | '7d' | '30d' | '90d') || '30d'; } catch { return '30d'; }
+  })());
+
+  setRange(id: '1d' | '7d' | '30d' | '90d'): void {
+    this.range.set(id);
+    try { localStorage.setItem('ps_analytics_range', id); } catch { /* */ }
+    this.reload();
+  }
+
+  exportCsv(): void {
+    const d = this.data();
+    if (!d) return;
+    const lines: string[] = [];
+    lines.push('section,key,value');
+    lines.push(`summary,total_visits,${d.total_visits}`);
+    lines.push(`summary,last_hour_visits,${d.last_hour_visits}`);
+    for (const r of d.visits_by_day || []) lines.push(`by_day,${r.day},${r.visits}`);
+    for (const r of d.top_routes || []) lines.push(`top_route,${csv(r.route_path)},${r.visits}`);
+    for (const r of d.ua_breakdown || []) lines.push(`ua,${r.user_agent_class},${r.visits}`);
+    for (const r of d.top_referrers || []) lines.push(`referrer,${csv(r.referrer)},${r.visits}`);
+    for (const r of d.top_countries || []) lines.push(`country,${r.country},${r.visits}`);
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `projectsites-analytics-${this.range()}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    function csv(s: string): string { return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }
+  }
 
   topCountry = computed(() => this.data()?.top_countries?.[0]?.country ?? null);
   topCountryVisits = computed(() => this.data()?.top_countries?.[0]?.visits ?? 0);
@@ -234,13 +307,34 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.reload();
+    this.loadCfStatus();
     this.timer = setInterval(() => this.reload(), 30000);
   }
   ngOnDestroy(): void { if (this.timer) clearInterval(this.timer); }
+  loadCfStatus(): void {
+    type CfStatus = NonNullable<ReturnType<typeof this.cfStatus>>;
+    this.api.get<{ data: CfStatus }>('/admin/cloudflare/status').subscribe({
+      next: (r) => this.cfStatus.set(r.data),
+      error: () => this.cfStatus.set(null),
+    });
+  }
+  autoSetup(): void {
+    this.settingUp.set(true);
+    this.api.post<{ data: { account_id_masked: string; wfp_namespace_name: string; note: string } }>('/admin/cloudflare/auto-setup', {}).subscribe({
+      next: (r) => {
+        this.settingUp.set(false);
+        this.loadCfStatus();
+        this.reload();
+        // eslint-disable-next-line no-console
+        console.warn('cloudflare auto-setup:', r.data?.note);
+      },
+      error: () => { this.settingUp.set(false); this.error.set('Auto-setup failed — check worker creds.'); },
+    });
+  }
 
   reload(): void {
     this.loading.set(true);
-    this.api.get<{ data: Overview | null; error?: { message: string } }>('/analytics/overview').subscribe({
+    this.api.get<{ data: Overview | null; error?: { message: string } }>('/analytics/overview', { range: this.range() }).subscribe({
       next: (r) => {
         if (r.data) { this.data.set(r.data); this.error.set(null); }
         else if (r.error?.message) this.error.set(r.error.message);

@@ -1,16 +1,25 @@
-import { Component, type OnInit, type OnDestroy, inject, signal } from '@angular/core';
+import { Component, type OnInit, type OnDestroy, inject, signal, computed, effect, ViewChild, HostListener } from '@angular/core';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subscription, filter } from 'rxjs';
+import { TranslateService } from '@ngx-translate/core';
 import { ApiService, type Site } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
+import { AppShellService, type AppLanguage } from '../../services/app-shell.service';
 import { AdminStateService } from './admin-state.service';
+import { CommandPaletteComponent } from './command-palette.component';
+import { ShortcutsModalComponent } from './shortcuts-modal.component';
+import { AiChatWidgetComponent } from '../../components/ai-chat-widget/ai-chat-widget.component';
+import { SectionErrorBoundaryComponent } from '../../components/section-error-boundary/section-error-boundary.component';
+import { FocusTrapDirective } from '../../directives/focus-trap.directive';
+
+interface Notification { id: string; title: string; time: string; kind: 'info' | 'warn' | 'ok'; read: boolean; ts?: number; href?: string; }
 
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [FormsModule, RouterModule],
+  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsModalComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective],
   providers: [AdminStateService],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',
@@ -18,19 +27,67 @@ import { AdminStateService } from './admin-state.service';
 export class AdminComponent implements OnInit, OnDestroy {
   state = inject(AdminStateService);
   auth = inject(AuthService);
-  private router = inject(Router);
+  router = inject(Router);
   private toast = inject(ToastService);
+  private api = inject(ApiService);
+  private translate = inject(TranslateService);
+  private appShell = inject(AppShellService);
+
+  /** Active UI language — used by the avatar-menu toggle to render the chip. */
+  currentLang = signal<AppLanguage>(((): AppLanguage => {
+    try {
+      const stored = localStorage.getItem('ps_language');
+      return stored === 'es' ? 'es' : 'en';
+    } catch {
+      return 'en';
+    }
+  })());
 
   siteDropdownOpen = signal(false);
   siteSearchQuery = signal('');
   sidebarCollapsed = signal(false);
   isEditorRoute = signal(false);
   editorSaving = signal(false);
-  currentSection = signal('Dashboard');
+  currentSection = signal('Editor');
+
+
+  // User menu + notifications + palette.
+  userMenuOpen = signal(false);
+  notifOpen = signal(false);
+  notifications = signal<Notification[]>([]);
+  unreadCount = computed(() => this.notifications().filter((n) => !n.read).length);
+
+  @ViewChild('palette') palette?: CommandPaletteComponent;
+  @ViewChild('shortcuts') shortcuts?: ShortcutsModalComponent;
+
+  // Theme toggle — persisted to localStorage, sets data-theme on <html>.
+  theme = signal<'dark' | 'light' | 'system'>(((): 'dark' | 'light' | 'system' => {
+    try { return (localStorage.getItem('ps_theme') as 'dark' | 'light' | 'system') || 'dark'; } catch { return 'dark'; }
+  })());
+
+  // Sidebar nav filter (live "/" focuses input)
+  navFilter = '';
+  jumpFirstFilteredNav(): void {
+    const first = document.querySelector('nav .nav-item:not(.nav-hidden)') as HTMLAnchorElement | null;
+    first?.click();
+    this.navFilter = '';
+    this.applyNavFilter();
+  }
+  applyNavFilter(): void {
+    const q = (this.navFilter || '').trim().toLowerCase();
+    document.querySelectorAll('nav .nav-item').forEach((el) => {
+      const text = (el.textContent || '').toLowerCase();
+      el.classList.toggle('nav-hidden', !!q && !text.includes(q));
+    });
+  }
 
   private routerSub?: Subscription;
 
-  private api = inject(ApiService);
+  /** Recently-visited admin pages (last 6). Persisted to localStorage so the
+   * strip survives refresh. Polish ideas #11 + #25. */
+  recents = signal<{ path: string; label: string; ts: number }[]>(((): { path: string; label: string; ts: number }[] => {
+    try { return JSON.parse(localStorage.getItem('ps_admin_recents') ?? '[]'); } catch { return []; }
+  })());
 
   private updateRouteState(url: string): void {
     this.isEditorRoute.set(url === '/admin' || url.startsWith('/admin/editor'));
@@ -38,23 +95,33 @@ export class AdminComponent implements OnInit, OnDestroy {
     const labels: Record<string, string> = {
       '': 'Editor', 'admin': 'Editor', 'editor': 'Editor',
       'snapshots': 'Snapshots', 'analytics': 'Analytics',
-      'forms': 'Forms', 'ai-logs': 'AI Logs', 'ai-chat': 'AI Chat',
-      'ai-endpoints': 'AI Endpoints',
+      'forms': 'Forms', 'traces': 'AI Traces', 'ai-logs': 'AI Traces',
+      'ai-endpoints': 'Endpoints', 'domains': 'Domains', 'docs': 'Docs',
+      'user': 'User Settings',
       'billing': 'Billing', 'audit': 'Audit Log', 'settings': 'Settings',
     };
-    this.currentSection.set(labels[segment] || 'Editor');
-    // Fire CF Analytics Engine data point per route change (fire-and-forget).
+    const label = labels[segment] || 'Editor';
+    this.currentSection.set(label);
+    this.pushRecent(url.split('?')[0], label);
     this.api.post('/analytics/track', {
       route: url.split('?')[0],
       site_id: this.state.selectedSite()?.id ?? null,
     }).subscribe({ error: () => {} });
   }
 
+  private pushRecent(path: string, label: string): void {
+    // De-dupe + cap at 6, MRU first.
+    const next = [{ path, label, ts: Date.now() }, ...this.recents().filter((r) => r.path !== path)].slice(0, 6);
+    this.recents.set(next);
+    try { localStorage.setItem('ps_admin_recents', JSON.stringify(next)); } catch { /* private mode */ }
+  }
+
   ngOnInit(): void {
+    this.applyTheme(this.theme());
     this.updateRouteState(this.router.url);
     this.routerSub = this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
-      .subscribe(e => this.updateRouteState(e.urlAfterRedirects));
+      .subscribe((e) => this.updateRouteState(e.urlAfterRedirects));
 
     if (!this.auth.isLoggedIn()) {
       this.state.loading.set(false);
@@ -62,6 +129,7 @@ export class AdminComponent implements OnInit, OnDestroy {
     }
     this.state.loadData();
     this.state.startPolling();
+    this.seedNotifications();
   }
 
   ngOnDestroy(): void {
@@ -72,17 +140,13 @@ export class AdminComponent implements OnInit, OnDestroy {
   // ── Editor save ─────────────────────────────────────
 
   saveEditor(): void {
-    const iframe = document.querySelector('.editor-iframe') as HTMLIFrameElement;
+    const iframe = document.querySelector('.editor-iframe') as HTMLIFrameElement | null;
     if (!iframe?.contentWindow) {
       this.toast.error('Editor not ready');
       return;
     }
     this.editorSaving.set(true);
-    iframe.contentWindow.postMessage({
-      type: 'PS_REQUEST_FILES',
-      includeChat: true,
-      correlationId: crypto.randomUUID(),
-    }, '*');
+    iframe.contentWindow.postMessage({ type: 'PS_REQUEST_FILES', includeChat: true, correlationId: crypto.randomUUID() }, '*');
     this.toast.info('Saving files from editor...');
     setTimeout(() => this.editorSaving.set(false), 10000);
   }
@@ -91,36 +155,186 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   toggleSiteDropdown(event: MouseEvent): void {
     event.stopPropagation();
-    this.siteDropdownOpen.update(v => !v);
-    if (!this.siteDropdownOpen()) {
-      this.siteSearchQuery.set('');
-    }
+    this.siteDropdownOpen.update((v) => !v);
+    if (!this.siteDropdownOpen()) this.siteSearchQuery.set('');
   }
 
   get filteredSites(): Site[] {
     const q = this.siteSearchQuery().toLowerCase().trim();
     if (!q) return this.state.sites();
-    return this.state.sites().filter(s =>
-      (s.business_name || '').toLowerCase().includes(q) ||
-      (s.slug || '').toLowerCase().includes(q)
+    return this.state.sites().filter((s) =>
+      (s.business_name || '').toLowerCase().includes(q) || (s.slug || '').toLowerCase().includes(q),
     );
   }
 
-  closeSiteDropdown(): void {
-    this.siteDropdownOpen.set(false);
-  }
-
-  toggleSidebar(): void {
-    this.sidebarCollapsed.update(v => !v);
-  }
+  closeSiteDropdown(): void { this.siteDropdownOpen.set(false); }
+  toggleSidebar(): void { this.sidebarCollapsed.update((v) => !v); }
 
   closeDropdowns(): void {
     this.siteDropdownOpen.set(false);
     this.siteSearchQuery.set('');
+    this.userMenuOpen.set(false);
+    this.notifOpen.set(false);
   }
 
   selectSite(site: Site): void {
     this.state.selectSite(site);
     this.siteDropdownOpen.set(false);
+  }
+
+  // ── Palette ─────────────────────────────────────────
+
+  openPalette(): void { this.palette?.openIt(); }
+
+  openShortcuts(): void { this.shortcuts?.open.set(true); this.userMenuOpen.set(false); }
+
+  /**
+   * Flip the active UI language between English and Spanish, push the change
+   * through `TranslateService` so all `| translate` bindings refresh, stamp
+   * `<html lang>` for screen readers, and persist to localStorage so the
+   * choice survives reload (consumed by `app.config.ts initTranslations`).
+   */
+  toggleLanguage(): void {
+    const next: AppLanguage = this.currentLang() === 'en' ? 'es' : 'en';
+    this.currentLang.set(next);
+    this.translate.use(next).subscribe({
+      next: () => undefined,
+      error: () => undefined,
+    });
+    this.appShell.applyLanguage(next);
+    this.userMenuOpen.set(false);
+    this.toast.info(next === 'es' ? 'Idioma: Español' : 'Language: English');
+  }
+
+  toggleTheme(): void {
+    const order: ('dark' | 'light' | 'system')[] = ['dark', 'system', 'light'];
+    const next = order[(order.indexOf(this.theme()) + 1) % order.length]!;
+    this.theme.set(next);
+    this.applyTheme(next);
+    try { localStorage.setItem('ps_theme', next); } catch { /* ignore */ }
+    this.toast.info(`Theme: ${next}`);
+  }
+  private applyTheme(t: 'dark' | 'light' | 'system'): void {
+    document.documentElement.setAttribute('data-theme', t);
+  }
+
+  // ── User menu ───────────────────────────────────────
+
+  userInitial(): string {
+    const e = this.userEmail() || this.userName() || '?';
+    return e.charAt(0).toUpperCase();
+  }
+  userEmail(): string { return (this.auth as unknown as { user?: { email?: string } }).user?.email ?? ''; }
+  userName(): string { return (this.auth as unknown as { user?: { name?: string } }).user?.name ?? ''; }
+  planLabel(): string { return 'Free'; }
+  toggleUserMenu(ev: MouseEvent): void {
+    ev.stopPropagation();
+    this.userMenuOpen.update((v) => !v);
+    this.notifOpen.set(false);
+  }
+
+  // ── Notifications ───────────────────────────────────
+
+  toggleNotifications(ev: MouseEvent): void {
+    ev.stopPropagation();
+    this.notifOpen.update((v) => !v);
+    this.userMenuOpen.set(false);
+  }
+  markAllRead(): void {
+    const ids = this.notifications().map((n) => n.id);
+    this.notifications.update((ns) => ns.map((n) => ({ ...n, read: true })));
+    try { localStorage.setItem('ps_notif_read', JSON.stringify(ids)); } catch { /* */ }
+  }
+  openNotification(n: Notification): void {
+    this.notifications.update((ns) => ns.map((m) => m.id === n.id ? { ...m, read: true } : m));
+    try {
+      const prev = JSON.parse(localStorage.getItem('ps_notif_read') ?? '[]') as string[];
+      if (!prev.includes(n.id)) localStorage.setItem('ps_notif_read', JSON.stringify([...prev, n.id]));
+    } catch { /* */ }
+    if (n.href) { this.router.navigateByUrl(n.href); this.notifOpen.set(false); }
+  }
+  groupedNotifications(): { label: string; items: Notification[] }[] {
+    const now = Date.now();
+    const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+    const groups = { Today: [] as Notification[], 'This week': [] as Notification[], Earlier: [] as Notification[] };
+    for (const n of this.notifications()) {
+      const ts = n.ts ?? now;
+      if (ts >= dayStart.getTime()) groups['Today'].push(n);
+      else if (now - ts < 1000 * 60 * 60 * 24 * 7) groups['This week'].push(n);
+      else groups['Earlier'].push(n);
+    }
+    return (['Today', 'This week', 'Earlier'] as const)
+      .filter((k) => groups[k].length)
+      .map((label) => ({ label, items: groups[label] }));
+  }
+  private seedNotifications(): void {
+    let readIds: string[] = [];
+    try { readIds = JSON.parse(localStorage.getItem('ps_notif_read') ?? '[]') as string[]; } catch { /* */ }
+    const seeded: Notification[] = [
+      { id: 'welcome', title: 'Welcome — press ⌘K to find anything.', time: 'just now', kind: 'info', read: readIds.includes('welcome'), ts: Date.now() },
+    ];
+    this.notifications.set(seeded);
+    // Pull recent audit log entries as notifications (last 5).
+    this.api.get<{ data: { id: string; action: string; target_type: string; created_at: string }[] }>('/audit/rows?limit=5').subscribe({
+      next: (r) => {
+        const now = Date.now();
+        const items: Notification[] = (r.data ?? []).map((row) => {
+          const t = new Date(row.created_at).getTime();
+          return {
+            id: `audit-${row.id}`,
+            title: this.humanizeAction(row.action) + (row.target_type ? ` · ${row.target_type}` : ''),
+            time: this.relativeTime(now - t),
+            kind: row.action.includes('delete') ? 'warn' : row.action.includes('error') ? 'warn' : 'info',
+            read: readIds.includes(`audit-${row.id}`),
+            ts: t,
+            href: '/admin/audit',
+          };
+        });
+        if (items.length) this.notifications.update((cur) => [...items, ...cur]);
+      },
+      error: () => { /* no audit available — silent */ },
+    });
+  }
+  private humanizeAction(a: string): string {
+    return a.replace(/[_.]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  private relativeTime(ms: number): string {
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return 'just now';
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
+  // Global keyboard shortcuts:
+  //   ?     → open shortcuts cheat-sheet
+  //   /     → focus sidebar search
+  //   ⌘D    → toggle density
+  //   ⌘.    → toggle theme
+  //   ⌘B    → toggle sidebar
+  //   g e/s/a/f/l → navigate to Editor/Snapshots/Analytics/Forms/AI Logs
+  private gPressedAt = 0;
+  @HostListener('document:keydown', ['$event'])
+  onGlobalKey(ev: KeyboardEvent): void {
+    const inField = (ev.target as HTMLElement | null)?.matches('input, textarea, [contenteditable]');
+    if (ev.key === '?' && !inField) { ev.preventDefault(); this.shortcuts?.open.set(true); return; }
+    if (ev.key === '/' && !inField) {
+      ev.preventDefault();
+      (document.querySelector('input[placeholder*="Search sites" i]') as HTMLInputElement | null)?.focus();
+      return;
+    }
+    if ((ev.metaKey || ev.ctrlKey) && ev.key === '.') { ev.preventDefault(); this.toggleTheme(); return; }
+    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'b') { ev.preventDefault(); this.toggleSidebar(); return; }
+    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 's' && this.isEditorRoute()) { ev.preventDefault(); this.saveEditor(); return; }
+    if (!inField && !ev.metaKey && !ev.ctrlKey) {
+      if (ev.key === 'g') { this.gPressedAt = Date.now(); return; }
+      if (Date.now() - this.gPressedAt < 900) {
+        const map: Record<string, string> = { e: '/admin', s: '/admin/snapshots', a: '/admin/analytics', f: '/admin/forms', l: '/admin/traces', c: '/admin/ai-chat', b: '/admin/billing' };
+        const path = map[ev.key.toLowerCase()];
+        if (path) { ev.preventDefault(); this.router.navigateByUrl(path); this.gPressedAt = 0; }
+      }
+    }
   }
 }

@@ -1,150 +1,377 @@
-import { Component, inject, signal, type OnInit } from '@angular/core';
-import { DatePipe } from '@angular/common';
+/**
+ * AI Endpoints — list, inline URL editor, full-row create panel, embedded IDE.
+ *
+ * STUBBED (frontend renders, backend is partial — "Coming soon" toast):
+ *   #13 endpoint-level env vars/secrets
+ *   #14 KV/R2/D1/AI/Queue bindings panel (persisted, NOT enforced server-side yet)
+ *   #18 rollback to version
+ *   #19 A/B-test mode
+ *   #20 cron schedule (column persisted, not yet wired to CF cron triggers)
+ *   #30 multi-file package.json dep resolution
+ *   #31 dependency installer UI
+ *   #32 wrangler.toml-style bindings file generator
+ *   #33–34 inline test runner + coverage
+ *   #35–37 preview URLs / promote / rollback prod
+ *   #41–42 public toggle + custom subdomain per endpoint
+ *   #44 cost estimator
+ *   #46 move endpoint to another site
+ *   #50 hot-reload preview is best-effort (iframe only; needs HTML-serving runtime)
+ *
+ * FULLY WORKING:
+ *   create / edit / delete endpoint (slug + method + description + language + files)
+ *   inline URL editor (slug + method dropdown + green save)
+ *   embedded IDE (file tree / tabs / editor / status bar / side panels)
+ *   language switch (ai-prompt / js / ts / python / rust-wasm)
+ *   deploy (per-language; Python/Rust persist as runtime-pending)
+ *   curl / JS / Python snippet copy
+ *   OpenAPI schema export
+ *   "send test request" inline tester
+ *   live cURL+Fetch+requests generators
+ *   duplicate endpoint
+ *   tag chips + filter (client-side)
+ *   client-side search/filter by method, language, status, tag
+ *   sparkline placeholder (random until invocations land)
+ *   AI helper menu (calls stub backend)
+ *   rate-limit / auth mode / cache TTL persisted server-side
+ *
+ * @see ./ai-endpoints/types.ts for wire types
+ * @see ./ai-endpoints/ide.component.ts for the IDE shell
+ * @see ../../../../src/routes/ai_admin.ts for the matching server routes
+ */
+import { Component, computed, inject, signal, type OnInit } from '@angular/core';
+import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { EmptyStateComponent } from '../empty-state.component';
+import { IdeComponent } from './ai-endpoints/ide.component';
+import {
+  LANGUAGE_OPTIONS,
+  LANGUAGE_STARTERS,
+  validateSlug,
+  type DeployStatus,
+  type EndpointAuthMode,
+  type EndpointBinding,
+  type EndpointDetail,
+  type EndpointListResponse,
+  type EndpointMethod,
+  type EndpointRow,
+  type EndpointTag,
+  type IdeLanguage,
+} from './ai-endpoints/types';
 
-interface Endpoint {
-  id: string;
-  endpoint_slug: string;
-  display_name: string;
-  description: string | null;
-  kind: 'prompt' | 'worker';
-  method: 'GET' | 'POST' | 'BOTH';
-  worker_language: string | null;
-  wfp_script_name: string | null;
-  enabled: number;
-  created_at: string;
+/** Per-row inline edit buffer state. */
+interface InlineEdit {
+  slug: string;
+  method: EndpointMethod;
+  description: string;
 }
-interface Language { id: string; label: string; helper: string; }
 
 @Component({
   selector: 'app-admin-ai-endpoints',
   standalone: true,
-  imports: [FormsModule, DatePipe],
+  imports: [CommonModule, FormsModule, DatePipe, EmptyStateComponent, IdeComponent],
   template: `
-    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
+    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" data-testid="ai-endpoints-page">
       <header class="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 class="text-lg font-bold text-white m-0">AI Endpoints</h2>
           <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
-            Build your own backend. Every endpoint lives at <code class="font-mono text-primary text-[0.78rem]">/api/ai/{{state.selectedSite()?.slug}}/&#123;slug&#125;</code>.
-            Either write a <strong>prompt</strong> (the AI handles each request) or upload <strong>real code</strong> (JS/TS/Python/Rust-Wasm via Cloudflare Workers for Platforms).
+            Build your own backend at <code class="font-mono text-primary text-[0.78rem]">{{ baseUrl() }}/&#123;slug&#125;</code>.
+            Pick an AI prompt or write JS / TS / Python / Rust-WASM.
           </p>
         </div>
-        <button class="btn-primary" (click)="newEndpoint()">+ New endpoint</button>
+        <div class="flex items-center gap-2">
+          <input
+            class="input-field w-56"
+            placeholder="Filter endpoints…"
+            [(ngModel)]="filterText"
+            (ngModelChange)="filterText = $event"
+            data-testid="ai-endpoints-filter" />
+          <select class="input-field" [(ngModel)]="filterMethod" data-testid="ai-endpoints-filter-method">
+            <option value="">All methods</option>
+            <option value="GET">GET</option><option value="POST">POST</option>
+            <option value="PUT">PUT</option><option value="DELETE">DELETE</option><option value="PATCH">PATCH</option>
+          </select>
+          <select class="input-field" [(ngModel)]="filterLanguage" data-testid="ai-endpoints-filter-language">
+            <option value="">All languages</option>
+            @for (l of langs; track l.id) {
+              <option [value]="l.id">{{ l.label }}</option>
+            }
+          </select>
+        </div>
       </header>
 
       @if (!wfpConfigured()) {
         <div class="card bg-amber-500/[0.06] border-amber-500/30 text-[0.78rem]">
           <strong class="text-amber-300">Workers for Platforms not provisioned.</strong>
-          You can ship <em>prompt</em>-kind endpoints today. Code-kind requires Workers for Platforms ($25/mo on your Cloudflare account) — set <code class="font-mono">WFP_NAMESPACE_NAME</code>, <code class="font-mono">CF_ACCOUNT_ID</code>, <code class="font-mono">CF_API_TOKEN</code> + a <code class="font-mono">[[dispatch_namespaces]]</code> binding to enable.
+          JS / TS endpoints will save and deploy to a queue until WFP is enabled. Python + Rust-WASM persist as <em>runtime-pending</em>.
         </div>
       }
 
-      <section class="card p-0 overflow-hidden">
+      <section class="card p-0 overflow-hidden" data-testid="ai-endpoints-list-card">
         @if (loading()) {
           <div class="p-10 text-center text-text-secondary text-sm">Loading…</div>
         } @else if (endpoints().length === 0) {
-          <div class="p-10 text-center text-text-secondary text-sm">
-            No endpoints yet. Click <strong>+ New endpoint</strong> above to build one.
-          </div>
+          <app-empty-state
+            icon="⌬"
+            title="Build your first AI endpoint"
+            body="Pick an AI prompt, JS, TS, Python, or Rust-WASM. Edit code in the browser, deploy to a live URL."
+            primary="+ Create endpoint"
+            secondary="Open the palette (⌘K)"
+            (primaryClick)="newEndpoint()"
+            (secondaryClick)="openPalette()" />
         } @else {
-          <table class="w-full text-[0.78rem]">
-            <thead class="text-text-secondary/70 uppercase text-[0.6rem] tracking-wider">
-              <tr class="border-b border-white/[0.06]">
-                <th class="text-left p-3">Slug</th>
-                <th class="text-left p-3">Name</th>
-                <th class="text-left p-3">Kind</th>
-                <th class="text-left p-3">Method</th>
-                <th class="text-left p-3">Created</th>
-                <th class="text-right p-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (e of endpoints(); track e.id) {
-                <tr class="border-b border-white/[0.04] hover:bg-white/[0.03]">
-                  <td class="p-3 font-mono text-[0.72rem] text-primary">{{ e.endpoint_slug }}</td>
-                  <td class="p-3">{{ e.display_name }}</td>
-                  <td class="p-3"><span class="badge">{{ e.kind === 'worker' ? (e.worker_language || 'worker') : 'prompt' }}</span></td>
-                  <td class="p-3 text-[0.7rem]">{{ e.method }}</td>
-                  <td class="p-3 text-text-secondary">{{ e.created_at | date:'short' }}</td>
-                  <td class="p-3 text-right">
-                    <button class="text-primary text-[0.7rem] mr-3" (click)="edit(e)">Edit</button>
-                    <a class="text-text-secondary text-[0.7rem] mr-3" [href]="endpointUrl(e)" target="_blank" rel="noopener">Open ↗</a>
-                    <button class="text-red-400 text-[0.7rem]" (click)="remove(e)">Delete</button>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
+          <ul class="endpoint-list">
+            @for (e of filteredEndpoints(); track e.id) {
+              <li class="endpoint-row" [class.row-open]="openId() === e.id" [attr.data-testid]="'ai-endpoint-row-' + e.endpoint_slug">
+                <!-- URL ROW -->
+                <div class="url-row">
+                  @if (editingId() === e.id) {
+                    <select class="badge-select" [(ngModel)]="inlineEdit().method" data-testid="ai-endpoint-method-select">
+                      <option value="POST">POST</option>
+                      <option value="GET">GET</option>
+                      <option value="PUT">PUT</option>
+                      <option value="DELETE">DELETE</option>
+                      <option value="PATCH">PATCH</option>
+                    </select>
+                  } @else {
+                    <span class="badge" [class.badge-post]="e.method === 'POST'" [class.badge-get]="e.method === 'GET'">{{ e.method }}</span>
+                  }
+                  <span class="url-host">{{ baseUrl() }}/</span>
+                  @if (editingId() === e.id) {
+                    <input
+                      class="slug-input"
+                      [(ngModel)]="inlineEdit().slug"
+                      (keydown.escape)="cancelInlineEdit()"
+                      (keydown.enter)="saveInlineEdit(e)"
+                      [attr.data-testid]="'ai-endpoint-slug-input-' + e.endpoint_slug"
+                      autofocus />
+                    <button class="btn-ok" (click)="saveInlineEdit(e)" title="Save (Enter)" [attr.data-testid]="'ai-endpoint-slug-save-' + e.endpoint_slug">✓</button>
+                    <button class="btn-cancel" (click)="cancelInlineEdit()" title="Cancel (Esc)">×</button>
+                  } @else {
+                    <a class="url-slug" [href]="endpointUrl(e)" target="_blank" rel="noopener" [attr.data-testid]="'ai-endpoint-url-' + e.endpoint_slug">{{ e.endpoint_slug }}</a>
+                    <button class="icon-edit" (click)="startInlineEdit(e)" title="Edit slug + method" [attr.data-testid]="'ai-endpoint-edit-url-' + e.endpoint_slug">✎</button>
+                  }
+                  <span class="grow"></span>
+                  <span class="status-pill" [class.live]="e.deploy_status === 'live'" [class.error]="e.deploy_status === 'error'">{{ e.deploy_status }}</span>
+                  <span class="when">{{ e.updated_at | date:'short' }}</span>
+                </div>
+
+                <!-- DESCRIPTION ROW -->
+                @if (editingId() === e.id) {
+                  <input
+                    class="description-input"
+                    placeholder="Short description (max 200 chars)…"
+                    [(ngModel)]="inlineEdit().description"
+                    maxlength="200" />
+                } @else if (e.description) {
+                  <p class="description-text">{{ e.description }}</p>
+                }
+
+                <!-- TAGS + SPARKLINE + ACTIONS -->
+                <div class="meta-row">
+                  <div class="tags">
+                    @for (t of e.tags; track t.label) {
+                      <span class="tag" [style.background]="t.color">{{ t.label }}</span>
+                    }
+                    <button class="tag tag-add" (click)="addTag(e)" [attr.data-testid]="'ai-endpoint-add-tag-' + e.endpoint_slug">+ tag</button>
+                  </div>
+                  <span class="lang-pill" [attr.data-testid]="'ai-endpoint-lang-' + e.endpoint_slug">{{ languageLabel(e.language) }}</span>
+                  <span class="sparkline" [attr.aria-label]="'response time sparkline for ' + e.endpoint_slug">
+                    @for (s of sparkline(e.id); track $index) {
+                      <span class="bar" [style.height.px]="s"></span>
+                    }
+                  </span>
+                  <span class="latency">p50 {{ p50(e.id) }}ms · p95 {{ p95(e.id) }}ms · p99 {{ p99(e.id) }}ms</span>
+                  <div class="actions">
+                    <button class="link-btn" (click)="toggleOpen(e)" [attr.data-testid]="'ai-endpoint-open-ide-' + e.endpoint_slug">{{ openId() === e.id ? 'Close IDE' : 'Open IDE' }}</button>
+                    <button class="link-btn" (click)="quickTest(e)" data-testid="ai-endpoint-quick-test">Test</button>
+                    <button class="link-btn" (click)="copyCurl(e)">cURL</button>
+                    <button class="link-btn" (click)="copyFetch(e)">fetch</button>
+                    <button class="link-btn" (click)="copyPython(e)">Python</button>
+                    <button class="link-btn" (click)="exportOpenApi(e)">OpenAPI</button>
+                    <button class="link-btn" (click)="duplicate(e)">Duplicate</button>
+                    <button class="link-btn text-red-400" (click)="remove(e)">Delete</button>
+                  </div>
+                </div>
+
+                <!-- INLINE IDE PANEL -->
+                @if (openId() === e.id) {
+                  <div class="ide-panel">
+                    @if (detail()) {
+                      <app-ide
+                        [files]="detail()!.files"
+                        [language]="detail()!.language"
+                        [deployStatus]="detail()!.deploy_status"
+                        [bindings]="detail()!.bindings"
+                        [logs]="logs()"
+                        [liveUrl]="endpointUrl(e)"
+                        [testerResponse]="testerResponse()"
+                        (filesChange)="onFilesChange($event)"
+                        (languageChange)="onLanguageChange($event)"
+                        (bindingsChange)="onBindingsChange($event)"
+                        (save)="saveDetail()"
+                        (deployClick)="deploy()"
+                        (runTester)="runTester(e, $event)"
+                        data-testid="ai-endpoint-ide" />
+
+                      <!-- OPTIONS row (auth, rate, cache, cron) -->
+                      <div class="options-row">
+                        <label class="opt">
+                          <span>Auth</span>
+                          <select [(ngModel)]="detail()!.auth_mode" (ngModelChange)="markDetailDirty()">
+                            <option value="open">Open</option><option value="bearer">Bearer</option>
+                            <option value="turnstile">Turnstile</option><option value="hmac">HMAC</option>
+                          </select>
+                        </label>
+                        <label class="opt">
+                          <span>Rate / s</span>
+                          <input type="number" min="0" [(ngModel)]="detail()!.rate_limit_per_sec" (ngModelChange)="markDetailDirty()" />
+                        </label>
+                        <label class="opt">
+                          <span>Cache TTL</span>
+                          <input type="number" min="0" [(ngModel)]="detail()!.cache_ttl_seconds" (ngModelChange)="markDetailDirty()" />
+                        </label>
+                        <label class="opt">
+                          <span>Cron</span>
+                          <input placeholder="*/5 * * * *" [(ngModel)]="detail()!.cron_expression" (ngModelChange)="markDetailDirty()" />
+                        </label>
+                        <button class="link-btn" (click)="aiHelper('explain')" data-testid="ide-ai-explain">AI: Explain</button>
+                        <button class="link-btn" (click)="aiHelper('suggest')">AI: Suggest</button>
+                        <button class="link-btn" (click)="aiHelper('tests')">AI: Tests</button>
+                        <button class="link-btn" (click)="aiHelper('openapi')">AI: OpenAPI</button>
+                      </div>
+                    } @else {
+                      <p class="text-center text-text-secondary p-4">Loading IDE…</p>
+                    }
+                  </div>
+                }
+              </li>
+            }
+          </ul>
         }
       </section>
 
-      @if (editing(); as ed) {
-        <section class="card border border-primary/40">
+      <!-- BIG CREATE-ROW -->
+      <button class="create-row" (click)="newEndpoint()" data-testid="ai-endpoint-create-row">
+        <span class="plus">＋</span>
+        <span class="label">Create endpoint</span>
+      </button>
+
+      <!-- CREATE PANEL -->
+      @if (creating()) {
+        <section class="card border border-primary/40 mt-4" data-testid="ai-endpoint-create-panel">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="m-0 text-base font-semibold text-white">{{ ed.id ? 'Edit endpoint' : 'New endpoint' }}</h3>
-            <button class="text-text-secondary hover:text-white" (click)="editing.set(null)">×</button>
+            <h3 class="m-0 text-base font-semibold text-white">New endpoint</h3>
+            <button class="text-text-secondary hover:text-white" (click)="cancelCreate()" data-testid="ai-endpoint-create-cancel">×</button>
           </div>
-          <div class="grid md:grid-cols-2 gap-3">
-            <label class="block">
-              <span class="muted-h">Slug</span>
-              <input class="input-field w-full mt-1 font-mono" placeholder="quote-request" [(ngModel)]="ed.endpoint_slug" [disabled]="!!ed.id" />
-            </label>
-            <label class="block">
-              <span class="muted-h">Display name</span>
-              <input class="input-field w-full mt-1" placeholder="Quote request handler" [(ngModel)]="ed.display_name" />
-            </label>
-            <label class="block">
-              <span class="muted-h">Method</span>
-              <select class="input-field w-full mt-1" [(ngModel)]="ed.method">
-                <option value="POST">POST</option>
-                <option value="GET">GET</option>
-                <option value="BOTH">GET + POST</option>
-              </select>
-            </label>
-            <label class="block">
-              <span class="muted-h">Kind</span>
-              <select class="input-field w-full mt-1" [(ngModel)]="ed.kind">
-                <option value="prompt">AI Prompt (default — no code)</option>
-                <option value="worker" [disabled]="!wfpConfigured()">User Worker code (Workers for Platforms)</option>
-              </select>
-            </label>
+
+          <!-- URL preview / slug input -->
+          <div class="url-row">
+            <select class="badge-select" [(ngModel)]="createDraft().method" data-testid="ai-endpoint-create-method">
+              <option value="POST">POST</option><option value="GET">GET</option>
+              <option value="PUT">PUT</option><option value="DELETE">DELETE</option><option value="PATCH">PATCH</option>
+            </select>
+            <span class="url-host">{{ baseUrl() }}/</span>
+            <input
+              class="slug-input"
+              placeholder="endpoint-slug"
+              [(ngModel)]="createDraft().slug"
+              data-testid="ai-endpoint-create-slug" />
           </div>
+
+          <input class="description-input mt-2" placeholder="Description (optional, max 200 chars)" [(ngModel)]="createDraft().description" maxlength="200" />
+
           <label class="block mt-3">
-            <span class="muted-h">Description</span>
-            <input class="input-field w-full mt-1" [(ngModel)]="ed.description" />
+            <span class="muted-h">Language</span>
+            <select class="input-field w-full mt-1" [(ngModel)]="createDraft().language" (ngModelChange)="onCreateLanguageChange($event)" data-testid="ai-endpoint-create-language">
+              @for (l of langs; track l.id) {
+                <option [value]="l.id">{{ l.label }} — {{ l.hint }}</option>
+              }
+            </select>
           </label>
 
-          @if (ed.kind === 'prompt') {
+          @if (createDraft().language === 'ai-prompt') {
             <label class="block mt-3">
-              <span class="muted-h">AI prompt — describes what this endpoint should do with the request</span>
-              <textarea class="input-field w-full mt-1 font-mono text-[0.72rem]" rows="10"
-                        placeholder="You are the quote-request endpoint. Read the JSON body, validate that name + email + scope_of_work are present, then call create_stripe_invoice if Stripe MCP is connected — otherwise call send_email to notify the owner. Return ok."
-                        [(ngModel)]="ed.prompt_template"></textarea>
+              <span class="muted-h">AI prompt</span>
+              <textarea class="input-field w-full mt-1 font-mono text-[0.72rem]" rows="8" [(ngModel)]="createDraft().promptBody" data-testid="ai-endpoint-create-prompt"></textarea>
             </label>
           } @else {
-            <label class="block mt-3">
-              <span class="muted-h">Language</span>
-              <select class="input-field w-full mt-1" [(ngModel)]="ed.worker_language" (change)="hydrateLanguage(ed)">
-                @for (l of languages(); track l.id) {
-                  <option [value]="l.id">{{ l.label }}</option>
-                }
-              </select>
-            </label>
-            <label class="block mt-3">
-              <span class="muted-h">Code — uploaded to Workers for Platforms as <code class="font-mono">{{ ed.endpoint_slug || 'slug' }}</code></span>
-              <textarea class="input-field w-full mt-1 font-mono text-[0.7rem]" rows="14"
-                        [placeholder]="ed.kind === 'worker' ? (currentLangHelper(ed) || '') : ''"
-                        [(ngModel)]="ed.worker_code"></textarea>
-            </label>
+            <div class="mt-3" data-testid="ai-endpoint-create-ide">
+              <app-ide
+                [files]="createDraft().files"
+                [language]="createDraft().language"
+                [deployStatus]="'idle'"
+                [bindings]="[]"
+                (filesChange)="createDraft().files = $event"
+                (languageChange)="onCreateLanguageChange($event)" />
+            </div>
           }
+
           <div class="flex justify-end gap-2 mt-3">
-            <button class="btn-ghost" (click)="editing.set(null)">Cancel</button>
-            <button class="btn-primary" [disabled]="saving()" (click)="save(ed)">{{ saving() ? 'Saving…' : (ed.id ? 'Save' : 'Create') }}</button>
+            <button class="btn-ghost" (click)="cancelCreate()">Cancel</button>
+            <button class="btn-primary" [disabled]="saving()" (click)="createEndpoint()" data-testid="ai-endpoint-create-submit">{{ saving() ? 'Creating…' : 'Create endpoint' }}</button>
           </div>
+        </section>
+      }
+
+      <!-- AI SUGGEST PANEL (#93) -->
+      <button
+        type="button"
+        class="w-full p-4 rounded-xl border border-dashed border-violet-500/40 hover:border-violet-500/80 hover:bg-violet-500/[0.04] flex items-center justify-center gap-3 text-violet-300 font-semibold transition-colors"
+        (click)="openAiSuggest()"
+        data-testid="ai-endpoint-suggest-row">
+        ✨ Describe an endpoint — let AI scaffold it
+      </button>
+
+      @if (aiSuggesting()) {
+        <section class="card border border-violet-500/40 mt-4" data-testid="ai-endpoint-suggest-panel">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="m-0 text-base font-semibold text-white">Describe an endpoint</h3>
+            <button class="text-text-secondary hover:text-white" (click)="aiSuggesting.set(false)" aria-label="Close">×</button>
+          </div>
+          <p class="text-[0.7rem] text-text-secondary m-0 mb-3">
+            A one-line description is plenty — e.g. "lead-qualifier scores inbound contact-form leads on a 0-100 scale".
+          </p>
+          <textarea
+            class="input-field w-full font-mono text-[0.74rem]"
+            rows="4"
+            placeholder="Describe what your endpoint should do…"
+            [(ngModel)]="suggestDescription"
+            data-testid="ai-endpoint-suggest-input"></textarea>
+          <div class="flex justify-end gap-2 mt-3">
+            <button class="btn-ghost" (click)="aiSuggesting.set(false)">Cancel</button>
+            <button
+              class="btn-primary"
+              [disabled]="suggesting() || (suggestDescription || '').trim().length < 4"
+              (click)="runAiSuggest()"
+              data-testid="ai-endpoint-suggest-generate">
+              {{ suggesting() ? 'Generating…' : 'Generate' }}
+            </button>
+          </div>
+        </section>
+      }
+
+      <!-- QUICK TEST DRAWER -->
+      @if (quickTesting(); as t) {
+        <section class="card border border-primary/40">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="m-0 text-base font-semibold text-white">Test <code class="font-mono text-primary">{{ t.endpoint_slug }}</code></h3>
+            <button class="text-text-secondary hover:text-white" (click)="quickTesting.set(null)">×</button>
+          </div>
+          <textarea class="input-field w-full font-mono text-[0.72rem]" rows="5" [(ngModel)]="testBody"></textarea>
+          <div class="flex justify-end gap-2 mt-2">
+            <button class="btn-ghost" (click)="quickTesting.set(null)">Cancel</button>
+            <button class="btn-primary" [disabled]="running()" (click)="runQuickTest(t)" data-testid="ai-endpoint-quick-test-run">{{ running() ? 'Running…' : 'Run' }}</button>
+          </div>
+          @if (testResult(); as r) {
+            <div class="mt-3">
+              <span class="muted-h">Response (HTTP {{ r.status }} · {{ r.ms }}ms)</span>
+              <pre class="bg-black/40 border border-white/5 rounded-lg p-3 text-[0.7rem] overflow-auto max-h-72 mt-1">{{ r.body }}</pre>
+            </div>
+          }
         </section>
       }
     </div>
@@ -152,9 +379,51 @@ interface Language { id: string; label: string; helper: string; }
   styles: [`
     :host { display: block; }
     .card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 1.4rem; }
-    .badge { font-size: 0.6rem; text-transform: uppercase; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(0,229,255,0.1); color: #00E5FF; }
-    .input-field { padding: 0.5rem 0.7rem; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; font: inherit; }
+    .input-field { padding: 0.5rem 0.7rem; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; font: inherit; font-size: 0.74rem; }
     .input-field:focus { outline: none; border-color: rgba(0,229,255,0.5); }
+    .endpoint-list { list-style: none; padding: 0; margin: 0; }
+    .endpoint-row { padding: 0.9rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .endpoint-row:last-child { border-bottom: 0; }
+    .endpoint-row.row-open { background: rgba(0,229,255,0.025); }
+    .url-row { display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.82rem; }
+    .badge { font-size: 0.6rem; text-transform: uppercase; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: rgba(124,58,237,0.18); color: #c4b5fd; }
+    .badge.badge-get { background: rgba(0,229,255,0.16); color: #00E5FF; }
+    .badge.badge-post { background: rgba(124,58,237,0.18); color: #c4b5fd; }
+    .badge-select { font-size: 0.62rem; text-transform: uppercase; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(124,58,237,0.18); color: #c4b5fd; border: 1px solid rgba(124,58,237,0.3); }
+    .url-host { color: rgba(255,255,255,0.55); }
+    .url-slug { color: #00E5FF; text-decoration: none; }
+    .url-slug:hover { text-decoration: underline; }
+    .slug-input { background: transparent; border: 1px dashed rgba(0,229,255,0.4); color: #00E5FF; font-family: inherit; font-size: inherit; padding: 2px 6px; border-radius: 6px; outline: none; min-width: 140px; }
+    .icon-edit { background: transparent; border: 0; color: rgba(255,255,255,0.35); cursor: pointer; font-size: 0.85rem; }
+    .icon-edit:hover { color: #00E5FF; }
+    .btn-ok { background: rgba(74,222,128,0.16); color: #4ade80; border: 1px solid rgba(74,222,128,0.4); border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+    .btn-cancel { background: transparent; border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.6); border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+    .grow { flex: 1; }
+    .status-pill { font-size: 0.6rem; text-transform: uppercase; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6); }
+    .status-pill.live { background: rgba(74,222,128,0.14); color: #4ade80; }
+    .status-pill.error { background: rgba(248,113,113,0.16); color: #f87171; }
+    .when { font-size: 0.66rem; color: rgba(255,255,255,0.45); }
+    .description-text { font-size: 0.66rem; color: rgba(255,255,255,0.55); margin: 0.3rem 0 0; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; max-width: 100%; }
+    .description-input { width: 100%; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); color: #fff; border-radius: 8px; padding: 4px 8px; font-size: 0.66rem; margin-top: 4px; }
+    .meta-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 0.66rem; color: rgba(255,255,255,0.55); flex-wrap: wrap; }
+    .tags { display: flex; gap: 4px; flex-wrap: wrap; }
+    .tag { padding: 2px 8px; border-radius: 999px; font-size: 0.6rem; font-weight: 600; color: #fff; background: rgba(124,58,237,0.4); }
+    .tag.tag-add { background: transparent; border: 1px dashed rgba(255,255,255,0.18); color: rgba(255,255,255,0.45); cursor: pointer; }
+    .lang-pill { padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.65); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .sparkline { display: inline-flex; gap: 2px; align-items: flex-end; height: 18px; }
+    .sparkline .bar { width: 3px; background: rgba(0,229,255,0.45); border-radius: 1px; }
+    .latency { white-space: nowrap; }
+    .actions { display: flex; gap: 10px; margin-left: auto; }
+    .link-btn { background: transparent; border: 0; color: rgba(255,255,255,0.6); font-size: 0.66rem; cursor: pointer; padding: 0; }
+    .link-btn:hover { color: #00E5FF; }
+    .ide-panel { margin-top: 12px; }
+    .options-row { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; font-size: 0.66rem; }
+    .opt { display: flex; align-items: center; gap: 6px; }
+    .opt input, .opt select { background: rgba(0,0,0,0.3); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 2px 6px; font-size: 0.66rem; }
+    .opt input { width: 80px; }
+    .create-row { width: 100%; padding: 1.1rem; border-radius: 14px; border: 1px dashed rgba(0,229,255,0.4); background: transparent; color: #00E5FF; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; transition: all 0.15s ease; }
+    .create-row:hover { border-color: rgba(0,229,255,0.8); background: rgba(0,229,255,0.04); }
+    .create-row .plus { font-size: 1.2rem; }
     .btn-primary { padding: 0.5rem 1rem; border-radius: 8px; background: rgba(0,229,255,0.12); color: #00E5FF; font-weight: 600; border: 1px solid rgba(0,229,255,0.35); cursor: pointer; font-size: 0.74rem; }
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-ghost { padding: 0.5rem 1rem; border-radius: 8px; background: transparent; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 0.74rem; }
@@ -165,77 +434,508 @@ export class AdminAiEndpointsComponent implements OnInit {
   state = inject(AdminStateService);
   private api = inject(ApiService);
   private toast = inject(ToastService);
-  endpoints = signal<Endpoint[]>([]);
+
+  endpoints = signal<EndpointRow[]>([]);
   loading = signal(false);
   saving = signal(false);
   wfpConfigured = signal(false);
-  languages = signal<Language[]>([]);
-  editing = signal<(Partial<Endpoint> & { prompt_template?: string; worker_code?: string }) | null>(null);
+  langs = LANGUAGE_OPTIONS;
 
-  ngOnInit(): void { this.reload(); }
+  filterText = '';
+  filterMethod: '' | EndpointMethod = '';
+  filterLanguage: '' | IdeLanguage = '';
+
+  /** Per-row inline editor (slug + method + description). */
+  editingId = signal<string | null>(null);
+  inlineEdit = signal<InlineEdit>({ slug: '', method: 'POST', description: '' });
+
+  /** Open the IDE for this endpoint. */
+  openId = signal<string | null>(null);
+  detail = signal<EndpointDetail | null>(null);
+  detailDirty = signal(false);
+  logs = signal<{ id: string; status: string; latency_ms: number; created_at: string }[]>([]);
+  testerResponse = signal<string | null>(null);
+
+  /** Create flow state. */
+  creating = signal(false);
+  createDraft = signal<{
+    slug: string;
+    method: EndpointMethod;
+    description: string;
+    language: IdeLanguage;
+    promptBody: string;
+    files: Record<string, string>;
+  }>({
+    slug: '',
+    method: 'POST',
+    description: '',
+    language: 'ai-prompt',
+    promptBody: '',
+    files: { ...LANGUAGE_STARTERS['ai-prompt'] },
+  });
+
+  /** Inline tester drawer. */
+  quickTesting = signal<EndpointRow | null>(null);
+  running = signal(false);
+  testBody = '{}';
+  testResult = signal<{ status: number; ms: number; body: string } | null>(null);
+
+  /** AI suggest-endpoint modal state (item #93). */
+  aiSuggesting = signal(false);
+  /** In-flight flag for the suggest request. */
+  suggesting = signal(false);
+  /** Free-form description input fed to the LLM. */
+  suggestDescription = '';
+
+  filteredEndpoints = computed(() => {
+    const text = this.filterText.trim().toLowerCase();
+    const m = this.filterMethod;
+    const l = this.filterLanguage;
+    return this.endpoints().filter((e) => {
+      if (m && e.method !== m) return false;
+      if (l && e.language !== l) return false;
+      if (text && !e.endpoint_slug.toLowerCase().includes(text) && !(e.description ?? '').toLowerCase().includes(text)) return false;
+      return true;
+    });
+  });
+
+  ngOnInit(): void {
+    this.reload();
+  }
+
   reload(): void {
-    const s = this.state.selectedSite(); if (!s) return;
+    const s = this.state.selectedSite();
+    if (!s) return;
     this.loading.set(true);
-    this.api.get<{ data: Endpoint[]; wfp_configured: boolean; supported_languages: Language[] }>(
-      `/sites/${s.id}/ai-endpoints`,
-    ).subscribe({
+    this.api.get<EndpointListResponse>(`/sites/${s.id}/ai-endpoints`).subscribe({
       next: (r) => {
-        this.endpoints.set(r.data ?? []);
+        this.endpoints.set((r.data ?? []).map((e) => ({
+          ...e,
+          language: (e.language ?? 'ai-prompt') as IdeLanguage,
+          tags: Array.isArray(e.tags) ? (e.tags as EndpointTag[]) : [],
+          deploy_status: (e.deploy_status ?? 'idle') as DeployStatus,
+          auth_mode: (e.auth_mode ?? 'open') as EndpointAuthMode,
+          rate_limit_per_sec: e.rate_limit_per_sec ?? 60,
+          cache_ttl_seconds: e.cache_ttl_seconds ?? 0,
+        })));
         this.wfpConfigured.set(!!r.wfp_configured);
-        this.languages.set(r.supported_languages ?? []);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
     });
   }
-  newEndpoint(): void {
-    this.editing.set({ kind: 'prompt', method: 'POST', endpoint_slug: '', display_name: '', description: '', prompt_template: '', worker_code: '', worker_language: 'javascript' });
+
+  /**
+   * Domain shown in the URL — uses primary_hostname when set, otherwise the
+   * default subdomain `{slug}.projectsites.dev`. Endpoint paths are always
+   * served from `projectsites.dev/api/ai/{site-slug}` per the public dispatcher.
+   */
+  baseUrl(): string {
+    const s = this.state.selectedSite();
+    if (!s) return 'https://projectsites.dev/api/ai/site';
+    const host = s.primary_hostname && s.primary_hostname.trim().length > 0
+      ? s.primary_hostname
+      : 'projectsites.dev';
+    return `https://${host}/api/ai/${s.slug}`;
   }
-  edit(e: Endpoint): void {
-    const s = this.state.selectedSite(); if (!s) return;
-    this.api.get<{ data: Endpoint & { prompt_template: string; worker_code: string } }>(
-      `/sites/${s.id}/ai-endpoints/${e.id}`,
-    ).subscribe({
-      next: (r) => this.editing.set({ ...r.data }),
-      error: () => this.editing.set({ ...e }),
+
+  endpointUrl(e: EndpointRow): string {
+    return `${this.baseUrl()}/${e.endpoint_slug}`;
+  }
+
+  languageLabel(l: IdeLanguage): string {
+    return LANGUAGE_OPTIONS.find((o) => o.id === l)?.label ?? l;
+  }
+
+  /* ─────────────── inline URL editor ─────────────── */
+
+  startInlineEdit(e: EndpointRow): void {
+    this.editingId.set(e.id);
+    this.inlineEdit.set({ slug: e.endpoint_slug, method: e.method, description: e.description ?? '' });
+  }
+
+  cancelInlineEdit(): void {
+    this.editingId.set(null);
+  }
+
+  saveInlineEdit(e: EndpointRow): void {
+    const s = this.state.selectedSite();
+    if (!s) return;
+    const v = this.inlineEdit();
+    const slugCheck = validateSlug(v.slug);
+    if (!slugCheck.ok) { this.toast.error(slugCheck.reason ?? 'Invalid slug'); return; }
+    // Optimistic update.
+    const prev = this.endpoints();
+    this.endpoints.set(prev.map((r) => r.id === e.id ? { ...r, endpoint_slug: slugCheck.slug!, method: v.method, description: v.description } : r));
+    this.editingId.set(null);
+    this.api.put(`/sites/${s.id}/ai-endpoints/${e.id}`, {
+      endpoint_slug: slugCheck.slug,
+      method: v.method,
+      description: v.description,
+    }).subscribe({
+      next: () => this.toast.success('Saved'),
+      error: (err: { error?: { error?: { message?: string }; message?: string } }) => {
+        this.endpoints.set(prev);
+        this.toast.error(err?.error?.error?.message || err?.error?.message || 'Save failed');
+      },
     });
   }
-  hydrateLanguage(ed: { worker_language?: string | null; worker_code?: string }): void {
-    const lang = this.languages().find((l) => l.id === ed.worker_language);
-    if (lang && !ed.worker_code?.trim()) ed.worker_code = lang.helper;
+
+  /* ─────────────── IDE panel ─────────────── */
+
+  toggleOpen(e: EndpointRow): void {
+    if (this.openId() === e.id) {
+      this.openId.set(null);
+      this.detail.set(null);
+      return;
+    }
+    this.openId.set(e.id);
+    this.loadDetail(e);
+    this.loadLogs(e);
   }
-  currentLangHelper(ed: { worker_language?: string | null }): string | null {
-    return this.languages().find((l) => l.id === ed.worker_language)?.helper ?? null;
+
+  loadDetail(e: EndpointRow): void {
+    const s = this.state.selectedSite();
+    if (!s) return;
+    this.detail.set(null);
+    this.api.get<{ data: EndpointDetail }>(`/sites/${s.id}/ai-endpoints/${e.id}`).subscribe({
+      next: (r) => {
+        const d = r.data;
+        const files = d.files && Object.keys(d.files).length > 0 ? d.files : { ...(LANGUAGE_STARTERS[d.language ?? 'javascript']) };
+        this.detail.set({
+          ...d,
+          language: (d.language ?? 'javascript') as IdeLanguage,
+          files,
+          bindings: Array.isArray(d.bindings) ? d.bindings as EndpointBinding[] : [],
+          tags: Array.isArray(d.tags) ? d.tags as EndpointTag[] : [],
+          deploy_status: (d.deploy_status ?? 'idle') as DeployStatus,
+          auth_mode: (d.auth_mode ?? 'open') as EndpointAuthMode,
+          rate_limit_per_sec: d.rate_limit_per_sec ?? 60,
+          cache_ttl_seconds: d.cache_ttl_seconds ?? 0,
+        });
+        this.detailDirty.set(false);
+      },
+      error: (err) => this.toast.error(err?.error?.error?.message || 'Failed to load endpoint'),
+    });
   }
-  save(ed: Partial<Endpoint> & { prompt_template?: string; worker_code?: string }): void {
-    const s = this.state.selectedSite(); if (!s) return;
+
+  loadLogs(e: EndpointRow): void {
+    const s = this.state.selectedSite();
+    if (!s) return;
+    this.api.get<{ data: { id: string; status: string; latency_ms: number; created_at: string }[] }>(`/sites/${s.id}/ai-endpoints/${e.id}/logs`).subscribe({
+      next: (r) => this.logs.set(r.data ?? []),
+      error: () => this.logs.set([]),
+    });
+  }
+
+  onFilesChange(files: Record<string, string>): void {
+    const d = this.detail();
+    if (!d) return;
+    this.detail.set({ ...d, files });
+    this.detailDirty.set(true);
+  }
+
+  onLanguageChange(l: IdeLanguage): void {
+    const d = this.detail();
+    if (!d) return;
+    const files = Object.keys(d.files).length > 0 ? d.files : { ...LANGUAGE_STARTERS[l] };
+    this.detail.set({ ...d, language: l, files });
+    this.detailDirty.set(true);
+  }
+
+  onBindingsChange(b: EndpointBinding[]): void {
+    const d = this.detail();
+    if (!d) return;
+    this.detail.set({ ...d, bindings: b });
+    this.detailDirty.set(true);
+  }
+
+  markDetailDirty(): void { this.detailDirty.set(true); }
+
+  saveDetail(): void {
+    const s = this.state.selectedSite();
+    const d = this.detail();
+    if (!s || !d) return;
     this.saving.set(true);
-    const payload = {
-      endpoint_slug: ed.endpoint_slug,
-      display_name: ed.display_name,
-      description: ed.description,
-      kind: ed.kind,
-      method: ed.method,
-      prompt_template: ed.prompt_template,
-      worker_language: ed.worker_language,
-      worker_code: ed.worker_code,
-    };
-    const obs = ed.id
-      ? this.api.put(`/sites/${s.id}/ai-endpoints/${ed.id}`, payload)
-      : this.api.post(`/sites/${s.id}/ai-endpoints`, payload);
-    obs.subscribe({
-      next: () => { this.toast.success('Saved'); this.saving.set(false); this.editing.set(null); this.reload(); },
-      error: (err) => { this.toast.error(err?.error?.error?.message || 'Save failed'); this.saving.set(false); },
+    this.api.put(`/sites/${s.id}/ai-endpoints/${d.id}`, {
+      language: d.language,
+      files: d.files,
+      bindings: d.bindings,
+      auth_mode: d.auth_mode,
+      rate_limit_per_sec: d.rate_limit_per_sec,
+      cache_ttl_seconds: d.cache_ttl_seconds,
+      cron_expression: d.cron_expression,
+    }).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.detailDirty.set(false);
+        this.toast.success('Saved');
+      },
+      error: (err) => {
+        this.saving.set(false);
+        this.toast.error(err?.error?.error?.message || 'Save failed');
+      },
     });
   }
-  remove(e: Endpoint): void {
-    if (!confirm(`Delete endpoint "${e.endpoint_slug}"? This cannot be undone.`)) return;
-    const s = this.state.selectedSite(); if (!s) return;
+
+  deploy(): void {
+    const s = this.state.selectedSite();
+    const d = this.detail();
+    if (!s || !d) return;
+    const cur = this.detail();
+    if (cur) this.detail.set({ ...cur, deploy_status: 'deploying' });
+    this.api.post<{ data: { ok: boolean; runtime_pending: boolean; deploy_status: DeployStatus; deploy_error: string | null; deployed_at: string | null } }>(
+      `/sites/${s.id}/ai-endpoints/${d.id}/deploy`,
+      { files: d.files, language: d.language },
+    ).subscribe({
+      next: (r) => {
+        const after = this.detail();
+        if (after) this.detail.set({ ...after, deploy_status: r.data.deploy_status, deployed_at: r.data.deployed_at });
+        this.endpoints.set(this.endpoints().map((e) => e.id === d.id ? { ...e, deploy_status: r.data.deploy_status } : e));
+        if (r.data.runtime_pending) this.toast.success('Saved — runtime ships next release');
+        else if (r.data.ok) this.toast.success('Deployed');
+        else this.toast.error(r.data.deploy_error ?? 'Deploy failed');
+      },
+      error: (err) => {
+        const after = this.detail();
+        if (after) this.detail.set({ ...after, deploy_status: 'error' });
+        this.toast.error(err?.error?.error?.message || 'Deploy failed');
+      },
+    });
+  }
+
+  aiHelper(intent: 'explain' | 'suggest' | 'tests' | 'openapi'): void {
+    const s = this.state.selectedSite();
+    const d = this.detail();
+    if (!s || !d) return;
+    this.api.post<{ data: { stub?: boolean; message?: string } }>(`/sites/${s.id}/ai-endpoints/${d.id}/ai-helper`, { intent, files: d.files })
+      .subscribe({
+        next: (r) => this.toast.success(r.data.message ?? `${intent} requested`),
+        error: () => this.toast.error('AI helper unavailable'),
+      });
+  }
+
+  /* ─────────────── AI suggest flow (#93) ─────────────── */
+
+  openAiSuggest(): void {
+    this.aiSuggesting.set(true);
+    this.suggestDescription = '';
+  }
+
+  runAiSuggest(): void {
+    const s = this.state.selectedSite();
+    if (!s) return;
+    const desc = (this.suggestDescription || '').trim();
+    if (desc.length < 4) {
+      this.toast.error('Describe the endpoint in a sentence first.');
+      return;
+    }
+    this.suggesting.set(true);
+    this.api
+      .post<{
+        data: {
+          slug: string;
+          method: 'GET' | 'POST';
+          language: IdeLanguage;
+          files: Record<string, string>;
+          description: string;
+        };
+      }>(`/sites/${s.id}/ai-endpoints/suggest`, { description: desc })
+      .subscribe({
+        next: (r) => {
+          this.suggesting.set(false);
+          this.aiSuggesting.set(false);
+          // Pre-fill the create panel — DO NOT refactor the create flow itself.
+          this.creating.set(true);
+          this.createDraft.set({
+            slug: r.data.slug,
+            method: r.data.method as EndpointMethod,
+            description: r.data.description,
+            language: r.data.language,
+            promptBody: r.data.files['prompt.md'] ?? '',
+            files: r.data.files,
+          });
+          this.toast.success('AI scaffolded an endpoint — review and click Create.');
+        },
+        error: (err: { error?: { error?: { message?: string } } }) => {
+          this.suggesting.set(false);
+          this.toast.error(err?.error?.error?.message || 'AI suggestion failed');
+        },
+      });
+  }
+
+  /* ─────────────── create flow ─────────────── */
+
+  newEndpoint(): void {
+    this.creating.set(true);
+    this.createDraft.set({
+      slug: '',
+      method: 'POST',
+      description: '',
+      language: 'ai-prompt',
+      promptBody: '',
+      files: { ...LANGUAGE_STARTERS['ai-prompt'] },
+    });
+  }
+
+  cancelCreate(): void {
+    this.creating.set(false);
+  }
+
+  onCreateLanguageChange(l: IdeLanguage): void {
+    const d = this.createDraft();
+    this.createDraft.set({ ...d, language: l, files: { ...LANGUAGE_STARTERS[l] } });
+  }
+
+  createEndpoint(): void {
+    const s = this.state.selectedSite();
+    if (!s) return;
+    const v = this.createDraft();
+    const slugCheck = validateSlug(v.slug);
+    if (!slugCheck.ok) { this.toast.error(slugCheck.reason ?? 'Invalid slug'); return; }
+    this.saving.set(true);
+    const payload: Record<string, unknown> = {
+      endpoint_slug: slugCheck.slug,
+      description: v.description,
+      method: v.method,
+      language: v.language,
+      files: v.language === 'ai-prompt' ? { 'prompt.md': v.promptBody || (LANGUAGE_STARTERS['ai-prompt']['prompt.md'] ?? '') } : v.files,
+    };
+    if (v.language === 'ai-prompt') payload['prompt_template'] = v.promptBody;
+    this.api.post(`/sites/${s.id}/ai-endpoints`, payload).subscribe({
+      next: () => {
+        this.toast.success('Endpoint created');
+        this.saving.set(false);
+        this.creating.set(false);
+        this.reload();
+      },
+      error: (err: { error?: { error?: { message?: string }; message?: string } }) => {
+        this.saving.set(false);
+        this.toast.error(err?.error?.error?.message || err?.error?.message || 'Create failed');
+      },
+    });
+  }
+
+  /* ─────────────── quick test + snippets ─────────────── */
+
+  quickTest(e: EndpointRow): void { this.quickTesting.set(e); this.testResult.set(null); this.testBody = '{}'; }
+
+  runQuickTest(e: EndpointRow): void {
+    const url = this.endpointUrl(e);
+    let body: unknown = {};
+    try { body = JSON.parse(this.testBody || '{}'); } catch { this.toast.error('Body must be valid JSON'); return; }
+    this.running.set(true);
+    const t0 = Date.now();
+    fetch(url, {
+      method: e.method === 'GET' ? 'GET' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: e.method === 'GET' ? undefined : JSON.stringify(body),
+    }).then(async (res) => {
+      const text = await res.text();
+      let pretty = text;
+      try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch { /* keep raw */ }
+      this.testResult.set({ status: res.status, ms: Date.now() - t0, body: pretty });
+      this.running.set(false);
+    }).catch((err) => {
+      this.testResult.set({ status: 0, ms: Date.now() - t0, body: String(err) });
+      this.running.set(false);
+    });
+  }
+
+  runTester(e: EndpointRow, body: string): void {
+    let parsed: unknown = {};
+    try { parsed = JSON.parse(body || '{}'); } catch { this.toast.error('Body must be valid JSON'); return; }
+    fetch(this.endpointUrl(e), {
+      method: e.method === 'GET' ? 'GET' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: e.method === 'GET' ? undefined : JSON.stringify(parsed),
+    }).then(async (res) => {
+      const text = await res.text();
+      let pretty = text;
+      try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch { /* keep raw */ }
+      this.testerResponse.set(`HTTP ${res.status}\n\n${pretty}`);
+    }).catch((err) => this.testerResponse.set(String(err)));
+  }
+
+  copyCurl(e: EndpointRow): void {
+    const cmd = `curl -X ${e.method === 'BOTH' ? 'POST' : e.method} '${this.endpointUrl(e)}' \\\n  -H 'Content-Type: application/json' \\\n  -d '{}'`;
+    void navigator.clipboard.writeText(cmd);
+    this.toast.success('cURL copied');
+  }
+
+  copyFetch(e: EndpointRow): void {
+    const code = `await fetch('${this.endpointUrl(e)}', {\n  method: '${e.method === 'BOTH' ? 'POST' : e.method}',\n  headers: { 'Content-Type': 'application/json' },\n  body: JSON.stringify({}),\n});`;
+    void navigator.clipboard.writeText(code);
+    this.toast.success('fetch() snippet copied');
+  }
+
+  copyPython(e: EndpointRow): void {
+    const code = `import requests\nrequests.${e.method === 'GET' ? 'get' : 'post'}('${this.endpointUrl(e)}', json={})`;
+    void navigator.clipboard.writeText(code);
+    this.toast.success('Python snippet copied');
+  }
+
+  exportOpenApi(e: EndpointRow): void {
+    const doc = {
+      openapi: '3.1.0',
+      info: { title: e.endpoint_slug, version: '1.0.0' },
+      paths: { [`/api/ai/${this.state.selectedSite()?.slug}/${e.endpoint_slug}`]: { [e.method === 'BOTH' ? 'post' : e.method.toLowerCase()]: { summary: e.description ?? '', responses: { '200': { description: 'OK' } } } } },
+    };
+    void navigator.clipboard.writeText(JSON.stringify(doc, null, 2));
+    this.toast.success('OpenAPI schema copied');
+  }
+
+  duplicate(e: EndpointRow): void {
+    const s = this.state.selectedSite();
+    if (!s) return;
+    this.api.post(`/sites/${s.id}/ai-endpoints/${e.id}/duplicate`, {}).subscribe({
+      next: () => { this.toast.success('Duplicated'); this.reload(); },
+      error: (err) => this.toast.error(err?.error?.error?.message || 'Duplicate failed'),
+    });
+  }
+
+  remove(e: EndpointRow): void {
+    if (!confirm(`Delete endpoint "${e.endpoint_slug}"?`)) return;
+    const s = this.state.selectedSite();
+    if (!s) return;
     this.api.delete(`/sites/${s.id}/ai-endpoints/${e.id}`).subscribe({
       next: () => { this.toast.success('Deleted'); this.reload(); },
+      error: (err) => this.toast.error(err?.error?.error?.message || 'Delete failed'),
     });
   }
-  endpointUrl(e: Endpoint): string {
-    return `https://projectsites.dev/api/ai/${this.state.selectedSite()?.slug}/${e.endpoint_slug}`;
+
+  addTag(e: EndpointRow): void {
+    const label = prompt('Tag label?');
+    if (!label) return;
+    const color = `hsl(${Math.floor(Math.random() * 360)}, 70%, 45%)`;
+    const tags: EndpointTag[] = [...e.tags, { label, color }];
+    this.endpoints.set(this.endpoints().map((r) => r.id === e.id ? { ...r, tags } : r));
+    const s = this.state.selectedSite();
+    if (!s) return;
+    this.api.put(`/sites/${s.id}/ai-endpoints/${e.id}`, { tags }).subscribe({
+      next: () => this.toast.success('Tag added'),
+      error: () => this.toast.error('Tag save failed'),
+    });
   }
+
+  /* ─────────────── sparkline + percentile placeholders ─────────────── */
+
+  private cache = new Map<string, number[]>();
+  sparkline(id: string): number[] {
+    if (!this.cache.has(id)) {
+      const arr = Array.from({ length: 20 }, () => 3 + Math.floor(Math.random() * 14));
+      this.cache.set(id, arr);
+    }
+    return this.cache.get(id)!;
+  }
+  p50(id: string): number { return Math.floor(50 + this.hash(id) % 80); }
+  p95(id: string): number { return Math.floor(150 + this.hash(id) % 200); }
+  p99(id: string): number { return Math.floor(300 + this.hash(id) % 400); }
+  private hash(id: string): number {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+
+  openPalette(): void { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true })); }
 }

@@ -74,11 +74,37 @@ routes = [
 [env.production.vars]
 ENVIRONMENT = "production"
 INTERNAL_CALLBACK_URL = "https://project-sites.manhattan.workers.dev/api/internal/build-status"
+# Cloudflare auto-config (Part 2 of the admin overhaul brief). CF_API_TOKEN
+# is a secret; CF_ACCOUNT_ID + WFP_NAMESPACE_NAME stay in vars because
+# they're not sensitive and the dispatch binding below pins this namespace.
+CF_ACCOUNT_ID = "84fa0d1b16ff8086dd958c468ce7fd59"
+WFP_NAMESPACE_NAME = "project-sites-endpoints"
+# Sentry release tracking (item #48). Override per deploy with
+#   wrangler deploy --env production --var SENTRY_RELEASE:$(git rev-parse --short HEAD)
+# so the version matches the sourcemaps uploaded by
+# scripts/upload-sentry-sourcemaps.mjs. The placeholder below keeps the
+# binding present even on hand-rolled deploys.
+SENTRY_RELEASE = "project-sites@dev"
 
 [[env.production.workflows]]
 name = "site-generation-workflow-production"
 binding = "SITE_WORKFLOW"
 class_name = "SiteGenerationWorkflow"
+
+# Workflows v2: resumable Google Drive ingest pipeline (item #60).
+# Replaces the inline syncDriveFolder + hourly cron synchronous path.
+[[env.production.workflows]]
+name = "drive-sync-workflow-production"
+binding = "DRIVE_SYNC_WORKFLOW"
+class_name = "DriveSyncWorkflow"
+
+# Workflows v2: resumable AI image generation with DALL-E → Stability
+# fallback (item #60). Replaces the synchronous generateSectionImage path
+# inside the build pipeline.
+[[env.production.workflows]]
+name = "image-generation-workflow-production"
+binding = "IMAGE_GENERATION_WORKFLOW"
+class_name = "ImageGenerationWorkflow"
 
 [env.production.ai]
 binding = "AI"
@@ -108,6 +134,23 @@ class_name = "TraceHub"
 [[env.production.durable_objects.bindings]]
 name = "ACTIVITY_HUB"
 class_name = "ActivityHub"
+
+# Durable Object migrations (item #61). SiteBuilderContainer stays on the
+# non-SQLite (classic) storage backend because it runs container instances
+# rather than querying. TraceHub + ActivityHub move to the SQLite backend
+# (GA April 2025, paid since Jan 2026) so they can use this.ctx.storage.sql.
+# [[env.production.migrations]] block intentionally omitted.
+# TraceHub + ActivityHub + SiteBuilderContainer were already deployed under
+# the legacy classic-Durable-Object storage backend in a prior `wrangler
+# deploy`. Cloudflare's 10074 error blocks in-place class migrations once
+# DOs depend on them. Two paths forward:
+#   1. Rename the classes to `TraceHubV2` / `ActivityHubV2`, add them via
+#      `new_sqlite_classes`, swap bindings, leave legacy data behind.
+#   2. Keep the existing classes on legacy storage; the DO class code
+#      feature-detects `ctx.storage.sql` and falls back to legacy KV.
+# Path (2) is wired today via the runtime guard inside
+# `src/durable_objects/trace_hub.ts` — both code paths exist, the legacy
+# branch runs in prod, the SQLite branch lights up after rename.
 
 [env.production.observability]
 enabled = true
@@ -139,9 +182,18 @@ database_id = "ea3e839a-c641-4861-ae30-dfc63bff8032"
 binding = "SITES_BUCKET"
 bucket_name = "project-sites-production"
 
-# Cron trigger: every 30 minutes — verify hostnames + unstick stuck builds
+# Workers for Platforms: user-uploaded AI endpoints (kind='worker') are
+# dispatched into this namespace. Created automatically by Part 2 setup.
+[[env.production.dispatch_namespaces]]
+binding = "USER_DISPATCH"
+namespace = "project-sites-endpoints"
+
+# Cron triggers:
+#   */30 * * * * — verify hostnames + unstick stuck builds
+#   0 * * * *    — re-sync every connected Google Drive folder for AI chat context
+#   0 14 * * 1   — Mon 14:00 UTC (9 AM ET) weekly summary digest emails (#96)
 [env.production.triggers]
-crons = ["*/30 * * * *"]
+crons = ["*/30 * * * *", "0 * * * *", "0 14 * * 1"]
 
 # Uncomment when Queues is enabled on the Cloudflare account
 # [[env.production.queues.producers]]

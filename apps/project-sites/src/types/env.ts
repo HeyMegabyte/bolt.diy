@@ -59,9 +59,25 @@ export interface Env {
   // ── Workflow ─────────────────────────────────────────────
   /** Cloudflare Workflow binding for AI site generation. */
   SITE_WORKFLOW: Workflow;
+  /**
+   * Workflows v2 binding for resumable Google Drive ingest. See
+   * {@link workflows/drive-sync.DriveSyncWorkflow}. Optional — when missing,
+   * callers fall back to the legacy `syncDriveFolder` inline path.
+   */
+  DRIVE_SYNC_WORKFLOW?: Workflow;
+  /**
+   * Workflows v2 binding for resumable AI image generation with provider
+   * fallback (DALL-E 3 → Stability AI). See
+   * {@link workflows/image-generation.ImageGenerationWorkflow}. Optional.
+   */
+  IMAGE_GENERATION_WORKFLOW?: Workflow;
 
-  /** Claude Code build container (Durable Object) */
+  /** Claude Code build container (Durable Object). */
   SITE_BUILDER?: DurableObjectNamespace;
+  /** SQLite-backed Durable Object — global trace ring buffer. */
+  TRACE_HUB?: DurableObjectNamespace;
+  /** SQLite-backed Durable Object — global activity feed. */
+  ACTIVITY_HUB?: DurableObjectNamespace;
 
   // ── Workers AI ────────────────────────────────────────────
   /** Cloudflare Workers AI binding for LLM inference. */
@@ -258,6 +274,12 @@ export interface Env {
   // ── Sentry (Error Tracking) ───────────────────────────────
   /** Sentry DSN for error reporting. */
   SENTRY_DSN?: string;
+  /**
+   * Per-deploy release identifier (typically the short git SHA). Set in
+   * `wrangler.toml [env.production.vars]` at deploy time. Used by Toucan to
+   * group events + correlate uploaded sourcemaps (item #48).
+   */
+  SENTRY_RELEASE?: string;
 
   // ── Domain Registration (OpenSRS + Domainr) ─────────────────
   /** Domainr (Mashape/RapidAPI) API key for domain search & pricing. */
@@ -278,6 +300,14 @@ export interface Env {
   // ── Metering ──────────────────────────────────────────────
   /** Metering provider identifier (e.g. `"lago"`, `"stripe"`). */
   METERING_PROVIDER?: string;
+  /**
+   * Stripe Price IDs for usage-based metering (one per metric).
+   * JSON object: `{"ai_calls":"price_xxx","bytes_egress":"price_yyy","image_generations":"price_zzz"}`.
+   * When unset the usage middleware records to D1 only and skips Stripe usage records.
+   */
+  STRIPE_USAGE_PRICE_IDS?: string;
+  /** HMAC secret used to sign one-click weekly-digest unsubscribe tokens. */
+  WEEKLY_DIGEST_SECRET?: string;
 
   // ── Feature Flags ──────────────────────────────────────────
   /** When "true", research.json is publicly accessible at /api/sites/by-slug/:slug/research.json */

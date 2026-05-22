@@ -1,6 +1,7 @@
 import { Component, inject, signal, computed, ElementRef, ViewChild, type AfterViewInit, type OnDestroy, EventEmitter, Output } from '@angular/core';
 import { Router } from '@angular/router';
 import { scaleFade, listStagger } from '../../animations/motion';
+import { FocusTrapDirective } from '../../directives/focus-trap.directive';
 
 interface PaletteCommand {
   id: string;
@@ -28,6 +29,7 @@ const COMMANDS: PaletteCommand[] = [
 @Component({
   selector: 'app-command-palette',
   standalone: true,
+  imports: [FocusTrapDirective],
   animations: [scaleFade, listStagger],
   template: `
     <div
@@ -35,6 +37,7 @@ const COMMANDS: PaletteCommand[] = [
       role="dialog"
       aria-label="Command palette"
       aria-modal="true"
+      [focusTrap]="true"
       (click)="onBackdropClick($event)"
       (keydown)="onKeydown($event)"
     >

@@ -41,6 +41,7 @@ import {
 } from '../services/webhook.js';
 import * as billingService from '../services/billing.js';
 import * as auditService from '../services/audit.js';
+import * as connectService from '../services/stripe_connect.js';
 import { sha256Hex, badRequest } from '@project-sites/shared';
 
 const webhooks = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -143,6 +144,17 @@ webhooks.post('/webhooks/stripe', async (c) => {
 
       case 'invoice.paid':
         // Backup for checkout completed
+        break;
+
+      case 'account.updated':
+        // Stripe Connect (item #97): the customer's connected account
+        // changed — sync charges_enabled / payouts_enabled into D1.
+        await connectService.handleAccountUpdated(db, {
+          id: obj.id as string,
+          charges_enabled: obj.charges_enabled as boolean | undefined,
+          payouts_enabled: obj.payouts_enabled as boolean | undefined,
+          metadata: obj.metadata as { org_id?: string },
+        });
         break;
 
       default:

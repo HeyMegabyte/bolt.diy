@@ -1,0 +1,138 @@
+// ══════════════════════════════════════════════════════════════════
+// Admin button styles that must be GLOBAL (not view-encapsulated)
+// because they're used inside child router-outlet components and
+// admin.component.scss can't reach them.
+//
+// Includes the prominent Snapshots action buttons (View / Revert /
+// Delete), plus universal `.btn-ghost-sm` and `.icon-btn-sm` polish
+// used across the admin sections.
+// ══════════════════════════════════════════════════════════════════
+
+@keyframes adminPulseGlow { 0%, 100% { opacity: 0.4 } 50% { opacity: 0.85 } }
+@keyframes adminShimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+// Shared base — every snap button extends this look.
+%admin-snap-base {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 6px 11px;
+  border-radius: 7px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition:
+    transform 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.18) 50%, transparent 65%);
+    transform: translateX(-100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+  &:hover::after { animation: adminShimmer 700ms cubic-bezier(0.4, 0, 0.2, 1); }
+  .btn-snap-icon, .btn-snap-label { position: relative; z-index: 2; }
+  .btn-snap-icon { transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+  &:hover .btn-snap-icon { transform: translateX(1px) scale(1.08); }
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+  &:disabled:hover::after { animation: none; }
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px #0a0a1a, 0 0 0 3px rgba(0, 229, 255, 0.55);
+  }
+}
+
+.btn-snap-view {
+  @extend %admin-snap-base;
+  border-color: rgba(0, 229, 255, 0.28);
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.14) 0%, rgba(0, 229, 255, 0.05) 100%);
+  color: #b5f3fa;
+  &:hover {
+    transform: translateY(-1.5px);
+    border-color: rgba(0, 229, 255, 0.6);
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.28) 0%, rgba(0, 229, 255, 0.12) 100%);
+    color: #e0fbff;
+    box-shadow: 0 6px 18px -6px rgba(0, 229, 255, 0.55), 0 0 0 1px rgba(0, 229, 255, 0.22) inset;
+  }
+}
+.btn-snap-view-glow {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  z-index: 0;
+  background: radial-gradient(circle at 30% 50%, rgba(0, 229, 255, 0.35), transparent 70%);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+.btn-snap-view:hover .btn-snap-view-glow { opacity: 1; animation: adminPulseGlow 2.4s ease-in-out infinite; }
+
+.btn-snap-revert {
+  @extend %admin-snap-base;
+  border-color: rgba(251, 191, 36, 0.32);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.14) 0%, rgba(251, 191, 36, 0.05) 100%);
+  color: #fbbf24;
+  &:hover {
+    transform: translateY(-1.5px);
+    border-color: rgba(251, 191, 36, 0.6);
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.28) 0%, rgba(251, 191, 36, 0.12) 100%);
+    color: #fde68a;
+    box-shadow: 0 6px 18px -6px rgba(251, 191, 36, 0.55), 0 0 0 1px rgba(251, 191, 36, 0.25) inset;
+  }
+  &:hover .btn-snap-icon { transform: rotate(-45deg) scale(1.08); }
+}
+.btn-snap-revert-glow {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  z-index: 0;
+  background: radial-gradient(circle at 30% 50%, rgba(251, 191, 36, 0.35), transparent 70%);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+.btn-snap-revert:hover .btn-snap-revert-glow { opacity: 1; animation: adminPulseGlow 2.4s ease-in-out infinite; }
+
+.btn-snap-trash {
+  @extend %admin-snap-base;
+  border-color: rgba(239, 68, 68, 0.32);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.04) 100%);
+  color: #fca5a5;
+  &:hover {
+    transform: translateY(-1.5px);
+    border-color: rgba(239, 68, 68, 0.6);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.28) 0%, rgba(239, 68, 68, 0.12) 100%);
+    color: #fff;
+    box-shadow: 0 6px 18px -6px rgba(239, 68, 68, 0.6), 0 0 0 1px rgba(239, 68, 68, 0.25) inset;
+  }
+  &:hover .btn-snap-icon { transform: scale(1.12) rotate(-3deg); }
+}
+.btn-snap-trash-glow {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  z-index: 0;
+  background: radial-gradient(circle at 50% 60%, rgba(239, 68, 68, 0.4), transparent 70%);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+.btn-snap-trash:hover .btn-snap-trash-glow { opacity: 1; animation: adminPulseGlow 1.8s ease-in-out infinite; }

@@ -3,6 +3,7 @@ import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { OnboardingChecklistComponent } from '../onboarding-checklist.component';
 
 /**
  * Editor component that embeds bolt.diy (editor.projectsites.dev) in an iframe
@@ -31,17 +32,26 @@ import { ToastService } from '../../../services/toast.service';
 @Component({
   selector: 'app-admin-editor',
   standalone: true,
-  imports: [],
+  imports: [OnboardingChecklistComponent],
   template: `
     @if (!state.selectedSite()) {
-      <div class="empty-state flex flex-col items-center justify-center text-center py-20 px-5 text-text-secondary gap-4 h-full">
-        <div class="empty-glyph">
-          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
-          </svg>
+      <div class="p-7 max-w-[820px] mx-auto space-y-6">
+        <app-onboarding-checklist />
+        <div class="empty-state-pretty">
+          <div class="empty-glyph">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#00E5FF" stroke-width="1.4">
+              <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+            </svg>
+          </div>
+          <h3 class="glow-h-grad text-2xl font-semibold m-0">Welcome to your admin</h3>
+          <p class="text-[0.92rem] text-text-secondary max-w-[480px] mx-auto m-0 leading-relaxed">
+            Pick a site from the top-left selector to open it in the AI editor — or follow the checklist above to get fully set up in two minutes.
+          </p>
+          <div class="flex gap-2 justify-center mt-1">
+            <button class="btn-primary" (click)="state.newSite()">+ Create a new site</button>
+            <button class="btn-ghost" (click)="openPalette()">⌘K Quick find</button>
+          </div>
         </div>
-        <h3 class="text-white font-semibold text-lg m-0">Select a site first</h3>
-        <p class="text-[0.9rem] max-w-[420px] m-0 leading-relaxed">Choose a site from the sidebar to open it in the AI editor.</p>
       </div>
     } @else {
       <div class="relative w-full h-[calc(100vh-49px)]">
@@ -163,6 +173,10 @@ export class AdminEditorComponent implements OnInit, OnDestroy {
   private sanitizer = inject(DomSanitizer);
   private api = inject(ApiService);
   private toast = inject(ToastService);
+
+  openPalette(): void {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }));
+  }
 
   iframeUrl = signal<SafeResourceUrl | null>(null);
   saving = signal(false);

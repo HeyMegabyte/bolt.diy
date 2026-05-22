@@ -22,6 +22,109 @@ aside::after {
   z-index: 1;
 }
 
+// Cmd-K opener pill in the top-right
+.cmdk-btn { padding: 6px 12px 6px 10px; }
+.cmdk-label { font-size: 0.74rem; }
+.cmdk-kbd {
+  margin-left: 6px;
+  padding: 1px 6px; border-radius: 4px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  font-family: ui-monospace, monospace; font-size: 0.65rem;
+  color: rgba(255,255,255,0.7);
+}
+
+// Notification dot
+.notif-dot {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f87171, #fb7185);
+  color: #fff;
+  font-size: 0.6rem; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 2px #060610;
+}
+
+// User avatar
+.avatar-btn {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,229,255,0.35);
+  background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.20));
+  color: #fff; font-weight: 700; font-size: 0.78rem;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.avatar-btn:hover { transform: translateY(-1px); box-shadow: 0 0 0 3px rgba(0,229,255,0.18); }
+
+// Floating popovers (notifications + user menu).
+// IMPORTANT: opaque background (no rgba, no backdrop-filter bleed) AND a very
+// high z-index because the admin shell stacks several layers (mobile sidebar
+// at 1000, modals at 9050, palette at 9100). The menu MUST sit above all of
+// those so users can actually click items. `isolation: isolate` creates a new
+// stacking context so the menu's z-index is final.
+.notif-pop, .user-pop {
+  position: absolute;
+  top: calc(100% + 6px); right: 22px;
+  min-width: 320px;
+  max-width: 380px;
+  max-height: 480px;
+  overflow-y: auto;
+  background: #0c0c20;
+  background-image: linear-gradient(180deg, #14142a, #0a0a1c);
+  border: 1px solid rgba(0,229,255,0.32);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 24px 60px -16px rgba(0,0,0,0.85), 0 0 0 1px rgba(0,229,255,0.08);
+  z-index: 99950;
+  isolation: isolate;
+  animation: popIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+// Avatar wrapper provides the positioning context for `.user-pop`.
+// Without `position: relative` on the parent of the avatar button + pop,
+// `position: absolute` resolves against `<main>` and the menu lands in the
+// wrong place — or worse, behind another element.
+.avatar-wrap {
+  position: relative;
+  display: inline-block;
+}
+/* User menu reads a touch wider than the notif inbox. */
+.user-pop { min-width: 260px; }
+@keyframes popIn { from { opacity: 0; transform: translateY(-6px) scale(0.96); } to { opacity: 1; transform: none; } }
+.notif-item { display: flex; gap: 10px; padding: 9px 10px; border-radius: 10px; align-items: center; cursor: pointer; transition: background 140ms ease; }
+.notif-item:hover { background: rgba(255,255,255,0.05); }
+.notif-item.is-unread { background: rgba(0,229,255,0.04); }
+.notif-icon {
+  width: 26px; height: 26px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.74rem; font-weight: 700;
+  background: rgba(0,229,255,0.1); color: #00E5FF;
+  border: 1px solid rgba(0,229,255,0.22);
+  flex-shrink: 0;
+}
+.notif-icon.is-warn { background: rgba(251,191,36,0.12); color: #fbbf24; border-color: rgba(251,191,36,0.3); }
+.notif-icon.is-info { background: rgba(0,229,255,0.1);  color: #00E5FF; border-color: rgba(0,229,255,0.22); }
+.notif-icon.is-ok   { background: rgba(16,185,129,0.12); color: #10b981; border-color: rgba(16,185,129,0.3); }
+.notif-dot-mini { width: 7px; height: 7px; border-radius: 50%; background: #00E5FF; box-shadow: 0 0 8px rgba(0,229,255,0.6); flex-shrink: 0; }
+.user-item {
+  display: block; padding: 8px 12px;
+  border-radius: 8px; cursor: pointer;
+  color: rgba(255,255,255,0.85);
+  font-size: 0.82rem;
+  background: transparent; border: 0; text-align: left; width: 100%; font-family: inherit;
+  text-decoration: none;
+  transition: background 120ms ease;
+}
+.user-item:hover { background: rgba(0,229,255,0.08); color: #fff; }
+.user-item-danger { color: #fca5a5; }
+.user-item-danger:hover { background: rgba(248,113,113,0.10); color: #f87171; }
+
+// When nav-filter has a value, JS toggles .nav-hidden on non-matching items.
+// (Pure-CSS text-match via :has() doesn't work cross-browser for hidden text.)
+.nav-hidden { display: none !important; }
+
+
 @keyframes spin { to { transform: rotate(360deg) } }
 @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.6 } }
 @keyframes fadeInScale { from { opacity: 0; transform: scale(0.97) } to { opacity: 1; transform: scale(1) } }

@@ -9,6 +9,7 @@
  */
 import type { Env } from '../types/env.js';
 import { decrypt } from './ai_crypto.js';
+import { safeParseJSON } from '../utils/safe-parse.js';
 
 export type Provider =
   | 'mailchimp'
@@ -675,7 +676,7 @@ export async function loadConnections(
       out.push({
         provider: r.provider,
         accessToken: token,
-        metadata: r.account_metadata_json ? JSON.parse(r.account_metadata_json) : {},
+        metadata: safeParseJSON<Record<string, unknown>>(r.account_metadata_json, {}),
       });
     } catch {
       /* skip rows that fail to decrypt (likely missing key in dev) */

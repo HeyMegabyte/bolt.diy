@@ -1,3 +1,18 @@
+// Sass `@use` directives MUST appear before any other rules (per Sass spec).
+// `as *` keeps each partial's `:root { … }` blocks, CSS custom properties,
+// and `@keyframes` in the global namespace — identical effect to the prior
+// `@import` while avoiding the deprecation warning.
+//
+// _polish.scss — app-wide polish layer (density, contrast, status icons,
+// sticky tables, print, kbd chips, toast stack, skeletons, confirm dialog,
+// inline help tooltips, live pill, error banner, recents strip).
+//
+// _admin-buttons.scss — snapshots + admin-section button styles. Must live
+// globally because they're used inside router-outlet children whose view
+// encapsulation hides the rules in admin.component.scss.
+@use "./styles/_polish.scss" as *;
+@use "./styles/_admin-buttons.scss" as *;
+
 // ═══════════════════════════════════════════
 // CDK Dialog Overrides
 // ═══════════════════════════════════════════
@@ -29,6 +44,15 @@
   --z-popover: 1100;
   --z-toast: 1200;
 
+  // ━━━ Theme surfaces ━━━ Dark default; light overrides below switch them.
+  --surface-base: #060610;
+  --surface-1: #0a0a1a;
+  --surface-2: #0e0e22;
+  --surface-3: rgba(255,255,255,0.02);
+  --surface-border: rgba(255,255,255,0.06);
+  --text-on-surface: var(--text-primary);
+  color-scheme: dark;
+
   // ━━━ Motion tokens ━━━
   // Durations
   --ps-dur-instant: 80ms;
@@ -49,16 +73,47 @@
   --ps-stagger-fast: 35ms;
 }
 
+// Light theme — applied when settings → theme picks "light", or when "system"
+// resolves to light. Reuses the same custom-property surface names so every
+// component (including the entire admin section) responds without per-page
+// overrides.
+html[data-theme='light'] {
+  --surface-base: #f6f7fb;
+  --surface-1: #ffffff;
+  --surface-2: #f0f2f8;
+  --surface-3: #ffffff;
+  --surface-border: rgba(15,23,42,0.08);
+  --text-primary: #0f172a;
+  --text-muted: #475569;
+  --text-on-surface: #0f172a;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  html[data-theme='system'] {
+    --surface-base: #f6f7fb;
+    --surface-1: #ffffff;
+    --surface-2: #f0f2f8;
+    --surface-3: #ffffff;
+    --surface-border: rgba(15,23,42,0.08);
+    --text-primary: #0f172a;
+    --text-muted: #475569;
+    --text-on-surface: #0f172a;
+    color-scheme: light;
+  }
+}
+
 html, body {
   margin: 0;
   padding: 0;
-  background: #060610;
-  color: #f0f0f8;
+  background: var(--surface-base);
+  color: var(--text-primary);
   font-family: 'Sora', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
   line-height: 1.6;
+  transition: background 200ms ease, color 200ms ease;
 }
 
 html { scroll-behavior: smooth; height: 100%; }
@@ -647,4 +702,29 @@ body::before {
 .glow-chip-warn  { background: rgba(245,158,11,0.10); color: #fbbf24; border-color: rgba(245,158,11,0.28); }
 .glow-chip-danger{ background: rgba(248,113,113,0.10); color: #fca5a5; border-color: rgba(248,113,113,0.28); }
 .glow-chip-ok    { background: rgba(16,185,129,0.10); color: #6ee7b7; border-color: rgba(16,185,129,0.28); }
+
+// Empty-state hero block — replaces sad "No data" boxes
+.empty-state-pretty {
+  display: flex; flex-direction: column; align-items: center; gap: 1rem;
+  padding: 3.5rem 2rem;
+  background: radial-gradient(circle at center top, rgba(0,229,255,0.07), transparent 60%);
+  border: 1px dashed rgba(0,229,255,0.18);
+  border-radius: var(--glow-r-lg);
+  text-align: center;
+}
+.empty-glyph {
+  width: 84px; height: 84px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(0,229,255,0.10), rgba(124,58,237,0.08));
+  border: 1px solid rgba(0,229,255,0.22);
+  box-shadow: 0 12px 32px -16px rgba(0,229,255,0.4);
+}
+
+// Sidebar pull-to-search shortcut: focus the sidebar search input via "/".
+@keyframes glowFocusFlash { 0% { box-shadow: 0 0 0 0 rgba(0,229,255,0); } 50% { box-shadow: 0 0 0 4px rgba(0,229,255,0.35); } 100% { box-shadow: 0 0 0 0 rgba(0,229,255,0); } }
+input[placeholder^="Search sites"]:focus { animation: glowFocusFlash 700ms ease-out; }
+
+// (See the top of this file for the consolidated `@use` block — Sass requires
+// `@use` directives to appear before any other rules.)
 

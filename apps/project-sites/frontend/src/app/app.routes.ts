@@ -50,6 +50,12 @@ export const routes: Routes = [
       },
       { path: 'dashboard', redirectTo: '', pathMatch: 'full' },
       {
+        // Team invite acceptance landing — reads ?token=… and POSTs to backend.
+        path: 'accept-invite',
+        loadComponent: () =>
+          import('./pages/admin/sections/accept-invite.component').then((m) => m.AdminAcceptInviteComponent),
+      },
+      {
         path: 'snapshots',
         loadComponent: () =>
           import('./pages/admin/sections/snapshots.component').then((m) => m.AdminSnapshotsComponent),
@@ -75,15 +81,21 @@ export const routes: Routes = [
           import('./pages/admin/sections/forms.component').then((m) => m.AdminFormsComponent),
       },
       {
-        path: 'ai-chat',
+        // Interactive API explorer (OpenAPI 3.1 + Angular SPA overview).
+        // Lazy-loaded to keep the admin shell small — bundle target < 50 KB gzip.
+        path: 'docs',
         loadComponent: () =>
-          import('./pages/admin/sections/ai-chat.component').then((m) => m.AdminAiChatComponent),
+          import('./pages/admin/sections/docs.component').then((m) => m.AdminDocsComponent),
       },
+      // ai-chat moved into Settings as a tab — keep redirect for old links.
+      { path: 'ai-chat', redirectTo: 'settings#ai-chat', pathMatch: 'full' },
       {
-        path: 'ai-logs',
+        path: 'traces',
         loadComponent: () =>
           import('./pages/admin/sections/ai-logs.component').then((m) => m.AdminAiLogsComponent),
       },
+      // Old name kept for any deep links / bookmarks.
+      { path: 'ai-logs', redirectTo: 'traces', pathMatch: 'full' },
       {
         path: 'ai-endpoints',
         loadComponent: () =>
@@ -97,8 +109,19 @@ export const routes: Routes = [
           import('./pages/admin/sections/settings.component').then((m) => m.AdminSettingsComponent),
       },
       {
+        // User-level preferences: theme + API keys. Distinct from per-project
+        // settings — switching projects must NOT touch personal preferences.
+        path: 'user',
+        loadComponent: () =>
+          import('./pages/admin/sections/user-settings.component').then((m) => m.AdminUserSettingsComponent),
+      },
+      // Per-project Domain Management — backup subdomain + AI creative search
+      // + connected domains table with transfer-out flow. See
+      // sections/domains.component.ts.
+      {
         path: 'domains',
-        redirectTo: 'settings',
+        loadComponent: () =>
+          import('./pages/admin/sections/domains.component').then((m) => m.AdminDomainsComponent),
       },
     ],
   },

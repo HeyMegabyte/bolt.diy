@@ -294,3 +294,38 @@ All logs use `console.warn` (not `console.log` — blocked by ESLint).
 6. **CSP blocking scripts on homepage**
    - CSP must include `'unsafe-inline'` in script-src
    - Check `src/middleware/security_headers.ts`
+
+## Sentry Release Tracking & Sourcemap Upload (item #48)
+
+Every production deploy uploads sourcemaps to Sentry under a release tag
+matching the short git SHA. This lets Sentry resolve minified stack frames
+back to the exact source line of the deployed Worker.
+
+### One-time setup
+
+1. Provision an auth token at
+   https://megabyte-labs.sentry.io/settings/auth-tokens/ with scopes
+   `project:read`, `project:releases`, `org:read`.
+2. Store it as a wrangler secret AND make it available to CI:
+   ```bash
+   wrangler secret put SENTRY_AUTH_TOKEN --env production
+   gh secret set SENTRY_AUTH_TOKEN --body "sntrys_..."   # for GitHub Actions
+   ```
+
+### Per-deploy
+
+The `scripts/upload_to_r2.sh` post-deploy step now invokes
+`npm run upload-sourcemaps` automatically when `ENVIRONMENT=production`. To
+run it manually:
+
+```bash
+export SENTRY_AUTH_TOKEN=sntrys_...
+export GIT_SHA=$(git rev-parse --short HEAD)
+# Ensure the Worker advertises the same release tag:
+wrangler deploy --env production --var "SENTRY_RELEASE:project-sites@${GIT_SHA}"
+# Then upload the maps:
+npm run upload-sourcemaps
+```
+
+The script soft-fails (exit 0) if `SENTRY_AUTH_TOKEN` is unset or `dist/` is
+missing, so it never blocks a deploy.

@@ -14,7 +14,7 @@ import { loadingInterceptor } from './interceptors/loading.interceptor';
  * Priority: localStorage > ?lang= query param > browser language > 'en' */
 function initTranslations(translate: TranslateService) {
   return () => {
-    translate.setDefaultLang('en');
+    translate.setFallbackLang('en');
 
     const stored = localStorage.getItem('ps_language');
     if (stored === 'en' || stored === 'es') {
@@ -42,7 +42,7 @@ export const appConfig: ApplicationConfig = {
     { provide: ErrorHandler, useClass: GlobalErrorHandler },
     importProvidersFrom(
       TranslateModule.forRoot({
-        defaultLanguage: 'en',
+        fallbackLang: 'en',
       })
     ),
     provideTranslateHttpLoader({ prefix: './assets/i18n/', suffix: '.json' }),

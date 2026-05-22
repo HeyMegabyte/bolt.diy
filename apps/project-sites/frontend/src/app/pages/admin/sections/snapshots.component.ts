@@ -49,6 +49,12 @@ interface GhStatus {
           </p>
         </div>
 
+        <div class="flex items-center gap-2 flex-wrap">
+        <button class="btn-create-snap" (click)="createOpen.set(true)" [disabled]="!state.selectedSite()" title="Open the create-snapshot dialog">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Create Snapshot</span>
+        </button>
+
         <!-- GitHub link/sync — mirrors the isomorphic-git snapshot tree to GitHub on every build. -->
         @if (!ghStatus()?.connected) {
           <button class="btn-github-link" [disabled]="linkingGh() || !state.selectedSite()" (click)="linkGithub()"
@@ -81,24 +87,36 @@ interface GhStatus {
             </button>
           </div>
         }
-      </div>
-
-      <!-- Create Snapshot -->
-      <div class="bg-white/[0.02] border border-white/[0.06] rounded-[14px] p-6">
-        <h3 class="text-base font-semibold text-white m-0 mb-4 flex items-center gap-2">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          Create Snapshot
-        </h3>
-        <div class="flex flex-col gap-2">
-          <div class="flex gap-2.5 items-center">
-            <input type="text" placeholder="Name (e.g., v2, redesign)" [(ngModel)]="newSnapshotName" class="input-field flex-1" maxlength="30" />
-            <button class="btn-accent" [disabled]="creatingSnapshot() || !newSnapshotName.trim()" (click)="createSnapshot()">
-              {{ creatingSnapshot() ? 'Creating...' : 'Create Snapshot' }}
-            </button>
-          </div>
-          <input type="text" placeholder="Description (optional)" [(ngModel)]="newSnapshotDescription" class="input-field" />
         </div>
       </div>
+
+      <!-- Create Snapshot — modal -->
+      @if (createOpen()) {
+        <div class="modal-overlay" (click)="createOpen.set(false)">
+          <div class="modal-panel" (click)="$event.stopPropagation()">
+            <header class="modal-head">
+              <h3 class="m-0 text-base font-semibold text-white">Create snapshot</h3>
+              <button class="text-text-secondary hover:text-white" (click)="createOpen.set(false)" aria-label="Close create snapshot dialog">×</button>
+            </header>
+            <div class="p-5 flex flex-col gap-3">
+              <label class="block">
+                <span class="muted-h">Name</span>
+                <input type="text" placeholder="v2, redesign, summer-2026" [(ngModel)]="newSnapshotName" class="input-field w-full mt-1" maxlength="30" autofocus />
+              </label>
+              <label class="block">
+                <span class="muted-h">Description (optional)</span>
+                <input type="text" placeholder="What changed since the last snapshot?" [(ngModel)]="newSnapshotDescription" class="input-field w-full mt-1" />
+              </label>
+            </div>
+            <footer class="modal-foot">
+              <button class="btn-ghost" (click)="createOpen.set(false)">Cancel</button>
+              <button class="btn-accent" [disabled]="creatingSnapshot() || !newSnapshotName.trim()" (click)="createSnapshot()">
+                {{ creatingSnapshot() ? 'Creating…' : 'Create snapshot' }}
+              </button>
+            </footer>
+          </div>
+        </div>
+      }
 
       <!-- Snapshot Timeline -->
       <div class="bg-white/[0.02] border border-white/[0.06] rounded-[14px] p-6">
@@ -167,6 +185,7 @@ interface GhStatus {
                       <button class="btn-snap-trash group" (click)="confirmDelete(snap)" title="Delete this snapshot" [attr.aria-label]="'Delete snapshot ' + snap.snapshot_name">
                         <span class="btn-snap-trash-glow" aria-hidden="true"></span>
                         <svg class="btn-snap-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                        <span class="btn-snap-label">Delete</span>
                       </button>
                     </div>
                   </div>
@@ -191,6 +210,18 @@ interface GhStatus {
     .btn-github-push:hover:not(:disabled) { background: rgba(0,229,255,0.16); }
     .btn-github-unlink:hover:not(:disabled) { background: rgba(248,113,113,0.16); color: #f87171; }
     .btn-github-push:disabled, .btn-github-unlink:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-create-snap { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.85rem; border-radius: 8px; background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.18)); color: #00E5FF; border: 1px solid rgba(0,229,255,0.4); font-size: 0.74rem; font-weight: 600; cursor: pointer; transition: all 160ms ease; }
+    .btn-create-snap:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px -8px rgba(0,229,255,0.4); }
+    .btn-create-snap:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(2,2,12,0.62); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); z-index: 9050; display: flex; align-items: center; justify-content: center; padding: 24px; animation: mIn 160ms ease-out; }
+    @keyframes mIn { from { opacity: 0 } to { opacity: 1 } }
+    .modal-panel { width: min(520px, 92vw); background: linear-gradient(180deg, rgba(20,20,42,0.97), rgba(10,10,28,0.97)); border: 1px solid rgba(0,229,255,0.22); border-radius: 16px; overflow: hidden; box-shadow: 0 28px 80px -16px rgba(0,0,0,0.7); animation: mRise 220ms cubic-bezier(0.16,1,0.3,1); }
+    @keyframes mRise { from { transform: translateY(8px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .modal-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.18); }
+    .muted-h { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; }
   `],
 })
 export class AdminSnapshotsComponent implements OnInit {
@@ -205,11 +236,13 @@ export class AdminSnapshotsComponent implements OnInit {
   creatingSnapshot = signal(false);
   reverting = signal(false);
 
+
   // GitHub mirror (replaces the standalone GitHub Backup nav item).
   ghStatus = signal<GhStatus | null>(null);
   linkingGh = signal(false);
   pushingGh = signal(false);
   unlinkingGh = signal(false);
+  createOpen = signal(false);
 
   ngOnInit(): void {
     const site = this.state.selectedSite();
@@ -230,8 +263,17 @@ export class AdminSnapshotsComponent implements OnInit {
     const site = this.state.selectedSite();
     if (!site) return;
     this.linkingGh.set(true);
-    const returnUrl = encodeURIComponent('/admin/snapshots');
-    window.location.href = `/api/sites/${site.id}/github/connect?return_url=${returnUrl}`;
+    // The /github/connect route requires Bearer auth — a raw browser
+    // navigation drops the header and 401s. Fetch the OAuth URL via
+    // ApiService (auth header attached), then redirect.
+    this.api.get<{ url: string }>(`/sites/${site.id}/github/connect`, { return_url: '/admin/snapshots' }).subscribe({
+      next: (r) => { if (r?.url) window.location.href = r.url; else this.linkingGh.set(false); },
+      error: (err) => {
+        this.linkingGh.set(false);
+        const msg = err?.error?.error?.message || err?.error?.message || 'Could not start GitHub OAuth — check sign-in';
+        this.toast.error(msg);
+      },
+    });
   }
 
   pushToGithub(manual: boolean): void {
@@ -293,6 +335,7 @@ export class AdminSnapshotsComponent implements OnInit {
         this.newSnapshotName = '';
         this.newSnapshotDescription = '';
         this.creatingSnapshot.set(false);
+        this.createOpen.set(false);
         this.loadSnapshots(site.id);
         if (this.ghStatus()?.connected) this.pushToGithub(false);
       },

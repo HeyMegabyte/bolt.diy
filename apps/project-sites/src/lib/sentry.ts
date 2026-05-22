@@ -18,12 +18,16 @@ import type { Env, Variables } from '../types/env.js';
  * @returns Toucan instance ready for `captureException` / `captureMessage`.
  */
 export function createSentry(c: Context<{ Bindings: Env; Variables: Variables }>): Toucan {
+  // Release tracking (item #48): prefer the per-deploy GIT_SHA injected at
+  // build time (wrangler.toml vars or `SENTRY_RELEASE`). Fall back to a
+  // pkg-version label so events still group when no SHA is wired.
+  const release = c.env.SENTRY_RELEASE ?? 'project-sites@0.1.0';
   const sentry = new Toucan({
     dsn: c.env.SENTRY_DSN,
     context: c.executionCtx,
     request: c.req.raw,
     environment: c.env.ENVIRONMENT ?? 'development',
-    release: 'project-sites@0.1.0',
+    release,
     sampleRate: c.env.ENVIRONMENT === 'production' ? 0.5 : 1.0,
   });
 

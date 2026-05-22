@@ -81,3 +81,11 @@ echo "Uploaded $UPLOADED files to $BUCKET"
 echo ""
 echo "Marketing homepage:  https://projectsites.dev/"
 echo "Demo site:           https://bella-cucina.projectsites.dev/"
+
+# Sentry sourcemap upload (item #48). Soft-fails if SENTRY_AUTH_TOKEN is unset.
+if [ "$ENVIRONMENT" = "production" ]; then
+  echo ""
+  echo "=== Uploading sourcemaps to Sentry ==="
+  ( cd "$PROJECT_DIR" && npm run upload-sourcemaps ) || \
+    echo "WARN: sourcemap upload failed; continuing deploy"
+fi

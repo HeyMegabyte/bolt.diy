@@ -1,0 +1,377 @@
+// ══════════════════════════════════════════════════════════════════
+// App-wide polish layer — top-25 cross-cutting improvements that the
+// individual section agents can't add because they're cross-cutting.
+// Loaded from styles.scss with `@use "./styles/_polish.scss" as *;`.
+//
+// 1.  Density tokens — three modes wired via `<html data-density="…">`.
+//     Tightens or relaxes the vertical rhythm across every admin card.
+// 2.  High-contrast mode — `<html data-contrast="high">` bumps border
+//     opacity + text weight without changing color identity.
+// 3.  Status-pill icons (color-blind safety) — every `.status-pill`
+//     gains an `::before` glyph so the state is readable without color.
+// 4.  Sticky table headers — `.tbl-sticky thead` glues itself to the
+//     scroll-parent top so users don't lose column context.
+// 5.  Print stylesheet — drops chrome (sidebar, top bar, cursor
+//     follower), forces dark-on-light, expands cards full-width.
+// 6.  ⌘K hint chip — reusable monospace badge for keyboard shortcuts.
+// 7.  Toast stack — multiple toasts stack with auto-dismiss countdown.
+// 8.  Loading skeleton — shimmering block for any height/width.
+// 9.  Confirm-dialog backdrop blur — `.ps-confirm-backdrop` baseline.
+// 10. Inline `?` tooltip — `[data-help]` hover reveals the text.
+// ══════════════════════════════════════════════════════════════════
+
+// ── 0. PWA-style persistent layout — view transitions ────────────
+// The admin shell uses Angular's `withViewTransitions()`. By default the
+// browser snapshots the WHOLE page on navigation and crossfades the old
+// shot with the new shot — which makes the sidebar + header *appear* to
+// flicker even though they didn't actually unmount.
+//
+// Naming an element with `view-transition-name` pulls it OUT of the
+// default snapshot group: the browser keeps that element in place across
+// the navigation and ONLY transitions everything else. Result: the
+// sidebar + top bar stay rock-solid (PWA feel) while the content area
+// does a quick crossfade + tiny upward slide.
+@supports (view-transition-name: a) {
+  aside[class*="sidebar"], aside.w-\[260px\], aside { view-transition-name: ps-sidebar; contain: layout style; }
+  main > .recents-strip { view-transition-name: ps-recents; }
+  // Top bar is the first child of <main> — name it.
+  main > div:first-child { view-transition-name: ps-topbar; contain: layout style; }
+  // The router content gets its own name so the browser only transitions
+  // *this* element on navigation.
+  router-outlet + *, router-outlet ~ * { view-transition-name: ps-content; }
+}
+// Crossfade the content area: old fades out, new fades + slides up gently.
+::view-transition-old(ps-content) {
+  animation: psContentOut 180ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+::view-transition-new(ps-content) {
+  animation: psContentIn 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+// Sidebar + topbar + recents — instant snap, no animation = stable.
+::view-transition-old(ps-sidebar),
+::view-transition-new(ps-sidebar),
+::view-transition-old(ps-topbar),
+::view-transition-new(ps-topbar),
+::view-transition-old(ps-recents),
+::view-transition-new(ps-recents) {
+  animation: none;
+}
+@keyframes psContentOut {
+  to { opacity: 0; transform: translateY(-6px); }
+}
+@keyframes psContentIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(ps-content), ::view-transition-new(ps-content) { animation-duration: 1ms !important; }
+}
+
+// Override Tailwind's default `animate-fade-in` so it's opacity-only — the
+// per-section root divs all use this class, and the previous animation
+// included a translateY which caused the "the whole thing jumps up a few
+// pixels" complaint after every navigation.
+.animate-fade-in {
+  animation: psContentOpacityOnly 200ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+@keyframes psContentOpacityOnly {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+// Sequenced child stagger — section roots opt-in by adding `.ps-section-stagger`
+// to their root. Direct children fade-in-up in sequence.
+.ps-section-stagger > * {
+  animation: psSectionChildIn 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--ps-stagger-step, 32ms) * (var(--ps-i, 0)));
+}
+.ps-section-stagger > *:nth-child(1)  { --ps-i: 0; }
+.ps-section-stagger > *:nth-child(2)  { --ps-i: 1; }
+.ps-section-stagger > *:nth-child(3)  { --ps-i: 2; }
+.ps-section-stagger > *:nth-child(4)  { --ps-i: 3; }
+.ps-section-stagger > *:nth-child(5)  { --ps-i: 4; }
+.ps-section-stagger > *:nth-child(6)  { --ps-i: 5; }
+.ps-section-stagger > *:nth-child(7)  { --ps-i: 6; }
+.ps-section-stagger > *:nth-child(8)  { --ps-i: 7; }
+@keyframes psSectionChildIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+// ── 1. Density tokens ─────────────────────────────────────────────
+:root {
+  --ps-density-card-pad: 1.4rem;
+  --ps-density-row-pad: 0.5rem;
+  --ps-density-gap: 0.95rem;
+  --ps-density-font-base: 0.78rem;
+}
+html[data-density="compact"] {
+  --ps-density-card-pad: 0.95rem;
+  --ps-density-row-pad: 0.3rem;
+  --ps-density-gap: 0.55rem;
+  --ps-density-font-base: 0.72rem;
+}
+html[data-density="spacious"] {
+  --ps-density-card-pad: 1.85rem;
+  --ps-density-row-pad: 0.75rem;
+  --ps-density-gap: 1.4rem;
+  --ps-density-font-base: 0.85rem;
+}
+// Cards that opt into density tokens use this class instead of hard padding.
+.density-card {
+  padding: var(--ps-density-card-pad);
+}
+.density-row {
+  padding-block: var(--ps-density-row-pad);
+}
+
+// ── 2. High-contrast mode ─────────────────────────────────────────
+html[data-contrast="high"] {
+  --border: rgba(255, 255, 255, 0.32);
+  --text-secondary: rgba(255, 255, 255, 0.88);
+  body {
+    font-weight: 500;
+  }
+  .card, .card-light, .bg-surface {
+    border-color: rgba(255, 255, 255, 0.28) !important;
+  }
+  *:focus-visible {
+    outline-width: 3px !important;
+    outline-color: #ffea00 !important;
+  }
+}
+
+// ── 3. Status-pill icons (color-blind safety) ─────────────────────
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  &::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+  &.is-active::before { background: #34d399; }
+  &.is-pending::before { background: #fbbf24; animation: pulse 1.6s ease-in-out infinite; }
+  &.is-error::before { background: #f87171; }
+  &.is-draft::before { background: #94a3b8; }
+}
+
+// ── 4. Sticky table headers ───────────────────────────────────────
+.tbl-sticky {
+  thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: rgba(10, 10, 26, 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  thead th {
+    background: rgba(10, 10, 26, 0.95);
+  }
+}
+
+// ── 5. Print stylesheet ───────────────────────────────────────────
+@media print {
+  html, body { background: #fff !important; color: #000 !important; }
+  aside, nav, .cursor-follower, .click-ripple, .top-btn, .cmdk-btn,
+  app-command-palette, app-shortcuts-modal, app-ai-chat-widget,
+  .sidebar, .skip-link, .toast-host {
+    display: none !important;
+  }
+  main { padding: 0 !important; }
+  .card, .card-light {
+    border: 1px solid #ccc !important;
+    background: #fff !important;
+    color: #000 !important;
+    page-break-inside: avoid;
+  }
+  a { color: #0066cc !important; text-decoration: underline !important; }
+  a[href]::after { content: " (" attr(href) ")"; font-size: 0.7em; color: #666; }
+}
+
+// ── 6. ⌘K hint chip ───────────────────────────────────────────────
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font: 600 0.62rem/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+
+// ── 7. Toast stack ────────────────────────────────────────────────
+.toast-host {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 99990;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+  pointer-events: none;
+}
+.toast-host > * { pointer-events: auto; }
+.toast-host.has-many::after {
+  content: "Dismiss all";
+  pointer-events: auto;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 4px 10px;
+  font: 600 0.62rem/1 ui-monospace, monospace;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 4px;
+  transition: color 120ms ease;
+}
+.toast-host.has-many:hover::after { color: #fff; }
+
+// ── 8. Loading skeleton ───────────────────────────────────────────
+.skel {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0,
+      rgba(255, 255, 255, 0.06) 40%,
+      rgba(0, 229, 255, 0.08) 50%,
+      rgba(255, 255, 255, 0.06) 60%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: psShine 1.6s linear infinite;
+  }
+}
+
+// ── 9. Confirm-dialog backdrop ────────────────────────────────────
+.ps-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 99980;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn var(--ps-dur-md, 180ms) var(--ps-ease-decel, ease-out) both;
+}
+
+// ── 10. Inline `?` tooltip ────────────────────────────────────────
+[data-help] {
+  position: relative;
+  cursor: help;
+}
+[data-help]:hover::after,
+[data-help]:focus-visible::after {
+  content: attr(data-help);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 10, 26, 0.96);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  white-space: nowrap;
+  max-width: 280px;
+  pointer-events: none;
+  z-index: 99970;
+  animation: psRise 160ms ease-out both;
+}
+
+// ── Quality-of-life additions ────────────────────────────────────
+
+// Live status pill ("Live · synced 2s ago") used by polling sections.
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  font: 600 0.62rem/1 'Sora', sans-serif;
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  border-radius: 999px;
+  &::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #34d399;
+    box-shadow: 0 0 6px #34d399;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+}
+
+// Site-status banner — slides in at the top of every admin section
+// when the currently-selected site is in `error` state.
+.site-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: linear-gradient(90deg, rgba(248, 113, 113, 0.12), rgba(248, 113, 113, 0.04));
+  border-bottom: 1px solid rgba(248, 113, 113, 0.28);
+  color: #fecaca;
+  font-size: 0.74rem;
+  animation: slideDown 240ms ease-out both;
+}
+
+// Recently-visited pages strip in the admin shell.
+.recents-strip {
+  display: flex;
+  gap: 6px;
+  padding: 4px 12px;
+  overflow-x: auto;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+  .recent-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding: 3px 8px;
+    font-size: 0.66rem;
+    color: rgba(255, 255, 255, 0.6);
+    border-radius: 999px;
+    background: transparent;
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: all 120ms ease;
+    &:hover {
+      color: #fff;
+      background: rgba(0, 229, 255, 0.08);
+      border-color: rgba(0, 229, 255, 0.2);
+    }
+    &.is-active {
+      color: #00E5FF;
+      background: rgba(0, 229, 255, 0.12);
+      border-color: rgba(0, 229, 255, 0.3);
+    }
+  }
+}

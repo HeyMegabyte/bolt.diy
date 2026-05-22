@@ -7,22 +7,23 @@ import { BgOrbsComponent } from './components/bg-orbs/bg-orbs.component';
 import { EasterEggsComponent } from './components/easter-eggs/easter-eggs.component';
 import { CommandPaletteComponent } from './components/command-palette/command-palette.component';
 import { ShortcutsOverlayComponent } from './components/shortcuts-overlay/shortcuts-overlay.component';
-import { FeedbackWidgetComponent } from './components/feedback-widget/feedback-widget.component';
+import { TranslateService } from '@ngx-translate/core';
 import { AuthService } from './services/auth.service';
 import { ApiService } from './services/api.service';
 import { MetaService } from './services/meta.service';
+import { AppShellService, type AppLanguage } from './services/app-shell.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, HeaderComponent, ToastComponent, BgOrbsComponent, EasterEggsComponent, CommandPaletteComponent, ShortcutsOverlayComponent, FeedbackWidgetComponent],
+  imports: [RouterOutlet, HeaderComponent, ToastComponent, BgOrbsComponent, EasterEggsComponent, CommandPaletteComponent, ShortcutsOverlayComponent],
   template: `
     <a class="skip-link" href="#main-content">Skip to main content</a>
     @if (showHeader()) { <app-header role="banner" /> }
     <app-bg-orbs />
     <app-easter-eggs />
     <app-toast />
-    @if (showCommandPalette()) {
+    @if (showCommandPalette() && !inAdmin()) {
       <app-command-palette
         (closed)="showCommandPalette.set(false)"
         (showShortcuts)="onPaletteShowShortcuts()"
@@ -34,7 +35,6 @@ import { MetaService } from './services/meta.service';
     <main id="main-content" role="main" class="app" [class.no-pad]="!showHeader()">
       <router-outlet />
     </main>
-    <app-feedback-widget />
   `,
   styles: [`
     .app {
@@ -53,10 +53,13 @@ export class AppComponent implements OnInit, OnDestroy {
   private meta = inject(MetaService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private translate = inject(TranslateService);
+  private appShell = inject(AppShellService);
 
   showHeader = signal(true);
   showCommandPalette = signal(false);
   showShortcuts = signal(false);
+  inAdmin = signal(false);
 
   private cursorFollowerEl?: HTMLElement;
   private cursorAnimationId?: number;
@@ -64,8 +67,11 @@ export class AppComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown', ['$event'])
   onGlobalKeydown(event: KeyboardEvent): void {
-    // Cmd+K / Ctrl+K — toggle command palette
+    // Cmd+K / Ctrl+K — toggle command palette EXCEPT inside /admin,
+    // which mounts its own richer palette. Two palettes opening at once was
+    // a real bug (#4 in the Part 1 brief).
     if (event.key === 'k' && (event.metaKey || event.ctrlKey)) {
+      if (this.router.url.startsWith('/admin')) return; // let admin's palette handle it
       event.preventDefault();
       this.showCommandPalette.update(v => !v);
       this.showShortcuts.set(false);
@@ -100,11 +106,50 @@ export class AppComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.meta.init();
+    this.applyStoredTheme();
     this.cleanupLegacyOnboardingKeys();
     this.handleAuthCallback();
     this.restoreSession();
     this.trackRoute();
     this.initCursorFollower();
+    this.wireLanguage();
+  }
+
+  /**
+   * Keep `<html lang>` in sync with `TranslateService.currentLang` for WCAG
+   * 3.1.1 Language of Page. Stamps the initial value and re-applies on every
+   * change. Falls back to `'en'` when the translate service has not yet
+   * resolved a language.
+   */
+  private wireLanguage(): void {
+    const initial = (this.translate.currentLang as AppLanguage | undefined) ?? 'en';
+    this.appShell.applyLanguage(initial === 'es' ? 'es' : 'en');
+    this.translate.onLangChange.subscribe((evt: { lang: string }) => {
+      const next: AppLanguage = evt.lang === 'es' ? 'es' : 'en';
+      this.appShell.applyLanguage(next);
+    });
+  }
+
+  /** Reads the persisted theme (dark|light|system), density (compact|comfortable|spacious),
+   * and high-contrast flag from localStorage and stamps the matching `data-*`
+   * attributes on `<html>` at app boot. Without this, /admin/user → Appearance
+   * settings would only apply after the user clicks a swatch — refresh or first
+   * load would always be dark + comfortable + normal-contrast. */
+  private applyStoredTheme(): void {
+    const html = document.documentElement;
+    try {
+      const t = (localStorage.getItem('ps_theme') as 'dark' | 'light' | 'system') || 'dark';
+      html.setAttribute('data-theme', t);
+    } catch {
+      html.setAttribute('data-theme', 'dark');
+    }
+    try {
+      const d = (localStorage.getItem('ps_density') as 'compact' | 'comfortable' | 'spacious') || 'comfortable';
+      html.setAttribute('data-density', d);
+    } catch { html.setAttribute('data-density', 'comfortable'); }
+    try {
+      html.setAttribute('data-contrast', localStorage.getItem('ps_contrast') === 'high' ? 'high' : 'normal');
+    } catch { html.setAttribute('data-contrast', 'normal'); }
   }
 
   private cleanupLegacyOnboardingKeys(): void {
@@ -126,11 +171,16 @@ export class AppComponent implements OnInit, OnDestroy {
   private trackRoute(): void {
     // Set initial value
     this.showHeader.set(!this.isHeaderlessRoute(this.router.url));
+    this.inAdmin.set(this.router.url.startsWith('/admin'));
     // Listen for route changes
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
       .subscribe(e => {
         this.showHeader.set(!this.isHeaderlessRoute(e.urlAfterRedirects));
+        this.inAdmin.set(e.urlAfterRedirects.startsWith('/admin'));
+        // Closing the global palette when entering /admin prevents the
+        // double-palette regression even if a user toggled it elsewhere.
+        if (e.urlAfterRedirects.startsWith('/admin')) this.showCommandPalette.set(false);
       });
   }
 
@@ -155,6 +205,8 @@ export class AppComponent implements OnInit, OnDestroy {
     if (typeof window === 'undefined') return;
     if (!window.matchMedia('(hover: hover)').matches) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    // Honor the per-user opt-out from /admin/user → Appearance → Cursor follower.
+    try { if (localStorage.getItem('ps_cursor') === 'off') return; } catch { /* */ }
 
     const follower = document.createElement('div');
     follower.className = 'cursor-follower';
@@ -217,9 +269,14 @@ export class AppComponent implements OnInit, OnDestroy {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     const email = params.get('email');
+    // auth_callback is informational (which provider). token+email is sufficient
+    // to establish a session — the earlier requirement caused Google/GitHub OAuth
+    // logins to silently drop the session because those callbacks shipped
+    // token+email without the marker. Magic-link still ships it, so we keep
+    // reading it for analytics + URL cleanup but don't gate session creation on it.
     const authCallback = params.get('auth_callback');
 
-    if (token && email && authCallback) {
+    if (token && email) {
       this.auth.setSession(token, email);
       // Clean URL
       const url = new URL(window.location.href);
@@ -235,16 +292,31 @@ export class AppComponent implements OnInit, OnDestroy {
       } else {
         this.router.navigate(['/admin']);
       }
+      // Best-effort analytics — never blocks the session.
+      if (authCallback) {
+        this.api.post('/analytics/track', { event: 'auth.callback', provider: authCallback })
+          .subscribe({ error: () => undefined });
+      }
     }
   }
 
+  /**
+   * Async session validation. Only clears the local session on a definitive
+   * 401 (the auth interceptor already handles redirect). Transient errors
+   * (network blip, 5xx, timeout) MUST NOT log the user out — that was the
+   * "forced re-sign-in on every refresh" bug.
+   */
   private restoreSession(): void {
-    if (this.auth.isLoggedIn()) {
-      this.api.getMe().subscribe({
-        error: () => {
-          this.auth.clearSession();
-        },
-      });
-    }
+    if (!this.auth.isLoggedIn()) return;
+    this.api.getMe().subscribe({
+      error: (err: { status?: number }) => {
+        // The api.service interceptor already clears + redirects on 401.
+        // Anything else (0 = offline, 5xx, timeout) is transient — keep the
+        // session so a refresh once connectivity returns Just Works.
+        if (err?.status !== 401) {
+          // Intentional no-op — leave the local token in place.
+        }
+      },
+    });
   }
 }

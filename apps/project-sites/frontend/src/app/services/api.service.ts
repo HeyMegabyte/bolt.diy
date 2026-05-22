@@ -43,7 +43,14 @@ export class ApiService {
 
           if (error.status === 401) {
             this.auth.clearSession();
-            this.router.navigate(['/signin']);
+            // Only force the user to /signin when they're already inside a
+            // protected route. A 401 from /auth/me on the public homepage
+            // should NOT bounce the visitor into the signin flow.
+            const url = this.router.url.split('?')[0] ?? '';
+            const protectedRoutes = ['/admin', '/billing', '/editor'];
+            if (protectedRoutes.some((r) => url === r || url.startsWith(r + '/'))) {
+              this.router.navigate(['/signin'], { queryParams: { returnUrl: url } });
+            }
           }
 
           return throwError(() => error);

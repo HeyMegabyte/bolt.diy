@@ -101,12 +101,12 @@ export interface OverviewSeries {
   last_hour_visits: number;
 }
 
-export async function loadOverview(env: Env, orgId: string): Promise<OverviewSeries> {
+export async function loadOverview(env: Env, orgId: string, days = 30): Promise<OverviewSeries> {
   const ds = 'projectsites_admin_v1';
   const orgFilter = `blob4 = '${orgId.replace(/'/g, "''")}'`;
   // Note: blob1='admin_visit' filter ensures we only count visits, not other events.
   const evFilter = `blob1 = 'admin_visit'`;
-  const where30d = `WHERE ${evFilter} AND ${orgFilter} AND timestamp > NOW() - INTERVAL '30' DAY`;
+  const where30d = `WHERE ${evFilter} AND ${orgFilter} AND timestamp > NOW() - INTERVAL '${Math.max(1, Math.min(365, Math.floor(days)))}' DAY`;
   // CF Analytics Engine: blob1 was event in our writeDataPoint; double1 is count.
   const [total, byDay, byRoute, byUa, byRef, byCountry, lastHour] = await Promise.all([
     querySql(env, `SELECT SUM(_sample_interval) AS visits FROM ${ds} ${where30d}`),

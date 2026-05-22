@@ -333,6 +333,7 @@ api.post('/api/auth/magic-link/verify', async (c) => {
     const redirectTarget = new URL(result.redirect_url);
     redirectTarget.searchParams.set('token', session.token);
     redirectTarget.searchParams.set('email', result.email);
+    redirectTarget.searchParams.set('auth_callback', 'magic_link');
     return c.redirect(redirectTarget.toString());
   }
 
@@ -459,6 +460,7 @@ api.get('/api/auth/google/callback', async (c) => {
   }
   redirectTarget.searchParams.set('token', session.token);
   redirectTarget.searchParams.set('email', result.email);
+  redirectTarget.searchParams.set('auth_callback', 'google');
   posthog.trackAuth(c.env, c.executionCtx, 'google_oauth', 'verified', result.email);
   return c.redirect(redirectTarget.toString());
 });
@@ -570,6 +572,7 @@ api.get('/api/auth/github/callback', async (c) => {
   }
   redirectTarget.searchParams.set('token', session.token);
   redirectTarget.searchParams.set('email', result.email);
+  redirectTarget.searchParams.set('auth_callback', 'github');
   posthog.trackAuth(c.env, c.executionCtx, 'github_oauth', 'verified', result.email);
   return c.redirect(redirectTarget.toString());
 });
@@ -1861,20 +1864,49 @@ api.post('/api/billing/portal', async (c) => {
 
 /**
  * List recent audit log entries scoped to the caller's org. Powers the
- * dashboard activity feed and admin investigation views.
+ * dashboard activity feed and the `/admin/audit` ag-grid view.
  *
  * @route GET /api/audit-logs
  * @auth Bearer — `orgId` MUST resolve
- * @queryParam limit — default 50, capped at 200
+ * @queryParam limit — default 50, capped at 500 (raised from 200 to satisfy
+ *   the admin audit grid which preloads the latest 500 rows for client-side
+ *   filtering)
  * @queryParam offset — default 0, floored at 0 (negative values clamped)
- * @returns 200 OK `{ data: AuditLog[] }` — ordered by `created_at DESC`
+ * @queryParam site_id — optional. When supplied, narrows the result set to
+ *   rows where `target_id = site_id` OR `metadata_json` contains
+ *   `"site_id":"<site_id>"` (covers hostname/billing actions logged against
+ *   the site via metadata rather than `target_id`)
+ * @queryParam site_slug — optional. Same behavior as `site_id` but resolved
+ *   to a site row first; used by the admin UI which has a slug in hand but
+ *   not necessarily the UUID. If both are supplied, `site_id` wins.
+ * @returns 200 OK `{ data: AuditRow[] }` — ordered by `created_at DESC`.
+ *   Every row gets an extra `site` field (the slug of the related site, or
+ *   `null` for org-level events) so the ag-grid `site` column has data to
+ *   filter on.
  * @throws {AppError} `UNAUTHORIZED` — session missing orgId.
  *
  * @remarks
  * Org-scoped read: cross-tenant rows are never returned (org_id filter
- * applied inside `auditService.getAuditLogs`). The audit log is
- * append-only — these rows are never mutated, only inserted by
- * `auditService.writeAuditLog` fire-and-forget across the codebase.
+ * applied inline). The audit log is append-only — these rows are never
+ * mutated, only inserted by `auditService.writeAuditLog` fire-and-forget
+ * across the codebase. The `site` field is computed via a LEFT JOIN against
+ * `sites` on the most common linkage (`target_id`) plus a metadata fallback
+ * parsed in-Worker so a single JSON column scan covers both shapes.
+ *
+ * Parameterized SQL throughout — `site_slug` flows into the JOIN predicate
+ * and `site_id` (or the resolved slug → id) flows into the WHERE clause via
+ * bound params, never string concatenation.
+ *
+ * @example
+ * ```bash
+ * # All audit rows for the caller's org (capped at 500)
+ * curl -H "Authorization: Bearer $TOKEN" \
+ *   https://projectsites.dev/api/audit-logs
+ *
+ * # Scoped to a single site by slug (UI default)
+ * curl -H "Authorization: Bearer $TOKEN" \
+ *   "https://projectsites.dev/api/audit-logs?site_slug=vitos-mens-salon"
+ * ```
  *
  * @see {@link auditService.getAuditLogs}
  */
@@ -1882,11 +1914,101 @@ api.get('/api/audit-logs', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
 
-  const limit = Math.min(Number(c.req.query('limit') ?? '50'), 200);
+  const limit = Math.min(Math.max(Number(c.req.query('limit') ?? '500'), 1), 500);
   const offset = Math.max(Number(c.req.query('offset') ?? '0'), 0);
+  const siteIdParam = (c.req.query('site_id') ?? '').trim() || null;
+  const siteSlugParam = (c.req.query('site_slug') ?? '').trim() || null;
 
-  const result = await auditService.getAuditLogs(c.env.DB, orgId, { limit, offset });
-  return c.json({ data: result.data });
+  // Resolve `site_slug` → `site_id` (org-scoped — never trust the slug to
+  // belong to the caller's org without proof). If a site_id was supplied
+  // directly, it wins and we skip the slug lookup.
+  let scopedSiteId: string | null = siteIdParam;
+  if (!scopedSiteId && siteSlugParam) {
+    const siteRow = await dbQueryOne<{ id: string }>(
+      c.env.DB,
+      'SELECT id FROM sites WHERE org_id = ? AND slug = ? LIMIT 1',
+      [orgId, siteSlugParam],
+    );
+    scopedSiteId = siteRow?.id ?? null;
+    // If the slug doesn't resolve to a site in this org, return empty —
+    // never fall back to "all rows" (would be a tenant-isolation leak).
+    if (!scopedSiteId) return c.json({ data: [] });
+  }
+
+  // Build SQL with optional site scope. The LEFT JOIN populates `site` for
+  // every row (slug if linked, null if org-level). We use the JOIN's slug
+  // column when present and parse `metadata_json.site_id` in JS as a
+  // fallback so hostname/billing events still surface their site context.
+  const baseSql = `
+    SELECT a.id, a.action, a.target_type, a.target_id, a.actor_id,
+           a.metadata_json, a.request_id, a.created_at, s.slug AS site_slug
+    FROM audit_logs a
+    LEFT JOIN sites s ON s.id = a.target_id AND s.org_id = a.org_id
+    WHERE a.org_id = ?
+  `;
+  const params: (string | number)[] = [orgId];
+  let scopedSql = baseSql;
+  if (scopedSiteId) {
+    scopedSql += ` AND (a.target_id = ? OR a.metadata_json LIKE ?)`;
+    params.push(scopedSiteId, `%"site_id":"${scopedSiteId}"%`);
+  }
+  scopedSql += ` ORDER BY a.created_at DESC LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
+
+  const rs = await c.env.DB.prepare(scopedSql).bind(...params).all<{
+    id: string;
+    action: string;
+    target_type: string | null;
+    target_id: string | null;
+    actor_id: string | null;
+    metadata_json: string | null;
+    request_id: string | null;
+    created_at: string;
+    site_slug: string | null;
+  }>();
+
+  // If we scoped by site_id but the JOIN didn't fire for metadata-only
+  // rows, resolve the slug once and stamp it on every row in this scope.
+  let scopedSlug: string | null = null;
+  if (scopedSiteId) {
+    const s = await dbQueryOne<{ slug: string }>(
+      c.env.DB,
+      'SELECT slug FROM sites WHERE id = ? AND org_id = ? LIMIT 1',
+      [scopedSiteId, orgId],
+    );
+    scopedSlug = s?.slug ?? null;
+  }
+
+  const data = (rs.results ?? []).map((r) => {
+    let metadata: Record<string, unknown> | null = null;
+    if (r.metadata_json) {
+      try {
+        metadata = JSON.parse(r.metadata_json) as Record<string, unknown>;
+      } catch {
+        metadata = null;
+      }
+    }
+    // Site resolution priority: JOIN hit > metadata.site_slug > scopedSlug
+    // (when the request itself was site-scoped). Null for org-level rows.
+    let site: string | null = r.site_slug;
+    if (!site && metadata && typeof metadata['site_slug'] === 'string') {
+      site = metadata['site_slug'] as string;
+    }
+    if (!site && scopedSlug) site = scopedSlug;
+    return {
+      id: r.id,
+      action: r.action,
+      target_type: r.target_type,
+      target_id: r.target_id,
+      actor_id: r.actor_id,
+      metadata,
+      request_id: r.request_id,
+      created_at: r.created_at,
+      site,
+    };
+  });
+
+  return c.json({ data });
 });
 
 // ─── Site-Specific Logs ─────────────────────────────────────
@@ -7510,5 +7632,743 @@ function guessContentTypeForRevert(filename: string): string {
   };
   return types[ext ?? ''] ?? 'application/octet-stream';
 }
+
+// ─── AI Domain Search + Registrar (per-site) ─────────────────
+
+/**
+ * Creative-strategy seed used by the AI domain-search fan-out. Each strategy
+ * spawns an independent Workers AI inference with its own system prompt so
+ * the candidate set spans different naming archetypes (literal, metaphor,
+ * alliterative, ...). Deduped + availability-checked downstream.
+ */
+const AI_DOMAIN_STRATEGIES: ReadonlyArray<{ id: string; instruction: string }> = [
+  { id: 'literal', instruction: 'Suggest 4 literal, descriptive domain names that say exactly what the business does. Plain English, .com preferred.' },
+  { id: 'metaphor', instruction: 'Suggest 4 metaphor-driven domain names that evoke the business through a vivid image (e.g. "ironpaw.com" for a gym). Avoid the business type word directly.' },
+  { id: 'compound', instruction: 'Suggest 4 invented compound-word domain names that fuse two relevant nouns or a noun + verb. Keep them under 14 characters.' },
+  { id: 'alliterative', instruction: 'Suggest 4 alliterative domain names where the first letter repeats. Memorable, brand-able, .com or .co.' },
+  { id: 'rhyming', instruction: 'Suggest 4 rhyming or near-rhyming two-word domain names. Playful but professional.' },
+  { id: 'jargon', instruction: 'Suggest 4 industry-jargon domain names that insiders would instantly recognize. Authentic vocabulary, no marketing speak.' },
+  { id: 'playful', instruction: 'Suggest 4 playful, slightly irreverent domain names with a wink. Short. .co, .fun, .biz allowed.' },
+  { id: 'minimalist', instruction: 'Suggest 4 minimalist single-word or two-syllable domain names. Premium, easy to spell. .com or .io.' },
+  { id: 'premium-tld', instruction: 'Suggest 4 domain names paired with premium TLDs (.io, .app, .dev, .ai) where the TLD adds meaning.' },
+  { id: 'geography', instruction: 'Suggest 4 geography-flavored domain names that subtly include city, neighborhood, or regional flavor.' },
+];
+
+/**
+ * Parse a Workers AI free-form response and pull out plausible domain
+ * candidates. The Llama model usually returns a markdown list, sometimes a
+ * comma-separated line, sometimes prose — this normalizer survives all
+ * three.
+ *
+ * @param raw - The raw model response (string or wrapper object).
+ * @returns Up to 8 lowercase domain candidates with stripped punctuation.
+ */
+function parseDomainCandidates(raw: unknown): string[] {
+  let text = '';
+  if (typeof raw === 'string') text = raw;
+  else if (raw && typeof raw === 'object' && 'response' in raw)
+    text = String((raw as { response?: unknown }).response ?? '');
+  else if (raw && typeof raw === 'object' && 'result' in raw)
+    text = String((raw as { result?: unknown }).result ?? '');
+  else text = JSON.stringify(raw ?? '');
+
+  const matches = text.match(/[a-z0-9][a-z0-9-]{1,40}\.[a-z]{2,12}\b/gi) ?? [];
+  const cleaned = matches
+    .map((m) => m.toLowerCase())
+    .map((m) => m.replace(/[^a-z0-9.-]/g, ''))
+    .filter((m) => /^[a-z0-9][a-z0-9-]*\.[a-z]{2,12}$/.test(m));
+  return Array.from(new Set(cleaned)).slice(0, 8);
+}
+
+/**
+ * Look up the site's AI-chat system prompt (when one has been configured)
+ * so the domain-search prompts can ride along on the same brand voice.
+ *
+ * @returns The persisted `chat_system_prompt` or `null` when unset.
+ */
+async function readSiteAiPrompt(db: D1Database, siteId: string): Promise<string | null> {
+  const row = await dbQueryOne<{ chat_system_prompt: string | null }>(
+    db,
+    'SELECT chat_system_prompt FROM ai_site_settings WHERE site_id = ?',
+    [siteId],
+  );
+  return row?.chat_system_prompt ?? null;
+}
+
+/**
+ * AI-powered creative domain search for a specific site.
+ *
+ * Fans out ~10 parallel Workers AI inferences (one per naming strategy),
+ * aggregates the candidate set, dedupes, then checks availability + price in
+ * a single bulk Cloudflare Registrar API call. Strategy metadata is
+ * preserved on every candidate so the UI can render a "metaphor" /
+ * "alliterative" badge per card.
+ *
+ * @route POST /api/sites/:siteId/domains/ai-search
+ * @auth Bearer required. Site ownership is enforced via D1 `org_id` predicate.
+ * @body `{ query: string }` — free-form designer brief used as extra context.
+ * @returns `{ data: { available, unavailable } }` where each is an array of
+ *   `{ name, tld, price_usd, available, strategy }`.
+ * @throws {AppError} `UNAUTHORIZED` / `NOT_FOUND` per the standard pattern.
+ *
+ * @example
+ * ```bash
+ * curl -X POST .../api/sites/$ID/domains/ai-search \
+ *   -H 'authorization: bearer $T' -d '{"query":"premium barber shop"}'
+ * ```
+ */
+api.post('/api/sites/:siteId/domains/ai-search', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('siteId');
+  const site = await dbQueryOne<{
+    id: string;
+    business_name: string | null;
+    business_type: string | null;
+    business_address: string | null;
+  }>(
+    c.env.DB,
+    'SELECT id, business_name, business_type, business_address FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [siteId, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  const body = (await c.req.json().catch(() => ({}))) as { query?: unknown };
+  const query = typeof body.query === 'string' ? body.query.trim().slice(0, 200) : '';
+
+  const sitePrompt = await readSiteAiPrompt(c.env.DB, siteId);
+  const businessName = site.business_name ?? 'the business';
+  const businessType = site.business_type ?? 'small business';
+  const address = site.business_address ?? '';
+
+  const baseContext = [
+    `Business name: ${businessName}`,
+    `Business type: ${businessType}`,
+    address ? `Location: ${address}` : '',
+    query ? `Designer brief: ${query}` : '',
+    sitePrompt ? `Brand voice (extract): ${sitePrompt.slice(0, 300)}` : '',
+    'Output strict format: a markdown list, one candidate per line, "domain.tld" only, no commentary.',
+    'Avoid hyphens unless musically helpful. Prefer ≤14 chars. Never reuse the exact business name verbatim.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const deadline = Date.now() + 25_000;
+
+  // Fan out one inference per strategy in parallel. Each promise resolves to a
+  // typed `{strategy, candidates[]}` regardless of model failure so the
+  // aggregator can keep partial results.
+  const strategyRuns = AI_DOMAIN_STRATEGIES.map(async (strategy) => {
+    try {
+      const remaining = deadline - Date.now();
+      if (remaining <= 200) return { strategy: strategy.id, candidates: [] as string[] };
+      const ai = c.env.AI as unknown as {
+        run: (model: string, opts: unknown) => Promise<unknown>;
+      };
+      const raw = await Promise.race([
+        ai.run('@cf/meta/llama-3.3-70b-instruct', {
+          messages: [
+            { role: 'system', content: strategy.instruction },
+            { role: 'user', content: baseContext },
+          ],
+          max_tokens: 256,
+        }),
+        new Promise((resolve) => setTimeout(() => resolve(null), Math.min(remaining, 12_000))),
+      ]);
+      return { strategy: strategy.id, candidates: parseDomainCandidates(raw) };
+    } catch (err) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'ai_domain_search',
+          message: 'strategy_failed',
+          strategy: strategy.id,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
+      return { strategy: strategy.id, candidates: [] };
+    }
+  });
+
+  const strategyResults = await Promise.all(strategyRuns);
+
+  // Dedupe across strategies; first writer wins so the strategy badge stays
+  // stable on subsequent re-renders.
+  const seen = new Map<string, string>();
+  for (const { strategy, candidates } of strategyResults) {
+    for (const name of candidates) {
+      if (!seen.has(name)) seen.set(name, strategy);
+    }
+  }
+
+  const allNames = Array.from(seen.keys()).slice(0, 50);
+  if (allNames.length === 0) {
+    return c.json({ data: { available: [], unavailable: [] } });
+  }
+
+  const availabilityResult = await domainService.checkDomainAvailability(c.env, allNames);
+
+  // Soft failure: surface every candidate as "availability unknown" rather
+  // than empty.
+  const availabilityRows = Array.isArray(availabilityResult)
+    ? availabilityResult
+    : allNames.map((n) => ({
+        name: n,
+        tld: n.split('.').slice(1).join('.'),
+        available: false,
+        price_usd: 0,
+      }));
+
+  type Card = {
+    name: string;
+    tld: string;
+    price_usd: number;
+    available: boolean;
+    strategy: string;
+  };
+  const available: Card[] = [];
+  const unavailable: Card[] = [];
+
+  for (const row of availabilityRows) {
+    const card: Card = {
+      name: row.name,
+      tld: row.tld,
+      price_usd: row.price_usd,
+      available: row.available,
+      strategy: seen.get(row.name) ?? 'literal',
+    };
+    (card.available ? available : unavailable).push(card);
+  }
+
+  // Fire-and-forget analytics: never block the user response on PostHog.
+  try {
+    posthog.trackDomain(c.env, c.executionCtx, 'ai_searched', c.get('userId') || orgId, {
+      site_id: siteId,
+      available_count: available.length,
+      unavailable_count: unavailable.length,
+      query_length: query.length,
+    });
+  } catch {
+    /* ignore — analytics never blocks */
+  }
+
+  return c.json({ data: { available, unavailable } });
+});
+
+/**
+ * Single-domain availability + pricing probe via Cloudflare Registrar.
+ *
+ * @route GET /api/sites/:siteId/domains/availability
+ * @auth Bearer required. Site ownership enforced.
+ * @queryParam name - Fully-qualified domain to check.
+ * @returns `{ data: { name, available, price_usd, tld } }`.
+ *
+ * @example
+ * ```bash
+ * curl '.../api/sites/$ID/domains/availability?name=acme.com'
+ * ```
+ */
+api.get('/api/sites/:siteId/domains/availability', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('siteId');
+  const site = await dbQueryOne<{ id: string }>(
+    c.env.DB,
+    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [siteId, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  const name = (c.req.query('name') ?? '').toLowerCase().trim();
+  if (!/^[a-z0-9][a-z0-9-]*\.[a-z]{2,12}$/.test(name)) {
+    throw badRequest('Provide a valid `name` query parameter');
+  }
+
+  const result = await domainService.checkDomainAvailability(c.env, [name]);
+  if (!Array.isArray(result)) {
+    return c.json({
+      data: { name, available: false, price_usd: 0, tld: name.split('.').slice(1).join('.') },
+    });
+  }
+  return c.json({ data: result[0] });
+});
+
+/**
+ * Register a domain through Cloudflare Registrar AND automatically provision
+ * a Cloudflare for SaaS custom hostname for the requesting site so DNS +
+ * SSL come up in a single user-visible step.
+ *
+ * @route POST /api/sites/:siteId/domains/register
+ * @auth Bearer required. Site ownership enforced.
+ * @body `{ domain: string }`.
+ * @returns `{ data: { domain, hostname_id, status } }`.
+ * @throws {AppError} `DOMAIN_PROVISIONING_ERROR` when CF Registrar refuses.
+ *
+ * @example
+ * ```bash
+ * curl -X POST .../api/sites/$ID/domains/register \
+ *   -d '{"domain":"acme.com"}'
+ * ```
+ */
+api.post('/api/sites/:siteId/domains/register', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('siteId');
+  const site = await dbQueryOne<{ id: string; slug: string }>(
+    c.env.DB,
+    'SELECT id, slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [siteId, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  const body = (await c.req.json().catch(() => ({}))) as { domain?: unknown };
+  const domain =
+    typeof body.domain === 'string' ? body.domain.toLowerCase().trim() : '';
+  if (!/^[a-z0-9][a-z0-9-]*\.[a-z]{2,12}$/.test(domain)) {
+    throw badRequest('`domain` must be a valid FQDN like "acme.com"');
+  }
+
+  // 1. Register at Cloudflare Registrar.
+  const registration = await domainService.registerDomain(c.env, domain);
+
+  // 2. Provision the matching CF for SaaS custom hostname (sets up SSL +
+  //    routes traffic to this Worker). Wrap in try/catch — we never want the
+  //    hostname step to roll back a successful registration silently.
+  let hostnameResult: { hostname: string; status: string } | null = null;
+  try {
+    const r = await domainService.provisionCustomDomain(c.env.DB, c.env, {
+      org_id: orgId,
+      site_id: siteId,
+      hostname: domain,
+    });
+    hostnameResult = { hostname: r.hostname, status: r.status };
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'domain_register',
+        message: 'hostname_provision_failed_after_registration',
+        domain,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
+
+  // Look up the resulting hostname row so the UI can navigate by ID.
+  const hostnameRow = await dbQueryOne<{ id: string; status: string }>(
+    c.env.DB,
+    'SELECT id, status FROM hostnames WHERE site_id = ? AND hostname = ? AND deleted_at IS NULL',
+    [siteId, domain],
+  );
+
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: c.get('userId') ?? null,
+    action: 'domain.registered',
+    target_type: 'domain',
+    target_id: hostnameRow?.id ?? siteId,
+    metadata_json: {
+      site_id: siteId,
+      domain,
+      registrar: 'cloudflare',
+      expires_at: registration.expires_at,
+      hostname_provisioned: Boolean(hostnameResult),
+    },
+    request_id: c.get('requestId'),
+  });
+
+  try {
+    posthog.trackDomain(c.env, c.executionCtx, 'registered', c.get('userId') || orgId, {
+      site_id: siteId,
+      domain,
+    });
+  } catch {
+    /* ignore */
+  }
+
+  return c.json(
+    {
+      data: {
+        domain,
+        hostname_id: hostnameRow?.id ?? null,
+        status: hostnameRow?.status ?? registration.status,
+      },
+    },
+    201,
+  );
+});
+
+/**
+ * Initiate a port-out for a domain previously registered through
+ * Cloudflare. Unlocks the domain, fetches the EPP auth code and surfaces it
+ * to the user along with instructions for the gaining registrar.
+ *
+ * @route POST /api/sites/:siteId/domains/:domain/transfer-out
+ * @auth Bearer required. Site ownership enforced AND the hostname row must
+ *   belong to the same site (defence in depth).
+ * @body `{ new_registrar?: string }` — optional, recorded in the audit log.
+ * @returns `{ data: { auth_code, registrar_locked, instructions_url } }`.
+ *
+ * @example
+ * ```bash
+ * curl -X POST .../api/sites/$ID/domains/acme.com/transfer-out \
+ *   -d '{"new_registrar":"namecheap"}'
+ * ```
+ */
+api.post('/api/sites/:siteId/domains/:domain/transfer-out', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('siteId');
+  const domain = (c.req.param('domain') ?? '').toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]*\.[a-z]{2,12}$/.test(domain)) {
+    throw badRequest('Invalid domain in path');
+  }
+
+  const site = await dbQueryOne<{ id: string }>(
+    c.env.DB,
+    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [siteId, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  // Verify the domain belongs to this site (and is not already deleted).
+  const hostnameRow = await dbQueryOne<{ id: string; hostname: string }>(
+    c.env.DB,
+    'SELECT id, hostname FROM hostnames WHERE site_id = ? AND hostname = ? AND deleted_at IS NULL',
+    [siteId, domain],
+  );
+  if (!hostnameRow) throw notFound('Domain not found for this site');
+
+  const body = (await c.req.json().catch(() => ({}))) as { new_registrar?: unknown };
+  const newRegistrar = typeof body.new_registrar === 'string' ? body.new_registrar : undefined;
+
+  const transfer = await domainService.initiateDomainTransfer(c.env, domain);
+
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: c.get('userId') ?? null,
+    action: 'domain.transfer_out_initiated',
+    target_type: 'domain',
+    target_id: hostnameRow.id,
+    metadata_json: {
+      site_id: siteId,
+      domain,
+      new_registrar: newRegistrar ?? null,
+      registrar_locked: false,
+    },
+    request_id: c.get('requestId'),
+  });
+
+  return c.json({ data: transfer });
+});
+
+/**
+ * @route GET /api/auth/google-drive/callback
+ *
+ * Per-site Google Drive OAuth callback. Looks up the state row, exchanges
+ * the auth code for tokens, encrypts and persists them on the site's
+ * ai_site_settings row, then 302s back to the admin AI Chat tab.
+ */
+api.get('/api/auth/google-drive/callback', async (c) => {
+  const code = c.req.query('code');
+  const state = c.req.query('state');
+  if (!code || !state) {
+    return c.redirect(`https://${DOMAINS.SITES_BASE}/admin/settings?tab=ai-chat&drive=error`);
+  }
+  const stateRow = await c.env.DB
+    .prepare(
+      `SELECT id, site_id, org_id, redirect_url, expires_at FROM google_drive_oauth_states
+       WHERE state = ? AND deleted_at IS NULL`,
+    )
+    .bind(state)
+    .first<{
+      id: string;
+      site_id: string;
+      org_id: string;
+      redirect_url: string | null;
+      expires_at: string;
+    }>();
+  if (!stateRow || Date.parse(stateRow.expires_at) < Date.now()) {
+    return c.redirect(
+      `https://${DOMAINS.SITES_BASE}/admin/settings?tab=ai-chat&drive=expired`,
+    );
+  }
+  try {
+    const callbackUrl = `${new URL(c.req.url).origin}/api/auth/google-drive/callback`;
+    const { exchangeCode, persistTokens } = await import('../services/google_drive.js');
+    const tokens = await exchangeCode(c.env, code, callbackUrl);
+    await persistTokens(c.env, c.env.DB, stateRow.site_id, tokens);
+    await c.env.DB
+      .prepare(`UPDATE google_drive_oauth_states SET deleted_at = datetime('now') WHERE id = ?`)
+      .bind(stateRow.id)
+      .run();
+    const target = stateRow.redirect_url ?? '/admin/settings?tab=ai-chat';
+    const sep = target.includes('?') ? '&' : '?';
+    const base = target.startsWith('http') ? target : `https://${DOMAINS.SITES_BASE}${target}`;
+    return c.redirect(`${base}${sep}drive=connected`);
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'google-drive-callback',
+        message: 'oauth exchange failed',
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    return c.redirect(`https://${DOMAINS.SITES_BASE}/admin/settings?tab=ai-chat&drive=error`);
+  }
+});
+
+/**
+ * Client-error sink — item #53.
+ *
+ * Accepts uncaught client-side render errors forwarded by the Angular
+ * {@link components/section-error-boundary.SectionErrorBoundaryComponent}
+ * and fans them out to Sentry via the Worker's Toucan client. Best-effort;
+ * never throws.
+ *
+ * @route POST /api/internal/client-error
+ * @public Anyone with a session can self-report. Bodies are size-capped at
+ *   16 KiB upstream by `payloadLimitMiddleware`.
+ *
+ * @example
+ * ```ts
+ * fetch('/api/internal/client-error', {
+ *   method: 'POST',
+ *   headers: { 'Content-Type': 'application/json' },
+ *   body: JSON.stringify({ message, stack, route, userId }),
+ * });
+ * ```
+ */
+api.post('/api/internal/client-error', async (c) => {
+  try {
+    const body = (await c.req.json().catch(() => ({}))) as {
+      message?: unknown;
+      stack?: unknown;
+      route?: unknown;
+      userId?: unknown;
+    };
+    const message = typeof body.message === 'string' ? body.message.slice(0, 1000) : 'unknown';
+    const stack = typeof body.stack === 'string' ? body.stack.slice(0, 4000) : undefined;
+    const route = typeof body.route === 'string' ? body.route.slice(0, 300) : undefined;
+    const userId = typeof body.userId === 'string' ? body.userId.slice(0, 100) : undefined;
+
+    captureError(c, new Error(`client_error: ${message}`), {
+      stack,
+      route,
+      userId,
+      origin: 'angular_section_error_boundary',
+    });
+
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'client_error',
+        message,
+        route,
+        userId,
+        request_id: c.get('requestId'),
+      }),
+    );
+    return c.json({ ok: true });
+  } catch (err) {
+    // Defensive: never bubble a 500 from the error sink.
+    captureError(c, err, { route: 'client-error-sink' });
+    return c.json({ ok: false }, 200);
+  }
+});
+
+// ─── #97 Stripe Connect ──────────────────────────────────────
+// Customer-side payments: each org connects their own Stripe account through
+// our platform and we keep a 1.5% platform fee. See services/stripe_connect.ts.
+
+import * as connectService from '../services/stripe_connect.js';
+import * as usageMetering from '../services/usage_metering.js';
+import {
+  sendWeeklyDigestsForAllOrgs,
+  verifyUnsubscribeToken,
+} from '../services/weekly_digest.js';
+
+/**
+ * @route POST /api/billing/connect/start
+ * @auth Bearer — orgId required.
+ * @returns `{ data: { url, account_id } }` — redirect URL for Stripe onboarding.
+ */
+api.post('/api/billing/connect/start', async (c) => {
+  const orgId = c.get('orgId');
+  const userId = c.get('userId');
+  if (!orgId || !userId) throw unauthorized('Must be authenticated');
+
+  const user = await dbQueryOne<{ email: string | null }>(
+    c.env.DB,
+    'SELECT email FROM users WHERE id = ? AND deleted_at IS NULL',
+    [userId],
+  );
+  if (!user?.email) throw badRequest('User has no email on file');
+
+  const body = (await c.req.json().catch(() => ({}))) as {
+    refresh_url?: string;
+    return_url?: string;
+  };
+  const refreshUrl =
+    body.refresh_url ?? `https://${DOMAINS.SITES_BASE}/admin/billing?connect=refresh`;
+  const returnUrl =
+    body.return_url ?? `https://${DOMAINS.SITES_BASE}/admin/billing?connect=done`;
+
+  const result = await connectService.startConnectOnboarding(c.env, c.env.DB, {
+    orgId,
+    email: user.email,
+    refreshUrl,
+    returnUrl,
+  });
+
+  await auditService
+    .writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId,
+      action: 'billing.connect.started',
+      target_type: 'org',
+      target_id: orgId,
+      metadata_json: { account_id: result.account_id, message: 'Stripe Connect onboarding started' },
+      request_id: c.get('requestId'),
+    })
+    .catch(() => {});
+
+  return c.json({ data: result });
+});
+
+/**
+ * @route GET /api/billing/connect/status
+ * @auth Bearer — orgId required.
+ * @returns `{ data: { connected, charges_enabled, payouts_enabled, dashboard_url } }`
+ */
+api.get('/api/billing/connect/status', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  const status = await connectService.getConnectStatus(c.env, c.env.DB, orgId);
+  return c.json({ data: status });
+});
+
+/**
+ * @route POST /api/billing/connect/disconnect
+ * @auth Bearer — orgId required.
+ */
+api.post('/api/billing/connect/disconnect', async (c) => {
+  const orgId = c.get('orgId');
+  const userId = c.get('userId');
+  if (!orgId || !userId) throw unauthorized('Must be authenticated');
+
+  const result = await connectService.disconnectConnect(c.env, c.env.DB, orgId);
+
+  await auditService
+    .writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId,
+      action: 'billing.connect.disconnected',
+      target_type: 'org',
+      target_id: orgId,
+      metadata_json: { message: 'Stripe Connect account disconnected', ...result },
+      request_id: c.get('requestId'),
+    })
+    .catch(() => {});
+
+  return c.json({ data: result });
+});
+
+// ─── #99 Usage metering ──────────────────────────────────────
+
+/**
+ * @route POST /api/billing/usage
+ * @description Internal record-a-usage-event endpoint. Used by middleware on
+ *   the originating Worker — never call directly from a browser.
+ * @auth Bearer — orgId required.
+ */
+api.post('/api/billing/usage', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  const body = (await c.req.json()) as {
+    metric?: string;
+    value?: number;
+    site_id?: string | null;
+  };
+  if (!body.metric || (body.metric !== 'ai_calls' && body.metric !== 'bytes_egress' && body.metric !== 'image_generations')) {
+    throw badRequest('metric must be one of: ai_calls, bytes_egress, image_generations');
+  }
+  if (typeof body.value !== 'number' || body.value < 0) {
+    throw badRequest('value must be a non-negative number');
+  }
+  await usageMetering.recordUsage(c.env, c.env.DB, {
+    orgId,
+    metric: body.metric,
+    value: body.value,
+    siteId: body.site_id ?? null,
+  });
+  return c.json({ data: { ok: true } });
+});
+
+/**
+ * @route GET /api/billing/usage/this-month
+ * @auth Bearer — orgId required.
+ */
+api.get('/api/billing/usage/this-month', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  const payload = await usageMetering.getUsagePanelPayload(c.env.DB, orgId);
+  return c.json({ data: payload });
+});
+
+// ─── #96 Weekly digest opt-out ───────────────────────────────
+
+/**
+ * @route GET /api/email/unsubscribe?token=<signed>
+ * @public — one-click unsubscribe link shipped in every weekly digest.
+ * @returns HTML confirmation page; 400 on invalid token.
+ */
+api.get('/api/email/unsubscribe', async (c) => {
+  const token = c.req.query('token') || '';
+  if (!token) {
+    return c.html('<html><body><h1>Missing token</h1></body></html>', 400);
+  }
+  const secret =
+    c.env.WEEKLY_DIGEST_SECRET ?? c.env.STRIPE_WEBHOOK_SECRET ?? 'weekly-digest-fallback';
+  const orgId = await verifyUnsubscribeToken(token, secret);
+  if (!orgId) {
+    return c.html('<html><body><h1>Invalid or expired token</h1></body></html>', 400);
+  }
+  await c.env.DB.prepare('UPDATE orgs SET digest_opt_out = 1, updated_at = ? WHERE id = ?')
+    .bind(new Date().toISOString(), orgId)
+    .run();
+
+  return c.html(
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Unsubscribed</title>
+     <style>body{background:#060610;color:#e2e8f0;font-family:-apple-system,sans-serif;
+       display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;}
+       .card{background:rgba(255,255,255,0.03);border:1px solid rgba(0,229,255,0.18);
+       border-radius:14px;padding:32px 36px;text-align:center;max-width:480px;}
+       h1{color:#00E5FF;margin:0 0 8px;font-size:22px;} p{color:#94a3b8;margin:0;}</style>
+     </head><body><div class="card"><h1>You're unsubscribed</h1>
+     <p>We won't send you any more weekly digest emails for this organization.</p>
+     </div></body></html>`,
+    200,
+  );
+});
+
+/**
+ * @route POST /api/email/digest/trigger
+ * @description Admin-only manual trigger — exposes the cron entrypoint behind
+ *   the same authenticated org boundary so an org owner can preview the digest
+ *   on demand.
+ * @auth Bearer — orgId required.
+ */
+api.post('/api/email/digest/trigger', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  const result = await sendWeeklyDigestsForAllOrgs(c.env);
+  return c.json({ data: result });
+});
 
 export { api };

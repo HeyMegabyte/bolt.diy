@@ -31,6 +31,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env, Variables } from './types/env.js';
 import { requestIdMiddleware } from './middleware/request_id.js';
+import { requestLogger } from './lib/log.js';
 import { errorHandler } from './middleware/error_handler.js';
 import { payloadLimitMiddleware } from './middleware/payload_limit.js';
 import { securityHeadersMiddleware } from './middleware/security_headers.js';
@@ -44,22 +45,16 @@ import { forms } from './routes/forms.js';
 import { aiAdmin } from './routes/ai_admin.js';
 import { aiEndpointsPublic } from './routes/ai_endpoints_public.js';
 import { mcpOauth } from './routes/mcp_oauth.js';
+import { docs } from './routes/docs.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbUpdate } from './services/db.js';
 import { registerAllPrompts } from './services/ai_workflows.js';
 import { DOMAINS } from '@project-sites/shared';
 export { SiteGenerationWorkflow } from './workflows/site-generation.js';
+export { DriveSyncWorkflow } from './workflows/drive-sync.js';
+export { ImageGenerationWorkflow } from './workflows/image-generation.js';
 export { SiteBuilderContainer } from './container.js';
-
-// Stub DO classes from a prior session, present so the delete-class
-// migration in wrangler.toml can drop them. Once the next deploy succeeds
-// and clears the bindings, remove these and the migration block.
-export class TraceHub {
-  async fetch(): Promise<Response> { return new Response('deprecated', { status: 410 }); }
-}
-export class ActivityHub {
-  async fetch(): Promise<Response> { return new Response('deprecated', { status: 410 }); }
-}
+export { TraceHub, ActivityHub } from './durable_objects/trace_hub.js';
 
 // Register all prompt definitions at module load
 registerAllPrompts();
@@ -70,6 +65,9 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // Request ID on every request
 app.use('*', requestIdMiddleware);
+
+// Structured per-request access log (item #50)
+app.use('*', requestLogger);
 
 // Payload size limit
 app.use('*', payloadLimitMiddleware);
@@ -119,10 +117,37 @@ app.use(
 
 // Rate limiting on sensitive endpoints
 import { rateLimitMiddleware } from './middleware/rate_limit.js';
+
+// ─── Auth endpoints (per-IP sliding window, KV-backed) ──────
+// Item #6: every /api/auth/* surface gets a budget. Magic-link send is
+// strictest (email cost + DoS shield); verifies and OAuth start/callback
+// pairs share looser budgets. Keys partition by path so one endpoint's
+// abuse never starves another.
 app.use(
   '/api/auth/magic-link',
-  rateLimitMiddleware({ maxRequests: 5, windowSeconds: 300, prefix: 'rl:magic' }),
+  rateLimitMiddleware({ maxRequests: 5, windowSeconds: 60, prefix: 'auth:magic-link' }),
 );
+app.use(
+  '/api/auth/magic-link/verify',
+  rateLimitMiddleware({ maxRequests: 10, windowSeconds: 60, prefix: 'auth:magic-link-verify' }),
+);
+app.use(
+  '/api/auth/google',
+  rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'auth:google' }),
+);
+app.use(
+  '/api/auth/google/callback',
+  rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'auth:google-callback' }),
+);
+app.use(
+  '/api/auth/github',
+  rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'auth:github' }),
+);
+app.use(
+  '/api/auth/github/callback',
+  rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'auth:github-callback' }),
+);
+
 app.use(
   '/api/search/businesses',
   rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:search' }),
@@ -152,8 +177,37 @@ app.route('/', forms); // Public form ingest + auth-gated submissions/integratio
 app.route('/', aiEndpointsPublic); // Public /api/ai/:slug/:endpoint dispatcher
 app.route('/', mcpOauth); // MCP OAuth start + callback (MailChimp/Stripe/Resend/HubSpot)
 app.route('/', aiAdmin); // Form submissions, AI logs, chat, endpoints, credits, alerts, team
+app.route('/', docs); // Interactive API explorer (OpenAPI + Angular overview)
 app.route('/', api);
 app.route('/', webhooks);
+
+// ─── Public status page (item #100) ─────────────────────────
+// Self-hosted status page served on every hostname so customers can hit
+// /status on the marketing root OR their custom-domain.com/status and see
+// live dependency health. Polls /health/deep on the same origin every 30s.
+app.get('/status', async (c) => {
+  const hostname = c.req.header('host') ?? '';
+  if (
+    hostname === DOMAINS.SITES_BASE ||
+    hostname === `www.${DOMAINS.SITES_BASE}` ||
+    hostname.startsWith('localhost')
+  ) {
+    try {
+      const r2 = await c.env.SITES_BUCKET.get('marketing/status.html');
+      if (r2) {
+        return new Response(await r2.text(), {
+          headers: { 'Content-Type': 'text/html', 'Cache-Control': 'public, max-age=60' },
+        });
+      }
+    } catch {
+      // fall through to inline below
+    }
+  }
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Status · Project Sites</title><meta name="color-scheme" content="dark"><link rel="icon" href="/favicon.ico"><style>:root{--bg:#060610;--accent:#00e5ff;--text:#e2e8f0;--text-muted:#94a3b8;--card:rgba(255,255,255,0.03);--border:rgba(0,229,255,0.18);--green:#22c55e;--amber:#f59e0b;--red:#ef4444}*{box-sizing:border-box}html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh}.wrap{max-width:760px;margin:0 auto;padding:56px 24px 80px}.eyebrow{font-size:12px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;font-weight:600}h1{font-size:36px;margin:8px 0 6px;font-weight:700}.summary{font-size:16px;color:var(--text-muted);margin-bottom:28px}.live-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.35);color:var(--green);font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:1px}.live-pill::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,0.4)}50%{box-shadow:0 0 0 6px rgba(34,197,94,0)}}.status-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px}.status-pill[data-state='up']{background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.35);color:var(--green)}.status-pill[data-state='degraded']{background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);color:var(--amber)}.status-pill[data-state='down']{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);color:var(--red)}.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin-bottom:14px}.row{display:flex;align-items:center;justify-content:space-between;gap:16px}.row+.row{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.05)}.row .label{font-weight:600;font-size:15px}.row .sub{font-size:12px;color:var(--text-muted);margin-top:2px}footer{margin-top:36px;font-size:12px;color:var(--text-muted);text-align:center}footer a{color:var(--accent);text-decoration:none}.hero-status{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}</style></head><body><main class="wrap"><div class="eyebrow">System status</div><h1 id="overall-headline">All systems operational</h1><p class="summary" id="summary-text">Live data refreshed every 30 seconds.</p><div class="hero-status"><span class="live-pill">Live</span><span id="last-checked" style="font-size:12px;color:var(--text-muted)"></span></div><section class="card"><div class="row"><div><div class="label">D1 (database)</div><div class="sub" id="d1-sub">Primary relational store</div></div><span class="status-pill" data-state="up" id="d1-pill">UP</span></div><div class="row"><div><div class="label">KV (cache)</div><div class="sub" id="kv-sub">Host resolution + prompt store</div></div><span class="status-pill" data-state="up" id="kv-pill">UP</span></div><div class="row"><div><div class="label">R2 (object storage)</div><div class="sub" id="r2-sub">Static site bucket</div></div><span class="status-pill" data-state="up" id="r2-pill">UP</span></div><div class="row"><div><div class="label">AI (Workers AI)</div><div class="sub" id="ai-sub">LLM inference binding</div></div><span class="status-pill" data-state="up" id="ai-pill">UP</span></div></section><footer>Powered by Cloudflare Workers · auto-refresh every 30s · <a href="/health/deep">/health/deep JSON</a></footer></main><script>const STATE_LABEL={up:'UP',degraded:'DEGRADED',down:'DOWN'};async function refresh(){try{const res=await fetch('/health/deep',{cache:'no-store'});const data=await res.json();const checks=data.checks||{};const components=['d1','kv','r2','ai'];let worst='up';for(const c of components){const check=checks[c];let state='up';if(!check)state='down';else if(check.status==='error')state='down';else if(check.status==='degraded')state='degraded';const pill=document.getElementById(c+'-pill');if(pill){pill.dataset.state=state;pill.textContent=STATE_LABEL[state]}if(state==='down')worst='down';else if(state==='degraded'&&worst==='up')worst='degraded'}const head=document.getElementById('overall-headline');const summary=document.getElementById('summary-text');if(worst==='up'){head.textContent='All systems operational';summary.textContent='Every monitored dependency is responding within budget.'}else if(worst==='degraded'){head.textContent='Partial degradation';summary.textContent='One or more dependencies are responding slowly.'}else{head.textContent='Active incident';summary.textContent='One or more dependencies are unreachable. We are investigating.'}document.getElementById('last-checked').textContent='Last checked '+new Date().toLocaleTimeString()}catch(err){document.getElementById('overall-headline').textContent='Status unavailable'}}refresh();setInterval(refresh,30000);</script></body></html>`;
+  return new Response(html, {
+    headers: { 'Content-Type': 'text/html', 'Cache-Control': 'public, max-age=60' },
+  });
+});
 
 // Diagnostic: round-trip the container with a static index.html. Proves
 // container can boot → write file → upload R2 → return, without Claude Code.
@@ -300,6 +354,20 @@ app.all('*', async (c) => {
       },
       200,
     );
+  }
+
+  // template.projectsites.dev → proxy to Cloudflare Pages (gallery of applied examples)
+  if (hostname === 'template.projectsites.dev') {
+    const pagesUrl = `https://template-projectsites-dev.pages.dev${path}${url.search}`;
+    const pagesRes = await fetch(pagesUrl, {
+      method: c.req.method,
+      headers: c.req.raw.headers,
+      body: ['GET', 'HEAD'].includes(c.req.method) ? undefined : c.req.raw.body,
+    });
+    return new Response(pagesRes.body, {
+      status: pagesRes.status,
+      headers: pagesRes.headers,
+    });
   }
 
   // editor.projectsites.dev → proxy to Cloudflare Pages (bolt-diy)
@@ -546,6 +614,67 @@ export default {
           error: err instanceof Error ? err.message : String(err),
         }),
       );
+    }
+
+    // Monday 14:00 UTC (9 AM ET) — weekly summary digest emails (#96).
+    // Idempotent per (org, ISO week) — safe to retry/replay.
+    if (_event.cron === '0 14 * * 1') {
+      try {
+        const { sendWeeklyDigestsForAllOrgs } = await import('./services/weekly_digest.js');
+        const result = await sendWeeklyDigestsForAllOrgs(env);
+        console.warn(
+          JSON.stringify({
+            level: 'info',
+            service: 'cron',
+            message: 'Weekly digest dispatched',
+            ...result,
+          }),
+        );
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'cron',
+            message: 'Weekly digest cron failed',
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    }
+
+    // Hourly: re-pull every connected Google Drive folder for AI chat context.
+    // Soft-fails per site so one failure cannot block the rest.
+    if (_event.cron === '0 * * * *' || _event.cron === '0 0 * * *') {
+      try {
+        const { syncAllSites } = await import('./services/ai_drive_sync.js');
+        const results = await syncAllSites(env, env.DB);
+        const summary = results.reduce(
+          (acc, r) => {
+            acc.total += 1;
+            if (r.ok) acc.ok += 1;
+            else acc.failed += 1;
+            return acc;
+          },
+          { total: 0, ok: 0, failed: 0 },
+        );
+        console.warn(
+          JSON.stringify({
+            level: 'info',
+            service: 'cron',
+            message: 'Drive sync complete',
+            ...summary,
+          }),
+        );
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'cron',
+            message: 'Drive sync failed',
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
     }
   },
 };

@@ -30,6 +30,7 @@ import {
 import type { Env, Variables } from '../types/env.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { dispatchToIntegrations, type IntegrationRow } from '../services/newsletter_dispatch.js';
+import { improveRouterPrompt } from '../services/form_router.js';
 
 const forms = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -470,6 +471,34 @@ forms.delete('/api/sites/:siteId/integrations/:id', async (c) => {
   );
   if (result.changes === 0) throw notFound('Integration not found');
   return c.json({ data: { deleted: true } });
+});
+
+/**
+ * Improve OR seed the form-router prompt.
+ *
+ * @remarks
+ * - When the request body `value` is empty/missing/whitespace → returns the
+ *   built-in {@link SAMPLE_ROUTER_PROMPT} seed (no LLM call, no credit cost,
+ *   never 500s).
+ * - When `value` is non-empty → asks Workers AI to tighten it while
+ *   preserving every routing rule the customer already wrote.
+ *
+ * The endpoint is intentionally permissive on input shape — `value` is
+ * optional, body may be empty `{}`, and any AI failure falls back to the
+ * seed prompt so the UI always gets a usable response.
+ *
+ * @example
+ * POST /api/sites/abc/form-router/improve  {}
+ * → 200 { data: { mode: 'seed', text: '<seed prompt>' } }
+ */
+forms.post('/api/sites/:siteId/form-router/improve', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  await loadOwnedSite(c, orgId);
+  const body = (await c.req.json().catch(() => ({}))) as { value?: unknown };
+  const value = typeof body.value === 'string' ? body.value : '';
+  const out = await improveRouterPrompt(c.env, value);
+  return c.json({ data: out });
 });
 
 // ── helpers ──────────────────────────────────────────────────

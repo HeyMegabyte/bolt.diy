@@ -2,6 +2,7 @@ import { ErrorHandler, Injectable, inject, NgZone } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { ToastService } from './toast.service';
+import { SectionErrorBus } from '../components/section-error-boundary/section-error-bus';
 
 /** Maps HTTP status codes to user-friendly messages. */
 function httpStatusMessage(status: number): string {
@@ -54,6 +55,7 @@ export class GlobalErrorHandler implements ErrorHandler {
   private toast = inject(ToastService);
   private router = inject(Router);
   private zone = inject(NgZone);
+  private bus = inject(SectionErrorBus);
 
   /** Rate limiter: track toast timestamps. */
   private toastTimestamps: number[] = [];
@@ -65,6 +67,17 @@ export class GlobalErrorHandler implements ErrorHandler {
 
     // Skip HttpErrorResponse — already handled by individual services/interceptors
     if (error instanceof HttpErrorResponse) return;
+
+    // Item #53: forward render-time crashes to the section error boundary
+    // so the rest of the dashboard keeps working. Best-effort POST to
+    // `/api/internal/client-error` happens when the user clicks "Report".
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const stack = error instanceof Error ? error.stack : undefined;
+    try {
+      this.bus.push({ message, stack, route });
+    } catch {
+      // Never let bus failure break the handler.
+    }
 
     this.handleGenericError(error, { timestamp, route, userAgent });
   }

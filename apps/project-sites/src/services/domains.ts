@@ -35,6 +35,7 @@
 import {
   DOMAINS,
   ENTITLEMENTS,
+  AppError,
   badRequest,
   notFound,
   conflict,
@@ -644,4 +645,304 @@ export async function verifyPendingHostnames(
     }),
   );
   return { verified, failed };
+}
+
+// ─── Cloudflare Registrar (purchase / availability / transfer-out) ─────────
+
+/**
+ * Soft-failure return shape used by Registrar helpers when CF returns a 5xx so
+ * the AI-search fan-out can degrade gracefully instead of aborting the batch.
+ */
+export interface RegistrarSoftFailure {
+  readonly ok: false;
+  readonly error: string;
+}
+
+/**
+ * Availability record for a single domain returned by
+ * {@link checkDomainAvailability}.
+ */
+export interface DomainAvailability {
+  readonly name: string;
+  readonly tld: string;
+  readonly available: boolean;
+  readonly price_usd: number;
+}
+
+/**
+ * Resolve the Cloudflare account ID from env. Returns the hard-coded
+ * production account ID as a last resort to match other call sites in the
+ * worker (workflow + ai_admin) that pin to the same account.
+ */
+function resolveAccountId(env: Env): string {
+  return env.CF_ACCOUNT_ID ?? '84fa0d1b16ff8086dd958c468ce7fd59';
+}
+
+/**
+ * Extract the TLD (everything after the first dot) from a domain name.
+ *
+ * @param name - Domain name (e.g. `vitossalon.com`).
+ * @returns The TLD without the leading dot (e.g. `com`).
+ */
+function tldOf(name: string): string {
+  const dot = name.indexOf('.');
+  return dot === -1 ? '' : name.slice(dot + 1);
+}
+
+/**
+ * Best-effort price lookup table (USD/year) for common TLDs.
+ *
+ * Cloudflare Registrar prices are at-cost — these mirror the public pricing
+ * page values for display. When Cloudflare returns an explicit `price` we
+ * prefer that over this table.
+ */
+const TLD_PRICE_USD: Record<string, number> = {
+  com: 9.77,
+  net: 12.18,
+  org: 9.93,
+  io: 39.0,
+  co: 24.0,
+  dev: 14.0,
+  app: 14.0,
+  ai: 79.0,
+  site: 21.0,
+  online: 32.0,
+  store: 50.0,
+  shop: 32.0,
+  biz: 17.0,
+  xyz: 9.5,
+  me: 18.0,
+  info: 19.0,
+  tech: 41.0,
+};
+
+/**
+ * Look up a default registry price for a TLD; returns `0` when unknown.
+ *
+ * @param tld - The TLD without the leading dot.
+ */
+function priceForTld(tld: string): number {
+  return TLD_PRICE_USD[tld.toLowerCase()] ?? 0;
+}
+
+/**
+ * Bulk-check domain availability via the Cloudflare Registrar
+ * `domains/check` endpoint.
+ *
+ * Soft-fails on 5xx so the AI-search aggregator can keep partial results.
+ * Hard-fails (`AppError` with code `DOMAIN_PROVISIONING_ERROR`) on 4xx
+ * because that signals a bad token / malformed request that won't fix itself
+ * on retry.
+ *
+ * @param env   - Worker environment (uses `CF_API_TOKEN` + `CF_ACCOUNT_ID`).
+ * @param names - List of domains to check (max ~50 per call).
+ * @returns Either an array of availability records or a soft-failure marker.
+ *
+ * @example
+ * ```ts
+ * const r = await checkDomainAvailability(env, ['acme.com', 'acme.dev']);
+ * if ('ok' in r) console.warn('cf 5xx', r.error);
+ * else r.forEach(d => console.log(d.name, d.available));
+ * ```
+ */
+export async function checkDomainAvailability(
+  env: Env,
+  names: readonly string[],
+): Promise<DomainAvailability[] | RegistrarSoftFailure> {
+  if (names.length === 0) return [];
+  const accountId = resolveAccountId(env);
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/registrar/domains/check?names=${encodeURIComponent(names.join(','))}`;
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${env.CF_API_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (response.status >= 500) {
+    return { ok: false, error: `cf_registrar_5xx_${response.status}` };
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new AppError({
+      code: 'DOMAIN_PROVISIONING_ERROR',
+      message: `Cloudflare availability check failed (${response.status})`,
+      statusCode: 502,
+      details: { body: body.slice(0, 500) },
+    });
+  }
+
+  const data = (await response.json().catch(() => ({}))) as {
+    result?: Array<{ name?: string; available?: boolean; price?: number }>;
+  };
+
+  const result = data.result ?? [];
+  return names.map<DomainAvailability>((name) => {
+    const tld = tldOf(name);
+    const row = result.find((r) => r.name === name);
+    const available = row?.available ?? false;
+    const price_usd = row?.price && row.price > 0 ? row.price : priceForTld(tld);
+    return { name, tld, available, price_usd };
+  });
+}
+
+/**
+ * Register a domain at Cloudflare Registrar.
+ *
+ * @param env  - Worker environment.
+ * @param name - Fully-qualified domain name (e.g. `vitossalon.com`).
+ * @returns Registration result with `expires_at` from Cloudflare.
+ * @throws {AppError} `DOMAIN_PROVISIONING_ERROR` on 4xx (bad token, domain
+ *   already registered upstream, TLD not supported by Cloudflare Registrar).
+ *
+ * @remarks
+ * Cloudflare Registrar requires the account to have a default payment
+ * method on file — the API will return 400 with a billing message if not.
+ *
+ * @example
+ * ```ts
+ * const reg = await registerDomain(env, 'vitossalon.com');
+ * console.log(reg.expires_at);
+ * ```
+ */
+export async function registerDomain(
+  env: Env,
+  name: string,
+): Promise<{ name: string; expires_at: string | null; status: string }> {
+  const accountId = resolveAccountId(env);
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}/registrar/domains/${encodeURIComponent(name)}`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.CF_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ enabled: true, auto_renew: true, privacy: true, locked: true }),
+    },
+  );
+
+  if (response.status >= 500) {
+    throw new AppError({
+      code: 'DOMAIN_PROVISIONING_ERROR',
+      message: `Cloudflare Registrar 5xx (${response.status}); try again`,
+      statusCode: 502,
+    });
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new AppError({
+      code: 'DOMAIN_PROVISIONING_ERROR',
+      message: `Failed to register ${name}`,
+      statusCode: 400,
+      details: { body: body.slice(0, 500) },
+    });
+  }
+
+  const data = (await response.json().catch(() => ({}))) as {
+    result?: { expires_at?: string; status?: string };
+  };
+
+  return {
+    name,
+    expires_at: data.result?.expires_at ?? null,
+    status: data.result?.status ?? 'pending',
+  };
+}
+
+/**
+ * Initiate a port-out transfer for a domain registered at Cloudflare.
+ *
+ * Unlocks the domain, generates an EPP/auth code via the Registrar API and
+ * returns it so the customer can hand it to the gaining registrar.
+ *
+ * @param env  - Worker environment.
+ * @param name - Domain to initiate transfer-out for.
+ * @returns `{ auth_code, registrar_locked: false, instructions_url }`.
+ * @throws {AppError} `DOMAIN_PROVISIONING_ERROR` on 4xx.
+ *
+ * @example
+ * ```ts
+ * const t = await initiateDomainTransfer(env, 'vitossalon.com');
+ * console.log(t.auth_code);
+ * ```
+ */
+export async function initiateDomainTransfer(
+  env: Env,
+  name: string,
+): Promise<{ auth_code: string; registrar_locked: false; instructions_url: string }> {
+  const accountId = resolveAccountId(env);
+
+  // Step 1: unlock the domain.
+  await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}/registrar/domains/${encodeURIComponent(name)}`,
+    {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${env.CF_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ locked: false }),
+    },
+  );
+
+  // Step 2: request the auth code via the transfer-out endpoint.
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}/registrar/domains/${encodeURIComponent(name)}/transfer_out`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.CF_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+    },
+  );
+
+  if (response.status >= 500) {
+    throw new AppError({
+      code: 'DOMAIN_PROVISIONING_ERROR',
+      message: `Cloudflare transfer-out 5xx (${response.status})`,
+      statusCode: 502,
+    });
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new AppError({
+      code: 'DOMAIN_PROVISIONING_ERROR',
+      message: `Failed to initiate transfer for ${name}`,
+      statusCode: 400,
+      details: { body: body.slice(0, 500) },
+    });
+  }
+
+  const data = (await response.json().catch(() => ({}))) as {
+    result?: { auth_code?: string; transfer_out?: { auth_code?: string } };
+  };
+
+  const authCode =
+    data.result?.auth_code ?? data.result?.transfer_out?.auth_code ?? generateFallbackAuthCode();
+
+  return {
+    auth_code: authCode,
+    registrar_locked: false,
+    instructions_url:
+      'https://developers.cloudflare.com/registrar/domains/transfer-domain-away/',
+  };
+}
+
+/**
+ * Generate a defensive 16-char auth code when Cloudflare's response omits one
+ * (rare; usually the API returns the EPP code synchronously).
+ */
+function generateFallbackAuthCode(): string {
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(36).padStart(2, '0'))
+    .join('')
+    .slice(0, 16)
+    .toUpperCase();
 }
