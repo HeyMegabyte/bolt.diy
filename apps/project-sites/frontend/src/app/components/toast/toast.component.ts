@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { ToastService } from '../../services/toast.service';
+import { ToastService, type Toast } from '../../services/toast.service';
 import { toastSlide } from '../../animations/motion';
 
 @Component({
@@ -7,39 +7,67 @@ import { toastSlide } from '../../animations/motion';
   standalone: true,
   animations: [toastSlide],
   template: `
-    <div class="toast-container" aria-live="polite" aria-atomic="true" role="status">
+    <div class="toast-container" aria-live="polite" aria-atomic="false">
       @for (toast of toastService.toasts(); track toast.id) {
         <div
           @toastSlide
           class="toast"
           [class]="'toast-' + toast.type"
           [attr.role]="toast.type === 'error' ? 'alert' : 'status'"
+          [attr.data-testid]="'toast-' + toast.type"
           tabindex="0"
-          (click)="toastService.dismiss(toast.id)"
+          (click)="dismissUnlessAction($event, toast)"
           (keydown.escape)="toastService.dismiss(toast.id)"
-          (keydown.enter)="toastService.dismiss(toast.id)"
         >
           <span class="toast-icon" aria-hidden="true">
             @switch (toast.type) {
               @case ('error') {
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10" /><path d="m15 9-6 6M9 9l6 6" />
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>
+                </svg>
+              }
+              @case ('warning') {
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                 </svg>
               }
               @case ('success') {
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" />
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>
                 </svg>
               }
               @default {
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
                 </svg>
               }
             }
           </span>
-          <span class="toast-text">{{ toast.message }}</span>
-          <button class="toast-close" (click)="$event.stopPropagation(); toastService.dismiss(toast.id)" aria-label="Dismiss notification">
+
+          <span class="toast-body">
+            <span class="toast-text">{{ toast.message }}</span>
+            @if (toast.correlationId) {
+              <span class="toast-correlation" title="Request ID — copy for support">
+                ref&nbsp;{{ toast.correlationId.slice(0, 8) }}
+              </span>
+            }
+          </span>
+
+          @if (toast.action) {
+            <button
+              class="toast-action"
+              type="button"
+              (click)="$event.stopPropagation(); runAction(toast)"
+            >{{ toast.action.label }}</button>
+          }
+
+          <button
+            class="toast-close"
+            type="button"
+            (click)="$event.stopPropagation(); toastService.dismiss(toast.id)"
+            aria-label="Dismiss notification"
+          >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
@@ -47,42 +75,141 @@ import { toastSlide } from '../../animations/motion';
     </div>
   `,
   styles: [`
+    :host { position: fixed; inset: 0; pointer-events: none; z-index: var(--z-toast, 9999); }
+
     .toast-container {
-      position: fixed; top: 72px; right: 24px; z-index: var(--z-toast);
-      display: flex; flex-direction: column; gap: 8px;
+      position: fixed;
+      top: clamp(64px, 8vw, 96px);
+      right: clamp(12px, 3vw, 28px);
+      display: flex; flex-direction: column; gap: 10px;
+      max-width: min(420px, calc(100vw - 24px));
+      pointer-events: none;
     }
+
     .toast {
-      display: flex; align-items: center; gap: 10px;
-      padding: 12px 18px; border-radius: 12px; font-size: 0.85rem; font-weight: 500;
-      animation: slideDown 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); max-width: 400px; cursor: pointer;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      transition: transform 0.2s, opacity 0.2s;
+      pointer-events: auto;
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.35;
+      letter-spacing: -0.005em;
+      cursor: pointer;
+      backdrop-filter: blur(18px) saturate(160%);
+      -webkit-backdrop-filter: blur(18px) saturate(160%);
+      box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.55),
+        0 1px 0 rgba(255, 255, 255, 0.04) inset;
+      transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 180ms;
+      will-change: transform;
     }
-    .toast:hover { transform: translateX(-4px); }
-    .toast-icon { display: flex; flex-shrink: 0; }
-    .toast-text { flex: 1; }
+    .toast:hover { transform: translateX(-3px); }
+    .toast:focus-visible {
+      outline: 2px solid color-mix(in oklch, currentColor 55%, transparent);
+      outline-offset: 2px;
+    }
+
+    .toast-icon { display: flex; align-items: center; }
+    .toast-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .toast-text {
+      overflow-wrap: anywhere;
+      text-wrap: pretty;
+    }
+    .toast-correlation {
+      font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+      font-size: 0.68rem;
+      opacity: 0.55;
+      letter-spacing: 0.02em;
+    }
+
+    .toast-action {
+      pointer-events: auto;
+      font: inherit;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 8px;
+      background: color-mix(in oklch, currentColor 14%, transparent);
+      border: 1px solid color-mix(in oklch, currentColor 28%, transparent);
+      color: inherit;
+      cursor: pointer;
+      transition: background 160ms, transform 160ms;
+      white-space: nowrap;
+    }
+    .toast-action:hover { background: color-mix(in oklch, currentColor 22%, transparent); }
+    .toast-action:active { transform: translateY(1px); }
+
     .toast-close {
-      display: flex; align-items: center; background: none; border: none;
-      color: inherit; cursor: pointer; padding: 2px; opacity: 0.6;
-      transition: opacity 0.15s ease; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px;
+      background: transparent; border: 0; color: inherit;
+      cursor: pointer; padding: 0; opacity: 0.55;
+      border-radius: 6px;
+      transition: opacity 140ms, background 140ms;
     }
-    .toast-close:hover { opacity: 1; }
+    .toast-close:hover { opacity: 1; background: color-mix(in oklch, currentColor 14%, transparent); }
+    .toast-close:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; opacity: 1; }
+
+    /* Type variants — OKLCH brand-locked, WCAG AA-safe on dark canvas. */
     .toast-error {
-      background: rgba(239, 68, 68, 0.12); color: #ef4444;
-      border: 1px solid rgba(239, 68, 68, 0.2);
+      color: oklch(0.78 0.18 25);
+      background:
+        linear-gradient(180deg, oklch(0.32 0.14 25 / 0.32), oklch(0.18 0.09 25 / 0.92)),
+        rgba(8, 8, 18, 0.92);
+      border: 1px solid color-mix(in oklch, oklch(0.7 0.2 25) 38%, transparent);
+    }
+    .toast-warning {
+      color: oklch(0.86 0.16 78);
+      background:
+        linear-gradient(180deg, oklch(0.34 0.12 78 / 0.32), oklch(0.18 0.08 78 / 0.92)),
+        rgba(8, 8, 18, 0.92);
+      border: 1px solid color-mix(in oklch, oklch(0.78 0.18 78) 36%, transparent);
     }
     .toast-success {
-      background: rgba(34, 197, 94, 0.12); color: #22c55e;
-      border: 1px solid rgba(34, 197, 94, 0.2);
+      color: oklch(0.86 0.18 162);
+      background:
+        linear-gradient(180deg, oklch(0.32 0.14 162 / 0.32), oklch(0.18 0.08 162 / 0.92)),
+        rgba(8, 8, 18, 0.92);
+      border: 1px solid color-mix(in oklch, oklch(0.78 0.2 162) 36%, transparent);
     }
     .toast-info {
-      background: rgba(0, 212, 255, 0.12); color: var(--accent);
-      border: 1px solid rgba(0, 212, 255, 0.2);
+      color: oklch(0.88 0.15 220);
+      background:
+        linear-gradient(180deg, oklch(0.32 0.14 220 / 0.34), oklch(0.18 0.08 220 / 0.92)),
+        rgba(8, 8, 18, 0.92);
+      border: 1px solid color-mix(in oklch, oklch(0.82 0.18 220) 38%, transparent);
+    }
+
+    @media (max-width: 480px) {
+      .toast-container { left: 12px; right: 12px; max-width: none; }
+      .toast { grid-template-columns: auto 1fr auto; }
+      .toast-action { grid-column: 1 / -1; justify-self: start; margin-top: 4px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .toast { transition: none; }
+      .toast:hover { transform: none; }
     }
   `],
 })
 export class ToastComponent {
   readonly toastService = inject(ToastService);
+
+  /** Clicking the toast surface dismisses it — except when the click came from the action button. */
+  dismissUnlessAction(event: MouseEvent, toast: Toast): void {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('.toast-action, .toast-close')) return;
+    this.toastService.dismiss(toast.id);
+  }
+
+  runAction(toast: Toast): void {
+    try {
+      toast.action?.run(toast.id);
+    } finally {
+      this.toastService.dismiss(toast.id);
+    }
+  }
 }

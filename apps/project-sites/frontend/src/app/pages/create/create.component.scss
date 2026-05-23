@@ -1,5 +1,38 @@
 :host { display: block; }
 
+// Sora 600 for headings + balanced wrapping, pretty for prose.
+:host h1, :host h2, :host h3 {
+  font-family: 'Sora', 'Inter', system-ui, sans-serif;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+:host p, :host li {
+  text-wrap: pretty;
+}
+
+// Universal visible focus ring — :focus-visible only.
+:host button:focus-visible,
+:host a:focus-visible,
+:host input:focus-visible,
+:host textarea:focus-visible,
+:host select:focus-visible,
+:host label:focus-visible {
+  outline: 2px solid #00ffc8;
+  outline-offset: 2px;
+}
+
+// Reduced-motion: kill all flourishes.
+@media (prefers-reduced-motion: reduce) {
+  :host *,
+  :host *::before,
+  :host *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
 // Select dropdown chevron (can't do purely in Tailwind)
 select.input-field {
   appearance: none;

@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, type OnInit } from '@angular/core';
+import { Component, computed, HostListener, inject, signal, type OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
@@ -150,7 +150,9 @@ const SESSION_KEY = 'ps_docs_selected';
       }
 
       @if (tab() === 'overview' && overviewHtml()) {
-        <article class="card prose-docs" [innerHTML]="overviewHtml()"></article>
+        <div class="prose-docs-wrap">
+          <article class="card prose-docs" (click)="onOverviewClick($event)" [innerHTML]="overviewHtml()"></article>
+        </div>
       }
 
       @if (tab() === 'endpoints' && spec()) {
@@ -800,7 +802,8 @@ const SESSION_KEY = 'ps_docs_selected';
       background: rgba(255,255,255,0.025);
       border: 1px solid var(--docs-line); border-radius: 10px;
       overflow: auto; max-height: 360px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-feature-settings: "calt", "liga";
       font-size: 0.74rem; line-height: 1.6; color: #fff;
       white-space: pre-wrap; word-break: break-word;
       tab-size: 2;
@@ -826,6 +829,12 @@ const SESSION_KEY = 'ps_docs_selected';
     .docs-empty p { margin: 0; max-width: 38ch; font-size: 0.8rem; line-height: 1.55; text-wrap: pretty; }
 
     /* ── Markdown / Overview prose ─────────────────────────────────────── */
+    /* Wrap the overview article in a centered 720px column so long-form
+       markdown stays readable on wide displays without re-flowing every
+       descendant rule. Keeps narrow-viewport behaviour untouched — max-width
+       is the only constraint; margin auto centers when the viewport exceeds
+       it. */
+    .prose-docs-wrap { max-width: 720px; margin: 0 auto; width: 100%; }
     .prose-docs { padding: var(--r3) !important; }
     .prose-docs :first-child { margin-top: 0; }
     .prose-docs h1 {
@@ -879,7 +888,9 @@ const SESSION_KEY = 'ps_docs_selected';
     }
     .prose-docs pre {
       position: relative;
-      font-family: ui-monospace, monospace; font-size: 0.78rem; line-height: 1.6;
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-feature-settings: "calt", "liga";
+      font-size: 0.78rem; line-height: 1.6;
       background: rgba(255,255,255,0.025);
       border: 1px solid var(--docs-line); border-radius: 10px;
       padding: var(--r2); overflow: auto;
@@ -889,6 +900,20 @@ const SESSION_KEY = 'ps_docs_selected';
       background: transparent; border: 0; padding: 0;
       font-size: inherit; color: #fff;
     }
+    .prose-docs pre .copy-code-btn {
+      position: absolute; top: 8px; right: 8px;
+      padding: 4px 9px; border-radius: 6px;
+      background: rgba(0,229,255,0.10); color: var(--docs-primary);
+      border: 1px solid rgba(0,229,255,0.30);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.62rem; font-weight: 600; letter-spacing: 0.02em;
+      cursor: pointer; opacity: 0; transform: translateY(-2px);
+      transition: opacity 140ms ease, transform 140ms ease, background 140ms ease;
+    }
+    .prose-docs pre:hover .copy-code-btn,
+    .prose-docs pre:focus-within .copy-code-btn { opacity: 1; transform: translateY(0); }
+    .prose-docs pre .copy-code-btn:hover { background: rgba(0,229,255,0.18); color: #fff; }
+    .prose-docs pre .copy-code-btn.is-copied { background: rgba(74,222,128,0.18); color: var(--docs-green); border-color: rgba(74,222,128,0.32); opacity: 1; }
     .prose-docs a {
       color: var(--docs-primary); text-decoration: none;
       border-bottom: 1px dashed rgba(0,229,255,0.4);
@@ -1086,6 +1111,27 @@ export class AdminDocsComponent implements OnInit {
   }
 
   /**
+   * Global ⌘/Ctrl+Return → Send hotkey.
+   *
+   * Active whenever the Docs page is mounted and an endpoint is selected.
+   * Mirrors the body-textarea-scoped hotkey (`onBodyKeydown`) for anywhere
+   * else on the page — header, sidebar, response panel — so power users
+   * don't have to refocus the JSON body just to fire the request.
+   *
+   * Guarded by `selected()` so the keystroke falls through to the browser
+   * when no endpoint is in focus.
+   */
+  @HostListener('window:keydown', ['$event'])
+  onGlobalKeydown(e: KeyboardEvent): void {
+    if (!(e.metaKey || e.ctrlKey)) return;
+    if (e.key !== 'Enter') return;
+    if (!this.selected()) return;
+    if (this.sending()) return;
+    e.preventDefault();
+    void this.send();
+  }
+
+  /**
    * Fetch the live OpenAPI spec + the markdown app overview in parallel.
    */
   reload(): void {
@@ -1211,6 +1257,36 @@ export class AdminDocsComponent implements OnInit {
     this.writeClipboard(snippet);
   }
 
+  /**
+   * Delegated click handler for copy buttons inside the rendered overview
+   * markdown. Catches clicks on `[data-copy-code]` inside any `<pre>` block,
+   * copies the sibling `<code>` text, and flips the button into a
+   * "Copied ✓" state for 1.2s.
+   */
+  onOverviewClick(ev: Event): void {
+    const t = ev.target as HTMLElement | null;
+    if (!t) return;
+    const btn = t.closest('button.copy-code-btn') as HTMLButtonElement | null;
+    if (!btn) return;
+    const pre = btn.closest('pre');
+    const code = pre?.querySelector('code');
+    const text = code?.textContent ?? '';
+    if (!text) return;
+    try {
+      void navigator.clipboard.writeText(text);
+      const original = btn.textContent ?? 'Copy';
+      btn.textContent = 'Copied ✓';
+      btn.classList.add('is-copied');
+      this.toast.success('Copied');
+      setTimeout(() => {
+        btn.textContent = original;
+        btn.classList.remove('is-copied');
+      }, 1200);
+    } catch {
+      this.toast.error('Clipboard unavailable');
+    }
+  }
+
   /** Copy whichever response view is currently visible. */
   copyResponse(): void {
     const r = this.response();
@@ -1312,7 +1388,10 @@ function renderMarkdown(md: string): string {
   const fences: string[] = [];
   let src = md.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, _lang, code) => {
     const id = fences.length;
-    fences.push(`<pre><code>${escapeHtml(code as string)}</code></pre>`);
+    const raw = escapeHtml(code as string);
+    fences.push(
+      `<pre><button type="button" class="copy-code-btn" aria-label="Copy code">Copy</button><code>${raw}</code></pre>`,
+    );
     return ` FENCE${id} `;
   });
 

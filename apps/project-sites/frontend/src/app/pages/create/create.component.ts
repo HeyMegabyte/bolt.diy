@@ -145,6 +145,49 @@ export class CreateComponent implements OnInit, OnDestroy {
   additionalContext = '';
   submitting = signal(false);
 
+  /** Conceptual sub-steps within the single-page form. Persisted in
+   *  sessionStorage so a mid-flow refresh restores progress + indicator state. */
+  readonly steps = [
+    { id: 1, label: 'Business', describe: 'Name and address' },
+    { id: 2, label: 'Details', describe: 'Category and context' },
+    { id: 3, label: 'Brand assets', describe: 'Logo, icon, images' },
+  ] as const;
+  currentStep = signal<1 | 2 | 3>(1);
+
+  /** Reactive accessor — derives which steps are "complete" from form state. */
+  stepComplete(id: 1 | 2 | 3): boolean {
+    if (id === 1) return !!(this.businessName.trim() && this.businessAddress.trim());
+    if (id === 2) return !!(this.businessCategory || this.additionalContext.trim());
+    if (id === 3) return !!(
+      this.logoFile || this.aiLogoUrl ||
+      this.faviconFile || this.aiFaviconUrl ||
+      this.additionalFiles.length > 0 || this.aiImageUrls.length > 0
+    );
+    return false;
+  }
+
+  /** Move the highlighted step pill — used on field focus/blur and on submit. */
+  setStep(id: 1 | 2 | 3): void {
+    this.currentStep.set(id);
+    try { sessionStorage.setItem(CreateComponent.STEP_KEY, String(id)); }
+    catch { /* private mode — ignore */ }
+  }
+
+  /** sessionStorage key for the active step pill. */
+  private static readonly STEP_KEY = 'ps_create_step';
+
+  /** Attempted-submit flag — gates inline error rendering on required fields. */
+  attempted = signal(false);
+
+  get nameError(): string | null {
+    if (!this.attempted()) return null;
+    return this.businessName.trim() ? null : 'Business name is required so we know what site to build.';
+  }
+  get addressError(): string | null {
+    if (!this.attempted()) return null;
+    return this.businessAddress.trim() ? null : 'Address is required for local SEO and the contact card.';
+  }
+
   /** Industry categories for the dropdown */
   categories = [
     '', 'Restaurant / Café', 'Salon / Barbershop', 'Legal / Law Firm',
@@ -237,6 +280,13 @@ export class CreateComponent implements OnInit, OnDestroy {
       // No business selected and no query params — restore from localStorage draft
       this.restoreFormDraft();
     }
+
+    // Restore the active step pill (sessionStorage — cleared when tab closes).
+    try {
+      const saved = sessionStorage.getItem(CreateComponent.STEP_KEY);
+      const n = saved ? Number(saved) : NaN;
+      if (n === 1 || n === 2 || n === 3) this.currentStep.set(n as 1 | 2 | 3);
+    } catch { /* private mode — ignore */ }
 
     // Auto-Create with AI: trigger auto-populate after a short delay to let the view settle
     if (shouldAutoCreate && this.businessName && this.businessAddress) {
@@ -901,12 +951,15 @@ export class CreateComponent implements OnInit, OnDestroy {
   }
 
   submitBuild(): void {
+    this.attempted.set(true);
     if (!this.businessName.trim()) {
-      this.toast.error('Business name is required');
+      this.setStep(1);
+      this.toast.error('Business name is required so we know what site to build.');
       return;
     }
     if (!this.businessAddress.trim()) {
-      this.toast.error('Business address is required');
+      this.setStep(1);
+      this.toast.error('Address is required for local SEO and the contact card.');
       return;
     }
 
@@ -947,14 +1000,16 @@ export class CreateComponent implements OnInit, OnDestroy {
 
     // Upload files first if present, then create site
     if (this.hasFilesToUpload()) {
-      this.toast.info('Uploading assets...');
+      const count = (this.logoFile ? 1 : 0) + (this.faviconFile ? 1 : 0) + this.additionalFiles.length;
+      this.toast.info(`Uploading ${count} asset${count === 1 ? '' : 's'}...`);
       this.api.uploadAssets(this.buildUploadFormData()).subscribe({
         next: (uploadRes) => {
+          this.toast.success(`${count} asset${count === 1 ? '' : 's'} uploaded — starting build…`);
           this.createSiteWithUploadId(uploadRes.data.upload_id);
         },
         error: () => {
           this.submitting.set(false);
-          this.toast.error('Failed to upload assets — try again or skip the uploads');
+          // api.service already toasted a human-readable error — extra inline cue here is the disabled state lifting.
         },
       });
     } else {
@@ -988,6 +1043,7 @@ export class CreateComponent implements OnInit, OnDestroy {
           this.auth.clearSelectedBusiness();
           this.auth.setPendingBuild(false);
           this.clearFormDraft();
+          try { sessionStorage.removeItem(CreateComponent.STEP_KEY); } catch { /* ignore */ }
           this.toast.success('Site build started!');
           // API returns site_id (not id) — handle both formats
           const siteId = res.data.site_id || res.data.id;

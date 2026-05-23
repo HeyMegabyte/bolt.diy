@@ -3,6 +3,7 @@ import { RouterOutlet, Router, ActivatedRoute, NavigationEnd } from '@angular/ro
 import { filter } from 'rxjs';
 import { HeaderComponent } from './components/header/header.component';
 import { ToastComponent } from './components/toast/toast.component';
+import { NetworkStatusBannerComponent } from './components/network-status/network-status-banner.component';
 import { BgOrbsComponent } from './components/bg-orbs/bg-orbs.component';
 import { EasterEggsComponent } from './components/easter-eggs/easter-eggs.component';
 import { CommandPaletteComponent } from './components/command-palette/command-palette.component';
@@ -16,9 +17,10 @@ import { AppShellService, type AppLanguage } from './services/app-shell.service'
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, HeaderComponent, ToastComponent, BgOrbsComponent, EasterEggsComponent, CommandPaletteComponent, ShortcutsOverlayComponent],
+  imports: [RouterOutlet, HeaderComponent, ToastComponent, NetworkStatusBannerComponent, BgOrbsComponent, EasterEggsComponent, CommandPaletteComponent, ShortcutsOverlayComponent],
   template: `
     <a class="skip-link" href="#main-content">Skip to main content</a>
+    <app-network-status-banner />
     @if (showHeader()) { <app-header role="banner" /> }
     <app-bg-orbs />
     <app-easter-eggs />

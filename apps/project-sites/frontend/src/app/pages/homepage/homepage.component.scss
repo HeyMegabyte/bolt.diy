@@ -4,6 +4,44 @@
   color: #f0f0f8;
 }
 
+/* ── Typography polish ─────────────────────────
+   Sora 600 for display headings, balanced wrapping
+   for short heads and pretty wrapping for prose. */
+:host h1,
+:host h2,
+:host h3 {
+  font-family: 'Sora', 'Inter', system-ui, sans-serif;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+:host p,
+:host li {
+  text-wrap: pretty;
+}
+
+/* ── Hero CTA — high-contrast brand gradient ──── */
+.hero-cta-primary {
+  background: linear-gradient(135deg, #00ffc8, #00d4ff);
+  color: #060610;
+  font-weight: 600;
+}
+
+.hero-cta-primary:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 10px 30px rgba(0, 255, 200, 0.25);
+}
+
+/* ── Universal visible focus ring (—:focus-visible only) ── */
+:host button:focus-visible,
+:host a:focus-visible,
+:host input:focus-visible,
+:host textarea:focus-visible,
+:host select:focus-visible {
+  outline: 2px solid #00ffc8;
+  outline-offset: 2px;
+}
+
 /* ── Sticky nav scrolled state ──────────────── */
 .nav-scrolled {
   background: rgba(6, 6, 16, 0.92);
@@ -26,12 +64,22 @@
   transform: translateY(0);
 }
 
-/* Accessibility: show content immediately for reduced-motion users */
+/* Accessibility: show content immediately for reduced-motion users.
+   Also disables float / glow-pulse / fade-in-up / scroll-smooth across the page. */
 @media (prefers-reduced-motion: reduce) {
   .reveal {
     opacity: 1;
     transform: none;
     transition: none;
+  }
+
+  :host *,
+  :host *::before,
+  :host *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

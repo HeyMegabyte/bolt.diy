@@ -449,3 +449,48 @@ aside::after {
 .log-meta-html code {
   background: rgba(0, 229, 255, 0.08); padding: 1px 5px; border-radius: 3px; font-size: 0.63rem;
 }
+
+/* Persistent bolt.diy iframe.
+ * Lives in the admin shell so it never unmounts between sub-routes — the user
+ * pays the WebContainer cold-boot once per session, not once per visit.
+ *
+ * - Off-screen by default (top: -9999px) so it boots in the background while
+ *   the user explores other admin sections.
+ * - On `/admin/editor` we lift it into place via `.bolt-frame--visible`.
+ * - Opacity stays at 0 until `BoltEmbedService.editorReady` flips, so the
+ *   editor's own "Loading…" flicker is hidden behind the loading veil
+ *   rendered by `AdminEditorComponent`.
+ */
+.bolt-frame {
+  position: absolute;
+  top: -9999px;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  border: 0;
+  background: #0a0a1a;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* Override the broad `router-outlet ~ *` rule in styles/_polish.scss
+     that names every sibling `ps-content`. Two elements sharing one
+     view-transition-name throws "Unexpected duplicate view-transition-name"
+     in Chrome and breaks the section crossfade. */
+  view-transition-name: bolt-frame;
+}
+.bolt-frame--visible {
+  top: 49px;     /* below the admin top bar */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: auto;
+  pointer-events: auto;
+  z-index: 1;
+}
+.bolt-frame.opacity-100 {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bolt-frame { transition: none; }
+}

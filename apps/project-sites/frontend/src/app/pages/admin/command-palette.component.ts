@@ -16,8 +16,10 @@
  * Then press Cmd/Ctrl + K to open.
  */
 import {
+  AfterViewInit,
   Component,
   computed,
+  effect,
   ElementRef,
   HostListener,
   inject,
@@ -80,8 +82,8 @@ interface DocsEndpoint {
               type="text"
               class="cp-input"
               placeholder="Type a command, page, or '= 2+2' · ⌘K to toggle · Esc to close"
-              [(ngModel)]="query"
-              (ngModelChange)="onQueryChange()"
+              [ngModel]="query()"
+              (ngModelChange)="onQueryInput($event)"
               (keydown)="onKey($event)"
               autocomplete="off"
               spellcheck="false"
@@ -102,8 +104,8 @@ interface DocsEndpoint {
           <div class="cp-body" #cpBody data-testid="palette-results" id="cp-results" role="listbox">
             @if (groups().length === 0 && !specialResult()) {
               <div class="cp-empty">
-                <p>No matches for "{{ query }}"</p>
-                @if (query.trim().length >= 2) {
+                <p>No matches for "{{ query() }}"</p>
+                @if (query().trim().length >= 2) {
                   <button
                     type="button"
                     class="cp-ask-ai"
@@ -111,7 +113,7 @@ interface DocsEndpoint {
                     [disabled]="aiSearchLoading()"
                     (click)="askAi()"
                   >
-                    {{ aiSearchLoading() ? 'Searching with AI…' : 'Ask AI to "' + query + '" →' }}
+                    {{ aiSearchLoading() ? 'Searching with AI…' : 'Ask AI to "' + query() + '" →' }}
                   </button>
                 }
                 @if (aiSearchHits().length > 0) {
@@ -249,7 +251,7 @@ interface DocsEndpoint {
     }
   `],
 })
-export class CommandPaletteComponent implements OnInit, OnDestroy {
+export class CommandPaletteComponent implements OnInit, OnDestroy, AfterViewInit {
   private router = inject(Router);
   private toast = inject(ToastService);
   private api = inject(ApiService);
@@ -260,7 +262,12 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
   @ViewChild('cpBody') private bodyRef?: ElementRef<HTMLDivElement>;
 
   open = signal(false);
-  query = '';
+  /**
+   * Query input as a signal so `groups()` / `specialResult()` recompute on
+   * every keystroke. ngModel reads via `query()` and writes via
+   * `onQueryInput()` — there is NO debounce on the local filter (<16ms).
+   */
+  query = signal('');
   activeIndex = signal(0);
   recent = signal<string[]>([]);
   pinned = signal<string[]>([]);
@@ -283,6 +290,27 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
       const p = localStorage.getItem(PINNED_KEY);
       if (p) this.pinned.set(JSON.parse(p));
     } catch { /* ignore */ }
+  }
+
+  /**
+   * Reactive auto-focus: every time `open()` flips to `true` the input is
+   * focused + selected on the very next animation frame. The `@if (open())`
+   * block in the template only renders the input AFTER the flip, so we wait
+   * one rAF for the DOM to commit before grabbing the ref. This is the path
+   * that satisfies the Cmd+K mandate ("blinking caret, zero extra clicks").
+   */
+  private focusEffect = effect(() => {
+    if (!this.open()) return;
+    requestAnimationFrame(() => {
+      const el = this.inputRef?.nativeElement;
+      if (el) { el.focus({ preventScroll: true }); el.select(); }
+    });
+  });
+
+  ngAfterViewInit(): void {
+    // No-op: focus is driven by the reactive `focusEffect` above. Declaring
+    // the lifecycle hook lets us add post-render fallback logic later
+    // without touching the open path.
   }
 
   ngOnDestroy(): void {
@@ -330,7 +358,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
     });
   }
 
-  close(): void { this.open.set(false); this.query = ''; }
+  close(): void { this.open.set(false); this.query.set(''); }
 
   // ─── Keyboard ──────────────────────────────────────────────────
   @HostListener('window:keydown', ['$event'])
@@ -400,14 +428,22 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
   }
 
   // ─── Search input ──────────────────────────────────────────────
-  onQueryChange(): void {
+  /**
+   * Fires on every keystroke. Writes to the `query` signal synchronously so
+   * `groups()` + `specialResult()` recompute in the same microtask — the
+   * filtered list rerenders under one frame (<16ms) with zero debounce.
+   * Only the docs HTTP search is debounce-friendly, but we keep it sync here
+   * because it just hits a pre-loaded in-memory array (`docsEndpoints`).
+   */
+  onQueryInput(value: string): void {
+    this.query.set(value);
     this.activeIndex.set(0);
     this.runDocsSearch();
   }
 
   // ─── Special inline parsers (calculator, color) ────────────────
   specialResult = computed<{ label: string; value: string; raw: string } | null>(() => {
-    const q = this.query.trim();
+    const q = this.query().trim();
     if (!q) return null;
     // Calculator: `= 1+2` or just `=expr`
     if (q.startsWith('=')) {
@@ -493,7 +529,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
 
   /** Section-filter parser: `>nav` limits to Navigation, etc. */
   private parseSectionFilter(): { section: string | null; cleanQuery: string } {
-    const q = this.query.trim();
+    const q = this.query().trim();
     if (q.startsWith('>')) {
       const m = q.match(/^>(\w+)\s*(.*)$/);
       if (m) {
@@ -510,7 +546,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
 
   /** Audit/forms in-search prefixes (`audit:term`, `form:term`). */
   private parsePrefixSearch(): { kind: 'audit' | 'forms' | null; term: string } {
-    const q = this.query.trim();
+    const q = this.query().trim();
     const m = q.match(/^(audit|form):\s*(.*)$/i);
     if (m) return { kind: m[1].toLowerCase() === 'audit' ? 'audit' : 'forms', term: m[2] };
     return { kind: null, term: '' };
@@ -713,7 +749,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
   }
 
   private runDocsSearch(): void {
-    const q = this.query.trim().toLowerCase();
+    const q = this.query().trim().toLowerCase();
     if (q.length < 2 || !this.docsEndpoints.length) { this.docsResults.set([]); return; }
     const matches = this.docsEndpoints
       .filter((d) => d.path.toLowerCase().includes(q) || (d.summary?.toLowerCase().includes(q) ?? false))
@@ -735,7 +771,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
    * the AI search returns no results.
    */
   askAi(): void {
-    const q = this.query.trim();
+    const q = this.query().trim();
     if (!q) return;
     this.aiSearchLoading.set(true);
     this.registry.askAiSearch(q).subscribe((hits) => {

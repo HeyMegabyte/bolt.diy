@@ -12,6 +12,7 @@ import { RouterLink } from '@angular/router';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { FullscreenOverlayComponent } from '../../../components/fullscreen-overlay/fullscreen-overlay.component';
 import { mcpProvider } from './mcp-providers';
 
 /**
@@ -131,12 +132,12 @@ const POLL_INTERVAL_MS = 10_000;
 @Component({
   selector: 'app-admin-forms',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe, JsonPipe],
+  imports: [FormsModule, RouterLink, DatePipe, JsonPipe, FullscreenOverlayComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 class="text-lg font-bold text-white m-0">Forms</h2>
+          <h2 class="section-h text-lg font-bold text-white m-0">Forms</h2>
           <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
             One prompt handles every form submission and routes it to the right action — MailChimp signup, Stripe invoice, email reply, HubSpot contact — using your connected MCPs.
             @if (mcpConnections().length > 0) {
@@ -147,20 +148,21 @@ const POLL_INTERVAL_MS = 10_000;
           </p>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
-          <span class="live-pill" [title]="livePillTooltip()" aria-live="polite">
-            <span class="live-dot" [class.is-paused]="!polling()"></span>
-            Live · last sync {{ syncAgoLabel() }}
-          </span>
-          <button class="btn-primary" (click)="toggleTest()" title="Try the prompt against a sample payload (1 credit)">{{ testOpen() ? 'Close Test' : 'Test Prompt' }}</button>
+          <button class="btn-primary" data-testid="forms-open-prompt-designer" (click)="designerOpen.set(true)" title="Open the full-screen prompt designer + tester">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6M9 17h4"/></svg>
+            Form Handling Prompt(s)
+          </button>
         </div>
       </header>
 
-      <!-- Inline expansion below the entire button stack — opens for Test Prompt -->
+      <!-- Legacy inline test panel — retained behind testOpen() only so any
+           in-flight test (rare, since the new designer hosts the panel) still
+           renders. New entry point is the Prompt Designer overlay. -->
       @if (testOpen()) {
         <section class="card border border-primary/30">
           <div class="flex items-center justify-between mb-2">
             <div>
-              <h3 class="m-0 text-base font-semibold text-white">Test the Form Handling Prompt</h3>
+              <h3 class="section-h m-0 text-base font-semibold text-white">Test the Form Handling Prompt</h3>
               <p class="m-0 mt-0.5 text-[0.7rem] text-text-secondary">Runs the current prompt against this payload (1 credit).</p>
             </div>
             <button class="text-text-secondary hover:text-white" (click)="testOpen.set(false)" aria-label="Close" title="Close test panel">×</button>
@@ -180,80 +182,177 @@ const POLL_INTERVAL_MS = 10_000;
             <button class="btn-primary" (click)="runTest()" [disabled]="testing()" title="Run the prompt now">{{ testing() ? 'Running…' : 'Run' }}</button>
           </div>
           @if (testResult()) {
-            <div class="mt-3">
-              <span class="muted-h">Result</span>
-              <pre class="bg-black/40 border border-white/5 rounded-lg p-3 text-[0.7rem] overflow-auto max-h-72 mt-1">{{ testResult() | json }}</pre>
+            <div class="mt-3 submission-success" data-testid="forms-submission-success">
+              <div class="success-head">
+                <span class="success-check" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <div>
+                  <h4 class="success-title">Submission accepted</h4>
+                  <p class="success-body">Routed through the form-handling prompt. Trace summary below — open AI Logs for the full timeline.</p>
+                </div>
+              </div>
+              <pre class="bg-black/40 border border-white/5 rounded-lg p-3 text-[0.7rem] overflow-auto max-h-72 mt-2">{{ testResult() | json }}</pre>
             </div>
           }
         </section>
       }
 
-      <!-- Form Handling Prompt — inline widget (no modal) -->
-      <section class="card">
-        <header class="flex items-start justify-between gap-4 flex-wrap mb-3">
-          <div>
-            <h3 class="m-0 text-base font-semibold text-white">Form Handling Prompt</h3>
-            <p class="m-0 mt-0.5 text-[0.7rem] text-text-secondary">The single prompt that routes every submission. Enable MCPs to expose them as routing targets.</p>
-          </div>
-        </header>
-
-        <label class="block">
-          <span class="muted-h">Handling prompt</span>
-          <textarea class="input-field w-full mt-1 font-mono text-[0.72rem]" rows="12"
-                    [placeholder]="settings.form_router_prompt_default || 'Describe how form submissions should be routed…'"
-                    [(ngModel)]="settings.form_router_prompt"></textarea>
-        </label>
-
-        <div class="mt-3">
-          <span class="muted-h">MCP integrations available to this prompt</span>
-          <p class="text-[0.66rem] text-text-secondary m-0 mt-1 mb-2">Tap a pill to enable it. Unchecked MCPs stay connected but aren't offered as routing targets.</p>
-          <div class="flex flex-wrap gap-1.5">
-            @for (m of mcpConnections(); track m.provider) {
-              <button type="button"
-                      class="mcp-pill"
-                      [class.is-on]="isMcpEnabled(m.provider)"
-                      [style.--brand]="m.color"
-                      (click)="togglePromptMcp(m.provider)"
-                      [attr.aria-pressed]="isMcpEnabled(m.provider)"
-                      [title]="m.desc">
-                <svg class="mcp-logo" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-                  <rect x="1" y="1" width="12" height="12" rx="3" fill="currentColor" />
-                  <text x="7" y="9.6" text-anchor="middle" font-size="7" font-weight="700"
-                        fill="#060610" font-family="system-ui, sans-serif">{{ providerMonogram(m.provider) }}</text>
-                </svg>
-                <span class="mcp-pill-label">{{ m.label }}</span>
-                @if (isMcpEnabled(m.provider)) {
-                  <span class="mcp-check" aria-hidden="true">✓</span>
-                }
-              </button>
-            }
-            @if (mcpConnections().length === 0) {
-              <a routerLink="/admin/settings" fragment="mcp" class="text-[0.7rem] text-primary underline">+ Connect MCPs in Settings → MCP</a>
-            }
-          </div>
-        </div>
-
-        <p class="text-[0.7rem] text-text-secondary mt-3 mb-0">
-          Fallback reply email is controlled in
-          <a routerLink="/admin/settings" fragment="general" class="text-primary hover:underline">Settings → General</a>.
-        </p>
-
-        <div class="flex items-center gap-2 mt-3">
-          <button type="button"
-                  class="btn-improve"
-                  (click)="improvePrompt()"
-                  [disabled]="improving()"
-                  [title]="improveButtonTitle()">
-            {{ improving() ? '…' : improveButtonLabel() }}
+      <!-- Form Handling Prompt(s) — full-screen Prompt Designer overlay.
+           Hidden by default; opens via the "Form Handling Prompt(s)" button
+           in the header. Inline editor lives ONLY inside this overlay. -->
+      <app-fullscreen-overlay
+        [open]="designerOpen()"
+        (closed)="designerOpen.set(false)"
+        ariaLabel="Form Handling Prompt Designer">
+        <span overlayTitle>Form Handling Prompt(s)</span>
+        <span overlaySubtitle>
+          One prompt routes every submission. Edit on the left, run a sample on the right.
+        </span>
+        <div overlayActions>
+          <button class="btn-primary" [disabled]="saving()" data-testid="forms-designer-save" (click)="save()" title="Save prompt + MCP selection">
+            {{ saving() ? 'Saving…' : 'Save' }}
           </button>
-          <button class="btn-primary" [disabled]="saving()" (click)="save()" title="Save prompt + MCP selection">{{ saving() ? 'Saving…' : 'Save' }}</button>
         </div>
-      </section>
+
+        <div class="designer-grid">
+          <!-- LEFT 2/3 — Prompt editor -->
+          <section class="designer-pane designer-pane-editor">
+            <header class="flex items-start justify-between gap-3 flex-wrap mb-2">
+              <div>
+                <span class="muted-h">Handling prompt</span>
+                <p class="text-[0.66rem] text-text-secondary m-0 mt-0.5">
+                  Use <code class="font-mono text-white/70">{{ '{{' }} name {{ '}}' }}</code> placeholders for incoming POST data. Resolved server-side before the LLM call.
+                </p>
+              </div>
+              <div class="flex items-center gap-2 designer-editor-actions">
+                <button type="button"
+                        class="btn-improve"
+                        data-testid="forms-load-example"
+                        (click)="loadExamplePrompt()"
+                        [disabled]="improving()"
+                        title="Insert a ready-to-edit example prompt (no AI credits used)">
+                  Load example
+                </button>
+                <button type="button"
+                        class="btn-improve"
+                        data-testid="forms-improve-ai"
+                        (click)="improvePrompt()"
+                        [disabled]="improving()"
+                        [title]="improveButtonTitle()">
+                  {{ improving() ? '…' : 'Improve with AI' }}
+                </button>
+              </div>
+            </header>
+
+            <textarea #promptTextarea
+                      class="designer-textarea font-mono"
+                      [placeholder]="settings.form_router_prompt_default || 'Describe how form submissions should be routed…'"
+                      [(ngModel)]="settings.form_router_prompt"></textarea>
+
+            <div class="mt-3">
+              <span class="muted-h">Template variables</span>
+              <p class="text-[0.66rem] text-text-secondary m-0 mt-1 mb-2">
+                Click a chip to insert it at the cursor.
+              </p>
+              <div class="flex flex-wrap gap-1.5">
+                @for (v of templateVars; track v.token) {
+                  <button type="button"
+                          class="var-chip"
+                          [title]="v.description"
+                          (click)="insertVar(promptTextarea, v.token)">
+                    <code>{{ v.token }}</code>
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="mt-3">
+              <span class="muted-h">MCP integrations available to this prompt</span>
+              <p class="text-[0.66rem] text-text-secondary m-0 mt-1 mb-2">Tap a pill to enable it for routing.</p>
+              <div class="flex flex-wrap gap-1.5">
+                @for (m of mcpConnections(); track m.provider) {
+                  <button type="button"
+                          class="mcp-pill"
+                          [class.is-on]="isMcpEnabled(m.provider)"
+                          [style.--brand]="m.color"
+                          (click)="togglePromptMcp(m.provider)"
+                          [attr.aria-pressed]="isMcpEnabled(m.provider)"
+                          [title]="m.desc">
+                    <svg class="mcp-logo" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                      <rect x="1" y="1" width="12" height="12" rx="3" fill="currentColor" />
+                      <text x="7" y="9.6" text-anchor="middle" font-size="7" font-weight="700"
+                            fill="#060610" font-family="system-ui, sans-serif">{{ providerMonogram(m.provider) }}</text>
+                    </svg>
+                    <span class="mcp-pill-label">{{ m.label }}</span>
+                    @if (isMcpEnabled(m.provider)) {
+                      <span class="mcp-check" aria-hidden="true">✓</span>
+                    }
+                  </button>
+                }
+                @if (mcpConnections().length === 0) {
+                  <a routerLink="/admin/settings" fragment="mcp" class="text-[0.7rem] text-primary underline">+ Connect MCPs in Settings → MCP</a>
+                }
+              </div>
+            </div>
+
+            <p class="text-[0.7rem] text-text-secondary mt-3 mb-0">
+              Fallback reply email is controlled in
+              <a routerLink="/admin/settings" fragment="general" class="text-primary hover:underline">Settings → General</a>.
+            </p>
+          </section>
+
+          <!-- RIGHT 1/3 — Test panel -->
+          <aside class="designer-pane designer-pane-tester">
+            <header class="mb-2">
+              <span class="muted-h">Test the prompt</span>
+              <p class="text-[0.66rem] text-text-secondary m-0 mt-0.5">
+                Submits to the same flow as a real form. Costs 1 credit.
+              </p>
+            </header>
+
+            <label class="block mb-2">
+              <span class="muted-h">form_name</span>
+              <input class="input-field w-full mt-1" placeholder="newsletter, contact, …" [(ngModel)]="testInput.form_name" data-testid="forms-test-form-name" />
+            </label>
+            <label class="block mb-2">
+              <span class="muted-h">email</span>
+              <input class="input-field w-full mt-1" type="email" placeholder="you@example.com" [(ngModel)]="testInput.email" data-testid="forms-test-email" />
+            </label>
+            <label class="block mb-2">
+              <span class="muted-h">fields (JSON)</span>
+              <textarea class="input-field w-full mt-1 font-mono text-[0.7rem]"
+                        rows="6"
+                        placeholder='{ "message": "hi", "name": "Brian" }'
+                        [(ngModel)]="testInput.fields_json"
+                        data-testid="forms-test-body"></textarea>
+            </label>
+
+            <button class="btn-primary w-full" [disabled]="testing()" data-testid="forms-test-run" (click)="runTest()">
+              {{ testing() ? 'Running…' : 'Run test' }}
+            </button>
+
+            @if (testResult()) {
+              <div class="submission-success mt-3" data-testid="forms-submission-success">
+                <div class="success-head">
+                  <span class="success-check" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </span>
+                  <div>
+                    <h4 class="success-title">Submission accepted</h4>
+                    <p class="success-body">Routed through the form-handling prompt. See AI Logs for the full trace.</p>
+                  </div>
+                </div>
+              </div>
+            }
+          </aside>
+        </div>
+      </app-fullscreen-overlay>
 
       <!-- Submissions table -->
       <section class="card p-0 overflow-hidden">
         <div class="flex items-center justify-between p-4 flex-wrap gap-2">
-          <h3 class="m-0 text-base font-semibold text-white">Submissions</h3>
+          <h3 class="section-h m-0 text-base font-semibold text-white">Submissions</h3>
           <div class="flex items-center gap-2">
             <div class="filter-chips" role="tablist" aria-label="Saved views">
               @for (v of views; track v.id) {
@@ -264,10 +363,19 @@ const POLL_INTERVAL_MS = 10_000;
           </div>
         </div>
         @if (loading() && submissions().length === 0) {
-          <div class="p-10 text-center text-text-secondary text-sm">Loading…</div>
+          <div class="p-4 space-y-2" data-testid="forms-loading">
+            @for (i of [0,1,2,3]; track i) {
+              <div class="skeleton skeleton-row"></div>
+            }
+          </div>
         } @else if (submissions().length === 0) {
-          <div class="p-10 text-center text-text-secondary text-sm">
-            No submissions yet. Drop the snippet on your site (see <a routerLink="/admin/ai-endpoints" class="text-primary underline">AI Endpoints</a> for app.js install).
+          <div class="empty-state" data-testid="forms-empty">
+            <svg class="empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 4h16v12H5.5L4 18z"/><path d="M8 9h8M8 13h5"/>
+            </svg>
+            <h4 class="empty-title">No submissions yet</h4>
+            <p class="empty-body">Drop the snippet on your site and form replies will stream in here. See <a routerLink="/admin/ai-endpoints" class="text-primary underline">AI Endpoints</a> for the app.js install.</p>
+            <button class="btn-gradient" type="button" (click)="toggleTest()">Test the prompt</button>
           </div>
         } @else {
           <table class="w-full text-[0.78rem]">
@@ -299,7 +407,7 @@ const POLL_INTERVAL_MS = 10_000;
       @if (selected(); as s) {
         <section class="card border border-primary/40">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="m-0 text-base font-semibold text-white">{{ s.form_name }} · {{ s.created_at | date:'medium' }}</h3>
+            <h3 class="section-h m-0 text-base font-semibold text-white">{{ s.form_name }} · {{ s.created_at | date:'medium' }}</h3>
             <button class="text-text-secondary hover:text-white" (click)="selected.set(null)" aria-label="Close form submission detail">×</button>
           </div>
           <div class="grid md:grid-cols-2 gap-3">
@@ -338,17 +446,21 @@ const POLL_INTERVAL_MS = 10_000;
   styles: [`
     :host { display: block; }
     .card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 1.4rem; }
+    .section-h { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
     .input-field { padding: 0.5rem 0.7rem; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; font: inherit; }
     .input-field:focus { outline: none; border-color: rgba(0,229,255,0.5); }
-    .btn-primary { padding: 0.5rem 1rem; border-radius: 8px; background: #00E5FF; color: #060610; font-weight: 600; border: 0; cursor: pointer; font-size: 0.74rem; }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { padding: 0.5rem 1rem; border-radius: 10px; background: linear-gradient(135deg, #00ffc8, #00d4ff); color: #060610; font-weight: 700; border: 0; cursor: pointer; font-size: 0.74rem; box-shadow: 0 6px 18px -8px rgba(0, 212, 255, 0.55); transition: transform 140ms ease, box-shadow 140ms ease; }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px -8px rgba(0, 212, 255, 0.7); }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-gradient { padding: 0.55rem 1.1rem; border-radius: 10px; background: linear-gradient(135deg, #00ffc8, #00d4ff); color: #060610; font-weight: 700; border: 0; cursor: pointer; font-size: 0.78rem; box-shadow: 0 8px 22px -10px rgba(0, 212, 255, 0.7); transition: transform 140ms ease, box-shadow 140ms ease; }
+    .btn-gradient:hover { transform: translateY(-1px); }
     .btn-ghost { padding: 0.4rem 0.9rem; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #e5e7eb; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
     .btn-improve { font-size: 0.66rem; line-height: 1; padding: 0.25rem 0.625rem; border-radius: 7px; background: rgba(124,58,237,0.14); border: 1px solid rgba(124,58,237,0.4); color: #c4b5fd; font-weight: 600; cursor: pointer; transition: all 140ms ease; }
     .btn-improve:hover:not(:disabled) { background: rgba(124,58,237,0.22); color: #ddd6fe; }
     .btn-improve:disabled { opacity: 0.5; cursor: not-allowed; }
     .muted-h { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; margin: 0 0 0.4rem; }
     .filter-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-    .filter-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); font-size: 0.7rem; font-weight: 600; cursor: pointer; transition: all 150ms ease; }
+    .filter-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid color-mix(in oklch, currentColor 20%, transparent); color: rgba(255,255,255,0.7); font-size: 0.7rem; font-weight: 600; cursor: pointer; transition: all 150ms ease; }
     .filter-chip:hover { color: #fff; border-color: rgba(0,229,255,0.3); }
     .filter-chip.active { background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.18)); color: #00E5FF; border-color: rgba(0,229,255,0.4); }
     .filter-count { font-size: 0.6rem; opacity: 0.7; padding: 1px 5px; border-radius: 999px; background: rgba(255,255,255,0.06); }
@@ -360,11 +472,79 @@ const POLL_INTERVAL_MS = 10_000;
     .mcp-pill.is-on .mcp-logo { color: var(--brand); }
     .mcp-pill:not(.is-on) .mcp-logo { color: rgba(255,255,255,0.55); }
     .mcp-pill-label { line-height: 1; }
+    .var-chip { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 7px; background: rgba(0, 229, 255, 0.06); border: 1px solid color-mix(in oklch, oklch(0.78 0.18 220) 28%, transparent); color: #9be9ff; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 0.66rem; cursor: pointer; transition: background 140ms ease, transform 140ms ease, border-color 140ms ease; }
+    .var-chip:hover { background: rgba(0, 229, 255, 0.14); border-color: color-mix(in oklch, oklch(0.78 0.18 220) 50%, transparent); transform: translateY(-1px); }
+    .var-chip:focus-visible { outline: 2px solid #00ffc8; outline-offset: 2px; }
+    .var-chip code { font-family: inherit; }
+    @media (prefers-reduced-motion: reduce) { .var-chip { transition: none; } .var-chip:hover { transform: none; } }
+
+    /* ── Prompt Designer overlay (full-screen) ───────────────────── */
+    .designer-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+      gap: 1.5rem;
+      padding: 1.25rem clamp(1.25rem, 3vw, 2rem);
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+    @media (max-width: 960px) {
+      .designer-grid { grid-template-columns: 1fr; overflow-y: auto; }
+    }
+    .designer-pane {
+      display: flex; flex-direction: column;
+      min-height: 0;
+      background: var(--ps-surface-1, rgba(13, 13, 40, 0.6));
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: var(--ps-radius-lg, 16px);
+      padding: 1rem 1.1rem;
+      overflow-y: auto;
+      box-shadow: var(--ps-shadow-md, 0 6px 18px -8px rgba(0, 0, 0, 0.42));
+    }
+    .designer-editor-actions { display: inline-flex; align-items: center; gap: 6px; float: right; }
+    .designer-textarea {
+      width: 100%;
+      flex: 1;
+      min-height: 240px;
+      max-height: 60vh;
+      padding: 12px 14px;
+      background: rgba(0, 0, 0, 0.32);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--ps-radius-md, 12px);
+      color: #fff;
+      font-size: 0.78rem;
+      line-height: 1.55;
+      font-feature-settings: "calt", "liga";
+      resize: vertical;
+      outline: none;
+      transition: border-color var(--ps-dur-fast, 140ms) ease, background var(--ps-dur-fast, 140ms) ease;
+    }
+    .designer-textarea:focus {
+      border-color: rgba(0, 229, 255, 0.35);
+      background: rgba(0, 0, 0, 0.4);
+    }
+    .designer-textarea:focus-visible {
+      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline-offset: 2px;
+    }
     .mcp-check { font-weight: 800; font-size: 0.72rem; line-height: 1; color: var(--brand); }
-    .live-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.22); color: #6ee7b7; font-size: 0.66rem; font-weight: 600; letter-spacing: 0.02em; }
-    .live-dot { width: 6px; height: 6px; border-radius: 999px; background: #10b981; box-shadow: 0 0 8px rgba(16,185,129,0.6); animation: livePulse 1.6s ease-in-out infinite; }
-    .live-dot.is-paused { animation: none; background: #6b7280; box-shadow: none; }
-    @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+    .skeleton { background: rgba(255,255,255,0.10); border-radius: 8px; animation: skel-pulse 1.4s ease-in-out infinite; }
+    .skeleton-row { height: 44px; }
+    @keyframes skel-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2.4rem 1.4rem; gap: 0.55rem; }
+    .empty-icon { color: rgba(0, 229, 255, 0.65); }
+    .empty-title { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; font-size: 1rem; color: #fff; margin: 0.2rem 0 0; }
+    .empty-body { font-size: 0.78rem; color: rgba(255,255,255,0.65); margin: 0 0 0.5rem; max-width: 420px; line-height: 1.5; }
+    .submission-success { border: 1px solid rgba(16,185,129,0.32); background: rgba(16,185,129,0.06); border-radius: 12px; padding: 0.9rem; animation: success-in 260ms cubic-bezier(0.16, 1, 0.3, 1); }
+    .success-head { display: flex; gap: 0.7rem; align-items: flex-start; }
+    .success-check { width: 32px; height: 32px; flex-shrink: 0; border-radius: 999px; background: rgba(16,185,129,0.18); display: inline-flex; align-items: center; justify-content: center; color: #34d399; }
+    .success-title { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; font-size: 0.88rem; color: #6ee7b7; margin: 0; }
+    .success-body { font-size: 0.74rem; color: rgba(255,255,255,0.7); margin: 0.2rem 0 0; line-height: 1.5; }
+    @keyframes success-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton, .submission-success, .btn-primary, .btn-gradient { animation: none; transition: none; }
+    }
   `],
 })
 export class AdminFormsComponent implements OnInit, OnDestroy {
@@ -382,13 +562,13 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     { id: 'with-email', label: 'With email', test: (s: Submission) => !!s.email },
     { id: 'errors', label: 'Errors', test: (s: Submission) => s.status !== 'received' },
   ] as const;
-  activeView = signal<(typeof this.views)[number]['id']>(((): (typeof this.views)[number]['id'] => {
-    try {
-      return (localStorage.getItem('ps_forms_view') as (typeof this.views)[number]['id']) || 'all';
-    } catch {
-      return 'all';
-    }
-  })());
+  /**
+   * Submissions list filter — always defaults to "All" on mount so operators
+   * never land on a pre-filtered slice that hides relevant rows. Selections
+   * still persist for the lifetime of the session (via setView's localStorage
+   * write), but a fresh page load resets the chip to All.
+   */
+  activeView = signal<(typeof this.views)[number]['id']>('all');
   filteredSubmissions = computed(() => {
     const v = this.views.find((x) => x.id === this.activeView()) ?? this.views[0]!;
     return this.submissions().filter((s) => v.test(s));
@@ -397,6 +577,9 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
   testing = signal(false);
   testOpen = signal(false);
   improving = signal(false);
+  /** Controls the full-screen Prompt Designer overlay. Hidden by default;
+   *  opens via the "Form Handling Prompt(s)" button in the page header. */
+  designerOpen = signal(false);
 
   // Per-prompt MCP allow-list — drives the pill row + is sent to the backend
   // so the router only offers checked MCPs as routing targets.
@@ -423,29 +606,7 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
   // ── Auto-polling state ────────────────────────────────────
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private visibilityHandler: (() => void) | null = null;
-  lastSyncAt = signal<number | null>(null);
-  polling = signal(true);
-  private tickSignal = signal(0); // bumped each second for the "Xs ago" label
-
-  /**
-   * Format the live-sync "Xs ago" label.
-   * @example syncAgoLabel() // → "2s ago" or "just now"
-   */
-  syncAgoLabel = computed(() => {
-    this.tickSignal();
-    const at = this.lastSyncAt();
-    if (!at) return '…';
-    const secs = Math.max(0, Math.round((Date.now() - at) / 1000));
-    if (secs < 2) return 'just now';
-    if (secs < 60) return `${secs}s ago`;
-    const m = Math.floor(secs / 60);
-    return `${m}m ago`;
-  });
-
-  livePillTooltip = computed(() => {
-    if (!this.polling()) return 'Auto-refresh paused — tab is in background';
-    return `Auto-refreshing every ${POLL_INTERVAL_MS / 1000}s while this tab is visible`;
-  });
+  private polling = signal(true);
 
   improveButtonLabel = computed(() =>
     (this.settings.form_router_prompt ?? '').trim().length === 0
@@ -458,6 +619,42 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
       ? 'Insert a ready-to-edit example prompt (no AI credits used)'
       : 'Tighten + clarify the current prompt via AI',
   );
+
+  /**
+   * Template variables available inside `{{ … }}` inside the router prompt.
+   * Resolved server-side by `services/template.ts → resolveTemplate` before
+   * the LLM call. Keep in sync with worker `TEMPLATE_VARIABLES`.
+   */
+  readonly templateVars: ReadonlyArray<{ readonly token: string; readonly description: string }> = [
+    { token: '{{business}}', description: 'The site’s business name.' },
+    { token: '{{form.form_name}}', description: 'The form’s name (e.g. "contact", "newsletter").' },
+    { token: '{{form.email}}', description: 'Submitter’s email address.' },
+    { token: '{{form.fields}}', description: 'All submitted fields as JSON.' },
+    { token: '{{form.fields.name}}', description: 'Any specific field by key — replace "name".' },
+    { token: '{{query.utm_source}}', description: 'A URL query parameter (replace with any param name).' },
+    { token: '{{meta.ip}}', description: 'Submitter’s IP address.' },
+    { token: '{{meta.user_agent}}', description: 'Browser user agent.' },
+    { token: '{{meta.origin_url}}', description: 'Page URL the form was submitted from.' },
+    { token: '{{meta.referer}}', description: 'Referer header on the POST.' },
+    { token: '{{meta.timestamp}}', description: 'ISO-8601 timestamp.' },
+    { token: '{{meta.submission_id}}', description: 'UUID for the submission.' },
+  ];
+
+  /** Insert a template token at the textarea's cursor (or append if collapsed). */
+  insertVar(textarea: HTMLTextAreaElement, token: string): void {
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? start;
+    const before = textarea.value.slice(0, start);
+    const after = textarea.value.slice(end);
+    const next = before + token + after;
+    this.settings.form_router_prompt = next;
+    // Restore cursor position just past the inserted token on the next tick.
+    queueMicrotask(() => {
+      textarea.focus();
+      const caret = start + token.length;
+      textarea.setSelectionRange(caret, caret);
+    });
+  }
 
   /**
    * Lifecycle: kick off initial load + auto-poll loop.
@@ -488,16 +685,9 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     if (this.pollTimer !== null) return;
     this.polling.set(true);
     this.pollTimer = setInterval(() => {
-      this.tickSignal.update((n) => n + 1);
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-        // visibility handler will pause us; defensive guard if event hasn't fired
-        return;
-      }
-      // Re-fetch on every Nth tick — keep tick at 1s so the "Xs ago" label
-      // updates smoothly, but only hit the API every POLL_INTERVAL_MS / 1000.
-      const at = this.lastSyncAt() ?? 0;
-      if (Date.now() - at >= POLL_INTERVAL_MS) this.reload({ silent: true });
-    }, 1000);
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      this.reload({ silent: true });
+    }, POLL_INTERVAL_MS);
   }
 
   private stopPolling(): void {
@@ -615,6 +805,33 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
    * // textarea empty → loads seed template, toast "Loaded example prompt"
    * // textarea has content → AI rewrite, toast "Improved with AI"
    */
+  /**
+   * Insert the canonical seed prompt into the editor without consuming AI
+   * credits. Same backend endpoint as {@link improvePrompt} but forced to
+   * `mode === 'seed'` by sending an empty value.
+   */
+  loadExamplePrompt(): void {
+    const site = this.state.selectedSite();
+    if (!site) {
+      this.toast.error('Select a site first');
+      return;
+    }
+    this.improving.set(true);
+    this.api
+      .post<{ data: { mode: 'seed' | 'improved'; text: string } }>(
+        '/sites/improve-prompt',
+        { text: '', business_name: site.business_name, business_address: site.business_address ?? undefined },
+      )
+      .subscribe({
+        next: (r) => {
+          this.settings.form_router_prompt = r.data?.text ?? this.settings.form_router_prompt;
+          this.toast.success('Loaded example prompt');
+          this.improving.set(false);
+        },
+        error: () => { this.improving.set(false); },
+      });
+  }
+
   improvePrompt(): void {
     const site = this.state.selectedSite();
     if (!site) {
@@ -663,7 +880,6 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
       next: (r) => {
         this.submissions.set(r.data ?? []);
         this.loading.set(false);
-        this.lastSyncAt.set(Date.now());
       },
       error: () => {
         this.loading.set(false);
@@ -694,6 +910,9 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
           form_router_prompt_default: r.data?.form_router_prompt_default ?? '',
           reply_email: r.data?.reply_email ?? '',
         };
+      },
+      error: () => {
+        /* api.service already surfaced the toast — keep current settings */
       },
     });
   }

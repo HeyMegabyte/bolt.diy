@@ -1,4 +1,4 @@
-import { Component, type OnInit, type OnDestroy, inject, signal, computed, effect, ViewChild, HostListener } from '@angular/core';
+import { Component, type OnInit, type OnDestroy, inject, signal, computed, effect, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subscription, filter } from 'rxjs';
@@ -7,9 +7,10 @@ import { ApiService, type Site } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { AppShellService, type AppLanguage } from '../../services/app-shell.service';
+import { BoltEmbedService } from '../../services/bolt-embed.service';
 import { AdminStateService } from './admin-state.service';
 import { CommandPaletteComponent } from './command-palette.component';
-import { ShortcutsModalComponent } from './shortcuts-modal.component';
+import { ShortcutsOverlayComponent } from '../../components/shortcuts-overlay/shortcuts-overlay.component';
 import { AiChatWidgetComponent } from '../../components/ai-chat-widget/ai-chat-widget.component';
 import { SectionErrorBoundaryComponent } from '../../components/section-error-boundary/section-error-boundary.component';
 import { FocusTrapDirective } from '../../directives/focus-trap.directive';
@@ -19,19 +20,24 @@ interface Notification { id: string; title: string; time: string; kind: 'info' |
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsModalComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective],
+  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective],
   providers: [AdminStateService],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',
 })
 export class AdminComponent implements OnInit, OnDestroy {
+  // AfterViewInit is declared via the hook below; no need for a separate
+  // import since Angular only checks for the named method on the class.
   state = inject(AdminStateService);
   auth = inject(AuthService);
   router = inject(Router);
+  bolt = inject(BoltEmbedService);
   private toast = inject(ToastService);
   private api = inject(ApiService);
   private translate = inject(TranslateService);
   private appShell = inject(AppShellService);
+
+  @ViewChild('boltFrame') private boltFrameRef?: ElementRef<HTMLIFrameElement>;
 
   /** Active UI language — used by the avatar-menu toggle to render the chip. */
   currentLang = signal<AppLanguage>(((): AppLanguage => {
@@ -47,7 +53,6 @@ export class AdminComponent implements OnInit, OnDestroy {
   siteSearchQuery = signal('');
   sidebarCollapsed = signal(false);
   isEditorRoute = signal(false);
-  editorSaving = signal(false);
   currentSection = signal('Editor');
 
 
@@ -58,7 +63,15 @@ export class AdminComponent implements OnInit, OnDestroy {
   unreadCount = computed(() => this.notifications().filter((n) => !n.read).length);
 
   @ViewChild('palette') palette?: CommandPaletteComponent;
-  @ViewChild('shortcuts') shortcuts?: ShortcutsModalComponent;
+
+  /**
+   * Visibility of the global keyboard-shortcuts overlay. Conditional-mount
+   * pattern (matches `AppComponent`) — flipping to `true` mounts the
+   * overlay, which is internally `open=true` by default. The overlay emits
+   * `(closed)` when the user presses Esc, clicks the backdrop, or hits the
+   * X button.
+   */
+  shortcutsOpen = signal(false);
 
   // Theme toggle — persisted to localStorage, sets data-theme on <html>.
   theme = signal<'dark' | 'light' | 'system'>(((): 'dark' | 'light' | 'system' => {
@@ -83,12 +96,6 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   private routerSub?: Subscription;
 
-  /** Recently-visited admin pages (last 6). Persisted to localStorage so the
-   * strip survives refresh. Polish ideas #11 + #25. */
-  recents = signal<{ path: string; label: string; ts: number }[]>(((): { path: string; label: string; ts: number }[] => {
-    try { return JSON.parse(localStorage.getItem('ps_admin_recents') ?? '[]'); } catch { return []; }
-  })());
-
   private updateRouteState(url: string): void {
     this.isEditorRoute.set(url === '/admin' || url.startsWith('/admin/editor'));
     const segment = url.split('/').pop() || '';
@@ -100,20 +107,11 @@ export class AdminComponent implements OnInit, OnDestroy {
       'user': 'User Settings',
       'billing': 'Billing', 'audit': 'Audit Log', 'settings': 'Settings',
     };
-    const label = labels[segment] || 'Editor';
-    this.currentSection.set(label);
-    this.pushRecent(url.split('?')[0], label);
+    this.currentSection.set(labels[segment] || 'Editor');
     this.api.post('/analytics/track', {
       route: url.split('?')[0],
       site_id: this.state.selectedSite()?.id ?? null,
     }).subscribe({ error: () => {} });
-  }
-
-  private pushRecent(path: string, label: string): void {
-    // De-dupe + cap at 6, MRU first.
-    const next = [{ path, label, ts: Date.now() }, ...this.recents().filter((r) => r.path !== path)].slice(0, 6);
-    this.recents.set(next);
-    try { localStorage.setItem('ps_admin_recents', JSON.stringify(next)); } catch { /* private mode */ }
   }
 
   ngOnInit(): void {
@@ -132,23 +130,32 @@ export class AdminComponent implements OnInit, OnDestroy {
     this.seedNotifications();
   }
 
+  ngAfterViewInit(): void {
+    // Hand the iframe element to the embed service so it can postMessage
+    // into the live editor without a DOM query.
+    this.bolt.registerIframe(this.boltFrameRef?.nativeElement ?? null);
+  }
+
+  /**
+   * Effect: pre-boot the bolt.diy iframe as soon as a site is selected, even
+   * when the user is on a different admin sub-route. By the time they click
+   * "Editor" the iframe is already running.
+   */
+  private bootEffect = effect(() => {
+    const site = this.state.selectedSite();
+    this.bolt.bootForSite(site ?? null);
+  });
+
   ngOnDestroy(): void {
     this.routerSub?.unsubscribe();
     this.state.stopPolling();
+    this.bolt.teardown();
   }
 
   // ── Editor save ─────────────────────────────────────
 
   saveEditor(): void {
-    const iframe = document.querySelector('.editor-iframe') as HTMLIFrameElement | null;
-    if (!iframe?.contentWindow) {
-      this.toast.error('Editor not ready');
-      return;
-    }
-    this.editorSaving.set(true);
-    iframe.contentWindow.postMessage({ type: 'PS_REQUEST_FILES', includeChat: true, correlationId: crypto.randomUUID() }, '*');
-    this.toast.info('Saving files from editor...');
-    setTimeout(() => this.editorSaving.set(false), 10000);
+    this.bolt.saveAndDeploy();
   }
 
   // ── Sidebar ─────────────────────────────────────────
@@ -186,7 +193,7 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   openPalette(): void { this.palette?.openIt(); }
 
-  openShortcuts(): void { this.shortcuts?.open.set(true); this.userMenuOpen.set(false); }
+  openShortcuts(): void { this.shortcutsOpen.set(true); this.userMenuOpen.set(false); }
 
   /**
    * Flip the active UI language between English and Spanish, push the change
@@ -220,10 +227,28 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   // ── User menu ───────────────────────────────────────
 
-  userInitial(): string {
-    const e = this.userEmail() || this.userName() || '?';
-    return e.charAt(0).toUpperCase();
+  /**
+   * Up-to-two-character monogram for the avatar. Preference order:
+   *   1. First+last initial when `auth.user.name` has 2+ tokens ("Brian Zalewski" → "BZ").
+   *   2. First letter of the single-token name ("Brian" → "B").
+   *   3. First letter of the email ("hey@megabyte.space" → "H").
+   *   4. "?" when nothing is known.
+   */
+  userInitials(): string {
+    const name = this.userName().trim();
+    if (name) {
+      const tokens = name.split(/\s+/).filter((t) => t.length > 0);
+      if (tokens.length >= 2) {
+        return (tokens[0]!.charAt(0) + tokens[tokens.length - 1]!.charAt(0)).toUpperCase();
+      }
+      if (tokens.length === 1) return tokens[0]!.charAt(0).toUpperCase();
+    }
+    const email = this.userEmail().trim();
+    if (email) return email.charAt(0).toUpperCase();
+    return '?';
   }
+  /** Back-compat alias — older templates/tests may still reference `userInitial()`. */
+  userInitial(): string { return this.userInitials(); }
   userEmail(): string { return (this.auth as unknown as { user?: { email?: string } }).user?.email ?? ''; }
   userName(): string { return (this.auth as unknown as { user?: { name?: string } }).user?.name ?? ''; }
   planLabel(): string { return 'Free'; }
@@ -282,7 +307,7 @@ export class AdminComponent implements OnInit, OnDestroy {
           const t = new Date(row.created_at).getTime();
           return {
             id: `audit-${row.id}`,
-            title: this.humanizeAction(row.action) + (row.target_type ? ` · ${row.target_type}` : ''),
+            title: this.humanizeAction(row.action) + this.targetSuffix(row.target_type),
             time: this.relativeTime(now - t),
             kind: row.action.includes('delete') ? 'warn' : row.action.includes('error') ? 'warn' : 'info',
             read: readIds.includes(`audit-${row.id}`),
@@ -294,6 +319,23 @@ export class AdminComponent implements OnInit, OnDestroy {
       },
       error: () => { /* no audit available — silent */ },
     });
+  }
+  /**
+   * Build the "· {site}" suffix for a notification title. When the audit row's
+   * `target_type` is the literal word "site" (the most common case), swap in
+   * the currently-selected site's business_name or `{slug}.projectsites.dev`
+   * so the operator sees which site the event belongs to instead of the
+   * generic word. For non-site targets (org, billing, hostname…), keep the
+   * raw target_type as the descriptor.
+   */
+  private targetSuffix(targetType: string | null): string {
+    if (!targetType) return '';
+    if (targetType.toLowerCase() === 'site') {
+      const site = this.state.selectedSite();
+      const label = site?.business_name?.trim() || (site?.slug ? `${site.slug}.projectsites.dev` : '');
+      return label ? ` · ${label}` : '';
+    }
+    return ` · ${targetType}`;
   }
   private humanizeAction(a: string): string {
     return a.replace(/[_.]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -319,7 +361,7 @@ export class AdminComponent implements OnInit, OnDestroy {
   @HostListener('document:keydown', ['$event'])
   onGlobalKey(ev: KeyboardEvent): void {
     const inField = (ev.target as HTMLElement | null)?.matches('input, textarea, [contenteditable]');
-    if (ev.key === '?' && !inField) { ev.preventDefault(); this.shortcuts?.open.set(true); return; }
+    if (ev.key === '?' && !inField) { ev.preventDefault(); this.shortcutsOpen.set(true); return; }
     if (ev.key === '/' && !inField) {
       ev.preventDefault();
       (document.querySelector('input[placeholder*="Search sites" i]') as HTMLInputElement | null)?.focus();

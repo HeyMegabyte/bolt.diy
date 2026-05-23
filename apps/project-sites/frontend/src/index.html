@@ -99,6 +99,18 @@
   <link rel="dns-prefetch" href="//www.google-analytics.com">
   <link rel="dns-prefetch" href="//www.googletagmanager.com">
 
+  <!-- bolt.diy editor pre-warm: open TCP+TLS to the iframe host + the
+       StackBlitz WebContainer origin as soon as the marketing/admin HTML
+       arrives. Saves ~400-800ms per origin on the first cold open of
+       /admin/editor by overlapping the connection handshake with the
+       Angular bundle download. -->
+  <link rel="preconnect" href="https://editor.projectsites.dev" crossorigin>
+  <link rel="dns-prefetch" href="//editor.projectsites.dev">
+  <link rel="preconnect" href="https://stackblitz.com" crossorigin>
+  <link rel="dns-prefetch" href="//stackblitz.com">
+  <link rel="preconnect" href="https://webcontainer-api.io" crossorigin>
+  <link rel="dns-prefetch" href="//webcontainer-api.io">
+
   <!-- JSON-LD: WebSite (Google, Bing, Yahoo, DuckDuckGo, Brave, Yandex, Baidu) -->
   <script type="application/ld+json">
   {

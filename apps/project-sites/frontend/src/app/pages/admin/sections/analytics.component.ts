@@ -2,6 +2,7 @@ import { Component, inject, signal, computed, type OnInit, type OnDestroy } from
 import { DatePipe } from '@angular/common';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
+import { ToastService } from '../../../services/toast.service';
 
 interface Overview {
   total_visits: number;
@@ -22,7 +23,7 @@ interface Overview {
 
       <header class="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 class="text-lg font-bold text-white m-0 flex items-center gap-2">
+          <h2 class="section-h text-lg font-bold text-white m-0 flex items-center gap-2">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00E5FF" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
             Analytics
           </h2>
@@ -59,7 +60,7 @@ interface Overview {
             }
           </div>
           @if (!cfs.analytics_configured) {
-            <button class="btn-primary" (click)="autoSetup()" [disabled]="settingUp()" title="Run Cloudflare auto-config now">{{ settingUp() ? 'Configuring…' : 'Auto-configure now' }}</button>
+            <button class="btn-gradient" (click)="autoSetup()" [disabled]="settingUp()" title="Run Cloudflare auto-config now">{{ settingUp() ? 'Configuring…' : 'Auto-configure now' }}</button>
           }
         </div>
       }
@@ -95,23 +96,32 @@ interface Overview {
 
       <section class="card">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="m-0 text-base font-semibold text-white">Daily visits</h3>
+          <h3 class="section-h m-0 text-base font-semibold text-white">Daily visits</h3>
           <span class="text-[0.7rem] text-text-secondary">{{ data()?.visits_by_day?.length || 0 }} days · peak {{ peakDayVisits() }}</span>
         </div>
-        @if ((data()?.visits_by_day?.length ?? 0) === 0) {
-          <p class="text-center text-text-secondary text-sm py-8">No data yet. Visit a few admin pages and refresh.</p>
+        @if (loading() && !data()) {
+          <div class="skeleton skeleton-chart" aria-hidden="true"></div>
+        } @else if ((data()?.visits_by_day?.length ?? 0) === 0) {
+          <div class="empty-state" data-testid="analytics-empty">
+            <svg class="empty-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/>
+            </svg>
+            <h4 class="empty-title">No traffic yet — share your site</h4>
+            <p class="empty-body">Once visitors arrive, daily visits and trend data will plot here in real time.</p>
+            <button class="btn-gradient" type="button" (click)="copyShareLink()" title="Copy your live site URL">Copy share link</button>
+          </div>
         } @else {
-          <svg viewBox="0 0 600 120" preserveAspectRatio="none" class="w-full h-32">
+          <svg viewBox="0 0 600 120" preserveAspectRatio="none" class="w-full h-32 sparkline">
             <defs>
               <linearGradient id="visit-grad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.45"/>
-                <stop offset="100%" stop-color="#00E5FF" stop-opacity="0"/>
+                <stop offset="0%" stop-color="oklch(0.75 0.2 195 / 0.4)"/>
+                <stop offset="100%" stop-color="oklch(0.75 0.2 195 / 0)"/>
               </linearGradient>
             </defs>
             <path [attr.d]="sparkArea()" fill="url(#visit-grad)" />
-            <path [attr.d]="sparkLine()" fill="none" stroke="#00E5FF" stroke-width="2"/>
+            <path [attr.d]="sparkLine()" fill="none" stroke="#00E5FF" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
             @for (p of sparkDots(); track p.x) {
-              <circle [attr.cx]="p.x" [attr.cy]="p.y" r="3" fill="#00E5FF"/>
+              <circle [attr.cx]="p.x" [attr.cy]="p.y" r="2.5" fill="#00E5FF"/>
             }
           </svg>
         }
@@ -198,8 +208,12 @@ interface Overview {
     :host { display: block; }
     .card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 1.4rem; }
     .kpi { padding: 1.1rem; }
+    .section-h { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
     .muted-h { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; }
     .btn-ghost { padding: 0.4rem 0.9rem; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #e5e7eb; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
+    .btn-gradient { padding: 0.5rem 1rem; border-radius: 10px; background: linear-gradient(135deg, #00ffc8, #00d4ff); color: #060610; font-size: 0.74rem; font-weight: 700; border: 0; cursor: pointer; box-shadow: 0 6px 18px -8px rgba(0, 212, 255, 0.55); transition: transform 140ms ease, box-shadow 140ms ease; }
+    .btn-gradient:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px -8px rgba(0, 212, 255, 0.7); }
+    .btn-gradient:disabled { opacity: 0.55; cursor: not-allowed; }
     /* Fixed-width Refresh button so the date strip never shifts when label flips between "Refresh" and "…". */
     .refresh-btn { min-width: 78px; text-align: center; }
     .refresh-btn:disabled { opacity: 0.5; cursor: progress; }
@@ -211,11 +225,23 @@ interface Overview {
     .range-chip-strip { display: inline-flex; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; padding: 2px; gap: 2px; }
     .range-chip { padding: 4px 10px; border-radius: 999px; background: transparent; border: 0; color: rgba(255,255,255,0.65); font-size: 0.7rem; font-weight: 600; cursor: pointer; }
     .range-chip.active { background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.18)); color: #00E5FF; }
+    .sparkline path { transition: d 320ms ease; }
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2.4rem 1.2rem; gap: 0.6rem; }
+    .empty-icon { color: rgba(0, 229, 255, 0.7); }
+    .empty-title { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; font-size: 0.95rem; color: #fff; margin: 0.2rem 0 0; }
+    .empty-body { font-size: 0.78rem; color: rgba(255,255,255,0.6); margin: 0 0 0.4rem; max-width: 340px; }
+    .skeleton { background: rgba(255,255,255,0.10); border-radius: 10px; animation: skel-pulse 1.4s ease-in-out infinite; }
+    .skeleton-chart { height: 128px; width: 100%; }
+    @keyframes skel-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) {
+      .pulse-dot, .skeleton, .sparkline path, .btn-gradient { animation: none; transition: none; }
+    }
   `],
 })
 export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   state = inject(AdminStateService);
   private api = inject(ApiService);
+  private toast = inject(ToastService);
 
   data = signal<Overview | null>(null);
   error = signal<string | null>(null);
@@ -266,6 +292,27 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     function csv(s: string): string { return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }
+  }
+
+  /**
+   * Copy the currently-selected site's public URL so the user can share it
+   * and start generating traffic. Falls back gracefully when no site is
+   * selected or the Clipboard API is unavailable.
+   */
+  async copyShareLink(): Promise<void> {
+    const site = this.state.selectedSite();
+    const slug = site?.slug;
+    const url = slug ? `https://${slug}.projectsites.dev` : (typeof location !== 'undefined' ? location.origin : '');
+    if (!url) {
+      this.toast.error('Select a site first to copy its link');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      this.toast.success('Share link copied to clipboard');
+    } catch {
+      this.toast.error('Could not copy — copy this URL manually: ' + url);
+    }
   }
 
   topCountry = computed(() => this.data()?.top_countries?.[0]?.country ?? null);

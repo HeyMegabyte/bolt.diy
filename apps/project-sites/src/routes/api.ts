@@ -132,6 +132,7 @@ import * as posthog from '../lib/posthog.js';
 import { captureError } from '../lib/sentry.js';
 import { fetchSheetData, fetchSheetMeta } from '../services/google_sheets.js';
 import { migrateExternalAssets } from '../services/asset_migration.js';
+import { isCloudflareAnalyticsConfigured, loadSiteTraffic } from '../services/cloudflare_analytics.js';
 
 const api = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -6686,7 +6687,54 @@ api.get('/api/analytics/:siteId', async (c) => {
           request_id: requestId,
         }),
       );
-      // Fall through to basic data
+      // Fall through to next fallback (CF zone analytics → D1).
+    }
+  }
+
+  // Second fallback: Cloudflare zone analytics via GraphQL. Works whenever
+  // CF_API_TOKEN + CF_ZONE_ID are present — no GA4 measurement-id needed.
+  // Surfaces request counts, page views, unique visitors, top paths, and
+  // country geography sourced directly from the CF edge.
+  if (isCloudflareAnalyticsConfigured(c.env)) {
+    try {
+      const dayCount = parseInt(period) || 7;
+      const traffic = await loadSiteTraffic(c.env, site.slug, dayCount);
+      return c.json({
+        data: {
+          period: traffic.range_days,
+          slug: site.slug,
+          source: 'cloudflare_zone_analytics',
+          ga4_connected: false,
+          ga4_measurement_id: c.env.GA4_MEASUREMENT_ID || null,
+          gtm_container_id: c.env.GTM_CONTAINER_ID || null,
+          stats: {
+            pageViews: traffic.page_views,
+            uniqueVisitors: traffic.unique_visitors,
+            totalRequests: traffic.total_requests,
+            // No session-duration / bounce-rate at the CF edge — those need
+            // a JS beacon (GA4/PostHog). Surface 0 + the source flag so the
+            // frontend can hide those tiles when source === 'cloudflare_*'.
+            avgSessionDuration: '—',
+            bounceRate: 0,
+          },
+          chartData: traffic.by_day.map((b) => ({ date: b.day, views: b.page_views || b.requests })),
+          trafficSources: [], // not available at the edge layer
+          topPages: traffic.top_paths.map((p) => ({ path: p.path, views: p.requests })),
+          topCountries: traffic.by_country.map((cc) => ({ country: cc.country, views: cc.requests })),
+        },
+      });
+    } catch (err) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'api',
+          route: 'GET /api/analytics/:siteId',
+          fallback: 'cloudflare_zone_analytics',
+          error: err instanceof Error ? err.message : String(err),
+          request_id: requestId,
+        }),
+      );
+      // Fall through to D1 audit-log fallback.
     }
   }
 

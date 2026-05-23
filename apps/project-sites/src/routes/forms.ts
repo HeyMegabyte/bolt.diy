@@ -166,11 +166,32 @@ forms.post('/api/v1/forms/submit', async (c) => {
         .all<{ extracted_text: string }>();
       const tools = await loadAvailableTools(c.env, site.id as string);
       const businessName = (site as { business_name?: string }).business_name ?? (site.slug as string);
+      // ── Assemble the template context exposed to `{{ }}` placeholders in
+      // the customer's router prompt. Kept in sync with the variable list
+      // surfaced in the Dashboard UI (see services/template.ts → TEMPLATE_VARIABLES).
+      const query = c.req.query() as Record<string, string>;
+      const templateContext = {
+        form: {
+          form_name: validated.form_name,
+          email: validated.email ?? '',
+          fields: validated.fields,
+        },
+        query,
+        meta: {
+          ip,
+          user_agent: userAgent ?? '',
+          origin_url: validated.origin_url ?? c.req.header('referer') ?? '',
+          referer: c.req.header('referer') ?? '',
+          timestamp: submittedAt,
+          submission_id: submissionId,
+        },
+      };
       const prompt = buildPrompt({
         customPrompt: settings?.form_router_prompt ?? null,
         businessName,
         contextSnippets: (contextRows.results ?? []).map((r) => r.extracted_text.slice(0, 1200)),
         availableTools: tools,
+        templateContext,
       });
       const userMessage = JSON.stringify({
         form_name: validated.form_name,

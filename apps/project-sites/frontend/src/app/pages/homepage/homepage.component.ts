@@ -309,9 +309,16 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
     document.documentElement.lang = next;
   }
 
+  /** Respects `prefers-reduced-motion: reduce` per WCAG 2.2 / always.md mandate. */
+  private prefersReducedMotion(): boolean {
+    if (!isPlatformBrowser(this.platformId)) return false;
+    return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  }
+
   scrollTo(id: string): void {
     this.mobileMenuOpen.set(false);
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    const behavior: ScrollBehavior = this.prefersReducedMotion() ? 'auto' : 'smooth';
+    document.getElementById(id)?.scrollIntoView({ behavior });
   }
 
   toggleMobileMenu(): void {
@@ -327,7 +334,8 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
     this.mobileMenuOpen.set(false);
     if (this.heroSearchInput?.nativeElement) {
       this.heroSearchInput.nativeElement.focus();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const behavior: ScrollBehavior = this.prefersReducedMotion() ? 'auto' : 'smooth';
+      window.scrollTo({ top: 0, behavior });
     }
   }
 }

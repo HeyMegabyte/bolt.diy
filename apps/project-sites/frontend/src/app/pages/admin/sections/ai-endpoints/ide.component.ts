@@ -26,6 +26,7 @@ import {
   extensionFor,
   type DeployStatus,
   type EndpointBinding,
+  type EndpointMethod,
   type IdeLanguage,
   type OpenTab,
 } from './types';
@@ -55,7 +56,13 @@ import {
           <button class="btn-mini" (click)="togglePanel('tester')" data-testid="ide-panel-tester">Tester</button>
           <button class="btn-mini" (click)="togglePanel('logs')" data-testid="ide-panel-logs">Logs</button>
           <button class="btn-mini" (click)="togglePanel('bindings')" data-testid="ide-panel-bindings">Bindings</button>
-          <button class="btn-mini" (click)="togglePanel('preview')" data-testid="ide-panel-preview">Preview</button>
+          <button
+            class="btn-mini"
+            type="button"
+            [disabled]="method !== 'GET'"
+            [attr.title]="method === 'GET' ? 'HTML preview of the deployed endpoint' : 'HTML preview is only available for GET endpoints'"
+            (click)="togglePanel('preview')"
+            data-testid="ide-panel-preview">Preview</button>
         </div>
       </div>
 
@@ -219,6 +226,8 @@ import {
     .deploy-pill.deploying { background: rgba(124, 58, 237, 0.16); color: #c4b5fd; }
     .input-mini, .btn-mini { font-size: 0.7rem; padding: 0.35rem 0.55rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; color: #fff; }
     .btn-mini { cursor: pointer; }
+    .btn-mini:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-mini { cursor: pointer; }
     .btn-mini.btn-deploy { background: rgba(0,229,255,0.12); color: #00E5FF; border-color: rgba(0,229,255,0.35); font-weight: 600; }
     .btn-mini:disabled { opacity: 0.5; cursor: not-allowed; }
     .input-mini.search { min-width: 160px; }
@@ -242,6 +251,13 @@ export class IdeComponent implements OnInit {
   @Input() logs: { id: string; status: string; latency_ms: number; created_at: string }[] = [];
   @Input() liveUrl: string | null = null;
   @Input() testerResponse: string | null = null;
+  /**
+   * HTTP method of the parent endpoint. Required to gate the Preview panel
+   * — only GET endpoints can render in an iframe (POST/PUT/DELETE/PATCH
+   * would 405/400 the iframe load and surface a spurious bottom-right
+   * error toast from the global error interceptor).
+   */
+  @Input() method: EndpointMethod = 'POST';
 
   @Output() filesChange = new EventEmitter<Record<string, string>>();
   @Output() languageChange = new EventEmitter<IdeLanguage>();

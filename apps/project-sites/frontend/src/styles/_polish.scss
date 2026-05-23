@@ -33,18 +33,25 @@
 // does a quick crossfade + tiny upward slide.
 @supports (view-transition-name: a) {
   aside[class*="sidebar"], aside.w-\[260px\], aside { view-transition-name: ps-sidebar; contain: layout style; }
-  main > .recents-strip { view-transition-name: ps-recents; }
   // Top bar is the first child of <main> — name it.
   main > div:first-child { view-transition-name: ps-topbar; contain: layout style; }
-  // The router content gets its own name so the browser only transitions
-  // *this* element on navigation.
-  router-outlet + *, router-outlet ~ * { view-transition-name: ps-content; }
+  // Top-level page content (sibling of <app-root>'s router-outlet). Scoped to
+  // `app-root >` so we don't *also* tag the nested <app-admin> router-outlet's
+  // sibling with the same name — two elements sharing one
+  // view-transition-name throws "Unexpected duplicate view-transition-name".
+  // The nested admin sub-route uses its own name (`ps-section`) below.
+  app-root > router-outlet + *, app-root > router-outlet ~ * { view-transition-name: ps-content; }
+  // Nested admin sub-route swap (e.g. /admin/billing → /admin/snapshots).
+  app-admin router-outlet + *, app-admin router-outlet ~ * { view-transition-name: ps-section; }
 }
 // Crossfade the content area: old fades out, new fades + slides up gently.
-::view-transition-old(ps-content) {
+// Same treatment for both page-level and admin section-level transitions.
+::view-transition-old(ps-content),
+::view-transition-old(ps-section) {
   animation: psContentOut 180ms cubic-bezier(0.4, 0, 1, 1) both;
 }
-::view-transition-new(ps-content) {
+::view-transition-new(ps-content),
+::view-transition-new(ps-section) {
   animation: psContentIn 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 // Sidebar + topbar + recents — instant snap, no animation = stable.
@@ -96,6 +103,66 @@
 @keyframes psSectionChildIn {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+// ── 0. Shared design tokens ───────────────────────────────────────
+// Consolidated tokens for the admin overhaul. Every modal, side panel,
+// overlay, card, button, and grid is expected to consume these instead of
+// hardcoding values. Adding a new visual rule? Reach for a token first.
+:root {
+  // Radii
+  --ps-radius-xs: 6px;
+  --ps-radius-sm: 8px;
+  --ps-radius-md: 12px;
+  --ps-radius-lg: 16px;
+  --ps-radius-xl: 22px;
+
+  // Shadows — card / popover / modal / overlay
+  --ps-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --ps-shadow-md: 0 6px 18px -8px rgba(0, 0, 0, 0.42);
+  --ps-shadow-lg: 0 16px 40px -16px rgba(0, 0, 0, 0.55);
+  --ps-shadow-xl: 0 24px 64px -16px rgba(0, 0, 0, 0.7);
+  --ps-shadow-card: var(--ps-shadow-md), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  --ps-shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 80px rgba(0, 229, 255, 0.04);
+
+  // Focus ring — applied with `outline` on `:focus-visible` for keyboard nav.
+  --ps-ring-focus: 2px solid #00ffc8;
+  --ps-ring-focus-offset: 2px;
+
+  // Easing curves
+  --ps-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ps-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ps-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --ps-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  // Durations
+  --ps-dur-fast: 140ms;
+  --ps-dur-base: 220ms;
+  --ps-dur-slow: 380ms;
+
+  // Z layers
+  --ps-z-dropdown: 1000;
+  --ps-z-sticky: 1100;
+  --ps-z-modal-backdrop: 1900;
+  --ps-z-modal: 2000;
+  --ps-z-side-panel: 2050;
+  --ps-z-overlay-takeover: 2100;
+  --ps-z-toast: 9999;
+
+  // Surface tones
+  --ps-surface-1: rgba(13, 13, 40, 0.85);
+  --ps-surface-2: rgba(10, 10, 30, 0.97);
+  --ps-surface-3: rgba(8, 8, 32, 0.98);
+  --ps-surface-glass: rgba(13, 13, 40, 0.62);
+}
+
+// Reduced-motion respects every overlay/animation primitive.
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ps-dur-fast: 1ms;
+    --ps-dur-base: 1ms;
+    --ps-dur-slow: 1ms;
+  }
 }
 
 // ── 1. Density tokens ─────────────────────────────────────────────
@@ -341,37 +408,3 @@ html[data-contrast="high"] {
   animation: slideDown 240ms ease-out both;
 }
 
-// Recently-visited pages strip in the admin shell.
-.recents-strip {
-  display: flex;
-  gap: 6px;
-  padding: 4px 12px;
-  overflow-x: auto;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  scrollbar-width: none;
-  &::-webkit-scrollbar { display: none; }
-  .recent-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-    padding: 3px 8px;
-    font-size: 0.66rem;
-    color: rgba(255, 255, 255, 0.6);
-    border-radius: 999px;
-    background: transparent;
-    border: 1px solid transparent;
-    text-decoration: none;
-    transition: all 120ms ease;
-    &:hover {
-      color: #fff;
-      background: rgba(0, 229, 255, 0.08);
-      border-color: rgba(0, 229, 255, 0.2);
-    }
-    &.is-active {
-      color: #00E5FF;
-      background: rgba(0, 229, 255, 0.12);
-      border-color: rgba(0, 229, 255, 0.3);
-    }
-  }
-}

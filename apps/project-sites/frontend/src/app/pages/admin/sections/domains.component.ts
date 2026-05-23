@@ -104,7 +104,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 class="text-lg font-bold text-white m-0">Domains</h2>
+          <h2 class="section-h text-lg font-bold text-white m-0">Domains</h2>
           <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
             Manage the live domain, search creative names with AI, and port any custom domain in or out.
           </p>
@@ -128,7 +128,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
         <section class="bg-surface border border-border rounded-lg p-5 space-y-3">
           <div class="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <h3 class="text-base font-semibold text-white m-0">Provisioned backup domain</h3>
+              <h3 class="section-h text-base font-semibold text-white m-0">Provisioned backup domain</h3>
               <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
                 Every site ships with a free, always-on subdomain. Use it while a custom domain propagates or as a permanent home.
               </p>
@@ -147,7 +147,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
         <!-- ── 2. Add a domain ───────────────────────────────────── -->
         <section class="bg-surface border border-border rounded-lg p-5 space-y-5">
           <div>
-            <h3 class="text-base font-semibold text-white m-0">Add a domain</h3>
+            <h3 class="section-h text-base font-semibold text-white m-0">Add a domain</h3>
             <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
               Connect a domain you already own, or search for an available one with AI.
             </p>
@@ -240,7 +240,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
         <!-- ── 3. Connected domains ─────────────────────────────── -->
         <section class="bg-surface border border-border rounded-lg p-5 space-y-4">
           <div>
-            <h3 class="text-base font-semibold text-white m-0">Connected domains</h3>
+            <h3 class="section-h text-base font-semibold text-white m-0">Connected domains</h3>
             <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
               Every domain currently pointing to this site. The primary domain is what visitors see first.
             </p>
@@ -275,7 +275,14 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                     <tr class="border-b border-border/50 last:border-b-0">
                       <td class="py-2 pr-3 font-mono text-white break-all">{{ h.hostname }}</td>
                       <td class="py-2 pr-3">
-                        <span class="px-1.5 py-0.5 text-[0.65rem] rounded border" [class]="statusClass(h.status)">{{ h.status }}</span>
+                        <span
+                          class="status-badge"
+                          [attr.data-status]="statusTone(h.status)"
+                          [attr.data-testid]="'hostname-status-' + h.hostname"
+                        >
+                          <span class="status-dot" aria-hidden="true"></span>
+                          {{ h.status }}
+                        </span>
                       </td>
                       <td class="py-2 pr-3 text-text-secondary">{{ h.ssl_status || '—' }}</td>
                       <td class="py-2 pr-3">
@@ -290,6 +297,18 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                       </td>
                       <td class="py-2 pr-3 text-right">
                         <div class="flex justify-end gap-1 flex-wrap">
+                          @if (statusTone(h.status) === 'error') {
+                            <button
+                              class="btn-retry"
+                              type="button"
+                              (click)="retryHostname(h)"
+                              [disabled]="busyHostname() === h.id"
+                              [attr.data-testid]="'retry-' + h.hostname"
+                              title="Re-verify SSL and DNS for this hostname"
+                            >
+                              {{ busyHostname() === h.id ? 'Retrying…' : 'Retry' }}
+                            </button>
+                          }
                           @if (h.type === 'custom_cname') {
                             <button
                               class="btn-ghost text-[0.72rem] py-1 px-2"
@@ -405,6 +424,77 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
         display: flex;
         align-items: center;
         justify-content: space-between;
+      }
+      .section-h {
+        font-family: 'Sora', system-ui, sans-serif;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+      /* OKLCH status badges — perceptually-uniform color so all three tones
+         carry equal visual weight at the same chroma. */
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.18rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid color-mix(in oklch, var(--status-color) 40%, transparent);
+        background: color-mix(in oklch, var(--status-color) 12%, transparent);
+        color: var(--status-color);
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        line-height: 1.4;
+      }
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--status-color);
+        box-shadow: 0 0 0 0 color-mix(in oklch, var(--status-color) 60%, transparent);
+      }
+      .status-badge[data-status='verified'] { --status-color: oklch(0.78 0.18 152); }
+      .status-badge[data-status='pending'] { --status-color: oklch(0.82 0.16 78); }
+      .status-badge[data-status='pending'] .status-dot { animation: status-pulse 1.6s ease-in-out infinite; }
+      .status-badge[data-status='error'] { --status-color: oklch(0.7 0.21 25); }
+      .status-badge[data-status='neutral'] { --status-color: oklch(0.7 0.02 240); }
+      @keyframes status-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--status-color) 60%, transparent); }
+        50% { box-shadow: 0 0 0 5px color-mix(in oklch, var(--status-color) 0%, transparent); }
+      }
+      .btn-primary {
+        padding: 0.5rem 1.05rem;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #00ffc8, #00d4ff);
+        color: #060610;
+        font-weight: 700;
+        border: 0;
+        cursor: pointer;
+        font-size: 0.78rem;
+        box-shadow: 0 6px 18px -8px rgba(0, 212, 255, 0.55);
+        transition: transform 140ms ease, box-shadow 140ms ease;
+      }
+      .btn-primary:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 24px -8px rgba(0, 212, 255, 0.7);
+      }
+      .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
+      .btn-retry {
+        padding: 0.22rem 0.6rem;
+        border-radius: 7px;
+        background: color-mix(in oklch, oklch(0.7 0.21 25) 14%, transparent);
+        border: 1px solid color-mix(in oklch, oklch(0.7 0.21 25) 44%, transparent);
+        color: oklch(0.84 0.13 25);
+        font-size: 0.7rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 140ms ease;
+      }
+      .btn-retry:hover:not(:disabled) { background: color-mix(in oklch, oklch(0.7 0.21 25) 26%, transparent); }
+      .btn-retry:disabled { opacity: 0.55; cursor: progress; }
+      @media (prefers-reduced-motion: reduce) {
+        .status-dot, .btn-primary, .btn-retry { animation: none; transition: none; }
       }
     `,
   ],
@@ -605,6 +695,59 @@ export class AdminDomainsComponent implements OnInit {
       default:
         return 'bg-black/40 text-text-secondary border-border';
     }
+  }
+
+  /**
+   * Reduce a raw hostname status string to one of four perceptual tones
+   * consumed by the OKLCH status-badge CSS. Keeping the tone vocabulary
+   * narrow makes the badges visually consistent across statuses that
+   * upstream may rename (`pending_validation` vs `pending`).
+   *
+   * @example statusTone('verification_failed') // → 'error'
+   */
+  statusTone(status: string): 'verified' | 'pending' | 'error' | 'neutral' {
+    switch (status) {
+      case 'active':
+      case 'verified':
+        return 'verified';
+      case 'pending':
+      case 'pending_validation':
+      case 'provisioning':
+        return 'pending';
+      case 'verification_failed':
+      case 'error':
+      case 'failed':
+        return 'error';
+      default:
+        return 'neutral';
+    }
+  }
+
+  /**
+   * Retry verification on a hostname currently in an errored state. POSTs to
+   * the existing hostnames endpoint with a `retry: true` flag — the worker
+   * re-runs SSL + DNS checks and flips the row back to `pending_validation`.
+   */
+  retryHostname(h: Hostname): void {
+    const site = this.state.selectedSite();
+    if (!site) return;
+    this.busyHostname.set(h.id);
+    this.api
+      .post<{ data: { hostname: string; status: string } }>(
+        `/sites/${site.id}/hostnames/${h.id}/retry`,
+        {},
+      )
+      .subscribe({
+        next: () => {
+          this.busyHostname.set(null);
+          this.toast.success(`Retrying ${h.hostname} — refresh in a moment`);
+          this.loadHostnames();
+        },
+        error: () => {
+          this.busyHostname.set(null);
+          /* api.service already surfaced the toast */
+        },
+      });
   }
 
   /** Promote a hostname to primary. */

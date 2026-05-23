@@ -9,6 +9,7 @@ import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
+import { ToastService } from '../../../services/toast.service';
 
 interface Row {
   id: string; submission_id: string | null; trace_kind: string; endpoint_slug: string | null;
@@ -199,7 +200,9 @@ type ViewId = 'all' | 'today' | 'errors' | 'with-tool' | 'high-lat';
             </thead>
             <tbody>
               @for (r of filteredRows(); track r.id) {
-                <tr class="border-b border-white/[0.04] hover:bg-white/[0.03] cursor-pointer" (click)="open(r.id)">
+                <tr class="log-row cursor-pointer"
+                    [attr.data-severity]="severityOf(r)"
+                    (click)="open(r.id)">
                   <td class="p-3 text-text-secondary">{{ r.created_at | date:'short' }}</td>
                   <td class="p-3"><span class="badge">{{ r.trace_kind }}</span></td>
                   <td class="p-3 font-mono text-[0.72rem]">{{ r.endpoint_slug || (r.submission_id?.slice(0,8) ?? '—') }}</td>
@@ -221,16 +224,27 @@ type ViewId = 'all' | 'today' | 'errors' | 'with-tool' | 'high-lat';
                     {{ r.error_message || r.output_preview || '—' }}
                   </td>
                   <td class="p-3 text-right">
-                    <button
-                      class="explain-btn"
-                      type="button"
-                      [attr.data-testid]="'trace-explain-' + r.id"
-                      [disabled]="explainLoading() === r.id"
-                      title="Ask AI to explain this trace"
-                      (click)="explainTrace(r.id, $event)"
-                    >
-                      {{ explainLoading() === r.id ? '…' : '✨ Explain' }}
-                    </button>
+                    <div class="row-actions">
+                      <button
+                        type="button"
+                        class="copy-row-btn"
+                        title="Copy trace as JSON"
+                        [attr.data-testid]="'trace-copy-' + r.id"
+                        (click)="copyRow(r, $event)"
+                      >
+                        @if (copiedId() === r.id) { ✓ } @else { ⧉ }
+                      </button>
+                      <button
+                        class="explain-btn"
+                        type="button"
+                        [attr.data-testid]="'trace-explain-' + r.id"
+                        [disabled]="explainLoading() === r.id"
+                        title="Ask AI to explain this trace"
+                        (click)="explainTrace(r.id, $event)"
+                      >
+                        {{ explainLoading() === r.id ? '…' : '✨ Explain' }}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               }
@@ -289,6 +303,39 @@ type ViewId = 'all' | 'today' | 'errors' | 'with-tool' | 'high-lat';
     .explain-btn:hover:not([disabled]) { background: rgba(124,58,237,0.18); border-color: rgba(124,58,237,0.65); color: #fff; }
     .explain-btn[disabled] { opacity: 0.6; cursor: progress; }
     .explain-md { max-height: 22rem; }
+
+    /* ─── Log rows: severity left border + hover lift + copy button ─── */
+    .log-row {
+      position: relative;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+    }
+    .log-row::before {
+      content: ''; position: absolute; left: 0; top: 8px; bottom: 8px;
+      width: 3px; border-radius: 2px;
+      background: transparent;
+      transition: background 180ms ease, box-shadow 180ms ease;
+    }
+    .log-row[data-severity="info"]::before  { background: oklch(0.72 0.16 220); box-shadow: 0 0 8px -2px color-mix(in oklch, oklch(0.72 0.16 220) 60%, transparent); }
+    .log-row[data-severity="warn"]::before  { background: oklch(0.78 0.16 80);  box-shadow: 0 0 8px -2px color-mix(in oklch, oklch(0.78 0.16 80) 60%, transparent); }
+    .log-row[data-severity="error"]::before { background: oklch(0.65 0.22 25);  box-shadow: 0 0 8px -2px color-mix(in oklch, oklch(0.65 0.22 25) 60%, transparent); }
+    .log-row:hover { background: rgba(255,255,255,0.03); transform: translateY(-1px); box-shadow: 0 6px 18px -14px rgba(0,229,255,0.35); }
+    @media (prefers-reduced-motion: reduce) {
+      .log-row { transition: none; }
+      .log-row:hover { transform: none; }
+    }
+
+    .row-actions { display: inline-flex; align-items: center; gap: 6px; justify-content: flex-end; }
+    .copy-row-btn {
+      padding: 3px 8px; border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.03);
+      color: rgba(255,255,255,0.65);
+      font-size: 0.7rem; font-weight: 700; cursor: pointer; line-height: 1;
+      transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+    }
+    .copy-row-btn:hover { background: rgba(0,229,255,0.10); border-color: rgba(0,229,255,0.35); color: #00E5FF; }
+    .copy-row-btn:focus-visible { outline: 2px solid #00E5FF; outline-offset: 2px; }
 
     /* ─── Live status pill (header) ──────────────────────────────────── */
     .live-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: rgba(16,185,129,0.10); border: 1px solid rgba(16,185,129,0.28); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.02em; color: #10b981; }
@@ -359,8 +406,52 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
   state = inject(AdminStateService);
   private api = inject(ApiService);
   private router = inject(Router);
+  private toast = inject(ToastService);
+
+  /** Trace id that just successfully copied — drives the row-level checkmark. */
+  copiedId = signal<string | null>(null);
   goForms(): void { this.router.navigateByUrl('/admin/forms'); }
   goEndpoints(): void { this.router.navigateByUrl('/admin/ai-endpoints'); }
+
+  /**
+   * Map a trace row to a left-border severity color: error → red, slow
+   * (>1s) → amber/warn, everything else → info/blue.
+   */
+  severityOf(r: Row): 'info' | 'warn' | 'error' {
+    if (r.status === 'error') return 'error';
+    if ((r.latency_ms ?? 0) > 1000) return 'warn';
+    return 'info';
+  }
+
+  /**
+   * Copy a compact JSON view of the row to the clipboard so users can paste
+   * into Slack / a bug ticket without opening the detail drawer. Surfaces a
+   * row-level checkmark for ~1.2s and a single toast on success/failure.
+   */
+  copyRow(r: Row, ev: Event): void {
+    ev.stopPropagation();
+    try {
+      const text = JSON.stringify({
+        id: r.id,
+        kind: r.trace_kind,
+        endpoint: r.endpoint_slug,
+        status: r.status,
+        latency_ms: r.latency_ms,
+        credits: r.credits_debited,
+        tool: r.tool_name,
+        preview: r.error_message || r.output_preview,
+        at: r.created_at,
+      }, null, 2);
+      void navigator.clipboard.writeText(text);
+      this.copiedId.set(r.id);
+      this.toast.success('Trace copied');
+      setTimeout(() => {
+        if (this.copiedId() === r.id) this.copiedId.set(null);
+      }, 1200);
+    } catch {
+      this.toast.error('Clipboard unavailable');
+    }
+  }
 
   // 14-day calls sparkline
   callsByDay = computed<{ day: string; count: number }[]>(() => {
@@ -654,6 +745,7 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
     const s = this.state.selectedSite(); if (!s) return;
     this.api.get<{ data: Detail }>(`/sites/${s.id}/ai-logs/${id}`).subscribe({
       next: (r) => this.detail.set(r.data),
+      error: () => { /* api service already toasted */ },
     });
   }
 

@@ -1,9 +1,10 @@
-import { Component, inject, signal, type OnInit } from '@angular/core';
+import { Component, HostListener, inject, signal, type OnInit } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 
 interface Snapshot {
   id: string;
@@ -26,7 +27,7 @@ interface GhStatus {
 @Component({
   selector: 'app-admin-snapshots',
   standalone: true,
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, DialogShellComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -71,7 +72,7 @@ interface GhStatus {
               @if (pushingGh()) {
                 <span class="text-[0.62rem] opacity-70">syncing…</span>
               } @else if (ghStatus()!.commit_count) {
-                <span class="text-[0.62rem] opacity-70">{{ ghStatus()!.commit_count }} commits</span>
+                <span class="text-[0.62rem] opacity-70">{{ formatCount(ghStatus()!.commit_count) }} commits</span>
               }
             </a>
             <button class="btn-github-push" [disabled]="pushingGh()" (click)="pushToGithub(true)"
@@ -90,48 +91,102 @@ interface GhStatus {
         </div>
       </div>
 
-      <!-- Create Snapshot — modal -->
+      <!-- Create Snapshot — uses the standardized DialogShellComponent
+           per the admin overhaul "one consistent modal primitive" rule. -->
       @if (createOpen()) {
-        <div class="modal-overlay" (click)="createOpen.set(false)">
-          <div class="modal-panel" (click)="$event.stopPropagation()">
-            <header class="modal-head">
-              <h3 class="m-0 text-base font-semibold text-white">Create snapshot</h3>
-              <button class="text-text-secondary hover:text-white" (click)="createOpen.set(false)" aria-label="Close create snapshot dialog">×</button>
-            </header>
-            <div class="p-5 flex flex-col gap-3">
-              <label class="block">
+        <app-dialog-shell (closed)="closeCreateDialog()">
+          <span dialogIcon>
+            <svg class="text-primary" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          </span>
+          <span dialogTitle>Create snapshot</span>
+
+          <div class="p-5 flex flex-col gap-4">
+            <label class="block">
+              <div class="flex items-baseline justify-between mb-1">
                 <span class="muted-h">Name</span>
-                <input type="text" placeholder="v2, redesign, summer-2026" [(ngModel)]="newSnapshotName" class="input-field w-full mt-1" maxlength="30" autofocus />
-              </label>
-              <label class="block">
+                <span class="char-counter" [class.char-counter--full]="nameLen() >= 50">{{ nameLen() }}/50</span>
+              </div>
+              <input
+                type="text"
+                placeholder="v2, redesign, summer-2026"
+                [ngModel]="newSnapshotName"
+                (ngModelChange)="newSnapshotName = $event"
+                class="input-field w-full"
+                maxlength="50"
+                [attr.aria-invalid]="!!nameError()"
+                aria-describedby="snap-name-error"
+                data-testid="snapshot-name-input"
+                autofocus />
+              @if (nameError(); as err) {
+                <p id="snap-name-error" class="snap-error" role="alert" aria-live="polite">{{ err }}</p>
+              }
+            </label>
+
+            <label class="block">
+              <div class="flex items-baseline justify-between mb-1">
                 <span class="muted-h">Description (optional)</span>
-                <input type="text" placeholder="What changed since the last snapshot?" [(ngModel)]="newSnapshotDescription" class="input-field w-full mt-1" />
-              </label>
-            </div>
-            <footer class="modal-foot">
-              <button class="btn-ghost" (click)="createOpen.set(false)">Cancel</button>
-              <button class="btn-accent" [disabled]="creatingSnapshot() || !newSnapshotName.trim()" (click)="createSnapshot()">
-                {{ creatingSnapshot() ? 'Creating…' : 'Create snapshot' }}
-              </button>
-            </footer>
+                <span class="char-counter" [class.char-counter--full]="descLen() >= 160">{{ descLen() }}/160</span>
+              </div>
+              <textarea
+                placeholder="What changed since the last snapshot?"
+                [ngModel]="newSnapshotDescription"
+                (ngModelChange)="newSnapshotDescription = $event"
+                class="input-field w-full"
+                rows="3"
+                maxlength="160"
+                data-testid="snapshot-desc-input"></textarea>
+            </label>
           </div>
-        </div>
+
+          <div dialogFooter class="px-5 py-4 border-t border-white/[0.06] flex items-center justify-end gap-2">
+            <button class="btn-ghost" type="button" (click)="closeCreateDialog()" [disabled]="creatingSnapshot()">Cancel</button>
+            <button
+              class="btn-accent"
+              type="button"
+              [disabled]="creatingSnapshot() || !canCreate()"
+              data-testid="snapshot-create-submit"
+              (click)="createSnapshot()">
+              {{ creatingSnapshot() ? 'Creating…' : 'Create snapshot' }}
+            </button>
+          </div>
+        </app-dialog-shell>
       }
 
       <!-- Snapshot Timeline -->
-      <div class="bg-white/[0.02] border border-white/[0.06] rounded-[14px] p-6">
+      <div class="snap-card">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-base font-semibold text-white m-0">Version History</h3>
-          <span class="text-[0.72rem] text-text-secondary">{{ snapshots().length }} snapshot{{ snapshots().length === 1 ? '' : 's' }}</span>
+          <span class="text-[0.72rem] text-text-secondary">{{ formatCount(snapshots().length) }} snapshot{{ snapshots().length === 1 ? '' : 's' }}</span>
         </div>
 
         @if (loadingSnapshots()) {
-          <div class="flex flex-col items-center justify-center gap-3 py-[60px] text-text-secondary text-[0.85rem]"><div class="loading-spinner"></div><span>Loading snapshots...</span></div>
+          <div class="relative pl-6" aria-busy="true" aria-label="Loading snapshots">
+            <div class="absolute left-[11px] top-0 bottom-0 w-[2px] bg-gradient-to-b from-primary/30 via-primary/15 to-transparent"></div>
+            @for (i of [1,2,3]; track i) {
+              <div class="relative pb-5">
+                <div class="absolute left-[-19px] top-1 w-[14px] h-[14px] rounded-full border-2 border-white/20 bg-dark"></div>
+                <div class="ml-2 bg-white/[0.02] border border-white/[0.06] rounded-xl p-4">
+                  <div class="flex items-start gap-3">
+                    <div class="flex-1 space-y-2">
+                      <div class="skeleton h-4 w-40"></div>
+                      <div class="skeleton h-3 w-56"></div>
+                      <div class="skeleton h-3 w-32"></div>
+                    </div>
+                    <div class="skeleton h-7 w-16"></div>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
         } @else if (snapshots().length === 0) {
-          <div class="flex flex-col items-center justify-center py-10 text-text-secondary gap-3">
-            <svg class="opacity-30" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            <span class="text-[0.82rem]">No snapshots yet</span>
-            <span class="text-[0.72rem] text-text-secondary/60">The first snapshot is created automatically when your site is built.</span>
+          <div class="empty-state">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <h4>No snapshots yet</h4>
+            <p>The first snapshot is created automatically when your site is built. You can also create one manually.</p>
+            <button class="btn-create-snap" (click)="createOpen.set(true)" [disabled]="!state.selectedSite()" title="Open the create-snapshot dialog">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+              <span>Create your first snapshot</span>
+            </button>
           </div>
         } @else {
           <!-- Timeline -->
@@ -153,40 +208,61 @@ interface GhStatus {
                 <div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-4 transition-all hover:border-primary/[0.12] ml-2"
                      [class]="first ? 'border-primary/[0.15] bg-primary/[0.02]' : ''">
                   <div class="flex items-start justify-between gap-3">
-                    <div class="flex flex-col gap-1 min-w-0">
+                    <div class="flex flex-col gap-1 min-w-0 flex-1">
+                      <!-- Row 1: title + Latest chip + single date (inline) -->
                       <div class="flex items-center gap-2 flex-wrap">
-                        <a class="font-semibold text-[0.85rem] text-primary no-underline hover:underline"
-                           [href]="'https://' + state.selectedSite()!.slug + '-' + snap.snapshot_name + '.projectsites.dev'" target="_blank" rel="noopener">
+                        <a class="snap-title"
+                           [href]="'https://' + state.selectedSite()!.slug + '-' + snap.snapshot_name + '.projectsites.dev'"
+                           target="_blank" rel="noopener"
+                           [attr.data-testid]="'snapshot-title-' + snap.id">
                           {{ snap.snapshot_name }}
                         </a>
                         @if (first) {
-                          <span class="text-[0.58rem] font-bold py-px px-2 rounded uppercase bg-primary/[0.12] text-primary">Latest</span>
+                          <span class="snap-latest-chip">Latest</span>
                         }
-                        <span class="text-[0.65rem] text-text-secondary/60 font-mono">v{{ snap.build_version }}</span>
+                        <span class="snap-version">v{{ snap.build_version }}</span>
+                        <span class="snap-date">{{ snap.created_at | date:'mediumDate' }} · {{ snap.created_at | date:'shortTime' }}</span>
                       </div>
+                      <!-- Row 2: description (only when present) -->
                       @if (snap.description) {
-                        <span class="text-[0.75rem] text-text-secondary">{{ snap.description }}</span>
+                        <p class="snap-desc">{{ snap.description }}</p>
                       }
-                      <span class="text-[0.68rem] text-text-secondary/50">{{ snap.created_at | date:'medium' }}</span>
                     </div>
-                    <div class="flex items-center gap-1.5 flex-shrink-0">
+
+                    <!-- View + More dropdown -->
+                    <div class="flex items-center gap-1.5 flex-shrink-0 relative">
                       <button class="btn-snap-view group" (click)="viewSnapshot(snap)" title="Open this snapshot in a new tab" [attr.aria-label]="'Open snapshot ' + snap.snapshot_name + ' in new tab'">
                         <span class="btn-snap-view-glow" aria-hidden="true"></span>
                         <svg class="btn-snap-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                         <span class="btn-snap-label">View</span>
                       </button>
-                      @if (!first) {
-                        <button class="btn-snap-revert group" (click)="revertToSnapshot(snap)" [disabled]="reverting()" title="Revert site to this version" [attr.aria-label]="'Revert site to snapshot ' + snap.snapshot_name">
-                          <span class="btn-snap-revert-glow" aria-hidden="true"></span>
-                          <svg class="btn-snap-icon" [class.animate-spin]="reverting()" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                          <span class="btn-snap-label">{{ reverting() ? 'Reverting' : 'Revert' }}</span>
-                        </button>
-                      }
-                      <button class="btn-snap-trash group" (click)="confirmDelete(snap)" title="Delete this snapshot" [attr.aria-label]="'Delete snapshot ' + snap.snapshot_name">
-                        <span class="btn-snap-trash-glow" aria-hidden="true"></span>
-                        <svg class="btn-snap-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                        <span class="btn-snap-label">Delete</span>
+                      <button
+                        class="btn-snap-more"
+                        type="button"
+                        [attr.aria-expanded]="moreOpenId() === snap.id"
+                        [attr.aria-label]="'More actions for snapshot ' + snap.snapshot_name"
+                        [attr.data-testid]="'snapshot-more-' + snap.id"
+                        (click)="toggleMore(snap.id, $event)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
                       </button>
+                      @if (moreOpenId() === snap.id) {
+                        <div class="snap-more-pop" role="menu" (click)="$event.stopPropagation()">
+                          @if (!first) {
+                            <button class="snap-more-item" type="button" [disabled]="reverting()" (click)="revertToSnapshot(snap); moreOpenId.set(null)" [attr.data-testid]="'snapshot-revert-' + snap.id">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                              {{ reverting() ? 'Reverting…' : 'Revert' }}
+                            </button>
+                          }
+                          <button class="snap-more-item" type="button" (click)="downloadSnapshot(snap); moreOpenId.set(null)" [attr.data-testid]="'snapshot-download-' + snap.id">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Download
+                          </button>
+                          <button class="snap-more-item snap-more-danger" type="button" (click)="confirmDelete(snap); moreOpenId.set(null)" [attr.data-testid]="'snapshot-delete-' + snap.id">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            Delete
+                          </button>
+                        </div>
+                      }
                     </div>
                   </div>
                 </div>
@@ -199,7 +275,24 @@ interface GhStatus {
     </div>
   `,
   styles: [`
-    :host { display: block; }
+    :host { display: block; --accent: #00E5FF; }
+    h2, h3 { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
+    .snap-card { background: rgba(255,255,255,0.02); border: 1px solid color-mix(in oklch, var(--accent) 14%, transparent); border-radius: 14px; padding: 1.4rem; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02); transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease; }
+    .snap-card:hover { transform: translateY(-1px); border-color: color-mix(in oklch, var(--accent) 28%, transparent); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 8px 24px -16px rgba(0,229,255,0.18); }
+    .empty-state { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 2.5rem 1rem; text-align: center; }
+    .empty-state .icon { width: 40px; height: 40px; opacity: 0.45; }
+    .empty-state h4 { margin: 0; font-family: 'Sora', system-ui, sans-serif; font-weight: 600; color: rgba(255,255,255,0.85); font-size: 0.9rem; letter-spacing: -0.01em; }
+    .empty-state p { margin: 0; font-size: 0.75rem; color: rgba(255,255,255,0.5); max-width: 36ch; }
+    .skeleton { background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.08), rgba(255,255,255,0.04)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; border-radius: 8px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .snap-card, .btn-create-snap, .btn-github-link, .btn-github-linked { transition: none; }
+      .snap-card:hover, .btn-create-snap:hover { transform: none; box-shadow: none; }
+      .skeleton { animation: none; background: rgba(255,255,255,0.06); }
+    }
+    @media (max-width: 640px) {
+      .btn-create-snap, .btn-github-link, .btn-github-linked-wrap { width: 100%; justify-content: center; }
+    }
     .btn-github-link { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #e5e7eb; font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: all 150ms ease; }
     .btn-github-link:hover:not(:disabled) { background: rgba(0,229,255,0.1); border-color: rgba(0,229,255,0.35); color: #00E5FF; transform: translateY(-1px); }
     .btn-github-link:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -215,13 +308,122 @@ interface GhStatus {
     .btn-create-snap:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px -8px rgba(0,229,255,0.4); }
     .btn-create-snap:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    .modal-overlay { position: fixed; inset: 0; background: rgba(2,2,12,0.62); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); z-index: 9050; display: flex; align-items: center; justify-content: center; padding: 24px; animation: mIn 160ms ease-out; }
-    @keyframes mIn { from { opacity: 0 } to { opacity: 1 } }
-    .modal-panel { width: min(520px, 92vw); background: linear-gradient(180deg, rgba(20,20,42,0.97), rgba(10,10,28,0.97)); border: 1px solid rgba(0,229,255,0.22); border-radius: 16px; overflow: hidden; box-shadow: 0 28px 80px -16px rgba(0,0,0,0.7); animation: mRise 220ms cubic-bezier(0.16,1,0.3,1); }
-    @keyframes mRise { from { transform: translateY(8px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
-    .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-    .modal-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.18); }
     .muted-h { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; }
+
+    /* Row 1: title + Latest chip + version + date — all on one line. */
+    .snap-title {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-feature-settings: "calt", "liga";
+      font-size: 0.86rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #00E5FF;
+      text-decoration: none;
+      text-transform: capitalize;
+    }
+    .snap-title:hover { text-decoration: underline; }
+    .snap-latest-chip {
+      font-size: 0.58rem; font-weight: 700;
+      padding: 1px 7px; border-radius: 999px;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      background: color-mix(in oklch, oklch(0.78 0.18 220) 18%, transparent);
+      color: oklch(0.86 0.16 220);
+      border: 1px solid color-mix(in oklch, oklch(0.78 0.18 220) 30%, transparent);
+    }
+    .snap-version {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.64rem;
+      color: rgba(255, 255, 255, 0.55);
+      letter-spacing: 0.02em;
+    }
+    .snap-date {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.66rem;
+      color: rgba(255, 255, 255, 0.48);
+      letter-spacing: 0.01em;
+      margin-left: auto;
+    }
+    .snap-desc {
+      margin: 0; padding-top: 2px;
+      font-size: 0.78rem;
+      color: rgba(255, 255, 255, 0.7);
+      line-height: 1.45;
+      text-wrap: pretty;
+    }
+
+    /* More dropdown — three-dots → menu with Revert/Download/Delete. */
+    .btn-snap-more {
+      width: 30px; height: 30px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      transition: background var(--ps-dur-fast, 140ms), color var(--ps-dur-fast, 140ms), border-color var(--ps-dur-fast, 140ms);
+    }
+    .btn-snap-more:hover { background: rgba(255, 255, 255, 0.08); color: #fff; border-color: rgba(255, 255, 255, 0.18); }
+    .btn-snap-more:focus-visible {
+      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline-offset: var(--ps-ring-focus-offset, 2px);
+    }
+    .snap-more-pop {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      min-width: 168px;
+      padding: 4px;
+      background: linear-gradient(180deg, rgba(20, 20, 42, 0.97), rgba(10, 10, 28, 0.97));
+      border: 1px solid rgba(0, 229, 255, 0.22);
+      border-radius: 10px;
+      box-shadow: 0 18px 48px -16px rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(12px) saturate(140%);
+      z-index: 50;
+      animation: snap-more-in 160ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1));
+    }
+    @keyframes snap-more-in {
+      from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .snap-more-item {
+      display: flex; align-items: center; gap: 8px;
+      width: 100%;
+      padding: 7px 10px;
+      background: transparent; border: 0;
+      color: rgba(255, 255, 255, 0.82);
+      font-size: 0.78rem;
+      text-align: left;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: background var(--ps-dur-fast, 140ms), color var(--ps-dur-fast, 140ms);
+    }
+    .snap-more-item:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+    .snap-more-item:focus-visible {
+      outline: 2px solid #00ffc8;
+      outline-offset: -2px;
+    }
+    .snap-more-item:disabled { opacity: 0.5; cursor: not-allowed; }
+    .snap-more-danger { color: oklch(0.78 0.18 25); }
+    .snap-more-danger:hover { background: rgba(248, 113, 113, 0.12); color: oklch(0.86 0.16 25); }
+    @media (prefers-reduced-motion: reduce) {
+      .snap-more-pop { animation: none; }
+      .btn-snap-more { transition: none; }
+    }
+
+    /* Create-modal inputs */
+    .char-counter {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.65rem;
+      color: rgba(255, 255, 255, 0.5);
+      letter-spacing: 0.02em;
+    }
+    .char-counter--full { color: oklch(0.78 0.18 25); }
+    .snap-error {
+      margin: 6px 0 0;
+      font-size: 0.72rem;
+      color: oklch(0.78 0.18 25);
+      line-height: 1.35;
+    }
   `],
 })
 export class AdminSnapshotsComponent implements OnInit {
@@ -236,6 +438,12 @@ export class AdminSnapshotsComponent implements OnInit {
   creatingSnapshot = signal(false);
   reverting = signal(false);
 
+  /** Locale-aware count formatter for the "N snapshots" badge + commit-count chip. */
+  private readonly numberFormatter = new Intl.NumberFormat(undefined);
+  formatCount(n: number | null | undefined): string {
+    return this.numberFormatter.format(typeof n === 'number' && Number.isFinite(n) ? n : 0);
+  }
+
 
   // GitHub mirror (replaces the standalone GitHub Backup nav item).
   ghStatus = signal<GhStatus | null>(null);
@@ -244,12 +452,86 @@ export class AdminSnapshotsComponent implements OnInit {
   unlinkingGh = signal(false);
   createOpen = signal(false);
 
+  /** Which row's "More" dropdown is open (null = none). */
+  moreOpenId = signal<string | null>(null);
+
+  /** Live counters for the create-modal char limits. */
+  nameLen(): number { return this.newSnapshotName.length; }
+  descLen(): number { return this.newSnapshotDescription.length; }
+
+  /**
+   * Validate the snapshot name. Returns null when valid, else a user-safe
+   * error message rendered inline + announced via aria-live. Plain method
+   * (not `computed()`) because `newSnapshotName` is a non-signal field —
+   * memoizing here would let the error go stale between keystrokes.
+   */
+  nameError(): string | null {
+    const raw = this.newSnapshotName.trim();
+    if (raw.length === 0) return null;
+    if (raw.length > 50) return 'Name must be 50 characters or fewer.';
+    const lowered = raw.toLowerCase();
+    const dup = this.snapshots().some((s) => (s.snapshot_name ?? '').trim().toLowerCase() === lowered);
+    if (dup) return 'A snapshot with this name already exists.';
+    return null;
+  }
+
+  /** Submit enabled only when there's a name AND no validation error. */
+  canCreate(): boolean {
+    return this.newSnapshotName.trim().length > 0 && this.nameError() === null;
+  }
+
+  /**
+   * Close the create-snapshot dialog and reset the draft state. Called from
+   * Cancel, the X close button (via DialogShell's (closed) output), and the
+   * success branch of createSnapshot().
+   */
+  closeCreateDialog(): void {
+    if (this.creatingSnapshot()) return; // never close mid-request
+    this.createOpen.set(false);
+    this.newSnapshotName = '';
+    this.newSnapshotDescription = '';
+  }
+
+  /** Toggle the per-row More dropdown. Click-outside is handled by the
+   *  global document listener wired in {@link AdminSnapshotsComponent.ngOnInit}. */
+  toggleMore(id: string, ev: MouseEvent): void {
+    ev.stopPropagation();
+    this.moreOpenId.update((curr) => (curr === id ? null : id));
+  }
+
+  /**
+   * Stub download — the bundle-export endpoint is not yet wired server-side.
+   * When `GET /sites/:id/snapshots/:snapId/download` lands, replace the toast
+   * with an `<a href download>` anchor click. Until then we surface a clear
+   * "coming soon" so the user isn't confused by a silent click.
+   */
+  downloadSnapshot(snap: Snapshot): void {
+    // TODO(api): wire to `/api/sites/:id/snapshots/:snapId/download` once the
+    // worker route ships the zipped bundle (manifest.json + all files).
+    void snap;
+    this.toast.info('Download will be available shortly — full snapshot bundle export is on the roadmap.');
+  }
+
   ngOnInit(): void {
     const site = this.state.selectedSite();
     if (site) {
       this.loadSnapshots(site.id);
       this.loadGhStatus(site.id);
     }
+  }
+
+  /**
+   * Close the per-row "More" dropdown when the user clicks anywhere outside
+   * a snap-more-pop or btn-snap-more. Bound on the host so the listener
+   * tears down automatically with the component.
+   */
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(ev: MouseEvent): void {
+    if (this.moreOpenId() === null) return;
+    const target = ev.target as HTMLElement | null;
+    if (!target) return;
+    if (target.closest('.snap-more-pop, .btn-snap-more')) return;
+    this.moreOpenId.set(null);
   }
 
   private loadGhStatus(siteId: string): void {
@@ -324,7 +606,7 @@ export class AdminSnapshotsComponent implements OnInit {
 
   createSnapshot(): void {
     const site = this.state.selectedSite();
-    if (!site || !this.newSnapshotName.trim()) return;
+    if (!site || !this.canCreate()) return;
     this.creatingSnapshot.set(true);
     this.api.post<{ data: { id: string; snapshot_name: string; build_version: string; url: string } }>(`/sites/${site.id}/snapshots`, {
       name: this.newSnapshotName.trim(),
@@ -332,9 +614,9 @@ export class AdminSnapshotsComponent implements OnInit {
     }).subscribe({
       next: (res) => {
         this.toast.success(`Snapshot created: ${res.data.snapshot_name}`);
+        this.creatingSnapshot.set(false);
         this.newSnapshotName = '';
         this.newSnapshotDescription = '';
-        this.creatingSnapshot.set(false);
         this.createOpen.set(false);
         this.loadSnapshots(site.id);
         if (this.ghStatus()?.connected) this.pushToGithub(false);
