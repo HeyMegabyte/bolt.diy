@@ -116,23 +116,8 @@
       }
     </div>
 
-    <!-- Sidebar nav-search + recently-viewed -->
-    <div class="px-3 pt-2 pb-1" (click)="$event.stopPropagation()">
-      <div class="relative">
-        <svg class="absolute left-2 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input
-          type="text"
-          placeholder="/ to filter nav…"
-          class="w-full pl-7 pr-2 py-1.5 bg-white/[0.04] border border-white/[0.06] rounded-md text-[0.72rem] text-white placeholder:text-text-secondary/55 outline-none focus:border-primary/30 focus:bg-primary/[0.04] transition-colors"
-          [(ngModel)]="navFilter"
-          (ngModelChange)="applyNavFilter()"
-          (keydown.enter)="jumpFirstFilteredNav()"
-        />
-      </div>
-    </div>
-
 <!-- Navigation -->
-    <nav class="px-3 pt-3 pb-6 flex flex-col gap-0.5 flex-1" [class.nav-filtered]="!!navFilter">
+    <nav class="px-3 pt-3 pb-6 flex flex-col gap-0.5 flex-1">
       <a class="nav-item nav-item-editor" routerLink="/admin" routerLinkActive="nav-item-active" [routerLinkActiveOptions]="{ exact: true }">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
         <span>Editor</span>
@@ -185,7 +170,13 @@
   <!-- ═══════════════════════════════════════════════════ -->
   <!-- RIGHT PANEL (MAIN CONTENT)                          -->
   <!-- ═══════════════════════════════════════════════════ -->
-  <main class="flex-1 min-w-0 flex flex-col min-h-screen">
+  <!-- Establish stacking context for the persistent bolt iframe — Turn 7 fix.
+       The <iframe class="bolt-frame bolt-frame--visible"> below uses
+       position:absolute; top:49px; left:0; right:0; bottom:0; without
+       position:relative on this <main>, the iframe escapes to the document
+       root and renders UNDER the left sidebar. Anchoring the absolute frame
+       to <main> keeps it inside the right-panel column. -->
+  <main class="relative flex-1 min-w-0 flex flex-col min-h-screen">
     <!-- Top bar — `relative z-50` lifts the user/notif dropdowns above the
          editor's loading veil (which sits inside `<main>` at z-10). Without
          this, `backdrop-blur-lg` creates a stacking context at z:auto and
@@ -284,7 +275,6 @@
             <div class="glow-divider"></div>
             <a routerLink="/admin/billing" class="user-item" data-testid="user-menu-billing" (click)="userMenuOpen.set(false)">Billing &amp; credits</a>
             <a routerLink="/admin/user" class="user-item flex items-center" data-testid="user-menu-user-settings" (click)="userMenuOpen.set(false)">User settings <span class="ml-auto text-[0.62rem] text-text-secondary/70">theme · API keys</span></a>
-            <a routerLink="/admin/settings" class="user-item" data-testid="user-menu-project-settings" (click)="userMenuOpen.set(false)">Project settings</a>
             <button class="user-item flex items-center" data-testid="user-menu-shortcuts" (click)="openShortcuts()">Keyboard shortcuts <span class="ml-auto opacity-50 text-[0.7rem]">?</span></button>
             <button class="user-item flex items-center" data-testid="user-menu-language" (click)="toggleLanguage()" [attr.aria-label]="'Switch language, current ' + currentLang()">Language: {{ currentLang() === 'es' ? 'Español' : 'English' }}<span class="ml-auto text-[0.62rem] text-text-secondary/70">{{ currentLang() === 'es' ? 'EN' : 'ES' }}</span></button>
             <a routerLink="/admin/user" fragment="api-keys" class="user-item" data-testid="user-menu-api-keys" (click)="userMenuOpen.set(false)">Generate API key</a>

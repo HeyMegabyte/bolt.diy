@@ -172,3 +172,75 @@ export type Entitlements = z.infer<typeof entitlementsSchema>;
 
 /** Inferred TypeScript type for the internal sale webhook payload. */
 export type SaleWebhookPayload = z.infer<typeof saleWebhookPayloadSchema>;
+
+// ─── Spend Alerts ──────────────────────────────────────────────────────────
+
+/**
+ * Trigger that fires a spend alert.
+ *
+ * - `balance_below` — fires when `credits.getBalance(org)` drops under
+ *   `threshold_credits`.
+ * - `monthly_spend_above` — fires when the current calendar month's
+ *   `usage_events` rollup exceeds `threshold_credits`.
+ * - `rate_spike` — fires when burn-rate (credits/hour, 24h moving avg)
+ *   exceeds `threshold_credits` over a 1h sliding window.
+ */
+export const spendAlertTriggerSchema = z.enum([
+  'balance_below',
+  'monthly_spend_above',
+  'rate_spike',
+]);
+/** Inferred type for the spend-alert trigger enum. */
+export type SpendAlertTrigger = z.infer<typeof spendAlertTriggerSchema>;
+
+/** Notification channels supported by a spend alert. */
+export const spendAlertChannelSchema = z.enum(['email', 'slack', 'discord', 'pagerduty']);
+/** Inferred type for a single spend-alert notification channel. */
+export type SpendAlertChannel = z.infer<typeof spendAlertChannelSchema>;
+
+/**
+ * Request payload for `POST /api/billing/spend-alerts`.
+ *
+ * One row per named alert per org. The cron-fan-out sweep consults
+ * `trigger_type` + `threshold_credits` to decide whether to email/Slack the
+ * recipient(s). `site_id` is optional — when set, the alert scopes to a
+ * single site's usage; when null, the alert evaluates against the whole org.
+ */
+export const createSpendAlertSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  site_id: uuidSchema.optional(),
+  trigger: spendAlertTriggerSchema,
+  threshold_credits: z.number().int().min(0),
+  email: z.string().email().max(254),
+  channels: z.array(spendAlertChannelSchema).min(1).max(4).default(['email']),
+});
+
+/** Inferred TypeScript type for the create-spend-alert request payload. */
+export type CreateSpendAlert = z.infer<typeof createSpendAlertSchema>;
+
+/**
+ * Full spend-alert record as stored in the `spend_alerts` D1 table.
+ *
+ * Includes runtime accounting fields (`last_fired_at`, `fire_count`) that
+ * the cron sweep updates so a single low-balance condition cannot generate
+ * 24 emails/day.
+ */
+export const spendAlertSchema = z.object({
+  id: uuidSchema,
+  org_id: uuidSchema,
+  site_id: uuidSchema.nullable(),
+  name: z.string().min(1).max(200),
+  trigger_type: spendAlertTriggerSchema,
+  threshold_credits: z.number().int().min(0),
+  email: z.string().email().max(254),
+  channels_json: z.string(),
+  last_fired_at: z.string().nullable(),
+  fire_count: z.number().int().min(0),
+  created_by: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  deleted_at: z.string().nullable(),
+});
+
+/** Inferred TypeScript type for a full spend-alert record. */
+export type SpendAlert = z.infer<typeof spendAlertSchema>;

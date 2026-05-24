@@ -36,7 +36,47 @@
 import { PRICING, type Entitlements, getEntitlements, badRequest } from '@project-sites/shared';
 import type { BudgetTier } from '@project-sites/shared/schemas';
 import { dbQueryOne, dbInsert, dbUpdate } from './db.js';
+import { writeAuditLog } from './audit.js';
+import { captureMessage as sentryCaptureMessage } from './sentry.js';
 import type { Env } from '../types/env.js';
+
+/**
+ * Stripe API error envelope as parsed from a non-2xx response body.
+ *
+ * Stripe always returns `{ error: { type, code?, decline_code?, message,
+ * param? } }` for both `4xx` and `5xx`. We surface `code` (the stable,
+ * machine-readable string like `card_declined` / `customer_max_subscriptions`)
+ * to the caller alongside a user-safe `message`.
+ *
+ * @see https://stripe.com/docs/error-codes
+ */
+interface StripeErrorEnvelope {
+  type?: string;
+  code?: string;
+  decline_code?: string;
+  message?: string;
+  param?: string;
+  request_log_url?: string;
+}
+
+/** Best-effort parse of a Stripe error body — falls back to raw text. */
+function parseStripeError(raw: string): { code: string; message: string; type: string } {
+  try {
+    const parsed = JSON.parse(raw) as { error?: StripeErrorEnvelope };
+    const err = parsed.error ?? {};
+    return {
+      code: err.code ?? err.decline_code ?? err.type ?? 'stripe_unknown_error',
+      message: err.message ?? 'Stripe rejected the request.',
+      type: err.type ?? 'unknown',
+    };
+  } catch {
+    return {
+      code: 'stripe_invalid_response',
+      message: raw.slice(0, 200) || 'Stripe returned an unparseable error body.',
+      type: 'unknown',
+    };
+  }
+}
 
 /**
  * Get or create a Stripe customer for an organisation.
@@ -197,27 +237,105 @@ export async function createCheckoutSession(
   }
   params.append('metadata[org_id]', opts.orgId);
 
-  const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: params,
-  });
+  // ── Lookup site slug (best-effort) for human-readable audit messages ──
+  let siteSlug: string | null = null;
+  if (opts.siteId) {
+    const siteRow = await dbQueryOne<{ slug: string }>(
+      db,
+      'SELECT slug FROM sites WHERE id = ? AND deleted_at IS NULL',
+      [opts.siteId],
+    ).catch(() => null);
+    siteSlug = siteRow?.slug ?? null;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params,
+    });
+  } catch (networkErr) {
+    // Network/timeout failures — Stripe SDK equivalent is APIConnectionError.
+    const msg = networkErr instanceof Error ? networkErr.message : String(networkErr);
+    const stripeCode = 'stripe_network_error';
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'billing',
+        message: 'Stripe checkout fetch failed (network)',
+        org_id: opts.orgId,
+        site_id: opts.siteId ?? null,
+        stripe_error_code: stripeCode,
+        error: msg,
+      }),
+    );
+    sentryCaptureMessage(env, 'Stripe checkout error', 'warning', {
+      stripe_error_code: stripeCode,
+      stripe_error_type: 'api_connection_error',
+      org_id: opts.orgId,
+      site_id: opts.siteId ?? null,
+      site_slug: siteSlug,
+      raw: msg.slice(0, 500),
+    }).catch(() => {});
+    await writeAuditLog(db, {
+      org_id: opts.orgId,
+      actor_id: null,
+      action: 'billing.checkout_failed',
+      message: `Pro checkout failed for '${siteSlug ?? opts.siteId ?? opts.orgId}': ${stripeCode}`,
+      target_type: 'subscription',
+      target_id: opts.siteId ?? opts.orgId,
+      metadata_json: { stripe_error_code: stripeCode, error: msg },
+    });
+    throw badRequest(`Could not reach Stripe. Please retry. (${stripeCode})`);
+  }
 
   if (!response.ok) {
-    const err = await response.text();
+    const raw = await response.text();
+    const { code: stripeCode, message: stripeMsg, type: stripeType } = parseStripeError(raw);
     console.warn(
       JSON.stringify({
         level: 'error',
         service: 'billing',
         message: 'Stripe checkout creation failed',
         org_id: opts.orgId,
+        site_id: opts.siteId ?? null,
         status: response.status,
+        stripe_error_code: stripeCode,
+        stripe_error_type: stripeType,
+        stripe_message: stripeMsg,
       }),
     );
-    throw badRequest(`Failed to create Stripe checkout: ${err}`);
+    sentryCaptureMessage(env, 'Stripe checkout error', 'warning', {
+      stripe_error_code: stripeCode,
+      stripe_error_type: stripeType,
+      stripe_status: response.status,
+      org_id: opts.orgId,
+      site_id: opts.siteId ?? null,
+      site_slug: siteSlug,
+      stripe_message: stripeMsg,
+    }).catch(() => {});
+    await writeAuditLog(db, {
+      org_id: opts.orgId,
+      actor_id: null,
+      action: 'billing.checkout_failed',
+      message: `Pro checkout failed for '${siteSlug ?? opts.siteId ?? opts.orgId}': ${stripeCode}`,
+      target_type: 'subscription',
+      target_id: opts.siteId ?? opts.orgId,
+      metadata_json: {
+        stripe_error_code: stripeCode,
+        stripe_error_type: stripeType,
+        stripe_status: response.status,
+        stripe_message: stripeMsg,
+      },
+    });
+    // User-safe envelope: include the stable Stripe code so the frontend can
+    // map it to a specific UX (decline → "try another card", rate_limit →
+    // back-off banner) without parsing free-text English.
+    throw badRequest(`Stripe checkout failed (${stripeCode}): ${stripeMsg}`);
   }
 
   const session = (await response.json()) as { id: string; url: string };
@@ -281,27 +399,104 @@ export async function createEmbeddedCheckoutSession(
   }
   params.append('metadata[org_id]', opts.orgId);
 
-  const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: params,
-  });
+  // ── Lookup site slug for human-readable audit messages ──
+  let siteSlug: string | null = null;
+  if (opts.siteId) {
+    const siteRow = await dbQueryOne<{ slug: string }>(
+      db,
+      'SELECT slug FROM sites WHERE id = ? AND deleted_at IS NULL',
+      [opts.siteId],
+    ).catch(() => null);
+    siteSlug = siteRow?.slug ?? null;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params,
+    });
+  } catch (networkErr) {
+    const msg = networkErr instanceof Error ? networkErr.message : String(networkErr);
+    const stripeCode = 'stripe_network_error';
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'billing',
+        message: 'Stripe embedded checkout fetch failed (network)',
+        org_id: opts.orgId,
+        site_id: opts.siteId ?? null,
+        stripe_error_code: stripeCode,
+        error: msg,
+      }),
+    );
+    sentryCaptureMessage(env, 'Stripe checkout error', 'warning', {
+      stripe_error_code: stripeCode,
+      stripe_error_type: 'api_connection_error',
+      ui_mode: 'embedded',
+      org_id: opts.orgId,
+      site_id: opts.siteId ?? null,
+      site_slug: siteSlug,
+      raw: msg.slice(0, 500),
+    }).catch(() => {});
+    await writeAuditLog(db, {
+      org_id: opts.orgId,
+      actor_id: null,
+      action: 'billing.checkout_failed',
+      message: `Pro checkout failed for '${siteSlug ?? opts.siteId ?? opts.orgId}': ${stripeCode}`,
+      target_type: 'subscription',
+      target_id: opts.siteId ?? opts.orgId,
+      metadata_json: { stripe_error_code: stripeCode, ui_mode: 'embedded', error: msg },
+    });
+    throw badRequest(`Could not reach Stripe. Please retry. (${stripeCode})`);
+  }
 
   if (!response.ok) {
-    const err = await response.text();
+    const raw = await response.text();
+    const { code: stripeCode, message: stripeMsg, type: stripeType } = parseStripeError(raw);
     console.warn(
       JSON.stringify({
         level: 'error',
         service: 'billing',
         message: 'Stripe embedded checkout creation failed',
         org_id: opts.orgId,
+        site_id: opts.siteId ?? null,
         status: response.status,
+        stripe_error_code: stripeCode,
+        stripe_error_type: stripeType,
+        stripe_message: stripeMsg,
       }),
     );
-    throw badRequest(`Failed to create Stripe embedded checkout: ${err}`);
+    sentryCaptureMessage(env, 'Stripe checkout error', 'warning', {
+      stripe_error_code: stripeCode,
+      stripe_error_type: stripeType,
+      stripe_status: response.status,
+      ui_mode: 'embedded',
+      org_id: opts.orgId,
+      site_id: opts.siteId ?? null,
+      site_slug: siteSlug,
+      stripe_message: stripeMsg,
+    }).catch(() => {});
+    await writeAuditLog(db, {
+      org_id: opts.orgId,
+      actor_id: null,
+      action: 'billing.checkout_failed',
+      message: `Pro checkout failed for '${siteSlug ?? opts.siteId ?? opts.orgId}': ${stripeCode}`,
+      target_type: 'subscription',
+      target_id: opts.siteId ?? opts.orgId,
+      metadata_json: {
+        stripe_error_code: stripeCode,
+        stripe_error_type: stripeType,
+        stripe_status: response.status,
+        stripe_message: stripeMsg,
+        ui_mode: 'embedded',
+      },
+    });
+    throw badRequest(`Stripe embedded checkout failed (${stripeCode}): ${stripeMsg}`);
   }
 
   const session = (await response.json()) as { id: string; client_secret: string };
@@ -399,6 +594,21 @@ export async function handleCheckoutCompleted(
     );
   }
 
+  await writeAuditLog(db, {
+    org_id: orgId,
+    actor_id: null,
+    action: 'billing.subscription.started',
+    message: `Subscription started on 'paid' plan${siteId ? ` for site '${siteId}'` : ''} (Stripe sub '${event.subscription}')`,
+    target_type: 'subscription',
+    target_id: event.subscription,
+    metadata_json: {
+      stripe_customer_id: event.customer,
+      stripe_subscription_id: event.subscription,
+      site_id: siteId ?? null,
+      plan: 'paid',
+    },
+  });
+
   // Call optional sale webhook
   if (env.SALE_WEBHOOK_URL && env.SALE_WEBHOOK_SECRET) {
     await callSaleWebhook(env, {
@@ -468,6 +678,20 @@ export async function handleSubscriptionUpdated(
     'org_id = ?',
     [orgId],
   );
+
+  await writeAuditLog(db, {
+    org_id: orgId,
+    actor_id: null,
+    action: 'billing.subscription.updated',
+    message: `Subscription '${event.id}' status synced to '${event.status}'${event.cancel_at_period_end ? ' (cancel-at-period-end)' : ''}`,
+    target_type: 'subscription',
+    target_id: event.id,
+    metadata_json: {
+      stripe_subscription_id: event.id,
+      status: event.status,
+      cancel_at_period_end: event.cancel_at_period_end,
+    },
+  });
 }
 
 /**
@@ -518,6 +742,16 @@ export async function handleSubscriptionDeleted(
 
   // Downgrade all org sites to free
   await dbUpdate(db, 'sites', { plan: 'free' }, 'org_id = ?', [orgId]);
+
+  await writeAuditLog(db, {
+    org_id: orgId,
+    actor_id: null,
+    action: 'billing.subscription.cancelled',
+    message: `Subscription '${event.id}' cancelled — org downgraded to 'free' plan`,
+    target_type: 'subscription',
+    target_id: event.id,
+    metadata_json: { stripe_subscription_id: event.id, plan: 'free', status: 'canceled' },
+  });
 }
 
 /**
@@ -564,6 +798,16 @@ export async function handlePaymentFailed(
     'org_id = ?',
     [orgId],
   );
+
+  await writeAuditLog(db, {
+    org_id: orgId,
+    actor_id: null,
+    action: 'billing.payment_failed',
+    message: `Payment failed for subscription '${event.subscription}' — status set to 'past_due'`,
+    target_type: 'subscription',
+    target_id: event.subscription,
+    metadata_json: { stripe_subscription_id: event.subscription, status: 'past_due' },
+  });
 }
 
 /**

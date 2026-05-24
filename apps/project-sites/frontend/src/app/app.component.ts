@@ -13,6 +13,7 @@ import { AuthService } from './services/auth.service';
 import { ApiService } from './services/api.service';
 import { MetaService } from './services/meta.service';
 import { AppShellService, type AppLanguage } from './services/app-shell.service';
+import { TelemetryService } from './services/telemetry.service';
 
 @Component({
   selector: 'app-root',
@@ -57,6 +58,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private translate = inject(TranslateService);
   private appShell = inject(AppShellService);
+  private telemetry = inject(TelemetryService);
 
   showHeader = signal(true);
   showCommandPalette = signal(false);
@@ -108,13 +110,31 @@ export class AppComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.meta.init();
+    this.telemetry.init();
     this.applyStoredTheme();
     this.cleanupLegacyOnboardingKeys();
     this.handleAuthCallback();
     this.restoreSession();
     this.trackRoute();
+    this.wireTelemetryPageViews();
     this.initCursorFollower();
     this.wireLanguage();
+  }
+
+  /**
+   * Fire a `$pageview` (PostHog) + `page_view` (GA4) + Sentry breadcrumb on
+   * every successful navigation. SPA pageviews are NOT captured by the GA4
+   * gtag.js auto-send because the URL only changes via History API — we
+   * surface them explicitly so funnel reports stay accurate.
+   */
+  private wireTelemetryPageViews(): void {
+    // Initial pageview (Router.events doesn't fire for the first paint).
+    this.telemetry.pageView(this.router.url, document.title);
+    this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe((e) => {
+        this.telemetry.pageView(e.urlAfterRedirects, document.title);
+      });
   }
 
   /**
@@ -294,6 +314,12 @@ export class AppComponent implements OnInit, OnDestroy {
       } else {
         this.router.navigate(['/admin']);
       }
+      // Telemetry: this is the moment a session lands — fires GA4 `signup`
+      // via the conversion-alias inside TelemetryService.
+      this.telemetry.track('auth.signin.succeeded', {
+        provider: authCallback ?? 'email',
+        had_selected_business: !!business,
+      });
       // Best-effort analytics — never blocks the session.
       if (authCallback) {
         this.api.post('/analytics/track', { event: 'auth.callback', provider: authCallback })
@@ -311,6 +337,18 @@ export class AppComponent implements OnInit, OnDestroy {
   private restoreSession(): void {
     if (!this.auth.isLoggedIn()) return;
     this.api.getMe().subscribe({
+      next: (res) => {
+        // Attach identity to PostHog + GA4 so subsequent events are
+        // user-scoped. Sentry user is set separately by SentryService
+        // — don't double-attach here.
+        const user = res?.data;
+        if (user?.id) {
+          this.telemetry.identify(user.id, {
+            email: user.email,
+            org_id: user.org_id,
+          });
+        }
+      },
       error: (err: { status?: number }) => {
         // The api.service interceptor already clears + redirects on 401.
         // Anything else (0 = offline, 5xx, timeout) is transient — keep the

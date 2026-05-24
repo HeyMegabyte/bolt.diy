@@ -17,6 +17,17 @@ describe('MCP_PROVIDERS', () => {
       expect(p.color).toMatch(/^#[0-9A-Fa-f]{6}$/);
       expect(p.group).toBeTruthy();
       expect(typeof p.needsOauth).toBe('boolean');
+      expect(typeof p.oauth_supported).toBe('boolean');
+    }
+  });
+
+  it('OAuth-ready providers have an authorize URL hint', () => {
+    const oauthReady = MCP_PROVIDERS.filter((p) => p.oauth_supported);
+    // Bumped Turn 5 — Airtable, Zapier, Cal.com, Sentry, PagerDuty,
+    // PostHog, Vercel, Netlify flipped from API-key-only → OAuth.
+    expect(oauthReady.length).toBeGreaterThanOrEqual(18);
+    for (const p of oauthReady) {
+      expect(p.oauth_authorize_url).toMatch(/^https:\/\//);
     }
   });
 

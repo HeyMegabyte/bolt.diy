@@ -1,11 +1,10 @@
-import { Component, inject, signal, type OnInit } from '@angular/core';
+import { Component, HostListener, inject, signal, type OnInit } from '@angular/core';
 import { DatePipe, SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
-import { AiChatExtrasComponent } from './ai-chat-extras.component';
 import { MCP_PROVIDERS } from './mcp-providers';
 
 interface Member { id: string; email: string; name: string | null; role: string; created_at: string; }
@@ -19,8 +18,9 @@ interface Conn { id: string; provider: string; display_name: string; status: str
 // management is its own route at /admin/domains.
 const TABS = [
   { id: 'general',  label: 'General',     desc: 'Brand · contact email · tone · locale (this project)' },
+  { id: 'business', label: 'Business',    desc: 'Business identity · address · brand assets · original prompt' },
   { id: 'team',     label: 'Team',        desc: 'Members · roles · invitations · 2FA' },
-  { id: 'ai-chat',  label: 'AI Chat',     desc: 'System prompt · knowledge files · Drive · context (this project)' },
+  { id: 'ai-chat',  label: 'AI Chat',     desc: 'System prompt · persona · web search · knowledge files (this project)' },
   { id: 'mcp',      label: 'MCP',         desc: 'Per-project integrations: Slack, Stripe, Notion, HubSpot +20 more' },
 ] as const;
 type Tab = (typeof TABS)[number]['id'];
@@ -32,7 +32,7 @@ const PROVIDERS = MCP_PROVIDERS;
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [FormsModule, DatePipe, SlicePipe, RouterLink, AiChatExtrasComponent],
+  imports: [FormsModule, DatePipe, SlicePipe, RouterLink],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -234,77 +234,99 @@ const PROVIDERS = MCP_PROVIDERS;
       <!-- ─────────────────── AI CHAT ─────────────────── -->
       @else if (tab() === 'ai-chat') {
         <section class="card">
-          <header class="flex items-start justify-between gap-3 flex-wrap mb-4">
-            <div>
-              <h3 class="m-0 text-base font-semibold text-white mb-1">AI Chat</h3>
-              <p class="text-[0.7rem] text-text-secondary m-0">Persona + system prompt + MCP allow-list for the AI chat widget on your published site.</p>
-            </div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <!-- Google Drive — 3-color Google "G" wordmark omitted; we use the
-                   tri-color triangle Drive mark. Stubbed pending OAuth flow. -->
-              <button class="btn-ghost flex items-center gap-1.5 text-[0.72rem]"
-                      data-testid="ai-chat-connect-google-drive"
-                      (click)="connectGoogleDrive()"
-                      title="Connect Google Drive so you can train your AI using all the files in a specific folder on your Google Drive">
-                <svg viewBox="0 0 87.3 78" width="14" height="14" aria-hidden="true">
-                  <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
-                  <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/>
-                  <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
-                  <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
-                  <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
-                  <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
-                </svg>
-                Connect Google Drive
-              </button>
-              <button class="btn-ghost text-[0.72rem]"
-                      data-testid="ai-chat-context-summary"
-                      (click)="viewContextSummary()"
-                      title="See exactly what context the AI is using on every chat turn">View Context Summary</button>
-            </div>
+          <header class="mb-4">
+            <h3 class="m-0 text-base font-semibold text-white mb-1">AI Chat</h3>
+            <p class="text-[0.7rem] text-text-secondary m-0">Persona + system prompt + knowledge files for the AI chat widget on your published site.</p>
           </header>
 
-          <!-- Grid layout — ≥1024px: two columns. Below: stacked. -->
+          <!-- Grid: System Prompt + Persona stacked on left; Web Search + Knowledge files on right. -->
           <div class="ai-chat-grid">
-            <!-- System prompt (left, top row) -->
-            <label class="block">
-              <div class="flex items-center justify-between">
-                <span class="muted-h">System prompt</span>
-                <button class="btn-ghost text-[0.66rem]" (click)="improveChatField('system')" [disabled]="improvingField() === 'system'" title="Rewrite this system prompt for clarity + concrete behavioral rules">{{ improvingField() === 'system' ? 'Improving…' : '✨ Improve with AI' }}</button>
-              </div>
-              <textarea class="input-field w-full mt-1 font-mono text-[0.72rem] ai-chat-textarea" rows="10"
-                        [placeholder]="chat.system_prompt_default || 'You are the AI concierge for [business]. Concise. Never invent prices.'"
-                        [(ngModel)]="chat.system_prompt"></textarea>
-              @if (chat.system_prompt_default) {
-                <button type="button" class="btn-ghost text-[0.62rem] mt-1"
-                        (click)="chat.system_prompt = chat.system_prompt_default || ''" title="Replace with the latest factory v2 default">Use the v2 best-prompt default</button>
-              }
-            </label>
-
-            <!-- Persona (right, top row) -->
-            <label class="block">
-              <div class="flex items-center justify-between">
-                <span class="muted-h">Persona (one line)</span>
-                <button class="btn-ghost text-[0.66rem]" (click)="improveChatField('persona')" [disabled]="improvingField() === 'persona'" title="Rewrite this persona with the brand AI">{{ improvingField() === 'persona' ? 'Improving…' : '✨ Improve with AI' }}</button>
-              </div>
-              <input type="text" class="input-field w-full mt-1 ai-chat-textarea" placeholder="warm, plainspoken, never pushy" [(ngModel)]="chat.persona" />
-              <p class="text-[0.62rem] text-text-secondary mt-2 leading-relaxed">A one-line voice cue — the AI uses this to set tone on every reply.</p>
-            </label>
-
-            <!-- MCP allow-list (full width, bottom) -->
-            <div class="block ai-chat-full">
-              <span class="muted-h">MCP integrations available to AI Chat</span>
-              <p class="text-[0.66rem] text-text-secondary m-0 mt-1 mb-2">Check any connected MCP you want the chat to be allowed to call. Unchecked = connected but never offered as a tool to the chat.</p>
-              <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-1.5">
-                @for (m of connections(); track m.id) {
-                  <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-white/[0.04] border border-white/[0.04]" [title]="m.provider + ' — toggle availability for AI Chat'">
-                    <input type="checkbox" [checked]="chatMcps().includes(m.provider)" (change)="toggleChatMcp(m.provider)" />
-                    <span class="badge">{{ m.provider }}</span>
-                    <span class="text-[0.66rem] text-text-secondary flex-1 truncate">{{ m.display_name || m.provider }}</span>
-                  </label>
+            <!-- LEFT COLUMN — System prompt (top) + Persona (below) -->
+            <div class="ai-chat-col">
+              <label class="block">
+                <div class="flex items-center justify-between">
+                  <span class="muted-h">System prompt</span>
+                  <button class="btn-ghost text-[0.66rem]" (click)="improveChatField('system')" [disabled]="improvingField() === 'system'" title="Rewrite this system prompt for clarity + concrete behavioral rules">{{ improvingField() === 'system' ? 'Improving…' : '✨ Improve with AI' }}</button>
+                </div>
+                <textarea class="input-field w-full mt-1 font-mono text-[0.72rem] ai-chat-textarea" rows="10"
+                          [placeholder]="chat.system_prompt_default || 'You are the AI concierge for [business]. Concise. Never invent prices.'"
+                          [(ngModel)]="chat.system_prompt"></textarea>
+                @if (chat.system_prompt_default) {
+                  <button type="button" class="btn-ghost text-[0.62rem] mt-1"
+                          (click)="chat.system_prompt = chat.system_prompt_default || ''" title="Replace with the latest factory v2 default">Use the v2 best-prompt default</button>
                 }
-                @if (connections().length === 0) {
-                  <a routerLink="." [fragment]="'mcp'" class="text-[0.7rem] text-primary underline">+ Connect MCPs in the MCP tab</a>
+              </label>
+
+              <label class="block">
+                <div class="flex items-center justify-between">
+                  <span class="muted-h">Persona (one line)</span>
+                  <button class="btn-ghost text-[0.66rem]" (click)="improveChatField('persona')" [disabled]="improvingField() === 'persona'" title="Rewrite this persona with the brand AI">{{ improvingField() === 'persona' ? 'Improving…' : '✨ Improve with AI' }}</button>
+                </div>
+                <input type="text" class="input-field w-full mt-1 ai-chat-textarea" placeholder="warm, plainspoken, never pushy" [(ngModel)]="chat.persona" />
+                <p class="text-[0.62rem] text-text-secondary mt-2 leading-relaxed">A one-line voice cue — the AI uses this to set tone on every reply.</p>
+              </label>
+            </div>
+
+            <!-- RIGHT COLUMN — Web search checkbox (top) + Knowledge files drop zone (below Persona) -->
+            <div class="ai-chat-col">
+              <label class="flex items-center gap-2 text-[0.78rem] text-white cursor-pointer self-end">
+                <input type="checkbox"
+                       class="accent-primary w-4 h-4"
+                       data-testid="ai-chat-enable-web-search"
+                       [checked]="allowWebResearch()"
+                       (change)="toggleWebResearch($any($event.target).checked)"
+                       [disabled]="savingWebResearch()" />
+                <span>Enable web search</span>
+                @if (savingWebResearch()) { <span class="text-[0.6rem] text-text-secondary/60">saving…</span> }
+              </label>
+
+              <div>
+                <span class="muted-h">Knowledge files</span>
+                <div class="kb-dropzone mt-1"
+                     [class.drag]="kbDragOver()"
+                     (dragover)="onKbDragOver($event)"
+                     (dragleave)="kbDragOver.set(false)"
+                     (drop)="onKbDrop($event)"
+                     (click)="kbFileInput.click()"
+                     data-testid="ai-chat-knowledge-dropzone">
+                  <input #kbFileInput type="file" accept="application/pdf" multiple class="hidden"
+                         (change)="onKbFileInput($any($event.target).files)" />
+                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <path d="M14 2v6h6"/>
+                    <path d="M9 13h6M9 17h6"/>
+                  </svg>
+                  <div class="kb-copy">Drop PDFs anywhere to add to knowledge</div>
+                  <div class="kb-sub">or click to choose files</div>
+                </div>
+                @if (kbUploads().length) {
+                  <ul class="kb-list mt-2">
+                    @for (u of kbUploads(); track u.filename) {
+                      <li>
+                        <span class="kb-name">{{ u.filename }}</span>
+                        <span class="kb-status">{{ u.status }}</span>
+                      </li>
+                    }
+                  </ul>
                 }
+              </div>
+
+              <!-- MCP allow-list moved into right column under knowledge files for cohesion -->
+              <div>
+                <span class="muted-h">MCP available to AI Chat</span>
+                <p class="text-[0.66rem] text-text-secondary m-0 mt-1 mb-2">Check any connected MCP you want the chat to be allowed to call.</p>
+                <div class="grid sm:grid-cols-2 gap-1.5">
+                  @for (m of connections(); track m.id) {
+                    <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-white/[0.04] border border-white/[0.04]" [title]="m.provider + ' — toggle availability for AI Chat'">
+                      <input type="checkbox" [checked]="chatMcps().includes(m.provider)" (change)="toggleChatMcp(m.provider)" />
+                      <span class="badge">{{ m.provider }}</span>
+                      <span class="text-[0.66rem] text-text-secondary flex-1 truncate">{{ m.display_name || m.provider }}</span>
+                    </label>
+                  }
+                  @if (connections().length === 0) {
+                    <a routerLink="." [fragment]="'mcp'" class="text-[0.7rem] text-primary underline">+ Connect MCPs in the MCP tab</a>
+                  }
+                </div>
               </div>
             </div>
           </div>
@@ -313,15 +335,141 @@ const PROVIDERS = MCP_PROVIDERS;
             <button class="btn-primary" [disabled]="savingChat()" (click)="saveChat()">{{ savingChat() ? 'Saving…' : 'Save AI Chat settings' }}</button>
           </div>
         </section>
+      }
 
-        <!-- Extras: web research toggle, knowledge file uploads, Google Drive
-             folder monitoring, and the "View Context Summary" modal. Lives in
-             its own component so settings.component.ts stays focused on the
-             tabbed shell. siteId is reactive — switching projects re-runs the
-             extras' effects automatically. -->
-        @if (state.selectedSite(); as site) {
-          <app-ai-chat-extras [siteId]="site.id" />
-        }
+      <!-- ─────────────────── BUSINESS ─────────────────── -->
+      @else if (tab() === 'business') {
+        <section class="card">
+          <header class="mb-4">
+            <h3 class="m-0 text-base font-semibold text-white mb-1">Business</h3>
+            <p class="text-[0.7rem] text-text-secondary m-0">Identity, web, and brand assets used by the AI when it rebuilds or refines this site.</p>
+          </header>
+
+          @if (state.selectedSite(); as site) {
+            <form (submit)="saveBusiness($event)" class="space-y-5" aria-label="Business details">
+              <!-- Group: Identity -->
+              <fieldset class="biz-group">
+                <legend class="biz-legend">Identity</legend>
+                <div class="grid md:grid-cols-2 gap-4">
+                  <label class="block">
+                    <span class="muted-h">Business name</span>
+                    <input type="text" maxlength="200" required
+                           class="input-field w-full mt-1"
+                           data-testid="business-name"
+                           [(ngModel)]="business.business_name"
+                           (ngModelChange)="markBusinessDirty()"
+                           name="business_name"
+                           [attr.aria-invalid]="businessErrors().business_name ? 'true' : null"
+                           aria-describedby="biz-err-name" />
+                    <p id="biz-err-name" class="biz-err" aria-live="polite">{{ businessErrors().business_name || '' }}</p>
+                  </label>
+                  <label class="block">
+                    <span class="muted-h">Business phone</span>
+                    <input type="text" maxlength="32"
+                           class="input-field w-full mt-1"
+                           data-testid="business-phone"
+                           [(ngModel)]="business.business_phone"
+                           (ngModelChange)="markBusinessDirty()"
+                           name="business_phone"
+                           [attr.aria-invalid]="businessErrors().business_phone ? 'true' : null"
+                           aria-describedby="biz-err-phone" />
+                    <p id="biz-err-phone" class="biz-err" aria-live="polite">{{ businessErrors().business_phone || '' }}</p>
+                  </label>
+                  <label class="block md:col-span-2">
+                    <span class="muted-h">Business address</span>
+                    <input type="text" maxlength="500"
+                           class="input-field w-full mt-1"
+                           data-testid="business-address"
+                           [(ngModel)]="business.business_address"
+                           (ngModelChange)="markBusinessDirty()"
+                           name="business_address"
+                           [attr.aria-invalid]="businessErrors().business_address ? 'true' : null"
+                           aria-describedby="biz-err-addr" />
+                    <p id="biz-err-addr" class="biz-err" aria-live="polite">{{ businessErrors().business_address || '' }}</p>
+                  </label>
+                </div>
+              </fieldset>
+
+              <!-- Group: Web -->
+              <fieldset class="biz-group">
+                <legend class="biz-legend">Web</legend>
+                <div class="grid md:grid-cols-1 gap-4">
+                  <label class="block">
+                    <span class="muted-h">Original / former website</span>
+                    <input type="url"
+                           class="input-field w-full mt-1"
+                           placeholder="https://example.com"
+                           data-testid="business-website"
+                           [(ngModel)]="business.business_website"
+                           (ngModelChange)="markBusinessDirty()"
+                           name="business_website"
+                           [attr.aria-invalid]="businessErrors().business_website ? 'true' : null"
+                           aria-describedby="biz-err-web" />
+                    <p id="biz-err-web" class="biz-err" aria-live="polite">{{ businessErrors().business_website || '' }}</p>
+                  </label>
+                  <label class="block">
+                    <span class="muted-h">Original website prompt</span>
+                    <textarea rows="6" maxlength="4000"
+                              class="input-field w-full mt-1 font-mono text-[0.72rem]"
+                              placeholder="The brief you originally gave us — what you wanted the site to be, who it serves, the vibe, anything off-limits…"
+                              data-testid="business-prompt"
+                              [(ngModel)]="business.original_prompt"
+                              (ngModelChange)="markBusinessDirty()"
+                              name="original_prompt"
+                              [attr.aria-invalid]="businessErrors().original_prompt ? 'true' : null"
+                              aria-describedby="biz-err-prompt"></textarea>
+                    <div class="flex justify-between items-center mt-1">
+                      <p id="biz-err-prompt" class="biz-err" aria-live="polite">{{ businessErrors().original_prompt || '' }}</p>
+                      <span class="text-[0.6rem] text-text-secondary/60">{{ (business.original_prompt || '').length }} / 4000</span>
+                    </div>
+                  </label>
+                </div>
+              </fieldset>
+
+              <!-- Group: Brand assets -->
+              <fieldset class="biz-group">
+                <legend class="biz-legend">Brand assets</legend>
+                <div class="grid md:grid-cols-2 gap-4">
+                  <label class="block">
+                    <span class="muted-h">Logo</span>
+                    <div class="biz-file-wrap mt-1">
+                      <input type="file" accept="image/*"
+                             data-testid="business-logo-upload"
+                             (change)="onBusinessLogo($any($event.target).files)"
+                             aria-describedby="biz-err-logo" />
+                      @if (business.logoFile) {
+                        <span class="biz-file-pill">{{ business.logoFile.name }}</span>
+                      }
+                    </div>
+                    <p id="biz-err-logo" class="biz-err" aria-live="polite">{{ businessErrors().logo || '' }}</p>
+                  </label>
+                  <label class="block">
+                    <span class="muted-h">App icon</span>
+                    <div class="biz-file-wrap mt-1">
+                      <input type="file" accept="image/png,image/jpeg,image/webp"
+                             data-testid="business-icon-upload"
+                             (change)="onBusinessIcon($any($event.target).files)"
+                             aria-describedby="biz-err-icon" />
+                      @if (business.iconFile) {
+                        <span class="biz-file-pill">{{ business.iconFile.name }}</span>
+                      }
+                    </div>
+                    <p id="biz-err-icon" class="biz-err" aria-live="polite">{{ businessErrors().icon || '' }}</p>
+                  </label>
+                </div>
+              </fieldset>
+
+              <div class="flex justify-end gap-2">
+                <button type="button" class="btn-ghost" (click)="resetBusiness()" [disabled]="!businessDirty()">Cancel</button>
+                <button type="submit" class="btn-primary"
+                        data-testid="business-save"
+                        [disabled]="!businessDirty() || savingBusiness()">{{ savingBusiness() ? 'Saving…' : 'Save business' }}</button>
+              </div>
+            </form>
+          } @else {
+            <p class="text-[0.78rem] text-text-secondary">Select a project from the top dropdown to edit its business details.</p>
+          }
+        </section>
       }
 
       <!-- Theme moved → /admin/user (user-level, not per-project). -->
@@ -341,25 +489,39 @@ const PROVIDERS = MCP_PROVIDERS;
                   <div class="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-[0.9rem]"
                        [style.background]="p.color + '20'" [style.color]="p.color">{{ p.label[0] }}</div>
                   <div class="flex-1 min-w-0">
-                    <div class="font-semibold text-white">{{ p.label }}</div>
+                    <div class="flex items-center gap-2">
+                      <div class="font-semibold text-white">{{ p.label }}</div>
+                      @if (p.oauth_supported) {
+                        <span class="oauth-pill" title="Single-click OAuth supported">OAuth</span>
+                      }
+                    </div>
                     <div class="text-[0.68rem] text-text-secondary leading-snug">{{ p.desc }}</div>
                   </div>
                 </div>
                 @if (isConnected(p.id); as c) {
                   <div class="flex items-center justify-between mt-1 text-[0.72rem]">
-                    <span class="text-emerald-400">● Connected · {{ c.connected_at | slice:0:10 }}</span>
-                    <button class="text-red-400 underline" (click)="disconnect(c)">Disconnect</button>
+                    <span class="text-emerald-400">
+                      ● Connected · {{ c.connected_at | slice:0:10 }}
+                      <span class="via-badge">via {{ isOauthConnection(c) ? 'OAuth' : 'key' }}</span>
+                    </span>
+                    <button class="mcp-btn mcp-btn-danger" (click)="disconnect(c)">Disconnect</button>
                   </div>
                 } @else if (pasteMode() === p.id) {
                   <div class="mt-1 flex gap-2">
                     <input type="password" class="input-field flex-1 font-mono text-[0.72rem]"
                            [placeholder]="pastePlaceholder(p.id)" [(ngModel)]="pastedKey" />
-                    <button class="btn-primary" (click)="submitPaste(p.id)">Save</button>
+                    <button class="mcp-btn mcp-btn-solid" (click)="submitPaste(p.id)">Save</button>
                   </div>
-                } @else {
-                  <button class="btn-primary mt-1 self-start" (click)="connect(p)">
-                    {{ p.needsOauth ? 'Connect ' + p.label : 'Paste API key' }}
+                } @else if (p.oauth_supported) {
+                  <button class="mcp-btn mcp-btn-oauth mt-1 self-start" (click)="connectOauth(p.id)">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5" />
+                      <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5" />
+                    </svg>
+                    Connect with {{ p.label }}
                   </button>
+                } @else {
+                  <button class="mcp-btn mt-1 self-start" (click)="connect(p)">Add API key</button>
                 }
               </article>
             }
@@ -408,6 +570,10 @@ const PROVIDERS = MCP_PROVIDERS;
     .btn-primary { padding: 0.5rem 1rem; border-radius: 8px; background: linear-gradient(135deg, #00ffc8, #00d4ff); color: #060610; font-weight: 700; border: 1px solid color-mix(in oklch, #00d4ff 40%, transparent); cursor: pointer; font-size: 0.78rem; transition: transform 200ms ease, box-shadow 200ms ease; }
     .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px -10px rgba(0,229,255,0.45); }
     .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-oauth { display: inline-flex; align-items: center; gap: 0.4rem; background: linear-gradient(135deg, #00E5FF, #7C3AED); color: #060610; }
+    .btn-oauth:hover:not(:disabled) { box-shadow: 0 8px 24px -10px rgba(124,58,237,0.55); }
+    .oauth-pill { font-size: 0.56rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.22)); color: #cde9ff; border: 1px solid rgba(0,229,255,0.35); }
+    .via-badge { display: inline-block; margin-left: 0.4rem; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; padding: 1px 5px; border-radius: 6px; background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.28); }
     .btn-ghost { padding: 0.45rem 0.95rem; border-radius: 8px; background: transparent; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 0.74rem; transition: transform 200ms ease, border-color 200ms ease; }
     .btn-ghost:hover { transform: translateY(-1px); border-color: color-mix(in oklch, var(--accent) 30%, transparent); }
     @media (prefers-reduced-motion: reduce) {
@@ -454,12 +620,125 @@ const PROVIDERS = MCP_PROVIDERS;
     @media (prefers-reduced-motion: reduce) { .team-action-row { transition: none; } }
 
     /* AI Chat grid — single column on small screens, two columns at ≥1024px. */
-    .ai-chat-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+    .ai-chat-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; align-items: start; }
     @media (min-width: 1024px) { .ai-chat-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+    .ai-chat-col { display: flex; flex-direction: column; gap: 1.1rem; min-width: 0; }
     .ai-chat-full { grid-column: 1 / -1; }
     /* Cap textareas + inputs in the AI Chat grid at 600px so System Prompt
        does not balloon on ultrawide displays. */
     .ai-chat-textarea { max-width: 600px; }
+
+    /* Knowledge files drop zone — square-ish, dashed, cyan accent on dragover.
+       Window-level drag/drop also routes here via @HostListener so PDFs dropped
+       ANYWHERE on the AI Chat tab land in this zone. */
+    .kb-dropzone {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 0.45rem;
+      min-height: 168px;
+      padding: 1.4rem 1rem;
+      border-radius: 14px;
+      border: 1.5px dashed rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.02);
+      color: rgba(255,255,255,0.7);
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
+    }
+    .kb-dropzone:hover { border-color: rgba(0,229,255,0.45); color: #fff; }
+    .kb-dropzone.drag {
+      border-color: #00E5FF;
+      background: color-mix(in oklch, #00E5FF 10%, transparent);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+    .kb-dropzone svg { opacity: 0.7; }
+    .kb-dropzone.drag svg { opacity: 1; color: #00E5FF; }
+    .kb-copy { font-size: 0.82rem; font-weight: 600; letter-spacing: -0.005em; }
+    .kb-sub { font-size: 0.66rem; color: rgba(255,255,255,0.45); }
+    .kb-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+    .kb-list li { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.7rem; color: rgba(255,255,255,0.75); padding: 0.3rem 0.55rem; border-radius: 6px; background: rgba(255,255,255,0.03); }
+    .kb-list .kb-status { color: rgba(255,255,255,0.5); text-transform: uppercase; font-size: 0.58rem; letter-spacing: 0.06em; }
+    @media (prefers-reduced-motion: reduce) { .kb-dropzone { transition: none; } .kb-dropzone.drag { transform: none; } }
+
+    /* Business tab — grouped fieldsets with subtle borders. */
+    .biz-group {
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 1.1rem 1.2rem 0.9rem;
+      background: rgba(255,255,255,0.015);
+    }
+    .biz-legend {
+      padding: 0 0.4rem;
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 700;
+      color: rgba(255,255,255,0.55);
+    }
+    .biz-err { font-size: 0.66rem; color: #f87171; margin: 0.3rem 0 0; min-height: 0.66rem; }
+    .biz-file-wrap { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; font-size: 0.72rem; color: rgba(255,255,255,0.75); }
+    .biz-file-wrap input[type="file"] {
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.6);
+    }
+    .biz-file-wrap input[type="file"]::file-selector-button {
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.1);
+      font-size: 0.7rem;
+      cursor: pointer;
+      margin-right: 0.6rem;
+    }
+    .biz-file-wrap input[type="file"]::file-selector-button:hover {
+      border-color: rgba(0,229,255,0.35);
+    }
+    .biz-file-pill {
+      padding: 0.18rem 0.55rem;
+      border-radius: 999px;
+      background: rgba(0,229,255,0.08);
+      color: #cde9ff;
+      border: 1px solid rgba(0,229,255,0.22);
+      font-size: 0.62rem;
+    }
+
+    /* MCP — compact, translucent buttons. No bright primaries on secondary
+       connect/key actions; cyan→violet gradient reserved for the "+ Generate"
+       primary CTA elsewhere in the admin. */
+    .mcp-btn {
+      padding: 6px 12px;
+      font-size: 0.74rem;
+      font-weight: 500;
+      border-radius: 7px;
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.85);
+      border: 1px solid rgba(255,255,255,0.1);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+    }
+    .mcp-btn:hover { border-color: rgba(0,229,255,0.32); color: #fff; background: rgba(255,255,255,0.06); }
+    .mcp-btn-oauth { color: rgba(255,255,255,0.8); }
+    .mcp-btn-oauth svg { opacity: 0.7; }
+    .mcp-btn-oauth:hover svg { opacity: 1; color: #00E5FF; }
+    .mcp-btn-solid {
+      background: rgba(0,229,255,0.1);
+      color: #cdf2ff;
+      border-color: rgba(0,229,255,0.3);
+    }
+    .mcp-btn-solid:hover { background: rgba(0,229,255,0.16); color: #fff; }
+    .mcp-btn-danger {
+      background: transparent;
+      color: rgba(248,113,113,0.85);
+      border-color: rgba(248,113,113,0.25);
+    }
+    .mcp-btn-danger:hover { color: #f87171; border-color: rgba(248,113,113,0.5); background: rgba(248,113,113,0.06); }
+    @media (prefers-reduced-motion: reduce) { .mcp-btn { transition: none; } }
+
+    .hidden { display: none; }
   `],
 })
 export class AdminSettingsComponent implements OnInit {
@@ -481,22 +760,81 @@ export class AdminSettingsComponent implements OnInit {
   // AI Chat tab
   chat: { persona: string; system_prompt: string; system_prompt_default: string } = { persona: '', system_prompt: '', system_prompt_default: '' };
 
-  /**
-   * Stub for the Google Drive OAuth flow. Backend route + token storage will
-   * land in a follow-up turn — surface the intent now so the button has a
-   * predictable place on the page.
-   */
-  connectGoogleDrive(): void {
-    this.toast.info('Google Drive OAuth flow coming soon');
+  // Web search toggle — persists to /sites/:id/ai-settings (field: allow_web_research).
+  allowWebResearch = signal<boolean>(false);
+  savingWebResearch = signal<boolean>(false);
+
+  // Knowledge files drop zone — PDFs upload to /sites/:id/ai/context/upload.
+  kbDragOver = signal<boolean>(false);
+  kbUploads = signal<{ filename: string; status: 'uploading' | 'done' | 'error' }[]>([]);
+
+  toggleWebResearch(next: boolean): void {
+    const s = this.state.selectedSite(); if (!s) { this.toast.error('Select a site first'); return; }
+    this.allowWebResearch.set(next);
+    this.savingWebResearch.set(true);
+    this.api.put(`/sites/${s.id}/ai-settings`, { allow_web_research: next }).subscribe({
+      next: () => { this.savingWebResearch.set(false); this.toast.success(next ? 'Web search on' : 'Web search off'); },
+      error: () => { this.savingWebResearch.set(false); this.allowWebResearch.set(!next); /* api.service already toasted */ },
+    });
   }
 
-  /**
-   * Stub for the context-summary modal — shows the exact prompt + knowledge
-   * file slices + MCP tool list the AI uses on each chat turn. Wires to the
-   * existing AiChatExtras component in a follow-up.
-   */
-  viewContextSummary(): void {
-    this.toast.info('Context summary surface coming soon');
+  // Local drop on the visible zone.
+  onKbDragOver(ev: DragEvent): void { ev.preventDefault(); this.kbDragOver.set(true); }
+  onKbDrop(ev: DragEvent): void {
+    ev.preventDefault(); this.kbDragOver.set(false);
+    const files = ev.dataTransfer?.files; if (!files?.length) return;
+    this.uploadKnowledgeFiles(files);
+  }
+  onKbFileInput(files: FileList | null): void { if (files) this.uploadKnowledgeFiles(files); }
+
+  // Window-level drag-over: only show the cyan accent while AI Chat tab is active.
+  @HostListener('window:dragover', ['$event'])
+  onWindowDragOver(ev: DragEvent): void {
+    if (this.tab() !== 'ai-chat') return;
+    if (!ev.dataTransfer?.types?.includes('Files')) return;
+    ev.preventDefault();
+    this.kbDragOver.set(true);
+  }
+  @HostListener('window:dragleave', ['$event'])
+  onWindowDragLeave(ev: DragEvent): void {
+    if (this.tab() !== 'ai-chat') return;
+    // Only clear when leaving the document entirely.
+    if (ev.relatedTarget === null) this.kbDragOver.set(false);
+  }
+  @HostListener('window:drop', ['$event'])
+  onWindowDrop(ev: DragEvent): void {
+    if (this.tab() !== 'ai-chat') return;
+    const files = ev.dataTransfer?.files; if (!files?.length) return;
+    ev.preventDefault();
+    this.kbDragOver.set(false);
+    this.uploadKnowledgeFiles(files);
+  }
+
+  private uploadKnowledgeFiles(files: FileList): void {
+    const s = this.state.selectedSite(); if (!s) { this.toast.error('Select a site first'); return; }
+    Array.from(files).forEach((file) => {
+      if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+        this.toast.error(`${file.name}: only PDFs are accepted here.`);
+        return;
+      }
+      this.kbUploads.update((u) => [...u, { filename: file.name, status: 'uploading' }]);
+      const form = new FormData(); form.append('file', file);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `/api/sites/${s.id}/ai/context/upload`, true);
+      const token = localStorage.getItem('session_token');
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.onload = () => {
+        const ok = xhr.status >= 200 && xhr.status < 300;
+        this.kbUploads.update((u) => u.map((x) => x.filename === file.name ? { ...x, status: ok ? 'done' : 'error' } : x));
+        if (ok) this.toast.success(`Saved — ${file.name} added to knowledge`);
+        else this.toast.error(`Upload failed: ${file.name}`);
+      };
+      xhr.onerror = () => {
+        this.kbUploads.update((u) => u.map((x) => x.filename === file.name ? { ...x, status: 'error' } : x));
+        this.toast.error(`Upload failed: ${file.name}`);
+      };
+      xhr.send(form);
+    });
   }
 
   saveChat(): void {
@@ -505,6 +843,133 @@ export class AdminSettingsComponent implements OnInit {
     this.api.put(`/sites/${s.id}/ai-settings`, { chat_persona: this.chat.persona, chat_system_prompt: this.chat.system_prompt }).subscribe({
       next: () => { this.toast.success('Saved'); this.savingChat.set(false); },
       error: () => { this.savingChat.set(false); /* api.service already toasted */ },
+    });
+  }
+
+  // ── Business tab ──
+  business: {
+    business_name: string;
+    business_address: string;
+    business_phone: string;
+    business_website: string;
+    original_prompt: string;
+    logoFile: File | null;
+    iconFile: File | null;
+  } = { business_name: '', business_address: '', business_phone: '', business_website: '', original_prompt: '', logoFile: null, iconFile: null };
+
+  private businessSnapshot = JSON.stringify(this.business);
+  businessDirty = signal<boolean>(false);
+  savingBusiness = signal<boolean>(false);
+  businessErrors = signal<{
+    business_name?: string;
+    business_address?: string;
+    business_phone?: string;
+    business_website?: string;
+    original_prompt?: string;
+    logo?: string;
+    icon?: string;
+  }>({});
+
+  loadBusiness(): void {
+    const s = this.state.selectedSite(); if (!s) return;
+    // Hydrate from the selected site record. Original-prompt + asset URLs are
+    // not yet exposed on the Site DTO — they round-trip via the AI settings
+    // endpoint when the backend ships persistence (see deferred note).
+    const extra = s as unknown as { original_prompt?: string };
+    this.business = {
+      business_name: s.business_name ?? '',
+      business_address: s.business_address ?? '',
+      business_phone: s.business_phone ?? '',
+      business_website: s.business_website ?? '',
+      original_prompt: extra.original_prompt ?? '',
+      logoFile: null,
+      iconFile: null,
+    };
+    this.businessSnapshot = JSON.stringify({ ...this.business, logoFile: null, iconFile: null });
+    this.businessDirty.set(false);
+    this.businessErrors.set({});
+  }
+
+  markBusinessDirty(): void {
+    const cur = JSON.stringify({ ...this.business, logoFile: this.business.logoFile?.name ?? null, iconFile: this.business.iconFile?.name ?? null });
+    const snap = JSON.stringify({ ...JSON.parse(this.businessSnapshot), logoFile: null, iconFile: null });
+    this.businessDirty.set(cur !== snap);
+  }
+
+  onBusinessLogo(files: FileList | null): void {
+    const f = files?.[0] ?? null;
+    this.business.logoFile = f;
+    this.businessErrors.update((e) => ({ ...e, logo: f && f.size > 5 * 1024 * 1024 ? 'Logo must be 5 MB or smaller.' : undefined }));
+    this.markBusinessDirty();
+  }
+  onBusinessIcon(files: FileList | null): void {
+    const f = files?.[0] ?? null;
+    this.business.iconFile = f;
+    this.businessErrors.update((e) => ({ ...e, icon: f && f.size > 2 * 1024 * 1024 ? 'App icon must be 2 MB or smaller.' : undefined }));
+    this.markBusinessDirty();
+  }
+
+  resetBusiness(): void { this.loadBusiness(); }
+
+  private validateBusiness(): boolean {
+    const errs: ReturnType<typeof this.businessErrors> = {};
+    const b = this.business;
+    if (!b.business_name.trim()) errs.business_name = 'Business name is required.';
+    else if (b.business_name.length > 200) errs.business_name = 'Maximum 200 characters.';
+    if (b.business_address.length > 500) errs.business_address = 'Maximum 500 characters.';
+    if (b.business_phone.length > 32) errs.business_phone = 'Maximum 32 characters.';
+    if (b.business_website) {
+      try { new URL(b.business_website); } catch { errs.business_website = 'Enter a valid URL (https://…).'; }
+    }
+    if (b.original_prompt.length > 4000) errs.original_prompt = 'Maximum 4000 characters.';
+    this.businessErrors.set(errs);
+    return Object.keys(errs).length === 0;
+  }
+
+  saveBusiness(ev: Event): void {
+    ev.preventDefault();
+    const s = this.state.selectedSite(); if (!s) return;
+    if (!this.validateBusiness()) return;
+    this.savingBusiness.set(true);
+    const payload: Record<string, unknown> = {
+      business_name: this.business.business_name.trim(),
+      business_address: this.business.business_address.trim() || null,
+      business_phone: this.business.business_phone.trim() || null,
+      business_website: this.business.business_website.trim() || null,
+      original_prompt: this.business.original_prompt.trim() || null,
+    };
+    this.api.updateSite(s.id, payload as Partial<typeof s>).subscribe({
+      next: () => {
+        // Brand assets — upload separately via the existing knowledge upload
+        // route, tagged as brand assets. If the dedicated brand-asset route
+        // isn't wired yet, this still surfaces the file in audit logs.
+        const uploads: Promise<void>[] = [];
+        if (this.business.logoFile) uploads.push(this.uploadBrandAsset(s.id, 'logo', this.business.logoFile));
+        if (this.business.iconFile) uploads.push(this.uploadBrandAsset(s.id, 'app_icon', this.business.iconFile));
+        Promise.all(uploads).finally(() => {
+          this.savingBusiness.set(false);
+          this.toast.success('Business saved');
+          this.state.loadData();
+          this.businessSnapshot = JSON.stringify({ ...this.business, logoFile: null, iconFile: null });
+          this.business.logoFile = null;
+          this.business.iconFile = null;
+          this.businessDirty.set(false);
+        });
+      },
+      error: () => { this.savingBusiness.set(false); /* api.service already toasted */ },
+    });
+  }
+
+  private uploadBrandAsset(siteId: string, kind: 'logo' | 'app_icon', file: File): Promise<void> {
+    return new Promise((resolve) => {
+      const form = new FormData(); form.append('file', file); form.append('kind', kind);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `/api/sites/${siteId}/ai/context/upload`, true);
+      const token = localStorage.getItem('session_token');
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.onload = () => { resolve(); };
+      xhr.onerror = () => { resolve(); };
+      xhr.send(form);
     });
   }
 
@@ -535,6 +1000,7 @@ export class AdminSettingsComponent implements OnInit {
     this.router.navigate([], { fragment: id, replaceUrl: true });
     // Lazy-load per-tab data on open.
     if (id === 'team') this.loadSecurity();
+    if (id === 'business') this.loadBusiness();
   }
 
   /**
@@ -582,7 +1048,7 @@ export class AdminSettingsComponent implements OnInit {
 
   loadGeneral(): void {
     const s = this.state.selectedSite(); if (!s) return;
-    this.api.get<{ data: GeneralSettings & { chat_persona?: string; chat_system_prompt?: string; chat_system_prompt_default?: string } }>(`/sites/${s.id}/ai-settings`).subscribe({
+    this.api.get<{ data: GeneralSettings & { chat_persona?: string; chat_system_prompt?: string; chat_system_prompt_default?: string; allow_web_research?: boolean } }>(`/sites/${s.id}/ai-settings`).subscribe({
       next: (r) => {
         this.settings = {
           contact_email: r.data?.contact_email ?? '',
@@ -598,6 +1064,7 @@ export class AdminSettingsComponent implements OnInit {
           system_prompt: r.data?.chat_system_prompt ?? '',
           system_prompt_default: r.data?.chat_system_prompt_default ?? '',
         };
+        this.allowWebResearch.set(!!r.data?.allow_web_research);
       },
       error: () => { /* api.service already toasted */ },
     });
@@ -677,6 +1144,70 @@ export class AdminSettingsComponent implements OnInit {
     const s = this.state.selectedSite(); if (!s) return;
     if (!p.needsOauth || p.id === 'resend') { this.pasteMode.set(p.id); return; }
     window.location.href = `/api/mcp/${p.id}/connect?site_id=${s.id}&return_url=${encodeURIComponent('/admin/settings#mcp')}`;
+  }
+  /**
+   * Kick off the OAuth dance for `providerId` in a popup window.
+   *
+   * @remarks
+   * The worker route `/api/mcp/:provider/connect` returns either:
+   *   - a 302 redirect to the provider's authorize URL (happy path), OR
+   *   - a 501 JSON `{ error: 'oauth_not_configured', provider }` when the
+   *     worker has no `{PROVIDER}_OAUTH_CLIENT_ID` secret yet.
+   *
+   * For 501 we surface an info toast and drop into the paste-API-key flow
+   * so the user always has an unblocked path forward.
+   *
+   * Connection success comes back two ways: the worker callback redirects
+   * the popup to `/admin/settings?connected={provider}#mcp` (handled by
+   * {@link handleMcpReturn}), and/or the popup posts a message to its
+   * opener — both paths reload the connections list.
+   */
+  connectOauth(providerId: string): void {
+    const s = this.state.selectedSite(); if (!s) { this.toast.error('Select a site first'); return; }
+    const returnUrl = encodeURIComponent('/admin/settings#mcp');
+    const url = `/api/mcp/${providerId}/connect?site_id=${s.id}&return_url=${returnUrl}`;
+
+    // Probe the endpoint first — a 501 means OAuth is not yet configured
+    // for this provider, in which case we fall back to the paste-key flow
+    // instead of opening a broken popup.
+    fetch(url, { method: 'GET', redirect: 'manual', credentials: 'include' })
+      .then(async (res) => {
+        if (res.status === 501) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          const provider = MCP_PROVIDERS.find((p) => p.id === providerId)?.label ?? providerId;
+          this.toast.info(`OAuth flow for ${provider} will land soon — using API key fallback for now.`);
+          // Fall back to paste-key UI so the user is never stuck.
+          this.pasteMode.set(providerId);
+          // eslint-disable-next-line no-console
+          console.warn('mcp_oauth_not_configured', { provider: providerId, code: body.error });
+          return;
+        }
+        // For 0 (opaqueredirect) or 2xx, open the popup and let the worker
+        // handle the dance. `redirect: 'manual'` makes a 302 surface as
+        // type=opaqueredirect/status=0, so we trust the URL and open it.
+        const popup = window.open(url, 'mcp_oauth', 'width=560,height=720,menubar=no,toolbar=no');
+        if (!popup) {
+          this.toast.error('Popup blocked — allow pop-ups and try again.');
+          return;
+        }
+        const interval = window.setInterval(() => {
+          if (popup.closed) {
+            window.clearInterval(interval);
+            this.loadConnections();
+          }
+        }, 600);
+      })
+      .catch(() => {
+        this.toast.error('Could not start OAuth flow — try again.');
+      });
+  }
+  /**
+   * Heuristic for whether a saved connection came via OAuth vs paste-key.
+   * The worker tags paste-key rows with `display_name = '{provider} (pasted key)'`,
+   * everything else is treated as OAuth.
+   */
+  isOauthConnection(c: Conn): boolean {
+    return !/pasted key/i.test(c.display_name ?? '');
   }
   submitPaste(provider: string): void {
     const s = this.state.selectedSite(); if (!s) return;

@@ -25,7 +25,17 @@ export type Provider =
   | 'twilio'
   | 'calendly'
   | 'airtable'
-  | 'zapier';
+  | 'zapier'
+  // Turn 5 — frontend catalogue flipped these to OAuth-supported. Adapters
+  // are not yet implemented server-side; `/api/mcp/:provider/connect`
+  // returns `501 oauth_not_configured` until the worker secret is pushed,
+  // and `getAdapter()` falls back to a paste-key shim.
+  | 'cal_com'
+  | 'sentry'
+  | 'pagerduty'
+  | 'posthog'
+  | 'vercel'
+  | 'netlify';
 
 export interface ToolDescriptor {
   name: string;
@@ -632,7 +642,14 @@ const zapier: ProviderAdapter = pasteKeyAdapter({
   }),
 });
 
-const ADAPTERS: Record<Provider, ProviderAdapter> = {
+/**
+ * Per-provider adapter map. Partial because the Provider union also includes
+ * OAuth-only entries that don't (yet) have a worker-side tool surface
+ * (`cal_com`, `sentry`, `pagerduty`, `posthog`, `vercel`, `netlify`).
+ * `getAdapter()` returns `undefined` for those — callers must already
+ * handle the "no adapter" case and surface a paste-key / coming-soon toast.
+ */
+const ADAPTERS: Partial<Record<Provider, ProviderAdapter>> = {
   mailchimp, stripe, resend, hubspot,
   slack, notion, github, linear, discord,
   google_calendar: googleCalendar,
@@ -685,10 +702,13 @@ export async function loadConnections(
   return out;
 }
 
-/** Tool descriptors across all connected providers for a site (for the prompt). */
+/** Tool descriptors across all connected providers for a site (for the prompt).
+ *  Providers without a worker adapter (cal_com / sentry / pagerduty / posthog /
+ *  vercel / netlify in 2026) are silently skipped — they OAuth-connect but
+ *  expose no tools to the LLM router yet. */
 export async function loadAvailableTools(env: Env, siteId: string): Promise<ToolDescriptor[]> {
   const conns = await loadConnections(env, siteId);
-  return conns.flatMap((c) => ADAPTERS[c.provider].tools());
+  return conns.flatMap((c) => ADAPTERS[c.provider]?.tools() ?? []);
 }
 
 export async function executeTool(
@@ -699,6 +719,7 @@ export async function executeTool(
   const conns = await loadConnections(env, siteId);
   for (const conn of conns) {
     const adapter = ADAPTERS[conn.provider];
+    if (!adapter) continue; // OAuth-only provider with no tool surface yet.
     const supports = adapter.tools().some((t) => t.name === call.name);
     if (!supports) continue;
     return adapter.execute(env, {

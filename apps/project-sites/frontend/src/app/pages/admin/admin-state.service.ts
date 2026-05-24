@@ -6,6 +6,7 @@ import { forkJoin, interval, takeWhile, switchMap, of, catchError } from 'rxjs';
 import { ApiService, type Site, type DomainSummary, type SubscriptionInfo, type AnalyticsData } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
+import { TelemetryService } from '../../services/telemetry.service';
 
 /**
  * Shared state service for the admin dashboard shell and child components.
@@ -26,6 +27,7 @@ export class AdminStateService {
   private router = inject(Router);
   private sanitizer = inject(DomSanitizer);
   private dialog = inject(Dialog);
+  private telemetry = inject(TelemetryService);
 
   sites = signal<Site[]>([]);
   selectedSiteId = signal<string | null>(null);
@@ -38,6 +40,17 @@ export class AdminStateService {
 
   private alive = true;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
+  /** Bound handler so removeEventListener works on teardown. */
+  private readonly visibilityHandler = (): void => {
+    if (typeof document === 'undefined') return;
+    if (document.hidden) {
+      this.stopLiveRefresh();
+    } else if (this.alive && this.sites().length > 0) {
+      // Resume + fire one immediate refresh so the user sees fresh data on tab-return.
+      this.startLiveRefresh();
+      this.loadAnalytics();
+    }
+  };
 
   selectedSite = computed<Site | null>(() => {
     const id = this.selectedSiteId();
@@ -48,6 +61,7 @@ export class AdminStateService {
 
   loadData(): void {
     this.loading.set(true);
+    this.telemetry.track('admin.refresh', { trigger: 'load_data' });
     forkJoin({
       sites: this.api.listSites(),
       domains: this.api.getDomainSummary(),
@@ -89,10 +103,19 @@ export class AdminStateService {
     this.loadAnalytics();
   }
 
-  /** Start live data refresh for the dashboard. */
+  /**
+   * Start live data refresh for the dashboard. Sites + domains + subscription
+   * every 30s; analytics every 60s (every other tick). The interval is paused
+   * automatically when the tab becomes hidden via {@link visibilityHandler}
+   * and resumed when it returns to the foreground (with an immediate refresh
+   * to give the user fresh numbers on tab-return).
+   */
   private startLiveRefresh(): void {
     this.stopLiveRefresh();
-    // Refresh sites + domains + subscription every 30s, analytics every 60s
+    if (typeof document !== 'undefined') {
+      // Idempotent — Browser dedupes identical (element, type, listener) triples.
+      document.addEventListener('visibilitychange', this.visibilityHandler);
+    }
     let tick = 0;
     this.refreshTimer = setInterval(() => {
       if (!this.alive) return;
@@ -141,10 +164,18 @@ export class AdminStateService {
   stopPolling(): void {
     this.alive = false;
     this.stopLiveRefresh();
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+    }
   }
 
   selectSite(site: Site): void {
     this.selectedSiteId.set(site.id);
+    this.telemetry.track('admin.site.selected', {
+      site_id: site.id,
+      status: site.status,
+      plan: site.plan,
+    });
     // Reload analytics for the newly selected site
     this.loadAnalytics();
   }
@@ -154,6 +185,10 @@ export class AdminStateService {
       next: () => {
         this.sites.update(sites => sites.filter(s => s.id !== site.id));
         this.toast.success('Site deleted');
+        this.telemetry.track('admin.site.deleted', {
+          site_id: site.id,
+          cancel_subscription: cancelSub,
+        });
         if (this.selectedSiteId() === site.id) {
           this.selectedSiteId.set(null);
         }
@@ -230,6 +265,8 @@ export class AdminStateService {
   }
 
   signOut(): void {
+    this.telemetry.track('auth.signout');
+    this.telemetry.reset();
     this.auth.clearSession();
     this.router.navigate(['/']);
   }

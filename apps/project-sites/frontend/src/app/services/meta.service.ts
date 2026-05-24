@@ -1,14 +1,33 @@
+/**
+ * @module services/meta
+ *
+ * @description
+ * Per-route SEO/OG metadata controller. Subscribes to `NavigationEnd` and
+ * stamps the matching `<title>`, `<meta description>`, Open Graph tags,
+ * Twitter Card tags, and `<link rel="canonical">` based on a lookup table
+ * keyed by the leaf-route path.
+ *
+ * @remarks
+ * Mounted in `app.config.ts` providers and bootstrapped by `AppComponent` via
+ * {@link MetaService.init} — calling `init()` more than once is harmless but
+ * doubles the subscription, so call it exactly once.
+ *
+ * Keep `PAGE_META` keys in lock-step with `app.routes.ts`. Routes not in the
+ * map fall back to the homepage entry (`''`).
+ */
 import { Injectable, inject } from '@angular/core';
 import { Title, Meta } from '@angular/platform-browser';
 import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { filter, map, mergeMap } from 'rxjs';
 
+/** Per-route SEO payload — `url` is computed at apply-time from `BASE_URL`. */
 interface PageMeta {
   title: string;
   description: string;
   url?: string;
 }
 
+/** Path → title/description map. Keys match `app.routes.ts` leaf paths. */
 const PAGE_META: Record<string, PageMeta> = {
   '': {
     title: 'Project Sites - Your Website, Handled. Finally.',
@@ -70,6 +89,15 @@ export class MetaService {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
+  /**
+   * Wire the router subscription. Call exactly once at app bootstrap.
+   *
+   * @example
+   * ```ts
+   * // app.component.ts
+   * ngOnInit(): void { this.meta.init(); }
+   * ```
+   */
   init(): void {
     this.router.events.pipe(
       filter(e => e instanceof NavigationEnd),
@@ -86,6 +114,7 @@ export class MetaService {
     });
   }
 
+  /** Apply the meta payload to the document head and update the canonical link. */
   private updateMeta(page: PageMeta, path: string): void {
     const url = `${BASE_URL}/${path}`;
 

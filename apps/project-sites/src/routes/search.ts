@@ -401,6 +401,22 @@ search.post('/api/sites/create-from-search', async (c) => {
   );
   const limitCheck = await checkBuildLimit(c.env.DB, orgId, sub?.plan ?? null);
   if (!limitCheck.allowed) {
+    c.executionCtx.waitUntil(
+      writeAuditLog(c.env.DB, {
+        org_id: orgId,
+        actor_id: c.get('userId') ?? null,
+        action: 'build_limit.exceeded',
+        message: `Build limit reached for org '${orgId}' (used ${limitCheck.used}/${limitCheck.limit} on '${sub?.plan ?? 'free'}' plan)`,
+        target_type: 'org',
+        target_id: orgId,
+        metadata_json: {
+          used: limitCheck.used,
+          limit: limitCheck.limit,
+          plan: sub?.plan ?? 'free',
+        },
+        request_id: c.get('requestId'),
+      }),
+    );
     return c.json(
       {
         error: {
@@ -516,6 +532,7 @@ search.post('/api/sites/create-from-search', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'site.created_from_search',
+    message: `Site '${slug}' created from search for '${sanitizedName}'`,
     target_type: 'site',
     target_id: siteId,
     metadata_json: {
@@ -524,7 +541,6 @@ search.post('/api/sites/create-from-search', async (c) => {
       google_place_id: googlePlaceId ?? null,
       business_address: businessAddress ?? null,
       mode,
-      message: 'New site created: ' + sanitizedName + ' (' + slug + DOMAINS.SITES_SUFFIX + ')',
     },
     request_id: c.get('requestId'),
   });
@@ -534,6 +550,7 @@ search.post('/api/sites/create-from-search', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'workflow.queued',
+    message: `AI build pipeline queued for '${slug}' — research, generate, and deploy`,
     target_type: 'site',
     target_id: siteId,
     metadata_json: {
@@ -541,7 +558,6 @@ search.post('/api/sites/create-from-search', async (c) => {
       slug,
       workflow_instance_id: workflowInstanceId ?? null,
       has_additional_context: !!additionalContext,
-      message: 'AI build pipeline queued — will research, generate, and deploy website',
     },
     request_id: c.get('requestId'),
   });
@@ -550,25 +566,28 @@ search.post('/api/sites/create-from-search', async (c) => {
   const buildPhases = [
     {
       action: 'workflow.phase.research',
-      message: 'Phase 1: Business profile research & data collection',
+      message: `Build phase 1 (research) queued for '${slug}'`,
     },
     {
       action: 'workflow.phase.generation',
-      message: 'Phase 2: AI website HTML generation & content creation',
+      message: `Build phase 2 (AI generation) queued for '${slug}'`,
     },
-    { action: 'workflow.phase.deployment', message: 'Phase 3: Upload to CDN & publish live site' },
+    {
+      action: 'workflow.phase.deployment',
+      message: `Build phase 3 (CDN deploy + publish) queued for '${slug}'`,
+    },
   ];
   for (const phase of buildPhases) {
     await writeAuditLog(c.env.DB, {
       org_id: orgId,
       actor_id: c.get('userId') ?? null,
       action: phase.action,
+      message: phase.message,
       target_type: 'site',
       target_id: siteId,
       metadata_json: {
         slug,
         workflow_instance_id: workflowInstanceId ?? null,
-        message: phase.message,
       },
       request_id: c.get('requestId'),
     }).catch(() => {});
@@ -751,6 +770,7 @@ search.post('/api/sites/generate-prompt', async (c) => {
     org_id: orgId,
     actor_id: userId,
     action: 'research.generate_prompt',
+    message: `Generated AI research prompt for '${businessName}'`,
     target_type: 'site',
     target_id: siteId || null,
     metadata_json: { business_name: businessName, model: c.env.RESEARCH_MODEL || 'o3-mini' },

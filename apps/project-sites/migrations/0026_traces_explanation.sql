@@ -1,0 +1,26 @@
+-- 0026 — `ai_form_logs.explanation` cache for AI trace post-mortems.
+--
+-- `POST /api/admin/traces/:traceId/explain` calls AI Gateway (Workers AI
+-- Llama 3.3 70B) with a SRE-grade system prompt and returns a 3-paragraph
+-- Markdown explanation. The first call costs LLM tokens; subsequent re-clicks
+-- on the same trace previously re-ran the model.
+--
+-- Caching layers, fastest → slowest:
+--   1. D1 column `ai_form_logs.explanation` — permanent, indefinite cache,
+--      paired with the trace row itself. Surviving a KV eviction or a deploy
+--      restart costs zero LLM tokens on re-explain.
+--   2. KV `trace:{id}:explain` — 1-hour hot window for cross-row reuse and
+--      to keep the API response under 5 ms when the column was wiped by a
+--      schema-edit operation that touched `ai_form_logs`.
+--   3. Cold path — AI Gateway call (routed via `env.AI.run` so the gateway
+--      log + cache + rate-limit layer always sees the request).
+--
+-- The column is nullable; existing rows return `cached: false` on first
+-- explain and persist the result for all subsequent reads. The route also
+-- writes the same value into KV so both layers stay in sync.
+--
+-- Note: the spec refers to this surface as `ai_logs.explanation`. The real
+-- table name is `ai_form_logs` (see 0013_ai_platform.sql) — kept here to
+-- avoid renaming a table that already carries trace history.
+
+ALTER TABLE ai_form_logs ADD COLUMN explanation TEXT;

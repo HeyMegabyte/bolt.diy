@@ -78,22 +78,6 @@ export class AdminComponent implements OnInit, OnDestroy {
     try { return (localStorage.getItem('ps_theme') as 'dark' | 'light' | 'system') || 'dark'; } catch { return 'dark'; }
   })());
 
-  // Sidebar nav filter (live "/" focuses input)
-  navFilter = '';
-  jumpFirstFilteredNav(): void {
-    const first = document.querySelector('nav .nav-item:not(.nav-hidden)') as HTMLAnchorElement | null;
-    first?.click();
-    this.navFilter = '';
-    this.applyNavFilter();
-  }
-  applyNavFilter(): void {
-    const q = (this.navFilter || '').trim().toLowerCase();
-    document.querySelectorAll('nav .nav-item').forEach((el) => {
-      const text = (el.textContent || '').toLowerCase();
-      el.classList.toggle('nav-hidden', !!q && !text.includes(q));
-    });
-  }
-
   private routerSub?: Subscription;
 
   private updateRouteState(url: string): void {

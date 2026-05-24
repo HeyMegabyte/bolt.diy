@@ -1,405 +1,492 @@
-import { Component, inject, signal, computed, HostListener, type OnInit, type OnDestroy } from '@angular/core';
+import {
+  Component,
+  HostListener,
+  ViewChild,
+  computed,
+  effect,
+  inject,
+  signal,
+  type ElementRef,
+  type OnDestroy,
+  type OnInit,
+} from '@angular/core';
 import { Router } from '@angular/router';
-import { EmptyStateComponent } from '../empty-state.component';
-
-function sameDayLog(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-import { DatePipe } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { AgGridAngular } from 'ag-grid-angular';
+import {
+  ClientSideRowModelModule,
+  ModuleRegistry,
+  PaginationModule,
+  TextFilterModule,
+  NumberFilterModule,
+  DateFilterModule,
+  ValidationModule,
+  RowSelectionModule,
+  colorSchemeDarkBlue,
+  themeQuartz,
+  type ColDef,
+  type GridApi,
+  type GridReadyEvent,
+  type IRowNode,
+  type IsFullWidthRowParams,
+  type ICellRendererParams,
+  type RowHeightParams,
+} from 'ag-grid-community';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 
-interface Row {
-  id: string; submission_id: string | null; trace_kind: string; endpoint_slug: string | null;
-  model: string; status: string; latency_ms: number | null; tokens_input: number | null;
-  tokens_output: number | null; credits_debited: number | null;
-  tool_name: string | null; tool_status: string | null;
-  output_preview: string | null; error_message: string | null; created_at: string;
-  /** Optional join keys used for client-side forms filtering. */
-  form_id?: string | null; source?: string | null;
-}
-interface Detail extends Row {
-  prompt_template: string | null; input_json: string;
-  output_text: string | null; output_json: string | null;
-  tool_args_json: string | null; tool_result_json: string | null;
-}
-
-/** Compact representation of a form, used to populate the right-side filter. */
-interface FormOption { id: string; label: string }
+ModuleRegistry.registerModules([
+  ClientSideRowModelModule,
+  PaginationModule,
+  TextFilterModule,
+  NumberFilterModule,
+  DateFilterModule,
+  RowSelectionModule,
+  ValidationModule,
+]);
 
 /**
- * Traces toolbar quick-filter view IDs. Kept literal so we can map keyboard
- * shortcuts (1/2/3) directly to the first three pills.
+ * One AI invocation as returned by `GET /api/sites/:id/ai-logs`.
+ *
+ * The `_expanded` and `_isDetail` flags are local-only — they drive the
+ * faux master/detail row expansion described in the class JSDoc below
+ * and are never sent to the API.
  */
-type ViewId = 'all' | 'today' | 'errors' | 'with-tool' | 'high-lat';
+interface TraceRow {
+  id: string;
+  submission_id: string | null;
+  trace_kind: string;
+  endpoint_slug: string | null;
+  model: string;
+  status: string;
+  latency_ms: number | null;
+  tokens_input: number | null;
+  tokens_output: number | null;
+  credits_debited: number | null;
+  tool_name: string | null;
+  tool_status: string | null;
+  output_preview: string | null;
+  error_message: string | null;
+  created_at: string;
+  actor_email?: string | null;
+  user_id?: string | null;
+  /** Local-only: whether the detail panel is rendered below this row. */
+  _expanded?: boolean;
+  /** Local-only: marks a synthetic full-width detail row in row data. */
+  _isDetail?: boolean;
+  /** Local-only: the parent trace id (only set on detail rows). */
+  _parentId?: string;
+}
 
+/** Lazy-fetched full trace detail — system prompt + IO + tool. */
+interface TraceDetail extends TraceRow {
+  prompt_template: string | null;
+  input_json: string;
+  output_text: string | null;
+  output_json: string | null;
+  tool_args_json: string | null;
+  tool_result_json: string | null;
+}
+
+/** Period selector value driving the latency-percentile chart x-axis. */
+type ChartPeriod = '1h' | '24h' | '7d' | '30d';
+
+/**
+ * Escape an arbitrary string into an HTML-safe fragment. Used for every
+ * dynamic value rendered via the (string-returning) cellRenderer hooks
+ * below — never trust trace data, even from our own backend.
+ */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Minimal JSON syntax highlighter — strings green, numbers cyan, keys amber,
+ * booleans violet, null grey. Mirrors the docs.component.ts pattern but
+ * inlined here so the Traces page stays self-contained.
+ */
+function highlightJson(src: string): string {
+  return escapeHtml(src).replace(
+    /(&quot;(?:\\.|[^"\\])*?&quot;)(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|([{}[\],])/g,
+    (_m, str?: string, colon?: string, bool?: string, num?: string, pun?: string) => {
+      if (str) {
+        return colon
+          ? `<span class="tk-key">${str}</span><span class="tk-pun">${colon}</span>`
+          : `<span class="tk-str">${str}</span>`;
+      }
+      if (bool) return bool === 'null' ? `<span class="tk-null">${bool}</span>` : `<span class="tk-bool">${bool}</span>`;
+      if (num) return `<span class="tk-num">${num}</span>`;
+      if (pun) return `<span class="tk-pun">${pun}</span>`;
+      return _m as string;
+    },
+  );
+}
+
+/**
+ * Highlight ALL-CAPS structural headings (ROLE, OUTPUT, SAFETY, INPUT, etc.)
+ * inside a system prompt so the long-form prose is scannable. Lines that look
+ * like a heading (≥3 uppercase letters followed by `:` or end-of-line) get a
+ * keyword span.
+ */
+function highlightSystemPrompt(src: string): string {
+  return escapeHtml(src).replace(
+    /^([A-Z][A-Z0-9 _-]{2,30})(:|$)/gm,
+    (_m, head: string, tail: string) => `<span class="kw">${head}</span>${tail}`,
+  );
+}
+
+/**
+ * Collapse the verbose Workers AI model slug (`@cf/meta/llama-3.3-70b-instruct`)
+ * down to a human-readable label (`Llama 3.3 70B`). Falls back to the raw value
+ * for unrecognised slugs (e.g. external OpenAI / Anthropic models).
+ */
+function prettifyModel(slug: string | null | undefined): string {
+  if (!slug) return '—';
+  const m = slug.match(/llama-(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)b/i);
+  if (m) return `Llama ${m[1]} ${m[2]}B`;
+  if (/^gpt-4o/i.test(slug)) return 'GPT-4o';
+  if (/^gpt-4/i.test(slug)) return 'GPT-4';
+  if (/^claude-opus/i.test(slug)) return 'Claude Opus';
+  if (/^claude-sonnet/i.test(slug)) return 'Claude Sonnet';
+  if (/^claude-haiku/i.test(slug)) return 'Claude Haiku';
+  return slug.split('/').pop() ?? slug;
+}
+
+/** Format latency: <1000 → "Xms", else "X.Ys". */
+function formatLatency(ms: number | null | undefined): string {
+  if (ms == null) return '—';
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+/** Map latency to a fill-color band for the latency-progress cell. */
+function latencyBand(ms: number | null | undefined): 'good' | 'mid' | 'bad' {
+  if (ms == null) return 'good';
+  if (ms > 1000) return 'bad';
+  if (ms > 500) return 'mid';
+  return 'good';
+}
+
+/** Compact relative-time formatter — "3 min ago", "12 sec ago", "yesterday". */
+function relativeTime(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return '—';
+  const delta = Math.max(0, Date.now() - t);
+  const s = Math.floor(delta / 1000);
+  if (s < 5) return 'just now';
+  if (s < 60) return `${s} sec ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hr ago`;
+  const d = Math.floor(h / 24);
+  return d === 1 ? 'yesterday' : `${d} days ago`;
+}
+
+/** Trim a `user_id` to the leading 8 chars when no email is present. */
+function fallbackActor(row: TraceRow): string {
+  if (row.actor_email) return row.actor_email;
+  if (row.user_id) return row.user_id.slice(0, 8);
+  return '—';
+}
+
+const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
+
+/**
+ * Admin AI-trace surface (`/admin/ai-logs`). Replaces the bespoke trace table
+ * with an AG Grid Community implementation that fakes master/detail expansion
+ * without the Enterprise plugin.
+ *
+ * ## Faux master/detail technique
+ *
+ * AG Grid's real `masterDetail: true` + `detailCellRenderer` API is Enterprise.
+ * We mimic it cleanly in Community using two Community features:
+ *
+ * 1. **Synthetic detail rows** — when the user clicks the expand kebab on a
+ *    trace row, we insert a sibling `TraceRow` with `_isDetail: true` right
+ *    after it in `displayRows()`. The grid still treats it as a normal row.
+ * 2. **`isFullWidthRow` + `fullWidthCellRenderer`** — these ARE Community.
+ *    We tell the grid that any row with `_isDetail === true` should render
+ *    full-width via our HTML detail renderer. Row height grows dynamically
+ *    via `getRowHeight()` so the expanded panel never clips.
+ *
+ * Net effect: the user clicks → row visually expands below itself showing
+ * the system prompt, IO, tool result, action buttons. No Enterprise license.
+ * The technique is documented inline so future maintainers don't go hunting
+ * for `masterDetail: true` and find this looks like it.
+ *
+ * @example
+ * ```html
+ * <app-admin-ai-logs />
+ * <!-- Renders the AG Grid + latency-percentile chart + filter row. -->
+ * ```
+ */
 @Component({
   selector: 'app-admin-ai-logs',
   standalone: true,
-  imports: [FormsModule, DatePipe, EmptyStateComponent],
+  imports: [AgGridAngular],
   template: `
-    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
-      <header class="flex items-start justify-between gap-4 flex-wrap">
+    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-4">
+      <header class="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 class="text-lg font-bold text-white m-0 flex items-center gap-3">
+          <h2 class="section-h text-lg font-bold text-white m-0 flex items-center gap-3">
             AI Traces
-            <!-- Live status pill: green dot pulses while polling, grey when paused. -->
-            <span class="live-pill" [class.live-pill--paused]="!polling()" [title]="polling() ? 'Auto-syncing every 8s' : 'Polling paused (tab hidden)'">
+            <span class="live-pill" [class.live-pill--paused]="!polling()" [title]="polling() ? 'Polling every 15s' : 'Polling paused (tab hidden)'">
               <span class="live-dot" aria-hidden="true"></span>
               <span class="live-text">{{ polling() ? 'Live' : 'Paused' }}</span>
-              <span class="live-sep">·</span>
-              <span class="live-sync" aria-live="polite">synced {{ syncedAgo() }}</span>
             </span>
           </h2>
           <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
-            Every AI invocation — form router, custom endpoints, chat turns. Click any row for full prompt + input + output + tool execution trace.
+            Every AI invocation — system prompt, input, output, tool dispatch. Click any row to expand the full trace inline.
           </p>
         </div>
       </header>
 
-      <!-- Three-slot toolbar: search (left) · pills (center) · forms filter (right). -->
-      <div class="toolbar" role="toolbar" aria-label="Trace filters">
-        <!-- LEFT: search input with magnifying glass + ⌘F focus chip. -->
-        <label class="tb-search" [class.tb-search--focused]="searchFocused()">
-          <svg class="tb-search-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-            <circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/>
-          </svg>
-          <input
-            #searchInput
-            data-testid="traces-search"
-            type="text"
-            class="tb-search-input"
-            placeholder="Filter traces by endpoint, model, preview…"
-            [value]="filter()"
-            (input)="filter.set(asInputValue($event))"
-            (focus)="searchFocused.set(true)"
-            (blur)="searchFocused.set(false)"
-            aria-label="Search traces"
-          />
-          <kbd class="tb-kbd" aria-hidden="true">⌘F</kbd>
-        </label>
-
-        <!-- CENTER: All/Today/Errors quick-filter pills with keyboard hints. -->
-        <div class="tb-pills" role="tablist" aria-label="Quick filters">
-          @for (v of clientViews; track v.id; let i = $index) {
-            <button
-              class="filter-chip"
-              [class.active]="clientView() === v.id"
-              [attr.aria-pressed]="clientView() === v.id"
-              [attr.data-testid]="'traces-pill-' + v.id"
-              (click)="setClientView(v.id)"
-              [title]="v.label + ' view (press ' + (i + 1) + ')'"
-            >
-              {{ v.label }}
-              <span class="filter-count">{{ countView(v.id) }}</span>
-              @if (i < 3) { <kbd class="chip-kbd" aria-hidden="true">{{ i + 1 }}</kbd> }
-            </button>
-          }
-        </div>
-
-        <!-- RIGHT: forms-source filter — current site's forms, plus "All forms". -->
-        <label class="tb-forms">
-          <span class="tb-forms-label">Source</span>
-          <select
-            data-testid="traces-forms-filter"
-            class="tb-forms-select"
-            [value]="formFilter()"
-            (change)="formFilter.set(asSelectValue($event))"
-            aria-label="Filter by form source"
-          >
-            <option value="">All forms</option>
-            @for (f of formOptions(); track f.id) {
-              <option [value]="f.id">{{ f.label }}</option>
-            }
-          </select>
-        </label>
+      <!-- KPI tiles ──────────────────────────────────────────────────── -->
+      <div class="grid grid-cols-4 gap-3 text-[0.78rem]">
+        <div class="card"><div class="muted-h">Calls</div><div class="text-2xl font-bold text-white">{{ formatNumber(rows().length) }}</div></div>
+        <div class="card"><div class="muted-h">Avg latency</div><div class="text-2xl font-bold text-white">{{ formatLatencyMs(avgLatency()) }}</div></div>
+        <div class="card"><div class="muted-h">Errors</div><div class="text-2xl font-bold" [class.text-red-400]="errors() > 0" [class.text-white]="errors() === 0">{{ formatNumber(errors()) }}</div></div>
+        <div class="card"><div class="muted-h">Credits used</div><div class="text-2xl font-bold text-white">{{ formatNumber(totalCredits()) }}</div></div>
       </div>
 
-      <!-- Existing kind multi-select moved into a small secondary row to keep the
-           three-slot primary toolbar visually balanced. -->
-      <div class="flex items-center gap-2 flex-wrap">
-        <div class="ml-select" #msel>
-          <button class="ml-trigger" (click)="toggleKindMenu($event)" [class.active]="kindMenuOpen() || selectedKinds().length > 0" title="Filter by kind — choose any combination">
-            <span class="ml-trigger-label">{{ selectedKindsLabel() }}</span>
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><polyline points="2 4 5 7 8 4"/></svg>
-          </button>
-          @if (kindMenuOpen()) {
-            <div class="ml-menu" (click)="$event.stopPropagation()">
-              @for (k of kindOptions; track k.id) {
-                <label class="ml-row">
-                  <input type="checkbox" [checked]="selectedKinds().includes(k.id)" (change)="toggleKind(k.id)" />
-                  <span class="ml-dot" [style.background]="k.color"></span>
-                  <span class="flex-1">{{ k.label }}</span>
-                  <span class="ml-count">{{ countByKind(k.id) }}</span>
-                </label>
-              }
-              @if (selectedKinds().length > 0) {
-                <button class="ml-clear" (click)="clearKinds()">Clear</button>
-              }
-            </div>
-          }
-        </div>
-      </div>
-
-      <div class="grid grid-cols-4 gap-3">
-        <div class="card"><div class="muted-h">Calls</div><div class="text-2xl font-bold text-white">{{ rows().length }}</div></div>
-        <div class="card"><div class="muted-h">Avg latency</div><div class="text-2xl font-bold text-white">{{ avgLatency() }}ms</div></div>
-        <div class="card"><div class="muted-h">Errors</div><div class="text-2xl font-bold" [class.text-red-400]="errors() > 0" [class.text-white]="errors() === 0">{{ errors() }}</div></div>
-        <div class="card"><div class="muted-h">Credits used</div><div class="text-2xl font-bold text-white">{{ totalCredits() }}</div></div>
-      </div>
-
+      <!-- Latency percentile chart (p50/p95/p99 stacked-area) ────────── -->
       @if (rows().length > 0) {
         <section class="card">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="m-0 text-base font-semibold text-white">Calls — last 14 days</h3>
-            <span class="text-[0.7rem] text-text-secondary">peak {{ peakDay() }} · today {{ todayCount() }}</span>
-          </div>
-          <svg viewBox="0 0 600 70" preserveAspectRatio="none" class="w-full h-16">
-            <defs>
-              <linearGradient id="ailGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.45"/>
-                <stop offset="100%" stop-color="#00E5FF" stop-opacity="0"/>
-              </linearGradient>
-            </defs>
-            <path [attr.d]="sparkArea()" fill="url(#ailGrad)" />
-            <path [attr.d]="sparkLine()" fill="none" stroke="#00E5FF" stroke-width="2"/>
-          </svg>
-        </section>
-      }
-
-      <section class="card p-0 overflow-hidden">
-        @if (loading() && rows().length === 0) {
-          <div class="p-10 text-center text-text-secondary text-sm">Loading…</div>
-        } @else if (rows().length === 0) {
-          <app-empty-state
-            icon="🛰"
-            title="No AI traces yet"
-            body="Submit a form via app.js or hit an AI endpoint — every model call lands here with the full prompt, input, output and tool dispatch."
-            primary="Go to Forms"
-            secondary="Open AI Endpoints"
-            (primaryClick)="goForms()"
-            (secondaryClick)="goEndpoints()" />
-        } @else if (filteredRows().length === 0) {
-          <div class="p-10 text-center text-text-secondary text-sm">No traces match the current filter.</div>
-        } @else {
-          <table class="w-full text-[0.78rem]">
-            <thead class="text-text-secondary/70 uppercase text-[0.6rem] tracking-wider">
-              <tr class="border-b border-white/[0.06]">
-                <th class="text-left p-3">When</th>
-                <th class="text-left p-3">Kind</th>
-                <th class="text-left p-3">Endpoint / Submission</th>
-                <th class="text-left p-3">Status</th>
-                <th class="text-left p-3">Tool</th>
-                <th class="text-right p-3">ms</th>
-                <th class="text-right p-3">Credits</th>
-                <th class="text-left p-3">Preview</th>
-                <th class="text-right p-3">Explain</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (r of filteredRows(); track r.id) {
-                <tr class="log-row cursor-pointer"
-                    [attr.data-severity]="severityOf(r)"
-                    (click)="open(r.id)">
-                  <td class="p-3 text-text-secondary">{{ r.created_at | date:'short' }}</td>
-                  <td class="p-3"><span class="badge">{{ r.trace_kind }}</span></td>
-                  <td class="p-3 font-mono text-[0.72rem]">{{ r.endpoint_slug || (r.submission_id?.slice(0,8) ?? '—') }}</td>
-                  <td class="p-3">
-                    <span class="font-bold text-[0.62rem] uppercase"
-                          [class.text-emerald-400]="r.status === 'ok'"
-                          [class.text-red-400]="r.status === 'error'"
-                          [class.text-amber-400]="r.status !== 'ok' && r.status !== 'error'">{{ r.status }}</span>
-                  </td>
-                  <td class="p-3 text-[0.7rem]">
-                    @if (r.tool_name) {
-                      <span class="font-mono text-primary">{{ r.tool_name }}</span>
-                      <span class="text-text-secondary"> · {{ r.tool_status }}</span>
-                    } @else { — }
-                  </td>
-                  <td class="p-3 text-right text-text-secondary">{{ r.latency_ms }}</td>
-                  <td class="p-3 text-right text-text-secondary">{{ r.credits_debited || 0 }}</td>
-                  <td class="p-3 text-text-secondary/80 truncate max-w-[260px]" [title]="r.error_message || r.output_preview">
-                    {{ r.error_message || r.output_preview || '—' }}
-                  </td>
-                  <td class="p-3 text-right">
-                    <div class="row-actions">
-                      <button
-                        type="button"
-                        class="copy-row-btn"
-                        title="Copy trace as JSON"
-                        [attr.data-testid]="'trace-copy-' + r.id"
-                        (click)="copyRow(r, $event)"
-                      >
-                        @if (copiedId() === r.id) { ✓ } @else { ⧉ }
-                      </button>
-                      <button
-                        class="explain-btn"
-                        type="button"
-                        [attr.data-testid]="'trace-explain-' + r.id"
-                        [disabled]="explainLoading() === r.id"
-                        title="Ask AI to explain this trace"
-                        (click)="explainTrace(r.id, $event)"
-                      >
-                        {{ explainLoading() === r.id ? '…' : '✨ Explain' }}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        }
-      </section>
-
-      @if (detail(); as d) {
-        <section class="card border border-primary/40">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="m-0 text-base font-semibold text-white">Trace {{ d.id.substring(0, 8) }}</h3>
-            <button class="text-text-secondary hover:text-white" (click)="detail.set(null)">×</button>
-          </div>
-          <div class="space-y-3 text-[0.7rem]">
-            <div><div class="muted-h">System prompt</div><pre class="trace">{{ d.prompt_template }}</pre></div>
-            <div><div class="muted-h">Input</div><pre class="trace">{{ d.input_json }}</pre></div>
-            <div><div class="muted-h">Output</div>
-              @if (d.error_message) {
-                <div class="bg-red-500/10 border border-red-500/30 text-red-300 rounded-lg p-3">{{ d.error_message }}</div>
-              } @else {
-                <pre class="trace">{{ d.output_text }}</pre>
+          <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div>
+              <h3 class="m-0 text-base font-semibold text-white">Latency percentiles</h3>
+              <p class="text-[0.7rem] text-text-secondary m-0 mt-0.5">p50 / p95 / p99 over {{ chartPeriodLabel() }} · {{ chartBins().length }} bins</p>
+            </div>
+            <div class="period-pills" role="tablist" aria-label="Chart period">
+              @for (p of periods; track p.id) {
+                <button
+                  type="button"
+                  class="period-pill"
+                  [class.active]="chartPeriod() === p.id"
+                  [attr.data-testid]="'traces-period-' + p.id"
+                  [attr.aria-pressed]="chartPeriod() === p.id"
+                  (click)="chartPeriod.set(p.id)">
+                  {{ p.label }}
+                </button>
               }
             </div>
-            @if (d.tool_name) {
-              <div><div class="muted-h">Tool executed — {{ d.tool_name }} · {{ d.tool_status }}</div>
-                <pre class="trace">{{ d.tool_args_json }}</pre>
-                <pre class="trace">{{ d.tool_result_json }}</pre>
-              </div>
-            }
+          </div>
+          <svg viewBox="0 0 600 140" preserveAspectRatio="none" class="w-full h-32 chart-svg">
+            <defs>
+              <linearGradient id="p50grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.55"/>
+                <stop offset="100%" stop-color="#00E5FF" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="p95grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#7C3AED" stop-opacity="0.50"/>
+                <stop offset="100%" stop-color="#7C3AED" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="p99grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.45"/>
+                <stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <!-- Drawn back-to-front: p99 widest band → p95 → p50 on top. -->
+            <path [attr.d]="chartAreaPath('p99')" fill="url(#p99grad)" />
+            <path [attr.d]="chartAreaPath('p95')" fill="url(#p95grad)" />
+            <path [attr.d]="chartAreaPath('p50')" fill="url(#p50grad)" />
+            <path [attr.d]="chartLinePath('p99')" fill="none" stroke="#fbbf24" stroke-width="1.4" stroke-opacity="0.85"/>
+            <path [attr.d]="chartLinePath('p95')" fill="none" stroke="#7C3AED" stroke-width="1.6" stroke-opacity="0.92"/>
+            <path [attr.d]="chartLinePath('p50')" fill="none" stroke="#00E5FF" stroke-width="2"/>
+          </svg>
+          <div class="chart-legend">
+            <span class="lg-dot lg-p50"></span>p50 {{ formatLatencyMs(currentP(50)) }}
+            <span class="lg-dot lg-p95"></span>p95 {{ formatLatencyMs(currentP(95)) }}
+            <span class="lg-dot lg-p99"></span>p99 {{ formatLatencyMs(currentP(99)) }}
           </div>
         </section>
       }
 
-      @if (explainPopover(); as p) {
-        <section class="card border border-violet-500/40" role="dialog" aria-label="AI trace explanation" data-testid="trace-explain-popover">
-          <div class="flex items-start justify-between gap-3 mb-2">
-            <h3 class="m-0 text-base font-semibold text-white">✨ AI explanation · {{ p.id.substring(0,8) }}</h3>
-            <button class="text-text-secondary hover:text-white" (click)="explainPopover.set(null)" aria-label="Close">×</button>
-          </div>
-          <pre class="trace explain-md">{{ p.markdown }}</pre>
-          <div class="explain-meta text-[0.6rem] text-text-secondary mt-2">
-            {{ p.cached ? 'cached · ' : '' }}{{ p.model }}
-          </div>
-        </section>
-      }
+      <!-- Quick-filter search box (focus on '/') ───────────────────────── -->
+      <label class="filter-shell" [class.is-focused]="searchFocused()">
+        <svg class="filter-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/>
+        </svg>
+        <input
+          #filterInput
+          data-testid="traces-filter"
+          type="text"
+          class="filter-input"
+          placeholder="Filter traces — endpoint, tool, model, actor, preview…"
+          [value]="filter()"
+          (input)="filter.set(asInputValue($event))"
+          (focus)="searchFocused.set(true)"
+          (blur)="searchFocused.set(false)"
+          aria-label="Filter traces"
+        />
+        <kbd class="filter-kbd" aria-hidden="true">/</kbd>
+      </label>
+
+      <!-- Full-bleed AG Grid ─────────────────────────────────────────── -->
+      <div class="grid-frame">
+        <ag-grid-angular
+          data-testid="traces-grid"
+          class="ag-grid-host"
+          [theme]="theme"
+          [rowData]="displayRows()"
+          [columnDefs]="columnDefs"
+          [defaultColDef]="defaultColDef"
+          [pagination]="true"
+          [paginationPageSize]="50"
+          [paginationPageSizeSelector]="[25, 50, 100, 250]"
+          [getRowId]="getRowId"
+          [getRowHeight]="getRowHeight"
+          [isFullWidthRow]="isFullWidthRow"
+          [fullWidthCellRenderer]="fullWidthCellRenderer"
+          [animateRows]="true"
+          [enableCellTextSelection]="true"
+          (gridReady)="onGridReady($event)">
+        </ag-grid-angular>
+      </div>
     </div>
   `,
   styles: [`
     :host { display: block; }
     .card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 1.2rem; }
-    .badge { font-size: 0.6rem; text-transform: uppercase; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(0,229,255,0.1); color: #00E5FF; }
+    .section-h { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
     .muted-h { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; margin-bottom: 0.3rem; }
-    .trace { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 0.6rem; white-space: pre-wrap; word-break: break-word; max-height: 14rem; overflow: auto; font-size: 0.68rem; }
-    .explain-btn { padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(124,58,237,0.4); background: rgba(124,58,237,0.10); color: #C7B6FF; font-size: 0.62rem; font-weight: 600; cursor: pointer; transition: background 120ms ease, border-color 120ms ease; }
-    .explain-btn:hover:not([disabled]) { background: rgba(124,58,237,0.18); border-color: rgba(124,58,237,0.65); color: #fff; }
-    .explain-btn[disabled] { opacity: 0.6; cursor: progress; }
-    .explain-md { max-height: 22rem; }
 
-    /* ─── Log rows: severity left border + hover lift + copy button ─── */
-    .log-row {
-      position: relative;
-      border-bottom: 1px solid rgba(255,255,255,0.04);
-      transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
-    }
-    .log-row::before {
-      content: ''; position: absolute; left: 0; top: 8px; bottom: 8px;
-      width: 3px; border-radius: 2px;
-      background: transparent;
-      transition: background 180ms ease, box-shadow 180ms ease;
-    }
-    .log-row[data-severity="info"]::before  { background: oklch(0.72 0.16 220); box-shadow: 0 0 8px -2px color-mix(in oklch, oklch(0.72 0.16 220) 60%, transparent); }
-    .log-row[data-severity="warn"]::before  { background: oklch(0.78 0.16 80);  box-shadow: 0 0 8px -2px color-mix(in oklch, oklch(0.78 0.16 80) 60%, transparent); }
-    .log-row[data-severity="error"]::before { background: oklch(0.65 0.22 25);  box-shadow: 0 0 8px -2px color-mix(in oklch, oklch(0.65 0.22 25) 60%, transparent); }
-    .log-row:hover { background: rgba(255,255,255,0.03); transform: translateY(-1px); box-shadow: 0 6px 18px -14px rgba(0,229,255,0.35); }
-    @media (prefers-reduced-motion: reduce) {
-      .log-row { transition: none; }
-      .log-row:hover { transform: none; }
-    }
-
-    .row-actions { display: inline-flex; align-items: center; gap: 6px; justify-content: flex-end; }
-    .copy-row-btn {
-      padding: 3px 8px; border-radius: 6px;
-      border: 1px solid rgba(255,255,255,0.10);
-      background: rgba(255,255,255,0.03);
-      color: rgba(255,255,255,0.65);
-      font-size: 0.7rem; font-weight: 700; cursor: pointer; line-height: 1;
-      transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
-    }
-    .copy-row-btn:hover { background: rgba(0,229,255,0.10); border-color: rgba(0,229,255,0.35); color: #00E5FF; }
-    .copy-row-btn:focus-visible { outline: 2px solid #00E5FF; outline-offset: 2px; }
-
-    /* ─── Live status pill (header) ──────────────────────────────────── */
-    .live-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: rgba(16,185,129,0.10); border: 1px solid rgba(16,185,129,0.28); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.02em; color: #10b981; }
+    /* ─── Live pill ──────────────────────────────────────────────────── */
+    .live-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: rgba(16,185,129,0.10); border: 1px solid rgba(16,185,129,0.28); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; color: #10b981; }
     .live-pill--paused { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.10); color: rgba(255,255,255,0.55); }
     .live-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 0 currentColor; animation: livePulse 1.8s ease-out infinite; }
     .live-pill--paused .live-dot { animation: none; opacity: 0.5; }
     @keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.55); } 70% { box-shadow: 0 0 0 6px rgba(16,185,129,0); } 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } }
     @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
-    .live-sep { opacity: 0.55; }
-    .live-sync { font-variant-numeric: tabular-nums; opacity: 0.85; }
     .live-text { text-transform: uppercase; }
 
-    /* ─── Three-slot toolbar ─────────────────────────────────────────── */
-    .toolbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 8px 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; }
-    .tb-search { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.08); transition: border-color 150ms ease, box-shadow 150ms ease; justify-self: start; width: min(100%, 360px); }
-    .tb-search--focused { border-color: rgba(0,229,255,0.5); box-shadow: 0 0 0 2px rgba(0,229,255,0.15); }
-    .tb-search-icon { color: rgba(255,255,255,0.55); flex: 0 0 auto; }
-    .tb-search-input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #fff; font-size: 0.78rem; padding: 2px 0; }
-    .tb-search-input::placeholder { color: rgba(255,255,255,0.4); }
-    .tb-kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.58rem; padding: 1px 6px; border-radius: 5px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); }
-    .tb-pills { display: inline-flex; flex-wrap: wrap; gap: 6px; justify-self: center; }
-    .tb-forms { display: inline-flex; align-items: center; gap: 8px; justify-self: end; }
-    .tb-forms-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: rgba(255,255,255,0.5); }
-    .tb-forms-select { padding: 6px 10px; border-radius: 10px; background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 0.74rem; font-weight: 600; min-width: 160px; max-width: 240px; }
-    .tb-forms-select:hover { border-color: rgba(0,229,255,0.3); }
-
-    /* ─── Pills ──────────────────────────────────────────────────────── */
-    .filter-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.78); font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: background 150ms ease, border-color 150ms ease, color 150ms ease; }
-    .filter-chip:hover { color: #fff; border-color: rgba(0,229,255,0.35); }
-    .filter-chip.active { background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.18)); color: #00E5FF; border-color: rgba(0,229,255,0.45); }
-    @media (prefers-reduced-motion: reduce) { .filter-chip { transition: none; } }
-    .filter-count { font-size: 0.6rem; opacity: 0.7; padding: 1px 5px; border-radius: 999px; background: rgba(255,255,255,0.06); }
-    .chip-kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.56rem; padding: 0 5px; border-radius: 4px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.55); margin-left: 2px; }
-
-    /* ─── Focus rings ────────────────────────────────────────────────── */
-    .filter-chip:focus-visible, .tb-forms-select:focus-visible, .tb-search-input:focus-visible, .ml-trigger:focus-visible { outline: 2px solid #00E5FF; outline-offset: 2px; }
-
-    /* ─── Existing inline multi-select (kind) ───────────────────────── */
-    .ml-select { position: relative; display: inline-flex; }
-    .ml-trigger { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.78); font-size: 0.7rem; font-weight: 600; cursor: pointer; transition: all 150ms ease; }
-    .ml-trigger:hover { color: #fff; border-color: rgba(0,229,255,0.3); }
-    .ml-trigger.active { background: linear-gradient(135deg, rgba(0,229,255,0.14), rgba(124,58,237,0.14)); color: #00E5FF; border-color: rgba(0,229,255,0.35); }
-    .ml-trigger svg { opacity: 0.65; }
-    .ml-trigger-label { white-space: nowrap; }
-    .ml-menu { position: absolute; top: calc(100% + 6px); left: 0; min-width: 220px; background: rgba(10,10,26,0.97); backdrop-filter: blur(16px); border: 1px solid rgba(0,229,255,0.22); border-radius: 10px; box-shadow: 0 18px 40px rgba(0,0,0,0.5); padding: 4px; z-index: 50; animation: mlIn 140ms ease; }
-    @keyframes mlIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-    @media (prefers-reduced-motion: reduce) { .ml-menu { animation: none; } }
-    .ml-row { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 8px; cursor: pointer; font-size: 0.74rem; color: rgba(255,255,255,0.85); }
-    .ml-row:hover { background: rgba(0,229,255,0.06); }
-    .ml-row input { accent-color: #00E5FF; cursor: pointer; }
-    .ml-dot { width: 8px; height: 8px; border-radius: 50%; }
-    .ml-count { font-size: 0.6rem; opacity: 0.6; padding: 1px 6px; border-radius: 999px; background: rgba(255,255,255,0.05); }
-    .ml-clear { display: block; width: 100%; padding: 6px 9px; border: 0; border-top: 1px solid rgba(255,255,255,0.06); background: transparent; color: rgba(255,255,255,0.55); font-size: 0.66rem; cursor: pointer; text-align: left; margin-top: 2px; }
-    .ml-clear:hover { color: #00E5FF; }
-
-    /* ─── Responsive collapse: stack vertically under 768px ──────────── */
-    @media (max-width: 768px) {
-      .toolbar { grid-template-columns: 1fr; gap: 10px; }
-      /* Order: pills first, then search, then forms filter (per spec). */
-      .tb-pills   { order: 1; justify-self: stretch; justify-content: center; }
-      .tb-search  { order: 2; justify-self: stretch; width: 100%; }
-      .tb-forms   { order: 3; justify-self: stretch; }
-      .tb-forms-select { flex: 1; max-width: none; }
+    /* ─── Grid frame: full-bleed inside a soft border ────────────────── */
+    .grid-frame {
+      width: 100%;
+      border: 1px solid color-mix(in oklch, currentColor 12%, transparent);
+      border-radius: var(--ps-radius-lg, 14px);
+      overflow: hidden;
+      background: rgba(0,0,0,0.18);
+      box-shadow: var(--ps-shadow-md, 0 4px 12px rgba(0,0,0,0.18));
     }
+    .ag-grid-host { width: 100%; height: calc(100vh - 360px); min-height: 540px; }
+
+    /* ─── Period selector (chart) ────────────────────────────────────── */
+    .period-pills { display: inline-flex; gap: 4px; padding: 3px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+    .period-pill { padding: 4px 11px; border-radius: 999px; border: 0; background: transparent; color: rgba(255,255,255,0.7); font-size: 0.7rem; font-weight: 600; cursor: pointer; transition: background 140ms ease, color 140ms ease; }
+    .period-pill:hover { color: #fff; }
+    .period-pill.active { background: linear-gradient(135deg, rgba(0,229,255,0.22), rgba(124,58,237,0.22)); color: #00E5FF; }
+    @media (prefers-reduced-motion: reduce) { .period-pill { transition: none; } }
+    .chart-svg { display: block; }
+    .chart-legend { display: flex; align-items: center; gap: 0.6rem; font-size: 0.65rem; color: rgba(255,255,255,0.65); margin-top: 0.5rem; flex-wrap: wrap; }
+    .lg-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-left: 0.4rem; }
+    .lg-dot.lg-p50 { background: #00E5FF; }
+    .lg-dot.lg-p95 { background: #7C3AED; }
+    .lg-dot.lg-p99 { background: #fbbf24; }
+    .lg-dot:first-child { margin-left: 0; }
+
+    /* ─── Filter shell: focus ring on wrapper, NOT on input ──────────── */
+    .filter-shell {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 7px 12px; border-radius: 10px;
+      background: rgba(0,0,0,0.28);
+      border: 1px solid rgba(255,255,255,0.08);
+      width: min(100%, 480px);
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+    }
+    .filter-shell.is-focused { border-color: rgba(0,229,255,0.55); box-shadow: 0 0 0 3px rgba(0,229,255,0.16); }
+    .filter-icon { color: rgba(255,255,255,0.55); flex: 0 0 auto; }
+    .filter-input { flex: 1; min-width: 0; background: transparent; border: 0 !important; outline: 0 !important; color: #fff; font-size: 0.82rem; padding: 2px 0; box-shadow: none !important; }
+    .filter-input:focus, .filter-input:focus-visible { border: 0 !important; outline: 0 !important; box-shadow: none !important; }
+    .filter-input::placeholder { color: rgba(255,255,255,0.4); }
+    .filter-kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.65rem; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.65); }
+
+    /* ─── Cell renderer: status pill ─────────────────────────────────── */
+    :host ::ng-deep .cell-status-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.5; }
+    :host ::ng-deep .cell-status-pill.ok { background: rgba(16,185,129,0.14); color: #34d399; border: 1px solid rgba(16,185,129,0.32); }
+    :host ::ng-deep .cell-status-pill.error { background: rgba(239,68,68,0.14); color: #fca5a5; border: 1px solid rgba(239,68,68,0.34); }
+    :host ::ng-deep .cell-status-pill.rate { background: rgba(251,191,36,0.14); color: #fcd34d; border: 1px solid rgba(251,191,36,0.32); }
+    :host ::ng-deep .cell-status-pill.timeout { background: rgba(168,85,247,0.14); color: #d8b4fe; border: 1px solid rgba(168,85,247,0.32); }
+    :host ::ng-deep .cell-status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    /* ─── Cell renderer: latency w/ proportional fill ────────────────── */
+    :host ::ng-deep .latency-cell { position: relative; display: flex; align-items: center; justify-content: flex-end; height: 100%; padding-right: 8px; }
+    :host ::ng-deep .latency-cell .lat-fill { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); height: 18px; border-radius: 4px; opacity: 0.20; pointer-events: none; }
+    :host ::ng-deep .latency-cell .lat-fill.good { background: linear-gradient(90deg, rgba(16,185,129,0.4), rgba(16,185,129,0.08)); }
+    :host ::ng-deep .latency-cell .lat-fill.mid  { background: linear-gradient(90deg, rgba(251,191,36,0.55), rgba(251,191,36,0.08)); }
+    :host ::ng-deep .latency-cell .lat-fill.bad  { background: linear-gradient(90deg, rgba(239,68,68,0.65), rgba(239,68,68,0.08)); }
+    :host ::ng-deep .latency-cell .lat-val { position: relative; z-index: 1; font-variant-numeric: tabular-nums; font-weight: 600; color: rgba(255,255,255,0.92); }
+
+    /* ─── Cell renderer: expand-kebab ────────────────────────────────── */
+    :host ::ng-deep .kebab-btn {
+      width: 26px; height: 26px; border-radius: 6px; border: 1px solid transparent;
+      background: transparent; color: rgba(255,255,255,0.55); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: background 140ms ease, color 140ms ease, border-color 140ms ease, transform 200ms ease;
+    }
+    :host ::ng-deep .kebab-btn:hover { background: rgba(0,229,255,0.12); color: #00E5FF; border-color: rgba(0,229,255,0.30); }
+    :host ::ng-deep .kebab-btn.is-open { background: rgba(0,229,255,0.18); color: #00E5FF; border-color: rgba(0,229,255,0.45); transform: rotate(90deg); }
+    @media (prefers-reduced-motion: reduce) { :host ::ng-deep .kebab-btn { transition: none; } }
+
+    /* ─── Detail panel: master/detail expansion ──────────────────────── */
+    :host ::ng-deep .detail-card {
+      padding: 1rem 1.2rem 1.2rem; margin: 0;
+      background: linear-gradient(180deg, rgba(0,229,255,0.04), rgba(124,58,237,0.02));
+      border-top: 1px solid rgba(0,229,255,0.20);
+      border-bottom: 1px solid rgba(0,229,255,0.10);
+      animation: detail-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes detail-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) { :host ::ng-deep .detail-card { animation: none; } }
+    :host ::ng-deep .detail-card .detail-grid { display: grid; gap: 0.8rem; }
+    :host ::ng-deep .detail-card .det-block { display: flex; flex-direction: column; gap: 0.3rem; }
+    :host ::ng-deep .detail-card .det-label { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.55); font-weight: 700; }
+    :host ::ng-deep .detail-card pre {
+      background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px; padding: 0.7rem 0.9rem;
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.68rem; line-height: 1.55;
+      white-space: pre-wrap; word-break: break-word;
+      max-height: 240px; overflow: auto; margin: 0;
+      color: rgba(245,245,247,0.92);
+    }
+    :host ::ng-deep .detail-card pre.error-pre { border-left: 3px solid #ef4444; color: #fcd34d; background: rgba(239,68,68,0.06); border-color: rgba(239,68,68,0.25); }
+    :host ::ng-deep .detail-card .tk-key  { color: #fbbf24; }
+    :host ::ng-deep .detail-card .tk-str  { color: #86efac; }
+    :host ::ng-deep .detail-card .tk-num  { color: #67e8f9; }
+    :host ::ng-deep .detail-card .tk-bool { color: #c4b5fd; }
+    :host ::ng-deep .detail-card .tk-null { color: rgba(255,255,255,0.45); }
+    :host ::ng-deep .detail-card .tk-pun  { color: rgba(255,255,255,0.55); }
+    :host ::ng-deep .detail-card .kw      { color: #00E5FF; font-weight: 700; }
+    :host ::ng-deep .detail-card .det-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+    :host ::ng-deep .detail-card .det-action {
+      padding: 0.42rem 0.85rem; border-radius: 8px; font-size: 0.68rem; font-weight: 700;
+      letter-spacing: 0.02em; cursor: pointer; border: 1px solid rgba(0,229,255,0.30);
+      background: rgba(0,229,255,0.10); color: #00E5FF;
+      transition: background 140ms ease, transform 140ms ease;
+    }
+    :host ::ng-deep .detail-card .det-action:hover:not([disabled]) { background: rgba(0,229,255,0.20); transform: translateY(-1px); }
+    :host ::ng-deep .detail-card .det-action[disabled] { opacity: 0.45; cursor: not-allowed; }
+    :host ::ng-deep .detail-card .det-action.violet { border-color: rgba(124,58,237,0.40); background: rgba(124,58,237,0.12); color: #c4b5fd; }
+    :host ::ng-deep .detail-card .det-action.violet:hover:not([disabled]) { background: rgba(124,58,237,0.22); }
+    :host ::ng-deep .detail-card .det-action.ghost { background: transparent; color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.15); }
+    :host ::ng-deep .detail-card .det-action.ghost:hover:not([disabled]) { background: rgba(255,255,255,0.06); color: #fff; }
+    :host ::ng-deep .detail-card .det-explain {
+      margin-top: 0.6rem; padding: 0.7rem 0.9rem; border-radius: 8px;
+      background: rgba(124,58,237,0.10); border: 1px solid rgba(124,58,237,0.35);
+      color: rgba(245,245,247,0.92); font-size: 0.72rem; line-height: 1.55;
+      white-space: pre-wrap;
+    }
+
+    /* ─── AG Grid theme tweaks (dark cyan hover glow) ────────────────── */
+    :host ::ng-deep .ag-row-hover { box-shadow: inset 3px 0 0 rgba(0,229,255,0.35); }
   `],
 })
 export class AdminAiLogsComponent implements OnInit, OnDestroy {
@@ -408,406 +495,645 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private toast = inject(ToastService);
 
-  /** Trace id that just successfully copied — drives the row-level checkmark. */
-  copiedId = signal<string | null>(null);
-  goForms(): void { this.router.navigateByUrl('/admin/forms'); }
-  goEndpoints(): void { this.router.navigateByUrl('/admin/ai-endpoints'); }
+  @ViewChild('filterInput') filterInputRef?: ElementRef<HTMLInputElement>;
+
+  /** Raw trace rows from the API. Drives every derived signal below. */
+  rows = signal<TraceRow[]>([]);
+  loading = signal(false);
+  filter = signal('');
+  searchFocused = signal(false);
+  polling = signal(true);
+
+  /** Set of trace ids currently expanded in the grid. */
+  private expandedIds = signal<Set<string>>(new Set<string>());
+  /** Cache of fetched details keyed by trace id (lazy-loaded on expand). */
+  private detailCache = signal<Map<string, TraceDetail>>(new Map());
+  /** Cache of AI explanations keyed by trace id. */
+  private explainCache = signal<Map<string, string>>(new Map());
+  /** Per-row explain-in-flight flag, for spinner UI. */
+  private explainLoading = signal<Set<string>>(new Set());
+
+  chartPeriod = signal<ChartPeriod>('24h');
+
+  periods: ReadonlyArray<{ id: ChartPeriod; label: string; ms: number }> = [
+    { id: '1h',  label: '1h',  ms: 60 * 60 * 1000 },
+    { id: '24h', label: '24h', ms: 24 * 60 * 60 * 1000 },
+    { id: '7d',  label: '7d',  ms: 7 * 24 * 60 * 60 * 1000 },
+    { id: '30d', label: '30d', ms: 30 * 24 * 60 * 60 * 1000 },
+  ] as const;
+
+  /** Number of evenly-spaced time bins for the latency-percentile chart. */
+  private static readonly CHART_BINS = 24;
+
+  // ─── KPI signals ────────────────────────────────────────────────────
+  avgLatency = computed<number>(() => {
+    const list = this.rows();
+    if (!list.length) return 0;
+    return Math.round(list.reduce((a, r) => a + (r.latency_ms ?? 0), 0) / list.length);
+  });
+  errors = computed<number>(() => this.rows().filter((r) => r.status === 'error').length);
+  totalCredits = computed<number>(() => this.rows().reduce((a, r) => a + (r.credits_debited ?? 0), 0));
+
+  // ─── Filtered rows + synthetic detail injection ────────────────────
+  /**
+   * Rows after the free-text filter + the synthetic detail-row injection.
+   * Whenever a row's id is in `expandedIds`, we splice a `_isDetail: true`
+   * row right after it so the grid renders the full-width detail panel
+   * below the master row (Community-tier master/detail emulation).
+   */
+  displayRows = computed<TraceRow[]>(() => {
+    const q = this.filter().trim().toLowerCase();
+    const expanded = this.expandedIds();
+    const base = q
+      ? this.rows().filter((r) => {
+          const hay = `${r.endpoint_slug ?? ''} ${r.tool_name ?? ''} ${r.model ?? ''} ${r.actor_email ?? ''} ${r.output_preview ?? ''} ${r.error_message ?? ''} ${r.trace_kind}`.toLowerCase();
+          return hay.includes(q);
+        })
+      : this.rows();
+    const out: TraceRow[] = [];
+    for (const r of base) {
+      out.push({ ...r, _expanded: expanded.has(r.id) });
+      if (expanded.has(r.id)) {
+        out.push({
+          ...r,
+          id: `${r.id}::detail`,
+          _isDetail: true,
+          _parentId: r.id,
+        });
+      }
+    }
+    return out;
+  });
+
+  // ─── Chart: derive p50/p95/p99 from currently-loaded rows ──────────
+  /**
+   * Bin trace rows into N equal-width time slots over the selected period
+   * and compute the latency p50/p95/p99 per bin. Bins with no samples
+   * report 0 — the area chart will draw them as ground level.
+   */
+  chartBins = computed<{ p50: number; p95: number; p99: number; count: number }[]>(() => {
+    const period = this.periods.find((p) => p.id === this.chartPeriod()) ?? this.periods[1]!;
+    const now = Date.now();
+    const from = now - period.ms;
+    const bins = AdminAiLogsComponent.CHART_BINS;
+    const binMs = period.ms / bins;
+    const buckets: number[][] = Array.from({ length: bins }, () => []);
+    for (const r of this.rows()) {
+      const t = Date.parse(r.created_at);
+      if (!Number.isFinite(t) || t < from || t > now) continue;
+      const idx = Math.min(bins - 1, Math.max(0, Math.floor((t - from) / binMs)));
+      if (r.latency_ms != null) buckets[idx]!.push(r.latency_ms);
+    }
+    return buckets.map((arr) => {
+      if (arr.length === 0) return { p50: 0, p95: 0, p99: 0, count: 0 };
+      const sorted = [...arr].sort((a, b) => a - b);
+      const pick = (q: number): number => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))] ?? 0;
+      return { p50: pick(0.5), p95: pick(0.95), p99: pick(0.99), count: arr.length };
+    });
+  });
+
+  /** Maximum latency across all percentiles in the current chart window. */
+  private chartMax = computed<number>(() => {
+    const bins = this.chartBins();
+    return Math.max(1, ...bins.map((b) => b.p99));
+  });
+
+  /** Overall percentile across the currently-loaded rows (chart subtitle). */
+  currentP(q: number): number {
+    const lat = this.rows().map((r) => r.latency_ms ?? 0).filter((x) => x > 0).sort((a, b) => a - b);
+    if (!lat.length) return 0;
+    return lat[Math.min(lat.length - 1, Math.floor((q / 100) * lat.length))] ?? 0;
+  }
+
+  /** SVG path `d` for a percentile band's filled area (with gradient). */
+  chartAreaPath(key: 'p50' | 'p95' | 'p99'): string {
+    const bins = this.chartBins();
+    if (!bins.length) return '';
+    const max = this.chartMax();
+    const w = 600;
+    const h = 140;
+    const step = bins.length > 1 ? w / (bins.length - 1) : 0;
+    const pts = bins.map((b, i) => ({
+      x: i * step,
+      y: h - 6 - (b[key] / max) * (h - 16),
+    }));
+    const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+    return `${line} L ${pts[pts.length - 1]!.x.toFixed(1)} ${h} L ${pts[0]!.x.toFixed(1)} ${h} Z`;
+  }
+
+  /** SVG path `d` for the percentile line (stroked overlay on top of area). */
+  chartLinePath(key: 'p50' | 'p95' | 'p99'): string {
+    const bins = this.chartBins();
+    if (!bins.length) return '';
+    const max = this.chartMax();
+    const w = 600;
+    const h = 140;
+    const step = bins.length > 1 ? w / (bins.length - 1) : 0;
+    return bins.map((b, i) => {
+      const x = i * step;
+      const y = h - 6 - (b[key] / max) * (h - 16);
+      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    }).join(' ');
+  }
+
+  chartPeriodLabel = computed<string>(() => {
+    const p = this.periods.find((x) => x.id === this.chartPeriod());
+    if (!p) return '';
+    switch (p.id) {
+      case '1h':  return 'the past hour';
+      case '24h': return 'the past 24 hours';
+      case '7d':  return 'the past 7 days';
+      case '30d': return 'the past 30 days';
+      default:    return '';
+    }
+  });
+
+  // ─── AG Grid setup ──────────────────────────────────────────────────
+  theme = themeQuartz.withPart(colorSchemeDarkBlue).withParams({
+    backgroundColor: '#0a0a1a',
+    foregroundColor: '#e5e7eb',
+    headerBackgroundColor: '#0e0e22',
+    headerTextColor: '#f5f5f7',
+    rowHoverColor: 'rgba(0, 229, 255, 0.06)',
+    selectedRowBackgroundColor: 'rgba(0, 229, 255, 0.14)',
+    accentColor: '#00E5FF',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    rowBorder: { color: 'rgba(255, 255, 255, 0.04)' },
+    headerColumnBorder: false,
+    spacing: 6,
+    fontSize: 12,
+  });
+
+  defaultColDef: ColDef = {
+    sortable: true,
+    filter: false,
+    resizable: true,
+    minWidth: 60,
+  };
+
+  columnDefs: ColDef<TraceRow>[] = [
+    {
+      headerName: 'Status',
+      field: 'status',
+      width: 90,
+      minWidth: 80,
+      cellRenderer: (p: ICellRendererParams<TraceRow>): string => {
+        const v = String(p.value ?? '').toLowerCase();
+        let klass = 'ok';
+        if (v === 'error') klass = 'error';
+        else if (v === 'rate_limited' || v === 'rate-limited') klass = 'rate';
+        else if (v === 'timeout') klass = 'timeout';
+        const label = v ? v.replace(/_/g, ' ') : '—';
+        return `<span class="cell-status-pill ${klass}"><span class="dot"></span>${escapeHtml(label)}</span>`;
+      },
+    },
+    {
+      headerName: 'When',
+      field: 'created_at',
+      width: 140,
+      minWidth: 110,
+      sort: 'desc',
+      valueFormatter: (p) => relativeTime(p.value as string | null | undefined),
+      tooltipValueGetter: (p) => {
+        const v = p.value as string | null | undefined;
+        if (!v) return '';
+        return new Date(v).toISOString();
+      },
+      comparator: (a, b) => Date.parse(String(a ?? 0)) - Date.parse(String(b ?? 0)),
+    },
+    {
+      headerName: 'Endpoint',
+      field: 'endpoint_slug',
+      width: 150,
+      minWidth: 120,
+      filter: 'agTextColumnFilter',
+      valueGetter: (p) => p.data?.endpoint_slug ?? p.data?.trace_kind ?? '—',
+      cellClass: 'mono',
+    },
+    {
+      headerName: 'Tool',
+      field: 'tool_name',
+      width: 140,
+      minWidth: 110,
+      valueFormatter: (p) => (p.value as string | null) ?? '—',
+      cellClass: 'mono',
+    },
+    {
+      headerName: 'Model',
+      field: 'model',
+      width: 120,
+      minWidth: 100,
+      valueFormatter: (p) => prettifyModel(p.value as string),
+    },
+    {
+      headerName: 'Latency',
+      field: 'latency_ms',
+      width: 110,
+      minWidth: 90,
+      type: 'numericColumn',
+      cellRenderer: (p: ICellRendererParams<TraceRow>): string => {
+        const ms = p.value as number | null;
+        const pct = Math.max(0, Math.min(100, ((ms ?? 0) / 2000) * 100));
+        const band = latencyBand(ms);
+        return `
+          <div class="latency-cell">
+            <span class="lat-fill ${band}" style="width: calc(${pct.toFixed(1)}% - 8px); max-width: calc(100% - 8px);"></span>
+            <span class="lat-val">${escapeHtml(formatLatency(ms))}</span>
+          </div>
+        `;
+      },
+    },
+    {
+      headerName: 'Credits',
+      field: 'credits_debited',
+      width: 90,
+      minWidth: 70,
+      type: 'numericColumn',
+      cellStyle: { textAlign: 'right' },
+      valueFormatter: (p) => NUMBER_FORMATTER.format((p.value as number | null) ?? 0),
+    },
+    {
+      headerName: 'Actor',
+      field: 'actor_email',
+      width: 180,
+      minWidth: 130,
+      filter: 'agTextColumnFilter',
+      valueGetter: (p) => fallbackActor(p.data ?? ({} as TraceRow)),
+      cellClass: 'mono',
+    },
+    {
+      headerName: '',
+      colId: 'expand',
+      width: 50,
+      minWidth: 50,
+      maxWidth: 50,
+      sortable: false,
+      filter: false,
+      resizable: false,
+      cellRenderer: (p: ICellRendererParams<TraceRow>): HTMLElement => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        const id = p.data?.id ?? '';
+        btn.className = 'kebab-btn' + (p.data?._expanded ? ' is-open' : '');
+        btn.setAttribute('aria-label', p.data?._expanded ? 'Collapse trace' : 'Expand trace');
+        btn.setAttribute('aria-expanded', String(!!p.data?._expanded));
+        btn.setAttribute('data-testid', `traces-row-expand-${id}`);
+        btn.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <circle cx="8" cy="3" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="8" cy="13" r="1.2"/>
+          </svg>
+        `;
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          if (p.data) this.toggleExpand(p.data);
+        });
+        return btn;
+      },
+    },
+  ];
 
   /**
-   * Map a trace row to a left-border severity color: error → red, slow
-   * (>1s) → amber/warn, everything else → info/blue.
+   * Stable row id callback — uses `id` for master rows and the parent-id
+   * suffixed detail key for synthetic rows. Stable ids enable AG Grid's
+   * incremental row reconciliation across `rowData` updates so expanded
+   * rows don't flicker on each 15s poll.
    */
-  severityOf(r: Row): 'info' | 'warn' | 'error' {
-    if (r.status === 'error') return 'error';
-    if ((r.latency_ms ?? 0) > 1000) return 'warn';
-    return 'info';
+  getRowId = (params: { data: TraceRow }): string => params.data.id;
+
+  /**
+   * Dynamic row height: detail rows are taller to fit the expanded panel.
+   * AG Grid calls this on every row when `rowData` changes.
+   */
+  getRowHeight = (params: RowHeightParams<TraceRow>): number | undefined | null => {
+    if (params.data?._isDetail) return 480;
+    return 40;
+  };
+
+  /** Tell AG Grid which rows render via `fullWidthCellRenderer`. */
+  isFullWidthRow = (params: IsFullWidthRowParams<TraceRow>): boolean => {
+    return !!params.rowNode.data?._isDetail;
+  };
+
+  /**
+   * Full-width detail panel renderer — produces the expanded master/detail
+   * card with system prompt + IO + tool result + action button row.
+   * Imperative DOM construction (not innerHTML for the buttons) so we keep
+   * proper closure references to `this.toggleExpand` / `this.copyTrace` /
+   * `this.explainTrace` / `this.rerunTrace` / `this.openEndpoint` without
+   * leaking globals.
+   */
+  fullWidthCellRenderer = (params: ICellRendererParams<TraceRow>): HTMLElement => {
+    const data = params.data!;
+    const parentId = data._parentId ?? '';
+    const detail = this.detailCache().get(parentId);
+    const root = document.createElement('div');
+    root.className = 'detail-card';
+    root.setAttribute('data-testid', `traces-detail-${parentId}`);
+
+    if (!detail) {
+      // Trigger a lazy fetch — re-render happens via signal effect below.
+      this.fetchDetail(parentId);
+      root.innerHTML = `<div class="det-block"><div class="det-label">Loading trace…</div></div>`;
+      return root;
+    }
+
+    const promptHtml = detail.prompt_template ? highlightSystemPrompt(detail.prompt_template) : '<em>No system prompt captured.</em>';
+    const inputPretty = (() => {
+      try { return JSON.stringify(JSON.parse(detail.input_json), null, 2); }
+      catch { return detail.input_json ?? ''; }
+    })();
+    const outputText = detail.output_text ?? detail.output_json ?? '';
+    const toolArgs = (() => {
+      if (!detail.tool_args_json) return '';
+      try { return JSON.stringify(JSON.parse(detail.tool_args_json), null, 2); }
+      catch { return detail.tool_args_json; }
+    })();
+    const toolResult = (() => {
+      if (!detail.tool_result_json) return '';
+      try { return JSON.stringify(JSON.parse(detail.tool_result_json), null, 2); }
+      catch { return detail.tool_result_json; }
+    })();
+
+    const canRerun = !!(detail.endpoint_slug && detail.input_json);
+    const explanation = this.explainCache().get(parentId);
+    const explaining = this.explainLoading().has(parentId);
+
+    root.innerHTML = `
+      <div class="detail-grid">
+        <div class="det-block">
+          <div class="det-label">System prompt</div>
+          <pre>${promptHtml}</pre>
+        </div>
+        <div class="det-block">
+          <div class="det-label">Input payload</div>
+          <pre>${highlightJson(inputPretty)}</pre>
+        </div>
+        ${detail.error_message ? `
+          <div class="det-block">
+            <div class="det-label">Error</div>
+            <pre class="error-pre">${escapeHtml(detail.error_message)}</pre>
+          </div>
+        ` : `
+          <div class="det-block">
+            <div class="det-label">Output text</div>
+            <pre>${escapeHtml(outputText || '—')}</pre>
+          </div>
+        `}
+        ${detail.tool_name ? `
+          <div class="det-block">
+            <div class="det-label">Tool · ${escapeHtml(detail.tool_name)} · ${escapeHtml(detail.tool_status ?? '')}</div>
+            <pre>${highlightJson(toolArgs || '{}')}</pre>
+            <pre>${highlightJson(toolResult || '{}')}</pre>
+          </div>
+        ` : ''}
+        ${explanation ? `
+          <div class="det-block">
+            <div class="det-label">AI explanation</div>
+            <div class="det-explain" data-testid="traces-explain-result-${parentId}">${escapeHtml(explanation)}</div>
+          </div>
+        ` : ''}
+        <div class="det-actions"></div>
+      </div>
+    `;
+
+    const actions = root.querySelector('.det-actions') as HTMLDivElement;
+
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'det-action';
+    copyBtn.textContent = 'Copy JSON';
+    copyBtn.setAttribute('data-testid', `traces-copy-json-${parentId}`);
+    copyBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.copyTrace(detail); });
+    actions.appendChild(copyBtn);
+
+    const explainBtn = document.createElement('button');
+    explainBtn.type = 'button';
+    explainBtn.className = 'det-action violet';
+    explainBtn.textContent = explaining ? 'Asking AI…' : 'Ask AI to explain this trace';
+    explainBtn.disabled = explaining;
+    explainBtn.setAttribute('data-testid', `traces-explain-${parentId}`);
+    explainBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.explainTrace(parentId); });
+    actions.appendChild(explainBtn);
+
+    const rerunBtn = document.createElement('button');
+    rerunBtn.type = 'button';
+    rerunBtn.className = 'det-action';
+    rerunBtn.textContent = 'Re-run';
+    rerunBtn.disabled = !canRerun;
+    rerunBtn.title = canRerun ? 'Re-invoke this endpoint with the same input' : 'Cannot re-run: input or endpoint not captured';
+    rerunBtn.setAttribute('data-testid', `traces-rerun-${parentId}`);
+    rerunBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.rerunTrace(detail); });
+    actions.appendChild(rerunBtn);
+
+    const openBtn = document.createElement('button');
+    openBtn.type = 'button';
+    openBtn.className = 'det-action ghost';
+    openBtn.textContent = 'Open endpoint';
+    openBtn.disabled = !detail.endpoint_slug;
+    openBtn.setAttribute('data-testid', `traces-open-endpoint-${parentId}`);
+    openBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.openEndpoint(detail); });
+    actions.appendChild(openBtn);
+
+    return root;
+  };
+
+  private gridApi?: GridApi<TraceRow>;
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private visibilityHandler?: () => void;
+  /** Polling cadence — 15s matches the audit grid and the spec. */
+  private static readonly POLL_MS = 15_000;
+
+  constructor() {
+    // Re-render the grid whenever the detail or explain cache flips so
+    // freshly-fetched system prompts / AI explanations populate without a
+    // second user click. Cheap: ag-grid only re-runs the cell renderers
+    // for currently-mounted detail rows.
+    effect(() => {
+      // Touch the signals so the effect tracks them.
+      this.detailCache();
+      this.explainCache();
+      this.explainLoading();
+      if (this.gridApi) {
+        this.gridApi.refreshCells({ force: true });
+        // Full-width rows aren't covered by refreshCells — redraw them.
+        const detailNodes: IRowNode<TraceRow>[] = [];
+        this.gridApi.forEachNode((n) => { if (n.data?._isDetail) detailNodes.push(n); });
+        if (detailNodes.length) this.gridApi.redrawRows({ rowNodes: detailNodes });
+      }
+    });
+  }
+
+  ngOnInit(): void {
+    this.reload();
+    this.pollTimer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        this.polling.set(false);
+        return;
+      }
+      this.polling.set(true);
+      this.reload();
+    }, AdminAiLogsComponent.POLL_MS);
+    this.visibilityHandler = (): void => {
+      if (typeof document === 'undefined') return;
+      const vis = document.visibilityState === 'visible';
+      this.polling.set(vis);
+      if (vis) this.reload();
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.visibilityHandler);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
+    if (this.visibilityHandler && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+    }
+  }
+
+  reload(): void {
+    const s = this.state.selectedSite();
+    if (!s) return;
+    this.loading.set(true);
+    this.api.get<{ data: TraceRow[] }>(`/sites/${s.id}/ai-logs`).subscribe({
+      next: (r) => { this.rows.set(r.data ?? []); this.loading.set(false); },
+      error: () => this.loading.set(false),
+    });
+  }
+
+  onGridReady(ev: GridReadyEvent<TraceRow>): void {
+    this.gridApi = ev.api;
+    try {
+      const raw = localStorage.getItem('ps_traces_grid_v1');
+      if (raw) ev.api.applyColumnState({ state: JSON.parse(raw), applyOrder: true });
+    } catch { /* ignore */ }
+    ev.api.addEventListener('columnMoved', () => this.saveColState());
+    ev.api.addEventListener('columnResized', () => this.saveColState());
+    ev.api.addEventListener('columnVisible', () => this.saveColState());
+    ev.api.addEventListener('sortChanged', () => this.saveColState());
+  }
+  private saveColState(): void {
+    try { localStorage.setItem('ps_traces_grid_v1', JSON.stringify(this.gridApi?.getColumnState() ?? [])); } catch { /* */ }
   }
 
   /**
-   * Copy a compact JSON view of the row to the clipboard so users can paste
-   * into Slack / a bug ticket without opening the detail drawer. Surfaces a
-   * row-level checkmark for ~1.2s and a single toast on success/failure.
+   * Toggle the expanded state for a trace row. Splicing a synthetic
+   * `_isDetail` row in/out of `displayRows()` happens automatically via
+   * the computed signal — we only flip `expandedIds` here.
    */
-  copyRow(r: Row, ev: Event): void {
-    ev.stopPropagation();
+  toggleExpand(row: TraceRow): void {
+    const next = new Set(this.expandedIds());
+    if (next.has(row.id)) next.delete(row.id);
+    else next.add(row.id);
+    this.expandedIds.set(next);
+    if (next.has(row.id)) this.fetchDetail(row.id);
+  }
+
+  /** Lazy-fetch the full trace detail on first expand. */
+  private fetchDetail(id: string): void {
+    if (this.detailCache().has(id)) return;
+    const s = this.state.selectedSite();
+    if (!s) return;
+    this.api.get<{ data: TraceDetail }>(`/sites/${s.id}/ai-logs/${id}`).subscribe({
+      next: (r) => {
+        const next = new Map(this.detailCache());
+        next.set(id, r.data);
+        this.detailCache.set(next);
+      },
+      error: () => { /* api.service already toasts */ },
+    });
+  }
+
+  /** Copy the full trace (header + detail) to the clipboard as JSON. */
+  async copyTrace(detail: TraceDetail): Promise<void> {
     try {
-      const text = JSON.stringify({
-        id: r.id,
-        kind: r.trace_kind,
-        endpoint: r.endpoint_slug,
-        status: r.status,
-        latency_ms: r.latency_ms,
-        credits: r.credits_debited,
-        tool: r.tool_name,
-        preview: r.error_message || r.output_preview,
-        at: r.created_at,
-      }, null, 2);
-      void navigator.clipboard.writeText(text);
-      this.copiedId.set(r.id);
-      this.toast.success('Trace copied');
-      setTimeout(() => {
-        if (this.copiedId() === r.id) this.copiedId.set(null);
-      }, 1200);
+      await navigator.clipboard.writeText(JSON.stringify(detail, null, 2));
+      this.toast.success('Trace copied to clipboard');
     } catch {
       this.toast.error('Clipboard unavailable');
     }
   }
 
-  // 14-day calls sparkline
-  callsByDay = computed<{ day: string; count: number }[]>(() => {
-    const out: Record<string, number> = {};
-    const today = new Date();
-    for (let i = 13; i >= 0; i--) { const d = new Date(today); d.setDate(d.getDate() - i); out[d.toISOString().slice(0, 10)] = 0; }
-    for (const r of this.rows()) { const day = r.created_at.slice(0, 10); if (day in out) out[day]! += 1; }
-    return Object.entries(out).map(([day, count]) => ({ day, count }));
-  });
-  peakDay = computed(() => Math.max(0, ...this.callsByDay().map((d) => d.count)));
-  todayCount = computed(() => this.callsByDay()[13]?.count ?? 0);
-  sparkPoints = computed<{ x: number; y: number }[]>(() => {
-    const days = this.callsByDay();
-    if (!days.length) return [];
-    const peak = Math.max(1, ...days.map((d) => d.count));
-    const step = days.length > 1 ? 600 / (days.length - 1) : 0;
-    return days.map((d, i) => ({ x: i * step, y: 65 - (d.count / peak) * 55 }));
-  });
-  sparkLine = computed(() => this.sparkPoints().map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' '));
-  sparkArea = computed(() => {
-    const pts = this.sparkPoints(); if (!pts.length) return '';
-    const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-    return `${line} L ${pts[pts.length - 1]!.x.toFixed(1)} 70 L ${pts[0]!.x.toFixed(1)} 70 Z`;
-  });
-  rows = signal<Row[]>([]);
-  clientViews: ReadonlyArray<{ id: ViewId; label: string; test: (r: Row) => boolean }> = [
-    { id: 'all',       label: 'All',        test: (_r: Row) => true },
-    { id: 'today',     label: 'Today',      test: (r: Row) => sameDayLog(new Date(r.created_at), new Date()) },
-    { id: 'errors',    label: 'Errors',     test: (r: Row) => r.status === 'error' },
-    { id: 'with-tool', label: 'Tool-used',  test: (r: Row) => !!r.tool_name },
-    { id: 'high-lat',  label: 'Slow (>1s)', test: (r: Row) => (r.latency_ms ?? 0) > 1000 },
-  ] as const;
-  clientView = signal<ViewId>(((): ViewId => {
-    try { return (localStorage.getItem('ps_ailogs_view') as ViewId) || 'all'; } catch { return 'all'; }
-  })());
-
-  /** Free-text search filter (left toolbar slot). Matches endpoint/model/preview/error. */
-  filter = signal<string>('');
-  /** Whether the search input currently has focus (for ring styling). */
-  searchFocused = signal<boolean>(false);
-  /** Selected form id for the right-slot dropdown — empty string = "All forms". */
-  formFilter = signal<string>('');
-  /** Forms loaded from `/sites/:id/forms`, used to populate the source dropdown. */
-  formOptions = signal<FormOption[]>([]);
-
-  filteredRows = computed(() => {
-    const v = this.clientViews.find((x) => x.id === this.clientView()) ?? this.clientViews[0]!;
-    const q = this.filter().trim().toLowerCase();
-    const fid = this.formFilter();
-    return this.rows().filter((r) => {
-      if (!v.test(r)) return false;
-      if (fid) {
-        // Match either trace.form_id or trace.source for resilience to schema drift.
-        const matches = r.form_id === fid || r.source === fid || r.endpoint_slug === fid;
-        if (!matches) return false;
-      }
-      if (q) {
-        const hay = `${r.endpoint_slug ?? ''} ${r.model ?? ''} ${r.output_preview ?? ''} ${r.error_message ?? ''} ${r.tool_name ?? ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  });
-  setClientView(id: ViewId): void {
-    this.clientView.set(id);
-    try { localStorage.setItem('ps_ailogs_view', id); } catch { /* */ }
-  }
-  countView(id: ViewId): number {
-    const v = this.clientViews.find((x) => x.id === id) ?? this.clientViews[0]!;
-    return this.rows().filter((r) => v.test(r)).length;
-  }
-  detail = signal<Detail | null>(null);
-  loading = signal(false);
-
-  /** Trace id currently being explained — drives the row-level spinner. */
-  explainLoading = signal<string | null>(null);
-  /** Currently-displayed AI explanation popover, or `null` when closed. */
-  explainPopover = signal<{ id: string; markdown: string; model: string; cached: boolean } | null>(null);
-  // Multi-select kind filter — replaces the old single-value native dropdown.
-  kindOptions = [
-    { id: 'form',     label: 'Forms',     color: '#00E5FF' },
-    { id: 'endpoint', label: 'Endpoints', color: '#7C3AED' },
-    { id: 'chat',     label: 'Chat',      color: '#10b981' },
-    { id: 'search',   label: 'Search',    color: '#fbbf24' },
-  ] as const;
-  selectedKinds = signal<string[]>(((): string[] => {
-    try { return JSON.parse(localStorage.getItem('ps_ailogs_kinds') ?? '[]'); } catch { return []; }
-  })());
-  kindMenuOpen = signal(false);
-  toggleKindMenu(ev: Event): void { ev.stopPropagation(); this.kindMenuOpen.update((v) => !v); }
-  toggleKind(id: string): void {
-    const cur = this.selectedKinds();
-    const next = cur.includes(id) ? cur.filter((k) => k !== id) : [...cur, id];
-    this.selectedKinds.set(next);
-    try { localStorage.setItem('ps_ailogs_kinds', JSON.stringify(next)); } catch { /* */ }
-    this.reload();
-  }
-  clearKinds(): void {
-    this.selectedKinds.set([]);
-    try { localStorage.setItem('ps_ailogs_kinds', '[]'); } catch { /* */ }
-    this.reload();
-  }
-  selectedKindsLabel = computed(() => {
-    const k = this.selectedKinds();
-    if (k.length === 0) return 'All kinds';
-    if (k.length === 1) return this.kindOptions.find((o) => o.id === k[0])?.label ?? '1 selected';
-    return `${k.length} kinds`;
-  });
-  countByKind(id: string): number { return this.rows().filter((r) => r.trace_kind === id).length; }
-  avgLatency = computed(() => { const list = this.rows(); if (!list.length) return 0; return Math.round(list.reduce((a,r) => a + (r.latency_ms ?? 0), 0) / list.length); });
-  errors = computed(() => this.rows().filter((r) => r.status === 'error').length);
-  totalCredits = computed(() => this.rows().reduce((a,r) => a + (r.credits_debited ?? 0), 0));
-
-  // ─── Live sync / polling state ──────────────────────────────────────
-  /** Whether the polling loop is actively running (false when tab hidden). */
-  polling = signal<boolean>(true);
-  /** Wall-clock ms of the last successful reload, used to render "synced Xs ago". */
-  private lastSyncedAt = signal<number>(Date.now());
-  /** 1Hz tick driving the "synced N s ago" relative-time pill. */
-  private nowTick = signal<number>(Date.now());
-  /** Browser timer ID for the 8s reload loop. Exposed on window for tests/debug. */
-  public pollingTimerId: number | null = null;
-  /** Browser timer ID for the 1Hz "syncedAgo" clock. */
-  private clockTimerId: number | null = null;
-  /** Active SSE stream when the optional realtime path is connected. */
-  private sse: EventSource | null = null;
-  /** Number of consecutive SSE errors observed (fall back to polling at >=2). */
-  private sseErrors = 0;
-
   /**
-   * Human-readable "N seconds/minutes ago" since last successful reload.
-   * Updates each tick so the header pill feels alive without re-rendering rows.
+   * POST to the explain endpoint. If the API returns 404/501 (not yet wired
+   * up), surface a friendly toast and stub a cached message so the panel
+   * still renders something useful.
    */
-  syncedAgo = computed<string>(() => {
-    const delta = Math.max(0, Math.round((this.nowTick() - this.lastSyncedAt()) / 1000));
-    if (delta < 2) return '<2s ago';
-    if (delta < 60) return `${delta}s ago`;
-    const m = Math.floor(delta / 60);
-    return `${m}m ago`;
-  });
-
-  ngOnInit(): void {
-    this.reload();
-    this.loadForms();
-    this.startSync();
-    // Close the multi-select on outside click.
-    document.addEventListener('click', this.outsideClick);
-    document.addEventListener('visibilitychange', this.onVisibilityChange);
-  }
-  ngOnDestroy(): void {
-    document.removeEventListener('click', this.outsideClick);
-    document.removeEventListener('visibilitychange', this.onVisibilityChange);
-    this.stopPolling();
-    this.stopClock();
-    this.closeSse();
-  }
-  private outsideClick = (): void => { if (this.kindMenuOpen()) this.kindMenuOpen.set(false); };
-
-  /**
-   * Bootstraps the live-sync layer. Tries SSE first; if it 404s or errors out
-   * twice, transparently falls back to an 8-second polling loop. Always starts
-   * the 1Hz clock so the "synced Xs ago" pill stays fresh.
-   */
-  private startSync(): void {
-    this.startClock();
-    this.tryOpenSse();
-    // Polling starts immediately as a safety net; SSE success will pause it.
-    this.startPolling();
-  }
-
-  /** Attempt to open the optional SSE stream. Silent fallback to polling on failure. */
-  private tryOpenSse(): void {
-    if (typeof EventSource === 'undefined') return; // server-side / unsupported env
-    try {
-      const es = new EventSource('/api/admin/traces/stream');
-      this.sse = es;
-      es.onmessage = (): void => {
-        // Any server event = reload; cheap enough at trace volumes.
-        this.reload();
-      };
-      es.onopen = (): void => {
-        // Stream is live — pause polling to avoid double-loading.
-        this.sseErrors = 0;
-        this.stopPolling();
-      };
-      es.onerror = (): void => {
-        this.sseErrors += 1;
-        if (this.sseErrors >= 2) {
-          this.closeSse();
-          // Make sure polling is running once we give up on SSE.
-          this.startPolling();
-        }
-      };
-    } catch {
-      // Constructor itself threw — never had a stream, polling already covers us.
-      this.sse = null;
-    }
-  }
-
-  private closeSse(): void {
-    if (this.sse) { try { this.sse.close(); } catch { /* */ } this.sse = null; }
-  }
-
-  /** Start the 8s reload loop. Guarded against double-start and against hidden tabs. */
-  private startPolling(): void {
-    if (this.pollingTimerId !== null) return;
-    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-      this.polling.set(false);
-      return;
-    }
-    this.polling.set(true);
-    this.pollingTimerId = (globalThis.setInterval(() => {
-      // Re-check visibility every tick — covers the case where the listener missed an event.
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
-      this.reload();
-    }, 8000) as unknown as number);
-  }
-
-  private stopPolling(): void {
-    if (this.pollingTimerId !== null) { globalThis.clearInterval(this.pollingTimerId); this.pollingTimerId = null; }
-    this.polling.set(false);
-  }
-
-  /** 1Hz tick that drives the relative-time pill. Cheap, no API calls. */
-  private startClock(): void {
-    if (this.clockTimerId !== null) return;
-    this.clockTimerId = (globalThis.setInterval(() => this.nowTick.set(Date.now()), 1000) as unknown as number);
-  }
-  private stopClock(): void {
-    if (this.clockTimerId !== null) { globalThis.clearInterval(this.clockTimerId); this.clockTimerId = null; }
-  }
-
-  /** Pause polling when the tab is hidden; resume + immediate refresh on return. */
-  private onVisibilityChange = (): void => {
-    if (document.visibilityState === 'visible') {
-      // Resume: if SSE is healthy, leave polling stopped; otherwise restart.
-      if (!this.sse) this.startPolling();
-      else this.polling.set(true);
-      this.reload();
-    } else {
-      this.stopPolling();
-    }
-  };
-
-  /** Populate the right-slot forms dropdown from the current site's forms. */
-  private loadForms(): void {
-    const s = this.state.selectedSite(); if (!s) return;
-    this.api.get<{ data: Array<{ id: string; name?: string | null; slug?: string | null }> }>(`/sites/${s.id}/forms`).subscribe({
-      next: (r) => {
-        const list = (r?.data ?? []).map((f) => ({
-          id: f.id,
-          label: f.name?.trim() || f.slug?.trim() || f.id.slice(0, 8),
-        }));
-        this.formOptions.set(list);
-      },
-      error: () => this.formOptions.set([]),
-    });
-  }
-
-  reload(): void {
-    const s = this.state.selectedSite(); if (!s) return;
-    this.loading.set(true);
-    // Multi-kind request: fan-out per selected kind, merge + dedupe. When
-    // none selected, single request returns ALL kinds.
-    const kinds = this.selectedKinds();
-    if (kinds.length === 0) {
-      this.api.get<{ data: Row[] }>(`/sites/${s.id}/ai-logs`).subscribe({
-        next: (r) => { this.rows.set(r.data ?? []); this.loading.set(false); this.lastSyncedAt.set(Date.now()); },
-        error: () => this.loading.set(false),
-      });
-      return;
-    }
-    Promise.all(kinds.map((k) =>
-      new Promise<Row[]>((resolve) => {
-        this.api.get<{ data: Row[] }>(`/sites/${s.id}/ai-logs`, { kind: k }).subscribe({
-          next: (r) => resolve(r.data ?? []),
-          error: () => resolve([]),
-        });
-      }),
-    )).then((batches) => {
-      const seen = new Set<string>();
-      const merged: Row[] = [];
-      for (const batch of batches) for (const r of batch) if (!seen.has(r.id)) { seen.add(r.id); merged.push(r); }
-      merged.sort((a, b) => b.created_at.localeCompare(a.created_at));
-      this.rows.set(merged);
-      this.loading.set(false);
-      this.lastSyncedAt.set(Date.now());
-    });
-  }
-  open(id: string): void {
-    const s = this.state.selectedSite(); if (!s) return;
-    this.api.get<{ data: Detail }>(`/sites/${s.id}/ai-logs/${id}`).subscribe({
-      next: (r) => this.detail.set(r.data),
-      error: () => { /* api service already toasted */ },
-    });
-  }
-
-  /**
-   * Ask the backend to summarise a trace via Llama 3.3 70B.
-   *
-   * The button is rendered per-row; clicking stops event bubbling so the
-   * row's row-click handler (which opens the detail drawer) does not also
-   * fire. Result is cached server-side in KV for an hour.
-   */
-  explainTrace(id: string, ev: Event): void {
-    ev.stopPropagation();
-    this.explainLoading.set(id);
-    this.api.post<{ data: { markdown: string; model: string; cached: boolean } }>(
+  explainTrace(id: string): void {
+    if (this.explainCache().has(id) || this.explainLoading().has(id)) return;
+    const loading = new Set(this.explainLoading());
+    loading.add(id);
+    this.explainLoading.set(loading);
+    this.api.post<{ data: { markdown: string; model?: string; cached?: boolean } }>(
       `/admin/traces/${id}/explain`, {},
     ).subscribe({
       next: (r) => {
-        this.explainLoading.set(null);
-        this.explainPopover.set({
-          id,
-          markdown: r.data.markdown,
-          model: r.data.model,
-          cached: r.data.cached,
-        });
+        const next = new Map(this.explainCache());
+        next.set(id, r?.data?.markdown ?? 'Explanation returned empty.');
+        this.explainCache.set(next);
+        const l = new Set(this.explainLoading()); l.delete(id); this.explainLoading.set(l);
       },
-      error: () => {
-        this.explainLoading.set(null);
-        this.explainPopover.set({
-          id,
-          markdown: 'AI explanation unavailable. Try again in a moment.',
-          model: '@cf/meta/llama-3.3-70b-instruct',
-          cached: false,
-        });
+      error: (err: unknown) => {
+        const code = (err as { status?: number } | null)?.status;
+        const l = new Set(this.explainLoading()); l.delete(id); this.explainLoading.set(l);
+        if (code === 404 || code === 501) {
+          this.toast.info('Explanation endpoint not wired yet — coming soon');
+          const next = new Map(this.explainCache());
+          next.set(id, 'AI explanation backend is not deployed yet. This panel will populate automatically once /api/admin/traces/:id/explain ships.');
+          this.explainCache.set(next);
+        } else {
+          this.toast.error('Could not load explanation');
+        }
       },
     });
   }
 
   /**
-   * Keyboard shortcuts (1/2/3) cycle through the first three pills. Suppressed
-   * while focus is inside an editable field so users can still type "1/2/3".
+   * Replay the trace by POSTing its captured input back to its endpoint slug.
+   * Disabled when either field is missing — the rerun button surfaces that
+   * via a tooltip and a disabled state.
    */
+  rerunTrace(detail: TraceDetail): void {
+    if (!detail.endpoint_slug || !detail.input_json) {
+      this.toast.warning('Cannot re-run: input or endpoint missing');
+      return;
+    }
+    const s = this.state.selectedSite();
+    if (!s) return;
+    let payload: unknown;
+    try { payload = JSON.parse(detail.input_json); } catch { payload = detail.input_json; }
+    this.api.post<{ data?: unknown }>(`/sites/${s.id}/ai-endpoints/${detail.endpoint_slug}/invoke`, payload as Record<string, unknown>).subscribe({
+      next: () => { this.toast.success('Endpoint re-run queued — refreshing traces'); setTimeout(() => this.reload(), 800); },
+      error: () => this.toast.error('Re-run failed'),
+    });
+  }
+
+  /** Navigate to the AI Endpoints page with the trace's endpoint highlighted. */
+  openEndpoint(detail: TraceDetail): void {
+    if (!detail.endpoint_slug) return;
+    void this.router.navigate(['/admin/ai-endpoints'], { queryParams: { slug: detail.endpoint_slug } });
+  }
+
+  // ─── Hotkeys: `/` focuses the filter input (mirrors sidebar pattern) ─
   @HostListener('document:keydown', ['$event'])
   onKeydown(ev: KeyboardEvent): void {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
-    const t = ev.target as HTMLElement | null;
-    if (t) {
-      const tag = t.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) return;
+    const target = ev.target as HTMLElement | null;
+    if (target) {
+      const tag = target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) return;
     }
-    const map: Record<string, ViewId> = { '1': 'all', '2': 'today', '3': 'errors' };
-    const target = map[ev.key];
-    if (target) { ev.preventDefault(); this.setClientView(target); }
+    if (ev.key === '/') {
+      ev.preventDefault();
+      this.filterInputRef?.nativeElement.focus();
+    }
   }
 
-  /** Type-safe extractor for `<input>` change events (avoids `any` casts). */
+  // ─── Template helpers ───────────────────────────────────────────────
   asInputValue(ev: Event): string {
     const el = ev.target as HTMLInputElement | null;
     return el?.value ?? '';
   }
-  /** Type-safe extractor for `<select>` change events. */
-  asSelectValue(ev: Event): string {
-    const el = ev.target as HTMLSelectElement | null;
-    return el?.value ?? '';
-  }
+  formatNumber(n: number): string { return NUMBER_FORMATTER.format(n); }
+  formatLatencyMs(ms: number): string { return formatLatency(ms); }
 }

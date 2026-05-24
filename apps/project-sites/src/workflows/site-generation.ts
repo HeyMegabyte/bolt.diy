@@ -52,14 +52,37 @@ async function workflowLog(
   action: string,
   metadata: Record<string, unknown> = {},
 ): Promise<void> {
+  // Heartbeat actions are pure noise — the audit page filters them out anyway.
+  // Don't bother persisting them.
+  if (action === 'workflow.heartbeat' || action === 'workflow.stub_heartbeat') {
+    return;
+  }
   try {
-    const enrichedMeta = { ...metadata, site_id: siteId };
+    // Lift a `message` key out of metadata so it lands in the new dedicated
+    // column. Falls back to a synthesised one from the action namespace when
+    // the caller omitted it.
+    const { message: rawMessage, ...restMeta } = metadata as { message?: unknown } & Record<
+      string,
+      unknown
+    >;
+    const message =
+      typeof rawMessage === 'string' && rawMessage.trim().length > 0
+        ? rawMessage.trim().slice(0, 500)
+        : action.replace(/^workflow\./, 'Workflow ').replace(/_/g, ' ');
+    const enrichedMeta = { ...restMeta, site_id: siteId };
     await db
       .prepare(
-        `INSERT INTO audit_logs (id, org_id, actor_id, action, target_type, target_id, metadata_json, created_at)
-         VALUES (?, ?, NULL, ?, 'site', ?, ?, datetime('now'))`,
+        `INSERT INTO audit_logs (id, org_id, actor_id, action, message, target_type, target_id, metadata_json, created_at)
+         VALUES (?, ?, NULL, ?, ?, 'site', ?, ?, datetime('now'))`,
       )
-      .bind(crypto.randomUUID(), orgId, action, siteId, JSON.stringify(enrichedMeta))
+      .bind(
+        crypto.randomUUID(),
+        orgId,
+        action,
+        message,
+        siteId,
+        JSON.stringify(enrichedMeta),
+      )
       .run();
   } catch (err) {
     console.warn(

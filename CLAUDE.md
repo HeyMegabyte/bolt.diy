@@ -162,6 +162,22 @@ When using Neon with Workers, prefer **Cloudflare Hyperdrive** to stabilize conn
 - **Queues NOT yet enabled** — `QUEUE` binding is optional in Env type
 - **CSP must include `'unsafe-inline'`** — homepage uses inline `<script>` tags
 - **Content-type detection bug**: use `marketingPath` not `path` (path='/' has no extension)
+- **Persistent bolt.diy iframe** — `BoltEmbedService` (frontend) owns the
+  `editor.projectsites.dev` iframe lifecycle across admin sub-routes so
+  WebContainer cold-boot (~30-60s) only happens once per session. The iframe
+  element lives inside `AdminComponent`'s template, NOT inside the editor
+  route component — so route navigation never destroys it.
+- **MCP OAuth-first** — every `/api/mcp/:provider/connect` falls back to a
+  paste-key flow when the worker lacks `{PROVIDER}_OAUTH_CLIENT_ID`; the
+  admin UI shows a toast + paste form instead of opening a broken popup.
+- **One dialog primitive** — every admin modal renders via
+  `DialogShellComponent`. Custom modals are not allowed (drift = audit fail).
+- **Design tokens in `_polish.scss`** — `--ps-bg`, `--ps-ink`, `--ps-accent`,
+  `--ps-z-overlay-takeover: 100000`, `--ps-radius-xl: 22px`,
+  `--ps-shadow-modal`. Hard-coded brand colors get flagged in audits.
+- **Visibility-aware polling** — `AdminStateService` pauses its 30s/60s
+  refresh when `document.hidden` is true, resumes + fires an immediate
+  refresh when the tab returns to the foreground.
 
 ---
 

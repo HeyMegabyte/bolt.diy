@@ -44,6 +44,26 @@ import { createAuditLogSchema } from '@project-sites/shared';
 import { dbInsert, dbQuery } from './db.js';
 
 /**
+ * Turn dot-namespaced action codes into a readable fallback English line
+ * so historic callers that don't pass `message` still write something
+ * useful into the new column.
+ *
+ * @example
+ * actionToFallbackMessage('site.snapshot.created')
+ *   // → 'Site snapshot created'
+ * actionToFallbackMessage('billing.subscription.canceled')
+ *   // → 'Billing subscription canceled'
+ */
+function actionToFallbackMessage(action: string): string {
+  const words = action.split('.').filter(Boolean);
+  if (words.length === 0) return action;
+  return words
+    .map((w, i) => (i === 0 ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(' ')
+    .replace(/_/g, ' ');
+}
+
+/**
  * Write an audit log entry to D1.
  *
  * Failures are logged but **never throw** — audit logging must not break
@@ -56,11 +76,17 @@ export async function writeAuditLog(db: D1Database, entry: CreateAuditLog): Prom
   try {
     const validated = createAuditLogSchema.parse(entry);
 
+    // Synthesise a fallback `message` from the action namespace when the
+    // caller didn't pass one — keeps older call-sites compiling while we
+    // sweep them to provide explicit English summaries (Turn 6 migration).
+    const message = validated.message ?? actionToFallbackMessage(validated.action);
+
     const { error } = await dbInsert(db, 'audit_logs', {
       id: crypto.randomUUID(),
       org_id: validated.org_id,
       actor_id: validated.actor_id ?? null,
       action: validated.action,
+      message,
       target_type: validated.target_type ?? null,
       target_id: validated.target_id ?? null,
       metadata_json: validated.metadata_json ? JSON.stringify(validated.metadata_json) : null,

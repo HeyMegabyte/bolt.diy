@@ -183,12 +183,12 @@ api.post('/api/auth/magic-link', async (c) => {
       org_id: 'system',
       actor_id: null,
       action: 'auth.magic_link_requested',
+      message: `Magic link email sent to '${validated.email}'`,
       target_type: 'auth',
       target_id: validated.email,
       metadata_json: {
         email: validated.email,
         expires_at: result.expires_at,
-        message: 'Magic link email sent to ' + validated.email,
       },
       request_id: c.get('requestId'),
     })
@@ -247,9 +247,10 @@ api.get('/api/auth/magic-link/verify', async (c) => {
       org_id: user.org_id,
       actor_id: user.user_id,
       action: 'auth.magic_link_verified',
+      message: `Magic link consumed — '${result.email}' signed in via email`,
       target_type: 'user',
       target_id: user.user_id,
-      metadata_json: { method: 'magic_link' },
+      metadata_json: { method: 'magic_link', email: result.email },
       request_id: c.get('requestId'),
     });
 
@@ -324,9 +325,10 @@ api.post('/api/auth/magic-link/verify', async (c) => {
     org_id: user.org_id,
     actor_id: user.user_id,
     action: 'auth.magic_link_verified',
+    message: `Magic link consumed via API — '${result.email}' signed in`,
     target_type: 'user',
     target_id: user.user_id,
-    metadata_json: { method: 'magic_link' },
+    metadata_json: { method: 'magic_link', email: result.email },
     request_id: c.get('requestId'),
   });
 
@@ -375,11 +377,11 @@ api.get('/api/auth/google', async (c) => {
       org_id: 'system',
       actor_id: null,
       action: 'auth.google_oauth_started',
+      message: 'Google OAuth sign-in flow initiated',
       target_type: 'auth',
       target_id: 'google',
       metadata_json: {
         redirect_url: redirectUrl || '/',
-        message: 'Google OAuth sign-in flow initiated',
       },
       request_id: c.get('requestId'),
     })
@@ -436,9 +438,10 @@ api.get('/api/auth/google/callback', async (c) => {
     org_id: user.org_id,
     actor_id: user.user_id,
     action: 'auth.google_oauth_verified',
+    message: `Google OAuth sign-in completed for '${result.email}'`,
     target_type: 'user',
     target_id: user.user_id,
-    metadata_json: { method: 'google_oauth' },
+    metadata_json: { method: 'google_oauth', email: result.email },
     request_id: c.get('requestId'),
   });
 
@@ -494,11 +497,11 @@ api.get('/api/auth/github', async (c) => {
       org_id: 'system',
       actor_id: null,
       action: 'auth.github_oauth_started',
+      message: 'GitHub OAuth sign-in flow initiated',
       target_type: 'auth',
       target_id: 'github',
       metadata_json: {
         redirect_url: redirectUrl || '/',
-        message: 'GitHub OAuth sign-in flow initiated',
       },
       request_id: c.get('requestId'),
     })
@@ -551,9 +554,10 @@ api.get('/api/auth/github/callback', async (c) => {
     org_id: user.org_id,
     actor_id: user.user_id,
     action: 'auth.github_oauth_verified',
+    message: `GitHub OAuth sign-in completed for '${result.email}'`,
     target_type: 'user',
     target_id: user.user_id,
-    metadata_json: { method: 'github_oauth' },
+    metadata_json: { method: 'github_oauth', email: result.email },
     request_id: c.get('requestId'),
   });
 
@@ -755,14 +759,13 @@ api.post('/api/sites', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'site.created',
+    message: `Site '${slug}' created for '${validated.business_name}'`,
     target_type: 'site',
     target_id: site.id,
     metadata_json: {
       site_id: site.id,
       slug,
       business_name: validated.business_name,
-      message:
-        'New site created: ' + validated.business_name + ' (' + slug + DOMAINS.SITES_SUFFIX + ')',
     },
     request_id: c.get('requestId'),
   });
@@ -1140,12 +1143,13 @@ api.post('/api/billing/checkout', async (c) => {
       org_id: orgId,
       actor_id: c.get('userId') ?? null,
       action: 'billing.checkout_created',
+      message: `Stripe checkout session created for '${validated.budget_tier}' tier`,
       target_type: 'billing',
       target_id: validated.site_id || orgId,
       metadata_json: {
         site_id: validated.site_id,
         session_id: result.session_id || null,
-        message: 'Stripe checkout session created for plan upgrade',
+        budget_tier: validated.budget_tier,
       },
       request_id: c.get('requestId'),
     })
@@ -1217,12 +1221,13 @@ api.post('/api/billing/embedded-checkout', async (c) => {
       org_id: orgId,
       actor_id: c.get('userId') ?? null,
       action: 'billing.embedded_checkout_created',
+      message: `Stripe embedded checkout session created for '${validated.budget_tier}' tier`,
       target_type: 'billing',
       target_id: validated.site_id || orgId,
       metadata_json: {
         site_id: validated.site_id,
         session_id: result.session_id || null,
-        message: 'Stripe embedded checkout session created for plan upgrade',
+        budget_tier: validated.budget_tier,
       },
       request_id: c.get('requestId'),
     })
@@ -1405,16 +1410,16 @@ api.post('/api/sites/:siteId/hostnames', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'hostname.provisioned',
+    message:
+      validated.type === 'custom_cname'
+        ? `Custom hostname '${result.hostname}' connected to site '${siteId}'`
+        : `Free subdomain '${result.hostname}' provisioned for site '${siteId}'`,
     target_type: 'hostname',
     target_id: siteId,
     metadata_json: {
       site_id: siteId,
       hostname: result.hostname,
       type: validated.type,
-      message:
-        'Domain added: ' +
-        result.hostname +
-        (validated.type === 'custom_cname' ? ' (custom CNAME)' : ''),
     },
     request_id: c.get('requestId'),
   });
@@ -1523,16 +1528,15 @@ api.delete('/api/sites/:id', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'site.deleted',
+    message: subscriptionCanceled
+      ? `Site '${slug}' deleted and subscription cancellation requested`
+      : `Site '${slug}' deleted (soft-delete, archived)`,
     target_type: 'site',
     target_id: siteId,
     metadata_json: {
       site_id: siteId,
       slug,
       subscription_canceled: subscriptionCanceled,
-      message:
-        'Site deleted: ' +
-        slug +
-        (subscriptionCanceled ? ' (subscription cancellation requested)' : ''),
     },
     request_id: c.get('requestId'),
   });
@@ -1590,12 +1594,12 @@ api.put('/api/sites/:siteId/hostnames/:hostnameId/primary', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'hostname.set_primary',
+    message: `Hostname '${hostnameId}' set as primary for site '${siteId}'`,
     target_type: 'hostname',
     target_id: hostnameId,
     metadata_json: {
       site_id: siteId,
       hostname_id: hostnameId,
-      message: 'Primary domain changed for this site',
     },
     request_id: c.get('requestId'),
   });
@@ -1645,9 +1649,10 @@ api.post('/api/sites/:siteId/hostnames/reset-primary', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'hostname.reset_primary',
+    message: `Primary hostname reset to default subdomain for site '${siteId}'`,
     target_type: 'site',
     target_id: siteId,
-    metadata_json: { site_id: siteId, message: 'Primary domain reset to default subdomain' },
+    metadata_json: { site_id: siteId },
     request_id: c.get('requestId'),
   });
 
@@ -1706,12 +1711,12 @@ api.delete('/api/sites/:siteId/hostnames/:hostnameId', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'hostname.deleted',
+    message: `Hostname '${hostname.hostname}' removed from site '${siteId}'`,
     target_type: 'hostname',
     target_id: hostnameId,
     metadata_json: {
       hostname: hostname.hostname,
       site_id: siteId,
-      message: 'Domain removed: ' + hostname.hostname,
     },
     request_id: c.get('requestId'),
   });
@@ -1780,13 +1785,13 @@ api.post('/api/sites/:siteId/hostnames/:hostnameId/unsubscribe', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'hostname.unsubscribed',
+    message: `Premium hostname '${hostname.hostname}' unsubscribed from site '${siteId}'`,
     target_type: 'hostname',
     target_id: hostnameId,
     metadata_json: {
       site_id: siteId,
       hostname: hostname.hostname,
       type: hostname.type,
-      message: 'Domain unsubscribed: ' + hostname.hostname,
     },
     request_id: c.get('requestId'),
   });
@@ -1848,11 +1853,11 @@ api.post('/api/billing/portal', async (c) => {
       org_id: orgId,
       actor_id: c.get('userId') ?? null,
       action: 'billing.portal_opened',
+      message: 'Stripe billing portal session opened for subscription management',
       target_type: 'billing',
       target_id: orgId,
       metadata_json: {
         stripe_customer_id: sub.stripe_customer_id,
-        message: 'Billing portal session opened',
       },
       request_id: c.get('requestId'),
     })
@@ -2212,6 +2217,7 @@ api.post('/api/publish/bolt', async (c) => {
       org_id: 'bolt',
       actor_id: null,
       action: 'site.published_from_bolt',
+      message: `${files.length} file${files.length === 1 ? '' : 's'} deployed to '${slug}' from bolt.diy editor (version ${version})`,
       target_type: 'site',
       target_id: slug,
       metadata_json: {
@@ -2220,14 +2226,6 @@ api.post('/api/publish/bolt', async (c) => {
         files_uploaded: files.length,
         url: siteUrl,
         had_existing_slug: !!existingSlug,
-        message:
-          'bolt.diy project published — ' +
-          files.length +
-          ' files → ' +
-          slug +
-          ' (version ' +
-          version +
-          ')',
       },
       request_id: c.get('requestId'),
     })
@@ -2845,6 +2843,13 @@ api.patch('/api/sites/:id', async (c) => {
   const body = (await c.req.json()) as {
     business_name?: string;
     slug?: string;
+    business_address?: string | null;
+    business_phone?: string | null;
+    business_email?: string | null;
+    business_website?: string | null;
+    original_prompt?: string | null;
+    logo_url?: string | null;
+    app_icon_url?: string | null;
   };
 
   // Verify ownership
@@ -2857,6 +2862,46 @@ api.patch('/api/sites/:id', async (c) => {
 
   const updates: string[] = [];
   const params: unknown[] = [];
+
+  /**
+   * Business-profile fields (migration 0025). Each follows the same
+   * nullable-clear convention: explicit `null` clears the column, omission
+   * leaves it untouched, non-empty string persists trimmed + length-capped.
+   * Length caps mirror `updateSiteSchema` so the validator + the SQL stay
+   * in lockstep — a value that survives Zod never overflows the column.
+   */
+  type BusinessField = {
+    body_key: 'business_address' | 'business_phone' | 'business_email' |
+      'business_website' | 'original_prompt' | 'logo_url' | 'app_icon_url';
+    column: string;
+    cap: number;
+    trim: boolean;
+  };
+  const businessFields: BusinessField[] = [
+    { body_key: 'business_address', column: 'business_address', cap: 500, trim: true },
+    { body_key: 'business_phone', column: 'business_phone', cap: 20, trim: true },
+    { body_key: 'business_email', column: 'business_email', cap: 254, trim: true },
+    { body_key: 'business_website', column: 'business_website', cap: 2048, trim: true },
+    { body_key: 'original_prompt', column: 'original_prompt', cap: 8000, trim: false },
+    { body_key: 'logo_url', column: 'logo_url', cap: 2048, trim: true },
+    { body_key: 'app_icon_url', column: 'app_icon_url', cap: 2048, trim: true },
+  ];
+  let businessFieldsChanged = 0;
+  for (const f of businessFields) {
+    if (!(f.body_key in body)) continue;
+    const raw = body[f.body_key];
+    if (raw === null) {
+      updates.push(`${f.column} = ?`);
+      params.push(null);
+      businessFieldsChanged++;
+    } else if (typeof raw === 'string') {
+      const value = f.trim ? raw.trim() : raw;
+      if (value.length === 0) continue;
+      updates.push(`${f.column} = ?`);
+      params.push(value.slice(0, f.cap));
+      businessFieldsChanged++;
+    }
+  }
 
   if (body.business_name && body.business_name.trim()) {
     updates.push('business_name = ?');
@@ -2915,18 +2960,12 @@ api.patch('/api/sites/:id', async (c) => {
             org_id: orgId,
             actor_id: c.get('userId') ?? null,
             action: 'site.cache_invalidated',
+            message: `KV cache invalidated for '${site.slug}${DOMAINS.SITES_SUFFIX}' (slug renamed to '${newSlug}')`,
             target_type: 'site',
             target_id: siteId,
             metadata_json: {
               cache_key: `host:${site.slug}${DOMAINS.SITES_SUFFIX}`,
               reason: 'slug_change',
-              message:
-                'KV cache invalidated for ' +
-                site.slug +
-                DOMAINS.SITES_SUFFIX +
-                ' (slug renamed to ' +
-                newSlug +
-                ')',
             },
             request_id: c.get('requestId'),
           })
@@ -2944,20 +2983,13 @@ api.patch('/api/sites/:id', async (c) => {
             org_id: orgId,
             actor_id: c.get('userId') ?? null,
             action: 'site.r2_migration_started',
+            message: `R2 file migration started: 'sites/${site.slug}/' → 'sites/${newSlug}/' (${listed.objects.length} objects)`,
             target_type: 'site',
             target_id: siteId,
             metadata_json: {
               old_prefix: oldPrefix,
               new_prefix: `sites/${newSlug}/`,
               file_count: listed.objects.length,
-              message:
-                'Migrating R2 files from sites/' +
-                site.slug +
-                '/ to sites/' +
-                newSlug +
-                '/ (' +
-                listed.objects.length +
-                ' objects)',
             },
             request_id: c.get('requestId'),
           })
@@ -2981,6 +3013,7 @@ api.patch('/api/sites/:id', async (c) => {
             org_id: orgId,
             actor_id: c.get('userId') ?? null,
             action: 'site.r2_migration_complete',
+            message: `R2 migration complete — ${migratedCount}/${listed.objects.length} files copied to 'sites/${newSlug}/'`,
             target_type: 'site',
             target_id: siteId,
             metadata_json: {
@@ -2988,14 +3021,6 @@ api.patch('/api/sites/:id', async (c) => {
               new_slug: newSlug,
               files_migrated: migratedCount,
               total_objects: listed.objects.length,
-              message:
-                'R2 migration complete — ' +
-                migratedCount +
-                '/' +
-                listed.objects.length +
-                ' files copied to sites/' +
-                newSlug +
-                '/',
             },
             request_id: c.get('requestId'),
           })
@@ -3014,16 +3039,13 @@ api.patch('/api/sites/:id', async (c) => {
             org_id: orgId,
             actor_id: c.get('userId') ?? null,
             action: 'site.r2_migration_failed',
+            message: `R2 file migration from '${site.slug}' to '${newSlug}' failed: ${migErrMsg} — slug updated, old files may remain`,
             target_type: 'site',
             target_id: siteId,
             metadata_json: {
               old_slug: site.slug,
               new_slug: newSlug,
               error: migErrMsg,
-              message:
-                'R2 file migration failed: ' +
-                migErrMsg +
-                ' — slug updated but old files may still exist',
             },
             request_id: c.get('requestId'),
           })
@@ -3060,18 +3082,12 @@ api.patch('/api/sites/:id', async (c) => {
           org_id: orgId,
           actor_id: c.get('userId') ?? null,
           action: 'site.slug_changed',
+          message: `Site URL renamed from '${site.slug}${DOMAINS.SITES_SUFFIX}' to '${newSlug}${DOMAINS.SITES_SUFFIX}'`,
           target_type: 'site',
           target_id: siteId,
           metadata_json: {
             old_slug: site.slug,
             new_slug: newSlug,
-            message:
-              'URL changed from ' +
-              site.slug +
-              DOMAINS.SITES_SUFFIX +
-              ' to ' +
-              newSlug +
-              DOMAINS.SITES_SUFFIX,
           },
           request_id: c.get('requestId'),
         })
@@ -3080,29 +3096,40 @@ api.patch('/api/sites/:id', async (c) => {
   }
 
   if (body.business_name && body.business_name.trim()) {
+    const trimmedName = body.business_name.trim().slice(0, 200);
     await auditService
       .writeAuditLog(c.env.DB, {
         org_id: orgId,
         actor_id: c.get('userId') ?? null,
         action: 'site.name_changed',
+        message: `Site '${site.slug}' renamed to '${trimmedName}'`,
         target_type: 'site',
         target_id: siteId,
         metadata_json: {
-          new_name: body.business_name.trim().slice(0, 200),
-          message: 'Site name updated to "' + body.business_name.trim().slice(0, 200) + '"',
+          new_name: trimmedName,
         },
         request_id: c.get('requestId'),
       })
       .catch(() => {});
   }
 
+  const changedKeys = Object.keys(body);
+  const businessSuffix =
+    businessFieldsChanged > 0
+      ? ` — ${businessFieldsChanged} business profile field${businessFieldsChanged === 1 ? '' : 's'} changed`
+      : '';
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'site.updated',
+    message: `Site '${site.slug}' settings updated (${changedKeys.join(', ')})${businessSuffix}`,
     target_type: 'site',
     target_id: siteId,
-    metadata_json: { site_id: siteId, ...body, message: 'Site settings updated' },
+    metadata_json: {
+      site_id: siteId,
+      business_fields_changed: businessFieldsChanged,
+      ...body,
+    },
     request_id: c.get('requestId'),
   });
 
@@ -3328,6 +3355,7 @@ api.post('/api/sites/:id/reset', async (c) => {
             org_id: orgId,
             actor_id: c.get('userId') ?? null,
             action: 'workflow.retry_created',
+            message: `Workflow instance for '${site.slug}' recreated with new ID '${resetId}' (original ID was in use)`,
             target_type: 'site',
             target_id: siteId,
             metadata_json: {
@@ -3335,7 +3363,6 @@ api.post('/api/sites/:id/reset', async (c) => {
               slug: site.slug,
               first_error: firstErrMsg,
               retry_id: resetId,
-              message: 'Workflow instance recreated with new ID (original ID was in use)',
             },
             request_id: c.get('requestId'),
           })
@@ -3348,6 +3375,7 @@ api.post('/api/sites/:id/reset', async (c) => {
             org_id: orgId,
             actor_id: c.get('userId') ?? null,
             action: 'workflow.creation_failed',
+            message: `Workflow creation failed for '${site.slug}': ${retryErrMsg} (first attempt: ${firstErrMsg})`,
             target_type: 'site',
             target_id: siteId,
             metadata_json: {
@@ -3355,12 +3383,6 @@ api.post('/api/sites/:id/reset', async (c) => {
               slug: site.slug,
               first_error: firstErrMsg,
               retry_error: retryErrMsg,
-              message:
-                'Workflow creation failed: ' +
-                retryErrMsg +
-                ' (first attempt: ' +
-                firstErrMsg +
-                ')',
             },
             request_id: c.get('requestId'),
           })
@@ -3374,12 +3396,12 @@ api.post('/api/sites/:id/reset', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'site.reset',
+    message: `Site '${site.slug}' reset (rebuild requested)`,
     target_type: 'site',
     target_id: siteId,
     metadata_json: {
       site_id: siteId,
       slug: site.slug,
-      message: 'Site rebuild triggered for ' + site.slug,
       business_name: body.business?.name || null,
       has_context: !!body.additional_context,
       workflow_available: !!workflowInstanceId,
@@ -3391,15 +3413,15 @@ api.post('/api/sites/:id/reset', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'workflow.queued',
+    message: workflowInstanceId
+      ? `AI rebuild pipeline queued for '${site.slug}' — re-research and regenerate`
+      : `Rebuild requested for '${site.slug}' — workflow binding unavailable, status set to building`,
     target_type: 'site',
     target_id: siteId,
     metadata_json: {
       site_id: siteId,
       slug: site.slug,
       workflow_instance_id: workflowInstanceId ?? 'not_available',
-      message: workflowInstanceId
-        ? 'AI rebuild pipeline queued — will re-research and regenerate website'
-        : 'Rebuild requested — workflow binding not available, site status set to building',
     },
     request_id: c.get('requestId'),
   });
@@ -3408,15 +3430,15 @@ api.post('/api/sites/:id/reset', async (c) => {
   const resetPhases = [
     {
       action: 'workflow.phase.research',
-      message: 'Phase 1: Re-analyzing business profile & gathering fresh data',
+      message: `Rebuild phase 1 (research) queued for '${site.slug}'`,
     },
     {
       action: 'workflow.phase.generation',
-      message: 'Phase 2: Regenerating website HTML with updated information',
+      message: `Rebuild phase 2 (AI regeneration) queued for '${site.slug}'`,
     },
     {
       action: 'workflow.phase.deployment',
-      message: 'Phase 3: Uploading new files & publishing updated site',
+      message: `Rebuild phase 3 (publish updated site) queued for '${site.slug}'`,
     },
   ];
   for (const phase of resetPhases) {
@@ -3425,13 +3447,13 @@ api.post('/api/sites/:id/reset', async (c) => {
         org_id: orgId,
         actor_id: c.get('userId') ?? null,
         action: phase.action,
+        message: phase.message,
         target_type: 'site',
         target_id: siteId,
         metadata_json: {
           site_id: siteId,
           slug: site.slug,
           workflow_instance_id: workflowInstanceId ?? null,
-          message: phase.message,
         },
         request_id: c.get('requestId'),
       })
@@ -3537,6 +3559,7 @@ api.post('/api/sites/:id/deploy', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'site.deploy_started',
+    message: `ZIP deploy initiated for '${site.slug}' (${Math.round(zipFile.size / 1024)} KB)`,
     target_type: 'site',
     target_id: siteId,
     metadata_json: {
@@ -3544,7 +3567,6 @@ api.post('/api/sites/:id/deploy', async (c) => {
       slug: site.slug,
       zip_size_kb: Math.round(zipFile.size / 1024),
       has_chat: !!chatFile,
-      message: 'ZIP deploy initiated (' + Math.round(zipFile.size / 1024) + ' KB)',
     },
     request_id: c.get('requestId'),
   });
@@ -3671,6 +3693,7 @@ api.post('/api/sites/:id/deploy', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'site.deployed',
+    message: `${uploadedFiles.length} file${uploadedFiles.length === 1 ? '' : 's'} deployed to '${slug}' (version ${version})`,
     target_type: 'site',
     target_id: siteId,
     metadata_json: {
@@ -3679,7 +3702,6 @@ api.post('/api/sites/:id/deploy', async (c) => {
       version,
       file_count: uploadedFiles.length,
       url: 'https://' + slug + DOMAINS.SITES_SUFFIX,
-      message: 'Manual deploy: ' + uploadedFiles.length + ' files uploaded · Version ' + version,
     },
     request_id: c.get('requestId'),
   });
@@ -3869,6 +3891,7 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'site.published_from_bolt_embedded',
+    message: `${files.length} file${files.length === 1 ? '' : 's'} deployed to '${slug}' from embedded bolt.diy editor (version ${version})`,
     target_type: 'site',
     target_id: siteId,
     metadata_json: {
@@ -3877,6 +3900,7 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
       file_count: files.length,
       has_chat: !!(chat && chat.messages?.length),
     },
+    request_id: c.get('requestId'),
   });
 
   return c.json({
@@ -4220,13 +4244,13 @@ api.post('/api/domains/purchase', async (c) => {
       org_id: orgId,
       actor_id: c.get('userId') ?? null,
       action: 'domain.purchase_initiated',
+      message: `Domain purchase started for '${body.domain}' — Stripe checkout session created`,
       target_type: 'domain',
       target_id: body.site_id,
       metadata_json: {
         domain: body.domain,
         site_id: body.site_id,
         stripe_session_id: session.id,
-        message: 'Domain purchase started for ' + body.domain + ' — Stripe checkout created',
       },
       request_id: c.get('requestId'),
     })
@@ -4485,6 +4509,7 @@ api.post('/api/admin/domains/:hostnameId/verify', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'hostname.verified',
+    message: `Hostname '${hostname.hostname}' verified: ${hostname.status} → ${newStatus}${cfStatus.ssl_status ? ` (SSL: ${cfStatus.ssl_status})` : ''}`,
     target_type: 'hostname',
     target_id: hostnameId,
     metadata_json: {
@@ -4492,14 +4517,6 @@ api.post('/api/admin/domains/:hostnameId/verify', async (c) => {
       previous_status: hostname.status,
       new_status: newStatus,
       ssl_status: cfStatus.ssl_status,
-      message:
-        'Domain verification: ' +
-        hostname.hostname +
-        ' — ' +
-        hostname.status +
-        ' → ' +
-        newStatus +
-        (cfStatus.ssl_status ? ' (SSL: ' + cfStatus.ssl_status + ')' : ''),
     },
     request_id: c.get('requestId'),
   });
@@ -4538,12 +4555,12 @@ api.post('/api/admin/domains/:hostnameId/verify', async (c) => {
             org_id: orgId,
             actor_id: c.get('userId') ?? null,
             action: 'notification.domain_verified_sent',
+            message: `Domain verification email sent to '${owner.email}' for hostname '${hostname.hostname}'`,
             target_type: 'hostname',
             target_id: hostnameId,
             metadata_json: {
               email: owner.email,
               hostname: hostname.hostname,
-              message: 'Domain verification email sent to ' + owner.email,
             },
             request_id: c.get('requestId'),
           })
@@ -4755,6 +4772,7 @@ api.delete('/api/admin/domains/:hostnameId', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'hostname.deprovisioned',
+    message: `Hostname '${hostname.hostname}' deprovisioned${hostname.cf_custom_hostname_id ? ' (CF custom hostname removed)' : ''}`,
     target_type: 'hostname',
     target_id: hostnameId,
     metadata_json: {
@@ -4762,10 +4780,6 @@ api.delete('/api/admin/domains/:hostnameId', async (c) => {
       type: hostname.type,
       had_cf_id: !!hostname.cf_custom_hostname_id,
       site_id: hostname.site_id,
-      message:
-        'Domain deprovisioned: ' +
-        hostname.hostname +
-        (hostname.cf_custom_hostname_id ? ' (CF hostname removed)' : ''),
     },
     request_id: c.get('requestId'),
   });
@@ -4809,12 +4823,11 @@ api.post('/api/contact', async (c) => {
       org_id: 'system',
       actor_id: c.get('userId') ?? null,
       action: 'contact.form_submitted',
+      message: `Contact form submitted by '${typeof body.email === 'string' ? body.email : 'unknown'}'`,
       target_type: 'contact',
       target_id: 'system',
       metadata_json: {
         email: typeof body.email === 'string' ? body.email : 'unknown',
-        message:
-          'Contact form submitted by ' + (typeof body.email === 'string' ? body.email : 'unknown'),
       },
       request_id: c.get('requestId'),
     })
@@ -5290,14 +5303,13 @@ api.put('/api/sites/:id/files/:path{.+}', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: isNewFile ? 'file.created' : 'file.updated',
+    message: `${isNewFile ? 'File created' : 'File updated'}: '${fileName}' (${fileSizeKb} KB) on site '${siteId}'`,
     target_type: 'site',
     target_id: siteId,
     metadata_json: {
       key: fullKey,
       file_name: fileName,
       size: body.content.length,
-      message:
-        (isNewFile ? 'File created: ' : 'File updated: ') + fileName + ' (' + fileSizeKb + ' KB)',
     },
     request_id: c.get('requestId'),
   });
@@ -5367,12 +5379,12 @@ api.delete('/api/sites/:id/files/:path{.+}', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'file.deleted',
+    message: `File '${fileName}' deleted from site '${siteId}'`,
     target_type: 'site',
     target_id: siteId,
     metadata_json: {
       key: fullKey,
       file_name: fileName,
-      message: 'File deleted: ' + fileName,
     },
     request_id: c.get('requestId'),
   });
@@ -5549,6 +5561,24 @@ api.post('/api/sites/:siteId/snapshots', async (c) => {
 
   const snapshotUrl = `https://${site.slug}-${snapshotName}${DOMAINS.SITES_SUFFIX}`;
 
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId ?? null,
+      action: 'site.snapshot.created',
+      message: `Snapshot '${snapshotName}' created on '${site.slug}' (build version '${buildVersion}')`,
+      target_type: 'site_snapshot',
+      target_id: id,
+      metadata_json: {
+        site_id: siteId,
+        slug: site.slug,
+        snapshot_name: snapshotName,
+        build_version: buildVersion,
+      },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json(
     {
       data: {
@@ -5610,12 +5640,31 @@ api.post('/api/sites/:siteId/snapshots', async (c) => {
 api.delete('/api/sites/:siteId/snapshots/:snapshotId', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
+  const siteId = c.req.param('siteId');
   const snapshotId = c.req.param('snapshotId');
 
-  const { dbUpdate: dbUpd } = await import('../services/db.js');
+  const { dbQueryOne: dbq1, dbUpdate: dbUpd } = await import('../services/db.js');
+  const snap = await dbq1<{ snapshot_name: string }>(
+    c.env.DB,
+    'SELECT snapshot_name FROM site_snapshots WHERE id = ?',
+    [snapshotId],
+  );
   await dbUpd(c.env.DB, 'site_snapshots', { deleted_at: new Date().toISOString() }, 'id = ?', [
     snapshotId,
   ]);
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'site.snapshot.deleted',
+      message: `Snapshot '${snap?.snapshot_name ?? snapshotId}' deleted from site '${siteId}'`,
+      target_type: 'site_snapshot',
+      target_id: snapshotId,
+      metadata_json: { site_id: siteId, snapshot_name: snap?.snapshot_name ?? null },
+      request_id: c.get('requestId'),
+    }),
+  );
 
   return c.json({ data: { deleted: true } });
 });
@@ -5765,7 +5814,8 @@ api.post('/api/sites/:siteId/snapshots/revert', async (c) => {
     .writeAuditLog(c.env.DB, {
       org_id: orgId,
       actor_id: userId ?? null,
-      action: 'site.snapshot_reverted',
+      action: 'site.snapshot.reverted',
+      message: `Reverted to snapshot commit '${body.commit_id.slice(0, 8)}' on '${site.slug}' (${result.files.length} files restored)`,
       target_type: 'site',
       target_id: siteId,
       metadata_json: {
@@ -5773,6 +5823,7 @@ api.post('/api/sites/:siteId/snapshots/revert', async (c) => {
         new_commit_id: result.commitId,
         new_version: version,
         files_restored: result.files.length,
+        slug: site.slug,
       },
       request_id: c.get('requestId'),
     })
@@ -7416,6 +7467,7 @@ api.get('/api/sites/:id/github/callback', async (c) => {
       org_id: site.org_id as string,
       actor_id: c.get('userId') ?? null,
       action: 'github.backup_connected',
+      message: `GitHub repo '${repoOwner}/${repoName}' connected as backup for site '${site.slug as string}' (user '${ghUser.login}')`,
       target_type: 'site',
       target_id: site.id as string,
       metadata_json: { github_user: ghUser.login, repo: `${repoOwner}/${repoName}` },
@@ -7563,6 +7615,7 @@ api.post('/api/sites/:id/github/backup', async (c) => {
       org_id: site.org_id as string,
       actor_id: c.get('userId') ?? null,
       action: 'github.backup_pushed',
+      message: `${objects.length} file${objects.length === 1 ? '' : 's'} backed up to '${owner}/${repo}' (commit ${commit.sha.slice(0, 7)})`,
       target_type: 'site',
       target_id: site.id as string,
       metadata_json: {
@@ -7612,6 +7665,7 @@ api.post('/api/sites/:id/github/disconnect', async (c) => {
       org_id: site.org_id as string,
       actor_id: c.get('userId') ?? null,
       action: 'github.backup_disconnected',
+      message: `GitHub repo '${integration.repo_owner}/${integration.repo_name}' disconnected from site '${site.slug as string}'`,
       target_type: 'site',
       target_id: site.id as string,
       metadata_json: { repo: `${integration.repo_owner}/${integration.repo_name}` },
@@ -8016,6 +8070,7 @@ api.post('/api/sites/:siteId/domains/register', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'domain.registered',
+    message: `Domain '${domain}' registered via Cloudflare for site '${siteId}'`,
     target_type: 'domain',
     target_id: hostnameRow?.id ?? siteId,
     metadata_json: {
@@ -8100,6 +8155,7 @@ api.post('/api/sites/:siteId/domains/:domain/transfer-out', async (c) => {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'domain.transfer_out_initiated',
+    message: `Domain '${domain}' transfer-out initiated${newRegistrar ? ` to '${newRegistrar}'` : ''}`,
     target_type: 'domain',
     target_id: hostnameRow.id,
     metadata_json: {
@@ -8279,9 +8335,10 @@ api.post('/api/billing/connect/start', async (c) => {
       org_id: orgId,
       actor_id: userId,
       action: 'billing.connect.started',
+      message: `Stripe Connect onboarding started for org '${orgId}'`,
       target_type: 'org',
       target_id: orgId,
-      metadata_json: { account_id: result.account_id, message: 'Stripe Connect onboarding started' },
+      metadata_json: { account_id: result.account_id },
       request_id: c.get('requestId'),
     })
     .catch(() => {});
@@ -8317,9 +8374,10 @@ api.post('/api/billing/connect/disconnect', async (c) => {
       org_id: orgId,
       actor_id: userId,
       action: 'billing.connect.disconnected',
+      message: `Stripe Connect account disconnected from org '${orgId}'`,
       target_type: 'org',
       target_id: orgId,
-      metadata_json: { message: 'Stripe Connect account disconnected', ...result },
+      metadata_json: { ...result },
       request_id: c.get('requestId'),
     })
     .catch(() => {});
@@ -8417,6 +8475,301 @@ api.post('/api/email/digest/trigger', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
   const result = await sendWeeklyDigestsForAllOrgs(c.env);
   return c.json({ data: result });
+});
+
+// ─── Spend Alerts (migration 0024) ───────────────────────────
+
+/**
+ * Create a new spend alert rule for the caller's org.
+ *
+ * @route POST /api/billing/spend-alerts
+ * @auth Bearer orgId required.
+ * @body `{ name, trigger, threshold_credits, email, channels?: string[],
+ *   site_id?: string }` — validated via `createSpendAlertSchema`. `trigger`
+ *   is one of `balance_below | monthly_spend_above | rate_spike`. `channels`
+ *   defaults to `['email']` and accepts `email | slack | discord | pagerduty`.
+ *   `site_id` is optional — when supplied, the cron sweep scopes the alert
+ *   to a single site's usage; when omitted the alert evaluates the whole org.
+ * @returns 201 `{ data: SpendAlert }`.
+ * @throws UNAUTHORIZED, VALIDATION_ERROR.
+ *
+ * @remarks
+ * No ownership check on `site_id` — the field is informational for the cron
+ * sweep, NOT a cross-tenant access vector. The cron join is always
+ * `spend_alerts.org_id = <caller>` so a stale or wrong `site_id` cannot leak
+ * usage from another org's site.
+ */
+api.post('/api/billing/spend-alerts', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const { createSpendAlertSchema: cas } = await import('@project-sites/shared/schemas');
+  const body = await c.req.json();
+  const parsed = cas.parse(body);
+
+  const id = crypto.randomUUID();
+  const channelsJson = JSON.stringify(parsed.channels);
+  await dbInsert(c.env.DB, 'spend_alerts', {
+    id,
+    org_id: orgId,
+    site_id: parsed.site_id ?? null,
+    name: parsed.name,
+    trigger_type: parsed.trigger,
+    threshold_credits: parsed.threshold_credits,
+    email: parsed.email,
+    channels_json: channelsJson,
+    last_fired_at: null,
+    fire_count: 0,
+    created_by: c.get('userId') ?? null,
+    deleted_at: null,
+  });
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'billing.spend_alert_created',
+      message: `Spend alert '${parsed.name}' created (${parsed.trigger} @ ${parsed.threshold_credits} credits → ${parsed.email})`,
+      target_type: 'spend_alert',
+      target_id: id,
+      metadata_json: {
+        trigger: parsed.trigger,
+        threshold_credits: parsed.threshold_credits,
+        email: parsed.email,
+        channels: parsed.channels,
+        site_id: parsed.site_id ?? null,
+      },
+      request_id: c.get('requestId'),
+    }),
+  );
+
+  return c.json(
+    {
+      data: {
+        id,
+        org_id: orgId,
+        site_id: parsed.site_id ?? null,
+        name: parsed.name,
+        trigger_type: parsed.trigger,
+        threshold_credits: parsed.threshold_credits,
+        email: parsed.email,
+        channels_json: channelsJson,
+        last_fired_at: null,
+        fire_count: 0,
+      },
+    },
+    201,
+  );
+});
+
+/**
+ * List spend alerts for the caller's org.
+ *
+ * @route GET /api/billing/spend-alerts
+ * @auth Bearer orgId required.
+ * @returns `{ data: SpendAlert[] }` — soft-deleted rows excluded, newest first.
+ */
+api.get('/api/billing/spend-alerts', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const rows = await dbQuery<{
+    id: string;
+    org_id: string;
+    site_id: string | null;
+    name: string;
+    trigger_type: string;
+    threshold_credits: number;
+    email: string;
+    channels_json: string;
+    last_fired_at: string | null;
+    fire_count: number;
+    created_at: string;
+    updated_at: string;
+  }>(
+    c.env.DB,
+    `SELECT id, org_id, site_id, name, trigger_type, threshold_credits, email,
+            channels_json, last_fired_at, fire_count, created_at, updated_at
+       FROM spend_alerts
+      WHERE org_id = ? AND deleted_at IS NULL
+      ORDER BY created_at DESC`,
+    [orgId],
+  );
+
+  return c.json({ data: rows.data });
+});
+
+/**
+ * Soft-delete a spend alert.
+ *
+ * @route DELETE /api/billing/spend-alerts/:id
+ * @auth Bearer orgId required — cross-org guard via `WHERE org_id = ?`.
+ * @returns `{ data: { deleted: true } }` (idempotent — 200 on already-deleted).
+ */
+api.delete('/api/billing/spend-alerts/:id', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const alertId = c.req.param('id');
+  const existing = await dbQueryOne<{ name: string }>(
+    c.env.DB,
+    'SELECT name FROM spend_alerts WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [alertId, orgId],
+  );
+  if (!existing) throw notFound('Spend alert not found');
+
+  await c.env.DB.prepare(
+    "UPDATE spend_alerts SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND org_id = ?",
+  )
+    .bind(alertId, orgId)
+    .run();
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'billing.spend_alert_deleted',
+      message: `Spend alert '${existing.name}' deleted`,
+      target_type: 'spend_alert',
+      target_id: alertId,
+      metadata_json: { name: existing.name },
+      request_id: c.get('requestId'),
+    }),
+  );
+
+  return c.json({ data: { deleted: true } });
+});
+
+// ─── Snapshot Download (pre-signed R2 manifest) ──────────────
+
+/**
+ * Generate a downloadable JSON manifest of a snapshot's R2 files.
+ *
+ * @route GET /api/sites/:id/snapshots/:snapId/download
+ * @auth Bearer orgId required.
+ * @param id     - Site UUID.
+ * @param snapId - `site_snapshots.id`.
+ * @returns `{ data: { snapshot_id, build_version, generated_at,
+ *   expires_at, files: Array<{ key, size, etag, content_type, url }> } }`.
+ *
+ * @remarks
+ * **Why a JSON manifest and NOT a server-side zip?**
+ *
+ * 1. **No native zip primitive in Workers.** There is no `@cf/wasm-zip` /
+ *    `Bun.zip` available in the Cloudflare Workers runtime; the only options
+ *    are (a) `jszip` running on the Worker (loads ~150 KB of CPU-bound JS
+ *    every request and would push us past the 50ms CPU cap on snapshots
+ *    larger than ~30 files), or (b) spinning a Container DO with `zip(1)` —
+ *    massive over-engineering for a download that the client can assemble
+ *    in 200 lines of `jszip` browser-side.
+ *
+ * 2. **Manifest scales linearly + streams.** The manifest endpoint returns
+ *    pre-signed URLs (here: ordinary R2 public-prefix URLs — the bucket is
+ *    public for site-serving) so the browser parallelises N file fetches
+ *    against R2's edge CDN, hits zero Worker CPU after manifest issuance,
+ *    and the client zips in a Web Worker without blocking the main thread.
+ *
+ * 3. **Resumable + auditable.** A failed mid-zip on the server forces a
+ *    full re-zip; a client-side failure can retry individual files using
+ *    the manifest's per-file `key` + `etag`. The audit log captures the
+ *    manifest issuance, not every byte transferred — keeping the audit
+ *    surface honest about what *was* served.
+ *
+ * Client UX: pair this endpoint with browser-side `jszip` from
+ * `https://cdn.jsdelivr.net/npm/jszip` — fetch each `files[i].url`,
+ * `zip.file(files[i].key, blob)`, then `zip.generateAsync({ type: 'blob' })`
+ * + `URL.createObjectURL()` for a single-click download.
+ *
+ * @throws UNAUTHORIZED, NOT_FOUND (site or snapshot not found / cross-org).
+ */
+api.get('/api/sites/:id/snapshots/:snapId/download', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('id');
+  const snapId = c.req.param('snapId');
+
+  const site = await dbQueryOne<{ slug: string }>(
+    c.env.DB,
+    'SELECT slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [siteId, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  const snap = await dbQueryOne<{
+    id: string;
+    snapshot_name: string;
+    build_version: string;
+  }>(
+    c.env.DB,
+    'SELECT id, snapshot_name, build_version FROM site_snapshots WHERE id = ? AND site_id = ? AND deleted_at IS NULL',
+    [snapId, siteId],
+  );
+  if (!snap) throw notFound('Snapshot not found');
+
+  const prefix = `sites/${site.slug}/${snap.build_version}/`;
+  // R2 list is capped at 1000 objects per call; snapshots rarely exceed this
+  // but we paginate via `cursor` defensively up to 5 pages (5000 files).
+  const collected: R2Object[] = [];
+  let cursor: string | undefined;
+  for (let i = 0; i < 5; i++) {
+    const page = await c.env.SITES_BUCKET.list({ prefix, cursor, limit: 1000 });
+    for (const obj of page.objects) collected.push(obj);
+    if (!page.truncated || !page.cursor) break;
+    cursor = page.cursor;
+  }
+
+  const baseUrl = `https://${site.slug}${DOMAINS.SITES_SUFFIX}`;
+  const generatedAt = new Date().toISOString();
+  // R2 bucket is public for site-serving — the "pre-signed" URLs are just
+  // the canonical site URLs. If we ever flip the bucket private, swap this
+  // for `bucket.createSignedUrl(...)` (Workers R2 API) without touching
+  // the manifest shape.
+  const files = collected.map((obj) => ({
+    key: obj.key.slice(prefix.length),
+    size: obj.size,
+    etag: obj.etag,
+    content_type: obj.httpMetadata?.contentType ?? null,
+    url: `${baseUrl}/${obj.key.slice(prefix.length)}`,
+  }));
+
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1h
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'site.snapshot.download_manifest',
+      message: `Snapshot download manifest issued for '${snap.snapshot_name}' on site '${site.slug}' — ${files.length} files`,
+      target_type: 'site_snapshot',
+      target_id: snapId,
+      metadata_json: {
+        site_id: siteId,
+        snapshot_name: snap.snapshot_name,
+        build_version: snap.build_version,
+        file_count: files.length,
+        total_bytes: files.reduce((acc, f) => acc + f.size, 0),
+      },
+      request_id: c.get('requestId'),
+    }),
+  );
+
+  return c.json({
+    data: {
+      snapshot_id: snap.id,
+      snapshot_name: snap.snapshot_name,
+      build_version: snap.build_version,
+      generated_at: generatedAt,
+      expires_at: expiresAt,
+      base_url: baseUrl,
+      file_count: files.length,
+      total_bytes: files.reduce((acc, f) => acc + f.size, 0),
+      manifest_format: 'json-v1',
+      client_hint:
+        'Use jszip browser-side: for each file in `files`, `fetch(file.url)` → `zip.file(file.key, blob)` → `zip.generateAsync({type:"blob"})`.',
+      files,
+    },
+  });
 });
 
 export { api };

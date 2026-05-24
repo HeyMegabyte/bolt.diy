@@ -15,6 +15,7 @@ import type { MiddlewareHandler } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { getSession } from '../services/auth.js';
 import { dbQueryOne } from '../services/db.js';
+import { setUser as sentrySetUser } from '../lib/sentry.js';
 
 /**
  * Auth middleware that optionally populates userId and orgId on the Hono context.
@@ -78,6 +79,14 @@ export const authMiddleware: MiddlewareHandler<{
         }
       }
     }
+  }
+
+  // After session resolution, attach the authenticated identity to the
+  // request's Sentry scope so any error reported downstream carries user +
+  // org tags. Best-effort; failures never block the request.
+  const userId = c.get('userId');
+  if (userId) {
+    sentrySetUser(c, { id: userId, orgId: c.get('orgId') });
   }
 
   await next();

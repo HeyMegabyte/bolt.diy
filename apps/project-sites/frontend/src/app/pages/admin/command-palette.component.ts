@@ -33,6 +33,7 @@ import { FormsModule } from '@angular/forms';
 import { AdminStateService } from './admin-state.service';
 import { ToastService } from '../../services/toast.service';
 import { ApiService } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
 import {
   CommandPaletteActionsService,
   type PaletteAction,
@@ -182,6 +183,61 @@ interface DocsEndpoint {
             }
           </div>
 
+          @if (aiPaneVisible()) {
+            <section
+              class="cmdk-ai-pane"
+              data-testid="cmdk-ai-pane"
+              aria-label="Inline AI answer"
+            >
+              <div class="cmdk-ai-echo">
+                <span class="cmdk-ai-echo-label">Ask AI</span>
+                <span class="cmdk-ai-echo-q">{{ aiEchoQuery() }}</span>
+              </div>
+              @if (aiStreaming() && !aiText()) {
+                <div class="cmdk-ai-thinking">
+                  <span class="cmdk-ai-spinner" aria-hidden="true"></span>
+                  <span>Thinking…</span>
+                </div>
+              }
+              <div
+                class="ai-streaming-text"
+                role="status"
+                aria-live="polite"
+                aria-atomic="false"
+              >
+                @if (aiStreaming()) {
+                  <pre class="cmdk-ai-raw">{{ aiText() }}</pre>
+                } @else if (aiText()) {
+                  <div class="cmdk-ai-rendered" [innerHTML]="aiHtml()"></div>
+                }
+                @if (aiError()) {
+                  <p class="cmdk-ai-error">{{ aiError() }}</p>
+                }
+              </div>
+              <div class="cmdk-ai-actions">
+                <button
+                  type="button"
+                  class="cmdk-ai-chip"
+                  data-testid="cmdk-ai-copy"
+                  [disabled]="!aiText()"
+                  (click)="copyAiAnswer()"
+                >Copy answer</button>
+                <button
+                  type="button"
+                  class="cmdk-ai-chip"
+                  data-testid="cmdk-ai-open-chat"
+                  (click)="openFullChat()"
+                >Open full chat</button>
+                <button
+                  type="button"
+                  class="cmdk-ai-chip"
+                  data-testid="cmdk-ai-ask-again"
+                  (click)="resetAiPane()"
+                >Ask again</button>
+              </div>
+            </section>
+          }
+
           <footer class="cp-foot">
             <span class="cp-foot-grp"><kbd class="cp-kbd">↑↓</kbd> navigate</span>
             <span class="cp-foot-grp"><kbd class="cp-kbd">↵</kbd> run</span>
@@ -245,8 +301,49 @@ interface DocsEndpoint {
     .cp-foot-grp { display: inline-flex; align-items: center; gap: 4px; }
     .ml-auto { margin-left: auto; }
     .cp-kbd { display: inline-flex; align-items: center; justify-content: center; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); font-size: 0.65rem; font-family: ui-monospace, monospace; min-width: 16px; }
+    /* Inline AI streaming pane — keeps palette open while tokens arrive. */
+    .cmdk-ai-pane {
+      border-top: 1px solid rgba(0,229,255,0.18);
+      padding: 12px 16px 14px;
+      background: linear-gradient(180deg, rgba(0,229,255,0.04), rgba(124,58,237,0.06));
+      display: flex; flex-direction: column; gap: 8px;
+      max-height: 38vh; overflow-y: auto;
+      animation: cpRise 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .cmdk-ai-echo { display: flex; align-items: baseline; gap: 8px; font-size: 0.72rem; }
+    .cmdk-ai-echo-label { color: #00E5FF; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+    .cmdk-ai-echo-q { color: rgba(255,255,255,0.78); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cmdk-ai-thinking { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.72); font-size: 0.82rem; }
+    .cmdk-ai-spinner {
+      width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid rgba(0,229,255,0.25); border-top-color: #00E5FF;
+      animation: cmdkSpin 720ms linear infinite;
+    }
+    @keyframes cmdkSpin { to { transform: rotate(360deg); } }
+    .ai-streaming-text { color: #e2e8f0; font-size: 0.86rem; line-height: 1.5; min-height: 1em; }
+    .cmdk-ai-raw { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: inherit; }
+    .cmdk-ai-rendered { font-size: 0.86rem; line-height: 1.55; }
+    .cmdk-ai-rendered :is(h1,h2,h3) { font-size: 0.95rem; margin: 8px 0 4px; color: #fff; }
+    .cmdk-ai-rendered p { margin: 0 0 6px; }
+    .cmdk-ai-rendered ul, .cmdk-ai-rendered ol { margin: 0 0 6px; padding-left: 20px; }
+    .cmdk-ai-rendered code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 0.78rem; font-family: ui-monospace, monospace; }
+    .cmdk-ai-rendered pre { background: rgba(0,0,0,0.36); padding: 8px 10px; border-radius: 6px; overflow-x: auto; font-size: 0.78rem; }
+    .cmdk-ai-rendered a { color: #00E5FF; text-decoration: underline; }
+    .cmdk-ai-error { margin: 4px 0 0; color: #fda4af; font-size: 0.78rem; }
+    .cmdk-ai-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .cmdk-ai-chip {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(0,229,255,0.22);
+      color: #e2e8f0;
+      padding: 4px 10px; border-radius: 999px;
+      font-size: 0.72rem; font-family: inherit; cursor: pointer;
+      transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+    }
+    .cmdk-ai-chip:hover:not(:disabled) { background: rgba(0,229,255,0.14); border-color: #00E5FF; color: #fff; }
+    .cmdk-ai-chip:disabled { opacity: 0.45; cursor: not-allowed; }
     @media (prefers-reduced-motion: reduce) {
-      .cp-overlay, .cp-panel { animation: none; }
+      .cp-overlay, .cp-panel, .cmdk-ai-pane { animation: none; }
+      .cmdk-ai-spinner { animation: none; border-top-color: #00E5FF; }
       .cp-body { scroll-behavior: auto; }
     }
   `],
@@ -255,6 +352,7 @@ export class CommandPaletteComponent implements OnInit, OnDestroy, AfterViewInit
   private router = inject(Router);
   private toast = inject(ToastService);
   private api = inject(ApiService);
+  private auth = inject(AuthService);
   private registry = inject(CommandPaletteActionsService);
   state = inject(AdminStateService);
 
@@ -276,6 +374,22 @@ export class CommandPaletteComponent implements OnInit, OnDestroy, AfterViewInit
   aiSearchHits = signal<AiSearchHit[]>([]);
   /** True while `/api/admin/search/ai` is in flight. */
   aiSearchLoading = signal(false);
+  /** Visible whenever an AI streaming request has started for this open session. */
+  aiPaneVisible = signal(false);
+  /** Echo of the user's query, displayed at the top of the AI pane. */
+  aiEchoQuery = signal('');
+  /** Accumulating streamed answer text (raw, pre-markdown-render). */
+  aiText = signal('');
+  /** True while tokens are still arriving from the worker. */
+  aiStreaming = signal(false);
+  /** Error message rendered inline if the stream collapses. */
+  aiError = signal('');
+  /** Markdown→HTML rendered once streaming completes. */
+  aiHtml = computed(() => (this.aiStreaming() ? '' : this.renderMarkdownLite(this.aiText())));
+  /** Aborts the in-flight stream on close / re-query. */
+  private aiAbort: AbortController | null = null;
+  /** Debounce handle for the zero-match → AI fallback. */
+  private aiDebounce: ReturnType<typeof setTimeout> | null = null;
   private docsEndpoints: DocsEndpoint[] = [];
   private docsLoaded = false;
 
@@ -315,6 +429,8 @@ export class CommandPaletteComponent implements OnInit, OnDestroy, AfterViewInit
 
   ngOnDestroy(): void {
     document.removeEventListener('keydown', this.hotkey, { capture: true } as EventListenerOptions);
+    this.abortAiStream();
+    if (this.aiDebounce) { clearTimeout(this.aiDebounce); this.aiDebounce = null; }
   }
 
   // ─── Hotkey + open/close ───────────────────────────────────────
@@ -358,7 +474,12 @@ export class CommandPaletteComponent implements OnInit, OnDestroy, AfterViewInit
     });
   }
 
-  close(): void { this.open.set(false); this.query.set(''); }
+  close(): void {
+    this.open.set(false);
+    this.query.set('');
+    this.abortAiStream();
+    this.resetAiPane();
+  }
 
   // ─── Keyboard ──────────────────────────────────────────────────
   @HostListener('window:keydown', ['$event'])
@@ -439,6 +560,37 @@ export class CommandPaletteComponent implements OnInit, OnDestroy, AfterViewInit
     this.query.set(value);
     this.activeIndex.set(0);
     this.runDocsSearch();
+    this.scheduleAiIntent(value);
+  }
+
+  /**
+   * Detect AI-intent and fire the streaming endpoint without closing the
+   * palette. Two triggers:
+   *   1. Explicit prefix (`ai:` / `ask ai:`) → fires immediately.
+   *   2. Zero matches + query ≥ 10 chars → fires after a 400ms debounce so
+   *      users still typing don't get a stream per keystroke.
+   * A new keystroke always aborts the in-flight request first.
+   */
+  private scheduleAiIntent(raw: string): void {
+    const trimmed = raw.trim();
+    const prefixMatch = trimmed.match(/^(ai|ask ai)\s*:\s*(.*)$/i);
+    if (prefixMatch) {
+      const q = (prefixMatch[2] ?? '').trim();
+      if (this.aiDebounce) { clearTimeout(this.aiDebounce); this.aiDebounce = null; }
+      if (q.length >= 2) this.startAiStream(q);
+      return;
+    }
+    if (this.aiDebounce) { clearTimeout(this.aiDebounce); this.aiDebounce = null; }
+    // Abort any in-flight stream the moment the user keeps typing; only the
+    // last debounced value matters.
+    if (this.aiStreaming() && trimmed !== this.aiEchoQuery()) this.abortAiStream();
+    if (trimmed.length < 10) return;
+    this.aiDebounce = setTimeout(() => {
+      this.aiDebounce = null;
+      if (this.flatVisible().length === 0 && this.query().trim().length >= 10) {
+        this.startAiStream(this.query().trim());
+      }
+    }, 400);
   }
 
   // ─── Special inline parsers (calculator, color) ────────────────
@@ -788,8 +940,175 @@ export class CommandPaletteComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   private callAskAi(q: string): void {
-    this.toast.info('Asking AI…');
+    // Keep palette open — stream the answer inline via SSE.
+    this.startAiStream(q);
+  }
+
+  // ─── Inline AI streaming (Cmd-K stays open) ───────────────────
+  /**
+   * Open an SSE stream against `POST /api/admin/ai/stream/palette` and append
+   * each `{chunk}` frame to {@link aiText} in real time. Aborts any prior
+   * stream first so old tokens never interleave with a new query.
+   */
+  startAiStream(rawQuery: string): void {
+    const q = rawQuery.trim();
+    if (!q) return;
+    this.abortAiStream();
+    this.aiEchoQuery.set(q);
+    this.aiText.set('');
+    this.aiError.set('');
+    this.aiStreaming.set(true);
+    this.aiPaneVisible.set(true);
+
+    const ctrl = new AbortController();
+    this.aiAbort = ctrl;
+    const url = '/api/admin/ai/stream/palette';
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'text/event-stream',
+    };
+    const token = this.auth.getToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const body = JSON.stringify({
+      query: q,
+      context: {
+        selected_site_id: this.state.selectedSite()?.id,
+        current_route: this.router.url,
+      },
+    });
+
+    fetch(url, { method: 'POST', headers, body, signal: ctrl.signal })
+      .then(async (res) => {
+        if (!res.ok || !res.body) {
+          const txt = await res.text().catch(() => '');
+          throw new Error(txt || `AI stream failed (${res.status})`);
+        }
+        await this.consumeSse(res.body, ctrl);
+      })
+      .catch((err: unknown) => {
+        if ((err as { name?: string })?.name === 'AbortError') return;
+        const msg = err instanceof Error ? err.message : 'AI stream failed';
+        this.aiError.set(msg);
+      })
+      .finally(() => {
+        if (this.aiAbort === ctrl) this.aiAbort = null;
+        this.aiStreaming.set(false);
+      });
+  }
+
+  /** Parse an SSE byte stream into `{chunk}` / `{done}` / `{error}` frames. */
+  private async consumeSse(stream: ReadableStream<Uint8Array>, ctrl: AbortController): Promise<void> {
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    try {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // SSE frames are separated by a blank line.
+        const frames = buffer.split('\n\n');
+        buffer = frames.pop() ?? '';
+        for (const frame of frames) {
+          const lines = frame.split('\n').filter((l) => l.startsWith('data:'));
+          if (!lines.length) continue;
+          const payload = lines.map((l) => l.slice(5).trim()).join('');
+          if (!payload) continue;
+          try {
+            const parsed = JSON.parse(payload) as {
+              chunk?: string;
+              done?: boolean;
+              error?: { code?: string; message?: string };
+            };
+            if (parsed.chunk) this.aiText.update((prev) => prev + parsed.chunk);
+            if (parsed.error?.message) this.aiError.set(parsed.error.message);
+            if (parsed.done) { try { await reader.cancel(); } catch { /* noop */ } return; }
+          } catch {
+            // Malformed frame — ignore, keep streaming.
+          }
+        }
+      }
+    } finally {
+      try { reader.releaseLock(); } catch { /* noop */ }
+      // If we got here without seeing `done`, treat as graceful EOF.
+      if (!ctrl.signal.aborted) this.aiStreaming.set(false);
+    }
+  }
+
+  /** Abort the live SSE stream (close, re-query, or component teardown). */
+  private abortAiStream(): void {
+    if (this.aiAbort) {
+      try { this.aiAbort.abort(); } catch { /* noop */ }
+      this.aiAbort = null;
+    }
+    this.aiStreaming.set(false);
+  }
+
+  /** Clear the AI pane so the user can ask again with a fresh prompt. */
+  resetAiPane(): void {
+    this.abortAiStream();
+    this.aiPaneVisible.set(false);
+    this.aiEchoQuery.set('');
+    this.aiText.set('');
+    this.aiError.set('');
+  }
+
+  /** "Copy answer" chip — drops the raw streamed text on the clipboard. */
+  copyAiAnswer(): void {
+    const text = this.aiText().trim();
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(
+      () => this.toast.success('Copied'),
+      () => this.toast.error('Copy failed'),
+    );
+  }
+
+  /**
+   * "Open full chat" chip — fires the global `ps:open-ai-chat` event so the
+   * side-panel agent can pick up the conversation. Closes the palette.
+   */
+  openFullChat(): void {
+    const q = this.aiEchoQuery();
     window.dispatchEvent(new CustomEvent('ps:open-ai-chat', { detail: { prefill: q } }));
+    this.router.navigateByUrl('/admin/ai-chat-history');
     this.close();
+  }
+
+  /**
+   * Tiny markdown renderer — paragraphs, links, inline code, fenced code,
+   * bold, italic, unordered list. ~30 lines so we don't drag in `marked` for
+   * a 4-sentence answer. The output is escaped HTML; only the recognised
+   * tokens become real tags.
+   */
+  private renderMarkdownLite(md: string): string {
+    if (!md) return '';
+    const escape = (s: string): string =>
+      s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+    // Fenced code first so its body isn't mangled by inline rules.
+    const codeBlocks: string[] = [];
+    let working = md.replace(/```([\s\S]*?)```/g, (_m, code: string) => {
+      codeBlocks.push(`<pre><code>${escape(code.trim())}</code></pre>`);
+      return ` CB${codeBlocks.length - 1} `;
+    });
+    working = escape(working);
+    // Inline tokens.
+    working = working
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      .replace(/\[([^\]]+)\]\((https?:[^)]+|\/[^)]*)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    // Paragraphs + bullets.
+    const blocks = working.split(/\n{2,}/).map((blk) => {
+      const lines = blk.split('\n');
+      if (lines.every((l) => /^\s*[-*]\s+/.test(l))) {
+        return '<ul>' + lines.map((l) => '<li>' + l.replace(/^\s*[-*]\s+/, '') + '</li>').join('') + '</ul>';
+      }
+      return '<p>' + blk.replace(/\n/g, '<br>') + '</p>';
+    });
+    let html = blocks.join('\n');
+    html = html.replace(/ CB(\d+) /g, (_m, i: string) => codeBlocks[parseInt(i, 10)] ?? '');
+    return html;
   }
 }

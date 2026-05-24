@@ -6,6 +6,7 @@ import { ApiService, type CreateSitePayload } from '../../services/api.service';
 import { AuthService, type SelectedBusiness } from '../../services/auth.service';
 import { GeolocationService } from '../../services/geolocation.service';
 import { ToastService } from '../../services/toast.service';
+import { TelemetryService } from '../../services/telemetry.service';
 
 /**
  * Clean a URL for display and storage — strips tracking parameters (utm_*,
@@ -136,6 +137,7 @@ export class CreateComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private cdr = inject(ChangeDetectorRef);
+  private telemetry = inject(TelemetryService);
 
   businessName = '';
   businessAddress = '';
@@ -248,6 +250,9 @@ export class CreateComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   ngOnInit(): void {
+    this.telemetry.track('site.create.opened', {
+      reset_mode: !!this.route.snapshot.queryParams['reset'],
+    });
     // Pre-fill from query params if present (e.g., /create?name=Foo&address=Bar)
     const params = this.route.snapshot.queryParams;
     if (params['name']) this.businessName = params['name'];
@@ -407,6 +412,11 @@ export class CreateComponent implements OnInit, OnDestroy {
       place_id: biz.place_id,
       phone: biz.phone,
       website: biz.website,
+    });
+    this.telemetry.track('site.create.business_selected', {
+      has_place_id: !!biz.place_id,
+      has_phone: !!biz.phone,
+      has_website: !!biz.website,
     });
     this.saveFormDraft();
   }
@@ -874,7 +884,6 @@ export class CreateComponent implements OnInit, OnDestroy {
   submitImageAiEdit(): void {
     if (!this.modalAiPrompt.trim() || this.modalAiProcessing()) return;
     const currentUrl = this.modalImage();
-    const currentName = this.modalImageName();
     this.modalAiProcessing.set(true);
 
     this.api.editImage(this.modalAiPrompt, currentUrl || undefined).subscribe({
@@ -978,6 +987,13 @@ export class CreateComponent implements OnInit, OnDestroy {
     }
 
     this.submitting.set(true);
+    // Fires GA4 `generate_lead` via the conversion alias in TelemetryService.
+    this.telemetry.track('site.create.submitted', {
+      mode: this.selectedBusiness() ? 'business' : 'custom',
+      reset_mode: !!this.resetSiteId,
+      has_uploads: this.hasFilesToUpload(),
+      has_context: this.additionalContext.trim().length > 0,
+    });
 
     // Reset mode: rebuild an existing site
     if (this.resetSiteId) {
@@ -993,6 +1009,10 @@ export class CreateComponent implements OnInit, OnDestroy {
         error: (err) => {
           this.submitting.set(false);
           this.toast.error(err?.error?.error?.message || err?.error?.message || 'Reset failed');
+          this.telemetry.track('site.create.failed', {
+            reset_mode: true,
+            status: err?.status,
+          });
         },
       });
       return;
@@ -1055,6 +1075,10 @@ export class CreateComponent implements OnInit, OnDestroy {
         error: (err) => {
           this.submitting.set(false);
           this.toast.error(err?.error?.error?.message || err?.error?.message || 'Failed to create site');
+          this.telemetry.track('site.create.failed', {
+            reset_mode: false,
+            status: err?.status,
+          });
         },
       });
   }

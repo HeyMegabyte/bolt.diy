@@ -36,6 +36,7 @@ import { errorHandler } from './middleware/error_handler.js';
 import { payloadLimitMiddleware } from './middleware/payload_limit.js';
 import { securityHeadersMiddleware } from './middleware/security_headers.js';
 import { authMiddleware } from './middleware/auth.js';
+import { addBreadcrumb as sentryBreadcrumb, setTag as sentrySetTag } from './lib/sentry.js';
 import { health } from './routes/health.js';
 import { api } from './routes/api.js';
 import { search } from './routes/search.js';
@@ -68,6 +69,26 @@ app.use('*', requestIdMiddleware);
 
 // Structured per-request access log (item #50)
 app.use('*', requestLogger);
+
+// Sentry per-request breadcrumb + route tag. Must run AFTER requestIdMiddleware
+// so the requestId is available to tag the Sentry scope. Best-effort — never
+// throws into the request path.
+app.use('*', async (c, next) => {
+  try {
+    const url = new URL(c.req.url);
+    sentryBreadcrumb(c, {
+      category: 'http',
+      message: `${c.req.method} ${url.pathname}`,
+      level: 'info',
+      data: { requestId: c.get('requestId'), method: c.req.method, path: url.pathname },
+    });
+    sentrySetTag(c, 'route', url.pathname);
+    sentrySetTag(c, 'method', c.req.method);
+  } catch {
+    // Sentry must never break the request path.
+  }
+  await next();
+});
 
 // Payload size limit
 app.use('*', payloadLimitMiddleware);
@@ -315,11 +336,21 @@ app.all('*', async (c) => {
         woff2: 'font/woff2',
       };
 
-      // For HTML, inject runtime env vars (PostHog key, Stripe publishable key)
+      // For HTML, inject runtime env vars (PostHog key, Stripe publishable key,
+      // Sentry public DSN). The Sentry DSN is safe to expose in the client —
+      // by design it only authenticates inbound events to one project. The
+      // worker keeps the auth token separate (`SENTRY_AUTH_TOKEN`) for
+      // source-map uploads. The frontend reads `x-sentry-dsn` to bootstrap
+      // `@sentry/angular` before the first paint via `initSentryEarly()`.
       if (ext === 'html') {
         let html = await marketingAsset.text();
         const phKey = c.env.POSTHOG_API_KEY ?? 'none';
         const stripePk = c.env.STRIPE_PUBLISHABLE_KEY ?? '';
+        const sentryDsn = c.env.SENTRY_DSN ?? '';
+        html = html.replace(
+          '<meta name="x-sentry-dsn" content="">',
+          `<meta name="x-sentry-dsn" content="${sentryDsn}">`,
+        );
         html = html.replace(
           '</head>',
           `<meta name="x-posthog-key" content="${phKey}">\n<meta name="x-stripe-pk" content="${stripePk}">\n</head>`,

@@ -146,7 +146,13 @@
   --ps-z-modal-backdrop: 1900;
   --ps-z-modal: 2000;
   --ps-z-side-panel: 2050;
-  --ps-z-overlay-takeover: 2100;
+  // Overlay takeover sits ABOVE every other stacking layer in the app:
+  // the toast layer (9999), the network status banner (10000), the user-menu
+  // popover (99950), the bolt iframe (1), the sidebar (100), all dropdowns.
+  // We use the highest 32-bit signed integer (`2^31 - 1`) so no future layer
+  // can accidentally stack on top of a Prompt Designer / "Open IDE" takeover
+  // — anything above this would overflow Chrome's z-index parser anyway.
+  --ps-z-overlay-takeover: 2147483647;
   --ps-z-toast: 9999;
 
   // Surface tones
@@ -154,6 +160,60 @@
   --ps-surface-2: rgba(10, 10, 30, 0.97);
   --ps-surface-3: rgba(8, 8, 32, 0.98);
   --ps-surface-glass: rgba(13, 13, 40, 0.62);
+}
+
+// ── Light-theme overrides ─────────────────────────────────────────
+// The theme picker in user-settings persists `ps_theme` and stamps
+// `data-theme="light|dark|system"` on `<html>`. Dark is the default
+// (vars above). These overrides flip the same tokens for the light path
+// so the user actually sees a change. Tailwind colour utilities still
+// resolve at compile time — that's fine, the SECONDARY chrome (surfaces,
+// borders, text-secondary, scrollbar) is what matters most on a light
+// surface and that's exactly what we override here.
+html[data-theme="light"] {
+  color-scheme: light;
+  --ps-surface-1: rgba(255, 255, 255, 0.92);
+  --ps-surface-2: rgba(250, 250, 252, 0.97);
+  --ps-surface-3: rgba(244, 244, 248, 0.98);
+  --ps-surface-glass: rgba(255, 255, 255, 0.72);
+  --border: rgba(20, 20, 30, 0.12);
+  --text-secondary: rgba(20, 20, 30, 0.74);
+  background: #f7f7fb;
+  color: #0a0a14;
+  // Translucent dark cards turn into translucent light cards so contrast
+  // stays legible against the cream page.
+  .card, .density-card, [class*="bg-white"] {
+    background-color: #ffffff !important;
+    border-color: rgba(20, 20, 30, 0.08) !important;
+    color: #0a0a14;
+  }
+  // Tailwind text-white drops to a near-black so headings stay readable.
+  [class*="text-white"]:not(.text-white\/0):not(.text-white\/10):not(.text-white\/20) {
+    color: #0a0a14 !important;
+  }
+  // Sleek glass top-bar inverts.
+  .backdrop-blur-lg, .backdrop-blur-md, .backdrop-blur-sm {
+    background-color: rgba(255, 255, 255, 0.78) !important;
+    border-color: rgba(20, 20, 30, 0.08);
+  }
+  // Brand cyan stays as the accent — readability against light bg is fine.
+}
+
+// `system` follows the OS preference. Honours OS `prefers-color-scheme: light`
+// even when `data-theme` is unset. The dark branch is the existing default —
+// nothing to do there.
+@media (prefers-color-scheme: light) {
+  html[data-theme="system"] {
+    color-scheme: light;
+    --ps-surface-1: rgba(255, 255, 255, 0.92);
+    --ps-surface-2: rgba(250, 250, 252, 0.97);
+    --ps-surface-3: rgba(244, 244, 248, 0.98);
+    --ps-surface-glass: rgba(255, 255, 255, 0.72);
+    --border: rgba(20, 20, 30, 0.12);
+    --text-secondary: rgba(20, 20, 30, 0.74);
+    background: #f7f7fb;
+    color: #0a0a14;
+  }
 }
 
 // Reduced-motion respects every overlay/animation primitive.

@@ -55,6 +55,13 @@ export const auditLogSchema = z.object({
   org_id: baseFields.org_id,
   actor_id: uuidSchema.nullable(),
   action: z.string().min(1).max(100),
+  /**
+   * Human-readable one-line summary of the event, e.g.
+   * "Brian created snapshot v2-redesign on vitos-mens-salon".
+   * Required for new rows starting in migration `0023_audit_message`;
+   * nullable for the backfill window on historical entries.
+   */
+  message: z.string().min(1).max(500).nullable(),
   target_type: z.string().max(100).nullable(),
   target_id: uuidSchema.nullable(),
   metadata_json: metadataSchema.nullable(),
@@ -76,6 +83,15 @@ export const createAuditLogSchema = z.object({
   org_id: uuidSchema,
   actor_id: uuidSchema.nullable(),
   action: z.string().min(1).max(100),
+  /**
+   * One-line human-readable summary. Required for new writes — every action
+   * MUST surface what happened in plain English so the Audit Log page is
+   * scannable without drilling into metadata. When omitted, the
+   * `writeAuditLog` helper synthesises a fallback from the action namespace
+   * (`site.snapshot.created` → `"Site snapshot created"`) so older callers
+   * don't break, but new code is expected to pass a real sentence.
+   */
+  message: z.string().min(1).max(500).optional(),
   target_type: z.string().max(100).optional(),
   target_id: uuidSchema.optional(),
   metadata_json: metadataSchema.optional(),

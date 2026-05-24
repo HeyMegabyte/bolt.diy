@@ -98,6 +98,12 @@
   <!-- DNS prefetch for third-party integrations -->
   <link rel="dns-prefetch" href="//www.google-analytics.com">
   <link rel="dns-prefetch" href="//www.googletagmanager.com">
+  <link rel="dns-prefetch" href="//o4506921875193856.ingest.us.sentry.io">
+
+  <!-- Sentry DSN + per-deploy release (injected by the Worker, same pattern as
+       x-posthog-key / x-stripe-pk). Empty / "none" disables the SDK. -->
+  <meta name="x-sentry-dsn" content="">
+  <meta name="x-app-release" content="@project-sites/frontend@1.0.0">
 
   <!-- bolt.diy editor pre-warm: open TCP+TLS to the iframe host + the
        StackBlitz WebContainer origin as soon as the marketing/admin HTML

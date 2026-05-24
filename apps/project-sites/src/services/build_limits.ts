@@ -1,15 +1,46 @@
 /**
- * Build limits — free users get 3 builds, paid users get 50.
- * Tracked by counting non-deleted sites per org.
+ * @module services/build_limits
+ *
+ * @description
+ * Per-org build allowance — free users get 3 builds, paid users get 50, owners
+ * of unlimited orgs get `Infinity`. Tracked by counting non-deleted rows in the
+ * `sites` table (soft-deletes don't free a slot — by design, so users can't
+ * dodge the quota by churning).
+ *
+ * @remarks
+ * - The `UNLIMITED_ORGS` set is request-cached, populated lazily when the
+ *   owner's email matches a known whitelist (e.g. `brian@megabyte.space`).
+ *   This keeps the membership query off the hot path for repeat callers in
+ *   the same worker isolate.
+ * - Callers MUST pass the org's billing plan (`'paid' | 'free' | null`) —
+ *   the caller is the source of truth (read from `subscriptions` table or
+ *   entitlements) and we don't re-resolve here to keep the function pure.
  */
 import { dbQuery, dbQueryOne } from './db.js';
 
+/** Free-tier site quota — kept in lock-step with PRICING constants in shared/. */
 const FREE_LIMIT = 3;
+/** Paid-tier site quota — kept in lock-step with PRICING constants in shared/. */
 const PAID_LIMIT = 50;
 
-// Org IDs with unlimited builds
+/** Per-isolate cache of orgs known to have unlimited builds (populated lazily). */
 const UNLIMITED_ORGS = new Set<string>();
 
+/**
+ * Check whether the org can create another site without exceeding its plan.
+ *
+ * @param db    - D1Database binding.
+ * @param orgId - Organization to check.
+ * @param plan  - The active billing plan (`'paid'` → 50, anything else → 3).
+ *   `null` is the unsigned-in / no-subscription default → free tier.
+ * @returns Quota snapshot — `allowed`, `used`, `limit`, `remaining`.
+ *
+ * @example
+ * ```ts
+ * const quota = await checkBuildLimit(env.DB, orgId, subscription?.plan ?? null);
+ * if (!quota.allowed) throw new AppError('FORBIDDEN', `Build limit reached (${quota.used}/${quota.limit})`);
+ * ```
+ */
 export async function checkBuildLimit(
   db: D1Database,
   orgId: string,

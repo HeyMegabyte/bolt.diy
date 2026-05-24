@@ -730,6 +730,27 @@ Key specs include:
 ### Test Business for E2E
 **Vito's Mens Salon** — 74 N Beverwyck Rd, Lake Hiawatha, NJ 07034
 
+## MCP OAuth Layer (`src/routes/mcp_oauth.ts`)
+
+Per-site connections to Mailchimp, Stripe, HubSpot, GitHub, Slack, Notion,
+Linear, Discord, Google Calendar, Calendly + paste-key fallback for Resend
+and any provider missing OAuth credentials.
+
+| Method | Path | Behaviour |
+|--------|------|-----------|
+| GET | `/api/mcp/:provider/connect` | Build authorize URL with PKCE state; returns paste-key spec when provider lacks OAuth |
+| GET | `/api/mcp/:provider/callback` | Exchange code, encrypt + upsert into `mcp_connections`, redirect to dashboard |
+| POST | `/api/mcp/:provider/paste` | Paste-key flow for providers without OAuth (Resend, internal webhooks) |
+
+**Naming convention going forward:** `{PROVIDER}_OAUTH_CLIENT_ID` + `_OAUTH_CLIENT_SECRET`.
+Historical aliases (`MAILCHIMP_CLIENT_ID`, `HUBSPOT_CLIENT_ID`, `STRIPE_CONNECT_CLIENT_ID`,
+`GITHUB_CLIENT_ID`, `GOOGLE_CLIENT_ID`) kept as fallbacks so existing secrets keep working.
+When ALL configured keys are empty, `/connect` returns `501 oauth_not_configured` so the
+UI can render a paste-key form instead of opening a broken popup.
+
+Tables: `mcp_oauth_states` (one-shot state + code_verifier per pending auth),
+`mcp_connections` (one row per (site_id, provider), upsert on conflict).
+
 ## Known Issues & Gotchas
 
 1. **CSP**: Homepage uses inline `<script>` — CSP MUST include `'unsafe-inline'` in script-src
@@ -739,6 +760,12 @@ Key specs include:
 5. **Queues**: Not yet enabled on CF account — binding is optional, code falls back to Workflows
 6. **Jest config**: Must be `.cjs` not `.js` (ESM module type)
 7. **Registry KV match**: Uses `startsWith('prompt:${id}@')` to avoid false partial matches
+8. **MCP OAuth fallback** — `/api/mcp/:provider/connect` returns `501 oauth_not_configured`
+   when the provider's `{PROVIDER}_OAUTH_CLIENT_ID` is missing — surface a paste-key toast,
+   never open a broken popup.
+9. **`ai_admin_features.ts.bak`** in `src/services/` is a checked-in backup — DO NOT
+   reference; the live module is `ai_admin_features.ts`. Leaving the `.bak` next to its
+   sibling keeps `git blame` history clean while the rewrite settles.
 
 ## Homepage SPA (public/index.html)
 

@@ -135,24 +135,33 @@ const POLL_INTERVAL_MS = 10_000;
   imports: [FormsModule, RouterLink, DatePipe, JsonPipe, FullscreenOverlayComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
-      <header class="flex items-start justify-between gap-4 flex-wrap">
-        <div>
+      <header>
+        <div class="flex items-center justify-between gap-4 flex-wrap">
           <h2 class="section-h text-lg font-bold text-white m-0">Forms</h2>
-          <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
-            One prompt handles every form submission and routes it to the right action — MailChimp signup, Stripe invoice, email reply, HubSpot contact — using your connected MCPs.
-            @if (mcpConnections().length > 0) {
-              <span class="text-emerald-400">· {{ mcpConnections().length }} MCP{{ mcpConnections().length === 1 ? '' : 's' }} connected</span>
-            } @else {
-              <span class="text-amber-300">· no MCPs connected — only email fallback available</span>
+          <div class="flex items-center gap-2 flex-wrap header-actions">
+            @if (submissions().length > 0) {
+              <span class="header-pill" aria-label="Submissions count" title="Submissions in the inbox">
+                <span class="header-pill-dot" aria-hidden="true"></span>
+                {{ submissions().length }} submission{{ submissions().length === 1 ? '' : 's' }}
+              </span>
             }
-          </p>
+            <button class="btn-prompt-quiet"
+                    data-testid="forms-open-prompt-designer"
+                    (click)="designerOpen.set(true)"
+                    title="Open the full-screen prompt designer + tester">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6M9 17h4"/></svg>
+              <span>Edit prompt</span>
+            </button>
+          </div>
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
-          <button class="btn-primary" data-testid="forms-open-prompt-designer" (click)="designerOpen.set(true)" title="Open the full-screen prompt designer + tester">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6M9 17h4"/></svg>
-            Form Handling Prompt(s)
-          </button>
-        </div>
+        <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
+          One prompt handles every form submission and routes it to the right action — MailChimp signup, Stripe invoice, email reply, HubSpot contact — using your connected MCPs.
+          @if (mcpConnections().length > 0) {
+            <span class="text-emerald-400">· {{ mcpConnections().length }} MCP{{ mcpConnections().length === 1 ? '' : 's' }} connected</span>
+          } @else {
+            <span class="text-amber-300">· no MCPs connected — only email fallback available</span>
+          }
+        </p>
       </header>
 
       <!-- Legacy inline test panel — retained behind testOpen() only so any
@@ -198,14 +207,14 @@ const POLL_INTERVAL_MS = 10_000;
         </section>
       }
 
-      <!-- Form Handling Prompt(s) — full-screen Prompt Designer overlay.
-           Hidden by default; opens via the "Form Handling Prompt(s)" button
+      <!-- Form Handling Prompt — full-screen Prompt Designer overlay.
+           Hidden by default; opens via the "Form Handling Prompt" button
            in the header. Inline editor lives ONLY inside this overlay. -->
       <app-fullscreen-overlay
         [open]="designerOpen()"
         (closed)="designerOpen.set(false)"
         ariaLabel="Form Handling Prompt Designer">
-        <span overlayTitle>Form Handling Prompt(s)</span>
+        <span overlayTitle>Form Handling Prompt</span>
         <span overlaySubtitle>
           One prompt routes every submission. Edit on the left, run a sample on the right.
         </span>
@@ -375,7 +384,26 @@ const POLL_INTERVAL_MS = 10_000;
             </svg>
             <h4 class="empty-title">No submissions yet</h4>
             <p class="empty-body">Drop the snippet on your site and form replies will stream in here. See <a routerLink="/admin/ai-endpoints" class="text-primary underline">AI Endpoints</a> for the app.js install.</p>
-            <button class="btn-gradient" type="button" (click)="toggleTest()">Test the prompt</button>
+            <!--
+              Card-style CTA pulled out of the page header so the call-to-action
+              to open the Prompt Designer is front-and-centre while there are no
+              submissions. The "Test the prompt" button is intentionally absent
+              here — the designer overlay hosts its own tester pane.
+            -->
+            <button class="empty-cta"
+                    type="button"
+                    data-testid="forms-open-prompt-designer"
+                    (click)="designerOpen.set(true)"
+                    title="Open the full-screen prompt designer + tester">
+              <span class="empty-cta-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6M9 17h4"/></svg>
+              </span>
+              <span class="empty-cta-text">
+                <span class="empty-cta-title">Form Handling Prompt</span>
+                <span class="empty-cta-sub">Open the full-screen designer + tester</span>
+              </span>
+              <svg class="empty-cta-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </button>
           </div>
         } @else {
           <table class="w-full text-[0.78rem]">
@@ -454,6 +482,33 @@ const POLL_INTERVAL_MS = 10_000;
     .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
     .btn-gradient { padding: 0.55rem 1.1rem; border-radius: 10px; background: linear-gradient(135deg, #00ffc8, #00d4ff); color: #060610; font-weight: 700; border: 0; cursor: pointer; font-size: 0.78rem; box-shadow: 0 8px 22px -10px rgba(0, 212, 255, 0.7); transition: transform 140ms ease, box-shadow 140ms ease; }
     .btn-gradient:hover { transform: translateY(-1px); }
+    /* Quiet header CTA — small, ghost-style, no loud gradient. Sits next to
+       the submissions count pill without competing for attention. */
+    .btn-prompt-quiet {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px;
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: -0.005em;
+      color: rgba(255, 255, 255, 0.78);
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background var(--ps-dur-fast, 140ms) ease, border-color var(--ps-dur-fast, 140ms) ease, color var(--ps-dur-fast, 140ms) ease;
+    }
+    .btn-prompt-quiet svg { opacity: 0.7; transition: opacity var(--ps-dur-fast, 140ms) ease; }
+    .btn-prompt-quiet:hover {
+      background: rgba(0, 229, 255, 0.06);
+      border-color: rgba(0, 229, 255, 0.22);
+      color: #fff;
+    }
+    .btn-prompt-quiet:hover svg { opacity: 1; color: #00E5FF; }
+    .btn-prompt-quiet:focus-visible {
+      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline-offset: var(--ps-ring-focus-offset, 2px);
+    }
+    @media (prefers-reduced-motion: reduce) { .btn-prompt-quiet, .btn-prompt-quiet svg { transition: none; } }
     .btn-ghost { padding: 0.4rem 0.9rem; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #e5e7eb; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
     .btn-improve { font-size: 0.66rem; line-height: 1; padding: 0.25rem 0.625rem; border-radius: 7px; background: rgba(124,58,237,0.14); border: 1px solid rgba(124,58,237,0.4); color: #c4b5fd; font-weight: 600; cursor: pointer; transition: all 140ms ease; }
     .btn-improve:hover:not(:disabled) { background: rgba(124,58,237,0.22); color: #ddd6fe; }
@@ -532,10 +587,67 @@ const POLL_INTERVAL_MS = 10_000;
     .skeleton { background: rgba(255,255,255,0.10); border-radius: 8px; animation: skel-pulse 1.4s ease-in-out infinite; }
     .skeleton-row { height: 44px; }
     @keyframes skel-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
-    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2.4rem 1.4rem; gap: 0.55rem; }
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2.8rem 1.4rem; gap: 0.6rem; }
     .empty-icon { color: rgba(0, 229, 255, 0.65); }
     .empty-title { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; font-size: 1rem; color: #fff; margin: 0.2rem 0 0; }
-    .empty-body { font-size: 0.78rem; color: rgba(255,255,255,0.65); margin: 0 0 0.5rem; max-width: 420px; line-height: 1.5; }
+    .empty-body { font-size: 0.78rem; color: rgba(255,255,255,0.65); margin: 0 0 0.9rem; max-width: 420px; line-height: 1.5; }
+
+    /* Header CTA pair (button + filter-pill) appears only when submissions exist. */
+    .header-actions { align-items: center; }
+    .header-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; min-height: 30px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.78);
+      font-family: 'Sora', system-ui, sans-serif;
+      font-size: 0.7rem; font-weight: 600; letter-spacing: -0.005em;
+    }
+    .header-pill-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #34d399; box-shadow: 0 0 6px rgba(52, 211, 153, 0.7);
+    }
+    .header-cta { min-height: 44px; padding-inline: 1.1rem; font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.01em; }
+
+    /* Card-style CTA inside the submissions empty state. */
+    .empty-cta {
+      display: inline-flex; align-items: center; gap: 14px;
+      min-height: 44px; padding: 12px 18px;
+      background: linear-gradient(135deg, rgba(0, 255, 200, 0.16), rgba(0, 212, 255, 0.16));
+      border: 1px solid rgba(0, 229, 255, 0.42);
+      border-radius: var(--ps-radius-lg, 16px);
+      color: #e6fcff;
+      font-family: 'Sora', system-ui, sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 12px 30px -16px rgba(0, 212, 255, 0.55), inset 0 1px 0 rgba(255,255,255,0.06);
+      transition: transform var(--ps-dur-fast, 140ms) ease, box-shadow var(--ps-dur-fast, 140ms) ease, border-color var(--ps-dur-fast, 140ms) ease;
+      text-align: left;
+    }
+    .empty-cta:hover {
+      transform: translateY(-1px);
+      border-color: rgba(0, 229, 255, 0.65);
+      box-shadow: 0 18px 38px -16px rgba(0, 212, 255, 0.75), inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .empty-cta:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 2px; }
+    .empty-cta-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; flex-shrink: 0;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #00ffc8, #00d4ff);
+      color: #060610;
+    }
+    .empty-cta-text { display: flex; flex-direction: column; gap: 2px; }
+    .empty-cta-title { font-size: 0.86rem; color: #fff; letter-spacing: -0.01em; }
+    .empty-cta-sub { font-size: 0.7rem; color: rgba(230, 252, 255, 0.7); font-weight: 500; }
+    .empty-cta-arrow { color: rgba(0, 229, 255, 0.75); transition: transform var(--ps-dur-fast, 140ms) ease; }
+    .empty-cta:hover .empty-cta-arrow { transform: translateX(2px); color: #9be9ff; }
+    @media (prefers-reduced-motion: reduce) {
+      .empty-cta, .empty-cta-arrow { transition: none; }
+      .empty-cta:hover { transform: none; }
+      .empty-cta:hover .empty-cta-arrow { transform: none; }
+    }
     .submission-success { border: 1px solid rgba(16,185,129,0.32); background: rgba(16,185,129,0.06); border-radius: 12px; padding: 0.9rem; animation: success-in 260ms cubic-bezier(0.16, 1, 0.3, 1); }
     .success-head { display: flex; gap: 0.7rem; align-items: flex-start; }
     .success-check { width: 32px; height: 32px; flex-shrink: 0; border-radius: 999px; background: rgba(16,185,129,0.18); display: inline-flex; align-items: center; justify-content: center; color: #34d399; }
@@ -578,7 +690,7 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
   testOpen = signal(false);
   improving = signal(false);
   /** Controls the full-screen Prompt Designer overlay. Hidden by default;
-   *  opens via the "Form Handling Prompt(s)" button in the page header. */
+   *  opens via the "Form Handling Prompt" button in the page header. */
   designerOpen = signal(false);
 
   // Per-prompt MCP allow-list — drives the pill row + is sent to the backend

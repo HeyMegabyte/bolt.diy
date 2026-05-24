@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
+import { TelemetryService } from '../../services/telemetry.service';
 import { emailError } from '../../utils/validators/email';
 
 @Component({
@@ -18,6 +19,7 @@ export class SigninComponent {
   private auth = inject(AuthService);
   private toast = inject(ToastService);
   private router = inject(Router);
+  private telemetry = inject(TelemetryService);
 
   panel = signal<'main' | 'email'>('main');
   email = '';
@@ -32,6 +34,7 @@ export class SigninComponent {
     this.inlineError.set(null);
     this.emailError.set(null);
     this.attempted.set(false);
+    this.telemetry.track('auth.signin.email_clicked');
   }
 
   backToMain(): void {
@@ -95,6 +98,7 @@ export class SigninComponent {
       redirectUrl += `&mode=${mode}`;
     }
 
+    this.telemetry.track('auth.signin.magic_link_requested', { has_business: !!business });
     this.api.sendMagicLink(this.email, redirectUrl).subscribe({
       next: (res) => {
         this.sending.set(false);
@@ -112,6 +116,10 @@ export class SigninComponent {
         // Surface inline AND via toast (api.service already toasted, but only on transport errors).
         this.inlineError.set(human);
         this.toast.error(human);
+        this.telemetry.track('auth.signin.failed', {
+          status: err?.status,
+          provider: 'email',
+        });
       },
     });
   }

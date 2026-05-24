@@ -5,6 +5,7 @@ import { catchError, timeout } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { ToastService } from './toast.service';
+import { TelemetryService } from './telemetry.service';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -12,6 +13,7 @@ export class ApiService {
   private auth = inject(AuthService);
   private toast = inject(ToastService);
   private router = inject(Router);
+  private telemetry = inject(TelemetryService);
 
   private headers(): HttpHeaders {
     let headers = new HttpHeaders({ 'Content-Type': 'application/json' });
@@ -36,10 +38,21 @@ export class ApiService {
         catchError((error: HttpErrorResponse | TimeoutError) => {
           if (error instanceof TimeoutError) {
             this.toast.error('Request timed out. Please try again.');
+            // Treat timeouts as `http.failure` with a `0` status so the
+            // dashboards bucket them next to network drops.
+            this.telemetry.track('http.failure', { status: 0, reason: 'timeout' });
             return throwError(() => error);
           }
           const message = this.getErrorMessage(error);
           this.toast.error(message);
+          // Single capture point for every HTTP failure at the boundary.
+          // Carry the status + URL (path only, no query) + method so the
+          // PostHog/GA4 funnel can spot endpoint-level regressions.
+          this.telemetry.track('http.failure', {
+            status: error.status,
+            url: this.safeUrl(error.url),
+            message,
+          });
 
           if (error.status === 401) {
             this.auth.clearSession();
@@ -56,6 +69,17 @@ export class ApiService {
           return throwError(() => error);
         }),
       );
+  }
+
+  /**
+   * Strip query string from the failing URL before forwarding to telemetry.
+   * Keeps tokens / place-ids / search terms out of analytics events while
+   * preserving the route shape for funnel debugging.
+   */
+  private safeUrl(url: string | null): string {
+    if (!url) return '';
+    const qIdx = url.indexOf('?');
+    return qIdx === -1 ? url : url.slice(0, qIdx);
   }
 
   private getErrorMessage(error: HttpErrorResponse): string {
@@ -599,8 +623,14 @@ export interface DiscoveredVideos {
 export interface AnalyticsStats {
   pageViews: number;
   uniqueVisitors: number;
+  /**
+   * Average session duration. Only GA4 supplies a real value; CF zone analytics
+   * and the D1 audit-log fallback both surface `'—'` / `'0s'`.
+   */
   avgSessionDuration: string;
   bounceRate: number;
+  /** CF zone analytics adds total HTTP requests (page views + assets). */
+  totalRequests?: number;
 }
 
 export interface AnalyticsChartPoint {
@@ -618,9 +648,28 @@ export interface AnalyticsTopPage {
   views: number;
 }
 
+export interface AnalyticsTopCountry {
+  country: string;
+  views: number;
+}
+
+/**
+ * Per-site analytics envelope returned by `GET /api/analytics/:siteId`.
+ *
+ * The worker falls back through three sources:
+ *  - `'ga4'` — Google Analytics Data API (requires `GA4_PROPERTY_ID` +
+ *    `GA4_SERVICE_ACCOUNT_JSON`; ships bounceRate + avgSessionDuration).
+ *  - `'cloudflare_zone_analytics'` — CF GraphQL (requires `CF_API_TOKEN` +
+ *    `CF_ZONE_ID`; ships pageViews, uniqueVisitors, totalRequests, topPages,
+ *    topCountries — but NOT bounceRate / avgSessionDuration).
+ *  - `undefined` (D1 audit-log estimate) — last resort when neither GA4
+ *    nor CF zone analytics is configured. All stats render as 0.
+ */
 export interface AnalyticsData {
   period: number;
   slug?: string;
+  /** Which fallback path produced this payload. `undefined` = D1 estimate. */
+  source?: 'ga4' | 'cloudflare_zone_analytics';
   ga4_connected: boolean;
   ga4_measurement_id?: string | null;
   gtm_container_id?: string | null;
@@ -628,4 +677,5 @@ export interface AnalyticsData {
   chartData: AnalyticsChartPoint[];
   trafficSources: AnalyticsTrafficSource[];
   topPages: AnalyticsTopPage[];
+  topCountries?: AnalyticsTopCountry[];
 }

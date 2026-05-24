@@ -82,12 +82,20 @@ export const createSiteSchema = z.object({
  * `null` to explicitly clear a value, or the field can be omitted entirely
  * to leave it unchanged. The `status` field can be set to transition the
  * site through its lifecycle states.
+ *
+ * The Business-profile block (`business_website`, `original_prompt`,
+ * `logo_url`, `app_icon_url`) is persisted via migration 0025; sending any
+ * of these fields updates the corresponding column on `sites`.
  */
 export const updateSiteSchema = z.object({
   business_name: nameSchema.optional(),
   business_phone: z.string().max(20).nullable().optional(),
   business_email: z.string().email().max(254).nullable().optional(),
   business_address: z.string().max(500).nullable().optional(),
+  business_website: z.string().url().max(2048).nullable().optional(),
+  original_prompt: z.string().max(8000).nullable().optional(),
+  logo_url: z.string().url().max(2048).nullable().optional(),
+  app_icon_url: z.string().url().max(2048).nullable().optional(),
   bolt_chat_id: z.string().max(255).nullable().optional(),
   current_build_version: z.string().max(100).nullable().optional(),
   status: z.enum(['draft', 'building', 'published', 'archived']).optional(),

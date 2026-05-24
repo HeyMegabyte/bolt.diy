@@ -1,17 +1,33 @@
 import { Component, HostListener, inject, signal, type OnInit } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { TelemetryService } from '../../../services/telemetry.service';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 
+/**
+ * Snapshot row shape. We expose ONE date — sourced from the underlying git
+ * commit when the GitHub mirror has stamped it (`commit_iso`), else from the
+ * row insertion timestamp (`created_at`). Showing both `created_at` AND
+ * `updated_at` confused users — the snapshot moment is fundamentally a
+ * version-control event, so the commit timestamp is the authoritative time.
+ *
+ * TODO(backend): `commit_iso` is not yet exposed on `GET /sites/:id/snapshots`.
+ * Extend the worker to JOIN against the `gh_snapshot_commits` mirror table
+ * (or read `ghStatus.last_commit_at` per snapshot_id) and surface
+ * `commit_iso` on each row. Until that lands, every row falls back to
+ * `created_at`, which is correct to within seconds for snapshots created via
+ * the UI (the GitHub push fires right after the D1 insert).
+ */
 interface Snapshot {
   id: string;
   snapshot_name: string;
   build_version: string;
   description: string | null;
   created_at: string;
+  /** Optional — set once the backend wires up the GitHub commit timestamp. */
+  commit_iso?: string;
 }
 
 interface GhStatus {
@@ -27,7 +43,7 @@ interface GhStatus {
 @Component({
   selector: 'app-admin-snapshots',
   standalone: true,
-  imports: [FormsModule, DatePipe, DialogShellComponent],
+  imports: [FormsModule, DialogShellComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -51,8 +67,14 @@ interface GhStatus {
         </div>
 
         <div class="flex items-center gap-2 flex-wrap">
-        <button class="btn-create-snap" (click)="createOpen.set(true)" [disabled]="!state.selectedSite()" title="Open the create-snapshot dialog">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+        <button
+          class="btn-create-snap btn-create-snap--primary"
+          type="button"
+          (click)="createOpen.set(true)"
+          [disabled]="!state.selectedSite()"
+          title="Open the create-snapshot dialog"
+          data-testid="snapshot-create-button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
           <span>Create Snapshot</span>
         </button>
 
@@ -204,34 +226,45 @@ interface GhStatus {
                   }
                 </div>
 
-                <!-- Snapshot Card -->
-                <div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-4 transition-all hover:border-primary/[0.12] ml-2"
+                <!-- Snapshot Card — ONE LINE: title + Latest + date + description + View + More.
+                     Description gets flex:1 so it fills remaining space and ellipsis-truncates.
+                     On narrow viewports (<768px) the description hides via .snap-desc-inline
+                     media query, leaving the row tight + scannable. -->
+                <div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 transition-all hover:border-primary/[0.12] ml-2"
                      [class]="first ? 'border-primary/[0.15] bg-primary/[0.02]' : ''">
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="flex flex-col gap-1 min-w-0 flex-1">
-                      <!-- Row 1: title + Latest chip + single date (inline) -->
-                      <div class="flex items-center gap-2 flex-wrap">
-                        <a class="snap-title"
-                           [href]="'https://' + state.selectedSite()!.slug + '-' + snap.snapshot_name + '.projectsites.dev'"
-                           target="_blank" rel="noopener"
-                           [attr.data-testid]="'snapshot-title-' + snap.id">
-                          {{ snap.snapshot_name }}
-                        </a>
-                        @if (first) {
-                          <span class="snap-latest-chip">Latest</span>
-                        }
-                        <span class="snap-version">v{{ snap.build_version }}</span>
-                        <span class="snap-date">{{ snap.created_at | date:'mediumDate' }} · {{ snap.created_at | date:'shortTime' }}</span>
-                      </div>
-                      <!-- Row 2: description (only when present) -->
-                      @if (snap.description) {
-                        <p class="snap-desc">{{ snap.description }}</p>
-                      }
-                    </div>
+                  <div class="snap-row">
+                    <a class="snap-title"
+                       [href]="'https://' + state.selectedSite()!.slug + '-' + snap.snapshot_name + '.projectsites.dev'"
+                       target="_blank" rel="noopener"
+                       [attr.data-testid]="'snapshot-title-' + snap.id">
+                      {{ snap.snapshot_name }}
+                    </a>
+                    @if (first) {
+                      <span class="snap-latest-chip">Latest</span>
+                    }
+                    <span class="snap-date"
+                          [title]="commitTooltip(snap)"
+                          [attr.data-testid]="'snapshot-date-' + snap.id">
+                      {{ commitRelative(snap) }}
+                    </span>
+                    @if (snap.description) {
+                      <span class="snap-desc-inline"
+                            [title]="snap.description"
+                            [attr.data-testid]="'snapshot-desc-' + snap.id">
+                        {{ snap.description }}
+                      </span>
+                    } @else {
+                      <span class="snap-desc-inline snap-desc-inline--empty" aria-hidden="true"></span>
+                    }
 
                     <!-- View + More dropdown -->
-                    <div class="flex items-center gap-1.5 flex-shrink-0 relative">
-                      <button class="btn-snap-view group" (click)="viewSnapshot(snap)" title="Open this snapshot in a new tab" [attr.aria-label]="'Open snapshot ' + snap.snapshot_name + ' in new tab'">
+                    <div class="snap-actions">
+                      <button class="btn-snap-view group"
+                              type="button"
+                              (click)="viewSnapshot(snap)"
+                              title="Open this snapshot in a new tab"
+                              [attr.aria-label]="'Open snapshot ' + snap.snapshot_name + ' in new tab'"
+                              [attr.data-testid]="'snapshot-view-' + snap.id">
                         <span class="btn-snap-view-glow" aria-hidden="true"></span>
                         <svg class="btn-snap-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                         <span class="btn-snap-label">View</span>
@@ -304,9 +337,39 @@ interface GhStatus {
     .btn-github-unlink:hover:not(:disabled) { background: rgba(248,113,113,0.16); color: #f87171; }
     .btn-github-push:disabled, .btn-github-unlink:disabled { opacity: 0.45; cursor: not-allowed; }
 
-    .btn-create-snap { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.85rem; border-radius: 8px; background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.18)); color: #00E5FF; border: 1px solid rgba(0,229,255,0.4); font-size: 0.74rem; font-weight: 600; cursor: pointer; transition: all 160ms ease; }
+    .btn-create-snap { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.85rem; border-radius: 8px; background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.18)); color: #00E5FF; border: 1px solid rgba(0,229,255,0.4); font-size: 0.74rem; font-weight: 600; cursor: pointer; transition: all 160ms ease; pointer-events: auto; }
     .btn-create-snap:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px -8px rgba(0,229,255,0.4); }
     .btn-create-snap:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Primary variant — used by the headline "Create Snapshot" action in the
+       page header. Bigger padding, stronger gradient, brighter ring, and a
+       Sora 600 label so it reads as the dominant call-to-action on the page
+       (no longer competes with the GitHub mirror chip for visual weight). */
+    .btn-create-snap--primary {
+      font-family: 'Sora', system-ui, sans-serif;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: -0.005em;
+      padding: 0.55rem 1.05rem;
+      border-radius: 10px;
+      color: #06121A;
+      background: linear-gradient(135deg, #00E5FF 0%, #7C3AED 100%);
+      border: 1px solid rgba(0, 229, 255, 0.55);
+      box-shadow: 0 6px 18px -8px rgba(0, 229, 255, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+    .btn-create-snap--primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 28px -8px rgba(0, 229, 255, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+      filter: brightness(1.05);
+    }
+    .btn-create-snap--primary:focus-visible {
+      outline: 2px solid #00ffc8;
+      outline-offset: 3px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .btn-create-snap--primary { transition: none; }
+      .btn-create-snap--primary:hover:not(:disabled) { transform: none; filter: none; }
+    }
 
     .muted-h { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; }
 
@@ -330,25 +393,54 @@ interface GhStatus {
       color: oklch(0.86 0.16 220);
       border: 1px solid color-mix(in oklch, oklch(0.78 0.18 220) 30%, transparent);
     }
-    .snap-version {
-      font-family: 'JetBrains Mono', ui-monospace, monospace;
-      font-size: 0.64rem;
-      color: rgba(255, 255, 255, 0.55);
-      letter-spacing: 0.02em;
+    /* One-line row: title + Latest + date + description + actions.
+       - title / date / actions: flex-shrink: 0 (keep their natural width)
+       - description: flex: 1 1 0 + min-width:0 so it absorbs the remaining
+         horizontal space and ellipsis-truncates rather than wrapping. */
+    .snap-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      min-width: 0;
+      width: 100%;
     }
+    .snap-row .snap-title { flex-shrink: 0; }
+    .snap-row .snap-latest-chip { flex-shrink: 0; }
     .snap-date {
+      flex-shrink: 0;
       font-family: 'JetBrains Mono', ui-monospace, monospace;
-      font-size: 0.66rem;
-      color: rgba(255, 255, 255, 0.48);
+      font-size: 0.68rem;
+      color: rgba(255, 255, 255, 0.5);
       letter-spacing: 0.01em;
+      white-space: nowrap;
+      cursor: help;
+    }
+    .snap-desc-inline {
+      flex: 1 1 0;
+      min-width: 0;
+      font-size: 0.76rem;
+      color: rgba(255, 255, 255, 0.62);
+      line-height: 1.4;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+      opacity: 0.85;
+    }
+    .snap-desc-inline--empty { opacity: 0; pointer-events: none; }
+    .snap-actions {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      position: relative;
       margin-left: auto;
     }
-    .snap-desc {
-      margin: 0; padding-top: 2px;
-      font-size: 0.78rem;
-      color: rgba(255, 255, 255, 0.7);
-      line-height: 1.45;
-      text-wrap: pretty;
+
+    /* Narrow viewports: hide the inline description so the row stays tight
+       and scannable on phones/tablets. Title + date + actions still fit. */
+    @media (max-width: 768px) {
+      .snap-desc-inline { display: none; }
+      .snap-row { gap: 0.45rem; }
     }
 
     /* More dropdown — three-dots → menu with Revert/Download/Delete. */
@@ -430,6 +522,7 @@ export class AdminSnapshotsComponent implements OnInit {
   state = inject(AdminStateService);
   private api = inject(ApiService);
   private toast = inject(ToastService);
+  private telemetry = inject(TelemetryService);
 
   snapshots = signal<Snapshot[]>([]);
   loadingSnapshots = signal(false);
@@ -442,6 +535,66 @@ export class AdminSnapshotsComponent implements OnInit {
   private readonly numberFormatter = new Intl.NumberFormat(undefined);
   formatCount(n: number | null | undefined): string {
     return this.numberFormatter.format(typeof n === 'number' && Number.isFinite(n) ? n : 0);
+  }
+
+  /**
+   * Relative-time formatter used by the inline row date ("3 hours ago",
+   * "2 days ago", "just now"). Intl.RelativeTimeFormat is locale-aware and
+   * cheap to instantiate once. We pick the largest unit whose absolute value
+   * is >= 1, so "90 seconds" reads as "1 minute ago" not "90 seconds ago".
+   */
+  private readonly relativeTimeFormatter = new Intl.RelativeTimeFormat(undefined, {
+    numeric: 'auto',
+    style: 'long',
+  });
+  private readonly absoluteDateFormatter = new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+
+  /**
+   * Pick the canonical "git commit" timestamp for a snapshot. Prefers
+   * `commit_iso` (the real GitHub commit time, set once the backend wires
+   * it up), falls back to `created_at` (the moment the snapshot row was
+   * inserted in D1, which is within seconds of the commit for UI-created
+   * snapshots).
+   */
+  private commitDate(snap: Snapshot): Date {
+    const iso = snap.commit_iso ?? snap.created_at;
+    return new Date(iso);
+  }
+
+  /** Inline relative time shown on the row ("3 hours ago"). */
+  commitRelative(snap: Snapshot): string {
+    const date = this.commitDate(snap);
+    if (Number.isNaN(date.getTime())) return '';
+    const diffMs = date.getTime() - Date.now();
+    const seconds = Math.round(diffMs / 1000);
+    const absSec = Math.abs(seconds);
+    if (absSec < 45) return this.relativeTimeFormatter.format(0, 'second').replace('in 0 seconds', 'just now');
+    const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+      ['year', 60 * 60 * 24 * 365],
+      ['month', 60 * 60 * 24 * 30],
+      ['week', 60 * 60 * 24 * 7],
+      ['day', 60 * 60 * 24],
+      ['hour', 60 * 60],
+      ['minute', 60],
+      ['second', 1],
+    ];
+    for (const [unit, sec] of units) {
+      if (Math.abs(seconds) >= sec) {
+        return this.relativeTimeFormatter.format(Math.round(seconds / sec), unit);
+      }
+    }
+    return this.relativeTimeFormatter.format(seconds, 'second');
+  }
+
+  /** ISO-style tooltip for the date chip ("May 23, 2026, 10:14 AM"). */
+  commitTooltip(snap: Snapshot): string {
+    const date = this.commitDate(snap);
+    if (Number.isNaN(date.getTime())) return '';
+    const sourceLabel = snap.commit_iso ? 'git commit' : 'snapshot created';
+    return `${this.absoluteDateFormatter.format(date)} (${sourceLabel})`;
   }
 
 
@@ -508,7 +661,7 @@ export class AdminSnapshotsComponent implements OnInit {
   downloadSnapshot(snap: Snapshot): void {
     // TODO(api): wire to `/api/sites/:id/snapshots/:snapId/download` once the
     // worker route ships the zipped bundle (manifest.json + all files).
-    void snap;
+    this.telemetry.track('snapshot.download_attempted', { snapshot_id: snap.id });
     this.toast.info('Download will be available shortly — full snapshot bundle export is on the roadmap.');
   }
 
@@ -614,6 +767,11 @@ export class AdminSnapshotsComponent implements OnInit {
     }).subscribe({
       next: (res) => {
         this.toast.success(`Snapshot created: ${res.data.snapshot_name}`);
+        this.telemetry.track('snapshot.created', {
+          site_id: site.id,
+          snapshot_id: res.data.id,
+          has_description: !!this.newSnapshotDescription.trim(),
+        });
         this.creatingSnapshot.set(false);
         this.newSnapshotName = '';
         this.newSnapshotDescription = '';
@@ -644,7 +802,14 @@ export class AdminSnapshotsComponent implements OnInit {
     const site = this.state.selectedSite();
     if (!site) return;
     this.api.delete(`/sites/${site.id}/snapshots/${snapshotId}`).subscribe({
-      next: () => { this.toast.success('Snapshot deleted'); this.loadSnapshots(site.id); },
+      next: () => {
+        this.toast.success('Snapshot deleted');
+        this.telemetry.track('snapshot.deleted', {
+          site_id: site.id,
+          snapshot_id: snapshotId,
+        });
+        this.loadSnapshots(site.id);
+      },
       error: () => this.toast.error('Failed to delete snapshot'),
     });
   }
@@ -654,8 +819,12 @@ export class AdminSnapshotsComponent implements OnInit {
     if (!site) return;
     this.reverting.set(true);
     this.api.revertSnapshot(site.id, snap.id).subscribe({
-      next: (res) => {
+      next: () => {
         this.toast.success(`Reverted to "${snap.snapshot_name}"`);
+        this.telemetry.track('snapshot.reverted', {
+          site_id: site.id,
+          snapshot_id: snap.id,
+        });
         this.reverting.set(false);
         this.loadSnapshots(site.id);
         this.state.loadData();

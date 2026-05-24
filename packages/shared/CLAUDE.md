@@ -44,6 +44,10 @@ src/
 │   ├── config.ts               # envConfigSchema (with Stripe test/live key validation)
 │   ├── analytics.ts            # analyticsDailySchema, funnelEventSchema, usageEventSchema
 │   ├── hostname.ts             # hostnameRecordSchema, createHostnameSchema
+│   ├── confidence.ts           # confidence-attribute schemas (per-field provenance + source URLs)
+│   ├── contact.ts              # contact-form payload schemas (per-site contact endpoint)
+│   ├── forms.ts                # generic form-submission schemas (prompt-designer overlay)
+│   ├── seed-v3.ts              # seed-site-data payload v3 (used by `seed-site-data` workflow step)
 │   └── api.ts                  # apiErrorCodes, apiErrorSchema, healthCheckSchema
 ├── middleware/
 │   ├── index.ts                # Barrel export

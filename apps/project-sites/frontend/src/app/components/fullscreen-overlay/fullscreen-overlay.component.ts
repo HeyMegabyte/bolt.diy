@@ -46,28 +46,30 @@ import { A11yModule, ConfigurableFocusTrapFactory, type ConfigurableFocusTrap } 
         aria-modal="true"
         [attr.aria-label]="ariaLabel()"
       >
-        <header class="fo-head">
-          <div class="fo-head-text">
-            <div class="fo-title"><ng-content select="[overlayTitle]"></ng-content></div>
-            <div class="fo-sub"><ng-content select="[overlaySubtitle]"></ng-content></div>
+        <div class="fo-shell">
+          <header class="fo-head">
+            <div class="fo-head-text">
+              <div class="fo-title"><ng-content select="[overlayTitle]"></ng-content></div>
+              <div class="fo-sub"><ng-content select="[overlaySubtitle]"></ng-content></div>
+            </div>
+            <div class="fo-head-actions">
+              <ng-content select="[overlayActions]"></ng-content>
+              <button
+                type="button"
+                class="fo-close"
+                aria-label="Close overlay"
+                (click)="close()"
+                data-testid="fullscreen-overlay-close"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                </svg>
+              </button>
+            </div>
+          </header>
+          <div class="fo-body">
+            <ng-content></ng-content>
           </div>
-          <div class="fo-head-actions">
-            <ng-content select="[overlayActions]"></ng-content>
-            <button
-              type="button"
-              class="fo-close"
-              aria-label="Close overlay"
-              (click)="close()"
-              data-testid="fullscreen-overlay-close"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-              </svg>
-            </button>
-          </div>
-        </header>
-        <div class="fo-body">
-          <ng-content></ng-content>
         </div>
       </div>
     }
@@ -75,14 +77,37 @@ import { A11yModule, ConfigurableFocusTrapFactory, type ConfigurableFocusTrap } 
   styles: [`
     :host { display: contents; }
 
+    /*
+     * Overlay roots as an "almost full-screen modal":
+     *  - .fo-root is the FIXED backdrop (dark + blurred) that covers the
+     *    underlying chrome — sidebar, top bar, toasts, network banner,
+     *    user-menu popover — by virtue of --ps-z-overlay-takeover (100000).
+     *  - .fo-shell is the inner card that floats inside that backdrop with
+     *    breathing room on every side, rounded corners, and a modal shadow.
+     */
     .fo-root {
       position: fixed; inset: 0;
-      z-index: var(--ps-z-overlay-takeover, 2100);
+      z-index: var(--ps-z-overlay-takeover, 100000);
+      display: flex;
+      padding: clamp(12px, 2.5vw, 32px);
+      background:
+        radial-gradient(ellipse at top, rgba(0, 229, 255, 0.05), transparent 60%),
+        rgba(2, 2, 12, 0.78);
+      backdrop-filter: blur(18px) saturate(140%);
+      -webkit-backdrop-filter: blur(18px) saturate(140%);
+      animation: fo-in var(--ps-dur-slow, 380ms) var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)) both;
+    }
+
+    .fo-shell {
+      flex: 1; min-width: 0; min-height: 0;
       display: flex; flex-direction: column;
       background:
-        radial-gradient(ellipse at top, rgba(0, 229, 255, 0.04), transparent 60%),
+        radial-gradient(ellipse at top, rgba(0, 229, 255, 0.05), transparent 60%),
         var(--ps-surface-3, rgba(8, 8, 32, 0.98));
-      animation: fo-in var(--ps-dur-slow, 380ms) var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)) both;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--ps-radius-xl, 22px);
+      box-shadow: var(--ps-shadow-modal, 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 80px rgba(0, 229, 255, 0.04));
+      overflow: hidden;
     }
 
     .fo-head {

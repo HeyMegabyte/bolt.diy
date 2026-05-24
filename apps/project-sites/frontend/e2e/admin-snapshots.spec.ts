@@ -218,6 +218,12 @@ test.describe('Admin → Snapshots (redesign)', () => {
     await page.getByTestId('snapshot-name-input').fill('v2-redesign');
     await page.getByTestId('snapshot-create-submit').click();
 
+    // Give Angular's change-detection one tick to flip `creatingSnapshot()`
+    // to true. Without this, the disabled-attribute assertion below races
+    // the Playwright route-interception layer and fails intermittently
+    // before Angular has had a chance to re-render the dialog footer.
+    await page.waitForTimeout(50);
+
     // While the POST is held, Cancel must be disabled and the submit button
     // must show "Creating…". The X close affordance is also locked out —
     // closeCreateDialog() bails on the first line when creatingSnapshot() is

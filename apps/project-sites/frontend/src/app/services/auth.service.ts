@@ -1,4 +1,23 @@
-import { Injectable, signal, computed } from '@angular/core';
+/**
+ * @module services/auth
+ *
+ * @description
+ * Client-side session container for the admin SPA. Owns the localStorage keys
+ * (`ps_session`, `ps_selected_business`, `ps_mode`, `ps_pending_build`,
+ * `ps_location_declined`, `ps_auto_create`) and exposes signals that downstream
+ * components/guards can read reactively.
+ *
+ * @remarks
+ * - Tokens live in `localStorage` (deliberate — the SPA is single-origin so XSS
+ *   protection comes from CSP + Trusted Types, not httpOnly cookies; the editor
+ *   iframe needs the token at boot, which httpOnly cookies cannot provide).
+ * - Sessions auto-expire after `SESSION_TTL_MS` (7 days) on read — never stale
+ *   credentials silently re-used.
+ * - All `localStorage` calls are inside try/catch so private-mode / quota-full
+ *   browsers never throw past this layer.
+ */
+import { Injectable, inject, signal, computed } from '@angular/core';
+import { SentryService } from './sentry.service';
 
 const SESSION_KEY = 'ps_session';
 const BUSINESS_KEY = 'ps_selected_business';
@@ -10,6 +29,10 @@ const AUTO_CREATE_KEY = 'ps_auto_create';
 /** Session TTL in milliseconds (7 days). */
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+/**
+ * Persisted auth session shape. `createdAt` was added in Turn 1; older blobs
+ * without it are treated as fresh (never expire on read).
+ */
 export interface Session {
   token: string;
   identifier: string;
@@ -17,6 +40,10 @@ export interface Session {
   createdAt?: number;
 }
 
+/**
+ * Selected-business cache used by the create-site flow. Subset of Google Places
+ * fields needed to seed the AI workflow without re-querying Places.
+ */
 export interface SelectedBusiness {
   name: string;
   address: string;
@@ -30,11 +57,30 @@ export interface SelectedBusiness {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private sentry = inject(SentryService);
   private sessionSignal = signal<Session | null>(this.loadSession());
+
+  constructor() {
+    // Sync any rehydrated session into Sentry so events from the very first
+    // navigation already carry user identity.
+    const s = this.sessionSignal();
+    if (s) this.sentry.setUser({ id: s.identifier, email: s.identifier });
+  }
+
+  /** Read-only signal of the active session — null when signed out. */
   readonly session = this.sessionSignal.asReadonly();
+
+  /** Convenience derived signal — true when a non-expired session is present. */
   readonly isLoggedIn = computed(() => this.sessionSignal() !== null);
+
+  /** Convenience derived signal — the active identifier (email) or `''`. */
   readonly email = computed(() => this.sessionSignal()?.identifier ?? '');
 
+  /**
+   * Hydrate `session` from localStorage on construction. Expired sessions are
+   * dropped (and removed from storage) so a stale token never reaches the API
+   * interceptor.
+   */
   private loadSession(): Session | null {
     try {
       const raw = localStorage.getItem(SESSION_KEY);
@@ -51,16 +97,39 @@ export class AuthService {
     }
   }
 
+  /**
+   * The current bearer token, or `null` when signed out.
+   *
+   * @example
+   * ```ts
+   * const token = auth.getToken();
+   * if (token) headers.set('authorization', `Bearer ${token}`);
+   * ```
+   */
   getToken(): string | null {
     return this.sessionSignal()?.token ?? null;
   }
 
+  /**
+   * Persist a fresh session (post-magic-link or post-OAuth callback). Stamps
+   * `createdAt: Date.now()` so the TTL check on next reload works.
+   */
   setSession(token: string, identifier: string): void {
     const session: Session = { token, identifier, createdAt: Date.now() };
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     this.sessionSignal.set(session);
+    // Attach the user to Sentry so subsequent events carry their identity.
+    // `identifier` is the email (magic-link) or `google:<sub>` (OAuth) — both
+    // are stable IDs safe to put on a Sentry user.
+    this.sentry.setUser({ id: identifier, email: identifier.includes('@') ? identifier : undefined });
+    this.sentry.addBreadcrumb({ category: 'auth', message: 'session.set', level: 'info' });
   }
 
+  /**
+   * Wipe every session-derived key — session, business selection, mode, pending
+   * build, auto-create flag. Does NOT clear `ps_location_declined` (that's a
+   * UX preference, not a credential).
+   */
   clearSession(): void {
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(BUSINESS_KEY);
@@ -68,13 +137,17 @@ export class AuthService {
     localStorage.removeItem(PENDING_BUILD_KEY);
     localStorage.removeItem(AUTO_CREATE_KEY);
     this.sessionSignal.set(null);
+    // Detach user from Sentry so logged-out events aren't mis-attributed.
+    this.sentry.setUser(null);
+    this.sentry.addBreadcrumb({ category: 'auth', message: 'session.clear', level: 'info' });
   }
 
-  /** Full logout: clear all session data. */
+  /** Full logout: clear all session data. Alias for {@link clearSession}. */
   logout(): void {
     this.clearSession();
   }
 
+  /** Read the persisted Places-derived business selection — null if unset. */
   getSelectedBusiness(): SelectedBusiness | null {
     try {
       const raw = localStorage.getItem(BUSINESS_KEY);
@@ -84,27 +157,33 @@ export class AuthService {
     }
   }
 
+  /** Persist the Places-derived business selection used by the create flow. */
   setSelectedBusiness(business: SelectedBusiness): void {
     localStorage.setItem(BUSINESS_KEY, JSON.stringify(business));
   }
 
+  /** Clear the persisted business selection (e.g. after site creation). */
   clearSelectedBusiness(): void {
     localStorage.removeItem(BUSINESS_KEY);
   }
 
+  /** Read the create-flow mode — defaults to `'business'` when unset/invalid. */
   getMode(): 'business' | 'custom' {
     const value = localStorage.getItem(MODE_KEY);
     return value === 'custom' ? 'custom' : 'business';
   }
 
+  /** Persist the create-flow mode for the next visit. */
   setMode(mode: 'business' | 'custom'): void {
     localStorage.setItem(MODE_KEY, mode);
   }
 
+  /** True when an in-progress build is waiting on auth callback hand-off. */
   getPendingBuild(): boolean {
     return localStorage.getItem(PENDING_BUILD_KEY) === 'true';
   }
 
+  /** Toggle the pending-build flag — `false` removes the key entirely. */
   setPendingBuild(pending: boolean): void {
     if (pending) {
       localStorage.setItem(PENDING_BUILD_KEY, 'true');
@@ -113,18 +192,22 @@ export class AuthService {
     }
   }
 
+  /** True when the user explicitly declined the geolocation prompt before. */
   isLocationDeclined(): boolean {
     return localStorage.getItem(LOCATION_DECLINED_KEY) === 'true';
   }
 
+  /** Record the user declining the geolocation prompt so we don't ask again. */
   setLocationDeclined(): void {
     localStorage.setItem(LOCATION_DECLINED_KEY, 'true');
   }
 
+  /** True when post-auth flow should auto-create a site (signin from CTA). */
   getAutoCreate(): boolean {
     return localStorage.getItem(AUTO_CREATE_KEY) === 'true';
   }
 
+  /** Toggle the auto-create flag — `false` removes the key entirely. */
   setAutoCreate(value: boolean): void {
     if (value) {
       localStorage.setItem(AUTO_CREATE_KEY, 'true');

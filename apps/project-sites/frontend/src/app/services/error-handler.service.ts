@@ -2,6 +2,7 @@ import { ErrorHandler, Injectable, inject, NgZone } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { ToastService } from './toast.service';
+import { SentryService } from './sentry.service';
 import { SectionErrorBus } from '../components/section-error-boundary/section-error-bus';
 
 /** Maps HTTP status codes to user-friendly messages. */
@@ -56,6 +57,7 @@ export class GlobalErrorHandler implements ErrorHandler {
   private router = inject(Router);
   private zone = inject(NgZone);
   private bus = inject(SectionErrorBus);
+  private sentry = inject(SentryService);
 
   /** Rate limiter: track toast timestamps. */
   private toastTimestamps: number[] = [];
@@ -77,6 +79,14 @@ export class GlobalErrorHandler implements ErrorHandler {
       this.bus.push({ message, stack, route });
     } catch {
       // Never let bus failure break the handler.
+    }
+
+    // Report to Sentry with full route + user-agent context. No-ops when the
+    // SDK is unconfigured (no DSN meta tag).
+    try {
+      this.sentry.captureException(error, { route, userAgent, timestamp });
+    } catch {
+      // Never let Sentry failure break the handler.
     }
 
     this.handleGenericError(error, { timestamp, route, userAgent });

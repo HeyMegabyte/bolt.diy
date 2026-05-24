@@ -1,17 +1,38 @@
 import { Component, inject, signal, computed, type OnInit, type OnDestroy } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { timeout, catchError } from 'rxjs/operators';
+import { of, TimeoutError } from 'rxjs';
 import { AdminStateService } from '../admin-state.service';
-import { ApiService } from '../../../services/api.service';
+import { ApiService, type AnalyticsData } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 
-interface Overview {
-  total_visits: number;
-  last_hour_visits: number;
-  visits_by_day: { day: string; visits: number }[];
-  top_routes: { route_path: string; visits: number }[];
-  ua_breakdown: { user_agent_class: string; visits: number }[];
-  top_referrers: { referrer: string; visits: number }[];
-  top_countries: { country: string; visits: number }[];
+type RangeId = '1d' | '7d' | '30d' | '90d';
+
+/**
+ * Map UI range chip → `period` query value (days) for `GET /api/analytics/:siteId`.
+ */
+const RANGE_DAYS: Record<RangeId, string> = { '1d': '1', '7d': '7', '30d': '30', '90d': '90' };
+
+/**
+ * Source pill label shown near the chart so operators know which fallback
+ * path produced the numbers they're looking at.
+ */
+function sourceLabel(source: AnalyticsData['source']): string {
+  if (source === 'ga4') return 'GA4';
+  if (source === 'cloudflare_zone_analytics') return 'Cloudflare Edge';
+  return 'Audit log estimate';
+}
+
+/**
+ * Marketing copy for the source pill — explains the trade-offs of each
+ * fallback path in plain language so non-engineers reading the dashboard
+ * understand why bounce-rate is missing on CF and why everything is zero
+ * on the audit-log fallback.
+ */
+function sourceTooltip(source: AnalyticsData['source']): string {
+  if (source === 'ga4') return 'Google Analytics 4 — full session + behavior data.';
+  if (source === 'cloudflare_zone_analytics') return 'Cloudflare edge analytics — page views, unique visitors, top pages, geo. No session-duration / bounce-rate at the edge.';
+  return 'No analytics source configured — counts are estimated from the audit log. Wire GA4 or Cloudflare zone analytics for real numbers.';
 }
 
 @Component({
@@ -28,16 +49,13 @@ interface Overview {
             Analytics
           </h2>
           <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
-            Live data from <strong>Cloudflare Workers Analytics Engine</strong> — every admin visit gets one data point. Refreshes every 30 s.
+            Traffic for <strong>{{ selectedHost() }}</strong> — pulled from
+            <span class="source-pill" [title]="sourcePillTooltip()" [class.pill-ga4]="data()?.source === 'ga4'" [class.pill-cf]="data()?.source === 'cloudflare_zone_analytics'" [class.pill-estimate]="!data()?.source">
+              {{ sourcePillLabel() }}
+            </span>. Refreshes every 60 s.
           </p>
         </div>
         <div class="flex items-center gap-3 flex-wrap">
-          @if ((data()?.last_hour_visits ?? 0) > 0) {
-            <span class="pulse-dot" aria-label="Live"></span>
-            <span class="text-[0.72rem] text-emerald-400">{{ data()?.last_hour_visits }} in the last hour</span>
-          } @else {
-            <span class="text-[0.72rem] text-text-secondary">Quiet — no visits in the last hour</span>
-          }
           <!-- Refresh sits LEFT of the date range so the loading state doesn't shift the strip horizontally. Fixed-width wrapper keeps everything stable. -->
           <button class="btn-ghost refresh-btn" (click)="reload()" [disabled]="loading()" title="Refresh data">{{ loading() ? '…' : 'Refresh' }}</button>
           <div class="range-chip-strip">
@@ -49,65 +67,68 @@ interface Overview {
         </div>
       </header>
 
-      @if (cfStatus(); as cfs) {
-        <div class="card flex items-center justify-between gap-3 text-[0.74rem]" [style.border-color]="cfs.analytics_configured ? 'rgba(16,185,129,0.32)' : 'rgba(245,158,11,0.32)'" [style.background]="cfs.analytics_configured ? 'rgba(16,185,129,0.04)' : 'rgba(245,158,11,0.06)'">
-          <div class="flex items-center gap-2">
-            <span class="font-semibold" [style.color]="cfs.analytics_configured ? '#34d399' : '#fcd34d'">
-              {{ cfs.analytics_configured ? 'Cloudflare Analytics · Configured' : 'Cloudflare Analytics · Setup needed' }}
-            </span>
-            @if (cfs.account_id_masked) {
-              <span class="text-text-secondary">· account {{ cfs.account_id_masked }} · {{ cfs.auth_mode === 'scoped_token' ? 'scoped token' : 'global key' }}</span>
-            }
-          </div>
-          @if (!cfs.analytics_configured) {
-            <button class="btn-gradient" (click)="autoSetup()" [disabled]="settingUp()" title="Run Cloudflare auto-config now">{{ settingUp() ? 'Configuring…' : 'Auto-configure now' }}</button>
-          }
+      @if (!state.selectedSite()) {
+        <div class="card bg-amber-500/[0.06] border border-amber-500/30 text-[0.78rem]">
+          <strong class="text-amber-300">No site selected.</strong>
+          Pick a site from the sidebar — analytics are scoped per-site.
         </div>
-      }
-      @if (error() && !cfStatus()?.analytics_configured) {
+      } @else if (error()) {
         <div class="card bg-amber-500/[0.06] border border-amber-500/30 text-[0.78rem]">
           <strong class="text-amber-300">Analytics returned an error.</strong>
-          {{ error() }} — visits are still being recorded; once the worker has <code class="font-mono">CF_API_TOKEN</code> + the Analytics Engine SQL permission, this page will populate.
+          {{ error() }}
+        </div>
+      } @else if (data() && !data()?.source && stats().pageViews === 0 && (data()?.chartData?.length ?? 0) === 0) {
+        <div class="card bg-amber-500/[0.06] border border-amber-500/30 text-[0.78rem]">
+          <strong class="text-amber-300">Cloudflare zone analytics not configured for this site.</strong>
+          GA4 isn't connected either, so we're falling back to a D1 audit-log estimate (which is 0 today). Contact support to wire <code class="font-mono">CF_API_TOKEN</code> + <code class="font-mono">CF_ZONE_ID</code> on the production worker — or connect GA4 in Settings.
         </div>
       }
 
-      <div class="grid grid-cols-4 gap-3 max-md:grid-cols-2">
+      <div class="grid gap-3" [class.grid-cols-4]="data()?.source === 'ga4'" [class.grid-cols-2]="data()?.source !== 'ga4'" [class.max-md:grid-cols-2]="true">
         <div class="card kpi">
-          <div class="muted-h">Total visits (30d)</div>
-          <div class="text-3xl font-bold text-white mt-1">{{ data()?.total_visits ?? 0 }}</div>
-          <div class="text-[0.68rem] text-text-secondary mt-1">Across all admin pages for your org</div>
+          <div class="muted-h">Page views</div>
+          <div class="text-3xl font-bold text-white mt-1">{{ stats().pageViews }}</div>
+          <div class="text-[0.68rem] text-text-secondary mt-1">
+            @if (data()?.source === 'cloudflare_zone_analytics' && stats().totalRequests != null) {
+              of {{ stats().totalRequests }} requests
+            } @else {
+              In the selected period
+            }
+          </div>
         </div>
         <div class="card kpi">
-          <div class="muted-h">Last hour</div>
-          <div class="text-3xl font-bold text-white mt-1">{{ data()?.last_hour_visits ?? 0 }}</div>
-          <div class="text-[0.68rem] text-text-secondary mt-1">Rolling 60-minute window</div>
+          <div class="muted-h">Unique visitors</div>
+          <div class="text-3xl font-bold text-white mt-1">{{ stats().uniqueVisitors }}</div>
+          <div class="text-[0.68rem] text-text-secondary mt-1">Distinct IPs / users</div>
         </div>
-        <div class="card kpi">
-          <div class="muted-h">Top page</div>
-          <div class="text-base font-mono text-primary mt-2 truncate" [title]="data()?.top_routes?.[0]?.route_path">{{ data()?.top_routes?.[0]?.route_path || '—' }}</div>
-          <div class="text-[0.68rem] text-text-secondary mt-1">{{ data()?.top_routes?.[0]?.visits || 0 }} visits</div>
-        </div>
-        <div class="card kpi">
-          <div class="muted-h">Top country</div>
-          <div class="text-2xl font-bold text-white mt-2">{{ topCountry() || '—' }}</div>
-          <div class="text-[0.68rem] text-text-secondary mt-1">{{ topCountryVisits() }} visits</div>
-        </div>
+        @if (data()?.source === 'ga4') {
+          <div class="card kpi">
+            <div class="muted-h">Avg session</div>
+            <div class="text-3xl font-bold text-white mt-1">{{ stats().avgSessionDuration }}</div>
+            <div class="text-[0.68rem] text-text-secondary mt-1">GA4 engaged session</div>
+          </div>
+          <div class="card kpi">
+            <div class="muted-h">Bounce rate</div>
+            <div class="text-3xl font-bold text-white mt-1">{{ stats().bounceRate }}%</div>
+            <div class="text-[0.68rem] text-text-secondary mt-1">Single-page sessions</div>
+          </div>
+        }
       </div>
 
       <section class="card">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="section-h m-0 text-base font-semibold text-white">Daily visits</h3>
-          <span class="text-[0.7rem] text-text-secondary">{{ data()?.visits_by_day?.length || 0 }} days · peak {{ peakDayVisits() }}</span>
+          <h3 class="section-h m-0 text-base font-semibold text-white">Page views over time</h3>
+          <span class="text-[0.7rem] text-text-secondary">{{ data()?.chartData?.length || 0 }} days · peak {{ peakDayVisits() }}</span>
         </div>
         @if (loading() && !data()) {
           <div class="skeleton skeleton-chart" aria-hidden="true"></div>
-        } @else if ((data()?.visits_by_day?.length ?? 0) === 0) {
+        } @else if ((data()?.chartData?.length ?? 0) === 0) {
           <div class="empty-state" data-testid="analytics-empty">
             <svg class="empty-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/>
             </svg>
             <h4 class="empty-title">No traffic yet — share your site</h4>
-            <p class="empty-body">Once visitors arrive, daily visits and trend data will plot here in real time.</p>
+            <p class="empty-body">Once visitors arrive, page-view trend data will plot here in real time.</p>
             <button class="btn-gradient" type="button" (click)="copyShareLink()" title="Copy your live site URL">Copy share link</button>
           </div>
         } @else {
@@ -130,68 +151,31 @@ interface Overview {
       <div class="grid md:grid-cols-2 gap-4">
         <section class="card">
           <h3 class="m-0 text-base font-semibold text-white mb-3">Top pages</h3>
-          @if ((data()?.top_routes?.length ?? 0) === 0) {
+          @if ((data()?.topPages?.length ?? 0) === 0) {
             <p class="text-text-secondary text-sm">No visits recorded yet.</p>
           } @else {
-            @for (r of data()!.top_routes; track r.route_path) {
+            @for (r of data()!.topPages; track r.path) {
               <div class="bar-row">
                 <div class="flex justify-between mb-1">
-                  <span class="font-mono text-[0.72rem] truncate">{{ r.route_path }}</span>
-                  <span class="text-[0.7rem] text-text-secondary">{{ r.visits }}</span>
+                  <span class="font-mono text-[0.72rem] truncate">{{ r.path }}</span>
+                  <span class="text-[0.7rem] text-text-secondary">{{ r.views }}</span>
                 </div>
-                <div class="bar"><div class="bar-fill" [style.width.%]="barWidth(r.visits, maxRoute())"></div></div>
+                <div class="bar"><div class="bar-fill" [style.width.%]="barWidth(r.views, maxPage())"></div></div>
               </div>
             }
-          }
-        </section>
-
-        <section class="card">
-          <h3 class="m-0 text-base font-semibold text-white mb-3">Devices</h3>
-          @if ((data()?.ua_breakdown?.length ?? 0) === 0) {
-            <p class="text-text-secondary text-sm">No data.</p>
-          } @else {
-            @for (r of data()!.ua_breakdown; track r.user_agent_class) {
-              <div class="bar-row">
-                <div class="flex justify-between mb-1">
-                  <span class="capitalize text-[0.78rem]">{{ r.user_agent_class }}</span>
-                  <span class="text-[0.7rem] text-text-secondary">{{ r.visits }} · {{ pct(r.visits) }}%</span>
-                </div>
-                <div class="bar"><div class="bar-fill" [style.width.%]="pct(r.visits)"></div></div>
-              </div>
-            }
-          }
-        </section>
-      </div>
-
-      <div class="grid md:grid-cols-2 gap-4">
-        <section class="card">
-          <h3 class="m-0 text-base font-semibold text-white mb-3">Top referrers</h3>
-          @if ((data()?.top_referrers?.length ?? 0) === 0) {
-            <p class="text-text-secondary text-sm">No external referrers yet.</p>
-          } @else {
-            <table class="w-full text-[0.78rem]">
-              <tbody>
-                @for (r of data()!.top_referrers; track r.referrer) {
-                  <tr class="border-b border-white/[0.04]">
-                    <td class="p-1.5 font-mono text-[0.72rem]">{{ r.referrer === '-' ? 'direct / none' : r.referrer }}</td>
-                    <td class="p-1.5 text-right text-text-secondary">{{ r.visits }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
           }
         </section>
 
         <section class="card">
           <h3 class="m-0 text-base font-semibold text-white mb-3">Top countries</h3>
-          @if ((data()?.top_countries?.length ?? 0) === 0) {
+          @if ((data()?.topCountries?.length ?? 0) === 0) {
             <p class="text-text-secondary text-sm">No geo data yet.</p>
           } @else {
             <div class="grid grid-cols-2 gap-x-3 gap-y-1.5">
-              @for (r of data()!.top_countries; track r.country) {
+              @for (r of data()!.topCountries ?? []; track r.country) {
                 <div class="flex items-center justify-between border-b border-white/[0.04] py-1">
                   <span class="text-[0.78rem]">{{ flag(r.country) }} {{ r.country }}</span>
-                  <span class="text-[0.7rem] text-text-secondary">{{ r.visits }}</span>
+                  <span class="text-[0.7rem] text-text-secondary">{{ r.views }}</span>
                 </div>
               }
             </div>
@@ -199,8 +183,23 @@ interface Overview {
         </section>
       </div>
 
+      @if (data()?.source === 'ga4' && (data()?.trafficSources?.length ?? 0) > 0) {
+        <section class="card">
+          <h3 class="m-0 text-base font-semibold text-white mb-3">Traffic sources</h3>
+          @for (r of data()!.trafficSources; track r.name) {
+            <div class="bar-row">
+              <div class="flex justify-between mb-1">
+                <span class="text-[0.78rem]">{{ r.name }}</span>
+                <span class="text-[0.7rem] text-text-secondary">{{ r.percent }}%</span>
+              </div>
+              <div class="bar"><div class="bar-fill" [style.width.%]="r.percent"></div></div>
+            </div>
+          }
+        </section>
+      }
+
       <p class="text-[0.65rem] text-text-secondary/70 text-center">
-        Data point per visit · Workers Analytics Engine dataset <code class="font-mono">projectsites_admin_v1</code> · last refreshed {{ refreshedAt() | date:'medium' }}
+        Source: {{ sourcePillLabel() }} · {{ sourcePillTooltip() }} · last refreshed {{ refreshedAt() | date:'medium' }}
       </p>
     </div>
   `,
@@ -217,8 +216,6 @@ interface Overview {
     /* Fixed-width Refresh button so the date strip never shifts when label flips between "Refresh" and "…". */
     .refresh-btn { min-width: 78px; text-align: center; }
     .refresh-btn:disabled { opacity: 0.5; cursor: progress; }
-    .pulse-dot { width: 9px; height: 9px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 0 rgba(16,185,129,0.7); animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.7); } 70% { box-shadow: 0 0 0 8px rgba(16,185,129,0); } 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } }
     .bar-row { margin-bottom: 0.55rem; }
     .bar { height: 6px; background: rgba(255,255,255,0.05); border-radius: 999px; overflow: hidden; }
     .bar-fill { height: 100%; background: linear-gradient(90deg, #00E5FF, #7C3AED); transition: width 250ms ease; }
@@ -226,6 +223,10 @@ interface Overview {
     .range-chip { padding: 4px 10px; border-radius: 999px; background: transparent; border: 0; color: rgba(255,255,255,0.65); font-size: 0.7rem; font-weight: 600; cursor: pointer; }
     .range-chip.active { background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.18)); color: #00E5FF; }
     .sparkline path { transition: d 320ms ease; }
+    .source-pill { display: inline-flex; align-items: center; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle; cursor: help; }
+    .pill-ga4 { background: rgba(16,185,129,0.14); color: #34d399; border: 1px solid rgba(16,185,129,0.32); }
+    .pill-cf { background: rgba(247,127,0,0.14); color: #fb923c; border: 1px solid rgba(247,127,0,0.32); }
+    .pill-estimate { background: rgba(255,255,255,0.06); color: color-mix(in oklch, currentColor 70%, #f4f4ff 30%); border: 1px solid rgba(255,255,255,0.14); }
     .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2.4rem 1.2rem; gap: 0.6rem; }
     .empty-icon { color: rgba(0, 229, 255, 0.7); }
     .empty-title { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; font-size: 0.95rem; color: #fff; margin: 0.2rem 0 0; }
@@ -234,7 +235,7 @@ interface Overview {
     .skeleton-chart { height: 128px; width: 100%; }
     @keyframes skel-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
     @media (prefers-reduced-motion: reduce) {
-      .pulse-dot, .skeleton, .sparkline path, .btn-gradient { animation: none; transition: none; }
+      .skeleton, .sparkline path, .btn-gradient { animation: none; transition: none; }
     }
   `],
 })
@@ -243,48 +244,69 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
   private toast = inject(ToastService);
 
-  data = signal<Overview | null>(null);
+  /** Per-site analytics envelope from `GET /api/analytics/:siteId`. */
+  data = signal<AnalyticsData | null>(null);
   error = signal<string | null>(null);
   loading = signal(false);
   refreshedAt = signal<Date | null>(null);
-  cfStatus = signal<{
-    account_id_masked: string | null;
-    wfp_namespace_name: string | null;
-    analytics_configured: boolean;
-    wfp_configured: boolean;
-    auth_mode: 'scoped_token' | 'global_key' | 'none';
-    dispatch_binding_present: boolean;
-  } | null>(null);
-  settingUp = signal(false);
   private timer?: ReturnType<typeof setInterval>;
-  ranges = [
+  private lastSiteId: string | null = null;
+
+  /**
+   * 10-second timeout for the analytics fetch. The shared
+   * {@link ApiService} timeout is 30 s; we tighten it here per the
+   * dashboard UX spec — analytics should never make the operator wait
+   * for a hung fetch, since the page auto-refreshes every 60 s anyway.
+   */
+  private static readonly FETCH_TIMEOUT_MS = 10_000;
+
+  ranges: ReadonlyArray<{ id: RangeId; label: string }> = [
     { id: '1d', label: 'Today' },
     { id: '7d', label: '7 days' },
     { id: '30d', label: '30 days' },
     { id: '90d', label: '90 days' },
-  ] as const;
-  range = signal<'1d' | '7d' | '30d' | '90d'>(((): '1d' | '7d' | '30d' | '90d' => {
-    try { return (localStorage.getItem('ps_analytics_range') as '1d' | '7d' | '30d' | '90d') || '30d'; } catch { return '30d'; }
+  ];
+
+  range = signal<RangeId>(((): RangeId => {
+    try { return (localStorage.getItem('ps_analytics_range') as RangeId) || '30d'; } catch { return '30d'; }
   })());
 
-  setRange(id: '1d' | '7d' | '30d' | '90d'): void {
+  setRange(id: RangeId): void {
     this.range.set(id);
     try { localStorage.setItem('ps_analytics_range', id); } catch { /* */ }
     this.reload();
   }
+
+  /** Hostname displayed in the header — primary hostname if set, else the platform slug. */
+  selectedHost = computed<string>(() => {
+    const site = this.state.selectedSite();
+    if (!site) return '—';
+    return site.primary_hostname || `${site.slug}.projectsites.dev`;
+  });
+
+  stats = computed(() => this.data()?.stats ?? {
+    pageViews: 0, uniqueVisitors: 0, avgSessionDuration: '0s', bounceRate: 0,
+  });
+
+  sourcePillLabel = computed(() => sourceLabel(this.data()?.source));
+  sourcePillTooltip = computed(() => sourceTooltip(this.data()?.source));
 
   exportCsv(): void {
     const d = this.data();
     if (!d) return;
     const lines: string[] = [];
     lines.push('section,key,value');
-    lines.push(`summary,total_visits,${d.total_visits}`);
-    lines.push(`summary,last_hour_visits,${d.last_hour_visits}`);
-    for (const r of d.visits_by_day || []) lines.push(`by_day,${r.day},${r.visits}`);
-    for (const r of d.top_routes || []) lines.push(`top_route,${csv(r.route_path)},${r.visits}`);
-    for (const r of d.ua_breakdown || []) lines.push(`ua,${r.user_agent_class},${r.visits}`);
-    for (const r of d.top_referrers || []) lines.push(`referrer,${csv(r.referrer)},${r.visits}`);
-    for (const r of d.top_countries || []) lines.push(`country,${r.country},${r.visits}`);
+    lines.push(`summary,source,${d.source ?? 'audit_log_estimate'}`);
+    lines.push(`summary,page_views,${d.stats.pageViews}`);
+    lines.push(`summary,unique_visitors,${d.stats.uniqueVisitors}`);
+    if (d.source === 'ga4') {
+      lines.push(`summary,avg_session_duration,${d.stats.avgSessionDuration}`);
+      lines.push(`summary,bounce_rate,${d.stats.bounceRate}`);
+    }
+    for (const r of d.chartData || []) lines.push(`by_day,${r.date},${r.views}`);
+    for (const r of d.topPages || []) lines.push(`top_page,${csv(r.path)},${r.views}`);
+    for (const r of d.topCountries || []) lines.push(`country,${r.country},${r.views}`);
+    for (const r of d.trafficSources || []) lines.push(`traffic_source,${csv(r.name)},${r.percent}`);
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -315,17 +337,15 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     }
   }
 
-  topCountry = computed(() => this.data()?.top_countries?.[0]?.country ?? null);
-  topCountryVisits = computed(() => this.data()?.top_countries?.[0]?.visits ?? 0);
-  maxRoute = computed(() => Math.max(1, ...(this.data()?.top_routes ?? []).map((r) => r.visits)));
-  peakDayVisits = computed(() => Math.max(0, ...(this.data()?.visits_by_day ?? []).map((d) => d.visits)));
+  maxPage = computed(() => Math.max(1, ...(this.data()?.topPages ?? []).map((p) => p.views)));
+  peakDayVisits = computed(() => Math.max(0, ...(this.data()?.chartData ?? []).map((d) => d.views)));
 
   sparkPoints = computed<{ x: number; y: number }[]>(() => {
-    const days = this.data()?.visits_by_day ?? [];
+    const days = this.data()?.chartData ?? [];
     if (days.length === 0) return [];
-    const peak = Math.max(1, ...days.map((d) => d.visits));
+    const peak = Math.max(1, ...days.map((d) => d.views));
     const step = days.length > 1 ? 600 / (days.length - 1) : 0;
-    return days.map((d, i) => ({ x: i * step, y: 110 - (d.visits / peak) * 100 }));
+    return days.map((d, i) => ({ x: i * step, y: 110 - (d.views / peak) * 100 }));
   });
   sparkLine = computed(() => {
     const pts = this.sparkPoints();
@@ -342,8 +362,6 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   });
   sparkDots = computed(() => this.sparkPoints());
 
-  totalVisits(): number { return this.data()?.total_visits ?? 0; }
-  pct(visits: number): number { const t = this.totalVisits(); return t > 0 ? Math.round((visits / t) * 100) : 0; }
   barWidth(visits: number, max: number): number { return max > 0 ? (visits / max) * 100 : 0; }
   flag(code: string): string {
     if (!code || code === '-' || code.length !== 2) return '🌐';
@@ -354,42 +372,42 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.reload();
-    this.loadCfStatus();
-    this.timer = setInterval(() => this.reload(), 30000);
+    // Re-fetch every 60 s. The shared admin-state service ALSO polls analytics
+    // every 60 s and writes into `state.analytics`, but we keep our own timer
+    // so the range chips can change cadence without fighting global polling.
+    this.timer = setInterval(() => this.reload(), 60_000);
   }
   ngOnDestroy(): void { if (this.timer) clearInterval(this.timer); }
-  loadCfStatus(): void {
-    type CfStatus = NonNullable<ReturnType<typeof this.cfStatus>>;
-    this.api.get<{ data: CfStatus }>('/admin/cloudflare/status').subscribe({
-      next: (r) => this.cfStatus.set(r.data),
-      error: () => this.cfStatus.set(null),
-    });
-  }
-  autoSetup(): void {
-    this.settingUp.set(true);
-    this.api.post<{ data: { account_id_masked: string; wfp_namespace_name: string; note: string } }>('/admin/cloudflare/auto-setup', {}).subscribe({
-      next: (r) => {
-        this.settingUp.set(false);
-        this.loadCfStatus();
-        this.reload();
-        // eslint-disable-next-line no-console
-        console.warn('cloudflare auto-setup:', r.data?.note);
-      },
-      error: () => { this.settingUp.set(false); this.error.set('Auto-setup failed — check worker creds.'); },
-    });
-  }
 
   reload(): void {
+    const site = this.state.selectedSite();
+    if (!site) {
+      this.data.set(null);
+      this.error.set(null);
+      this.loading.set(false);
+      return;
+    }
+    // If the user switched sites, clear stale data so the previous site's
+    // numbers don't flash in for a frame before the new fetch lands.
+    if (this.lastSiteId !== site.id) {
+      this.data.set(null);
+      this.lastSiteId = site.id;
+    }
     this.loading.set(true);
-    this.api.get<{ data: Overview | null; error?: { message: string } }>('/analytics/overview', { range: this.range() }).subscribe({
+    const period = RANGE_DAYS[this.range()];
+    this.api.getAnalytics(site.id, period).pipe(
+      timeout(AdminAnalyticsComponent.FETCH_TIMEOUT_MS),
+      catchError((err: unknown) => {
+        const msg = err instanceof TimeoutError
+          ? 'Analytics request timed out after 10 s — retry, or check the worker logs.'
+          : 'Analytics endpoint returned an error.';
+        this.error.set(msg);
+        return of({ data: null as AnalyticsData | null });
+      }),
+    ).subscribe({
       next: (r) => {
         if (r.data) { this.data.set(r.data); this.error.set(null); }
-        else if (r.error?.message) this.error.set(r.error.message);
         this.refreshedAt.set(new Date());
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('Analytics endpoint returned an error');
         this.loading.set(false);
       },
     });

@@ -81,11 +81,32 @@ export const routes: Routes = [
           import('./pages/admin/sections/forms.component').then((m) => m.AdminFormsComponent),
       },
       {
-        // Interactive API explorer (OpenAPI 3.1 + Angular SPA overview).
-        // Lazy-loaded to keep the admin shell small — bundle target < 50 KB gzip.
+        // Interactive API explorer (OpenAPI 3.1). Shell hosts the left-rail
+        // endpoint nav + a `<router-outlet>`; per-endpoint detail is its own
+        // lazy chunk so the overview reader never pays for the Try-It UI.
         path: 'docs',
         loadComponent: () =>
           import('./pages/admin/sections/docs.component').then((m) => m.AdminDocsComponent),
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./pages/admin/sections/docs/docs-overview.component').then(
+                (m) => m.DocsOverviewComponent,
+              ),
+          },
+          {
+            // `/admin/docs/:endpointId` — `:endpointId` is the OpenAPI
+            // `operationId` (e.g. `get_api_auth_me`, `post_api_sites`). The
+            // child component looks the op up via `DocsSpecService.findById`
+            // and renders a 404 card if no match is found.
+            path: ':endpointId',
+            loadComponent: () =>
+              import('./pages/admin/sections/docs/docs-endpoint.component').then(
+                (m) => m.DocsEndpointComponent,
+              ),
+          },
+        ],
       },
       // ai-chat moved into Settings as a tab — keep redirect for old links.
       { path: 'ai-chat', redirectTo: 'settings#ai-chat', pathMatch: 'full' },

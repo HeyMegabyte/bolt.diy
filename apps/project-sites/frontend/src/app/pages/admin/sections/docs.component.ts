@@ -1,14 +1,17 @@
-import { Component, computed, HostListener, inject, signal, type OnInit } from '@angular/core';
+import { Component, Injectable, computed, inject, signal, type OnInit, type Signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
-import { AuthService } from '../../../services/auth.service';
-import { ToastService } from '../../../services/toast.service';
 
 /**
  * One operation in the OpenAPI document. Flattened from `paths[path][method]`
  * so the UI can sort + filter + group with a single `Array.prototype.filter`.
+ *
+ * Exported so the per-endpoint child route component can re-use the same
+ * shape — both the parent shell (left rail) and the child (detail card)
+ * read from the same spec source via {@link DocsSpecService}.
  */
-interface Operation {
+export interface Operation {
   /** Upper-case HTTP method (`GET`, `POST`, ...). */
   readonly method: string;
   /** OpenAPI-style path with `{param}` segments. */
@@ -17,7 +20,7 @@ interface Operation {
   readonly summary: string;
   /** First tag — used to group endpoints in the left rail. */
   readonly tag: string;
-  /** Stable operation id (e.g. `get_api_auth_me`) used as the React-key. */
+  /** Stable operation id (e.g. `get_api_auth_me`) used as the route param. */
   readonly operationId: string;
   /** `true` when the path declares `security: [{ bearerAuth: [] }]`. */
   readonly authRequired: boolean;
@@ -30,7 +33,7 @@ interface Operation {
 }
 
 /** Top-level OpenAPI spec shape we actually consume. */
-interface OpenApiSpec {
+export interface OpenApiSpec {
   readonly openapi: string;
   readonly info: { title: string; version: string; description?: string };
   readonly tags?: Array<{ name: string; description?: string }>;
@@ -47,44 +50,506 @@ interface RawOp {
   responses?: Record<string, { content?: { 'application/json'?: { example?: unknown } } }>;
 }
 
-/** Captured live response after the user clicks Send. */
-interface LiveResponse {
-  readonly status: number;
-  readonly statusText: string;
-  readonly headers: Record<string, string>;
-  readonly body: string;
-  readonly elapsedMs: number;
+/**
+ * Per-endpoint enrichment loaded over the top of the OpenAPI summary. Keyed by
+ * `${METHOD} ${path}` where path uses the OpenAPI `{param}` form. Anything not
+ * mapped here falls back to the spec-derived defaults.
+ *
+ * The map intentionally lives in the admin SPA (not the worker) because Brian
+ * wants the prose to evolve faster than the worker deploys — a typo fix here
+ * ships with the next R2 push, not the next `wrangler deploy`.
+ */
+export interface EndpointMeta {
+  /** One-paragraph human description — what it does, when to use. */
+  readonly description: string;
+  /** Optional override for the auth chip ("yes" / "no" / "optional"). */
+  readonly auth?: 'yes' | 'no' | 'optional';
+  /** Extra request headers beyond `Authorization` + `Content-Type`. */
+  readonly extraHeaders?: ReadonlyArray<{ name: string; value: string; note?: string }>;
+  /** Response shape — short JSON-looking string rendered in a `<pre>`. */
+  readonly responseShape?: string;
+  /** Error codes this endpoint specifically returns (in addition to the global set). */
+  readonly errorCodes?: ReadonlyArray<string>;
 }
 
-const SESSION_KEY = 'ps_docs_selected';
+/* eslint-disable max-len */
+export const ENDPOINT_META: Record<string, EndpointMeta> = {
+  // ─── auth ───
+  'GET /api/auth/me': {
+    description: 'Returns the currently signed-in user and the active session. Used by every admin page to hydrate the avatar, role chips, and feature-flag mask. Returns 401 when the bearer token is missing, expired, or revoked — clients should treat 401 here as "sign back in" not "retry".',
+    auth: 'yes',
+    responseShape: `{ "data": { "user": { "id": "uuid", "email": "string", "name": "string|null" }, "session": { "expires_at": "ISO-8601" } } }`,
+    errorCodes: ['UNAUTHORIZED'],
+  },
+  'POST /api/auth/magic-link': {
+    description: 'Send a magic-link email to the given address. The link resolves to `/api/auth/magic-link/verify?token=…` and is single-use, 15-minute TTL. Rate-limited to 3 requests per email per 10 minutes to prevent inbox flooding. Always returns 200 even when the email is unknown (to avoid account enumeration).',
+    auth: 'no',
+    responseShape: `{ "data": { "sent": true, "expires_in_seconds": 900 } }`,
+    errorCodes: ['BAD_REQUEST', 'RATE_LIMITED'],
+  },
+  'POST /api/auth/magic-link/verify': {
+    description: 'Programmatic magic-link verification — exchange a one-time `token` for a long-lived bearer session token. Use this from CLIs / mobile apps that intercept the email link out-of-band. Browsers should use the GET form, which sets the session cookie + redirects to the admin shell.',
+    auth: 'no',
+    responseShape: `{ "data": { "token": "hex-32", "user_id": "uuid", "expires_at": "ISO-8601" } }`,
+    errorCodes: ['UNAUTHORIZED', 'NOT_FOUND'],
+  },
+  'GET /api/auth/google': {
+    description: 'Start the Google OAuth 2.0 PKCE flow. Returns a 302 redirect to Google\'s consent screen with `code_challenge`, `state`, and the projectsites.dev callback URL pre-wired. The matching `state` is stored in D1 `oauth_states` for callback validation.',
+    auth: 'no',
+    responseShape: `302 redirect → https://accounts.google.com/o/oauth2/v2/auth?…`,
+    errorCodes: ['INTERNAL_ERROR'],
+  },
+  'GET /api/auth/google/callback': {
+    description: 'Google OAuth callback. Exchanges the `code` for an id_token, upserts the user, mints a session, sets the cookie, and redirects to `/admin` (or `?return_url=` if provided). Validates `state` against D1 — invalid state returns 400 instead of issuing a session.',
+    auth: 'no',
+    responseShape: `302 redirect → /admin (Set-Cookie: ps_session=…)`,
+    errorCodes: ['BAD_REQUEST', 'UNAUTHORIZED'],
+  },
+
+  // ─── sites ───
+  'GET /api/sites': {
+    description: 'List every site the signed-in user owns or has access to via their organization memberships. Includes status, slug, plan, primary hostname, and the latest workflow snapshot. Use this to power the admin sidebar site picker.',
+    auth: 'yes',
+    responseShape: `{ "data": Site[], "meta": { "total": 12 } }`,
+  },
+  'POST /api/sites': {
+    description: 'Create a new site row manually (most users go through `/api/sites/create-from-search` which also kicks the AI workflow). Provide `slug`, `name`, and optional `business_type`. The slug is validated for uniqueness — collisions return 409.',
+    auth: 'yes',
+    responseShape: `{ "data": { "id": "uuid", "slug": "string", "status": "draft" } }`,
+    errorCodes: ['CONFLICT', 'VALIDATION_ERROR'],
+  },
+  'GET /api/sites/{id}': {
+    description: 'Get one site by its UUID. Returns the full site row including research data, brand JSON, hostname list, and current workflow status. 404 when the site does not exist or the caller has no access (we return 404 instead of 403 to avoid leaking existence).',
+    auth: 'yes',
+    responseShape: `{ "data": Site }`,
+    errorCodes: ['NOT_FOUND'],
+  },
+  'POST /api/sites/{id}/reset': {
+    description: 'Wipe the generated assets in R2 and trigger a full rebuild from scratch. Useful when research drifted or when the user re-uploaded brand assets after the first build. Does NOT delete snapshots — those are immutable per the snapshot contract.',
+    auth: 'yes',
+    responseShape: `{ "data": { "workflow_id": "uuid", "started_at": "ISO-8601" } }`,
+    errorCodes: ['NOT_FOUND', 'CONFLICT'],
+  },
+  'POST /api/sites/{id}/deploy': {
+    description: 'Deploy a pre-built ZIP straight to R2 — bypasses the AI workflow. Body is `multipart/form-data` with a `zip` file part. Used by the bolt editor "Publish" button and by CI pipelines uploading externally-built artifacts.',
+    auth: 'yes',
+    extraHeaders: [{ name: 'Content-Type', value: 'multipart/form-data', note: 'overrides default' }],
+    responseShape: `{ "data": { "deployed_at": "ISO-8601", "files": 47 } }`,
+    errorCodes: ['PAYLOAD_TOO_LARGE', 'NOT_FOUND'],
+  },
+  'POST /api/sites/{id}/publish-bolt': {
+    description: 'Receive a bolt.diy editor PostMessage payload (`PS_FILES_READY`) and persist the file tree to R2 under the site\'s slug. Diffs against the previous version, snapshots the prior build, and purges the CDN for the affected paths.',
+    auth: 'yes',
+    responseShape: `{ "data": { "snapshot_id": "uuid", "files_changed": 12 } }`,
+  },
+  'GET /api/sites/{id}/logs': {
+    description: 'Return the append-only audit log filtered to a single site. Includes deploys, hostname changes, billing events, AI workflow steps, and user-attribution metadata. Paginate with `?limit` + `?offset`.',
+    auth: 'yes',
+    responseShape: `{ "data": AuditLog[], "meta": { "limit": 50, "offset": 0, "total": 213 } }`,
+  },
+  'GET /api/sites/{id}/workflow': {
+    description: 'Get the current Cloudflare Workflow status for a site build — phase, step, retries, elapsed wall-clock, and the partial research JSON. Frontend polls this on the waiting screen and shows the inline progress meter on `/admin/editor`.',
+    auth: 'yes',
+    responseShape: `{ "data": { "id": "uuid", "status": "running|complete|errored", "step": "container-build", "progress": 0.72 } }`,
+  },
+  'DELETE /api/sites/{id}': {
+    description: 'Soft-delete a site (sets `deleted_at`). The R2 assets are retained for 30 days then garbage-collected by the nightly cron. Hostnames are released back to the pool immediately.',
+    auth: 'yes',
+    responseShape: `{ "data": { "deleted_at": "ISO-8601" } }`,
+    errorCodes: ['NOT_FOUND'],
+  },
+
+  // ─── snapshots ───
+  'GET /api/sites/{siteId}/snapshots': {
+    description: 'List every snapshot for a site, newest first. Each snapshot is an immutable point-in-time copy of the file tree in R2, accessible at `{slug}-{snapshot_name}.projectsites.dev`. The first snapshot of every site is auto-named `initial`; later ones are AI-named from the diff.',
+    auth: 'yes',
+    responseShape: `{ "data": Snapshot[], "meta": { "total": 8 } }`,
+  },
+  'POST /api/sites/{siteId}/snapshots': {
+    description: 'Freeze the current site state as a new snapshot. Idempotent against `Idempotency-Key` for 24h. The snapshot inherits the current primary hostname mapping but lives at its own subdomain forever.',
+    auth: 'yes',
+    extraHeaders: [{ name: 'Idempotency-Key', value: 'uuid', note: 'optional but recommended' }],
+    responseShape: `{ "data": { "id": "uuid", "name": "string", "created_at": "ISO-8601" } }`,
+  },
+  'POST /api/sites/{siteId}/snapshots/revert': {
+    description: 'Promote a snapshot back to the live site — copies its file tree over the current R2 prefix and purges the CDN. The previous live state is itself snapshotted first, so revert is always reversible.',
+    auth: 'yes',
+    responseShape: `{ "data": { "previous_snapshot_id": "uuid", "reverted_to": "uuid" } }`,
+    errorCodes: ['NOT_FOUND'],
+  },
+
+  // ─── hostnames ───
+  'GET /api/sites/{siteId}/hostnames': {
+    description: 'List every custom hostname attached to a site, plus the default `{slug}.projectsites.dev`. Includes Cloudflare-for-SaaS verification status (`pending|active|moved`) and SSL state.',
+    auth: 'yes',
+    responseShape: `{ "data": Hostname[] }`,
+  },
+  'POST /api/sites/{siteId}/hostnames': {
+    description: 'Provision a custom hostname via Cloudflare for SaaS. Returns the CNAME target the user must add at their DNS provider. SSL is issued automatically once the CNAME resolves; status flips from `pending` to `active`.',
+    auth: 'yes',
+    responseShape: `{ "data": { "id": "uuid", "hostname": "www.example.com", "cname_target": "cname.projectsites.dev", "status": "pending" } }`,
+    errorCodes: ['CONFLICT', 'DOMAIN_PROVISIONING_ERROR'],
+  },
+  'PUT /api/sites/{siteId}/hostnames/{hostnameId}/primary': {
+    description: 'Mark a hostname as the canonical one. The canonical hostname is used for sitemap.xml URLs, OG meta `og:url`, and the `<link rel="canonical">` tag injected into every rendered page.',
+    auth: 'yes',
+    responseShape: `{ "data": { "primary_hostname_id": "uuid" } }`,
+  },
+
+  // ─── billing ───
+  'POST /api/billing/checkout': {
+    description: 'Create a Stripe Checkout session (hosted page). Body takes `price_id` plus optional `success_url` / `cancel_url`. Returns the Stripe-hosted URL the client should redirect to. We webhook back to `/webhooks/stripe` for entitlement updates.',
+    auth: 'yes',
+    responseShape: `{ "data": { "url": "https://checkout.stripe.com/c/pay/cs_…", "session_id": "cs_…" } }`,
+    errorCodes: ['STRIPE_ERROR'],
+  },
+  'POST /api/billing/embedded-checkout': {
+    description: 'Like `/checkout` but returns a `client_secret` for the Stripe.js Embedded Checkout component — used by the in-product paywall modal so users never leave projectsites.dev.',
+    auth: 'yes',
+    responseShape: `{ "data": { "client_secret": "cs_…_secret_…" } }`,
+    errorCodes: ['STRIPE_ERROR'],
+  },
+  'GET /api/billing/subscription': {
+    description: 'Current Stripe subscription state for the user\'s active org. Includes plan, status (`active|past_due|canceled`), `current_period_end`, and trial info. Returns `{ data: null }` when the user is on the free tier.',
+    auth: 'yes',
+    responseShape: `{ "data": { "plan": "pro", "status": "active", "current_period_end": "ISO-8601" } | null }`,
+  },
+  'POST /api/billing/portal': {
+    description: 'Create a Stripe Customer Portal session — the user can update payment methods, view invoices, and cancel from a Stripe-hosted page. Returns the portal URL.',
+    auth: 'yes',
+    responseShape: `{ "data": { "url": "https://billing.stripe.com/p/session/…" } }`,
+    errorCodes: ['STRIPE_ERROR'],
+  },
+  'GET /api/billing/entitlements': {
+    description: 'Resolve the user\'s plan to a flat entitlement object — `{ ai_endpoints: 100, custom_domains: 5, snapshots: unlimited, … }`. Cached per session for 60s. The frontend gates feature buttons against this map.',
+    auth: 'yes',
+    responseShape: `{ "data": { "ai_endpoints": 100, "custom_domains": 5, "snapshots": "unlimited" } }`,
+  },
+
+  // ─── analytics ───
+  'GET /api/analytics/{siteId}': {
+    description: 'Pull aggregated visit + funnel metrics for a site from Workers Analytics Engine. Query `?period=24h|7d|30d|90d`. Returns time-bucketed counters for pageviews, unique visitors, and the configured funnel events (form submits, donation clicks, booking starts).',
+    auth: 'yes',
+    extraHeaders: [{ name: 'X-Period', value: '7d', note: 'or pass as ?period query string' }],
+    responseShape: `{ "data": { "pageviews": [{ "ts": "ISO-8601", "n": 142 }], "visitors": [...], "events": {...} } }`,
+  },
+
+  // ─── audit logs ───
+  'GET /api/audit-logs': {
+    description: 'Org-scoped audit log feed. Filter via `?action=site.deploy|hostname.add|…` and `?site_slug=…`. Paginate with `?limit&offset`. Includes who, what, when, request_id, and the diff payload for change events.',
+    auth: 'yes',
+    responseShape: `{ "data": AuditEntry[], "meta": { "total": 4213, "limit": 50, "offset": 0 } }`,
+  },
+
+  // ─── forms ───
+  'POST /api/v1/forms/submit': {
+    description: 'Public form ingest. Called from every generated site\'s contact / donation / signup form. Validates the Turnstile token, dedupes by `email + form_id` within 30s, persists to D1, and fans out to the site\'s configured channels (email via Resend, webhook, MCP). NO auth header — Turnstile is the abuse gate.',
+    auth: 'no',
+    extraHeaders: [
+      { name: 'CF-Turnstile-Token', value: 'string', note: 'required — invisible Turnstile token' },
+      { name: 'Origin', value: 'https://{slug}.projectsites.dev', note: 'validated against site\'s allowed origins' },
+    ],
+    responseShape: `{ "data": { "submission_id": "uuid", "queued_for_delivery": true } }`,
+    errorCodes: ['BAD_REQUEST', 'RATE_LIMITED', 'VALIDATION_ERROR'],
+  },
+  'GET /api/sites/{id}/form-submissions': {
+    description: 'List form submissions for a site — newest first, paginated. Each entry includes the raw payload, the form_id, the AI-extracted summary (if `ai_routing` is enabled), and the delivery status per channel.',
+    auth: 'yes',
+    responseShape: `{ "data": FormSubmission[], "meta": { "total": 218 } }`,
+  },
+
+  // ─── ai endpoints ───
+  'GET /api/sites/{siteId}/ai-endpoints': {
+    description: 'List custom AI endpoints attached to a site. Each endpoint maps an input schema to a prompt template + model, exposing a single callable URL at `{slug}.projectsites.dev/api/ai/{endpoint_slug}` for the site\'s own frontend.',
+    auth: 'yes',
+    responseShape: `{ "data": AiEndpoint[] }`,
+  },
+  'POST /api/sites/{siteId}/ai-endpoints': {
+    description: 'Create a new AI endpoint. Body takes `name`, `slug`, `system_prompt`, `input_schema` (Zod-JSON), `model` (`claude-sonnet-4-6` | `claude-haiku-4-5` | `gpt-4o-mini`), and optional `rate_limit_per_min`. Returns the new endpoint with its public invoke URL.',
+    auth: 'yes',
+    responseShape: `{ "data": { "id": "uuid", "slug": "summarize-review", "invoke_url": "https://{slug}.projectsites.dev/api/ai/summarize-review" } }`,
+    errorCodes: ['CONFLICT', 'VALIDATION_ERROR'],
+  },
+  'PUT /api/sites/{siteId}/ai-endpoints/{endpointId}': {
+    description: 'Update an existing AI endpoint — prompt, schema, model, or rate limit. The slug is immutable; rename means creating a new endpoint + deleting the old one. Versioned: every update creates an audit-log entry with the prompt diff.',
+    auth: 'yes',
+    responseShape: `{ "data": AiEndpoint }`,
+  },
+  'DELETE /api/sites/{siteId}/ai-endpoints/{endpointId}': {
+    description: 'Permanently delete an AI endpoint. The public invoke URL starts returning 404 immediately. Past invocations remain in the log table for 90 days.',
+    auth: 'yes',
+    responseShape: `{ "data": { "deleted_at": "ISO-8601" } }`,
+    errorCodes: ['NOT_FOUND'],
+  },
+  'POST /api/sites/{siteId}/ai-endpoints/{endpointId}/invoke': {
+    description: 'Server-side test invocation — runs the endpoint against a JSON input from inside the admin without leaving the dashboard. Returns the model output plus token usage + estimated cost. Useful for prompt tuning before exposing the public URL.',
+    auth: 'yes',
+    responseShape: `{ "data": { "output": "string|object", "tokens": { "input": 240, "output": 89 }, "cost_usd": 0.0021 } }`,
+    errorCodes: ['AI_GENERATION_ERROR'],
+  },
+
+  // ─── mcp ───
+  'GET /api/mcp/{provider}/connect': {
+    description: 'Start OAuth flow for an MCP provider (mailchimp | stripe | hubspot | github | slack | notion | linear | discord | google-calendar | calendly). Returns a 302 to the provider\'s authorize URL. When the provider has no OAuth client configured, returns `501 oauth_not_configured` so the UI can render a paste-key fallback.',
+    auth: 'yes',
+    responseShape: `302 redirect → provider authorize URL`,
+    errorCodes: ['BAD_REQUEST'],
+  },
+  'GET /api/mcp/{provider}/callback': {
+    description: 'OAuth callback for an MCP provider. Exchanges the code for tokens, encrypts at rest, and upserts the connection in `mcp_connections`. Redirects to `/admin/settings#mcp` on success.',
+    auth: 'no',
+    responseShape: `302 redirect → /admin/settings#mcp`,
+    errorCodes: ['BAD_REQUEST', 'UNAUTHORIZED'],
+  },
+  'POST /api/mcp/{provider}/paste': {
+    description: 'Paste-key fallback for MCP providers without OAuth (Resend, generic webhooks). Body takes the raw API key + provider-specific config. Encrypted with AES-256-GCM before D1 write.',
+    auth: 'yes',
+    responseShape: `{ "data": { "connection_id": "uuid", "provider": "resend" } }`,
+    errorCodes: ['VALIDATION_ERROR'],
+  },
+
+  // ─── search ───
+  'GET /api/search/businesses': {
+    description: 'Google Places proxy — searches for businesses by name + optional `?location=`. Caps results at 10. Cached for 24h per query. No auth required — this powers the homepage search box for un-signed-in visitors.',
+    auth: 'no',
+    responseShape: `{ "data": Business[], "meta": { "cached": true, "ttl_remaining_s": 79213 } }`,
+  },
+  'GET /api/search/address': {
+    description: 'Google Places address autocomplete proxy. Returns up to 5 predictions. Used in the create-from-search wizard\'s address field.',
+    auth: 'no',
+    responseShape: `{ "data": [{ "place_id": "string", "description": "123 Main St, Newark NJ" }] }`,
+  },
+  'GET /api/sites/search': {
+    description: 'Search projectsites.dev for already-built sites by name or slug. Powers "the customer is already on our platform" detection on the homepage. SQL LIKE under the hood — case-insensitive.',
+    auth: 'no',
+    responseShape: `{ "data": Site[] }`,
+  },
+};
+/* eslint-enable max-len */
+
+/** Tooltip copy for the standard error envelope codes. */
+export const ERROR_CODE_BLURBS: Record<string, string> = {
+  BAD_REQUEST: 'Malformed JSON, missing required field, or invalid query param.',
+  UNAUTHORIZED: 'No bearer token, expired token, or revoked session.',
+  FORBIDDEN: 'Authenticated but not allowed (wrong org, wrong plan, RBAC denied).',
+  NOT_FOUND: 'Entity does not exist or you do not have access to it.',
+  CONFLICT: 'Duplicate slug, duplicate hostname, or violating a uniqueness constraint.',
+  PAYLOAD_TOO_LARGE: 'Body exceeded the 256 KB request-size cap (file uploads use a separate route).',
+  RATE_LIMITED: 'Over 60 req/min on this token — honor the Retry-After header.',
+  VALIDATION_ERROR: 'Zod validation failed — check the details[] array in the response.',
+  INTERNAL_ERROR: 'Server crashed. Quote the request_id when filing a bug.',
+  WEBHOOK_SIGNATURE_INVALID: 'Stripe webhook signature did not match the configured secret.',
+  WEBHOOK_DUPLICATE: 'Event already processed (idempotent replay).',
+  STRIPE_ERROR: 'Stripe API rejected the call. The Stripe error code is in details.',
+  DOMAIN_PROVISIONING_ERROR: 'Cloudflare for SaaS rejected the hostname (invalid, restricted, or quota).',
+  AI_GENERATION_ERROR: 'Model call failed — timeout, rate limit, or invalid output schema.',
+};
 
 /**
- * Admin → Docs → interactive API explorer.
+ * Build a minimal example object from a JSON schema. Recursive — handles
+ * `object|array|string|number|boolean` and respects `example` when set.
+ */
+export function buildExampleFromSchema(schema: unknown): unknown {
+  if (typeof schema !== 'object' || schema === null) return null;
+  const s = schema as { type?: string; properties?: Record<string, unknown>; items?: unknown; example?: unknown };
+  if (s.example !== undefined) return s.example;
+  if (s.type === 'object' && s.properties) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(s.properties)) {
+      out[k] = buildExampleFromSchema(v);
+    }
+    return out;
+  }
+  if (s.type === 'array') return [buildExampleFromSchema(s.items ?? {})];
+  if (s.type === 'string') return '';
+  if (s.type === 'number') return 0;
+  if (s.type === 'boolean') return false;
+  return null;
+}
+
+/**
+ * Hand-rolled JSON tokenizer → HTML. Tokens: keys (amber), strings (green),
+ * numbers (cyan), booleans (violet), null (grey), punctuation (faint white).
  *
- * Three panes:
+ * Operates on the already-pretty-printed output of `JSON.stringify(_, null, 2)`,
+ * so input is trusted-formatted but still HTML-escaped defensively.
+ */
+export function highlightJson(src: string): string {
+  const escape = (s: string): string =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return escape(src).replace(
+    /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|([{}[\],])/g,
+    (_match, str?: string, colon?: string, bool?: string, num?: string, pun?: string) => {
+      if (str) {
+        return colon
+          ? `<span class="tk-key">${str}</span><span class="tk-pun">${colon}</span>`
+          : `<span class="tk-str">${str}</span>`;
+      }
+      if (bool) return bool === 'null' ? `<span class="tk-null">${bool}</span>` : `<span class="tk-bool">${bool}</span>`;
+      if (num) return `<span class="tk-num">${num}</span>`;
+      if (pun) return `<span class="tk-pun">${pun}</span>`;
+      return _match as string;
+    },
+  );
+}
+
+/**
+ * Minimal markdown → HTML renderer. Supports headings (#–###), fenced code
+ * blocks, inline code, unordered lists, links, bold/italic, and paragraphs.
  *
- *   - **Left rail** — collapsible groups by tag, search box filters by
- *     `path|summary|method`.
- *   - **Right pane** — Overview tab (markdown) OR a selected endpoint's
- *     docs (summary, params, schemas, examples) PLUS a Try-It panel that
- *     issues live calls with the user's session token.
- *   - **Live response tabset** — pretty-printed JSON body, raw headers, and a
- *     copyable cURL snippet.
+ * Kept tiny (~40 lines) so the lazy chunks stay below the 50 KB gzip budget
+ * imposed on `/admin/docs/*`.
+ */
+export function renderMarkdown(md: string): string {
+  const escapeHtml = (s: string): string =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const fences: string[] = [];
+  let src = md.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, _lang, code) => {
+    const id = fences.length;
+    const raw = escapeHtml(code as string);
+    fences.push(
+      `<pre><button type="button" class="copy-code-btn" aria-label="Copy code">Copy</button><code>${raw}</code></pre>`,
+    );
+    return ` FENCE${id} `;
+  });
+
+  const blocks = src.split(/\n{2,}/).map((blk) => blk.trim()).filter(Boolean);
+
+  const html = blocks.map((blk) => {
+    if (/^ FENCE\d+ $/.test(blk)) {
+      const idx = Number(blk.match(/\d+/)?.[0] ?? '0');
+      return fences[idx] ?? '';
+    }
+    if (blk.startsWith('### ')) return `<h3>${inline(blk.slice(4))}</h3>`;
+    if (blk.startsWith('## ')) return `<h2>${inline(blk.slice(3))}</h2>`;
+    if (blk.startsWith('# ')) return `<h1>${inline(blk.slice(2))}</h1>`;
+    if (/^[-*]\s/.test(blk)) {
+      const items = blk
+        .split('\n')
+        .map((ln) => ln.replace(/^[-*]\s+/, '').trim())
+        .filter(Boolean)
+        .map((it) => `<li>${inline(it)}</li>`)
+        .join('');
+      return `<ul>${items}</ul>`;
+    }
+    return `<p>${inline(blk)}</p>`;
+  }).join('\n');
+
+  return html;
+
+  function inline(text: string): string {
+    return escapeHtml(text)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label: string, href: string) =>
+        `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`);
+  }
+}
+
+/**
+ * Singleton-style spec holder. The shell loads the spec once and the
+ * per-endpoint child reads from the same signal — no double-fetch when the
+ * user opens an endpoint URL directly.
  *
- * The component never bundles `swagger-ui-dist` or a markdown library — both
- * are hand-rolled to keep the lazy chunk small (< 50 KB gzip target).
+ * Provided at component level (in {@link AdminDocsComponent}) so it survives
+ * navigation between the overview and endpoint children but resets when the
+ * user leaves `/admin/docs/*` entirely.
+ */
+@Injectable()
+export class DocsSpecService {
+  private api = inject(ApiService);
+
+  private readonly _spec = signal<OpenApiSpec | null>(null);
+  private readonly _loading = signal<boolean>(false);
+  private readonly _error = signal<string | null>(null);
+
+  readonly spec: Signal<OpenApiSpec | null> = this._spec.asReadonly();
+  readonly loading: Signal<boolean> = this._loading.asReadonly();
+  readonly error: Signal<string | null> = this._error.asReadonly();
+
+  /** Flattened operation list — derived from the OpenAPI doc. */
+  readonly operations: Signal<Operation[]> = computed(() => {
+    const s = this._spec();
+    if (!s) return [];
+    const out: Operation[] = [];
+    for (const [path, methods] of Object.entries(s.paths)) {
+      for (const [method, opRaw] of Object.entries(methods)) {
+        if (typeof opRaw !== 'object' || opRaw === null) continue;
+        const op = opRaw as RawOp;
+        const tags = op.tags ?? ['other'];
+        const respExample = op.responses?.['200']?.content?.['application/json']?.example;
+        out.push({
+          method: method.toUpperCase(),
+          path,
+          summary: op.summary ?? `${method.toUpperCase()} ${path}`,
+          tag: tags[0] ?? 'other',
+          operationId: op.operationId ?? `${method}_${path}`,
+          authRequired: Array.isArray(op.security) && op.security.length > 0,
+          parameters: op.parameters ?? [],
+          requestBody: op.requestBody?.content?.['application/json']?.schema,
+          responseExample: respExample,
+        });
+      }
+    }
+    return out.sort((a, b) => (a.tag === b.tag ? a.path.localeCompare(b.path) : a.tag.localeCompare(b.tag)));
+  });
+
+  /**
+   * Load the OpenAPI spec from the worker. Safe to call multiple times —
+   * subsequent calls re-fetch and refresh the signal.
+   */
+  load(): void {
+    this._loading.set(true);
+    this._error.set(null);
+    this.api.get<OpenApiSpec>('/admin/docs/openapi.json').subscribe({
+      next: (s) => {
+        this._spec.set(s);
+        this._loading.set(false);
+      },
+      error: (err: unknown) => {
+        this._error.set(err instanceof Error ? err.message : 'Failed to load OpenAPI spec');
+        this._loading.set(false);
+      },
+    });
+  }
+
+  /** Lookup an operation by its stable `operationId`. Returns null when missing. */
+  findById(id: string | null | undefined): Operation | null {
+    if (!id) return null;
+    return this.operations().find((o) => o.operationId === id) ?? null;
+  }
+}
+
+/**
+ * Admin → Docs SHELL. Renders the header + left rail (search + grouped
+ * endpoint list) and a `<router-outlet>` that hosts the per-route children:
+ *
+ *   - `/admin/docs`               → `DocsOverviewComponent`
+ *   - `/admin/docs/:endpointId`   → `DocsEndpointComponent`
+ *
+ * The shell owns the OpenAPI spec via {@link DocsSpecService} (component
+ * provider) so children read from a single shared source — no double-fetch.
  *
  * @example
  * ```ts
- * // wire-up lives in app.routes.ts:
- * { path: 'docs', loadComponent: () =>
- *   import('./pages/admin/sections/docs.component').then((m) => m.AdminDocsComponent) }
+ * // app.routes.ts
+ * {
+ *   path: 'docs',
+ *   loadComponent: () => import('./pages/admin/sections/docs.component').then((m) => m.AdminDocsComponent),
+ *   children: [
+ *     { path: '', loadComponent: () => import('./sections/docs/docs-overview.component').then((m) => m.DocsOverviewComponent) },
+ *     { path: ':endpointId', loadComponent: () => import('./sections/docs/docs-endpoint.component').then((m) => m.DocsEndpointComponent) },
+ *   ],
+ * }
  * ```
  */
 @Component({
   selector: 'app-admin-docs',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterOutlet, RouterLink, RouterLinkActive],
+  providers: [DocsSpecService],
   template: `
     <div class="docs-root p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4">
       <header class="docs-header">
@@ -97,7 +562,7 @@ const SESSION_KEY = 'ps_docs_selected';
               </svg>
             </span>
             <span class="docs-title-text">API Docs</span>
-            @if (spec(); as s) {
+            @if (specService.spec(); as s) {
               <span class="docs-version-chip" title="OpenAPI version">v{{ s.info.version }}</span>
             }
           </h2>
@@ -105,36 +570,28 @@ const SESSION_KEY = 'ps_docs_selected';
             Interactive explorer. Every call uses your signed-in session — try any endpoint, inspect the live JSON, copy a cURL.
           </p>
         </div>
-        <div class="docs-tabs" role="tablist" aria-label="Docs sections">
-          <button
-            role="tab"
+        <div class="docs-header-actions">
+          <a
             class="docs-tab"
-            [class.is-active]="tab() === 'overview'"
-            [attr.aria-selected]="tab() === 'overview'"
-            (click)="setTab('overview')"
-            title="App overview + route tree"
-          >Overview</button>
-          <button
-            role="tab"
-            class="docs-tab"
-            [class.is-active]="tab() === 'endpoints'"
-            [attr.aria-selected]="tab() === 'endpoints'"
-            (click)="setTab('endpoints')"
-            title="Live API explorer"
-          >Endpoints</button>
-          <button class="btn-ghost docs-refresh" (click)="reload()" [disabled]="loading()" title="Re-fetch spec">
+            routerLink="/admin/docs"
+            routerLinkActive="is-active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            title="API overview"
+            data-testid="docs-overview-link"
+          >Overview</a>
+          <button class="btn-ghost docs-refresh" (click)="specService.load()" [disabled]="specService.loading()" title="Re-fetch spec">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="23 4 23 10 17 10"/>
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
             </svg>
-            {{ loading() ? '…' : 'Refresh' }}
+            {{ specService.loading() ? '…' : 'Refresh' }}
           </button>
         </div>
       </header>
 
       <div class="docs-divider" aria-hidden="true"></div>
 
-      @if (loading() && !spec()) {
+      @if (specService.loading() && !specService.spec()) {
         <div class="card docs-loading">
           <span class="glow-skel" style="width:140px;height:14px;">loading</span>
           <span class="glow-skel" style="width:90px;height:14px;">loading</span>
@@ -142,244 +599,83 @@ const SESSION_KEY = 'ps_docs_selected';
         </div>
       }
 
-      @if (error()) {
+      @if (specService.error()) {
         <div class="card docs-error">
           <strong class="text-amber-300">Could not load the docs.</strong>
-          <span>{{ error() }}</span>
+          <span>{{ specService.error() }}</span>
         </div>
       }
 
-      @if (tab() === 'overview' && overviewHtml()) {
-        <div class="prose-docs-wrap">
-          <article class="card prose-docs" (click)="onOverviewClick($event)" [innerHTML]="overviewHtml()"></article>
-        </div>
-      }
-
-      @if (tab() === 'endpoints' && spec()) {
-        <div class="docs-explorer">
-          <!-- ─── Left rail ─── -->
-          <aside class="docs-rail card" aria-label="Endpoint list">
-            <div class="docs-search">
-              <svg class="docs-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <input
-                type="text"
-                class="input-field docs-search-input"
-                placeholder="Filter by path, method or tag…"
-                [ngModel]="search()"
-                (ngModelChange)="search.set($event)"
-                aria-label="Filter endpoints"
-                data-testid="docs-search"
-              />
-              <kbd class="docs-kbd-hint" aria-hidden="true">⌘K</kbd>
-            </div>
-            <div class="docs-rail-meta">
-              <span>{{ filteredOperations().length }} endpoint{{ filteredOperations().length === 1 ? '' : 's' }}</span>
-              <span class="docs-rail-meta-dot" aria-hidden="true">·</span>
-              <span>{{ groupedOperations().length }} group{{ groupedOperations().length === 1 ? '' : 's' }}</span>
-            </div>
-            <nav class="docs-groups" aria-label="Endpoint groups">
-              @for (group of groupedOperations(); track group.tag) {
-                <details class="docs-group" [open]="group.open">
-                  <summary class="docs-group-head">
-                    <svg class="docs-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <polyline points="9 18 15 12 9 6"/>
-                    </svg>
-                    <span class="docs-group-name">{{ group.tag }}</span>
-                    <span class="docs-group-count">{{ group.items.length }}</span>
-                  </summary>
-                  <div class="docs-group-items">
-                    @for (op of group.items; track op.operationId) {
-                      <button
-                        class="endpoint-row"
-                        [class.is-active]="selectedId() === op.operationId"
-                        [attr.aria-current]="selectedId() === op.operationId ? 'page' : null"
-                        data-testid="endpoint-row"
-                        (click)="select(op)"
-                        [title]="op.method + ' ' + op.path"
-                      >
-                        <span class="method method-{{ op.method.toLowerCase() }}">{{ op.method }}</span>
-                        <span class="path">{{ op.path }}</span>
-                      </button>
-                    }
-                  </div>
-                </details>
-              }
-              @if (groupedOperations().length === 0) {
-                <div class="docs-rail-empty">No endpoints match “{{ search() }}”.</div>
-              }
-            </nav>
-          </aside>
-
-          <!-- ─── Right pane ─── -->
-          <section class="docs-detail card" aria-label="Endpoint detail">
-            @if (selected(); as op) {
-              <header class="docs-op-head">
-                <div class="docs-op-head-row">
-                  <span class="method method-{{ op.method.toLowerCase() }} method-lg">{{ op.method }}</span>
-                  <code class="docs-op-path">{{ op.path }}</code>
-                  @if (op.authRequired) {
-                    <span class="docs-auth-chip" title="Requires Bearer token">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                      </svg>
-                      auth
-                    </span>
+      <div class="docs-explorer">
+        <!-- ─── Left rail nav: search + grouped endpoint list ─── -->
+        <aside class="docs-rail card" aria-label="Endpoint list">
+          <div class="docs-search">
+            <svg class="docs-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input
+              type="text"
+              class="input-field docs-search-input"
+              placeholder="Filter by path, method or tag…"
+              [ngModel]="endpointSearchQuery()"
+              (ngModelChange)="endpointSearchQuery.set($event)"
+              aria-label="Filter endpoints"
+              data-testid="docs-search"
+            />
+            <kbd class="docs-kbd-hint" aria-hidden="true">⌘K</kbd>
+          </div>
+          <div class="docs-rail-meta">
+            <span>{{ filteredOperations().length }} endpoint{{ filteredOperations().length === 1 ? '' : 's' }}</span>
+            <span class="docs-rail-meta-dot" aria-hidden="true">·</span>
+            <span>{{ groupedOperations().length }} group{{ groupedOperations().length === 1 ? '' : 's' }}</span>
+          </div>
+          <nav class="docs-groups" aria-label="Endpoint groups">
+            @for (group of groupedOperations(); track group.tag) {
+              <details class="docs-group" [open]="group.open">
+                <summary class="docs-group-head">
+                  <svg class="docs-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                  <span class="docs-group-name">{{ group.tag }}</span>
+                  <span class="docs-group-count">{{ group.items.length }}</span>
+                </summary>
+                <div class="docs-group-items">
+                  @for (op of group.items; track op.operationId) {
+                    <a
+                      class="endpoint-row"
+                      [routerLink]="['/admin/docs', op.operationId]"
+                      routerLinkActive="is-active"
+                      [attr.data-testid]="'docs-nav-endpoint-' + op.operationId"
+                      [title]="op.method + ' ' + op.path"
+                    >
+                      <span class="method method-{{ op.method.toLowerCase() }}">{{ op.method }}</span>
+                      <span class="path">{{ op.path }}</span>
+                    </a>
                   }
                 </div>
-                <h3 class="docs-op-summary">{{ op.summary }}</h3>
-                <p class="docs-op-tag">in <em>{{ op.tag }}</em> · operationId <code>{{ op.operationId }}</code></p>
-              </header>
-
-              <div class="docs-section-divider" aria-hidden="true"></div>
-
-              @if (op.parameters.length > 0) {
-                <section class="docs-section">
-                  <div class="muted-h">Path parameters</div>
-                  <div class="docs-params">
-                    @for (p of op.parameters; track p.name) {
-                      <div class="docs-param-row">
-                        <div class="docs-param-meta">
-                          <code class="docs-param-name">{{ p.name }}</code>
-                          <span class="docs-param-in">{{ p.in }}</span>
-                          @if (p.description) {
-                            <span class="docs-param-desc">{{ p.description }}</span>
-                          }
-                        </div>
-                        <input
-                          class="input-field docs-param-input"
-                          [ngModel]="paramValue(p.name)"
-                          (ngModelChange)="setParam(p.name, $event)"
-                          [placeholder]="'value for {' + p.name + '}'"
-                          [attr.aria-label]="'Value for ' + p.name"
-                        />
-                      </div>
-                    }
-                  </div>
-                </section>
-              }
-
-              @if (op.requestBody) {
-                <section class="docs-section">
-                  <div class="muted-h docs-section-h">Request body
-                    <span class="docs-mono-tag">application/json</span>
-                  </div>
-                  <div class="docs-json-editor">
-                    <pre class="docs-json-gutter" aria-hidden="true">{{ gutterFor(requestBodyJson()) }}</pre>
-                    <textarea
-                      class="docs-json-area"
-                      rows="10"
-                      [ngModel]="requestBodyJson()"
-                      (ngModelChange)="requestBodyJson.set($event)"
-                      (keydown.enter)="onBodyKeydown($event)"
-                      spellcheck="false"
-                      aria-label="Request body JSON"
-                    ></textarea>
-                  </div>
-                  <div class="docs-body-actions">
-                    <button class="btn-ghost docs-mini-btn" (click)="validateBody()" title="Run JSON.parse against the editor body">Validate JSON</button>
-                    @if (bodyValidation(); as v) {
-                      <span class="docs-validation" [class.is-ok]="v.ok" [class.is-bad]="!v.ok">{{ v.message }}</span>
-                    }
-                  </div>
-                </section>
-              }
-
-              <section class="docs-section">
-                <div class="muted-h">Request headers</div>
-                <pre class="docs-headers-block"><span class="docs-h-key">Authorization</span>: Bearer <span class="docs-h-tok">{{ maskedToken() }}</span>
-<span class="docs-h-key">Content-Type</span>: application/json</pre>
-              </section>
-
-              <div class="docs-send-row">
-                <button
-                  class="btn-primary docs-send"
-                  data-testid="endpoint-try-send"
-                  (click)="send()"
-                  [disabled]="sending()"
-                  title="Send request (⌘+Enter)"
-                >
-                  @if (sending()) {
-                    <span class="docs-send-spin" aria-hidden="true"></span>
-                    Sending…
-                  } @else {
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                    </svg>
-                    Send
-                    <kbd class="docs-kbd-inline" aria-hidden="true">⌘↵</kbd>
-                  }
-                </button>
-                <button class="btn-ghost docs-mini-btn" (click)="copyCurl()" title="Copy the equivalent cURL command">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                  </svg>
-                  Copy cURL
-                </button>
-                @if (copyToast()) {
-                  <span class="docs-copy-toast">Copied ✓</span>
-                }
-              </div>
-
-              @if (response(); as r) {
-                <div class="docs-section-divider" aria-hidden="true"></div>
-                <section class="docs-response" aria-label="Response">
-                  <div class="docs-response-bar">
-                    <span class="docs-status-pill"
-                          [class.is-ok]="r.status > 0 && r.status < 400"
-                          [class.is-warn]="r.status >= 400 && r.status < 500"
-                          [class.is-bad]="r.status >= 500 || r.status === 0">
-                      {{ r.status || 'ERR' }} {{ r.statusText }}
-                    </span>
-                    <span class="docs-latency"><b>{{ r.elapsedMs }}</b> ms</span>
-                    <div class="docs-segmented" role="tablist" aria-label="Response view">
-                      <button class="docs-seg" [class.is-active]="responseTab() === 'body'" (click)="responseTab.set('body')" role="tab" [attr.aria-selected]="responseTab() === 'body'">Body</button>
-                      <button class="docs-seg" [class.is-active]="responseTab() === 'headers'" (click)="responseTab.set('headers')" role="tab" [attr.aria-selected]="responseTab() === 'headers'">Headers</button>
-                      <button class="docs-seg" [class.is-active]="responseTab() === 'curl'" (click)="responseTab.set('curl')" role="tab" [attr.aria-selected]="responseTab() === 'curl'">cURL</button>
-                    </div>
-                    <button class="btn-ghost docs-mini-btn docs-resp-copy" (click)="copyResponse()" title="Copy current view">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                      </svg>
-                    </button>
-                  </div>
-                  @if (responseTab() === 'body') {
-                    <pre class="docs-code-block" data-testid="response-body"><code [innerHTML]="prettyBodyHtml()"></code></pre>
-                  }
-                  @if (responseTab() === 'headers') {
-                    <pre class="docs-code-block docs-code-muted">{{ headerLines(r) }}</pre>
-                  }
-                  @if (responseTab() === 'curl') {
-                    <pre class="docs-code-block">{{ curlSnippet() }}</pre>
-                  }
-                </section>
-              }
-            } @else {
-              <div class="docs-empty">
-                <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-                </svg>
-                <h3>Pick an endpoint</h3>
-                <p>Choose any method on the left to view its docs, fill in params, and fire a live request against your session.</p>
-              </div>
+              </details>
             }
-          </section>
-        </div>
-      }
+            @if (groupedOperations().length === 0 && specService.spec()) {
+              <div class="docs-rail-empty">No endpoints match “{{ endpointSearchQuery() }}”.</div>
+            }
+          </nav>
+        </aside>
+
+        <!-- ─── Child route outlet (overview OR endpoint detail) ─── -->
+        <router-outlet></router-outlet>
+      </div>
     </div>
   `,
   styles: [`
     :host { display: contents; }
 
-    /* ── Rhythm + base ─────────────────────────────────────────────────── */
     .docs-root {
       --rhythm: 8px;
-      --r1: var(--rhythm);              /* 8  */
-      --r2: calc(var(--rhythm) * 2);    /* 16 */
-      --r3: calc(var(--rhythm) * 3);    /* 24 */
-      --r4: calc(var(--rhythm) * 4);    /* 32 */
-      --r5: calc(var(--rhythm) * 5);    /* 40 */
+      --r1: var(--rhythm);
+      --r2: calc(var(--rhythm) * 2);
+      --r3: calc(var(--rhythm) * 3);
+      --r4: calc(var(--rhythm) * 4);
+      --r5: calc(var(--rhythm) * 5);
       --docs-primary: #00E5FF;
       --docs-violet: #c084fc;
       --docs-amber: #fbbf24;
@@ -397,7 +693,6 @@ const SESSION_KEY = 'ps_docs_selected';
       gap: var(--r3);
     }
 
-    /* ── Header ────────────────────────────────────────────────────────── */
     .docs-header {
       display: flex; align-items: flex-end; justify-content: space-between;
       gap: var(--r3); flex-wrap: wrap;
@@ -431,13 +726,14 @@ const SESSION_KEY = 'ps_docs_selected';
       margin: 0; color: var(--docs-fg-mute); font-size: 0.82rem; line-height: 1.55;
       max-width: 60ch; text-wrap: pretty;
     }
-    .docs-tabs { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+    .docs-header-actions { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .docs-tab {
       position: relative;
       padding: 0.5rem 0.95rem; border-radius: 8px;
       background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.72);
       border: 1px solid var(--docs-line); cursor: pointer;
       font-size: 0.76rem; font-weight: 600; letter-spacing: 0.01em;
+      text-decoration: none;
       transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
     }
     .docs-tab:hover { background: rgba(0,229,255,0.06); border-color: var(--docs-line-hi); color: #fff; }
@@ -448,18 +744,12 @@ const SESSION_KEY = 'ps_docs_selected';
     }
     .docs-refresh { padding: 0.5rem 0.9rem; font-size: 0.74rem; }
 
-    /* ── Divider ───────────────────────────────────────────────────────── */
     .docs-divider {
       height: 1px;
       background: linear-gradient(90deg, transparent, rgba(0,229,255,0.18), transparent);
       margin: 0;
     }
-    .docs-section-divider {
-      height: 1px; margin: var(--r1) 0 0;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent);
-    }
 
-    /* ── Status surfaces ───────────────────────────────────────────────── */
     .docs-loading {
       display: flex; gap: 10px; padding: 1.5rem !important;
       align-items: center; justify-content: center;
@@ -471,7 +761,7 @@ const SESSION_KEY = 'ps_docs_selected';
       font-size: 0.8rem;
     }
 
-    /* ── Explorer grid ─────────────────────────────────────────────────── */
+    /* ── Explorer grid — left rail + child router-outlet ────────────── */
     .docs-explorer {
       display: grid; gap: var(--r3);
       grid-template-columns: 260px minmax(0, 1fr);
@@ -482,7 +772,7 @@ const SESSION_KEY = 'ps_docs_selected';
       .docs-rail { position: sticky; top: 0; z-index: 5; max-height: 42vh !important; }
     }
 
-    /* ── Left rail ─────────────────────────────────────────────────────── */
+    /* ── Left rail ─────────────────────────────────────────────────── */
     .docs-rail {
       padding: var(--r2) !important;
       display: flex; flex-direction: column; gap: var(--r1);
@@ -541,18 +831,7 @@ const SESSION_KEY = 'ps_docs_selected';
       display: flex; flex-direction: column; gap: 1px;
       padding: 4px 0 6px 6px;
     }
-    @starting-style {
-      .docs-group[open] > .docs-group-items { opacity: 0; transform: translateY(-2px); }
-    }
-    .docs-group[open] > .docs-group-items {
-      animation: docsGroupIn 220ms cubic-bezier(0.16,1,0.3,1) both;
-    }
-    @keyframes docsGroupIn {
-      from { opacity: 0; transform: translateY(-2px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
 
-    /* ── Endpoint rows ─────────────────────────────────────────────────── */
     .endpoint-row {
       position: relative;
       display: flex; align-items: center; gap: 0.55rem;
@@ -560,6 +839,7 @@ const SESSION_KEY = 'ps_docs_selected';
       border-radius: 6px; border: none;
       background: transparent; color: #cbd5e1; cursor: pointer;
       font-size: 0.74rem; text-align: left; width: 100%;
+      text-decoration: none;
       transition: background 140ms ease, color 140ms ease, transform 140ms ease;
     }
     .endpoint-row::before {
@@ -584,7 +864,6 @@ const SESSION_KEY = 'ps_docs_selected';
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
-    /* ── Method pills ──────────────────────────────────────────────────── */
     .method {
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-weight: 700; font-size: 0.6rem; letter-spacing: 0.06em;
@@ -592,10 +871,6 @@ const SESSION_KEY = 'ps_docs_selected';
       min-width: 48px; text-align: center; flex-shrink: 0;
       border: 1px solid transparent;
       font-feature-settings: "tnum","cv11";
-    }
-    .method-lg {
-      font-size: 0.74rem; padding: 5px 11px; min-width: 64px;
-      letter-spacing: 0.08em; border-radius: 6px;
     }
     .method-get    { background: rgba(0,229,255,0.10);  color: var(--docs-primary);  border-color: rgba(0,229,255,0.32); }
     .method-post   { background: rgba(168,85,247,0.12); color: var(--docs-violet);   border-color: rgba(168,85,247,0.32); }
@@ -608,399 +883,23 @@ const SESSION_KEY = 'ps_docs_selected';
       color: var(--docs-fg-mute); font-size: 0.78rem; font-style: italic;
     }
 
-    /* ── Right pane (detail) ───────────────────────────────────────────── */
-    .docs-detail {
-      padding: var(--r3) !important;
-      display: flex; flex-direction: column; gap: var(--r3);
-      max-height: 78vh; overflow-y: auto;
-      scrollbar-width: thin; scrollbar-color: rgba(0,229,255,0.18) transparent;
-    }
-    .docs-detail::-webkit-scrollbar { width: 6px; }
-    .docs-detail::-webkit-scrollbar-thumb { background: rgba(0,229,255,0.18); border-radius: 3px; }
-
-    .docs-op-head { display: flex; flex-direction: column; gap: var(--r1); }
-    .docs-op-head-row { display: flex; align-items: center; gap: var(--r1); flex-wrap: wrap; }
-    .docs-op-path {
-      flex: 1; min-width: 0; word-break: break-all;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 0.96rem; color: #fff; font-weight: 500;
-      letter-spacing: -0.005em;
-    }
-    .docs-op-summary {
-      margin: 0; font-size: 1.05rem; color: #fff; font-weight: 700;
-      letter-spacing: -0.005em; line-height: 1.35; text-wrap: balance;
-    }
-    .docs-op-tag {
-      margin: 0; font-size: 0.74rem; color: var(--docs-fg-mute);
-      font-style: italic;
-    }
-    .docs-op-tag em { color: rgba(255,255,255,0.78); font-style: normal; font-weight: 500; }
-    .docs-op-tag code {
-      font-family: ui-monospace, monospace; font-size: 0.7rem;
-      color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.04);
-      padding: 1px 6px; border-radius: 4px; font-style: normal;
-    }
-    .docs-auth-chip {
-      display: inline-flex; align-items: center; gap: 4px;
-      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.04em;
-      padding: 4px 8px; border-radius: 999px;
-      background: rgba(124,58,237,0.10); color: var(--docs-violet);
-      border: 1px solid rgba(124,58,237,0.28);
-      text-transform: uppercase;
-    }
-
-    /* ── Detail sections ───────────────────────────────────────────────── */
-    .docs-section { display: flex; flex-direction: column; gap: 10px; }
-    .docs-section-h {
-      display: inline-flex; align-items: center; gap: 8px;
-    }
-    .docs-mono-tag {
-      font-family: ui-monospace, monospace; font-size: 0.6rem; font-weight: 600;
-      text-transform: lowercase; letter-spacing: 0;
-      color: var(--docs-fg-mute); background: rgba(255,255,255,0.04);
-      border: 1px solid var(--docs-line); border-radius: 4px;
-      padding: 1px 6px;
-    }
-
-    /* params */
-    .docs-params { display: flex; flex-direction: column; gap: 8px; }
-    .docs-param-row {
-      display: grid; grid-template-columns: minmax(180px, 240px) 1fr; gap: 12px;
-      align-items: center;
-      padding: 8px 10px; border-radius: 8px;
-      background: var(--docs-bg-soft); border: 1px solid var(--docs-line);
-      transition: border-color 160ms ease, background 160ms ease;
-    }
-    .docs-param-row:hover { border-color: var(--docs-line-hi); }
-    .docs-param-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-    .docs-param-name {
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      font-size: 0.78rem; color: #fff; font-weight: 600;
-    }
-    .docs-param-in {
-      font-size: 0.6rem; color: var(--docs-fg-mute);
-      text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;
-    }
-    .docs-param-desc { font-size: 0.7rem; color: rgba(255,255,255,0.55); font-style: italic; }
-    .docs-param-input { font-size: 0.78rem; font-family: ui-monospace, monospace; }
-    @media (max-width: 640px) {
-      .docs-param-row { grid-template-columns: 1fr; }
-    }
-
-    /* JSON editor */
-    .docs-json-editor {
-      display: grid; grid-template-columns: 36px 1fr;
-      background: var(--docs-bg-soft);
-      border: 1px solid var(--docs-line); border-radius: 8px;
-      overflow: hidden; transition: border-color 160ms ease;
-    }
-    .docs-json-editor:focus-within { border-color: rgba(0,229,255,0.45); box-shadow: 0 0 0 3px rgba(0,229,255,0.10); }
-    .docs-json-gutter {
-      margin: 0; padding: 10px 6px 10px 8px;
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      font-size: 0.72rem; line-height: 1.55;
-      color: rgba(255,255,255,0.25); text-align: right;
-      background: rgba(255,255,255,0.02);
-      border-right: 1px solid var(--docs-line);
-      user-select: none; white-space: pre;
-      tab-size: 2;
-    }
-    .docs-json-area {
-      width: 100%; border: 0; outline: 0; resize: vertical;
-      padding: 10px 12px; background: transparent;
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      font-size: 0.74rem; line-height: 1.55; color: #fff;
-      tab-size: 2; min-height: 160px;
-    }
-    .docs-body-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .docs-validation { font-size: 0.72rem; font-family: ui-monospace, monospace; }
-    .docs-validation.is-ok { color: var(--docs-green); }
-    .docs-validation.is-bad { color: var(--docs-amber); }
-
-    /* Headers */
-    .docs-headers-block {
-      margin: 0; padding: 12px 14px;
-      background: var(--docs-bg-soft); border: 1px solid var(--docs-line);
-      border-radius: 8px;
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      font-size: 0.72rem; line-height: 1.7; color: rgba(255,255,255,0.72);
-      white-space: pre-wrap; word-break: break-all;
-    }
-    .docs-h-key { color: var(--docs-amber); }
-    .docs-h-tok { color: var(--docs-green); }
-
-    /* Send row */
-    .docs-send-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .docs-send {
-      padding: 0.65rem 1.2rem !important; font-size: 0.82rem !important;
-      gap: 8px !important;
-    }
-    .docs-kbd-inline {
-      font-family: ui-monospace, monospace; font-size: 0.62rem;
-      padding: 2px 6px; border-radius: 4px;
-      background: rgba(0,0,0,0.32); color: rgba(255,255,255,0.85);
-      border: 1px solid rgba(255,255,255,0.18);
-      margin-left: 4px;
-    }
-    .docs-mini-btn { padding: 0.45rem 0.85rem !important; font-size: 0.72rem !important; }
-    .docs-copy-toast {
-      color: var(--docs-green); font-size: 0.72rem; font-weight: 600;
-      animation: docsToast 220ms cubic-bezier(0.16,1,0.3,1);
-    }
-    @keyframes docsToast { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
-    .docs-send-spin {
-      width: 12px; height: 12px; border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.25);
-      border-top-color: var(--docs-primary);
-      animation: docsSpin 700ms linear infinite;
-      display: inline-block;
-    }
-    @keyframes docsSpin { to { transform: rotate(360deg); } }
-
-    /* ── Response ──────────────────────────────────────────────────────── */
-    .docs-response { display: flex; flex-direction: column; gap: 10px; }
-    .docs-response-bar {
-      position: sticky; top: 0; z-index: 2;
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-      padding: 8px 4px;
-      background: linear-gradient(180deg, rgba(6,6,16,0.92), rgba(6,6,16,0.65));
-      backdrop-filter: blur(6px);
-    }
-    .docs-status-pill {
-      font-family: ui-monospace, monospace; font-weight: 700; font-size: 0.72rem;
-      padding: 4px 10px; border-radius: 999px;
-      border: 1px solid transparent; letter-spacing: 0.02em;
-    }
-    .docs-status-pill.is-ok   { background: rgba(74,222,128,0.10); color: var(--docs-green); border-color: rgba(74,222,128,0.32); }
-    .docs-status-pill.is-warn { background: rgba(245,158,11,0.10); color: var(--docs-amber); border-color: rgba(245,158,11,0.32); }
-    .docs-status-pill.is-bad  { background: rgba(239,68,68,0.10);  color: var(--docs-red);   border-color: rgba(239,68,68,0.32); }
-    .docs-latency {
-      font-family: ui-monospace, monospace; font-size: 0.72rem;
-      color: var(--docs-fg-mute);
-    }
-    .docs-latency b { color: #fff; font-weight: 600; }
-    .docs-segmented {
-      display: inline-flex; align-items: center; gap: 0;
-      padding: 3px; border-radius: 8px;
-      background: rgba(255,255,255,0.04); border: 1px solid var(--docs-line);
-      margin-left: auto;
-    }
-    .docs-seg {
-      padding: 4px 10px; border-radius: 6px; border: 0;
-      background: transparent; color: rgba(255,255,255,0.65);
-      font-size: 0.7rem; font-weight: 600; cursor: pointer;
-      transition: background 160ms ease, color 160ms ease;
-    }
-    .docs-seg:hover { color: #fff; }
-    .docs-seg.is-active {
-      background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.18));
-      color: #fff; box-shadow: 0 0 0 1px rgba(0,229,255,0.28) inset;
-    }
-    .docs-resp-copy { padding: 0.35rem 0.55rem !important; }
-    .docs-code-block {
-      margin: 0; padding: 14px 16px;
-      background: rgba(255,255,255,0.025);
-      border: 1px solid var(--docs-line); border-radius: 10px;
-      overflow: auto; max-height: 360px;
-      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-feature-settings: "calt", "liga";
-      font-size: 0.74rem; line-height: 1.6; color: #fff;
-      white-space: pre-wrap; word-break: break-word;
-      tab-size: 2;
-    }
-    .docs-code-muted { color: var(--docs-fg-mute); }
-
-    /* JSON syntax highlight tokens */
-    .tk-key  { color: var(--docs-amber); }
-    .tk-str  { color: var(--docs-green); }
-    .tk-num  { color: var(--docs-primary); }
-    .tk-bool { color: var(--docs-violet); }
-    .tk-null { color: rgba(255,255,255,0.45); font-style: italic; }
-    .tk-pun  { color: rgba(255,255,255,0.45); }
-
-    /* ── Empty ─────────────────────────────────────────────────────────── */
-    .docs-empty {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 10px; padding: var(--r5) var(--r3); text-align: center;
-      color: var(--docs-fg-mute);
-    }
-    .docs-empty svg { color: rgba(0,229,255,0.55); }
-    .docs-empty h3 { margin: 0; color: #fff; font-size: 1rem; font-weight: 700; }
-    .docs-empty p { margin: 0; max-width: 38ch; font-size: 0.8rem; line-height: 1.55; text-wrap: pretty; }
-
-    /* ── Markdown / Overview prose ─────────────────────────────────────── */
-    /* Wrap the overview article in a centered 720px column so long-form
-       markdown stays readable on wide displays without re-flowing every
-       descendant rule. Keeps narrow-viewport behaviour untouched — max-width
-       is the only constraint; margin auto centers when the viewport exceeds
-       it. */
-    .prose-docs-wrap { max-width: 720px; margin: 0 auto; width: 100%; }
-    .prose-docs { padding: var(--r3) !important; }
-    .prose-docs :first-child { margin-top: 0; }
-    .prose-docs h1 {
-      font-size: clamp(1.8rem, 2.4vw + 1rem, 3rem);
-      font-weight: 800; letter-spacing: -0.02em; line-height: 1.1;
-      color: #fff; margin: 0 0 var(--r2);
-      background: linear-gradient(90deg, #fff, #00E5FF 60%, #7C3AED);
-      -webkit-background-clip: text; background-clip: text; color: transparent;
-      text-wrap: balance;
-    }
-    .prose-docs h2 {
-      font-size: 1.35rem; font-weight: 700; color: #fff;
-      margin: var(--r4) 0 var(--r2); padding-bottom: 8px;
-      border-bottom: 1px solid;
-      border-image: linear-gradient(90deg, rgba(0,229,255,0.45), transparent) 1;
-      letter-spacing: -0.01em; line-height: 1.25;
-    }
-    .prose-docs h3 {
-      position: relative; padding-left: 18px;
-      font-size: 1.02rem; font-weight: 600; color: #fff;
-      margin: var(--r3) 0 var(--r1); letter-spacing: -0.005em;
-    }
-    .prose-docs h3::before {
-      content: '#'; position: absolute; left: 0; top: 0;
-      font-family: ui-monospace, monospace; color: var(--docs-primary);
-      font-weight: 700; opacity: 0.7;
-    }
-    .prose-docs p {
-      color: #cbd5e1; font-size: 0.9rem; line-height: 1.7;
-      margin: 0 0 var(--r2); text-wrap: pretty; max-width: 72ch;
-    }
-    .prose-docs ul {
-      list-style: none; padding-left: 0; margin: 0 0 var(--r2);
-      display: flex; flex-direction: column; gap: 4px;
-    }
-    .prose-docs li {
-      position: relative; padding-left: 20px;
-      color: #cbd5e1; font-size: 0.88rem; line-height: 1.6;
-    }
-    .prose-docs li::before {
-      content: ''; position: absolute; left: 4px; top: 0.7em;
-      width: 6px; height: 6px; border-radius: 999px;
-      background: var(--docs-primary); box-shadow: 0 0 6px rgba(0,229,255,0.6);
-    }
-    .prose-docs code {
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      font-size: 0.82rem;
-      background: rgba(0,229,255,0.08); color: #fff;
-      padding: 2px 7px; border-radius: 4px;
-      border: 1px solid rgba(0,229,255,0.18);
-    }
-    .prose-docs pre {
-      position: relative;
-      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-feature-settings: "calt", "liga";
-      font-size: 0.78rem; line-height: 1.6;
-      background: rgba(255,255,255,0.025);
-      border: 1px solid var(--docs-line); border-radius: 10px;
-      padding: var(--r2); overflow: auto;
-      margin: var(--r2) 0;
-    }
-    .prose-docs pre code {
-      background: transparent; border: 0; padding: 0;
-      font-size: inherit; color: #fff;
-    }
-    .prose-docs pre .copy-code-btn {
-      position: absolute; top: 8px; right: 8px;
-      padding: 4px 9px; border-radius: 6px;
-      background: rgba(0,229,255,0.10); color: var(--docs-primary);
-      border: 1px solid rgba(0,229,255,0.30);
-      font-family: ui-sans-serif, system-ui, sans-serif;
-      font-size: 0.62rem; font-weight: 600; letter-spacing: 0.02em;
-      cursor: pointer; opacity: 0; transform: translateY(-2px);
-      transition: opacity 140ms ease, transform 140ms ease, background 140ms ease;
-    }
-    .prose-docs pre:hover .copy-code-btn,
-    .prose-docs pre:focus-within .copy-code-btn { opacity: 1; transform: translateY(0); }
-    .prose-docs pre .copy-code-btn:hover { background: rgba(0,229,255,0.18); color: #fff; }
-    .prose-docs pre .copy-code-btn.is-copied { background: rgba(74,222,128,0.18); color: var(--docs-green); border-color: rgba(74,222,128,0.32); opacity: 1; }
-    .prose-docs a {
-      color: var(--docs-primary); text-decoration: none;
-      border-bottom: 1px dashed rgba(0,229,255,0.4);
-      transition: border-color 160ms ease, color 160ms ease;
-    }
-    .prose-docs a:hover { border-bottom-color: var(--docs-primary); color: #fff; }
-    .prose-docs strong { color: #fff; font-weight: 700; }
-    .prose-docs em { color: rgba(255,255,255,0.85); font-style: italic; }
-
-    /* ── Shared muted heading ──────────────────────────────────────────── */
-    .muted-h {
-      font-size: 0.62rem; color: var(--docs-fg-mute);
-      text-transform: uppercase; letter-spacing: 0.08em;
-      font-weight: 700;
-    }
-
-    /* ── Focus + motion safety ─────────────────────────────────────────── */
-    .docs-tab:focus-visible,
-    .docs-seg:focus-visible,
-    .docs-mini-btn:focus-visible,
-    .endpoint-row:focus-visible,
-    .docs-group-head:focus-visible {
-      outline: 2px solid var(--docs-primary);
-      outline-offset: 2px;
-      border-radius: 6px;
-    }
     @media (prefers-reduced-motion: reduce) {
-      .docs-tab, .docs-seg, .endpoint-row, .docs-chevron,
-      .docs-group-head, .docs-copy-toast, .docs-send-spin {
+      .docs-tab, .endpoint-row, .docs-chevron, .docs-group-head {
         transition: none !important; animation: none !important;
       }
     }
   `],
 })
 export class AdminDocsComponent implements OnInit {
-  private api = inject(ApiService);
-  private auth = inject(AuthService);
-  private toast = inject(ToastService);
+  readonly specService = inject(DocsSpecService);
+  private router = inject(Router);
 
-  readonly tab = signal<'overview' | 'endpoints'>('endpoints');
-  readonly loading = signal(false);
-  readonly error = signal<string | null>(null);
-
-  readonly spec = signal<OpenApiSpec | null>(null);
-  readonly overviewHtml = signal<string>('');
-  readonly search = signal<string>('');
-  readonly selectedId = signal<string | null>(null);
-
-  readonly paramValues = signal<Record<string, string>>({});
-  readonly requestBodyJson = signal<string>('');
-  readonly bodyValidation = signal<{ ok: boolean; message: string } | null>(null);
-
-  readonly sending = signal(false);
-  readonly response = signal<LiveResponse | null>(null);
-  readonly responseTab = signal<'body' | 'headers' | 'curl'>('body');
-  readonly copyToast = signal(false);
-
-  /** Flattened operation list — derived from the OpenAPI doc. */
-  readonly operations = computed<Operation[]>(() => {
-    const s = this.spec();
-    if (!s) return [];
-    const out: Operation[] = [];
-    for (const [path, methods] of Object.entries(s.paths)) {
-      for (const [method, opRaw] of Object.entries(methods)) {
-        if (typeof opRaw !== 'object' || opRaw === null) continue;
-        const op = opRaw as RawOp;
-        const tags = op.tags ?? ['other'];
-        const respExample = op.responses?.['200']?.content?.['application/json']?.example;
-        out.push({
-          method: method.toUpperCase(),
-          path,
-          summary: op.summary ?? `${method.toUpperCase()} ${path}`,
-          tag: tags[0] ?? 'other',
-          operationId: op.operationId ?? `${method}_${path}`,
-          authRequired: Array.isArray(op.security) && op.security.length > 0,
-          parameters: op.parameters ?? [],
-          requestBody: op.requestBody?.content?.['application/json']?.schema,
-          responseExample: respExample,
-        });
-      }
-    }
-    return out.sort((a, b) => (a.tag === b.tag ? a.path.localeCompare(b.path) : a.tag.localeCompare(b.tag)));
-  });
+  /** Left-rail search query — filters endpoint list by path | method | tag | summary. */
+  readonly endpointSearchQuery = signal<string>('');
 
   readonly filteredOperations = computed<Operation[]>(() => {
-    const q = this.search().trim().toLowerCase();
-    const all = this.operations();
+    const q = this.endpointSearchQuery().trim().toLowerCase();
+    const all = this.specService.operations();
     if (!q) return all;
     return all.filter(
       (op) =>
@@ -1023,409 +922,10 @@ export class AdminDocsComponent implements OnInit {
       .sort((a, b) => a.tag.localeCompare(b.tag));
   });
 
-  readonly selected = computed<Operation | null>(() => {
-    const id = this.selectedId();
-    if (!id) return null;
-    return this.operations().find((o) => o.operationId === id) ?? null;
-  });
-
-  readonly maskedToken = computed<string>(() => {
-    const t = this.auth.getToken();
-    if (!t) return '<not signed in>';
-    if (t.length <= 10) return '****';
-    return `${t.slice(0, 4)}…${t.slice(-4)}`;
-  });
-
-  readonly prettyBody = computed<string>(() => {
-    const r = this.response();
-    if (!r) return '';
-    try {
-      return JSON.stringify(JSON.parse(r.body), null, 2);
-    } catch {
-      return r.body;
-    }
-  });
-
-  /** Syntax-highlighted JSON body for the response Body tab. */
-  readonly prettyBodyHtml = computed<string>(() => {
-    const text = this.prettyBody();
-    if (!text) return '';
-    return highlightJson(text);
-  });
-
-  readonly curlSnippet = computed<string>(() => {
-    const op = this.selected();
-    if (!op) return '';
-    const url = this.resolvedUrl();
-    const token = this.auth.getToken() ?? '<TOKEN>';
-    const parts = [
-      `curl -X ${op.method} '${url}'`,
-      `  -H 'Authorization: Bearer ${token}'`,
-      `  -H 'Content-Type: application/json'`,
-    ];
-    if (op.requestBody && this.requestBodyJson()) {
-      const escaped = this.requestBodyJson().replace(/'/g, `'\\''`);
-      parts.push(`  -d '${escaped}'`);
-    }
-    return parts.join(' \\\n');
-  });
-
   ngOnInit(): void {
-    this.reload();
-    // Restore last selection
-    try {
-      const saved = sessionStorage.getItem(SESSION_KEY);
-      if (saved) this.selectedId.set(saved);
-    } catch {
-      // Storage disabled — ignore.
-    }
-  }
-
-  setTab(tab: 'overview' | 'endpoints'): void {
-    this.tab.set(tab);
-  }
-
-  paramValue(name: string): string {
-    return this.paramValues()[name] ?? '';
-  }
-
-  setParam(name: string, value: string): void {
-    this.paramValues.set({ ...this.paramValues(), [name]: value });
-  }
-
-  /** Build a line-number gutter for the JSON body textarea. */
-  gutterFor(text: string): string {
-    const lines = (text || ' ').split('\n').length;
-    const out: string[] = [];
-    for (let i = 1; i <= lines; i++) out.push(String(i));
-    return out.join('\n');
-  }
-
-  /** ⌘+Enter inside the body editor fires Send. */
-  onBodyKeydown(ev: Event): void {
-    const e = ev as KeyboardEvent;
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault();
-      void this.send();
-    }
-  }
-
-  /**
-   * Global ⌘/Ctrl+Return → Send hotkey.
-   *
-   * Active whenever the Docs page is mounted and an endpoint is selected.
-   * Mirrors the body-textarea-scoped hotkey (`onBodyKeydown`) for anywhere
-   * else on the page — header, sidebar, response panel — so power users
-   * don't have to refocus the JSON body just to fire the request.
-   *
-   * Guarded by `selected()` so the keystroke falls through to the browser
-   * when no endpoint is in focus.
-   */
-  @HostListener('window:keydown', ['$event'])
-  onGlobalKeydown(e: KeyboardEvent): void {
-    if (!(e.metaKey || e.ctrlKey)) return;
-    if (e.key !== 'Enter') return;
-    if (!this.selected()) return;
-    if (this.sending()) return;
-    e.preventDefault();
-    void this.send();
-  }
-
-  /**
-   * Fetch the live OpenAPI spec + the markdown app overview in parallel.
-   */
-  reload(): void {
-    this.loading.set(true);
-    this.error.set(null);
-    this.api.get<OpenApiSpec>('/admin/docs/openapi.json').subscribe({
-      next: (s) => {
-        this.spec.set(s);
-        this.loading.set(false);
-      },
-      error: (err: unknown) => {
-        this.error.set(err instanceof Error ? err.message : 'Failed to load OpenAPI spec');
-        this.loading.set(false);
-      },
-    });
-    this.api.get<{ data: { markdown: string } }>('/admin/docs/app-overview').subscribe({
-      next: (r) => this.overviewHtml.set(renderMarkdown(r.data.markdown)),
-      error: () => {
-        /* overview optional */
-      },
-    });
-  }
-
-  select(op: Operation): void {
-    this.selectedId.set(op.operationId);
-    this.paramValues.set({});
-    this.requestBodyJson.set(op.requestBody ? JSON.stringify(buildExampleFromSchema(op.requestBody), null, 2) : '');
-    this.bodyValidation.set(null);
-    this.response.set(null);
-    try {
-      sessionStorage.setItem(SESSION_KEY, op.operationId);
-    } catch {
-      // ignore
-    }
-  }
-
-  validateBody(): void {
-    const text = this.requestBodyJson().trim();
-    if (!text) {
-      this.bodyValidation.set({ ok: true, message: 'Body is empty (will not be sent)' });
-      return;
-    }
-    try {
-      JSON.parse(text);
-      this.bodyValidation.set({ ok: true, message: 'Looks like valid JSON.' });
-    } catch (err) {
-      this.bodyValidation.set({ ok: false, message: err instanceof Error ? err.message : 'Invalid JSON' });
-    }
-  }
-
-  resolvedUrl(): string {
-    const op = this.selected();
-    if (!op) return '';
-    let path = op.path;
-    const params = this.paramValues();
-    for (const [k, v] of Object.entries(params)) {
-      if (!v) continue;
-      path = path.replace(`{${k}}`, encodeURIComponent(v));
-    }
-    return `${typeof location !== 'undefined' ? location.origin : ''}${path}`;
-  }
-
-  headerLines(r: LiveResponse): string {
-    return Object.entries(r.headers)
-      .map(([k, v]) => `${k}: ${v}`)
-      .join('\n');
-  }
-
-  /**
-   * Issue the live HTTP request against the user's session and capture
-   * status, headers, body, and elapsed time.
-   */
-  async send(): Promise<void> {
-    const op = this.selected();
-    if (!op) return;
-    // Don't allow GET while path params are unfilled
-    for (const p of op.parameters) {
-      if (!this.paramValues()[p.name]) {
-        this.toast.error(`Fill in path parameter "${p.name}" before sending.`);
-        return;
-      }
-    }
-    this.sending.set(true);
-    this.response.set(null);
-    const url = this.resolvedUrl();
-    const token = this.auth.getToken();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const init: RequestInit = { method: op.method, headers };
-    if (op.method !== 'GET' && op.method !== 'DELETE' && this.requestBodyJson().trim()) {
-      init.body = this.requestBodyJson();
-    }
-    const started = performance.now();
-    try {
-      const res = await fetch(url, init);
-      const body = await res.text();
-      const respHeaders: Record<string, string> = {};
-      res.headers.forEach((v, k) => (respHeaders[k] = v));
-      this.response.set({
-        status: res.status,
-        statusText: res.statusText,
-        headers: respHeaders,
-        body,
-        elapsedMs: Math.round(performance.now() - started),
-      });
-      this.responseTab.set('body');
-    } catch (err) {
-      this.response.set({
-        status: 0,
-        statusText: 'Network error',
-        headers: {},
-        body: err instanceof Error ? err.message : String(err),
-        elapsedMs: Math.round(performance.now() - started),
-      });
-    } finally {
-      this.sending.set(false);
-    }
-  }
-
-  copyCurl(): void {
-    const snippet = this.curlSnippet();
-    if (!snippet) return;
-    this.writeClipboard(snippet);
-  }
-
-  /**
-   * Delegated click handler for copy buttons inside the rendered overview
-   * markdown. Catches clicks on `[data-copy-code]` inside any `<pre>` block,
-   * copies the sibling `<code>` text, and flips the button into a
-   * "Copied ✓" state for 1.2s.
-   */
-  onOverviewClick(ev: Event): void {
-    const t = ev.target as HTMLElement | null;
-    if (!t) return;
-    const btn = t.closest('button.copy-code-btn') as HTMLButtonElement | null;
-    if (!btn) return;
-    const pre = btn.closest('pre');
-    const code = pre?.querySelector('code');
-    const text = code?.textContent ?? '';
-    if (!text) return;
-    try {
-      void navigator.clipboard.writeText(text);
-      const original = btn.textContent ?? 'Copy';
-      btn.textContent = 'Copied ✓';
-      btn.classList.add('is-copied');
-      this.toast.success('Copied');
-      setTimeout(() => {
-        btn.textContent = original;
-        btn.classList.remove('is-copied');
-      }, 1200);
-    } catch {
-      this.toast.error('Clipboard unavailable');
-    }
-  }
-
-  /** Copy whichever response view is currently visible. */
-  copyResponse(): void {
-    const r = this.response();
-    if (!r) return;
-    const tab = this.responseTab();
-    const text = tab === 'body' ? this.prettyBody() : tab === 'headers' ? this.headerLines(r) : this.curlSnippet();
-    if (text) this.writeClipboard(text);
-  }
-
-  private writeClipboard(text: string): void {
-    try {
-      navigator.clipboard.writeText(text).catch(() => undefined);
-      this.copyToast.set(true);
-      setTimeout(() => this.copyToast.set(false), 1500);
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-/**
- * Build a minimal example object from a JSON schema. Recursive — handles
- * `object|array|string|number|boolean` and respects `example` when set.
- *
- * @example
- * ```ts
- * buildExampleFromSchema({ type: 'object', properties: { id: { type: 'string' } } });
- * // → { id: '' }
- * ```
- */
-function buildExampleFromSchema(schema: unknown): unknown {
-  if (typeof schema !== 'object' || schema === null) return null;
-  const s = schema as { type?: string; properties?: Record<string, unknown>; items?: unknown; example?: unknown };
-  if (s.example !== undefined) return s.example;
-  if (s.type === 'object' && s.properties) {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(s.properties)) {
-      out[k] = buildExampleFromSchema(v);
-    }
-    return out;
-  }
-  if (s.type === 'array') return [buildExampleFromSchema(s.items ?? {})];
-  if (s.type === 'string') return '';
-  if (s.type === 'number') return 0;
-  if (s.type === 'boolean') return false;
-  return null;
-}
-
-/**
- * Hand-rolled JSON tokenizer → HTML. Tokens: keys (amber), strings (green),
- * numbers (cyan), booleans (violet), null (grey), punctuation (faint white).
- *
- * Operates on the already-pretty-printed output of `JSON.stringify(_, null, 2)`,
- * so input is trusted-formatted but still HTML-escaped defensively.
- *
- * @example
- * ```ts
- * highlightJson('{"id":1,"name":"x","ok":true,"x":null}')
- * // → '<span class="tk-pun">{</span><span class="tk-key">"id"</span>…'
- * ```
- */
-function highlightJson(src: string): string {
-  const escape = (s: string): string =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  // String literal followed by `:` => key; otherwise => string value.
-  return escape(src).replace(
-    /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|([{}[\],])/g,
-    (_match, str?: string, colon?: string, bool?: string, num?: string, pun?: string) => {
-      if (str) {
-        return colon
-          ? `<span class="tk-key">${str}</span><span class="tk-pun">${colon}</span>`
-          : `<span class="tk-str">${str}</span>`;
-      }
-      if (bool) return bool === 'null' ? `<span class="tk-null">${bool}</span>` : `<span class="tk-bool">${bool}</span>`;
-      if (num) return `<span class="tk-num">${num}</span>`;
-      if (pun) return `<span class="tk-pun">${pun}</span>`;
-      return _match as string;
-    },
-  );
-}
-
-/**
- * Minimal markdown → HTML renderer. Supports headings (#–###), fenced code
- * blocks, inline code, unordered lists, links, bold/italic, and paragraphs.
- *
- * Kept tiny (~40 lines) so the lazy chunk stays below the 50 KB gzip budget
- * imposed on \`/admin/docs\`.
- *
- * @example
- * ```ts
- * renderMarkdown('# Hi\n\n- one\n- two'); // → '<h1>Hi</h1>\n<ul>…</ul>'
- * ```
- */
-function renderMarkdown(md: string): string {
-  const escapeHtml = (s: string): string =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-  // Strip code fences first and stash them so paragraph splitting doesn't break.
-  const fences: string[] = [];
-  let src = md.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, _lang, code) => {
-    const id = fences.length;
-    const raw = escapeHtml(code as string);
-    fences.push(
-      `<pre><button type="button" class="copy-code-btn" aria-label="Copy code">Copy</button><code>${raw}</code></pre>`,
-    );
-    return ` FENCE${id} `;
-  });
-
-  const blocks = src.split(/\n{2,}/).map((blk) => blk.trim()).filter(Boolean);
-
-  const html = blocks.map((blk) => {
-    if (/^ FENCE\d+ $/.test(blk)) {
-      const idx = Number(blk.match(/\d+/)?.[0] ?? '0');
-      return fences[idx] ?? '';
-    }
-    if (blk.startsWith('### ')) return `<h3>${inline(blk.slice(4))}</h3>`;
-    if (blk.startsWith('## ')) return `<h2>${inline(blk.slice(3))}</h2>`;
-    if (blk.startsWith('# ')) return `<h1>${inline(blk.slice(2))}</h1>`;
-    if (/^[-*]\s/.test(blk)) {
-      const items = blk
-        .split('\n')
-        .map((ln) => ln.replace(/^[-*]\s+/, '').trim())
-        .filter(Boolean)
-        .map((it) => `<li>${inline(it)}</li>`)
-        .join('');
-      return `<ul>${items}</ul>`;
-    }
-    return `<p>${inline(blk)}</p>`;
-  }).join('\n');
-
-  return html;
-
-  function inline(text: string): string {
-    // Order matters: code first (don't touch its contents).
-    return escapeHtml(text)
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label: string, href: string) =>
-        `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`);
+    this.specService.load();
+    // Mark `router` as referenced — kept on the instance for future keyboard
+    // shortcuts (e.g. ⌘K → focus first matching endpoint via router.navigate).
+    void this.router;
   }
 }

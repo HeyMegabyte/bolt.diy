@@ -199,7 +199,8 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
 
   handleClick(notif: Notification): void {
     if (!notif.read) {
-      this.api.patch(`/notifications/${notif.id}/read`, {}).subscribe();
+      // Fire-and-forget; api.service already toasts on error.
+      this.api.patch(`/notifications/${notif.id}/read`, {}).subscribe({ error: () => {} });
       const updated = this.notifications().map((n) =>
         n.id === notif.id ? { ...n, read: 1 } : n,
       );
@@ -213,7 +214,8 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
   }
 
   markAllRead(): void {
-    this.api.post('/notifications/read-all', {}).subscribe();
+    // Fire-and-forget; api.service already toasts on error.
+    this.api.post('/notifications/read-all', {}).subscribe({ error: () => {} });
     const updated = this.notifications().map((n) => ({ ...n, read: 1 }));
     this.notifications.set(updated);
     this.unreadCount.set(0);

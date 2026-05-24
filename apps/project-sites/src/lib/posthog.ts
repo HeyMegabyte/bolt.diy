@@ -83,6 +83,14 @@ export function trackAuth(
 
 /**
  * Track a site lifecycle event.
+ *
+ * @remarks
+ * Emits BOTH the legacy underscore-name (`site_created`, `site_deleted`) AND
+ * the dot-named event used by the frontend telemetry facade
+ * (`site.create.submitted`, `site.deleted`). Server + client converge on a
+ * single dot-name taxonomy without breaking historical dashboards keyed off
+ * the underscore names. PostHog dedupe is idempotent — the same
+ * `distinct_id` + timestamp + event name pair is recognized as one row.
  */
 export function trackSite(
   env: Env,
@@ -95,6 +103,16 @@ export function trackSite(
     event: `site_${action}`,
     distinctId,
     properties: extra,
+  });
+  // Dot-named alias for parity with the frontend telemetry convention.
+  // Mapping: `created` → `site.create.submitted` (matches GA4 generate_lead
+  // conversion alias); everything else stays `site.<action>`.
+  const dotted =
+    action === 'created' ? 'site.create.submitted' : `site.${action}`;
+  capture(env, ctx, {
+    event: dotted,
+    distinctId,
+    properties: { ...extra, source: 'worker' },
   });
 }
 

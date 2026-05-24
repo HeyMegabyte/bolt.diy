@@ -42,6 +42,7 @@ import {
   type AiTraceRow,
 } from '../services/ai_admin_features.js';
 import { safeParseJSONOrNull } from '../utils/safe-parse.js';
+import * as auditService from '../services/audit.js';
 
 export const aiAdmin = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -201,6 +202,20 @@ aiAdmin.post('/api/sites/:siteId/ai-chat/context-files', async (c) => {
   )
     .bind(id, orgId, siteId, file.name, file.type || null, file.size, r2Key, extracted, description)
     .run();
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'ai_chat.context_file_uploaded',
+      message: `AI chat context file '${file.name}' uploaded to site '${siteId}' (${Math.round(file.size / 1024)} KB)`,
+      target_type: 'ai_chat_context_file',
+      target_id: id,
+      metadata_json: { site_id: siteId, filename: file.name, size_bytes: file.size, indexed: !!extracted },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({ data: { id, filename: file.name, size_bytes: file.size, indexed: !!extracted } }, 201);
 });
 
@@ -208,16 +223,29 @@ aiAdmin.delete('/api/sites/:siteId/ai-chat/context-files/:fileId', async (c) => 
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
   await siteOwned(c, orgId, siteId);
+  const fileId = c.req.param('fileId');
   const row = await c.env.DB.prepare(
-    `SELECT r2_key FROM ai_chat_context_files WHERE id = ? AND site_id = ?`,
+    `SELECT r2_key, filename FROM ai_chat_context_files WHERE id = ? AND site_id = ?`,
   )
-    .bind(c.req.param('fileId'), siteId)
-    .first<{ r2_key: string }>();
+    .bind(fileId, siteId)
+    .first<{ r2_key: string; filename: string }>();
   if (!row) throw new HTTPError(404, 'File not found');
   await c.env.SITES_BUCKET.delete(row.r2_key).catch(() => {});
-  await c.env.DB.prepare(`DELETE FROM ai_chat_context_files WHERE id = ?`)
-    .bind(c.req.param('fileId'))
-    .run();
+  await c.env.DB.prepare(`DELETE FROM ai_chat_context_files WHERE id = ?`).bind(fileId).run();
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'ai_chat.context_file_deleted',
+      message: `AI chat context file '${row.filename}' removed from site '${siteId}'`,
+      target_type: 'ai_chat_context_file',
+      target_id: fileId,
+      metadata_json: { site_id: siteId, filename: row.filename },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({ data: { deleted: true } });
 });
 
@@ -298,6 +326,20 @@ aiAdmin.put('/api/sites/:siteId/ai-settings', async (c) => {
       .bind(siteId, ...Object.keys(fields).map((k) => fields[k]))
       .run();
   }
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'ai_settings.updated',
+      message: `AI settings updated for site '${siteId}' (${Object.keys(fields).filter((k) => k !== 'updated_at').join(', ')})`,
+      target_type: 'ai_site_settings',
+      target_id: siteId,
+      metadata_json: { site_id: siteId, fields_changed: Object.keys(fields).filter((k) => k !== 'updated_at') },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({ data: { saved: true } });
 });
 
@@ -417,6 +459,20 @@ aiAdmin.post('/api/sites/:siteId/ai-endpoints', async (c) => {
       deploy.runtimePending ? null : new Date().toISOString(),
     )
     .run();
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'ai_endpoint.created',
+      message: `AI endpoint '${slug}' created on site '${site.slug}' (${language})`,
+      target_type: 'ai_endpoint',
+      target_id: id,
+      metadata_json: { site_id: siteId, slug: site.slug, endpoint_slug: slug, language, kind },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({
     data: {
       id,
@@ -536,6 +592,28 @@ aiAdmin.post('/api/sites/:siteId/ai-endpoints/:endpointId/deploy', async (c) => 
   await c.env.DB.prepare(
     `UPDATE ai_endpoints SET language = ?, files_json = ?, deploy_status = ?, deploy_error = ?, deployed_at = COALESCE(?, deployed_at), updated_at = datetime('now') WHERE id = ?`,
   ).bind(language, JSON.stringify(files), deployStatus, deployError, deployedAt, endpointId).run();
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: result.ok ? 'ai_endpoint.deployed' : 'ai_endpoint.deploy_failed',
+      message: result.ok
+        ? `AI endpoint '${row.endpoint_slug}' deployed (${language})`
+        : `AI endpoint '${row.endpoint_slug}' deploy failed: ${deployError ?? 'unknown error'}`,
+      target_type: 'ai_endpoint',
+      target_id: endpointId,
+      metadata_json: {
+        site_id: siteId,
+        endpoint_slug: row.endpoint_slug,
+        language,
+        deploy_status: deployStatus,
+        deploy_error: deployError,
+      },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({
     data: {
       ok: result.ok,
@@ -628,14 +706,29 @@ aiAdmin.delete('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
   await siteOwned(c, orgId, siteId);
+  const endpointId = c.req.param('endpointId');
   const row = await c.env.DB.prepare(
-    `SELECT wfp_script_name FROM ai_endpoints WHERE id = ? AND site_id = ?`,
+    `SELECT wfp_script_name, endpoint_slug FROM ai_endpoints WHERE id = ? AND site_id = ?`,
   )
-    .bind(c.req.param('endpointId'), siteId)
-    .first<{ wfp_script_name: string | null }>();
+    .bind(endpointId, siteId)
+    .first<{ wfp_script_name: string | null; endpoint_slug: string }>();
   if (!row) throw new HTTPError(404, 'Endpoint not found');
   if (row.wfp_script_name) await deleteUserWorker(c.env, row.wfp_script_name);
-  await c.env.DB.prepare(`DELETE FROM ai_endpoints WHERE id = ?`).bind(c.req.param('endpointId')).run();
+  await c.env.DB.prepare(`DELETE FROM ai_endpoints WHERE id = ?`).bind(endpointId).run();
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'ai_endpoint.deleted',
+      message: `AI endpoint '${row.endpoint_slug}' deleted`,
+      target_type: 'ai_endpoint',
+      target_id: endpointId,
+      metadata_json: { site_id: siteId, endpoint_slug: row.endpoint_slug, wfp_script_name: row.wfp_script_name },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({ data: { deleted: true } });
 });
 
@@ -660,7 +753,7 @@ aiAdmin.get('/api/billing/credits', async (c) => {
 });
 
 aiAdmin.post('/api/billing/credits/topup', async (c) => {
-  const { orgId } = need(c);
+  const { orgId, userId } = need(c);
   const { bundle } = (await c.req.json()) as { bundle: BundleKey };
   const cfg = CREDIT_BUNDLES[bundle];
   if (!cfg) throw new HTTPError(400, 'unknown bundle');
@@ -669,6 +762,18 @@ aiAdmin.post('/api/billing/credits/topup', async (c) => {
   if (!priceId) {
     // DEV fallback: credit immediately. In prod this would be a Stripe Checkout.
     const fresh = await topupCredits(c.env, { orgId, amount: cfg.credits, reason: 'topup_dev' });
+    c.executionCtx.waitUntil(
+      auditService.writeAuditLog(c.env.DB, {
+        org_id: orgId,
+        actor_id: userId,
+        action: 'billing.credits_topup_dev',
+        message: `${cfg.credits} AI credits granted via dev top-up (bundle '${bundle}')`,
+        target_type: 'org',
+        target_id: orgId,
+        metadata_json: { bundle, credits: cfg.credits, mode: 'dev' },
+        request_id: c.get('requestId'),
+      }),
+    );
     return c.json({ data: { mode: 'dev', balance: fresh } });
   }
   const params = new URLSearchParams({
@@ -691,45 +796,30 @@ aiAdmin.post('/api/billing/credits/topup', async (c) => {
   });
   const json = (await res.json()) as { url?: string; id?: string };
   if (!res.ok || !json.url) throw new HTTPError(502, 'Stripe session creation failed');
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId,
+      action: 'billing.credits_topup_initiated',
+      message: `Stripe checkout created for AI credits top-up (bundle '${bundle}', ${cfg.credits} credits)`,
+      target_type: 'org',
+      target_id: orgId,
+      metadata_json: { bundle, credits: cfg.credits, stripe_session_id: json.id ?? null },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({ data: { mode: 'stripe', url: json.url, session_id: json.id } });
 });
 
-aiAdmin.get('/api/billing/spend-alerts', async (c) => {
-  const { orgId } = need(c);
-  const rows = await c.env.DB.prepare(
-    `SELECT * FROM spend_alerts WHERE org_id = ? ORDER BY created_at DESC`,
-  )
-    .bind(orgId)
-    .all();
-  return c.json({ data: rows.results ?? [] });
-});
-
-aiAdmin.post('/api/billing/spend-alerts', async (c) => {
-  const { orgId } = need(c);
-  const body = (await c.req.json()) as {
-    name: string;
-    threshold_credits: number;
-    alert_kind: 'balance_low' | 'daily_burn';
-    notify_email: string;
-  };
-  if (!body.name || !body.notify_email || !body.alert_kind) throw new HTTPError(400, 'invalid');
-  const id = crypto.randomUUID();
-  await c.env.DB.prepare(
-    `INSERT INTO spend_alerts (id, org_id, name, threshold_credits, alert_kind, notify_email)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  )
-    .bind(id, orgId, body.name, body.threshold_credits, body.alert_kind, body.notify_email)
-    .run();
-  return c.json({ data: { id } }, 201);
-});
-
-aiAdmin.delete('/api/billing/spend-alerts/:id', async (c) => {
-  const { orgId } = need(c);
-  await c.env.DB.prepare(`DELETE FROM spend_alerts WHERE id = ? AND org_id = ?`)
-    .bind(c.req.param('id'), orgId)
-    .run();
-  return c.json({ data: { deleted: true } });
-});
+// NOTE: spend-alerts GET/POST/DELETE moved to `routes/api.ts` (Turn 6 retry).
+// The new surface lives behind `createSpendAlertSchema` and the migration-0024
+// `spend_alerts` schema (`trigger_type` / `email` / `channels_json` / `site_id`).
+// The previous ai_admin.ts handlers referenced columns that no longer exist
+// (`alert_kind`, `notify_email`) and would have errored against the new table —
+// removed in this turn so the only spend-alert surface is the canonical one
+// in `api.ts`. See `apps/project-sites/src/routes/api.ts` § Spend Alerts.
 
 aiAdmin.get('/api/billing/site-costs', async (c) => {
   const { orgId } = need(c);
@@ -788,11 +878,31 @@ aiAdmin.delete('/api/sites/:siteId/mcp/connections/:id', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
   await siteOwned(c, orgId, siteId);
+  const connectionId = c.req.param('id');
+  const connection = await c.env.DB.prepare(
+    `SELECT provider FROM mcp_connections WHERE id = ? AND site_id = ?`,
+  )
+    .bind(connectionId, siteId)
+    .first<{ provider: string }>();
   await c.env.DB.prepare(
     `UPDATE mcp_connections SET status = 'revoked', updated_at = datetime('now') WHERE id = ? AND site_id = ?`,
   )
-    .bind(c.req.param('id'), siteId)
+    .bind(connectionId, siteId)
     .run();
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'mcp.disconnected',
+      message: `MCP '${connection?.provider ?? 'unknown'}' disconnected from site '${siteId}'`,
+      target_type: 'mcp_connection',
+      target_id: connectionId,
+      metadata_json: { site_id: siteId, provider: connection?.provider ?? null },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({ data: { revoked: true } });
 });
 
@@ -847,14 +957,46 @@ aiAdmin.post('/api/team/invites', async (c) => {
       }),
     }).catch(() => {});
   }
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId,
+      action: 'team.invite_sent',
+      message: `Team invite sent to '${email}' as '${role}'`,
+      target_type: 'team_invite',
+      target_id: id,
+      metadata_json: { email, role, expires_at: expires },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({ data: { id, token } }, 201);
 });
 
 aiAdmin.delete('/api/team/invites/:id', async (c) => {
   const { orgId } = need(c);
+  const inviteId = c.req.param('id');
+  const invite = await c.env.DB.prepare(
+    `SELECT email, role FROM team_invites WHERE id = ? AND org_id = ?`,
+  ).bind(inviteId, orgId).first<{ email: string; role: string }>();
   await c.env.DB.prepare(`DELETE FROM team_invites WHERE id = ? AND org_id = ?`)
-    .bind(c.req.param('id'), orgId)
+    .bind(inviteId, orgId)
     .run();
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'team.invite_revoked',
+      message: `Team invite revoked for '${invite?.email ?? 'unknown'}' (${invite?.role ?? 'unknown role'})`,
+      target_type: 'team_invite',
+      target_id: inviteId,
+      metadata_json: { email: invite?.email ?? null, role: invite?.role ?? null },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({ data: { revoked: true } });
 });
 
@@ -878,6 +1020,20 @@ aiAdmin.delete('/api/team/members/:userId', async (c) => {
   await c.env.DB.prepare(`DELETE FROM memberships WHERE user_id = ? AND org_id = ?`)
     .bind(targetUserId, orgId)
     .run();
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'team.member_removed',
+      message: `Team member '${targetUserId}' removed from org`,
+      target_type: 'membership',
+      target_id: targetUserId,
+      metadata_json: { user_id: targetUserId, prior_role: target?.role ?? null },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({ data: { removed: true } });
 });
 
@@ -977,6 +1133,20 @@ aiAdmin.post('/api/team/invites/accept', async (c) => {
   await c.env.DB.prepare(
     `UPDATE team_invites SET accepted_at = datetime('now') WHERE id = ?`,
   ).bind(invite.id).run();
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: invite.org_id,
+      actor_id: userId,
+      action: 'team.invite_accepted',
+      message: `Team invite accepted by '${invite.email}' — joined as '${invite.role}'`,
+      target_type: 'membership',
+      target_id: userId,
+      metadata_json: { invite_id: invite.id, email: invite.email, role: invite.role },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({ data: { joined: true, org_id: invite.org_id, role: invite.role } });
 });
 
@@ -1073,6 +1243,20 @@ aiAdmin.post('/api/admin/org/delete', async (c) => {
     c.env.DB.prepare(`UPDATE api_keys SET revoked_at = ? WHERE org_id = ? AND revoked_at IS NULL`).bind(now, orgId),
     c.env.DB.prepare(`UPDATE orgs SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`).bind(now, orgId),
   ]);
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId,
+      action: 'org.deleted',
+      message: `Org '${orgId}' soft-deleted by owner — full purge scheduled in 30 days`,
+      target_type: 'org',
+      target_id: orgId,
+      metadata_json: { scheduled_purge_after_days: 30 },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({ data: { deleted: true, scheduled_purge_after_days: 30 } });
 });
 
@@ -1083,6 +1267,20 @@ aiAdmin.post('/api/admin/org/export', async (c) => {
   await c.env.DB.prepare(
     `INSERT INTO org_exports (id, org_id, requested_by, status) VALUES (?, ?, ?, 'queued')`,
   ).bind(id, orgId, userId).run();
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId,
+      action: 'org.export_queued',
+      message: `Org data export queued (export id '${id}')`,
+      target_type: 'org_export',
+      target_id: id,
+      metadata_json: { export_id: id },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   // Fire-and-forget: bundle the org's D1 rows into a JSON file in R2.
   // Image/asset bundling stays deferred; this hits the 80% "give me my data" case.
   c.executionCtx.waitUntil((async () => {
@@ -1844,22 +2042,85 @@ function renderContextMarkdown(input: {
  * POST /api/admin/traces/:traceId/explain
  *
  * Loads the trace row (org-scoped via ai_form_logs.org_id), feeds it to
- * Llama 3.3 70B with an SRE-grade system prompt, and returns a 3-paragraph
- * markdown explanation. Results are cached in KV for 1 hour.
+ * Llama 3.3 70B (routed through AI Gateway via `env.AI.run`) with an
+ * SRE-grade system prompt, and returns a 3-paragraph markdown explanation.
+ *
+ * Cache hierarchy (cheapest → most expensive):
+ *   1. D1 column `ai_form_logs.explanation` (migration 0026) — permanent,
+ *      paired with the trace row itself. A re-explain after KV eviction
+ *      still costs zero LLM tokens.
+ *   2. KV `trace:{id}:explain` — 1h hot window for cross-row reuse. Set
+ *      by `explainTrace()` after every successful generation.
+ *   3. Cold path — Workers AI Gateway call via `env.AI.run`.
+ *
+ * Response shape: `{ data: { markdown, model, cached } }`. `cached: true`
+ * means EITHER the D1 column OR the KV hit fired — both are zero-cost.
  */
 aiAdmin.post('/api/admin/traces/:traceId/explain', async (c) => {
   const { orgId } = need(c);
   const traceId = c.req.param('traceId');
   const row = await c.env.DB.prepare(
     `SELECT id, trace_kind, endpoint_slug, model, status, prompt_template, input_json,
-            output_text, error_message, latency_ms, tokens_input, tokens_output, created_at
+            output_text, error_message, latency_ms, tokens_input, tokens_output, created_at,
+            explanation
      FROM ai_form_logs WHERE id = ? AND org_id = ? LIMIT 1`,
   )
     .bind(traceId, orgId)
-    .first<AiTraceRow>();
+    .first<AiTraceRow & { explanation: string | null }>();
   if (!row) throw new HTTPError(404, 'Trace not found');
 
+  // ── L1 cache hit: D1 column (free re-explain even after KV eviction). ──
+  if (row.explanation && row.explanation.trim().length > 0) {
+    c.executionCtx.waitUntil(
+      auditService.writeAuditLog(c.env.DB, {
+        org_id: orgId,
+        actor_id: c.get('userId') ?? null,
+        action: 'admin.trace_explained',
+        message: `Trace ${traceId} explanation served from D1 cache (zero-cost)`,
+        target_type: 'ai_trace',
+        target_id: traceId,
+        metadata_json: { source: 'd1_column', cached: true },
+        request_id: c.get('requestId'),
+      }),
+    );
+    return c.json({
+      data: {
+        markdown: row.explanation,
+        model: '@cf/meta/llama-3.1-8b-instruct',
+        cached: true,
+      },
+    });
+  }
+
+  // ── Cold path (or KV-only cache hit, handled inside explainTrace). ──
   const out = await explainTrace(c.env, row);
+
+  // Persist to D1 if this was a fresh generation so the next call hits L1.
+  if (!out.cached && out.markdown && !out.markdown.startsWith('AI explanation unavailable')) {
+    c.executionCtx.waitUntil(
+      c.env.DB.prepare('UPDATE ai_form_logs SET explanation = ? WHERE id = ? AND org_id = ?')
+        .bind(out.markdown, traceId, orgId)
+        .run()
+        .catch(() => undefined)
+        .then(() => undefined),
+    );
+  }
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'admin.trace_explained',
+      message: out.cached
+        ? `Trace ${traceId} explanation served from KV cache`
+        : `Trace ${traceId} explanation generated via AI Gateway (${out.model})`,
+      target_type: 'ai_trace',
+      target_id: traceId,
+      metadata_json: { source: out.cached ? 'kv' : 'ai_gateway', model: out.model },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({ data: out });
 });
 
@@ -1922,4 +2183,418 @@ aiAdmin.get('/api/admin/forecast/cost', async (c) => {
   const { orgId } = need(c);
   const forecast = await forecastCost(c.env, orgId);
   return c.json({ data: forecast });
+});
+
+/* ────────────────────────── Cmd-K Inline AI Streaming ────────────────────────── */
+
+/**
+ * POST /api/admin/ai/stream/palette
+ *
+ * Inline-streaming companion to the Cmd-K command palette. The palette stays
+ * open while tokens arrive, so the user keeps both navigation matches AND the
+ * AI answer in view. Backed by Workers AI Llama 3.3 70B (auto-routed through
+ * AI Gateway via `env.AI.run`).
+ *
+ * **Protocol** — Server-Sent Events. The body is `text/event-stream` and
+ * frames are newline-delimited JSON payloads:
+ *
+ * | Frame                                      | Meaning                       |
+ * | ------------------------------------------ | ----------------------------- |
+ * | `data: {"chunk":"…"}\n\n`                  | Append a token to the UI pane |
+ * | `data: {"done":true,"model":"…","ms":N}\n\n` | Stream complete             |
+ * | `data: {"error":{"code":"…","message":"…"}}\n\n` | Fatal — UI shows fallback |
+ *
+ * **Rate limiting** — per-org soft cap of 30 streams / 5 min, enforced via
+ * `CACHE_KV` counter. Bursts get a 429 with an explanatory chunk so the UI
+ * can render the message inline (better than a silent close).
+ *
+ * **Cancellation** — when the client aborts (`AbortController.abort()` on the
+ * fetch), the underlying `ReadableStream` from Workers AI is released and
+ * the writer is closed. No leaked CPU time charged to the worker budget.
+ *
+ * **Fallback** — when `env.AI.run` errors (model 5xx, gateway down), the
+ * stream emits a single `error` frame and a friendly chunk so the palette
+ * can still render something useful (and offer "Open full chat" as escape).
+ *
+ * **Audit** — fire-and-forget `cmdk.ai.answered` entry containing the first
+ * 40 chars of the query slice; never persists the full streamed answer.
+ *
+ * Body: `{ query: string, context?: { selected_site_id?: string, current_route?: string } }`.
+ */
+aiAdmin.post('/api/admin/ai/stream/palette', async (c) => {
+  const { orgId, userId } = need(c);
+  const body = (await c.req.json().catch(() => ({}))) as {
+    query?: string;
+    context?: { selected_site_id?: string; current_route?: string };
+  };
+  const query = (body.query ?? '').trim();
+  if (query.length < 2) throw new HTTPError(400, 'query must be at least 2 characters');
+  if (query.length > 1500) throw new HTTPError(413, 'query must be ≤ 1500 characters');
+
+  // Per-org soft rate limit: 30 streams / 5min via CACHE_KV counter.
+  const rateKey = `cmdk_ai_rate:${orgId}`;
+  const rateRaw = await c.env.CACHE_KV.get(rateKey);
+  const rateCount = rateRaw ? parseInt(rateRaw, 10) || 0 : 0;
+  if (rateCount >= 30) {
+    throw new HTTPError(429, 'AI palette rate limit reached. Try again in a few minutes.');
+  }
+  // Fire-and-forget bump; 300s TTL gives a rolling 5-min window.
+  c.executionCtx.waitUntil(
+    c.env.CACHE_KV.put(rateKey, String(rateCount + 1), { expirationTtl: 300 }),
+  );
+
+  const ctxSite = body.context?.selected_site_id ? `Selected site id: ${body.context.selected_site_id}.` : '';
+  const ctxRoute = body.context?.current_route ? `Current admin route: ${body.context.current_route}.` : '';
+  const systemPrompt = [
+    "You are the AI assistant inside the Project Sites admin dashboard's command palette.",
+    'Answer concisely (≤4 sentences).',
+    'When the user asks how to do something in the dashboard, suggest the specific admin route (e.g. /admin/forms, /admin/snapshots, /admin/billing, /admin/audit, /admin/ai-endpoints) AND offer to navigate them there in your response.',
+    ctxSite,
+    ctxRoute,
+  ].filter(Boolean).join(' ');
+
+  const model = '@cf/meta/llama-3.3-70b-instruct';
+  const started = Date.now();
+
+  // Audit log: fire-and-forget, never blocks the stream.
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId,
+      action: 'cmdk.ai.answered',
+      message: `Cmd-K AI answered: '${query.slice(0, 40)}'`,
+      target_type: 'cmdk_ai',
+      metadata_json: {
+        query_length: query.length,
+        model,
+        selected_site_id: body.context?.selected_site_id ?? null,
+        current_route: body.context?.current_route ?? null,
+      },
+      request_id: c.get('requestId'),
+    }),
+  );
+
+  const encoder = new TextEncoder();
+  const writeFrame = (writer: WritableStreamDefaultWriter<Uint8Array>, payload: unknown): Promise<void> =>
+    writer.write(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = writable.getWriter();
+
+  // Drive the LLM in the background; the response returns immediately so
+  // Hono ships the headers + opens the stream to the client.
+  c.executionCtx.waitUntil((async () => {
+    try {
+      const upstream = (await c.env.AI.run(
+        model as Parameters<typeof c.env.AI.run>[0],
+        {
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: query },
+          ],
+          stream: true,
+          max_tokens: 512,
+        } as Parameters<typeof c.env.AI.run>[1],
+      )) as ReadableStream<Uint8Array>;
+
+      // Workers AI streams SSE-formatted Uint8Array chunks: `data: {"response":"…"}\n\n`.
+      // Re-frame each token as a clean `{"chunk":"…"}` envelope so the UI never
+      // has to know the upstream wire format.
+      const reader = upstream.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const raw of lines) {
+          const line = raw.trim();
+          if (!line.startsWith('data:')) continue;
+          const json = line.slice(5).trim();
+          if (!json || json === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(json) as { response?: string };
+            const token = parsed.response ?? '';
+            if (token) await writeFrame(writer, { chunk: token });
+          } catch {
+            // Non-JSON keep-alive or padding — skip silently.
+          }
+        }
+      }
+      await writeFrame(writer, { done: true, model, ms: Date.now() - started });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'AI is offline right now';
+      // Fallback chunk + structured error frame so the UI can render BOTH
+      // the friendly sentence inline AND know to show the "Open full chat"
+      // escape hatch.
+      try {
+        await writeFrame(writer, {
+          chunk: "Sorry — the AI service is unavailable right now. Try the full chat for a retry.",
+        });
+        await writeFrame(writer, { error: { code: 'AI_UNAVAILABLE', message: msg } });
+      } catch {
+        /* writer already closed by client abort — nothing to do */
+      }
+    } finally {
+      try { await writer.close(); } catch { /* already closed */ }
+    }
+  })());
+
+  return new Response(readable, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    },
+  });
+});
+
+/* ────────────────────────── AI Chat Widget (SSE + Tool Use) ────────────────────────── */
+
+/**
+ * POST /api/admin/ai/stream/chat
+ *
+ * Server-Sent Events backing the floating `<app-ai-chat-widget>` admin assistant
+ * (the right-rail side panel). The widget keeps a local conversation log
+ * (`AiChatService.messages()`) and round-trips a sliding window of recent
+ * messages back to this handler with each turn. The handler streams tokens
+ * back as `{chunk}` frames, recognises in-line `<tool>{…}</tool>` envelopes
+ * the model emits, decodes them, and re-frames each one as a `{tool}` event
+ * so the UI can render a confirmation card before the action fires.
+ *
+ * **Protocol** — Server-Sent Events. Body is `text/event-stream` and frames
+ * are newline-delimited JSON payloads:
+ *
+ * | Frame                                            | Meaning                            |
+ * | ------------------------------------------------ | ---------------------------------- |
+ * | `data: {"chunk":"…"}\n\n`                        | Append a token to the visible body |
+ * | `data: {"tool":{"name":"…","args":{…}}}\n\n`     | Render a tool-confirmation card    |
+ * | `data: {"done":true,"model":"…","ms":N}\n\n`     | Stream complete                    |
+ * | `data: {"error":{"code":"…","message":"…"}}\n\n` | Fatal — UI surfaces a toast        |
+ *
+ * **Tool surface** — the system prompt enumerates exactly three callable
+ * tools the assistant may emit, each as a `<tool>{"name":"…","args":{…}}</tool>`
+ * envelope dropped mid-completion:
+ *
+ *   - `navigate({ to: string })`             — push a router URL
+ *   - `set_theme({ theme: 'dark'|'light' })` — flip `<html data-theme>`
+ *   - `open_help_topic({ topic: string })`   — open the shortcuts overlay
+ *
+ * The model is instructed NEVER to call a tool without first explaining why,
+ * and the UI ALWAYS shows a Run/Dismiss card — never auto-executes.
+ *
+ * **Audit** — fire-and-forget `chat.ai.message` per user turn and
+ * `chat.ai.tool_call` per emitted tool envelope. Tool execution itself is
+ * audited client-side via the standard admin-action audit pipeline.
+ *
+ * Body: `{ conversation: { role: 'user'|'assistant', content: string }[],
+ *          context: { selected_site_id?: string|null, current_route?: string|null } }`.
+ */
+aiAdmin.post('/api/admin/ai/stream/chat', async (c) => {
+  const { orgId, userId } = need(c);
+  const body = (await c.req.json().catch(() => ({}))) as {
+    conversation?: { role?: string; content?: string }[];
+    context?: { selected_site_id?: string | null; current_route?: string | null };
+  };
+
+  const turns = Array.isArray(body.conversation) ? body.conversation : [];
+  if (turns.length === 0) throw new HTTPError(400, 'conversation must contain at least one message');
+  if (turns.length > 24) throw new HTTPError(413, 'conversation must be ≤ 24 messages');
+
+  const cleaned: { role: 'user' | 'assistant'; content: string }[] = [];
+  for (const t of turns) {
+    if (typeof t?.content !== 'string') continue;
+    if (t.role !== 'user' && t.role !== 'assistant') continue;
+    const content = t.content.trim();
+    if (!content) continue;
+    if (content.length > 4000) throw new HTTPError(413, 'each message must be ≤ 4000 characters');
+    cleaned.push({ role: t.role, content });
+  }
+  if (cleaned.length === 0) throw new HTTPError(400, 'no valid messages in conversation');
+
+  const lastUser = [...cleaned].reverse().find((m) => m.role === 'user');
+  if (!lastUser) throw new HTTPError(400, 'conversation must end with a user message');
+
+  // Per-org soft rate limit: 60 chat streams / 5min via CACHE_KV counter.
+  const rateKey = `aichat_rate:${orgId}`;
+  const rateRaw = await c.env.CACHE_KV.get(rateKey);
+  const rateCount = rateRaw ? parseInt(rateRaw, 10) || 0 : 0;
+  if (rateCount >= 60) {
+    throw new HTTPError(429, 'AI chat rate limit reached. Try again in a few minutes.');
+  }
+  c.executionCtx.waitUntil(
+    c.env.CACHE_KV.put(rateKey, String(rateCount + 1), { expirationTtl: 300 }),
+  );
+
+  const selectedSite = body.context?.selected_site_id ?? null;
+  const currentRoute = body.context?.current_route ?? null;
+
+  const systemPrompt = [
+    'You are the AI assistant inside the Project Sites admin dashboard. Answer concisely (≤6 sentences unless asked for more).',
+    'You can call tools by emitting EXACTLY this XML-style envelope inline in your response: <tool>{"name":"<tool_name>","args":{…}}</tool>. The user will see a confirmation card before any tool fires — never auto-execute.',
+    'Available tools:',
+    '  - navigate({"to": "/admin/<route>"}) — push a router URL. Examples: /admin/forms, /admin/snapshots, /admin/billing, /admin/audit, /admin/ai-endpoints.',
+    '  - set_theme({"theme": "dark" | "light"}) — flip the dashboard color scheme.',
+    '  - open_help_topic({"topic": "<slug>"}) — open the shortcuts overlay or docs anchor.',
+    'Always explain WHY you are suggesting a tool BEFORE emitting the envelope. Emit at most one tool per response.',
+    selectedSite ? `Selected site id: ${selectedSite}.` : 'No site is selected.',
+    currentRoute ? `Current admin route: ${currentRoute}.` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const model = '@cf/meta/llama-3.3-70b-instruct';
+  const started = Date.now();
+
+  // Audit log: fire-and-forget, never blocks the stream.
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId,
+      action: 'chat.ai.message',
+      message: `AI chat user message: '${lastUser.content.slice(0, 60)}'`,
+      target_type: 'ai_chat',
+      metadata_json: {
+        model,
+        turns: cleaned.length,
+        message_length: lastUser.content.length,
+        selected_site_id: selectedSite,
+        current_route: currentRoute,
+      },
+      request_id: c.get('requestId'),
+    }),
+  );
+
+  const encoder = new TextEncoder();
+  const writeFrame = (
+    writer: WritableStreamDefaultWriter<Uint8Array>,
+    payload: unknown,
+  ): Promise<void> => writer.write(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+
+  // Regex to extract a balanced `<tool>{…}</tool>` envelope from the streamed
+  // text buffer. Captures the JSON body so we can parse + audit + re-frame.
+  const TOOL_RE = /<tool>\s*(\{[\s\S]*?\})\s*<\/tool>/g;
+
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = writable.getWriter();
+
+  c.executionCtx.waitUntil((async () => {
+    try {
+      const upstream = (await c.env.AI.run(
+        model as Parameters<typeof c.env.AI.run>[0],
+        {
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...cleaned,
+          ],
+          stream: true,
+          max_tokens: 1024,
+        } as Parameters<typeof c.env.AI.run>[1],
+      )) as ReadableStream<Uint8Array>;
+
+      const reader = upstream.getReader();
+      const decoder = new TextDecoder();
+      let lineBuffer = '';
+      // Rolling buffer of fully-emitted assistant text so we can scan it for
+      // complete `<tool>…</tool>` envelopes across chunk boundaries.
+      let assembled = '';
+      let nextToolScanFrom = 0;
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        lineBuffer += decoder.decode(value, { stream: true });
+        const lines = lineBuffer.split('\n');
+        lineBuffer = lines.pop() ?? '';
+
+        for (const raw of lines) {
+          const line = raw.trim();
+          if (!line.startsWith('data:')) continue;
+          const json = line.slice(5).trim();
+          if (!json || json === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(json) as { response?: string };
+            const token = parsed.response ?? '';
+            if (!token) continue;
+            assembled += token;
+            await writeFrame(writer, { chunk: token });
+
+            // Scan the new region for any completed tool envelopes.
+            TOOL_RE.lastIndex = nextToolScanFrom;
+            let match: RegExpExecArray | null;
+            while ((match = TOOL_RE.exec(assembled)) !== null) {
+              const envelope = match[1];
+              if (!envelope) continue;
+              try {
+                const tool = JSON.parse(envelope) as {
+                  name?: string;
+                  args?: Record<string, unknown>;
+                };
+                const allowed = ['navigate', 'set_theme', 'open_help_topic'];
+                if (tool.name && allowed.includes(tool.name)) {
+                  // Coerce arg values to strings (the UI handlers expect strings).
+                  const args: Record<string, string> = {};
+                  for (const [k, v] of Object.entries(tool.args ?? {})) {
+                    args[k] = String(v ?? '');
+                  }
+                  await writeFrame(writer, { tool: { name: tool.name, args } });
+
+                  // Audit tool emissions (fire-and-forget).
+                  c.executionCtx.waitUntil(
+                    auditService.writeAuditLog(c.env.DB, {
+                      org_id: orgId,
+                      actor_id: userId,
+                      action: 'chat.ai.tool_call',
+                      message: `AI proposed tool '${tool.name}'`,
+                      target_type: 'ai_chat_tool',
+                      metadata_json: { tool: tool.name, args },
+                      request_id: c.get('requestId'),
+                    }),
+                  );
+                }
+              } catch {
+                /* malformed tool envelope — skip silently. */
+              }
+              nextToolScanFrom = TOOL_RE.lastIndex;
+            }
+          } catch {
+            // Non-JSON keep-alive / padding — skip silently.
+          }
+        }
+      }
+      await writeFrame(writer, { done: true, model, ms: Date.now() - started });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'AI is offline right now';
+      try {
+        await writeFrame(writer, {
+          chunk: 'Sorry — the AI service is unavailable right now. Try again in a moment.',
+        });
+        await writeFrame(writer, { error: { code: 'AI_UNAVAILABLE', message: msg } });
+      } catch {
+        /* writer already closed by client abort */
+      }
+    } finally {
+      try {
+        await writer.close();
+      } catch {
+        /* already closed */
+      }
+    }
+  })());
+
+  return new Response(readable, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    },
+  });
 });

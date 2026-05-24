@@ -1,6 +1,8 @@
 /**
  * AI Endpoint IDE — multi-file editor with file tree, tabs, side panels, status
- * bar, and deploy/logs/test panes. Wraps {@link IdeCodeEditorComponent}.
+ * bar, and deploy/logs/test panes. Mounts a Monaco editor instance directly
+ * via the lazy {@link loadMonaco} loader so the heavy editor bundle (~3-5 MB)
+ * never lands in the initial Angular chunk.
  *
  * The IDE owns no network state — the parent passes the full file map and
  * receives change events. Save / Deploy emit upward; the parent decides whether
@@ -17,10 +19,22 @@
  *   (deployClick)="onDeploy()" />
  * ```
  */
-import { Component, EventEmitter, Input, Output, computed, signal, type OnInit } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  EventEmitter,
+  Input,
+  Output,
+  ViewChild,
+  computed,
+  signal,
+  type AfterViewInit,
+  type OnDestroy,
+  type OnInit,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IdeCodeEditorComponent } from './code-editor.component';
+import { loadMonaco, type MonacoNamespace } from './monaco-loader';
 import {
   LANGUAGE_OPTIONS,
   extensionFor,
@@ -31,10 +45,16 @@ import {
   type OpenTab,
 } from './types';
 
+type MonacoEditor = ReturnType<MonacoNamespace['editor']['create']>;
+type MonacoModel = ReturnType<MonacoNamespace['editor']['createModel']>;
+
+/** Monaco-supported language id we hand to `editor.setModelLanguage`. */
+type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markdown' | 'json' | 'html' | 'plaintext';
+
 @Component({
   selector: 'app-ide',
   standalone: true,
-  imports: [CommonModule, FormsModule, IdeCodeEditorComponent],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="ide-shell" data-testid="ai-endpoint-ide">
       <!-- TOOLBAR -->
@@ -105,12 +125,16 @@ import {
           </div>
           <!-- EDITOR -->
           <div class="editor-area">
-            @if (activePath(); as ap) {
-              <app-ide-code-editor
-                [value]="files[ap] ?? ''"
-                [language]="editorLanguageFor(ap)"
-                (valueChange)="onEditorChange(ap, $event)"
-                data-testid="ide-editor" />
+            @if (activePath()) {
+              <div #editorHost class="monaco-host" data-testid="ide-editor"></div>
+              @if (loading()) {
+                <div class="editor-loading" role="status" aria-live="polite">Loading Monaco…</div>
+              }
+              @if (loadError()) {
+                <div class="editor-error" role="alert">
+                  Failed to load editor: {{ loadError() }}
+                </div>
+              }
             } @else {
               <div class="empty-editor">Pick a file from the tree to start editing.</div>
             }
@@ -213,7 +237,10 @@ import {
     .tab { display: flex; align-items: center; gap: 6px; padding: 0.35rem 0.6rem; border-radius: 6px 6px 0 0; background: rgba(255,255,255,0.02); cursor: pointer; font-size: 0.7rem; color: rgba(255,255,255,0.7); }
     .tab.active { background: #0a0a14; color: #00E5FF; }
     .tab-close { background: transparent; border: 0; color: rgba(255,255,255,0.4); cursor: pointer; }
-    .editor-area { flex: 1; min-height: 0; padding: 0.5rem; }
+    .editor-area { flex: 1; min-height: 0; padding: 0.5rem; position: relative; }
+    .monaco-host { width: 100%; height: 100%; min-height: 320px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); background: #1e1e1e; }
+    .editor-loading, .editor-error { position: absolute; inset: 0.5rem; display: flex; align-items: center; justify-content: center; background: rgba(10,10,20,0.8); color: rgba(255,255,255,0.7); font-size: 0.78rem; pointer-events: none; border-radius: 8px; }
+    .editor-error { color: #fca5a5; pointer-events: auto; padding: 1rem; text-align: center; }
     .empty-editor { padding: 2rem; text-align: center; color: rgba(255,255,255,0.4); font-size: 0.8rem; }
     .side-panel { background: rgba(255,255,255,0.015); border-left: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; min-width: 0; }
     .panel-head { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.75rem; }
@@ -243,7 +270,7 @@ import {
     .preview-frame { width: 100%; height: 320px; background: #fff; border-radius: 8px; border: 0; }
   `],
 })
-export class IdeComponent implements OnInit {
+export class IdeComponent implements OnInit, AfterViewInit, OnDestroy {
   @Input() files: Record<string, string> = {};
   @Input() language: IdeLanguage = 'javascript';
   @Input() deployStatus: DeployStatus = 'idle';
@@ -266,6 +293,8 @@ export class IdeComponent implements OnInit {
   @Output() deployClick = new EventEmitter<void>();
   @Output() runTester = new EventEmitter<string>();
 
+  @ViewChild('editorHost') editorHost?: ElementRef<HTMLDivElement>;
+
   langs = LANGUAGE_OPTIONS;
   languageLocal: IdeLanguage = 'javascript';
 
@@ -273,14 +302,42 @@ export class IdeComponent implements OnInit {
   tabs = signal<OpenTab[]>([]);
   paths = computed(() => Object.keys(this.files).sort());
   activePanel = signal<'tester' | 'logs' | 'bindings' | 'preview' | null>(null);
+  loading = signal<boolean>(false);
+  loadError = signal<string | null>(null);
 
   findQuery = '';
   testerBody = '{}';
+
+  // Monaco internals — kept private; the public API stays files/language.
+  private monaco: MonacoNamespace | null = null;
+  private editor: MonacoEditor | null = null;
+  /** One Monaco model per file path, so per-file undo/redo + scroll position is preserved. */
+  private models = new Map<string, MonacoModel>();
+  /** Re-entrance guard: when we programmatically write to a model, skip the change handler. */
+  private suppressChange = false;
 
   ngOnInit(): void {
     this.languageLocal = this.language;
     const first = Object.keys(this.files)[0];
     if (first) this.openFile(first);
+  }
+
+  async ngAfterViewInit(): Promise<void> {
+    await this.bootEditor();
+  }
+
+  ngOnDestroy(): void {
+    // Dispose editor + every model. Each Monaco instance + model holds
+    // ~5MB of tokenized state — leaving them attached leaks memory across
+    // overlay open/close cycles.
+    this.editor?.dispose();
+    this.editor = null;
+    for (const model of this.models.values()) model.dispose();
+    this.models.clear();
+    // Also reap any orphan models (defensive — Monaco occasionally creates
+    // diff-editor side models that don't make it into our map).
+    this.monaco?.editor.getModels().forEach((m) => m.dispose());
+    this.monaco = null;
   }
 
   /** Open a file (adds to tabs if not already open). */
@@ -290,13 +347,22 @@ export class IdeComponent implements OnInit {
     if (!cur.find((t) => t.path === path)) {
       this.tabs.set([...cur, { path, dirty: false }]);
     }
+    this.attachModelFor(path);
   }
 
   closeTab(path: string): void {
     this.tabs.set(this.tabs().filter((t) => t.path !== path));
     if (this.activePath() === path) {
       const remaining = this.tabs();
-      this.activePath.set(remaining.length ? remaining[remaining.length - 1].path : null);
+      const next = remaining.length ? remaining[remaining.length - 1].path : null;
+      this.activePath.set(next);
+      if (next) this.attachModelFor(next);
+    }
+    // Drop the model for the closed tab so memory is reclaimed promptly.
+    const model = this.models.get(path);
+    if (model) {
+      model.dispose();
+      this.models.delete(path);
     }
   }
 
@@ -326,14 +392,13 @@ export class IdeComponent implements OnInit {
     this.closeTab(path);
   }
 
-  onEditorChange(path: string, value: string): void {
-    this.files = { ...this.files, [path]: value };
-    this.filesChange.emit(this.files);
-    this.tabs.set(this.tabs().map((t) => (t.path === path ? { ...t, dirty: true } : t)));
-  }
-
   onLanguageChange(next: IdeLanguage): void {
+    this.languageLocal = next;
     this.languageChange.emit(next);
+    // Re-evaluate the active model's language since the picker is a global
+    // hint (per-file language is still inferred from extension).
+    const path = this.activePath();
+    if (path) this.applyLanguageForPath(path);
   }
 
   togglePanel(p: 'tester' | 'logs' | 'bindings' | 'preview'): void {
@@ -367,13 +432,17 @@ export class IdeComponent implements OnInit {
     return i === -1 ? path : path.slice(i + 1);
   }
 
-  editorLanguageFor(path: string): 'ai-prompt' | 'javascript' | 'typescript' | 'python' | 'rust-wasm' {
+  /** Map a file path to a Monaco language id. */
+  private monacoLanguageFor(path: string): MonacoLanguageId {
     const ext = extensionFor(path);
     if (ext === 'ts' || ext === 'tsx') return 'typescript';
+    if (ext === 'js' || ext === 'mjs' || ext === 'cjs') return 'javascript';
     if (ext === 'py') return 'python';
-    if (ext === 'rs') return 'rust-wasm';
-    if (ext === 'md') return 'ai-prompt';
-    return 'javascript';
+    if (ext === 'rs') return 'rust';
+    if (ext === 'md') return 'markdown';
+    if (ext === 'json') return 'json';
+    if (ext === 'html' || ext === 'htm') return 'html';
+    return 'plaintext';
   }
 
   deployStatusLabel(): string {
@@ -386,10 +455,99 @@ export class IdeComponent implements OnInit {
   }
 
   format(): void {
-    // No-op when no formatter is bundled — placeholder for Prettier-lite.
+    // Trigger Monaco's built-in formatter when a formatting provider is registered
+    // (TS/JS/JSON/HTML/CSS are all covered out of the box).
+    this.editor?.getAction('editor.action.formatDocument')?.run().catch(() => undefined);
   }
 
   findNext(): void {
-    // CodeMirror handles its own search via Cmd+F; this is a parent-level hook.
+    // Monaco's find widget owns Cmd+F natively. This is a parent-level hook
+    // that opens the widget pre-populated with the toolbar query.
+    if (!this.editor) return;
+    const action = this.editor.getAction('actions.find');
+    action?.run().catch(() => undefined);
+  }
+
+  /** Boot the Monaco namespace, then mount the editor for the active file. */
+  private async bootEditor(): Promise<void> {
+    if (!this.editorHost) return;
+    this.loading.set(true);
+    this.loadError.set(null);
+    try {
+      this.monaco = await loadMonaco();
+      const reducedMotion = typeof window !== 'undefined'
+        && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      this.editor = this.monaco.editor.create(this.editorHost.nativeElement, {
+        value: '',
+        language: 'plaintext',
+        theme: 'vs-dark',
+        automaticLayout: true,
+        minimap: { enabled: false },
+        fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+        fontSize: 13,
+        lineNumbers: 'on',
+        scrollBeyondLastLine: false,
+        cursorBlinking: reducedMotion ? 'solid' : 'blink',
+        tabSize: 2,
+        renderWhitespace: 'selection',
+        smoothScrolling: !reducedMotion,
+        wordWrap: 'off',
+        roundedSelection: true,
+      });
+      this.editor.onDidChangeModelContent(() => {
+        if (this.suppressChange) return;
+        const path = this.activePath();
+        if (!path || !this.editor) return;
+        const value = this.editor.getValue();
+        this.commitFileChange(path, value);
+      });
+      const path = this.activePath();
+      if (path) this.attachModelFor(path);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.loadError.set(message);
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  /** Ensure a model exists for `path`, then attach it to the editor. */
+  private attachModelFor(path: string): void {
+    if (!this.monaco || !this.editor) return;
+    let model = this.models.get(path);
+    const language = this.monacoLanguageFor(path);
+    if (!model) {
+      model = this.monaco.editor.createModel(this.files[path] ?? '', language);
+      this.models.set(path, model);
+    } else {
+      // Re-sync if the parent mutated the file externally (e.g. Save reverted state).
+      const incoming = this.files[path] ?? '';
+      if (model.getValue() !== incoming) {
+        this.suppressChange = true;
+        try {
+          model.setValue(incoming);
+        } finally {
+          this.suppressChange = false;
+        }
+      }
+      if (model.getLanguageId() !== language) {
+        this.monaco.editor.setModelLanguage(model, language);
+      }
+    }
+    this.editor.setModel(model);
+  }
+
+  /** Re-apply the language for the currently mounted file path. */
+  private applyLanguageForPath(path: string): void {
+    const model = this.models.get(path);
+    if (!this.monaco || !model) return;
+    this.monaco.editor.setModelLanguage(model, this.monacoLanguageFor(path));
+  }
+
+  /** Propagate an edit to the file map + mark the tab dirty. */
+  private commitFileChange(path: string, value: string): void {
+    this.files = { ...this.files, [path]: value };
+    this.filesChange.emit(this.files);
+    this.tabs.set(this.tabs().map((t) => (t.path === path ? { ...t, dirty: true } : t)));
   }
 }

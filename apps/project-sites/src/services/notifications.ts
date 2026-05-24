@@ -3,22 +3,53 @@
  * @description Transactional email notifications for domain verification and site builds.
  *
  * Uses Resend (primary) or SendGrid (fallback) to deliver notifications.
+ *
+ * Every Resend call (success or failure) emits a structured log with
+ * `{status, body_excerpt, to, request_id}` so the operator can grep the
+ * Workers tail for delivery failures without re-running the send. Failures
+ * also fan out to Sentry (`captureMessage('Resend invite send failed', …)`)
+ * for the high-signal alerting channel; successes drop a Sentry breadcrumb
+ * (`category: 'email'`) so the next captured exception in the same request
+ * carries the delivery context.
  */
 
 import { DOMAINS } from '@project-sites/shared';
 
 import type { Env } from '../types/env.js';
+import { captureMessage as sentryCaptureMessage } from './sentry.js';
 
 interface EmailOpts {
   to: string;
   subject: string;
   html: string;
+  /**
+   * Free-form tag for log / Sentry attribution. Defaults to `'transactional'`;
+   * callers SHOULD pass `'invite'` / `'magic_link'` / `'domain_verified'` /
+   * `'site_built'` so the dashboards can pivot per category.
+   */
+  category?: string;
 }
 
 /**
  * Send an email via configured provider (Resend → SendGrid fallback).
+ *
+ * Wiring rules:
+ *   - On `!res.ok` from Resend: structured log `{status, body_excerpt, to,
+ *     request_id, category}` + `sentry.captureMessage('Resend invite send
+ *     failed', { level: 'error', extra })` + throw so the caller can decide
+ *     whether to bubble or swallow.
+ *   - On `res.ok` from Resend: structured log + Sentry breadcrumb
+ *     `{ category: 'email', message: 'Resend invite sent' }`.
+ *   - SendGrid fallback path: mirrors the Resend instrumentation under
+ *     `provider: 'sendgrid'` so the operator can see which rail delivered.
+ *
+ * @throws Error when both Resend AND SendGrid attempts fail (or the only
+ *   configured provider rejects). Caller-side `.catch(() => {})` policy is
+ *   preserved upstream.
  */
 async function sendEmail(env: Env, opts: EmailOpts): Promise<void> {
+  const category = opts.category ?? 'transactional';
+
   if (env.RESEND_API_KEY) {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -33,10 +64,58 @@ async function sendEmail(env: Env, opts: EmailOpts): Promise<void> {
         html: opts.html,
       }),
     });
+    const requestId = res.headers.get('x-resend-request-id') ?? res.headers.get('x-request-id');
     if (!res.ok) {
       const text = await res.text();
+      const bodyExcerpt = text.slice(0, 400);
+      console.warn(
+        JSON.stringify({
+          level: 'error',
+          service: 'notifications',
+          provider: 'resend',
+          category,
+          message: 'Resend send failed',
+          status: res.status,
+          body_excerpt: bodyExcerpt,
+          to: opts.to,
+          subject: opts.subject,
+          request_id: requestId,
+        }),
+      );
+      sentryCaptureMessage(env, 'Resend invite send failed', 'error', {
+        provider: 'resend',
+        category,
+        status: res.status,
+        to: opts.to,
+        subject: opts.subject,
+        request_id: requestId,
+        body_excerpt: bodyExcerpt,
+      }).catch(() => {});
       throw new Error(`Resend error ${res.status}: ${text}`);
     }
+    console.warn(
+      JSON.stringify({
+        level: 'info',
+        service: 'notifications',
+        provider: 'resend',
+        category,
+        message: 'Resend send ok',
+        status: res.status,
+        body_excerpt: '',
+        to: opts.to,
+        subject: opts.subject,
+        request_id: requestId,
+      }),
+    );
+    // Sentry breadcrumb for successful sends — surfaces in any error that
+    // fires later in the same request scope.
+    sentryCaptureMessage(env, 'Resend invite sent', 'info', {
+      provider: 'resend',
+      category,
+      to: opts.to,
+      subject: opts.subject,
+      request_id: requestId,
+    }).catch(() => {});
     return;
   }
 
@@ -54,10 +133,56 @@ async function sendEmail(env: Env, opts: EmailOpts): Promise<void> {
         content: [{ type: 'text/html', value: opts.html }],
       }),
     });
+    const requestId = res.headers.get('x-message-id') ?? res.headers.get('x-request-id');
     if (!res.ok) {
       const text = await res.text();
+      const bodyExcerpt = text.slice(0, 400);
+      console.warn(
+        JSON.stringify({
+          level: 'error',
+          service: 'notifications',
+          provider: 'sendgrid',
+          category,
+          message: 'SendGrid send failed',
+          status: res.status,
+          body_excerpt: bodyExcerpt,
+          to: opts.to,
+          subject: opts.subject,
+          request_id: requestId,
+        }),
+      );
+      sentryCaptureMessage(env, 'SendGrid invite send failed', 'error', {
+        provider: 'sendgrid',
+        category,
+        status: res.status,
+        to: opts.to,
+        subject: opts.subject,
+        request_id: requestId,
+        body_excerpt: bodyExcerpt,
+      }).catch(() => {});
       throw new Error(`SendGrid error ${res.status}: ${text}`);
     }
+    console.warn(
+      JSON.stringify({
+        level: 'info',
+        service: 'notifications',
+        provider: 'sendgrid',
+        category,
+        message: 'SendGrid send ok',
+        status: res.status,
+        body_excerpt: '',
+        to: opts.to,
+        subject: opts.subject,
+        request_id: requestId,
+      }),
+    );
+    sentryCaptureMessage(env, 'SendGrid invite sent', 'info', {
+      provider: 'sendgrid',
+      category,
+      to: opts.to,
+      subject: opts.subject,
+      request_id: requestId,
+    }).catch(() => {});
     return;
   }
 
@@ -65,7 +190,9 @@ async function sendEmail(env: Env, opts: EmailOpts): Promise<void> {
     JSON.stringify({
       level: 'warn',
       service: 'notifications',
+      category,
       message: 'No email provider configured',
+      to: opts.to,
     }),
   );
 }
@@ -186,6 +313,7 @@ export async function notifyDomainVerified(
     to: opts.email,
     subject: `Domain connected: ${opts.hostname}`,
     html,
+    category: 'domain_verified',
   }).catch((err) => {
     console.warn(
       JSON.stringify({
@@ -239,12 +367,75 @@ export async function notifySiteBuilt(
     to: opts.email,
     subject: `Site published: ${opts.siteName}`,
     html,
+    category: 'site_built',
   }).catch((err) => {
     console.warn(
       JSON.stringify({
         level: 'warn',
         service: 'notifications',
         message: 'Failed to send site built email',
+        error: String(err),
+      }),
+    );
+  });
+}
+
+/**
+ * Send an organisation invite email to the prospective collaborator.
+ *
+ * Delegates to {@link sendEmail} under `category: 'invite'`, so the full
+ * structured-log + Sentry-breadcrumb instrumentation applies. Failures are
+ * swallowed at the caller (best-effort delivery) — Sentry already has the
+ * error event for the alerting pipeline.
+ *
+ * @param env  - Worker bindings.
+ * @param opts - Invite metadata: recipient email, org name, inviter name,
+ *   single-use accept URL, optional role.
+ */
+export async function sendInviteEmail(
+  env: Env,
+  opts: {
+    email: string;
+    orgName: string;
+    inviterName: string;
+    acceptUrl: string;
+    role?: 'owner' | 'admin' | 'member' | 'viewer';
+  },
+): Promise<void> {
+  const role = opts.role ?? 'member';
+  const html = emailWrap(`
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="display:inline-block;width:48px;height:48px;background:linear-gradient(135deg,#00d4ff,#7c3aed);border-radius:50%;line-height:48px;text-align:center;">
+        <span style="font-size:22px;color:#fff;">&#9993;</span>
+      </span>
+    </div>
+    <h2 style="color:#e2e8f0;font-size:20px;font-weight:700;text-align:center;margin:0 0 8px;">You're invited!</h2>
+    <p style="color:#94a3b8;font-size:14px;text-align:center;line-height:1.6;margin:0 0 20px;">
+      <strong style="color:#e2e8f0;">${opts.inviterName}</strong> invited you to join
+      <strong style="color:#00d4ff;">${opts.orgName}</strong> on Project Sites as <strong>${role}</strong>.
+    </p>
+    <div style="text-align:center;margin-bottom:16px;">
+      <a href="${opts.acceptUrl}" style="display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#00d4ff,#7c3aed);color:#fff;font-size:14px;font-weight:700;text-decoration:none;border-radius:10px;">Accept Invitation</a>
+    </div>
+    <p style="color:#64748b;font-size:12px;text-align:center;margin:0;">
+      Or paste this link into your browser:<br/>
+      <span style="color:#94a3b8;word-break:break-all;">${opts.acceptUrl}</span>
+    </p>
+  `);
+
+  await sendEmail(env, {
+    to: opts.email,
+    subject: `${opts.inviterName} invited you to ${opts.orgName}`,
+    html,
+    category: 'invite',
+  }).catch((err) => {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'notifications',
+        category: 'invite',
+        message: 'Failed to send invite email',
+        to: opts.email,
         error: String(err),
       }),
     );

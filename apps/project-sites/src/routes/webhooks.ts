@@ -178,23 +178,24 @@ webhooks.post('/webhooks/stripe', async (c) => {
     const orgId = objMeta?.org_id;
     if (orgId) {
       const webhookMessages: Record<string, string> = {
-        'checkout.session.completed': 'Payment successful — plan upgraded',
-        'customer.subscription.updated': 'Subscription status updated',
-        'customer.subscription.deleted': 'Subscription canceled — downgraded to free plan',
-        'invoice.payment_failed': 'Payment failed — subscription may be at risk',
-        'invoice.paid': 'Invoice payment confirmed',
+        'checkout.session.completed': `Stripe webhook '${event.type}' processed — checkout completed, plan upgraded`,
+        'customer.subscription.updated': `Stripe webhook '${event.type}' processed — subscription status updated`,
+        'customer.subscription.deleted': `Stripe webhook '${event.type}' processed — subscription canceled, downgraded to free`,
+        'invoice.payment_failed': `Stripe webhook '${event.type}' processed — payment failed, subscription at risk`,
+        'invoice.paid': `Stripe webhook '${event.type}' processed — invoice payment confirmed`,
+        'account.updated': `Stripe webhook '${event.type}' processed — connected account state synced`,
       };
-      const webhookMsg = webhookMessages[event.type] || 'Stripe webhook: ' + event.type;
+      const webhookMsg = webhookMessages[event.type] || `Stripe webhook '${event.type}' processed`;
       await auditService.writeAuditLog(db, {
         org_id: orgId,
         actor_id: null,
         action: `webhook.stripe.${event.type}`,
+        message: webhookMsg,
         target_type: 'webhook',
         target_id: event.id,
         metadata_json: {
           event_type: event.type,
           site_id: objMeta?.site_id ?? null,
-          message: webhookMsg,
         },
         request_id: requestId,
       });
@@ -229,13 +230,13 @@ webhooks.post('/webhooks/stripe', async (c) => {
           org_id: failedObjMeta.org_id,
           actor_id: null,
           action: 'webhook.processing_failed',
+          message: `Stripe webhook '${event.type}' processing failed: ${errMsg}`,
           target_type: 'webhook',
           target_id: event.id,
           metadata_json: {
             event_type: event.type,
             site_id: failedObjMeta?.site_id ?? null,
             error: errMsg,
-            message: 'Webhook processing failed for ' + event.type + ': ' + errMsg,
           },
           request_id: requestId,
         })

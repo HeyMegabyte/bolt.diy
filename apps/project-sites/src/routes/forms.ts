@@ -31,6 +31,7 @@ import type { Env, Variables } from '../types/env.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { dispatchToIntegrations, type IntegrationRow } from '../services/newsletter_dispatch.js';
 import { improveRouterPrompt } from '../services/form_router.js';
+import * as auditService from '../services/audit.js';
 
 const forms = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -130,6 +131,37 @@ forms.post('/api/v1/forms/submit', async (c) => {
     status,
     created_at: submittedAt,
   });
+
+  // Audit: form submission processed (routes to integrations or just recorded)
+  const successfulProviders = successful.map((r) => r.provider).join(', ');
+  const auditMsg =
+    integrationsResult.data.length === 0
+      ? `Form submission received for '${validated.form_name}' on '${site.slug}' (no integrations configured)`
+      : status === 'forwarded'
+        ? `Form submission routed to '${successfulProviders}' for '${validated.form_name}' on '${site.slug}'`
+        : status === 'partial'
+          ? `Form submission partially routed (${successful.length}/${integrationsResult.data.length} succeeded) for '${validated.form_name}' on '${site.slug}'`
+          : `Form submission failed to route to any integration for '${validated.form_name}' on '${site.slug}'`;
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: site.org_id,
+      actor_id: null,
+      action: 'form.submission_received',
+      message: auditMsg,
+      target_type: 'form_submission',
+      target_id: submissionId,
+      metadata_json: {
+        site_id: site.id,
+        slug: site.slug,
+        form_name: validated.form_name,
+        status,
+        forwarded_count: successful.length,
+        failed_count: failures.length,
+        providers: successful.map((r) => r.provider),
+      },
+      request_id: c.get('requestId'),
+    }),
+  );
 
   // ── AI Form Router ──
   // Run the customer's single router prompt over this submission. The LLM
@@ -424,6 +456,25 @@ forms.post('/api/sites/:siteId/integrations', async (c) => {
     updated_at: now,
   });
 
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'integration.created',
+      message: `Newsletter integration '${validated.provider}' connected to site '${site.slug}'`,
+      target_type: 'newsletter_integration',
+      target_id: id,
+      metadata_json: {
+        site_id: site.id,
+        slug: site.slug,
+        provider: validated.provider,
+        list_id: validated.list_id ?? null,
+        has_webhook: !!validated.webhook_url,
+      },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({
     data: {
       id,
@@ -485,12 +536,35 @@ forms.delete('/api/sites/:siteId/integrations/:id', async (c) => {
   const site = await loadOwnedSite(c, orgId);
 
   const id = c.req.param('id');
+  const integration = await dbQueryOne<{ provider: string }>(
+    c.env.DB,
+    'SELECT provider FROM newsletter_integrations WHERE id = ? AND site_id = ? AND deleted_at IS NULL',
+    [id, site.id],
+  );
   const result = await dbExecute(
     c.env.DB,
     "UPDATE newsletter_integrations SET deleted_at = datetime('now'), active = 0 WHERE id = ? AND site_id = ?",
     [id, site.id],
   );
   if (result.changes === 0) throw notFound('Integration not found');
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'integration.deleted',
+      message: `Newsletter integration '${integration?.provider ?? 'unknown'}' removed from site '${site.slug}'`,
+      target_type: 'newsletter_integration',
+      target_id: id,
+      metadata_json: {
+        site_id: site.id,
+        slug: site.slug,
+        provider: integration?.provider ?? null,
+      },
+      request_id: c.get('requestId'),
+    }),
+  );
+
   return c.json({ data: { deleted: true } });
 });
 
