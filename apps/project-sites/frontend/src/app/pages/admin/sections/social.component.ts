@@ -1,0 +1,1854 @@
+/**
+ * Admin → Social — Pulse Social composer + scheduler.
+ *
+ * 3-pane layout:
+ *   LEFT 220px : Connected accounts (per-platform card + connect/disconnect)
+ *   CENTER 1fr : Tabs (Compose / Drafts / Queue / Sent / Calendar) + composer
+ *   RIGHT 320px: Live previews per selected platform
+ *
+ * Wires to sibling-agent backend:
+ *   GET    /api/social/accounts?site_id=:id
+ *   GET    /api/social/:platform/connect?site_id=:id     -> popup OAuth flow
+ *   POST   /api/social/:platform/disconnect
+ *   GET    /api/social/posts?site_id=:id&status=draft|scheduled|published
+ *   POST   /api/social/posts
+ *   PATCH  /api/social/posts/:id
+ *   DELETE /api/social/posts/:id
+ *   POST   /api/social/posts/:id/publish-now
+ *   GET    /api/social/posts/:id/analytics
+ *   POST   /api/social/generate
+ *   POST   /api/social/media                              -> R2 upload
+ *   POST   /api/social/og-preview                         -> OG fetch
+ *   GET    /api/social/mentions?platform=:p&q=:q
+ *   GET    /api/social/best-times?platforms=:list
+ *   POST   /api/social/import-rss
+ */
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  HostListener,
+  ViewChild,
+  computed,
+  inject,
+  signal,
+  type AfterViewInit,
+  type OnInit,
+} from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { RevealDirective } from '../../../directives/reveal.directive';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { AdminStateService } from '../admin-state.service';
+import { ApiService } from '../../../services/api.service';
+import { ToastService } from '../../../services/toast.service';
+
+/* ──────────────────────────────────────────────────────────────────── */
+/*  Types                                                               */
+/* ──────────────────────────────────────────────────────────────────── */
+
+type PlatformId =
+  | 'twitter'
+  | 'linkedin'
+  | 'facebook'
+  | 'instagram'
+  | 'threads'
+  | 'bluesky'
+  | 'reddit'
+  | 'mastodon'
+  | 'discord'
+  | 'slack'
+  | 'telegram';
+
+interface PlatformDef {
+  id: PlatformId;
+  label: string;
+  charLimit: number;
+  color: string;
+  glyph: string; // inline SVG path data
+}
+
+interface SocialAccount {
+  platform: PlatformId;
+  connected: boolean;
+  handle?: string;
+  avatar_url?: string;
+  expires_at?: string;
+}
+
+interface MediaItem {
+  id: string;
+  url: string;
+  thumb_url?: string;
+  alt: string;
+  bytes: number;
+  type: 'image' | 'video' | 'gif';
+}
+
+type PostStatus = 'draft' | 'scheduled' | 'published' | 'partial' | 'failed';
+
+interface SocialPost {
+  id: string;
+  content: string;
+  per_platform_content?: Partial<Record<PlatformId, string>>;
+  platforms: PlatformId[];
+  media: MediaItem[];
+  hashtags: string[];
+  link?: string;
+  og?: { title: string; description: string; image: string; site_name: string };
+  scheduled_at?: string;
+  published_at?: string;
+  status: PostStatus;
+  per_platform_status?: Partial<Record<PlatformId, 'ok' | 'pending' | 'failed'>>;
+  per_platform_url?: Partial<Record<PlatformId, string>>;
+}
+
+interface AnalyticsRow {
+  platform: PlatformId;
+  impressions: number;
+  likes: number;
+  shares: number;
+  clicks: number;
+}
+
+interface OgData {
+  title: string;
+  description: string;
+  image: string;
+  site_name: string;
+}
+
+type Tab = 'compose' | 'drafts' | 'queue' | 'sent' | 'calendar';
+
+/* ──────────────────────────────────────────────────────────────────── */
+/*  Platform registry — single source of truth                          */
+/* ──────────────────────────────────────────────────────────────────── */
+
+const PLATFORMS: readonly PlatformDef[] = [
+  {
+    id: 'twitter',
+    label: 'X / Twitter',
+    charLimit: 280,
+    color: '#1d9bf0',
+    glyph:
+      'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.66l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.25 2.25h6.83l4.713 6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117Z',
+  },
+  {
+    id: 'linkedin',
+    label: 'LinkedIn',
+    charLimit: 3000,
+    color: '#0a66c2',
+    glyph:
+      'M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.86-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.35V9h3.41v1.56h.05c.47-.9 1.63-1.86 3.36-1.86 3.6 0 4.27 2.37 4.27 5.45v6.3ZM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12ZM7.12 20.45H3.56V9h3.56v11.45Z',
+  },
+  {
+    id: 'facebook',
+    label: 'Facebook',
+    charLimit: 63206,
+    color: '#1877f2',
+    glyph:
+      'M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.78-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.45 2.89h-2.34v6.99A10 10 0 0 0 22 12Z',
+  },
+  {
+    id: 'instagram',
+    label: 'Instagram',
+    charLimit: 2200,
+    color: '#e1306c',
+    glyph:
+      'M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23a3.7 3.7 0 0 1-.9 1.38c-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41a3.7 3.7 0 0 1-1.38-.9 3.7 3.7 0 0 1-.9-1.38c-.16-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63a5.92 5.92 0 0 0-2.13 1.39A5.92 5.92 0 0 0 .62 4.15c-.3.76-.5 1.64-.56 2.91C.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.73 1.46 1.39 2.13a5.92 5.92 0 0 0 2.13 1.39c.76.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56a5.92 5.92 0 0 0 2.13-1.39 5.92 5.92 0 0 0 1.39-2.13c.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91a5.92 5.92 0 0 0-1.39-2.13A5.92 5.92 0 0 0 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0Zm0 5.84a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32M12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm6.4-11.85a1.44 1.44 0 1 0 0 2.88 1.44 1.44 0 0 0 0-2.88Z',
+  },
+  {
+    id: 'threads',
+    label: 'Threads',
+    charLimit: 500,
+    color: '#a78bfa',
+    glyph:
+      'M12.18 24h-.02c-3.32-.02-5.87-1.12-7.58-3.26C3.06 18.85 2.25 16.13 2.21 12.74v-.01l-.01-.1.01-.13c.04-3.4.85-6.11 2.37-8 1.71-2.14 4.26-3.23 7.58-3.26h.02c2.55.02 4.7.66 6.39 1.92 1.58 1.17 2.7 2.85 3.32 4.97l-2.07.59c-1.05-3.6-3.5-5.39-7.65-5.42-2.66.02-4.68.85-5.99 2.46-1.22 1.51-1.84 3.71-1.86 6.54.02 2.83.64 5.03 1.86 6.54 1.31 1.61 3.33 2.44 5.99 2.46 2.38-.02 3.96-.59 5.28-1.91 1.5-1.5 1.47-3.34.99-4.45-.28-.66-.78-1.21-1.46-1.62-.16 1.16-.51 2.12-1.07 2.85-.74.99-1.81 1.53-3.16 1.61-1.02.06-2-.18-2.76-.67-.91-.59-1.43-1.5-1.49-2.57-.06-1.04.36-2 1.17-2.69.78-.66 1.88-1.05 3.18-1.12.96-.05 1.86.01 2.69.18-.11-.66-.34-1.18-.66-1.57-.46-.55-1.17-.83-2.11-.83h-.03c-.76 0-1.78.21-2.43 1.19l-1.75-1.18c.87-1.32 2.29-2.04 4.18-2.04h.04c3.18.02 5.07 1.96 5.26 5.34.11.05.21.09.32.14 1.46.69 2.53 1.73 3.09 3.02.79 1.79.86 4.7-1.51 7.07-1.81 1.81-4.01 2.63-7.13 2.65Zm1.06-9.86c-.21 0-.43 0-.65.02-1.62.09-2.62.83-2.55 1.89.06 1.11 1.29 1.62 2.47 1.55 1.09-.06 2.51-.49 2.75-3.37-.61-.06-1.28-.09-2.01-.09Z',
+  },
+  {
+    id: 'bluesky',
+    label: 'Bluesky',
+    charLimit: 300,
+    color: '#1185fe',
+    glyph:
+      'M5.95 4.13C8.65 6.18 11.55 10.34 12 12.55c.45-2.21 3.35-6.37 6.05-8.42 1.95-1.47 5.1-2.61 5.1.99 0 .72-.41 6.04-.65 6.9-.83 3-3.88 3.77-6.6 3.3 4.74.81 5.95 3.5 3.35 6.18-4.95 5.1-7.11-1.27-7.66-2.9-.1-.3-.15-.44-.15-.32 0-.12-.05.02-.15.32-.55 1.63-2.71 8-7.66 2.9-2.6-2.68-1.39-5.37 3.35-6.18-2.72.47-5.77-.3-6.6-3.3C.14 11.16-.27 5.84-.27 5.12c0-3.6 3.15-2.46 5.1-.99h1.12Z',
+  },
+  {
+    id: 'reddit',
+    label: 'Reddit',
+    charLimit: 40000,
+    color: '#ff4500',
+    glyph:
+      'M12 0a12 12 0 1 0 12 12A12 12 0 0 0 12 0Zm6.67 13.13c.03.19.04.39.04.59 0 3.01-3.5 5.45-7.81 5.45s-7.81-2.44-7.81-5.45c0-.2.01-.4.04-.59-.61-.27-1.04-.88-1.04-1.59 0-.96.78-1.74 1.74-1.74.47 0 .9.19 1.21.49 1.19-.86 2.84-1.41 4.67-1.47l.88-4.13 2.87.61a1.22 1.22 0 1 1-.04.55l-2.57-.55-.79 3.71c1.8.07 3.42.62 4.6 1.48.31-.31.74-.5 1.22-.5.96 0 1.74.78 1.74 1.74 0 .71-.43 1.32-1.04 1.59h.09Zm-10.91-.62a1.31 1.31 0 1 0 2.61 0 1.31 1.31 0 0 0-2.61 0Zm6.31 3.43c.16.16.16.42 0 .58a4.07 4.07 0 0 1-2.93 1.02h-.01a4.06 4.06 0 0 1-2.93-1.02.41.41 0 0 1 0-.58.41.41 0 0 1 .58 0c.59.59 1.46.88 2.35.88h.01c.89 0 1.76-.29 2.35-.88a.41.41 0 0 1 .58 0Zm-.17-2.12a1.31 1.31 0 1 1 0-2.62 1.31 1.31 0 0 1 0 2.62Z',
+  },
+  {
+    id: 'mastodon',
+    label: 'Mastodon',
+    charLimit: 500,
+    color: '#6364ff',
+    glyph:
+      'M23.27 5.36C22.91 2.7 20.58.6 17.81.19 17.35.12 15.58 0 11.49 0h-.03c-4.1 0-4.97.13-5.42.2C3.34.6.88 2.49.29 5.18.0 6.5 0 7.97 0 9.32.07 11.25.08 13.18.26 15.1.38 16.38.59 17.65.89 18.9c.55 2.3 2.83 4.21 5.07 5 2.39.82 4.97.96 7.43.4.27-.06.54-.13.81-.21.59-.19 1.29-.4 1.8-.78.01 0 .02-.01.03-.03v-1.92s-.01-.02-.02-.02-.02 0-.02 0c-2.05.49-4.16.74-6.27.74-3.63 0-4.6-1.72-4.88-2.44-.22-.62-.36-1.27-.42-1.92 0-.01 0-.02.01-.02s.02 0 .02 0c2.02.49 4.09.74 6.16.74.5 0 1-.01 1.49-.03 2.09-.06 4.28-.16 6.33-.56.05-.01.1-.03.15-.04 3.24-.62 6.32-2.57 6.63-7.5.01-.19.04-2.04.04-2.24.01-.69-.21-4.88-.27-5.21ZM19.58 15.4h-2.86V8.42c0-1.47-.62-2.22-1.85-2.22-1.36 0-2.05.88-2.05 2.62v3.79H10c0-3.6-.01-3.95 0-4.97 0-.99-.7-2.61-1.97-2.61-1.36 0-1.85.95-1.85 2.31v6.06H3.32C3.31 12.07 3.3 8.45 3.31 7.62c0-1.55.79-2.79 1.92-3.6.81-.58 1.78-.88 2.78-.83 2.17.04 3.5 1.59 3.92 2.43 0 .01.02.01.02 0 .42-.83 1.74-2.39 3.92-2.43 1.0-.04 1.97.25 2.78.83 1.13.81 1.92 2.05 1.92 3.6.01.83.01 4.41 0 7.78Z',
+  },
+  {
+    id: 'discord',
+    label: 'Discord',
+    charLimit: 2000,
+    color: '#5865f2',
+    glyph:
+      'M20.32 4.37A19.79 19.79 0 0 0 15.43 2.9a.07.07 0 0 0-.08.04c-.21.37-.44.86-.6 1.24a18.27 18.27 0 0 0-5.5 0c-.16-.39-.4-.87-.62-1.24A.08.08 0 0 0 8.55 2.9a19.74 19.74 0 0 0-4.89 1.47.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 6 3.03.08.08 0 0 0 .09-.03c.46-.63.87-1.3 1.23-2.01a.08.08 0 0 0-.04-.11 13.13 13.13 0 0 1-1.87-.89.08.08 0 0 1 0-.13c.13-.1.25-.2.37-.3a.07.07 0 0 1 .08-.01c3.93 1.79 8.18 1.79 12.06 0a.07.07 0 0 1 .08.01c.12.1.24.2.37.3a.08.08 0 0 1 0 .13c-.6.35-1.22.65-1.87.89a.08.08 0 0 0-.04.11c.36.71.77 1.38 1.23 2.01a.08.08 0 0 0 .09.03 19.85 19.85 0 0 0 6-3.03.08.08 0 0 0 .03-.06c.5-5.18-.83-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.09-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.33-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.16-1.09-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.33-.95 2.42-2.16 2.42Z',
+  },
+  {
+    id: 'slack',
+    label: 'Slack',
+    charLimit: 40000,
+    color: '#4a154b',
+    glyph:
+      'M5.04 15.16a2.52 2.52 0 0 1-2.52 2.52A2.52 2.52 0 0 1 0 15.16a2.52 2.52 0 0 1 2.52-2.52h2.52v2.52ZM6.32 15.16a2.52 2.52 0 0 1 2.52-2.52 2.52 2.52 0 0 1 2.52 2.52v6.32A2.52 2.52 0 0 1 8.84 24a2.52 2.52 0 0 1-2.52-2.52v-6.32ZM8.84 5.04A2.52 2.52 0 0 1 6.32 2.52 2.52 2.52 0 0 1 8.84 0a2.52 2.52 0 0 1 2.52 2.52v2.52H8.84ZM8.84 6.32a2.52 2.52 0 0 1 2.52 2.52 2.52 2.52 0 0 1-2.52 2.52H2.52A2.52 2.52 0 0 1 0 8.84a2.52 2.52 0 0 1 2.52-2.52h6.32ZM18.96 8.84a2.52 2.52 0 0 1 2.52-2.52A2.52 2.52 0 0 1 24 8.84a2.52 2.52 0 0 1-2.52 2.52h-2.52V8.84ZM17.68 8.84a2.52 2.52 0 0 1-2.52 2.52 2.52 2.52 0 0 1-2.52-2.52V2.52A2.52 2.52 0 0 1 15.16 0a2.52 2.52 0 0 1 2.52 2.52v6.32ZM15.16 18.96a2.52 2.52 0 0 1 2.52 2.52A2.52 2.52 0 0 1 15.16 24a2.52 2.52 0 0 1-2.52-2.52v-2.52h2.52ZM15.16 17.68a2.52 2.52 0 0 1-2.52-2.52 2.52 2.52 0 0 1 2.52-2.52h6.32A2.52 2.52 0 0 1 24 15.16a2.52 2.52 0 0 1-2.52 2.52h-6.32Z',
+  },
+  {
+    id: 'telegram',
+    label: 'Telegram',
+    charLimit: 4096,
+    color: '#229ed9',
+    glyph:
+      'M12 0a12 12 0 1 0 12 12A12 12 0 0 0 12 0Zm5.94 8.2-1.98 9.35c-.15.66-.54.82-1.1.51l-3.04-2.24-1.47 1.42c-.16.16-.3.3-.62.3l.22-3.13 5.71-5.16c.25-.22-.05-.34-.39-.13L8.21 13.6 4.96 12.6c-.71-.22-.72-.71.15-1.05l12.7-4.9c.59-.22 1.1.14.9 1.55Z',
+  },
+] as const;
+
+/* ──────────────────────────────────────────────────────────────────── */
+/*  Component                                                           */
+/* ──────────────────────────────────────────────────────────────────── */
+
+@Component({
+  selector: 'app-admin-social',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [CommonModule, FormsModule, RevealDirective, RollingCounterComponent],
+  template: `
+<div class="social-wrap" [class.is-loading]="loading()">
+
+  <!-- ═══════════════════════ HEADER ═══════════════════════ -->
+  <header class="social-header" appReveal>
+    <div class="hdr-left">
+      <div class="kicker">Pulse Social</div>
+      <h1 class="social-h1">
+        <svg class="hdr-glyph" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 11l18-8v18l-18-8z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
+        </svg>
+        Social
+        <span class="hdr-pill">
+          <span class="hdr-pill-dot"></span>
+          <app-rolling-counter [value]="connectedCount()" />&nbsp;connected
+        </span>
+      </h1>
+      <p class="hdr-sub">Compose once. Tailor per network. Schedule, queue, measure.</p>
+    </div>
+    <nav class="tab-row" role="tablist" aria-label="Pulse Social tabs">
+      <button class="tab" role="tab" [class.is-active]="tab() === 'compose'" (click)="tab.set('compose')">Compose</button>
+      <button class="tab" role="tab" [class.is-active]="tab() === 'drafts'" (click)="loadPosts('draft'); tab.set('drafts')">
+        Drafts <span class="tab-count">{{ draftsCount() }}</span>
+      </button>
+      <button class="tab" role="tab" [class.is-active]="tab() === 'queue'" (click)="loadPosts('scheduled'); tab.set('queue')">
+        Queue <span class="tab-count">{{ scheduledCount() }}</span>
+      </button>
+      <button class="tab" role="tab" [class.is-active]="tab() === 'sent'" (click)="loadPosts('published'); tab.set('sent')">
+        Sent <span class="tab-count">{{ publishedCount() }}</span>
+      </button>
+      <button class="tab" role="tab" [class.is-active]="tab() === 'calendar'" (click)="tab.set('calendar')">Calendar</button>
+    </nav>
+  </header>
+
+  <!-- ═══════════════════════ 3-PANE BODY ═══════════════════════ -->
+  <div class="three-pane">
+
+    <!-- ─────────── LEFT: ACCOUNTS ─────────── -->
+    <aside class="pane-accounts" appReveal>
+      <div class="pane-h">Connected accounts</div>
+      <div class="acct-list">
+        @for (p of platforms; track p.id) {
+          @let acct = accountFor(p.id);
+          <article class="acct-card" [class.is-on]="acct?.connected" [style.--brand]="p.color">
+            <div class="acct-glyph" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path [attr.d]="p.glyph"/></svg>
+            </div>
+            <div class="acct-meta">
+              <div class="acct-label">{{ p.label }}</div>
+              @if (acct?.connected) {
+                <div class="acct-handle">{{ acct?.handle || 'connected' }}</div>
+              } @else {
+                <div class="acct-handle dim">Not connected</div>
+              }
+            </div>
+            <span class="acct-pill" [class.is-on]="acct?.connected">{{ acct?.connected ? 'Live' : 'Off' }}</span>
+            @if (acct?.connected) {
+              <button class="acct-btn" type="button" (click)="disconnect(p.id)" [attr.aria-label]="'Disconnect ' + p.label">Disconnect</button>
+            } @else {
+              <button class="acct-btn primary" type="button" (click)="connect(p.id)" [attr.aria-label]="'Connect ' + p.label">+ Connect</button>
+            }
+          </article>
+        }
+      </div>
+    </aside>
+
+    <!-- ─────────── CENTER: TAB CONTENT ─────────── -->
+    <section class="pane-main">
+
+      <!-- ============ COMPOSER ============ -->
+      @if (tab() === 'compose') {
+        <div class="composer" appReveal>
+
+          <!-- Platform toggle chips -->
+          <div class="chip-row" role="group" aria-label="Select platforms">
+            @for (p of platforms; track p.id) {
+              @let on = isPlatformSelected(p.id);
+              @let conn = isConnected(p.id);
+              <button
+                type="button"
+                class="chip"
+                [class.is-on]="on"
+                [class.is-override]="hasOverride(p.id)"
+                [class.is-off]="!conn"
+                [style.--brand]="p.color"
+                [disabled]="!conn"
+                [attr.aria-pressed]="on"
+                [title]="on ? (hasOverride(p.id) ? 'Tap again to remove per-platform copy' : 'Tap again to customize copy for ' + p.label) : 'Add ' + p.label"
+                (click)="togglePlatform(p.id)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path [attr.d]="p.glyph"/></svg>
+                <span>{{ p.label }}</span>
+                @if (on) {
+                  <span class="chip-ct" [class.over]="charsFor(p.id) > p.charLimit">{{ charsFor(p.id) }}/{{ p.charLimit }}</span>
+                }
+              </button>
+            }
+          </div>
+
+          <!-- Main textarea -->
+          <textarea
+            #mainTa
+            class="composer-ta"
+            rows="4"
+            [(ngModel)]="content"
+            (ngModelChange)="onContentChange($event)"
+            (keydown)="onContentKeydown($event)"
+            placeholder="What are you sharing today?"
+            aria-label="Post content"
+            data-testid="social-composer-textarea"></textarea>
+
+          <!-- Mention autocomplete dropdown -->
+          @if (mentionOpen() && mentionResults().length > 0) {
+            <div class="mention-pop" role="listbox" aria-label="Mention suggestions">
+              @for (m of mentionResults(); track m.handle; let i = $index) {
+                <button
+                  type="button"
+                  role="option"
+                  class="mention-row"
+                  [class.is-active]="i === mentionIdx()"
+                  (mousedown)="insertMention(m, $event)">
+                  <span class="mention-handle">&#64;{{ m.handle }}</span>
+                  @if (m.name) { <span class="mention-name">{{ m.name }}</span> }
+                </button>
+              }
+            </div>
+          }
+
+          <!-- Per-platform override surfaces -->
+          @for (p of platforms; track p.id) {
+            @if (hasOverride(p.id)) {
+              <div class="override-row" [style.--brand]="p.color">
+                <div class="override-h">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path [attr.d]="p.glyph"/></svg>
+                  <span>{{ p.label }} override</span>
+                  <span class="override-ct" [class.over]="(perPlatform()[p.id]?.length || 0) > p.charLimit">
+                    {{ perPlatform()[p.id]?.length || 0 }}/{{ p.charLimit }}
+                  </span>
+                  <button type="button" class="override-x" (click)="removeOverride(p.id)" aria-label="Remove override">&times;</button>
+                </div>
+                <textarea
+                  class="composer-ta sm"
+                  rows="3"
+                  [ngModel]="perPlatform()[p.id]"
+                  (ngModelChange)="setOverride(p.id, $event)"
+                  [placeholder]="'Tailored copy for ' + p.label"
+                  [attr.aria-label]="p.label + ' tailored content'"></textarea>
+              </div>
+            }
+          }
+
+          <!-- Media uploader -->
+          <div class="media-zone"
+               [class.is-drag]="dragOver()"
+               (dragover)="onDragOver($event)"
+               (dragleave)="dragOver.set(false)"
+               (drop)="onDrop($event)"
+               (click)="fileInput.click()"
+               (keydown.enter)="fileInput.click()"
+               role="button"
+               tabindex="0"
+               aria-label="Drop or click to upload media">
+            <input #fileInput type="file" accept="image/*,video/*" multiple hidden (change)="onFiles($event)" />
+            @if (media().length === 0) {
+              <div class="media-empty">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+                <span>Drag images/video here, or click to browse</span>
+              </div>
+            } @else {
+              <div class="media-grid">
+                @for (m of media(); track m.id) {
+                  <figure class="media-tile" (click)="$event.stopPropagation()">
+                    @if (m.type === 'video') {
+                      <video [src]="m.url" muted></video>
+                    } @else {
+                      <img [src]="m.thumb_url || m.url" [alt]="m.alt || ''" loading="lazy" />
+                    }
+                    <input
+                      class="media-alt"
+                      type="text"
+                      [value]="m.alt"
+                      (input)="updateAlt(m.id, $any($event.target).value)"
+                      placeholder="Alt text"
+                      [attr.aria-label]="'Alt text for ' + (m.type || 'media')" />
+                    <button type="button" class="media-x" (click)="removeMedia(m.id); $event.stopPropagation()" aria-label="Remove media">&times;</button>
+                  </figure>
+                }
+                <button type="button" class="media-add" (click)="fileInput.click(); $event.stopPropagation()" aria-label="Add more media">+</button>
+              </div>
+            }
+          </div>
+
+          <!-- Hashtags + link + AI/mention helpers -->
+          <div class="meta-grid">
+
+            <div class="meta-col">
+              <label class="meta-lbl" for="ps-tags">Hashtags <span class="meta-aux">{{ hashtags().length }}/30</span></label>
+              <div class="tag-input">
+                @for (t of hashtags(); track t; let i = $index) {
+                  <span class="tag-chip">#{{ t }} <button type="button" (click)="removeHashtag(i)" aria-label="Remove tag">&times;</button></span>
+                }
+                <input
+                  id="ps-tags"
+                  type="text"
+                  [(ngModel)]="hashtagDraft"
+                  (keydown)="onHashtagKeydown($event)"
+                  placeholder="Type, then space or comma" />
+              </div>
+            </div>
+
+            <div class="meta-col">
+              <label class="meta-lbl" for="ps-link">Link</label>
+              <input
+                id="ps-link"
+                class="meta-input"
+                type="url"
+                [(ngModel)]="link"
+                (blur)="fetchOg()"
+                placeholder="https://…" />
+              @if (og(); as o) {
+                <div class="og-card">
+                  @if (o.image) { <img [src]="o.image" [alt]="o.title" /> }
+                  <div class="og-meta">
+                    <div class="og-site">{{ o.site_name }}</div>
+                    <div class="og-title">{{ o.title }}</div>
+                    <div class="og-desc">{{ o.description }}</div>
+                  </div>
+                </div>
+              }
+            </div>
+
+          </div>
+
+          <!-- AI assist row -->
+          <div class="ai-row">
+            <select class="ai-tone" [(ngModel)]="aiTone" aria-label="AI tone">
+              <option value="punchy">Punchy</option>
+              <option value="warm">Warm</option>
+              <option value="authoritative">Authoritative</option>
+              <option value="playful">Playful</option>
+              <option value="story">Story-driven</option>
+            </select>
+            <button type="button" class="btn-ai" (click)="generate()" [disabled]="aiLoading() || selected().length === 0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              {{ aiLoading() ? 'Drafting…' : 'AI assist' }}
+            </button>
+            @if (aiVariants().length > 0) {
+              <div class="ai-variants" role="group" aria-label="AI variant carousel">
+                <button type="button" class="ai-nav" (click)="prevVariant()" aria-label="Previous variant">‹</button>
+                <span class="ai-vidx">{{ variantIdx() + 1 }} / {{ aiVariants().length }}</span>
+                <button type="button" class="ai-nav" (click)="nextVariant()" aria-label="Next variant">›</button>
+                <button type="button" class="ai-use" (click)="useVariant()">Use</button>
+              </div>
+            }
+          </div>
+
+          <!-- Schedule + best-times -->
+          <div class="sched-row">
+            <label class="meta-lbl">When</label>
+            <div class="sched-btns">
+              <button type="button" class="sched-btn" [class.is-on]="!scheduleAt()" (click)="scheduleAt.set(null)">Post now</button>
+              <button type="button" class="sched-btn" [class.is-on]="!!scheduleAt()" (click)="openScheduler()">Schedule</button>
+              @if (scheduleAt()) {
+                <input class="sched-dt" type="datetime-local" [(ngModel)]="scheduleAt" aria-label="Scheduled time" />
+                <select class="sched-tz" [(ngModel)]="scheduleTz" aria-label="Time zone">
+                  <option value="America/Los_Angeles">Los Angeles</option>
+                  <option value="America/New_York">New York</option>
+                  <option value="America/Chicago">Chicago</option>
+                  <option value="UTC">UTC</option>
+                  <option value="Europe/London">London</option>
+                  <option value="Europe/Berlin">Berlin</option>
+                  <option value="Asia/Tokyo">Tokyo</option>
+                </select>
+              }
+            </div>
+            @if (bestTimes().length > 0) {
+              <div class="best-times">
+                <span class="best-h">Best for {{ selected().length }} platforms:</span>
+                @for (b of bestTimes(); track b) {
+                  <button type="button" class="best-chip" (click)="applyBestTime(b)">{{ b }}</button>
+                }
+              </div>
+            }
+          </div>
+
+          <!-- Status line -->
+          <div class="status-line" [attr.aria-live]="'polite'">
+            <span>{{ selected().length }} platform{{ selected().length === 1 ? '' : 's' }}</span>
+            <span>·</span>
+            <span>{{ mediaSummary() }}</span>
+            <span>·</span>
+            <span>{{ scheduleSummary() }}</span>
+          </div>
+
+          <!-- Actions -->
+          <div class="action-row">
+            <button type="button" class="btn-ghost" (click)="discard()">Discard</button>
+            <button type="button" class="btn-ghost" (click)="saveDraft()" [disabled]="saving()">Save draft</button>
+            <button type="button" class="btn-primary" (click)="publish()" [disabled]="!canPublish() || saving()">
+              {{ scheduleAt() ? 'Schedule post' : 'Publish now' }}
+            </button>
+          </div>
+
+          <!-- Bulk import (RSS) -->
+          <div class="rss-row">
+            <details>
+              <summary>Bulk import from RSS</summary>
+              <div class="rss-body">
+                <input type="url" [(ngModel)]="rssUrl" placeholder="https://example.com/feed.xml" aria-label="RSS feed URL" />
+                <button type="button" class="btn-ghost" (click)="rssPreview()" [disabled]="!rssUrl">Preview</button>
+                @if (rssItems().length > 0) {
+                  <ul class="rss-list">
+                    @for (it of rssItems(); track it.url) {
+                      <li><strong>{{ it.title }}</strong> · <a [href]="it.url" target="_blank" rel="noopener noreferrer">{{ it.url }}</a></li>
+                    }
+                  </ul>
+                  <button type="button" class="btn-primary" (click)="rssScheduleAll()">Schedule all (1/day stagger)</button>
+                }
+              </div>
+            </details>
+          </div>
+        </div>
+      }
+
+      <!-- ============ DRAFTS / QUEUE / SENT lists ============ -->
+      @if (tab() === 'drafts' || tab() === 'queue' || tab() === 'sent') {
+        <div class="list-pane" appReveal>
+          @if (filteredPosts().length === 0) {
+            <div class="empty-state">
+              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+              <h3>Nothing here yet</h3>
+              <p>{{ tab() === 'drafts' ? 'Save a draft from the composer to see it here.' : tab() === 'queue' ? 'Schedule a post to fill the queue.' : 'Published posts will appear here with analytics.' }}</p>
+              <button type="button" class="btn-primary" (click)="tab.set('compose')">Open composer</button>
+            </div>
+          } @else {
+            @for (post of filteredPosts(); track post.id) {
+              <article class="post-card" appReveal [revealDelay]="$index * 60">
+                <header class="post-h">
+                  <div class="post-platforms">
+                    @for (p of post.platforms; track p) {
+                      @let pd = defOf(p);
+                      <span class="post-pglyph" [style.--brand]="pd?.color" [title]="pd?.label || p">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path [attr.d]="pd?.glyph || ''"/></svg>
+                      </span>
+                    }
+                  </div>
+                  <span class="post-status" [class]="'is-' + post.status">{{ post.status }}</span>
+                  <span class="post-time">{{ post.scheduled_at || post.published_at | date:'short' }}</span>
+                </header>
+                <p class="post-body">{{ post.content }}</p>
+                @if (post.media.length > 0) {
+                  <div class="post-thumbs">
+                    @for (m of post.media; track m.id) {
+                      <img [src]="m.thumb_url || m.url" [alt]="m.alt" loading="lazy" />
+                    }
+                  </div>
+                }
+
+                @if (tab() === 'sent') {
+                  <div class="post-stats">
+                    @for (row of analyticsFor(post.id); track row.platform) {
+                      @let pd = defOf(row.platform);
+                      <div class="stat-tile" [style.--brand]="pd?.color">
+                        <div class="stat-h"><span class="stat-glyph"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path [attr.d]="pd?.glyph || ''"/></svg></span> {{ pd?.label }}</div>
+                        <div class="stat-grid">
+                          <div><span class="stat-k">Impressions</span><app-rolling-counter [value]="row.impressions" /></div>
+                          <div><span class="stat-k">Likes</span><app-rolling-counter [value]="row.likes" /></div>
+                          <div><span class="stat-k">Shares</span><app-rolling-counter [value]="row.shares" /></div>
+                          <div><span class="stat-k">Clicks</span><app-rolling-counter [value]="row.clicks" /></div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                  <div class="post-links">
+                    @for (p of post.platforms; track p) {
+                      @if (post.per_platform_url?.[p]) {
+                        <a [href]="post.per_platform_url![p]!" target="_blank" rel="noopener noreferrer">View on {{ defOf(p)?.label }} ↗</a>
+                      }
+                    }
+                  </div>
+                }
+
+                <div class="post-actions">
+                  @if (tab() === 'drafts') {
+                    <button type="button" class="btn-ghost sm" (click)="editPost(post)">Edit</button>
+                    <button type="button" class="btn-ghost sm danger" (click)="deletePost(post)">Delete</button>
+                    <button type="button" class="btn-primary sm" (click)="publishNow(post)">Publish</button>
+                  }
+                  @if (tab() === 'queue') {
+                    <button type="button" class="btn-ghost sm" (click)="editPost(post)">Edit time</button>
+                    <button type="button" class="btn-ghost sm danger" (click)="deletePost(post)">Cancel</button>
+                    <button type="button" class="btn-primary sm" (click)="publishNow(post)">Send now</button>
+                  }
+                  @if (tab() === 'sent') {
+                    <button type="button" class="btn-ghost sm" (click)="duplicatePost(post)">Duplicate</button>
+                  }
+                </div>
+              </article>
+            }
+          }
+        </div>
+      }
+
+      <!-- ============ CALENDAR ============ -->
+      @if (tab() === 'calendar') {
+        <div class="cal-pane" appReveal>
+          <header class="cal-h">
+            <button type="button" class="btn-ghost sm" (click)="calPrev()">‹</button>
+            <h3>{{ calLabel() }}</h3>
+            <button type="button" class="btn-ghost sm" (click)="calNext()">›</button>
+            <button type="button" class="btn-ghost sm" (click)="calToday()">Today</button>
+          </header>
+          <div class="cal-grid" role="grid" aria-label="Scheduled posts calendar">
+            @for (h of weekDayHeaders; track h) {
+              <div class="cal-dh">{{ h }}</div>
+            }
+            @for (cell of calCells(); track cell.iso) {
+              <div class="cal-cell"
+                   [class.is-today]="cell.today"
+                   [class.is-out]="cell.outOfMonth"
+                   (dragover)="onCalDragOver($event)"
+                   (drop)="onCalDrop($event, cell.iso)">
+                <div class="cal-num">{{ cell.day }}</div>
+                @for (post of postsOnDay(cell.iso); track post.id) {
+                  <button
+                    type="button"
+                    class="cal-event"
+                    draggable="true"
+                    [style.--brand]="defOf(post.platforms[0])?.color"
+                    (dragstart)="onCalEventDrag($event, post)"
+                    (click)="editPost(post)"
+                    [title]="post.content">
+                    <span class="cal-time">{{ post.scheduled_at | date:'shortTime' }}</span>
+                    <span class="cal-txt">{{ post.content }}</span>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </section>
+
+    <!-- ─────────── RIGHT: PREVIEWS ─────────── -->
+    <aside class="pane-previews" appReveal>
+      <div class="pane-h">Live preview</div>
+      @if (selected().length === 0) {
+        <div class="prev-empty">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <p>Select a platform to preview.</p>
+        </div>
+      } @else {
+        @for (pid of selected(); track pid) {
+          @let p = defOf(pid)!;
+          @let txt = perPlatform()[pid] || content();
+          <article class="prev-card" [style.--brand]="p.color">
+            <header class="prev-h">
+              <span class="prev-glyph"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path [attr.d]="p.glyph"/></svg></span>
+              <span class="prev-name">{{ p.label }}</span>
+              <span class="prev-handle">{{ accountFor(pid)?.handle || '@you' }}</span>
+            </header>
+            <div class="prev-body">
+              <div class="prev-avatar"></div>
+              <div class="prev-content">
+                <div class="prev-author">Your brand</div>
+                <p class="prev-txt">{{ txt || 'Your post preview will appear here…' }}</p>
+                @if (hashtags().length > 0) {
+                  <p class="prev-tags">@for (t of hashtags(); track t) { <span>#{{ t }}</span> }</p>
+                }
+                @if (media().length > 0) {
+                  <div class="prev-media" [attr.data-count]="media().length">
+                    @for (m of media().slice(0, 4); track m.id) {
+                      <img [src]="m.thumb_url || m.url" [alt]="m.alt" loading="lazy" />
+                    }
+                  </div>
+                }
+                @if (og(); as o) {
+                  <div class="prev-og">
+                    @if (o.image) { <img [src]="o.image" [alt]="o.title" /> }
+                    <div>
+                      <div class="prev-og-site">{{ o.site_name }}</div>
+                      <div class="prev-og-title">{{ o.title }}</div>
+                    </div>
+                  </div>
+                }
+                <div class="prev-actions">
+                  <span>💬</span><span>↻</span><span>♡</span><span>↗</span>
+                </div>
+              </div>
+            </div>
+          </article>
+        }
+      }
+    </aside>
+
+  </div>
+</div>
+`,
+  styles: [
+    `
+      :host {
+        display: block;
+        --brand: var(--ps-accent, #00e5ff);
+      }
+
+      .social-wrap {
+        padding: 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        min-height: calc(100vh - 49px);
+        animation: fadeIn 0.3s ease;
+      }
+      @media (max-width: 900px) { .social-wrap { padding: 14px; } }
+
+      /* ── Header ── */
+      .social-header { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+      .hdr-left { min-width: 0; }
+      .kicker {
+        text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.62rem;
+        color: color-mix(in oklch, var(--ps-accent, #00e5ff) 90%, var(--ps-ink, #f4f4ff) 10%);
+        font-weight: 700;
+      }
+      .social-h1 {
+        margin: 4px 0 6px; font-size: 1.4rem; font-weight: 800;
+        color: var(--ps-ink, #f4f4ff); display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      }
+      .hdr-glyph { color: var(--ps-accent, #00e5ff); }
+      .hdr-pill {
+        display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px;
+        border-radius: 999px; font-size: 0.7rem; font-weight: 600;
+        color: var(--ps-accent, #00e5ff);
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 8%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent);
+      }
+      .hdr-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ps-accent, #00e5ff); box-shadow: 0 0 8px var(--ps-accent, #00e5ff); }
+      .hdr-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent); font-size: 0.82rem; margin: 0; }
+
+      .tab-row {
+        display: inline-flex; gap: 4px; padding: 4px;
+        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 5%, transparent);
+        border-radius: 12px; border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 8%, transparent);
+        flex-wrap: wrap;
+      }
+      .tab {
+        padding: 7px 14px; border-radius: 8px; border: none; cursor: pointer;
+        background: transparent; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent);
+        font-size: 0.78rem; font-weight: 600; font-family: inherit; transition: all 0.18s ease;
+        display: inline-flex; align-items: center; gap: 6px;
+      }
+      .tab:hover { color: var(--ps-ink, #f4f4ff); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 6%, transparent); }
+      .tab.is-active {
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 14%, transparent);
+        color: var(--ps-accent, #00e5ff);
+        box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent);
+      }
+      .tab-count {
+        display: inline-flex; min-width: 18px; height: 18px; padding: 0 5px; align-items: center;
+        justify-content: center; border-radius: 999px; font-size: 0.62rem;
+        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent); color: inherit;
+      }
+
+      /* ── 3-pane layout ── */
+      .three-pane {
+        display: grid; grid-template-columns: 220px 1fr 320px;
+        gap: 16px; min-height: 0; flex: 1;
+      }
+      @media (max-width: 1200px) { .three-pane { grid-template-columns: 200px 1fr; } .pane-previews { display: none; } }
+      @media (max-width: 800px)  { .three-pane { grid-template-columns: 1fr; } .pane-accounts { display: none; } }
+
+      .pane-h {
+        font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em;
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 50%, transparent); margin-bottom: 8px;
+      }
+
+      /* ── Accounts ── */
+      .pane-accounts { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+      .acct-list { display: flex; flex-direction: column; gap: 6px; }
+      .acct-card {
+        --brand: var(--ps-accent, #00e5ff);
+        display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 8px;
+        padding: 9px 10px; border-radius: 10px;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 8%, transparent);
+        transition: all 0.18s ease;
+      }
+      .acct-card.is-on { border-color: color-mix(in oklch, var(--brand) 35%, transparent); }
+      .acct-card:hover { transform: translateY(-1px); box-shadow: 0 4px 14px color-mix(in oklch, var(--brand) 14%, transparent); }
+      .acct-glyph {
+        width: 28px; height: 28px; border-radius: 8px;
+        background: color-mix(in oklch, var(--brand) 14%, transparent);
+        color: var(--brand); display: grid; place-items: center;
+      }
+      .acct-meta { min-width: 0; grid-column: 2; }
+      .acct-label { font-size: 0.76rem; font-weight: 600; color: var(--ps-ink, #f4f4ff); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .acct-handle { font-size: 0.66rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
+      .acct-handle.dim { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 35%, transparent); }
+      .acct-pill {
+        grid-row: 1; grid-column: 3; font-size: 0.56rem; font-weight: 700; text-transform: uppercase;
+        padding: 2px 7px; border-radius: 999px;
+        background: color-mix(in oklch, #ff5470 14%, transparent); color: #ff8a9d;
+      }
+      .acct-pill.is-on { background: color-mix(in oklch, #34d399 18%, transparent); color: #6ee7b7; }
+      .acct-btn {
+        grid-column: 1 / -1; padding: 5px 10px; border-radius: 7px; border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
+        background: transparent; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 75%, transparent);
+        font-size: 0.7rem; cursor: pointer; transition: all 0.16s ease; font-family: inherit; font-weight: 600;
+      }
+      .acct-btn:hover { color: var(--ps-ink, #f4f4ff); border-color: color-mix(in oklch, var(--brand) 40%, transparent); }
+      .acct-btn.primary { background: color-mix(in oklch, var(--brand) 14%, transparent); border-color: color-mix(in oklch, var(--brand) 35%, transparent); color: var(--brand); }
+
+      /* ── Center / composer ── */
+      .pane-main { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+      .composer {
+        background: color-mix(in oklch, var(--ps-bg, #060610) 60%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 8%, transparent);
+        border-radius: var(--ps-radius-xl, 22px);
+        padding: 18px;
+        backdrop-filter: blur(14px);
+        display: flex; flex-direction: column; gap: 14px;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25),
+                    0 0 0 1px color-mix(in oklch, var(--ps-accent, #00e5ff) 5%, transparent);
+        position: relative;
+      }
+
+      .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+      .chip {
+        --brand: var(--ps-accent, #00e5ff);
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 5px 10px; border-radius: 999px; cursor: pointer;
+        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 4%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 70%, transparent);
+        font-size: 0.74rem; font-weight: 600; font-family: inherit; transition: all 0.16s ease;
+      }
+      .chip:hover:not(:disabled) { transform: translateY(-1px); border-color: color-mix(in oklch, var(--brand) 40%, transparent); color: var(--ps-ink, #f4f4ff); }
+      .chip.is-on { background: color-mix(in oklch, var(--brand) 16%, transparent); border-color: color-mix(in oklch, var(--brand) 45%, transparent); color: var(--brand); }
+      .chip.is-override { box-shadow: 0 0 0 2px color-mix(in oklch, var(--brand) 24%, transparent); }
+      .chip.is-off { opacity: 0.45; cursor: not-allowed; }
+      .chip-ct { font-size: 0.62rem; opacity: 0.85; padding-left: 4px; border-left: 1px solid currentColor; margin-left: 2px; }
+      .chip-ct.over { color: #ff6b8a; font-weight: 700; }
+
+      .composer-ta {
+        width: 100%; padding: 14px; border-radius: 12px;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
+        color: var(--ps-ink, #f4f4ff); font-size: 0.9rem; font-family: inherit;
+        resize: vertical; min-height: 90px; line-height: 1.55; outline: none; transition: border-color 0.15s ease;
+        caret-color: var(--ps-accent, #00e5ff);
+      }
+      .composer-ta.sm { min-height: 60px; padding: 10px; font-size: 0.82rem; }
+      .composer-ta:focus-visible { border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 45%, transparent); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent); }
+
+      .mention-pop {
+        position: absolute; left: 18px; right: 18px; max-width: 320px; z-index: 50;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 95%, black);
+        border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 24%, transparent);
+        border-radius: 10px; padding: 6px; display: flex; flex-direction: column; gap: 2px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      }
+      .mention-row {
+        display: flex; gap: 8px; padding: 6px 8px; border-radius: 6px; border: none; background: transparent;
+        text-align: left; cursor: pointer; color: var(--ps-ink, #f4f4ff); font-family: inherit; font-size: 0.78rem;
+      }
+      .mention-row.is-active, .mention-row:hover { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 14%, transparent); }
+      .mention-handle { color: var(--ps-accent, #00e5ff); font-weight: 700; }
+      .mention-name { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
+
+      .override-row {
+        --brand: var(--ps-accent, #00e5ff);
+        padding: 10px; border-radius: 12px;
+        background: color-mix(in oklch, var(--brand) 5%, transparent);
+        border: 1px solid color-mix(in oklch, var(--brand) 28%, transparent);
+        display: flex; flex-direction: column; gap: 8px;
+      }
+      .override-h {
+        display: flex; align-items: center; gap: 8px; font-size: 0.74rem; font-weight: 700; color: var(--brand);
+      }
+      .override-ct { margin-left: auto; font-size: 0.62rem; opacity: 0.85; }
+      .override-ct.over { color: #ff6b8a; }
+      .override-x { border: none; background: transparent; color: inherit; cursor: pointer; font-size: 1.1rem; line-height: 1; }
+
+      /* ── Media zone ── */
+      .media-zone {
+        border: 1.5px dashed color-mix(in oklch, var(--ps-ink, #f4f4ff) 16%, transparent);
+        border-radius: 12px; padding: 14px; cursor: pointer; transition: all 0.18s ease;
+        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 2%, transparent);
+      }
+      .media-zone:hover, .media-zone.is-drag {
+        border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 50%, transparent);
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 4%, transparent);
+      }
+      .media-zone:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+      .media-empty { display: flex; align-items: center; gap: 10px; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent); font-size: 0.82rem; }
+      .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+      .media-tile {
+        position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; margin: 0;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 85%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
+      }
+      .media-tile img, .media-tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .media-alt {
+        position: absolute; left: 4px; right: 4px; bottom: 4px;
+        background: rgba(0, 0, 0, 0.75); color: white; border: none; border-radius: 5px;
+        padding: 4px 6px; font-size: 0.62rem; font-family: inherit; outline: none;
+      }
+      .media-x {
+        position: absolute; top: 4px; right: 4px; width: 22px; height: 22px;
+        background: rgba(0, 0, 0, 0.7); color: white; border: none; border-radius: 50%; cursor: pointer; font-size: 1rem; line-height: 1;
+      }
+      .media-add {
+        aspect-ratio: 1; border-radius: 10px; cursor: pointer; font-size: 1.5rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 50%, transparent);
+        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 4%, transparent);
+        border: 1px dashed color-mix(in oklch, var(--ps-ink, #f4f4ff) 18%, transparent);
+      }
+
+      /* ── Meta grid ── */
+      .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      @media (max-width: 700px) { .meta-grid { grid-template-columns: 1fr; } }
+      .meta-col { display: flex; flex-direction: column; gap: 6px; }
+      .meta-lbl { font-size: 0.7rem; font-weight: 600; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 65%, transparent); display: flex; align-items: center; gap: 6px; }
+      .meta-aux { margin-left: auto; opacity: 0.65; font-weight: 400; }
+      .meta-input {
+        padding: 10px 12px; border-radius: 9px; background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
+        color: var(--ps-ink, #f4f4ff); font-family: inherit; font-size: 0.82rem; outline: none;
+      }
+      .meta-input:focus-visible { border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 45%, transparent); }
+      .tag-input {
+        display: flex; flex-wrap: wrap; gap: 5px; padding: 6px;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent); border-radius: 9px;
+      }
+      .tag-input input { flex: 1; min-width: 140px; background: transparent; border: none; outline: none; color: var(--ps-ink, #f4f4ff); font-family: inherit; font-size: 0.8rem; padding: 4px; }
+      .tag-chip {
+        display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px;
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 14%, transparent);
+        color: var(--ps-accent, #00e5ff); font-size: 0.7rem; font-weight: 600;
+      }
+      .tag-chip button { background: transparent; border: none; color: inherit; cursor: pointer; padding: 0; line-height: 1; }
+
+      .og-card {
+        display: grid; grid-template-columns: 70px 1fr; gap: 10px; padding: 8px;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 75%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
+        border-radius: 9px;
+      }
+      .og-card img { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; }
+      .og-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+      .og-site { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
+      .og-title { font-size: 0.78rem; font-weight: 600; color: var(--ps-ink, #f4f4ff); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .og-desc { font-size: 0.68rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+      /* ── AI row ── */
+      .ai-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px; border-radius: 10px; background: color-mix(in oklch, var(--ps-accent, #00e5ff) 4%, transparent); }
+      .ai-tone {
+        padding: 6px 10px; border-radius: 7px; background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
+        color: var(--ps-ink, #f4f4ff); font-family: inherit; font-size: 0.74rem; outline: none; cursor: pointer;
+      }
+      .btn-ai {
+        display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 7px;
+        background: linear-gradient(135deg, var(--ps-accent, #00e5ff), var(--ps-accent-secondary, #7c3aed));
+        color: #000; border: none; cursor: pointer; font-weight: 700; font-size: 0.76rem; font-family: inherit;
+        transition: all 0.18s ease;
+      }
+      .btn-ai:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent); }
+      .btn-ai:disabled { opacity: 0.45; cursor: not-allowed; }
+      .ai-variants { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+      .ai-nav {
+        width: 26px; height: 26px; border-radius: 50%; border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 12%, transparent);
+        background: transparent; color: var(--ps-ink, #f4f4ff); cursor: pointer; font-size: 0.9rem; line-height: 1; font-family: inherit;
+      }
+      .ai-vidx { font-size: 0.7rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 65%, transparent); font-variant-numeric: tabular-nums; }
+      .ai-use {
+        padding: 4px 10px; border-radius: 7px; background: color-mix(in oklch, var(--ps-accent, #00e5ff) 18%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 40%, transparent);
+        color: var(--ps-accent, #00e5ff); cursor: pointer; font-family: inherit; font-size: 0.7rem; font-weight: 700;
+      }
+
+      /* ── Schedule ── */
+      .sched-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      .sched-btns { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+      .sched-btn {
+        padding: 6px 12px; border-radius: 7px; cursor: pointer; font-family: inherit; font-size: 0.74rem; font-weight: 600;
+        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 4%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 70%, transparent);
+      }
+      .sched-btn.is-on { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 16%, transparent); border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 40%, transparent); color: var(--ps-accent, #00e5ff); }
+      .sched-dt, .sched-tz {
+        padding: 6px 10px; border-radius: 7px;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
+        color: var(--ps-ink, #f4f4ff); font-family: inherit; font-size: 0.74rem; outline: none;
+      }
+      .best-times { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+      .best-h { font-size: 0.66rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
+      .best-chip {
+        padding: 3px 9px; border-radius: 999px; cursor: pointer; font-family: inherit; font-size: 0.66rem; font-weight: 600;
+        background: color-mix(in oklch, #a78bfa 14%, transparent);
+        border: 1px solid color-mix(in oklch, #a78bfa 35%, transparent);
+        color: #c4b5fd;
+      }
+
+      .status-line {
+        display: flex; gap: 8px; font-size: 0.7rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent);
+        padding-top: 4px; flex-wrap: wrap;
+      }
+
+      .action-row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+      .btn-ghost {
+        padding: 8px 14px; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 0.78rem; font-weight: 600;
+        background: transparent; border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 12%, transparent);
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 80%, transparent);
+        transition: all 0.16s ease;
+      }
+      .btn-ghost:hover { color: var(--ps-ink, #f4f4ff); border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 40%, transparent); }
+      .btn-ghost.sm { padding: 5px 10px; font-size: 0.72rem; }
+      .btn-ghost.danger { color: #ff8a9d; border-color: color-mix(in oklch, #ff5470 26%, transparent); }
+      .btn-primary {
+        padding: 8px 16px; border-radius: 8px; cursor: pointer; border: none; font-family: inherit; font-size: 0.8rem; font-weight: 700;
+        background: linear-gradient(135deg, var(--ps-accent, #00e5ff), color-mix(in oklch, var(--ps-accent, #00e5ff) 70%, var(--ps-accent-secondary, #7c3aed) 30%));
+        color: #000; transition: all 0.18s ease;
+      }
+      .btn-primary.sm { padding: 5px 10px; font-size: 0.72rem; }
+      .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent); }
+      .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+      .rss-row details { border-top: 1px dashed color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent); padding-top: 10px; }
+      .rss-row summary { cursor: pointer; font-size: 0.74rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 70%, transparent); }
+      .rss-body { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; }
+      .rss-body input {
+        padding: 7px 10px; border-radius: 7px; background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
+        color: var(--ps-ink, #f4f4ff); font-family: inherit; font-size: 0.78rem; outline: none;
+      }
+      .rss-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; font-size: 0.74rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 75%, transparent); }
+      .rss-list a { color: var(--ps-accent, #00e5ff); }
+
+      /* ── Post list ── */
+      .list-pane { display: flex; flex-direction: column; gap: 10px; }
+      .empty-state {
+        display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding: 50px 18px;
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 65%, transparent);
+      }
+      .empty-state svg { opacity: 0.4; }
+      .empty-state h3 { color: var(--ps-ink, #f4f4ff); margin: 0; font-size: 1rem; }
+      .empty-state p { font-size: 0.82rem; margin: 0; }
+      .post-card {
+        padding: 14px; border-radius: 14px;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 65%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 8%, transparent);
+        display: flex; flex-direction: column; gap: 10px;
+      }
+      .post-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .post-platforms { display: inline-flex; gap: 4px; }
+      .post-pglyph {
+        width: 20px; height: 20px; border-radius: 5px;
+        background: color-mix(in oklch, var(--brand) 14%, transparent);
+        color: var(--brand); display: grid; place-items: center;
+      }
+      .post-status { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; }
+      .post-status.is-draft     { background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent); color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 75%, transparent); }
+      .post-status.is-scheduled { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 16%, transparent); color: var(--ps-accent, #00e5ff); }
+      .post-status.is-published { background: color-mix(in oklch, #34d399 18%, transparent); color: #6ee7b7; }
+      .post-status.is-partial   { background: color-mix(in oklch, #fbbf24 18%, transparent); color: #fcd34d; }
+      .post-status.is-failed    { background: color-mix(in oklch, #ff5470 18%, transparent); color: #ff8a9d; }
+      .post-time { font-size: 0.7rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); margin-left: auto; }
+      .post-body { color: var(--ps-ink, #f4f4ff); font-size: 0.85rem; margin: 0; line-height: 1.5; white-space: pre-wrap; }
+      .post-thumbs { display: flex; gap: 6px; flex-wrap: wrap; }
+      .post-thumbs img { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; }
+      .post-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+      .stat-tile {
+        --brand: var(--ps-accent, #00e5ff);
+        padding: 8px 10px; border-radius: 10px;
+        background: color-mix(in oklch, var(--brand) 5%, transparent);
+        border: 1px solid color-mix(in oklch, var(--brand) 22%, transparent);
+      }
+      .stat-h { display: flex; align-items: center; gap: 5px; font-size: 0.68rem; font-weight: 700; color: var(--brand); margin-bottom: 5px; }
+      .stat-glyph { display: inline-grid; place-items: center; }
+      .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-variant-numeric: tabular-nums; }
+      .stat-grid > div { display: flex; flex-direction: column; gap: 1px; font-size: 0.85rem; font-weight: 700; color: var(--ps-ink, #f4f4ff); }
+      .stat-k { font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.08em; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); font-weight: 600; }
+      .post-links { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.74rem; }
+      .post-links a { color: var(--ps-accent, #00e5ff); text-decoration: none; }
+      .post-links a:hover { text-decoration: underline; }
+      .post-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+
+      /* ── Calendar ── */
+      .cal-pane {
+        background: color-mix(in oklch, var(--ps-bg, #060610) 60%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 8%, transparent);
+        border-radius: var(--ps-radius-xl, 22px); padding: 14px;
+        display: flex; flex-direction: column; gap: 10px;
+      }
+      .cal-h { display: flex; align-items: center; gap: 10px; }
+      .cal-h h3 { margin: 0; font-size: 1rem; color: var(--ps-ink, #f4f4ff); flex: 1; text-align: center; }
+      .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+      .cal-dh {
+        text-align: center; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 50%, transparent); padding: 5px;
+      }
+      .cal-cell {
+        aspect-ratio: 1; min-height: 76px; padding: 4px; border-radius: 8px;
+        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 3%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 6%, transparent);
+        display: flex; flex-direction: column; gap: 3px; overflow: hidden;
+      }
+      .cal-cell.is-today { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent); border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent); }
+      .cal-cell.is-out  { opacity: 0.35; }
+      .cal-num { font-size: 0.7rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 70%, transparent); font-weight: 600; }
+      .cal-event {
+        --brand: var(--ps-accent, #00e5ff);
+        border: none; cursor: grab; padding: 3px 6px; border-radius: 5px;
+        background: color-mix(in oklch, var(--brand) 18%, transparent);
+        color: var(--brand);
+        font-size: 0.62rem; text-align: left; display: flex; gap: 4px; font-family: inherit;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .cal-event:active { cursor: grabbing; }
+      .cal-time { font-weight: 700; }
+      .cal-txt { opacity: 0.85; text-overflow: ellipsis; overflow: hidden; }
+
+      /* ── Right: previews ── */
+      .pane-previews { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+      .prev-empty {
+        padding: 40px 14px; text-align: center; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 50%, transparent);
+        display: flex; flex-direction: column; align-items: center; gap: 8px;
+      }
+      .prev-empty svg { opacity: 0.4; }
+      .prev-card {
+        --brand: var(--ps-accent, #00e5ff);
+        padding: 12px; border-radius: 14px;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 75%, transparent);
+        border: 1px solid color-mix(in oklch, var(--brand) 22%, transparent);
+        backdrop-filter: blur(8px);
+        box-shadow: 0 1px 0 color-mix(in oklch, var(--brand) 18%, transparent);
+      }
+      .prev-h { display: flex; align-items: center; gap: 7px; padding-bottom: 8px; border-bottom: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 6%, transparent); }
+      .prev-glyph { width: 22px; height: 22px; border-radius: 5px; background: color-mix(in oklch, var(--brand) 16%, transparent); color: var(--brand); display: grid; place-items: center; }
+      .prev-name { font-size: 0.74rem; font-weight: 700; color: var(--brand); }
+      .prev-handle { margin-left: auto; font-size: 0.66rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
+      .prev-body { display: grid; grid-template-columns: 34px 1fr; gap: 8px; padding-top: 10px; }
+      .prev-avatar {
+        width: 34px; height: 34px; border-radius: 50%;
+        background: linear-gradient(135deg, var(--brand), color-mix(in oklch, var(--brand) 60%, var(--ps-accent-secondary, #7c3aed)));
+      }
+      .prev-content { min-width: 0; }
+      .prev-author { font-size: 0.76rem; font-weight: 700; color: var(--ps-ink, #f4f4ff); }
+      .prev-txt { font-size: 0.78rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 90%, transparent); margin: 4px 0; white-space: pre-wrap; line-height: 1.45; }
+      .prev-tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+      .prev-tags span { color: var(--brand); font-size: 0.72rem; }
+      .prev-media { display: grid; gap: 3px; border-radius: 9px; overflow: hidden; margin-top: 6px; }
+      .prev-media[data-count="1"] { grid-template-columns: 1fr; }
+      .prev-media[data-count="2"] { grid-template-columns: 1fr 1fr; }
+      .prev-media[data-count="3"], .prev-media[data-count="4"] { grid-template-columns: 1fr 1fr; }
+      .prev-media img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
+      .prev-og {
+        margin-top: 8px; padding: 6px; display: grid; grid-template-columns: 50px 1fr; gap: 7px;
+        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 4%, transparent); border-radius: 8px;
+      }
+      .prev-og img { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; }
+      .prev-og-site { font-size: 0.58rem; text-transform: uppercase; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
+      .prev-og-title { font-size: 0.72rem; font-weight: 600; color: var(--ps-ink, #f4f4ff); }
+      .prev-actions { display: flex; gap: 18px; margin-top: 10px; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 50%, transparent); font-size: 0.86rem; }
+
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+      @media (prefers-reduced-motion: reduce) {
+        .acct-card:hover, .chip:hover, .btn-ai:hover, .btn-primary:hover { transform: none; }
+        .social-wrap { animation: none; }
+      }
+    `,
+  ],
+})
+export class AdminSocialComponent implements OnInit {
+  private readonly api = inject(ApiService);
+  private readonly toast = inject(ToastService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  readonly state = inject(AdminStateService);
+
+  readonly platforms = PLATFORMS;
+  readonly weekDayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  /* ── Signals ── */
+  readonly loading = signal(false);
+  readonly saving = signal(false);
+  readonly tab = signal<Tab>('compose');
+  readonly accounts = signal<SocialAccount[]>([]);
+  readonly posts = signal<SocialPost[]>([]);
+  readonly analyticsCache = signal<Record<string, AnalyticsRow[]>>({});
+
+  /* Composer state */
+  readonly content = signal('');
+  readonly selected = signal<PlatformId[]>([]);
+  readonly perPlatform = signal<Partial<Record<PlatformId, string>>>({});
+  readonly media = signal<MediaItem[]>([]);
+  readonly hashtags = signal<string[]>([]);
+  readonly link = signal('');
+  readonly og = signal<OgData | null>(null);
+  readonly scheduleAt = signal<string | null>(null);
+  readonly scheduleTz = signal('America/Los_Angeles');
+  readonly bestTimes = signal<string[]>([]);
+  readonly editingId = signal<string | null>(null);
+
+  /* Hashtag draft */
+  hashtagDraft = '';
+
+  /* AI assist */
+  readonly aiLoading = signal(false);
+  readonly aiVariants = signal<string[]>([]);
+  readonly variantIdx = signal(0);
+  aiTone: 'punchy' | 'warm' | 'authoritative' | 'playful' | 'story' = 'punchy';
+
+  /* Mention picker */
+  readonly mentionOpen = signal(false);
+  readonly mentionResults = signal<{ handle: string; name?: string }[]>([]);
+  readonly mentionIdx = signal(0);
+  private mentionAnchor = -1;
+
+  /* Drag/drop */
+  readonly dragOver = signal(false);
+
+  /* RSS */
+  rssUrl = '';
+  readonly rssItems = signal<{ title: string; url: string }[]>([]);
+
+  /* Calendar */
+  readonly calCursor = signal(new Date());
+  private dragPostId: string | null = null;
+
+  @ViewChild('mainTa') private taRef?: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('fileInput') private fileInputRef?: ElementRef<HTMLInputElement>;
+
+  /* ── Computed ── */
+  readonly connectedCount = computed(() => this.accounts().filter((a) => a.connected).length);
+  readonly draftsCount = computed(() => this.posts().filter((p) => p.status === 'draft').length);
+  readonly scheduledCount = computed(() => this.posts().filter((p) => p.status === 'scheduled').length);
+  readonly publishedCount = computed(
+    () => this.posts().filter((p) => ['published', 'partial', 'failed'].includes(p.status)).length
+  );
+  readonly filteredPosts = computed(() => {
+    const t = this.tab();
+    const all = this.posts();
+    if (t === 'drafts') return all.filter((p) => p.status === 'draft');
+    if (t === 'queue') return all.filter((p) => p.status === 'scheduled').sort((a, b) => (a.scheduled_at || '').localeCompare(b.scheduled_at || ''));
+    if (t === 'sent') return all.filter((p) => ['published', 'partial', 'failed'].includes(p.status));
+    return [];
+  });
+
+  readonly calLabel = computed(() => {
+    const d = this.calCursor();
+    return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  });
+  readonly calCells = computed(() => {
+    const cursor = this.calCursor();
+    const y = cursor.getFullYear();
+    const m = cursor.getMonth();
+    const first = new Date(y, m, 1);
+    const start = new Date(first);
+    start.setDate(first.getDate() - first.getDay());
+    const cells: { iso: string; day: number; outOfMonth: boolean; today: boolean }[] = [];
+    const today = new Date();
+    const todayIso = isoDay(today);
+    for (let i = 0; i < 42; i++) {
+      const dt = new Date(start);
+      dt.setDate(start.getDate() + i);
+      const iso = isoDay(dt);
+      cells.push({ iso, day: dt.getDate(), outOfMonth: dt.getMonth() !== m, today: iso === todayIso });
+    }
+    return cells;
+  });
+
+  /* ── Lifecycle ── */
+  ngOnInit(): void {
+    // Slash command `/social new` → focus composer
+    this.route.queryParamMap.subscribe((q) => {
+      if (q.get('action') === 'new') {
+        this.tab.set('compose');
+        queueMicrotask(() => this.taRef?.nativeElement?.focus());
+      }
+    });
+    this.loadAccounts();
+    this.loadPosts();
+  }
+
+  /* ── Listener: cross-window OAuth callback ── */
+  @HostListener('window:message', ['$event'])
+  onWindowMessage(ev: MessageEvent): void {
+    const data = ev.data as { type?: string; platform?: PlatformId; handle?: string };
+    if (data?.type === 'social-oauth-success' && data.platform) {
+      this.toast.success(`Connected ${this.defOf(data.platform)?.label}`);
+      this.loadAccounts();
+    }
+    if (data?.type === 'social-oauth-error') {
+      this.toast.error('Connection failed — try again.');
+    }
+  }
+
+  /* ── Account methods ── */
+  private siteId(): string | null {
+    return this.state.selectedSite()?.id ?? null;
+  }
+  accountFor(pid: PlatformId): SocialAccount | undefined {
+    return this.accounts().find((a) => a.platform === pid);
+  }
+  isConnected(pid: PlatformId): boolean {
+    return !!this.accountFor(pid)?.connected;
+  }
+  defOf(pid: PlatformId | undefined): PlatformDef | undefined {
+    return this.platforms.find((p) => p.id === pid);
+  }
+
+  private loadAccounts(): void {
+    const sid = this.siteId();
+    if (!sid) return;
+    this.api.get<{ accounts: SocialAccount[] }>(`/social/accounts`, { site_id: sid }).subscribe({
+      next: (r) => this.accounts.set(r.accounts ?? []),
+      error: () => {
+        // Sibling agent may not have shipped yet — keep platforms list visible
+        this.accounts.set(this.platforms.map((p) => ({ platform: p.id, connected: false })));
+      },
+    });
+  }
+
+  connect(pid: PlatformId): void {
+    const sid = this.siteId();
+    if (!sid) { this.toast.error('Pick a site first'); return; }
+    const url = `/api/social/${pid}/connect?site_id=${encodeURIComponent(sid)}`;
+    const popup = window.open(url, 'social-oauth', 'width=620,height=720,popup=yes');
+    if (!popup) {
+      this.toast.error('Popup blocked — allow popups and try again');
+      return;
+    }
+    const poll = window.setInterval(() => {
+      if (popup.closed) {
+        window.clearInterval(poll);
+        this.loadAccounts();
+      }
+    }, 600);
+  }
+
+  disconnect(pid: PlatformId): void {
+    const sid = this.siteId();
+    if (!sid) return;
+    this.api.post(`/social/${pid}/disconnect`, { site_id: sid }).subscribe({
+      next: () => {
+        this.toast.success(`Disconnected ${this.defOf(pid)?.label}`);
+        this.loadAccounts();
+        this.selected.update((s) => s.filter((id) => id !== pid));
+      },
+      error: () => this.toast.error('Disconnect failed'),
+    });
+  }
+
+  /* ── Composer state ── */
+  isPlatformSelected(pid: PlatformId): boolean {
+    return this.selected().includes(pid);
+  }
+  hasOverride(pid: PlatformId): boolean {
+    return Object.prototype.hasOwnProperty.call(this.perPlatform(), pid);
+  }
+  togglePlatform(pid: PlatformId): void {
+    if (!this.isConnected(pid)) return;
+    if (this.isPlatformSelected(pid)) {
+      // 2nd click → toggle override
+      if (this.hasOverride(pid)) {
+        this.removeOverride(pid);
+      } else {
+        this.setOverride(pid, this.content());
+      }
+    } else {
+      this.selected.update((s) => [...s, pid]);
+      this.refreshBestTimes();
+    }
+  }
+  removePlatform(pid: PlatformId): void {
+    this.selected.update((s) => s.filter((id) => id !== pid));
+    this.removeOverride(pid);
+    this.refreshBestTimes();
+  }
+  setOverride(pid: PlatformId, text: string): void {
+    this.perPlatform.update((m) => ({ ...m, [pid]: text }));
+  }
+  removeOverride(pid: PlatformId): void {
+    this.perPlatform.update((m) => {
+      const { [pid]: _drop, ...rest } = m;
+      return rest;
+    });
+  }
+  charsFor(pid: PlatformId): number {
+    return (this.perPlatform()[pid] ?? this.content()).length;
+  }
+
+  onContentChange(v: string): void {
+    this.content.set(v);
+    this.checkMentionTrigger();
+  }
+  onContentKeydown(ev: KeyboardEvent): void {
+    if (this.mentionOpen()) {
+      if (ev.key === 'ArrowDown') { ev.preventDefault(); this.mentionIdx.update((i) => Math.min(this.mentionResults().length - 1, i + 1)); }
+      if (ev.key === 'ArrowUp')   { ev.preventDefault(); this.mentionIdx.update((i) => Math.max(0, i - 1)); }
+      if (ev.key === 'Escape')    { this.mentionOpen.set(false); }
+      if (ev.key === 'Enter' && this.mentionResults().length > 0) {
+        ev.preventDefault();
+        this.insertMention(this.mentionResults()[this.mentionIdx()], ev);
+      }
+    }
+    // Cmd+Enter = publish
+    if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter' && this.canPublish()) {
+      ev.preventDefault();
+      this.publish();
+    }
+  }
+
+  private checkMentionTrigger(): void {
+    const ta = this.taRef?.nativeElement;
+    if (!ta) return;
+    const caret = ta.selectionStart ?? 0;
+    const slice = this.content().slice(0, caret);
+    const m = slice.match(/@([\w]{0,20})$/);
+    if (!m) { this.mentionOpen.set(false); return; }
+    this.mentionAnchor = caret - m[0].length;
+    const q = m[1];
+    const sel = this.selected()[0];
+    if (!sel) return;
+    this.api
+      .get<{ items: { handle: string; name?: string }[] }>(`/social/mentions`, { platform: sel, q })
+      .subscribe({
+        next: (r) => {
+          this.mentionResults.set(r.items ?? []);
+          this.mentionIdx.set(0);
+          this.mentionOpen.set((r.items ?? []).length > 0);
+        },
+        error: () => this.mentionOpen.set(false),
+      });
+  }
+
+  insertMention(m: { handle: string }, ev: Event): void {
+    ev.preventDefault();
+    const ta = this.taRef?.nativeElement;
+    if (!ta) return;
+    const before = this.content().slice(0, this.mentionAnchor);
+    const after = this.content().slice(ta.selectionStart ?? this.mentionAnchor);
+    const next = `${before}@${m.handle} ${after}`;
+    this.content.set(next);
+    this.mentionOpen.set(false);
+    queueMicrotask(() => {
+      ta.focus();
+      const pos = before.length + m.handle.length + 2;
+      ta.setSelectionRange(pos, pos);
+    });
+  }
+
+  /* ── Hashtags ── */
+  onHashtagKeydown(ev: KeyboardEvent): void {
+    if (ev.key === ' ' || ev.key === ',' || ev.key === 'Enter') {
+      ev.preventDefault();
+      this.commitHashtag();
+    } else if (ev.key === 'Backspace' && !this.hashtagDraft && this.hashtags().length > 0) {
+      this.hashtags.update((t) => t.slice(0, -1));
+    }
+  }
+  private commitHashtag(): void {
+    const raw = this.hashtagDraft.trim().replace(/^#/, '');
+    if (!raw) return;
+    if (this.hashtags().length >= 30) {
+      this.toast.warning('Max 30 hashtags');
+      return;
+    }
+    if (!this.hashtags().includes(raw)) {
+      this.hashtags.update((t) => [...t, raw]);
+    }
+    this.hashtagDraft = '';
+  }
+  removeHashtag(i: number): void {
+    this.hashtags.update((t) => t.filter((_, ix) => ix !== i));
+  }
+
+  /* ── Media ── */
+  onDragOver(ev: DragEvent): void { ev.preventDefault(); this.dragOver.set(true); }
+  onDrop(ev: DragEvent): void {
+    ev.preventDefault();
+    this.dragOver.set(false);
+    const files = Array.from(ev.dataTransfer?.files ?? []);
+    if (files.length) this.uploadFiles(files);
+  }
+  onFiles(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    if (files.length) this.uploadFiles(files);
+    input.value = '';
+  }
+  private uploadFiles(files: File[]): void {
+    for (const f of files) {
+      const fd = new FormData();
+      fd.append('file', f);
+      const sid = this.siteId();
+      if (sid) fd.append('site_id', sid);
+      this.api.postFormData<{ media: MediaItem }>('/social/media', fd).subscribe({
+        next: (r: { media: MediaItem }) => {
+          this.media.update((m) => [...m, r.media]);
+        },
+        error: () => {
+          // Optimistic local preview fallback when backend not yet wired
+          const url = URL.createObjectURL(f);
+          this.media.update((m) => [
+            ...m,
+            {
+              id: `local-${Date.now()}-${Math.random()}`,
+              url,
+              thumb_url: url,
+              alt: '',
+              bytes: f.size,
+              type: f.type.startsWith('video/') ? 'video' : 'image',
+            },
+          ]);
+          console.warn('[social] media upload backend missing, local preview only');
+        },
+      });
+    }
+  }
+  updateAlt(id: string, alt: string): void {
+    this.media.update((m) => m.map((x) => (x.id === id ? { ...x, alt } : x)));
+  }
+  removeMedia(id: string): void {
+    this.media.update((m) => m.filter((x) => x.id !== id));
+  }
+
+  /* ── OG fetch ── */
+  fetchOg(): void {
+    const u = this.link().trim();
+    if (!u) { this.og.set(null); return; }
+    this.api.post<{ og: OgData }>('/social/og-preview', { url: u }).subscribe({
+      next: (r) => this.og.set(r.og),
+      error: () => this.og.set(null),
+    });
+  }
+
+  /* ── AI assist ── */
+  generate(): void {
+    if (this.selected().length === 0) {
+      this.toast.warning('Select at least one platform first');
+      return;
+    }
+    this.aiLoading.set(true);
+    this.api
+      .post<{ variants: string[] }>('/social/generate', {
+        topic: this.content() || 'a tasteful update from our team',
+        platforms: this.selected(),
+        tone: this.aiTone,
+      })
+      .subscribe({
+        next: (r) => {
+          this.aiVariants.set(r.variants ?? []);
+          this.variantIdx.set(0);
+          this.aiLoading.set(false);
+        },
+        error: () => {
+          this.aiLoading.set(false);
+          this.toast.error('AI assist unavailable right now');
+        },
+      });
+  }
+  prevVariant(): void { this.variantIdx.update((i) => Math.max(0, i - 1)); }
+  nextVariant(): void { this.variantIdx.update((i) => Math.min(this.aiVariants().length - 1, i + 1)); }
+  useVariant(): void {
+    const v = this.aiVariants()[this.variantIdx()];
+    if (v) this.content.set(v);
+  }
+
+  /* ── Scheduling ── */
+  openScheduler(): void {
+    if (!this.scheduleAt()) {
+      const d = new Date();
+      d.setHours(d.getHours() + 1, 0, 0, 0);
+      this.scheduleAt.set(toDatetimeLocal(d));
+    }
+  }
+  private refreshBestTimes(): void {
+    const plats = this.selected();
+    if (plats.length === 0) { this.bestTimes.set([]); return; }
+    this.api
+      .get<{ times: string[] }>('/social/best-times', { platforms: plats.join(',') })
+      .subscribe({
+        next: (r) => this.bestTimes.set(r.times ?? []),
+        error: () => this.bestTimes.set([]),
+      });
+  }
+  applyBestTime(label: string): void {
+    // label like "Tue 9am" — pick the next matching slot
+    const m = label.match(/^(\w{3})\s+(\d{1,2})(am|pm)/i);
+    if (!m) return;
+    const wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(m[1]);
+    const hour = (parseInt(m[2], 10) % 12) + (m[3].toLowerCase() === 'pm' ? 12 : 0);
+    const next = new Date();
+    while (next.getDay() !== wd || next < new Date()) next.setDate(next.getDate() + 1);
+    next.setHours(hour, 0, 0, 0);
+    this.scheduleAt.set(toDatetimeLocal(next));
+  }
+
+  /* ── Status line helpers ── */
+  mediaSummary(): string {
+    const items = this.media();
+    if (items.length === 0) return 'no media';
+    const kb = Math.round(items.reduce((s, m) => s + (m.bytes || 0), 0) / 1024);
+    return `${items.length} media · ${kb} KB`;
+  }
+  scheduleSummary(): string {
+    const at = this.scheduleAt();
+    if (!at) return 'posting now';
+    try {
+      return `scheduled for ${new Date(at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })} ${this.scheduleTz()}`;
+    } catch { return 'scheduled'; }
+  }
+  canPublish(): boolean {
+    if (!this.content().trim() && this.media().length === 0) return false;
+    if (this.selected().length === 0) return false;
+    // Char-limit enforcement per selected platform
+    for (const pid of this.selected()) {
+      const def = this.defOf(pid);
+      if (def && this.charsFor(pid) > def.charLimit) return false;
+    }
+    return true;
+  }
+
+  /* ── Posts ── */
+  loadPosts(filter?: PostStatus): void {
+    const sid = this.siteId();
+    if (!sid) return;
+    this.loading.set(true);
+    const params: Record<string, string> = { site_id: sid };
+    if (filter) params['status'] = filter;
+    this.api.get<{ posts: SocialPost[] }>('/social/posts', params).subscribe({
+      next: (r) => { this.posts.set(r.posts ?? []); this.loading.set(false); },
+      error: () => { this.loading.set(false); },
+    });
+  }
+
+  private buildPostPayload(status: PostStatus): Partial<SocialPost> & { site_id: string } {
+    return {
+      site_id: this.siteId()!,
+      content: this.content(),
+      per_platform_content: { ...this.perPlatform() },
+      platforms: [...this.selected()],
+      media: this.media(),
+      hashtags: this.hashtags(),
+      link: this.link() || undefined,
+      og: this.og() ?? undefined,
+      scheduled_at: this.scheduleAt() ?? undefined,
+      status,
+    };
+  }
+
+  saveDraft(): void {
+    if (!this.siteId()) { this.toast.error('Pick a site first'); return; }
+    this.saving.set(true);
+    const payload = this.buildPostPayload('draft');
+    const id = this.editingId();
+    const req = id
+      ? this.api.patch<{ post: SocialPost }>(`/social/posts/${id}`, payload)
+      : this.api.post<{ post: SocialPost }>('/social/posts', payload);
+    req.subscribe({
+      next: () => { this.saving.set(false); this.toast.success('Draft saved'); this.resetComposer(); },
+      error: () => { this.saving.set(false); this.toast.error('Save failed'); },
+    });
+  }
+
+  publish(): void {
+    if (!this.canPublish()) return;
+    this.saving.set(true);
+    const status: PostStatus = this.scheduleAt() ? 'scheduled' : 'published';
+    const payload = this.buildPostPayload(status);
+    this.api.post<{ post: SocialPost }>('/social/posts', payload).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.toast.success(status === 'scheduled' ? 'Post scheduled' : 'Posted to ' + this.selected().length + ' platforms');
+        this.resetComposer();
+      },
+      error: () => { this.saving.set(false); this.toast.error('Publish failed'); },
+    });
+  }
+
+  publishNow(post: SocialPost): void {
+    this.api.post(`/social/posts/${post.id}/publish-now`, {}).subscribe({
+      next: () => { this.toast.success('Publishing…'); this.loadPosts(); },
+      error: () => this.toast.error('Publish failed'),
+    });
+  }
+  editPost(post: SocialPost): void {
+    this.editingId.set(post.id);
+    this.content.set(post.content);
+    this.selected.set([...post.platforms]);
+    this.perPlatform.set({ ...(post.per_platform_content ?? {}) });
+    this.media.set([...post.media]);
+    this.hashtags.set([...post.hashtags]);
+    this.link.set(post.link ?? '');
+    this.og.set(post.og ?? null);
+    this.scheduleAt.set(post.scheduled_at ?? null);
+    this.tab.set('compose');
+  }
+  deletePost(post: SocialPost): void {
+    this.api.delete(`/social/posts/${post.id}`).subscribe({
+      next: () => { this.toast.success('Deleted'); this.loadPosts(); },
+      error: () => this.toast.error('Delete failed'),
+    });
+  }
+  duplicatePost(post: SocialPost): void {
+    this.editingId.set(null);
+    this.content.set(post.content);
+    this.selected.set([...post.platforms]);
+    this.media.set([...post.media]);
+    this.hashtags.set([...post.hashtags]);
+    this.tab.set('compose');
+    this.toast.info('Duplicated as new draft');
+  }
+  discard(): void {
+    if (!this.content().trim() && this.media().length === 0) return this.resetComposer();
+    if (confirm('Discard this post?')) this.resetComposer();
+  }
+  private resetComposer(): void {
+    this.editingId.set(null);
+    this.content.set('');
+    this.perPlatform.set({});
+    this.media.set([]);
+    this.hashtags.set([]);
+    this.hashtagDraft = '';
+    this.link.set('');
+    this.og.set(null);
+    this.scheduleAt.set(null);
+    this.aiVariants.set([]);
+    this.variantIdx.set(0);
+  }
+
+  /* ── Analytics ── */
+  analyticsFor(postId: string): AnalyticsRow[] {
+    const cached = this.analyticsCache()[postId];
+    if (cached) return cached;
+    // Lazily fetch + cache
+    this.api.get<{ rows: AnalyticsRow[] }>(`/social/posts/${postId}/analytics`).subscribe({
+      next: (r) => this.analyticsCache.update((m) => ({ ...m, [postId]: r.rows ?? [] })),
+      error: () => this.analyticsCache.update((m) => ({ ...m, [postId]: [] })),
+    });
+    return [];
+  }
+
+  /* ── RSS ── */
+  rssPreview(): void {
+    if (!this.rssUrl) return;
+    this.api.post<{ items: { title: string; url: string }[] }>('/social/import-rss', {
+      url: this.rssUrl,
+      preview: true,
+    }).subscribe({
+      next: (r) => this.rssItems.set((r.items ?? []).slice(0, 10)),
+      error: () => this.toast.error('Could not parse feed'),
+    });
+  }
+  rssScheduleAll(): void {
+    if (this.selected().length === 0) { this.toast.warning('Pick at least one platform first'); return; }
+    const sid = this.siteId();
+    if (!sid) return;
+    this.api.post('/social/import-rss', {
+      site_id: sid,
+      url: this.rssUrl,
+      platforms: this.selected(),
+      stagger_hours: 24,
+    }).subscribe({
+      next: () => { this.toast.success(`Queued ${this.rssItems().length} posts`); this.rssItems.set([]); this.rssUrl = ''; this.loadPosts(); },
+      error: () => this.toast.error('RSS import failed'),
+    });
+  }
+
+  /* ── Calendar ── */
+  calPrev(): void {
+    const d = new Date(this.calCursor());
+    d.setMonth(d.getMonth() - 1);
+    this.calCursor.set(d);
+  }
+  calNext(): void {
+    const d = new Date(this.calCursor());
+    d.setMonth(d.getMonth() + 1);
+    this.calCursor.set(d);
+  }
+  calToday(): void { this.calCursor.set(new Date()); }
+
+  postsOnDay(iso: string): SocialPost[] {
+    return this.posts().filter((p) => {
+      const at = p.scheduled_at || p.published_at;
+      return at && isoDay(new Date(at)) === iso;
+    });
+  }
+  onCalEventDrag(ev: DragEvent, post: SocialPost): void {
+    this.dragPostId = post.id;
+    ev.dataTransfer?.setData('text/plain', post.id);
+  }
+  onCalDragOver(ev: DragEvent): void { ev.preventDefault(); }
+  onCalDrop(ev: DragEvent, iso: string): void {
+    ev.preventDefault();
+    const id = this.dragPostId ?? ev.dataTransfer?.getData('text/plain');
+    if (!id) return;
+    const post = this.posts().find((p) => p.id === id);
+    if (!post || !post.scheduled_at) return;
+    const old = new Date(post.scheduled_at);
+    const nextDay = new Date(iso + 'T00:00:00');
+    nextDay.setHours(old.getHours(), old.getMinutes(), 0, 0);
+    const newAt = nextDay.toISOString();
+    this.api.patch(`/social/posts/${id}`, { scheduled_at: newAt }).subscribe({
+      next: () => { this.toast.success('Rescheduled'); this.loadPosts(); },
+      error: () => this.toast.error('Reschedule failed'),
+    });
+    this.dragPostId = null;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────── */
+/*  Pure helpers                                                        */
+/* ──────────────────────────────────────────────────────────────────── */
+
+function isoDay(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function toDatetimeLocal(d: Date): string {
+  const off = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - off).toISOString().slice(0, 16);
+}

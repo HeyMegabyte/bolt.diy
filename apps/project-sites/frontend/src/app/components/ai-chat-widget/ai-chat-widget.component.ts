@@ -131,10 +131,9 @@ const SLASH_COMMANDS: SlashCommand[] = [
       <div class="cw-feed" #feedEl data-testid="aichat-panel" aria-live="polite">
         @if (chat.messages().length === 0 && pendingTools().length === 0) {
           <div class="cw-empty">
-            <p class="cw-empty-title">Start a conversation</p>
+            <p class="cw-empty-title">Begin.</p>
             <p class="cw-empty-sub">
-              Ask anything about this admin — content, settings, debugging, ideas. Type
-              <code>/help</code> for slash commands.
+              One line is enough. Type <code>/help</code> for the commands.
             </p>
             <div class="cw-chips">
               @for (s of starters; track s) {
@@ -462,11 +461,14 @@ export class AiChatWidgetComponent {
   readonly pendingTools = signal<PendingTool[]>([]);
   draft = '';
 
+  // Persona-voice warm-up prompts. Mirrors the HBO Jewish Christ-like
+  // executive tone defined in `src/prompts/dashboard_persona.ts` — short,
+  // declarative, action-shaped. Click sends the line verbatim.
   readonly starters = [
-    'Summarize my admin',
+    'Bring me a problem.',
+    "What are we shipping today?",
+    'Anything goes. I prefer specifics.',
     "What's broken?",
-    'How do I add a custom domain?',
-    'Explain MCP integrations',
   ];
 
   readonly contextHint = computed<string>(() => {

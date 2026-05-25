@@ -71,6 +71,48 @@ export interface Env {
    * {@link workflows/image-generation.ImageGenerationWorkflow}. Optional.
    */
   IMAGE_GENERATION_WORKFLOW?: Workflow;
+  /**
+   * Workflows v2 binding for snapshot quality capture (screenshot +
+   * Lighthouse + composition + a11y). See
+   * {@link workflows/snapshot-quality.SnapshotQualityWorkflow}. Optional —
+   * when missing, capture endpoints return 503.
+   */
+  SNAPSHOT_QUALITY_WORKFLOW?: Workflow;
+  /**
+   * Pulse Social publish workflow binding. Fans out per-account publishes
+   * for one pulse_posts row. See {@link workflows/social-publish.SocialPublishWorkflow}.
+   * Fired by the every-minute due-post sweep cron.
+   */
+  SOCIAL_PUBLISH_WORKFLOW?: Workflow;
+
+  // ── Pulse Social — per-platform OAuth app credentials (optional) ────
+  /** Twitter / X — OAuth 2.0 app creds. https://developer.x.com/en/portal/dashboard */
+  TWITTER_CLIENT_ID?: string;
+  TWITTER_CLIENT_SECRET?: string;
+  /** LinkedIn — OAuth 2.0 app creds. https://www.linkedin.com/developers/apps */
+  LINKEDIN_CLIENT_ID?: string;
+  LINKEDIN_CLIENT_SECRET?: string;
+  /** Facebook / Instagram / Threads — shared Meta app creds. https://developers.facebook.com/apps/ */
+  FACEBOOK_APP_ID?: string;
+  FACEBOOK_APP_SECRET?: string;
+  THREADS_APP_ID?: string;
+  /** Reddit — OAuth installed-app creds. https://www.reddit.com/prefs/apps */
+  REDDIT_CLIENT_ID?: string;
+  REDDIT_CLIENT_SECRET?: string;
+  /** Discord — bot token (shared across orgs). https://discord.com/developers/applications */
+  DISCORD_BOT_TOKEN?: string;
+  /** Slack — OAuth v2 app creds. https://api.slack.com/apps */
+  SLACK_CLIENT_ID?: string;
+  SLACK_CLIENT_SECRET?: string;
+  /** Telegram — bot token from BotFather. */
+  TELEGRAM_BOT_TOKEN?: string;
+
+  /**
+   * Cloudflare Browser Rendering binding (workers-bindings flavour). The
+   * snapshot-quality workflow falls back to the REST API when the binding
+   * is absent, so this is purely optional.
+   */
+  BROWSER?: unknown;
 
   /** Claude Code build container (Durable Object). */
   SITE_BUILDER?: DurableObjectNamespace;
@@ -78,6 +120,15 @@ export interface Env {
   TRACE_HUB?: DurableObjectNamespace;
   /** SQLite-backed Durable Object — global activity feed. */
   ACTIVITY_HUB?: DurableObjectNamespace;
+  /**
+   * SQLite-backed Durable Object — Pulse Inbox per-conversation realtime hub.
+   * One DO instance per `chat_conversations.id`. Owns WebSocket fan-out for
+   * agent dashboards + visitor widgets and ephemeral presence/typing state.
+   * Routed via `idFromName(conversationId)`. Optional during local dev when
+   * the migration tag hasn't been applied; routes degrade gracefully when
+   * unbound (broadcast is a no-op, REST writes still persist to D1).
+   */
+  CONVERSATION_HUB?: DurableObjectNamespace;
 
   // ── Workers AI ────────────────────────────────────────────
   /** Cloudflare Workers AI binding for LLM inference. */
@@ -230,6 +281,15 @@ export interface Env {
   CF_API_TOKEN: string;
   /** Cloudflare zone ID for `projectsites.dev`. */
   CF_ZONE_ID: string;
+  /**
+   * Cloudflare global API key (legacy `X-Auth-Key`). Required when
+   * `CF_API_TOKEN` lacks Account → Analytics: Read AND Zone → Analytics:
+   * Read on every zone this account touches. Pair with `CLOUDFLARE_EMAIL`.
+   * Used by `services/multi_url_analytics.ts` + `services/cf_credentials.ts`.
+   */
+  CLOUDFLARE_API_KEY?: string;
+  /** Cloudflare account owner email — paired with `CLOUDFLARE_API_KEY`. */
+  CLOUDFLARE_EMAIL?: string;
   /** Cloudflare Access Service Token client ID (bypasses bot protection for container builds). */
   CF_ACCESS_CLIENT_ID?: string;
   /** Cloudflare Access Service Token client secret. */
@@ -290,6 +350,15 @@ export interface Env {
   OPENSRS_API_KEY?: string;
   /** OpenSRS API environment: 'live' or 'test'. Defaults to 'test'. */
   OPENSRS_ENV?: string;
+  /**
+   * Cloudflare Registrar API token (Account → Registrar:Edit). When set the
+   * `POST /api/domains/purchase` route will attempt direct CF Registrar
+   * registration instead of falling back to the Stripe-checkout subscription
+   * stub. Generate at https://dash.cloudflare.com/profile/api-tokens with
+   * the "Account → Registrar:Edit" permission scoped to the projectsites.dev
+   * account (`84fa0d1b16ff8086dd958c468ce7fd59`).
+   */
+  CLOUDFLARE_REGISTRAR_API?: string;
 
   // ── Sale Webhook ──────────────────────────────────────────
   /** External webhook URL called on successful subscription purchase. */
@@ -340,6 +409,46 @@ export interface Env {
 
   /** Workers Analytics Engine binding — admin dashboard visit tracker. */
   ANALYTICS?: AnalyticsEngineDataset;
+
+  // ── Apps tab (CFC app store) ──────────────────────────────
+  /** Neon REST API key for per-app Postgres project provisioning. */
+  NEON_API_KEY?: string;
+  /** Upstash account email — paired with `UPSTASH_API_KEY` for Redis provisioning. */
+  UPSTASH_EMAIL?: string;
+  /** Upstash REST API key for per-app Redis database provisioning. */
+  UPSTASH_API_KEY?: string;
+  /**
+   * AppRuntime container Durable Object. Stubbed in the dispatcher until
+   * the sibling agent ships the DO class — the route layer degrades to
+   * a `503` until the binding is wired in `wrangler.toml`.
+   */
+  APP_RUNTIME?: DurableObjectNamespace;
+
+  // ── Per-image AppRuntime subclasses (top-10 catalog apps) ──────────
+  // Each binds a dedicated `[[containers]]` block in wrangler.toml to the
+  // upstream image of that catalog entry. All optional initially so local
+  // dev + preview deploys don't break before the migration tag is applied.
+  // See `src/durable_objects/app_runtime_subclasses.ts` for the slug map.
+  /** Umami — `ghcr.io/umami-software/umami:postgresql-latest` */
+  APP_RUNTIME_UMAMI?: DurableObjectNamespace;
+  /** Outline — `outlinewiki/outline:latest` */
+  APP_RUNTIME_OUTLINE?: DurableObjectNamespace;
+  /** n8n — `n8nio/n8n:latest` */
+  APP_RUNTIME_N8N?: DurableObjectNamespace;
+  /** Vaultwarden — `vaultwarden/server:latest` */
+  APP_RUNTIME_VAULTWARDEN?: DurableObjectNamespace;
+  /** Uptime Kuma — `louislam/uptime-kuma:1` */
+  APP_RUNTIME_UPTIME_KUMA?: DurableObjectNamespace;
+  /** NocoDB — `nocodb/nocodb:latest` */
+  APP_RUNTIME_NOCODB?: DurableObjectNamespace;
+  /** Listmonk — `listmonk/listmonk:latest` */
+  APP_RUNTIME_LISTMONK?: DurableObjectNamespace;
+  /** Memos — `neosmemo/memos:stable` */
+  APP_RUNTIME_MEMOS?: DurableObjectNamespace;
+  /** PocketBase — `spectado/pocketbase:latest` */
+  APP_RUNTIME_POCKETBASE?: DurableObjectNamespace;
+  /** Open WebUI — `ghcr.io/open-webui/open-webui:main` */
+  APP_RUNTIME_OPEN_WEBUI?: DurableObjectNamespace;
 }
 
 /** Cloudflare Workers for Platforms dispatch namespace runtime shape. */

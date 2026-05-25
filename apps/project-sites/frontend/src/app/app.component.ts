@@ -209,7 +209,11 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     // Clean up cursor follower
     for (const { type, handler } of this.cursorListeners) {
-      document.removeEventListener(type, handler);
+      if (type === 'message-cursor') {
+        window.removeEventListener('message', handler);
+      } else {
+        document.removeEventListener(type, handler);
+      }
     }
     this.cursorListeners = [];
     if (this.cursorAnimationId != null) {
@@ -252,6 +256,30 @@ export class AppComponent implements OnInit, OnDestroy {
     this.addDocListener('mouseleave', () => {
       follower.classList.remove('visible');
     });
+
+    // Cross-iframe cursor sync — the bolt.diy editor at
+    // editor.projectsites.dev postMessages its cursor coords on every
+    // mousemove (offset by the iframe's bounding rect, computed by the
+    // parent on receipt). This keeps the follower glued to the user even
+    // while they're inside the embedded IDE — the iframe normally swallows
+    // mouseevents from the parent. Type discriminator: PS_CURSOR.
+    const iframeMessageHandler = (ev: MessageEvent) => {
+      if (ev.origin !== 'https://editor.projectsites.dev' &&
+          ev.origin !== 'http://localhost:5173') return;
+      const data = ev.data as { type?: string; x?: number; y?: number; hover?: boolean };
+      if (!data || data.type !== 'PS_CURSOR') return;
+      // The iframe sends viewport-relative coords (its own viewport). We
+      // translate by the iframe's offset in our viewport.
+      const iframe = document.querySelector('.bolt-frame') as HTMLIFrameElement | null;
+      if (!iframe) return;
+      const rect = iframe.getBoundingClientRect();
+      mouseX = rect.left + (data.x ?? 0);
+      mouseY = rect.top + (data.y ?? 0);
+      if (!follower.classList.contains('visible')) follower.classList.add('visible');
+      follower.classList.toggle('hover', !!data.hover);
+    };
+    window.addEventListener('message', iframeMessageHandler);
+    this.cursorListeners.push({ type: 'message-cursor', handler: iframeMessageHandler as EventListener });
 
     const interactiveSelector = 'a, button, input, textarea, select, [data-tooltip], .search-result, .address-option';
     this.addDocListener('mouseover', (e) => {

@@ -114,7 +114,7 @@ describe('POST /api/admin/traces/:traceId/explain', () => {
       id: TRACE_ID,
       trace_kind: 'endpoint',
       endpoint_slug: 'lead-qualifier',
-      model: '@cf/meta/llama-3.3-70b-instruct',
+      model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
       status: 'error',
       prompt_template: 'You are a lead qualifier…',
       input_json: '{"email":"a@b.com"}',
@@ -132,11 +132,11 @@ describe('POST /api/admin/traces/:traceId/explain', () => {
     const body1 = (await res1.json()) as { data: { markdown: string; cached: boolean; model: string } };
     expect(body1.data.markdown).toContain('Failed');
     expect(body1.data.cached).toBe(false);
-    expect(body1.data.model).toBe('@cf/meta/llama-3.3-70b-instruct');
+    expect(body1.data.model).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
     expect(env.AI.run).toHaveBeenCalledTimes(1);
     // System prompt assertions
     const callArgs = (env.AI.run as jest.Mock).mock.calls[0]!;
-    expect(callArgs[0]).toBe('@cf/meta/llama-3.3-70b-instruct');
+    expect(callArgs[0]).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
     const messages = callArgs[1].messages as Array<{ role: string; content: string }>;
     expect(messages[0]!.role).toBe('system');
     expect(messages[0]!.content).toContain('SRE assistant');

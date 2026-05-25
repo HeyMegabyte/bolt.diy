@@ -7,7 +7,7 @@
  * id: research_business
  * version: 2
  * models:
- *   - "@cf/meta/llama-3.1-70b-instruct"
+ *   - "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
  * params:
  *   temperature: 0.3
  *   max_tokens: 4096

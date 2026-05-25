@@ -5,6 +5,12 @@ import { renderToReadableStream } from 'react-dom/server';
 import { renderHeadToString } from 'remix-island';
 import { Head } from './root';
 import { themeStore } from '~/lib/stores/theme';
+// `~/lib/security` is actively used by 7 API route files via `withSecurity()`;
+// deleting it would break GitHub/GitLab/Vercel/Netlify/Supabase API integrations.
+// Wiring `createSecurityHeaders` here applies CSP/HSTS/Referrer-Policy/etc. to
+// every Remix response so standalone bolt.diy access (e.g. bolt-diy-8jf.pages.dev)
+// has the same headers the projectsites.dev worker proxy already injects.
+import { createSecurityHeaders } from '~/lib/security';
 
 export default async function handleRequest(
   request: Request,
@@ -73,6 +79,14 @@ export default async function handleRequest(
   responseHeaders.set('Cross-Origin-Embedder-Policy', 'credentialless');
   responseHeaders.set('Cross-Origin-Opener-Policy', 'same-origin');
   responseHeaders.set('Origin-Agent-Cluster', '?1');
+
+  // Apply CSP/HSTS/X-Content-Type-Options/Referrer-Policy/Permissions-Policy
+  // — only set if not already set so per-route headers can override.
+  for (const [key, value] of Object.entries(createSecurityHeaders())) {
+    if (!responseHeaders.has(key)) {
+      responseHeaders.set(key, value);
+    }
+  }
 
   return new Response(body, {
     headers: responseHeaders,

@@ -13,6 +13,7 @@ import type { Env, Variables } from '../types/env.js';
 import { getBalance, topupCredits, CREDIT_BUNDLES, type BundleKey } from '../services/credits.js';
 import { allProviders } from '../services/mcp_client.js';
 import { DEFAULT_ROUTER_PROMPT, DEFAULT_CHAT_SYSTEM_PROMPT } from '../services/form_router.js';
+import { DASHBOARD_PERSONA_SYSTEM_PROMPT } from '../prompts/dashboard_persona.js';
 import { uploadUserWorker, deleteUserWorker, SUPPORTED_LANGUAGES, isWfpConfigured } from '../services/wfp_dispatch.js';
 import {
   deployEndpointFromFiles,
@@ -1209,7 +1210,7 @@ aiAdmin.post('/api/sites/:siteId/ai-settings/improve', async (c) => {
 
   try {
     const result = (await c.env.AI.run(
-      '@cf/meta/llama-3.1-8b-instruct' as Parameters<typeof c.env.AI.run>[0],
+      '@cf/meta/llama-3.1-8b-instruct-fp8' as Parameters<typeof c.env.AI.run>[0],
       { messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], max_tokens: 250 } as Parameters<typeof c.env.AI.run>[1],
     )) as { response?: string };
     const improved = (result?.response ?? '').replace(/^["']|["']$/g, '').trim();
@@ -1571,12 +1572,14 @@ aiAdmin.post('/api/admin/ai-chat', async (c) => {
     }
   }
 
-  const sysContent = [systemPrompt, persona ? `Persona: ${persona}` : '']
+  // Persona prepended as the topmost system block — every dashboard chat call
+  // reads from `prompts/dashboard_persona.ts` (single source of truth).
+  const sysContent = [DASHBOARD_PERSONA_SYSTEM_PROMPT, systemPrompt, persona ? `Persona: ${persona}` : '']
     .filter(Boolean).join('\n\n');
 
   try {
     const result = (await c.env.AI.run(
-      '@cf/meta/llama-3.1-8b-instruct' as Parameters<typeof c.env.AI.run>[0],
+      '@cf/meta/llama-3.3-70b-instruct-fp8-fast' as Parameters<typeof c.env.AI.run>[0],
       { messages: [{ role: 'system', content: sysContent }, ...msgs] } as Parameters<typeof c.env.AI.run>[1],
     )) as { response?: string };
     return c.json({ data: { reply: result?.response ?? '(no reply)' } });
@@ -2086,7 +2089,7 @@ aiAdmin.post('/api/admin/traces/:traceId/explain', async (c) => {
     return c.json({
       data: {
         markdown: row.explanation,
-        model: '@cf/meta/llama-3.1-8b-instruct',
+        model: '@cf/meta/llama-3.1-8b-instruct-fp8',
         cached: true,
       },
     });
@@ -2253,7 +2256,7 @@ aiAdmin.post('/api/admin/ai/stream/palette', async (c) => {
     ctxRoute,
   ].filter(Boolean).join(' ');
 
-  const model = '@cf/meta/llama-3.3-70b-instruct';
+  const model = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
   const started = Date.now();
 
   // Audit log: fire-and-forget, never blocks the stream.
@@ -2395,11 +2398,29 @@ aiAdmin.post('/api/admin/ai/stream/palette', async (c) => {
  * Body: `{ conversation: { role: 'user'|'assistant', content: string }[],
  *          context: { selected_site_id?: string|null, current_route?: string|null } }`.
  */
+/**
+ * Rec 5 — Editor tool surface (Phase 4a).
+ *
+ * When `context.surface === 'editor'`, the system prompt is augmented with the
+ * six editor tools and the model is instructed to emit `<tool_call>` envelopes
+ * (paired with `<tool_result>` posted back by the client). This is provider-
+ * neutral on the wire — the bolt.diy chat client owns dispatch via
+ * `~/lib/tools/dispatcher`.
+ */
+const EDITOR_TOOL_SURFACE: { name: string; description: string }[] = [
+  { name: 'openFile', description: 'openFile({"path":"src/App.tsx"}) — opens the file in the editor and returns its contents + language + line_count.' },
+  { name: 'jumpToLine', description: 'jumpToLine({"path":"src/App.tsx","line":42,"column":4}) — scrolls the editor to a coordinate. 1-based line/column.' },
+  { name: 'runCommand', description: 'runCommand({"command":"npm test","cwd":"."}) — runs in the WebContainer terminal. Output truncated at 8KB.' },
+  { name: 'search', description: 'search({"query":"useEffect","regex":false,"file_pattern":"src/**/*.tsx"}) — grep across the workbench, up to 50 hits.' },
+  { name: 'getSelection', description: 'getSelection({}) — returns the active editor selection {path,text,from,to}.' },
+  { name: 'replaceSelection', description: 'replaceSelection({"text":"…"}) — replaces the active selection. Always run getSelection first.' },
+];
+
 aiAdmin.post('/api/admin/ai/stream/chat', async (c) => {
   const { orgId, userId } = need(c);
   const body = (await c.req.json().catch(() => ({}))) as {
     conversation?: { role?: string; content?: string }[];
-    context?: { selected_site_id?: string | null; current_route?: string | null };
+    context?: { selected_site_id?: string | null; current_route?: string | null; surface?: 'admin' | 'editor' };
   };
 
   const turns = Array.isArray(body.conversation) ? body.conversation : [];
@@ -2433,22 +2454,36 @@ aiAdmin.post('/api/admin/ai/stream/chat', async (c) => {
 
   const selectedSite = body.context?.selected_site_id ?? null;
   const currentRoute = body.context?.current_route ?? null;
+  const surface = body.context?.surface === 'editor' ? 'editor' : 'admin';
+
+  const editorToolLines = surface === 'editor'
+    ? [
+        '',
+        'EDITOR TOOLS — these execute IMMEDIATELY (no confirmation card). Use them to drive the editor.',
+        'Emit EXACTLY this envelope with a unique id: <tool_call name="<name>" id="<unique_id>">{"args":{…}}</tool_call>. The client will reply with <tool_result id="<unique_id>">…</tool_result>.',
+        ...EDITOR_TOOL_SURFACE.map((t) => `  - ${t.description}`),
+        'Workflow: explain in 1 sentence WHY you are running the tool, emit the envelope, wait for the tool_result, then continue. You may chain calls but never emit two tool_calls in one message.',
+      ]
+    : [];
 
   const systemPrompt = [
-    'You are the AI assistant inside the Project Sites admin dashboard. Answer concisely (≤6 sentences unless asked for more).',
-    'You can call tools by emitting EXACTLY this XML-style envelope inline in your response: <tool>{"name":"<tool_name>","args":{…}}</tool>. The user will see a confirmation card before any tool fires — never auto-execute.',
-    'Available tools:',
+    surface === 'editor'
+      ? 'You are the AI assistant embedded in the bolt.diy editor. You can read files, run commands, jump around the editor, and replace selections. Answer concisely.'
+      : 'You are the AI assistant inside the Project Sites admin dashboard. Answer concisely (≤6 sentences unless asked for more).',
+    'You can call dashboard tools by emitting EXACTLY this XML-style envelope inline in your response: <tool>{"name":"<tool_name>","args":{…}}</tool>. The user will see a confirmation card before any dashboard tool fires — never auto-execute.',
+    'Available dashboard tools:',
     '  - navigate({"to": "/admin/<route>"}) — push a router URL. Examples: /admin/forms, /admin/snapshots, /admin/billing, /admin/audit, /admin/ai-endpoints.',
     '  - set_theme({"theme": "dark" | "light"}) — flip the dashboard color scheme.',
     '  - open_help_topic({"topic": "<slug>"}) — open the shortcuts overlay or docs anchor.',
-    'Always explain WHY you are suggesting a tool BEFORE emitting the envelope. Emit at most one tool per response.',
+    'Always explain WHY you are suggesting a dashboard tool BEFORE emitting the envelope. Emit at most one dashboard tool per response.',
+    ...editorToolLines,
     selectedSite ? `Selected site id: ${selectedSite}.` : 'No site is selected.',
     currentRoute ? `Current admin route: ${currentRoute}.` : '',
   ]
     .filter(Boolean)
     .join('\n');
 
-  const model = '@cf/meta/llama-3.3-70b-instruct';
+  const model = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
   const started = Date.now();
 
   // Audit log: fire-and-forget, never blocks the stream.
@@ -2465,6 +2500,7 @@ aiAdmin.post('/api/admin/ai/stream/chat', async (c) => {
         message_length: lastUser.content.length,
         selected_site_id: selectedSite,
         current_route: currentRoute,
+        surface,
       },
       request_id: c.get('requestId'),
     }),

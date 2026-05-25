@@ -3,6 +3,22 @@ import { motion, type HTMLMotionProps, type Variants } from 'framer-motion';
 import { computed } from 'nanostores';
 import { memo, useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+// Item 9 (perf): View Transitions API — native browser cross-fade for the
+// Code↔Preview slider. Replaces a framer-motion `<motion.div>` per-frame
+// JS animation with a CSS-driven `::view-transition-*` pseudo paint. Chrome
+// 111+ + Safari 18+ ship natively; Firefox falls back to instant swap.
+type StartViewTransition = (cb: () => void) => { ready: Promise<void>; finished: Promise<void> };
+function runViewTransition(cb: () => void): void {
+  if (typeof document === 'undefined') { cb(); return; }
+  const doc = document as Document & { startViewTransition?: StartViewTransition };
+  const reduced = typeof window !== 'undefined'
+    && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  if (doc.startViewTransition && !reduced) {
+    doc.startViewTransition(cb);
+    return;
+  }
+  cb();
+}
 import type { FileHistory } from '~/types/actions';
 import {
   type OnChangeCallback as OnEditorChange,
@@ -16,12 +32,13 @@ import { cubicEasingFn } from '~/utils/easings';
 import { renderLogger } from '~/utils/logger';
 import { EditorPanel } from './EditorPanel';
 import { Preview } from './Preview';
+import { StatusBar } from './StatusBar.client';
+import { QuickJumpPalette, ShortcutsOverlay, openInStackBlitz, useEditorHotkeys } from './EditorOverlays.client';
 import useViewport from '~/lib/hooks';
 
 import { usePreviewStore } from '~/lib/stores/previews';
 import { chatStore } from '~/lib/stores/chat';
 import type { ElementInfo } from './Inspector';
-import { ExportChatButton } from '~/components/chat/chatExportAndImport/ExportChatButton';
 import { useChatHistory } from '~/lib/persistence';
 import { streamingState } from '~/lib/stores/streaming';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
@@ -112,8 +129,16 @@ export const Workbench = memo(
     const { exportChat } = useChatHistory();
     const [isSyncing, setIsSyncing] = useState(false);
 
+    // Global editor hotkeys — Cmd+P quick-jump + ? shortcuts overlay
+    const { paletteOpen, shortcutsOpen, setPaletteOpen, setShortcutsOpen } = useEditorHotkeys();
+
     const setSelectedView = (view: WorkbenchViewType) => {
-      workbenchStore.currentView.set(view);
+      // Item 9: route the Code↔Preview swap through the View Transitions API
+      // so the cross-fade is done in the compositor (off main thread) instead
+      // of via per-frame JS in framer-motion. The existing `<View>` motion
+      // wrappers stay intact for users on browsers that don't support VT —
+      // they'll still see the existing slide.
+      runViewTransition(() => workbenchStore.currentView.set(view));
     };
 
     useEffect(() => {
@@ -172,6 +197,9 @@ export const Workbench = memo(
 
     return (
       chatStarted && (
+        <>
+        <QuickJumpPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+        <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
         <motion.div
           initial="closed"
           animate={showWorkbench ? 'open' : 'closed'}
@@ -204,51 +232,89 @@ export const Workbench = memo(
                   <Slider selected={selectedView} options={sliderOptions} setSelected={setSelectedView} />
                   <div className="ml-auto" />
                   {selectedView === 'code' && (
-                    <div className="flex overflow-y-auto">
-                      {/* Export Chat Button */}
-                      <ExportChatButton exportChat={exportChat} />
-
-                      {/* Sync Button */}
-                      <div className="flex border border-bolt-elements-borderColor rounded-md overflow-hidden ml-1">
-                        <DropdownMenu.Root>
-                          <DropdownMenu.Trigger
-                            disabled={isSyncing || streaming}
-                            className="rounded-md items-center justify-center [&:is(:disabled,.disabled)]:cursor-not-allowed [&:is(:disabled,.disabled)]:opacity-60 px-3 py-1.5 text-xs bg-accent-500 text-white hover:text-bolt-elements-item-contentAccent [&:not(:disabled,.disabled)]:hover:bg-bolt-elements-button-primary-backgroundHover outline-accent-500 flex gap-1.7"
-                          >
-                            {isSyncing ? 'Syncing...' : 'Sync'}
-                            <span className={classNames('i-ph:caret-down transition-transform')} />
-                          </DropdownMenu.Trigger>
-                          <DropdownMenu.Content
-                            className={classNames(
-                              'min-w-[240px] z-[250]',
-                              'bg-white dark:bg-[#141414]',
-                              'rounded-lg shadow-lg',
-                              'border border-gray-200/50 dark:border-gray-800/50',
-                              'animate-in fade-in-0 zoom-in-95',
-                              'py-1',
-                            )}
-                            sideOffset={5}
-                            align="end"
-                          >
+                    <>
+                      <IconButton
+                        icon="i-ph:magnifying-glass"
+                        size="xl"
+                        title="Quick-jump to file (Cmd+P / Ctrl+P)"
+                        onClick={() => setPaletteOpen(true)}
+                      />
+                      <IconButton
+                        icon="i-ph:lightning"
+                        size="xl"
+                        title="Open in StackBlitz"
+                        onClick={openInStackBlitz}
+                      />
+                      <IconButton
+                        icon="i-ph:keyboard"
+                        size="xl"
+                        title="Keyboard shortcuts (?)"
+                        onClick={() => setShortcutsOpen(true)}
+                      />
+                    </>
+                  )}
+                  {selectedView === 'code' && (
+                    /*
+                     * Unified "more" menu — the workbench used to ship three
+                     * separate buttons here (Export → Download Code, Export →
+                     * Export Chat, Sync → Sync Files). They competed for
+                     * visual weight + crowded the editor toolbar. Consolidated
+                     * into one branded ⋯ menu styled to match the projectsites
+                     * dark + cyan palette.
+                     */
+                    <div className="ps-more-wrap">
+                      <DropdownMenu.Root>
+                        <DropdownMenu.Trigger
+                          aria-label="Editor actions"
+                          title="Editor actions — download code, export chat, sync to disk"
+                          className="ps-more-trigger"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden="true">
+                            <circle cx="5" cy="12" r="1.4"/>
+                            <circle cx="12" cy="12" r="1.4"/>
+                            <circle cx="19" cy="12" r="1.4"/>
+                          </svg>
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Portal>
+                          <DropdownMenu.Content className="ps-more-menu" sideOffset={6} align="end">
                             <DropdownMenu.Item
-                              className={classNames(
-                                'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
-                              )}
-                              onClick={handleSyncFiles}
-                              disabled={isSyncing}
+                              className="ps-more-item"
+                              onClick={() => workbenchStore.downloadZip()}
                             >
-                              <div className="flex items-center gap-2">
-                                {isSyncing ? (
-                                  <div className="i-ph:spinner" />
-                                ) : (
-                                  <div className="i-ph:cloud-arrow-down" />
-                                )}
-                                <span>{isSyncing ? 'Syncing...' : 'Sync Files'}</span>
+                              <span className="ps-more-glyph"><div className="i-ph:file-zip size-4" /></span>
+                              <div className="ps-more-text">
+                                <div className="ps-more-label">Download code</div>
+                                <div className="ps-more-sub">Zip of all files in the workspace</div>
+                              </div>
+                            </DropdownMenu.Item>
+                            <DropdownMenu.Item
+                              className="ps-more-item"
+                              onClick={() => exportChat?.()}
+                            >
+                              <span className="ps-more-glyph"><div className="i-ph:chat-text size-4" /></span>
+                              <div className="ps-more-text">
+                                <div className="ps-more-label">Export chat</div>
+                                <div className="ps-more-sub">JSON transcript of every message</div>
+                              </div>
+                            </DropdownMenu.Item>
+                            <DropdownMenu.Item
+                              className={classNames('ps-more-item', { 'is-disabled': isSyncing || streaming })}
+                              onClick={handleSyncFiles}
+                              disabled={isSyncing || streaming}
+                            >
+                              <span className="ps-more-glyph">
+                                {isSyncing
+                                  ? <div className="i-ph:spinner ps-spin size-4" />
+                                  : <div className="i-ph:cloud-arrow-down size-4" />}
+                              </span>
+                              <div className="ps-more-text">
+                                <div className="ps-more-label">{isSyncing ? 'Syncing to disk…' : 'Sync to local folder'}</div>
+                                <div className="ps-more-sub">Mirror workspace into a chosen directory</div>
                               </div>
                             </DropdownMenu.Item>
                           </DropdownMenu.Content>
-                        </DropdownMenu.Root>
-                      </div>
+                        </DropdownMenu.Portal>
+                      </DropdownMenu.Root>
                     </div>
                   )}
 
@@ -281,10 +347,13 @@ export const Workbench = memo(
                     <Preview setSelectedElement={setSelectedElement} />
                   </View>
                 </div>
+                {/* Item 36 — StatusBar pinned to the bottom of the workbench */}
+                <StatusBar />
               </div>
             </div>
           </div>
         </motion.div>
+        </>
       )
     );
   },

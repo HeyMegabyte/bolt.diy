@@ -8,6 +8,7 @@ import { diffLines, type Change } from 'diff';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { toast } from 'react-toastify';
 import { path } from '~/utils/path';
+import { getFileIconSpec } from './fileIcons';
 
 const logger = createScopedLogger('FileTree');
 
@@ -142,8 +143,70 @@ export const FileTree = memo(
       }
     };
 
+    /*
+     * Root-level OS-file drop — users dragging from Finder/Explorer onto
+     * empty tree space (between files, below the last entry) get the same
+     * upload behaviour as dropping on a specific folder. Falls back to the
+     * rootFolder destination.
+     */
+    const [isRootDragging, setIsRootDragging] = useState(false);
+    const handleRootDragOver = useCallback((e: React.DragEvent) => {
+      if (!e.dataTransfer.types.includes('Files')) {
+        return;
+      }
+      e.preventDefault();
+      setIsRootDragging(true);
+    }, []);
+    const handleRootDragLeave = useCallback((e: React.DragEvent) => {
+      if (e.currentTarget === e.target) {
+        setIsRootDragging(false);
+      }
+    }, []);
+    const handleRootDrop = useCallback(
+      async (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsRootDragging(false);
+
+        const dest = rootFolder || '/home/project';
+        const items = Array.from(e.dataTransfer.files);
+
+        for (const file of items) {
+          try {
+            const target = path.join(dest, file.name);
+            const buffer = new Uint8Array(await file.arrayBuffer());
+            const ok = await workbenchStore.createFile(target, buffer);
+
+            if (ok) {
+              toast.success(`Uploaded ${file.name}`);
+            } else {
+              toast.error(`Failed to upload ${file.name}`);
+            }
+          } catch (error) {
+            toast.error(`Error uploading ${file.name}`);
+            logger.error(error);
+          }
+        }
+      },
+      [rootFolder],
+    );
+
     return (
-      <div className={classNames('text-sm', className, 'overflow-y-auto modern-scrollbar')}>
+      <div
+        className={classNames(
+          'text-sm relative',
+          className,
+          'overflow-y-auto modern-scrollbar',
+          { 'ring-2 ring-inset ring-bolt-elements-item-contentAccent': isRootDragging },
+        )}
+        onDragOver={handleRootDragOver}
+        onDragLeave={handleRootDragLeave}
+        onDrop={handleRootDrop}
+      >
+        {isRootDragging && (
+          <div className="pointer-events-none sticky top-0 z-10 px-3 py-2 text-xs text-bolt-elements-textSecondary bg-bolt-elements-background-depth-3/90 border-b border-bolt-elements-borderColor">
+            Drop files to upload into the workspace
+          </div>
+        )}
         {filteredFileList.map((fileOrFolder) => {
           switch (fileOrFolder.kind) {
             case 'file': {
@@ -286,6 +349,8 @@ function FileContextMenu({
 }: FolderContextMenuProps & { fullPath: string }) {
   const [isCreatingFile, setIsCreatingFile] = useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [isMoving, setIsMoving] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const depth = useMemo(() => fullPath.split('/').length, [fullPath]);
   const fileName = useMemo(() => path.basename(fullPath), [fullPath]);
@@ -402,6 +467,230 @@ function FileContextMenu({
     }
   };
 
+  /*
+   * Rename a file or folder by creating the new target then deleting the
+   * original. WebContainer has no native move so create+delete is the
+   * portable path; preserves binary content.
+   */
+  const handleRename = useCallback(
+    async (newName: string) => {
+      try {
+        if (!newName || newName === fileName) {
+          setIsRenaming(false);
+          return;
+        }
+
+        const parentDir = path.dirname(fullPath);
+        const newPath = path.join(parentDir, newName);
+        const files = workbenchStore.files.get();
+
+        if (files[newPath]) {
+          toast.error(`A ${isFolder ? 'folder' : 'file'} named "${newName}" already exists`);
+          setIsRenaming(false);
+          return;
+        }
+
+        if (isFolder) {
+          await workbenchStore.createFolder(newPath);
+
+          for (const [p, dirent] of Object.entries(files)) {
+            if (p.startsWith(fullPath + '/') && dirent?.type === 'file') {
+              const rel = p.substring(fullPath.length);
+              const target = newPath + rel;
+              const content = dirent.isBinary
+                ? Uint8Array.from(atob((dirent.content as string) || ''), (c) => c.charCodeAt(0))
+                : ((dirent.content as string) ?? '');
+              await workbenchStore.createFile(target, content);
+            }
+          }
+
+          await workbenchStore.deleteFolder(fullPath);
+          toast.success('Folder renamed');
+        } else {
+          const dirent = files[fullPath];
+          const content: string | Uint8Array =
+            dirent?.type === 'file' && dirent.isBinary
+              ? Uint8Array.from(atob((dirent.content as string) || ''), (c) => c.charCodeAt(0))
+              : dirent?.type === 'file'
+                ? ((dirent.content as string) ?? '')
+                : '';
+          const ok = await workbenchStore.createFile(newPath, content);
+
+          if (ok) {
+            await workbenchStore.deleteFile(fullPath);
+            toast.success('File renamed');
+          } else {
+            toast.error('Failed to rename file');
+          }
+        }
+      } catch (error) {
+        toast.error('Error renaming');
+        logger.error(error);
+      } finally {
+        setIsRenaming(false);
+      }
+    },
+    [fullPath, fileName, isFolder],
+  );
+
+  /*
+   * Duplicate: file → "name copy.ext"; folder → recursive copy with " copy"
+   * suffix. Uses the same create-from-content path as rename.
+   */
+  const handleDuplicate = useCallback(async () => {
+    try {
+      const parentDir = path.dirname(fullPath);
+      const files = workbenchStore.files.get();
+      const makeUnique = (base: string): string => {
+        let candidate = base;
+        let n = 2;
+        while (files[path.join(parentDir, candidate)]) {
+          if (isFolder) {
+            candidate = `${path.basename(base)} (${n})`;
+          } else {
+            const ext = path.extname(base);
+            const stem = base.substring(0, base.length - ext.length);
+            candidate = `${stem} (${n})${ext}`;
+          }
+          n++;
+        }
+        return candidate;
+      };
+
+      if (isFolder) {
+        const dupName = makeUnique(`${fileName} copy`);
+        const dupPath = path.join(parentDir, dupName);
+        await workbenchStore.createFolder(dupPath);
+
+        for (const [p, dirent] of Object.entries(files)) {
+          if (p.startsWith(fullPath + '/') && dirent?.type === 'file') {
+            const rel = p.substring(fullPath.length);
+            const target = dupPath + rel;
+            const content = dirent.isBinary
+              ? Uint8Array.from(atob((dirent.content as string) || ''), (c) => c.charCodeAt(0))
+              : ((dirent.content as string) ?? '');
+            await workbenchStore.createFile(target, content);
+          }
+        }
+
+        toast.success('Folder duplicated');
+      } else {
+        const ext = path.extname(fileName);
+        const stem = fileName.substring(0, fileName.length - ext.length);
+        const dupName = makeUnique(`${stem} copy${ext}`);
+        const dupPath = path.join(parentDir, dupName);
+        const dirent = files[fullPath];
+        const content: string | Uint8Array =
+          dirent?.type === 'file' && dirent.isBinary
+            ? Uint8Array.from(atob((dirent.content as string) || ''), (c) => c.charCodeAt(0))
+            : dirent?.type === 'file'
+              ? ((dirent.content as string) ?? '')
+              : '';
+        await workbenchStore.createFile(dupPath, content);
+        toast.success('File duplicated');
+      }
+    } catch (error) {
+      toast.error('Error duplicating');
+      logger.error(error);
+    }
+  }, [fullPath, fileName, isFolder]);
+
+  /*
+   * Move via path-prompt — user types target directory; recursive for
+   * folders. Same create+delete contract as rename.
+   */
+  const handleMove = useCallback(
+    async (targetDir: string) => {
+      try {
+        const trimmed = targetDir.trim();
+        const normalized = trimmed.startsWith('/') ? trimmed : path.join(path.dirname(fullPath), trimmed);
+        const newPath = path.join(normalized, fileName);
+
+        if (newPath === fullPath) {
+          setIsMoving(false);
+          return;
+        }
+
+        const files = workbenchStore.files.get();
+
+        if (files[newPath]) {
+          toast.error(`Target already exists at "${newPath}"`);
+          setIsMoving(false);
+          return;
+        }
+
+        if (isFolder) {
+          await workbenchStore.createFolder(newPath);
+
+          for (const [p, dirent] of Object.entries(files)) {
+            if (p.startsWith(fullPath + '/') && dirent?.type === 'file') {
+              const rel = p.substring(fullPath.length);
+              const target = newPath + rel;
+              const content = dirent.isBinary
+                ? Uint8Array.from(atob((dirent.content as string) || ''), (c) => c.charCodeAt(0))
+                : ((dirent.content as string) ?? '');
+              await workbenchStore.createFile(target, content);
+            }
+          }
+
+          await workbenchStore.deleteFolder(fullPath);
+          toast.success('Folder moved');
+        } else {
+          const dirent = files[fullPath];
+          const content: string | Uint8Array =
+            dirent?.type === 'file' && dirent.isBinary
+              ? Uint8Array.from(atob((dirent.content as string) || ''), (c) => c.charCodeAt(0))
+              : dirent?.type === 'file'
+                ? ((dirent.content as string) ?? '')
+                : '';
+          const ok = await workbenchStore.createFile(newPath, content);
+
+          if (ok) {
+            await workbenchStore.deleteFile(fullPath);
+            toast.success('File moved');
+          }
+        }
+      } catch (error) {
+        toast.error('Error moving');
+        logger.error(error);
+      } finally {
+        setIsMoving(false);
+      }
+    },
+    [fullPath, fileName, isFolder],
+  );
+
+  /*
+   * Send the file's content to the chat composer as a fenced code block.
+   * BaseChat listens for `ps:send-to-chat` and appends to the textarea.
+   */
+  const handleSendToAI = useCallback(() => {
+    try {
+      const files = workbenchStore.files.get();
+      const dirent = files[fullPath];
+
+      if (isFolder || !dirent || dirent.type !== 'file') {
+        toast.error('Only files can be sent to AI');
+        return;
+      }
+
+      if (dirent.isBinary) {
+        toast.error('Binary files cannot be sent');
+        return;
+      }
+
+      const relative = fullPath.replace(/^\/home\/project\/?/, '');
+      const ext = path.extname(fullPath).replace('.', '');
+      const fence = '```' + ext;
+      const payload = `Take a look at \`${relative}\`:\n\n${fence}\n${dirent.content ?? ''}\n\`\`\`\n\n`;
+      window.dispatchEvent(new CustomEvent('ps:send-to-chat', { detail: { text: payload } }));
+      toast.success(`Sent ${path.basename(fullPath)} to chat`);
+    } catch (error) {
+      toast.error('Failed to send to AI');
+      logger.error(error);
+    }
+  }, [fullPath, isFolder]);
+
   // Handler for locking a file with full lock
   const handleLockFile = () => {
     try {
@@ -517,6 +806,34 @@ function FileContextMenu({
                 </div>
               </ContextMenuItem>
             </ContextMenu.Group>
+            <ContextMenu.Group className="p-1 border-t-px border-solid border-bolt-elements-borderColor">
+              <ContextMenuItem onSelect={() => setIsRenaming(true)}>
+                <div className="flex items-center gap-2">
+                  <div className="i-ph:text-aa" />
+                  Rename
+                </div>
+              </ContextMenuItem>
+              <ContextMenuItem onSelect={handleDuplicate}>
+                <div className="flex items-center gap-2">
+                  <div className="i-ph:copy" />
+                  Duplicate
+                </div>
+              </ContextMenuItem>
+              <ContextMenuItem onSelect={() => setIsMoving(true)}>
+                <div className="flex items-center gap-2">
+                  <div className="i-ph:arrows-out-cardinal" />
+                  Move…
+                </div>
+              </ContextMenuItem>
+              {!isFolder && (
+                <ContextMenuItem onSelect={handleSendToAI}>
+                  <div className="flex items-center gap-2">
+                    <div className="i-ph:paper-plane-tilt" />
+                    Send to AI
+                  </div>
+                </ContextMenuItem>
+              )}
+            </ContextMenu.Group>
             <ContextMenu.Group className="p-1">
               <ContextMenuItem onSelect={onCopyPath}>Copy path</ContextMenuItem>
               <ContextMenuItem onSelect={onCopyRelativePath}>Copy relative path</ContextMenuItem>
@@ -581,6 +898,24 @@ function FileContextMenu({
           placeholder="Enter folder name..."
           onSubmit={handleCreateFolder}
           onCancel={() => setIsCreatingFolder(false)}
+        />
+      )}
+      {isRenaming && (
+        <InlineInput
+          depth={depth}
+          placeholder="New name..."
+          initialValue={fileName}
+          onSubmit={handleRename}
+          onCancel={() => setIsRenaming(false)}
+        />
+      )}
+      {isMoving && (
+        <InlineInput
+          depth={depth}
+          placeholder="Target directory (absolute or relative)..."
+          initialValue={path.dirname(fullPath)}
+          onSubmit={handleMove}
+          onCancel={() => setIsMoving(false)}
         />
       )}
     </>
@@ -692,9 +1027,15 @@ function File({
           'bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent': selected,
         })}
         depth={depth}
-        iconClasses={classNames('i-ph:file-duotone scale-98', {
-          'group-hover:text-bolt-elements-item-contentActive': !selected,
-        })}
+        iconClasses={classNames(
+          /* Item 38 — per-extension icon + tint via fileIcons.tsx */
+          getFileIconSpec(name).iconClass,
+          'scale-98',
+          !selected && getFileIconSpec(name).tint,
+          {
+            'group-hover:text-bolt-elements-item-contentActive': !selected,
+          },
+        )}
         onClick={onClick}
       >
         <div

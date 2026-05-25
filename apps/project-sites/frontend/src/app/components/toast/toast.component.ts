@@ -87,29 +87,56 @@ import { toastSlide } from '../../animations/motion';
     }
 
     .toast {
+      position: relative;
       pointer-events: auto;
       display: grid;
       grid-template-columns: auto 1fr auto auto;
       align-items: center;
       gap: 12px;
-      padding: 12px 14px;
+      padding: 13px 15px;
       border-radius: 14px;
       font-size: 0.875rem;
       font-weight: 500;
+      font-family: 'Space Grotesk', system-ui, sans-serif;
       line-height: 1.35;
       letter-spacing: -0.005em;
       cursor: pointer;
-      backdrop-filter: blur(18px) saturate(160%);
-      -webkit-backdrop-filter: blur(18px) saturate(160%);
+      backdrop-filter: blur(22px) saturate(170%);
+      -webkit-backdrop-filter: blur(22px) saturate(170%);
       box-shadow:
-        0 12px 40px rgba(0, 0, 0, 0.55),
-        0 1px 0 rgba(255, 255, 255, 0.04) inset;
-      transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 180ms;
+        0 14px 44px rgba(0, 0, 0, 0.58),
+        0 0 0 1px color-mix(in oklch, currentColor 22%, transparent),
+        0 0 60px color-mix(in oklch, currentColor 8%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+      transition:
+        transform 220ms var(--ps-ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)),
+        box-shadow 220ms;
       will-change: transform;
+      isolation: isolate;
     }
-    .toast:hover { transform: translateX(-3px); }
+    /* Gradient rim-highlight along the leading edge — type-color tinted. */
+    .toast::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg,
+        transparent,
+        color-mix(in oklch, currentColor 80%, transparent) 30%,
+        color-mix(in oklch, currentColor 60%, transparent) 70%,
+        transparent);
+      opacity: 0.55;
+      pointer-events: none;
+      border-radius: 14px 14px 0 0;
+    }
+    .toast:hover {
+      transform: translateX(-4px) translateY(-1px);
+      box-shadow:
+        0 18px 52px rgba(0, 0, 0, 0.62),
+        0 0 0 1px color-mix(in oklch, currentColor 38%, transparent),
+        0 0 80px color-mix(in oklch, currentColor 16%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
     .toast:focus-visible {
-      outline: 2px solid color-mix(in oklch, currentColor 55%, transparent);
+      outline: 2px solid color-mix(in oklch, currentColor 60%, transparent);
       outline-offset: 2px;
     }
 

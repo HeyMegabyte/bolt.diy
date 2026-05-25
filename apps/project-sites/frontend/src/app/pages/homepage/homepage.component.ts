@@ -25,7 +25,12 @@ import {
 import { ApiService, type BusinessResult } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { GeolocationService } from '../../services/geolocation.service';
+import { TelemetryService } from '../../services/telemetry.service';
 import { RippleDirective } from '../../animations/ripple.directive';
+import { RevealDirective } from '../../directives/reveal.directive';
+import { RollingCounterComponent } from '../../components/rolling-counter/rolling-counter.component';
+import { BeforeAfterSliderComponent } from '../../components/before-after-slider/before-after-slider.component';
+import { TrustStripComponent } from '../../components/trust-strip/trust-strip.component';
 
 interface SearchItem {
   type: 'business' | 'prebuilt' | 'custom';
@@ -60,7 +65,16 @@ interface SearchItem {
 @Component({
   selector: 'app-homepage',
   standalone: true,
-  imports: [FormsModule, TranslateModule, RouterLink, RippleDirective],
+  imports: [
+    FormsModule,
+    TranslateModule,
+    RouterLink,
+    RippleDirective,
+    RevealDirective,
+    RollingCounterComponent,
+    BeforeAfterSliderComponent,
+    TrustStripComponent,
+  ],
   templateUrl: './homepage.component.html',
   styleUrl: './homepage.component.scss',
 })
@@ -71,6 +85,17 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
   private router = inject(Router);
   private translate = inject(TranslateService);
   private platformId = inject(PLATFORM_ID);
+  private telemetry = inject(TelemetryService);
+
+  /**
+   * Hero A/B/C variant (Bundle C finish, 2026-05-24).
+   * Resolved from PostHog flag `homepage_hero_v2` with deterministic seed-
+   * based fallback so SSR + first paint render the same variant the user
+   * will see post-hydration. `?debug=ab` query param forces a variant for
+   * dev tooling. See `AB-TEST.md` next to this file for the full decision
+   * flow + event taxonomy.
+   */
+  heroVariant = signal<'A' | 'B' | 'C'>('A');
 
   @ViewChild('heroSearch') heroSearchInput!: ElementRef<HTMLInputElement>;
   @ViewChild('ctaSearch') ctaSearchInput!: ElementRef<HTMLInputElement>;
@@ -93,6 +118,7 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnInit(): void {
     this.currentLang.set(this.translate.currentLang || this.translate.defaultLang || 'en');
+    this.resolveHeroVariant();
 
     this.searchSubject
       .pipe(
@@ -327,15 +353,104 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
 
   goSignin(): void {
     this.mobileMenuOpen.set(false);
+    this.telemetry.track('hero.signin_started', { variant: this.heroVariant() });
     this.router.navigate(['/signin']);
   }
 
   goGetStarted(): void {
     this.mobileMenuOpen.set(false);
+    this.telemetry.track('hero.cta_clicked', { variant: this.heroVariant() });
     if (this.heroSearchInput?.nativeElement) {
       this.heroSearchInput.nativeElement.focus();
       const behavior: ScrollBehavior = this.prefersReducedMotion() ? 'auto' : 'smooth';
       window.scrollTo({ top: 0, behavior });
     }
+  }
+
+  /**
+   * Resolve the hero A/B/C variant. Priority:
+   * 1. `?debug=ab&variant=A|B|C` query string — dev-only override
+   * 2. PostHog feature flag `homepage_hero_v2` returning string A/B/C
+   * 3. Deterministic seed: `Date.now() % 3` so a single-load anon user
+   *    still gets a stable assignment across re-renders within the session
+   *
+   * Fires `hero.variant_assigned` exactly once per session so we can
+   * downstream-attribute hero.cta_clicked / hero.signin_started events.
+   */
+  private resolveHeroVariant(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+
+    // ?debug=ab&variant=X — dev tooling override.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('debug') === 'ab') {
+      const forced = (params.get('variant') ?? '').toUpperCase();
+      if (forced === 'A' || forced === 'B' || forced === 'C') {
+        this.heroVariant.set(forced);
+        this.telemetry.track('hero.variant_assigned', { variant: forced, source: 'debug' });
+        return;
+      }
+    }
+
+    // PostHog flag — string variant feature flag.
+    let resolved: 'A' | 'B' | 'C' = 'A';
+    try {
+      const ph = (window as unknown as { posthog?: { getFeatureFlag?: (k: string) => unknown } }).posthog;
+      const flagValue = ph?.getFeatureFlag?.('homepage_hero_v2');
+      if (typeof flagValue === 'string') {
+        const v = flagValue.toUpperCase();
+        if (v === 'A' || v === 'B' || v === 'C') resolved = v;
+      }
+    } catch {
+      // PostHog not initialized — fall through to seed.
+    }
+
+    // No flag resolution — use a stable per-session seed in localStorage.
+    if (resolved === 'A') {
+      try {
+        const stored = localStorage.getItem('ps_hero_variant');
+        if (stored === 'A' || stored === 'B' || stored === 'C') {
+          resolved = stored;
+        } else {
+          const seed = ['A', 'B', 'C'][Math.floor(Math.random() * 3)] as 'A' | 'B' | 'C';
+          resolved = seed;
+          localStorage.setItem('ps_hero_variant', seed);
+        }
+      } catch {
+        // private mode — accept the 'A' control
+      }
+    }
+
+    this.heroVariant.set(resolved);
+    this.telemetry.track('hero.variant_assigned', { variant: resolved, source: 'flag' });
+  }
+
+  /** Human-readable A/B headline copy, switched on `heroVariant()`. */
+  heroHeadline(): string {
+    const v = this.heroVariant();
+    if (v === 'B') return "Tell us your business. We'll build your website.";
+    if (v === 'C') return 'Skip the agency. Ship in 4 minutes.';
+    return ''; // A — translation pipe handles the control headline
+  }
+
+  /** Sub-headline copy paired with each variant. */
+  heroSubheadline(): string {
+    const v = this.heroVariant();
+    if (v === 'B') return 'Search your business, sign in, get a gorgeous AI-generated site — hosted, SSL, live.';
+    if (v === 'C') return 'AI builds, optimizes, and ships your business site in the time it takes to drink an espresso.';
+    return '';
+  }
+
+  /** CTA copy paired with each variant. */
+  heroCta(): string {
+    const v = this.heroVariant();
+    if (v === 'B') return 'Build mine →';
+    if (v === 'C') return 'Ship in 4 min →';
+    return ''; // A — translation pipe handles the control CTA
+  }
+
+  /** True when running in dev-mode A/B debug — used to render the badge. */
+  showAbBadge(): boolean {
+    if (!isPlatformBrowser(this.platformId)) return false;
+    return new URLSearchParams(window.location.search).get('debug') === 'ab';
   }
 }

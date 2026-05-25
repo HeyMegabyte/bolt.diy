@@ -58,6 +58,12 @@ name = "site-generation-workflow"
 binding = "SITE_WORKFLOW"
 class_name = "SiteGenerationWorkflow"
 
+# ─── Pulse Social — per-post publish workflow (dev binding) ────
+[[workflows]]
+name = "social-publish-workflow"
+binding = "SOCIAL_PUBLISH_WORKFLOW"
+class_name = "SocialPublishWorkflow"
+
 # ─── AI binding for Cloudflare Workers AI ─────────────────────
 [ai]
 binding = "AI"
@@ -106,6 +112,21 @@ name = "image-generation-workflow-production"
 binding = "IMAGE_GENERATION_WORKFLOW"
 class_name = "ImageGenerationWorkflow"
 
+# Workflows v2: snapshot quality matrix capture (screenshot + composition +
+# SEO + a11y). Auto-fired off `POST /api/sites/:id/snapshots` and manually
+# via `POST /api/sites/:siteId/snapshots/:snapshotId/capture`.
+[[env.production.workflows]]
+name = "snapshot-quality-workflow-production"
+binding = "SNAPSHOT_QUALITY_WORKFLOW"
+class_name = "SnapshotQualityWorkflow"
+
+# Pulse Social — fans out per-account publishes for one pulse_posts row.
+# Fired by the every-minute due-post sweep cron in src/index.ts.
+[[env.production.workflows]]
+name = "social-publish-workflow-production"
+binding = "SOCIAL_PUBLISH_WORKFLOW"
+class_name = "SocialPublishWorkflow"
+
 [env.production.ai]
 binding = "AI"
 
@@ -123,6 +144,104 @@ image = "./Dockerfile"
 max_instances = 10
 instance_type = "standard-4"
 
+# AppRuntimeContainer — base "coming soon" placeholder. Catalog apps that
+# don't yet have a dedicated per-image DO subclass route here and surface
+# the friendly interstitial defined in `containers/app-runtime/Dockerfile`.
+# Per-image subclasses + their `[[containers]]` blocks below own the real
+# upstream images for the top-10 supported apps.
+[[env.production.containers]]
+class_name = "AppRuntimeContainer"
+image = "./containers/app-runtime/Dockerfile"
+max_instances = 50
+instance_type = "basic"
+
+# ─── Top-10 supported catalog apps — one container block per upstream image ──
+# Each pairs with a DO subclass in `src/durable_objects/app_runtime_subclasses.ts`
+# + a dispatcher entry in `BINDING_BY_SLUG` (services/container_dispatcher.ts).
+# Memory ceilings come from `apps-catalog.ts` memoryMB; all fit in the
+# `basic` (1 GiB / 1/4 vCPU) instance class.
+#
+# NOTE (2026-05-24 deploy): the per-image [[containers]] blocks below are
+# BLOCKED on a Cloudflare account-level image registry setup (error
+# IMAGE_REGISTRY_NOT_CONFIGURED returned during `wrangler deploy`). Until
+# the registry is provisioned at
+# `https://dash.cloudflare.com/?to=/:account/containers/registries`, the
+# blocks stay commented out. The `BINDING_BY_SLUG` dispatcher in
+# `src/services/container_dispatcher.ts` gracefully degrades when a
+# binding is missing — `proxyToContainer` returns a 503 and the UI shows
+# the "Coming soon" interstitial. Once the registry is live, uncomment
+# both this and the matching DO bindings + migration block below.
+
+# # umami — privacy-respecting web analytics — 256 MiB
+# [[env.production.containers]]
+# class_name = "UmamiContainer"
+# image = "ghcr.io/umami-software/umami:postgresql-latest"
+# max_instances = 20
+# instance_type = "basic"
+#
+# # outline — modern team wiki — 768 MiB
+# [[env.production.containers]]
+# class_name = "OutlineContainer"
+# image = "outlinewiki/outline:latest"
+# max_instances = 10
+# instance_type = "basic"
+#
+# # n8n — workflow automation — 512 MiB
+# [[env.production.containers]]
+# class_name = "N8nContainer"
+# image = "n8nio/n8n:latest"
+# max_instances = 20
+# instance_type = "basic"
+#
+# # vaultwarden — Bitwarden-compatible password manager — 128 MiB
+# [[env.production.containers]]
+# class_name = "VaultwardenContainer"
+# image = "vaultwarden/server:latest"
+# max_instances = 20
+# instance_type = "basic"
+#
+# # uptime-kuma — self-hosted uptime monitor — 256 MiB
+# [[env.production.containers]]
+# class_name = "UptimeKumaContainer"
+# image = "louislam/uptime-kuma:1"
+# max_instances = 20
+# instance_type = "basic"
+#
+# # nocodb — Airtable-style smart spreadsheet — 512 MiB
+# [[env.production.containers]]
+# class_name = "NocodbContainer"
+# image = "nocodb/nocodb:latest"
+# max_instances = 10
+# instance_type = "basic"
+#
+# # listmonk — self-hosted newsletter + mailing list manager — 256 MiB
+# [[env.production.containers]]
+# class_name = "ListmonkContainer"
+# image = "listmonk/listmonk:latest"
+# max_instances = 10
+# instance_type = "basic"
+#
+# # memos — privacy-first knowledge-snippet wall — 128 MiB
+# [[env.production.containers]]
+# class_name = "MemosContainer"
+# image = "neosmemo/memos:stable"
+# max_instances = 20
+# instance_type = "basic"
+#
+# # pocketbase — Go-backed BaaS (SQLite + auth + storage) — 128 MiB
+# [[env.production.containers]]
+# class_name = "PocketbaseContainer"
+# image = "spectado/pocketbase:latest"
+# max_instances = 20
+# instance_type = "basic"
+#
+# # open-webui — chat UI for LLMs (Ollama / OpenAI) — 512 MiB
+# [[env.production.containers]]
+# class_name = "OpenWebuiContainer"
+# image = "ghcr.io/open-webui/open-webui:main"
+# max_instances = 10
+# instance_type = "basic"
+
 [[env.production.durable_objects.bindings]]
 name = "SITE_BUILDER"
 class_name = "SiteBuilderContainer"
@@ -135,11 +254,110 @@ class_name = "TraceHub"
 name = "ACTIVITY_HUB"
 class_name = "ActivityHub"
 
+[[env.production.durable_objects.bindings]]
+name = "APP_RUNTIME"
+class_name = "AppRuntimeContainer"
+
+# Pulse Inbox — one DO per chat_conversations.id, SQLite-backed, hibernation-aware
+# WebSocket fan-out (agent dashboards + visitor widgets).
+[[env.production.durable_objects.bindings]]
+name = "CONVERSATION_HUB"
+class_name = "ConversationHub"
+
+# Per-image AppRuntime subclass bindings — one per supported catalog app.
+# Keys MUST stay in lockstep with `BINDING_BY_SLUG` in
+# `src/services/container_dispatcher.ts` and the `APP_RUNTIME_*` fields in
+# `src/types/env.ts`.
+#
+# Commented out 2026-05-24 — blocks on image-registry provisioning. See the
+# note next to the [[containers]] blocks above. The dispatcher already
+# gracefully degrades when these bindings are missing.
+# [[env.production.durable_objects.bindings]]
+# name = "APP_RUNTIME_UMAMI"
+# class_name = "UmamiContainer"
+#
+# [[env.production.durable_objects.bindings]]
+# name = "APP_RUNTIME_OUTLINE"
+# class_name = "OutlineContainer"
+#
+# [[env.production.durable_objects.bindings]]
+# name = "APP_RUNTIME_N8N"
+# class_name = "N8nContainer"
+#
+# [[env.production.durable_objects.bindings]]
+# name = "APP_RUNTIME_VAULTWARDEN"
+# class_name = "VaultwardenContainer"
+#
+# [[env.production.durable_objects.bindings]]
+# name = "APP_RUNTIME_UPTIME_KUMA"
+# class_name = "UptimeKumaContainer"
+#
+# [[env.production.durable_objects.bindings]]
+# name = "APP_RUNTIME_NOCODB"
+# class_name = "NocodbContainer"
+#
+# [[env.production.durable_objects.bindings]]
+# name = "APP_RUNTIME_LISTMONK"
+# class_name = "ListmonkContainer"
+#
+# [[env.production.durable_objects.bindings]]
+# name = "APP_RUNTIME_MEMOS"
+# class_name = "MemosContainer"
+#
+# [[env.production.durable_objects.bindings]]
+# name = "APP_RUNTIME_POCKETBASE"
+# class_name = "PocketbaseContainer"
+#
+# [[env.production.durable_objects.bindings]]
+# name = "APP_RUNTIME_OPEN_WEBUI"
+# class_name = "OpenWebuiContainer"
+
+# AppRuntimeContainer is new — register it under the SQLite storage backend
+# in a fresh migration tag. Existing classes (SiteBuilder/TraceHub/ActivityHub)
+# stay on their current backend per the legacy notes above.
+#
+# 2026-05-24 — `v_app_runtime` was applied in a prior deploy (RECS.md
+# DO namespace `f212ddec402b406cb02a68b370bea5e0`). Re-applying the same
+# tag in this slot returns CF API error 10074
+# ("class already depended on by existing Durable Objects") because the
+# remote worker's migration history doesn't include this tag. Comment
+# out — the class continues to be served from the live deploy, no
+# functional change.
+# [[env.production.migrations]]
+# tag = "v_app_runtime"
+# new_sqlite_classes = ["AppRuntimeContainer"]
+
+# Per-image AppRuntime subclasses — separate migration tag so the apply is
+# idempotent and the rollout is auditable. All ten land in one transaction
+# (matches the wrangler.toml block order above + the subclass file).
+#
+# Commented out 2026-05-24 — blocked on image-registry provisioning.
+# [[env.production.migrations]]
+# tag = "v_app_subclasses"
+# new_sqlite_classes = [
+#   "UmamiContainer",
+#   "OutlineContainer",
+#   "N8nContainer",
+#   "VaultwardenContainer",
+#   "UptimeKumaContainer",
+#   "NocodbContainer",
+#   "ListmonkContainer",
+#   "MemosContainer",
+#   "PocketbaseContainer",
+#   "OpenWebuiContainer",
+# ]
+
 # Durable Object migrations (item #61). SiteBuilderContainer stays on the
 # non-SQLite (classic) storage backend because it runs container instances
 # rather than querying. TraceHub + ActivityHub move to the SQLite backend
 # (GA April 2025, paid since Jan 2026) so they can use this.ctx.storage.sql.
 # [[env.production.migrations]] block intentionally omitted.
+
+# Pulse Inbox — new SQLite-backed DO for per-conversation realtime fan-out.
+# Standalone migration tag so apply is idempotent + auditable.
+[[env.production.migrations]]
+tag = "v_conversation_hub"
+new_sqlite_classes = ["ConversationHub"]
 # TraceHub + ActivityHub + SiteBuilderContainer were already deployed under
 # the legacy classic-Durable-Object storage backend in a prior `wrangler
 # deploy`. Cloudflare's 10074 error blocks in-place class migrations once
@@ -189,11 +407,14 @@ binding = "USER_DISPATCH"
 namespace = "project-sites-endpoints"
 
 # Cron triggers:
+#   * * * * *    — Pulse Social due-post sweep (every minute, capped 25/run)
+#   */5 * * * *  — (sibling) inbox snooze-resume sweep
 #   */30 * * * * — verify hostnames + unstick stuck builds
-#   0 * * * *    — re-sync every connected Google Drive folder for AI chat context
+#   0 * * * *    — Drive re-sync + Pulse Social hourly analytics poll
 #   0 14 * * 1   — Mon 14:00 UTC (9 AM ET) weekly summary digest emails (#96)
+#   0 6 * * *    — daily snapshot metrics backfill (any snapshot <7d old missing metrics)
 [env.production.triggers]
-crons = ["*/30 * * * *", "0 * * * *", "0 14 * * 1"]
+crons = ["* * * * *", "*/5 * * * *", "*/30 * * * *", "0 * * * *", "0 14 * * 1", "0 6 * * *"]
 
 # Uncomment when Queues is enabled on the Cloudflare account
 # [[env.production.queues.producers]]

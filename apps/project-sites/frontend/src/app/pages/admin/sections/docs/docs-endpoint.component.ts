@@ -57,6 +57,18 @@ interface LiveResponse {
             <div class="docs-op-head-row">
               <span class="method method-{{ op.method.toLowerCase() }} method-lg">{{ op.method }}</span>
               <code class="docs-op-path">{{ op.path }}</code>
+              <button
+                type="button"
+                class="docs-path-copy"
+                (click)="copyPath(op.path)"
+                title="Copy path"
+                aria-label="Copy path to clipboard"
+                [attr.data-testid]="'docs-endpoint-' + op.operationId + '-copy-path'"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+              </button>
               @if (op.authRequired) {
                 <span class="docs-auth-chip" title="Requires Bearer token">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
@@ -64,10 +76,37 @@ interface LiveResponse {
                   </svg>
                   auth
                 </span>
+              } @else {
+                <span class="docs-public-chip" title="No authentication required">public</span>
+              }
+              @if (op.rateLimit) {
+                <span class="docs-rl-chip" [title]="'Rate-limited: ' + op.rateLimit.requests + ' req / ' + op.rateLimit.windowSeconds + 's'">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  {{ op.rateLimit.requests }}/{{ op.rateLimit.windowSeconds }}s
+                </span>
               }
             </div>
             <h3 class="docs-op-summary">{{ op.summary }}</h3>
-            <p class="docs-op-tag">in <em>{{ op.tag }}</em> · operationId <code>{{ op.operationId }}</code></p>
+            <p class="docs-op-tag">
+              in <em>{{ op.category }}</em>
+              · operationId <code>{{ op.operationId }}</code>
+              @if (op.addedAt) {
+                · added <time [attr.datetime]="op.addedAt">{{ op.addedAt }}</time>
+              }
+            </p>
+            <div class="docs-op-quick-actions">
+              <a
+                class="docs-quick-link"
+                [routerLink]="['/admin/audit']"
+                [queryParams]="{ path: op.path, method: op.method }"
+                title="Open the audit log filtered to recent calls of this endpoint"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                See recent calls in audit log
+              </a>
+            </div>
           </header>
 
           <div class="docs-section-divider" aria-hidden="true"></div>
@@ -157,6 +196,20 @@ interface LiveResponse {
               </div>
             </section>
           }
+
+          <section class="docs-section" id="docs-toc-examples">
+            <div class="muted-h docs-section-h">Examples
+              <div class="docs-segmented docs-examples-seg" role="tablist" aria-label="Example flavour">
+                <button class="docs-seg" [class.is-active]="exampleTab() === 'curl'" (click)="exampleTab.set('curl')" role="tab" [attr.aria-selected]="exampleTab() === 'curl'">cURL</button>
+                <button class="docs-seg" [class.is-active]="exampleTab() === 'fetch'" (click)="exampleTab.set('fetch')" role="tab" [attr.aria-selected]="exampleTab() === 'fetch'">JS fetch</button>
+                <button class="docs-seg" [class.is-active]="exampleTab() === 'workers'" (click)="exampleTab.set('workers')" role="tab" [attr.aria-selected]="exampleTab() === 'workers'">Workers</button>
+              </div>
+            </div>
+            <pre class="docs-code-block" data-testid="docs-example-block"><code>{{ exampleSnippet() }}</code></pre>
+            <div class="docs-body-actions">
+              <button class="btn-ghost docs-mini-btn" (click)="copyExample()" title="Copy current example">Copy example</button>
+            </div>
+          </section>
 
           <div class="docs-send-row" id="docs-toc-try">
             <button
@@ -266,6 +319,7 @@ interface LiveResponse {
             @if (errorCodes().length > 0) {
               <a class="docs-toc-link" (click)="scrollTo('docs-toc-errors', $event)" href="#docs-toc-errors">Error codes</a>
             }
+            <a class="docs-toc-link" (click)="scrollTo('docs-toc-examples', $event)" href="#docs-toc-examples">Examples</a>
             <a class="docs-toc-link docs-toc-link--cta" (click)="scrollTo('docs-toc-try', $event)" href="#docs-toc-try">Try it</a>
           </nav>
         </aside>
@@ -340,6 +394,63 @@ interface LiveResponse {
       border: 1px solid rgba(124,58,237,0.28);
       text-transform: uppercase;
     }
+    .docs-public-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.04em;
+      padding: 4px 8px; border-radius: 999px;
+      background: rgba(74,222,128,0.10); color: #4ade80;
+      border: 1px solid rgba(74,222,128,0.28);
+      text-transform: uppercase;
+    }
+    .docs-rl-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.62rem; font-weight: 700; letter-spacing: 0.02em;
+      padding: 4px 8px; border-radius: 999px;
+      background: rgba(245,158,11,0.10); color: #fbbf24;
+      border: 1px solid rgba(245,158,11,0.28);
+      cursor: help;
+    }
+    .docs-path-copy {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; border-radius: 6px;
+      background: transparent; color: rgba(255,255,255,0.55);
+      border: 1px solid rgba(255,255,255,0.06);
+      cursor: pointer;
+      transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+    }
+    .docs-path-copy:hover {
+      background: rgba(0,229,255,0.08);
+      color: #fff;
+      border-color: rgba(0,229,255,0.32);
+    }
+    .docs-path-copy:focus-visible {
+      outline: 2px solid #00E5FF; outline-offset: 2px;
+    }
+
+    /* Quick-action link below the op header — opens audit log filtered. */
+    .docs-op-quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+    .docs-quick-link {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 9px; border-radius: 6px;
+      font-size: 0.72rem; font-weight: 600;
+      color: rgba(255,255,255,0.62);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      text-decoration: none;
+      transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+    }
+    .docs-quick-link:hover {
+      background: rgba(0,229,255,0.08);
+      color: #fff;
+      border-color: rgba(0,229,255,0.32);
+    }
+    .docs-quick-link:focus-visible {
+      outline: 2px solid #00E5FF; outline-offset: 2px;
+    }
+
+    /* Examples-tab strip — sits inside the section header so it aligns right. */
+    .docs-examples-seg { margin-left: auto !important; }
 
     .docs-section { display: flex; flex-direction: column; gap: 10px; }
     .docs-section-h { display: inline-flex; align-items: center; gap: 8px; }
@@ -633,6 +744,7 @@ export class DocsEndpointComponent implements OnInit {
   readonly sending = signal(false);
   readonly response = signal<LiveResponse | null>(null);
   readonly responseTab = signal<'body' | 'headers' | 'curl'>('body');
+  readonly exampleTab = signal<'curl' | 'fetch' | 'workers'>('curl');
   readonly copyToast = signal(false);
 
   /** Currently-selected operation from the spec — null when 404. */
@@ -692,6 +804,70 @@ export class DocsEndpointComponent implements OnInit {
       parts.push(`  -d '${escaped}'`);
     }
     return parts.join(' \\\n');
+  });
+
+  /** Native `fetch()` snippet — pastes into any browser / Node 18+ / Bun / Deno script. */
+  readonly fetchSnippet = computed<string>(() => {
+    const op = this.selected();
+    if (!op) return '';
+    const url = this.resolvedUrl();
+    const body = op.requestBody && this.requestBodyJson() ? this.requestBodyJson() : '';
+    const lines: string[] = [];
+    lines.push(`const res = await fetch('${url}', {`);
+    lines.push(`  method: '${op.method}',`);
+    lines.push(`  headers: {`);
+    lines.push(`    'Authorization': \`Bearer \${process.env.PS_TOKEN}\`,`);
+    lines.push(`    'Content-Type': 'application/json',`);
+    lines.push(`  },`);
+    if (body) {
+      let inline = body;
+      try { inline = JSON.stringify(JSON.parse(body)); } catch { /* leave as-is */ }
+      lines.push(`  body: ${JSON.stringify(inline)},`);
+    }
+    lines.push(`});`);
+    lines.push(`if (!res.ok) throw new Error(\`\${res.status} \${res.statusText}\`);`);
+    lines.push(`const { data } = await res.json();`);
+    return lines.join('\n');
+  });
+
+  /**
+   * Cloudflare Workers snippet — same idea as the `fetch` example but uses
+   * `env.PS_TOKEN` (binding via `wrangler secret put PS_TOKEN`) and runs from
+   * inside a Worker handler.
+   */
+  readonly workersSnippet = computed<string>(() => {
+    const op = this.selected();
+    if (!op) return '';
+    const url = this.resolvedUrl();
+    const body = op.requestBody && this.requestBodyJson() ? this.requestBodyJson() : '';
+    const lines: string[] = [];
+    lines.push(`// wrangler.toml: wrangler secret put PS_TOKEN`);
+    lines.push(`export default {`);
+    lines.push(`  async fetch(req: Request, env: Env): Promise<Response> {`);
+    lines.push(`    const res = await fetch('${url}', {`);
+    lines.push(`      method: '${op.method}',`);
+    lines.push(`      headers: {`);
+    lines.push(`        'Authorization': \`Bearer \${env.PS_TOKEN}\`,`);
+    lines.push(`        'Content-Type': 'application/json',`);
+    lines.push(`      },`);
+    if (body) {
+      let inline = body;
+      try { inline = JSON.stringify(JSON.parse(body)); } catch { /* leave as-is */ }
+      lines.push(`      body: ${JSON.stringify(inline)},`);
+    }
+    lines.push(`    });`);
+    lines.push(`    return new Response(await res.text(), { status: res.status });`);
+    lines.push(`  },`);
+    lines.push(`};`);
+    return lines.join('\n');
+  });
+
+  /** Active example block based on the segmented control. */
+  readonly exampleSnippet = computed<string>(() => {
+    const tab = this.exampleTab();
+    if (tab === 'fetch') return this.fetchSnippet();
+    if (tab === 'workers') return this.workersSnippet();
+    return this.curlSnippet();
   });
 
   constructor() {
@@ -881,6 +1057,17 @@ export class DocsEndpointComponent implements OnInit {
     const snippet = this.curlSnippet();
     if (!snippet) return;
     this.writeClipboard(snippet);
+  }
+
+  /** Copy the raw path (no host) — useful for pasting into other docs. */
+  copyPath(path: string): void {
+    this.writeClipboard(path);
+  }
+
+  /** Copy whichever example snippet is currently visible (curl | fetch | workers). */
+  copyExample(): void {
+    const text = this.exampleSnippet();
+    if (text) this.writeClipboard(text);
   }
 
   /** Copy whichever response view is currently visible. */

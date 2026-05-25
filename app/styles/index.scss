@@ -71,3 +71,1032 @@ body {
   // Firefox support for inverted colors
   scrollbar-color: color-mix(in srgb, var(--bolt-elements-textPrimary), transparent 50%) transparent;
 }
+
+/* ── bolt.diy header is intentionally hidden ────────────────────────────
+   The bolt.diy `<header>` is suppressed app-wide. The admin shell owns
+   the chrome (sidebar + top bar + Save/Deploy) and `editor.projectsites.dev`
+   standalone has no need for a duplicate logo + project title. The
+   component itself (`app/components/header/Header.tsx`) now returns
+   `null`; this CSS rule is the belt-and-braces safety net so any route
+   that imports the older header path (e.g. `routes/git.tsx`) also stays
+   chrome-less. Targets BOTH header states — pre-chat (`border-transparent`)
+   and post-chat (`border-bolt-elements-borderColor`). */
+header.border-bolt-elements-borderColor,
+header.border-transparent {
+  display: none !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   ProjectSites brand theme override
+   ────────────────────────────────────────────────────────────────────────
+   This is the FINAL layer in the cascade — it repaints the dark-theme
+   bolt-elements-* tokens to match projectsites.dev so the embedded
+   IDE feels like a first-party part of the admin shell, not a stranger.
+
+   Brand: dark-first cyan #00E5FF on near-black #060610, with a hint of
+   purple #7C3AED for secondary accents. Fonts: Sora for headings,
+   Space Grotesk for body, JetBrains Mono for code/terminal.
+
+   Strategy: override CSS variables only — never touch component HTML.
+   That keeps the bolt.diy source clean and lets future upstream merges
+   apply without conflict.
+   ════════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root,
+:root[data-theme='dark'] {
+  /* Header is hidden app-wide (Header.tsx returns null + the CSS rule
+     further up suppresses any stale import). Zero out the header-height
+     so every component that positions itself with
+     `calc(var(--header-height) + …)` doesn't reserve dead space at the
+     top of the viewport. The Workbench panel at
+     `top: calc(var(--header-height) + 1.2rem)` was the visible bug —
+     ~70px gap above the IDE — and now collapses to just the 1.2rem
+     breathing room. */
+  --header-height: 0px;
+
+  /* Surfaces — dark-first, layered for depth */
+  --bolt-elements-bg-depth-1: #060610;
+  --bolt-elements-bg-depth-2: #0a0a18;
+  --bolt-elements-bg-depth-3: #131322;
+  --bolt-elements-bg-depth-4: rgba(255, 255, 255, 0.04);
+
+  /* Text — high-contrast on dark */
+  --bolt-elements-textPrimary: #f4f4ff;
+  --bolt-elements-textSecondary: rgba(244, 244, 255, 0.65);
+  --bolt-elements-textTertiary: rgba(244, 244, 255, 0.40);
+
+  /* Borders — subtle cyan-tinted rule */
+  --bolt-elements-borderColor: rgba(0, 229, 255, 0.10);
+  --bolt-elements-borderColorActive: #00E5FF;
+
+  /* Accent — cyan everywhere accent.* was used */
+  --bolt-elements-button-primary-background: rgba(0, 229, 255, 0.12);
+  --bolt-elements-button-primary-backgroundHover: rgba(0, 229, 255, 0.22);
+  --bolt-elements-button-primary-text: #00E5FF;
+
+  --bolt-elements-item-contentAccent: #00E5FF;
+  --bolt-elements-item-backgroundAccent: rgba(0, 229, 255, 0.12);
+
+  --bolt-elements-messages-linkColor: #00E5FF;
+  --bolt-elements-loader-progress: #00E5FF;
+
+  --bolt-elements-sidebar-buttonBackgroundDefault: rgba(0, 229, 255, 0.10);
+  --bolt-elements-sidebar-buttonBackgroundHover: rgba(0, 229, 255, 0.20);
+  --bolt-elements-sidebar-buttonText: #00E5FF;
+
+  /* Code surfaces */
+  --bolt-elements-code-background: #0a0a18;
+  --bolt-elements-code-text: #f4f4ff;
+  --bolt-elements-artifacts-background: #0a0a18;
+  --bolt-elements-artifacts-inlineCode-background: #131322;
+  --bolt-elements-artifacts-inlineCode-text: #00E5FF;
+  --bolt-elements-actions-background: #0a0a18;
+  --bolt-elements-actions-code-background: #131322;
+  --bolt-elements-messages-background: #0a0a18;
+  --bolt-elements-messages-code-background: #060610;
+  --bolt-elements-messages-inlineCode-background: rgba(0, 229, 255, 0.08);
+  --bolt-elements-messages-inlineCode-text: #00E5FF;
+
+  /* Terminal — neon-on-near-black per project palette */
+  --bolt-terminal-background: #060610;
+  --bolt-terminal-foreground: #f4f4ff;
+  --bolt-terminal-selection-background: rgba(0, 229, 255, 0.20);
+  --bolt-terminal-cyan: #00E5FF;
+  --bolt-terminal-brightCyan: #4DEEFF;
+  --bolt-terminal-blue: #50AAE3;
+  --bolt-terminal-magenta: #7C3AED;
+  --bolt-terminal-brightMagenta: #A678FF;
+  --bolt-terminal-green: #5af78e;
+  --bolt-terminal-yellow: #FFD166;
+
+  /* Icons */
+  --bolt-elements-icon-primary: #f4f4ff;
+  --bolt-elements-icon-success: #5af78e;
+  --bolt-elements-icon-error: #ff5c79;
+
+  /* Modern scrollbar — cyan-tinted */
+  --modern-scrollbar-thumb-background: rgba(0, 229, 255, 0.18);
+  --modern-scrollbar-thumb-backgroundHover: rgba(0, 229, 255, 0.45);
+
+  /* Preview address bar */
+  --bolt-elements-preview-addressBar-background: #0a0a18;
+  --bolt-elements-preview-addressBar-backgroundHover: rgba(0, 229, 255, 0.06);
+  --bolt-elements-preview-addressBar-backgroundActive: #131322;
+
+  --bolt-elements-cta-background: rgba(0, 229, 255, 0.14);
+  --bolt-elements-cta-text: #00E5FF;
+
+  /* Brand-tokens — usable inside component styles for new surfaces */
+  --ps-bg: #060610;
+  --ps-ink: #f4f4ff;
+  --ps-accent: #00E5FF;
+  --ps-accent-secondary: #7C3AED;
+  --ps-accent-tertiary: #50AAE3;
+  --ps-radius-sm: 8px;
+  --ps-radius-md: 12px;
+  --ps-radius-lg: 16px;
+  --ps-radius-xl: 22px;
+  --ps-shadow-card: 0 4px 18px -8px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 229, 255, 0.06) inset;
+  --ps-shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 80px rgba(0, 229, 255, 0.04);
+  --ps-dur-fast: 140ms;
+  --ps-dur-med: 240ms;
+  --ps-dur-slow: 380ms;
+  --ps-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html,
+body {
+  /* Use the brand font stack across the embedded IDE */
+  font-family: 'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-feature-settings: 'ss01', 'ss02', 'cv11';
+  background:
+    radial-gradient(ellipse 80% 50% at top, rgba(0, 229, 255, 0.04), transparent 60%),
+    radial-gradient(ellipse 60% 40% at bottom, rgba(124, 58, 237, 0.03), transparent 70%),
+    var(--bolt-elements-bg-depth-1);
+}
+
+/* Headings + display surfaces use Sora */
+h1, h2, h3, h4, h5, h6,
+.bolt-display,
+[class*='font-bold'],
+[class*='font-semibold'] {
+  font-family: 'Sora', system-ui, sans-serif;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+/* Body text reads tighter + larger weight on dark */
+p, span, li, button, input, textarea, select, label {
+  font-family: inherit;
+}
+
+/* Code + mono in JetBrains Mono everywhere — terminal, code blocks, file paths */
+code, pre, kbd, samp,
+[class*='font-mono'],
+[class*='Codemirror'],
+.cm-editor,
+.cm-content,
+.xterm,
+.xterm-rows {
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Monaco, Consolas, monospace !important;
+  font-feature-settings: 'liga', 'calt';
+  font-variant-ligatures: contextual;
+}
+
+/* Cinematic motion — refined focus rings + button hover lift */
+button,
+a,
+[role='button'],
+[tabindex]:not([tabindex='-1']) {
+  transition:
+    background-color var(--ps-dur-fast) var(--ps-ease-emphasized),
+    border-color var(--ps-dur-fast) var(--ps-ease-emphasized),
+    color var(--ps-dur-fast) var(--ps-ease-emphasized),
+    transform var(--ps-dur-fast) var(--ps-ease-emphasized),
+    box-shadow var(--ps-dur-fast) var(--ps-ease-emphasized);
+}
+
+button:focus-visible,
+a:focus-visible,
+[role='button']:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--ps-accent);
+  outline-offset: 2px;
+  border-radius: var(--ps-radius-sm);
+}
+
+/* Refine the chat input — make it feel like a flagship surface */
+[class*='PromptEffectContainer'] textarea,
+textarea[id*='message'],
+textarea[placeholder*='How can'],
+textarea[placeholder*='ask'] {
+  font-family: 'Space Grotesk', system-ui, sans-serif !important;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+/* Workbench panel — cinematic shadow + cyan-tinted edge */
+.z-workbench > div > div > div {
+  box-shadow: var(--ps-shadow-card);
+}
+
+/* Code block headers + filename pills — brand-tinted */
+.bg-bolt-elements-actions-background {
+  background: var(--bolt-elements-actions-background) !important;
+  border-color: rgba(0, 229, 255, 0.08) !important;
+}
+
+/* Message author labels + status pills feel more like the admin */
+.bg-bolt-elements-messages-background {
+  background:
+    linear-gradient(180deg, rgba(0, 229, 255, 0.02), transparent 60%),
+    var(--bolt-elements-messages-background) !important;
+}
+
+/* Tab strip + slider — cyan-glow on active */
+[data-state='active'][role='tab'],
+[aria-selected='true'][role='tab'] {
+  color: var(--ps-accent) !important;
+  text-shadow: 0 0 12px rgba(0, 229, 255, 0.35);
+}
+
+/* Selection — brand-cyan highlight */
+::selection {
+  background: rgba(0, 229, 255, 0.28);
+  color: #ffffff;
+}
+
+/* Reduced motion respect */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Editor toolbar "⋯" more-menu (Download / Export / Sync) ──────────
+   Consolidates the three legacy buttons into one branded dropdown so the
+   editor toolbar reads as one tight strip, not a row of competing CTAs. */
+.ps-more-wrap { position: relative; }
+
+.ps-more-trigger {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--ps-radius-sm);
+  background: rgba(0, 229, 255, 0.06);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  color: var(--ps-accent);
+  cursor: pointer;
+  transition:
+    background var(--ps-dur-fast) var(--ps-ease-emphasized),
+    border-color var(--ps-dur-fast) var(--ps-ease-emphasized),
+    transform var(--ps-dur-fast) var(--ps-ease-emphasized),
+    box-shadow var(--ps-dur-fast) var(--ps-ease-emphasized);
+}
+.ps-more-trigger:hover {
+  background: rgba(0, 229, 255, 0.14);
+  border-color: rgba(0, 229, 255, 0.45);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px -10px rgba(0, 229, 255, 0.5);
+}
+.ps-more-trigger:focus-visible {
+  outline: 2px solid var(--ps-accent);
+  outline-offset: 2px;
+}
+.ps-more-trigger[data-state="open"] {
+  background: rgba(0, 229, 255, 0.18);
+  border-color: rgba(0, 229, 255, 0.55);
+}
+
+.ps-more-menu {
+  min-width: 280px;
+  padding: 6px;
+  border-radius: var(--ps-radius-md);
+  background:
+    radial-gradient(ellipse 100% 60% at 50% 0%, rgba(0, 229, 255, 0.07), transparent 60%),
+    linear-gradient(180deg, rgba(20, 20, 42, 0.96), rgba(10, 10, 28, 0.98));
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid color-mix(in oklch, #00E5FF 22%, transparent);
+  box-shadow:
+    0 24px 60px -16px rgba(0, 0, 0, 0.85),
+    0 0 80px rgba(0, 229, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  z-index: 99950;
+  isolation: isolate;
+  animation: psMoreIn 220ms var(--ps-ease-emphasized) both;
+  transform-origin: top right;
+  position: relative;
+}
+.ps-more-menu::before {
+  content: ''; position: absolute; top: 0; left: 8px; right: 8px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 229, 255, 0.55) 30%, rgba(124, 58, 237, 0.4) 70%, transparent);
+  pointer-events: none;
+}
+
+.ps-more-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--ps-radius-sm);
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+  transition: background var(--ps-dur-fast) var(--ps-ease-emphasized);
+}
+.ps-more-item:hover,
+.ps-more-item[data-highlighted] {
+  background: rgba(0, 229, 255, 0.08);
+}
+.ps-more-item.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ps-more-glyph {
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--ps-radius-sm);
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  color: var(--ps-accent);
+  flex-shrink: 0;
+}
+.ps-more-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ps-more-label {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ps-ink);
+  letter-spacing: -0.01em;
+}
+.ps-more-sub {
+  font-size: 0.66rem;
+  color: rgba(244, 244, 255, 0.55);
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+}
+
+.ps-spin { animation: psSpin 0.7s linear infinite; }
+
+@keyframes psMoreIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes psSpin { to { transform: rotate(360deg); } }
+
+/* ════════════════════════════════════════════════════════════════════════
+   Cross-surface beauty pass — second wave
+   ────────────────────────────────────────────────────────────────────────
+   Treats the bolt.diy chat input, workbench tabs, code editor, file
+   tree, and resize handles as flagship surfaces. Pure CSS, brand-token
+   driven, reduced-motion safe.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Chat input — flagship surface treatment ───────────────────────
+   Targets the prompt textarea wrapper (PromptEffectContainer) + the
+   send button so the primary AI surface feels cinematic. */
+[class*='PromptEffectContainer'] {
+  position: relative;
+  isolation: isolate;
+  transition:
+    box-shadow var(--ps-dur-med) var(--ps-ease-emphasized),
+    border-color var(--ps-dur-med) var(--ps-ease-emphasized),
+    transform var(--ps-dur-fast) var(--ps-ease-emphasized);
+}
+[class*='PromptEffectContainer']:focus-within {
+  box-shadow:
+    0 0 0 1px rgba(0, 229, 255, 0.30),
+    0 12px 36px -16px rgba(0, 229, 255, 0.35),
+    0 0 48px -12px rgba(124, 58, 237, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Inner glow line at the top edge of the prompt container — premium
+   cue that this is the flagship surface. Falls behind content so it
+   never blocks text or interaction. */
+[class*='PromptEffectContainer']::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 12%; right: 12%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 229, 255, 0.40) 30%,
+    rgba(124, 58, 237, 0.30) 70%,
+    transparent 100%
+  );
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 1;
+  transition: opacity var(--ps-dur-med) var(--ps-ease-emphasized);
+}
+[class*='PromptEffectContainer']:focus-within::before { opacity: 1; }
+
+/* Send button gradient hover pulse */
+[class*='PromptEffectContainer'] button[type='submit'],
+[class*='PromptEffectContainer'] button[aria-label*='Send'],
+button[aria-label*='end message' i] {
+  position: relative;
+  isolation: isolate;
+  transition:
+    transform var(--ps-dur-fast) var(--ps-ease-emphasized),
+    box-shadow var(--ps-dur-fast) var(--ps-ease-emphasized),
+    background var(--ps-dur-fast) var(--ps-ease-emphasized);
+}
+[class*='PromptEffectContainer'] button[type='submit']:hover:not(:disabled),
+[class*='PromptEffectContainer'] button[aria-label*='Send']:hover:not(:disabled),
+button[aria-label*='end message' i]:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.28), rgba(124, 58, 237, 0.22)) !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 229, 255, 0.45),
+    0 8px 24px -8px rgba(0, 229, 255, 0.55),
+    0 0 28px -8px rgba(124, 58, 237, 0.35);
+  transform: translateY(-1px) scale(1.02);
+}
+[class*='PromptEffectContainer'] button[type='submit']:active:not(:disabled),
+[class*='PromptEffectContainer'] button[aria-label*='Send']:active:not(:disabled) {
+  transform: translateY(0) scale(0.96);
+  transition-duration: 80ms;
+}
+
+/* ── 2. Workbench tabs — cyan underline slider ────────────────────────
+   Bolt.diy renders the Code/Preview/Terminal tab strip with role=tab.
+   Add a sliding cyan underline so the active tab feels intentional. */
+[role='tablist'] [role='tab'] {
+  position: relative;
+  transition:
+    color var(--ps-dur-fast) var(--ps-ease-emphasized),
+    background-color var(--ps-dur-fast) var(--ps-ease-emphasized);
+}
+[role='tablist'] [role='tab']::after {
+  content: '';
+  position: absolute;
+  left: 12px; right: 12px;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--ps-accent), var(--ps-accent-secondary));
+  border-radius: 999px;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform var(--ps-dur-med) var(--ps-ease-emphasized);
+  pointer-events: none;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
+}
+[role='tablist'] [role='tab'][aria-selected='true']::after,
+[role='tablist'] [role='tab'][data-state='active']::after {
+  transform: scaleX(1);
+}
+
+/* ── 3. CodeMirror — brand-tinted line numbers + active line ──────────
+   Bolt.diy uses CodeMirror 6. These are token-level brand overrides
+   that don't alter syntax-highlight semantics. */
+.cm-editor {
+  .cm-gutters {
+    background: var(--bolt-elements-bg-depth-1) !important;
+    border-right: 1px solid rgba(0, 229, 255, 0.08) !important;
+  }
+  .cm-lineNumbers .cm-gutterElement {
+    color: rgba(0, 229, 255, 0.35);
+    transition: color var(--ps-dur-fast) var(--ps-ease-emphasized);
+  }
+  .cm-activeLineGutter {
+    background: rgba(0, 229, 255, 0.08) !important;
+    color: var(--ps-accent) !important;
+    font-weight: 600;
+  }
+  .cm-activeLine {
+    background: rgba(0, 229, 255, 0.04) !important;
+    box-shadow: inset 2px 0 0 var(--ps-accent);
+  }
+  .cm-selectionBackground,
+  ::selection {
+    background: rgba(0, 229, 255, 0.22) !important;
+  }
+  .cm-cursor {
+    border-left-color: var(--ps-accent) !important;
+    border-left-width: 2px !important;
+  }
+  .cm-matchingBracket {
+    background: rgba(0, 229, 255, 0.18) !important;
+    color: var(--ps-accent) !important;
+    outline: 1px solid rgba(0, 229, 255, 0.32);
+  }
+}
+
+/* ── 4. File tree — file/folder icons + active row left bar ───────────
+   File tree rows in bolt.diy use `[data-id]` with file path. Color
+   hints surface the file type quickly. */
+[data-id$='.ts'] [class*='icon'],
+[data-id$='.tsx'] [class*='icon'] { color: #3178c6; }
+[data-id$='.js'] [class*='icon'],
+[data-id$='.jsx'] [class*='icon'],
+[data-id$='.mjs'] [class*='icon'],
+[data-id$='.cjs'] [class*='icon'] { color: #f7df1e; }
+[data-id$='.json'] [class*='icon'] { color: #fbbf24; }
+[data-id$='.css'] [class*='icon'],
+[data-id$='.scss'] [class*='icon'] { color: #ff79c6; }
+[data-id$='.md'] [class*='icon'] { color: rgba(244, 244, 255, 0.6); }
+[data-id$='.html'] [class*='icon'] { color: #e34c26; }
+[data-id$='.svg'] [class*='icon'],
+[data-id$='.png'] [class*='icon'],
+[data-id$='.jpg'] [class*='icon'],
+[data-id$='.webp'] [class*='icon'] { color: #00E5FF; }
+
+/* Active file row — left cyan accent bar */
+[data-id][aria-selected='true'],
+.file-active,
+[class*='FileBreadcrumb'] [class*='active'] {
+  position: relative;
+}
+[data-id][aria-selected='true']::before,
+.file-active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 4px; bottom: 4px;
+  width: 2px;
+  background: linear-gradient(180deg, var(--ps-accent), var(--ps-accent-secondary));
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
+}
+
+/* ── 5. Resize handles — visible only on hover, cyan tint ─────────────
+   Bolt.diy uses panel resize handles. Subtle cyan highlight on hover
+   so the user knows they're draggable. */
+[class*='ResizeHandle'],
+[data-panel-resize-handle-id] {
+  background: transparent !important;
+  transition: background var(--ps-dur-fast) var(--ps-ease-emphasized);
+}
+[class*='ResizeHandle']:hover,
+[data-panel-resize-handle-id]:hover,
+[data-panel-resize-handle-id][data-resize-handle-active] {
+  background: rgba(0, 229, 255, 0.22) !important;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+}
+
+/* ── 6. Message bubbles — refined edges + author tint ────────────────
+   User + assistant messages get a subtle gradient border so they don't
+   look like featureless dark blocks. */
+[data-role='user'] [class*='Message'],
+[data-role='assistant'] [class*='Message'] {
+  position: relative;
+  transition:
+    border-color var(--ps-dur-med) var(--ps-ease-emphasized),
+    box-shadow var(--ps-dur-med) var(--ps-ease-emphasized);
+}
+
+/* ── 7. Inline code chips — brand cyan, subtle glow on hover ─────────
+   The inline `<code>` chips inside chat messages already use
+   --bolt-elements-messages-inlineCode-*. Add a gentle interaction. */
+[class*='inlineCode'],
+.bg-bolt-elements-messages-inlineCode-background {
+  transition:
+    background-color var(--ps-dur-fast) var(--ps-ease-emphasized),
+    box-shadow var(--ps-dur-fast) var(--ps-ease-emphasized);
+}
+[class*='inlineCode']:hover,
+.bg-bolt-elements-messages-inlineCode-background:hover {
+  background-color: rgba(0, 229, 255, 0.14) !important;
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.32);
+}
+
+/* ── 8. Buttons — universal hover lift + active scale ────────────────
+   Cinematic button feedback across every bolt.diy primary surface. */
+button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle-id]) {
+  transition:
+    transform var(--ps-dur-fast) var(--ps-ease-emphasized),
+    box-shadow var(--ps-dur-fast) var(--ps-ease-emphasized),
+    background-color var(--ps-dur-fast) var(--ps-ease-emphasized),
+    color var(--ps-dur-fast) var(--ps-ease-emphasized);
+}
+button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle-id]):active {
+  transform: scale(0.97);
+  transition-duration: 80ms;
+}
+
+/* ── 9. Scrollbars — cyan-tinted across every scroll surface ─────────
+   The .modern-scrollbar class above only catches opted-in surfaces.
+   These rules cover the long tail (file tree, terminal, preview iframe
+   container, code editor gutter). */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(0, 229, 255, 0.16);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background-color var(--ps-dur-fast) var(--ps-ease-emphasized);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 229, 255, 0.40);
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track { background: transparent; }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 255, 0.20) transparent;
+}
+
+/* ── 10. Preview address bar — subtle inner glow on focus ────────────
+   The preview iframe address bar at the top of the Preview tab. */
+.bg-bolt-elements-preview-addressBar-background:focus-within,
+[class*='AddressBar']:focus-within {
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 229, 255, 0.35),
+    0 0 20px -4px rgba(0, 229, 255, 0.25);
+}
+
+/* ── 11. Terminal — cyan-bordered cursor block ───────────────────────
+   The xterm cursor inherits color from --bolt-terminal-cyan. Add a
+   subtle glow so it pulses gently when the terminal is focused. */
+.xterm.focus .xterm-cursor-layer .xterm-cursor {
+  box-shadow: 0 0 6px rgba(0, 229, 255, 0.55);
+}
+
+/* ── 12. Loading + progress bars — cyan-gradient track ───────────────
+   Any [role="progressbar"] gets the brand gradient. */
+[role='progressbar'] > div,
+[class*='ProgressBar'] > div,
+[class*='Loader'] {
+  background: linear-gradient(
+    90deg,
+    var(--ps-accent),
+    var(--ps-accent-secondary, #7C3AED),
+    var(--ps-accent)
+  ) !important;
+  background-size: 200% 100%;
+  animation: bolt-loader-shine 2.4s linear infinite;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
+}
+@keyframes bolt-loader-shine {
+  to { background-position: -200% 0; }
+}
+
+/* ── 13. Action menus + dropdowns — premium dark glass ───────────────
+   Popovers (model selector, action menu, share menu) get glass blur. */
+[role='menu'],
+[role='listbox'],
+[data-radix-popper-content-wrapper] > * {
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow:
+    0 24px 64px -16px rgba(0, 0, 0, 0.72),
+    0 0 0 1px rgba(0, 229, 255, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* ── 14. Diff view — green/red tints aligned with brand ──────────────
+   Bolt.diy diff viewer renders +/- gutters. Keep semantic green/red but
+   shift hue to match the brand-cool palette. */
+[class*='DiffView'] [class*='added'],
+[class*='diff-added'] {
+  background: rgba(34, 197, 94, 0.10) !important;
+  border-left: 2px solid #22c55e !important;
+}
+[class*='DiffView'] [class*='removed'],
+[class*='diff-removed'] {
+  background: rgba(239, 68, 68, 0.08) !important;
+  border-left: 2px solid #ef4444 !important;
+}
+
+/* ── 15. Reduced-motion safety net ──────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  [class*='PromptEffectContainer'],
+  [class*='PromptEffectContainer'] button,
+  [role='tab']::after,
+  button {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
+  [role='tab'][aria-selected='true']::after,
+  [role='tab'][data-state='active']::after {
+    transform: scaleX(1) !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   Items 31-40 — brand + visual layer (APPEND-ONLY)
+   ────────────────────────────────────────────────────────────────────────
+   Items 31–40 in the editor.projectsites.dev brand polish list. Every
+   rule below references existing tokens (--ps-*, --bolt-elements-*) so
+   the theme stays single-sourced. No hard-coded brand colors. */
+
+/* ── Item 31 — Hero copy (BaseChat pre-chat heading) ──────────────── */
+.ps-hero {
+  view-transition-name: ps-hero;
+}
+.ps-hero-title {
+  font-family: 'Sora', 'Space Grotesk', system-ui, sans-serif;
+  font-size: clamp(2.2rem, 4.2vw + 1rem, 4rem);
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(
+    100deg,
+    var(--ps-ink, var(--bolt-elements-textPrimary)) 20%,
+    var(--ps-accent, #00E5FF) 60%,
+    var(--ps-accent-secondary, #7C3AED) 95%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  text-wrap: balance;
+}
+.ps-hero-sub {
+  margin-top: 0.5rem;
+  font-size: clamp(0.95rem, 0.5vw + 0.8rem, 1.1rem);
+  color: var(--bolt-elements-textSecondary);
+  text-wrap: pretty;
+}
+
+/* ── Item 32 — Boot skeleton overlay ──────────────────────────────── */
+.ps-boot-skeleton {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(6, 6, 16, 0.96) 0%,
+    rgba(6, 6, 16, 1) 70%
+  );
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: ps-boot-fade-in 0.18s ease-out;
+}
+@keyframes ps-boot-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.ps-boot-skeleton__inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 22px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  box-shadow:
+    0 24px 48px -16px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(0, 229, 255, 0.06);
+}
+.ps-boot-skeleton__favicon {
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.ps-boot-skeleton__text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 180px;
+}
+.ps-boot-skeleton__title {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ps-ink, #f4f4ff);
+  letter-spacing: -0.005em;
+}
+.ps-boot-skeleton__bar {
+  position: relative;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.ps-boot-skeleton__bar > span {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--ps-accent, #00E5FF) 50%,
+    transparent 100%
+  );
+  animation: ps-boot-slide 1.2s ease-in-out infinite;
+}
+@keyframes ps-boot-slide {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(200%); }
+}
+
+/* ── Item 33 — Gradient mesh behind chat input ────────────────────── */
+.z-prompt::before {
+  content: '';
+  position: absolute;
+  inset: -40px -60px -20px -60px;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 60% 40% at 25% 40%,
+      rgba(0, 229, 255, 0.10) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 50% 50% at 75% 60%,
+      rgba(124, 58, 237, 0.10) 0%,
+      transparent 70%
+    );
+  filter: blur(28px);
+  animation: ps-mesh-drift 14s ease-in-out infinite alternate;
+  border-radius: 28px;
+  opacity: 0.85;
+}
+@keyframes ps-mesh-drift {
+  from { transform: translate3d(-2%, 0, 0) scale(1); }
+  to   { transform: translate3d(2%, -1%, 0) scale(1.04); }
+}
+
+/* ── Item 34 — AI cursor particle trail (CodeMirror) ──────────────── */
+.ps-ai-trail-host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  overflow: hidden;
+}
+.ps-ai-trail-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    var(--ps-accent, #00E5FF) 0%,
+    rgba(0, 229, 255, 0.0) 70%
+  );
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
+  opacity: 1;
+  animation: ps-ai-trail-fade 0.8s ease-out forwards;
+  will-change: transform, opacity;
+}
+@keyframes ps-ai-trail-fade {
+  0%   { opacity: 1; transform: translate3d(var(--x, 0), var(--y, 0), 0) scale(0.6); }
+  35%  { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(var(--x, 0), var(--y, 0), 0) scale(2.4); }
+}
+
+/* ── Item 35 — CodeMirror line numbers + gutter tint ──────────────── */
+.cm-editor .cm-gutters {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 229, 255, 0.04) 0%,
+    rgba(0, 229, 255, 0.0) 100%
+  ) !important;
+  border-right: 1px solid rgba(0, 229, 255, 0.10) !important;
+  color: color-mix(in oklch, var(--ps-accent, #00E5FF) 60%, var(--bolt-elements-textSecondary) 40%);
+}
+.cm-editor .cm-lineNumbers .cm-gutterElement {
+  font-family: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.55;
+  padding-left: 10px;
+  padding-right: 12px;
+  letter-spacing: -0.01em;
+  opacity: 0.78;
+  transition: opacity 0.16s ease;
+}
+.cm-editor .cm-activeLineGutter {
+  background: rgba(0, 229, 255, 0.08) !important;
+  color: var(--ps-accent, #00E5FF) !important;
+  opacity: 1 !important;
+}
+
+/* ── Item 36 — StatusBar at workbench bottom ──────────────────────── */
+.ps-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 11.5px;
+  line-height: 1;
+  color: var(--bolt-elements-textSecondary);
+  background: linear-gradient(
+    180deg,
+    rgba(0, 229, 255, 0.03) 0%,
+    rgba(0, 0, 0, 0.18) 100%
+  );
+  border-top: 1px solid var(--bolt-elements-borderColor);
+  user-select: none;
+}
+.ps-statusbar__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bolt-elements-textTertiary);
+  box-shadow: 0 0 0 0 rgba(0, 229, 255, 0);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+.ps-statusbar__dot.is-online {
+  background: var(--ps-accent, #00E5FF);
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.55);
+}
+.ps-statusbar__seg {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.ps-statusbar__seg--mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--bolt-elements-textPrimary);
+}
+.ps-statusbar__sep {
+  color: var(--bolt-elements-textTertiary);
+  opacity: 0.6;
+}
+.ps-statusbar__spacer {
+  flex: 1;
+}
+
+/* ── Item 37 — Workbench view-transition swoosh ───────────────────── */
+.z-workbench {
+  view-transition-name: workbench;
+}
+@keyframes ps-workbench-swoosh-in {
+  from { transform: translateX(24%); opacity: 0; filter: blur(2px); }
+  to   { transform: translateX(0); opacity: 1; filter: blur(0); }
+}
+@keyframes ps-workbench-swoosh-out {
+  from { transform: translateX(0); opacity: 1; }
+  to   { transform: translateX(24%); opacity: 0; }
+}
+::view-transition-new(workbench) {
+  animation: ps-workbench-swoosh-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+::view-transition-old(workbench) {
+  animation: ps-workbench-swoosh-out 0.24s cubic-bezier(0.55, 0, 1, 0.45);
+}
+
+/* ── Item 39 — Role-coded chat message rails ──────────────────────── */
+.ps-msg {
+  position: relative;
+  padding-left: 14px;
+}
+.ps-msg::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--bolt-elements-borderColor);
+  transition: background 0.16s ease;
+}
+.ps-msg--user::before {
+  background: linear-gradient(
+    180deg,
+    var(--ps-accent, #00E5FF) 0%,
+    color-mix(in oklch, var(--ps-accent, #00E5FF) 30%, transparent) 100%
+  );
+  box-shadow: 0 0 6px rgba(0, 229, 255, 0.35);
+}
+.ps-msg--ai::before {
+  background: linear-gradient(
+    180deg,
+    var(--ps-accent-secondary, #7C3AED) 0%,
+    color-mix(in oklch, var(--ps-accent-secondary, #7C3AED) 30%, transparent) 100%
+  );
+  box-shadow: 0 0 6px rgba(124, 58, 237, 0.35);
+}
+.ps-msg--system::before {
+  background: var(--bolt-elements-textTertiary);
+  opacity: 0.5;
+}
+
+/* ── Item 40 — Send button circular progress ring ─────────────────── */
+.ps-send-btn {
+  position: relative;
+  overflow: visible;
+}
+.ps-send-ring {
+  position: absolute;
+  inset: -3px;
+  pointer-events: none;
+}
+.ps-send-ring__track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-width: 2;
+}
+.ps-send-ring__bar {
+  fill: none;
+  stroke: var(--ps-accent, #00E5FF);
+  stroke-width: 2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.6));
+  transition: stroke-dashoffset 0.3s ease;
+}
+.ps-send-ring__bar.is-indeterminate {
+  animation: ps-send-ring-spin 1.4s linear infinite;
+  transform-origin: 16px 16px;
+}
+@keyframes ps-send-ring-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Reduced-motion safety for the items above */
+@media (prefers-reduced-motion: reduce) {
+  .ps-boot-skeleton__bar > span,
+  .z-prompt::before,
+  .ps-ai-trail-dot,
+  .ps-send-ring__bar.is-indeterminate,
+  ::view-transition-new(workbench),
+  ::view-transition-old(workbench) {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

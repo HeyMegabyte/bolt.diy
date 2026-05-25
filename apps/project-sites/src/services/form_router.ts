@@ -234,7 +234,7 @@ export async function improveRouterPrompt(
     'Return ONLY the rewritten prompt — no preamble, no markdown fences.';
   try {
     const result = (await env.AI.run(
-      '@cf/meta/llama-3.1-8b-instruct' as Parameters<typeof env.AI.run>[0],
+      '@cf/meta/llama-3.1-8b-instruct-fp8' as Parameters<typeof env.AI.run>[0],
       {
         messages: [
           { role: 'system', content: sys },

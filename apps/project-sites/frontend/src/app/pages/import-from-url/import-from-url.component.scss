@@ -1,0 +1,53 @@
+// One-click site-import page — minimal local styling. All structural styling
+// flows through Tailwind utilities + inline `style="…var(--ps-*)…"` so the
+// design tokens in `src/styles/_polish.scss` are the single source of truth.
+//
+// Local overrides exist only for:
+//   - The native `<input>` focus ring (Tailwind's `focus:` chain doesn't
+//     fully cover the box-shadow pattern we want).
+//   - The `<details>` disclosure triangle (default is misaligned in dark UI).
+
+:host {
+  display: block;
+}
+
+input,
+details summary {
+  &:focus-visible {
+    outline: 2px solid var(--ps-accent, #00e5ff);
+    outline-offset: 2px;
+  }
+}
+
+input {
+  &:focus {
+    border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 60%, transparent) !important;
+  }
+}
+
+details > summary {
+  list-style: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &::before {
+    content: '+';
+    display: inline-block;
+    width: 1rem;
+    text-align: center;
+    font-weight: 700;
+    transition: transform 200ms ease;
+  }
+}
+
+details[open] > summary::before {
+  content: '−';
+}
+
+@media (prefers-reduced-motion: reduce) {
+  details > summary::before {
+    transition: none;
+  }
+}

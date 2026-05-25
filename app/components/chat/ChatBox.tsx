@@ -20,6 +20,7 @@ import type { DesignScheme } from '~/types/design-scheme';
 import type { ElementInfo } from '~/components/workbench/Inspector';
 import { McpTools } from './MCPTools';
 import { WebSearch } from './WebSearch.client';
+import { Dropdown, DropdownItem, DropdownSeparator } from '~/components/ui/Dropdown';
 
 interface ChatBoxProps {
   isModelSettingsCollapsed: boolean;
@@ -104,7 +105,12 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
         <rect className={classNames(styles.PromptEffectLine)} pathLength="100" strokeLinecap="round"></rect>
         <rect className={classNames(styles.PromptShine)} x="48" y="24" width="70" height="1"></rect>
       </svg>
-      <div>
+      {/*
+       * Hidden by projectsites brand override — re-enable via debug flag
+       * if needed for support. The state machine + provider list still
+       * compute so streaming/API/agent paths keep working unchanged.
+       */}
+      <div style={{ display: 'none' }} aria-hidden="true">
         <ClientOnly>
           {() => (
             <div className={props.isModelSettingsCollapsed ? 'hidden' : ''}>
@@ -174,9 +180,9 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
         <textarea
           ref={props.textareaRef}
           className={classNames(
-            'w-full pl-4 pt-4 pr-16 outline-none resize-none text-bolt-elements-textPrimary placeholder-bolt-elements-textTertiary bg-transparent text-sm',
+            'w-full pl-4 pt-3 pr-16 outline-none resize-none text-bolt-elements-textPrimary placeholder-bolt-elements-textTertiary bg-transparent text-sm',
             'transition-all duration-200',
-            'hover:border-bolt-elements-focus',
+            'hover:border-bolt-elements-focus focus:pt-4',
           )}
           onDragEnter={(e) => {
             e.preventDefault();
@@ -238,7 +244,7 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
             minHeight: props.TEXTAREA_MIN_HEIGHT,
             maxHeight: props.TEXTAREA_MAX_HEIGHT,
           }}
-          placeholder={props.chatMode === 'build' ? 'How can Bolt help you today?' : 'What would you like to discuss?'}
+          placeholder={props.chatMode === 'build' ? 'What are we shipping?' : 'What are we discussing?'}
           translate="no"
         />
         <ClientOnly>
@@ -260,16 +266,19 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
             />
           )}
         </ClientOnly>
-        <div className="flex justify-between items-center text-sm p-4 pt-2">
+        {/*
+         * Tightened bottom row — only attach / improve / mode-pill / overflow.
+         * Send + stop live in <SendButton/> above. Speech, web-search, MCP, color
+         * scheme, Supabase, model-chip moved into the ⋯ overflow to reduce
+         * visual noise for the cinematic persona rollout (2026-05-24).
+         */}
+        <div className="flex justify-between items-center text-sm px-4 pb-3 pt-1.5">
           <div className="flex gap-1 items-center">
-            <ColorSchemeDialog designScheme={props.designScheme} setDesignScheme={props.setDesignScheme} />
-            <McpTools />
-            <IconButton title="Upload file" className="transition-all" onClick={() => props.handleFileUpload()}>
+            <IconButton title="Attach file" className="transition-all" onClick={() => props.handleFileUpload()}>
               <div className="i-ph:paperclip text-xl"></div>
             </IconButton>
-            <WebSearch onSearchResult={(result) => props.onWebSearchResult?.(result)} disabled={props.isStreaming} />
             <IconButton
-              title="Enhance prompt"
+              title="Improve with AI"
               disabled={props.input.length === 0 || props.enhancingPrompt}
               className={classNames('transition-all', props.enhancingPrompt ? 'opacity-100' : '')}
               onClick={() => {
@@ -283,49 +292,84 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                 <div className="i-bolt:stars text-xl"></div>
               )}
             </IconButton>
-
-            <SpeechRecognitionButton
-              isListening={props.isListening}
-              onStart={props.startListening}
-              onStop={props.stopListening}
-              disabled={props.isStreaming}
-            />
             {props.chatStarted && (
-              <IconButton
-                title="Discuss"
+              <button
+                type="button"
+                title={props.chatMode === 'discuss' ? 'Mode: discuss · click to build' : 'Mode: build · click to discuss'}
                 className={classNames(
-                  'transition-all flex items-center gap-1 px-1.5',
+                  'font-mono text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border transition-colors leading-none',
                   props.chatMode === 'discuss'
-                    ? '!bg-bolt-elements-item-backgroundAccent !text-bolt-elements-item-contentAccent'
-                    : 'bg-bolt-elements-item-backgroundDefault text-bolt-elements-item-contentDefault',
+                    ? 'bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent border-bolt-elements-item-contentAccent'
+                    : 'text-bolt-elements-textTertiary border-bolt-elements-borderColor hover:text-bolt-elements-textSecondary',
                 )}
                 onClick={() => {
                   props.setChatMode?.(props.chatMode === 'discuss' ? 'build' : 'discuss');
                 }}
               >
-                <div className={`i-ph:chats text-xl`} />
-                {props.chatMode === 'discuss' ? <span>Discuss</span> : <span />}
-              </IconButton>
+                {props.chatMode === 'discuss' ? 'discuss' : 'build'}
+              </button>
             )}
-            <IconButton
-              title="Model Settings"
-              className={classNames('transition-all flex items-center gap-1', {
-                'bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent':
-                  !props.isModelSettingsCollapsed,
-              })}
-              onClick={() => props.setIsModelSettingsCollapsed(!props.isModelSettingsCollapsed)}
-              disabled={!props.providerList || props.providerList.length === 0}
-            >
-              <div
-                className={classNames('i-ph:caret-right text-lg transition-transform', {
-                  'rotate-90': !props.isModelSettingsCollapsed,
-                })}
-              />
-              <span className="text-xs">{props.model}</span>
-            </IconButton>
           </div>
-          <SupabaseConnection />
+          <div className="flex items-center gap-1">
+            <Dropdown
+              align="end"
+              trigger={
+                <IconButton title="More" className="transition-all">
+                  <div className="i-ph:dots-three-outline-vertical text-xl" />
+                </IconButton>
+              }
+            >
+              <DropdownItem onSelect={() => props.exportChat?.()}>
+                <div className="i-ph:download-simple text-base" />
+                <span>Export chat</span>
+              </DropdownItem>
+              <DropdownSeparator />
+              <DropdownItem onSelect={() => props.setQrModalOpen(true)}>
+                <div className="i-ph:device-mobile text-base" />
+                <span>Open on mobile (QR)</span>
+              </DropdownItem>
+              <DropdownSeparator />
+              {/*
+               * Power-user surfaces. Speech + web search + MCP + color scheme +
+               * Supabase + design scheme stay reachable but no longer crowd
+               * the primary input row. Each renders its own trigger inside.
+               */}
+              <div className="flex items-center gap-1 px-2 py-1">
+                <WebSearch onSearchResult={(result) => props.onWebSearchResult?.(result)} disabled={props.isStreaming} />
+                <McpTools />
+                <ColorSchemeDialog designScheme={props.designScheme} setDesignScheme={props.setDesignScheme} />
+                <SpeechRecognitionButton
+                  isListening={props.isListening}
+                  onStart={props.startListening}
+                  onStop={props.stopListening}
+                  disabled={props.isStreaming}
+                />
+                <SupabaseConnection />
+              </div>
+            </Dropdown>
+          </div>
           <ExpoQrModal open={props.qrModalOpen} onClose={() => props.setQrModalOpen(false)} />
+          {/*
+           * Hidden by projectsites brand override — re-enable via debug flag
+           * if needed for support. The model-settings state machine still
+           * runs (collapsed=true by default in BaseChat); we only hide the
+           * trigger chip + the inline ModelSelector panel above.
+           */}
+          <IconButton
+            title="Model Settings"
+            style={{ display: 'none' }}
+            aria-hidden="true"
+            tabIndex={-1}
+            onClick={() => props.setIsModelSettingsCollapsed(!props.isModelSettingsCollapsed)}
+            disabled={!props.providerList || props.providerList.length === 0}
+          >
+            <div
+              className={classNames('i-ph:caret-right text-lg transition-transform', {
+                'rotate-90': !props.isModelSettingsCollapsed,
+              })}
+            />
+            <span className="text-xs">{props.model}</span>
+          </IconButton>
         </div>
       </div>
     </div>

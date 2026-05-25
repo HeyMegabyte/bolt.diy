@@ -30,6 +30,12 @@ export interface Operation {
   readonly requestBody?: unknown;
   /** Optional example response body. */
   readonly responseExample?: unknown;
+  /** Human-facing category from `x-category` (broader than `tag`). */
+  readonly category: string;
+  /** Rate limit from `x-rate-limit` — `null` when unbounded. */
+  readonly rateLimit: { requests: number; windowSeconds: number } | null;
+  /** ISO-8601 ship date from `x-added-at`. */
+  readonly addedAt: string | null;
 }
 
 /** Top-level OpenAPI spec shape we actually consume. */
@@ -48,6 +54,20 @@ interface RawOp {
   parameters?: Array<{ name: string; in: string; description?: string }>;
   requestBody?: { content?: { 'application/json'?: { schema?: unknown } } };
   responses?: Record<string, { content?: { 'application/json'?: { example?: unknown } } }>;
+  ['x-category']?: string;
+  ['x-rate-limit']?: { requests: number; windowSeconds: number };
+  ['x-added-at']?: string;
+}
+
+/** Shape returned by `GET /api/admin/docs/stats`. */
+export interface DocsStats {
+  readonly total: number;
+  readonly public: number;
+  readonly authed: number;
+  readonly rate_limited: number;
+  readonly recent: ReadonlyArray<{ method: string; path: string; addedAt: string; category?: string }>;
+  readonly category_counts: Readonly<Record<string, number>>;
+  readonly generated_at: string;
 }
 
 /**
@@ -464,10 +484,12 @@ export class DocsSpecService {
   private readonly _spec = signal<OpenApiSpec | null>(null);
   private readonly _loading = signal<boolean>(false);
   private readonly _error = signal<string | null>(null);
+  private readonly _stats = signal<DocsStats | null>(null);
 
   readonly spec: Signal<OpenApiSpec | null> = this._spec.asReadonly();
   readonly loading: Signal<boolean> = this._loading.asReadonly();
   readonly error: Signal<string | null> = this._error.asReadonly();
+  readonly stats: Signal<DocsStats | null> = this._stats.asReadonly();
 
   /** Flattened operation list — derived from the OpenAPI doc. */
   readonly operations: Signal<Operation[]> = computed(() => {
@@ -480,16 +502,22 @@ export class DocsSpecService {
         const op = opRaw as RawOp;
         const tags = op.tags ?? ['other'];
         const respExample = op.responses?.['200']?.content?.['application/json']?.example;
+        const tag = tags[0] ?? 'other';
         out.push({
           method: method.toUpperCase(),
           path,
           summary: op.summary ?? `${method.toUpperCase()} ${path}`,
-          tag: tags[0] ?? 'other',
+          tag,
           operationId: op.operationId ?? `${method}_${path}`,
           authRequired: Array.isArray(op.security) && op.security.length > 0,
           parameters: op.parameters ?? [],
           requestBody: op.requestBody?.content?.['application/json']?.schema,
           responseExample: respExample,
+          // Title-case fallback so a missing `x-category` still produces a
+          // readable left-rail group ("auth" → "Auth", "ai" → "AI").
+          category: op['x-category'] ?? (tag === 'ai' ? 'AI' : tag.charAt(0).toUpperCase() + tag.slice(1)),
+          rateLimit: op['x-rate-limit'] ?? null,
+          addedAt: op['x-added-at'] ?? null,
         });
       }
     }
@@ -519,6 +547,20 @@ export class DocsSpecService {
   findById(id: string | null | undefined): Operation | null {
     if (!id) return null;
     return this.operations().find((o) => o.operationId === id) ?? null;
+  }
+
+  /**
+   * Fetch the aggregate counters used by the overview hero. Best-effort —
+   * failures silently leave `stats()` null so the overview falls back to a
+   * spec-derived summary.
+   */
+  loadStats(): void {
+    this.api
+      .get<{ data: DocsStats }>('/admin/docs/stats')
+      .subscribe({
+        next: (r) => this._stats.set(r.data),
+        error: () => this._stats.set(null),
+      });
   }
 }
 
@@ -550,10 +592,12 @@ export class DocsSpecService {
   standalone: true,
   imports: [FormsModule, RouterOutlet, RouterLink, RouterLinkActive],
   providers: [DocsSpecService],
+  host: { '(window:keydown)': 'onWindowKeydown($event)' },
   template: `
     <div class="docs-root p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4">
       <header class="docs-header">
         <div class="docs-title-wrap">
+          <div class="docs-kicker">Developer reference</div>
           <h2 class="docs-title">
             <span class="docs-title-glyph" aria-hidden="true">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -563,7 +607,10 @@ export class DocsSpecService {
             </span>
             <span class="docs-title-text">API Docs</span>
             @if (specService.spec(); as s) {
-              <span class="docs-version-chip" title="OpenAPI version">v{{ s.info.version }}</span>
+              <span class="docs-version-chip" title="OpenAPI version" [attr.aria-label]="'OpenAPI version ' + s.info.version">v{{ s.info.version }}</span>
+              <span class="docs-count-chip" [attr.aria-label]="specService.operations().length + ' endpoints'">
+                {{ specService.operations().length }} endpoints
+              </span>
             }
           </h2>
           <p class="docs-subtitle">
@@ -592,17 +639,28 @@ export class DocsSpecService {
       <div class="docs-divider" aria-hidden="true"></div>
 
       @if (specService.loading() && !specService.spec()) {
-        <div class="card docs-loading">
-          <span class="glow-skel" style="width:140px;height:14px;">loading</span>
-          <span class="glow-skel" style="width:90px;height:14px;">loading</span>
-          <span class="glow-skel" style="width:200px;height:14px;">loading</span>
+        <div class="card docs-loading" aria-busy="true" aria-label="Loading OpenAPI spec" data-testid="docs-loading">
+          <div class="docs-skel-block">
+            <span class="glow-skel" style="width:140px;height:14px;">loading</span>
+            <span class="glow-skel" style="width:90px;height:14px;">loading</span>
+            <span class="glow-skel" style="width:200px;height:14px;">loading</span>
+          </div>
+          <span class="docs-loading-hint">Fetching the latest OpenAPI spec from /admin/docs/openapi.json…</span>
         </div>
       }
 
       @if (specService.error()) {
-        <div class="card docs-error">
-          <strong class="text-amber-300">Could not load the docs.</strong>
-          <span>{{ specService.error() }}</span>
+        <div class="card docs-error" role="alert" data-testid="docs-error">
+          <div class="docs-error-head">
+            <span class="docs-error-glyph" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </span>
+            <div>
+              <strong class="text-amber-300">Could not load the docs.</strong>
+              <span class="docs-error-detail">{{ specService.error() }}</span>
+            </div>
+          </div>
+          <button class="btn-ghost" type="button" (click)="specService.load()" aria-label="Retry loading the OpenAPI spec">Retry</button>
         </div>
       }
 
@@ -614,15 +672,32 @@ export class DocsSpecService {
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
             <input
+              #railSearch
               type="text"
               class="input-field docs-search-input"
-              placeholder="Filter by path, method or tag…"
+              placeholder="Filter (/ to focus) — path, method, category…"
               [ngModel]="endpointSearchQuery()"
               (ngModelChange)="endpointSearchQuery.set($event)"
+              (keydown)="onRailSearchKeydown($event)"
               aria-label="Filter endpoints"
               data-testid="docs-search"
             />
-            <kbd class="docs-kbd-hint" aria-hidden="true">⌘K</kbd>
+            <kbd class="docs-kbd-hint" aria-hidden="true">/</kbd>
+          </div>
+          <div class="docs-verb-chips" role="toolbar" aria-label="Filter by HTTP method">
+            @for (v of VERBS; track v) {
+              <button
+                type="button"
+                class="docs-verb-chip method method-{{ v.toLowerCase() }}"
+                [class.is-active]="verbFilter() === v"
+                (click)="toggleVerb(v)"
+                [attr.aria-pressed]="verbFilter() === v"
+                [attr.data-testid]="'docs-verb-chip-' + v.toLowerCase()"
+              >{{ v }}</button>
+            }
+            @if (verbFilter()) {
+              <button type="button" class="docs-verb-clear" (click)="verbFilter.set(null)" aria-label="Clear method filter">clear</button>
+            }
           </div>
           <div class="docs-rail-meta">
             <span>{{ filteredOperations().length }} endpoint{{ filteredOperations().length === 1 ? '' : 's' }}</span>
@@ -630,13 +705,13 @@ export class DocsSpecService {
             <span>{{ groupedOperations().length }} group{{ groupedOperations().length === 1 ? '' : 's' }}</span>
           </div>
           <nav class="docs-groups" aria-label="Endpoint groups">
-            @for (group of groupedOperations(); track group.tag) {
+            @for (group of groupedOperations(); track group.category) {
               <details class="docs-group" [open]="group.open">
                 <summary class="docs-group-head">
                   <svg class="docs-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="9 18 15 12 9 6"/>
                   </svg>
-                  <span class="docs-group-name">{{ group.tag }}</span>
+                  <span class="docs-group-name">{{ group.category }}</span>
                   <span class="docs-group-count">{{ group.items.length }}</span>
                 </summary>
                 <div class="docs-group-items">
@@ -646,17 +721,31 @@ export class DocsSpecService {
                       [routerLink]="['/admin/docs', op.operationId]"
                       routerLinkActive="is-active"
                       [attr.data-testid]="'docs-nav-endpoint-' + op.operationId"
-                      [title]="op.method + ' ' + op.path"
+                      [title]="op.method + ' ' + op.path + (op.summary ? '\n' + op.summary : '')"
                     >
                       <span class="method method-{{ op.method.toLowerCase() }}">{{ op.method }}</span>
-                      <span class="path">{{ op.path }}</span>
+                      <span class="endpoint-row-text">
+                        <span class="path">{{ op.path }}</span>
+                        <span class="endpoint-row-summary">{{ op.summary }}</span>
+                      </span>
+                      @if (!op.authRequired) {
+                        <span class="endpoint-row-badge" title="No authentication required" aria-label="public">pub</span>
+                      } @else {
+                        <span class="endpoint-row-badge is-auth" title="Bearer token required" aria-label="auth required">auth</span>
+                      }
                     </a>
                   }
                 </div>
               </details>
             }
             @if (groupedOperations().length === 0 && specService.spec()) {
-              <div class="docs-rail-empty">No endpoints match “{{ endpointSearchQuery() }}”.</div>
+              <div class="docs-rail-empty" role="status" aria-live="polite">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <div>No endpoints match &ldquo;{{ endpointSearchQuery() }}&rdquo;.</div>
+                <button class="btn-ghost-mini" type="button" (click)="endpointSearchQuery.set('')" aria-label="Clear search filter">Clear filter</button>
+              </div>
             }
           </nav>
         </aside>
@@ -698,6 +787,19 @@ export class DocsSpecService {
       gap: var(--r3); flex-wrap: wrap;
     }
     .docs-title-wrap { display: flex; flex-direction: column; gap: 6px; max-width: 60ch; }
+    .docs-kicker {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.62rem; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--ps-accent, #00E5FF); opacity: 0.85;
+    }
+    .docs-count-chip {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.6rem; font-weight: 600; letter-spacing: 0.04em;
+      padding: 3px 8px; border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.55);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
     .docs-title {
       display: inline-flex; align-items: center; gap: 10px;
       margin: 0; color: #fff; font-size: 1.35rem; line-height: 1.15;
@@ -737,12 +839,20 @@ export class DocsSpecService {
       transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
     }
     .docs-tab:hover { background: rgba(0,229,255,0.06); border-color: var(--docs-line-hi); color: #fff; }
+    .docs-tab:focus-visible {
+      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline-offset: var(--ps-ring-focus-offset, 2px);
+    }
     .docs-tab.is-active {
       background: linear-gradient(135deg, rgba(0,229,255,0.16), rgba(124,58,237,0.16));
       color: #fff; border-color: rgba(0,229,255,0.45);
       box-shadow: 0 0 0 1px rgba(0,229,255,0.12) inset, 0 6px 18px -10px rgba(0,229,255,0.55);
     }
-    .docs-refresh { padding: 0.5rem 0.9rem; font-size: 0.74rem; }
+    .docs-refresh { padding: 0.5rem 0.9rem; font-size: 0.74rem; min-height: 28px; }
+    .docs-refresh:focus-visible {
+      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline-offset: var(--ps-ring-focus-offset, 2px);
+    }
 
     .docs-divider {
       height: 1px;
@@ -751,14 +861,31 @@ export class DocsSpecService {
     }
 
     .docs-loading {
-      display: flex; gap: 10px; padding: 1.5rem !important;
+      display: flex; flex-direction: column; gap: 12px; padding: 1.5rem !important;
       align-items: center; justify-content: center;
     }
+    .docs-skel-block { display: flex; gap: 10px; align-items: center; justify-content: center; }
+    .docs-loading-hint {
+      font-size: 0.7rem; color: var(--docs-fg-mute);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
     .docs-error {
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      justify-content: space-between;
       background: rgba(245,158,11,0.06) !important;
       border-color: rgba(245,158,11,0.30) !important;
       font-size: 0.8rem;
+    }
+    .docs-error-head { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+    .docs-error-glyph {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 8px;
+      background: rgba(245,158,11,0.14); color: #fbbf24;
+      border: 1px solid rgba(245,158,11,0.32); flex-shrink: 0;
+    }
+    .docs-error-detail {
+      display: block; font-size: 0.72rem; color: rgba(255,255,255,0.65);
+      margin-top: 2px; font-family: 'JetBrains Mono', ui-monospace, monospace;
     }
 
     /* ── Explorer grid — left rail + child router-outlet ────────────── */
@@ -786,7 +913,11 @@ export class DocsSpecService {
       position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
       color: var(--docs-fg-mute); pointer-events: none;
     }
-    .docs-search-input { width: 100%; padding-left: 28px !important; padding-right: 44px !important; font-size: 0.78rem; }
+    .docs-search-input { width: 100%; padding-left: 28px !important; padding-right: 44px !important; font-size: 0.78rem; min-height: 32px; }
+    .docs-search-input:focus-visible {
+      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline-offset: var(--ps-ring-focus-offset, 2px);
+    }
     .docs-kbd-hint {
       position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
       font-family: ui-monospace, monospace; font-size: 0.6rem;
@@ -879,12 +1010,106 @@ export class DocsSpecService {
     .method-delete { background: rgba(239,68,68,0.10);  color: var(--docs-red);      border-color: rgba(239,68,68,0.32); }
 
     .docs-rail-empty {
+      display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
       padding: var(--r3) var(--r2); text-align: center;
-      color: var(--docs-fg-mute); font-size: 0.78rem; font-style: italic;
+      color: var(--docs-fg-mute); font-size: 0.76rem;
+      background: radial-gradient(circle at center top, rgba(0,229,255,0.04), transparent 70%);
+      border: 1px dashed rgba(0,229,255,0.14);
+      border-radius: 10px;
+      margin-top: 6px;
+    }
+    .docs-rail-empty svg { color: rgba(0,229,255,0.5); }
+    .btn-ghost-mini {
+      padding: 4px 10px; min-height: 24px;
+      border-radius: var(--ps-radius-sm, 6px);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.78);
+      font-size: 0.66rem; font-weight: 600;
+      cursor: pointer;
+      transition: background var(--ps-dur-fast, 140ms) ease, color var(--ps-dur-fast, 140ms) ease;
+    }
+    .btn-ghost-mini:hover { background: rgba(0,229,255,0.08); color: #fff; }
+    .btn-ghost-mini:focus-visible {
+      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline-offset: var(--ps-ring-focus-offset, 2px);
+    }
+    /* Fallback local .btn-ghost used by the docs-error retry button — the
+       global styles.scss .btn-ghost is also present, but scoping a small
+       local copy guarantees the visual + focus behaviour even if the global
+       cascade order shifts. */
+    .btn-ghost {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 0.5rem 0.95rem; min-height: 32px;
+      border-radius: var(--ps-radius-sm, 8px);
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.78);
+      border: 1px solid rgba(255,255,255,0.1);
+      cursor: pointer; font-size: 0.74rem; font-weight: 600;
+      transition: background var(--ps-dur-fast, 140ms) ease, border-color var(--ps-dur-fast, 140ms) ease, color var(--ps-dur-fast, 140ms) ease;
+    }
+    .btn-ghost:hover { background: rgba(0,229,255,0.08); border-color: var(--docs-line-hi); color: #fff; }
+    .btn-ghost:focus-visible {
+      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline-offset: var(--ps-ring-focus-offset, 2px);
+    }
+
+    /* ── Verb-chip filter row ───────────────────────────────────────── */
+    .docs-verb-chips {
+      display: flex; flex-wrap: wrap; gap: 4px;
+      padding: 2px 0 4px;
+    }
+    .docs-verb-chip {
+      cursor: pointer; min-width: 0;
+      opacity: 0.55; transition: opacity 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+    }
+    .docs-verb-chip:hover { opacity: 0.85; }
+    .docs-verb-chip:focus-visible {
+      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline-offset: var(--ps-ring-focus-offset, 2px);
+    }
+    .docs-verb-chip.is-active {
+      opacity: 1;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px -6px currentColor;
+    }
+    .docs-verb-clear {
+      font-family: ui-monospace, monospace; font-size: 0.6rem; font-weight: 600;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      padding: 3px 7px; border-radius: 5px;
+      background: transparent; border: 1px dashed rgba(255,255,255,0.18);
+      color: var(--docs-fg-mute); cursor: pointer;
+      transition: color 140ms ease, border-color 140ms ease;
+    }
+    .docs-verb-clear:hover { color: #fff; border-color: rgba(0,229,255,0.45); }
+
+    /* ── Endpoint row text + badge stack ────────────────────────────── */
+    .endpoint-row-text {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; gap: 1px;
+      overflow: hidden;
+    }
+    .endpoint-row-summary {
+      font-size: 0.64rem; color: rgba(255,255,255,0.42);
+      line-height: 1.25;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .endpoint-row.is-active .endpoint-row-summary { color: rgba(255,255,255,0.62); }
+    .endpoint-row-badge {
+      flex-shrink: 0;
+      font-family: ui-monospace, monospace; font-size: 0.54rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 2px 5px; border-radius: 4px;
+      background: rgba(74,222,128,0.10); color: #4ade80;
+      border: 1px solid rgba(74,222,128,0.24);
+    }
+    .endpoint-row-badge.is-auth {
+      background: rgba(124,58,237,0.10); color: #c084fc;
+      border-color: rgba(124,58,237,0.24);
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .docs-tab, .endpoint-row, .docs-chevron, .docs-group-head {
+      .docs-tab, .endpoint-row, .docs-chevron, .docs-group-head, .docs-verb-chip {
         transition: none !important; animation: none !important;
       }
     }
@@ -894,38 +1119,94 @@ export class AdminDocsComponent implements OnInit {
   readonly specService = inject(DocsSpecService);
   private router = inject(Router);
 
+  /** Verb chips ordered by frequency in a typical REST API. */
+  readonly VERBS: ReadonlyArray<'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'> = [
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+  ];
+
   /** Left-rail search query — filters endpoint list by path | method | tag | summary. */
   readonly endpointSearchQuery = signal<string>('');
 
+  /** Optional verb filter — when set, only that method is shown in the rail. */
+  readonly verbFilter = signal<'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | null>(null);
+
   readonly filteredOperations = computed<Operation[]>(() => {
     const q = this.endpointSearchQuery().trim().toLowerCase();
-    const all = this.specService.operations();
+    const v = this.verbFilter();
+    let all = this.specService.operations();
+    if (v) all = all.filter((op) => op.method === v);
     if (!q) return all;
     return all.filter(
       (op) =>
         op.path.toLowerCase().includes(q) ||
         op.summary.toLowerCase().includes(q) ||
         op.method.toLowerCase().includes(q) ||
-        op.tag.toLowerCase().includes(q),
+        op.tag.toLowerCase().includes(q) ||
+        op.category.toLowerCase().includes(q),
     );
   });
 
   readonly groupedOperations = computed(() => {
     const groups = new Map<string, Operation[]>();
     for (const op of this.filteredOperations()) {
-      const arr = groups.get(op.tag);
+      const arr = groups.get(op.category);
       if (arr) arr.push(op);
-      else groups.set(op.tag, [op]);
+      else groups.set(op.category, [op]);
     }
     return Array.from(groups.entries())
-      .map(([tag, items]) => ({ tag, items, open: true }))
-      .sort((a, b) => a.tag.localeCompare(b.tag));
+      .map(([category, items]) => ({ category, items, open: true }))
+      .sort((a, b) => a.category.localeCompare(b.category));
   });
+
+  toggleVerb(v: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'): void {
+    this.verbFilter.set(this.verbFilter() === v ? null : v);
+  }
+
+  /**
+   * `/` shortcut focuses the rail search box (unless typing in another input).
+   * `Esc` clears the search query so the rail snaps back to the full list.
+   */
+  onWindowKeydown(ev: KeyboardEvent): void {
+    const target = ev.target as HTMLElement | null;
+    const isTyping =
+      target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable;
+    if (ev.key === '/' && !isTyping) {
+      ev.preventDefault();
+      const el = document.querySelector<HTMLInputElement>('input.docs-search-input');
+      el?.focus();
+      el?.select();
+    } else if (ev.key === 'Escape' && (this.endpointSearchQuery() || this.verbFilter())) {
+      // Only fire when there's an active filter so we don't fight other Esc
+      // handlers (modals, popovers, drawers).
+      this.endpointSearchQuery.set('');
+      this.verbFilter.set(null);
+    }
+  }
+
+  /** Arrow-up/down inside the rail-search input navigates to next/prev endpoint. */
+  onRailSearchKeydown(ev: KeyboardEvent): void {
+    if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp' && ev.key !== 'Enter') return;
+    const ops = this.filteredOperations();
+    if (ops.length === 0) return;
+    const currentId = (this.router.url.split('?')[0] ?? '').split('/admin/docs/')[1] ?? '';
+    const idx = ops.findIndex((o) => o.operationId === currentId);
+    let nextIdx = idx;
+    if (ev.key === 'ArrowDown') nextIdx = idx < 0 ? 0 : Math.min(ops.length - 1, idx + 1);
+    else if (ev.key === 'ArrowUp') nextIdx = idx < 0 ? 0 : Math.max(0, idx - 1);
+    else if (ev.key === 'Enter' && idx < 0) nextIdx = 0;
+    if (nextIdx === idx && ev.key !== 'Enter') return;
+    const target = ops[nextIdx];
+    if (!target) return;
+    ev.preventDefault();
+    void this.router.navigate(['/admin/docs', target.operationId]);
+  }
 
   ngOnInit(): void {
     this.specService.load();
-    // Mark `router` as referenced — kept on the instance for future keyboard
-    // shortcuts (e.g. ⌘K → focus first matching endpoint via router.navigate).
-    void this.router;
+    this.specService.loadStats();
   }
 }

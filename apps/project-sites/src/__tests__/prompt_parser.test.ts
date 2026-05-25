@@ -15,7 +15,7 @@ id: research_business
 version: 2
 description: Research a local business
 models:
-  - "@cf/meta/llama-3.1-70b-instruct"
+  - "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
   - "@cf/openai/gpt-4o"
 params:
   temperature: 0.3
@@ -44,7 +44,7 @@ Research the following business: {{business_name}} in {{city}}.
     expect(spec.version).toBe(2);
     expect(spec.variant).toBeUndefined();
     expect(spec.description).toBe('Research a local business');
-    expect(spec.models).toEqual(['@cf/meta/llama-3.1-70b-instruct', '@cf/openai/gpt-4o']);
+    expect(spec.models).toEqual(['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/openai/gpt-4o']);
     expect(spec.params).toEqual({ temperature: 0.3, maxTokens: 4096 });
     expect(spec.inputs).toEqual({
       required: ['business_name', 'city'],
@@ -65,7 +65,7 @@ id: summarize_article
 version: 1
 variant: b
 description: Summarize an article concisely
-models: ["@cf/meta/llama-3.1-70b-instruct"]
+models: ["@cf/meta/llama-3.3-70b-instruct-fp8-fast"]
 params:
   temperature: 0.5
   max_tokens: 2048
@@ -88,7 +88,7 @@ Summarize this article: {{article_text}}
     expect(spec.version).toBe(1);
     expect(spec.variant).toBe('b');
     expect(spec.description).toBe('Summarize an article concisely');
-    expect(spec.models).toEqual(['@cf/meta/llama-3.1-70b-instruct']);
+    expect(spec.models).toEqual(['@cf/meta/llama-3.3-70b-instruct-fp8-fast']);
     expect(spec.params).toEqual({ temperature: 0.5, maxTokens: 2048 });
     expect(spec.inputs.required).toEqual(['article_text']);
     expect(spec.inputs.optional).toEqual([]);
@@ -306,14 +306,14 @@ empty: []`;
 
   it('parses block arrays', () => {
     const yaml = `models:
-  - "@cf/meta/llama-3.1-70b-instruct"
+  - "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
   - "@cf/openai/gpt-4o"
   - plain_model`;
 
     const result = parseSimpleYaml(yaml);
 
     expect(result.models).toEqual([
-      '@cf/meta/llama-3.1-70b-instruct',
+      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
       '@cf/openai/gpt-4o',
       'plain_model',
     ]);

@@ -27,6 +27,8 @@ import { getTheme, reconfigureTheme } from './cm-theme';
 import { indentKeyBinding } from './indent';
 import { getLanguage } from './languages';
 import { createEnvMaskingExtension } from './EnvMasking';
+import { aiCursorTrail } from './aiCursorTrail';
+import { setActiveEditorView } from '~/lib/tools/editor-context';
 
 const logger = createScopedLogger('CodeMirrorEditor');
 
@@ -165,6 +167,12 @@ export const CodeMirrorEditor = memo(
 
       // Update the module-level reference for use in tooltip functions
       currentDocRef = doc;
+
+      // Rec 5 — keep the tool dispatcher's active-view registry in sync
+      // with the currently-open file so getSelection reports the right path.
+      if (viewRef.current) {
+        setActiveEditorView(viewRef.current, doc?.filePath);
+      }
       themeRef.current = theme;
     });
 
@@ -230,8 +238,12 @@ export const CodeMirrorEditor = memo(
       });
 
       viewRef.current = view;
+      // Rec 5 — expose the active view to the tool dispatcher so getSelection
+      // / replaceSelection tools can read+mutate the editor without prop drill.
+      setActiveEditorView(view, docRef.current?.filePath);
 
       return () => {
+        setActiveEditorView(undefined, undefined);
         viewRef.current?.destroy();
         viewRef.current = undefined;
       };
@@ -392,9 +404,18 @@ function newEditorState(
       }),
       closeBrackets(),
       lineNumbers(),
+      // Item 34 — cyan particle trail when AI is writing
+      ...aiCursorTrail,
       scrollPastEnd(),
       dropCursor(),
-      drawSelection(),
+      drawSelection({ cursorBlinkRate: 1000, drawRangeCursor: true }),
+      /*
+       * Multi-cursor — Alt+Click / Ctrl+Alt+ArrowUp/Down works as soon as
+       * allowMultipleSelections is on. CodeMirror 6 has the primitive
+       * built-in; this just toggles the flag explicitly so behaviour is
+       * stable across upgrades.
+       */
+      EditorState.allowMultipleSelections.of(true),
       bracketMatching(),
       EditorState.tabSize.of(settings?.tabSize ?? 2),
       indentOnInput(),

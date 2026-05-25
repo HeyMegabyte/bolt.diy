@@ -1,164 +1,333 @@
 import { Component, inject, signal, computed, type OnInit, type OnDestroy } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
+import { Router } from '@angular/router';
 import { timeout, catchError } from 'rxjs/operators';
-import { of, TimeoutError } from 'rxjs';
+import { forkJoin, of, TimeoutError } from 'rxjs';
 import { AdminStateService } from '../admin-state.service';
-import { ApiService, type AnalyticsData } from '../../../services/api.service';
+import {
+  ApiService,
+  type AnalyticsRange,
+  type CloudflareCredentialStatus,
+  type MultiUrlAnalyticsEnvelope,
+  type SiteUrlRow,
+} from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
-type RangeId = '1d' | '7d' | '30d' | '90d';
+type RangeId = AnalyticsRange;
+
+/** Auto-refresh cadence in seconds — surfaced in the header countdown. */
+const REFRESH_INTERVAL_SEC = 60;
 
 /**
- * Map UI range chip → `period` query value (days) for `GET /api/analytics/:siteId`.
+ * Format a count compactly: 999 → "999", 1_240 → "1.2K", 1_400_000 → "1.4M".
+ * Falls back to `toLocaleString` for fractional and < 1000 values so commas
+ * still surface correctly.
  */
-const RANGE_DAYS: Record<RangeId, string> = { '1d': '1', '7d': '7', '30d': '30', '90d': '90' };
-
-/**
- * Source pill label shown near the chart so operators know which fallback
- * path produced the numbers they're looking at.
- */
-function sourceLabel(source: AnalyticsData['source']): string {
-  if (source === 'ga4') return 'GA4';
-  if (source === 'cloudflare_zone_analytics') return 'Cloudflare Edge';
-  return 'Audit log estimate';
+function formatCount(n: number | null | undefined): string {
+  if (n == null || isNaN(n)) return '0';
+  if (n < 1000) return n.toLocaleString();
+  if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0).replace(/\.0$/, '')}K`;
+  if (n < 1_000_000_000) return `${(n / 1_000_000).toFixed(n < 10_000_000 ? 1 : 0).replace(/\.0$/, '')}M`;
+  return `${(n / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`;
 }
 
 /**
- * Marketing copy for the source pill — explains the trade-offs of each
- * fallback path in plain language so non-engineers reading the dashboard
- * understand why bounce-rate is missing on CF and why everything is zero
- * on the audit-log fallback.
+ * Build a 0..maxX × 0..maxY normalized SVG path from an array of numeric samples.
  */
-function sourceTooltip(source: AnalyticsData['source']): string {
-  if (source === 'ga4') return 'Google Analytics 4 — full session + behavior data.';
-  if (source === 'cloudflare_zone_analytics') return 'Cloudflare edge analytics — page views, unique visitors, top pages, geo. No session-duration / bounce-rate at the edge.';
-  return 'No analytics source configured — counts are estimated from the audit log. Wire GA4 or Cloudflare zone analytics for real numbers.';
+function sparklinePath(values: number[], width: number, height: number, peak?: number): { line: string; area: string } {
+  if (values.length === 0) return { line: '', area: '' };
+  const max = Math.max(1, peak ?? Math.max(...values));
+  const step = values.length > 1 ? width / (values.length - 1) : 0;
+  const pts = values.map((v, i) => ({ x: i * step, y: height - (v / max) * (height - 2) - 1 }));
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  const last = pts[pts.length - 1]!;
+  const first = pts[0]!;
+  const area = `${line} L ${last.x.toFixed(1)} ${height} L ${first.x.toFixed(1)} ${height} Z`;
+  return { line, area };
 }
 
 @Component({
   selector: 'app-admin-analytics',
   standalone: true,
-  imports: [DatePipe],
+  imports: [DatePipe, DecimalPipe, RollingCounterComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
+      <!-- ─────────────────── HEADER ─────────────────── -->
       <header class="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 class="section-h text-lg font-bold text-white m-0 flex items-center gap-2">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00E5FF" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
+          <div class="kicker">Live</div>
+          <h2 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" class="text-accent"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
             Analytics
+            <span class="status-pill" [attr.data-health]="dataHealth()" [title]="dataTooltip()">
+              <span class="status-dot" aria-hidden="true"></span>
+              {{ dataLabel() }}
+            </span>
           </h2>
-          <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
-            Traffic for <strong>{{ selectedHost() }}</strong> — pulled from
-            <span class="source-pill" [title]="sourcePillTooltip()" [class.pill-ga4]="data()?.source === 'ga4'" [class.pill-cf]="data()?.source === 'cloudflare_zone_analytics'" [class.pill-estimate]="!data()?.source">
-              {{ sourcePillLabel() }}
-            </span>. Refreshes every 60 s.
+          <p class="text-[0.78rem] text-text-secondary m-0 mt-1 max-w-prose leading-relaxed">
+            Traffic for
+            <a class="host-link"
+               [href]="liveUrl()"
+               target="_blank"
+               rel="noopener noreferrer"
+               [attr.aria-label]="'Open ' + selectedHost() + ' in a new tab'"
+               [title]="'Open ' + selectedHost() + ' in a new tab'">
+              <strong class="text-white">{{ selectedHost() }}</strong>
+              <svg class="ext-glyph" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M7 17 17 7"/><path d="M8 7h9v9"/>
+              </svg>
+            </a>
+            — refreshes every {{ refreshIntervalSec }}s.
+            <span class="countdown" aria-live="polite" [title]="refreshedAt() ? 'Last refreshed ' + (refreshedAt() | date:'medium') : 'Not yet loaded'">
+              @if (loading()) {
+                <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
+                <span>Refreshing now</span>
+              } @else {
+                Refreshing in {{ secondsUntilRefresh() }}s
+              }
+            </span>
           </p>
         </div>
         <div class="flex items-center gap-3 flex-wrap">
-          <!-- Refresh sits LEFT of the date range so the loading state doesn't shift the strip horizontally. Fixed-width wrapper keeps everything stable. -->
-          <button class="btn-ghost refresh-btn" (click)="reload()" [disabled]="loading()" title="Refresh data">{{ loading() ? '…' : 'Refresh' }}</button>
-          <div class="range-chip-strip">
+          <button class="btn-ghost refresh-btn"
+                  type="button"
+                  (click)="reload()"
+                  [disabled]="loading()"
+                  aria-label="Refresh analytics"
+                  title="Refresh data now">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" [class.spinning]="loading()"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <span>{{ loading() ? 'Refreshing' : 'Refresh' }}</span>
+          </button>
+          <div class="range-chip-strip" role="tablist" aria-label="Date range">
             @for (r of ranges; track r.id) {
-              <button class="range-chip" [class.active]="range() === r.id" (click)="setRange(r.id)">{{ r.label }}</button>
+              <button class="range-chip"
+                      type="button"
+                      role="tab"
+                      [class.active]="range() === r.id"
+                      [attr.aria-selected]="range() === r.id"
+                      [attr.aria-label]="'View ' + r.label"
+                      (click)="setRange(r.id)">{{ r.label }}</button>
             }
           </div>
-          <button class="btn-ghost" (click)="exportCsv()" [disabled]="!data()" title="Download visible data as CSV">Export CSV</button>
+          <button class="btn-ghost"
+                  type="button"
+                  (click)="exportCsv()"
+                  [disabled]="!envelope()"
+                  aria-label="Download visible data as CSV"
+                  title="Download visible data as CSV">Export CSV</button>
         </div>
       </header>
 
-      @if (!state.selectedSite()) {
-        <div class="card bg-amber-500/[0.06] border border-amber-500/30 text-[0.78rem]">
-          <strong class="text-amber-300">No site selected.</strong>
-          Pick a site from the sidebar — analytics are scoped per-site.
-        </div>
-      } @else if (error()) {
-        <div class="card bg-amber-500/[0.06] border border-amber-500/30 text-[0.78rem]">
-          <strong class="text-amber-300">Analytics returned an error.</strong>
-          {{ error() }}
-        </div>
-      } @else if (data() && !data()?.source && stats().pageViews === 0 && (data()?.chartData?.length ?? 0) === 0) {
-        <div class="card bg-amber-500/[0.06] border border-amber-500/30 text-[0.78rem]">
-          <strong class="text-amber-300">Cloudflare zone analytics not configured for this site.</strong>
-          GA4 isn't connected either, so we're falling back to a D1 audit-log estimate (which is 0 today). Contact support to wire <code class="font-mono">CF_API_TOKEN</code> + <code class="font-mono">CF_ZONE_ID</code> on the production worker — or connect GA4 in Settings.
+      <!-- ─────────────────── URLs PILLS ─────────────────── -->
+      @if (urls().length > 0) {
+        <div class="urls-row" role="group" aria-label="URLs aggregated in this view">
+          <span class="urls-label">Aggregating</span>
+          @for (u of urls(); track u.id) {
+            <span class="url-pill"
+                  [class.is-excluded]="excluded().has(u.hostname)"
+                  [class.is-unresolved]="!isResolved(u.hostname)"
+                  [title]="urlTooltip(u)">
+              @if (u.is_primary) {
+                <span class="primary-dot" aria-hidden="true"></span>
+              }
+              <span class="url-text">{{ u.hostname }}</span>
+              @if (!u.is_primary) {
+                <button class="url-toggle"
+                        type="button"
+                        (click)="toggleExclude(u.hostname)"
+                        [attr.aria-label]="excluded().has(u.hostname) ? 'Include ' + u.hostname : 'Exclude ' + u.hostname"
+                        [title]="excluded().has(u.hostname) ? 'Include this URL' : 'Exclude this URL from the aggregate'">
+                  @if (excluded().has(u.hostname)) { + } @else { × }
+                </button>
+              }
+            </span>
+          }
+          <button class="btn-tiny-ghost"
+                  type="button"
+                  (click)="promptAddUrl()"
+                  aria-label="Bind an additional URL"
+                  title="Add an alternate URL to aggregate alongside the primary">+ Add URL</button>
         </div>
       }
 
-      <div class="grid gap-3" [class.grid-cols-4]="data()?.source === 'ga4'" [class.grid-cols-2]="data()?.source !== 'ga4'" [class.max-md:grid-cols-2]="true">
-        <div class="card kpi">
-          <div class="muted-h">Page views</div>
-          <div class="text-3xl font-bold text-white mt-1">{{ stats().pageViews }}</div>
-          <div class="text-[0.68rem] text-text-secondary mt-1">
-            @if (data()?.source === 'cloudflare_zone_analytics' && stats().totalRequests != null) {
-              of {{ stats().totalRequests }} requests
-            } @else {
-              In the selected period
-            }
+      <!-- ─────────────────── CF CREDENTIALS CTA ─────────────────── -->
+      @if (envelope() && !envelope()!.any_real_data && credStatus() && credStatus()!.source === 'none') {
+        <div class="card notice notice-amber" role="status">
+          <div class="flex-1">
+            <strong>Connect Cloudflare to see real traffic data.</strong>
+            <span class="block text-[0.74rem] mt-0.5">
+              Add your Cloudflare global API key once. We aggregate traffic across every URL bound to this site —
+              <code class="font-mono">{{ urls().length }}</code> URL{{ urls().length === 1 ? '' : 's' }} ready when you are.
+            </span>
+          </div>
+          <button class="btn-primary"
+                  type="button"
+                  (click)="openCredentialSettings()"
+                  aria-label="Connect Cloudflare credentials">Connect Cloudflare</button>
+        </div>
+      }
+
+      <!-- ─────────────────── ERROR / STATE BANNERS ─────────────────── -->
+      @if (!state.selectedSite()) {
+        <div class="card notice notice-amber" role="status">
+          <div>
+            <strong>No site selected.</strong>
+            <span class="block text-[0.74rem] mt-0.5">Pick a site from the sidebar — analytics are scoped per-site.</span>
           </div>
         </div>
-        <div class="card kpi">
-          <div class="muted-h">Unique visitors</div>
-          <div class="text-3xl font-bold text-white mt-1">{{ stats().uniqueVisitors }}</div>
-          <div class="text-[0.68rem] text-text-secondary mt-1">Distinct IPs / users</div>
+      } @else if (error()) {
+        <div class="card notice notice-red" role="alert">
+          <div class="flex-1">
+            <strong>Analytics returned an error.</strong>
+            <span class="block text-[0.74rem] mt-0.5">{{ error() }}</span>
+          </div>
+          <button class="btn-ghost" type="button" (click)="reload()" aria-label="Retry loading analytics">Retry</button>
         </div>
-        @if (data()?.source === 'ga4') {
-          <div class="card kpi">
-            <div class="muted-h">Avg session</div>
-            <div class="text-3xl font-bold text-white mt-1">{{ stats().avgSessionDuration }}</div>
-            <div class="text-[0.68rem] text-text-secondary mt-1">GA4 engaged session</div>
-          </div>
-          <div class="card kpi">
-            <div class="muted-h">Bounce rate</div>
-            <div class="text-3xl font-bold text-white mt-1">{{ stats().bounceRate }}%</div>
-            <div class="text-[0.68rem] text-text-secondary mt-1">Single-page sessions</div>
-          </div>
-        }
+      }
+
+      <!-- ─────────────────── KPI TILES ─────────────────── -->
+      <div class="grid gap-3 grid-cols-3 max-md:grid-cols-1">
+        <div class="card kpi" data-testid="kpi-pageviews">
+          @if (loading() && !envelope()) {
+            <div class="skel skel-line w-20 h-3 mb-2"></div>
+            <div class="skel skel-line w-28 h-7 mb-2"></div>
+            <div class="skel skel-line w-32 h-3"></div>
+          } @else {
+            <div class="muted-h">Page views</div>
+            <div class="kpi-row">
+              <div class="text-3xl font-bold text-white mt-1 leading-none" [title]="(envelope()?.pageviews ?? 0) | number">
+                <app-rolling-counter [value]="envelope()?.pageviews ?? 0" [duration]="1100" />
+              </div>
+              <svg viewBox="0 0 80 24" preserveAspectRatio="none" class="kpi-spark" aria-hidden="true">
+                <path [attr.d]="kpiSparkArea()" fill="url(#kpi-grad)" />
+                <path [attr.d]="kpiSparkLine()" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                <defs>
+                  <linearGradient id="kpi-grad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="currentColor" stop-opacity="0.35"/>
+                    <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+            <div class="text-[0.68rem] text-text-secondary mt-1">
+              @if ((envelope()?.total_requests ?? 0) > 0) {
+                of {{ formatCount(envelope()?.total_requests ?? 0) }} requests
+              } @else {
+                In the selected period
+              }
+            </div>
+          }
+        </div>
+
+        <div class="card kpi" data-testid="kpi-visitors">
+          @if (loading() && !envelope()) {
+            <div class="skel skel-line w-24 h-3 mb-2"></div>
+            <div class="skel skel-line w-24 h-7 mb-2"></div>
+            <div class="skel skel-line w-28 h-3"></div>
+          } @else {
+            <div class="muted-h">Unique visitors</div>
+            <div class="kpi-row">
+              <div class="text-3xl font-bold text-white mt-1 leading-none" [title]="(envelope()?.uniques ?? 0) | number">
+                <app-rolling-counter [value]="envelope()?.uniques ?? 0" [duration]="1100" />
+              </div>
+              <svg viewBox="0 0 80 24" preserveAspectRatio="none" class="kpi-spark kpi-spark--secondary" aria-hidden="true">
+                <path [attr.d]="kpiVisitorSparkArea()" fill="url(#kpi-grad-2)" />
+                <path [attr.d]="kpiVisitorSparkLine()" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                <defs>
+                  <linearGradient id="kpi-grad-2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="currentColor" stop-opacity="0.35"/>
+                    <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+            <div class="text-[0.68rem] text-text-secondary mt-1">Distinct IPs across {{ urls().length }} URL{{ urls().length === 1 ? '' : 's' }}</div>
+          }
+        </div>
+
+        <div class="card kpi" data-testid="kpi-requests">
+          @if (loading() && !envelope()) {
+            <div class="skel skel-line w-24 h-3 mb-2"></div>
+            <div class="skel skel-line w-24 h-7 mb-2"></div>
+            <div class="skel skel-line w-28 h-3"></div>
+          } @else {
+            <div class="muted-h">Total requests</div>
+            <div class="text-3xl font-bold text-white mt-1 leading-none" [title]="(envelope()?.total_requests ?? 0) | number">
+              <app-rolling-counter [value]="envelope()?.total_requests ?? 0" [duration]="1100" />
+            </div>
+            <div class="text-[0.68rem] text-text-secondary mt-1">All HTTP requests at the edge</div>
+          }
+        </div>
       </div>
 
+      <!-- ─────────────────── MAIN CHART ─────────────────── -->
       <section class="card">
-        <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
           <h3 class="section-h m-0 text-base font-semibold text-white">Page views over time</h3>
-          <span class="text-[0.7rem] text-text-secondary">{{ data()?.chartData?.length || 0 }} days · peak {{ peakDayVisits() }}</span>
+          <span class="text-[0.7rem] text-text-secondary">
+            {{ envelope()?.series?.length || 0 }} days · peak {{ formatCount(peakDayVisits()) }}
+          </span>
         </div>
-        @if (loading() && !data()) {
-          <div class="skeleton skeleton-chart" aria-hidden="true"></div>
-        } @else if ((data()?.chartData?.length ?? 0) === 0) {
-          <div class="empty-state" data-testid="analytics-empty">
-            <svg class="empty-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/>
-            </svg>
-            <h4 class="empty-title">No traffic yet — share your site</h4>
-            <p class="empty-body">Once visitors arrive, page-view trend data will plot here in real time.</p>
-            <button class="btn-gradient" type="button" (click)="copyShareLink()" title="Copy your live site URL">Copy share link</button>
+        @if (loading() && !envelope()) {
+          <div class="skel skel-chart" aria-hidden="true"></div>
+        } @else if ((envelope()?.series?.length ?? 0) === 0 || peakDayVisits() === 0) {
+          <div class="empty-state-pretty">
+            <div class="empty-glyph" aria-hidden="true">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/>
+              </svg>
+            </div>
+            <h4 class="glow-h-grad text-xl font-semibold m-0">No traffic yet — share your site</h4>
+            <p class="text-[0.86rem] text-text-secondary max-w-[440px] mx-auto m-0 leading-relaxed">
+              Once visitors arrive, page-view trends plot here in real time. Tap the button to copy your live URL and start driving traffic.
+            </p>
+            <div class="flex gap-2 justify-center mt-1 flex-wrap">
+              <button class="btn-primary" type="button" (click)="copyShareLink()" aria-label="Copy share link" title="Copy your live site URL">Copy share link</button>
+            </div>
           </div>
         } @else {
-          <svg viewBox="0 0 600 120" preserveAspectRatio="none" class="w-full h-32 sparkline">
+          <svg viewBox="0 0 600 130" preserveAspectRatio="none" class="w-full h-32 sparkline" role="img" [attr.aria-label]="'Page views chart — peak ' + peakDayVisits() + ' on the busiest day'">
             <defs>
               <linearGradient id="visit-grad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="oklch(0.75 0.2 195 / 0.4)"/>
-                <stop offset="100%" stop-color="oklch(0.75 0.2 195 / 0)"/>
+                <stop offset="0%" stop-color="var(--ps-accent, #00E5FF)" stop-opacity="0.4"/>
+                <stop offset="100%" stop-color="var(--ps-accent, #00E5FF)" stop-opacity="0"/>
               </linearGradient>
             </defs>
+            <g class="grid" aria-hidden="true">
+              <line x1="0" y1="32"  x2="600" y2="32"  stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+              <line x1="0" y1="65"  x2="600" y2="65"  stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+              <line x1="0" y1="98"  x2="600" y2="98"  stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+            </g>
             <path [attr.d]="sparkArea()" fill="url(#visit-grad)" />
-            <path [attr.d]="sparkLine()" fill="none" stroke="#00E5FF" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+            <path [attr.d]="sparkLine()" fill="none" stroke="var(--ps-accent, #00E5FF)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
             @for (p of sparkDots(); track p.x) {
-              <circle [attr.cx]="p.x" [attr.cy]="p.y" r="2.5" fill="#00E5FF"/>
+              <circle [attr.cx]="p.x" [attr.cy]="p.y" r="2.2" fill="var(--ps-accent, #00E5FF)"/>
             }
           </svg>
         }
       </section>
 
+      <!-- ─────────────────── TOP PAGES + COUNTRIES ─────────────────── -->
       <div class="grid md:grid-cols-2 gap-4">
         <section class="card">
-          <h3 class="m-0 text-base font-semibold text-white mb-3">Top pages</h3>
-          @if ((data()?.topPages?.length ?? 0) === 0) {
-            <p class="text-text-secondary text-sm">No visits recorded yet.</p>
+          <div class="kicker">URLs</div>
+          <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-3">Top pages</h3>
+          @if (loading() && !envelope()) {
+            <div class="space-y-2" aria-busy="true">
+              @for (i of [1,2,3,4]; track i) {
+                <div class="skel skel-line w-full h-4"></div>
+              }
+            </div>
+          } @else if ((envelope()?.top_pages?.length ?? 0) === 0) {
+            <p class="text-text-secondary text-sm m-0">No visits recorded yet.</p>
           } @else {
-            @for (r of data()!.topPages; track r.path) {
+            @for (r of envelope()!.top_pages; track r.path) {
               <div class="bar-row">
-                <div class="flex justify-between mb-1">
-                  <span class="font-mono text-[0.72rem] truncate">{{ r.path }}</span>
-                  <span class="text-[0.7rem] text-text-secondary">{{ r.views }}</span>
+                <div class="flex justify-between mb-1 gap-2">
+                  <span class="font-mono text-[0.72rem] truncate text-white">{{ r.path }}</span>
+                  <span class="text-[0.7rem] text-text-secondary tabular">{{ formatCount(r.views) }}</span>
                 </div>
                 <div class="bar"><div class="bar-fill" [style.width.%]="barWidth(r.views, maxPage())"></div></div>
               </div>
@@ -167,15 +336,22 @@ function sourceTooltip(source: AnalyticsData['source']): string {
         </section>
 
         <section class="card">
-          <h3 class="m-0 text-base font-semibold text-white mb-3">Top countries</h3>
-          @if ((data()?.topCountries?.length ?? 0) === 0) {
-            <p class="text-text-secondary text-sm">No geo data yet.</p>
+          <div class="kicker">Geo</div>
+          <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-3">Top countries</h3>
+          @if (loading() && !envelope()) {
+            <div class="grid grid-cols-2 gap-x-3 gap-y-1.5" aria-busy="true">
+              @for (i of [1,2,3,4,5,6]; track i) {
+                <div class="skel skel-line w-full h-4"></div>
+              }
+            </div>
+          } @else if ((envelope()?.top_countries?.length ?? 0) === 0) {
+            <p class="text-text-secondary text-sm m-0">No geo data yet.</p>
           } @else {
             <div class="grid grid-cols-2 gap-x-3 gap-y-1.5">
-              @for (r of data()!.topCountries ?? []; track r.country) {
+              @for (r of envelope()!.top_countries; track r.country) {
                 <div class="flex items-center justify-between border-b border-white/[0.04] py-1">
                   <span class="text-[0.78rem]">{{ flag(r.country) }} {{ r.country }}</span>
-                  <span class="text-[0.7rem] text-text-secondary">{{ r.views }}</span>
+                  <span class="text-[0.7rem] text-text-secondary tabular">{{ formatCount(r.views) }}</span>
                 </div>
               }
             </div>
@@ -183,59 +359,287 @@ function sourceTooltip(source: AnalyticsData['source']): string {
         </section>
       </div>
 
-      @if (data()?.source === 'ga4' && (data()?.trafficSources?.length ?? 0) > 0) {
+      <!-- ─────────────────── REFERRERS ─────────────────── -->
+      @if ((envelope()?.top_referrers?.length ?? 0) > 0) {
         <section class="card">
-          <h3 class="m-0 text-base font-semibold text-white mb-3">Traffic sources</h3>
-          @for (r of data()!.trafficSources; track r.name) {
+          <div class="kicker">Acquisition</div>
+          <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-3">Top referrers</h3>
+          @for (r of envelope()!.top_referrers; track r.referrer) {
             <div class="bar-row">
-              <div class="flex justify-between mb-1">
-                <span class="text-[0.78rem]">{{ r.name }}</span>
-                <span class="text-[0.7rem] text-text-secondary">{{ r.percent }}%</span>
+              <div class="flex justify-between mb-1 gap-2">
+                <span class="text-[0.78rem] truncate">{{ r.referrer }}</span>
+                <span class="text-[0.7rem] text-text-secondary tabular">{{ formatCount(r.views) }}</span>
               </div>
-              <div class="bar"><div class="bar-fill" [style.width.%]="r.percent"></div></div>
+              <div class="bar"><div class="bar-fill" [style.width.%]="barWidth(r.views, maxReferrer())"></div></div>
             </div>
           }
         </section>
       }
 
       <p class="text-[0.65rem] text-text-secondary/70 text-center">
-        Source: {{ sourcePillLabel() }} · {{ sourcePillTooltip() }} · last refreshed {{ refreshedAt() | date:'medium' }}
+        Source: {{ dataLabel() }} · {{ dataTooltip() }} ·
+        last refreshed {{ refreshedAt() ? (refreshedAt() | date:'medium') : '—' }}
       </p>
     </div>
   `,
   styles: [`
     :host { display: block; }
-    .card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 1.4rem; }
-    .kpi { padding: 1.1rem; }
+
+    .kicker {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.62rem; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--ps-accent, #00E5FF); opacity: 0.85;
+    }
     .section-h { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
+    .text-accent { color: var(--ps-accent, #00E5FF); }
+
+    .host-link {
+      display: inline-flex; align-items: center; gap: 4px;
+      text-decoration: none;
+      color: inherit;
+      border-bottom: 1px dashed color-mix(in oklch, var(--ps-accent, #00E5FF) 38%, transparent);
+      transition: color 160ms ease, border-color 160ms ease;
+    }
+    .host-link:hover {
+      color: var(--ps-accent, #00E5FF);
+      border-color: var(--ps-accent, #00E5FF);
+    }
+    .host-link:focus-visible {
+      outline: 2px solid var(--ps-accent, #00E5FF);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+    .ext-glyph {
+      color: color-mix(in oklch, var(--ps-accent, #00E5FF) 70%, var(--ps-ink, #fff) 30%);
+      transition: transform 160ms ease;
+    }
+    .host-link:hover .ext-glyph { transform: translate(1px, -1px); }
+
+    .card {
+      background: var(--ps-surface-1, rgba(13,13,40,0.62));
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 14%, transparent);
+      border-radius: var(--ps-radius-xl, 14px);
+      padding: 1.4rem;
+      box-shadow: var(--ps-shadow-card, inset 0 0 0 1px rgba(255,255,255,0.02));
+      transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+    }
+    .card:hover {
+      transform: translateY(-1px);
+      border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 28%, transparent);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 8px 24px -16px color-mix(in oklch, var(--ps-accent, #00E5FF) 28%, transparent);
+    }
+
+    .kpi { padding: 1.1rem; position: relative; overflow: hidden; }
+    .kpi-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+    .kpi-spark { width: 72px; height: 22px; flex-shrink: 0; color: var(--ps-accent, #00E5FF); opacity: 0.85; }
+    .kpi-spark--secondary { color: var(--ps-accent-secondary, #7C3AED); }
+
     .muted-h { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; }
-    .btn-ghost { padding: 0.4rem 0.9rem; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #e5e7eb; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
-    .btn-gradient { padding: 0.5rem 1rem; border-radius: 10px; background: linear-gradient(135deg, #00ffc8, #00d4ff); color: #060610; font-size: 0.74rem; font-weight: 700; border: 0; cursor: pointer; box-shadow: 0 6px 18px -8px rgba(0, 212, 255, 0.55); transition: transform 140ms ease, box-shadow 140ms ease; }
-    .btn-gradient:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px -8px rgba(0, 212, 255, 0.7); }
-    .btn-gradient:disabled { opacity: 0.55; cursor: not-allowed; }
-    /* Fixed-width Refresh button so the date strip never shifts when label flips between "Refresh" and "…". */
-    .refresh-btn { min-width: 78px; text-align: center; }
-    .refresh-btn:disabled { opacity: 0.5; cursor: progress; }
+    .tabular { font-variant-numeric: tabular-nums; }
+
+    .btn-ghost {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 0.45rem 0.9rem; border-radius: 8px; min-height: 32px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+      color: #e5e7eb; font-size: 0.74rem; font-weight: 600; cursor: pointer;
+      transition: transform 200ms ease, border-color 200ms ease, background 200ms ease, color 200ms ease;
+    }
+    .btn-ghost:hover:not(:disabled) {
+      transform: translateY(-1px);
+      border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 30%, transparent);
+      color: #fff; background: rgba(255,255,255,0.06);
+    }
+    .btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-ghost:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
+    .refresh-btn { min-width: 110px; justify-content: center; }
+    .refresh-btn .spinning { animation: spin 1.2s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    .btn-tiny-ghost {
+      padding: 3px 9px; border-radius: 6px; min-height: 24px;
+      font-size: 0.66rem; font-weight: 600; cursor: pointer;
+      background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.7);
+      border: 1px dashed rgba(255,255,255,0.18);
+      transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+    }
+    .btn-tiny-ghost:hover { color: #fff; background: rgba(255,255,255,0.06); border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 38%, transparent); }
+    .btn-tiny-ghost:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
+
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 0.5rem 1rem; border-radius: 10px; min-height: 32px;
+      background: linear-gradient(135deg, color-mix(in oklch, var(--ps-accent, #00E5FF) 28%, transparent), color-mix(in oklch, var(--ps-accent-secondary, #7C3AED) 22%, transparent));
+      color: var(--ps-bg, #060610);
+      font-weight: 700; border: 0; cursor: pointer; font-size: 0.78rem;
+      box-shadow: 0 6px 18px -8px color-mix(in oklch, var(--ps-accent, #00E5FF) 55%, transparent);
+      transition: transform 200ms ease, box-shadow 200ms ease;
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px -8px color-mix(in oklch, var(--ps-accent, #00E5FF) 70%, transparent);
+    }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-primary:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
+
     .bar-row { margin-bottom: 0.55rem; }
     .bar { height: 6px; background: rgba(255,255,255,0.05); border-radius: 999px; overflow: hidden; }
-    .bar-fill { height: 100%; background: linear-gradient(90deg, #00E5FF, #7C3AED); transition: width 250ms ease; }
-    .range-chip-strip { display: inline-flex; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; padding: 2px; gap: 2px; }
-    .range-chip { padding: 4px 10px; border-radius: 999px; background: transparent; border: 0; color: rgba(255,255,255,0.65); font-size: 0.7rem; font-weight: 600; cursor: pointer; }
-    .range-chip.active { background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.18)); color: #00E5FF; }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--ps-accent, #00E5FF), var(--ps-accent-secondary, #7C3AED));
+      transition: width 320ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .range-chip-strip {
+      display: inline-flex;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 999px; padding: 2px; gap: 2px;
+    }
+    .range-chip {
+      padding: 4px 12px; border-radius: 999px;
+      background: transparent; border: 0;
+      color: rgba(255,255,255,0.65);
+      font-size: 0.7rem; font-weight: 600; cursor: pointer;
+      min-height: 26px;
+      transition: color 160ms ease, background 160ms ease;
+    }
+    .range-chip:hover { color: #fff; }
+    .range-chip.active {
+      background: linear-gradient(135deg, color-mix(in oklch, var(--ps-accent, #00E5FF) 22%, transparent), color-mix(in oklch, var(--ps-accent-secondary, #7C3AED) 22%, transparent));
+      color: var(--ps-accent, #00E5FF);
+      box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--ps-accent, #00E5FF) 30%, transparent);
+    }
+    .range-chip:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
+
     .sparkline path { transition: d 320ms ease; }
-    .source-pill { display: inline-flex; align-items: center; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle; cursor: help; }
-    .pill-ga4 { background: rgba(16,185,129,0.14); color: #34d399; border: 1px solid rgba(16,185,129,0.32); }
-    .pill-cf { background: rgba(247,127,0,0.14); color: #fb923c; border: 1px solid rgba(247,127,0,0.32); }
-    .pill-estimate { background: rgba(255,255,255,0.06); color: color-mix(in oklch, currentColor 70%, #f4f4ff 30%); border: 1px solid rgba(255,255,255,0.14); }
-    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2.4rem 1.2rem; gap: 0.6rem; }
-    .empty-icon { color: rgba(0, 229, 255, 0.7); }
-    .empty-title { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; font-size: 0.95rem; color: #fff; margin: 0.2rem 0 0; }
-    .empty-body { font-size: 0.78rem; color: rgba(255,255,255,0.6); margin: 0 0 0.4rem; max-width: 340px; }
-    .skeleton { background: rgba(255,255,255,0.10); border-radius: 10px; animation: skel-pulse 1.4s ease-in-out infinite; }
-    .skeleton-chart { height: 128px; width: 100%; }
-    @keyframes skel-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2px 10px; border-radius: 999px;
+      font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+      vertical-align: middle; cursor: help;
+      border: 1px solid currentColor;
+      margin-left: 0.3rem;
+    }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor; }
+    .status-pill[data-health="healthy"]  { color: #34d399; background: rgba(52, 211, 153, 0.10); border-color: rgba(52, 211, 153, 0.32); }
+    .status-pill[data-health="warning"]  { color: #fb923c; background: rgba(251, 146, 60, 0.10); border-color: rgba(251, 146, 60, 0.32); }
+    .status-pill[data-health="degraded"] { color: #f87171; background: rgba(248, 113, 113, 0.10); border-color: rgba(248, 113, 113, 0.32); }
+
+    .urls-row {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+      padding: 0.5rem 0.7rem;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+    }
+    .urls-label {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase;
+      color: rgba(255,255,255,0.45); margin-right: 4px;
+    }
+    .url-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px 3px 9px;
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 10%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 28%, transparent);
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.66rem; color: var(--ps-ink, #fff);
+      transition: opacity 140ms ease, background 140ms ease, border-color 140ms ease;
+    }
+    .url-pill.is-excluded { opacity: 0.4; background: transparent; }
+    .url-pill.is-unresolved {
+      border-color: color-mix(in oklch, #fb923c 38%, transparent);
+      color: #fde68a;
+      background: rgba(251, 146, 60, 0.06);
+    }
+    .url-text { line-height: 1; }
+    .primary-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: #34d399; box-shadow: 0 0 5px rgba(52, 211, 153, 0.6);
+    }
+    .url-toggle {
+      width: 18px; height: 18px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.65);
+      border: 0; cursor: pointer; font-size: 0.78rem; line-height: 1;
+      transition: background 140ms ease, color 140ms ease;
+    }
+    .url-toggle:hover { color: #fff; background: rgba(255,255,255,0.16); }
+    .url-toggle:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 1px; }
+
+    .notice { display: flex; gap: 12px; align-items: center; justify-content: space-between; font-size: 0.78rem; line-height: 1.55; }
+    .notice strong { display: block; color: #fff; }
+    .notice-amber { background: rgba(251, 191, 36, 0.06); border-color: rgba(251, 191, 36, 0.3); color: #fde68a; }
+    .notice-amber strong { color: #fcd34d; }
+    .notice-red { background: rgba(248, 113, 113, 0.06); border-color: rgba(248, 113, 113, 0.3); color: #fecaca; }
+    .notice-red strong { color: #f87171; }
+
+    .empty-state-pretty {
+      display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
+      padding: 2.4rem 1.2rem; text-align: center;
+    }
+    .empty-glyph {
+      width: 80px; height: 80px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 20px;
+      background: linear-gradient(135deg, color-mix(in oklch, var(--ps-accent, #00E5FF) 10%, transparent), color-mix(in oklch, var(--ps-accent-secondary, #7C3AED) 8%, transparent));
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 18%, transparent);
+      color: color-mix(in oklch, var(--ps-accent, #00E5FF) 70%, currentColor 30%);
+      box-shadow: 0 16px 48px -24px color-mix(in oklch, var(--ps-accent, #00E5FF) 38%, transparent);
+      animation: pulseGlow 3.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 16px 48px -24px color-mix(in oklch, var(--ps-accent, #00E5FF) 32%, transparent); }
+      50%      { box-shadow: 0 20px 64px -24px color-mix(in oklch, var(--ps-accent, #00E5FF) 55%, transparent); }
+    }
+    .glow-h-grad {
+      background: linear-gradient(135deg, var(--ps-ink, #fff), color-mix(in oklch, var(--ps-accent, #00E5FF) 60%, var(--ps-ink, #fff) 40%));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+
+    .skel {
+      position: relative; overflow: hidden;
+      background: rgba(255,255,255,0.04);
+      border-radius: 6px;
+    }
+    .skel::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06) 40%, color-mix(in oklch, var(--ps-accent, #00E5FF) 12%, transparent) 50%, rgba(255,255,255,0.06) 60%, transparent);
+      background-size: 200% 100%;
+      animation: skel-shine 1.6s linear infinite;
+    }
+    @keyframes skel-shine { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+    .skel-line { display: block; }
+    .skel-chart { height: 128px; width: 100%; border-radius: 10px; }
+
+    .countdown {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 0 6px; margin-left: 4px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.66rem;
+      color: rgba(255,255,255,0.55);
+      border-left: 1px solid rgba(255,255,255,0.1);
+    }
+    .dots { display: inline-flex; gap: 3px; }
+    .dots span {
+      width: 4px; height: 4px; border-radius: 50%;
+      background: var(--ps-accent, #00E5FF);
+      animation: dotPulse 1.2s ease-in-out infinite;
+    }
+    .dots span:nth-child(2) { animation-delay: 0.15s; }
+    .dots span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes dotPulse {
+      0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+      40% { opacity: 1; transform: scale(1); }
+    }
+
     @media (prefers-reduced-motion: reduce) {
-      .skeleton, .sparkline path, .btn-gradient { animation: none; transition: none; }
+      .skel::after, .empty-glyph, .dots span, .refresh-btn .spinning { animation: none; }
+      .sparkline path, .bar-fill, .btn-primary, .card, .url-pill { transition: none; }
+      .card:hover { transform: none; box-shadow: none; }
     }
   `],
 })
@@ -243,32 +647,47 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   state = inject(AdminStateService);
   private api = inject(ApiService);
   private toast = inject(ToastService);
+  private router = inject(Router);
 
-  /** Per-site analytics envelope from `GET /api/analytics/:siteId`. */
-  data = signal<AnalyticsData | null>(null);
+  /** Aggregated CF GraphQL envelope from `GET /api/sites/:id/analytics`. */
+  envelope = signal<MultiUrlAnalyticsEnvelope | null>(null);
+  urls = signal<SiteUrlRow[]>([]);
+  excluded = signal<Set<string>>(new Set());
+  credStatus = signal<CloudflareCredentialStatus | null>(null);
+
   error = signal<string | null>(null);
   loading = signal(false);
   refreshedAt = signal<Date | null>(null);
-  private timer?: ReturnType<typeof setInterval>;
+  secondsUntilRefresh = signal<number>(REFRESH_INTERVAL_SEC);
+  readonly refreshIntervalSec = REFRESH_INTERVAL_SEC;
+  private refreshTimer?: ReturnType<typeof setInterval>;
+  private countdownTimer?: ReturnType<typeof setInterval>;
   private lastSiteId: string | null = null;
 
+  readonly formatCount = formatCount;
+
   /**
-   * 10-second timeout for the analytics fetch. The shared
-   * {@link ApiService} timeout is 30 s; we tighten it here per the
-   * dashboard UX spec — analytics should never make the operator wait
-   * for a hung fetch, since the page auto-refreshes every 60 s anyway.
+   * 10-second timeout for the analytics fetch. Tighter than the shared
+   * `ApiService` 30 s budget — analytics auto-refreshes every 60 s so a
+   * hung fetch should never block the operator from interacting.
    */
   private static readonly FETCH_TIMEOUT_MS = 10_000;
 
   ranges: ReadonlyArray<{ id: RangeId; label: string }> = [
-    { id: '1d', label: 'Today' },
-    { id: '7d', label: '7 days' },
-    { id: '30d', label: '30 days' },
-    { id: '90d', label: '90 days' },
+    { id: '24h', label: '24h' },
+    { id: '7d', label: '7d' },
+    { id: '30d', label: '30d' },
+    { id: '90d', label: '90d' },
   ];
 
   range = signal<RangeId>(((): RangeId => {
-    try { return (localStorage.getItem('ps_analytics_range') as RangeId) || '30d'; } catch { return '30d'; }
+    try {
+      const stored = localStorage.getItem('ps_analytics_range');
+      if (stored === '24h' || stored === '7d' || stored === '30d' || stored === '90d') return stored;
+      // Migrate legacy '1d' value from the prior version.
+      if (stored === '1d') return '24h';
+      return '7d';
+    } catch { return '7d'; }
   })());
 
   setRange(id: RangeId): void {
@@ -277,36 +696,112 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     this.reload();
   }
 
-  /** Hostname displayed in the header — primary hostname if set, else the platform slug. */
+  /** Hostname displayed in the header — primary URL hostname when known. */
   selectedHost = computed<string>(() => {
+    const primary = this.urls().find((u) => u.is_primary);
+    if (primary?.hostname) return primary.hostname;
     const site = this.state.selectedSite();
     if (!site) return '—';
     return site.primary_hostname || `${site.slug}.projectsites.dev`;
   });
 
-  stats = computed(() => this.data()?.stats ?? {
-    pageViews: 0, uniqueVisitors: 0, avgSessionDuration: '0s', bounceRate: 0,
+  /** Live URL of the selected site (header hyperlink target). */
+  liveUrl = computed<string>(() => {
+    const host = this.selectedHost();
+    if (!host || host === '—') return '#';
+    return host.startsWith('http') ? host : `https://${host}`;
   });
 
-  sourcePillLabel = computed(() => sourceLabel(this.data()?.source));
-  sourcePillTooltip = computed(() => sourceTooltip(this.data()?.source));
+  /** Data-source label/health based on envelope state + credential status. */
+  dataLabel = computed<string>(() => {
+    const env = this.envelope();
+    if (!env) return 'Loading';
+    if (env.any_real_data) return 'Cloudflare Edge';
+    const cred = this.credStatus();
+    if (cred && cred.source === 'none') return 'Not connected';
+    return 'No data yet';
+  });
+  dataHealth = computed<'healthy' | 'warning' | 'degraded'>(() => {
+    const env = this.envelope();
+    if (env?.any_real_data) return 'healthy';
+    const cred = this.credStatus();
+    if (cred && cred.source === 'none') return 'degraded';
+    return 'warning';
+  });
+  dataTooltip = computed<string>(() => {
+    const env = this.envelope();
+    if (env?.any_real_data) {
+      return `Cloudflare GraphQL — aggregated across ${env.urls_included.length} URL${env.urls_included.length === 1 ? '' : 's'}. No session-duration / bounce-rate at the edge.`;
+    }
+    const cred = this.credStatus();
+    if (cred && cred.source === 'none') {
+      return 'Connect Cloudflare credentials in Settings to see real traffic data.';
+    }
+    return 'No traffic captured yet. Once visitors arrive, page-view trends plot here.';
+  });
+
+  /** True if Cloudflare resolved a zone for this hostname this turn. */
+  isResolved = (hostname: string): boolean => {
+    const env = this.envelope();
+    if (!env) return true;
+    return env.urls_included.find((u) => u.hostname === hostname)?.resolved_zone ?? false;
+  };
+
+  urlTooltip(u: SiteUrlRow): string {
+    const parts: string[] = [];
+    parts.push(u.is_primary ? 'Primary URL' : 'Alternate URL');
+    if (this.envelope() && !this.isResolved(u.hostname)) parts.push('— zone not resolved');
+    if (this.excluded().has(u.hostname)) parts.push('(excluded from aggregate)');
+    return parts.join(' ');
+  }
+
+  toggleExclude(hostname: string): void {
+    const next = new Set(this.excluded());
+    if (next.has(hostname)) next.delete(hostname);
+    else next.add(hostname);
+    this.excluded.set(next);
+    this.reload();
+  }
+
+  async promptAddUrl(): Promise<void> {
+    const site = this.state.selectedSite();
+    if (!site) return;
+    const hostname = window.prompt('Hostname to bind (e.g. shop.example.com):', '')?.trim().toLowerCase();
+    if (!hostname) return;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.api.addSiteUrl(site.id, hostname).subscribe({
+          next: () => resolve(),
+          error: (err: unknown) => reject(err),
+        });
+      });
+      this.toast.success(`${hostname} added`);
+      this.loadUrls();
+      this.reload();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to add URL';
+      this.toast.error(message);
+    }
+  }
+
+  openCredentialSettings(): void {
+    void this.router.navigateByUrl('/admin/user?focus=cloudflare');
+  }
 
   exportCsv(): void {
-    const d = this.data();
-    if (!d) return;
+    const env = this.envelope();
+    if (!env) return;
     const lines: string[] = [];
     lines.push('section,key,value');
-    lines.push(`summary,source,${d.source ?? 'audit_log_estimate'}`);
-    lines.push(`summary,page_views,${d.stats.pageViews}`);
-    lines.push(`summary,unique_visitors,${d.stats.uniqueVisitors}`);
-    if (d.source === 'ga4') {
-      lines.push(`summary,avg_session_duration,${d.stats.avgSessionDuration}`);
-      lines.push(`summary,bounce_rate,${d.stats.bounceRate}`);
-    }
-    for (const r of d.chartData || []) lines.push(`by_day,${r.date},${r.views}`);
-    for (const r of d.topPages || []) lines.push(`top_page,${csv(r.path)},${r.views}`);
-    for (const r of d.topCountries || []) lines.push(`country,${r.country},${r.views}`);
-    for (const r of d.trafficSources || []) lines.push(`traffic_source,${csv(r.name)},${r.percent}`);
+    lines.push(`summary,source,cloudflare_graphql`);
+    lines.push(`summary,page_views,${env.pageviews}`);
+    lines.push(`summary,unique_visitors,${env.uniques}`);
+    lines.push(`summary,total_requests,${env.total_requests}`);
+    for (const r of env.series || []) lines.push(`by_day,${r.date},${r.page_views}`);
+    for (const r of env.top_pages || []) lines.push(`top_page,${csv(r.path)},${r.views}`);
+    for (const r of env.top_countries || []) lines.push(`country,${r.country},${r.views}`);
+    for (const r of env.top_referrers || []) lines.push(`referrer,${csv(r.referrer)},${r.views}`);
+    for (const u of env.urls_included || []) lines.push(`url_included,${csv(u.hostname)},${u.resolved_zone ? 'resolved' : 'unresolved'}`);
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -316,16 +811,9 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     function csv(s: string): string { return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }
   }
 
-  /**
-   * Copy the currently-selected site's public URL so the user can share it
-   * and start generating traffic. Falls back gracefully when no site is
-   * selected or the Clipboard API is unavailable.
-   */
   async copyShareLink(): Promise<void> {
-    const site = this.state.selectedSite();
-    const slug = site?.slug;
-    const url = slug ? `https://${slug}.projectsites.dev` : (typeof location !== 'undefined' ? location.origin : '');
-    if (!url) {
+    const url = this.liveUrl();
+    if (!url || url === '#') {
       this.toast.error('Select a site first to copy its link');
       return;
     }
@@ -337,15 +825,16 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     }
   }
 
-  maxPage = computed(() => Math.max(1, ...(this.data()?.topPages ?? []).map((p) => p.views)));
-  peakDayVisits = computed(() => Math.max(0, ...(this.data()?.chartData ?? []).map((d) => d.views)));
+  maxPage = computed(() => Math.max(1, ...(this.envelope()?.top_pages ?? []).map((p) => p.views)));
+  maxReferrer = computed(() => Math.max(1, ...(this.envelope()?.top_referrers ?? []).map((r) => r.views)));
+  peakDayVisits = computed(() => Math.max(0, ...(this.envelope()?.series ?? []).map((d) => d.page_views)));
 
   sparkPoints = computed<{ x: number; y: number }[]>(() => {
-    const days = this.data()?.chartData ?? [];
+    const days = this.envelope()?.series ?? [];
     if (days.length === 0) return [];
-    const peak = Math.max(1, ...days.map((d) => d.views));
+    const peak = Math.max(1, ...days.map((d) => d.page_views));
     const step = days.length > 1 ? 600 / (days.length - 1) : 0;
-    return days.map((d, i) => ({ x: i * step, y: 110 - (d.views / peak) * 100 }));
+    return days.map((d, i) => ({ x: i * step, y: 120 - (d.page_views / peak) * 108 }));
   });
   sparkLine = computed(() => {
     const pts = this.sparkPoints();
@@ -358,9 +847,14 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
     const last = pts[pts.length - 1]!;
     const first = pts[0]!;
-    return `${line} L ${last.x.toFixed(1)} 120 L ${first.x.toFixed(1)} 120 Z`;
+    return `${line} L ${last.x.toFixed(1)} 130 L ${first.x.toFixed(1)} 130 Z`;
   });
   sparkDots = computed(() => this.sparkPoints());
+
+  kpiSparkLine = computed(() => sparklinePath((this.envelope()?.series ?? []).map((d) => d.page_views), 80, 24).line);
+  kpiSparkArea = computed(() => sparklinePath((this.envelope()?.series ?? []).map((d) => d.page_views), 80, 24).area);
+  kpiVisitorSparkLine = computed(() => sparklinePath((this.envelope()?.series ?? []).map((d) => d.unique_visitors), 80, 24).line);
+  kpiVisitorSparkArea = computed(() => sparklinePath((this.envelope()?.series ?? []).map((d) => d.unique_visitors), 80, 24).area);
 
   barWidth(visits: number, max: number): number { return max > 0 ? (visits / max) * 100 : 0; }
   flag(code: string): string {
@@ -371,42 +865,77 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.loadCredStatus();
+    this.loadUrls();
     this.reload();
-    // Re-fetch every 60 s. The shared admin-state service ALSO polls analytics
-    // every 60 s and writes into `state.analytics`, but we keep our own timer
-    // so the range chips can change cadence without fighting global polling.
-    this.timer = setInterval(() => this.reload(), 60_000);
+    this.refreshTimer = setInterval(() => this.reload(), REFRESH_INTERVAL_SEC * 1000);
+    this.countdownTimer = setInterval(() => {
+      this.secondsUntilRefresh.update((s) => (s <= 1 ? REFRESH_INTERVAL_SEC : s - 1));
+    }, 1000);
   }
-  ngOnDestroy(): void { if (this.timer) clearInterval(this.timer); }
+  ngOnDestroy(): void {
+    if (this.refreshTimer) clearInterval(this.refreshTimer);
+    if (this.countdownTimer) clearInterval(this.countdownTimer);
+  }
+
+  /** Fetch the org's CF credential status (fire-and-forget). */
+  loadCredStatus(): void {
+    this.api.getCloudflareCredentialStatus().pipe(
+      timeout(5000),
+      catchError(() => of({ data: null as CloudflareCredentialStatus | null })),
+    ).subscribe((r) => {
+      if (r.data) this.credStatus.set(r.data);
+    });
+  }
+
+  loadUrls(): void {
+    const site = this.state.selectedSite();
+    if (!site) {
+      this.urls.set([]);
+      return;
+    }
+    this.api.listSiteUrls(site.id).pipe(
+      timeout(5000),
+      catchError(() => of({ data: [] as SiteUrlRow[] })),
+    ).subscribe((r) => {
+      this.urls.set(r.data || []);
+    });
+  }
 
   reload(): void {
     const site = this.state.selectedSite();
     if (!site) {
-      this.data.set(null);
+      this.envelope.set(null);
       this.error.set(null);
       this.loading.set(false);
       return;
     }
-    // If the user switched sites, clear stale data so the previous site's
-    // numbers don't flash in for a frame before the new fetch lands.
     if (this.lastSiteId !== site.id) {
-      this.data.set(null);
+      this.envelope.set(null);
       this.lastSiteId = site.id;
+      this.excluded.set(new Set());
+      this.loadUrls();
     }
     this.loading.set(true);
-    const period = RANGE_DAYS[this.range()];
-    this.api.getAnalytics(site.id, period).pipe(
-      timeout(AdminAnalyticsComponent.FETCH_TIMEOUT_MS),
-      catchError((err: unknown) => {
-        const msg = err instanceof TimeoutError
-          ? 'Analytics request timed out after 10 s — retry, or check the worker logs.'
-          : 'Analytics endpoint returned an error.';
-        this.error.set(msg);
-        return of({ data: null as AnalyticsData | null });
-      }),
-    ).subscribe({
+    this.secondsUntilRefresh.set(REFRESH_INTERVAL_SEC);
+    const excludeArr = Array.from(this.excluded());
+    forkJoin({
+      analytics: this.api.getMultiUrlAnalytics(site.id, this.range(), excludeArr).pipe(
+        timeout(AdminAnalyticsComponent.FETCH_TIMEOUT_MS),
+        catchError((err: unknown) => {
+          const msg = err instanceof TimeoutError
+            ? 'Analytics request timed out after 10 s — retry, or check the worker logs.'
+            : 'Analytics endpoint returned an error.';
+          this.error.set(msg);
+          return of({ data: null as MultiUrlAnalyticsEnvelope | null });
+        }),
+      ),
+    }).subscribe({
       next: (r) => {
-        if (r.data) { this.data.set(r.data); this.error.set(null); }
+        if (r.analytics.data) {
+          this.envelope.set(r.analytics.data);
+          this.error.set(null);
+        }
         this.refreshedAt.set(new Date());
         this.loading.set(false);
       },

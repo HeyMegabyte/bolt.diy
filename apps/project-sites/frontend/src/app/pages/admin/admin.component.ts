@@ -1,4 +1,4 @@
-import { Component, type OnInit, type OnDestroy, inject, signal, computed, effect, ViewChild, ElementRef, HostListener } from '@angular/core';
+import { Component, type OnInit, type OnDestroy, inject, signal, computed, effect, ViewChild, ViewChildren, ElementRef, HostListener, type QueryList, afterNextRender, Injector } from '@angular/core';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subscription, filter } from 'rxjs';
@@ -14,13 +14,14 @@ import { ShortcutsOverlayComponent } from '../../components/shortcuts-overlay/sh
 import { AiChatWidgetComponent } from '../../components/ai-chat-widget/ai-chat-widget.component';
 import { SectionErrorBoundaryComponent } from '../../components/section-error-boundary/section-error-boundary.component';
 import { FocusTrapDirective } from '../../directives/focus-trap.directive';
+import { DomainPickerComponent } from '../../components/domain-picker/domain-picker.component';
 
 interface Notification { id: string; title: string; time: string; kind: 'info' | 'warn' | 'ok'; read: boolean; ts?: number; href?: string; }
 
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective],
+  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective, DomainPickerComponent],
   providers: [AdminStateService],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',
@@ -38,6 +39,12 @@ export class AdminComponent implements OnInit, OnDestroy {
   private appShell = inject(AppShellService);
 
   @ViewChild('boltFrame') private boltFrameRef?: ElementRef<HTMLIFrameElement>;
+  @ViewChild('siteSearchInput') private siteSearchInputRef?: ElementRef<HTMLInputElement>;
+  @ViewChildren('siteOption') private siteOptionRefs?: QueryList<ElementRef<HTMLButtonElement>>;
+  private injector = inject(Injector);
+
+  /** Track favicon URLs that failed to load so we can fall back to the monogram tile. */
+  faviconFailed = signal<Set<string>>(new Set());
 
   /** Active UI language — used by the avatar-menu toggle to render the chip. */
   currentLang = signal<AppLanguage>(((): AppLanguage => {
@@ -86,9 +93,9 @@ export class AdminComponent implements OnInit, OnDestroy {
     const labels: Record<string, string> = {
       '': 'Editor', 'admin': 'Editor', 'editor': 'Editor',
       'snapshots': 'Snapshots', 'analytics': 'Analytics',
-      'forms': 'Forms', 'traces': 'AI Traces', 'ai-logs': 'AI Traces',
+      'forms': 'Forms', 'inbox': 'Inbox', 'traces': 'AI Traces', 'ai-logs': 'AI Traces',
       'ai-endpoints': 'Endpoints', 'domains': 'Domains', 'docs': 'Docs',
-      'user': 'User Settings',
+      'user': 'User Settings', 'apps': 'Apps', 'instances': 'App Instances',
       'billing': 'Billing', 'audit': 'Audit Log', 'settings': 'Settings',
     };
     this.currentSection.set(labels[segment] || 'Editor');
@@ -112,6 +119,11 @@ export class AdminComponent implements OnInit, OnDestroy {
     this.state.loadData();
     this.state.startPolling();
     this.seedNotifications();
+    // Item 1 (perf): kick off the bolt.diy editor pre-warm the moment the
+    // user lands on /admin — even before a site is selected. By the time
+    // they click "Editor" the WebContainer cold-boot tax has been paid in a
+    // hidden tab. Idempotent + cleaned up on teardown.
+    this.bolt.prewarmEditor();
   }
 
   ngAfterViewInit(): void {
@@ -146,8 +158,18 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   toggleSiteDropdown(event: MouseEvent): void {
     event.stopPropagation();
-    this.siteDropdownOpen.update((v) => !v);
-    if (!this.siteDropdownOpen()) this.siteSearchQuery.set('');
+    const willOpen = !this.siteDropdownOpen();
+    this.siteDropdownOpen.set(willOpen);
+    if (!willOpen) { this.siteSearchQuery.set(''); return; }
+    // Auto-focus the search input on open — no extra click required. Use
+    // afterNextRender so the @if-mounted input is present in the DOM.
+    afterNextRender({
+      read: () => {
+        requestAnimationFrame(() => {
+          this.siteSearchInputRef?.nativeElement.focus({ preventScroll: true });
+        });
+      },
+    }, { injector: this.injector });
   }
 
   get filteredSites(): Site[] {
@@ -171,6 +193,109 @@ export class AdminComponent implements OnInit, OnDestroy {
   selectSite(site: Site): void {
     this.state.selectSite(site);
     this.siteDropdownOpen.set(false);
+    this.siteSearchQuery.set('');
+  }
+
+  /**
+   * Resolve a favicon URL for a site. Sites don't carry a `favicon_url` on
+   * the API model (yet) — fall back to Google's S2 favicon service keyed by
+   * the primary hostname or the `{slug}.projectsites.dev` default.
+   */
+  siteFaviconUrl(site: Site): string {
+    const host = (site.primary_hostname || '').trim()
+      || (site.slug ? `${site.slug}.projectsites.dev` : '');
+    if (!host) return '';
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`;
+  }
+
+  /** First letter of business name, fallback "?". Used by the monogram tile. */
+  siteMonogram(site: Site | null | undefined): string {
+    const name = (site?.business_name || '').trim();
+    if (name) return name.charAt(0).toUpperCase();
+    const slug = (site?.slug || '').trim();
+    return slug ? slug.charAt(0).toUpperCase() : '?';
+  }
+
+  /** True when the upstream favicon for this site failed to load. */
+  isFaviconFailed(site: Site): boolean {
+    return this.faviconFailed().has(site.id);
+  }
+
+  /** Mark a favicon as broken so the template swaps to the monogram tile. */
+  onFaviconError(site: Site): void {
+    if (this.faviconFailed().has(site.id)) return;
+    const next = new Set(this.faviconFailed());
+    next.add(site.id);
+    this.faviconFailed.set(next);
+  }
+
+  /**
+   * Enter inside the search input. With a typed query:
+   *   • Matches → select the first (top-ranked) match and close dropdown.
+   *   • No matches → jump to /create with `?name=<query>` pre-filled so the
+   *     user lands on the create wizard with their typed name already in
+   *     the business-name field.
+   * Empty query falls through (no-op).
+   */
+  onSiteSearchEnter(ev: Event): void {
+    const event = ev as KeyboardEvent;
+    event.preventDefault();
+    const query = this.siteSearchQuery().trim();
+    if (!query) return;
+    const top = this.filteredSites[0];
+    if (top) {
+      this.selectSite(top);
+      return;
+    }
+    // No match — go create a new site with the typed name pre-filled.
+    this.siteDropdownOpen.set(false);
+    this.siteSearchQuery.set('');
+    this.router.navigate(['/create'], { queryParams: { name: query } });
+  }
+
+  /**
+   * Arrow-key navigation through the site option list. Up/Down move focus,
+   * Home/End jump to first/last, Esc closes the dropdown and re-focuses the
+   * trigger button via blur. Called from both the search input and the
+   * option buttons.
+   */
+  onSiteListKeydown(ev: KeyboardEvent): void {
+    const opts = this.siteOptionRefs?.toArray() ?? [];
+    if (!opts.length && ev.key !== 'Escape') return;
+    const active = document.activeElement as HTMLElement | null;
+    const idx = opts.findIndex((r) => r.nativeElement === active);
+    let next = -1;
+    switch (ev.key) {
+      case 'ArrowDown':
+        next = idx < 0 ? 0 : Math.min(opts.length - 1, idx + 1);
+        break;
+      case 'ArrowUp':
+        if (idx <= 0) {
+          // Bounce focus back to search input from the top of the list.
+          ev.preventDefault();
+          this.siteSearchInputRef?.nativeElement.focus();
+          return;
+        }
+        next = idx - 1;
+        break;
+      case 'Home':
+        next = 0;
+        break;
+      case 'End':
+        next = opts.length - 1;
+        break;
+      case 'Escape':
+        ev.preventDefault();
+        this.siteDropdownOpen.set(false);
+        this.siteSearchQuery.set('');
+        return;
+      default:
+        return;
+    }
+    if (next >= 0 && opts[next]) {
+      ev.preventDefault();
+      opts[next].nativeElement.focus();
+    }
   }
 
   // ── Palette ─────────────────────────────────────────
@@ -357,7 +482,7 @@ export class AdminComponent implements OnInit, OnDestroy {
     if (!inField && !ev.metaKey && !ev.ctrlKey) {
       if (ev.key === 'g') { this.gPressedAt = Date.now(); return; }
       if (Date.now() - this.gPressedAt < 900) {
-        const map: Record<string, string> = { e: '/admin', s: '/admin/snapshots', a: '/admin/analytics', f: '/admin/forms', l: '/admin/traces', c: '/admin/ai-chat', b: '/admin/billing' };
+        const map: Record<string, string> = { e: '/admin', s: '/admin/snapshots', a: '/admin/analytics', f: '/admin/forms', l: '/admin/traces', c: '/admin/ai-chat', b: '/admin/billing', i: '/admin/inbox' };
         const path = map[ev.key.toLowerCase()];
         if (path) { ev.preventDefault(); this.router.navigateByUrl(path); this.gPressedAt = 0; }
       }

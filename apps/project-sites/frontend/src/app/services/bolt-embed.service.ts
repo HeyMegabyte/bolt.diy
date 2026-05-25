@@ -22,7 +22,7 @@
  *   (PS_BOLT_READY / PS_APP_RUNNING / PS_FILES_READY / PS_GENERATION_STATUS).
  */
 
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, effect, inject, signal } from '@angular/core';
 import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { ApiService } from './api.service';
 import { SentryService } from './sentry.service';
@@ -45,8 +45,22 @@ interface PsMessage {
   readonly status?: string;
   readonly error?: string;
   readonly message?: string;
-  readonly files?: Record<string, string>;
+  readonly files?: Record<string, string> | { path: string; size: number }[];
   readonly chat?: { messages: unknown[]; description?: string; exportDate?: string };
+  readonly correlationId?: string;
+  readonly kind?: 'info' | 'success' | 'warning' | 'error';
+  readonly level?: 'info' | 'success' | 'warning' | 'error';
+}
+
+export interface BoltFileEntry {
+  readonly path: string;
+  readonly size: number;
+}
+
+/** Options accepted by `bootForSite` — `file` + `line` deep-link the editor. */
+export interface BootOptions {
+  readonly file?: string;
+  readonly line?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -73,6 +87,103 @@ export class BoltEmbedService {
   private hardTimeout: ReturnType<typeof setTimeout> | null = null;
   private softTimeout: ReturnType<typeof setTimeout> | null = null;
   private messageHandler: ((e: MessageEvent) => void) | null = null;
+  /** In-flight `PS_LIST_FILES` requests keyed by correlationId (item 45). */
+  private readonly pendingFileLists = new Map<string, (files: BoltFileEntry[]) => void>();
+  /** Optional consumer for `PS_DEPLOY_REQUEST` messages from the editor (item 43). */
+  private deployHandler: ((req: { files: Record<string, string>; chat?: { messages: unknown[]; description?: string; exportDate?: string } }) => void) | null = null;
+  /** Toast ids already mirrored to the editor — prevents echo loops (item 44). */
+  private readonly mirroredToastIds = new Set<number>();
+  /** True while we're showing a toast forwarded FROM the editor — stops
+   *  the mirror effect from bouncing it right back as a `PS_TOAST`. */
+  private suppressMirror = false;
+
+  constructor() {
+    /*
+     * Item 44 — mirror admin toasts into the editor as `PS_TOAST` messages.
+     * No-op while the iframe isn't booted; once the user opens /admin/editor
+     * every fresh toast surfaces in both shells without writing code at the
+     * call site. We track mirrored ids in a Set so the same toast isn't
+     * forwarded twice as the signal re-emits.
+     */
+    effect(() => {
+      const toasts = this.toast.toasts();
+      if (!this.iframeEl?.contentWindow || this.suppressMirror) return;
+      for (const t of toasts) {
+        if (this.mirroredToastIds.has(t.id)) continue;
+        this.mirroredToastIds.add(t.id);
+        // Cap memory — keep only the last 200 ids.
+        if (this.mirroredToastIds.size > 200) {
+          const first = this.mirroredToastIds.values().next().value;
+          if (first !== undefined) this.mirroredToastIds.delete(first);
+        }
+        this.forwardToast(t.type, t.message);
+      }
+    });
+  }
+  /** Hidden pre-warm iframe element. Removed once the real iframe takes over. */
+  private prewarmEl: HTMLIFrameElement | null = null;
+  /** Has the page-level pre-warm (modulepreload + hidden iframe) already fired? */
+  private hasPrewarmed = false;
+
+  /**
+   * Item 1 (perf): Spin up a hidden, off-screen iframe pointed at the bolt.diy
+   * editor as soon as the user lands on `/admin` — before any site is even
+   * selected. By the time the user clicks Editor, the editor bundle +
+   * WebContainer cold boot have already been paid in the hidden tab and the
+   * eventual `bootForSite()` call gets warm caches.
+   *
+   * Also injects `<link rel="modulepreload">` for the editor's main entry +
+   * `<link rel="prefetch">` for the document so the browser races the TCP +
+   * TLS handshake to `editor.projectsites.dev` while the Angular shell paints.
+   *
+   * Idempotent — safe to call from a route guard, an effect, or a hover
+   * handler on the Editor nav button.
+   */
+  prewarmEditor(): void {
+    if (this.hasPrewarmed || typeof document === 'undefined') return;
+    this.hasPrewarmed = true;
+    try {
+      // Prefetch the document HTML so the iframe load on real click is warm.
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.as = 'document';
+      link.href = `${EDITOR_BASE}/?embedded=true&prewarm=true`;
+      link.crossOrigin = 'anonymous';
+      document.head.appendChild(link);
+
+      // Hidden iframe mounted off-screen — fires the real GET so the bolt
+      // bundle + WebContainer download starts in parallel with admin paint.
+      // We intentionally do NOT attach a message listener — this iframe is
+      // throwaway, the real iframe (registered via registerIframe) will pick
+      // up its own postMessage protocol when bootForSite() runs.
+      const frame = document.createElement('iframe');
+      frame.src = `${EDITOR_BASE}/?embedded=true&prewarm=true`;
+      frame.setAttribute('aria-hidden', 'true');
+      frame.tabIndex = -1;
+      frame.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;border:0;opacity:0;pointer-events:none;';
+      // `loading=eager` is the default but we make it explicit — pre-warm is
+      // the whole point, lazy would defeat the purpose.
+      frame.loading = 'eager';
+      document.body.appendChild(frame);
+      this.prewarmEl = frame;
+
+      // Clean up the throwaway iframe after 90s — by then the real iframe has
+      // taken over or the user has left the admin shell entirely.
+      setTimeout(() => this.disposePrewarm(), 90_000);
+    } catch (err) {
+      // Pre-warm is a perf hint — never let it bubble up as a user-facing
+      // error. Sentry breadcrumb captures the cause if we ever care.
+      console.warn('[bolt-embed] prewarmEditor failed', err);
+      this.hasPrewarmed = false;
+    }
+  }
+
+  private disposePrewarm(): void {
+    if (this.prewarmEl?.parentNode) {
+      this.prewarmEl.parentNode.removeChild(this.prewarmEl);
+    }
+    this.prewarmEl = null;
+  }
 
   /**
    * Called once by `AdminComponent` after its `<iframe #boltFrame>` view child
@@ -86,16 +197,25 @@ export class BoltEmbedService {
    * Boot (or rebind) the iframe for a given site. Idempotent — re-calling
    * with the same slug is a no-op so the iframe never reloads when the user
    * switches between admin sub-routes for the same site.
+   *
+   * @param site - the site to bind, or `null` to tear the iframe down.
+   * @param opts - optional `file` + `line` deep-link (item 42). When present
+   *   on the same-slug fast-path we forward via `PS_OPEN_FILE` instead of
+   *   reloading the iframe.
    */
-  bootForSite(site: BoltEmbedSite | null): void {
+  bootForSite(site: BoltEmbedSite | null, opts: BootOptions = {}): void {
     if (!site) {
       this.teardown();
       return;
     }
     if (this.currentSlug === site.slug) {
       this.currentSite = site;
+      if (opts.file) this.openFile(opts.file, opts.line);
       return;
     }
+    // The hidden pre-warm iframe (if any) has done its job — the real iframe
+    // will own the editor lifecycle from here. Dispose to free a doc + memory.
+    this.disposePrewarm();
     this.currentSite = site;
     this.currentSlug = site.slug;
     this.editorReady.set(false);
@@ -118,6 +238,8 @@ export class BoltEmbedService {
       slug: site.slug,
       importChatFrom: `${window.location.origin}/api/sites/by-slug/${site.slug}/chat`,
     });
+    if (opts.file) params.set('file', opts.file);
+    if (opts.line && Number.isFinite(opts.line) && opts.line > 0) params.set('line', String(opts.line));
     this.iframeUrl.set(
       this.sanitizer.bypassSecurityTrustResourceUrl(`${EDITOR_BASE}/?${params.toString()}`),
     );
@@ -125,6 +247,82 @@ export class BoltEmbedService {
     this.attachMessageListener();
     this.clearTimers();
     this.hardTimeout = setTimeout(() => this.dismissVeil('timeout'), HARD_TIMEOUT_MS);
+  }
+
+  /**
+   * Item 41 — rebase the editor's WebContainer to a snapshot. Fired by row
+   * clicks in `AdminSnapshotsComponent`. The iframe re-imports the
+   * snapshot's chat-export via the existing `by-slug/chat` endpoint.
+   */
+  openSnapshot(snapshotId: string): void {
+    const iframe = this.iframeEl;
+    const site = this.currentSite;
+    if (!iframe?.contentWindow || !site) {
+      this.toast.warning('Editor not ready — open the Editor tab first');
+      return;
+    }
+    iframe.contentWindow.postMessage(
+      { type: 'PS_OPEN_SNAPSHOT', snapshot_id: snapshotId, slug: site.slug, correlationId: crypto.randomUUID() },
+      EDITOR_BASE,
+    );
+  }
+
+  /**
+   * Item 42 — jump to a file (and optional 1-based line) in CodeMirror.
+   * Sends `PS_OPEN_FILE`; the editor resolves the path against its
+   * workbench and scrolls the editor pane.
+   */
+  openFile(file: string, line?: number): void {
+    const iframe = this.iframeEl;
+    if (!iframe?.contentWindow) {
+      this.toast.warning('Editor not ready — open the Editor tab first');
+      return;
+    }
+    iframe.contentWindow.postMessage(
+      { type: 'PS_OPEN_FILE', file, line, correlationId: crypto.randomUUID() },
+      EDITOR_BASE,
+    );
+  }
+
+  /**
+   * Item 45 — enumerate every text file currently in the editor's
+   * workbench. Resolves with `{ path, size }[]`, or rejects on timeout.
+   * Multiple concurrent calls are safe — each gets its own `correlationId`.
+   */
+  listFiles(timeoutMs = 4000): Promise<BoltFileEntry[]> {
+    const iframe = this.iframeEl;
+    if (!iframe?.contentWindow) {
+      return Promise.reject(new Error('Editor not ready'));
+    }
+    const correlationId = crypto.randomUUID();
+    return new Promise<BoltFileEntry[]>((resolve, reject) => {
+      const timer = window.setTimeout(() => {
+        this.pendingFileLists.delete(correlationId);
+        reject(new Error('Timed out waiting for editor file list'));
+      }, timeoutMs);
+      this.pendingFileLists.set(correlationId, (files: BoltFileEntry[]) => {
+        window.clearTimeout(timer);
+        resolve(files);
+      });
+      iframe.contentWindow!.postMessage(
+        { type: 'PS_LIST_FILES', correlationId },
+        EDITOR_BASE,
+      );
+    });
+  }
+
+  /**
+   * Item 44 — forward an admin-side toast into the editor so the user sees
+   * the same message whether their eyes are on the editor pane or the
+   * admin chrome. No-op when the iframe is not booted.
+   */
+  forwardToast(kind: 'info' | 'success' | 'warning' | 'error', message: string): void {
+    const iframe = this.iframeEl;
+    if (!iframe?.contentWindow) return;
+    iframe.contentWindow.postMessage(
+      { type: 'PS_TOAST', kind, message, correlationId: crypto.randomUUID() },
+      EDITOR_BASE,
+    );
   }
 
   /**
@@ -165,11 +363,14 @@ export class BoltEmbedService {
   teardown(): void {
     this.detachMessageListener();
     this.clearTimers();
+    this.disposePrewarm();
     this.iframeUrl.set(null);
     this.editorReady.set(false);
     this.currentSlug = null;
     this.currentSite = null;
     this.boltReady = false;
+    this.hasPrewarmed = false;
+    this.pendingFileLists.clear();
   }
 
   // ── internals ──────────────────────────────────────────────────
@@ -203,8 +404,14 @@ export class BoltEmbedService {
         case 'PS_APP_RUNNING':
           this.dismissVeil('app_running');
           break;
+        case 'PS_BOLT_CHAT_READY':
+          // Fired by bolt.diy the moment the chat placeholder
+          // "Build a professional website for…" has painted. This is
+          // the "user can actually interact" signal — dismiss the veil.
+          this.dismissVeil('app_running');
+          break;
         case 'PS_FILES_READY':
-          this.uploadFiles(msg.files ?? {}, msg.chat);
+          this.uploadFiles((msg.files as Record<string, string> | undefined) ?? {}, msg.chat);
           break;
         case 'PS_GENERATION_STATUS':
           if (msg.status === 'complete') {
@@ -220,11 +427,67 @@ export class BoltEmbedService {
           this.toast.error('Editor error: ' + (msg.message || 'Unknown error'));
           this.saving.set(false);
           break;
+        case 'PS_FILES_LIST': {
+          // Item 45 — fulfil the matching pending `listFiles()` promise.
+          const cid = msg.correlationId;
+          if (!cid) break;
+          const resolver = this.pendingFileLists.get(cid);
+          if (resolver) {
+            this.pendingFileLists.delete(cid);
+            resolver(Array.isArray(msg.files) ? (msg.files as BoltFileEntry[]) : []);
+          }
+          break;
+        }
+        case 'PS_DEPLOY_REQUEST': {
+          // Item 43 — editor asked us to run the deploy. If a consumer has
+          // registered a handler, hand off; else fall back to the standard
+          // publish-bolt flow used by `saveAndDeploy()`.
+          const files = (msg.files as Record<string, string> | undefined) ?? {};
+          if (this.deployHandler) {
+            this.deployHandler({ files, chat: msg.chat });
+          } else {
+            this.saving.set(true);
+            this.uploadFiles(files, msg.chat);
+          }
+          break;
+        }
+        case 'PS_TOAST': {
+          // Item 44 — editor toast surfaces in the admin toast layer too.
+          // suppressMirror prevents the mirror effect from echoing it back.
+          this.suppressMirror = true;
+          try {
+            const kind = msg.kind ?? msg.level ?? 'info';
+            const text = msg.message ?? '';
+            const id =
+              kind === 'error' ? this.toast.error(text)
+              : kind === 'success' ? this.toast.success(text)
+              : kind === 'warning' ? this.toast.warning(text)
+              : this.toast.info(text);
+            this.mirroredToastIds.add(id);
+          } finally {
+            this.suppressMirror = false;
+          }
+          break;
+        }
         default:
           break;
       }
     };
     window.addEventListener('message', this.messageHandler);
+  }
+
+  /**
+   * Item 43 — register a callback that receives every `PS_DEPLOY_REQUEST`
+   * coming back from the editor. Returns an unsubscribe function. Only one
+   * consumer is supported at a time — re-registering replaces the prior.
+   */
+  registerDeployHandler(
+    fn: ((req: { files: Record<string, string>; chat?: { messages: unknown[]; description?: string; exportDate?: string } }) => void) | null,
+  ): () => void {
+    this.deployHandler = fn;
+    return () => {
+      if (this.deployHandler === fn) this.deployHandler = null;
+    };
   }
 
   private detachMessageListener(): void {

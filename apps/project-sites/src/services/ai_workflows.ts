@@ -702,7 +702,7 @@ export function registerAllPrompts(): void {
       id: 'research_business',
       version: 2,
       description: 'Research a business using public data to generate structured website content',
-      models: ['@cf/meta/llama-3.1-70b-instruct', '@cf/meta/llama-3.1-8b-instruct'],
+      models: ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct-fp8'],
       params: { temperature: 0.3, maxTokens: 4096 },
       inputs: {
         required: ['business_name'],
@@ -741,7 +741,7 @@ export function registerAllPrompts(): void {
       id: 'generate_site',
       version: 2,
       description: 'Generate a complete single-page HTML website from structured business data',
-      models: ['@cf/meta/llama-3.1-70b-instruct', '@cf/meta/llama-3.1-8b-instruct'],
+      models: ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct-fp8'],
       params: { temperature: 0.2, maxTokens: 8192 },
       inputs: { required: ['research_data'], optional: [] },
       outputs: { format: 'html', schema: 'GenerateSiteOutput' },
@@ -765,7 +765,7 @@ export function registerAllPrompts(): void {
       id: 'score_quality',
       version: 2,
       description: 'Score the quality of generated website HTML on multiple dimensions',
-      models: ['@cf/meta/llama-3.1-70b-instruct', '@cf/meta/llama-3.1-8b-instruct'],
+      models: ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct-fp8'],
       params: { temperature: 0.1, maxTokens: 1024 },
       inputs: { required: ['html_content'], optional: [] },
       outputs: { format: 'json', schema: 'ScoreQualityOutput' },
@@ -781,7 +781,7 @@ export function registerAllPrompts(): void {
       id: 'site_copy',
       version: 3,
       description: 'Generate conversion-focused marketing copy for a small business website',
-      models: ['@cf/meta/llama-3.1-70b-instruct', '@cf/meta/llama-3.1-8b-instruct'],
+      models: ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct-fp8'],
       params: { temperature: 0.6, maxTokens: 900 },
       inputs: {
         required: ['businessName', 'city', 'services', 'tone'],
@@ -816,7 +816,7 @@ export function registerAllPrompts(): void {
       version: 3,
       variant: 'b',
       description: 'Generate conversion-focused marketing copy (variant B: benefit-led)',
-      models: ['@cf/meta/llama-3.1-70b-instruct', '@cf/meta/llama-3.1-8b-instruct'],
+      models: ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct-fp8'],
       params: { temperature: 0.7, maxTokens: 900 },
       inputs: {
         required: ['businessName', 'city', 'services', 'tone'],
@@ -856,7 +856,7 @@ export function registerAllPrompts(): void {
 
   // ── V2 Workflow Prompts ──────────────────────────────────────
 
-  const defaultModels = ['@cf/meta/llama-3.1-70b-instruct', '@cf/meta/llama-3.1-8b-instruct'];
+  const defaultModels = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct-fp8'];
 
   registry.registerAll([
     {

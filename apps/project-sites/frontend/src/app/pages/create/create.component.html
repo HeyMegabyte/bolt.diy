@@ -71,8 +71,19 @@
 
     <!-- Form -->
     <div class="animate-fade-in-up" style="animation-delay:0.15s">
-      <div class="mb-8">
-        <div class="text-[0.72rem] font-bold uppercase tracking-[0.1em] text-primary mb-5 pb-2.5 border-b border-primary/[0.08]">Business Information</div>
+      <!-- AI inference status banner -->
+      @if (autofilling()) {
+        <div class="mb-6 flex items-center gap-3 p-3 px-[18px] rounded-xl border border-primary/25 bg-gradient-to-r from-primary/[0.08] to-secondary/[0.04] text-[0.85rem] text-primary animate-fade-in-up" role="status" aria-live="polite">
+          <span class="loading-dots"><span></span><span></span><span></span></span>
+          <span>Inferring details from "<strong class="text-light">{{ businessName }}</strong>" — edit any field anytime; we won't overwrite your typing.</span>
+        </div>
+      }
+
+      <div class="mb-8 ps-section" style="--ps-delay:0ms">
+        <div class="ps-kicker mb-5 pb-2.5 border-b border-primary/[0.08] flex items-center gap-2">
+          <span class="ps-kicker-dot"></span>
+          <span>Business Information</span>
+        </div>
 
         <div class="mb-5 text-left relative z-[999]">
           <label class="block text-[0.85rem] font-semibold text-light mb-1.5" for="create-name">
@@ -83,7 +94,8 @@
             type="text"
             class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] relative z-[9999] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2"
             [class]="nameError ? 'border-red-500/60 focus:border-red-500' : 'border-white/[0.08] focus:border-primary'"
-            placeholder="e.g., Vito's Mens Salon or EXPRESS HEYO"
+            [class.ai-shimmer]="shimmering('name')"
+            placeholder="e.g. Vito's Mens Salon"
             [(ngModel)]="businessName"
             (input)="onBusinessInput()"
             (focus)="setStep(1)"
@@ -119,7 +131,8 @@
             type="text"
             class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] relative z-[9999] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2"
             [class]="addressError ? 'border-red-500/60 focus:border-red-500' : 'border-white/[0.08] focus:border-primary'"
-            placeholder="e.g., 74 N Beverwyck Rd, Lake Hiawatha, NJ 07034"
+            [class.ai-shimmer]="shimmering('address')"
+            placeholder="e.g. 74 N Beverwyck Rd, Lake Hiawatha, NJ 07034"
             [(ngModel)]="businessAddress"
             (input)="onAddressInput()"
             (focus)="setStep(1)"
@@ -148,14 +161,14 @@
               Phone <span class="text-gray-500 font-normal text-[0.75rem]">(optional)</span>
               @if (loadingPhone()) { <span class="field-loading"></span> }
             </label>
-            <input id="create-phone" type="tel" autocomplete="tel" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)]" placeholder="+1 (555) 123-4567" [(ngModel)]="businessPhone" (blur)="saveFormDraft()" maxlength="20" />
+            <input id="create-phone" type="tel" autocomplete="tel" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)]" [class.ai-shimmer]="shimmering('phone')" placeholder="e.g. (973) 555-0142" [(ngModel)]="businessPhone" (input)="markTouched('phone')" (blur)="saveFormDraft()" maxlength="20" />
           </div>
           <div class="mb-5 text-left">
             <label class="block text-[0.85rem] font-semibold text-light mb-1.5" for="create-website">
               Existing Website <span class="text-gray-500 font-normal text-[0.75rem]">(optional)</span>
               @if (loadingWebsite()) { <span class="field-loading"></span> }
             </label>
-            <input id="create-website" type="url" autocomplete="url" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)]" placeholder="https://example.com" [(ngModel)]="businessWebsite" (blur)="saveFormDraft()" maxlength="500" />
+            <input id="create-website" type="url" autocomplete="url" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)]" [class.ai-shimmer]="shimmering('website')" placeholder="e.g. https://megabyte.space" [(ngModel)]="businessWebsite" (input)="markTouched('website')" (blur)="saveFormDraft()" maxlength="500" />
           </div>
         </div>
       </div>
@@ -178,15 +191,18 @@
         <span class="text-[0.78rem] text-gray-500 leading-snug">Auto-fills phone, website, and generates design recommendations (colors, fonts, sections) based on your business type</span>
       </div>
 
-      <div class="mb-8">
-        <div class="text-[0.72rem] font-bold uppercase tracking-[0.1em] text-primary mb-5 pb-2.5 border-b border-primary/[0.08]">Customization</div>
+      <div class="mb-8 ps-section" style="--ps-delay:160ms">
+        <div class="ps-kicker mb-5 pb-2.5 border-b border-primary/[0.08] flex items-center gap-2">
+          <span class="ps-kicker-dot"></span>
+          <span>Customization</span>
+        </div>
 
         <div class="mb-5 text-left">
           <label class="block text-[0.85rem] font-semibold text-light mb-1.5" for="create-category">
             Industry / Category <span class="text-gray-500 font-normal text-[0.75rem]">(optional)</span>
             @if (loadingCategory()) { <span class="field-loading"></span> }
           </label>
-          <select id="create-category" class="input-field w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2" [(ngModel)]="businessCategory" (ngModelChange)="saveFormDraft()" (focus)="setStep(2)">
+          <select id="create-category" class="input-field w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2" [class.ai-shimmer]="shimmering('category')" [(ngModel)]="businessCategory" (ngModelChange)="markTouched('category'); saveFormDraft()" (focus)="setStep(2)">
             <option value="">Select a category...</option>
             @for (cat of categories; track cat) {
               @if (cat) { <option [value]="cat">{{ cat }}</option> }
@@ -202,7 +218,9 @@
           <textarea
             id="create-context"
             class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2 min-h-[140px] resize-y leading-relaxed"
+            [class.ai-shimmer]="shimmering('context')"
             (focus)="setStep(2)"
+            (input)="markTouched('context')"
             (blur)="saveFormDraft()"
             placeholder="Add anything to improve your website. Examples:&#10;&#10;• Brand colors: #1a1a2e primary, #e94560 accent&#10;• Fonts: Montserrat headings, Inter body&#10;• Google Analytics: G-XXXXXXXXXX&#10;• Include a Calendly booking widget&#10;• Target audience: Men 25-45 who value premium grooming&#10;• Open Mon-Sat 9am-7pm, closed Sundays&#10;• Design style: modern minimalist with dark theme&#10;• Sections: Hero, Services with pricing, Team, Gallery, Reviews, Contact&#10;• Social links: Instagram, Facebook, TikTok&#10;• Any specific content, slogans, or taglines you want"
             [(ngModel)]="additionalContext"
@@ -214,8 +232,11 @@
       </div>
 
       <!-- File Uploads -->
-      <div class="mb-8">
-        <div class="text-[0.72rem] font-bold uppercase tracking-[0.1em] text-primary mb-5 pb-2.5 border-b border-primary/[0.08]">Brand Assets <span class="text-gray-500 font-normal text-[0.75rem] normal-case tracking-normal">(optional)</span></div>
+      <div class="mb-8 ps-section" style="--ps-delay:240ms">
+        <div class="ps-kicker mb-5 pb-2.5 border-b border-primary/[0.08] flex items-center gap-2">
+          <span class="ps-kicker-dot"></span>
+          <span>Brand Assets <span class="text-gray-500 font-normal text-[0.75rem] normal-case tracking-normal">(optional)</span></span>
+        </div>
 
         <div class="grid grid-cols-2 gap-4 mb-4 max-sm:grid-cols-1">
           <div class="relative">
@@ -317,7 +338,13 @@
           {{ resetSiteId ? 'Rebuilding...' : 'Building your site...' }}
         } @else {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          {{ resetSiteId ? 'Reset & Rebuild' : 'Build My Website' }}
+          @if (resetSiteId) {
+            Reset & Rebuild
+          } @else if (autofillCount() > 0) {
+            Create with {{ autofillCount() }} AI suggestion{{ autofillCount() === 1 ? '' : 's' }}
+          } @else {
+            Create site
+          }
         }
       </button>
 

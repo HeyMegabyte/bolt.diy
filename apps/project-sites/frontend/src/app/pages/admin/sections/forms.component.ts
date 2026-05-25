@@ -136,28 +136,33 @@ const POLL_INTERVAL_MS = 10_000;
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header>
-        <div class="flex items-center justify-between gap-4 flex-wrap">
-          <h2 class="section-h text-lg font-bold text-white m-0">Forms</h2>
-          <div class="flex items-center gap-2 flex-wrap header-actions">
+        <div class="kicker">Inbox &amp; routing</div>
+        <div class="flex items-center justify-between gap-4 flex-wrap mt-1">
+          <h2 class="section-h text-lg font-bold text-white m-0 flex items-center gap-2">
+            Forms
             @if (submissions().length > 0) {
-              <span class="header-pill" aria-label="Submissions count" title="Submissions in the inbox">
+              <span class="header-pill" [attr.aria-label]="submissions().length + ' submissions in inbox'" title="Submissions in the inbox">
                 <span class="header-pill-dot" aria-hidden="true"></span>
                 {{ submissions().length }} submission{{ submissions().length === 1 ? '' : 's' }}
               </span>
             }
+          </h2>
+          <div class="flex items-center gap-2 flex-wrap header-actions">
             <button class="btn-prompt-quiet"
+                    type="button"
                     data-testid="forms-open-prompt-designer"
                     (click)="designerOpen.set(true)"
-                    title="Open the full-screen prompt designer + tester">
+                    title="Open the full-screen prompt designer + tester"
+                    aria-label="Open the form-handling prompt designer">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6M9 17h4"/></svg>
               <span>Edit prompt</span>
             </button>
           </div>
         </div>
-        <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
+        <p class="text-[0.78rem] text-text-secondary m-0 mt-1 max-w-prose leading-relaxed">
           One prompt handles every form submission and routes it to the right action — MailChimp signup, Stripe invoice, email reply, HubSpot contact — using your connected MCPs.
           @if (mcpConnections().length > 0) {
-            <span class="text-emerald-400">· {{ mcpConnections().length }} MCP{{ mcpConnections().length === 1 ? '' : 's' }} connected</span>
+            <span class="text-emerald-300">· {{ mcpConnections().length }} MCP{{ mcpConnections().length === 1 ? '' : 's' }} connected</span>
           } @else {
             <span class="text-amber-300">· no MCPs connected — only email fallback available</span>
           }
@@ -174,7 +179,9 @@ const POLL_INTERVAL_MS = 10_000;
               <h3 class="section-h m-0 text-base font-semibold text-white">Test the Form Handling Prompt</h3>
               <p class="m-0 mt-0.5 text-[0.7rem] text-text-secondary">Runs the current prompt against this payload (1 credit).</p>
             </div>
-            <button class="text-text-secondary hover:text-white" (click)="testOpen.set(false)" aria-label="Close" title="Close test panel">×</button>
+            <button class="icon-close" type="button" (click)="testOpen.set(false)" aria-label="Close test panel" title="Close test panel">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </div>
           <div class="grid sm:grid-cols-2 gap-2">
             <input class="input-field" placeholder="form_name (e.g. newsletter, contact)" [(ngModel)]="testInput.form_name" />
@@ -349,10 +356,41 @@ const POLL_INTERVAL_MS = 10_000;
                   </span>
                   <div>
                     <h4 class="success-title">Submission accepted</h4>
-                    <p class="success-body">Routed through the form-handling prompt. See AI Logs for the full trace.</p>
+                    <p class="success-body">Routed through the form-handling prompt. Trace below.</p>
                   </div>
                 </div>
               </div>
+
+              <div class="mt-3">
+                <span class="muted-h flex items-center justify-between">
+                  <span>Trace</span>
+                  <button type="button" class="text-[0.6rem] text-text-secondary hover:text-primary px-1.5 py-0.5 rounded" (click)="copyTrace()" title="Copy trace JSON to clipboard">copy</button>
+                </span>
+                <textarea
+                  readonly
+                  class="input-field w-full mt-1 font-mono text-[0.68rem]"
+                  rows="10"
+                  data-testid="forms-test-result"
+                  [value]="testResultPretty()"
+                ></textarea>
+              </div>
+
+              @if (testResultSummary(); as s) {
+                <div class="mt-2 trace-summary">
+                  @if (s.action) {
+                    <div class="trace-row"><span class="muted-h">decision</span><code class="trace-val">{{ s.action }}</code></div>
+                  }
+                  @if (s.mcp) {
+                    <div class="trace-row"><span class="muted-h">mcp</span><code class="trace-val">{{ s.mcp }}</code></div>
+                  }
+                  @if (s.ms != null) {
+                    <div class="trace-row"><span class="muted-h">latency</span><code class="trace-val">{{ s.ms }}ms</code></div>
+                  }
+                  @if (s.cost != null) {
+                    <div class="trace-row"><span class="muted-h">cost</span><code class="trace-val">{{ s.cost.toFixed(4) }} credits</code></div>
+                  }
+                </div>
+              }
             }
           </aside>
         </div>
@@ -372,7 +410,7 @@ const POLL_INTERVAL_MS = 10_000;
           </div>
         </div>
         @if (loading() && submissions().length === 0) {
-          <div class="p-4 space-y-2" data-testid="forms-loading">
+          <div class="p-4 space-y-2" data-testid="forms-loading" aria-busy="true" aria-label="Loading submissions">
             @for (i of [0,1,2,3]; track i) {
               <div class="skeleton skeleton-row"></div>
             }
@@ -436,7 +474,9 @@ const POLL_INTERVAL_MS = 10_000;
         <section class="card border border-primary/40">
           <div class="flex items-center justify-between mb-3">
             <h3 class="section-h m-0 text-base font-semibold text-white">{{ s.form_name }} · {{ s.created_at | date:'medium' }}</h3>
-            <button class="text-text-secondary hover:text-white" (click)="selected.set(null)" aria-label="Close form submission detail">×</button>
+            <button class="icon-close" type="button" (click)="selected.set(null)" aria-label="Close form submission detail" title="Close detail panel">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </div>
           <div class="grid md:grid-cols-2 gap-3">
             <div>
@@ -473,15 +513,35 @@ const POLL_INTERVAL_MS = 10_000;
   `,
   styles: [`
     :host { display: block; }
-    .card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 1.4rem; }
+    .kicker {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.62rem; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--ps-accent, #00E5FF); opacity: 0.85;
+    }
+    .card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--ps-radius-lg, 14px); padding: 1.4rem; }
     .section-h { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
-    .input-field { padding: 0.5rem 0.7rem; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; font: inherit; }
+    .input-field { padding: 0.5rem 0.7rem; border-radius: var(--ps-radius-sm, 8px); background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: var(--ps-ink, #fff); font: inherit; }
     .input-field:focus { outline: none; border-color: rgba(0,229,255,0.5); }
-    .btn-primary { padding: 0.5rem 1rem; border-radius: 10px; background: linear-gradient(135deg, #00ffc8, #00d4ff); color: #060610; font-weight: 700; border: 0; cursor: pointer; font-size: 0.74rem; box-shadow: 0 6px 18px -8px rgba(0, 212, 255, 0.55); transition: transform 140ms ease, box-shadow 140ms ease; }
+    .input-field:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
+    .icon-close {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px;
+      border-radius: var(--ps-radius-sm, 8px);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.6);
+      cursor: pointer;
+      transition: background var(--ps-dur-fast, 140ms) ease, color var(--ps-dur-fast, 140ms) ease, border-color var(--ps-dur-fast, 140ms) ease;
+    }
+    .icon-close:hover { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.16); }
+    .icon-close:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
+    .btn-primary { padding: 0.5rem 1rem; border-radius: var(--ps-radius-sm, 10px); background: linear-gradient(135deg, #00ffc8, #00d4ff); color: var(--ps-bg, #060610); font-weight: 700; border: 0; cursor: pointer; font-size: 0.74rem; box-shadow: 0 6px 18px -8px rgba(0, 212, 255, 0.55); transition: transform 140ms ease, box-shadow 140ms ease; }
     .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px -8px rgba(0, 212, 255, 0.7); }
     .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
-    .btn-gradient { padding: 0.55rem 1.1rem; border-radius: 10px; background: linear-gradient(135deg, #00ffc8, #00d4ff); color: #060610; font-weight: 700; border: 0; cursor: pointer; font-size: 0.78rem; box-shadow: 0 8px 22px -10px rgba(0, 212, 255, 0.7); transition: transform 140ms ease, box-shadow 140ms ease; }
+    .btn-primary:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
+    .btn-gradient { padding: 0.55rem 1.1rem; border-radius: var(--ps-radius-sm, 10px); background: linear-gradient(135deg, #00ffc8, #00d4ff); color: var(--ps-bg, #060610); font-weight: 700; border: 0; cursor: pointer; font-size: 0.78rem; box-shadow: 0 8px 22px -10px rgba(0, 212, 255, 0.7); transition: transform 140ms ease, box-shadow 140ms ease; }
     .btn-gradient:hover { transform: translateY(-1px); }
+    .btn-gradient:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
     /* Quiet header CTA — small, ghost-style, no loud gradient. Sits next to
        the submissions count pill without competing for attention. */
     .btn-prompt-quiet {
@@ -509,19 +569,23 @@ const POLL_INTERVAL_MS = 10_000;
       outline-offset: var(--ps-ring-focus-offset, 2px);
     }
     @media (prefers-reduced-motion: reduce) { .btn-prompt-quiet, .btn-prompt-quiet svg { transition: none; } }
-    .btn-ghost { padding: 0.4rem 0.9rem; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #e5e7eb; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
+    .btn-ghost { padding: 0.4rem 0.9rem; border-radius: var(--ps-radius-sm, 8px); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #e5e7eb; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
+    .btn-ghost:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
     .btn-improve { font-size: 0.66rem; line-height: 1; padding: 0.25rem 0.625rem; border-radius: 7px; background: rgba(124,58,237,0.14); border: 1px solid rgba(124,58,237,0.4); color: #c4b5fd; font-weight: 600; cursor: pointer; transition: all 140ms ease; }
     .btn-improve:hover:not(:disabled) { background: rgba(124,58,237,0.22); color: #ddd6fe; }
     .btn-improve:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-improve:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 2px; }
     .muted-h { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; margin: 0 0 0.4rem; }
     .filter-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-    .filter-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid color-mix(in oklch, currentColor 20%, transparent); color: rgba(255,255,255,0.7); font-size: 0.7rem; font-weight: 600; cursor: pointer; transition: all 150ms ease; }
+    .filter-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; min-height: 24px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid color-mix(in oklch, currentColor 20%, transparent); color: rgba(255,255,255,0.7); font-size: 0.7rem; font-weight: 600; cursor: pointer; transition: all 150ms ease; }
     .filter-chip:hover { color: #fff; border-color: rgba(0,229,255,0.3); }
-    .filter-chip.active { background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.18)); color: #00E5FF; border-color: rgba(0,229,255,0.4); }
+    .filter-chip:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
+    .filter-chip.active { background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.18)); color: var(--ps-accent, #00E5FF); border-color: rgba(0,229,255,0.4); }
     .filter-count { font-size: 0.6rem; opacity: 0.7; padding: 1px 5px; border-radius: 999px; background: rgba(255,255,255,0.06); }
     .mcp-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.1); font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
     .mcp-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.55); font-size: 0.66rem; font-weight: 600; cursor: pointer; transition: all 160ms ease; --brand: #94a3b8; }
     .mcp-pill:hover { border-color: rgba(255,255,255,0.25); color: rgba(255,255,255,0.85); }
+    .mcp-pill:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
     .mcp-pill.is-on { background: color-mix(in oklch, var(--brand) 18%, transparent); border-color: color-mix(in oklch, var(--brand) 55%, transparent); color: var(--brand); }
     .mcp-pill .mcp-logo { flex-shrink: 0; }
     .mcp-pill.is-on .mcp-logo { color: var(--brand); }
@@ -558,6 +622,25 @@ const POLL_INTERVAL_MS = 10_000;
       box-shadow: var(--ps-shadow-md, 0 6px 18px -8px rgba(0, 0, 0, 0.42));
     }
     .designer-editor-actions { display: inline-flex; align-items: center; gap: 6px; float: right; }
+
+    /* Trace summary chip strip — at-a-glance LLM decision/mcp/latency/cost
+       above the raw-JSON textarea inside the test panel. */
+    .trace-summary {
+      display: flex; flex-wrap: wrap; gap: 6px 14px;
+      padding: 8px 10px;
+      background: rgba(0, 229, 255, 0.05);
+      border: 1px solid rgba(0, 229, 255, 0.16);
+      border-radius: 8px;
+    }
+    .trace-row {
+      display: inline-flex; align-items: baseline; gap: 4px;
+      font-size: 0.66rem;
+    }
+    .trace-val {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      color: #00E5FF;
+      font-size: 0.7rem;
+    }
     .designer-textarea {
       width: 100%;
       flex: 1;
@@ -868,7 +951,7 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
         next: () => {
           /* silent — UI already reflects the change */
         },
-        error: () => this.toast.error('Failed to save MCP selection'),
+        error: () => this.toast.error('Could not save MCP selection — retry from the pill row'),
       });
   }
 
@@ -962,7 +1045,7 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
           this.improving.set(false);
           const text = r.data?.text?.trim();
           if (!text || text.length < 40) {
-            this.toast.error('No usable prompt returned — try again');
+            this.toast.error('No usable prompt returned — try Improve with AI again');
             return;
           }
           this.settings.form_router_prompt = text;
@@ -974,7 +1057,7 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
         },
         error: () => {
           this.improving.set(false);
-          this.toast.error('AI improve failed — try again');
+          this.toast.error('AI improve failed — check credits + retry');
         },
       });
   }
@@ -995,7 +1078,7 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.loading.set(false);
-        if (!opts.silent) this.toast.error('Failed to load submissions');
+        if (!opts.silent) this.toast.error('Could not load submissions — retry from the sidebar');
       },
     });
   }
@@ -1040,12 +1123,12 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
       })
       .subscribe({
         next: () => {
-          this.toast.success('Saved');
+          this.toast.success('Saved — router will use the new prompt on the next submission');
           this.saving.set(false);
           this.loadSettings();
         },
         error: () => {
-          this.toast.error('Save failed');
+          this.toast.error('Could not save prompt — check your connection + retry');
           this.saving.set(false);
         },
       });
@@ -1055,6 +1138,45 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     this.testOpen.set(true);
   }
 
+  /** JSON.stringify of the result with 2-space indent — bound to the readonly textarea. */
+  testResultPretty(): string {
+    const r = this.testResult();
+    if (!r) return '';
+    try {
+      return JSON.stringify(r, null, 2);
+    } catch {
+      return String(r);
+    }
+  }
+
+  /**
+   * Extract the at-a-glance trace metadata so the designer panel can
+   * surface a small "decision · mcp · latency · cost" strip above the
+   * raw JSON. Pulls from the common ai_form_logs row shape; tolerates
+   * either flat or nested response envelopes.
+   */
+  testResultSummary(): { action?: string; mcp?: string; ms?: number; cost?: number } | null {
+    const r = this.testResult() as Record<string, unknown> | null;
+    if (!r || typeof r !== 'object') return null;
+    const out = r['output'] as Record<string, unknown> | undefined;
+    const decision = (out?.['action'] as string | undefined) ?? (r['action'] as string | undefined);
+    const mcp = (out?.['mcp'] as string | undefined) ?? (r['mcp'] as string | undefined);
+    const ms = (r['duration_ms'] as number | undefined) ?? (r['ms'] as number | undefined);
+    const cost = (r['cost_credits'] as number | undefined) ?? (r['cost'] as number | undefined);
+    if (decision == null && mcp == null && ms == null && cost == null) return null;
+    return { action: decision, mcp, ms, cost };
+  }
+
+  /** Copy the formatted trace JSON to the clipboard with a toast confirm. */
+  copyTrace(): void {
+    const text = this.testResultPretty();
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(
+      () => this.toast.success('Trace copied'),
+      () => this.toast.error('Copy failed — select + ⌘C from the textarea instead'),
+    );
+  }
+
   runTest(): void {
     const site = this.state.selectedSite();
     if (!site) return;
@@ -1062,7 +1184,7 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     try {
       fields = JSON.parse(this.testInput.fields_json || '{}') as Record<string, unknown>;
     } catch {
-      this.toast.error('Fields must be valid JSON');
+      this.toast.error('Fields must be valid JSON — check brackets and quotes');
       return;
     }
     this.testing.set(true);
@@ -1103,7 +1225,7 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
                 },
                 error: () => {
                   this.testing.set(false);
-                  this.toast.error('Failed to fetch trace');
+                  this.toast.error('Could not fetch trace — open AI Logs for the full timeline');
                 },
               });
           };

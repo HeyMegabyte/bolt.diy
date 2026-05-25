@@ -16,9 +16,10 @@
  * ```
  */
 import { Injectable, inject } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable, from, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { ApiService } from '../../services/api.service';
+import { BoltEmbedService, type BoltFileEntry } from '../../services/bolt-embed.service';
 
 /** Row returned by the AI natural-language search endpoint (#94). */
 export interface AiSearchRow {
@@ -146,6 +147,7 @@ export class CommandPaletteActionsService {
       { id: 'nav-snapshots',  title: 'Go to Snapshots',     section: 'Navigation', shortcut: 'G S', icon: ICONS.layers,  keywords: ['versions', 'history', 'backup', 'restore', 'rollback', 'snap'], href: navHref('/admin/snapshots'), run: () => go('/admin/snapshots') },
       { id: 'nav-analytics',  title: 'Go to Analytics',     section: 'Navigation', shortcut: 'G A', icon: ICONS.chart,   keywords: ['visits', 'traffic', 'metrics', 'ga4', 'posthog'], href: navHref('/admin/analytics'), run: () => go('/admin/analytics') },
       { id: 'nav-forms',      title: 'Go to Forms',         section: 'Navigation', shortcut: 'G F', icon: ICONS.form,    keywords: ['submissions', 'router', 'contact'], href: navHref('/admin/forms'), run: () => go('/admin/forms') },
+      { id: 'nav-inbox',      title: 'Go to Pulse Inbox',   section: 'Navigation', shortcut: 'G I', icon: ICONS.form,    keywords: ['conversations', 'chat', 'support', 'email', 'slack', 'discord', 'widget', 'messages'], href: navHref('/admin/inbox'), run: () => go('/admin/inbox') },
       { id: 'nav-traces',     title: 'Go to AI Traces',     section: 'Navigation', shortcut: 'G T', icon: ICONS.zap,     keywords: ['ai logs', 'token', 'cost', 'llm', 'trace'], href: navHref('/admin/traces'), run: () => go('/admin/traces') },
       { id: 'nav-endpoints',  title: 'Go to AI Endpoints',  section: 'Navigation', shortcut: 'G N', icon: ICONS.endpoint, keywords: ['api', 'worker', 'prompt'], href: navHref('/admin/ai-endpoints'), run: () => go('/admin/ai-endpoints') },
       { id: 'nav-billing',    title: 'Go to Billing & Plan', section: 'Navigation', shortcut: 'G B', icon: ICONS.dollar, keywords: ['credits', 'stripe', 'plan', 'invoice'], href: navHref('/admin/billing'), run: () => go('/admin/billing') },
@@ -240,6 +242,44 @@ export class CommandPaletteActionsService {
   /** ApiService is lazy-resolved so existing tests that don't exercise this
    *  method keep working without changing their providers. */
   private apiSvc = inject(ApiService);
+  /** Bolt embed service — lazy-resolved so palette tests don't need to
+   *  provide a stub when they're only exercising the static action list. */
+  private boltSvc = inject(BoltEmbedService);
+
+  /**
+   * Item 45 — query the embedded bolt.diy iframe for its file list and
+   * filter by `query` (case-insensitive substring match on `path`). Top 8
+   * by shortest path. Returns an empty array when the editor isn't booted
+   * or the query is empty — never throws, since the palette should never
+   * crash on a backend hiccup.
+   *
+   * @example
+   * ```ts
+   * service.searchEditorFiles('App.tsx').subscribe((rows) => { ... });
+   * ```
+   */
+  searchEditorFiles(query: string): Observable<PaletteAction[]> {
+    const q = (query || '').trim().toLowerCase();
+    if (!q) return of([] as PaletteAction[]);
+    return from(this.boltSvc.listFiles().catch(() => [] as BoltFileEntry[])).pipe(
+      map((files) => {
+        const matches = files
+          .filter((f) => f.path.toLowerCase().includes(q))
+          .sort((a, b) => a.path.length - b.path.length)
+          .slice(0, 8);
+        return matches.map<PaletteAction>((f) => ({
+          id: `editor-file:${f.path}`,
+          title: f.path.replace(/^\/home\/project\//, ''),
+          description: `${f.size.toLocaleString()} bytes · open in editor`,
+          section: 'Sites',
+          icon: ICONS.edit,
+          keywords: ['file', 'editor', 'open', f.path],
+          run: () => this.boltSvc.openFile(f.path),
+        }));
+      }),
+      catchError(() => of([] as PaletteAction[])),
+    );
+  }
 
   /**
    * Call `POST /api/admin/search/ai` and translate raw rows into navigation

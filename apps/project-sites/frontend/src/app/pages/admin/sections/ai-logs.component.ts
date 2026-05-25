@@ -235,6 +235,7 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-4">
       <header class="flex items-start justify-between gap-3 flex-wrap">
         <div>
+          <div class="kicker">Observability</div>
           <h2 class="section-h text-lg font-bold text-white m-0 flex items-center gap-3">
             AI Traces
             <span class="live-pill" [class.live-pill--paused]="!polling()" [title]="polling() ? 'Polling every 15s' : 'Polling paused (tab hidden)'">
@@ -347,7 +348,8 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
           [fullWidthCellRenderer]="fullWidthCellRenderer"
           [animateRows]="true"
           [enableCellTextSelection]="true"
-          (gridReady)="onGridReady($event)">
+          (gridReady)="onGridReady($event)"
+          (rowClicked)="onRowClicked($event)">
         </ag-grid-angular>
       </div>
     </div>
@@ -435,54 +437,215 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
     :host ::ng-deep .kebab-btn.is-open { background: rgba(0,229,255,0.18); color: #00E5FF; border-color: rgba(0,229,255,0.45); transform: rotate(90deg); }
     @media (prefers-reduced-motion: reduce) { :host ::ng-deep .kebab-btn { transition: none; } }
 
-    /* ─── Detail panel: master/detail expansion ──────────────────────── */
+    /* ─── Detail panel: master/detail expansion (cinematic) ──────────── */
     :host ::ng-deep .detail-card {
-      padding: 1rem 1.2rem 1.2rem; margin: 0;
-      background: linear-gradient(180deg, rgba(0,229,255,0.04), rgba(124,58,237,0.02));
-      border-top: 1px solid rgba(0,229,255,0.20);
-      border-bottom: 1px solid rgba(0,229,255,0.10);
-      animation: detail-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative; padding: 1.1rem 1.3rem 1.35rem; margin: 0;
+      background:
+        radial-gradient(120% 80% at 50% -20%, rgba(0,229,255,0.10), transparent 60%),
+        linear-gradient(180deg, rgba(0,229,255,0.05) 0%, rgba(124,58,237,0.03) 55%, rgba(6,6,16,0.0) 100%),
+        rgba(6,6,16,0.55);
+      border-top: 1px solid color-mix(in oklch, #00E5FF 28%, transparent);
+      border-bottom: 1px solid color-mix(in oklch, #00E5FF 12%, transparent);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.06),
+        inset 0 -1px 0 rgba(0,0,0,0.35),
+        0 0 80px rgba(0, 229, 255, 0.04);
+      animation: detail-in 320ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1));
+      transform-origin: top center; overflow: hidden;
     }
-    @keyframes detail-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-    @media (prefers-reduced-motion: reduce) { :host ::ng-deep .detail-card { animation: none; } }
-    :host ::ng-deep .detail-card .detail-grid { display: grid; gap: 0.8rem; }
-    :host ::ng-deep .detail-card .det-block { display: flex; flex-direction: column; gap: 0.3rem; }
-    :host ::ng-deep .detail-card .det-label { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.55); font-weight: 700; }
+    :host ::ng-deep .detail-card::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0,229,255,0.55) 22%, rgba(124,58,237,0.45) 64%, transparent);
+      pointer-events: none;
+    }
+    @keyframes detail-in {
+      0%   { opacity: 0; transform: translateY(-8px) scaleY(0.96); filter: blur(2px); }
+      60%  { opacity: 1; filter: blur(0); }
+      100% { opacity: 1; transform: translateY(0) scaleY(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :host ::ng-deep .detail-card { animation: none; }
+    }
+
+    /* Metric pill header — latency / cost / tokens / model along the top. */
+    :host ::ng-deep .detail-card .det-meta {
+      display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+      margin: 0 0 0.85rem;
+    }
+    :host ::ng-deep .detail-card .met-pill {
+      display: inline-flex; align-items: baseline; gap: 6px;
+      padding: 4px 11px 4px 9px; border-radius: 999px;
+      font: 700 0.6rem/1 'JetBrains Mono', ui-monospace, monospace;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--mpill, #00E5FF);
+      background: color-mix(in oklch, var(--mpill, #00E5FF) 8%, transparent);
+      border: 1px solid color-mix(in oklch, var(--mpill, #00E5FF) 32%, transparent);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+      white-space: nowrap;
+    }
+    :host ::ng-deep .detail-card .met-pill .met-val {
+      font-size: 0.78rem; font-weight: 800; letter-spacing: -0.01em;
+      color: #fff; font-variant-numeric: tabular-nums; text-transform: none;
+    }
+    :host ::ng-deep .detail-card .met-pill.is-lat   { --mpill: #00E5FF; }
+    :host ::ng-deep .detail-card .met-pill.is-cost  { --mpill: #fbbf24; }
+    :host ::ng-deep .detail-card .met-pill.is-tok   { --mpill: #c4b5fd; }
+    :host ::ng-deep .detail-card .met-pill.is-model { --mpill: #34d399; }
+    :host ::ng-deep .detail-card .met-pill.is-tool  { --mpill: #fdba74; }
+
+    :host ::ng-deep .detail-card .detail-grid { display: grid; gap: 0.85rem; }
+    :host ::ng-deep .detail-card .det-block {
+      display: flex; flex-direction: column; gap: 0.45rem;
+      position: relative;
+      padding: 0.7rem 0.85rem 0.85rem 1rem;
+      border-radius: var(--ps-radius-md, 12px);
+      background: rgba(255,255,255,0.022);
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+      transition: border-color 220ms var(--ps-ease-emphasized, cubic-bezier(0.16,1,0.3,1));
+    }
+    :host ::ng-deep .detail-card .det-block::before {
+      content: ""; position: absolute; left: 0; top: 14px; bottom: 14px;
+      width: 2px; border-radius: 0 2px 2px 0;
+      background: var(--det-rail, linear-gradient(180deg, #00E5FF, transparent));
+      opacity: 0.7;
+    }
+    :host ::ng-deep .detail-card .det-block.kind-prompt  { --det-rail: linear-gradient(180deg, #00E5FF, rgba(0,229,255,0)); }
+    :host ::ng-deep .detail-card .det-block.kind-input   { --det-rail: linear-gradient(180deg, #7C3AED, rgba(124,58,237,0)); }
+    :host ::ng-deep .detail-card .det-block.kind-output  { --det-rail: linear-gradient(180deg, #34d399, rgba(52,211,153,0)); }
+    :host ::ng-deep .detail-card .det-block.kind-tool    { --det-rail: linear-gradient(180deg, #f97316, rgba(249,115,22,0)); }
+    :host ::ng-deep .detail-card .det-block.kind-error   { --det-rail: linear-gradient(180deg, #ef4444, rgba(239,68,68,0)); }
+    :host ::ng-deep .detail-card .det-block.kind-explain { --det-rail: linear-gradient(180deg, #c4b5fd, rgba(196,181,253,0)); }
+    :host ::ng-deep .detail-card .det-block:hover { border-color: rgba(0,229,255,0.18); }
+
+    :host ::ng-deep .detail-card .det-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    :host ::ng-deep .detail-card .det-label {
+      font: 700 0.6rem/1 'JetBrains Mono', ui-monospace, monospace;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.65);
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    :host ::ng-deep .detail-card .det-block.kind-prompt  .det-label { color: #7feef9; }
+    :host ::ng-deep .detail-card .det-block.kind-input   .det-label { color: #c4b5fd; }
+    :host ::ng-deep .detail-card .det-block.kind-output  .det-label { color: #6ee7b7; }
+    :host ::ng-deep .detail-card .det-block.kind-tool    .det-label { color: #fdba74; }
+    :host ::ng-deep .detail-card .det-block.kind-error   .det-label { color: #fca5a5; }
+    :host ::ng-deep .detail-card .det-block.kind-explain .det-label { color: #c4b5fd; }
+
+    /* Copy chip per code block */
+    :host ::ng-deep .detail-card .det-copy {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 6px;
+      font: 700 0.56rem/1 'JetBrains Mono', monospace; letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      cursor: pointer; opacity: 0;
+      transition: opacity 180ms ease, background 140ms ease, color 140ms ease, transform 140ms ease, border-color 140ms ease;
+    }
+    :host ::ng-deep .detail-card .det-block:hover .det-copy { opacity: 1; }
+    :host ::ng-deep .detail-card .det-copy:focus-visible { opacity: 1; outline: 2px solid #00E5FF; outline-offset: 2px; }
+    :host ::ng-deep .detail-card .det-copy:hover {
+      background: rgba(0,229,255,0.10); color: #00E5FF; border-color: rgba(0,229,255,0.30);
+      transform: translateY(-1px);
+    }
+    :host ::ng-deep .detail-card .det-copy.is-copied {
+      color: #34d399; border-color: rgba(52,211,153,0.40); background: rgba(52,211,153,0.10); opacity: 1;
+    }
+
     :host ::ng-deep .detail-card pre {
-      background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 8px; padding: 0.7rem 0.9rem;
+      background: linear-gradient(180deg, rgba(0,0,0,0.42), rgba(0,0,0,0.55));
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--ps-radius-sm, 8px);
+      padding: 0.78rem 0.95rem;
       font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 0.68rem; line-height: 1.55;
+      font-size: 0.7rem; line-height: 1.6;
       white-space: pre-wrap; word-break: break-word;
-      max-height: 240px; overflow: auto; margin: 0;
-      color: rgba(245,245,247,0.92);
+      max-height: 280px; overflow: auto; margin: 0;
+      color: rgba(245,245,247,0.94);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
     }
-    :host ::ng-deep .detail-card pre.error-pre { border-left: 3px solid #ef4444; color: #fcd34d; background: rgba(239,68,68,0.06); border-color: rgba(239,68,68,0.25); }
+    :host ::ng-deep .detail-card pre.error-pre {
+      border-left: 3px solid #ef4444; color: #fcd34d;
+      background: linear-gradient(180deg, rgba(239,68,68,0.10), rgba(239,68,68,0.04));
+      border-color: rgba(239,68,68,0.32);
+    }
     :host ::ng-deep .detail-card .tk-key  { color: #fbbf24; }
     :host ::ng-deep .detail-card .tk-str  { color: #86efac; }
     :host ::ng-deep .detail-card .tk-num  { color: #67e8f9; }
     :host ::ng-deep .detail-card .tk-bool { color: #c4b5fd; }
     :host ::ng-deep .detail-card .tk-null { color: rgba(255,255,255,0.45); }
     :host ::ng-deep .detail-card .tk-pun  { color: rgba(255,255,255,0.55); }
-    :host ::ng-deep .detail-card .kw      { color: #00E5FF; font-weight: 700; }
-    :host ::ng-deep .detail-card .det-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
-    :host ::ng-deep .detail-card .det-action {
-      padding: 0.42rem 0.85rem; border-radius: 8px; font-size: 0.68rem; font-weight: 700;
-      letter-spacing: 0.02em; cursor: pointer; border: 1px solid rgba(0,229,255,0.30);
-      background: rgba(0,229,255,0.10); color: #00E5FF;
-      transition: background 140ms ease, transform 140ms ease;
+    :host ::ng-deep .detail-card .kw {
+      color: #00E5FF; font-weight: 700;
+      text-shadow: 0 0 12px rgba(0,229,255,0.35);
     }
-    :host ::ng-deep .detail-card .det-action:hover:not([disabled]) { background: rgba(0,229,255,0.20); transform: translateY(-1px); }
-    :host ::ng-deep .detail-card .det-action[disabled] { opacity: 0.45; cursor: not-allowed; }
-    :host ::ng-deep .detail-card .det-action.violet { border-color: rgba(124,58,237,0.40); background: rgba(124,58,237,0.12); color: #c4b5fd; }
-    :host ::ng-deep .detail-card .det-action.violet:hover:not([disabled]) { background: rgba(124,58,237,0.22); }
-    :host ::ng-deep .detail-card .det-action.ghost { background: transparent; color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.15); }
-    :host ::ng-deep .detail-card .det-action.ghost:hover:not([disabled]) { background: rgba(255,255,255,0.06); color: #fff; }
+
+    :host ::ng-deep .detail-card .det-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 0.4rem; }
+    :host ::ng-deep .detail-card .det-action {
+      position: relative; isolation: isolate;
+      padding: 0.55rem 1rem; border-radius: var(--ps-radius-sm, 8px);
+      font: 700 0.68rem/1 'Sora', system-ui, sans-serif; letter-spacing: 0.02em;
+      cursor: pointer; border: 1px solid transparent;
+      background:
+        linear-gradient(rgba(6,6,16,0.78), rgba(6,6,16,0.78)) padding-box,
+        linear-gradient(135deg, rgba(0,229,255,0.55), rgba(124,58,237,0.42)) border-box;
+      color: #7feef9;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+      transition:
+        transform 140ms var(--ps-ease-emphasized, cubic-bezier(0.16,1,0.3,1)),
+        box-shadow 220ms ease, background 200ms ease, color 140ms ease;
+    }
+    :host ::ng-deep .detail-card .det-action:hover:not([disabled]) {
+      transform: translateY(-2px); color: #ccfafd;
+      box-shadow:
+        0 8px 22px -8px rgba(0, 229, 255, 0.55),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    :host ::ng-deep .detail-card .det-action:active:not([disabled]) {
+      transform: translateY(0) scale(0.97); transition-duration: 80ms;
+      box-shadow: 0 0 0 4px rgba(0,229,255,0.22);
+    }
+    :host ::ng-deep .detail-card .det-action[disabled] { opacity: 0.40; cursor: not-allowed; }
+    :host ::ng-deep .detail-card .det-action.violet {
+      background:
+        linear-gradient(rgba(6,6,16,0.78), rgba(6,6,16,0.78)) padding-box,
+        linear-gradient(135deg, rgba(124,58,237,0.65), rgba(0,229,255,0.42)) border-box;
+      color: #c4b5fd;
+    }
+    :host ::ng-deep .detail-card .det-action.violet:hover:not([disabled]) {
+      color: #ddd6fe;
+      box-shadow:
+        0 8px 22px -8px rgba(124, 58, 237, 0.55),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    :host ::ng-deep .detail-card .det-action.ghost {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.10);
+      color: rgba(255,255,255,0.74);
+    }
+    :host ::ng-deep .detail-card .det-action.ghost:hover:not([disabled]) {
+      background: rgba(255,255,255,0.05); color: #fff;
+      border-color: rgba(255,255,255,0.22);
+    }
+    :host ::ng-deep .detail-card .det-action:focus-visible {
+      outline: 2px solid #00E5FF; outline-offset: 2px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :host ::ng-deep .detail-card .det-action { transition: none; }
+      :host ::ng-deep .detail-card .det-action:hover:not([disabled]) { transform: none; }
+    }
+
     :host ::ng-deep .detail-card .det-explain {
-      margin-top: 0.6rem; padding: 0.7rem 0.9rem; border-radius: 8px;
-      background: rgba(124,58,237,0.10); border: 1px solid rgba(124,58,237,0.35);
-      color: rgba(245,245,247,0.92); font-size: 0.72rem; line-height: 1.55;
+      margin-top: 0; padding: 0.85rem 1rem; border-radius: var(--ps-radius-sm, 8px);
+      background: linear-gradient(135deg, rgba(124,58,237,0.14), rgba(124,58,237,0.06));
+      border: 1px solid rgba(124,58,237,0.35);
+      color: rgba(245,245,247,0.94); font-size: 0.74rem; line-height: 1.6;
       white-space: pre-wrap;
+      box-shadow: inset 0 1px 0 rgba(196,181,253,0.10);
     }
 
     /* ─── AG Grid theme tweaks (dark cyan hover glow) ────────────────── */
@@ -761,35 +924,6 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
       valueGetter: (p) => fallbackActor(p.data ?? ({} as TraceRow)),
       cellClass: 'mono',
     },
-    {
-      headerName: '',
-      colId: 'expand',
-      width: 50,
-      minWidth: 50,
-      maxWidth: 50,
-      sortable: false,
-      filter: false,
-      resizable: false,
-      cellRenderer: (p: ICellRendererParams<TraceRow>): HTMLElement => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        const id = p.data?.id ?? '';
-        btn.className = 'kebab-btn' + (p.data?._expanded ? ' is-open' : '');
-        btn.setAttribute('aria-label', p.data?._expanded ? 'Collapse trace' : 'Expand trace');
-        btn.setAttribute('aria-expanded', String(!!p.data?._expanded));
-        btn.setAttribute('data-testid', `traces-row-expand-${id}`);
-        btn.innerHTML = `
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-            <circle cx="8" cy="3" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="8" cy="13" r="1.2"/>
-          </svg>
-        `;
-        btn.addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          if (p.data) this.toggleExpand(p.data);
-        });
-        return btn;
-      },
-    },
   ];
 
   /**
@@ -833,7 +967,13 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
     if (!detail) {
       // Trigger a lazy fetch — re-render happens via signal effect below.
       this.fetchDetail(parentId);
-      root.innerHTML = `<div class="det-block"><div class="det-label">Loading trace…</div></div>`;
+      root.innerHTML = `
+        <div class="detail-grid">
+          <div class="det-block kind-prompt">
+            <div class="det-head"><span class="det-label"><span aria-hidden="true">◐</span> Loading trace…</span></div>
+            <pre style="opacity:0.55">Fetching system prompt, input payload, output text, tool dispatch…</pre>
+          </div>
+        </div>`;
       return root;
     }
 
@@ -858,37 +998,70 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
     const explanation = this.explainCache().get(parentId);
     const explaining = this.explainLoading().has(parentId);
 
+    // Build cinematic metric pill row — latency / cost / tokens / model / tool.
+    const totalTokens = (detail.tokens_input ?? 0) + (detail.tokens_output ?? 0);
+    const metaPills: string[] = [];
+    if (detail.latency_ms != null) {
+      metaPills.push(`<span class="met-pill is-lat" title="End-to-end latency">latency<span class="met-val">${escapeHtml(formatLatency(detail.latency_ms))}</span></span>`);
+    }
+    if (detail.credits_debited != null && detail.credits_debited > 0) {
+      metaPills.push(`<span class="met-pill is-cost" title="Credits debited">cost<span class="met-val">${escapeHtml(NUMBER_FORMATTER.format(detail.credits_debited))}</span></span>`);
+    }
+    if (totalTokens > 0) {
+      const inTok = detail.tokens_input ?? 0;
+      const outTok = detail.tokens_output ?? 0;
+      metaPills.push(`<span class="met-pill is-tok" title="${inTok} in · ${outTok} out">tokens<span class="met-val">${escapeHtml(NUMBER_FORMATTER.format(totalTokens))}</span></span>`);
+    }
+    if (detail.model) {
+      metaPills.push(`<span class="met-pill is-model" title="${escapeHtml(detail.model)}">model<span class="met-val">${escapeHtml(prettifyModel(detail.model))}</span></span>`);
+    }
+    if (detail.tool_name) {
+      metaPills.push(`<span class="met-pill is-tool" title="Tool dispatch">tool<span class="met-val">${escapeHtml(detail.tool_name)}</span></span>`);
+    }
+
+    // Helper to build a code block with a copy chip in its header.
+    const codeBlock = (kind: string, label: string, body: string, copySource: string, blockTestId: string): string => `
+      <div class="det-block kind-${kind}">
+        <div class="det-head">
+          <span class="det-label"><span aria-hidden="true">●</span> ${label}</span>
+          <button type="button" class="det-copy" data-copy="${escapeHtml(copySource)}" data-no-row-toggle
+                  data-testid="traces-copy-${blockTestId}-${parentId}" aria-label="Copy ${label}">Copy</button>
+        </div>
+        <pre>${body}</pre>
+      </div>
+    `;
+
     root.innerHTML = `
+      ${metaPills.length ? `<div class="det-meta">${metaPills.join('')}</div>` : ''}
       <div class="detail-grid">
-        <div class="det-block">
-          <div class="det-label">System prompt</div>
-          <pre>${promptHtml}</pre>
-        </div>
-        <div class="det-block">
-          <div class="det-label">Input payload</div>
-          <pre>${highlightJson(inputPretty)}</pre>
-        </div>
+        ${codeBlock('prompt', 'System prompt', promptHtml, detail.prompt_template ?? '', 'prompt')}
+        ${codeBlock('input', 'Input payload', highlightJson(inputPretty), inputPretty, 'input')}
         ${detail.error_message ? `
-          <div class="det-block">
-            <div class="det-label">Error</div>
+          <div class="det-block kind-error">
+            <div class="det-head">
+              <span class="det-label"><span aria-hidden="true">▲</span> Error</span>
+              <button type="button" class="det-copy" data-copy="${escapeHtml(detail.error_message)}" data-no-row-toggle
+                      data-testid="traces-copy-error-${parentId}" aria-label="Copy error">Copy</button>
+            </div>
             <pre class="error-pre">${escapeHtml(detail.error_message)}</pre>
           </div>
-        ` : `
-          <div class="det-block">
-            <div class="det-label">Output text</div>
-            <pre>${escapeHtml(outputText || '—')}</pre>
-          </div>
-        `}
+        ` : codeBlock('output', 'Output text', escapeHtml(outputText || '—'), outputText || '', 'output')}
         ${detail.tool_name ? `
-          <div class="det-block">
-            <div class="det-label">Tool · ${escapeHtml(detail.tool_name)} · ${escapeHtml(detail.tool_status ?? '')}</div>
+          <div class="det-block kind-tool">
+            <div class="det-head">
+              <span class="det-label"><span aria-hidden="true">⚙</span> Tool · ${escapeHtml(detail.tool_name)} · ${escapeHtml(detail.tool_status ?? '')}</span>
+              <button type="button" class="det-copy" data-copy="${escapeHtml(toolResult || toolArgs || '{}')}" data-no-row-toggle
+                      data-testid="traces-copy-tool-${parentId}" aria-label="Copy tool result">Copy</button>
+            </div>
             <pre>${highlightJson(toolArgs || '{}')}</pre>
             <pre>${highlightJson(toolResult || '{}')}</pre>
           </div>
         ` : ''}
         ${explanation ? `
-          <div class="det-block">
-            <div class="det-label">AI explanation</div>
+          <div class="det-block kind-explain">
+            <div class="det-head">
+              <span class="det-label"><span aria-hidden="true">✦</span> AI explanation</span>
+            </div>
             <div class="det-explain" data-testid="traces-explain-result-${parentId}">${escapeHtml(explanation)}</div>
           </div>
         ` : ''}
@@ -896,41 +1069,70 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
       </div>
     `;
 
+    // Wire per-code-block copy chips. Each chip carries its own `data-copy`
+    // payload + flips to a "copied!" visual for 1.2s. Click bubbling is
+    // suppressed so the parent row doesn't toggle collapse.
+    root.querySelectorAll<HTMLButtonElement>('.det-copy').forEach((btn) => {
+      btn.addEventListener('click', (ev: MouseEvent) => {
+        ev.stopPropagation();
+        const payload = btn.dataset['copy'] ?? '';
+        if (!payload) return;
+        navigator.clipboard.writeText(payload).then(
+          () => {
+            const original = btn.textContent ?? 'Copy';
+            btn.classList.add('is-copied');
+            btn.textContent = 'Copied';
+            setTimeout(() => {
+              btn.classList.remove('is-copied');
+              btn.textContent = original;
+            }, 1200);
+          },
+          () => this.toast.error('Clipboard unavailable'),
+        );
+      });
+    });
+
     const actions = root.querySelector('.det-actions') as HTMLDivElement;
-
-    const copyBtn = document.createElement('button');
-    copyBtn.type = 'button';
-    copyBtn.className = 'det-action';
-    copyBtn.textContent = 'Copy JSON';
-    copyBtn.setAttribute('data-testid', `traces-copy-json-${parentId}`);
-    copyBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.copyTrace(detail); });
-    actions.appendChild(copyBtn);
-
-    const explainBtn = document.createElement('button');
-    explainBtn.type = 'button';
-    explainBtn.className = 'det-action violet';
-    explainBtn.textContent = explaining ? 'Asking AI…' : 'Ask AI to explain this trace';
-    explainBtn.disabled = explaining;
-    explainBtn.setAttribute('data-testid', `traces-explain-${parentId}`);
-    explainBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.explainTrace(parentId); });
-    actions.appendChild(explainBtn);
 
     const rerunBtn = document.createElement('button');
     rerunBtn.type = 'button';
     rerunBtn.className = 'det-action';
-    rerunBtn.textContent = 'Re-run';
+    rerunBtn.innerHTML = `<span aria-hidden="true">↻</span> Re-run`;
     rerunBtn.disabled = !canRerun;
     rerunBtn.title = canRerun ? 'Re-invoke this endpoint with the same input' : 'Cannot re-run: input or endpoint not captured';
     rerunBtn.setAttribute('data-testid', `traces-rerun-${parentId}`);
+    rerunBtn.setAttribute('data-no-row-toggle', '');
     rerunBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.rerunTrace(detail); });
     actions.appendChild(rerunBtn);
+
+    const explainBtn = document.createElement('button');
+    explainBtn.type = 'button';
+    explainBtn.className = 'det-action violet';
+    explainBtn.innerHTML = explaining
+      ? `<span aria-hidden="true">◐</span> Asking AI…`
+      : `<span aria-hidden="true">✦</span> Explain with AI`;
+    explainBtn.disabled = explaining;
+    explainBtn.setAttribute('data-testid', `traces-explain-${parentId}`);
+    explainBtn.setAttribute('data-no-row-toggle', '');
+    explainBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.explainTrace(parentId); });
+    actions.appendChild(explainBtn);
+
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'det-action ghost';
+    copyBtn.innerHTML = `<span aria-hidden="true">⧉</span> Copy JSON`;
+    copyBtn.setAttribute('data-testid', `traces-copy-json-${parentId}`);
+    copyBtn.setAttribute('data-no-row-toggle', '');
+    copyBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.copyTrace(detail); });
+    actions.appendChild(copyBtn);
 
     const openBtn = document.createElement('button');
     openBtn.type = 'button';
     openBtn.className = 'det-action ghost';
-    openBtn.textContent = 'Open endpoint';
+    openBtn.innerHTML = `<span aria-hidden="true">↗</span> Open endpoint`;
     openBtn.disabled = !detail.endpoint_slug;
     openBtn.setAttribute('data-testid', `traces-open-endpoint-${parentId}`);
+    openBtn.setAttribute('data-no-row-toggle', '');
     openBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.openEndpoint(detail); });
     actions.appendChild(openBtn);
 
@@ -1028,6 +1230,23 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
     this.expandedIds.set(next);
     if (next.has(row.id)) this.fetchDetail(row.id);
   }
+
+  /**
+   * Click anywhere on a master row to toggle its accordion. Detail rows
+   * (`_isDetail: true`) are click-through so the trace text inside stays
+   * selectable; same goes for cells the user is actively text-selecting.
+   */
+  onRowClicked = (ev: { data?: TraceRow | null; event?: Event | null }): void => {
+    const row = ev.data;
+    if (!row || row._isDetail) return;
+    // If the user is mid-selection (range-drag on cell text), don't toggle.
+    const sel = window.getSelection();
+    if (sel && sel.toString().length > 0) return;
+    // If the click landed on an actionable child (link, button), let it own the click.
+    const target = ev.event?.target as HTMLElement | undefined;
+    if (target?.closest('a, button, [data-no-row-toggle]')) return;
+    this.toggleExpand(row);
+  };
 
   /** Lazy-fetch the full trace detail on first expand. */
   private fetchDetail(id: string): void {

@@ -74,15 +74,35 @@
       AI-Powered Website Builder
     </div>
 
-    <!-- Headline -->
-    <h1 class="font-heading text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-light leading-tight mb-6 animate-fade-in-up" style="animation-delay: 0.1s">
-      {{ 'hero.title' | translate }}
+    <!-- Headline — A/B/C variant via PostHog flag `homepage_hero_v2` (see AB-TEST.md) -->
+    <h1 class="font-heading text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-light leading-tight mb-6 animate-fade-in-up" style="animation-delay: 0.1s"
+        [attr.data-hero-variant]="heroVariant()"
+        data-testid="hero-headline">
+      @if (heroHeadline()) {
+        {{ heroHeadline() }}
+      } @else {
+        {{ 'hero.title' | translate }}
+      }
     </h1>
 
     <!-- Subtitle -->
-    <p class="text-text-secondary text-lg sm:text-xl max-w-2xl mx-auto mb-10 animate-fade-in-up" style="animation-delay: 0.2s">
-      {{ 'hero.subtitle' | translate }}
+    <p class="text-text-secondary text-lg sm:text-xl max-w-2xl mx-auto mb-10 animate-fade-in-up" style="animation-delay: 0.2s"
+       data-testid="hero-subheadline">
+      @if (heroSubheadline()) {
+        {{ heroSubheadline() }}
+      } @else {
+        {{ 'hero.subtitle' | translate }}
+      }
     </p>
+
+    @if (showAbBadge()) {
+      <div class="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-md border border-amber-400/40 bg-amber-500/10 text-amber-200 text-[0.66rem] font-mono"
+           data-testid="hero-ab-badge"
+           role="status"
+           aria-label="A/B debug badge — homepage variant">
+        AB · variant {{ heroVariant() }}
+      </div>
+    }
 
     <!-- Search bar -->
     <div class="relative max-w-xl mx-auto mb-8 animate-fade-in-up z-[1010]" style="animation-delay: 0.3s">
@@ -198,32 +218,66 @@
   </div>
 </section>
 
+<!-- ═══════════════════ BEFORE / AFTER SLIDER ═══════════════════ -->
+<section id="compare" class="py-20 sm:py-28" appReveal>
+  <div class="max-w-5xl mx-auto px-4">
+    <div class="text-center mb-10">
+      <h2 class="font-heading text-3xl sm:text-4xl font-bold text-light mb-3">
+        See the difference
+      </h2>
+      <p class="text-text-secondary text-base sm:text-lg max-w-xl mx-auto">
+        Drag the slider to compare a generic small-business site with one built by projectsites.dev.
+      </p>
+    </div>
+    <app-before-after-slider
+      beforeSrc="/images/compare/generic-site.svg"
+      afterSrc="/images/compare/projectsites-site.svg"
+      beforeLabel="Generic competitor"
+      afterLabel="Built with projectsites.dev"
+      [initial]="50"
+    />
+  </div>
+</section>
+
 <!-- ═══════════════════ SOCIAL PROOF ═══════════════════ -->
-<section class="relative py-16 border-y border-white/5 reveal">
+<section class="relative py-16 border-y border-white/5" appReveal>
   <div class="max-w-5xl mx-auto px-4">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
-      <div class="text-center">
-        <div class="font-heading text-3xl sm:text-4xl font-bold text-primary mb-1">{{ 'social.sites' | translate }}</div>
+      <div class="text-center" appReveal>
+        <div class="font-heading text-3xl sm:text-4xl font-bold text-primary mb-1">
+          <app-rolling-counter [value]="2480" suffix="+" />
+        </div>
         <div class="text-text-secondary text-sm">{{ 'social.sitesLabel' | translate }}</div>
       </div>
-      <div class="text-center">
-        <div class="font-heading text-3xl sm:text-4xl font-bold text-primary mb-1">{{ 'social.uptime' | translate }}</div>
+      <div class="text-center" appReveal>
+        <div class="font-heading text-3xl sm:text-4xl font-bold text-primary mb-1">
+          <app-rolling-counter [value]="99.99" [decimals]="2" suffix="%" />
+        </div>
         <div class="text-text-secondary text-sm">{{ 'social.uptimeLabel' | translate }}</div>
       </div>
-      <div class="text-center">
-        <div class="font-heading text-3xl sm:text-4xl font-bold text-primary mb-1">{{ 'social.build' | translate }}</div>
+      <div class="text-center" appReveal>
+        <div class="font-heading text-3xl sm:text-4xl font-bold text-primary mb-1">
+          <app-rolling-counter [value]="42" suffix="s" />
+        </div>
         <div class="text-text-secondary text-sm">{{ 'social.buildLabel' | translate }}</div>
       </div>
-      <div class="text-center">
-        <div class="font-heading text-3xl sm:text-4xl font-bold text-primary mb-1">{{ 'social.edge' | translate }}</div>
+      <div class="text-center" appReveal>
+        <div class="font-heading text-3xl sm:text-4xl font-bold text-primary mb-1">
+          <app-rolling-counter [value]="330" suffix="+" />
+        </div>
         <div class="text-text-secondary text-sm">{{ 'social.edgeLabel' | translate }}</div>
       </div>
+    </div>
+
+    <!-- Built-on trust strip -->
+    <div class="mt-10" appReveal>
+      <app-trust-strip />
     </div>
   </div>
 </section>
 
 <!-- ═══════════════════ HOW IT WORKS ═══════════════════ -->
-<section id="how-it-works" class="py-24 sm:py-32 reveal">
+<section id="how-it-works" class="py-24 sm:py-32 reveal" appReveal>
   <div class="max-w-6xl mx-auto px-4">
     <div class="text-center mb-16">
       <h2 class="font-heading text-3xl sm:text-4xl font-bold text-light mb-4">{{ 'howItWorks.title' | translate }}</h2>
@@ -231,7 +285,7 @@
     </div>
     <div class="grid md:grid-cols-3 gap-8">
       <!-- Step 1 -->
-      <div class="group relative reveal" style="animation-delay: 0.1s">
+      <div class="group relative reveal" appReveal style="animation-delay: 0.1s">
         <div class="absolute -inset-0.5 bg-gradient-to-b from-primary/20 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm"></div>
         <div class="relative bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-8 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/20">
           <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-6 text-primary group-hover:bg-primary/20 transition-colors">
@@ -246,7 +300,7 @@
       </div>
 
       <!-- Step 2 -->
-      <div class="group relative reveal" style="animation-delay: 0.2s">
+      <div class="group relative reveal" appReveal style="animation-delay: 0.2s">
         <div class="absolute -inset-0.5 bg-gradient-to-b from-primary/20 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm"></div>
         <div class="relative bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-8 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/20">
           <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-6 text-primary group-hover:bg-primary/20 transition-colors">
@@ -262,7 +316,7 @@
       </div>
 
       <!-- Step 3 -->
-      <div class="group relative reveal" style="animation-delay: 0.3s">
+      <div class="group relative reveal" appReveal style="animation-delay: 0.3s">
         <div class="absolute -inset-0.5 bg-gradient-to-b from-primary/20 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm"></div>
         <div class="relative bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-8 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/20">
           <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-6 text-primary group-hover:bg-primary/20 transition-colors">
@@ -280,7 +334,7 @@
 </section>
 
 <!-- ═══════════════════ FEATURES ═══════════════════ -->
-<section id="features" class="py-24 sm:py-32 reveal">
+<section id="features" class="py-24 sm:py-32 reveal" appReveal>
   <div class="max-w-6xl mx-auto px-4">
     <div class="text-center mb-16">
       <h2 class="font-heading text-3xl sm:text-4xl font-bold text-light mb-4">{{ 'features.title' | translate }}</h2>
@@ -288,7 +342,7 @@
     </div>
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
       <!-- AI Generation -->
-      <div class="group relative reveal" style="animation-delay: 0.05s">
+      <div class="group relative reveal" appReveal style="animation-delay: 0.05s">
         <div class="absolute -inset-0.5 bg-gradient-to-br from-primary/15 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm"></div>
         <div class="relative bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-6 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/20 h-full">
           <svg class="text-primary mb-4" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -300,7 +354,7 @@
       </div>
 
       <!-- Custom Domain -->
-      <div class="group relative reveal" style="animation-delay: 0.1s">
+      <div class="group relative reveal" appReveal style="animation-delay: 0.1s">
         <div class="absolute -inset-0.5 bg-gradient-to-br from-primary/15 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm"></div>
         <div class="relative bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-6 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/20 h-full">
           <svg class="text-primary mb-4" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -312,7 +366,7 @@
       </div>
 
       <!-- SEO -->
-      <div class="group relative reveal" style="animation-delay: 0.15s">
+      <div class="group relative reveal" appReveal style="animation-delay: 0.15s">
         <div class="absolute -inset-0.5 bg-gradient-to-br from-primary/15 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm"></div>
         <div class="relative bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-6 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/20 h-full">
           <svg class="text-primary mb-4" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -324,7 +378,7 @@
       </div>
 
       <!-- Analytics -->
-      <div class="group relative reveal" style="animation-delay: 0.2s">
+      <div class="group relative reveal" appReveal style="animation-delay: 0.2s">
         <div class="absolute -inset-0.5 bg-gradient-to-br from-primary/15 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm"></div>
         <div class="relative bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-6 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/20 h-full">
           <svg class="text-primary mb-4" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -336,7 +390,7 @@
       </div>
 
       <!-- Payments -->
-      <div class="group relative reveal" style="animation-delay: 0.25s">
+      <div class="group relative reveal" appReveal style="animation-delay: 0.25s">
         <div class="absolute -inset-0.5 bg-gradient-to-br from-primary/15 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm"></div>
         <div class="relative bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-6 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/20 h-full">
           <svg class="text-primary mb-4" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -348,7 +402,7 @@
       </div>
 
       <!-- Hosting -->
-      <div class="group relative reveal" style="animation-delay: 0.3s">
+      <div class="group relative reveal" appReveal style="animation-delay: 0.3s">
         <div class="absolute -inset-0.5 bg-gradient-to-br from-primary/15 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm"></div>
         <div class="relative bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-6 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/20 h-full">
           <svg class="text-primary mb-4" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -363,7 +417,7 @@
 </section>
 
 <!-- ═══════════════════ PRICING ═══════════════════ -->
-<section id="pricing" class="py-24 sm:py-32 reveal">
+<section id="pricing" class="py-24 sm:py-32 reveal" appReveal>
   <div class="max-w-lg mx-auto px-4">
     <div class="text-center mb-12">
       <h2 class="font-heading text-3xl sm:text-4xl font-bold text-light mb-4">{{ 'pricing.title' | translate }}</h2>
@@ -410,7 +464,7 @@
 </section>
 
 <!-- ═══════════════════ FAQ ═══════════════════ -->
-<section id="faq" class="py-24 sm:py-32 reveal">
+<section id="faq" class="py-24 sm:py-32 reveal" appReveal>
   <div class="max-w-2xl mx-auto px-4">
     <div class="text-center mb-16">
       <h2 class="font-heading text-3xl sm:text-4xl font-bold text-light mb-4">{{ 'faq.title' | translate }}</h2>
@@ -444,7 +498,7 @@
 </section>
 
 <!-- ═══════════════════ CTA SECTION ═══════════════════ -->
-<section class="py-24 sm:py-32 relative overflow-hidden reveal">
+<section class="py-24 sm:py-32 relative overflow-hidden reveal" appReveal>
   <!-- Glow -->
   <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px] pointer-events-none"></div>
 
@@ -519,7 +573,16 @@
           <img src="/logo-header-icon.png" alt="Project Sites" width="28" height="28" class="flex-shrink-0" />
           <img src="/logo-text.png" alt="projectsites.dev" height="28" class="flex-shrink-0 opacity-90" />
         </div>
-        <p class="text-text-secondary text-sm leading-relaxed">{{ 'hero.subtitle' | translate }}</p>
+        <p class="text-text-secondary text-sm leading-relaxed mb-3">{{ 'hero.subtitle' | translate }}</p>
+        <a
+          href="mailto:hey@megabyte.space"
+          class="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-light transition-colors"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/>
+          </svg>
+          hey&#64;megabyte.space
+        </a>
       </div>
 
       <!-- Product -->

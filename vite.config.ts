@@ -4,6 +4,7 @@ import { defineConfig, type ViteDevServer } from 'vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { optimizeCssModules } from 'vite-plugin-optimize-css-modules';
 import tsconfigPaths from 'vite-tsconfig-paths';
+import { visualizer } from 'rollup-plugin-visualizer';
 import * as dotenv from 'dotenv';
 
 // Load environment variables from multiple files (first match wins per key)
@@ -16,9 +17,71 @@ export default defineConfig((config) => {
   return {
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+      // Item 49: Sentry release tracking — every deploy tags errors with
+      // the commit SHA so Sentry can filter "errors since this release".
+      // Falls back to 'dev' for local development.
+      'import.meta.env.VITE_BUILD_SHA': JSON.stringify(process.env.GITHUB_SHA || process.env.CF_PAGES_COMMIT_SHA || 'dev'),
     },
     build: {
       target: 'esnext',
+      rollupOptions: {
+        output: {
+          // Carve out the fattest vendor modules so they cache independently
+          // and the main `index` bundle drops below the 250KB visibility line.
+          // Findings (build/client/assets/ pre-split):
+          //   index 960KB        — Shiki core + react-toastify + lucide-react + radix UI + nanostores + app shell
+          //   Workbench 812KB    — xterm core + addons + CodeMirror + lucide-react
+          //   constants 516KB    — all @ai-sdk providers concatenated (openai, anthropic, bedrock, google, mistral, deepseek, fireworks, cohere, cerebras, openrouter, ollama)
+          //   workbench 320KB    — second workbench split (mostly CodeMirror lang grammars)
+          //   components 252KB   — shared component primitives
+          //   git 236KB          — isomorphic-git
+          // Shiki language grammars (emacs-lisp 788KB, cpp 684KB, wasm 608KB, wolfram 264KB) already lazy-load per language — leave alone.
+          manualChunks: (id: string) => {
+            if (!id.includes('node_modules')) return undefined;
+
+            // AI SDK providers: 11 packages, 516KB total — split into a single
+            // vendor chunk that loads only when the chat actually needs them.
+            if (
+              id.includes('/@ai-sdk/') ||
+              id.includes('/@openrouter/ai-sdk-provider/') ||
+              id.includes('/ollama-ai-provider/')
+            ) {
+              return 'vendor-ai-sdk';
+            }
+
+            // xterm + addons: terminal-only, 79 hits in Workbench chunk.
+            if (id.includes('/@xterm/') || id.includes('/xterm/')) {
+              return 'vendor-xterm';
+            }
+
+            // CodeMirror: 16 packages bundled into Workbench — split to share
+            // across editor + diff + code-block surfaces.
+            if (id.includes('/@codemirror/') || id.includes('/codemirror/') || id.includes('/@lezer/')) {
+              return 'vendor-codemirror';
+            }
+
+            // Shiki core ONLY — skip language grammars + theme JSONs so they
+            // keep their per-language dynamic-import boundaries (those were
+            // already lazy-loaded; bundling them all into one vendor chunk
+            // produced a 9.2MB regression).
+            if (
+              (id.includes('/shiki/') || id.includes('/@shikijs/')) &&
+              !id.includes('/languages/') &&
+              !id.includes('/themes/') &&
+              !id.includes('/langs/') &&
+              !id.includes('/dist/langs') &&
+              !id.includes('/dist/themes')
+            ) {
+              return 'vendor-shiki';
+            }
+
+            // isomorphic-git: 236KB, only used in git-related flows.
+            if (id.includes('/isomorphic-git/')) {
+              return 'vendor-git';
+            }
+          },
+        },
+      },
     },
     plugins: [
       nodePolyfills({
@@ -58,6 +121,17 @@ export default defineConfig((config) => {
       tsconfigPaths(),
       chrome129IssuePlugin(),
       config.mode === 'production' && optimizeCssModules({ apply: 'build' }),
+      // Bundle-size visualizer — gated behind ANALYZE=1 so prod builds skip it.
+      // Run: `ANALYZE=1 npm run build` then open `dist/bundle-analysis.html`.
+      process.env.ANALYZE === '1' &&
+        visualizer({
+          filename: 'dist/bundle-analysis.html',
+          template: 'treemap',
+          gzipSize: true,
+          brotliSize: true,
+          open: false,
+          emitFile: false,
+        }),
     ],
     envPrefix: [
       'VITE_',

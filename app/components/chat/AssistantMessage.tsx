@@ -17,6 +17,9 @@ import type {
 } from '@ai-sdk/ui-utils';
 import { ToolInvocations } from './ToolInvocations';
 import type { ToolCallAnnotation } from '~/types/context';
+import { FileDiffBadges, summarizeTouchedFiles } from './FileDiffBadges';
+import { hasSnapshotFor, restoreSnapshot } from '~/lib/chat/ai-undo';
+import { toast } from 'react-toastify';
 
 interface AssistantMessageProps {
   content: string;
@@ -29,6 +32,8 @@ interface AssistantMessageProps {
   setChatMode?: (mode: 'discuss' | 'build') => void;
   model?: string;
   provider?: ProviderInfo;
+  isStreaming?: boolean;
+  isLast?: boolean;
   parts:
     | (TextUIPart | ReasoningUIPart | ToolInvocationUIPart | SourceUIPart | FileUIPart | StepStartUIPart)[]
     | undefined;
@@ -73,7 +78,39 @@ export const AssistantMessage = memo(
     provider,
     parts,
     addToolResult,
+    isStreaming,
+    isLast,
   }: AssistantMessageProps) => {
+    const touched = summarizeTouchedFiles(content);
+    const looksTruncated =
+      !isStreaming &&
+      isLast &&
+      content.length > 80 &&
+      !/[.!?`}\])]\s*$/.test(content.slice(-8)) &&
+      !content.trimEnd().endsWith('</boltArtifact>');
+
+    const handleUndo = async () => {
+      if (!messageId) {
+        return;
+      }
+
+      const count = await restoreSnapshot(messageId);
+
+      if (count > 0) {
+        toast.success(`Reverted ${count} file${count === 1 ? '' : 's'} to pre-AI state`);
+      } else {
+        toast.info('No snapshot available for this message');
+      }
+    };
+
+    const handleContinue = () => {
+      append?.({
+        id: `continue-${Date.now()}`,
+        role: 'user',
+        content: 'Continue from where you left off. Pick up exactly where the previous response stopped — do not repeat content.',
+      } as Message);
+    };
+
     const filteredAnnotations = (annotations?.filter(
       (annotation: JSONValue) =>
         annotation && typeof annotation === 'object' && Object.keys(annotation).includes('type'),
@@ -103,7 +140,7 @@ export const AssistantMessage = memo(
     ) as ToolCallAnnotation[];
 
     return (
-      <div className="overflow-hidden w-full">
+      <div className="overflow-hidden w-full ps-msg ps-msg--ai" data-role="ai">
         <>
           <div className=" flex gap-2 items-center text-sm text-bolt-elements-textSecondary mb-2">
             {(codeContext || chatSummary) && (
@@ -153,6 +190,15 @@ export const AssistantMessage = memo(
               )}
               {(onRewind || onFork) && messageId && (
                 <div className="flex gap-2 flex-col lg:flex-row ml-auto">
+                  {messageId && hasSnapshotFor(messageId) && (
+                    <WithTooltip tooltip="Undo last AI message (restore files)">
+                      <button
+                        onClick={handleUndo}
+                        data-testid="ai-undo-button"
+                        className="i-ph:arrow-counter-clockwise text-xl text-bolt-elements-textSecondary hover:text-bolt-elements-item-contentAccent transition-colors"
+                      />
+                    </WithTooltip>
+                  )}
                   {onRewind && (
                     <WithTooltip tooltip="Revert to this message">
                       <button
@@ -176,9 +222,34 @@ export const AssistantMessage = memo(
             </div>
           </div>
         </>
+        <FileDiffBadges content={content} />
         <Markdown append={append} chatMode={chatMode} setChatMode={setChatMode} model={model} provider={provider} html>
           {content}
         </Markdown>
+        {touched.count > 1 && (
+          <div
+            data-testid="other-files-touched"
+            className="mt-2 text-[11px] text-bolt-elements-textTertiary flex items-center gap-1"
+          >
+            <span className="i-ph:files text-sm" />
+            Other files touched: {touched.count}
+            <span className="font-mono ml-1 truncate">
+              ({touched.paths.slice(0, 3).join(', ')}
+              {touched.paths.length > 3 ? `, +${touched.paths.length - 3} more` : ''})
+            </span>
+          </div>
+        )}
+        {looksTruncated && append && (
+          <button
+            type="button"
+            onClick={handleContinue}
+            data-testid="ai-continue-button"
+            className="mt-2 text-xs px-3 py-1.5 rounded-md bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent border border-bolt-elements-item-contentAccent/40 hover:bg-bolt-elements-item-backgroundActive transition-colors inline-flex items-center gap-1"
+          >
+            <span className="i-ph:arrow-right" />
+            Continue from here
+          </button>
+        )}
         {toolInvocations && toolInvocations.length > 0 && (
           <ToolInvocations
             toolInvocations={toolInvocations}

@@ -73,7 +73,7 @@ describe('improveRouterPrompt — non-empty value (improved mode)', () => {
     expect(out.text.length).toBeGreaterThanOrEqual(40);
     expect(run).toHaveBeenCalledTimes(1);
     const callArgs = run.mock.calls[0];
-    expect(callArgs[0]).toBe('@cf/meta/llama-3.1-8b-instruct');
+    expect(callArgs[0]).toBe('@cf/meta/llama-3.1-8b-instruct-fp8');
     const payload = callArgs[1] as { messages: { role: string; content: string }[] };
     expect(payload.messages).toHaveLength(2);
     expect(payload.messages[0]?.role).toBe('system');

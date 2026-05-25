@@ -1,41 +1,16 @@
-import { useStore } from '@nanostores/react';
-import { ClientOnly } from 'remix-utils/client-only';
-import { chatStore } from '~/lib/stores/chat';
-import { classNames } from '~/utils/classNames';
-import { HeaderActionButtons } from './HeaderActionButtons.client';
-import { ChatDescription } from '~/lib/persistence/ChatDescription.client';
-
+/**
+ * The bolt.diy `<header>` is intentionally suppressed across every entry
+ * point — `editor.projectsites.dev` standalone AND the iframe inside
+ * `projectsites.dev/admin`. The admin shell already owns chrome (sidebar
+ * + top bar + Save/Deploy action), so duplicating logo + ChatDescription
+ * + HeaderActionButtons here just steals vertical space and creates two
+ * competing "current project" indicators.
+ *
+ * A CSS safety net in `app/styles/index.scss` hides
+ * `header.border-bolt-elements-borderColor` so any other route that still
+ * imports the legacy header path (e.g. `routes/git.tsx`) also hides it
+ * without each route having to opt in. The component itself returns null.
+ */
 export function Header() {
-  const chat = useStore(chatStore);
-
-  return (
-    <header
-      className={classNames('flex items-center px-4 border-b h-[var(--header-height)]', {
-        'border-transparent': !chat.started,
-        'border-bolt-elements-borderColor': chat.started,
-      })}
-    >
-      <div className="flex items-center gap-2 z-logo text-bolt-elements-textPrimary cursor-pointer">
-        <a href="/" className="text-2xl font-semibold text-accent flex items-center">
-          {/* <span className="i-bolt:logo-text?mask w-[46px] inline-block" /> */}
-          <img src="/logo-light-styled.png" alt="logo" className="w-[90px] inline-block dark:hidden" />
-          <img src="/logo-dark-styled.png" alt="logo" className="w-[90px] inline-block hidden dark:block" />
-        </a>
-      </div>
-      {chat.started && ( // Display ChatDescription and HeaderActionButtons only when the chat has started.
-        <>
-          <span className="flex-1 px-4 truncate text-center text-bolt-elements-textPrimary">
-            <ClientOnly>{() => <ChatDescription />}</ClientOnly>
-          </span>
-          <ClientOnly>
-            {() => (
-              <div className="">
-                <HeaderActionButtons chatStarted={chat.started} />
-              </div>
-            )}
-          </ClientOnly>
-        </>
-      )}
-    </header>
-  );
+  return null;
 }

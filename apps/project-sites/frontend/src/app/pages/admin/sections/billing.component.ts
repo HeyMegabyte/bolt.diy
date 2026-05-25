@@ -2,10 +2,11 @@ import { Component, inject, signal, computed, type OnInit } from '@angular/core'
 import { DatePipe, CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
-import { ApiService } from '../../../services/api.service';
+import { ApiService, type CostForecastV2 } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { TelemetryService } from '../../../services/telemetry.service';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
 interface Bundle { credits: number; usd: number; price_id: string; }
 interface CreditState { balance: number; bundles: Record<string, Bundle>; ledger: { delta: number; reason: string; stripe_session_id: string | null; created_at: string }[]; }
@@ -66,25 +67,32 @@ interface ForecastBar {
 @Component({
   selector: 'app-admin-billing',
   standalone: true,
-  imports: [FormsModule, DatePipe, CurrencyPipe, DialogShellComponent],
+  imports: [FormsModule, DatePipe, CurrencyPipe, DialogShellComponent, RollingCounterComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
-      <div>
-        <h2 class="text-lg font-bold text-white m-0">Billing &amp; Plan</h2>
-        <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
-          AI Credits power form routing, chat, and your custom AI endpoints. Per-site cost breakdown + spend alerts below.
+      <header>
+        <div class="kicker">Plan &amp; usage</div>
+        <h2 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-2">
+          Billing
+          <span class="header-pill" [class.is-pro]="plan() === 'pro'" aria-label="Current plan">
+            <span class="header-pill-dot" aria-hidden="true"></span>
+            {{ planLabel() }}
+          </span>
+        </h2>
+        <p class="text-[0.78rem] text-text-secondary m-0 mt-1 max-w-prose leading-relaxed">
+          AI credits power form routing, chat, and your custom AI endpoints. Per-site cost breakdown + spend alerts below.
         </p>
-      </div>
+      </header>
 
       <!-- ─────────────────── PLAN TIERS ─────────────────── -->
-      <section class="card">
-        <div class="flex items-center justify-between mb-3">
+      <section class="card" id="plan">
+        <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
           <div>
             <h3 class="m-0 text-base font-semibold text-white">Plan</h3>
             <p class="text-[0.7rem] text-text-secondary m-0 mt-0.5">Currently on <strong class="text-white">{{ planLabel() }}</strong>. Cancel any time.</p>
           </div>
           @if (plan() === 'pro') {
-            <button class="btn-ghost" (click)="manage()">Manage</button>
+            <button class="btn-ghost" type="button" (click)="manage()" aria-label="Open Stripe billing portal" title="Open Stripe billing portal">Manage subscription</button>
           }
         </div>
         <div class="grid sm:grid-cols-2 gap-3">
@@ -184,10 +192,12 @@ interface ForecastBar {
             }
           </div>
         } @else if (siteCosts().length === 0) {
-          <div class="empty-state">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            <h4>No projects yet</h4>
-            <p>Create your first site to set per-project AI credit caps.</p>
+          <div class="empty-state-pretty-compact" data-testid="billing-caps-empty">
+            <div class="empty-glyph-sm" aria-hidden="true">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <h4 class="empty-h">No projects yet</h4>
+            <p class="empty-p">Create your first site to set per-project AI credit caps.</p>
             <!-- Opens the bulk caps modal (Turn 4). When the user has zero
                  sites the modal's own empty-state surfaces a "Create your
                  first project →" hint instead of forcing a router navigation.
@@ -197,6 +207,7 @@ interface ForecastBar {
                     class="btn-primary"
                     data-testid="billing-caps-link"
                     title="Open the per-project AI credit caps modal"
+                    aria-label="Open the per-project AI credit caps modal"
                     (click)="openCapsModal()">+ Set credit caps</button>
           </div>
         } @else {
@@ -288,6 +299,105 @@ interface ForecastBar {
           </div>
         } @else {
           <div class="p-6 text-center text-text-secondary text-sm">Forecast unavailable.</div>
+        }
+      </section>
+
+      <!-- ─── 30-DAY ROLLING FORECAST v2 (Bundle B finish, 2026-05-24) ─── -->
+      <section class="card border border-cyan-500/40" data-testid="forecast-v2-card">
+        <div class="flex items-start justify-between mb-3 gap-3 flex-wrap">
+          <div class="min-w-0">
+            <h3 class="m-0 text-base font-semibold text-white flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="text-cyan-300"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
+              Rolling 30-day forecast
+            </h3>
+            <p class="text-[0.7rem] text-text-secondary m-0 mt-0.5">
+              Projected from your last 7 days of usage. Updates every refresh.
+            </p>
+          </div>
+          @if (forecastV2(); as fv) {
+            <div class="text-right">
+              <div class="text-2xl font-bold text-white tabular-nums flex items-baseline gap-1 justify-end">
+                <span class="text-base font-mono text-cyan-300">$</span>
+                <app-rolling-counter [value]="fv.projected_usd" />
+              </div>
+              <div class="text-[0.62rem] uppercase tracking-wider text-text-secondary">projected · next 30 days</div>
+            </div>
+          }
+        </div>
+
+        @if (loadingForecastV2() && !forecastV2()) {
+          <div class="p-6 text-center text-text-secondary text-sm">Computing rolling forecast…</div>
+        } @else if (forecastV2()) {
+          @let fv = forecastV2()!;
+          <!-- Sparkline (inline SVG, no chart lib) -->
+          <svg viewBox="0 0 320 70" preserveAspectRatio="none" class="w-full h-16 mt-1" role="img" [attr.aria-label]="'30-day daily spend sparkline, projected total ' + fv.projected_usd + ' USD'">
+            <defs>
+              <linearGradient id="forecast-v2-grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.42"/>
+                <stop offset="100%" stop-color="#00E5FF" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path [attr.d]="forecastV2Area()" fill="url(#forecast-v2-grad)" />
+            <path [attr.d]="forecastV2Line()" fill="none" stroke="#00E5FF" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/>
+          </svg>
+
+          <!-- Tabular summary row -->
+          <div class="grid sm:grid-cols-3 gap-3 mt-3 text-[0.78rem]">
+            <div class="rounded-lg border border-white/8 bg-black/20 px-3 py-2">
+              <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary font-bold">This period</div>
+              <div class="text-white font-bold tabular-nums">{{ fv.current_period_usd | currency:'USD':'symbol':'1.2-2' }}</div>
+            </div>
+            <div class="rounded-lg border border-white/8 bg-black/20 px-3 py-2">
+              <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary font-bold">Daily avg</div>
+              <div class="text-white font-bold tabular-nums">{{ fv.rolling_daily_avg | currency:'USD':'symbol':'1.4-4' }}</div>
+            </div>
+            <div class="rounded-lg border border-white/8 bg-black/20 px-3 py-2">
+              <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary font-bold">Days until cap</div>
+              <div class="text-white font-bold tabular-nums">
+                @if (fv.days_until_cap_hit !== null) {
+                  {{ fv.days_until_cap_hit }}d
+                } @else {
+                  —
+                }
+              </div>
+            </div>
+          </div>
+
+          @if (fv.plan_cap_usd && fv.plan_cap_usd > 0) {
+            <!-- Cap progress meter -->
+            <div class="mt-3">
+              <div class="flex items-baseline justify-between mb-1">
+                <span class="text-[0.7rem] text-text-secondary">Cap progress</span>
+                <span class="text-[0.7rem] tabular-nums"
+                      [class.text-amber-300]="fv.percent_of_cap >= 80 && fv.percent_of_cap < 100"
+                      [class.text-red-400]="fv.percent_of_cap >= 100"
+                      [class.text-text-secondary]="fv.percent_of_cap < 80">
+                  {{ fv.percent_of_cap }}% of {{ fv.plan_cap_usd | currency:'USD':'symbol':'1.0-0' }}/mo
+                </span>
+              </div>
+              <div class="h-1.5 rounded-full overflow-hidden bg-white/8"
+                   role="progressbar"
+                   [attr.aria-valuenow]="fv.percent_of_cap"
+                   aria-valuemin="0"
+                   aria-valuemax="100">
+                <div class="h-full transition-all duration-700"
+                     [class.bg-cyan-400]="fv.percent_of_cap < 80"
+                     [class.bg-amber-400]="fv.percent_of_cap >= 80 && fv.percent_of_cap < 100"
+                     [class.bg-red-500]="fv.percent_of_cap >= 100"
+                     [style.width.%]="forecastCapPct()">
+                </div>
+              </div>
+              @if (fv.percent_of_cap >= 80 && fv.percent_of_cap < 100) {
+                <div class="mt-2 rounded-md border border-amber-500/40 bg-amber-500/[0.08] px-3 py-2 text-[0.72rem] text-amber-200 flex items-start gap-2"
+                     data-testid="forecast-v2-warn">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="mt-0.5 flex-shrink-0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  <span>You're projected to use <strong class="text-white">{{ fv.percent_of_cap }}%</strong> of your monthly cap. Raise it from the plan settings or trim AI workloads.</span>
+                </div>
+              }
+            </div>
+          }
+        } @else {
+          <div class="p-6 text-center text-text-secondary text-sm">Rolling forecast unavailable.</div>
         }
       </section>
 
@@ -440,10 +550,12 @@ interface ForecastBar {
             }
           </div>
         } @else if (siteCosts().length === 0) {
-          <div class="empty-state">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>
-            <h4>No usage yet</h4>
-            <p>Once your sites start serving traffic and AI calls, you'll see the breakdown here.</p>
+          <div class="empty-state-pretty-compact" data-testid="billing-costs-empty">
+            <div class="empty-glyph-sm" aria-hidden="true">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>
+            </div>
+            <h4 class="empty-h">No usage yet</h4>
+            <p class="empty-p">Once your sites start serving traffic and AI calls, you'll see the breakdown here.</p>
           </div>
         } @else {
           <div class="overflow-x-auto">
@@ -494,10 +606,12 @@ interface ForecastBar {
           <!-- Empty state intentionally omits a CTA — the single "+ Create alert"
                button sits in the section toolbar above so there is exactly one
                entry point. Avoids the duplicate-button pattern users flagged. -->
-          <div class="empty-state">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-            <h4>No spend alerts yet</h4>
-            <p>Get emailed when your balance drops or daily burn spikes. Use the “+ Create alert” button above to set your first one.</p>
+          <div class="empty-state-pretty-compact" data-testid="billing-alerts-empty">
+            <div class="empty-glyph-sm" aria-hidden="true">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </div>
+            <h4 class="empty-h">No spend alerts yet</h4>
+            <p class="empty-p">Get notified when your balance drops or daily burn spikes. Use “+ Create alert” above to set your first one.</p>
           </div>
         } @else {
           @for (a of alerts(); track a.id) {
@@ -506,7 +620,12 @@ interface ForecastBar {
                 <div class="font-semibold text-white">{{ a.name }}</div>
                 <div class="text-text-secondary text-[0.7rem]">{{ a.alert_kind === 'balance_low' ? 'When balance <' : 'When daily burn >' }} {{ formatCredits(a.threshold_credits) }} credits → {{ a.notify_email }}</div>
               </div>
-              <button type="button" class="text-red-400 text-[0.72rem]" (click)="removeAlert(a)">Remove</button>
+              <button type="button"
+                      class="btn-danger-ghost"
+                      data-testid="billing-alert-remove"
+                      [attr.aria-label]="'Remove alert ' + a.name"
+                      title="Remove this alert"
+                      (click)="removeAlert(a)">Remove</button>
             </div>
           }
         }
@@ -645,10 +764,12 @@ interface ForecastBar {
             </p>
 
             @if (state.sites().length === 0) {
-              <div class="empty-state">
-                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <h4>No projects yet</h4>
-                <p>Create your first site to set per-project AI credit caps.</p>
+              <div class="empty-state-pretty-compact">
+                <div class="empty-glyph-sm" aria-hidden="true">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </div>
+                <h4 class="empty-h">No projects yet</h4>
+                <p class="empty-p">Create your first site to set per-project AI credit caps.</p>
               </div>
             } @else {
               <ul class="list-none p-0 m-0 space-y-2 max-h-[50vh] overflow-y-auto pr-1">
@@ -691,19 +812,97 @@ interface ForecastBar {
     </div>
   `,
   styles: [`
-    :host { display: block; --accent: #00E5FF; }
+    :host { display: block; --accent: var(--ps-accent, #00E5FF); }
     h2, h3 { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
+    .section-h { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
+    .kicker {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.62rem; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--ps-accent, #00E5FF); opacity: 0.85;
+    }
+    .header-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 10px; border-radius: 999px;
+      background: rgba(148, 163, 184, 0.10);
+      border: 1px solid rgba(148, 163, 184, 0.32);
+      color: #cbd5e1;
+      font-family: 'Sora', system-ui, sans-serif;
+      font-size: 0.65rem; font-weight: 600; letter-spacing: 0.02em;
+    }
+    .header-pill-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #94a3b8;
+    }
+    .header-pill.is-pro {
+      background: rgba(52, 211, 153, 0.10);
+      border-color: rgba(52, 211, 153, 0.32);
+      color: #6ee7b7;
+    }
+    .header-pill.is-pro .header-pill-dot {
+      background: #34d399; box-shadow: 0 0 6px rgba(52, 211, 153, 0.7);
+    }
+    /* Compact cinematic empty-state mirrors the editor.component.ts pattern
+       (empty-state-pretty + empty-glyph + glow-h-grad) but tuned for
+       in-card density so multiple sections can stack without dominating. */
+    .empty-state-pretty-compact {
+      display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+      padding: 2rem 1.4rem;
+      text-align: center;
+      background: radial-gradient(circle at center top, rgba(0,229,255,0.05), transparent 65%);
+      border: 1px dashed rgba(0,229,255,0.16);
+      border-radius: var(--ps-radius-md, 12px);
+    }
+    .empty-glyph-sm {
+      width: 56px; height: 56px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(0,229,255,0.10), rgba(124,58,237,0.08));
+      border: 1px solid rgba(0,229,255,0.22);
+      color: rgba(0,229,255,0.78);
+      box-shadow: 0 12px 28px -18px rgba(0,229,255,0.4);
+    }
+    .empty-h {
+      margin: 0;
+      font-family: 'Sora', system-ui, sans-serif; font-weight: 600;
+      color: #fff;
+      font-size: 0.92rem; letter-spacing: -0.01em;
+      background: linear-gradient(90deg, #fff, #00E5FF 60%, #7C3AED);
+      -webkit-background-clip: text; background-clip: text;
+      color: transparent;
+      text-wrap: balance;
+    }
+    .empty-p {
+      margin: 0;
+      font-size: 0.76rem; color: rgba(255,255,255,0.62);
+      max-width: 38ch; line-height: 1.5;
+    }
+    .btn-danger-ghost {
+      padding: 0.32rem 0.7rem; min-height: 24px;
+      border-radius: var(--ps-radius-sm, 8px);
+      background: transparent;
+      color: #fca5a5;
+      border: 1px solid rgba(248,113,113,0.28);
+      cursor: pointer;
+      font-size: 0.7rem;
+      font-weight: 600;
+      transition: background var(--ps-dur-fast, 140ms) ease, color var(--ps-dur-fast, 140ms) ease, border-color var(--ps-dur-fast, 140ms) ease;
+    }
+    .btn-danger-ghost:hover { background: rgba(248,113,113,0.14); color: #fecaca; border-color: rgba(248,113,113,0.5); }
+    .btn-danger-ghost:focus-visible { outline: 2px solid #fca5a5; outline-offset: 2px; }
     .card { background: rgba(255,255,255,0.02); border: 1px solid color-mix(in oklch, var(--accent) 14%, transparent); border-radius: 14px; padding: 1.4rem; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02); transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease; }
     .card:hover { transform: translateY(-1px); border-color: color-mix(in oklch, var(--accent) 28%, transparent); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 8px 24px -16px rgba(0,229,255,0.18); }
     .card-light { background: rgba(255,255,255,0.025); border: 1px solid color-mix(in oklch, var(--accent) 16%, transparent); border-radius: 12px; transition: transform 200ms ease, border-color 200ms ease; }
     .card-light:hover { transform: translateY(-1px); border-color: color-mix(in oklch, var(--accent) 30%, transparent); }
-    .input-field { padding: 0.5rem 0.7rem; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; font: inherit; }
+    .input-field { padding: 0.5rem 0.7rem; border-radius: var(--ps-radius-sm, 8px); background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: var(--ps-ink, #fff); font: inherit; }
     .input-field[aria-invalid="true"] { border-color: oklch(0.78 0.18 25 / 0.75); }
-    .btn-primary { padding: 0.5rem 1rem; border-radius: 8px; background: linear-gradient(135deg, #00ffc8, #00d4ff); color: #060610; font-weight: 700; border: 1px solid color-mix(in oklch, #00d4ff 40%, transparent); cursor: pointer; font-size: 0.78rem; transition: transform 200ms ease, box-shadow 200ms ease; }
+    .input-field:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
+    .btn-primary { padding: 0.5rem 1rem; border-radius: var(--ps-radius-sm, 8px); background: linear-gradient(135deg, #00ffc8, #00d4ff); color: var(--ps-bg, #060610); font-weight: 700; border: 1px solid color-mix(in oklch, #00d4ff 40%, transparent); cursor: pointer; font-size: 0.78rem; transition: transform 200ms ease, box-shadow 200ms ease; }
     .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px -10px rgba(0,229,255,0.45); }
     .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
-    .btn-ghost { padding: 0.45rem 0.95rem; border-radius: 8px; background: transparent; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 0.74rem; transition: transform 200ms ease, border-color 200ms ease; }
+    .btn-primary:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
+    .btn-ghost { padding: 0.45rem 0.95rem; border-radius: var(--ps-radius-sm, 8px); background: transparent; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 0.74rem; transition: transform 200ms ease, border-color 200ms ease; }
     .btn-ghost:hover { transform: translateY(-1px); border-color: color-mix(in oklch, var(--accent) 30%, transparent); }
+    .btn-ghost:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
     .tier-active { border-color: rgba(0,229,255,0.55); background: rgba(0,229,255,0.06); box-shadow: 0 0 0 3px rgba(0,229,255,0.08); }
 
     /* ─────── Plan-card-button (whole card clickable) ─────── */
@@ -859,6 +1058,68 @@ export class AdminBillingComponent implements OnInit {
   /** 30-day forecast loaded from `/admin/forecast/cost` (#95). */
   forecast = signal<CostForecastState | null>(null);
   forecastLoading = signal(false);
+
+  /**
+   * Rolling 30-day cost forecast (Bundle B finish, 2026-05-24).
+   * Backed by `GET /api/billing/cost-forecast?days=30`.
+   * Loaded in `loadAll()` alongside the legacy `/admin/forecast/cost`.
+   * Drives the new Forecast card sparkline + rolling-counter + 80% warning.
+   */
+  forecastV2 = signal<CostForecastV2 | null>(null);
+  loadingForecastV2 = signal(false);
+  /** Toast-dedup flag — surfaces the 80% warning at most once per session. */
+  private forecastWarnedThisSession = false;
+
+  /** Clamped percent-of-cap for the meter bar (server can report >100%). */
+  forecastCapPct = computed<number>(() => {
+    const fv = this.forecastV2();
+    if (!fv) return 0;
+    return Math.max(0, Math.min(100, fv.percent_of_cap));
+  });
+
+  /**
+   * SVG path `d` string for the sparkline polyline. Scales to a 320×70
+   * viewport with 4px top/bottom padding. Returns `M0,0` when there's no
+   * data so Angular doesn't render an invalid path attribute.
+   */
+  forecastV2Line = computed<string>(() => {
+    const fv = this.forecastV2();
+    if (!fv || fv.breakdown.length === 0) return 'M0,0';
+    return this.buildSparklinePath(fv.breakdown, false);
+  });
+
+  /** Same as `forecastV2Line` but closed to the baseline for the fill. */
+  forecastV2Area = computed<string>(() => {
+    const fv = this.forecastV2();
+    if (!fv || fv.breakdown.length === 0) return 'M0,0';
+    return this.buildSparklinePath(fv.breakdown, true);
+  });
+
+  /**
+   * Build the sparkline path from a daily breakdown. When `area` is true,
+   * the path closes back to the baseline so the gradient fills correctly.
+   *
+   * @internal
+   */
+  private buildSparklinePath(
+    pts: ReadonlyArray<{ usd: number }>,
+    area: boolean,
+  ): string {
+    const W = 320;
+    const H = 70;
+    const PAD = 4;
+    const max = Math.max(0.0001, ...pts.map((p) => p.usd));
+    const stepX = pts.length > 1 ? (W - PAD * 2) / (pts.length - 1) : 0;
+    const coords = pts.map((p, i) => {
+      const x = PAD + i * stepX;
+      const y = H - PAD - (p.usd / max) * (H - PAD * 2);
+      return [x, y] as const;
+    });
+    const line = coords.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
+    if (!area) return line;
+    const last = coords[coords.length - 1];
+    return `${line} L${last[0].toFixed(2)},${(H - PAD).toFixed(2)} L${PAD.toFixed(2)},${(H - PAD).toFixed(2)} Z`;
+  }
 
   /**
    * Static price for the new 5,000-credit bulk pack. Derived as the
@@ -1204,6 +1465,37 @@ export class AdminBillingComponent implements OnInit {
       next: (r) => this.plan.set(r.data?.subscription?.status === 'active' ? 'pro' : 'free'),
       error: () => this.plan.set('free'),
     });
+    // Rolling 30-day forecast v2 (Bundle B finish — separate route, separate UI).
+    this.loadingForecastV2.set(true);
+    this.api.getCostForecast(30).subscribe({
+      next: (r) => {
+        this.forecastV2.set(r.data);
+        this.loadingForecastV2.set(false);
+        // 80% threshold toast — one per session even though the server dedups
+        // by (org, period) on its own KV side.
+        if (
+          !this.forecastWarnedThisSession &&
+          r.data.plan_cap_usd &&
+          r.data.plan_cap_usd > 0 &&
+          r.data.percent_of_cap >= 80 &&
+          r.data.percent_of_cap < 100
+        ) {
+          this.forecastWarnedThisSession = true;
+          this.toast.warning(
+            `Projected to use ${r.data.percent_of_cap}% of your $${r.data.plan_cap_usd}/mo cap. Review the Forecast card to plan ahead.`,
+          );
+          this.telemetry.track('billing.forecast_cap_warning', {
+            percent_of_cap: r.data.percent_of_cap,
+            projected_usd: r.data.projected_usd,
+            plan_cap_usd: r.data.plan_cap_usd,
+          });
+        }
+      },
+      error: () => {
+        this.forecastV2.set(null);
+        this.loadingForecastV2.set(false);
+      },
+    });
     this.forecastLoading.set(true);
     this.api.get<{ data: CostForecastState }>('/admin/forecast/cost').subscribe({
       next: (r) => {
@@ -1279,7 +1571,7 @@ export class AdminBillingComponent implements OnInit {
           this.toast.info('Checkout opened');
         }
       },
-      error: () => { this.upgrading.set(false); this.toast.error('Could not start checkout'); },
+      error: () => { this.upgrading.set(false); this.toast.error('Could not start checkout — retry, or contact hey@megabyte.space'); },
     });
   }
   manage(): void {
@@ -1538,7 +1830,7 @@ export class AdminBillingComponent implements OnInit {
       return;
     }
     this.api.delete(`/billing/spend-alerts/${a.id}`).subscribe({
-      next: () => { this.toast.success('Alert removed'); this.loadAll(); },
+      next: () => { this.toast.success('Alert removed — no more notifications for this threshold'); this.loadAll(); },
       error: () => { /* api.service already toasted */ },
     });
   }

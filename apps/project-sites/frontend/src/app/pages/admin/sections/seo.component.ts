@@ -10,7 +10,8 @@ import { AdminStateService } from '../admin-state.service';
 
       <!-- Header -->
       <div class="seo-header">
-        <h2 class="text-lg font-bold text-white m-0">SEO</h2>
+        <div class="kicker">Discovery</div>
+        <h2 class="section-h text-lg font-bold text-white m-0">SEO</h2>
         <p class="text-[0.78rem] text-text-secondary m-0 mt-1">Optimize your site for search engines and social sharing.</p>
       </div>
 
@@ -73,7 +74,7 @@ import { AdminStateService } from '../admin-state.service';
       <div class="seo-card">
         <h3 class="text-base font-semibold text-white m-0 mb-4 flex items-center gap-2">
           SEO Health Check
-          <span class="seo-score">{{ passCount }}/{{ seoChecks.length }}</span>
+          <span class="seo-score" data-numeric>{{ passCount }}/{{ seoChecks.length }}</span>
         </h3>
         <div class="flex flex-col gap-2">
           @for (check of seoChecks; track check.label; let i = $index) {

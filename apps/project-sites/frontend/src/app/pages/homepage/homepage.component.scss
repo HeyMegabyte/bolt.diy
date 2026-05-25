@@ -1,7 +1,7 @@
 :host {
   display: block;
-  background: #060610;
-  color: #f0f0f8;
+  background: var(--ps-bg, #060610);
+  color: var(--ps-ink, #f4f4ff);
 }
 
 /* ── Typography polish ─────────────────────────
@@ -20,25 +20,58 @@
   text-wrap: pretty;
 }
 
-/* ── Hero CTA — high-contrast brand gradient ──── */
+/* ── Hero CTA — brand gradient + glow on hover ──── */
 .hero-cta-primary {
-  background: linear-gradient(135deg, #00ffc8, #00d4ff);
-  color: #060610;
-  font-weight: 600;
+  background: linear-gradient(
+    135deg,
+    var(--ps-accent, #00e5ff) 0%,
+    color-mix(in oklch, var(--ps-accent, #00e5ff) 60%, var(--ps-accent-secondary, #7c3aed) 40%) 55%,
+    var(--ps-accent-secondary, #7c3aed) 100%
+  );
+  color: var(--ps-bg, #060610);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  position: relative;
+  isolation: isolate;
+  transition: filter 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 280ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hero-cta-primary::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    var(--ps-accent, #00e5ff),
+    var(--ps-accent-secondary, #7c3aed)
+  );
+  filter: blur(18px);
+  opacity: 0;
+  z-index: -1;
+  transition: opacity 320ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .hero-cta-primary:hover {
-  filter: brightness(1.05);
-  box-shadow: 0 10px 30px rgba(0, 255, 200, 0.25);
+  filter: brightness(1.05) saturate(1.1);
+  box-shadow:
+    0 12px 32px -8px color-mix(in oklch, var(--ps-accent, #00e5ff) 45%, transparent),
+    0 8px 24px -8px color-mix(in oklch, var(--ps-accent-secondary, #7c3aed) 35%, transparent);
 }
 
-/* ── Universal visible focus ring (—:focus-visible only) ── */
+.hero-cta-primary:hover::before {
+  opacity: 0.65;
+}
+
+/* ── Universal visible focus ring (:focus-visible only) ── */
 :host button:focus-visible,
 :host a:focus-visible,
 :host input:focus-visible,
 :host textarea:focus-visible,
 :host select:focus-visible {
-  outline: 2px solid #00ffc8;
+  outline: 2px solid var(--ps-accent, #00e5ff);
   outline-offset: 2px;
 }
 
@@ -51,7 +84,7 @@
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
 }
 
-/* ── Scroll reveal ─────────────────────────── */
+/* ── Legacy scroll reveal (kept as fallback for [class.reveal] hosts) ─ */
 .reveal {
   opacity: 0;
   transform: translateY(24px);
@@ -102,7 +135,7 @@ input::placeholder {
 }
 
 .bg-primary-dim {
-  background: rgba(0, 229, 255, 0.1);
+  background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent);
 }
 
 .bg-subtle {
@@ -110,7 +143,7 @@ input::placeholder {
 }
 
 .faq-active {
-  border-color: rgba(0, 229, 255, 0.2) !important;
+  border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 25%, transparent) !important;
 }
 
 /* ── Smooth section scroll ─────────────────── */

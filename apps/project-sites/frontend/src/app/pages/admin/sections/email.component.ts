@@ -43,7 +43,8 @@ const PROVIDERS: ProviderMeta[] = [
       } @else {
         <header class="mb-6 flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 class="text-xl font-bold text-white m-0 mb-1">E-mail &amp; Forms</h1>
+            <div class="kicker">Capture</div>
+            <h1 class="section-h text-xl font-bold text-white m-0 mb-1">E-mail &amp; Forms</h1>
             <p class="text-[0.85rem] text-text-secondary m-0 max-w-[640px]">
               Connect a newsletter provider, then drop the projectsites.dev script into any site to capture
               submissions through one standardized API.

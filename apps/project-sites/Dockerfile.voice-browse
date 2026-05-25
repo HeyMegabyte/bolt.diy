@@ -1,0 +1,216 @@
+# syntax=docker/dockerfile:1.7
+# ─────────────────────────────────────────────────────────────────────────────
+# VoiceBrowseAgent container image.
+#
+# Hosts a single headless Chromium under Playwright + a tiny Node bridge that
+# the VoiceBrowseAgent DO talks to over localhost:9223. Records every browse
+# session as MP4 (1280x720) into /tmp/recordings/<call_id>/. The DO pulls the
+# finalised MP4 via GET /playwright/video and uploads to R2.
+#
+# Target image size: <1.5 GB.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Stage 1 — install minimal Node + Playwright Chromium runtime ────────────
+FROM mcr.microsoft.com/playwright:v1.50.0-jammy AS base
+
+# Drop firefox + webkit — we only ship Chromium for voice browse to keep the
+# image under the 1.5 GB budget. The base image ships all three.
+RUN rm -rf \
+    /ms-playwright/firefox-* \
+    /ms-playwright/webkit-* \
+    /var/lib/apt/lists/*
+
+# Pin Node 22 (the playwright:jammy base ships node 20). We layer the upstream
+# nodesource tarball rather than running apt-get to avoid blowing the image
+# budget on apt cache.
+ENV NODE_VERSION=22.11.0
+RUN ARCH=$(dpkg --print-architecture) \
+ && case "$ARCH" in \
+      amd64)  NODE_ARCH=x64 ;; \
+      arm64)  NODE_ARCH=arm64 ;; \
+      *)      echo "unsupported $ARCH" && exit 1 ;; \
+    esac \
+ && curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" \
+ && tar -xJf "node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" -C /usr/local --strip-components=1 \
+ && rm "node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" \
+ && node --version && npm --version
+
+# ── Stage 2 — bridge dependencies ───────────────────────────────────────────
+FROM base AS deps
+WORKDIR /opt/bridge
+COPY <<EOF package.json
+{
+  "name": "voice-browse-bridge",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "dependencies": {
+    "playwright": "1.50.0"
+  }
+}
+EOF
+# playwright npm pkg only — browser binaries are inherited from base image.
+RUN npm install --omit=dev --no-audit --no-fund --prefer-offline \
+ && npm cache clean --force
+
+# ── Stage 3 — final runtime ─────────────────────────────────────────────────
+FROM base AS runtime
+WORKDIR /opt/bridge
+
+COPY --from=deps /opt/bridge/node_modules ./node_modules
+COPY --from=deps /opt/bridge/package.json ./package.json
+
+# The entry script wires DO ↔ Playwright over localhost. See file body for
+# the route surface (/playwright/observe|step|stop|video). Kept inline so
+# the image builds even when the worker-side caller doesn't ship a sibling.
+COPY <<'EOF' /opt/bridge/entry.mjs
+#!/usr/bin/env node
+/**
+ * Voice browse bridge — single Node process exposing:
+ *   POST /playwright/observe   { call_id } → { dom_summary }
+ *   POST /playwright/step      { call_id, action } → { observation, screenshot_url? }
+ *   POST /playwright/stop      { call_id } → { video_local_path, duration_ms }
+ *   GET  /playwright/video?... → video/mp4 byte stream
+ * Recording lives at /tmp/recordings/<call_id>/browse.mp4.
+ */
+import http from 'node:http';
+import { readFile, stat } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { chromium } from 'playwright';
+
+const PORT = Number(process.env.PORT || 9223);
+const REC_ROOT = '/tmp/recordings';
+
+/** One context per call_id so each session has its own MP4. */
+const sessions = new Map();
+
+async function getSession(callId) {
+  let s = sessions.get(callId);
+  if (s) return s;
+  const browser = await chromium.launch({ args: ['--no-sandbox'] });
+  const context = await browser.newContext({
+    recordVideo: { dir: `${REC_ROOT}/${callId}`, size: { width: 1280, height: 720 } },
+    viewport: { width: 1280, height: 720 },
+  });
+  const page = await context.newPage();
+  s = { browser, context, page, startedAt: Date.now() };
+  sessions.set(callId, s);
+  return s;
+}
+
+async function summariseDOM(page) {
+  try {
+    return await page.evaluate(() => {
+      const links = [...document.querySelectorAll('a')].slice(0, 20).map(a => `${a.innerText.trim().slice(0, 60)} → ${a.href}`);
+      const headings = [...document.querySelectorAll('h1, h2')].slice(0, 10).map(h => h.innerText.trim().slice(0, 80));
+      const inputs = [...document.querySelectorAll('input, button, textarea')].slice(0, 20).map(el => `${el.tagName.toLowerCase()}[${el.name || el.id || el.placeholder || ''}]`);
+      return JSON.stringify({ title: document.title, headings, links, inputs }, null, 1);
+    });
+  } catch (err) { return `dom-summary-failed:${err.message}`; }
+}
+
+async function runStep(page, action) {
+  switch (action.type) {
+    case 'goto':
+      await page.goto(action.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      return `at ${page.url()}, title="${(await page.title()).slice(0, 80)}"`;
+    case 'click':
+      await page.click(action.selector, { timeout: 8000 });
+      return `clicked ${action.selector}`;
+    case 'type':
+      await page.fill(action.selector, action.text, { timeout: 8000 });
+      return `typed into ${action.selector}`;
+    case 'extract': {
+      const text = await page.locator(action.selector).first().innerText({ timeout: 8000 });
+      return text.slice(0, 800);
+    }
+    case 'screenshot':
+      await page.screenshot({ path: `${REC_ROOT}/last.png`, fullPage: false });
+      return 'screenshot captured';
+    case 'wait':
+      if (action.selector) await page.waitForSelector(action.selector, { timeout: 8000 });
+      else await page.waitForTimeout(action.ms || 250);
+      return 'wait ok';
+    default:
+      throw new Error('unknown action');
+  }
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', () => { try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')); } catch (e) { reject(e); } });
+    req.on('error', reject);
+  });
+}
+
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+  try {
+    if (req.method === 'POST' && url.pathname === '/playwright/observe') {
+      const { call_id } = await readBody(req);
+      const s = await getSession(call_id);
+      const dom = await summariseDOM(s.page);
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ dom_summary: dom }));
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/playwright/step') {
+      const { call_id, action } = await readBody(req);
+      const s = await getSession(call_id);
+      const observation = await runStep(s.page, action);
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ observation }));
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/playwright/stop') {
+      const { call_id } = await readBody(req);
+      const s = sessions.get(call_id);
+      if (!s) { res.writeHead(404).end('no session'); return; }
+      const videoFile = await s.page.video()?.path();
+      await s.context.close();
+      await s.browser.close();
+      sessions.delete(call_id);
+      const dur = Date.now() - s.startedAt;
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ video_local_path: videoFile || '', duration_ms: dur }));
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/playwright/video') {
+      const callId = url.searchParams.get('call_id');
+      const dir = `${REC_ROOT}/${callId}`;
+      try {
+        const list = (await import('node:fs/promises')).readdir(dir);
+        const files = (await list).filter(f => f.endsWith('.webm') || f.endsWith('.mp4'));
+        if (!files.length) { res.writeHead(404).end('no video'); return; }
+        const f = `${dir}/${files[0]}`;
+        const st = await stat(f);
+        res.writeHead(200, { 'content-type': 'video/mp4', 'content-length': st.size });
+        createReadStream(f).pipe(res);
+      } catch { res.writeHead(404).end('no video'); }
+      return;
+    }
+    res.writeHead(404).end('not found');
+  } catch (err) {
+    res.writeHead(500, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+});
+
+server.listen(PORT, () => console.log(`voice-browse bridge listening on :${PORT}`));
+EOF
+
+RUN mkdir -p /tmp/recordings && chmod +x /opt/bridge/entry.mjs
+
+ENV NODE_ENV=production \
+    PORT=9223 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+EXPOSE 9223
+
+# Container DO health check — DO `startAndWaitForPorts` polls this port.
+HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:9223/playwright/observe',{method:'POST',body:'{}',headers:{'content-type':'application/json'}}).then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"
+
+CMD ["node", "/opt/bridge/entry.mjs"]

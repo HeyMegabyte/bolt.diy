@@ -24,10 +24,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   HostListener,
+  Injector,
+  afterNextRender,
+  effect,
   inject,
   input,
   output,
-  type AfterViewInit,
   type OnDestroy,
   ElementRef,
 } from '@angular/core';
@@ -172,35 +174,82 @@ import { A11yModule, ConfigurableFocusTrapFactory, type ConfigurableFocusTrap } 
     }
   `],
 })
-export class FullscreenOverlayComponent implements AfterViewInit, OnDestroy {
+export class FullscreenOverlayComponent implements OnDestroy {
   private readonly el = inject(ElementRef);
   private readonly focusTrapFactory = inject(ConfigurableFocusTrapFactory);
+  private readonly injector = inject(Injector);
   private focusTrap?: ConfigurableFocusTrap;
+  /**
+   * The `.fo-root` element teleported to `document.body` so it escapes any
+   * ancestor stacking context (the admin top bar's `backdrop-blur` and the
+   * persistent bolt iframe's `view-transition-name` both create one, and
+   * even `z-index: 2147483647` can't escape a parent's stacking context).
+   * Kept here so we can restore it on destroy.
+   */
+  private teleportedRoot: HTMLElement | null = null;
 
   readonly open = input<boolean>(false);
   readonly closed = output<void>();
   readonly ariaLabel = input<string>('Fullscreen overlay');
 
-  @HostListener('document:keydown.escape')
-  onEscape(): void {
-    if (this.open()) this.close();
-  }
-
-  ngAfterViewInit(): void {
-    queueMicrotask(() => {
-      const root = this.el.nativeElement.querySelector('.fo-root');
-      if (root) {
-        this.focusTrap = this.focusTrapFactory.create(root);
-        this.focusTrap.focusInitialElementWhenReady();
+  constructor() {
+    // Drive teleport from the open() signal, NOT from a MutationObserver.
+    // The earlier observer-based approach infinite-looped: appendChild
+    // to body mutated the subtree, fired the observer, which saw root
+    // missing from the host subtree, called restoreFromBody, which moved
+    // it back, which fired the observer again. Forever.
+    //
+    // The signal effect runs exactly once per open()-state transition.
+    effect(() => {
+      const isOpen = this.open();
+      if (isOpen) {
+        // Wait for Angular to actually render `.fo-root` into the host
+        // subtree before we move it.
+        afterNextRender({ read: () => this.teleportToBody() }, { injector: this.injector });
+      } else {
+        this.cleanupTeleport();
       }
     });
   }
 
   ngOnDestroy(): void {
+    this.cleanupTeleport();
     this.focusTrap?.destroy();
   }
 
   close(): void {
     this.closed.emit();
+  }
+
+  /**
+   * Move `.fo-root` from its Angular-rendered slot to `document.body` so it
+   * escapes every ancestor stacking context. Sets up the focus trap on the
+   * newly-positioned element. Idempotent — safe to call multiple times.
+   */
+  private teleportToBody(): void {
+    if (this.teleportedRoot && document.body.contains(this.teleportedRoot)) {
+      return; // already in body
+    }
+    const root = this.el.nativeElement.querySelector('.fo-root') as HTMLElement | null;
+    if (!root) return; // Angular hasn't rendered yet — skip silently
+    document.body.appendChild(root);
+    this.teleportedRoot = root;
+    this.focusTrap?.destroy();
+    this.focusTrap = this.focusTrapFactory.create(root);
+    this.focusTrap.focusInitialElementWhenReady();
+  }
+
+  /**
+   * Remove the teleported root from `document.body` so Angular can clean it
+   * up. We delete the element outright — Angular's `@if (open())` will
+   * re-create a fresh `.fo-root` the next time `open()` flips true.
+   */
+  private cleanupTeleport(): void {
+    if (this.teleportedRoot) {
+      this.teleportedRoot.remove();
+      this.teleportedRoot = null;
+    }
+    this.focusTrap?.destroy();
+    this.focusTrap = undefined;
   }
 }

@@ -5,17 +5,13 @@ import { OnboardingChecklistComponent } from '../onboarding-checklist.component'
 
 /**
  * Editor route — a thin shell. The bolt.diy iframe itself lives in
- * `AdminComponent` and is owned by {@link BoltEmbedService}, so it survives
- * every admin sub-route change. This component only renders:
- *  - the empty-site state (no site selected)
- *  - the loading veil that masks bolt.diy's cold-boot until `editorReady`
+ * AdminComponent and is owned by BoltEmbedService, so it survives every
+ * admin sub-route change. This component renders:
  *
- * The iframe is rendered, positioned, and reveal-animated by the shell.
- *
- * @example
- * ```html
- * <app-admin-editor />
- * ```
+ *  - empty-site state (no site selected)
+ *  - thin cinematic loading veil while the iframe boots, dismissed the
+ *    instant bolt.diy postMessages PS_BOLT_CHAT_READY (i.e. the chat
+ *    placeholder "Build a professional website for…" has painted)
  */
 @Component({
   selector: 'app-admin-editor',
@@ -42,18 +38,16 @@ import { OnboardingChecklistComponent } from '../onboarding-checklist.component'
         </div>
       </div>
     } @else if (!bolt.editorReady()) {
-      <div class="relative w-full h-[calc(100vh-49px)]">
-        <div class="loading-veil absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-[#0a0a1a]">
-          <div class="orbit-spinner" aria-hidden="true">
-            <div class="orbit orbit-1"></div>
-            <div class="orbit orbit-2"></div>
-            <div class="orbit orbit-3"></div>
+      <div class="ed-veil">
+        <div class="ed-veil-card">
+          <div class="ed-spinner" aria-hidden="true">
+            <div class="ed-orb ed-orb-1"></div>
+            <div class="ed-orb ed-orb-2"></div>
+            <div class="ed-orb ed-orb-3"></div>
           </div>
-          <span class="text-white/70 text-sm font-medium tracking-wide">Loading</span>
-          <span class="text-text-secondary/60 text-xs">{{ bolt.loadingStage() }}</span>
-          <span class="text-text-secondary/40 text-[0.65rem] mt-2">
-            First visit only — subsequent opens are instant
-          </span>
+          <div class="ed-headline">Booting your AI editor</div>
+          <div class="ed-sub">{{ bolt.loadingStage() }}</div>
+          <div class="ed-footnote">First visit only — subsequent opens are instant.</div>
         </div>
       </div>
     }
@@ -73,32 +67,7 @@ import { OnboardingChecklistComponent } from '../onboarding-checklist.component'
         0 0 0 1px rgba(0, 229, 255, 0.05) inset;
       animation: pulseGlow 3.6s var(--ease-cinematic) infinite;
     }
-    .loading-veil {
-      animation: fadeIn 240ms var(--ease-cinematic);
-      background:
-        radial-gradient(ellipse at center, rgba(0, 229, 255, 0.04) 0%, transparent 60%),
-        #0a0a1a;
-    }
-    .orbit-spinner { position: relative; width: 56px; height: 56px; }
-    .orbit {
-      position: absolute; inset: 0; border-radius: 50%;
-      border: 2px solid transparent;
-      border-top-color: rgba(0, 229, 255, 0.9);
-      animation: spin 1.2s var(--ease-cinematic) infinite;
-    }
-    .orbit-2 {
-      inset: 6px; border-top-color: transparent;
-      border-right-color: rgba(124, 58, 237, 0.7);
-      animation-duration: 1.6s; animation-direction: reverse;
-    }
-    .orbit-3 {
-      inset: 12px; border-top-color: transparent;
-      border-bottom-color: rgba(0, 229, 255, 0.5);
-      animation-duration: 2.0s;
-    }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     @keyframes pulseGlow {
       0%, 100% {
         box-shadow:
@@ -112,9 +81,70 @@ import { OnboardingChecklistComponent } from '../onboarding-checklist.component'
       }
     }
 
+    /* Loading veil — sits over the iframe in its visible position so the
+       user never sees bolt.diy's own boot flicker. Cinematic + brief —
+       dismissed the instant PS_BOLT_CHAT_READY fires from the iframe. */
+    .ed-veil {
+      position: absolute;
+      inset: 62px 0 0 0;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 2;
+      background:
+        radial-gradient(ellipse 70% 50% at center top, rgba(0, 229, 255, 0.06), transparent 60%),
+        radial-gradient(ellipse 50% 40% at center bottom, rgba(124, 58, 237, 0.05), transparent 65%),
+        #060610;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      animation: edFade 240ms var(--ease-cinematic);
+    }
+    .ed-veil-card {
+      display: flex; flex-direction: column; align-items: center; gap: 0.85rem;
+      padding: 2rem 2.4rem;
+      border-radius: 22px;
+      background: rgba(8, 8, 32, 0.6);
+      border: 1px solid rgba(0, 229, 255, 0.10);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      max-width: 460px;
+      text-align: center;
+    }
+    .ed-spinner { position: relative; width: 64px; height: 64px; }
+    .ed-orb {
+      position: absolute; inset: 0; border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: rgba(0, 229, 255, 0.9);
+      animation: edSpin 1.2s var(--ease-cinematic) infinite;
+    }
+    .ed-orb-2 {
+      inset: 8px; border-top-color: transparent;
+      border-right-color: rgba(124, 58, 237, 0.8);
+      animation-duration: 1.6s; animation-direction: reverse;
+    }
+    .ed-orb-3 {
+      inset: 16px; border-top-color: transparent;
+      border-bottom-color: rgba(0, 229, 255, 0.5);
+      animation-duration: 2.0s;
+    }
+    .ed-headline {
+      font-family: 'Sora', system-ui, sans-serif;
+      font-weight: 600; font-size: 1.05rem; color: #f4f4ff;
+      letter-spacing: -0.02em;
+    }
+    .ed-sub {
+      font-size: 0.78rem;
+      color: rgba(244, 244, 255, 0.65);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    .ed-footnote {
+      font-size: 0.7rem;
+      color: rgba(244, 244, 255, 0.4);
+      margin-top: 0.4rem;
+    }
+    @keyframes edSpin { to { transform: rotate(360deg); } }
+    @keyframes edFade { from { opacity: 0; } to { opacity: 1; } }
+
     @media (prefers-reduced-motion: reduce) {
-      .loading-veil, .empty-glyph { animation: none; }
-      .orbit { animation-duration: 3s; }
+      .empty-glyph, .ed-veil { animation: none; }
+      .ed-orb { animation-duration: 3s; }
     }
   `],
 })

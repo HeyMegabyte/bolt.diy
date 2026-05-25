@@ -3,7 +3,19 @@ import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   {
+    // Cinematic landing — persona-aligned voice, animated OKLCH mesh, typing
+    // AI pill that routes to /create. Bundle "Cinematic" finish, 2026-05-24.
     path: '',
+    loadComponent: () =>
+      import('./pages/homepage/cinematic/cinematic-landing.component').then(
+        (m) => m.CinematicLandingComponent,
+      ),
+  },
+  {
+    // Previous A/B/C marketing homepage preserved as a fallback so any
+    // existing inbound link, screenshot test, or PostHog event can still
+    // reach it.
+    path: 'classic',
     loadComponent: () =>
       import('./pages/homepage/homepage.component').then((m) => m.HomepageComponent),
   },
@@ -38,15 +50,33 @@ export const routes: Routes = [
       import('./pages/admin/admin.component').then((m) => m.AdminComponent),
     children: [
       {
+        // /admin → new Perplexity-like AI dashboard. The bolt.diy editor
+        // experience moved to /admin/editor (untouched). /admin/welcome
+        // keeps the empty-state editor card around for onboarding links.
         path: '',
         loadComponent: () =>
-          import('./pages/admin/sections/editor.component').then((m) => m.AdminEditorComponent),
+          import('./pages/admin/sections/dashboard.component').then((m) => m.AdminDashboardComponent),
         pathMatch: 'full',
+      },
+      {
+        path: 'welcome',
+        loadComponent: () =>
+          import('./pages/admin/sections/editor.component').then((m) => m.AdminEditorComponent),
       },
       {
         path: 'editor',
         loadComponent: () =>
           import('./pages/admin/sections/editor.component').then((m) => m.AdminEditorComponent),
+      },
+      {
+        // Phase-1 native Angular port of the bolt.diy editor. Feature-flagged
+        // via `localStorage['editor.native'] === 'true'` OR `?native=1`. The
+        // host component renders an opt-in gate when neither flag is set.
+        path: 'editor-native',
+        loadComponent: () =>
+          import('./editor-native/pages/editor-native-page.component').then(
+            (m) => m.EditorNativePageComponent,
+          ),
       },
       { path: 'dashboard', redirectTo: '', pathMatch: 'full' },
       {
@@ -59,6 +89,25 @@ export const routes: Routes = [
         path: 'snapshots',
         loadComponent: () =>
           import('./pages/admin/sections/snapshots.component').then((m) => m.AdminSnapshotsComponent),
+      },
+      {
+        // Side-by-side snapshot diff — `?from=A&to=B`. Lazy-chunked so the
+        // `diff` rendering payload only ships when a user actually opens
+        // the diff view.
+        path: 'snapshots/diff',
+        loadComponent: () =>
+          import('./pages/admin/sections/snapshots-diff.component').then(
+            (m) => m.AdminSnapshotsDiffComponent,
+          ),
+      },
+      {
+        // Per-site Web Vitals heatmap (item #3 — sortable LCP/CLS/INP/
+        // Lighthouse columns, sparklines, triage view).
+        path: 'sites',
+        loadComponent: () =>
+          import('./pages/admin/sections/sites.component').then(
+            (m) => m.AdminSitesComponent,
+          ),
       },
       {
         path: 'analytics',
@@ -79,6 +128,25 @@ export const routes: Routes = [
         path: 'forms',
         loadComponent: () =>
           import('./pages/admin/sections/forms.component').then((m) => m.AdminFormsComponent),
+      },
+      {
+        // Pulse Inbox — unified conversation hub (email + slack + discord +
+        // telegram + website widget). 3-column layout with realtime WS
+        // updates. Backend owned by sibling agent — routes/inbox.ts +
+        // durable_objects/conversation_hub.ts.
+        path: 'inbox',
+        loadComponent: () =>
+          import('./pages/admin/sections/inbox.component').then((m) => m.AdminInboxComponent),
+      },
+      {
+        // One-click site-import — paste a URL, crawler runs source-site-
+        // enhancement pre-pass + spins the generation workflow. Bundle C
+        // finish (2026-05-24).
+        path: 'import',
+        loadComponent: () =>
+          import('./pages/import-from-url/import-from-url.component').then(
+            (m) => m.ImportFromUrlComponent,
+          ),
       },
       {
         // Interactive API explorer (OpenAPI 3.1). Shell hosts the left-rail
@@ -143,6 +211,66 @@ export const routes: Routes = [
         path: 'domains',
         loadComponent: () =>
           import('./pages/admin/sections/domains.component').then((m) => m.AdminDomainsComponent),
+      },
+      // ─── Apps store ───────────────────────────────────────────────
+      // Catalog of self-hostable apps deployable to Cloudflare Workers
+      // Containers in <5 min. List → detail → instances. All three lazy.
+      // Order matters: more-specific routes (`apps/instances`, `apps/instances/:id`)
+      // come BEFORE `apps/:id` so the param route doesn't swallow them.
+      {
+        path: 'apps',
+        loadComponent: () =>
+          import('./pages/admin/sections/apps.component').then((m) => m.AppsComponent),
+      },
+      {
+        path: 'apps/instances',
+        loadComponent: () =>
+          import('./pages/admin/sections/apps-instances.component').then(
+            (m) => m.AppInstancesComponent,
+          ),
+      },
+      {
+        path: 'apps/instances/:id',
+        loadComponent: () =>
+          import('./pages/admin/sections/apps-instances.component').then(
+            (m) => m.AppInstanceDetailComponent,
+          ),
+      },
+      {
+        path: 'apps/:id',
+        loadComponent: () =>
+          import('./pages/admin/sections/apps-detail.component').then(
+            (m) => m.AppDetailComponent,
+          ),
+      },
+      // ─── Pulse Social ─────────────────────────────────────────────
+      // Composer + scheduler for 11 social networks. Lazy-loaded — the
+      // composer + preview surface only ships when /admin/social is
+      // visited. Backend at apps/project-sites/src/routes/social.ts.
+      {
+        path: 'social',
+        loadComponent: () =>
+          import('./pages/admin/sections/social.component').then(
+            (m) => m.AdminSocialComponent,
+          ),
+      },
+      // ─── Pulse Analytics drill-downs ──────────────────────────────
+      // Full-page versions of the dashboard SocialPerformance + InboxMetrics
+      // widgets. Same data sources (/api/social/analytics/aggregate +
+      // /api/inbox/metrics) with deeper breakdowns + window switcher.
+      {
+        path: 'social/analytics',
+        loadComponent: () =>
+          import('./pages/admin/sections/social-analytics.component').then(
+            (m) => m.AdminSocialAnalyticsComponent,
+          ),
+      },
+      {
+        path: 'inbox/analytics',
+        loadComponent: () =>
+          import('./pages/admin/sections/inbox-analytics.component').then(
+            (m) => m.AdminInboxAnalyticsComponent,
+          ),
       },
     ],
   },

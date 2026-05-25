@@ -679,7 +679,7 @@ search.post('/api/sites/improve-prompt', async (c) => {
       return c.json({ data: { improved_text: fallbackText } });
     }
 
-    const result = await ai.run('@cf/meta/llama-3.1-8b-instruct' as Parameters<typeof ai.run>[0], {
+    const result = await ai.run('@cf/meta/llama-3.1-8b-instruct-fp8' as Parameters<typeof ai.run>[0], {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -827,7 +827,7 @@ async function generateSmartSlug(
   // Try AI-powered slug generation
   try {
     const result = await env.AI.run(
-      '@cf/meta/llama-3.1-8b-instruct' as Parameters<typeof env.AI.run>[0],
+      '@cf/meta/llama-3.1-8b-instruct-fp8' as Parameters<typeof env.AI.run>[0],
       {
         messages: [
           {
@@ -939,7 +939,7 @@ Categories: ${categories.join(', ')}
 
 Category:`;
 
-    const result = (await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct' as any, {
+    const result = (await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8' as any, {
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 30,
       temperature: 0,

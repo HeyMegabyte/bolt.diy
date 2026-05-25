@@ -86,7 +86,8 @@ interface InlineEdit {
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" data-testid="ai-endpoints-page">
       <header class="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 class="text-lg font-bold text-white m-0">AI Endpoints</h2>
+          <div class="kicker">Workers</div>
+          <h2 class="section-h text-lg font-bold text-white m-0">AI Endpoints</h2>
           <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
             Build your own backend at <code class="font-mono text-primary text-[0.78rem]">{{ baseUrl() }}/&#123;slug&#125;</code>.
             Pick an AI prompt or write JS / TS / Python / Rust-WASM.
@@ -137,7 +138,7 @@ interface InlineEdit {
         </div>
       }
 
-      <section class="card p-0 overflow-hidden" data-testid="ai-endpoints-list-card">
+      <section class="card p-0 overflow-visible" data-testid="ai-endpoints-list-card">
         @if (loading()) {
           <div class="p-10 text-center text-text-secondary text-sm">Loading…</div>
         } @else if (endpoints().length === 0) {
@@ -691,9 +692,19 @@ interface InlineEdit {
       border-radius: 10px;
       box-shadow: var(--ps-shadow-popover, 0 18px 48px -16px rgba(0,0,0,0.7));
       backdrop-filter: blur(12px) saturate(140%);
-      z-index: 50;
+      /* Above sticky top bar (z:50), site dropdown (z:200), and any
+         other in-card stacking context. The dropdown was clipped before
+         because the card had overflow:hidden AND the row z-context was 1. */
+      z-index: 1000;
+      isolation: isolate;
       animation: more-pop-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
     }
+    /* The row that hosts the kebab + dropdown must be the positioning
+       context so position:absolute resolves locally, and must have a
+       stacking context above sibling rows so the menu does not slide
+       under the next row's hover effect. */
+    .endpoint-row { position: relative; }
+    .endpoint-row:has(.more-pop) { z-index: 1000; }
     @keyframes more-pop-in {
       from { opacity: 0; transform: translateY(-4px) scale(0.97); }
       to   { opacity: 1; transform: translateY(0) scale(1); }

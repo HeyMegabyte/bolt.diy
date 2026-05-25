@@ -36,7 +36,7 @@ export function UserMessage({ content, parts }: UserMessageProps) {
     const textContent = stripMetadata(textItem?.text || '');
 
     return (
-      <div className="overflow-hidden flex flex-col gap-3 items-center ">
+      <div className="overflow-hidden flex flex-col gap-3 items-center ps-msg ps-msg--user" data-role="user">
         <div className="flex flex-row items-start justify-center overflow-hidden shrink-0 self-start">
           {profile?.avatar || profile?.username ? (
             <div className="flex items-end gap-2">
@@ -74,7 +74,10 @@ export function UserMessage({ content, parts }: UserMessageProps) {
   const textContent = stripMetadata(content);
 
   return (
-    <div className="flex flex-col bg-accent-500/10 backdrop-blur-sm px-5 p-3.5 w-auto rounded-lg ml-auto">
+    <div
+      className="flex flex-col bg-accent-500/10 backdrop-blur-sm px-5 p-3.5 w-auto rounded-lg ml-auto ps-msg ps-msg--user"
+      data-role="user"
+    >
       <div className="flex gap-3.5 mb-4">
         {images.map((item, index) => (
           <div className="relative flex rounded-lg border border-bolt-elements-borderColor overflow-hidden">

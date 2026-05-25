@@ -176,13 +176,14 @@ function actionToFallbackMessage(action: string): string {
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-4">
       <header class="flex items-start justify-between gap-3 flex-wrap">
         <div>
+          <div class="kicker">Forensics</div>
           <h2 class="section-h text-lg font-bold text-white m-0">Audit Log</h2>
           <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
             Every privileged action — what happened, who did it, when. Auto-refreshing every 15s · last sync {{ lastSyncLabel() }}.
           </p>
         </div>
         <div class="flex gap-2 items-center">
-          @if (scopeSlug(); as slug) {
+          @if (showScopeChip()) {
             <button
               type="button"
               data-testid="audit-scope-chip"
@@ -191,8 +192,6 @@ function actionToFallbackMessage(action: string): string {
               (click)="clearScope()">
               Filtered to: {{ scopeName() }} <span class="x">×</span>
             </button>
-          } @else {
-            <span class="scope-chip scope-chip-all" data-testid="audit-scope-chip">All sites</span>
           }
           <button class="btn-ghost" (click)="exportCsv()">Export CSV</button>
         </div>
@@ -210,21 +209,6 @@ function actionToFallbackMessage(action: string): string {
           <div class="card"><div class="muted-h">Actors</div><div class="text-2xl font-bold text-white">{{ uniqueActors() }}</div></div>
         }
       </div>
-
-      @if (hiddenNoiseCount() > 0) {
-        <div class="noise-banner" data-testid="audit-noise-banner">
-          <span class="muted-h" style="margin: 0;">Filtered noise</span>
-          <span>{{ hiddenNoiseCount() }} heartbeat event{{ hiddenNoiseCount() === 1 ? '' : 's' }} hidden ({{ noisyActionList() }})</span>
-          <button
-            type="button"
-            class="btn-mini"
-            data-testid="audit-toggle-noise"
-            (click)="showNoisy.set(!showNoisy())"
-            [title]="showNoisy() ? 'Hide noisy actions' : 'Show noisy actions'">
-            {{ showNoisy() ? 'Hide' : 'Show' }}
-          </button>
-        </div>
-      }
 
       @if (!loading() && displayRows().length === 0) {
         <div class="empty-state card" data-testid="audit-empty">
@@ -290,14 +274,6 @@ function actionToFallbackMessage(action: string): string {
     .empty-icon { color: rgba(0, 229, 255, 0.65); }
     .empty-title { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; font-size: 1rem; color: #fff; margin: 0.2rem 0 0; }
     .empty-body { font-size: 0.78rem; color: rgba(255,255,255,0.6); margin: 0 0 0.5rem; max-width: 360px; }
-    .noise-banner {
-      display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
-      padding: 0.55rem 0.85rem; border-radius: 10px;
-      background: rgba(245, 158, 11, 0.06); border: 1px solid rgba(245, 158, 11, 0.22);
-      font-size: 0.74rem; color: rgba(252, 211, 77, 0.92);
-    }
-    .noise-banner .btn-mini { margin-left: auto; }
-
     /* ─── Cell renderer: action code pill (JetBrains Mono) ──────────── */
     :host ::ng-deep .cell-action-pill {
       display: inline-flex; align-items: center;
@@ -409,35 +385,20 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
   private expandedIds = signal<Set<string>>(new Set<string>());
 
   /**
-   * Action names that are noise — high-volume heartbeats and polling that
-   * drown out the privileged actions operators actually want to triage.
-   * Filtered out of the displayed grid (and KPI counts) but kept in the
-   * underlying `rows()` signal so an "Include heartbeats" toggle can flip
-   * them back on later without re-fetching.
-   */
-  private static readonly NOISY_ACTIONS = new Set<string>([
-    'workflow.heartbeat',
-  ]);
-
-  /** Toggle: include noisy actions (defaults to false — hide heartbeats). */
-  showNoisy = signal(false);
-
-  /**
-   * Display-filtered rows + synthetic detail-row injection. Drops
-   * `NOISY_ACTIONS` unless the operator opts in, and splices a
-   * `__detail: true` row right after every expanded master so AG Grid
-   * renders it via `fullWidthCellRenderer`. Drives the grid + every KPI
-   * tile so the numbers always reflect what's actually visible.
+   * Rows + synthetic detail-row injection. Splices a `__detail: true` row
+   * right after every expanded master so AG Grid renders it via
+   * `fullWidthCellRenderer`. Drives the grid + every KPI tile so the
+   * numbers always reflect what's actually visible.
+   *
+   * Turn-8 removed the heartbeat-noise filter — `workflow.heartbeat` is
+   * no longer written server-side (workflows/site-generation.ts) and the
+   * existing rows were deleted from production D1.
    */
   displayRows = computed<AuditRow[]>(() => {
     const all = this.rows();
-    const showNoisy = this.showNoisy();
     const expanded = this.expandedIds();
-    const base = showNoisy
-      ? all
-      : all.filter((r) => !AdminAuditComponent.NOISY_ACTIONS.has(r.action));
     const out: AuditRow[] = [];
-    for (const r of base) {
+    for (const r of all) {
       out.push({ ...r, __expanded: expanded.has(r.id) });
       if (expanded.has(r.id)) {
         out.push({
@@ -450,16 +411,6 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
     }
     return out;
   });
-
-  /**
-   * Count of rows currently hidden by the noise filter. Surfaced in the
-   * header so operators know noise is being suppressed and can opt back in.
-   * Excludes synthetic detail rows by construction (they only appear inside
-   * `displayRows()`, never in `rows()`).
-   */
-  hiddenNoiseCount = computed<number>(
-    () => this.rows().filter((r) => AdminAuditComponent.NOISY_ACTIONS.has(r.action)).length,
-  );
   /**
    * Default chip slug — `megabytespace` is the canonical org slug surfaced as
    * the initial filter chip. The chip is purely a visual label here; the
@@ -468,6 +419,28 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
    */
   scopeSlug = signal<string | null>('megabytespace');
   scopeName = signal<string>('megabytespace');
+
+  /**
+   * Snapshot of the scope slug at component-mount time. The "Filtered to:"
+   * chip is gated on `scopeSlug() === initialScopeSlug` — the moment the
+   * user clears or changes the filter (which can happen via the chip's ×,
+   * a site-selector switch, or any future programmatic mutation of
+   * `scopeSlug`), the computed `showScopeChip` flips false and Angular's
+   * `@if` removes the chip from the DOM. Signal reactivity is the event —
+   * no manual listener wiring needed.
+   */
+  private readonly initialScopeSlug: string | null = this.scopeSlug();
+
+  /**
+   * Drives the `@if` around the scope chip. Computed so it re-evaluates
+   * on EVERY mutation of `scopeSlug()` — chip auto-removes on clear AND
+   * on any divergence from the initial value (different site selected,
+   * etc).
+   */
+  readonly showScopeChip = computed(() => {
+    const s = this.scopeSlug();
+    return s !== null && s === this.initialScopeSlug;
+  });
   lastSyncAt = signal<number>(0);
   private gridApi?: GridApi<AuditRow>;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -903,8 +876,4 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Human-readable, comma-separated list of currently-suppressed actions. */
-  noisyActionList(): string {
-    return Array.from(AdminAuditComponent.NOISY_ACTIONS).join(', ');
-  }
 }

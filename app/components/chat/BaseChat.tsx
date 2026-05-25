@@ -3,9 +3,18 @@
  * Preventing TS checks with files presented in the video for a better presentation.
  */
 import type { JSONValue, Message } from 'ai';
-import React, { type RefCallback, useEffect, useState } from 'react';
+import React, { lazy, Suspense, type RefCallback, useEffect, useState } from 'react';
 import { ClientOnly } from 'remix-utils/client-only';
-import { Workbench } from '~/components/workbench/Workbench.client';
+/**
+ * Items 2 + 3 (perf): Code-split the Workbench (CodeMirror + Preview +
+ * lazy-loaded TerminalTabs) into its own chunk. The chat surface paints
+ * first; the workbench shell only fetches when a chat session starts. Cuts
+ * ~500KB off the chat route's initial bundle so the chat box appears
+ * faster on cold loads.
+ */
+const Workbench = lazy(() =>
+  import('~/components/workbench/Workbench.client').then((m) => ({ default: m.Workbench })),
+);
 import { classNames } from '~/utils/classNames';
 import { PROVIDER_LIST } from '~/utils/constants';
 import { Messages } from './Messages.client';
@@ -30,8 +39,16 @@ import { ChatBox } from './ChatBox';
 import type { DesignScheme } from '~/types/design-scheme';
 import type { ElementInfo } from '~/components/workbench/Inspector';
 import LlmErrorAlert from './LLMApiAlert';
+import { FileMentionMenu } from './FileMentionMenu';
+import { PromptSuggestions } from './PromptSuggestions';
+import { CostEstimateBadge } from './CostEstimateBadge';
+import { startChatStateMirror } from '~/lib/chat/chat-state-mirror';
+import { chatId } from '~/lib/persistence/useChatHistory';
+import { describeImage } from '~/lib/chat/voice-vision';
 
-const TEXTAREA_MIN_HEIGHT = 76;
+// Single-line default for the cinematic-persona input redesign (2026-05-24);
+// the textarea expands on focus/content up to TEXTAREA_MAX_HEIGHT.
+const TEXTAREA_MIN_HEIGHT = 52;
 
 interface BaseChatProps {
   textareaRef?: React.RefObject<HTMLTextAreaElement> | undefined;
@@ -143,6 +160,100 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     const [progressAnnotations, setProgressAnnotations] = useState<ProgressAnnotation[]>([]);
     const expoUrl = useStore(expoUrlAtom);
     const [qrModalOpen, setQrModalOpen] = useState(false);
+    const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+    const currentChatId = useStore(chatId);
+
+    // Start IDB→D1 mirror (item 12)
+    useEffect(() => {
+      if (!chatStarted || !currentChatId) {
+        return;
+      }
+
+      // Derive a stable slug from chat id; admin worker accepts any slug-shape
+      const slug = `bolt-${currentChatId}`;
+      const dispose = startChatStateMirror({
+        slug,
+        chatId: currentChatId,
+        getMessages: () => messages ?? [],
+      });
+
+      return dispose;
+    }, [chatStarted, currentChatId, messages]);
+
+    // Detect `@<query>` at the end of the input → open file mention menu (item 15)
+    useEffect(() => {
+      if (!input) {
+        setMentionQuery(null);
+        return;
+      }
+
+      const match = input.match(/(?:^|\s)@([\w./\-]*)$/);
+
+      if (match) {
+        setMentionQuery(match[1] ?? '');
+      } else {
+        setMentionQuery(null);
+      }
+    }, [input]);
+
+    const pickMention = (path: string) => {
+      if (!handleInputChange) {
+        return;
+      }
+
+      const next = input.replace(/(^|\s)@([\w./\-]*)$/, (_, lead) => `${lead}@${path} `);
+      handleInputChange({ target: { value: next } } as React.ChangeEvent<HTMLTextAreaElement>);
+      setMentionQuery(null);
+    };
+
+    const pickSuggestion = (prompt: string) => {
+      if (!handleInputChange) {
+        return;
+      }
+
+      handleInputChange({
+        target: { value: input ? `${input}\n\n${prompt}` : prompt },
+      } as React.ChangeEvent<HTMLTextAreaElement>);
+    };
+
+    /*
+     * Listen for `ps:send-to-chat` — emitted by the FileTree "Send to AI"
+     * context-menu action. Appends a fenced code block of the target file
+     * into the composer + focuses the textarea so the user can hit Enter.
+     */
+    useEffect(() => {
+      const onSendToChat = (e: Event) => {
+        const detail = (e as CustomEvent<{ text?: string }>).detail;
+
+        if (!detail?.text || !handleInputChange) {
+          return;
+        }
+
+        handleInputChange({
+          target: { value: input ? `${input}\n\n${detail.text}` : detail.text },
+        } as React.ChangeEvent<HTMLTextAreaElement>);
+        requestAnimationFrame(() => textareaRef?.current?.focus({ preventScroll: true }));
+      };
+
+      window.addEventListener('ps:send-to-chat', onSendToChat as EventListener);
+
+      return () => window.removeEventListener('ps:send-to-chat', onSendToChat as EventListener);
+    }, [input, handleInputChange, textareaRef]);
+
+    /*
+     * Items 31 — hero copy. When standalone (NOT embedded in admin), show a
+     * heading. When `?slug=X` is supplied, render `Build for {slug}` instead
+     * of the generic "Where ideas begin". When `?embedded=true` the parent
+     * admin owns onboarding — render nothing here.
+     */
+    const heroState = (() => {
+      if (typeof window === 'undefined') return { embedded: false, slug: null as string | null };
+      const params = new URLSearchParams(window.location.search);
+      return {
+        embedded: params.get('embedded') === 'true',
+        slug: params.get('slug'),
+      };
+    })();
 
     useEffect(() => {
       if (expoUrl) {
@@ -325,10 +436,25 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
           if (file) {
             const reader = new FileReader();
 
-            reader.onload = (e) => {
-              const base64Image = e.target?.result as string;
+            reader.onload = async (ev) => {
+              const base64Image = ev.target?.result as string;
               setUploadedFiles?.([...uploadedFiles, file]);
               setImageDataList?.([...imageDataList, base64Image]);
+
+              // Item 16: OCR + caption via Workers AI vision; prepend extracted text to input
+              try {
+                const vision = await describeImage(base64Image);
+                const extracted = [vision.ocrText, vision.caption].filter(Boolean).join('\n').trim();
+
+                if (extracted && handleInputChange) {
+                  const prefix = `[Pasted image — extracted]: ${extracted}\n\n`;
+                  handleInputChange({
+                    target: { value: prefix + (input ?? '') },
+                  } as React.ChangeEvent<HTMLTextAreaElement>);
+                }
+              } catch (err) {
+                console.warn('vision OCR failed', err);
+              }
             };
             reader.readAsDataURL(file);
           }
@@ -346,24 +472,22 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       >
         <div className="flex flex-col lg:flex-row overflow-y-auto w-full h-full">
           <div className={classNames(styles.Chat, 'flex flex-col flex-grow lg:min-w-[var(--chat-min-width)] h-full')}>
-            {!chatStarted && (
-              <div id="intro" className="mt-[16vh] max-w-2xl mx-auto text-center px-4 lg:px-0">
-                <h1 className="text-3xl lg:text-6xl font-bold text-bolt-elements-textPrimary mb-4 animate-fade-in">
-                  Where ideas begin
-                </h1>
-                <p className="text-md lg:text-xl mb-8 text-bolt-elements-textSecondary animate-fade-in animation-delay-200">
-                  Bring ideas to life in seconds or get help on existing projects.
-                </p>
-              </div>
-            )}
             <StickToBottom
-              className={classNames('pt-6 px-2 sm:px-6 relative', {
-                'h-full flex flex-col modern-scrollbar': chatStarted,
-              })}
+              className="pt-0 px-2 sm:px-6 relative h-full flex flex-col modern-scrollbar"
               resize="smooth"
               initial="smooth"
             >
               <StickToBottom.Content className="flex flex-col gap-4 relative ">
+                {!chatStarted && !heroState.embedded && (
+                  <div className="ps-hero mx-auto max-w-chat text-center pt-10 pb-2">
+                    <h1 className="ps-hero-title">
+                      {heroState.slug ? `Build for ${heroState.slug}` : 'Where ideas begin'}
+                    </h1>
+                    <p className="ps-hero-sub">
+                      Describe what you want to make and the AI will scaffold it.
+                    </p>
+                  </div>
+                )}
                 <ClientOnly>
                   {() => {
                     return chatStarted ? (
@@ -384,9 +508,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 <ScrollToBottom />
               </StickToBottom.Content>
               <div
-                className={classNames('my-auto flex flex-col gap-2 w-full max-w-chat mx-auto z-prompt mb-6', {
-                  'sticky bottom-2': chatStarted,
-                })}
+                className="my-auto flex flex-col gap-2 w-full max-w-chat mx-auto z-prompt mb-6 sticky bottom-2"
               >
                 <div className="flex flex-col gap-2">
                   {deployAlert && (
@@ -426,6 +548,25 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                   )}
                 </div>
                 {progressAnnotations && <ProgressCompilation data={progressAnnotations} />}
+                {chatStarted && messages && messages.length > 0 && (
+                  <PromptSuggestions
+                    messages={messages}
+                    isStreaming={isStreaming}
+                    onPick={pickSuggestion}
+                  />
+                )}
+                <div className="relative">
+                  <FileMentionMenu
+                    query={mentionQuery}
+                    onSelect={pickMention}
+                    onClose={() => setMentionQuery(null)}
+                  />
+                  {input && input.length > 0 && (
+                    <div className="flex justify-end mb-1 px-1">
+                      <CostEstimateBadge input={input} model={model} />
+                    </div>
+                  )}
+                </div>
                 <ChatBox
                   isModelSettingsCollapsed={isModelSettingsCollapsed}
                   setIsModelSettingsCollapsed={setIsModelSettingsCollapsed}
@@ -471,18 +612,15 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 />
               </div>
             </StickToBottom>
-            <div className="flex flex-col justify-center">
-              {!chatStarted && (
-                <div className="flex justify-center gap-2" style={{ zoom: 0.9 }}>
-                  {ImportButtons(importChat)}
-                  <GitCloneButton importChat={importChat} />
-                </div>
-              )}
-            </div>
           </div>
           <ClientOnly>
             {() => (
-              <Workbench chatStarted={chatStarted} isStreaming={isStreaming} setSelectedElement={setSelectedElement} />
+              // Item 3: Suspense boundary lets the chat surface paint while
+              // the workbench chunk downloads. Empty fallback because the
+              // workbench is offscreen until `chatStarted` flips true.
+              <Suspense fallback={null}>
+                <Workbench chatStarted={chatStarted} isStreaming={isStreaming} setSelectedElement={setSelectedElement} />
+              </Suspense>
             )}
           </ClientOnly>
         </div>

@@ -28,7 +28,10 @@ import type { ElementInfo } from '~/components/workbench/Inspector';
 import type { TextUIPart, FileUIPart, Attachment } from '@ai-sdk/ui-utils';
 import { useMCPStore } from '~/lib/stores/mcp';
 import type { LlmErrorAlertType } from '~/types/actions';
-import { isEmbedded, onParentMessage, postToParent, type ParentToChildMessage } from '~/lib/embed/embedded-mode';
+import { isEmbedded, onParentMessage, postToParent, postTelemetryToParent, type ParentToChildMessage } from '~/lib/embed/embedded-mode';
+import { parseToolCallEnvelopes } from '~/lib/runtime/message-parser';
+import { dispatchResultToEnvelope, runTool } from '~/lib/tools/dispatcher';
+import { createEditorToolContext } from '~/lib/tools/editor-context';
 
 const logger = createScopedLogger('Chat');
 
@@ -80,6 +83,35 @@ interface ChatProps {
   importChat: (description: string, messages: Message[]) => Promise<void>;
   exportChat: () => void;
   description?: string;
+}
+
+/**
+ * Open `file` in the workbench editor and scroll CodeMirror to `line`
+ * (1-based, optional). Used by the `?file=` URL param and the
+ * `PS_OPEN_FILE` postMessage from the admin shell.
+ */
+function openFileInWorkbench(file: string, line?: number): void {
+  if (!file) return;
+  const fileMap = workbenchStore.files.get();
+  // Workbench paths are absolute under /home/project — accept either
+  // shorthand ("src/App.tsx") or full path and resolve to the live entry.
+  const targetPath = Object.keys(fileMap).find((p) => p === file || p.endsWith(`/${file.replace(/^\/+/, '')}`));
+
+  if (!targetPath) {
+    toast.warning(`File not found in workbench: ${file}`);
+    return;
+  }
+
+  // Ensure the workbench rail is visible so the selection is observable.
+  workbenchStore.showWorkbench.set(true);
+  workbenchStore.currentView.set('code');
+  workbenchStore.setSelectedFile(targetPath);
+
+  if (line && Number.isFinite(line) && line > 0) {
+    // CodeMirror scroll position is line-based when `top` is absent; the
+    // editor consumes the `scroll.line` field on the next render.
+    workbenchStore.setCurrentDocumentScrollPosition({ line: Math.max(0, line - 1), column: 0 });
+  }
 }
 
 export const ChatImpl = memo(
@@ -228,6 +260,11 @@ export const ChatImpl = memo(
               if (res.ok) {
                 toast.success(`Deployed ${fileList.length} files to ${slug}.projectsites.dev!`);
 
+                // Item 48: editor.first_deploy — terminal event in the funnel.
+                if (isEmbedded) {
+                  postTelemetryToParent('editor.first_deploy', { slug, files: fileList.length });
+                }
+
                 // Redirect to the live site after a moment
                 setTimeout(() => {
                   window.location.href = `https://${slug}.projectsites.dev`;
@@ -370,12 +407,83 @@ export const ChatImpl = memo(
               console.warn('[embed] Failed to load build context:', err);
               toast.error('Failed to load project context');
             });
+        } else if (msg.type === 'PS_OPEN_SNAPSHOT') {
+          /*
+           * Item 41 — rebase the workbench to a snapshot. The admin already
+           * keeps the snapshot history; we re-use the existing chat-import
+           * pipeline to swap the file set in place.
+           */
+          const slug = msg.slug || searchParams.get('slug') || '';
+
+          if (!slug) {
+            toast.error('Snapshot open requires a site slug');
+            postToParent({
+              type: 'PS_TOAST',
+              kind: 'error',
+              message: 'Snapshot open requires a site slug',
+              correlationId: msg.correlationId,
+            });
+            return;
+          }
+
+          const chatUrl = `https://projectsites.dev/api/sites/by-slug/${encodeURIComponent(slug)}/chat?snapshot_id=${encodeURIComponent(msg.snapshot_id)}`;
+          toast.info(`Loading snapshot ${msg.snapshot_id.slice(0, 8)}...`);
+          fetch(chatUrl)
+            .then((res) => {
+              if (!res.ok) throw new Error(`Snapshot fetch failed (${res.status})`);
+              return res.json();
+            })
+            .then((data) => {
+              const chatData = data as { messages?: unknown[]; description?: string };
+              if (chatData?.messages && Array.isArray(chatData.messages)) {
+                importChat(chatData.description || `Snapshot ${msg.snapshot_id.slice(0, 8)}`, chatData.messages as Message[]);
+                postToParent({
+                  type: 'PS_TOAST',
+                  kind: 'success',
+                  message: `Loaded snapshot into editor`,
+                  correlationId: msg.correlationId,
+                });
+              } else {
+                throw new Error('Invalid snapshot payload');
+              }
+            })
+            .catch((err: Error) => {
+              toast.error('Failed to load snapshot: ' + err.message);
+              postToParent({
+                type: 'PS_TOAST',
+                kind: 'error',
+                message: 'Failed to load snapshot: ' + err.message,
+                correlationId: msg.correlationId,
+              });
+            });
+        } else if (msg.type === 'PS_OPEN_FILE') {
+          // Item 42 — open file + scroll to 1-based line in CodeMirror.
+          openFileInWorkbench(msg.file, msg.line);
+        } else if (msg.type === 'PS_LIST_FILES') {
+          // Item 45 — enumerate text files for admin's Cmd+K palette.
+          const textFiles = workbenchStore.getTextFiles();
+          const list = Object.entries(textFiles).map(([path, content]) => ({
+            path,
+            size: new TextEncoder().encode(content).length,
+          }));
+          postToParent({
+            type: 'PS_FILES_LIST',
+            correlationId: msg.correlationId,
+            files: list,
+          });
+        } else if (msg.type === 'PS_TOAST') {
+          // Item 44 — surface admin toasts inside the editor.
+          const kind = msg.kind ?? msg.level ?? 'info';
+          if (kind === 'error') toast.error(msg.message);
+          else if (kind === 'success') toast.success(msg.message);
+          else if (kind === 'warning') toast.warning(msg.message);
+          else toast.info(msg.message);
         }
       });
 
       // eslint-disable-next-line consistent-return
       return unsub;
-    }, [model, provider, append, messages, setMessages]);
+    }, [model, provider, append, messages, setMessages, searchParams]);
 
     useEffect(() => {
       const prompt = searchParams.get('prompt');
@@ -391,6 +499,36 @@ export const ChatImpl = memo(
         });
       }
     }, [model, provider, searchParams]);
+
+    /*
+     * Item 42 — `?file=src/App.tsx&line=42` deep-links from the admin's
+     * "Open IDE" buttons. Retried until the workbench has files (the import
+     * flow above may still be hydrating), then resolves once.
+     */
+    const fileDeepLinkRef = useRef(false);
+    useEffect(() => {
+      const file = searchParams.get('file');
+      if (!file || fileDeepLinkRef.current) return;
+      const lineRaw = searchParams.get('line');
+      const line = lineRaw ? Number.parseInt(lineRaw, 10) : undefined;
+
+      const tryOpen = (attempt: number): void => {
+        const fileMap = workbenchStore.files.get();
+        if (Object.keys(fileMap).length === 0 && attempt < 20) {
+          window.setTimeout(() => tryOpen(attempt + 1), 500);
+          return;
+        }
+        fileDeepLinkRef.current = true;
+        openFileInWorkbench(file, line && Number.isFinite(line) ? line : undefined);
+        setSearchParams((curr) => {
+          const next = new URLSearchParams(curr);
+          next.delete('file');
+          next.delete('line');
+          return next;
+        });
+      };
+      tryOpen(0);
+    }, [searchParams]);
 
     /*
      * Handle importChatFrom URL parameter (used by Project Sites "Edit" button)
@@ -516,6 +654,40 @@ export const ChatImpl = memo(
         storeMessageHistory,
       });
     }, [messages, isLoading, parseMessages]);
+
+    /*
+     * Rec 5 — AI editor tool-calling. Watch streaming assistant messages
+     * for fully-formed `<tool_call>` envelopes, dispatch them through the
+     * editor surface, and post `<tool_result>` back so the LLM can keep
+     * reasoning. Each id is fired exactly once via the `dispatchedRef` set.
+     */
+    const dispatchedToolIdsRef = useRef<Set<string>>(new Set());
+    useEffect(() => {
+      const assistantMessages = messages.filter((m) => m.role === 'assistant');
+      if (assistantMessages.length === 0) return;
+
+      const envelopes = assistantMessages.flatMap((m) => parseToolCallEnvelopes(typeof m.content === 'string' ? m.content : ''));
+      const fresh = envelopes.filter((e) => !dispatchedToolIdsRef.current.has(e.id));
+      if (fresh.length === 0) return;
+
+      const ctx = createEditorToolContext();
+      for (const envelope of fresh) {
+        dispatchedToolIdsRef.current.add(envelope.id);
+        runTool(envelope.name, envelope.args, ctx, envelope.id)
+          .then((result) => {
+            const resultEnvelope = dispatchResultToEnvelope(result);
+            // Stream the result back to the model as a fresh user turn so
+            // useChat issues a follow-up completion containing the response.
+            append({
+              role: 'user',
+              content: resultEnvelope,
+            });
+          })
+          .catch((err: Error) => {
+            logger.warn(`tool dispatch crashed: ${err.message}`);
+          });
+      }
+    }, [messages, append]);
 
     const scrollTextArea = () => {
       const textarea = textareaRef.current;
@@ -715,6 +887,13 @@ export const ChatImpl = memo(
       }
 
       runAnimation();
+
+      // Item 48: editor.first_message — fires only once per session, on the
+      // first user prompt. `chatStarted` is the canonical "have we asked
+      // anything yet?" signal in this component.
+      if (!chatStarted && isEmbedded) {
+        postTelemetryToParent('editor.first_message', { provider: provider.name, model });
+      }
 
       if (!chatStarted) {
         setFakeLoading(true);

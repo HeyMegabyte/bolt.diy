@@ -106,7 +106,7 @@ async function handle(c: Ctx): Promise<Response> {
     : '';
   const prompt = `${systemPrompt}${toolBlock}\n\nReturn JSON only. No markdown fences.`;
   const userMsg = JSON.stringify({ method: c.req.method, query, body });
-  const model = '@cf/meta/llama-3.1-8b-instruct';
+  const model = '@cf/meta/llama-3.1-8b-instruct-fp8';
   const started = Date.now();
   let outText = '';
   let parsed: unknown = null;

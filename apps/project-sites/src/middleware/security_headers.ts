@@ -30,7 +30,28 @@ export const securityHeadersMiddleware: MiddlewareHandler<{
   c.header('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   c.header('X-Content-Type-Options', 'nosniff');
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
-  c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+  /*
+   * Permissions-Policy
+   *  - microphone / camera / display-capture: allowed on the bolt.diy editor
+   *    surface AND on the admin shell that embeds it, so the chat input's
+   *    voice-input (Whisper) feature and any future video/screen-share
+   *    workflows can call getUserMedia / getDisplayMedia.
+   *  - autoplay: needed by the embedded preview iframe so AI-generated sites
+   *    can render <video autoplay> hero loops without user-gesture friction.
+   *  - geolocation: only the admin origin (the create-site wizard's
+   *    geo-prompt for local business lookups).
+   *  - Everything else: empty allowlist = blocked.
+   */
+  c.header(
+    'Permissions-Policy',
+    [
+      `microphone=(self "https://${DOMAINS.SITES_BASE}" "https://${DOMAINS.BOLT_BASE}")`,
+      `camera=(self "https://${DOMAINS.SITES_BASE}" "https://${DOMAINS.BOLT_BASE}")`,
+      `display-capture=(self "https://${DOMAINS.SITES_BASE}" "https://${DOMAINS.BOLT_BASE}")`,
+      `autoplay=(self "https://${DOMAINS.SITES_BASE}" "https://${DOMAINS.BOLT_BASE}")`,
+      `geolocation=(self)`,
+    ].join(', '),
+  );
 
   // ── bolt.diy editor ────────────────────────────────────────
   if (isBoltEditor) {

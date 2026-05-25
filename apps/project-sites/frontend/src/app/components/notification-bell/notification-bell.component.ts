@@ -22,17 +22,19 @@ interface Notification {
     <div class="notification-wrapper">
       <button
         class="bell-btn"
+        [class.has-unread]="unreadCount() > 0"
         (click)="toggleDropdown()"
         [attr.aria-label]="'Notifications' + (unreadCount() > 0 ? ', ' + unreadCount() + ' unread' : '')"
         aria-haspopup="true"
         [attr.aria-expanded]="isOpen()"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
           <path d="M13.73 21a2 2 0 01-3.46 0"/>
         </svg>
         @if (unreadCount() > 0) {
-          <span class="badge">{{ unreadCount() > 9 ? '9+' : unreadCount() }}</span>
+          <span class="badge" [attr.aria-hidden]="true">{{ unreadCount() > 9 ? '9+' : unreadCount() }}</span>
+          <span class="ring-pulse" aria-hidden="true"></span>
         }
       </button>
 
@@ -84,68 +86,176 @@ interface Notification {
   styles: [`
     .notification-wrapper { position: relative; }
     .bell-btn {
-      background: none; border: none; color: #94a3b8; cursor: pointer;
-      padding: 8px; position: relative; border-radius: 8px;
-      transition: color 0.15s ease, background 0.15s ease;
+      background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+      color: #94a3b8; cursor: pointer;
+      padding: 8px; position: relative; border-radius: 10px;
+      transition:
+        color var(--ps-dur-fast, 140ms) var(--ps-ease-emphasized, cubic-bezier(0.16,1,0.3,1)),
+        background var(--ps-dur-fast, 140ms),
+        border-color var(--ps-dur-fast, 140ms),
+        transform var(--ps-dur-fast, 140ms),
+        box-shadow var(--ps-dur-base, 220ms);
     }
-    .bell-btn:hover { color: #f0f0f8; background: rgba(0,229,255,0.05); }
+    .bell-btn:hover {
+      color: #00E5FF; background: rgba(0,229,255,0.08);
+      border-color: rgba(0,229,255,0.25);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px -4px rgba(0,229,255,0.30);
+    }
+    .bell-btn:focus-visible { outline: 2px solid #00E5FF; outline-offset: 2px; }
+    .bell-btn.has-unread svg { animation: bellShake 2.6s ease-in-out infinite; transform-origin: 50% 4px; }
+    @keyframes bellShake {
+      0%, 88%, 100% { transform: rotate(0); }
+      90% { transform: rotate(-10deg); }
+      92% { transform: rotate(10deg); }
+      94% { transform: rotate(-7deg); }
+      96% { transform: rotate(7deg); }
+      98% { transform: rotate(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .bell-btn.has-unread svg { animation: none; }
+      .ring-pulse { animation: none !important; }
+      .bell-btn:hover { transform: none; }
+    }
     .badge {
       position: absolute; top: 2px; right: 2px;
-      background: #ef4444; color: #fff; font-size: 10px;
-      font-weight: 700; min-width: 16px; height: 16px;
-      border-radius: 8px; display: flex; align-items: center;
-      justify-content: center; padding: 0 4px;
+      background: linear-gradient(135deg, #f43f5e, #ef4444);
+      color: #fff; font-size: 10px;
+      font-weight: 800; min-width: 18px; height: 18px;
+      border-radius: 999px; display: flex; align-items: center;
+      justify-content: center; padding: 0 5px;
+      box-shadow: 0 0 0 2px #060610, 0 4px 10px -2px rgba(239,68,68,0.6);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+      z-index: 2;
+    }
+    /* Concentric pulse ring on unread — fires every 2.4s. */
+    .ring-pulse {
+      position: absolute; top: 1px; right: 1px;
+      width: 20px; height: 20px; border-radius: 999px;
+      pointer-events: none;
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+      animation: ringPulse 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+      z-index: 1;
+    }
+    @keyframes ringPulse {
+      0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); opacity: 0.9; }
+      70%  { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); opacity: 0; }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); opacity: 0; }
     }
     .dropdown {
       position: absolute; top: calc(100% + 8px); right: 0;
       width: 360px; max-height: 420px; overflow-y: auto;
-      background: #0d0d1a; border: 1px solid rgba(0,229,255,0.12);
-      border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.4);
-      animation: slideDown 0.15s ease; z-index: 1100;
+      background:
+        radial-gradient(ellipse 100% 60% at 50% 0%, rgba(0, 229, 255, 0.06), transparent 60%),
+        linear-gradient(180deg, rgba(20, 20, 42, 0.96), rgba(10, 10, 28, 0.98));
+      backdrop-filter: blur(18px) saturate(150%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
+      border: 1px solid color-mix(in oklch, #00E5FF 22%, transparent);
+      border-radius: var(--ps-radius-md, 12px);
+      box-shadow:
+        0 16px 48px -8px rgba(0, 0, 0, 0.55),
+        0 0 80px rgba(0, 229, 255, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      animation: dropdownIn 240ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)) both;
+      transform-origin: top right;
+      z-index: 1100;
+      isolation: isolate;
+    }
+    .dropdown::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0,229,255,0.55) 30%, rgba(124,58,237,0.40) 70%, transparent);
+      pointer-events: none;
     }
     .dropdown-header {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 14px 16px; border-bottom: 1px solid #1e1e3a;
-      font-size: 14px; font-weight: 600; color: #f0f0f8;
+      padding: 14px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-family: 'Sora', system-ui, sans-serif;
+      font-size: 14px; font-weight: 700; color: #f0f0f8;
+      letter-spacing: -0.01em;
     }
     .mark-all-btn {
-      background: none; border: none; color: #00E5FF; font-size: 12px;
-      cursor: pointer; padding: 0;
+      background: rgba(0, 229, 255, 0.08); border: 1px solid rgba(0, 229, 255, 0.22);
+      color: #00E5FF; font-size: 11px; font-weight: 700;
+      cursor: pointer; padding: 4px 10px; border-radius: 6px;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      transition: background var(--ps-dur-fast) var(--ps-ease-emphasized), transform var(--ps-dur-fast);
+      font-family: 'JetBrains Mono', monospace;
     }
-    .mark-all-btn:hover { text-decoration: underline; }
-    .empty-state {
-      padding: 32px 16px; text-align: center;
+    .mark-all-btn:hover { background: rgba(0,229,255,0.16); transform: translateY(-1px); }
+    .empty-state { padding: 36px 16px; text-align: center; }
+    .empty-state p {
+      color: #64748b; font-size: 13px; margin-top: 10px;
+      font-family: 'Space Grotesk', system-ui, sans-serif;
     }
-    .empty-state p { color: #64748b; font-size: 13px; margin-top: 8px; }
-    .notification-list { padding: 4px 0; }
+    .notification-list { padding: 6px; }
     .notification-item {
       display: flex; align-items: flex-start; gap: 10px;
-      padding: 10px 16px; cursor: pointer;
-      transition: background 0.1s ease;
+      padding: 10px 12px; cursor: pointer;
+      border-radius: var(--ps-radius-sm, 8px);
+      border: 1px solid transparent;
+      transition:
+        background var(--ps-dur-fast, 140ms),
+        border-color var(--ps-dur-fast, 140ms),
+        transform var(--ps-dur-fast, 140ms) var(--ps-ease-emphasized, cubic-bezier(0.16,1,0.3,1));
+      animation: notifIn 240ms var(--ps-ease-emphasized, cubic-bezier(0.16,1,0.3,1)) both;
     }
-    .notification-item:hover { background: rgba(0,229,255,0.04); }
-    .notification-item.unread { background: rgba(0,229,255,0.02); }
+    .notification-item:hover {
+      background: rgba(0,229,255,0.05);
+      border-color: rgba(0,229,255,0.15);
+      transform: translateX(2px);
+    }
+    .notification-item.unread {
+      background: linear-gradient(90deg, rgba(0,229,255,0.06), rgba(0,229,255,0.02));
+      border-color: rgba(0,229,255,0.10);
+    }
     .notif-icon {
-      width: 32px; height: 32px; border-radius: 8px;
-      background: rgba(0,229,255,0.08);
+      width: 32px; height: 32px; border-radius: var(--ps-radius-sm, 8px);
+      background: linear-gradient(135deg, rgba(0,229,255,0.14), rgba(124,58,237,0.10));
+      border: 1px solid rgba(0,229,255,0.20);
       display: flex; align-items: center; justify-content: center;
       font-size: 14px; flex-shrink: 0;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
     }
-    .notif-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-    .notif-title { font-size: 13px; font-weight: 600; color: #f0f0f8; }
+    .notif-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .notif-title {
+      font-size: 13px; font-weight: 600; color: #f0f0f8;
+      font-family: 'Sora', system-ui, sans-serif;
+      letter-spacing: -0.01em;
+      text-wrap: balance;
+    }
     .notif-message {
       font-size: 12px; color: #94a3b8;
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      line-height: 1.4;
       overflow: hidden; text-overflow: ellipsis;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      text-wrap: pretty;
     }
-    .notif-time { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .notif-time {
+      font-size: 10px; color: #64748b; margin-top: 2px;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums;
+    }
     .unread-dot {
       width: 8px; height: 8px; border-radius: 50%; background: #00E5FF;
-      flex-shrink: 0; margin-top: 4px;
+      flex-shrink: 0; margin-top: 6px;
+      box-shadow: 0 0 8px rgba(0,229,255,0.6);
+      animation: pulseDot 1.8s ease-in-out infinite;
     }
-    @keyframes slideDown {
-      from { opacity: 0; transform: translateY(-8px); }
-      to { opacity: 1; transform: translateY(0); }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.55; transform: scale(0.86); }
+    }
+    @keyframes dropdownIn {
+      from { opacity: 0; transform: translateY(-8px) scale(0.96); filter: blur(2px); }
+      60%  { opacity: 1; filter: blur(0); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes notifIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
   `],
 })

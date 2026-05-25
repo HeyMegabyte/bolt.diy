@@ -82,8 +82,8 @@ export function emitCallLog(log: LlmCallLog): void {
  */
 export function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
   const pricing: Record<string, { input: number; output: number }> = {
-    '@cf/meta/llama-3.1-8b-instruct': { input: 0, output: 0 }, // free on Workers AI
-    '@cf/meta/llama-3.1-70b-instruct': { input: 0, output: 0 },
+    '@cf/meta/llama-3.1-8b-instruct-fp8': { input: 0, output: 0 }, // free on Workers AI
+    '@cf/meta/llama-3.3-70b-instruct-fp8-fast': { input: 0, output: 0 },
     'gpt-4o': { input: 0.0025, output: 0.01 },
     'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
   };

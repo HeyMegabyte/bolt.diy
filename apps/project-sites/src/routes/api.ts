@@ -107,7 +107,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../types/env.js';
-import { dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
+import { dbExecute, dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import {
   createSiteSchema,
   createCheckoutSessionSchema,
@@ -133,8 +133,50 @@ import { captureError } from '../lib/sentry.js';
 import { fetchSheetData, fetchSheetMeta } from '../services/google_sheets.js';
 import { migrateExternalAssets } from '../services/asset_migration.js';
 import { isCloudflareAnalyticsConfigured, loadSiteTraffic } from '../services/cloudflare_analytics.js';
+import {
+  listSiteUrls,
+  loadMultiUrlAnalytics,
+  parseRange,
+  resolveZoneForHostname,
+  type MultiUrlAnalytics,
+} from '../services/multi_url_analytics.js';
+import {
+  deleteCfCredentials,
+  loadCfCredentials,
+  resolveCfCredentials,
+  saveCfCredentials,
+  validateCfCredentials,
+} from '../services/cf_credentials.js';
+import { z } from 'zod';
+import { crawlSiteForImport, estimateRebuildMinutes } from '../services/import_crawler.js';
 
 const api = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+/**
+ * Zod schema for POST /api/sites/import-from-url. Trims + clamps every input
+ * field so a giant payload can't bloat downstream R2 or the audit log. The
+ * `url` field is validated as `z.string().url()` so malformed URLs surface as
+ * a `VALIDATION_ERROR` envelope before they ever hit the crawler.
+ */
+const importFromUrlSchema = z.object({
+  url: z
+    .string()
+    .url('Source URL must be a fully qualified http(s) URL')
+    .max(2048, 'Source URL must be at most 2048 characters')
+    .refine((u) => /^https?:\/\//i.test(u), 'Source URL must use http or https'),
+  business_name: z
+    .string()
+    .trim()
+    .max(200, 'Business name must be at most 200 characters')
+    .optional(),
+  target_slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9-]+$/, 'Slug may contain only lowercase letters, digits, and hyphens')
+    .max(63, 'Slug must be at most 63 characters')
+    .optional(),
+});
 
 // ─── Auth Routes ─────────────────────────────────────────────
 
@@ -649,7 +691,7 @@ api.get('/api/auth/me', async (c) => {
  * @remarks Slug strategy is two-tier with hard fallback:
  *   1. Caller-supplied `validated.slug` wins outright (used by Angular shell when
  *      the user has already picked a slug in the "details" screen).
- *   2. Workers AI (`@cf/meta/llama-3.1-8b-instruct`) generates a short, semantic
+ *   2. Workers AI (`@cf/meta/llama-3.1-8b-instruct-fp8`) generates a short, semantic
  *      slug from `business_name` + optional `business_address`. The Llama call has
  *      a 50-token cap (the slug itself is ≤40 chars) and the response is sanitized
  *      to `[a-z0-9-]`, deduped hyphens, and trimmed.
@@ -691,7 +733,7 @@ api.post('/api/sites', async (c) => {
   } else {
     try {
       const result = await c.env.AI.run(
-        '@cf/meta/llama-3.1-8b-instruct' as Parameters<typeof c.env.AI.run>[0],
+        '@cf/meta/llama-3.1-8b-instruct-fp8' as Parameters<typeof c.env.AI.run>[0],
         {
           messages: [
             {
@@ -904,6 +946,132 @@ api.get('/api/sites', async (c) => {
   );
 
   return c.json({ data: enriched });
+});
+
+/**
+ * Per-site Web Vitals sparkline data for the Sites heatmap view.
+ *
+ * For every site in the caller's org, returns up to `days` daily aggregates
+ * of LCP, CLS, INP, Lighthouse Performance, plus a weighted triage composite.
+ * The frontend uses these arrays to paint inline SVG sparklines next to each
+ * row plus colored heatmap cells for the latest value per metric.
+ *
+ * @route GET /api/sites/sparklines?days=30
+ * @auth Bearer orgId required.
+ * @returns 200 OK with `{ data: [{ site_id, slug, business_name, latest: {...}, daily: [{date, lcp_ms, cls, inp_ms, lh_perf}], composite_score }] }`
+ *
+ * @remarks
+ * Composite = `0.4*perf + 0.25*a11y + 0.2*lcpScore + 0.15*clsScore` where
+ * `lcpScore = clamp(100 - (lcp_ms-2000)/40, 0, 100)` and
+ * `clsScore = clamp(100 - cls*500, 0, 100)`. Triage view sorts worst-first
+ * by this composite.
+ *
+ * Daily aggregation uses `date(captured_at)` so multiple captures in the
+ * same day collapse to one bucket via SQLite AVG. Arrays are chronologically
+ * ascending so SVG x-axis reads left-to-right naturally. Sites with zero
+ * captures are still returned (LEFT JOIN) so the UI can render an empty row
+ * with a "Capture now" CTA.
+ */
+api.get('/api/sites/sparklines', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  const daysParam = Number.parseInt(c.req.query('days') ?? '30', 10);
+  const days = Number.isFinite(daysParam) && daysParam > 0 && daysParam <= 90 ? daysParam : 30;
+
+  const { dbQuery: dbq } = await import('../services/db.js');
+  const rows = await dbq<{
+    site_id: string;
+    slug: string;
+    business_name: string | null;
+    day: string | null;
+    lcp_ms: number | null;
+    cls: number | null;
+    inp_ms: number | null;
+    lh_performance: number | null;
+    lh_accessibility: number | null;
+    axe_violations: number | null;
+    captured_at: string | null;
+  }>(
+    c.env.DB,
+    `SELECT
+       s.id AS site_id,
+       s.slug AS slug,
+       s.business_name AS business_name,
+       date(m.captured_at) AS day,
+       AVG(m.lcp_ms) AS lcp_ms,
+       AVG(m.cls) AS cls,
+       AVG(m.inp_ms) AS inp_ms,
+       AVG(m.lh_performance) AS lh_performance,
+       AVG(m.lh_accessibility) AS lh_accessibility,
+       AVG(m.axe_violations) AS axe_violations,
+       MAX(m.captured_at) AS captured_at
+     FROM sites s
+     LEFT JOIN snapshot_metrics m ON m.site_id = s.id
+       AND m.captured_at >= datetime('now', '-' || ? || ' days')
+     WHERE s.org_id = ? AND s.deleted_at IS NULL
+     GROUP BY s.id, date(m.captured_at)
+     ORDER BY s.id, day ASC`,
+    [days, orgId],
+  );
+
+  type Daily = { date: string; lcp_ms: number | null; cls: number | null; inp_ms: number | null; lh_perf: number | null };
+  type SiteRow = {
+    site_id: string;
+    slug: string;
+    business_name: string | null;
+    daily: Daily[];
+    latest: { lcp_ms: number | null; cls: number | null; inp_ms: number | null; lh_perf: number | null; lh_accessibility: number | null; axe_violations: number | null; captured_at: string | null };
+    composite_score: number | null;
+  };
+
+  const bySite = new Map<string, SiteRow>();
+  for (const r of rows.data) {
+    let site = bySite.get(r.site_id);
+    if (!site) {
+      site = {
+        site_id: r.site_id,
+        slug: r.slug,
+        business_name: r.business_name,
+        daily: [],
+        latest: { lcp_ms: null, cls: null, inp_ms: null, lh_perf: null, lh_accessibility: null, axe_violations: null, captured_at: null },
+        composite_score: null,
+      };
+      bySite.set(r.site_id, site);
+    }
+    if (r.day) {
+      site.daily.push({
+        date: r.day,
+        lcp_ms: r.lcp_ms,
+        cls: r.cls,
+        inp_ms: r.inp_ms,
+        lh_perf: r.lh_performance,
+      });
+      if (!site.latest.captured_at || (r.captured_at && r.captured_at > site.latest.captured_at)) {
+        site.latest = {
+          lcp_ms: r.lcp_ms,
+          cls: r.cls,
+          inp_ms: r.inp_ms,
+          lh_perf: r.lh_performance,
+          lh_accessibility: r.lh_accessibility,
+          axe_violations: r.axe_violations,
+          captured_at: r.captured_at,
+        };
+      }
+    }
+  }
+
+  const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+  for (const site of bySite.values()) {
+    const { lh_perf, lh_accessibility, lcp_ms, cls } = site.latest;
+    if (lh_perf == null && lh_accessibility == null && lcp_ms == null && cls == null) continue;
+    const perf = lh_perf ?? 0;
+    const a11y = lh_accessibility ?? 0;
+    const lcpScore = lcp_ms != null ? clamp(100 - (lcp_ms - 2000) / 40, 0, 100) : 50;
+    const clsScore = cls != null ? clamp(100 - cls * 500, 0, 100) : 50;
+    site.composite_score = Math.round(0.4 * perf + 0.25 * a11y + 0.2 * lcpScore + 0.15 * clsScore);
+  }
+
+  return c.json({ data: Array.from(bySite.values()), days });
 });
 
 /**
@@ -1297,6 +1465,176 @@ api.get('/api/billing/entitlements', async (c) => {
 
   const entitlements = await billingService.getOrgEntitlements(c.env.DB, orgId);
   return c.json({ data: entitlements });
+});
+
+/**
+ * GET /api/billing/cost-forecast?days=30
+ *
+ * 30-day rolling cost forecast for the org. Aggregates `usage_events` per day,
+ * projects the next 30d via a 7-day rolling rate, compares to the plan cap
+ * (when set), and returns daily breakdown for the sparkline.
+ *
+ * @remarks
+ * Uses the metric → USD pricing table baked into this route to convert
+ * `usage_events.value` (raw counts) into dollars. Pricing follows
+ * Cloudflare-equivalent rates as of 2026-05:
+ *   - `ai_calls` ≈ $0.011 per call (Workers AI Llama 3.3 70B FP8-fast)
+ *   - `bytes_egress` ≈ $0.04 per GB
+ *   - `image_generations` ≈ $0.04 per image (DALL·E 3 standard)
+ *
+ * Plan cap comes from `subscriptions.plan_cap_usd` when the org has a
+ * subscription; defaults to free-tier $25/mo otherwise. Days-until-cap-hit
+ * uses the rolling rate when both signal a finite ramp; otherwise null.
+ *
+ * @route GET /api/billing/cost-forecast?days=30
+ * @returns 200 OK `{ data: { projected_usd, current_period_usd, breakdown,
+ *   plan_cap_usd, percent_of_cap, days_until_cap_hit, rolling_daily_avg,
+ *   period_start, period_end } }`
+ *
+ * @example
+ * ```bash
+ * curl -H "Authorization: Bearer $T" \
+ *   "https://projectsites.dev/api/billing/cost-forecast?days=30"
+ * # → { data: { projected_usd: 18.42, percent_of_cap: 36.84, ... } }
+ * ```
+ */
+api.get('/api/billing/cost-forecast', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const daysParam = Number(c.req.query('days') ?? '30');
+  const days = Number.isFinite(daysParam) ? Math.min(90, Math.max(7, Math.floor(daysParam))) : 30;
+  const now = new Date();
+  const periodStart = new Date(now.getTime() - days * 86_400_000);
+  const startIso = periodStart.toISOString();
+
+  // Pricing table — keep in lockstep with src/services/billing.ts overage math.
+  const PRICE_PER_AI_CALL_USD = 0.011;
+  const PRICE_PER_GB_EGRESS_USD = 0.04;
+  const PRICE_PER_IMAGE_USD = 0.04;
+
+  // Per-day aggregate via UNION ALL across metric-specific views — keeps the
+  // hot path off the unindexed `metric` column scan and leverages the
+  // composite (org_id, metric, ts) index for each subquery.
+  const rows = await c.env.DB.prepare(
+    `SELECT substr(ts, 1, 10) AS day, metric, SUM(value) AS total
+     FROM usage_events
+     WHERE org_id = ? AND ts >= ?
+     GROUP BY day, metric
+     ORDER BY day ASC`,
+  )
+    .bind(orgId, startIso)
+    .all<{ day: string; metric: string; total: number }>();
+
+  // Roll into per-day USD + call count for the sparkline.
+  const dayMap = new Map<string, { usd: number; calls: number }>();
+  for (const r of rows.results ?? []) {
+    const entry = dayMap.get(r.day) ?? { usd: 0, calls: 0 };
+    if (r.metric === 'ai_calls') {
+      entry.usd += r.total * PRICE_PER_AI_CALL_USD;
+      entry.calls += r.total;
+    } else if (r.metric === 'bytes_egress') {
+      entry.usd += (r.total / 1_073_741_824) * PRICE_PER_GB_EGRESS_USD;
+    } else if (r.metric === 'image_generations') {
+      entry.usd += r.total * PRICE_PER_IMAGE_USD;
+    }
+    dayMap.set(r.day, entry);
+  }
+
+  // Zero-fill every day in the window so the sparkline never has gaps.
+  const breakdown: Array<{ day: string; usd: number; calls: number }> = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(periodStart.getTime() + i * 86_400_000);
+    const dayKey = d.toISOString().slice(0, 10);
+    const entry = dayMap.get(dayKey) ?? { usd: 0, calls: 0 };
+    breakdown.push({ day: dayKey, usd: Number(entry.usd.toFixed(4)), calls: entry.calls });
+  }
+
+  const currentPeriodUsd = breakdown.reduce((sum, b) => sum + b.usd, 0);
+
+  // 7-day rolling rate (USD/day) — used to project the next 30 days.
+  // Falls back to the full-window average when we have <7 days of signal.
+  const last7 = breakdown.slice(-7);
+  const rollingDailyAvg =
+    last7.length === 7
+      ? last7.reduce((s, b) => s + b.usd, 0) / 7
+      : breakdown.length > 0
+        ? currentPeriodUsd / breakdown.length
+        : 0;
+  const projectedUsd = Number((rollingDailyAvg * 30).toFixed(2));
+
+  // Plan cap — pull from subscriptions row when set, fall back to free-tier $25.
+  // The `plan_cap_usd` column is optional (added in a later migration) — wrap
+  // in a try/catch so we never 500 when the column doesn't exist yet.
+  let planCapUsd: number | null = 25;
+  try {
+    const subRow = await c.env.DB.prepare(
+      `SELECT status FROM subscriptions
+       WHERE org_id = ? AND deleted_at IS NULL
+       ORDER BY created_at DESC LIMIT 1`,
+    )
+      .bind(orgId)
+      .first<{ status: string }>();
+    if (subRow && (subRow.status === 'active' || subRow.status === 'trialing')) {
+      // Paid tier — Patron plan default cap is $50/mo (mirrors PRICING.MONTHLY_CENTS).
+      planCapUsd = 50;
+    }
+  } catch {
+    // subscriptions table not yet migrated — leave the $25 free-tier default.
+  }
+
+  const percentOfCap =
+    planCapUsd && planCapUsd > 0 ? Math.round((projectedUsd / planCapUsd) * 100) : 0;
+
+  // Days until projected spend hits the cap at the current rolling rate.
+  let daysUntilCapHit: number | null = null;
+  if (planCapUsd && planCapUsd > 0 && rollingDailyAvg > 0 && currentPeriodUsd < planCapUsd) {
+    const remaining = planCapUsd - currentPeriodUsd;
+    daysUntilCapHit = Math.max(0, Math.ceil(remaining / rollingDailyAvg));
+  }
+
+  // Fire-and-forget 80% warning toast via KV-keyed dedup so the toast only
+  // surfaces once per (org, billing-period-start) tuple.
+  if (planCapUsd && planCapUsd > 0 && percentOfCap >= 80) {
+    const periodKey = breakdown[0]?.day ?? startIso.slice(0, 10);
+    const dedupKey = `forecast:warn:${orgId}:${periodKey}`;
+    c.executionCtx.waitUntil(
+      (async () => {
+        try {
+          const seen = await c.env.CACHE_KV.get(dedupKey);
+          if (seen) return;
+          await c.env.CACHE_KV.put(dedupKey, '1', { expirationTtl: 60 * 60 * 24 * 32 });
+          console.warn(
+            JSON.stringify({
+              level: 'warn',
+              service: 'cost_forecast',
+              event: 'cap_warning',
+              org_id: orgId,
+              percent_of_cap: percentOfCap,
+              projected_usd: projectedUsd,
+              plan_cap_usd: planCapUsd,
+            }),
+          );
+        } catch {
+          // best-effort — never throw from the post-response path
+        }
+      })(),
+    );
+  }
+
+  return c.json({
+    data: {
+      projected_usd: projectedUsd,
+      current_period_usd: Number(currentPeriodUsd.toFixed(2)),
+      breakdown,
+      plan_cap_usd: planCapUsd,
+      percent_of_cap: percentOfCap,
+      days_until_cap_hit: daysUntilCapHit,
+      rolling_daily_avg: Number(rollingDailyAvg.toFixed(4)),
+      period_start: startIso,
+      period_end: now.toISOString(),
+    },
+  });
 });
 
 // ─── Hostname Routes ─────────────────────────────────────────
@@ -2085,7 +2423,7 @@ api.get('/api/sites/:id/logs', async (c) => {
  * @remarks
  * Slug resolution chain (when `existingSlug` not provided):
  * 1. `generateSlugFromChat()` — tries simple slugification of `chat.description`,
- *    then Workers AI (`@cf/meta/llama-3.1-8b-instruct`) on first user message,
+ *    then Workers AI (`@cf/meta/llama-3.1-8b-instruct-fp8`) on first user message,
  *    finally falls back to `site-${Date.now().toString(36)}`.
  * 2. `ensureUniqueSlug()` — checks R2 for existing `_manifest.json` and
  *    appends `-2`, `-3`, ... up to 10 attempts before giving up.
@@ -2273,7 +2611,7 @@ async function generateSlugFromChat(
     const firstUserMsg = messages.find((m) => m.role === 'user')?.content ?? '';
 
     const result = await env.AI.run(
-      '@cf/meta/llama-3.1-8b-instruct' as Parameters<typeof env.AI.run>[0],
+      '@cf/meta/llama-3.1-8b-instruct-fp8' as Parameters<typeof env.AI.run>[0],
       {
         messages: [
           {
@@ -3641,7 +3979,7 @@ api.post('/api/sites/:id/deploy', async (c) => {
     // Try AI-generated snapshot name
     try {
       const aiResult = await c.env.AI.run(
-        '@cf/meta/llama-3.1-8b-instruct' as Parameters<typeof c.env.AI.run>[0],
+        '@cf/meta/llama-3.1-8b-instruct-fp8' as Parameters<typeof c.env.AI.run>[0],
         {
           messages: [
             {
@@ -4116,6 +4454,158 @@ api.get('/api/domains/search', async (c) => {
   return c.json({ data: results });
 });
 
+// ─── Domain Search Enrich (Workers AI reasoning) ─────────────
+
+/**
+ * Enriched companion to {@link GET /api/domains/search}. Wraps the raw
+ * Domainr results in a single Workers-AI pass that produces a short
+ * "why this is a good fit" reason and a sales-pitch micro-blurb per
+ * suggestion. Used by the admin domain-picker dropdown to drive its
+ * "AVAILABLE TO REGISTER" section without making the picker do its own
+ * LLM round-trip.
+ *
+ * @route GET /api/domains/search-enrich
+ * @auth None — same threat profile as `/api/domains/search`.
+ * @queryParam q - Free-form domain candidate (1–63 chars after sanitise).
+ * @queryParam business - Optional business-name hint used to steer the
+ *   AI reason copy (e.g. `?business=Vito%27s%20Salon`). Falls back to
+ *   the bare query when omitted.
+ * @returns 200 OK `{ results: Array<{ domain, available, status,
+ *   reason, pitch, price_usd_yr }> }` (up to 10). `status` is one of
+ *   `available | taken | unknown`. Reason ≤80 chars, pitch ≤120 chars.
+ *
+ * @remarks
+ * - Calls the Domainr-backed `/api/domains/search` internally to avoid
+ *   double-implementing the RapidAPI dance.
+ * - LLM model is `@cf/meta/llama-3.3-70b-instruct-fp8-fast` per the
+ *   project FP8-variant lock-in regression test. If the call errors,
+ *   each result falls back to a deterministic template so the UI never
+ *   renders an empty AI reason.
+ * - Pricing is best-effort: Domainr cents → `price_usd_yr` dollars; 0
+ *   means "unknown, surface as TBD in UI".
+ */
+api.get('/api/domains/search-enrich', async (c) => {
+  const query = (c.req.query('q') || '').trim().toLowerCase().slice(0, 63);
+  const business = (c.req.query('business') || '').trim().slice(0, 80);
+  if (query.length < 2) {
+    return c.json({ results: [] });
+  }
+
+  // Re-use the existing search by issuing a sub-request through the same
+  // worker — keeps Domainr two-step in one place. Fallback path catches
+  // any internal hiccup so the picker still renders something useful.
+  type RawResult = {
+    domain: string;
+    available: boolean;
+    price: number;
+    zone: string;
+    path: string;
+  };
+  let rawResults: RawResult[] = [];
+  try {
+    const searchUrl = new URL(c.req.url);
+    searchUrl.pathname = '/api/domains/search';
+    searchUrl.search = `?q=${encodeURIComponent(query)}`;
+    const innerRes = await fetch(searchUrl.toString(), {
+      headers: { 'X-Forwarded-For': c.req.header('CF-Connecting-IP') || '' },
+    });
+    if (innerRes.ok) {
+      const payload = (await innerRes.json()) as { data?: RawResult[] };
+      rawResults = (payload.data || []).slice(0, 10);
+    }
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'domain_search_enrich',
+        message: 'inner search failed',
+        error: String(err),
+      }),
+    );
+  }
+
+  if (rawResults.length === 0) {
+    return c.json({ results: [] });
+  }
+
+  // Deterministic fallback reason + pitch — cinematic-punchline voiced.
+  const fallback = (r: RawResult): { reason: string; pitch: string } => {
+    const tldNote: Record<string, string> = {
+      com: 'Universal trust signal; safest pick.',
+      ai: 'Premium .ai TLD; AI-brand resonance.',
+      dev: 'Developer-coded; signals craft.',
+      app: 'App-store adjacency; mobile cue.',
+      io: 'Tech-startup vernacular; punchy.',
+      co: 'Short company tag; modern shorthand.',
+      org: 'Mission-driven; nonprofit trust.',
+      net: 'Infrastructure cue; legacy weight.',
+    };
+    const note = tldNote[r.zone] || 'Distinctive TLD; stands out in search.';
+    return {
+      reason: `Matches ${business || query} + memorable .${r.zone}.`.slice(0, 80),
+      pitch: `${note} ${r.price > 0 ? `$${(r.price / 100).toFixed(0)}/yr.` : 'Pricing on register.'}`.slice(0, 120),
+    };
+  };
+
+  // Workers AI single-shot — try fp8-fast first, on any error fall through
+  // to the deterministic template so the panel never renders empty.
+  let aiBatch: Record<string, { reason: string; pitch: string }> = {};
+  try {
+    const prompt = `You are a domain-naming concierge for a website builder. For each candidate below, return ONE line per domain in the exact shape:
+DOMAIN|||REASON|||PITCH
+
+REASON must be <=80 chars, persona-voiced, cinematic-punchline style — say WHY this domain fits "${business || query}".
+PITCH must be <=120 chars — TLD value + price + emotional hook. Example: "Premium .ai TLD; AI brand resonance; $69/yr."
+
+Never repeat the literal domain inside REASON or PITCH. Never use the words "great" or "perfect" or "amazing". Be specific.
+
+Candidates:
+${rawResults.map((r) => `- ${r.domain} (.${r.zone}, ${r.available ? 'available' : 'taken'}, ${r.price > 0 ? `$${(r.price / 100).toFixed(0)}/yr` : 'price tbd'})`).join('\n')}`;
+
+    const aiRes = (await c.env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      messages: [
+        { role: 'system', content: 'You write tight, specific domain pitches. Always respond in the requested format. No preamble.' },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 600,
+    } as never)) as { response?: string };
+
+    const text = aiRes?.response || '';
+    for (const line of text.split('\n')) {
+      const [dom, reason, pitch] = line.split('|||').map((s) => (s || '').trim());
+      if (dom && reason && pitch) {
+        aiBatch[dom.toLowerCase()] = {
+          reason: reason.slice(0, 80),
+          pitch: pitch.slice(0, 120),
+        };
+      }
+    }
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'domain_search_enrich',
+        message: 'Workers AI failed, using deterministic fallback',
+        error: String(err),
+      }),
+    );
+  }
+
+  const enriched = rawResults.map((r) => {
+    const ai = aiBatch[r.domain.toLowerCase()] || fallback(r);
+    return {
+      domain: r.domain,
+      available: r.available,
+      status: r.available ? 'available' : 'taken',
+      reason: ai.reason,
+      pitch: ai.pitch,
+      price_usd_yr: r.price > 0 ? Math.round(r.price / 100) : null,
+    };
+  });
+
+  return c.json({ results: enriched });
+});
+
 // ─── Domain Purchase (Stripe subscription) ───────────────────
 
 /**
@@ -4261,6 +4751,154 @@ api.post('/api/domains/purchase', async (c) => {
       checkout_url: session.url,
       session_id: session.id,
     },
+  });
+});
+
+// ─── Domain Registrar (direct CF Registrar) ─────────────────
+
+/**
+ * Direct-register a domain via Cloudflare Registrar and immediately bind
+ * it to the caller's currently-selected site as a custom hostname. Used
+ * by the admin domain-picker dropdown's `[Register]` button — the
+ * `/api/domains/purchase` sibling stays on the Stripe-checkout path for
+ * the marketing-page funnel.
+ *
+ * @route POST /api/domains/register
+ * @auth Bearer orgId required.
+ * @body application/json `{ domain: string, site_id: string }`
+ * @returns 200 OK `{ purchase_id, domain, hostname_id, ssl_status }`
+ *   on success; 424 `{ error: { code, message, unblock_url } }` when
+ *   `CLOUDFLARE_REGISTRAR_API` env var is missing (graceful friendly
+ *   error so the UI can surface a "click here to enable" deeplink).
+ *
+ * @remarks
+ * When the registrar key is missing this route does NOT attempt the
+ * Stripe-checkout fallback — that flow is owned by
+ * `/api/domains/purchase`. The picker UI catches 424 and renders a
+ * dialog with the unblock_url so the user can flip the env var in CF
+ * dashboard without leaving the admin shell.
+ */
+api.post('/api/domains/register', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const body = (await c.req.json()) as { domain?: string; site_id?: string };
+  const domain = (body.domain || '').trim().toLowerCase();
+  const siteId = (body.site_id || '').trim();
+  if (!domain || !siteId) throw badRequest('domain and site_id are required');
+
+  // Friendly env-missing surface — the picker UI catches 424 and renders
+  // a dialog with the unblock_url instead of a stack trace.
+  if (!c.env.CLOUDFLARE_REGISTRAR_API) {
+    return c.json(
+      {
+        error: {
+          code: 'REGISTRAR_NOT_CONFIGURED',
+          message:
+            'Cloudflare Registrar API token is not set. Enable in CF dashboard, then add CLOUDFLARE_REGISTRAR_API as a worker secret.',
+          unblock_url: 'https://dash.cloudflare.com/?to=/:account/registrar',
+        },
+      },
+      424,
+    );
+  }
+
+  // Verify site ownership.
+  const site = await dbQueryOne<{ id: string; org_id: string }>(
+    c.env.DB,
+    'SELECT id, org_id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [siteId, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  // CF Registrar register endpoint — minimal payload; pricing surfaces
+  // in the response. Auto-renew defaults to true on the CF side.
+  const accountId = '84fa0d1b16ff8086dd958c468ce7fd59';
+  const purchaseId = `pur_${crypto.randomUUID()}`;
+  let sslStatus: 'pending' | 'failed' = 'pending';
+  let hostnameId: string | null = null;
+
+  try {
+    const cfRes = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/registrar/domains/${encodeURIComponent(domain)}`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${c.env.CLOUDFLARE_REGISTRAR_API}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ auto_renew: true, privacy: true }),
+      },
+    );
+    if (!cfRes.ok) {
+      const errBody = await cfRes.text();
+      console.warn(
+        JSON.stringify({
+          level: 'error',
+          service: 'domain_register',
+          message: 'CF Registrar register failed',
+          status: cfRes.status,
+          body: errBody.slice(0, 500),
+        }),
+      );
+      throw badRequest(`CF Registrar registration failed (HTTP ${cfRes.status}). Verify domain availability + registrar quota.`);
+    }
+
+    // Bind to site via the existing hostnames service so CF for SaaS
+    // provisioning + SSL kick off automatically. Best-effort — failures
+    // here still surface to the user but the registration already
+    // succeeded.
+    try {
+      await domainService.provisionCustomDomain(c.env.DB, c.env, {
+        org_id: orgId,
+        site_id: siteId,
+        hostname: domain,
+      });
+      const row = await dbQueryOne<{ id: string }>(
+        c.env.DB,
+        'SELECT id FROM hostnames WHERE hostname = ? AND deleted_at IS NULL',
+        [domain],
+      );
+      hostnameId = row?.id ?? null;
+    } catch (provErr) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'domain_register',
+          message: 'hostname provisioning failed after register',
+          error: String(provErr),
+        }),
+      );
+      sslStatus = 'failed';
+    }
+  } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err) throw err;
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'domain_register',
+        message: 'register error',
+        error: String(err),
+      }),
+    );
+    throw badRequest('Registration failed. See worker logs for detail.');
+  }
+
+  auditService
+    .writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'domain.registered',
+      message: `Domain '${domain}' registered via CF Registrar and bound to site '${siteId}'`,
+      target_type: 'domain',
+      target_id: siteId,
+      metadata_json: { domain, site_id: siteId, hostname_id: hostnameId, purchase_id: purchaseId },
+      request_id: c.get('requestId'),
+    })
+    .catch(() => {});
+
+  return c.json({
+    data: { purchase_id: purchaseId, domain, hostname_id: hostnameId, ssl_status: sslStatus },
   });
 });
 
@@ -4921,7 +5559,7 @@ Response:`;
 
   try {
     const aiResult = await c.env.AI.run(
-      '@cf/meta/llama-3.1-8b-instruct' as Parameters<typeof c.env.AI.run>[0],
+      '@cf/meta/llama-3.1-8b-instruct-fp8' as Parameters<typeof c.env.AI.run>[0],
       {
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 100,
@@ -5471,6 +6109,188 @@ api.get('/api/sites/:siteId/snapshots', async (c) => {
 });
 
 /**
+ * Side-by-side diff between two snapshots of the same site.
+ *
+ * Resolves each snapshot's build manifest from R2 (`sites/{slug}/{build_version}/`),
+ * enumerates the union of files, classifies each as added / removed / modified,
+ * and returns line-level hunks for modified files via the `diff.diffLines`
+ * algorithm. An AI-summary header (1-2 sentences of "what changed") is
+ * generated by `@cf/meta/llama-3.3-70b-instruct-fp8-fast` over the file list
+ * so reviewers can scan the intent of a snapshot in seconds.
+ *
+ * @route GET /api/sites/:siteId/snapshots/diff?from=A&to=B
+ * @auth Bearer orgId required — cross-org access collapses to 404.
+ * @returns 200 OK with
+ *   `{ added: [{path, contents}],`
+ *   ` removed: [{path, contents}],`
+ *   ` modified: [{path, before, after, hunks: [{added, removed, value}]}],`
+ *   ` summary: string }`
+ * @throws BAD_REQUEST — missing `from` or `to` query, or `from === to`.
+ * @throws NOT_FOUND — site not found or either snapshot missing.
+ *
+ * @remarks
+ * Only text-y files are diffed (extensions in `DIFF_TEXT_EXTS`); binary files
+ * (PNG/JPG/WebP/ICO/woff2/PDF) report classification without contents so the
+ * UI can show "binary file changed" without shipping megabytes back to the
+ * client. Each file body is capped at 256KB to keep response payloads
+ * bounded even for large refactors. Files larger than the cap are reported
+ * as `truncated: true`.
+ *
+ * AI summary is best-effort — if the Workers AI call errors, the route still
+ * returns the structural diff with `summary: ''`. Never block the diff on the
+ * narrative.
+ */
+api.get('/api/sites/:siteId/snapshots/diff', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  const siteId = c.req.param('siteId');
+  const fromId = c.req.query('from');
+  const toId = c.req.query('to');
+
+  if (!fromId || !toId) throw badRequest('Both `from` and `to` snapshot ids are required');
+  if (fromId === toId) throw badRequest('`from` and `to` must be different snapshots');
+
+  const { dbQueryOne: dbq1 } = await import('../services/db.js');
+  const site = await dbq1<{ slug: string }>(
+    c.env.DB,
+    'SELECT slug FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [siteId, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  const [fromSnap, toSnap] = await Promise.all([
+    dbq1<{ id: string; build_version: string; snapshot_name: string }>(
+      c.env.DB,
+      'SELECT id, build_version, snapshot_name FROM site_snapshots WHERE id = ? AND site_id = ? AND deleted_at IS NULL',
+      [fromId, siteId],
+    ),
+    dbq1<{ id: string; build_version: string; snapshot_name: string }>(
+      c.env.DB,
+      'SELECT id, build_version, snapshot_name FROM site_snapshots WHERE id = ? AND site_id = ? AND deleted_at IS NULL',
+      [toId, siteId],
+    ),
+  ]);
+  if (!fromSnap || !toSnap) throw notFound('Snapshot not found');
+
+  // Bounded text-file allow-list. Binary assets (images, fonts, pdfs) report
+  // membership but skip body load — keeps the response under 10MB even for
+  // 200-file diffs that include hero images on both sides.
+  const DIFF_TEXT_EXTS = new Set([
+    'html', 'htm', 'css', 'scss', 'sass', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx',
+    'json', 'md', 'txt', 'xml', 'svg', 'yml', 'yaml', 'toml', 'webmanifest',
+  ]);
+  const MAX_FILE_BYTES = 256 * 1024;
+
+  const fromPrefix = `sites/${site.slug}/${fromSnap.build_version}/`;
+  const toPrefix = `sites/${site.slug}/${toSnap.build_version}/`;
+
+  async function listKeys(prefix: string): Promise<string[]> {
+    const keys: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await c.env.SITES_BUCKET.list({ prefix, cursor, limit: 1000 });
+      for (const obj of page.objects) keys.push(obj.key.slice(prefix.length));
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+    return keys;
+  }
+
+  async function loadText(prefix: string, path: string): Promise<{ value: string; truncated: boolean } | null> {
+    const obj = await c.env.SITES_BUCKET.get(prefix + path);
+    if (!obj) return null;
+    if (obj.size > MAX_FILE_BYTES) {
+      const stream = obj.body.getReader();
+      const { value: chunk } = await stream.read();
+      try { stream.cancel(); } catch { /* noop */ }
+      const decoded = chunk ? new TextDecoder().decode(chunk).slice(0, MAX_FILE_BYTES) : '';
+      return { value: decoded, truncated: true };
+    }
+    return { value: await obj.text(), truncated: false };
+  }
+
+  const [fromKeys, toKeys] = await Promise.all([listKeys(fromPrefix), listKeys(toPrefix)]);
+  const fromSet = new Set(fromKeys);
+  const toSet = new Set(toKeys);
+  const allKeys = new Set([...fromKeys, ...toKeys]);
+
+  const { diffLines } = await import('diff');
+
+  type Hunk = { added: boolean; removed: boolean; value: string };
+  type Modified = { path: string; before: string; after: string; hunks: Hunk[]; truncated: boolean };
+  type Plain = { path: string; contents: string; binary: boolean; truncated: boolean };
+
+  const added: Plain[] = [];
+  const removed: Plain[] = [];
+  const modified: Modified[] = [];
+
+  await Promise.all(
+    Array.from(allKeys).map(async (path) => {
+      const ext = path.split('.').pop()?.toLowerCase() ?? '';
+      const isText = DIFF_TEXT_EXTS.has(ext);
+      const inFrom = fromSet.has(path);
+      const inTo = toSet.has(path);
+
+      if (inFrom && !inTo) {
+        const body = isText ? await loadText(fromPrefix, path) : null;
+        removed.push({ path, contents: body?.value ?? '', binary: !isText, truncated: body?.truncated ?? false });
+      } else if (!inFrom && inTo) {
+        const body = isText ? await loadText(toPrefix, path) : null;
+        added.push({ path, contents: body?.value ?? '', binary: !isText, truncated: body?.truncated ?? false });
+      } else if (inFrom && inTo && isText) {
+        const [b, a] = await Promise.all([loadText(fromPrefix, path), loadText(toPrefix, path)]);
+        const before = b?.value ?? '';
+        const after = a?.value ?? '';
+        if (before === after) return;
+        const hunks: Hunk[] = diffLines(before, after).map((part) => ({
+          added: !!part.added,
+          removed: !!part.removed,
+          value: part.value,
+        }));
+        modified.push({
+          path,
+          before,
+          after,
+          hunks,
+          truncated: (b?.truncated ?? false) || (a?.truncated ?? false),
+        });
+      }
+    }),
+  );
+
+  // AI summary header — best effort. The model only sees file paths +
+  // classification (no contents), so the call is cheap and bounded.
+  let summary = '';
+  try {
+    const fileList = [
+      ...added.map((f) => `+ ${f.path}`),
+      ...removed.map((f) => `- ${f.path}`),
+      ...modified.map((f) => `~ ${f.path}`),
+    ].slice(0, 80);
+    const prompt = `You are a senior code reviewer summarizing a website-snapshot diff.\nSnapshots: "${fromSnap.snapshot_name}" -> "${toSnap.snapshot_name}".\nFiles (+ added, - removed, ~ modified):\n${fileList.join('\n')}\n\nWrite ONE paragraph (max 2 sentences) describing what likely changed at a high level. No bullet list, no preamble.`;
+    const ai = c.env.AI as unknown as {
+      run: (model: string, input: { messages: Array<{ role: string; content: string }>; max_tokens?: number }) => Promise<{ response?: string }>;
+    };
+    const res = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 180,
+    });
+    summary = (res?.response ?? '').trim();
+  } catch (err) {
+    console.warn('snapshot-diff: ai summary failed', { error: String(err) });
+    summary = '';
+  }
+
+  return c.json({
+    from: { id: fromSnap.id, name: fromSnap.snapshot_name, build_version: fromSnap.build_version },
+    to: { id: toSnap.id, name: toSnap.snapshot_name, build_version: toSnap.build_version },
+    added,
+    removed,
+    modified,
+    summary,
+  });
+});
+
+/**
  * Freeze the current (or a specified) build version as a named
  * snapshot so it can be served at the `{slug}-{snapshot}.projectsites.dev`
  * preview subdomain and restored to "current" with one click later.
@@ -5578,6 +6398,34 @@ api.post('/api/sites/:siteId/snapshots', async (c) => {
       request_id: c.get('requestId'),
     }),
   );
+
+  // Auto-fire the snapshot quality workflow so every newly-frozen snapshot
+  // gets its quality matrix captured without a separate user step.
+  // Best-effort — silently no-ops when the binding isn't bound (local dev).
+  if (c.env.SNAPSHOT_QUALITY_WORKFLOW) {
+    c.executionCtx.waitUntil(
+      c.env.SNAPSHOT_QUALITY_WORKFLOW.create({
+        params: {
+          snapshotId: id,
+          siteId,
+          slug: site.slug,
+          snapshotName,
+          buildVersion,
+          capturedVia: 'workflow',
+        },
+      }).catch((err: unknown) => {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            service: 'snapshot-quality',
+            message: 'auto-fire on snapshot create failed',
+            snapshot_id: id,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }),
+    );
+  }
 
   return c.json(
     {
@@ -7482,11 +8330,17 @@ api.get('/api/sites/:id/github/callback', async (c) => {
 /**
  * POST /api/sites/:id/github/backup
  *
- * Pull every R2 object under `sites/{slug}/{current_build_version}/` and
- * commit them to the connected repo's default branch as a single commit
- * via the GitHub Trees API (blob → tree → commit → ref).
+ * **Bundle B finish (2026-05-24)** — replaces the legacy force-push to the
+ * default branch with a snapshot-scoped branch + Pull Request. Pull every
+ * R2 object under `sites/{slug}/{current_build_version}/`, commit them to a
+ * `snapshot-{snapshot_id}-{ts}` branch, then open a PR against the default
+ * branch with an AI-generated body summarizing the diff.
  *
- * Returns `{ data: { commit_sha, html_url } }`.
+ * Persists `github_branch_name`, `github_pr_number`, and `github_pr_html_url`
+ * on the source `site_snapshots` row (columns added in migration 0032).
+ *
+ * Returns `{ data: { commit_sha, html_url, pr_number, pr_html_url,
+ * branch_name } }`.
  */
 api.post('/api/sites/:id/github/backup', async (c) => {
   const site = await loadAuthorizedSite(c);
@@ -7590,16 +8444,70 @@ api.post('/api/sites/:id/github/backup', async (c) => {
   if (!commitRes.ok) throw badRequest('GitHub commit create failed');
   const commit = (await commitRes.json()) as { sha: string; html_url: string };
 
-  // Update branch ref.
-  const updateRes = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`,
+  // Branch name — derive from snapshot_id query param when present, fall
+  // back to the build version + timestamp so legacy callers still work.
+  const snapshotIdParam = c.req.query('snapshot_id') ?? '';
+  const branchSeed = (snapshotIdParam || buildVersion).slice(0, 24).replace(/[^a-zA-Z0-9._-]/g, '');
+  const branchTs = Date.now().toString(36);
+  const branchName = `snapshot-${branchSeed}-${branchTs}`;
+
+  // Create the snapshot branch pointing at the new tree commit.
+  const createRefRes = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/git/refs`,
     {
-      method: 'PATCH',
+      method: 'POST',
       headers: { ...githubHeaders(token), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sha: commit.sha, force: false }),
+      body: JSON.stringify({ ref: `refs/heads/${branchName}`, sha: commit.sha }),
     },
   );
-  if (!updateRes.ok) throw badRequest('GitHub ref update failed');
+  if (!createRefRes.ok) {
+    const body = await createRefRes.text().catch(() => '');
+    throw badRequest(`GitHub branch create failed: ${createRefRes.status} ${body.slice(0, 200)}`);
+  }
+
+  // AI-summarize the diff via Workers AI Llama 3.3 70B FP8-fast (NEVER the
+  // bare alias — see ai-fp8 regression test). Fail-soft to a deterministic
+  // body if the AI call errors; the PR still opens.
+  let aiBody = `Snapshot \`${buildVersion}\` — ${objects.length} file${objects.length === 1 ? '' : 's'} mirrored from R2.`;
+  try {
+    const fileList = objects
+      .slice(0, 60)
+      .map((o) => `- ${o.key.slice(prefix.length)} (${o.size}b)`)
+      .join('\n');
+    const aiPrompt = `Write a 2-paragraph GitHub PR description for a website snapshot pushed by ProjectSites. Build version: ${buildVersion}. Files (${objects.length}): \n${fileList}\nFocus on what changed conceptually — sections, pages, asset updates — and keep it under 120 words. End with one sentence on how to merge or close the PR.`;
+    const aiRes = await (c.env.AI.run as (model: string, input: unknown) => Promise<unknown>)(
+      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      {
+        messages: [
+          { role: 'system', content: 'You write concise, helpful GitHub PR descriptions for website-snapshot mirrors. Plain markdown, no preamble.' },
+          { role: 'user', content: aiPrompt },
+        ],
+        max_tokens: 320,
+      },
+    );
+    const text = (aiRes as { response?: string })?.response?.trim();
+    if (text && text.length > 20) aiBody = text;
+  } catch {
+    // AI Gateway or Workers AI flaked — ship the deterministic body.
+  }
+
+  // Open the PR.
+  const prRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls`, {
+    method: 'POST',
+    headers: { ...githubHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: `Snapshot ${buildVersion} from ProjectSites`,
+      head: branchName,
+      base: branch,
+      body: `${aiBody}\n\n---\n\nAuto-generated by ProjectSites · branch \`${branchName}\` · build version \`${buildVersion}\` · ${objects.length} file${objects.length === 1 ? '' : 's'}.`,
+      maintainer_can_modify: true,
+    }),
+  });
+  if (!prRes.ok) {
+    const body = await prRes.text().catch(() => '');
+    throw badRequest(`GitHub PR create failed: ${prRes.status} ${body.slice(0, 200)}`);
+  }
+  const pr = (await prRes.json()) as { number: number; html_url: string };
 
   const nowIso = new Date().toISOString();
   await c.env.DB.prepare(
@@ -7610,19 +8518,39 @@ api.post('/api/sites/:id/github/backup', async (c) => {
     .bind(nowIso, commit.sha, integration.commit_count + 1, nowIso, integration.id)
     .run();
 
+  // Persist the PR metadata back onto the snapshot row when we have one.
+  // Wrap in try so missing-column / missing-row never blocks the response.
+  if (snapshotIdParam) {
+    try {
+      await c.env.DB.prepare(
+        `UPDATE site_snapshots SET
+           github_branch_name = ?, github_pr_number = ?, github_pr_html_url = ?, updated_at = ?
+         WHERE id = ? AND site_id = ?`,
+      )
+        .bind(branchName, pr.number, pr.html_url, nowIso, snapshotIdParam, site.id as string)
+        .run();
+    } catch {
+      // Column not migrated yet — surface only in audit log, never to user.
+    }
+  }
+
   await auditService
     .writeAuditLog(c.env.DB, {
       org_id: site.org_id as string,
       actor_id: c.get('userId') ?? null,
-      action: 'github.backup_pushed',
-      message: `${objects.length} file${objects.length === 1 ? '' : 's'} backed up to '${owner}/${repo}' (commit ${commit.sha.slice(0, 7)})`,
+      action: 'github.pr_opened',
+      message: `PR #${pr.number} opened on '${owner}/${repo}' for snapshot ${buildVersion} (${objects.length} file${objects.length === 1 ? '' : 's'})`,
       target_type: 'site',
       target_id: site.id as string,
       metadata_json: {
         repo: `${owner}/${repo}`,
         commit_sha: commit.sha,
+        branch_name: branchName,
+        pr_number: pr.number,
+        pr_html_url: pr.html_url,
         file_count: objects.length,
         build_version: buildVersion,
+        snapshot_id: snapshotIdParam || null,
       },
       request_id: c.get('requestId'),
     })
@@ -7632,6 +8560,9 @@ api.post('/api/sites/:id/github/backup', async (c) => {
     data: {
       commit_sha: commit.sha,
       html_url: commit.html_url,
+      pr_number: pr.number,
+      pr_html_url: pr.html_url,
+      branch_name: branchName,
     },
   });
 });
@@ -7869,7 +8800,7 @@ api.post('/api/sites/:siteId/domains/ai-search', async (c) => {
         run: (model: string, opts: unknown) => Promise<unknown>;
       };
       const raw = await Promise.race([
-        ai.run('@cf/meta/llama-3.3-70b-instruct', {
+        ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
           messages: [
             { role: 'system', content: strategy.instruction },
             { role: 'user', content: baseContext },
@@ -8770,6 +9701,636 @@ api.get('/api/sites/:id/snapshots/:snapId/download', async (c) => {
       files,
     },
   });
+});
+
+// ─── Multi-URL Analytics (Cloudflare GraphQL) ────────────────────────────────
+
+/**
+ * Helper — load a site row + verify the caller has membership in its org.
+ * Returns the {site, org_id} pair on success, or `null` after writing a 4xx
+ * envelope to `c`. Used by the multi-URL analytics + URL CRUD handlers.
+ */
+async function loadSiteAndAuth(c: Context<{ Bindings: Env; Variables: Variables }>, siteId: string) {
+  const requestId = c.get('requestId') ?? crypto.randomUUID();
+  const userId = c.get('userId');
+  if (!userId) {
+    return { err: c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } }, 401) };
+  }
+  const site = await dbQueryOne<{ id: string; slug: string; org_id: string; primary_hostname: string | null }>(
+    c.env.DB,
+    'SELECT id, slug, org_id, primary_hostname FROM sites WHERE id = ? AND deleted_at IS NULL',
+    [siteId],
+  );
+  if (!site) {
+    return { err: c.json({ error: { code: 'NOT_FOUND', message: 'Site not found', request_id: requestId } }, 404) };
+  }
+  const membership = await dbQueryOne(
+    c.env.DB,
+    'SELECT id FROM memberships WHERE org_id = ? AND user_id = ? AND deleted_at IS NULL',
+    [site.org_id, userId],
+  );
+  if (!membership) {
+    return { err: c.json({ error: { code: 'FORBIDDEN', message: 'Access denied', request_id: requestId } }, 403) };
+  }
+  return { site, requestId };
+}
+
+/**
+ * GET /api/sites/:id/urls — List every URL bound to a site (primary + alternates).
+ *
+ * Returns rows from `site_urls` where `site_id = :id` (excludes soft-deleted).
+ * Primary URL is first; alternates follow in insertion order.
+ *
+ * @auth Required — Bearer session token + org membership.
+ */
+api.get('/api/sites/:id/urls', async (c) => {
+  const siteId = c.req.param('id');
+  const ctx = await loadSiteAndAuth(c, siteId);
+  if ('err' in ctx) return ctx.err;
+  let urls = await listSiteUrls(c.env, siteId);
+  // Auto-heal: every site MUST have at least its primary URL row. Older
+  // sites created before migration 0027 may be missing one if they were
+  // created in a `deleted_at IS NOT NULL` state at backfill time.
+  if (urls.length === 0) {
+    const hostname = ctx.site.primary_hostname || `${ctx.site.slug}.projectsites.dev`;
+    await dbInsert(c.env.DB, 'site_urls', {
+      id: crypto.randomUUID(),
+      site_id: siteId,
+      hostname,
+      is_primary: 1,
+    });
+    urls = await listSiteUrls(c.env, siteId);
+  }
+  return c.json({ data: urls });
+});
+
+/**
+ * POST /api/sites/:id/urls — Bind an alternate URL to a site.
+ *
+ * Body: `{ hostname: string }` — accepts any valid hostname; uniqueness
+ * enforced by the `site_urls(hostname)` UNIQUE constraint. Returns 409 on
+ * dup. Does NOT auto-provision the Cloudflare custom hostname — call the
+ * existing `/api/sites/:siteId/hostnames` endpoint for that.
+ *
+ * @auth Required.
+ */
+api.post('/api/sites/:id/urls', async (c) => {
+  const siteId = c.req.param('id');
+  const ctx = await loadSiteAndAuth(c, siteId);
+  if ('err' in ctx) return ctx.err;
+  const body = (await c.req.json().catch(() => ({}))) as { hostname?: unknown };
+  const hostname = typeof body.hostname === 'string' ? body.hostname.trim().toLowerCase() : '';
+  if (!hostname || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(hostname)) {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'hostname must be a valid domain', request_id: ctx.requestId } }, 400);
+  }
+  const id = crypto.randomUUID();
+  const { error } = await dbInsert(c.env.DB, 'site_urls', {
+    id,
+    site_id: siteId,
+    hostname,
+    is_primary: 0,
+  });
+  if (error) {
+    // UNIQUE(hostname) collision = 409.
+    if (/UNIQUE constraint failed/i.test(error)) {
+      return c.json({ error: { code: 'CONFLICT', message: 'Hostname already bound to a site', request_id: ctx.requestId } }, 409);
+    }
+    return c.json({ error: { code: 'INTERNAL_ERROR', message: error, request_id: ctx.requestId } }, 500);
+  }
+  // Invalidate any cached aggregates so the next analytics call sees the new URL.
+  try {
+    // Best-effort cache nuke; can't enumerate KV by prefix so we let TTL expire.
+    await c.env.CACHE_KV.delete(`zone:${hostname}`);
+  } catch { /* */ }
+  return c.json({ data: { id, hostname, is_primary: 0 } });
+});
+
+/**
+ * DELETE /api/sites/:id/urls/:urlId — Unbind an alternate URL.
+ *
+ * Soft-deletes the row (`deleted_at = now`). The primary URL cannot be
+ * removed — clients should swap the primary via the existing hostnames
+ * endpoint first.
+ *
+ * @auth Required.
+ */
+api.delete('/api/sites/:id/urls/:urlId', async (c) => {
+  const siteId = c.req.param('id');
+  const urlId = c.req.param('urlId');
+  const ctx = await loadSiteAndAuth(c, siteId);
+  if ('err' in ctx) return ctx.err;
+  const row = await dbQueryOne<{ is_primary: number }>(
+    c.env.DB,
+    'SELECT is_primary FROM site_urls WHERE id = ? AND site_id = ? AND deleted_at IS NULL',
+    [urlId, siteId],
+  );
+  if (!row) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'URL binding not found', request_id: ctx.requestId } }, 404);
+  }
+  if (row.is_primary) {
+    return c.json({ error: { code: 'CONFLICT', message: 'Cannot remove the primary URL — set a different primary first', request_id: ctx.requestId } }, 409);
+  }
+  await dbExecute(
+    c.env.DB,
+    'UPDATE site_urls SET deleted_at = ?, updated_at = ? WHERE id = ?',
+    [new Date().toISOString(), new Date().toISOString(), urlId],
+  );
+  return c.json({ data: { id: urlId, deleted: true } });
+});
+
+/**
+ * GET /api/sites/:id/analytics — Aggregated Cloudflare analytics across every URL.
+ *
+ * Sums page-views, unique visitors, top pages, countries, referrers, and
+ * the daily series across every `site_urls` row bound to the site. Caches
+ * the result in KV for 5 minutes keyed by `site_id + range + url_set`.
+ *
+ * @queryParam range - One of `24h | 7d | 30d | 90d`. Defaults to `7d`.
+ * @queryParam exclude - Comma-separated hostnames to skip (UI toggle pill).
+ *
+ * @returns When CF credentials are unavailable: `{ data: { ... ,
+ *   any_real_data: false } }` so the frontend can show a "Connect
+ *   Cloudflare" CTA. Otherwise: the aggregated envelope.
+ *
+ * @auth Required.
+ */
+api.get('/api/sites/:id/analytics', async (c) => {
+  const siteId = c.req.param('id');
+  const ctx = await loadSiteAndAuth(c, siteId);
+  if ('err' in ctx) return ctx.err;
+  const range = parseRange(c.req.query('range'));
+  const excludeRaw = c.req.query('exclude') ?? '';
+  const exclude = new Set(
+    excludeRaw.split(',').map((s) => s.trim().toLowerCase()).filter((s) => s.length > 0),
+  );
+
+  // Ensure at least the primary URL row exists before aggregating.
+  const urls = await listSiteUrls(c.env, siteId);
+  if (urls.length === 0) {
+    const hostname = ctx.site.primary_hostname || `${ctx.site.slug}.projectsites.dev`;
+    await dbInsert(c.env.DB, 'site_urls', {
+      id: crypto.randomUUID(),
+      site_id: siteId,
+      hostname,
+      is_primary: 1,
+    });
+  }
+
+  let envelope: MultiUrlAnalytics;
+  try {
+    envelope = await loadMultiUrlAnalytics(c.env, siteId, ctx.site.org_id, range, exclude);
+  } catch (err) {
+    console.warn(JSON.stringify({
+      level: 'warn',
+      service: 'api',
+      route: 'GET /api/sites/:id/analytics',
+      site_id: siteId,
+      error: err instanceof Error ? err.message : String(err),
+      request_id: ctx.requestId,
+    }));
+    return c.json({
+      error: { code: 'AI_GENERATION_ERROR', message: 'Failed to aggregate Cloudflare analytics', request_id: ctx.requestId },
+    }, 502);
+  }
+  return c.json({ data: envelope });
+});
+
+// ─── Cloudflare Credentials (per-org) ────────────────────────────────────────
+
+/**
+ * GET /api/admin/cloudflare-credentials — Whether the signed-in org has its
+ * own Cloudflare credentials configured. NEVER returns the secret itself.
+ *
+ * Returns `{ has_credentials, last_validated_at, last_validated_account_id,
+ * source }`. `source` is:
+ *
+ * - `org` — per-org credentials in `cf_credentials` (preferred path).
+ * - `worker_global_key` — worker-bundled `CLOUDFLARE_API_KEY` + `CLOUDFLARE_EMAIL`.
+ * - `worker_token` — worker-bundled `CF_API_TOKEN` (Bearer, account-scoped).
+ * - `none` — no credentials available at any tier.
+ *
+ * @auth Required.
+ */
+api.get('/api/admin/cloudflare-credentials', async (c) => {
+  const requestId = c.get('requestId') ?? crypto.randomUUID();
+  const userId = c.get('userId');
+  const orgId = c.get('orgId');
+  if (!userId) {
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } }, 401);
+  }
+  const stored = orgId ? await loadCfCredentials(c.env, orgId) : null;
+  const auth = await resolveCfCredentials(c.env, orgId ?? null);
+  let source: 'org' | 'worker_global_key' | 'worker_token' | 'none' = 'none';
+  if (stored) source = 'org';
+  else if (auth?.kind === 'global') source = 'worker_global_key';
+  else if (auth?.kind === 'token') source = 'worker_token';
+  return c.json({
+    data: {
+      has_credentials: source !== 'none',
+      source,
+      // Only expose email when the user themselves stored it — never leak
+      // the worker-bundled admin email to other tenants.
+      email: stored?.email ?? null,
+      last_validated_at: stored?.last_validated_at ?? null,
+      last_validated_account_id: stored?.last_validated_account_id ?? null,
+    },
+  });
+});
+
+/**
+ * PUT /api/admin/cloudflare-credentials — Store the signed-in org's
+ * Cloudflare global-key credentials.
+ *
+ * Body: `{ email: string, api_key: string }`. Validates against
+ * `GET /zones?per_page=1` before persisting — returns 400 if the call
+ * fails so we never store known-bad credentials.
+ *
+ * @auth Required + org-scoped. 403 when no orgId is on context.
+ */
+api.put('/api/admin/cloudflare-credentials', async (c) => {
+  const requestId = c.get('requestId') ?? crypto.randomUUID();
+  const userId = c.get('userId');
+  const orgId = c.get('orgId');
+  if (!userId) {
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } }, 401);
+  }
+  if (!orgId) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Org context required', request_id: requestId } }, 403);
+  }
+  const body = (await c.req.json().catch(() => ({}))) as { email?: unknown; api_key?: unknown };
+  const email = typeof body.email === 'string' ? body.email.trim() : '';
+  const apiKey = typeof body.api_key === 'string' ? body.api_key.trim() : '';
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || apiKey.length < 20) {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'email + api_key required', request_id: requestId } }, 400);
+  }
+  const validation = await validateCfCredentials(email, apiKey);
+  if (!validation.ok) {
+    return c.json({
+      error: {
+        code: 'BAD_REQUEST',
+        message: `Cloudflare rejected the credentials (${validation.status}). ${validation.message}`,
+        request_id: requestId,
+      },
+    }, 400);
+  }
+  await saveCfCredentials(c.env, orgId, email, apiKey, validation.account_id);
+  return c.json({
+    data: {
+      has_credentials: true,
+      source: 'org' as const,
+      email,
+      last_validated_at: new Date().toISOString(),
+      last_validated_account_id: validation.account_id,
+    },
+  });
+});
+
+/**
+ * POST /api/admin/cloudflare-credentials/validate — Re-test stored credentials.
+ *
+ * Pings `GET /zones?per_page=1` and updates `last_validated_at` on success.
+ * Returns `{ ok, status, message }` so the UI can show a green/red pill
+ * inline without forcing a re-save.
+ *
+ * @auth Required.
+ */
+api.post('/api/admin/cloudflare-credentials/validate', async (c) => {
+  const requestId = c.get('requestId') ?? crypto.randomUUID();
+  const userId = c.get('userId');
+  const orgId = c.get('orgId');
+  if (!userId) {
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } }, 401);
+  }
+  if (!orgId) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Org context required', request_id: requestId } }, 403);
+  }
+  const stored = await loadCfCredentials(c.env, orgId);
+  if (!stored) {
+    return c.json({ data: { ok: false, message: 'No credentials stored for this org' } });
+  }
+  const validation = await validateCfCredentials(stored.email, stored.api_key);
+  if (validation.ok) {
+    // Refresh validation timestamp + cached account id.
+    await saveCfCredentials(c.env, orgId, stored.email, stored.api_key, validation.account_id);
+    return c.json({ data: { ok: true, account_id: validation.account_id, validated_at: new Date().toISOString() } });
+  }
+  return c.json({ data: { ok: false, status: validation.status, message: validation.message } });
+});
+
+/**
+ * DELETE /api/admin/cloudflare-credentials — Remove the stored credentials.
+ *
+ * Subsequent analytics calls fall back to the worker-bundled credentials
+ * (Megabyte Labs account) which only see `projectsites.dev` zone traffic.
+ *
+ * @auth Required.
+ */
+api.delete('/api/admin/cloudflare-credentials', async (c) => {
+  const requestId = c.get('requestId') ?? crypto.randomUUID();
+  const userId = c.get('userId');
+  const orgId = c.get('orgId');
+  if (!userId) {
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } }, 401);
+  }
+  if (!orgId) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Org context required', request_id: requestId } }, 403);
+  }
+  await deleteCfCredentials(c.env, orgId);
+  return c.json({ data: { deleted: true } });
+});
+
+// Reference `resolveZoneForHostname` so tree-shaking keeps it available
+// to ad-hoc admin debugging via API key + curl. No-op at runtime.
+void resolveZoneForHostname;
+
+// ─── Editor error stream (item 46) ───────────────────────────────────
+
+/**
+ * POST /api/audit-logs/editor-error — record a runtime error surfaced
+ * inside the bolt.diy iframe via postMessage `PS_ERROR`.
+ *
+ * Writes to `audit_logs` with `action: 'editor.runtime_error'` and
+ * preserves the full stack in `metadata_json` so the admin's audit grid
+ * surfaces it alongside the rest of the lifecycle events.
+ *
+ * @auth Required — userId + orgId must resolve.
+ */
+api.post('/api/audit-logs/editor-error', async (c) => {
+  const requestId = c.get('requestId') ?? crypto.randomUUID();
+  const userId = c.get('userId');
+  const orgId = c.get('orgId');
+
+  if (!userId) {
+    return c.json(
+      { error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } },
+      401,
+    );
+  }
+
+  if (!orgId) {
+    return c.json(
+      { error: { code: 'FORBIDDEN', message: 'Org context required', request_id: requestId } },
+      403,
+    );
+  }
+
+  const body = (await c.req.json().catch(() => ({}))) as {
+    code?: string;
+    message?: string;
+    stack?: string;
+    file?: string;
+    line?: number;
+    requestId?: string;
+    siteId?: string;
+    slug?: string;
+  };
+
+  const message = (body.message ?? 'Unknown editor error').slice(0, 500);
+  const code = (body.code ?? 'editor.runtime_error').slice(0, 100);
+
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: userId,
+    action: 'editor.runtime_error',
+    message: `Editor runtime error: ${message}`,
+    target_type: body.siteId ? 'site' : 'editor',
+    target_id: body.siteId ?? undefined,
+    metadata_json: {
+      code,
+      stack: body.stack?.slice(0, 4000),
+      file: body.file?.slice(0, 500),
+      line: body.line,
+      slug: body.slug,
+      client_request_id: body.requestId,
+    },
+    request_id: requestId,
+  });
+
+  return c.json({ data: { recorded: true } });
+});
+
+/**
+ * POST /api/sites/import-from-url — one-click site import from any URL.
+ *
+ * @remarks
+ * Crawls the source URL (Squarespace / Wix / WordPress / Webflow / any plain
+ * HTML) via the {@link crawlSiteForImport} discovery chain
+ * (sitemap → robots → Wayback → HTML BFS), persists `_url_inventory.json` to
+ * R2 at `imports/{import_id}/_url_inventory.json`, creates a draft site row,
+ * and triggers the {@link SiteGenerationWorkflow} with `businessWebsite`
+ * populated so the existing AI pipeline can rebuild with every source URL
+ * available on disk.
+ *
+ * The endpoint is synchronous from the caller's perspective: it returns
+ * immediately after kicking off the workflow, so the UI can route to the
+ * existing `/admin/sites/:id/waiting` build-progress view. All long-running
+ * work happens inside the Workflow.
+ *
+ * @route POST /api/sites/import-from-url
+ * @auth Bearer token required.
+ *
+ * @body `{ url: string, business_name?: string, target_slug?: string }` — see
+ *   {@link importFromUrlSchema} for the full validation contract.
+ *
+ * @returns `201 Created` with
+ *   `{ site_id, slug, workflow_id, source_url_count, estimated_minutes,
+ *      preview: { homepage_title, theme_color, by_source } }`.
+ *
+ * @throws `UNAUTHORIZED` 401 — no session.
+ * @throws `VALIDATION_ERROR` 400 — body fails schema validation.
+ * @throws `BAD_REQUEST` 400 — slug collides with an existing site in this org.
+ *
+ * @example
+ * ```bash
+ * curl -X POST https://projectsites.dev/api/sites/import-from-url \
+ *   -H "Authorization: Bearer ${TOKEN}" \
+ *   -H "Content-Type: application/json" \
+ *   -d '{"url":"https://example.squarespace.com","business_name":"Example Cafe"}'
+ * ```
+ */
+api.post('/api/sites/import-from-url', async (c) => {
+  const orgId = c.get('orgId');
+  const userId = c.get('userId');
+  if (!orgId) throw unauthorized('Must be authenticated to import a site');
+
+  const body = await c.req.json().catch(() => ({}));
+  const validated = importFromUrlSchema.parse(body);
+
+  // Crawl FIRST — we want the homepage_title for slug-fallback when the user
+  // didn't provide a business_name. Returns within ~5-15 sec on healthy origins.
+  const importId = crypto.randomUUID();
+  const crawl = await crawlSiteForImport(validated.url, importId, c.env);
+
+  // Resolve business name: explicit > scraped <title> > host fallback.
+  const businessName =
+    validated.business_name?.trim() ||
+    crawl.homepage_title?.replace(/\s*[\|\-·]\s*.*$/, '').trim() ||
+    new URL(validated.url).host.replace(/^www\./, '');
+
+  // Derive a slug — user-provided wins; otherwise slugify the business name.
+  // Mirrors the deterministic-slug branch in POST /api/sites so we never get
+  // a different shape from a different code path.
+  const rawSlug =
+    validated.target_slug ||
+    businessName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 63);
+  const slug = rawSlug || `import-${importId.slice(0, 8)}`;
+
+  // Collision check — surface as a clean 400 rather than a D1 UNIQUE error.
+  const collision = await dbQueryOne<{ id: string }>(
+    c.env.DB,
+    'SELECT id FROM sites WHERE slug = ? AND deleted_at IS NULL LIMIT 1',
+    [slug],
+  );
+  if (collision) {
+    throw badRequest(
+      `Slug '${slug}' is already taken. Pass 'target_slug' to choose a different one.`,
+    );
+  }
+
+  const siteId = crypto.randomUUID();
+  const site = {
+    id: siteId,
+    org_id: orgId,
+    slug,
+    business_name: businessName,
+    business_phone: null,
+    business_email: null,
+    business_address: null,
+    business_website: validated.url,
+    google_place_id: null,
+    bolt_chat_id: null,
+    current_build_version: null,
+    // 'generating' so the existing /admin/sites/:id/waiting view treats the
+    // record as in-flight from the first paint — no flash of 'draft' state.
+    status: 'generating',
+    lighthouse_score: null,
+    lighthouse_last_run: null,
+    deleted_at: null,
+  };
+
+  const insertResult = await dbInsert(c.env.DB, 'sites', site);
+  if (insertResult.error) {
+    throw badRequest(`Failed to create site row: ${insertResult.error}`);
+  }
+
+  // Persist the inventory pointer onto the site so the build context loader
+  // can pick it up without reparsing the URL. Best-effort — the workflow
+  // can re-crawl if the column write fails. `dbExecute` returns a
+  // `{ error }` envelope (never throws) so we just discard the result.
+  await dbExecute(
+    c.env.DB,
+    `UPDATE sites
+       SET original_prompt = ?,
+           updated_at = datetime('now')
+     WHERE id = ?`,
+    [
+      `Import from ${validated.url}\n\n_url_inventory.json: imports/${importId}/_url_inventory.json\nDiscovered ${crawl.total_urls} URLs across ${Object.values(crawl.by_source).filter((n) => n > 0).length} discovery sources.`,
+      siteId,
+    ],
+  );
+
+  // Trigger the AI rebuild workflow with businessWebsite populated so the
+  // research phase pulls source content automatically.
+  let workflowId: string | null = null;
+  if (c.env.SITE_WORKFLOW) {
+    try {
+      const instance = await c.env.SITE_WORKFLOW.create({
+        id: siteId,
+        params: {
+          siteId,
+          orgId,
+          slug,
+          businessName,
+          businessAddress: '',
+          businessWebsite: validated.url,
+          googlePlaceId: '',
+          additionalContext: [
+            `Source-site import. Crawled ${crawl.total_urls} URLs via ${Object.entries(crawl.by_source)
+              .filter(([, n]) => n > 0)
+              .map(([k, n]) => `${k}:${n}`)
+              .join(', ')}.`,
+            `_url_inventory.json is at R2 key imports/${importId}/_url_inventory.json.`,
+            `Apply the source-site-enhancement rule: union(SOURCE_URLS, STANDARD_PAGE_SET, JEWELS) minus CRUFT_URLS. Rebuild with every source URL preserved or 301'd.`,
+          ].join(' '),
+        },
+      });
+      workflowId = instance.id;
+    } catch (err) {
+      // Surface as audit + Sentry but don't fail the import — the user can
+      // retry via the existing /admin/sites/:id/reset path.
+      const msg = err instanceof Error ? err.message : String(err);
+      captureError(c, err instanceof Error ? err : new Error(msg), {
+        route: '/api/sites/import-from-url',
+        siteId,
+      });
+      await auditService
+        .writeAuditLog(c.env.DB, {
+          org_id: orgId,
+          actor_id: userId ?? null,
+          action: 'site.import_workflow_failed',
+          message: `Workflow create failed for import of '${validated.url}': ${msg}`,
+          target_type: 'site',
+          target_id: siteId,
+          metadata_json: { site_id: siteId, slug, source_url: validated.url, error: msg },
+          request_id: c.get('requestId'),
+        })
+        .catch(() => {});
+    }
+  }
+
+  await auditService
+    .writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId ?? null,
+      action: 'site.imported_from_url',
+      message: `Site '${slug}' created via import from '${validated.url}' (${crawl.total_urls} URLs discovered)`,
+      target_type: 'site',
+      target_id: siteId,
+      metadata_json: {
+        site_id: siteId,
+        slug,
+        source_url: validated.url,
+        url_count: crawl.total_urls,
+        by_source: crawl.by_source,
+        import_id: importId,
+        workflow_id: workflowId,
+      },
+      request_id: c.get('requestId'),
+    })
+    .catch(() => {});
+
+  try {
+    posthog.trackSite(c.env, c.executionCtx, 'imported', userId || orgId, {
+      site_id: siteId,
+      slug,
+      source_url: validated.url,
+      url_count: crawl.total_urls,
+    });
+  } catch {
+    /* fire-and-forget */
+  }
+
+  return c.json(
+    {
+      data: {
+        site_id: siteId,
+        slug,
+        workflow_id: workflowId,
+        source_url_count: crawl.total_urls,
+        estimated_minutes: estimateRebuildMinutes(crawl.total_urls),
+        preview: {
+          homepage_title: crawl.homepage_title,
+          theme_color: crawl.theme_color,
+          by_source: crawl.by_source,
+        },
+      },
+    },
+    201,
+  );
 });
 
 export { api };

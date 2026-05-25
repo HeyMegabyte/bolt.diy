@@ -159,8 +159,8 @@ describe('emitCallLog', () => {
 
 describe('estimateCost', () => {
   it('returns 0 for free Workers AI models', () => {
-    expect(estimateCost('@cf/meta/llama-3.1-8b-instruct', 1000, 500)).toBe(0);
-    expect(estimateCost('@cf/meta/llama-3.1-70b-instruct', 2000, 1000)).toBe(0);
+    expect(estimateCost('@cf/meta/llama-3.1-8b-instruct-fp8', 1000, 500)).toBe(0);
+    expect(estimateCost('@cf/meta/llama-3.3-70b-instruct-fp8-fast', 2000, 1000)).toBe(0);
   });
 
   it('returns correct cost for gpt-4o', () => {

@@ -116,6 +116,17 @@
   <link rel="dns-prefetch" href="//stackblitz.com">
   <link rel="preconnect" href="https://webcontainer-api.io" crossorigin>
   <link rel="dns-prefetch" href="//webcontainer-api.io">
+  <link rel="preconnect" href="https://webcontainer.io" crossorigin>
+  <link rel="dns-prefetch" href="//webcontainer.io">
+
+  <!-- Item 4 (perf): prefetch the bolt.diy editor entry document so when the
+       user clicks Editor the iframe load is served from the HTTP cache. The
+       editor's hashed module chunks change every deploy, so we cannot
+       modulepreload them by name — but prefetching the entry HTML triggers
+       the browser to discover and fetch the linked modules opportunistically.
+       Marked `prefetch` (not `preload`) so it's deprioritized below in-flight
+       resources and never starves the admin's own LCP. -->
+  <link rel="prefetch" href="https://editor.projectsites.dev/" as="document" crossorigin="anonymous">
 
   <!-- JSON-LD: WebSite (Google, Bing, Yahoo, DuckDuckGo, Brave, Yandex, Baidu) -->
   <script type="application/ld+json">

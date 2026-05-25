@@ -47,15 +47,42 @@ import { aiAdmin } from './routes/ai_admin.js';
 import { aiEndpointsPublic } from './routes/ai_endpoints_public.js';
 import { mcpOauth } from './routes/mcp_oauth.js';
 import { docs } from './routes/docs.js';
+import { autofill } from './routes/autofill.js';
+import { bolt } from './routes/bolt_admin.js';
+import { editorChats } from './routes/editor_chats.js';
+import { apps as appsRoutes } from './routes/apps.js';
+import { snapshotQuality } from './routes/snapshot_quality.js';
+import { dashboard } from './routes/dashboard.js';
+import { inbox, runSnoozeResumeSweep } from './routes/inbox.js';
+import { socialRoutes } from './routes/social.js';
+import { socialOauthRoutes } from './routes/social_oauth.js';
+import { pulseAnalytics, runHourlyPulseAnalyticsCron } from './routes/pulse_analytics.js';
+import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
-import { dbUpdate } from './services/db.js';
+import { dbQueryOne, dbUpdate } from './services/db.js';
 import { registerAllPrompts } from './services/ai_workflows.js';
 import { DOMAINS } from '@project-sites/shared';
 export { SiteGenerationWorkflow } from './workflows/site-generation.js';
 export { DriveSyncWorkflow } from './workflows/drive-sync.js';
 export { ImageGenerationWorkflow } from './workflows/image-generation.js';
+export { SnapshotQualityWorkflow } from './workflows/snapshot-quality.js';
+export { SocialPublishWorkflow } from './workflows/social-publish.js';
 export { SiteBuilderContainer } from './container.js';
 export { TraceHub, ActivityHub } from './durable_objects/trace_hub.js';
+export { ConversationHub } from './durable_objects/conversation_hub.js';
+export { AppRuntimeContainer } from './durable_objects/app_runtime.js';
+export {
+  UmamiContainer,
+  OutlineContainer,
+  N8nContainer,
+  VaultwardenContainer,
+  UptimeKumaContainer,
+  NocodbContainer,
+  ListmonkContainer,
+  MemosContainer,
+  PocketbaseContainer,
+  OpenWebuiContainer,
+} from './durable_objects/app_runtime_subclasses.js';
 
 // Register all prompt definitions at module load
 registerAllPrompts();
@@ -182,6 +209,34 @@ app.use(
   rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:forms' }),
 );
 app.use('/api/ai/*', rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'rl:ai' }));
+// AI autofill (create-site wizard inference) — IP-level guardrail. A second,
+// per-session soft limit lives in the handler itself (KV-keyed by userId).
+app.use(
+  '/api/sites/autofill',
+  rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'rl:autofill' }),
+);
+
+// ─── Bolt admin endpoints (Workers AI + D1 abuse vectors) ───
+// Rec 3 from .claude/RECS.md — vision OCR + Whisper transcribe are token/sec
+// billable, prompt suggestions fire per chat-state change, chat-state mirror
+// writes D1 every 30s. Per-IP windowing prevents one client from melting the
+// AI binding or burning through Workers AI neurons.
+app.use(
+  '/admin-api/vision-ocr',
+  rateLimitMiddleware({ maxRequests: 5, windowSeconds: 60, prefix: 'rl:vision' }),
+);
+app.use(
+  '/admin-api/transcribe',
+  rateLimitMiddleware({ maxRequests: 10, windowSeconds: 60, prefix: 'rl:transcribe' }),
+);
+app.use(
+  '/admin-api/chat/suggest-prompts',
+  rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:suggest' }),
+);
+app.use(
+  '/admin-api/sites/by-slug/*/chat-state',
+  rateLimitMiddleware({ maxRequests: 60, windowSeconds: 60, prefix: 'rl:chat-state' }),
+);
 
 // Auth middleware for API routes (sets userId/orgId if valid session)
 app.use('/api/*', authMiddleware);
@@ -192,13 +247,76 @@ app.onError(errorHandler);
 // ─── Mount Routes ────────────────────────────────────────────
 
 app.route('/', health);
+app.route('/', bolt); // Bolt admin: chat-state mirror, transcribe, vision OCR, prompt suggestions
+app.route('/', editorChats); // Native Angular editor chat persistence + LLM stream proxy
 app.route('/', search); // Must come before api so /api/sites/search wins over /api/sites/:id
+app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
 app.route('/', assets); // Asset uploads + build-assets listing
 app.route('/', forms); // Public form ingest + auth-gated submissions/integrations CRUD
 app.route('/', aiEndpointsPublic); // Public /api/ai/:slug/:endpoint dispatcher
 app.route('/', mcpOauth); // MCP OAuth start + callback (MailChimp/Stripe/Resend/HubSpot)
 app.route('/', aiAdmin); // Form submissions, AI logs, chat, endpoints, credits, alerts, team
 app.route('/', docs); // Interactive API explorer (OpenAPI + Angular overview)
+app.route('/', appsRoutes); // /admin/apps tab — catalog + per-org app_instances CRUD
+app.route('/', snapshotQuality); // /api/sites/:siteId/snapshots/:snapshotId/{capture,metrics,screenshot.png} — must precede `api` so the param order matches first
+app.route('/', dashboard); // /api/dashboard/chat (SSE) + /api/calendar/* — Perplexity-like dashboard surface
+app.route('/', inbox); // /api/inbox/* — Pulse Inbox CRUD + webhooks
+app.route('/', pulseAnalytics); // /api/social/analytics/aggregate + /api/inbox/metrics — must precede social/inbox catch-alls
+app.route('/', socialOauthRoutes); // /api/social/:platform/{connect,callback,paste} — Pulse Social OAuth
+app.route('/', socialRoutes); // /api/social/{accounts,posts}/* — Pulse Social CRUD; must precede `api`
+
+// ── Pulse Inbox WebSocket upgrade ────────────────────────────
+// `wss://projectsites.dev/api/inbox/ws/:conversation_id` proxies the
+// upgrade into the per-conversation Durable Object via `idFromName`.
+// Auth: bearer-token session already populated `c.get('userId')` +
+// `c.get('orgId')` by `authMiddleware`; we then verify the conversation
+// belongs to that org before forwarding the upgrade.
+app.get('/api/inbox/ws/:conversation_id', async (c) => {
+  const upgrade = c.req.header('upgrade');
+  if (upgrade !== 'websocket') {
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'Expected WebSocket upgrade' } }, 426);
+  }
+  const userId = c.get('userId');
+  const orgId = c.get('orgId');
+  if (!userId || !orgId) {
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
+  }
+  const conversationId = c.req.param('conversation_id');
+  if (!conversationId) {
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'conversation_id required' } }, 400);
+  }
+
+  // Verify the conversation belongs to the caller's org.
+  const { dbQueryOne } = await import('./services/db.js');
+  const row = await dbQueryOne<{ org_id: string }>(
+    c.env.DB,
+    `SELECT org_id FROM chat_conversations WHERE id = ? LIMIT 1`,
+    [conversationId],
+  );
+  if (!row) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Conversation not found' } }, 404);
+  }
+  if (row.org_id !== orgId) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Not accessible' } }, 403);
+  }
+  if (!c.env.CONVERSATION_HUB) {
+    return c.json(
+      { error: { code: 'NOT_CONFIGURED', message: 'CONVERSATION_HUB binding missing' } },
+      503,
+    );
+  }
+
+  const id = c.env.CONVERSATION_HUB.idFromName(conversationId);
+  const stub = c.env.CONVERSATION_HUB.get(id);
+  const hubUrl = new URL('http://hub/connect');
+  hubUrl.searchParams.set('conversation_id', conversationId);
+  hubUrl.searchParams.set('user_id', userId);
+  hubUrl.searchParams.set('role', 'agent');
+  return stub.fetch(hubUrl.toString(), {
+    headers: { upgrade: 'websocket' },
+  });
+});
+
 app.route('/', api);
 app.route('/', webhooks);
 
@@ -294,6 +412,37 @@ app.post('/api/internal/build-status', async (c) => {
   await c.env.CACHE_KV.put(`build:${jobId}`, record, { expirationTtl: 3600 });
   return c.json({ ok: true });
 });
+
+/**
+ * Render a branded interstitial for `*.app.projectsites.dev` when the
+ * underlying container is not in a `running` state. Kept inline because
+ * the worker already ships ~80 KB of static HTML for the 404 page and the
+ * App-tab shell is small enough to colocate.
+ */
+function renderAppShellHtml(
+  state: 'booting' | 'crashed' | 'stopped' | 'not-found',
+  data: { sub: string; slug?: string; err?: string; id?: string },
+): string {
+  const titles: Record<typeof state, string> = {
+    booting: 'Booting your app',
+    crashed: 'App crashed',
+    stopped: 'App is stopped',
+    'not-found': 'App not found',
+  };
+  const bodies: Record<typeof state, string> = {
+    booting:
+      'Your container is provisioning. This page refreshes automatically every 3 seconds.',
+    crashed: `${data.err ?? 'Unknown error'} — open the admin to inspect logs and restart.`,
+    stopped: 'The container is stopped. Restart it from the admin dashboard.',
+    'not-found': `No app instance with subdomain "${data.sub}".`,
+  };
+  const cta =
+    state === 'not-found'
+      ? '<a class="btn" href="https://projectsites.dev/admin/apps">Browse apps</a>'
+      : `<a class="btn" href="https://projectsites.dev/admin/apps/${data.id ?? ''}">Open admin</a>`;
+  const title = titles[state];
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · ProjectSites</title><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Fira+Code:wght@400&display=swap" rel="stylesheet"><style>*{margin:0;padding:0;box-sizing:border-box}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0f;color:#e0e0e0;font-family:'Space Grotesk',sans-serif;padding:2rem}.box{max-width:560px;text-align:center}h1{font-size:2.2rem;background:linear-gradient(135deg,#00ffc8,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:1rem}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#00ffc8;animation:pulse 1.4s ease-in-out infinite;margin-right:.5rem;vertical-align:middle}@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}p{color:#8892a4;font-size:1.05rem;line-height:1.5;margin-bottom:2rem}.btn{display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#00ffc8,#7c3aed);color:#0a0a0f;font-weight:600;border-radius:50px;text-decoration:none}.meta{margin-top:2rem;font-family:'Fira Code',monospace;font-size:.75rem;color:#4a9;background:rgba(0,255,200,.05);border:1px solid rgba(0,255,200,.1);padding:1rem;border-radius:8px;text-align:left}</style></head><body><div class="box"><h1>${state === 'booting' ? '<span class="dot"></span>' : ''}${title}</h1><p>${bodies[state]}</p>${cta}<div class="meta">app: ${data.slug ?? '—'}<br>subdomain: ${data.sub}<br>state: ${state}</div></div></body></html>`;
+}
 
 // ─── Site Serving (catch-all for subdomain routing) ──────────
 
@@ -420,7 +569,100 @@ app.all('*', async (c) => {
     // CORS so editor can talk to projectsites.dev API
     res.headers.set('Access-Control-Allow-Origin', `https://${DOMAINS.BOLT_BASE}`);
     res.headers.set('Access-Control-Allow-Credentials', 'true');
+
+    /*
+     * CSP that lets bolt.diy embed the WebContainer preview iframe
+     * (https://*.local-credentialless.webcontainer-api.io) AND lets
+     * projectsites.dev/admin embed bolt.diy itself.
+     *
+     * Pages would otherwise return a default `frame-src 'none'` +
+     * `x-frame-options: DENY` which blanks the preview pane and breaks
+     * the admin embed. We override here on every proxied response.
+     *
+     * Reference incident 2026-05-24: user reported WebContainer preview
+     * URL (`*.local-credentialless.webcontainer-api.io`) "is not
+     * working" — Pages CSP `frame-src 'none'` was the culprit.
+     */
+    res.headers.delete('X-Frame-Options');
+    res.headers.set(
+      'Content-Security-Policy',
+      [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "img-src 'self' data: https: blob:",
+        "font-src 'self' data: https://fonts.gstatic.com",
+        "connect-src 'self' https: wss: blob:",
+        "frame-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io https://*.stackblitz.com https://challenges.cloudflare.com",
+        "child-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io",
+        "worker-src 'self' blob:",
+        "frame-ancestors 'self' https://projectsites.dev https://*.projectsites.dev https://bolt-diy-8jf.pages.dev https://bolt.megabyte.space",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self' https:",
+      ].join('; '),
+    );
     return res;
+  }
+
+  // ─── Apps tab — *.app.projectsites.dev → AppRuntime container DO ──
+  // Hostnames of the form `{subdomain}.app.projectsites.dev` resolve to
+  // a row in `app_instances` and proxy the request to its container DO.
+  // Match `{subdomain}.app.projectsites.dev`. Wildcard SAN `*.app.projectsites.dev`
+  // must be provisioned via CF Advanced Certificate Manager (or a custom-
+  // hostname rule) since the existing Universal SSL only covers the
+  // single-level `*.projectsites.dev`. Track via RECS.md.
+  if (hostname.endsWith('.app.projectsites.dev') && hostname !== '.app.projectsites.dev') {
+    const sub = hostname.slice(0, -'.app.projectsites.dev'.length);
+    const inst = await dbQueryOne<{
+      id: string;
+      status: string;
+      do_instance_id: string | null;
+      last_error: string | null;
+      app_slug: string;
+    }>(
+      c.env.DB,
+      `SELECT id, status, do_instance_id, last_error, app_slug FROM app_instances
+         WHERE subdomain = ? AND deleted_at IS NULL`,
+      [sub],
+    );
+    if (!inst) {
+      return new Response(renderAppShellHtml('not-found', { sub }), {
+        status: 404,
+        headers: { 'Content-Type': 'text/html;charset=utf-8' },
+      });
+    }
+    if (inst.status === 'provisioning' || inst.status === 'starting') {
+      return new Response(renderAppShellHtml('booting', { sub, slug: inst.app_slug }), {
+        status: 202,
+        headers: {
+          'Content-Type': 'text/html;charset=utf-8',
+          'Cache-Control': 'no-store',
+          Refresh: '3',
+        },
+      });
+    }
+    if (inst.status === 'error' || inst.status === 'crashed') {
+      return new Response(
+        renderAppShellHtml('crashed', {
+          sub,
+          slug: inst.app_slug,
+          err: inst.last_error ?? 'unknown',
+          id: inst.id,
+        }),
+        {
+          status: 502,
+          headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-store' },
+        },
+      );
+    }
+    if (inst.status === 'stopped' || inst.status === 'destroyed') {
+      return new Response(renderAppShellHtml('stopped', { sub, slug: inst.app_slug, id: inst.id }), {
+        status: 503,
+        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-store' },
+      });
+    }
+    return proxyToContainer(c.env, inst.do_instance_id ?? inst.id, c.req.raw, inst.app_slug);
   }
 
   // Resolve the site from hostname using D1
@@ -647,6 +889,34 @@ export default {
       );
     }
 
+    // Pulse Inbox — re-open snoozed conversations whose timer has elapsed.
+    // Fires on the */5 cron added in wrangler.toml. Idempotent — running the
+    // sweep twice in the same minute reopens nothing the second time.
+    if (_event.cron === '*/5 * * * *') {
+      try {
+        const result = await runSnoozeResumeSweep(env);
+        if (result.resumed > 0) {
+          console.warn(
+            JSON.stringify({
+              level: 'info',
+              service: 'cron',
+              message: 'Pulse Inbox snooze sweep',
+              resumed: result.resumed,
+            }),
+          );
+        }
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'cron',
+            message: 'Snooze sweep failed',
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    }
+
     // Monday 14:00 UTC (9 AM ET) — weekly summary digest emails (#96).
     // Idempotent per (org, ISO week) — safe to retry/replay.
     if (_event.cron === '0 14 * * 1') {
@@ -667,6 +937,35 @@ export default {
             level: 'error',
             service: 'cron',
             message: 'Weekly digest cron failed',
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    }
+
+    // Daily 06:00 UTC — backfill snapshot quality metrics for any snapshot
+    // newer than 7 days that's still missing its metrics row. Caps at 50
+    // per run so a backlog never melts Browser Rendering quota.
+    if (_event.cron === '0 6 * * *') {
+      try {
+        const { runSnapshotMetricsBackfillCron } = await import(
+          './workflows/snapshot-quality.js'
+        );
+        const result = await runSnapshotMetricsBackfillCron(env);
+        console.warn(
+          JSON.stringify({
+            level: 'info',
+            service: 'cron',
+            message: 'Snapshot metrics backfill complete',
+            ...result,
+          }),
+        );
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'cron',
+            message: 'Snapshot metrics backfill failed',
             error: err instanceof Error ? err.message : String(err),
           }),
         );
@@ -702,6 +1001,90 @@ export default {
             level: 'error',
             service: 'cron',
             message: 'Drive sync failed',
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    }
+
+    // Every minute: Pulse Social due-post sweep. Picks up any post in
+    // status='scheduled' with scheduled_at in [NOW-10min, NOW] and fires the
+    // SocialPublishWorkflow. The lower bound prevents replays after long
+    // worker outages. Capped at 25 posts/run.
+    if (_event.cron === '* * * * *') {
+      try {
+        const { dbQuery, dbUpdate } = await import('./services/db.js');
+        const lower = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+        const upper = new Date().toISOString();
+        const { data: due } = await dbQuery<{ id: string }>(
+          env.DB,
+          `SELECT id FROM pulse_posts
+            WHERE deleted_at IS NULL AND status = 'scheduled'
+              AND scheduled_at <= ? AND scheduled_at > ?
+            ORDER BY scheduled_at ASC LIMIT 25`,
+          [upper, lower],
+        );
+        const wfBinding = (env as unknown as {
+          SOCIAL_PUBLISH_WORKFLOW?: { create: (opts: { id: string; params: { post_id: string } }) => Promise<unknown> };
+        }).SOCIAL_PUBLISH_WORKFLOW;
+        let fired = 0;
+        for (const p of due) {
+          // Optimistically flip → publishing so the next sweep skips this row.
+          const { changes } = await dbUpdate(
+            env.DB,
+            'pulse_posts',
+            { status: 'publishing' },
+            "id = ? AND status = 'scheduled'",
+            [p.id],
+          );
+          if (changes === 0) continue;
+          if (wfBinding) {
+            await wfBinding
+              .create({ id: `social-publish-${p.id}-${Date.now()}`, params: { post_id: p.id } })
+              .catch((err: unknown) => {
+                console.warn(JSON.stringify({
+                  level: 'warn', service: 'cron', message: 'social_publish_create_failed',
+                  post_id: p.id, error: err instanceof Error ? err.message : String(err),
+                }));
+              });
+          }
+          fired++;
+        }
+        if (fired > 0) {
+          console.warn(JSON.stringify({
+            level: 'info', service: 'cron', message: 'Pulse Social due-post sweep',
+            fired, scanned: due.length,
+          }));
+        }
+      } catch (err) {
+        console.warn(JSON.stringify({
+          level: 'error', service: 'cron', message: 'Pulse Social sweep failed',
+          error: err instanceof Error ? err.message : String(err),
+        }));
+      }
+    }
+
+    // Hourly: Pulse Social analytics snapshot pull. For every social_publishes
+    // row that succeeded in the last 30 days, hit the platform's metrics
+    // endpoint and write a fresh social_analytics_snapshots row. Capped at
+    // 200/run so a backlog never melts platform rate limits.
+    if (_event.cron === '0 * * * *') {
+      try {
+        const result = await runHourlyPulseAnalyticsCron(env);
+        console.warn(
+          JSON.stringify({
+            level: 'info',
+            service: 'cron',
+            message: 'Pulse Social analytics snapshot',
+            ...result,
+          }),
+        );
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'cron',
+            message: 'Pulse Social analytics cron failed',
             error: err instanceof Error ? err.message : String(err),
           }),
         );

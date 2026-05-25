@@ -2,7 +2,7 @@ import { Component, type OnInit, type OnDestroy, inject, signal, ChangeDetectorR
 import { Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, of, takeUntil } from 'rxjs';
-import { ApiService, type CreateSitePayload } from '../../services/api.service';
+import { ApiService, type CreateSitePayload, type AutofillResult } from '../../services/api.service';
 import { AuthService, type SelectedBusiness } from '../../services/auth.service';
 import { GeolocationService } from '../../services/geolocation.service';
 import { ToastService } from '../../services/toast.service';
@@ -224,6 +224,46 @@ export class CreateComponent implements OnInit, OnDestroy {
   loadingCategory = signal(false);
   loadingContext = signal(false);
 
+  // ── AI autofill (sidebar → /create?name=...) ──────────────
+  /**
+   * In-flight AI autofill state. When `true`, every field that hasn't
+   * been touched shows a shimmer border. Clears the moment the response
+   * resolves (or fails).
+   */
+  autofilling = signal(false);
+
+  /**
+   * Set of form field keys the user has touched (typed in, focused, or
+   * had pre-filled from a known-good source like Google Places). Late-
+   * arriving AI suggestions MUST NOT clobber anything in this set.
+   *
+   * Field keys: `name | address | phone | website | category | context |
+   * tagline | audience | description | url | subdomain | colors`.
+   */
+  touchedFields = signal<Set<string>>(new Set<string>());
+
+  /** Per-field shimmer state — driven from `autofilling()` minus touched. */
+  shimmering(field: string): boolean {
+    return this.autofilling() && !this.touchedFields().has(field);
+  }
+
+  /** Count of fields actually filled by the AI in the last call — drives the submit-button label. */
+  autofillCount = signal(0);
+
+  /** Mark a field as user-touched. Once touched, AI cannot overwrite it. */
+  markTouched(field: string): void {
+    const s = this.touchedFields();
+    if (s.has(field)) return;
+    const next = new Set(s);
+    next.add(field);
+    this.touchedFields.set(next);
+  }
+
+  /** True when the form is still pristine (no user edits + no pre-fill). */
+  private isFormPristine(): boolean {
+    return this.touchedFields().size === 0;
+  }
+
   // AI image discovery
   discoveringImages = signal(false);
 
@@ -255,10 +295,15 @@ export class CreateComponent implements OnInit, OnDestroy {
     });
     // Pre-fill from query params if present (e.g., /create?name=Foo&address=Bar)
     const params = this.route.snapshot.queryParams;
-    if (params['name']) this.businessName = params['name'];
-    if (params['address']) this.businessAddress = params['address'];
-    if (params['phone']) this.businessPhone = params['phone'];
-    if (params['website']) this.businessWebsite = cleanUrl(params['website']);
+    if (params['name']) {
+      this.businessName = params['name'];
+      // Name from sidebar selector is a "known good" pre-fill — lock it
+      // so AI inference cannot clobber the user's exact wording.
+      this.markTouched('name');
+    }
+    if (params['address']) { this.businessAddress = params['address']; this.markTouched('address'); }
+    if (params['phone']) { this.businessPhone = params['phone']; this.markTouched('phone'); }
+    if (params['website']) { this.businessWebsite = cleanUrl(params['website']); this.markTouched('website'); }
     if (params['reset']) this.resetSiteId = params['reset'];
 
     // Check if coming from search selection
@@ -297,6 +342,16 @@ export class CreateComponent implements OnInit, OnDestroy {
     if (shouldAutoCreate && this.businessName && this.businessAddress) {
       this.auth.setAutoCreate(false);
       setTimeout(() => this.autoPopulate(), 300);
+    }
+
+    // AI autofill — fired when the user arrives via /create?name=...
+    // (sidebar selector "press Enter" flow). Runs in parallel with
+    // anything else; never blocks the page. Late-arriving suggestions
+    // skip any field the user has already touched.
+    if (params['name'] && params['name'].trim() && this.auth.isLoggedIn()) {
+      // We pre-locked `name` above, so AI inference can fill everything
+      // else but never overwrite the user's exact business name.
+      setTimeout(() => this.runAutofill(params['name'].trim()), 50);
     }
 
     // Pending build: user was redirected to signin, now logged in — auto-submit
@@ -370,6 +425,7 @@ export class CreateComponent implements OnInit, OnDestroy {
   }
 
   onAddressInput(): void {
+    this.markTouched('address');
     this.addressSubject.next(this.businessAddress);
   }
 
@@ -383,6 +439,7 @@ export class CreateComponent implements OnInit, OnDestroy {
   }
 
   onBusinessInput(): void {
+    this.markTouched('name');
     this.businessSubject.next(this.businessName);
   }
 
@@ -537,6 +594,108 @@ export class CreateComponent implements OnInit, OnDestroy {
         this.toast.error('Auto-populate failed — category set from business name');
       },
     });
+  }
+
+  /**
+   * Run AI autofill for the create form.
+   *
+   * Calls `POST /api/sites/autofill` with the business name. While the
+   * call is in-flight, every untouched field shimmers. When the response
+   * arrives, only fields the user has NOT touched are filled — late-
+   * arriving inference must never clobber active edits.
+   *
+   * @param name - Business name to research (echoed from `?name=` param)
+   */
+  runAutofill(name: string): void {
+    if (!name.trim()) return;
+    this.autofilling.set(true);
+    this.autofillCount.set(0);
+    this.cdr.detectChanges();
+
+    this.telemetry.track('site.create.autofill_started', { name_length: name.length });
+
+    this.api.autofillSite(name.trim()).subscribe({
+      next: (res) => {
+        const data = res.data;
+        this.applyAutofill(data);
+        this.autofilling.set(false);
+        this.cdr.detectChanges();
+        this.saveFormDraft();
+        this.telemetry.track('site.create.autofill_completed', {
+          model: res.meta?.model,
+          latency_ms: res.meta?.latency_ms,
+          fields_applied: this.autofillCount(),
+        });
+      },
+      error: (err) => {
+        this.autofilling.set(false);
+        this.cdr.detectChanges();
+        // Don't block the page — let the user fill the form by hand
+        this.toast.info('AI suggestions unavailable — fill in details manually');
+        this.telemetry.track('site.create.autofill_failed', { status: err?.status });
+      },
+    });
+  }
+
+  /**
+   * Apply an AI autofill response to form state. ONLY fills fields the
+   * user has not yet touched — late-arriving inference NEVER clobbers
+   * an active edit.
+   */
+  private applyAutofill(data: AutofillResult): void {
+    let count = 0;
+    const touched = this.touchedFields();
+
+    // Business name — usually pre-locked but defensive in case of empty query
+    if (data.name && data.name.trim() && !touched.has('name') && !this.businessName.trim()) {
+      this.businessName = data.name.trim();
+      count++;
+    }
+
+    if (data.business_address && !touched.has('address') && !this.businessAddress.trim()) {
+      this.businessAddress = data.business_address;
+      count++;
+    }
+
+    if (data.phone && !touched.has('phone') && !this.businessPhone.trim()) {
+      this.businessPhone = data.phone;
+      count++;
+    }
+
+    if (data.primary_url && !touched.has('website') && !this.businessWebsite.trim()) {
+      this.businessWebsite = cleanUrl(data.primary_url);
+      count++;
+    }
+
+    if (data.category && !touched.has('category') && !this.businessCategory) {
+      // Only apply if it's in the dropdown list — otherwise leave empty
+      if (this.categories.includes(data.category)) {
+        this.businessCategory = data.category;
+        count++;
+      }
+    }
+
+    // Compose an "Additional details" block from the high-signal AI fields,
+    // but only if the user hasn't typed anything in there yet.
+    if (!touched.has('context') && !this.additionalContext.trim()) {
+      const parts: string[] = [];
+      if (data.description) parts.push(`About: ${data.description}`);
+      if (data.tagline) parts.push(`Tagline: ${data.tagline}`);
+      if (data.target_audience) parts.push(`Target audience: ${data.target_audience}`);
+      if (data.brand_colors && data.brand_colors.length) {
+        parts.push(`Brand colors: ${data.brand_colors.join(', ')}`);
+      }
+      if (data.suggested_subdomains && data.suggested_subdomains.length) {
+        parts.push(`Suggested subdomains: ${data.suggested_subdomains.join(', ')}`);
+      }
+      if (data.additional_context) parts.push(data.additional_context);
+      if (parts.length) {
+        this.additionalContext = parts.join('\n');
+        count++;
+      }
+    }
+
+    this.autofillCount.set(count);
   }
 
   private discoverBrandImages(website?: string): void {

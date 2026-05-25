@@ -84,6 +84,41 @@ interface ApiSurfaceRow {
   readonly authRequired: boolean;
   readonly requestBody?: OpenApiSchema;
   readonly responseExample?: Record<string, unknown>;
+  /**
+   * Logical category surfaced in the UI sidebar grouping. Falls back to `tag`
+   * when omitted. Intentionally broader than `tag` (the OpenAPI `tags`
+   * collection is fine-grained for spec consumers; categories are coarse for
+   * the human-facing left rail).
+   */
+  readonly category?:
+    | 'Auth'
+    | 'Sites'
+    | 'Snapshots'
+    | 'Forms'
+    | 'Apps'
+    | 'Calendar'
+    | 'Billing'
+    | 'Admin'
+    | 'Docs'
+    | 'AI'
+    | 'Analytics'
+    | 'Hostnames'
+    | 'Domains'
+    | 'Search'
+    | 'Webhooks'
+    | 'Health';
+  /**
+   * Rate-limit budget (requests per window seconds). When set the UI surfaces
+   * a yellow warning chip + the curl snippet includes a `# rate-limited`
+   * comment. Keep in sync with the actual middleware config in
+   * `src/middleware/rate_limit.ts`.
+   */
+  readonly rateLimit?: { readonly requests: number; readonly windowSeconds: number };
+  /**
+   * ISO-8601 date the endpoint shipped in production. Drives the "Recent
+   * additions" overview block (`added_at > now - 30d`).
+   */
+  readonly addedAt?: string;
 }
 
 type ApiTag =
@@ -134,7 +169,10 @@ const API_SURFACE: readonly ApiSurfaceRow[] = [
     path: '/api/auth/magic-link',
     summary: 'Request a magic-link email',
     tag: 'auth',
+    category: 'Auth',
     authRequired: true,
+    rateLimit: { requests: 3, windowSeconds: 600 },
+    addedAt: '2026-03-12',
     requestBody: {
       type: 'object',
       required: ['email'],
@@ -191,6 +229,7 @@ const API_SURFACE: readonly ApiSurfaceRow[] = [
   { method: 'POST', path: '/api/sites/improve-prompt', summary: 'AI prompt-improvement assistant', tag: 'ai', authRequired: true },
   { method: 'POST', path: '/api/sites/generate-prompt', summary: 'AI prompt-generation assistant', tag: 'ai', authRequired: true },
   { method: 'POST', path: '/api/ai/categorize', summary: 'AI business categorisation', tag: 'ai', authRequired: true },
+  { method: 'POST', path: '/api/sites/autofill', summary: 'AI create-form autofill from a business name', tag: 'ai', authRequired: true },
   { method: 'POST', path: '/api/contact-form/{slug}', summary: 'Submit a contact form to a generated site', tag: 'forms', authRequired: true },
   { method: 'GET', path: '/api/sites/by-slug/{slug}/build-context', summary: 'Build-context blob for a site slug', tag: 'sites', authRequired: true },
   { method: 'GET', path: '/api/sites/by-slug/{slug}/chat', summary: 'Chat context for a site slug', tag: 'sites', authRequired: true },
@@ -229,8 +268,9 @@ const API_SURFACE: readonly ApiSurfaceRow[] = [
   { method: 'POST', path: '/api/publish/bolt', summary: 'Publish a build from the bolt editor', tag: 'sites', authRequired: true },
 
   // ─── docs (self) ───
-  { method: 'GET', path: '/api/admin/docs/openapi.json', summary: 'OpenAPI 3.1 spec for the entire API', tag: 'admin', authRequired: true },
-  { method: 'GET', path: '/api/admin/docs/app-overview', summary: 'Markdown walkthrough of the Angular SPA', tag: 'admin', authRequired: true },
+  { method: 'GET', path: '/api/admin/docs/openapi.json', summary: 'OpenAPI 3.1 spec for the entire API', tag: 'admin', category: 'Docs', authRequired: true },
+  { method: 'GET', path: '/api/admin/docs/app-overview', summary: 'Markdown walkthrough of the Angular SPA', tag: 'admin', category: 'Docs', authRequired: true },
+  { method: 'GET', path: '/api/admin/docs/stats', summary: 'Aggregate counts powering the Docs overview hero', tag: 'admin', category: 'Docs', authRequired: true, addedAt: '2026-05-24' },
 ];
 
 /**
@@ -335,6 +375,11 @@ export function buildOpenApiSpec(): Record<string, unknown> {
         content: { 'application/json': { schema: row.requestBody } },
       };
     }
+    // Custom (`x-`) extensions consumed by the in-product Docs explorer. They
+    // are valid OpenAPI 3.1 vendor extensions and ignored by generic tooling.
+    if (row.category) op['x-category'] = row.category;
+    if (row.rateLimit) op['x-rate-limit'] = row.rateLimit;
+    if (row.addedAt) op['x-added-at'] = row.addedAt;
     if (!paths[row.path]) paths[row.path] = {};
     paths[row.path]![row.method.toLowerCase()] = op;
   }
@@ -514,6 +559,55 @@ ${tree}
 - Worker entry — \`apps/project-sites/src/index.ts\`.
 `;
 }
+
+/**
+ * `GET /api/admin/docs/stats` — aggregate counts powering the in-product
+ * overview hero stats + leaderboards. Pure spec-derived counts today; future
+ * iterations can lift `last_called_at` / `p50_latency_ms` per route from
+ * `usage_events` once the table grows per-route columns.
+ *
+ * @auth Required.
+ * @returns `{ data: { total, public, authed, rate_limited, recent[], category_counts } }`
+ */
+docs.get('/api/admin/docs/stats', (c) => {
+  const userId = requireUser(c);
+  if (!userId) return c.res;
+
+  const total = API_SURFACE.length;
+  let publicCount = 0;
+  let authedCount = 0;
+  let rateLimitedCount = 0;
+  const recent: Array<{ method: string; path: string; addedAt: string; category?: string }> = [];
+  const categoryCounts: Record<string, number> = {};
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+  for (const row of API_SURFACE) {
+    if (row.authRequired) authedCount++;
+    else publicCount++;
+    if (row.rateLimit) rateLimitedCount++;
+    const cat = row.category ?? row.tag;
+    categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
+    if (row.addedAt) {
+      const t = Date.parse(row.addedAt);
+      if (!Number.isNaN(t) && t >= cutoff) {
+        recent.push({ method: row.method, path: row.path, addedAt: row.addedAt, category: cat });
+      }
+    }
+  }
+  recent.sort((a, b) => b.addedAt.localeCompare(a.addedAt));
+
+  return c.json({
+    data: {
+      total,
+      public: publicCount,
+      authed: authedCount,
+      rate_limited: rateLimitedCount,
+      recent: recent.slice(0, 10),
+      category_counts: categoryCounts,
+      generated_at: new Date().toISOString(),
+    },
+  });
+});
 
 /**
  * `GET /api/admin/docs/app-overview` — returns the markdown overview above.

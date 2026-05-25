@@ -166,6 +166,42 @@ export class ApiService {
     return this.post('/sites/create-from-search', body);
   }
 
+  /**
+   * One-click site import from any URL. Crawls the source (Squarespace /
+   * Wix / WordPress / Webflow / plain HTML), persists an inventory of every
+   * discovered URL to R2, creates a draft site row, and kicks off the AI
+   * rebuild workflow. Resolves once the workflow is enqueued — long-running
+   * work happens server-side; the caller routes to /admin/waiting?id=…
+   * to watch progress.
+   *
+   * @param body.url - Full http(s) URL of the source site. Required.
+   * @param body.business_name - Optional override; defaults to the scraped
+   *   `<title>` (with delimiter-suffix stripped) or the bare host.
+   * @param body.target_slug - Optional subdomain slug; defaults to a
+   *   business-name slugification.
+   */
+  importFromUrl(body: ImportFromUrlPayload): Observable<{ data: ImportFromUrlResult }> {
+    return this.post('/sites/import-from-url', body);
+  }
+
+  /**
+   * Fetch the 30-day rolling cost forecast for the authenticated org.
+   *
+   * @remarks
+   * Backed by `GET /api/billing/cost-forecast?days=N` (Bundle B finish, 2026-05-24).
+   * `days` clamps server-side to `[7, 90]`. Surface used by the Forecast card in
+   * `billing.component.ts` — drives the rolling-counter projection, sparkline,
+   * percent-of-cap meter, and the 80% threshold toast deduped via KV.
+   *
+   * @example
+   * ```ts
+   * this.api.getCostForecast(30).subscribe(r => this.forecast.set(r.data));
+   * ```
+   */
+  getCostForecast(days = 30): Observable<{ data: CostForecastV2 }> {
+    return this.get(`/billing/cost-forecast?days=${encodeURIComponent(String(days))}`);
+  }
+
   /** List user sites */
   listSites(): Observable<{ data: Site[] }> {
     return this.get('/sites');
@@ -214,6 +250,29 @@ export class ApiService {
   /** Delete hostname */
   deleteHostname(siteId: string, hostnameId: string): Observable<void> {
     return this.delete(`/sites/${siteId}/hostnames/${hostnameId}`);
+  }
+
+  /** Deactivate (unsubscribe) hostname — keeps the row but stops serving traffic. */
+  unsubscribeHostname(siteId: string, hostnameId: string): Observable<void> {
+    return this.post(`/sites/${siteId}/hostnames/${hostnameId}/unsubscribe`, {});
+  }
+
+  /** Workers-AI-enriched domain search (Domainr + Llama 3.3 reasoning). */
+  searchDomainsEnriched(
+    query: string,
+    business?: string,
+  ): Observable<{ results: DomainSuggestion[] }> {
+    const params: Record<string, string> = { q: query };
+    if (business) params['business'] = business;
+    return this.get('/domains/search-enrich', params);
+  }
+
+  /** Direct-register a domain via CF Registrar + bind to site as custom hostname. */
+  registerDomain(
+    domain: string,
+    siteId: string,
+  ): Observable<{ data: { purchase_id: string; domain: string; hostname_id: string | null; ssl_status: string } }> {
+    return this.post('/domains/register', { domain, site_id: siteId });
   }
 
   /** Check slug availability */
@@ -305,6 +364,19 @@ export class ApiService {
     return this.post('/ai/categorize', { name, address, types });
   }
 
+  /**
+   * AI autofill — given a business name, infer every create-form field.
+   *
+   * Every field on the response is nullable. The model is instructed to
+   * return `null` rather than hallucinate, so the caller MUST treat
+   * `null` as "leave the form alone" — never as "clear the field".
+   *
+   * @see {@link AutofillResult}
+   */
+  autofillSite(name: string): Observable<{ data: AutofillResult; meta?: { model: string; latency_ms: number; status: 'ok' | 'error' } }> {
+    return this.post('/sites/autofill', { name });
+  }
+
   /** AI image discovery — finds logo, favicon, and images via web search */
   discoverImages(name: string, address?: string, website?: string): Observable<{ data: DiscoveredImages }> {
     return this.post('/ai/discover-images', { name, address, website });
@@ -355,6 +427,59 @@ export class ApiService {
   /** Get GA4 analytics data for a site */
   getAnalytics(siteId: string, period = '7'): Observable<{ data: AnalyticsData }> {
     return this.get(`/analytics/${siteId}`, { period });
+  }
+
+  /**
+   * Aggregated Cloudflare GraphQL analytics across every URL bound to a site.
+   * Reads `site_urls` rows, fans out one CF query per URL, sums the result.
+   * Cached server-side in KV for 5 minutes.
+   */
+  getMultiUrlAnalytics(
+    siteId: string,
+    range: AnalyticsRange = '7d',
+    excludeHostnames: string[] = [],
+  ): Observable<{ data: MultiUrlAnalyticsEnvelope }> {
+    const params: Record<string, string> = { range };
+    if (excludeHostnames.length > 0) params['exclude'] = excludeHostnames.join(',');
+    return this.get(`/sites/${siteId}/analytics`, params);
+  }
+
+  /** List the URLs (primary + alternates) bound to a site. */
+  listSiteUrls(siteId: string): Observable<{ data: SiteUrlRow[] }> {
+    return this.get(`/sites/${siteId}/urls`);
+  }
+
+  /** Bind an alternate URL to a site. Returns 409 on duplicate hostname. */
+  addSiteUrl(siteId: string, hostname: string): Observable<{ data: { id: string; hostname: string; is_primary: number } }> {
+    return this.post(`/sites/${siteId}/urls`, { hostname });
+  }
+
+  /** Unbind an alternate URL. The primary URL cannot be removed via this endpoint. */
+  removeSiteUrl(siteId: string, urlId: string): Observable<{ data: { id: string; deleted: boolean } }> {
+    return this.delete(`/sites/${siteId}/urls/${urlId}`);
+  }
+
+  /**
+   * Status of the signed-in org's Cloudflare credentials.
+   * Never returns the secret itself — only whether it's set + when validated.
+   */
+  getCloudflareCredentialStatus(): Observable<{ data: CloudflareCredentialStatus }> {
+    return this.get('/admin/cloudflare-credentials');
+  }
+
+  /** Store the org's Cloudflare global-key credentials (validated server-side). */
+  setCloudflareCredentials(email: string, apiKey: string): Observable<{ data: CloudflareCredentialStatus }> {
+    return this.put('/admin/cloudflare-credentials', { email, api_key: apiKey });
+  }
+
+  /** Re-validate stored credentials by pinging `GET /zones?per_page=1`. */
+  validateCloudflareCredentials(): Observable<{ data: { ok: boolean; account_id?: string | null; validated_at?: string; status?: number; message?: string } }> {
+    return this.post('/admin/cloudflare-credentials/validate', {});
+  }
+
+  /** Remove stored Cloudflare credentials. Falls back to worker-bundled defaults. */
+  deleteCloudflareCredentials(): Observable<{ data: { deleted: boolean } }> {
+    return this.delete('/admin/cloudflare-credentials');
   }
 
   /** List form submissions for a site */
@@ -539,6 +664,16 @@ export interface Hostname {
   is_primary: boolean;
 }
 
+/** Workers-AI-enriched domain suggestion from /api/domains/search-enrich. */
+export interface DomainSuggestion {
+  domain: string;
+  available: boolean;
+  status: 'available' | 'taken' | 'unknown';
+  reason: string;
+  pitch: string;
+  price_usd_yr: number | null;
+}
+
 export interface SubscriptionInfo {
   plan: string;
   status: string;
@@ -678,4 +813,126 @@ export interface AnalyticsData {
   trafficSources: AnalyticsTrafficSource[];
   topPages: AnalyticsTopPage[];
   topCountries?: AnalyticsTopCountry[];
+}
+
+/** Time-range buckets accepted by the multi-URL analytics endpoint. */
+export type AnalyticsRange = '24h' | '7d' | '30d' | '90d';
+
+/**
+ * Aggregated Cloudflare GraphQL analytics envelope.
+ * Returned by `GET /api/sites/:id/analytics`.
+ */
+export interface MultiUrlAnalyticsEnvelope {
+  range_days: number;
+  urls_included: { hostname: string; resolved_zone: boolean }[];
+  pageviews: number;
+  uniques: number;
+  total_requests: number;
+  series: { date: string; page_views: number; unique_visitors: number; requests: number }[];
+  top_pages: { path: string; views: number }[];
+  top_countries: { country: string; views: number }[];
+  top_referrers: { referrer: string; views: number }[];
+  /**
+   * `true` when at least one URL contributed real CF data. `false` means the
+   * UI should surface a "connect Cloudflare credentials" CTA.
+   */
+  any_real_data: boolean;
+}
+
+/** Row in `site_urls` — primary URL plus alternates. */
+export interface SiteUrlRow {
+  id: string;
+  site_id: string;
+  hostname: string;
+  is_primary: number;
+  zone_id: string | null;
+  account_id: string | null;
+  added_at: string;
+}
+
+/**
+ * Per-org Cloudflare credential status. Never includes the API key itself —
+ * only the email + whether the credential is configured + when it was last
+ * validated successfully.
+ */
+export interface CloudflareCredentialStatus {
+  has_credentials: boolean;
+  source: 'org' | 'worker_global_key' | 'worker_token' | 'none';
+  email: string | null;
+  last_validated_at: string | null;
+  last_validated_account_id: string | null;
+}
+
+/**
+ * AI autofill inference result — every field nullable so the server can
+ * decline rather than hallucinate. The frontend treats `null` as "leave
+ * the field alone", never as "clear the field".
+ */
+export interface AutofillResult {
+  name: string | null;
+  description: string | null;
+  category: string | null;
+  primary_url: string | null;
+  suggested_subdomains: string[] | null;
+  brand_colors: string[] | null;
+  tagline: string | null;
+  target_audience: string | null;
+  business_address: string | null;
+  phone: string | null;
+  additional_context: string | null;
+}
+
+/**
+ * POST /api/sites/import-from-url request body. `business_name` and
+ * `target_slug` are optional — the server falls back to the scraped page
+ * title and a slugified business name respectively when omitted.
+ */
+export interface ImportFromUrlPayload {
+  url: string;
+  business_name?: string;
+  target_slug?: string;
+}
+
+/**
+ * One-click-import success envelope. `workflow_id` is null only on dev
+ * environments where the `SITE_WORKFLOW` binding is absent — production
+ * always returns a workflow id and the UI can route straight to
+ * `/admin/waiting?id={site_id}`.
+ */
+export interface ImportFromUrlResult {
+  site_id: string;
+  slug: string;
+  workflow_id: string | null;
+  source_url_count: number;
+  estimated_minutes: number;
+  preview: {
+    homepage_title: string | null;
+    theme_color: string | null;
+    by_source: Record<'sitemap' | 'robots' | 'wayback' | 'html_bfs', number>;
+  };
+}
+
+/**
+ * 30-day rolling cost-forecast envelope returned by
+ * `GET /api/billing/cost-forecast?days=N`.
+ *
+ * @remarks
+ * `breakdown` is zero-filled: every day in the requested window has an entry
+ * even when no usage events fired that day. The Forecast card sparkline
+ * relies on this shape so it can render a uniform x-axis without gaps.
+ *
+ * `days_until_cap_hit` is `null` either when the rolling rate is zero
+ * (no projected ramp) OR when the cap is already exceeded — the UI renders
+ * a "cap reached" badge in the latter case.
+ */
+export interface CostForecastV2 {
+  projected_usd: number;
+  current_period_usd: number;
+  breakdown: Array<{ day: string; usd: number; calls: number }>;
+  plan_cap_usd: number | null;
+  percent_of_cap: number;
+  days_until_cap_hit: number | null;
+  rolling_daily_avg: number;
+  period_start: string;
+  period_end: string;
 }

@@ -173,7 +173,7 @@ describe('runPrompt', () => {
     expect(result.output).toBe(MOCK_RESEARCH_RESPONSE);
     expect(result.promptId).toBe('research_business');
     expect(result.promptVersion).toBe(2);
-    expect(result.model).toBe('@cf/meta/llama-3.1-70b-instruct');
+    expect(result.model).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
     expect(typeof result.latencyMs).toBe('number');
     expect(env.AI.run).toHaveBeenCalledTimes(1);
   });
@@ -201,7 +201,7 @@ describe('runPrompt', () => {
     });
 
     const callArgs = (env.AI.run as jest.Mock).mock.calls[0];
-    expect(callArgs[0]).toBe('@cf/meta/llama-3.1-70b-instruct');
+    expect(callArgs[0]).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
 
     const payload = callArgs[1];
     expect(payload.messages).toHaveLength(2);

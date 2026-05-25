@@ -1,0 +1,266 @@
+<!--
+  /admin/import — one-click site import.
+
+  Three states drive the layout:
+    idle      — URL input + optional overrides
+    crawling  — progress shimmer with status copy
+    success   — pre-build preview (URL count, sources, theme color)
+    error     — recoverable message + Retry button
+
+  Cmd+K palette + nav header are mounted globally; this template is the
+  body content only.
+-->
+<main
+  class="min-h-screen flex items-start justify-center pt-24 pb-20 px-4"
+  style="background: var(--ps-bg, #060610)"
+>
+  <div class="w-full max-w-2xl">
+    <!-- ── Header ── -->
+    <header class="text-center mb-10" appReveal>
+      <div
+        class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-medium mb-6"
+        style="
+          border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 22%, transparent);
+          background: color-mix(in oklch, var(--ps-accent, #00e5ff) 6%, transparent);
+          color: var(--ps-accent, #00e5ff);
+        "
+      >
+        <span class="w-1.5 h-1.5 rounded-full" style="background: var(--ps-accent, #00e5ff)"></span>
+        New · One-click site import
+      </div>
+      <h1
+        class="font-heading text-3xl sm:text-4xl md:text-5xl font-bold mb-4 leading-tight"
+        style="color: var(--ps-ink, #f4f4ff); text-wrap: balance"
+      >
+        Bring any website. Make it dramatically better.
+      </h1>
+      <p
+        class="text-base sm:text-lg max-w-xl mx-auto"
+        style="color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 70%, transparent); text-wrap: pretty"
+      >
+        Paste a Squarespace, Wix, WordPress, or custom URL. We&rsquo;ll crawl every page, rebuild
+        it with AI, and ship the upgraded version in minutes.
+      </p>
+    </header>
+
+    <!-- ── Idle: input pane ── -->
+    @if (state() === 'idle' || state() === 'error') {
+      <section
+        class="rounded-3xl border p-6 sm:p-8"
+        appReveal
+        style="
+          background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 3%, transparent);
+          border-color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 8%, transparent);
+          box-shadow: var(--ps-shadow-modal, 0 30px 80px -30px rgba(0, 0, 0, 0.5));
+        "
+      >
+        <label
+          for="import-url"
+          class="block text-xs uppercase tracking-wider mb-2 font-semibold"
+          style="color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent)"
+        >
+          Source URL
+        </label>
+        <input
+          id="import-url"
+          type="url"
+          inputmode="url"
+          autocomplete="url"
+          autocapitalize="off"
+          spellcheck="false"
+          placeholder="https://your-old-site.com"
+          class="w-full bg-transparent border rounded-2xl px-4 py-3.5 text-base sm:text-lg outline-none transition-colors"
+          style="
+            color: var(--ps-ink, #f4f4ff);
+            border-color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 14%, transparent);
+          "
+          [ngModel]="url()"
+          (ngModelChange)="url.set($event)"
+          (keydown.enter)="submit()"
+          aria-label="Source website URL"
+        />
+
+        <details class="mt-4">
+          <summary
+            class="cursor-pointer select-none text-sm font-medium inline-flex items-center gap-2 py-1"
+            style="color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent)"
+          >
+            Optional · Override business name or slug
+          </summary>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+            <input
+              type="text"
+              placeholder="Business name (auto-detected)"
+              class="bg-transparent border rounded-xl px-3 py-2.5 text-sm outline-none"
+              style="
+                color: var(--ps-ink, #f4f4ff);
+                border-color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 14%, transparent);
+              "
+              [ngModel]="businessName()"
+              (ngModelChange)="businessName.set($event)"
+              aria-label="Business name override"
+            />
+            <input
+              type="text"
+              placeholder="custom-slug"
+              pattern="[a-z0-9-]+"
+              class="bg-transparent border rounded-xl px-3 py-2.5 text-sm font-mono outline-none"
+              style="
+                color: var(--ps-ink, #f4f4ff);
+                border-color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 14%, transparent);
+              "
+              [ngModel]="targetSlug()"
+              (ngModelChange)="targetSlug.set($event)"
+              aria-label="Subdomain slug override"
+            />
+          </div>
+        </details>
+
+        @if (state() === 'error' && errorMessage()) {
+          <div
+            class="mt-4 rounded-xl border px-4 py-3 text-sm"
+            role="alert"
+            style="
+              background: color-mix(in oklch, #ff4d6d 8%, transparent);
+              border-color: color-mix(in oklch, #ff4d6d 30%, transparent);
+              color: color-mix(in oklch, #ff4d6d 80%, var(--ps-ink, #f4f4ff));
+            "
+          >
+            {{ errorMessage() }}
+          </div>
+        }
+
+        <button
+          type="button"
+          psRipple
+          (click)="submit()"
+          [disabled]="!canSubmit()"
+          class="mt-6 w-full py-3.5 rounded-full font-semibold text-base transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50"
+          [style.background]="canSubmit() ? 'var(--ps-accent, #00e5ff)' : 'color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent)'"
+          [style.color]="canSubmit() ? 'var(--ps-bg, #060610)' : 'color-mix(in oklch, var(--ps-ink, #f4f4ff) 50%, transparent)'"
+        >
+          Import &amp; AI rebuild &rarr;
+        </button>
+
+        <p
+          class="mt-4 text-xs text-center"
+          style="color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 50%, transparent)"
+        >
+          We crawl your site once, never store credentials, and never write to it.
+        </p>
+      </section>
+    }
+
+    <!-- ── Crawling: progress ── -->
+    @if (state() === 'crawling') {
+      <section
+        class="rounded-3xl border p-8 text-center"
+        role="status"
+        aria-live="polite"
+        style="
+          background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 3%, transparent);
+          border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 24%, transparent);
+        "
+      >
+        <div
+          class="w-12 h-12 mx-auto mb-6 rounded-full border-2 border-t-transparent animate-spin"
+          style="border-color: var(--ps-accent, #00e5ff); border-top-color: transparent"
+          aria-hidden="true"
+        ></div>
+        <h2 class="font-heading text-xl font-bold mb-2" style="color: var(--ps-ink, #f4f4ff)">
+          Crawling your site
+        </h2>
+        <p
+          class="text-sm max-w-md mx-auto"
+          style="color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 65%, transparent)"
+        >
+          Reading sitemap.xml, robots.txt, and the Wayback archive in parallel. Usually
+          finishes in 5&ndash;15 seconds.
+        </p>
+      </section>
+    }
+
+    <!-- ── Success: preview ── -->
+    @if (state() === 'success' && result(); as r) {
+      <section
+        class="rounded-3xl border p-6 sm:p-8"
+        appReveal
+        style="
+          background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 3%, transparent);
+          border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent);
+        "
+      >
+        <div class="text-center mb-6">
+          <div
+            class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4"
+            style="background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610)"
+          >
+            Crawl complete
+          </div>
+          <div class="flex items-baseline justify-center gap-2 mb-2">
+            <span
+              class="font-heading text-6xl sm:text-7xl font-bold"
+              style="color: var(--ps-accent, #00e5ff)"
+            >
+              <app-rolling-counter [value]="r.source_url_count" />
+            </span>
+            <span
+              class="text-base sm:text-lg font-medium"
+              style="color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 70%, transparent)"
+            >
+              page{{ r.source_url_count === 1 ? '' : 's' }} discovered
+            </span>
+          </div>
+          @if (r.preview.homepage_title) {
+            <p
+              class="text-sm truncate max-w-md mx-auto"
+              style="color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent)"
+              [title]="r.preview.homepage_title"
+            >
+              {{ r.preview.homepage_title }}
+            </p>
+          }
+        </div>
+
+        <ul class="space-y-2 mb-6" aria-label="Discovery sources">
+          @for (row of bySourceEntries(); track row.key) {
+            @if (row.count > 0) {
+              <li
+                class="flex items-center justify-between text-sm rounded-xl px-3 py-2 border"
+                style="
+                  border-color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 8%, transparent);
+                  color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 80%, transparent);
+                "
+              >
+                <span>{{ row.label }}</span>
+                <span class="font-mono font-semibold" style="color: var(--ps-accent, #00e5ff)">
+                  <app-rolling-counter [value]="row.count" />
+                </span>
+              </li>
+            }
+          }
+        </ul>
+
+        <div
+          class="flex items-center justify-between text-xs uppercase tracking-wider rounded-2xl px-4 py-3"
+          style="
+            background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 5%, transparent);
+            color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent);
+          "
+        >
+          <span>Est. rebuild time</span>
+          <span class="font-mono font-semibold" style="color: var(--ps-ink, #f4f4ff)">
+            ~<app-rolling-counter [value]="r.estimated_minutes" /> min
+          </span>
+        </div>
+
+        <p
+          class="mt-6 text-sm text-center"
+          style="color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent)"
+        >
+          Routing you to the build progress&hellip;
+        </p>
+      </section>
+    }
+  </div>
+</main>

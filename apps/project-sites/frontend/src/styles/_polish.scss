@@ -468,3 +468,479 @@ html[data-contrast="high"] {
   animation: slideDown 240ms ease-out both;
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// Cross-surface beauty pass — applies to EVERY admin section without
+// having to edit each section file. Pure CSS, brand-token driven,
+// reduced-motion safe. Sourced from the "polish menu" in the supreme-polish
+// rule. Layered LAST so it wins specificity.
+// ═══════════════════════════════════════════════════════════════════════
+
+// ── A. Kicker eyebrow — small uppercase mono tag above section H2s
+// Usage: <div class="kicker">Integrations</div>
+// Auto-applied to any section <header> > h2 that has no preceding kicker
+// via a deterministic class — the section authors add `.kicker` markup
+// where helpful; the visual rule lives here.
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ps-accent, #00E5FF);
+  opacity: 0.85;
+  margin-bottom: 6px;
+  &::before {
+    content: "";
+    width: 14px;
+    height: 1px;
+    background: linear-gradient(90deg, var(--ps-accent, #00E5FF), transparent);
+    opacity: 0.7;
+  }
+}
+
+// ── B. Section H2 — refined display for every section header
+.section-h {
+  font-family: 'Sora', system-ui, sans-serif;
+  letter-spacing: -0.018em;
+  text-wrap: balance;
+  background: linear-gradient(180deg, #ffffff 0%, rgba(244, 244, 255, 0.78) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+// ── C. Numeric prominence — every stat/count gets tabular-nums + glow on hover
+.stat-num,
+[data-numeric],
+.metric-value,
+.count-value {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'cv11' 1;
+  letter-spacing: -0.02em;
+  transition: text-shadow var(--ps-dur-base, 220ms) var(--ps-ease-emphasized);
+}
+.stat-num:hover,
+[data-numeric]:hover,
+.metric-value:hover,
+.count-value:hover {
+  text-shadow: 0 0 22px rgba(0, 229, 255, 0.45);
+}
+
+// ── D. Glass-blur surface — premium top-edge highlight for hero cards.
+// Opt-in via `.ps-glass` so only the high-prominence surfaces get it.
+.ps-glass {
+  background: var(--ps-surface-glass, rgba(13, 13, 40, 0.62));
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(0, 229, 255, 0.10);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    var(--ps-shadow-card);
+  position: relative;
+}
+.ps-glass::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 229, 255, 0.32) 24%,
+    rgba(124, 58, 237, 0.20) 60%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+// ── E. Hover-lift — every .card, .seo-card, .mcp-card lifts on hover
+.card,
+.seo-card,
+.mcp-card,
+[class*="-card"]:not(.density-card):not(.card-light) {
+  transition:
+    transform var(--ps-dur-fast, 140ms) var(--ps-ease-emphasized),
+    box-shadow var(--ps-dur-base, 220ms) var(--ps-ease-emphasized),
+    border-color var(--ps-dur-base, 220ms) var(--ps-ease-emphasized);
+  will-change: transform;
+}
+.card:hover,
+.seo-card:hover,
+.mcp-card:hover,
+[class*="-card"]:not(.density-card):not(.card-light):hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 32px -16px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(0, 229, 255, 0.18) inset;
+}
+
+// ── F. Cyan gradient halo — every card gets an ::after halo that fades 0→1 on hover
+.card,
+.seo-card,
+.mcp-card {
+  position: relative;
+  isolation: isolate;
+}
+.card::after,
+.seo-card::after,
+.mcp-card::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse 60% 80% at 50% 0%,
+    rgba(0, 229, 255, 0.10),
+    transparent 70%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ps-dur-base, 220ms) var(--ps-ease-emphasized);
+  z-index: -1;
+}
+.card:hover::after,
+.seo-card:hover::after,
+.mcp-card:hover::after {
+  opacity: 1;
+}
+
+// ── G. Brand-tinted icon strokes — any svg inside a .icon-accent / icon-cyan
+// inherits cyan color so currentColor strokes match the brand.
+.icon-accent svg,
+.icon-cyan svg,
+[data-icon="accent"] svg {
+  color: var(--ps-accent, #00E5FF);
+  filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.18));
+}
+
+// ── H. Universal focus ring — every focusable element gets a brand-cyan halo
+// when navigated by keyboard. Higher specificity than the section overrides.
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 2px solid var(--ps-accent, #00E5FF);
+  outline-offset: 2px;
+  border-radius: var(--ps-radius-sm, 8px);
+}
+
+// ── I. Brand-tinted selection — global
+::selection {
+  background: rgba(0, 229, 255, 0.28);
+  color: #ffffff;
+  text-shadow: 0 0 8px rgba(0, 229, 255, 0.45);
+}
+::-moz-selection {
+  background: rgba(0, 229, 255, 0.28);
+  color: #ffffff;
+}
+
+// ── J. Status pills — color-coded by state (extends earlier status-pill)
+// Used as `<span class="status-pill is-healthy">Healthy</span>` etc.
+.status-pill {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  background: color-mix(in oklch, currentColor 8%, transparent);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.status-pill.is-healthy { color: #34d399; }
+.status-pill.is-warning { color: #fbbf24; }
+.status-pill.is-degraded { color: #f87171; }
+.status-pill.is-idle    { color: #94a3b8; }
+.status-pill.is-info    { color: var(--ps-accent, #00E5FF); }
+
+// ── K. Reveal-on-scroll — pure CSS via animation-timeline (Chrome stable,
+// Firefox falls back to no animation gracefully). Sections opt in with
+// `data-reveal`; first paint also runs the same keyframes for legacy browsers.
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: psReveal 480ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)) forwards;
+}
+@supports (animation-timeline: view()) {
+  [data-reveal] {
+    animation: psReveal 1ms linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 18%;
+  }
+}
+@keyframes psReveal {
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] { opacity: 1; transform: none; animation: none; }
+}
+
+// ── L. Button micro-interactions — every .btn-primary / .btn-accent
+// gets a cyan ring that pulses on click for tactile feedback.
+.btn-primary,
+.btn-accent,
+.top-btn-accent,
+[data-cta="primary"] {
+  position: relative;
+  isolation: isolate;
+  transition:
+    background-color var(--ps-dur-fast) var(--ps-ease-emphasized),
+    transform var(--ps-dur-fast) var(--ps-ease-emphasized),
+    box-shadow var(--ps-dur-base) var(--ps-ease-emphasized);
+}
+.btn-primary:hover,
+.btn-accent:hover,
+.top-btn-accent:hover,
+[data-cta="primary"]:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px -8px rgba(0, 229, 255, 0.45);
+}
+.btn-primary:active,
+.btn-accent:active,
+.top-btn-accent:active,
+[data-cta="primary"]:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 0 0 4px rgba(0, 229, 255, 0.22);
+  transition-duration: 80ms;
+}
+
+// ── M. Scrollbar refinement — every overflow surface gets a cyan-tinted
+// thin scrollbar without needing the `.modern-scrollbar` class.
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 255, 0.22) transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(0, 229, 255, 0.18);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background-color 160ms ease;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 229, 255, 0.42);
+  background-clip: content-box;
+}
+
+// ── N. Header pill ("N active") — tiny inline pill for header counters
+.header-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  font: 700 0.6rem/1 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ps-accent, #00E5FF);
+  background: rgba(0, 229, 255, 0.08);
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  border-radius: 999px;
+  vertical-align: middle;
+}
+.header-pill-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+// ── O. Input + textarea — refined focus glow
+input,
+textarea,
+select {
+  transition:
+    border-color var(--ps-dur-fast) var(--ps-ease-emphasized),
+    box-shadow var(--ps-dur-base) var(--ps-ease-emphasized),
+    background-color var(--ps-dur-fast) var(--ps-ease-emphasized);
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  box-shadow:
+    0 0 0 2px rgba(0, 229, 255, 0.45),
+    0 0 24px -6px rgba(0, 229, 255, 0.30);
+}
+
+// ── P. Caret + selection inside inputs — brand cyan
+input,
+textarea {
+  caret-color: var(--ps-accent, #00E5FF);
+}
+
+// ── Q. Glow-h-grad — gradient text utility (used in editor empty state).
+// Promote to global so other sections can opt-in without duplicating CSS.
+.glow-h-grad {
+  background: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    #00E5FF 38%,
+    #7C3AED 78%,
+    #ffffff 100%
+  );
+  background-size: 280% 280%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: psGradShift 8s ease-in-out infinite;
+  font-family: 'Sora', system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+@keyframes psGradShift {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glow-h-grad { animation: none; background-position: 0% 50%; }
+}
+
+// ── R. Section root reveal — fade-in-up the section root on mount.
+// Sections that already use `.animate-fade-in` get a free upgrade.
+.animate-fade-in {
+  animation: psContentOpacityOnly 200ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+// ── S. Tabs slider — every [role="tablist"] gets a sliding cyan underline
+// on the selected tab so the active tab pulses subtly. Pure CSS.
+[role="tablist"] [role="tab"] {
+  position: relative;
+  transition: color var(--ps-dur-fast) var(--ps-ease-emphasized);
+}
+[role="tablist"] [role="tab"]::after {
+  content: "";
+  position: absolute;
+  left: 12px; right: 12px;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--ps-accent, #00E5FF), var(--ps-accent-secondary, #7C3AED));
+  border-radius: 999px;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform var(--ps-dur-base) var(--ps-ease-emphasized);
+  pointer-events: none;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+}
+[role="tablist"] [role="tab"][aria-selected="true"]::after,
+[role="tablist"] [role="tab"][data-state="active"]::after {
+  transform: scaleX(1);
+}
+
+// ── T. Reduced motion safety net — overrides cinematic effects
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .seo-card,
+  .mcp-card,
+  .btn-primary,
+  .btn-accent,
+  .top-btn-accent {
+    transition: none;
+  }
+  .card:hover,
+  .seo-card:hover,
+  .mcp-card:hover {
+    transform: none;
+  }
+  .header-pill-dot { animation: none; }
+}
+
+// ── U. Gradient-border CTA — premium primary action
+// Two-layer background trick: inner padding-box is the surface color,
+// outer border-box is the gradient. Brand-locked cyan→violet.
+// Usage: <button class="ps-cta-grad">Action</button>
+.ps-cta-grad {
+  position: relative; isolation: isolate;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px; border-radius: var(--ps-radius-md, 12px);
+  font: 700 0.82rem/1 'Sora', system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  color: #fff;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(rgba(6,6,16,0.84), rgba(6,6,16,0.84)) padding-box,
+    linear-gradient(135deg, var(--ps-accent, #00E5FF), var(--ps-accent-secondary, #7C3AED)) border-box;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 4px 14px -6px rgba(0, 229, 255, 0.35);
+  cursor: pointer;
+  transition:
+    transform var(--ps-dur-fast, 140ms) var(--ps-ease-emphasized, cubic-bezier(0.16,1,0.3,1)),
+    box-shadow var(--ps-dur-base, 220ms),
+    color var(--ps-dur-fast, 140ms);
+}
+.ps-cta-grad:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    0 12px 28px -8px rgba(0, 229, 255, 0.55),
+    0 0 32px -4px rgba(124, 58, 237, 0.30);
+}
+.ps-cta-grad:active { transform: translateY(0) scale(0.98); transition-duration: 80ms; }
+.ps-cta-grad:focus-visible { outline: 2px solid #00E5FF; outline-offset: 2px; }
+.ps-cta-grad:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+// ── V. Network status banner — top-of-page connectivity strip
+// Used by NetworkStatusComponent at the top of admin/marketing shells.
+// Slides down from the top with cyan/red/amber bands per state.
+.ps-net-banner {
+  position: relative;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 8px 16px;
+  font: 600 0.74rem/1 'Sora', system-ui, sans-serif;
+  letter-spacing: 0.01em;
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.16), rgba(239, 68, 68, 0.06));
+  color: #fecaca;
+  border-bottom: 1px solid rgba(239, 68, 68, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  animation: psNetBannerIn var(--ps-dur-slow, 380ms) var(--ps-ease-emphasized, cubic-bezier(0.16,1,0.3,1)) both;
+}
+.ps-net-banner.is-restored {
+  background: linear-gradient(90deg, rgba(52, 211, 153, 0.16), rgba(52, 211, 153, 0.06));
+  color: #6ee7b7; border-color: rgba(52, 211, 153, 0.28);
+}
+.ps-net-banner.is-degraded {
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.16), rgba(251, 191, 36, 0.06));
+  color: #fde68a; border-color: rgba(251, 191, 36, 0.28);
+}
+@keyframes psNetBannerIn {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-net-banner { animation: none; }
+  .ps-cta-grad, .ps-cta-grad:hover { transform: none; transition: none; }
+}
+
+// ── W. Metric/stat pill — small inline value pill with optional accent tint
+// Used by the AI traces detail panel + can be reused on dashboards.
+.ps-stat-pill {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 4px 11px 4px 9px; border-radius: 999px;
+  font: 700 0.6rem/1 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ps-accent, #00E5FF);
+  background: color-mix(in oklch, var(--ps-accent, #00E5FF) 8%, transparent);
+  border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 32%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  white-space: nowrap;
+
+  .ps-stat-pill-val {
+    font-size: 0.78rem; font-weight: 800; letter-spacing: -0.01em;
+    color: #fff; font-variant-numeric: tabular-nums; text-transform: none;
+  }
+}
+

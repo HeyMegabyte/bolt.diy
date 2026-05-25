@@ -1,0 +1,883 @@
+import {
+  Component,
+  ElementRef,
+  ViewChild,
+  computed,
+  inject,
+  signal,
+  type OnDestroy,
+  type OnInit,
+} from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ApiService } from '../../../services/api.service';
+import { ToastService } from '../../../services/toast.service';
+import { EmptyStateComponent } from '../empty-state.component';
+import { RevealDirective } from '../../../directives/reveal.directive';
+import { APPS_CATALOG, findApp, type CatalogApp } from './apps-catalog.data';
+
+type InstanceStatus = 'provisioning' | 'running' | 'error' | 'stopped';
+
+interface AppInstance {
+  readonly id: string;
+  readonly app_id: string;
+  readonly subdomain: string;
+  readonly hostname: string;
+  readonly status: InstanceStatus;
+  readonly created_at: string;
+  readonly last_activity_at: string | null;
+  readonly env_keys?: ReadonlyArray<string>;
+}
+
+interface LogLine {
+  readonly ts: string;
+  readonly level: 'info' | 'warn' | 'error';
+  readonly msg: string;
+}
+
+const STATUS_META: Readonly<Record<InstanceStatus, { label: string; color: string }>> = {
+  provisioning: { label: 'Provisioning', color: '#fbbf24' },
+  running:      { label: 'Running',      color: '#34d399' },
+  error:        { label: 'Error',        color: '#fca5a5' },
+  stopped:      { label: 'Stopped',      color: 'rgba(255,255,255,0.5)' },
+} as const;
+
+/** Resolve a catalog entry from an instance, never throwing on stale IDs. */
+function resolveApp(id: string): CatalogApp | null {
+  try { return findApp(id); } catch { return APPS_CATALOG.find((a) => a.id === id) ?? null; }
+}
+
+/**
+ * Admin → App Instances list.
+ *
+ * @remarks
+ * Lists every deployed instance for the org. Each row links to a per-instance
+ * detail with logs stream + env editor + restart/destroy controls. Polls
+ * `/api/apps/instances` every 15s while at least one instance is in a
+ * non-terminal state (`provisioning`).
+ */
+@Component({
+  selector: 'app-admin-apps-instances',
+  standalone: true,
+  imports: [DatePipe, RouterLink, EmptyStateComponent, RevealDirective],
+  template: `
+    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
+
+      <header class="flex items-start justify-between gap-3 flex-wrap" appReveal>
+        <div>
+          <div class="kicker">App store</div>
+          <h2 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="text-accent"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            App Instances
+            @if (runningCount() > 0) {
+              <span class="header-pill" aria-label="Running instances">
+                <span class="header-pill-dot" aria-hidden="true"></span>
+                {{ runningCount() }} running
+              </span>
+            }
+          </h2>
+          <p class="text-[0.78rem] text-text-secondary m-0 mt-1 max-w-prose leading-relaxed">
+            Self-hosted services deployed for this org. Restart, stop, or destroy from the ⋯ menu.
+          </p>
+        </div>
+        <a class="btn-primary" routerLink="/admin/apps">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Deploy new app</span>
+        </a>
+      </header>
+
+      @if (loading() && instances().length === 0) {
+        <div class="space-y-2" aria-busy="true" aria-label="Loading instances">
+          @for (i of [0,1,2]; track i) {
+            <div class="instance-row skel-row">
+              <div class="skel skel-glyph"></div>
+              <div class="flex-1 space-y-2">
+                <div class="skel skel-line w-32"></div>
+                <div class="skel skel-line w-48"></div>
+              </div>
+              <div class="skel skel-pill"></div>
+            </div>
+          }
+        </div>
+      } @else if (instances().length === 0) {
+        <app-empty-state
+          icon="🚀"
+          title="No app instances yet"
+          body="Deploy your first self-hosted app — Umami, Outline, Mattermost, n8n, and 30+ others available."
+          primary="Browse the app store"
+          (primaryClick)="goToCatalog()"
+        />
+      } @else {
+        <div class="instance-list">
+          @for (inst of instances(); track inst.id) {
+            <a class="instance-row"
+               appReveal
+               [routerLink]="['/admin/apps/instances', inst.id]"
+               [attr.data-testid]="'apps-instance-' + inst.id">
+              <div class="inst-glyph" aria-hidden="true">{{ glyphFor(inst) }}</div>
+              <div class="inst-main">
+                <div class="inst-name">{{ nameFor(inst) }}</div>
+                <a class="inst-host"
+                   [href]="hostUrl(inst)"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   (click)="$event.stopPropagation()"
+                   [attr.aria-label]="'Open ' + inst.hostname">
+                  {{ inst.hostname }}
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+                </a>
+              </div>
+              <span class="status-pill" [attr.data-status]="inst.status" [style.--pill-color]="statusColor(inst.status)">
+                <span class="status-dot" aria-hidden="true"></span>
+                {{ statusLabel(inst.status) }}
+              </span>
+              <span class="inst-activity">
+                @if (inst.last_activity_at) {
+                  Last activity {{ inst.last_activity_at | date:'short' }}
+                } @else {
+                  Created {{ inst.created_at | date:'short' }}
+                }
+              </span>
+              <button class="row-menu"
+                      type="button"
+                      (click)="openMenu(inst, $event)"
+                      [attr.aria-label]="'Actions for ' + nameFor(inst)"
+                      title="Actions">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+              </button>
+            </a>
+          }
+        </div>
+      }
+    </div>
+  `,
+  styles: [`
+    :host { display: block; }
+    .kicker {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.62rem; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--ps-accent, #00E5FF); opacity: 0.85;
+    }
+    .section-h { font-family: 'Sora', system-ui, sans-serif; letter-spacing: -0.02em; }
+    .text-accent { color: var(--ps-accent, #00E5FF); }
+    .header-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 10px; border-radius: 999px;
+      background: rgba(52,211,153,0.10);
+      border: 1px solid rgba(52,211,153,0.32);
+      color: #6ee7b7;
+      font-family: 'Sora', system-ui, sans-serif;
+      font-size: 0.65rem; font-weight: 600;
+    }
+    .header-pill-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #34d399; box-shadow: 0 0 6px rgba(52,211,153,0.7);
+    }
+
+    .instance-list { display: flex; flex-direction: column; gap: 8px; }
+    .instance-row {
+      display: grid;
+      grid-template-columns: 44px minmax(180px, 1fr) auto auto 32px;
+      gap: 1rem; align-items: center;
+      padding: 0.85rem 1rem;
+      background: var(--ps-surface-1, rgba(13,13,40,0.62));
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--ps-radius-lg, 14px);
+      text-decoration: none; color: inherit;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+    .instance-row:hover {
+      border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 24%, transparent);
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 3%, var(--ps-surface-1, rgba(13,13,40,0.62)));
+      transform: translateY(-1px);
+    }
+    .instance-row:focus-visible {
+      outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 2px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .instance-row { transition: none; }
+      .instance-row:hover { transform: none; }
+    }
+    @media (max-width: 760px) {
+      .instance-row {
+        grid-template-columns: 36px 1fr auto;
+        grid-template-rows: auto auto;
+        row-gap: 4px;
+      }
+      .inst-activity, .row-menu { grid-column: 2 / -1; justify-self: end; }
+    }
+
+    .inst-glyph {
+      width: 44px; height: 44px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 1.35rem; line-height: 1;
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 8%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 18%, transparent);
+      border-radius: var(--ps-radius-sm, 10px);
+    }
+    .inst-main { min-width: 0; }
+    .inst-name {
+      font-family: 'Sora', system-ui, sans-serif;
+      font-weight: 700; color: var(--ps-ink, #fff);
+      font-size: 0.86rem; letter-spacing: -0.01em;
+    }
+    .inst-host {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.7rem;
+      color: var(--ps-accent, #00E5FF);
+      text-decoration: none; margin-top: 2px;
+      transition: opacity 140ms ease;
+    }
+    .inst-host:hover { opacity: 0.78; text-decoration: underline; }
+
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.65rem; font-weight: 700;
+      background: color-mix(in oklch, var(--pill-color, #fff) 12%, transparent);
+      border: 1px solid color-mix(in oklch, var(--pill-color, #fff) 36%, transparent);
+      color: var(--pill-color, #fff);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .status-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--pill-color, #fff);
+      box-shadow: 0 0 6px color-mix(in oklch, var(--pill-color, #fff) 60%, transparent);
+    }
+    .status-pill[data-status="provisioning"] .status-dot { animation: pulse 1200ms ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    @media (prefers-reduced-motion: reduce) {
+      .status-pill[data-status="provisioning"] .status-dot { animation: none; }
+    }
+
+    .inst-activity {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.66rem; color: rgba(255,255,255,0.5);
+      white-space: nowrap;
+    }
+    .row-menu {
+      width: 32px; height: 32px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent; border: 1px solid transparent;
+      border-radius: 6px;
+      color: rgba(255,255,255,0.55); cursor: pointer;
+      transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+    }
+    .row-menu:hover { background: rgba(255,255,255,0.06); color: #fff; border-color: rgba(255,255,255,0.1); }
+    .row-menu:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 2px; }
+
+    /* Skeleton loaders */
+    .skel-row {
+      display: grid;
+      grid-template-columns: 44px 1fr auto;
+      gap: 1rem; align-items: center;
+    }
+    .skel {
+      background: rgba(255,255,255,0.04);
+      border-radius: 6px; overflow: hidden; position: relative;
+    }
+    .skel::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06) 40%, rgba(0,229,255,0.08) 50%, rgba(255,255,255,0.06) 60%, transparent);
+      background-size: 200% 100%; animation: shine 1.6s linear infinite;
+    }
+    @keyframes shine { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+    @media (prefers-reduced-motion: reduce) { .skel::after { animation: none; } }
+    .skel-glyph { width: 44px; height: 44px; border-radius: 10px; }
+    .skel-line { height: 10px; }
+    .skel-pill { width: 90px; height: 22px; border-radius: 999px; }
+
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 0.5rem 0.95rem;
+      border-radius: var(--ps-radius-sm, 8px);
+      background: rgba(0,229,255,0.12);
+      color: var(--ps-accent, #00E5FF);
+      font-weight: 600;
+      border: 1px solid rgba(0,229,255,0.35);
+      cursor: pointer;
+      font-size: 0.74rem;
+      text-decoration: none;
+      transition: background 140ms ease, transform 140ms ease, border-color 140ms ease;
+    }
+    .btn-primary:hover { background: rgba(0,229,255,0.2); transform: translateY(-1px); border-color: rgba(0,229,255,0.55); }
+    .btn-primary:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 2px; }
+  `],
+})
+export class AppInstancesComponent implements OnInit, OnDestroy {
+  private api = inject(ApiService);
+  private toast = inject(ToastService);
+  private router = inject(Router);
+
+  instances = signal<readonly AppInstance[]>([]);
+  loading = signal<boolean>(false);
+  runningCount = computed(() => this.instances().filter((i) => i.status === 'running').length);
+
+  private pollHandle?: ReturnType<typeof setInterval>;
+
+  ngOnInit(): void { this.load(); }
+
+  ngOnDestroy(): void {
+    if (this.pollHandle) clearInterval(this.pollHandle);
+  }
+
+  load(): void {
+    this.loading.set(true);
+    this.api.get<{ data: AppInstance[] }>('/apps/instances').subscribe({
+      next: (r) => {
+        this.instances.set(r.data ?? []);
+        this.loading.set(false);
+        this.maybeStartPolling();
+      },
+      error: () => {
+        this.loading.set(false);
+        // Toast already fired inside ApiService.
+        console.warn('[apps] load instances failed');
+      },
+    });
+  }
+
+  private maybeStartPolling(): void {
+    const provisioning = this.instances().some((i) => i.status === 'provisioning');
+    if (provisioning && !this.pollHandle) {
+      this.pollHandle = setInterval(() => this.load(), 15_000);
+    } else if (!provisioning && this.pollHandle) {
+      clearInterval(this.pollHandle);
+      this.pollHandle = undefined;
+    }
+  }
+
+  glyphFor(i: AppInstance): string { return resolveApp(i.app_id)?.glyph ?? '📦'; }
+  nameFor(i: AppInstance): string { return resolveApp(i.app_id)?.name ?? i.app_id; }
+  hostUrl(i: AppInstance): string { return `https://${i.hostname}`; }
+
+  statusLabel(s: InstanceStatus): string { return STATUS_META[s].label; }
+  statusColor(s: InstanceStatus): string { return STATUS_META[s].color; }
+
+  goToCatalog(): void {
+    this.router.navigate(['/admin/apps']);
+  }
+
+  /**
+   * Open the per-row action menu — currently surfaces a toast-driven menu
+   * since the row already navigates on click. Full popover menu lands when
+   * the backend wires restart/stop/logs/env/delete endpoints.
+   */
+  openMenu(inst: AppInstance, ev: MouseEvent): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.toast.info(`${this.nameFor(inst)} — open the detail page for restart / stop / logs / env / delete.`, {
+      action: { label: 'Open', run: () => { this.router.navigate(['/admin/apps/instances', inst.id]); } },
+      duration: 5000,
+    });
+  }
+}
+
+/**
+ * Admin → App Instance detail.
+ *
+ * @remarks
+ * Per-instance view with logs stream + env-var editor + restart/destroy
+ * controls. Logs poll every 5s while the instance is `provisioning` or
+ * `running`. The backend agent wires the actual log/env/restart endpoints.
+ */
+@Component({
+  selector: 'app-admin-apps-instance-detail',
+  standalone: true,
+  imports: [DatePipe, FormsModule, RouterLink, RevealDirective],
+  template: `
+    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
+
+      <a class="back-link" routerLink="/admin/apps/instances">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        <span>All instances</span>
+      </a>
+
+      @if (instance(); as i) {
+        <header class="detail-head" appReveal>
+          <div class="head-main">
+            <div class="head-glyph" aria-hidden="true">{{ catalogApp()?.glyph ?? '📦' }}</div>
+            <div class="min-w-0 flex-1">
+              <div class="kicker">{{ catalogApp()?.category ?? 'app' }}</div>
+              <h2 class="section-h text-2xl font-bold text-white m-0 mt-1">{{ catalogApp()?.name ?? i.app_id }}</h2>
+              <a class="inst-host" [href]="'https://' + i.hostname" target="_blank" rel="noopener noreferrer">
+                {{ i.hostname }}
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+              </a>
+            </div>
+            <span class="status-pill" [attr.data-status]="i.status" [style.--pill-color]="statusColor(i.status)">
+              <span class="status-dot" aria-hidden="true"></span>
+              {{ statusLabel(i.status) }}
+            </span>
+          </div>
+
+          <div class="action-row">
+            <button class="btn-ghost" type="button" (click)="restart()" [disabled]="busy()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/></svg>
+              Restart
+            </button>
+            @if (i.status === 'running') {
+              <button class="btn-ghost" type="button" (click)="stop()" [disabled]="busy()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+                Stop
+              </button>
+            }
+            <button class="btn-danger-ghost" type="button" (click)="destroy()" [disabled]="busy()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+              Destroy
+            </button>
+          </div>
+        </header>
+
+        <div class="grid-2col">
+          <!-- ─── LOGS ─── -->
+          <section class="card" appReveal>
+            <header class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+              <h3 class="card-h m-0">Logs</h3>
+              <div class="flex items-center gap-2">
+                <span class="text-[0.62rem] text-text-secondary font-mono" aria-live="polite">
+                  {{ logs().length }} lines · {{ pollingLabel() }}
+                </span>
+                <button class="btn-tiny" type="button" (click)="refreshLogs()" [disabled]="logsLoading()" aria-label="Refresh logs">
+                  Refresh
+                </button>
+              </div>
+            </header>
+            @if (logs().length === 0) {
+              <pre #logsBox class="logs-box logs-box--empty" aria-live="polite">No logs yet. Provisioning… check back in a few seconds.</pre>
+            } @else {
+              <pre #logsBox class="logs-box" aria-live="polite">{{ joinedLogs() }}</pre>
+            }
+          </section>
+
+          <!-- ─── ENV EDITOR ─── -->
+          <aside class="card" appReveal>
+            <h3 class="card-h">Environment variables</h3>
+            @if (!catalogApp()) {
+              <p class="text-[0.78rem] text-text-secondary m-0">Catalog entry unavailable — env editor disabled.</p>
+            } @else {
+              <div class="env-list">
+                @for (e of catalogApp()!.env; track e.key) {
+                  <label class="env-field">
+                    <span class="env-field-label">
+                      <code>{{ e.key }}</code>
+                      @if (e.required) { <span class="env-req">*</span> }
+                      @if (e.auto) { <span class="env-auto-mini">auto</span> }
+                    </span>
+                    <input type="text"
+                           class="input-field"
+                           [placeholder]="e.auto ? '(auto-resolved)' : (e.default ?? 'set value')"
+                           [(ngModel)]="envValues[e.key]"
+                           [disabled]="!!e.auto"
+                           [attr.data-testid]="'env-input-' + e.key"
+                           [attr.aria-label]="e.key" />
+                    <span class="env-desc">{{ e.description }}</span>
+                  </label>
+                }
+              </div>
+              <button class="btn-primary mt-3" type="button" (click)="saveEnv()" [disabled]="busy()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Save &amp; restart
+              </button>
+            }
+
+            <div class="meta-grid mt-5">
+              <div class="meta-cell">
+                <span class="meta-cell-k">Instance ID</span>
+                <code class="meta-cell-v">{{ i.id }}</code>
+              </div>
+              <div class="meta-cell">
+                <span class="meta-cell-k">Created</span>
+                <span class="meta-cell-v">{{ i.created_at | date:'medium' }}</span>
+              </div>
+              @if (i.last_activity_at) {
+                <div class="meta-cell">
+                  <span class="meta-cell-k">Last activity</span>
+                  <span class="meta-cell-v">{{ i.last_activity_at | date:'medium' }}</span>
+                </div>
+              }
+            </div>
+          </aside>
+        </div>
+      } @else if (loading()) {
+        <div class="card text-text-secondary text-[0.82rem]" aria-busy="true">Loading instance…</div>
+      } @else {
+        <div class="card notice notice-red" role="alert">
+          <strong>Instance not found.</strong>
+          <span class="block text-[0.74rem] mt-1">No instance with id <code class="font-mono">{{ instanceId() }}</code>.</span>
+        </div>
+      }
+    </div>
+  `,
+  styles: [`
+    :host { display: block; }
+    .kicker {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.6rem; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--ps-accent, #00E5FF); opacity: 0.85;
+    }
+    .section-h { font-family: 'Sora', system-ui, sans-serif; letter-spacing: -0.02em; }
+    .card-h { font-family: 'Sora', system-ui, sans-serif; font-size: 0.78rem; font-weight: 700; color: #fff; margin: 0 0 0.7rem 0; }
+
+    .back-link {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.62);
+      text-decoration: none; padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .back-link:hover { color: var(--ps-accent, #00E5FF); background: rgba(255,255,255,0.04); }
+    .back-link:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 2px; }
+
+    .detail-head {
+      display: flex; flex-direction: column; gap: 1rem;
+    }
+    .head-main {
+      display: flex; align-items: flex-start; gap: 1rem;
+      padding: 1.2rem;
+      background: var(--ps-surface-1, rgba(13,13,40,0.62));
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--ps-radius-xl, 22px);
+    }
+    .head-glyph {
+      flex-shrink: 0;
+      width: 64px; height: 64px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 2.2rem; line-height: 1;
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 10%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 24%, transparent);
+      border-radius: var(--ps-radius-sm, 12px);
+    }
+    .inst-host {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.78rem;
+      color: var(--ps-accent, #00E5FF);
+      text-decoration: none; margin-top: 4px;
+    }
+    .inst-host:hover { text-decoration: underline; }
+
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 9px; border-radius: 999px;
+      font-size: 0.65rem; font-weight: 700;
+      background: color-mix(in oklch, var(--pill-color, #fff) 12%, transparent);
+      border: 1px solid color-mix(in oklch, var(--pill-color, #fff) 36%, transparent);
+      color: var(--pill-color, #fff);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      align-self: flex-start;
+    }
+    .status-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--pill-color, #fff);
+      box-shadow: 0 0 6px color-mix(in oklch, var(--pill-color, #fff) 60%, transparent);
+    }
+    .status-pill[data-status="provisioning"] .status-dot { animation: pulse 1200ms ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    @media (prefers-reduced-motion: reduce) {
+      .status-pill[data-status="provisioning"] .status-dot { animation: none; }
+    }
+
+    .action-row { display: flex; flex-wrap: wrap; gap: 6px; }
+
+    .grid-2col {
+      display: grid; gap: 1.25rem;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    }
+    @media (max-width: 1000px) { .grid-2col { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--ps-surface-1, rgba(13,13,40,0.62));
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--ps-radius-lg, 14px);
+      padding: 1.2rem;
+    }
+
+    .logs-box {
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--ps-radius-sm, 8px);
+      padding: 0.85rem 1rem;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.7rem; line-height: 1.55;
+      color: rgba(255,255,255,0.86);
+      min-height: 360px; max-height: 540px;
+      overflow: auto; white-space: pre-wrap; word-break: break-word;
+      margin: 0;
+    }
+
+    .env-list { display: flex; flex-direction: column; gap: 10px; }
+    .env-field { display: flex; flex-direction: column; gap: 4px; }
+    .env-field-label {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.66rem;
+      color: rgba(255,255,255,0.78);
+    }
+    .env-field-label code {
+      background: rgba(0,229,255,0.08);
+      color: var(--ps-accent, #00E5FF);
+      padding: 1px 6px; border-radius: 4px;
+    }
+    .env-req { color: #fbbf24; font-weight: 700; }
+    .env-auto-mini {
+      font-size: 0.55rem; padding: 1px 5px;
+      background: rgba(52,211,153,0.1);
+      color: #34d399; border-radius: 999px;
+      border: 1px solid rgba(52,211,153,0.28);
+    }
+    .env-desc {
+      font-size: 0.66rem; color: rgba(255,255,255,0.5); line-height: 1.4;
+    }
+    .input-field {
+      padding: 0.5rem 0.7rem;
+      background: rgba(0,0,0,0.32);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--ps-radius-sm, 8px);
+      color: var(--ps-ink, #fff);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.72rem;
+      transition: border-color 140ms ease;
+    }
+    .input-field:focus { outline: none; border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 50%, transparent); }
+    .input-field:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 1px; }
+    .input-field:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+    @media (max-width: 540px) { .meta-grid { grid-template-columns: 1fr; } }
+    .meta-cell {
+      display: flex; flex-direction: column; gap: 2px;
+      padding: 0.5rem 0.6rem;
+      background: rgba(255,255,255,0.03);
+      border-radius: 6px; min-width: 0;
+    }
+    .meta-cell-k {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.45);
+    }
+    .meta-cell-v {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.68rem; color: rgba(255,255,255,0.82);
+      overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .btn-primary, .btn-ghost, .btn-tiny, .btn-danger-ghost {
+      display: inline-flex; align-items: center; gap: 6px;
+      border-radius: var(--ps-radius-sm, 8px);
+      cursor: pointer; font-weight: 600;
+      transition: background 140ms ease, transform 140ms ease, border-color 140ms ease;
+    }
+    .btn-primary {
+      padding: 0.5rem 0.95rem;
+      background: rgba(0,229,255,0.12);
+      color: var(--ps-accent, #00E5FF);
+      border: 1px solid rgba(0,229,255,0.35);
+      font-size: 0.74rem;
+    }
+    .btn-primary:hover:not(:disabled) { background: rgba(0,229,255,0.2); transform: translateY(-1px); border-color: rgba(0,229,255,0.55); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-ghost {
+      padding: 0.45rem 0.85rem;
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.78);
+      border: 1px solid rgba(255,255,255,0.1);
+      font-size: 0.72rem;
+    }
+    .btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.16); }
+    .btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-tiny {
+      padding: 4px 9px;
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.7);
+      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.62rem;
+    }
+    .btn-tiny:hover:not(:disabled) { background: rgba(255,255,255,0.08); color: #fff; }
+    .btn-tiny:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-danger-ghost {
+      padding: 0.45rem 0.85rem;
+      background: transparent;
+      color: #fca5a5;
+      border: 1px solid rgba(248,113,113,0.28);
+      font-size: 0.72rem;
+    }
+    .btn-danger-ghost:hover:not(:disabled) { background: rgba(248,113,113,0.14); color: #fecaca; border-color: rgba(248,113,113,0.5); }
+    .btn-danger-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary:focus-visible, .btn-ghost:focus-visible, .btn-tiny:focus-visible {
+      outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 2px;
+    }
+    .btn-danger-ghost:focus-visible { outline: 2px solid #fca5a5; outline-offset: 2px; }
+
+    .notice {
+      display: flex; gap: 0.6rem; align-items: flex-start;
+      font-size: 0.82rem; line-height: 1.5;
+      padding: 0.85rem 1rem;
+    }
+    .notice strong { display: block; }
+    .notice-red {
+      background: rgba(248,113,113,0.06);
+      border-color: rgba(248,113,113,0.3);
+      color: #fecaca;
+    }
+    .notice-red strong { color: #fca5a5; }
+  `],
+})
+export class AppInstanceDetailComponent implements OnInit, OnDestroy {
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private api = inject(ApiService);
+  private toast = inject(ToastService);
+
+  @ViewChild('logsBox') private logsBox?: ElementRef<HTMLPreElement>;
+
+  instanceId = signal<string>('');
+  instance = signal<AppInstance | null>(null);
+  catalogApp = computed<CatalogApp | null>(() => {
+    const i = this.instance();
+    return i ? resolveApp(i.app_id) : null;
+  });
+
+  logs = signal<readonly LogLine[]>([]);
+  loading = signal<boolean>(false);
+  logsLoading = signal<boolean>(false);
+  busy = signal<boolean>(false);
+
+  /** Pre-formatted log block — kept off the template to preserve whitespace. */
+  joinedLogs = computed<string>(() => this.logs().map((l) => this.formatLog(l)).join(''));
+
+  envValues: Record<string, string> = {};
+
+  private pollHandle?: ReturnType<typeof setInterval>;
+
+  ngOnInit(): void {
+    const id = this.route.snapshot.paramMap.get('id') ?? '';
+    this.instanceId.set(id);
+    this.load();
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollHandle) clearInterval(this.pollHandle);
+  }
+
+  load(): void {
+    const id = this.instanceId();
+    if (!id) return;
+    this.loading.set(true);
+    this.api.get<{ data: AppInstance }>(`/apps/instances/${id}`).subscribe({
+      next: (r) => {
+        const inst = r.data;
+        this.instance.set(inst);
+        this.loading.set(false);
+        this.maybeStartPolling();
+        this.refreshLogs();
+        // Pre-fill env editor from server-side keys when present.
+        if (inst.env_keys) {
+          for (const k of inst.env_keys) {
+            if (!(k in this.envValues)) this.envValues[k] = '';
+          }
+        }
+      },
+      error: () => {
+        this.loading.set(false);
+        this.instance.set(null);
+      },
+    });
+  }
+
+  refreshLogs(): void {
+    const id = this.instanceId();
+    if (!id) return;
+    this.logsLoading.set(true);
+    this.api.get<{ data: LogLine[] }>(`/apps/instances/${id}/logs`).subscribe({
+      next: (r) => {
+        this.logs.set(r.data ?? []);
+        this.logsLoading.set(false);
+        requestAnimationFrame(() => {
+          if (this.logsBox?.nativeElement) {
+            const el = this.logsBox.nativeElement;
+            el.scrollTop = el.scrollHeight;
+          }
+        });
+      },
+      error: () => this.logsLoading.set(false),
+    });
+  }
+
+  private maybeStartPolling(): void {
+    const status = this.instance()?.status;
+    const shouldPoll = status === 'provisioning' || status === 'running';
+    if (shouldPoll && !this.pollHandle) {
+      this.pollHandle = setInterval(() => { this.refreshLogs(); this.load(); }, 5_000);
+    } else if (!shouldPoll && this.pollHandle) {
+      clearInterval(this.pollHandle);
+      this.pollHandle = undefined;
+    }
+  }
+
+  pollingLabel(): string {
+    return this.pollHandle ? 'polling 5s' : 'paused';
+  }
+
+  statusLabel(s: InstanceStatus): string { return STATUS_META[s].label; }
+  statusColor(s: InstanceStatus): string { return STATUS_META[s].color; }
+
+  formatLog(l: LogLine): string {
+    const ts = l.ts ?? '';
+    const lvl = (l.level ?? 'info').toUpperCase().padEnd(5, ' ');
+    return `${ts}  ${lvl}  ${l.msg}\n`;
+  }
+
+  restart(): void {
+    const i = this.instance(); if (!i || this.busy()) return;
+    this.busy.set(true);
+    this.api.post(`/apps/instances/${i.id}/restart`, {}).subscribe({
+      next: () => { this.busy.set(false); this.toast.success('Restart triggered'); this.load(); },
+      error: () => this.busy.set(false),
+    });
+  }
+
+  stop(): void {
+    const i = this.instance(); if (!i || this.busy()) return;
+    this.busy.set(true);
+    this.api.post(`/apps/instances/${i.id}/stop`, {}).subscribe({
+      next: () => { this.busy.set(false); this.toast.success('Stopped'); this.load(); },
+      error: () => this.busy.set(false),
+    });
+  }
+
+  destroy(): void {
+    const i = this.instance(); if (!i || this.busy()) return;
+    this.toast.warning(`Destroy ${this.catalogApp()?.name ?? i.app_id}? All data + the subdomain will be released.`, {
+      action: { label: 'Destroy', run: () => { this.performDestroy(i.id); } },
+      duration: 7000,
+    });
+  }
+
+  private performDestroy(id: string): void {
+    this.busy.set(true);
+    this.api.delete(`/apps/instances/${id}`).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.toast.success('Instance destroyed');
+        this.router.navigate(['/admin/apps/instances']);
+      },
+      error: () => this.busy.set(false),
+    });
+  }
+
+  saveEnv(): void {
+    const i = this.instance(); if (!i || this.busy()) return;
+    this.busy.set(true);
+    this.api.put(`/apps/instances/${i.id}/env`, { env_overrides: this.envValues }).subscribe({
+      next: () => { this.busy.set(false); this.toast.success('Env saved — restarting container'); this.load(); },
+      error: () => this.busy.set(false),
+    });
+  }
+}

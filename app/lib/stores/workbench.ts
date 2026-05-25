@@ -2,7 +2,8 @@ import { atom, map, type MapStore, type ReadableAtom, type WritableAtom } from '
 import type { EditorDocument, ScrollPosition } from '~/components/editor/codemirror/CodeMirrorEditor';
 import { ActionRunner } from '~/lib/runtime/action-runner';
 import type { ActionCallbackData, ArtifactCallbackData } from '~/lib/runtime/message-parser';
-import { webcontainer } from '~/lib/webcontainer';
+import { webcontainer, recordFileEdit } from '~/lib/webcontainer';
+import { isEmbedded, postTelemetryToParent } from '~/lib/embed/embedded-mode';
 import type { ITerminal } from '~/types/terminal';
 import { unreachable } from '~/utils/unreachable';
 import { EditorStore } from './editor';
@@ -36,6 +37,12 @@ type Artifacts = MapStore<Record<string, ArtifactState>>;
 export type WorkbenchViewType = 'code' | 'preview';
 
 export class WorkbenchStore {
+  /**
+   * Item 48: once-per-session sentinel for the `editor.first_save` funnel
+   * event so we don't spam PostHog on every keystroke autosave.
+   */
+  static firstSaveFired = false;
+
   #previewsStore = new PreviewsStore(webcontainer);
   #filesStore = new FilesStore(webcontainer);
   #editorStore = new EditorStore(this.#filesStore);
@@ -254,6 +261,16 @@ export class WorkbenchStore {
      */
 
     await this.#filesStore.saveFile(filePath, document.value);
+
+    // Item 47: ring-buffer the last 3 edits so a WebContainer crash can
+    // replay them after auto-recovery.
+    recordFileEdit(filePath, document.value);
+
+    // Item 48: editor.first_save (once per session, in embedded mode only).
+    if (isEmbedded && !WorkbenchStore.firstSaveFired) {
+      WorkbenchStore.firstSaveFired = true;
+      postTelemetryToParent('editor.first_save', { path: filePath });
+    }
 
     const newUnsavedFiles = new Set(this.unsavedFiles.get());
     newUnsavedFiles.delete(filePath);

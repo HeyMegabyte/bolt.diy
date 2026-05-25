@@ -37,7 +37,8 @@ const PROVIDERS = MCP_PROVIDERS;
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 class="text-lg font-bold text-white m-0">Settings</h2>
+          <div class="kicker">Project</div>
+          <h2 class="section-h text-lg font-bold text-white m-0">Settings</h2>
           @if (state.selectedSite(); as site) {
             <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
               Scoped to <strong class="text-white">{{ site.business_name || site.slug }}</strong>
@@ -251,10 +252,9 @@ const PROVIDERS = MCP_PROVIDERS;
                 <textarea class="input-field w-full mt-1 font-mono text-[0.72rem] ai-chat-textarea" rows="10"
                           [placeholder]="chat.system_prompt_default || 'You are the AI concierge for [business]. Concise. Never invent prices.'"
                           [(ngModel)]="chat.system_prompt"></textarea>
-                @if (chat.system_prompt_default) {
-                  <button type="button" class="btn-ghost text-[0.62rem] mt-1"
-                          (click)="chat.system_prompt = chat.system_prompt_default || ''" title="Replace with the latest factory v2 default">Use the v2 best-prompt default</button>
-                }
+                <p class="text-[0.62rem] text-text-secondary mt-1 leading-relaxed">
+                  Tip: leave this empty and tap <strong>✨ Improve with AI</strong> to load the v2 best-prompt default as a starting point — no AI credits used.
+                </p>
               </label>
 
               <label class="block">
@@ -1252,9 +1252,27 @@ export class AdminSettingsComponent implements OnInit {
     this.chatMcps.set(next);
     try { localStorage.setItem('ps_chat_mcps', JSON.stringify(next)); } catch { /* */ }
   }
+  /**
+   * "Improve with AI" — overloaded so that an empty system-prompt field
+   * loads the v2 best-prompt default for free (no AI credits used) as a
+   * ready-to-edit starting point, while a non-empty field calls the worker
+   * AI to rewrite. Persona doesn't ship a v2 default, so empty + persona
+   * falls through to the AI call with a friendly toast on no-op response.
+   */
   improveChatField(field: 'persona' | 'system'): void {
-    const s = this.state.selectedSite(); if (!s) { this.toast.error('Select a site first'); return; }
+    const s = this.state.selectedSite();
+    if (!s) { this.toast.error('Select a site first'); return; }
     const value = field === 'persona' ? this.chat.persona : this.chat.system_prompt;
+    const trimmed = (value ?? '').trim();
+
+    // Shortcut: empty system prompt + v2 default available → seed it locally.
+    // Saves an AI round-trip and shows the user the canonical starting point.
+    if (field === 'system' && trimmed.length === 0 && this.chat.system_prompt_default?.trim()) {
+      this.chat.system_prompt = this.chat.system_prompt_default;
+      this.toast.success('Loaded v2 best-prompt default — review + save');
+      return;
+    }
+
     this.improvingField.set(field);
     this.api.post<{ data: { improved: string; original: string } }>(
       `/sites/${s.id}/ai-settings/improve`,

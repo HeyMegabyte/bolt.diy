@@ -27,7 +27,9 @@
   },
   "dependencies": {
     "@cloudflare/containers": "^0.3.2",
+    "@hono/zod-validator": "^0.8.0",
     "@project-sites/shared": "file:../../packages/shared",
+    "diff": "^5.2.0",
     "hono": "^4.4.0",
     "jszip": "^3.10.1",
     "toucan-js": "^4.1.1",
@@ -39,6 +41,7 @@
     "@sentry/cli": "^2.39.1",
     "@swc/core": "^1.4.0",
     "@swc/jest": "^0.2.36",
+    "@types/diff": "^5.2.3",
     "@types/jest": "^29.5.12",
     "@types/jszip": "^3.4.0",
     "@typescript-eslint/eslint-plugin": "^8.54.0",

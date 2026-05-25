@@ -82,8 +82,12 @@ function getClientIP(request: Request): string {
  */
 export function createSecurityHeaders() {
   return {
-    // Prevent clickjacking
-    'X-Frame-Options': 'DENY',
+    // Clickjacking — bolt.diy must be embeddable in the projectsites admin
+    // shell (editor.projectsites.dev iframe inside projectsites.dev/admin).
+    // Use CSP frame-ancestors (modern replacement for X-Frame-Options) so
+    // only OUR origins can frame it.
+    // X-Frame-Options is intentionally OMITTED — its `DENY` would override
+    // frame-ancestors in older browsers and break the admin embed.
 
     // Prevent MIME type sniffing
     'X-Content-Type-Options': 'nosniff',
@@ -91,16 +95,29 @@ export function createSecurityHeaders() {
     // Enable XSS protection
     'X-XSS-Protection': '1; mode=block',
 
-    // Content Security Policy - restrict to same origin and trusted sources
+    /*
+     * Content Security Policy
+     * - frame-src: allow WebContainer preview iframes (the bolt.diy Preview
+     *   tab loads `https://*.local-credentialless.webcontainer-api.io`).
+     *   `frame-src 'none'` blocks them outright — the user-visible symptom
+     *   is a blank/blocked preview pane.
+     * - frame-ancestors: only projectsites.dev (the admin shell) and the
+     *   bolt.diy standalone origins are allowed to embed THIS document.
+     *   Replaces the old `X-Frame-Options: DENY` which would block the
+     *   admin iframe entirely.
+     */
     'Content-Security-Policy': [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Allow inline scripts for React
-      "style-src 'self' 'unsafe-inline'", // Allow inline styles
-      "img-src 'self' data: https: blob:", // Allow images from same origin, data URLs, and HTTPS
-      "font-src 'self' data:", // Allow fonts from same origin and data URLs
-      "connect-src 'self' https://api.github.com https://api.netlify.com", // Allow connections to GitHub and Netlify APIs
-      "frame-src 'none'", // Prevent iframe embedding
-      "object-src 'none'", // Prevent object embedding
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // inline scripts for React
+      "style-src 'self' 'unsafe-inline'",                // inline styles
+      "img-src 'self' data: https: blob:",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "connect-src 'self' https://api.github.com https://api.netlify.com https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io wss://*.webcontainer-api.io wss://*.local-credentialless.webcontainer-api.io",
+      "frame-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io https://*.stackblitz.com",
+      "child-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io",
+      "worker-src 'self' blob:",
+      "frame-ancestors 'self' https://projectsites.dev https://*.projectsites.dev https://bolt-diy-8jf.pages.dev https://bolt.megabyte.space",
+      "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
     ].join('; '),

@@ -166,6 +166,6 @@ describe('GET /api/admin/forecast/cost', () => {
     expect(body.data.savings_tip).toContain('IA storage');
     expect(env.AI.run).toHaveBeenCalledTimes(1);
     const args = (env.AI.run as jest.Mock).mock.calls[0]!;
-    expect(args[0]).toBe('@cf/meta/llama-3.3-70b-instruct');
+    expect(args[0]).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
   });
 });

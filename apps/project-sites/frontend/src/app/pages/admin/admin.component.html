@@ -54,11 +54,16 @@
       <button
         aria-label="Select site"
         [attr.aria-expanded]="siteDropdownOpen()"
+        aria-haspopup="listbox"
         class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] border border-white/[0.06] bg-white/[0.02] cursor-pointer transition-all duration-200 text-left hover:border-primary/20 hover:bg-primary/[0.04]"
         (click)="toggleSiteDropdown($event)">
         @if (state.selectedSite(); as site) {
-          <div class="w-8 h-8 rounded-lg bg-primary/[0.08] flex items-center justify-center flex-shrink-0 text-primary">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <div class="site-favicon-tile site-favicon-tile--lg" aria-hidden="true">
+            @if (siteFaviconUrl(site) && !isFaviconFailed(site)) {
+              <img [src]="siteFaviconUrl(site)" alt="" loading="lazy" decoding="async" (error)="onFaviconError(site)" />
+            } @else {
+              <span>{{ siteMonogram(site) }}</span>
+            }
           </div>
           <div class="flex-1 min-w-0 flex flex-col gap-0.5">
             <span class="text-[0.82rem] font-semibold text-white truncate">{{ site.business_name || 'Unnamed' }}</span>
@@ -72,42 +77,73 @@
             <span class="text-[0.82rem] font-semibold text-white">No sites</span>
           </div>
         }
+        <!-- Currently-selected property's favicon next to the caret. Hidden
+             when there's no selection so the trigger still reads cleanly. -->
+        @if (state.selectedSite(); as site) {
+          <div class="site-favicon-tile" aria-hidden="true">
+            @if (siteFaviconUrl(site) && !isFaviconFailed(site)) {
+              <img [src]="siteFaviconUrl(site)" alt="" loading="lazy" decoding="async" (error)="onFaviconError(site)" />
+            } @else {
+              <span>{{ siteMonogram(site) }}</span>
+            }
+          </div>
+        }
         <svg class="text-text-secondary flex-shrink-0 transition-transform duration-200" [class.rotate-180]="siteDropdownOpen()" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
       </button>
 
       @if (siteDropdownOpen()) {
-        <div class="absolute left-3 right-3 top-[calc(100%+4px)] bg-[rgba(10,10,30,0.98)] border border-primary/[0.12] rounded-[10px] p-1.5 z-[200] shadow-[0_12px_40px_rgba(0,0,0,0.6),0_0_30px_rgba(0,229,255,0.04)] site-dropdown-anim max-h-[360px] flex flex-col">
-          <!-- Search input -->
-          <div class="px-1.5 pb-1.5">
+        <div class="absolute left-3 right-3 top-[calc(100%+4px)] bg-[rgba(10,10,30,0.98)] border border-primary/[0.12] rounded-[10px] p-1.5 z-[200] shadow-[0_12px_40px_rgba(0,0,0,0.6),0_0_30px_rgba(0,229,255,0.04)] site-dropdown-anim max-h-[360px] flex flex-col"
+             (keydown)="onSiteListKeydown($event)">
+          <!-- Search input — padding (`site-dropdown-row` = 6px L/R) matches
+               the list-item `px-1.5` (6px L/R) below so input width === item
+               width pixel-for-pixel. -->
+          <div class="site-dropdown-row pb-1.5">
             <div class="relative">
               <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
               <input
+                #siteSearchInput
                 type="text"
                 placeholder="Search sites..."
+                aria-label="Search your sites"
+                autocomplete="off"
+                spellcheck="false"
                 class="w-full pl-8 pr-3 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-[0.78rem] text-white placeholder:text-text-secondary/60 outline-none focus:border-primary/30 focus:bg-primary/[0.02] transition-colors"
                 [ngModel]="siteSearchQuery()"
                 (ngModelChange)="siteSearchQuery.set($event)"
+                (keydown.enter)="onSiteSearchEnter($event)"
                 (click)="$event.stopPropagation()" />
             </div>
           </div>
-          <div class="overflow-y-auto flex-1">
+          <div class="overflow-y-auto flex-1" role="listbox" aria-label="Your sites">
             @for (site of filteredSites; track site.id) {
               <button
-                class="flex items-center gap-2 w-full py-2 px-2.5 border-none bg-transparent text-text-secondary text-[0.78rem] font-sans cursor-pointer rounded-[7px] transition-all duration-150 text-left hover:bg-primary/[0.06] hover:text-white"
-                [class.file-active]="state.selectedSite()?.id === site.id" [attr.aria-current]="state.selectedSite()?.id === site.id ? 'true' : null"
+                #siteOption
+                role="option"
+                [attr.aria-selected]="state.selectedSite()?.id === site.id"
+                class="site-option flex items-center gap-2 w-full py-2 px-1.5 border-none bg-transparent text-text-secondary text-[0.78rem] font-sans cursor-pointer rounded-[7px] transition-all duration-150 text-left hover:bg-primary/[0.06] hover:text-white"
+                [class.site-option-active]="state.selectedSite()?.id === site.id"
+                [attr.aria-current]="state.selectedSite()?.id === site.id ? 'true' : null"
                 (click)="selectSite(site)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></svg>
+                <span class="site-favicon-tile" aria-hidden="true">
+                  @if (siteFaviconUrl(site) && !isFaviconFailed(site)) {
+                    <img [src]="siteFaviconUrl(site)" alt="" loading="lazy" decoding="async" (error)="onFaviconError(site)" />
+                  } @else {
+                    <span>{{ siteMonogram(site) }}</span>
+                  }
+                </span>
                 <span class="flex-1 truncate">{{ site.business_name || 'Unnamed' }}</span>
                 <span class="text-[0.58rem] font-bold uppercase" [class]="state.getStatusTextClass(site.status)">{{ state.getStatusLabel(site.status) }}</span>
               </button>
             }
             @if (filteredSites.length === 0 && siteSearchQuery()) {
-              <div class="text-center text-text-secondary/60 text-[0.75rem] py-3">No matches</div>
+              <div class="text-center text-text-secondary/60 text-[0.75rem] py-3">
+                No matches — press Enter to create &ldquo;{{ siteSearchQuery() }}&rdquo;
+              </div>
             }
           </div>
           <div class="h-px mx-2 my-1 bg-white/[0.06]"></div>
           <button
-            class="flex items-center gap-2 w-full py-2 px-2.5 border-none bg-transparent text-primary text-[0.78rem] font-sans cursor-pointer rounded-[7px] transition-all duration-150 text-left hover:bg-primary/[0.12]"
+            class="flex items-center gap-2 w-full py-2 px-1.5 border-none bg-transparent text-primary text-[0.78rem] font-sans cursor-pointer rounded-[7px] transition-all duration-150 text-left hover:bg-primary/[0.12]"
             (click)="state.newSite()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
             <span>Add New Site</span>
@@ -142,6 +178,29 @@
       <a class="nav-item" routerLink="/admin/ai-endpoints" routerLinkActive="nav-item-active" title="Custom AI endpoints (prompt or worker)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
         <span>Endpoints</span>
+      </a>
+      <!-- App store — catalog of self-hostable apps (Umami, Mattermost,
+           Outline, etc.) deployable to CF Workers Containers in <5 min.
+           Cyan shopping-bag glyph matches sibling icon weight (stroke 1.5). -->
+      <a class="nav-item" routerLink="/admin/apps" routerLinkActive="nav-item-active" title="Self-hostable app store — Cloudflare Workers Containers">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        <span>Apps</span>
+      </a>
+      <!-- Pulse Inbox — unified conversation hub (email/slack/discord/
+           telegram/website widget). Chat-bubble glyph distinguishes it
+           from Forms (file glyph). -->
+      <a class="nav-item" routerLink="/admin/inbox" routerLinkActive="nav-item-active" title="Pulse Inbox — every conversation, every channel, one place">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        <span>Inbox</span>
+      </a>
+      <!-- Pulse Social — compose once, publish to 11 networks (X, LinkedIn,
+           Facebook, Instagram, Threads, Bluesky, Reddit, Mastodon, Discord,
+           Slack, Telegram). Megaphone glyph distinguishes outbound broadcast
+           from the inbound Inbox chat bubble. Sibling backend at
+           apps/project-sites/src/routes/social.ts + social_publishers/*. -->
+      <a class="nav-item" routerLink="/admin/social" routerLinkActive="nav-item-active" title="Pulse Social — compose, schedule, measure posts across 11 networks">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8v18l-18-8z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+        <span>Social</span>
       </a>
 
       <div class="h-px mx-3.5 my-2 bg-white/[0.06]"></div>
@@ -183,12 +242,10 @@
          the user menu's z:99950 only resolves inside that context. -->
     <div class="relative z-50 flex items-center justify-between px-7 py-3 border-b border-white/[0.06] bg-dark/60 backdrop-blur-lg flex-shrink-0 gap-3 flex-wrap max-md:px-4 max-md:pl-[52px]">
       <div class="flex items-center gap-1.5 text-[0.82rem] text-text-secondary">
-        <a class="font-medium text-text-secondary hover:text-primary transition-colors no-underline cursor-pointer" routerLink="/admin">ProjectSites</a>
-        @if (state.selectedSite(); as site) {
-          <svg class="opacity-40 flex-shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
-          <a class="font-medium text-text-secondary hover:text-primary transition-colors no-underline cursor-pointer max-w-[180px] truncate"
-             [href]="state.getSiteUrl(site)" target="_blank" rel="noopener">{{ site.business_name || 'Unnamed' }}</a>
-        }
+        <!-- Domain picker collapses "ProjectSites › {site name}" into one
+             home-icon + dropdown widget. The current section name stays
+             to the right as the third breadcrumb segment. -->
+        <app-domain-picker></app-domain-picker>
         <svg class="opacity-40 flex-shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
         <span class="text-white font-semibold">{{ currentSection() }}</span>
       </div>
@@ -199,10 +256,7 @@
           <span class="cmdk-label">Quick find</span>
           <kbd class="cmdk-kbd">⌘K</kbd>
         </button>
-<button class="top-btn" (click)="state.loadData()" title="Refresh" aria-label="Refresh dashboard data">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-        </button>
-        @if (state.selectedSite(); as site) {
+@if (state.selectedSite(); as site) {
           @if (site.status === 'published') {
             <button class="top-btn" (click)="state.visitSite(site)" title="Preview site" aria-label="Preview site in new tab">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -337,13 +391,11 @@
       <iframe #boltFrame
               class="bolt-frame"
               [class.bolt-frame--visible]="isEditorRoute()"
-              [class.opacity-0]="!bolt.editorReady()"
-              [class.opacity-100]="bolt.editorReady()"
               [src]="bolt.iframeUrl()!"
               loading="eager"
               fetchpriority="high"
               referrerpolicy="origin"
-              allow="clipboard-read; clipboard-write; cross-origin-isolated"
+              allow="clipboard-read; clipboard-write; cross-origin-isolated; microphone; camera; display-capture; autoplay"
               credentialless
               title="bolt.diy editor"
               aria-label="bolt.diy editor">

@@ -20,6 +20,7 @@ import { s3Connection } from '~/lib/stores/s3';
 import { toast } from 'react-toastify';
 import { db, chatId, description as chatDescription } from '~/lib/persistence/useChatHistory';
 import { getMessages } from '~/lib/persistence/db';
+import { isEmbedded, postToParent } from '~/lib/embed/embedded-mode';
 
 interface DeployButtonProps {
   onVercelDeploy?: () => Promise<void>;
@@ -167,9 +168,54 @@ export const DeployButton = ({
         setIsDeploying(false);
         setDeployingTo(null);
       }
-    } else {
-      setShowProjectSitesDialog(true);
+
+      return;
     }
+
+    /*
+     * Item 43 — when bolt.diy is embedded inside the projectsites admin
+     * shell, defer the deploy to the parent. The parent already owns the
+     * site context (id, slug, plan, hostnames) and runs the real deploy
+     * via its own `/api/sites/:id/publish-bolt` API so deploys land in
+     * the standard audit log. Posting the files + chat as a single
+     * `PS_DEPLOY_REQUEST` keeps the editor side free of dialog friction.
+     */
+    if (isEmbedded) {
+      try {
+        const textFiles = workbenchStore.getTextFiles();
+        let chatMessages: unknown[] = [];
+        let chatDesc = 'Deployed from Bolt';
+
+        try {
+          const currentChatId = chatId.get();
+
+          if (db && currentChatId) {
+            const chat = await getMessages(db, currentChatId);
+
+            if (chat && chat.messages && chat.messages.length > 0) {
+              chatMessages = chat.messages;
+              chatDesc = chat.description || chatDescription.get() || 'Deployed from Bolt';
+            }
+          }
+        } catch {
+          // Fall back to empty messages if chat retrieval fails
+        }
+
+        postToParent({
+          type: 'PS_DEPLOY_REQUEST',
+          files: textFiles,
+          chat: { messages: chatMessages, description: chatDesc, exportDate: new Date().toISOString() },
+          correlationId: crypto.randomUUID(),
+        });
+        toast.info('Deploy requested via Project Sites...');
+      } catch (err) {
+        toast.error('Failed to request deploy: ' + (err instanceof Error ? err.message : String(err)));
+      }
+
+      return;
+    }
+
+    setShowProjectSitesDialog(true);
   };
 
   const handleProjectSitesDeployConfirm = async () => {
@@ -414,7 +460,7 @@ export const DeployButton = ({
               <div className="w-5 h-5 flex items-center justify-center">
                 <div className="i-ph:globe-simple-duotone text-lg text-purple-500" />
               </div>
-              <span className="mx-auto">Deploy to Project Sites</span>
+              <span className="mx-auto">{isEmbedded ? 'Deploy via projectsites' : 'Deploy to Project Sites'}</span>
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Root>

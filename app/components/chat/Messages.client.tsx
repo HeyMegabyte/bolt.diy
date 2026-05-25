@@ -1,5 +1,5 @@
 import type { Message } from 'ai';
-import { Fragment } from 'react';
+import { Fragment, useEffect } from 'react';
 import { classNames } from '~/utils/classNames';
 import { AssistantMessage } from './AssistantMessage';
 import { UserMessage } from './UserMessage';
@@ -10,6 +10,7 @@ import { toast } from 'react-toastify';
 import { forwardRef } from 'react';
 import type { ForwardedRef } from 'react';
 import type { ProviderInfo } from '~/types/model';
+import { captureBeforeAssistantTurn } from '~/lib/chat/ai-undo';
 
 interface MessagesProps {
   id?: string;
@@ -28,6 +29,22 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
   (props: MessagesProps, ref: ForwardedRef<HTMLDivElement> | undefined) => {
     const { id, isStreaming = false, messages = [] } = props;
     const location = useLocation();
+
+    useEffect(() => {
+      // Capture a pre-AI-turn file snapshot whenever a new assistant message starts streaming.
+      const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+
+      if (lastUser?.id) {
+        const nextAssistantIdx = messages.findIndex(
+          (m, i) => m.role === 'assistant' && i > messages.indexOf(lastUser),
+        );
+        const targetId = nextAssistantIdx >= 0 ? messages[nextAssistantIdx].id : `pending-${lastUser.id}`;
+
+        if (targetId) {
+          captureBeforeAssistantTurn(targetId);
+        }
+      }
+    }, [messages.length]);
 
     const handleRewind = (messageId: string) => {
       const searchParams = new URLSearchParams(location.search);
@@ -86,6 +103,8 @@ export const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                         provider={props.provider}
                         parts={parts}
                         addToolResult={props.addToolResult}
+                        isStreaming={isStreaming && index === messages.length - 1}
+                        isLast={index === messages.length - 1}
                       />
                     )}
                   </div>

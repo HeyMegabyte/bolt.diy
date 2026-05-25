@@ -5,19 +5,30 @@
 
 :host { display: block; }
 
-// Subtle glow on the sidebar surface
+// Subtle glow on the sidebar surface — depth via radial accent + rim-light.
 aside {
   position: relative;
   isolation: isolate;
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0)) ,
+    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(0,229,255,0.05), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0)),
     linear-gradient(180deg, #07071a 0%, #060615 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 aside::after {
   content: '';
   position: absolute; top: 0; right: 0; bottom: 0;
   width: 1px;
-  background: linear-gradient(180deg, transparent, rgba(0,229,255,0.18) 18%, rgba(124,58,237,0.12) 60%, transparent);
+  background: linear-gradient(180deg, transparent, rgba(0,229,255,0.22) 18%, rgba(124,58,237,0.14) 60%, transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+// Top edge highlight to lift the sidebar from the canvas.
+aside::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,229,255,0.30) 50%, transparent);
   pointer-events: none;
   z-index: 1;
 }
@@ -71,15 +82,27 @@ aside::after {
   max-width: 380px;
   max-height: 480px;
   overflow-y: auto;
-  background: #0c0c20;
-  background-image: linear-gradient(180deg, #14142a, #0a0a1c);
-  border: 1px solid rgba(0,229,255,0.32);
-  border-radius: 12px;
+  background:
+    radial-gradient(ellipse 100% 60% at 50% 0%, rgba(0,229,255,0.07), transparent 60%),
+    linear-gradient(180deg, rgba(20, 20, 42, 0.96), rgba(10, 10, 28, 0.98));
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid color-mix(in oklch, #00E5FF 22%, transparent);
+  border-radius: var(--ps-radius-md, 12px);
   padding: 8px;
-  box-shadow: 0 24px 60px -16px rgba(0,0,0,0.85), 0 0 0 1px rgba(0,229,255,0.08);
+  box-shadow:
+    0 24px 60px -16px rgba(0,0,0,0.85),
+    0 0 80px rgba(0, 229, 255, 0.05),
+    inset 0 1px 0 rgba(255,255,255,0.06);
   z-index: 99950;
   isolation: isolate;
-  animation: popIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: popIn 220ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)) both;
+  transform-origin: top right;
+}
+.notif-pop::before, .user-pop::before {
+  content: ""; position: absolute; top: 0; left: 8px; right: 8px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,229,255,0.55) 30%, rgba(124,58,237,0.40) 70%, transparent);
+  pointer-events: none;
 }
 // Avatar wrapper provides the positioning context for `.user-pop`.
 // Without `position: relative` on the parent of the avatar button + pop,
@@ -158,6 +181,46 @@ aside::after {
 // Animations
 .site-dropdown-anim { animation: fadeInScale 0.15s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .modal-anim { animation: fadeInScale 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+// Site selector dropdown — unify horizontal padding between search input row
+// and list items so both inner surfaces share identical edge alignment.
+// Parent dropdown container uses `p-1.5` (6px). Removing inner row padding
+// + matching list-item padding makes search width === list-item width.
+.site-dropdown-row {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+// Site favicon tile — 18px square, rounded, falls back to a cyan-tinted
+// monogram tile when the upstream image errors. Used in both trigger and
+// list items so visuals stay consistent.
+.site-favicon-tile {
+  width: 18px; height: 18px;
+  border-radius: var(--ps-radius-xs, 6px);
+  background: rgba(0, 229, 255, 0.10);
+  color: #00E5FF;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0; overflow: hidden;
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0;
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  img {
+    width: 100%; height: 100%; object-fit: contain; display: block;
+  }
+}
+.site-favicon-tile--lg {
+  width: 32px; height: 32px;
+  border-radius: var(--ps-radius-sm, 8px);
+  font-size: 0.86rem;
+}
+.site-option-active {
+  background: rgba(0, 229, 255, 0.10);
+  color: #fff !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 229, 255, 0.22);
+}
+.site-option:focus-visible {
+  outline: 2px solid #00E5FF;
+  outline-offset: -2px;
+}
 
 // Nav Items — glow-up
 .nav-item {
@@ -451,10 +514,9 @@ aside::after {
  *
  * - Off-screen by default (top: -9999px) so it boots in the background while
  *   the user explores other admin sections.
- * - On `/admin/editor` we lift it into place via `.bolt-frame--visible`.
- * - Opacity stays at 0 until `BoltEmbedService.editorReady` flips, so the
- *   editor's own "Loading…" flicker is hidden behind the loading veil
- *   rendered by `AdminEditorComponent`.
+ * - On /admin/editor we lift it into place via .bolt-frame--visible.
+ * - Visible immediately when in-place — no editor-ready gate. The user
+ *   sees bolt.diy boot live, which beats a black opaque overlay.
  */
 .bolt-frame {
   position: absolute;
@@ -463,29 +525,20 @@ aside::after {
   width: 1px;
   height: 1px;
   border: 0;
-  background: #0a0a1a;
-  opacity: 0;
+  background: #060610;
   pointer-events: none;
-  transition: opacity 500ms cubic-bezier(0.4, 0, 0.2, 1);
-  /* Override the broad `router-outlet ~ *` rule in styles/_polish.scss
-     that names every sibling `ps-content`. Two elements sharing one
+  /* Override the broad router-outlet ~ * rule in styles/_polish.scss
+     that names every sibling ps-content. Two elements sharing one
      view-transition-name throws "Unexpected duplicate view-transition-name"
      in Chrome and breaks the section crossfade. */
   view-transition-name: bolt-frame;
 }
 .bolt-frame--visible {
-  top: 49px;     /* below the admin top bar */
+  top: 62px;     /* below the admin top bar */
   left: 0;
-  right: 0;
-  bottom: 0;
-  width: auto;
-  height: auto;
+  width: 100%;
+  height: calc(100% - 62px);
+  opacity: 1;
   pointer-events: auto;
   z-index: 1;
-}
-.bolt-frame.opacity-100 {
-  opacity: 1;
-}
-@media (prefers-reduced-motion: reduce) {
-  .bolt-frame { transition: none; }
 }

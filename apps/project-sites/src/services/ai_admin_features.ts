@@ -11,7 +11,7 @@
  *      pricing plus a single LLM-generated savings tip (item #95, AI cost forecaster).
  *
  * All LLM calls route through the Workers AI binding
- * (`env.AI.run('@cf/meta/llama-3.1-8b-instruct', …)`), keeping every feature on the
+ * (`env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', …)`), keeping every feature on the
  * Cloudflare-first stack with zero per-token billing for the org.
  *
  * @packageDocumentation
@@ -21,7 +21,7 @@ import { z } from 'zod';
 import type { Env } from '../types/env.js';
 
 /** Workers AI model used for every feature in this module. */
-const MODEL = '@cf/meta/llama-3.1-8b-instruct' as const;
+const MODEL = '@cf/meta/llama-3.1-8b-instruct-fp8' as const;
 
 /** Narrow the model literal into the type Workers AI's `run()` accepts. */
 type ModelParam = Parameters<Ai['run']>[0];
@@ -55,7 +55,7 @@ export interface AiTraceRow {
 /** Public shape returned by {@link explainTrace}. */
 export interface ExplainTraceResult {
   markdown: string;
-  model: '@cf/meta/llama-3.1-8b-instruct';
+  model: '@cf/meta/llama-3.1-8b-instruct-fp8';
   cached: boolean;
 }
 
