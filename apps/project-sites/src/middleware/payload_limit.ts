@@ -35,6 +35,7 @@ export const payloadLimitMiddleware: MiddlewareHandler<{
       (UPLOAD_PATHS.some((p) => url.pathname.startsWith(p)) &&
         (url.pathname.endsWith('/deploy') || url.pathname === '/api/publish/bolt')) ||
       url.pathname === '/api/assets/upload' ||
+      url.pathname === '/api/media/upload' ||
       url.pathname.endsWith('/publish-bolt');
     const maxBytes = isUpload ? UPLOAD_MAX_BYTES : DEFAULT_CAPS.MAX_REQUEST_BODY_BYTES;
 

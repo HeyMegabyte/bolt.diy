@@ -15,13 +15,15 @@ import { AiChatWidgetComponent } from '../../components/ai-chat-widget/ai-chat-w
 import { SectionErrorBoundaryComponent } from '../../components/section-error-boundary/section-error-boundary.component';
 import { FocusTrapDirective } from '../../directives/focus-trap.directive';
 import { DomainPickerComponent } from '../../components/domain-picker/domain-picker.component';
+import { GlobalDropZoneComponent } from '../../components/global-drop-zone/global-drop-zone.component';
+import { TaskTrayComponent } from '../../components/task-tray/task-tray.component';
 
 interface Notification { id: string; title: string; time: string; kind: 'info' | 'warn' | 'ok'; read: boolean; ts?: number; href?: string; }
 
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective, DomainPickerComponent],
+  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective, DomainPickerComponent, GlobalDropZoneComponent, TaskTrayComponent],
   providers: [AdminStateService],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',
@@ -97,7 +99,7 @@ export class AdminComponent implements OnInit, OnDestroy {
       'ai-endpoints': 'Endpoints', 'domains': 'Domains', 'docs': 'Docs',
       'user': 'User Settings', 'apps': 'Apps', 'instances': 'App Instances',
       'billing': 'Billing', 'audit': 'Audit Log', 'settings': 'Settings',
-      'voice': 'Voice',
+      'voice': 'Voice', 'media': 'Media',
     };
     this.currentSection.set(labels[segment] || 'Editor');
     this.api.post('/analytics/track', {

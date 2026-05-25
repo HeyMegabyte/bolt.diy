@@ -2407,6 +2407,60 @@ api.get('/api/sites/:id/logs', async (c) => {
   return c.json({ data: result.data });
 });
 
+// ─── AI Task Inbox Routes ───────────────────────────────────
+//
+// Companion to `services/task_inbox.ts`. Workflows post elicitation rows;
+// the admin task tray polls `GET /api/inbox/tasks` and resolves a chosen
+// option via `POST /api/inbox/tasks/:id/resolve`. Resolution fans the
+// answer back into the originating workflow via `SITE_GENERATION.sendEvent`
+// when that binding is wired (Workflows v2) — see `resolveTask` for the
+// silent no-op fallback.
+
+/**
+ * @route GET /api/inbox/tasks
+ * @auth Bearer — `orgId` MUST resolve.
+ * @returns 200 OK `{ tasks: TaskInboxView[] }` — unresolved tasks for the
+ *   caller's org, newest first, expired rows filtered out so the UI never
+ *   offers a stale option the workflow can no longer honor.
+ */
+api.get('/api/inbox/tasks', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  const { listOpenTasks } = await import('../services/task_inbox.js');
+  const tasks = await listOpenTasks(c.env, orgId);
+  return c.json({ tasks });
+});
+
+/**
+ * @route POST /api/inbox/tasks/:id/resolve
+ * @auth Bearer — `orgId` MUST resolve; the task must belong to that org.
+ * @body `{ choice: string }` — option key OR free-text response.
+ * @returns 200 OK `{ ok: true }` on a fresh resolution, 200 OK `{ ok: false }`
+ *   when the task is already resolved / expired-defaulted / unknown.
+ */
+api.post('/api/inbox/tasks/:id/resolve', async (c) => {
+  const orgId = c.get('orgId');
+  const userId = c.get('userId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const id = c.req.param('id');
+  const body = (await c.req.json().catch(() => ({}))) as { choice?: unknown };
+  const choice = typeof body.choice === 'string' ? body.choice.trim() : '';
+  if (!choice) throw badRequest('choice is required');
+
+  // Cross-org guard — verify the task belongs to this org before resolving.
+  const owns = await dbQueryOne<{ id: string }>(
+    c.env.DB,
+    'SELECT id FROM ai_task_inbox WHERE id = ? AND org_id = ? LIMIT 1',
+    [id, orgId],
+  );
+  if (!owns) throw unauthorized('Task not found for this org');
+
+  const { resolveTask } = await import('../services/task_inbox.js');
+  const ok = await resolveTask(c.env, id, { choice, by: userId ?? undefined });
+  return c.json({ ok });
+});
+
 // ─── Bolt Publish Route ─────────────────────────────────────
 
 /**

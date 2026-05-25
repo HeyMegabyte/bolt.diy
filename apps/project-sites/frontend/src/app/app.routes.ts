@@ -210,6 +210,14 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/admin/sections/voice.component').then((m) => m.VoiceComponent),
       },
+      {
+        // Media — Library + Stock Search + Image/Video/Podcast Studios.
+        // Companion to the global drag-and-drop overlay mounted in the
+        // admin shell — dropped files route here once uploaded.
+        path: 'media',
+        loadComponent: () =>
+          import('./pages/admin/sections/media.component').then((m) => m.AdminMediaComponent),
+      },
       { path: 'mcp', redirectTo: 'settings/mcp', pathMatch: 'full' },
       { path: 'github', redirectTo: 'snapshots', pathMatch: 'full' },
       {

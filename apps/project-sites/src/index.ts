@@ -46,6 +46,7 @@ import { forms } from './routes/forms.js';
 import { aiAdmin } from './routes/ai_admin.js';
 import { aiEndpointsPublic } from './routes/ai_endpoints_public.js';
 import { mcpOauth } from './routes/mcp_oauth.js';
+import { envVarsRoutes } from './routes/env_vars.js';
 import { docs } from './routes/docs.js';
 import { autofill } from './routes/autofill.js';
 import { bolt } from './routes/bolt_admin.js';
@@ -67,6 +68,7 @@ import { agents } from './routes/agents.js';
 import { templates as templatesRoutes } from './routes/templates.js';
 import { mcpSite } from './routes/mcp_site.js';
 import { experiments } from './routes/experiments.js';
+import { mediaRoutes } from './routes/media.js';
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbQueryOne, dbUpdate } from './services/db.js';
@@ -265,6 +267,7 @@ app.route('/', assets); // Asset uploads + build-assets listing
 app.route('/', forms); // Public form ingest + auth-gated submissions/integrations CRUD
 app.route('/', aiEndpointsPublic); // Public /api/ai/:slug/:endpoint dispatcher
 app.route('/', mcpOauth); // MCP OAuth start + callback (MailChimp/Stripe/Resend/HubSpot)
+app.route('/', envVarsRoutes); // /api/env-vars — per-org/site/MCP customizable env vars for AI + MCP dispatch
 app.route('/', aiAdmin); // Form submissions, AI logs, chat, endpoints, credits, alerts, team
 app.route('/', docs); // Interactive API explorer (OpenAPI + Angular overview)
 app.route('/', appsRoutes); // /admin/apps tab — catalog + per-org app_instances CRUD
@@ -284,6 +287,7 @@ app.route('/', agents); // /api/(sites/:siteId/agents|agents/:id)/* — AI Agent
 app.route('/', templatesRoutes); // /api/templates + /api/sites/:siteId/install-template — templates marketplace
 app.route('/', mcpSite); // /{slug}/.well-known/* + /{slug}/mcp + /api/sites/:siteId/mcp/* — MCP per-site server
 app.route('/', experiments); // /_ps/{i,c,e,predict} + /api/sites/:siteId/experiments — Thompson-sampling A/B + predictive prerender
+app.route('/', mediaRoutes); // /api/media/* — unified media library (uploads, stock, AI gen, send-to-bolt)
 
 // ── Pulse Inbox WebSocket upgrade ────────────────────────────
 // `wss://projectsites.dev/api/inbox/ws/:conversation_id` proxies the

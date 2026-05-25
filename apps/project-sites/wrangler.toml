@@ -68,6 +68,23 @@ class_name = "SocialPublishWorkflow"
 [ai]
 binding = "AI"
 
+# ─── Vectorize index for RAG (semantic search across research, voice
+#     transcripts, audit logs, forms, AI traces). 768-dim cosine, pre-create
+#     with: `npx wrangler vectorize create projectsites-rag --dimensions=768
+#     --metric=cosine` + `npx wrangler vectorize create-metadata-index
+#     projectsites-rag --property-name=kind --type=string` (repeat for orgId).
+[[vectorize]]
+binding = "RAG_INDEX"
+index_name = "projectsites-rag"
+
+# ─── AutoRAG (optional). Pre-create the knowledge source via the dash:
+#     https://dash.cloudflare.com/?to=/:account/ai/ai-search and bind here.
+#     Leave commented until the source is provisioned — `rag.ts` gracefully
+#     falls back to `semanticSearch` + Llama synthesis when AUTORAG is unbound.
+# [ai_search]
+# binding = "AUTORAG"
+# name = "projectsites-knowledge"
+
 # ─── Production ──────────────────────────────────────────────
 [env.production]
 name = "project-sites"
@@ -85,6 +102,12 @@ INTERNAL_CALLBACK_URL = "https://project-sites.manhattan.workers.dev/api/interna
 # they're not sensitive and the dispatch binding below pins this namespace.
 CF_ACCOUNT_ID = "84fa0d1b16ff8086dd958c468ce7fd59"
 WFP_NAMESPACE_NAME = "project-sites-endpoints"
+# Route every external LLM call through Cloudflare AI Gateway when "true"
+# (universal cache + fallback + rate-limit + structured logs + cost
+# attribution). Set to "false" to bypass during incident response. Requires
+# AI Gateway named "projectsites" provisioned at:
+#   https://dash.cloudflare.com/?to=/:account/ai/ai-gateway
+AI_GATEWAY_ENABLED = "true"
 # Sentry release tracking (item #48). Override per deploy with
 #   wrangler deploy --env production --var SENTRY_RELEASE:$(git rev-parse --short HEAD)
 # so the version matches the sourcemaps uploaded by
@@ -129,6 +152,12 @@ class_name = "SocialPublishWorkflow"
 
 [env.production.ai]
 binding = "AI"
+
+# Per-environment Vectorize binding (RAG). See top-level [[vectorize]] block
+# for index creation steps.
+[[env.production.vectorize]]
+binding = "RAG_INDEX"
+index_name = "projectsites-rag"
 
 # Workers Analytics Engine — admin dashboard visit tracker.
 # Powers the Analytics page (queried via the SQL API).

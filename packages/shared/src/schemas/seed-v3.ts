@@ -312,7 +312,7 @@ export const marketingSchema = z.object({
 
 // ── Media ────────────────────────────────────────────────────
 
-export const mediaItemSchema = z.object({
+export const seedMediaItemSchema = z.object({
   url: z.string().nullable().optional(),
   search_query: z.string().optional(),
   alt_text: z.string().optional().default(''),
@@ -336,8 +336,8 @@ export const mediaSchema = z.object({
       }),
     ),
   ),
-  storefront_image: confSchema(mediaItemSchema).optional(),
-  team_image: confSchema(mediaItemSchema).optional(),
+  storefront_image: confSchema(seedMediaItemSchema).optional(),
+  team_image: confSchema(seedMediaItemSchema).optional(),
   service_images: confSchema(
     z.array(
       z.object({
@@ -348,7 +348,7 @@ export const mediaSchema = z.object({
       }),
     ),
   ).optional(),
-  gallery: confSchema(z.array(mediaItemSchema)).optional(),
+  gallery: confSchema(z.array(seedMediaItemSchema)).optional(),
   placeholder_strategy: confStr,
 });
 

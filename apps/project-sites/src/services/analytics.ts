@@ -114,3 +114,65 @@ export async function captureFunnelEvent(
     funnel_step: funnelStep,
   });
 }
+
+/**
+ * Capture an LLM generation event in PostHog's native LLM Observability
+ * format. Property names follow the `$ai_*` convention so PostHog's LLM
+ * dashboards auto-pick up the call without manual configuration.
+ *
+ * @remarks
+ * Fire from every external LLM response (`external_llm.ts` callOpenAI /
+ * callAnthropic), every Workers AI call (`ai_workflows.ts`), every voice
+ * agent turn (`voice_agent.ts`). Pair with a `$ai_trace_id` so multi-step
+ * agentic flows roll up cleanly.
+ *
+ * @example
+ * ```ts
+ * await captureLLMCall(env, {
+ *   distinctId: orgId,
+ *   provider: 'anthropic',
+ *   model: 'claude-sonnet-4-6',
+ *   promptId: 'research_brand',
+ *   inputTokens: usage.input_tokens,
+ *   outputTokens: usage.output_tokens,
+ *   latencyMs: Date.now() - startedAt,
+ *   costUsd,
+ *   status: 'ok',
+ *   traceId: requestId,
+ * });
+ * ```
+ */
+export async function captureLLMCall(
+  env: Env,
+  params: {
+    distinctId: string;
+    provider: 'openai' | 'anthropic' | 'workers_ai' | 'deepgram' | 'elevenlabs';
+    model: string;
+    promptId?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    latencyMs: number;
+    costUsd?: number;
+    status: 'ok' | 'error' | 'timeout' | 'circuit_open';
+    errorMessage?: string;
+    traceId?: string;
+    cacheHit?: boolean;
+    gatewayUsed?: boolean;
+  },
+): Promise<void> {
+  await captureEvent(env, '$ai_generation', params.distinctId, {
+    $ai_provider: params.provider,
+    $ai_model: params.model,
+    $ai_prompt_id: params.promptId ?? null,
+    $ai_input_tokens: params.inputTokens ?? 0,
+    $ai_output_tokens: params.outputTokens ?? 0,
+    $ai_latency: params.latencyMs,
+    $ai_total_cost_usd: params.costUsd ?? 0,
+    $ai_trace_id: params.traceId ?? null,
+    $ai_is_error: params.status !== 'ok',
+    $ai_error_message: params.errorMessage ?? null,
+    $ai_cache_read: params.cacheHit ?? false,
+    $ai_gateway: params.gatewayUsed ?? false,
+    $ai_status: params.status,
+  });
+}

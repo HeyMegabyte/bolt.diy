@@ -5,13 +5,19 @@
  * Calls GPT-4o / Claude directly via fetch (no SDK needed in Workers).
  * GPT-4o is the primary provider for all research/vision calls.
  * Anthropic Claude is the fallback when GPT-4o fails.
- * Includes retry with exponential backoff + jitter and circuit breaker.
+ *
+ * Features:
+ * - Retry with exponential backoff + jitter
+ * - Circuit breaker (5 failures in 60s → skip provider for 30s)
+ * - Cloudflare AI Gateway routing (logs, caches, rate-limits, falls back)
+ * - Anthropic prompt caching (`cache_control: ephemeral`) when system > 1024 chars
+ * - Anthropic structured outputs beta (`output_schema`) when responseSchema passed
  *
  * @packageDocumentation
  */
 
 import type { Env } from '../types/env.js';
-import { withRetry, classifyError, type ErrorCategory } from './retry.js';
+import { withRetry, classifyError } from './retry.js';
 
 export interface ExternalLLMOptions {
   /** System prompt */
@@ -28,8 +34,20 @@ export interface ExternalLLMOptions {
   jsonSchema?: { name: string; schema: Record<string, unknown> };
   /** Preferred provider: 'openai' | 'anthropic' | 'auto' (default: 'auto' uses GPT-4o primary) */
   provider?: 'openai' | 'anthropic' | 'auto';
-  /** Specific model override (e.g. 'gpt-4o-mini', 'claude-sonnet-4-20250514') */
+  /** Specific model override (e.g. 'gpt-4o-mini', 'claude-sonnet-4-6') */
   model?: string;
+  /**
+   * Optional JSON Schema for Anthropic structured outputs (beta).
+   *
+   * @remarks
+   * When supplied, the Anthropic request gains:
+   * - Header: `anthropic-beta: structured-outputs-2025-11-13`
+   * - Body: `output_schema: { type: 'json_schema', schema: responseSchema }`
+   *
+   * **Incompatible with the Anthropic Citations API** (the server returns 400
+   * if both are enabled on the same request). Pick one per call.
+   */
+  responseSchema?: Record<string, unknown>;
 }
 
 export interface ExternalLLMResult {
@@ -41,14 +59,90 @@ export interface ExternalLLMResult {
   cost_estimate: number;
 }
 
-/** Cost per 1M tokens (input/output) for common models */
+/**
+ * Cost per 1M tokens (input/output) for current default models.
+ *
+ * @remarks Sourced from public pricing pages 2026-05:
+ * - Opus 4.7 — $15 / $75
+ * - Sonnet 4.6 — $3 / $15
+ * - Haiku 4.5 — $1 / $5
+ * - GPT-4o (2024-11-20) — $2.50 / $10
+ * - GPT-4o-mini — $0.15 / $0.60
+ */
 const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   'gpt-4o': { input: 2.5, output: 10 },
   'gpt-4o-mini': { input: 0.15, output: 0.6 },
-  'claude-opus-4-6': { input: 15, output: 75 },
-  'claude-sonnet-4-20250514': { input: 3, output: 15 },
-  'claude-haiku-4-5-20251001': { input: 0.8, output: 4 },
+  'claude-opus-4-7': { input: 15, output: 75 },
+  'claude-sonnet-4-6': { input: 3, output: 15 },
+  'claude-haiku-4-5': { input: 1, output: 5 },
 };
+
+/** Default model IDs per provider — used when caller does not pass `model`. */
+const DEFAULT_MODELS: Record<'openai' | 'anthropic', string> = {
+  openai: 'gpt-4o-2024-11-20',
+  anthropic: 'claude-sonnet-4-6',
+};
+
+/** Direct vendor base URLs. */
+const DIRECT_URLS: Record<'openai' | 'anthropic', string> = {
+  openai: 'https://api.openai.com',
+  anthropic: 'https://api.anthropic.com',
+};
+
+// ─── AI Gateway Helper ──────────────────────────────────────────────────────
+
+/**
+ * Resolve the base URL for a provider, routing through Cloudflare AI Gateway
+ * when both `AI_GATEWAY_ENABLED === "true"` AND `CF_ACCOUNT_ID` are set.
+ *
+ * Returns `https://gateway.ai.cloudflare.com/v1/{accountId}/projectsites/{provider}`
+ * for gateway mode, else the direct vendor base URL.
+ */
+export function aiGatewayUrl(env: Env, provider: 'openai' | 'anthropic'): string {
+  if (env.AI_GATEWAY_ENABLED === 'true' && env.CF_ACCOUNT_ID) {
+    return `https://gateway.ai.cloudflare.com/v1/${env.CF_ACCOUNT_ID}/projectsites/${provider}`;
+  }
+  return DIRECT_URLS[provider];
+}
+
+/**
+ * Run a fetch against the gateway URL; on 5xx, retry once against the direct
+ * vendor URL with `X-PS-Gateway-Fallback: true` header for log filtering.
+ *
+ * Caller supplies `pathSuffix` (the part after the provider base, e.g.
+ * `/v1/chat/completions` for OpenAI or `/v1/messages` for Anthropic).
+ */
+async function fetchWithGatewayFallback(
+  env: Env,
+  provider: 'openai' | 'anthropic',
+  pathSuffix: string,
+  init: RequestInit,
+): Promise<Response> {
+  const gatewayActive = env.AI_GATEWAY_ENABLED === 'true' && !!env.CF_ACCOUNT_ID;
+  const primaryBase = aiGatewayUrl(env, provider);
+  const primaryUrl = `${primaryBase}${pathSuffix}`;
+
+  const res = await fetch(primaryUrl, init);
+
+  if (gatewayActive && res.status >= 500 && res.status < 600) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'external_llm',
+        event: 'gateway_5xx_fallback',
+        provider,
+        status: res.status,
+        message: `AI Gateway returned ${res.status}; falling back to direct vendor URL once`,
+      }),
+    );
+    const directUrl = `${DIRECT_URLS[provider]}${pathSuffix}`;
+    const fallbackHeaders = new Headers(init.headers ?? {});
+    fallbackHeaders.set('X-PS-Gateway-Fallback', 'true');
+    return fetch(directUrl, { ...init, headers: fallbackHeaders });
+  }
+
+  return res;
+}
 
 // ─── Circuit Breaker State ──────────────────────────────────────────────────
 
@@ -155,8 +249,12 @@ function chooseProvider(
 
 /**
  * Call OpenAI Chat Completions API.
+ *
+ * Routes through `aiGatewayUrl(env, 'openai')` when AI Gateway is enabled;
+ * falls back to direct vendor URL once on 5xx.
  */
 async function callOpenAI(
+  env: Env,
   apiKey: string,
   model: string,
   options: ExternalLLMOptions,
@@ -190,7 +288,7 @@ async function callOpenAI(
 
   let res: Response;
   try {
-    res = await fetch('https://api.openai.com/v1/chat/completions', {
+    res = await fetchWithGatewayFallback(env, 'openai', '/v1/chat/completions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -221,20 +319,58 @@ async function callOpenAI(
 
 /**
  * Call Anthropic Messages API.
+ *
+ * Features:
+ * - Routes through `aiGatewayUrl(env, 'anthropic')` when AI Gateway is enabled;
+ *   falls back to direct vendor URL once on 5xx.
+ * - When `options.system.length > 1024`, sends the system as an array of
+ *   `{type:'text', text, cache_control:{type:'ephemeral'}}` blocks for prompt
+ *   caching (Anthropic minimum cacheable prefix is 1024 tokens on Sonnet and
+ *   4096 on Opus/Haiku — using char count as a conservative proxy avoids
+ *   tokenizing the prompt on the worker).
+ * - When `options.responseSchema` is set, attaches structured-outputs beta
+ *   header + `output_schema` block.
+ *
+ * @remarks
+ * **Structured outputs is incompatible with the Anthropic Citations API.**
+ * Setting both `responseSchema` and citations on the same request returns 400.
+ * Pick one per call.
  */
 async function callAnthropic(
+  env: Env,
   apiKey: string,
   model: string,
   options: ExternalLLMOptions,
   messages?: Array<Record<string, unknown>>,
 ): Promise<{ text: string; tokens: number }> {
+  // Build system: either a plain string or an array with cache_control on the
+  // last block when the system prompt is long enough to be worth caching.
+  const systemPayload: string | Array<Record<string, unknown>> =
+    options.system.length > 1024
+      ? [{ type: 'text', text: options.system, cache_control: { type: 'ephemeral' } }]
+      : options.system;
+
   const body: Record<string, unknown> = {
     model,
-    system: options.system,
+    system: systemPayload,
     messages: messages ?? [{ role: 'user', content: options.user }],
     temperature: options.temperature ?? 0.3,
     max_tokens: options.maxTokens ?? 8192,
   };
+
+  // Optional structured outputs (beta). Mutually exclusive with Citations API.
+  if (options.responseSchema) {
+    body.output_schema = { type: 'json_schema', schema: options.responseSchema };
+  }
+
+  const headers: Record<string, string> = {
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+    'Content-Type': 'application/json',
+  };
+  if (options.responseSchema) {
+    headers['anthropic-beta'] = 'structured-outputs-2025-11-13';
+  }
 
   // 8-minute timeout for Claude Opus large generation calls (32K tokens can take 2-4 min)
   const controller = new AbortController();
@@ -242,13 +378,9 @@ async function callAnthropic(
 
   let res: Response;
   try {
-    res = await fetch('https://api.anthropic.com/v1/messages', {
+    res = await fetchWithGatewayFallback(env, 'anthropic', '/v1/messages', {
       method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
       signal: controller.signal,
     });
@@ -321,11 +453,6 @@ export async function callExternalLLM(
   const primary = chooseProvider(env, options.provider);
   const fallback: 'openai' | 'anthropic' = primary === 'openai' ? 'anthropic' : 'openai';
 
-  const defaultModels: Record<string, string> = {
-    openai: 'gpt-4o',
-    anthropic: 'claude-sonnet-4-20250514',
-  };
-
   const providers: Array<'openai' | 'anthropic'> = [primary, fallback];
 
   for (const provider of providers) {
@@ -348,15 +475,15 @@ export async function callExternalLLM(
 
     if (!apiKey) continue;
 
-    const model = options.model ?? defaultModels[provider];
+    const model = options.model ?? DEFAULT_MODELS[provider];
     const start = Date.now();
 
     try {
       const result = await withRetry(
         () =>
           provider === 'openai'
-            ? callOpenAI(apiKey, model, options)
-            : callAnthropic(apiKey, model, options),
+            ? callOpenAI(env, apiKey, model, options)
+            : callAnthropic(env, apiKey, model, options),
         {
           maxRetries: 3,
           baseDelayMs: 1000,
@@ -466,11 +593,6 @@ export async function callExternalLLMWithVision(
   const primary = chooseProvider(env, options.provider);
   const fallback: 'openai' | 'anthropic' = primary === 'openai' ? 'anthropic' : 'openai';
 
-  const defaultModels: Record<string, string> = {
-    openai: 'gpt-4o',
-    anthropic: 'claude-sonnet-4-20250514',
-  };
-
   const providers: Array<'openai' | 'anthropic'> = [primary, fallback];
 
   for (const provider of providers) {
@@ -492,16 +614,16 @@ export async function callExternalLLMWithVision(
 
     if (!apiKey) continue;
 
-    const model = options.model ?? defaultModels[provider];
+    const model = options.model ?? DEFAULT_MODELS[provider];
     const start = Date.now();
 
     try {
       const result = await withRetry(
         () => {
           if (provider === 'openai') {
-            return callOpenAIWithVision(apiKey, model, options);
+            return callOpenAIWithVision(env, apiKey, model, options);
           }
-          return callAnthropicWithVision(apiKey, model, options);
+          return callAnthropicWithVision(env, apiKey, model, options);
         },
         {
           maxRetries: 3,
@@ -583,6 +705,7 @@ export async function callExternalLLMWithVision(
  * Call OpenAI with vision (image_url in messages).
  */
 async function callOpenAIWithVision(
+  env: Env,
   apiKey: string,
   model: string,
   options: ExternalLLMOptions & { imageUrl?: string; imageBase64?: string },
@@ -602,13 +725,14 @@ async function callOpenAIWithVision(
     },
   ];
 
-  return callOpenAI(apiKey, model, options, messages);
+  return callOpenAI(env, apiKey, model, options, messages);
 }
 
 /**
  * Call Anthropic with vision (base64 image in messages).
  */
 async function callAnthropicWithVision(
+  env: Env,
   apiKey: string,
   model: string,
   options: ExternalLLMOptions & { imageUrl?: string; imageBase64?: string },
@@ -651,5 +775,5 @@ async function callAnthropicWithVision(
     },
   ];
 
-  return callAnthropic(apiKey, model, options, messages);
+  return callAnthropic(env, apiKey, model, options, messages);
 }

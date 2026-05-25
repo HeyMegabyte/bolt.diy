@@ -6,6 +6,7 @@ import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { MCP_PROVIDERS } from './mcp-providers';
+import { EnvVarsManagerComponent } from '../../../components/env-vars-manager/env-vars-manager.component';
 
 interface Member { id: string; email: string; name: string | null; role: string; created_at: string; }
 interface Invite { id: string; email: string; role: string; created_at: string; expires_at: string; }
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'team',     label: 'Team',        desc: 'Members · roles · invitations · 2FA' },
   { id: 'ai-chat',  label: 'AI Chat',     desc: 'System prompt · persona · web search · knowledge files (this project)' },
   { id: 'mcp',      label: 'MCP',         desc: 'Per-project integrations: Slack, Stripe, Notion, HubSpot +20 more' },
+  { id: 'env-vars', label: 'AI Env Vars', desc: 'Custom key-value store surfaced to AI + MCP at inference time (org-wide)' },
 ] as const;
 type Tab = (typeof TABS)[number]['id'];
 
@@ -32,7 +34,7 @@ const PROVIDERS = MCP_PROVIDERS;
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [FormsModule, DatePipe, SlicePipe, RouterLink],
+  imports: [FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -504,8 +506,21 @@ const PROVIDERS = MCP_PROVIDERS;
                       ● Connected · {{ c.connected_at | slice:0:10 }}
                       <span class="via-badge">via {{ isOauthConnection(c) ? 'OAuth' : 'key' }}</span>
                     </span>
-                    <button class="mcp-btn mcp-btn-danger" (click)="disconnect(c)">Disconnect</button>
+                    <div class="flex gap-2">
+                      <button class="mcp-btn"
+                              (click)="toggleMcpEnvVars(p.id)"
+                              [attr.aria-expanded]="isMcpEnvVarsOpen(p.id)"
+                              [attr.aria-label]="(isMcpEnvVarsOpen(p.id) ? 'Hide' : 'Show') + ' custom env vars for ' + p.label">
+                        {{ isMcpEnvVarsOpen(p.id) ? 'Hide env vars' : 'Env vars' }}
+                      </button>
+                      <button class="mcp-btn mcp-btn-danger" (click)="disconnect(c)">Disconnect</button>
+                    </div>
                   </div>
+                  @if (isMcpEnvVarsOpen(p.id)) {
+                    <div class="mt-3">
+                      <app-env-vars-manager [scope]="'mcp'" [mcpProvider]="p.id" />
+                    </div>
+                  }
                 } @else if (pasteMode() === p.id) {
                   <div class="mt-1 flex gap-2">
                     <input type="password" class="input-field flex-1 font-mono text-[0.72rem]"
@@ -526,6 +541,21 @@ const PROVIDERS = MCP_PROVIDERS;
               </article>
             }
           </div>
+        </section>
+      }
+
+      <!-- ─────────────────── AI ENV VARS ─────────────────── -->
+      @else if (tab() === 'env-vars') {
+        <section class="card">
+          <header class="mb-4">
+            <h3 class="m-0 text-base font-semibold text-white mb-1">AI environment variables</h3>
+            <p class="text-[0.7rem] text-text-secondary m-0">
+              Env vars marked <strong>Exposed to AI</strong> flow into LLM tool calls + AI endpoints + MCP requests
+              for this organization. Values are encrypted at rest (AES-GCM). Org-scope vars apply everywhere;
+              per-MCP overrides live in the MCP tab.
+            </p>
+          </header>
+          <app-env-vars-manager [scope]="'org'" />
         </section>
       }
 
@@ -984,6 +1014,19 @@ export class AdminSettingsComponent implements OnInit {
   connections = signal<Conn[]>([]);
   pasteMode = signal<string | null>(null);
   pastedKey = '';
+  /** Tracks which connected MCPs have the custom-env-vars panel expanded. */
+  mcpEnvVarsOpen = signal<Set<string>>(new Set());
+
+  toggleMcpEnvVars(providerId: string): void {
+    this.mcpEnvVarsOpen.update((set) => {
+      const next = new Set(set);
+      if (next.has(providerId)) next.delete(providerId); else next.add(providerId);
+      return next;
+    });
+  }
+  isMcpEnvVarsOpen(providerId: string): boolean {
+    return this.mcpEnvVarsOpen().has(providerId);
+  }
 
   ngOnInit(): void {
     const child = this.route.firstChild;

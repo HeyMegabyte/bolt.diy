@@ -407,6 +407,14 @@ export interface Env {
   CF_ACCOUNT_ID?: string;
   /** Note: CF_API_TOKEN is already declared above for the existing Cloudflare API surface; we reuse it for WFP REST calls. */
 
+  /**
+   * When set to the string `"true"`, routes external LLM calls (OpenAI, Anthropic)
+   * through Cloudflare AI Gateway (`https://gateway.ai.cloudflare.com/v1/{CF_ACCOUNT_ID}/projectsites/{provider}`)
+   * for logging, caching, rate-limit, and fallback. Requires `CF_ACCOUNT_ID` also set.
+   * On gateway 5xx, the client falls back to the direct vendor URL once per request.
+   */
+  AI_GATEWAY_ENABLED?: string;
+
   /** Workers Analytics Engine binding — admin dashboard visit tracker. */
   ANALYTICS?: AnalyticsEngineDataset;
 
