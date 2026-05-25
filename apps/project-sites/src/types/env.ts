@@ -341,24 +341,18 @@ export interface Env {
    */
   SENTRY_RELEASE?: string;
 
-  // ── Domain Registration (OpenSRS + Domainr) ─────────────────
-  /** Domainr (Mashape/RapidAPI) API key for domain search & pricing. */
-  DOMAINR_API_KEY?: string;
+  // ── Domain Registration (CF Registrar via global-key auth + RDAP) ──
+  // Availability: RDAP (free, IETF-standard, no key — see services/rdap_availability.ts).
+  // Pricing:      CF Registrar public TLD endpoint (no auth — see services/cf_registrar.ts).
+  // Register:     POST /accounts/:account_id/registrar/domains/:domain authed by the
+  //               existing CLOUDFLARE_API_KEY + CLOUDFLARE_EMAIL above. No
+  //               separate registrar-scoped token needed.
   /** OpenSRS reseller username for domain registration. */
   OPENSRS_USERNAME?: string;
   /** OpenSRS private API key for domain registration. */
   OPENSRS_API_KEY?: string;
   /** OpenSRS API environment: 'live' or 'test'. Defaults to 'test'. */
   OPENSRS_ENV?: string;
-  /**
-   * Cloudflare Registrar API token (Account → Registrar:Edit). When set the
-   * `POST /api/domains/purchase` route will attempt direct CF Registrar
-   * registration instead of falling back to the Stripe-checkout subscription
-   * stub. Generate at https://dash.cloudflare.com/profile/api-tokens with
-   * the "Account → Registrar:Edit" permission scoped to the projectsites.dev
-   * account (`84fa0d1b16ff8086dd958c468ce7fd59`).
-   */
-  CLOUDFLARE_REGISTRAR_API?: string;
 
   // ── Sale Webhook ──────────────────────────────────────────
   /** External webhook URL called on successful subscription purchase. */
@@ -397,6 +391,12 @@ export interface Env {
   STRIPE_PRICE_CREDITS_100?: string;
   STRIPE_PRICE_CREDITS_500?: string;
   STRIPE_PRICE_CREDITS_2000?: string;
+  /**
+   * Stripe Price ID for the $50/mo wallet subscription used by
+   * `services/wallet.ts`. Create at https://dashboard.stripe.com/products
+   * (Product: "Project Sites Wallet", recurring monthly $50.00 USD).
+   */
+  STRIPE_PRICE_ID_MONTHLY_WALLET?: string;
 
   // ── Workers for Platforms (user-defined endpoints) ────────
   /** Dispatch namespace binding (set in wrangler.toml [[dispatch_namespaces]]). */
@@ -449,6 +449,30 @@ export interface Env {
   APP_RUNTIME_POCKETBASE?: DurableObjectNamespace;
   /** Open WebUI — `ghcr.io/open-webui/open-webui:main` */
   APP_RUNTIME_OPEN_WEBUI?: DurableObjectNamespace;
+
+  // ── Twilio (Voice + SMS Agent) ─────────────────────────────
+  /** Twilio Account SID (AC…). Required for every Voice/SMS call. */
+  TWILIO_ACCOUNT_SID?: string;
+  /** Twilio Auth Token — signs every outbound REST call AND verifies inbound webhooks. */
+  TWILIO_AUTH_TOKEN?: string;
+  /** Twilio API Key SID (SK…) — for short-lived Access Tokens (Client/Voice). */
+  TWILIO_API_KEY?: string;
+  /** Twilio API Key Secret — paired with `TWILIO_API_KEY` for JWT signing. */
+  TWILIO_API_SECRET?: string;
+  /** TwiML App SID (AP…) — required by Voice Access Tokens for outgoing calls. */
+  TWILIO_TWIML_APP_SID?: string;
+  /** Deepgram API key for low-latency real-time STT (falls back to Workers AI Whisper). */
+  DEEPGRAM_API_KEY?: string;
+  // NOTE: ELEVENLABS_API_KEY is already declared above for image/voiceover generation —
+  // the Voice Agent reuses the same secret for ElevenLabs TTS.
+
+  /**
+   * Per-call Browse Agent Container Durable Object. Built by a sibling agent.
+   * Optional until the DO class + container image are wired in `wrangler.toml`.
+   * When absent, `triggerBrowseAgent()` returns `{ ok:false, reason:'binding_missing' }`
+   * and the voice agent degrades to plain LLM-only replies.
+   */
+  VOICE_BROWSE_AGENT?: DurableObjectNamespace;
 }
 
 /** Cloudflare Workers for Platforms dispatch namespace runtime shape. */

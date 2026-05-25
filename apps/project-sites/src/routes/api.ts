@@ -149,6 +149,14 @@ import {
 } from '../services/cf_credentials.js';
 import { z } from 'zod';
 import { crawlSiteForImport, estimateRebuildMinutes } from '../services/import_crawler.js';
+import { checkBatch as rdapCheckBatch, checkAvailability as rdapCheck } from '../services/rdap_availability.js';
+import {
+  buildTldPriceMap,
+  porkbunFallback,
+  registerDomain as cfRegisterDomain,
+} from '../services/cf_registrar.js';
+import { suggestDomains, type DomainSuggestion } from '../services/domain_suggester.js';
+import { gatherProfileContext } from '../services/profile_context.js';
 
 const api = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -4250,239 +4258,45 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
   });
 });
 
-// ─── Domain Search (Domainr / Fastly Domain Research API) ────
+// ─── Domain Search Enrich (RDAP + CF Registrar pricing + Workers AI reasoning) ─
 
 /**
- * Search for available domains matching a query string, with TLD suggestions
- * and live availability + pricing data.
- *
- * @route GET /api/domains/search
- * @auth None — public endpoint (rate-limited by IP at the edge via CF Bot
- *   Management; no per-org budget enforcement here because the route is
- *   read-only and the Domainr API call is cheap).
- * @queryParam q - Free-form domain candidate (e.g. `"vitossalon"` or
- *   `"vitossalon.com"`). Trimmed, lowercased, and stripped of non-allowed
- *   characters before forwarding. Length floor 2 / ceiling 63 (RFC 1035
- *   max label length) — outside that range returns `{ data: [] }`.
- * @returns 200 OK `{ data: Array<{ domain, available, price, zone, path }> }`
- *   where `price` is in USD cents (0 if unknown), `zone` is the TLD without
- *   leading dot (e.g. `"com"`), and `path` is the subdomain prefix Domainr
- *   recommends (empty string when the suggestion is bare-domain). Returns
- *   `{ data: [] }` on missing/short/long queries — never throws on user input.
- *
- * @remarks
- * Two-step Domainr dance via RapidAPI proxy (matches the Google Places
- * lookup pattern in {@link services/google_places.lookupBusiness}):
- *
- * 1. **Search** (`/v2/search?query=...`) — returns up to 10 fuzzy-matched
- *    domain suggestions with `domain`, `zone`, `path` triples. No
- *    availability data at this stage.
- * 2. **Status** (`/v2/status?domain=d1,d2,...`) — bulk availability +
- *    pricing for all suggestions in one round-trip. Status field
- *    interpretation: `summary === "inactive"` OR status string contains
- *    `"undelegated"` / `"inactive"` → available. Anything else → taken.
- *
- * Domainr's `price` field is dollar-decimal; we convert to cents
- * (`Math.round(price * 100)`) for downstream Stripe consistency.
- *
- * Fallback path when Domainr unavailable (RapidAPI quota exhausted /
- * outage / missing `DOMAINR_API_KEY`): returns 12 generated candidates
- * across common TLDs (`.com`, `.net`, `.org`, `.io`, `.co`, `.dev`,
- * `.app`, `.site`, `.online`, `.store`, `.shop`, `.biz`) with
- * `available: false` (intentional protective default — user must
- * re-search later when Domainr recovers, never auto-purchase a domain
- * we couldn't verify).
- *
- * @throws Never — all errors collapse to fallback TLD list. Empty/short
- *   queries return `{ data: [] }`.
- *
- * @see {@link https://domainr.com/docs/api Domainr API}
- * @see Companion route: `POST /api/domains/purchase`
- *
- * @example
- * ```bash
- * curl 'https://projectsites.dev/api/domains/search?q=vitossalon' | jq .
- * # { "data": [ { "domain": "vitossalon.com", "available": false, ... }, ... ] }
- * ```
- */
-api.get('/api/domains/search', async (c) => {
-  const query = c.req.query('q');
-  if (!query || query.trim().length < 2 || query.trim().length > 63) {
-    return c.json({ data: [] });
-  }
-
-  const domain = query
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9.-]/g, '');
-  const baseName = domain.replace(/\.[^.]+$/, '').replace(/\./g, '');
-
-  const results: Array<{
-    domain: string;
-    available: boolean;
-    price: number;
-    zone: string;
-    path: string;
-  }> = [];
-
-  try {
-    // Step 1: Get domain suggestions from Domainr Search API
-    const searchUrl = `https://domainr.p.rapidapi.com/v2/search?query=${encodeURIComponent(domain)}`;
-    const searchRes = await fetch(searchUrl, {
-      headers: {
-        'X-RapidAPI-Key': c.env.DOMAINR_API_KEY || '',
-        'X-RapidAPI-Host': 'domainr.p.rapidapi.com',
-      },
-    });
-
-    if (!searchRes.ok) {
-      console.warn(
-        JSON.stringify({
-          level: 'warn',
-          service: 'domain_search',
-          message: 'Domainr search failed',
-          status: searchRes.status,
-        }),
-      );
-      // Fall back to generated candidates
-      const tlds = [
-        '.com',
-        '.net',
-        '.org',
-        '.io',
-        '.co',
-        '.dev',
-        '.app',
-        '.site',
-        '.online',
-        '.store',
-        '.shop',
-        '.biz',
-      ];
-      for (const tld of tlds) {
-        results.push({
-          domain: baseName + tld,
-          available: false,
-          price: 0,
-          zone: tld.slice(1),
-          path: '',
-        });
-      }
-      return c.json({ data: results });
-    }
-
-    const searchData = (await searchRes.json()) as {
-      results?: Array<{ domain: string; zone: string; path: string }>;
-    };
-
-    const suggestions = searchData.results || [];
-    if (suggestions.length === 0) {
-      return c.json({ data: [] });
-    }
-
-    // Step 2: Check availability + pricing for all suggestions via Domainr Status API
-    const domainList = suggestions.map((s) => s.domain).join(',');
-    const statusUrl = `https://domainr.p.rapidapi.com/v2/status?domain=${encodeURIComponent(domainList)}`;
-    const statusRes = await fetch(statusUrl, {
-      headers: {
-        'X-RapidAPI-Key': c.env.DOMAINR_API_KEY || '',
-        'X-RapidAPI-Host': 'domainr.p.rapidapi.com',
-      },
-    });
-
-    const statusMap = new Map<string, { available: boolean; price: number }>();
-
-    if (statusRes.ok) {
-      const statusData = (await statusRes.json()) as {
-        status?: Array<{
-          domain: string;
-          zone: string;
-          status: string;
-          summary: string;
-          price?: number;
-        }>;
-      };
-
-      if (statusData.status) {
-        for (const s of statusData.status) {
-          // Domainr status field: "undelegated" = available, "active" = taken
-          const isAvailable =
-            s.summary === 'inactive' ||
-            s.status.includes('undelegated') ||
-            s.status.includes('inactive');
-          statusMap.set(s.domain, {
-            available: isAvailable,
-            price: s.price ? Math.round(s.price * 100) : 0, // cents
-          });
-        }
-      }
-    }
-
-    // Combine suggestions with status data
-    for (const suggestion of suggestions) {
-      const status = statusMap.get(suggestion.domain);
-      results.push({
-        domain: suggestion.domain,
-        available: status?.available ?? false,
-        price: status?.price ?? 0,
-        zone: suggestion.zone,
-        path: suggestion.path || '',
-      });
-    }
-  } catch (err) {
-    console.warn(
-      JSON.stringify({
-        level: 'error',
-        service: 'domain_search',
-        message: 'Domain search error',
-        error: String(err),
-      }),
-    );
-    // Fallback: return TLD candidates as unknown
-    const tlds = ['.com', '.net', '.org', '.io', '.co', '.dev', '.app', '.site', '.online'];
-    for (const tld of tlds) {
-      results.push({
-        domain: baseName + tld,
-        available: false,
-        price: 0,
-        zone: tld.slice(1),
-        path: '',
-      });
-    }
-  }
-
-  return c.json({ data: results });
-});
-
-// ─── Domain Search Enrich (Workers AI reasoning) ─────────────
-
-/**
- * Enriched companion to {@link GET /api/domains/search}. Wraps the raw
- * Domainr results in a single Workers-AI pass that produces a short
- * "why this is a good fit" reason and a sales-pitch micro-blurb per
- * suggestion. Used by the admin domain-picker dropdown to drive its
- * "AVAILABLE TO REGISTER" section without making the picker do its own
- * LLM round-trip.
+ * Enriched domain search for the admin domain-picker. Generates a
+ * 10-TLD candidate list from the query, fans out RDAP availability
+ * probes (free, IETF-standard, no API key — see
+ * {@link services/rdap_availability.ts}), looks up CF Registrar
+ * pricing for each TLD (public endpoint, no auth — see
+ * {@link services/cf_registrar.ts}), and wraps the merged rows in a
+ * single Workers-AI pass that emits a short "why this is a good fit"
+ * reason + sales-pitch micro-blurb per suggestion.
  *
  * @route GET /api/domains/search-enrich
- * @auth None — same threat profile as `/api/domains/search`.
- * @queryParam q - Free-form domain candidate (1–63 chars after sanitise).
- * @queryParam business - Optional business-name hint used to steer the
- *   AI reason copy (e.g. `?business=Vito%27s%20Salon`). Falls back to
- *   the bare query when omitted.
+ * @auth None — public endpoint, edge-rate-limited via CF Bot
+ *   Management. RDAP probes are 1h-cached in `CACHE_KV` so repeated
+ *   keystrokes against the same prefix collapse to a single registry
+ *   round-trip per TLD.
+ * @queryParam q - Free-form query (1-63 chars after sanitise). When
+ *   it already looks like `foo.tld`, we honour that single literal
+ *   instead of generating the TLD fan-out.
+ * @queryParam business - Optional business-name hint that steers the
+ *   AI reason copy (falls back to the bare query).
  * @returns 200 OK `{ results: Array<{ domain, available, status,
- *   reason, pitch, price_usd_yr }> }` (up to 10). `status` is one of
- *   `available | taken | unknown`. Reason ≤80 chars, pitch ≤120 chars.
+ *   reason, pitch, price_usd_yr, can_register_inline, fallback_url? }> }`.
+ *   `status` is one of `available | taken | unknown`. Reason ≤80
+ *   chars, pitch ≤120 chars. `can_register_inline` is true when CF
+ *   carries the TLD AND availability check came back `available`;
+ *   false rows surface a Porkbun deeplink in `fallback_url`.
  *
  * @remarks
- * - Calls the Domainr-backed `/api/domains/search` internally to avoid
- *   double-implementing the RapidAPI dance.
- * - LLM model is `@cf/meta/llama-3.3-70b-instruct-fp8-fast` per the
- *   project FP8-variant lock-in regression test. If the call errors,
- *   each result falls back to a deterministic template so the UI never
- *   renders an empty AI reason.
- * - Pricing is best-effort: Domainr cents → `price_usd_yr` dollars; 0
- *   means "unknown, surface as TBD in UI".
+ * - Workers AI uses `@cf/meta/llama-3.3-70b-instruct-fp8-fast`
+ *   (FP8-variant lock-in regression test) for the reason/pitch pair
+ *   in ONE batched call across all 10 rows — never 10 sequential
+ *   calls. On any AI error each row falls back to a deterministic
+ *   template so the picker never renders empty copy.
+ * - Pricing is best-effort: CF Registrar TLD list is cached 24h in
+ *   `CACHE_KV`. TLDs CF doesn't carry (`.xyz`, `.shop`, country
+ *   codes) get `price_usd_yr: null` and `can_register_inline: false`
+ *   with the Porkbun deeplink so the user still has a happy path.
  */
 api.get('/api/domains/search-enrich', async (c) => {
   const query = (c.req.query('q') || '').trim().toLowerCase().slice(0, 63);
@@ -4491,45 +4305,51 @@ api.get('/api/domains/search-enrich', async (c) => {
     return c.json({ results: [] });
   }
 
-  // Re-use the existing search by issuing a sub-request through the same
-  // worker — keeps Domainr two-step in one place. Fallback path catches
-  // any internal hiccup so the picker still renders something useful.
-  type RawResult = {
-    domain: string;
-    available: boolean;
-    price: number;
-    zone: string;
-    path: string;
-  };
-  let rawResults: RawResult[] = [];
-  try {
-    const searchUrl = new URL(c.req.url);
-    searchUrl.pathname = '/api/domains/search';
-    searchUrl.search = `?q=${encodeURIComponent(query)}`;
-    const innerRes = await fetch(searchUrl.toString(), {
-      headers: { 'X-Forwarded-For': c.req.header('CF-Connecting-IP') || '' },
-    });
-    if (innerRes.ok) {
-      const payload = (await innerRes.json()) as { data?: RawResult[] };
-      rawResults = (payload.data || []).slice(0, 10);
-    }
-  } catch (err) {
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        service: 'domain_search_enrich',
-        message: 'inner search failed',
-        error: String(err),
-      }),
-    );
-  }
+  // Strip anything that isn't a-z/0-9/dash/dot.
+  const sanitised = query.replace(/[^a-z0-9.-]/g, '');
+  if (!sanitised || sanitised.length < 2) return c.json({ results: [] });
 
-  if (rawResults.length === 0) {
-    return c.json({ results: [] });
-  }
+  // Literal `foo.tld` mode vs TLD fan-out mode.
+  const TOP_TLDS = ['com', 'app', 'io', 'dev', 'co', 'ai', 'org', 'net', 'me', 'xyz'];
+  const isLiteral = /^[a-z0-9-]+\.[a-z0-9-]+$/.test(sanitised);
+  const candidates: string[] = isLiteral
+    ? [sanitised]
+    : TOP_TLDS.map((tld) => `${sanitised.replace(/\./g, '')}.${tld}`);
+
+  // Fan out availability + pricing in parallel.
+  const [rdapResults, tldMap] = await Promise.all([
+    rdapCheckBatch(c.env, candidates),
+    buildTldPriceMap(c.env),
+  ]);
+
+  type Row = {
+    domain: string;
+    tld: string;
+    available: boolean;
+    status: 'available' | 'taken' | 'unknown';
+    price_usd_yr: number | null;
+    can_register_inline: boolean;
+    fallback_url: string | null;
+  };
+  const rows: Row[] = candidates.map((domain, i) => {
+    const probe = rdapResults[i];
+    const tld = domain.slice(domain.lastIndexOf('.') + 1);
+    const priceRow = tldMap.get(tld);
+    const price = priceRow?.registration_price_usd_yr ?? null;
+    const cfCarries = !!priceRow?.can_register;
+    return {
+      domain,
+      tld,
+      available: probe?.available ?? false,
+      status: probe?.status ?? 'unknown',
+      price_usd_yr: price != null ? Math.round(price) : null,
+      can_register_inline: cfCarries && probe?.available === true,
+      fallback_url: cfCarries ? null : porkbunFallback(domain),
+    };
+  });
 
   // Deterministic fallback reason + pitch — cinematic-punchline voiced.
-  const fallback = (r: RawResult): { reason: string; pitch: string } => {
+  const fallback = (r: Row): { reason: string; pitch: string } => {
     const tldNote: Record<string, string> = {
       com: 'Universal trust signal; safest pick.',
       ai: 'Premium .ai TLD; AI-brand resonance.',
@@ -4539,17 +4359,19 @@ api.get('/api/domains/search-enrich', async (c) => {
       co: 'Short company tag; modern shorthand.',
       org: 'Mission-driven; nonprofit trust.',
       net: 'Infrastructure cue; legacy weight.',
+      me: 'Personal-brand cue; portfolio-ready.',
+      xyz: 'Web3/modern cue; stands out in search.',
     };
-    const note = tldNote[r.zone] || 'Distinctive TLD; stands out in search.';
+    const note = tldNote[r.tld] || 'Distinctive TLD; stands out in search.';
+    const priceTail = r.price_usd_yr ? `$${r.price_usd_yr}/yr.` : 'Pricing on register.';
     return {
-      reason: `Matches ${business || query} + memorable .${r.zone}.`.slice(0, 80),
-      pitch: `${note} ${r.price > 0 ? `$${(r.price / 100).toFixed(0)}/yr.` : 'Pricing on register.'}`.slice(0, 120),
+      reason: `Matches ${business || query} + memorable .${r.tld}.`.slice(0, 80),
+      pitch: `${note} ${priceTail}`.slice(0, 120),
     };
   };
 
-  // Workers AI single-shot — try fp8-fast first, on any error fall through
-  // to the deterministic template so the panel never renders empty.
-  let aiBatch: Record<string, { reason: string; pitch: string }> = {};
+  // Workers AI single-shot — batch all rows into ONE call.
+  const aiBatch: Record<string, { reason: string; pitch: string }> = {};
   try {
     const prompt = `You are a domain-naming concierge for a website builder. For each candidate below, return ONE line per domain in the exact shape:
 DOMAIN|||REASON|||PITCH
@@ -4560,11 +4382,15 @@ PITCH must be <=120 chars — TLD value + price + emotional hook. Example: "Prem
 Never repeat the literal domain inside REASON or PITCH. Never use the words "great" or "perfect" or "amazing". Be specific.
 
 Candidates:
-${rawResults.map((r) => `- ${r.domain} (.${r.zone}, ${r.available ? 'available' : 'taken'}, ${r.price > 0 ? `$${(r.price / 100).toFixed(0)}/yr` : 'price tbd'})`).join('\n')}`;
+${rows.map((r) => `- ${r.domain} (.${r.tld}, ${r.status}, ${r.price_usd_yr != null ? `$${r.price_usd_yr}/yr` : 'price tbd'})`).join('\n')}`;
 
     const aiRes = (await c.env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
       messages: [
-        { role: 'system', content: 'You write tight, specific domain pitches. Always respond in the requested format. No preamble.' },
+        {
+          role: 'system',
+          content:
+            'You write tight, specific domain pitches. Always respond in the requested format. No preamble.',
+        },
         { role: 'user', content: prompt },
       ],
       max_tokens: 600,
@@ -4591,19 +4417,68 @@ ${rawResults.map((r) => `- ${r.domain} (.${r.zone}, ${r.available ? 'available' 
     );
   }
 
-  const enriched = rawResults.map((r) => {
+  const enriched = rows.map((r) => {
     const ai = aiBatch[r.domain.toLowerCase()] || fallback(r);
     return {
       domain: r.domain,
       available: r.available,
-      status: r.available ? 'available' : 'taken',
+      status: r.status,
       reason: ai.reason,
       pitch: ai.pitch,
-      price_usd_yr: r.price > 0 ? Math.round(r.price / 100) : null,
+      price_usd_yr: r.price_usd_yr,
+      can_register_inline: r.can_register_inline,
+      fallback_url: r.fallback_url ?? undefined,
     };
   });
 
   return c.json({ results: enriched });
+});
+
+// ─── Domain Search (legacy compat — RDAP-backed) ─────────────
+
+/**
+ * Legacy `/api/domains/search` shim. Older callers (e.g. external CLI
+ * checks) still hit this; we now back it with RDAP + CF Registrar
+ * pricing instead of Domainr. Returns the same `{ domain, available,
+ * price, zone, path }` shape as before so no client breaks.
+ *
+ * @route GET /api/domains/search
+ * @auth None — public endpoint, edge-rate-limited.
+ * @queryParam q - 2-63 char query string.
+ * @returns 200 OK `{ data: Array<{ domain, available, price, zone, path }> }`.
+ *   `price` is in cents (`Math.round(usd * 100)`) for Stripe consistency.
+ */
+api.get('/api/domains/search', async (c) => {
+  const query = c.req.query('q');
+  if (!query || query.trim().length < 2 || query.trim().length > 63) {
+    return c.json({ data: [] });
+  }
+  const sanitised = query.trim().toLowerCase().replace(/[^a-z0-9.-]/g, '');
+  if (!sanitised) return c.json({ data: [] });
+
+  const TOP_TLDS = ['com', 'app', 'io', 'dev', 'co', 'ai', 'org', 'net', 'me', 'xyz'];
+  const isLiteral = /^[a-z0-9-]+\.[a-z0-9-]+$/.test(sanitised);
+  const candidates = isLiteral
+    ? [sanitised]
+    : TOP_TLDS.map((tld) => `${sanitised.replace(/\./g, '')}.${tld}`);
+
+  const [rdapResults, tldMap] = await Promise.all([
+    rdapCheckBatch(c.env, candidates),
+    buildTldPriceMap(c.env),
+  ]);
+
+  const data = candidates.map((domain, i) => {
+    const tld = domain.slice(domain.lastIndexOf('.') + 1);
+    const usd = tldMap.get(tld)?.registration_price_usd_yr ?? 0;
+    return {
+      domain,
+      available: rdapResults[i]?.available ?? false,
+      price: Math.round((usd || 0) * 100),
+      zone: tld,
+      path: '',
+    };
+  });
+  return c.json({ data });
 });
 
 // ─── Domain Purchase (Stripe subscription) ───────────────────
@@ -4754,29 +4629,27 @@ api.post('/api/domains/purchase', async (c) => {
   });
 });
 
-// ─── Domain Registrar (direct CF Registrar) ─────────────────
+// ─── Domain Registrar (direct CF Registrar via global-key auth) ────
 
 /**
  * Direct-register a domain via Cloudflare Registrar and immediately bind
- * it to the caller's currently-selected site as a custom hostname. Used
- * by the admin domain-picker dropdown's `[Register]` button — the
- * `/api/domains/purchase` sibling stays on the Stripe-checkout path for
- * the marketing-page funnel.
+ * it to the caller's currently-selected site as a custom hostname.
  *
  * @route POST /api/domains/register
  * @auth Bearer orgId required.
- * @body application/json `{ domain: string, site_id: string }`
- * @returns 200 OK `{ purchase_id, domain, hostname_id, ssl_status }`
- *   on success; 424 `{ error: { code, message, unblock_url } }` when
- *   `CLOUDFLARE_REGISTRAR_API` env var is missing (graceful friendly
- *   error so the UI can surface a "click here to enable" deeplink).
+ * @body application/json `{ domain: string, site_id: string }`.
+ * @returns 200 OK `{ data: { purchase_id, domain, hostname_id,
+ *   ssl_status, transaction_id } }` on success.
+ *   424 `{ error: { code: 'tld_not_supported_by_cf', message,
+ *   fallback_url } }` when the TLD isn't carried by CF Registrar — the
+ *   picker UI surfaces the Porkbun deeplink so the user still has a
+ *   one-click happy path.
  *
  * @remarks
- * When the registrar key is missing this route does NOT attempt the
- * Stripe-checkout fallback — that flow is owned by
- * `/api/domains/purchase`. The picker UI catches 424 and renders a
- * dialog with the unblock_url so the user can flip the env var in CF
- * dashboard without leaving the admin shell.
+ * Auth: uses the worker's existing `CLOUDFLARE_API_KEY` +
+ * `CLOUDFLARE_EMAIL` global-key pair (same as the analytics module).
+ * No separate `CLOUDFLARE_REGISTRAR_API` token to provision — that
+ * env var has been dropped in this release.
  */
 api.post('/api/domains/register', async (c) => {
   const orgId = c.get('orgId');
@@ -4787,22 +4660,6 @@ api.post('/api/domains/register', async (c) => {
   const siteId = (body.site_id || '').trim();
   if (!domain || !siteId) throw badRequest('domain and site_id are required');
 
-  // Friendly env-missing surface — the picker UI catches 424 and renders
-  // a dialog with the unblock_url instead of a stack trace.
-  if (!c.env.CLOUDFLARE_REGISTRAR_API) {
-    return c.json(
-      {
-        error: {
-          code: 'REGISTRAR_NOT_CONFIGURED',
-          message:
-            'Cloudflare Registrar API token is not set. Enable in CF dashboard, then add CLOUDFLARE_REGISTRAR_API as a worker secret.',
-          unblock_url: 'https://dash.cloudflare.com/?to=/:account/registrar',
-        },
-      },
-      424,
-    );
-  }
-
   // Verify site ownership.
   const site = await dbQueryOne<{ id: string; org_id: string }>(
     c.env.DB,
@@ -4811,77 +4668,99 @@ api.post('/api/domains/register', async (c) => {
   );
   if (!site) throw notFound('Site not found');
 
-  // CF Registrar register endpoint — minimal payload; pricing surfaces
-  // in the response. Auto-renew defaults to true on the CF side.
+  // Pull contact info from the authenticated user — CF Registrar requires
+  // a full WHOIS contact even with privacy on (the privacy flag swaps in
+  // the registrar's proxy contact for the public WHOIS while the real
+  // contact stays with CF).
+  const userId = c.get('userId');
+  const user = userId
+    ? await dbQueryOne<{ email: string; name: string | null; phone: string | null }>(
+        c.env.DB,
+        'SELECT email, name, phone FROM users WHERE id = ? AND deleted_at IS NULL',
+        [userId],
+      )
+    : null;
+
+  const userName = (user?.name || 'Site Owner').trim();
+  const nameParts = userName.split(/\s+/);
+  const firstName = nameParts[0] || 'Site';
+  const lastName = nameParts.slice(1).join(' ') || 'Owner';
+
   const accountId = '84fa0d1b16ff8086dd958c468ce7fd59';
   const purchaseId = `pur_${crypto.randomUUID()}`;
+
+  const result = await cfRegisterDomain(c.env, {
+    domain,
+    account_id: accountId,
+    contact: {
+      first_name: firstName,
+      last_name: lastName,
+      email: user?.email || 'hey@projectsites.dev',
+      phone: user?.phone || '+1.5555551212',
+      organization: 'ProjectSites',
+      address: '1 Infinite Loop',
+      city: 'Newark',
+      state: 'NJ',
+      zip: '07102',
+      country: 'US',
+    },
+  });
+
+  if (!result.ok) {
+    if (result.error === 'TLD_NOT_SUPPORTED') {
+      return c.json(
+        {
+          error: {
+            code: 'tld_not_supported_by_cf',
+            message: result.message ?? "CF Registrar doesn't carry this TLD.",
+            fallback_url: result.fallback_url,
+          },
+        },
+        424,
+      );
+    }
+    if (result.error === 'CF_AUTH_MISSING') {
+      return c.json(
+        {
+          error: {
+            code: 'registrar_not_configured',
+            message: result.message ?? 'CF auth missing.',
+            unblock_url: 'https://dash.cloudflare.com/profile/api-tokens',
+          },
+        },
+        424,
+      );
+    }
+    throw badRequest(result.message ?? 'Registration failed.');
+  }
+
+  // Bind to site via the existing hostnames service so CF for SaaS
+  // provisioning + SSL kick off automatically. Best-effort — register
+  // already succeeded so we don't unwind.
   let sslStatus: 'pending' | 'failed' = 'pending';
   let hostnameId: string | null = null;
-
   try {
-    const cfRes = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/registrar/domains/${encodeURIComponent(domain)}`,
-      {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${c.env.CLOUDFLARE_REGISTRAR_API}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ auto_renew: true, privacy: true }),
-      },
+    await domainService.provisionCustomDomain(c.env.DB, c.env, {
+      org_id: orgId,
+      site_id: siteId,
+      hostname: domain,
+    });
+    const row = await dbQueryOne<{ id: string }>(
+      c.env.DB,
+      'SELECT id FROM hostnames WHERE hostname = ? AND deleted_at IS NULL',
+      [domain],
     );
-    if (!cfRes.ok) {
-      const errBody = await cfRes.text();
-      console.warn(
-        JSON.stringify({
-          level: 'error',
-          service: 'domain_register',
-          message: 'CF Registrar register failed',
-          status: cfRes.status,
-          body: errBody.slice(0, 500),
-        }),
-      );
-      throw badRequest(`CF Registrar registration failed (HTTP ${cfRes.status}). Verify domain availability + registrar quota.`);
-    }
-
-    // Bind to site via the existing hostnames service so CF for SaaS
-    // provisioning + SSL kick off automatically. Best-effort — failures
-    // here still surface to the user but the registration already
-    // succeeded.
-    try {
-      await domainService.provisionCustomDomain(c.env.DB, c.env, {
-        org_id: orgId,
-        site_id: siteId,
-        hostname: domain,
-      });
-      const row = await dbQueryOne<{ id: string }>(
-        c.env.DB,
-        'SELECT id FROM hostnames WHERE hostname = ? AND deleted_at IS NULL',
-        [domain],
-      );
-      hostnameId = row?.id ?? null;
-    } catch (provErr) {
-      console.warn(
-        JSON.stringify({
-          level: 'warn',
-          service: 'domain_register',
-          message: 'hostname provisioning failed after register',
-          error: String(provErr),
-        }),
-      );
-      sslStatus = 'failed';
-    }
-  } catch (err) {
-    if (err && typeof err === 'object' && 'code' in err) throw err;
+    hostnameId = row?.id ?? null;
+  } catch (provErr) {
     console.warn(
       JSON.stringify({
-        level: 'error',
+        level: 'warn',
         service: 'domain_register',
-        message: 'register error',
-        error: String(err),
+        message: 'hostname provisioning failed after register',
+        error: String(provErr),
       }),
     );
-    throw badRequest('Registration failed. See worker logs for detail.');
+    sslStatus = 'failed';
   }
 
   auditService
@@ -4892,14 +4771,227 @@ api.post('/api/domains/register', async (c) => {
       message: `Domain '${domain}' registered via CF Registrar and bound to site '${siteId}'`,
       target_type: 'domain',
       target_id: siteId,
-      metadata_json: { domain, site_id: siteId, hostname_id: hostnameId, purchase_id: purchaseId },
+      metadata_json: {
+        domain,
+        site_id: siteId,
+        hostname_id: hostnameId,
+        purchase_id: purchaseId,
+        transaction_id: result.transaction_id ?? null,
+      },
       request_id: c.get('requestId'),
     })
     .catch(() => {});
 
   return c.json({
-    data: { purchase_id: purchaseId, domain, hostname_id: hostnameId, ssl_status: sslStatus },
+    data: {
+      purchase_id: purchaseId,
+      domain,
+      hostname_id: hostnameId,
+      ssl_status: sslStatus,
+      transaction_id: result.transaction_id ?? null,
+    },
   });
+});
+
+// ─── AI Domain Suggester (dropdown-fill endpoint) ───────────
+
+/** Zod input for the GET suggest endpoint. */
+const suggestQuerySchema = z.object({
+  site_id: z.string().uuid('site_id must be a UUID'),
+  count: z.coerce.number().int().min(1).max(20).optional(),
+  query: z.string().trim().max(63).optional(),
+  refresh: z.union([z.literal('true'), z.literal('false')]).optional(),
+});
+
+/** Zod body for the POST refine endpoint. */
+const suggestRefineSchema = z.object({
+  site_id: z.string().uuid('site_id must be a UUID'),
+  feedback: z.string().trim().max(400).optional(),
+  exclude_domains: z.array(z.string().trim().toLowerCase()).max(40).optional(),
+  count: z.number().int().min(1).max(20).optional(),
+});
+
+/**
+ * Suggest 10 unregistered, AI-pitched domain names for the dashboard's
+ * domain-picker dropdown.
+ *
+ * @route GET /api/domains/suggest
+ * @auth Bearer orgId required — site ownership enforced.
+ * @queryParam site_id - UUID of the site to profile.
+ * @queryParam count - Optional override (default 10, max 20).
+ * @queryParam query - Optional user-typed prefix that biases candidate gen.
+ * @queryParam refresh - `true` to bust the 5-min response cache.
+ * @returns 200 OK `{ suggestions: DomainSuggestion[], context_summary,
+ *   generated_at }`. Each suggestion has `available: true`, `reason ≤ 60
+ *   chars`, `pitch ≤ 90 chars`, plus `price_usd_yr` + `can_register_inline`
+ *   (or `fallback_url` for TLDs CF doesn't carry).
+ *
+ * @remarks
+ * Response cached 5 min in `CACHE_KV` (`domain_suggest:{site_id}:{count}`).
+ * The cache key omits `query` so a refresh-typed prefix invalidates via the
+ * `?refresh=true` flag rather than cache-key churn.
+ */
+api.get('/api/domains/suggest', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const parsed = suggestQuerySchema.parse({
+    site_id: c.req.query('site_id'),
+    count: c.req.query('count'),
+    query: c.req.query('query'),
+    refresh: c.req.query('refresh'),
+  });
+
+  // Verify ownership before any AI spend.
+  const site = await dbQueryOne<{ id: string }>(
+    c.env.DB,
+    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [parsed.site_id, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  const count = parsed.count ?? 10;
+  const cacheKey = `domain_suggest:${parsed.site_id}:${count}`;
+  const wantRefresh = parsed.refresh === 'true' || Boolean(parsed.query);
+
+  if (!wantRefresh) {
+    try {
+      const cached = await c.env.CACHE_KV.get(cacheKey, 'json');
+      if (cached && typeof cached === 'object' && 'suggestions' in (cached as object)) {
+        return c.json(cached);
+      }
+    } catch {
+      // KV miss is non-fatal.
+    }
+  }
+
+  const suggestions = await suggestDomains(c.env, {
+    siteId: parsed.site_id,
+    query: parsed.query,
+    count,
+  });
+
+  const ctx = await gatherProfileContext(c.env, parsed.site_id);
+  const contextSummary = ctx
+    ? [
+        ctx.business_name,
+        ctx.business_type,
+        ctx.location,
+        ctx.target_audience ? `for ${ctx.target_audience}` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+        .slice(0, 200)
+    : '';
+
+  const payload = {
+    suggestions,
+    context_summary: contextSummary,
+    generated_at: new Date().toISOString(),
+  };
+
+  // 5-min cache — best-effort, never blocks the response.
+  try {
+    await c.env.CACHE_KV.put(cacheKey, JSON.stringify(payload), { expirationTtl: 300 });
+  } catch {
+    // non-fatal
+  }
+
+  return c.json(payload);
+});
+
+/**
+ * Refine the suggestion set with optional user feedback + a domains-to-skip list.
+ *
+ * @route POST /api/domains/suggest/refine
+ * @auth Bearer orgId required — site ownership enforced.
+ * @body `{ site_id, feedback?, exclude_domains?, count? }`.
+ * @returns 200 OK `{ suggestions, context_summary, generated_at }`.
+ *
+ * @remarks
+ * Never reads from cache — refine is always a fresh roll. The cached
+ * suggestion payload is also evicted so the next default GET reflects the
+ * new preference signal.
+ */
+api.post('/api/domains/suggest/refine', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const body = await c.req.json();
+  const parsed = suggestRefineSchema.parse(body);
+
+  const site = await dbQueryOne<{ id: string }>(
+    c.env.DB,
+    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [parsed.site_id, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  const count = parsed.count ?? 10;
+
+  const suggestions: DomainSuggestion[] = await suggestDomains(c.env, {
+    siteId: parsed.site_id,
+    feedback: parsed.feedback,
+    excludeDomains: parsed.exclude_domains,
+    count,
+  });
+
+  const ctx = await gatherProfileContext(c.env, parsed.site_id);
+  const contextSummary = ctx
+    ? [ctx.business_name, ctx.business_type, ctx.location].filter(Boolean).join(' · ').slice(0, 200)
+    : '';
+
+  const payload = {
+    suggestions,
+    context_summary: contextSummary,
+    generated_at: new Date().toISOString(),
+  };
+
+  // Evict the GET cache so subsequent default opens see the refined set.
+  try {
+    await c.env.CACHE_KV.delete(`domain_suggest:${parsed.site_id}:${count}`);
+  } catch {
+    // non-fatal
+  }
+
+  return c.json(payload);
+});
+
+/**
+ * Debug endpoint — return the full `ProfileContext` for a site. Admin-only.
+ *
+ * @route GET /api/admin/profile/:site_id/context
+ * @auth Bearer orgId required AND the site must belong to the caller's org.
+ *   (Platform-admin role enforcement lives in the auth middleware/keys path —
+ *   this endpoint only enforces same-org ownership to mirror the rest of the
+ *   `/api/admin/*` surface.)
+ * @returns 200 OK `{ context: ProfileContext }`.
+ *
+ * @remarks
+ * Used by the dashboard's "why these suggestions?" affordance + by the
+ * sibling agent's UI test harness. Hot-path readers should call
+ * `gatherProfileContext` directly instead of going over HTTP.
+ */
+api.get('/api/admin/profile/:site_id/context', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('site_id');
+  if (!siteId || !/^[0-9a-f-]{36}$/i.test(siteId)) {
+    throw badRequest('site_id must be a UUID');
+  }
+
+  const site = await dbQueryOne<{ id: string }>(
+    c.env.DB,
+    'SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [siteId, orgId],
+  );
+  if (!site) throw notFound('Site not found');
+
+  const context = await gatherProfileContext(c.env, siteId);
+  if (!context) throw notFound('Site has no resolvable profile');
+
+  return c.json({ context });
 });
 
 // ─── Admin Domain Management Routes ─────────────────────────

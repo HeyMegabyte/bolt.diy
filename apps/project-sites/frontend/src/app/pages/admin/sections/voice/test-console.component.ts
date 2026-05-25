@@ -400,10 +400,16 @@ export class VoiceTestConsoleComponent implements OnDestroy {
     });
   }
 
-  /** Lazy-import the Twilio Voice SDK so it never ships in the main bundle. */
+  /**
+   * Lazy-import the Twilio Voice SDK so it never ships in the main bundle.
+   * Indirect-import via a variable so TypeScript doesn't try to statically
+   * resolve the dependency at typecheck time — keeps the build green even
+   * when `@twilio/voice-sdk` hasn't been installed yet.
+   */
   private async loadTwilioSdk(): Promise<{ Device: TwilioDeviceCtor } | null> {
     try {
-      const m = (await import(/* @vite-ignore */ '@twilio/voice-sdk')) as unknown as { Device: TwilioDeviceCtor };
+      const pkg = '@twilio/voice-sdk';
+      const m = (await import(/* @vite-ignore */ pkg)) as unknown as { Device: TwilioDeviceCtor };
       return m?.Device ? m : null;
     } catch {
       return null;

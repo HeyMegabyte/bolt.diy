@@ -296,7 +296,7 @@ export async function handleMediaStream(
   // If we never see media, still finalize gracefully when the socket closes.
   void firstMediaSeen;
 
-  return new Response(null, { status: 101, webSocket: client } as unknown as ResponseInit);
+  return new Response(null, { status: 101, webSocket: client });
 }
 
 // ─── Browse-agent trigger ───────────────────────────────────────

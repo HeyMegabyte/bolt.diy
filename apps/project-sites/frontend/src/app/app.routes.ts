@@ -20,6 +20,17 @@ export const routes: Routes = [
       import('./pages/homepage/homepage.component').then((m) => m.HomepageComponent),
   },
   {
+    // Super-admin — gated server-side on `users.is_super_admin = 1` (the
+    // worker routes return 403 to non-super-admins; the component shows a
+    // "Restricted" page). Operator console for cost × markup_factor tuning
+    // + wallet drill-down + manual adjustments. Sibling to customer-facing
+    // /admin/billing — different audience, different surface.
+    path: 'super-admin',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/super-admin/super-admin.component').then((m) => m.SuperAdminComponent),
+  },
+  {
     path: 'search',
     loadComponent: () =>
       import('./pages/search/search.component').then((m) => m.SearchComponent),
@@ -189,6 +200,15 @@ export const routes: Routes = [
         path: 'ai-endpoints',
         loadComponent: () =>
           import('./pages/admin/sections/ai-endpoints.component').then((m) => m.AdminAiEndpointsComponent),
+      },
+      {
+        // Voice — phone numbers, unified call+SMS conversations timeline,
+        // browser-mic test console, agent prompt editor + immutable
+        // safety meta-prompt, MCP attachments, share surface. Top-level
+        // shell lazy-loads sub-components on demand.
+        path: 'voice',
+        loadComponent: () =>
+          import('./pages/admin/sections/voice.component').then((m) => m.VoiceComponent),
       },
       { path: 'mcp', redirectTo: 'settings/mcp', pathMatch: 'full' },
       { path: 'github', redirectTo: 'snapshots', pathMatch: 'full' },

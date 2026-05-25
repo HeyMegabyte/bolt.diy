@@ -53,3 +53,5 @@ export * from './contact.js';
 export * from './confidence.js';
 export * from './seed-v3.js';
 export * from './forms.js';
+export * from './voice.js';
+export * from './media.js';

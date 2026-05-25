@@ -61,7 +61,8 @@ export async function suggestVanityWords(
   let words: VanitySuggestion[] = [];
 
   try {
-    const result = (await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+    const model = '@cf/meta/llama-3.3-70b-instruct-fp8-fast' as Parameters<Ai['run']>[0];
+    const response = await env.AI.run(model, {
       messages: [
         {
           role: 'system',
@@ -72,11 +73,12 @@ export async function suggestVanityWords(
       ],
       max_tokens: 800,
       temperature: 0.6,
-    } as unknown as { messages: Array<{ role: string; content: string }> })) as unknown as {
-      response?: string;
-    };
-    const raw = String(result?.response ?? '').trim();
-    words = parseVanityJson(raw);
+    });
+    const raw =
+      typeof response === 'string'
+        ? response
+        : String((response as { response?: string }).response ?? '');
+    words = parseVanityJson(raw.trim());
   } catch (err) {
     // Workers AI down or model retired — fall back to deterministic suggestions.
     console.warn(

@@ -257,7 +257,7 @@ export class ApiService {
     return this.post(`/sites/${siteId}/hostnames/${hostnameId}/unsubscribe`, {});
   }
 
-  /** Workers-AI-enriched domain search (Domainr + Llama 3.3 reasoning). */
+  /** Workers-AI-enriched domain search (RDAP availability + CF Registrar pricing + Llama 3.3 reasoning). */
   searchDomainsEnriched(
     query: string,
     business?: string,
@@ -664,7 +664,7 @@ export interface Hostname {
   is_primary: boolean;
 }
 
-/** Workers-AI-enriched domain suggestion from /api/domains/search-enrich. */
+/** Workers-AI-enriched domain suggestion from /api/domains/search-enrich (RDAP-backed). */
 export interface DomainSuggestion {
   domain: string;
   available: boolean;
@@ -672,6 +672,10 @@ export interface DomainSuggestion {
   reason: string;
   pitch: string;
   price_usd_yr: number | null;
+  /** True when CF Registrar carries the TLD AND availability came back `available`. */
+  can_register_inline: boolean;
+  /** Porkbun checkout deeplink when CF doesn't carry the TLD. */
+  fallback_url?: string;
 }
 
 export interface SubscriptionInfo {

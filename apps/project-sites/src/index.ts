@@ -57,6 +57,16 @@ import { inbox, runSnoozeResumeSweep } from './routes/inbox.js';
 import { socialRoutes } from './routes/social.js';
 import { socialOauthRoutes } from './routes/social_oauth.js';
 import { pulseAnalytics, runHourlyPulseAnalyticsCron } from './routes/pulse_analytics.js';
+import { voiceRoutes } from './routes/voice.js';
+import { voiceWebhookRoutes } from './routes/voice_webhooks.js';
+import { domainPurchase } from './routes/domain_purchase.js';
+import { superAdmin } from './routes/super_admin.js';
+import { wallet as walletRoutes } from './routes/wallet.js';
+import { agency } from './routes/agency.js';
+import { agents } from './routes/agents.js';
+import { templates as templatesRoutes } from './routes/templates.js';
+import { mcpSite } from './routes/mcp_site.js';
+import { experiments } from './routes/experiments.js';
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbQueryOne, dbUpdate } from './services/db.js';
@@ -264,6 +274,16 @@ app.route('/', inbox); // /api/inbox/* — Pulse Inbox CRUD + webhooks
 app.route('/', pulseAnalytics); // /api/social/analytics/aggregate + /api/inbox/metrics — must precede social/inbox catch-alls
 app.route('/', socialOauthRoutes); // /api/social/:platform/{connect,callback,paste} — Pulse Social OAuth
 app.route('/', socialRoutes); // /api/social/{accounts,posts}/* — Pulse Social CRUD; must precede `api`
+app.route('/', voiceRoutes); // /api/voice/* — AI Voice + SMS Agent (numbers, vanity, calls, messages, settings)
+app.route('/', voiceWebhookRoutes); // /webhooks/voice/* + /webhooks/sms/* + /internal/voice/* — Twilio webhook + media stream bridge
+app.route('/', domainPurchase); // Wallet-charged /api/domains/purchase + /api/billing/checkout/{wallet,topup} + /api/billing/wallet — must precede `api` so the wallet-aware purchase route wins over the legacy hosted-checkout route
+app.route('/', superAdmin); // /api/super-admin/* — cost-factor controls + wallet ops + 100-feature ops (is_super_admin=1 guarded)
+app.route('/', walletRoutes); // /api/wallet/* — customer-facing wallet read/subscribe/topup (additive aliases over domain_purchase /api/billing/wallet)
+app.route('/', agency); // /api/agency/* — white-label / agency surface (Pro-gated, manages child orgs + brand overrides + Stripe Connect)
+app.route('/', agents); // /api/(sites/:siteId/agents|agents/:id)/* — AI Agents (per-site autonomous maintenance, Pro-gated)
+app.route('/', templatesRoutes); // /api/templates + /api/sites/:siteId/install-template — templates marketplace
+app.route('/', mcpSite); // /{slug}/.well-known/* + /{slug}/mcp + /api/sites/:siteId/mcp/* — MCP per-site server
+app.route('/', experiments); // /_ps/{i,c,e,predict} + /api/sites/:siteId/experiments — Thompson-sampling A/B + predictive prerender
 
 // ── Pulse Inbox WebSocket upgrade ────────────────────────────
 // `wss://projectsites.dev/api/inbox/ws/:conversation_id` proxies the

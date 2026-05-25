@@ -425,3 +425,26 @@ crons = ["* * * * *", "*/5 * * * *", "*/30 * * * *", "0 * * * *", "0 14 * * 1", 
 # queue = "project-sites-workflows-production"
 # max_batch_size = 10
 # max_retries = 3
+
+# ─── Voice + SMS Agent (Twilio) ──────────────────────────────
+# Required secrets (set with `wrangler secret put --env production`):
+#   TWILIO_ACCOUNT_SID      — AC… account SID
+#   TWILIO_AUTH_TOKEN       — signs REST calls + verifies inbound webhooks
+#   TWILIO_API_KEY          — SK… key SID for client Access Tokens
+#   TWILIO_API_SECRET       — paired secret for JWT signing
+#   TWILIO_TWIML_APP_SID    — AP… application SID for outgoing voice
+#   DEEPGRAM_API_KEY        — optional, low-latency STT (falls back to Whisper)
+#   ELEVENLABS_API_KEY      — optional, TTS (falls back to Twilio <Say> on empty bytes)
+#
+# ─── VOICE BROWSE AGENT (uncomment when DO + Dockerfile exist) ─────────────
+# [[env.production.durable_objects.bindings]]
+# name = "VOICE_BROWSE_AGENT"
+# class_name = "VoiceBrowseAgent"
+# [[env.production.containers]]
+# class_name = "VoiceBrowseAgent"
+# image = "./Dockerfile.voice-browse"
+# instance_type = "standard"
+# max_instances = 50
+# [[env.production.migrations]]
+# tag = "v18-voice-browse-agent"
+# new_sqlite_classes = ["VoiceBrowseAgent"]

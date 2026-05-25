@@ -174,7 +174,7 @@ type DayGroup = { label: string; items: Conversation[] };
     </section>
 
     <!-- Detail panel -->
-    <app-side-panel [open]="!!detail()" widthFraction="0.55" ariaLabel="Conversation detail" (closed)="closeDetail()">
+    <app-side-panel [open]="!!detail()" [widthFraction]="0.55" ariaLabel="Conversation detail" (closed)="closeDetail()">
       <span panelTitle>{{ detail() ? format(detail()!.from_number) : '' }}</span>
       <span panelSubtitle>
         @if (detail()) {

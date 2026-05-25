@@ -111,7 +111,7 @@ function getCreds(env: Env): TwilioCreds {
   const token = (env.TWILIO_AUTH_TOKEN ?? '').trim();
   if (!sid || !token) {
     throw new AppError({
-      code: 'NOT_FOUND', // No dedicated 501 code in ApiErrorCode; route handler maps this
+      code: 'SERVICE_UNAVAILABLE',
       message:
         'TWILIO_NOT_CONFIGURED: set TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN via `wrangler secret put`',
       statusCode: 501,
@@ -190,7 +190,7 @@ export async function searchAvailableNumbers(
   });
   if (!res.ok) {
     throw new AppError({
-      code: 'BAD_REQUEST',
+      code: 'SERVICE_UNAVAILABLE',
       message: `Twilio number search failed: ${res.status} ${await safeBody(res)}`,
       statusCode: 502,
     });
@@ -248,7 +248,7 @@ export async function purchaseNumber(env: Env, opts: PurchaseOpts): Promise<Purc
   });
   if (!res.ok) {
     throw new AppError({
-      code: 'BAD_REQUEST',
+      code: 'SERVICE_UNAVAILABLE',
       message: `Twilio purchase failed: ${res.status} ${await safeBody(res)}`,
       statusCode: 502,
     });
@@ -281,7 +281,7 @@ export async function releaseNumber(env: Env, twilioSid: string): Promise<void> 
   );
   if (!res.ok && res.status !== 404) {
     throw new AppError({
-      code: 'BAD_REQUEST',
+      code: 'SERVICE_UNAVAILABLE',
       message: `Twilio release failed: ${res.status} ${await safeBody(res)}`,
       statusCode: 502,
     });
@@ -323,7 +323,7 @@ export async function sendSms(env: Env, opts: SendSmsOpts): Promise<SentSms> {
   });
   if (!res.ok) {
     throw new AppError({
-      code: 'BAD_REQUEST',
+      code: 'SERVICE_UNAVAILABLE',
       message: `Twilio sendSms failed: ${res.status} ${await safeBody(res)}`,
       statusCode: 502,
     });
@@ -361,7 +361,7 @@ export async function createCallRecording(env: Env, callSid: string): Promise<{ 
   );
   if (!res.ok) {
     throw new AppError({
-      code: 'BAD_REQUEST',
+      code: 'SERVICE_UNAVAILABLE',
       message: `Twilio createCallRecording failed: ${res.status}`,
       statusCode: 502,
     });

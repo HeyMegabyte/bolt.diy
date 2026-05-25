@@ -97,6 +97,7 @@ export class AdminComponent implements OnInit, OnDestroy {
       'ai-endpoints': 'Endpoints', 'domains': 'Domains', 'docs': 'Docs',
       'user': 'User Settings', 'apps': 'Apps', 'instances': 'App Instances',
       'billing': 'Billing', 'audit': 'Audit Log', 'settings': 'Settings',
+      'voice': 'Voice',
     };
     this.currentSection.set(labels[segment] || 'Editor');
     this.api.post('/analytics/track', {
@@ -482,7 +483,7 @@ export class AdminComponent implements OnInit, OnDestroy {
     if (!inField && !ev.metaKey && !ev.ctrlKey) {
       if (ev.key === 'g') { this.gPressedAt = Date.now(); return; }
       if (Date.now() - this.gPressedAt < 900) {
-        const map: Record<string, string> = { e: '/admin', s: '/admin/snapshots', a: '/admin/analytics', f: '/admin/forms', l: '/admin/traces', c: '/admin/ai-chat', b: '/admin/billing', i: '/admin/inbox' };
+        const map: Record<string, string> = { e: '/admin', s: '/admin/snapshots', a: '/admin/analytics', f: '/admin/forms', l: '/admin/traces', c: '/admin/ai-chat', b: '/admin/billing', i: '/admin/inbox', v: '/admin/voice' };
         const path = map[ev.key.toLowerCase()];
         if (path) { ev.preventDefault(); this.router.navigateByUrl(path); this.gPressedAt = 0; }
       }

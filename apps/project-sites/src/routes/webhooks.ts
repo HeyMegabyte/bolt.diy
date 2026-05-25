@@ -42,6 +42,7 @@ import {
 import * as billingService from '../services/billing.js';
 import * as auditService from '../services/audit.js';
 import * as connectService from '../services/stripe_connect.js';
+import { handleWalletStripeEvent } from '../services/wallet_webhook.js';
 import { sha256Hex, badRequest } from '@project-sites/shared';
 
 const webhooks = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -109,12 +110,32 @@ webhooks.post('/webhooks/stripe', async (c) => {
     const obj = event.data.object;
 
     switch (event.type) {
-      case 'checkout.session.completed':
-        await billingService.handleCheckoutCompleted(db, c.env, {
-          customer: obj.customer as string,
-          subscription: obj.subscription as string,
-          metadata: obj.metadata as { org_id?: string; site_id?: string },
-        });
+      case 'checkout.session.completed': {
+        const meta = (obj.metadata as Record<string, string> | undefined) ?? {};
+        // Wallet-subscription checkouts carry `metadata.kind = 'wallet'`
+        // (set by `wallet.startSubscription`). Route those to the wallet
+        // handler; everything else stays on the existing billing path.
+        if (meta.kind === 'wallet' || meta.wallet_topup === 'auto') {
+          await handleWalletStripeEvent(c.env, event.type, obj);
+        } else {
+          await billingService.handleCheckoutCompleted(db, c.env, {
+            customer: obj.customer as string,
+            subscription: obj.subscription as string,
+            metadata: obj.metadata as { org_id?: string; site_id?: string },
+          });
+        }
+        break;
+      }
+
+      case 'payment_intent.succeeded':
+        // One-time wallet top-ups fire payment_intent.succeeded with
+        // metadata.kind = 'wallet_topup'. Non-wallet intents fall through
+        // as a no-op (we don't otherwise process bare PaymentIntents).
+        await handleWalletStripeEvent(c.env, event.type, obj);
+        break;
+
+      case 'payment_method.attached':
+        await handleWalletStripeEvent(c.env, event.type, obj);
         break;
 
       case 'customer.subscription.updated':
@@ -143,7 +164,9 @@ webhooks.post('/webhooks/stripe', async (c) => {
         break;
 
       case 'invoice.paid':
-        // Backup for checkout completed
+        // Backup for checkout.session.completed + wallet sub renewal credit.
+        // Wallet handler is a no-op for non-wallet invoices.
+        await handleWalletStripeEvent(c.env, event.type, obj);
         break;
 
       case 'account.updated':

@@ -346,10 +346,13 @@ export async function transcribeAudioChunk(
 
   // Workers AI Whisper fallback
   try {
-    const result = (await env.AI.run('@cf/openai/whisper', {
+    const model = '@cf/openai/whisper' as Parameters<Ai['run']>[0];
+    const result = await env.AI.run(model, {
       audio: Array.from(new Uint8Array(audioBytes)),
-    } as unknown as { audio: number[] })) as unknown as { text?: string };
-    return { text: String(result?.text ?? ''), provider: 'workers-ai-whisper' };
+    } as unknown as Parameters<Ai['run']>[1]);
+    const text =
+      typeof result === 'string' ? result : String((result as { text?: string }).text ?? '');
+    return { text, provider: 'workers-ai-whisper' };
   } catch {
     return { text: '', provider: 'noop' };
   }
