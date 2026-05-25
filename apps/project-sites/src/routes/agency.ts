@@ -31,6 +31,13 @@ const agency = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 agency.use('/api/agency/*', requirePro);
 
+/**
+ * `GET /api/agency/whoami` — Resolve the agency org context for the
+ * current user (tier, custom admin hostname, markup, brand overrides).
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
+ */
 agency.get('/api/agency/whoami', async (c) => {
   const userId = c.get('userId');
   const orgId = c.get('orgId');
@@ -53,6 +60,13 @@ agency.get('/api/agency/whoami', async (c) => {
   return c.json({ org, user_id: userId });
 });
 
+/**
+ * `GET /api/agency/clients` — List the child orgs owned by the agency
+ * (caller's org) with site counts.
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
+ */
 agency.get('/api/agency/clients', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();
@@ -74,6 +88,18 @@ const inviteSchema = z.object({
   preselected_template_id: z.string().optional(),
 });
 
+/**
+ * `POST /api/agency/clients` — Invite a new client (creates a child-org
+ * invitation token with 7-day expiry).
+ *
+ * @remarks
+ * Body: {@link inviteSchema}. Returns `{ invitation_id, token, expires_at }`.
+ * TODO: send invite email via Resend once the template is ready.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
+ */
 agency.post('/api/agency/clients', zValidator('json', inviteSchema), async (c) => {
   const body = c.req.valid('json');
   const agencyOrgId = c.get('orgId');
@@ -108,6 +134,13 @@ const brandSchema = z.object({
   hideBranding: z.boolean().optional(),
 });
 
+/**
+ * `GET /api/agency/brand` — Read white-label brand overrides JSON for
+ * the caller's agency org.
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
+ */
 agency.get('/api/agency/brand', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();
@@ -120,6 +153,19 @@ agency.get('/api/agency/brand', async (c) => {
   return c.json({ brand });
 });
 
+/**
+ * `PUT /api/agency/brand` — Update white-label brand overrides (logo,
+ * favicon, palette, sender email, hide-branding toggle).
+ *
+ * @remarks
+ * Body: {@link brandSchema} — merged onto existing JSON. Invalidates the
+ * KV cache key `brand:{orgId}` so the next request to the agency's
+ * hostnames picks up the new brand.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
+ */
 agency.put('/api/agency/brand', zValidator('json', brandSchema), async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();
@@ -145,6 +191,19 @@ const upgradeSchema = z.object({
   markup_pct: z.number().min(0).max(100).default(0),
 });
 
+/**
+ * `POST /api/agency/upgrade` — Convert the caller's org into an agency
+ * with the selected tier + markup percentage.
+ *
+ * @remarks
+ * Body: {@link upgradeSchema}. Idempotent — re-running just updates the
+ * tier/markup. Does NOT charge anything; pricing is handled separately
+ * via Stripe checkout.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
+ */
 agency.post('/api/agency/upgrade', zValidator('json', upgradeSchema), async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();
@@ -159,6 +218,13 @@ agency.post('/api/agency/upgrade', zValidator('json', upgradeSchema), async (c) 
   return c.json({ ok: true, tier: body.tier, markup_pct: body.markup_pct });
 });
 
+/**
+ * `GET /api/agency/snapshots` — List clonable site snapshots (templates)
+ * available to the agency — both its own and global public templates.
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
+ */
 agency.get('/api/agency/snapshots', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();

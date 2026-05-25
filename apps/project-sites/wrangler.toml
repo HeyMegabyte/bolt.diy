@@ -1,9 +1,86 @@
 #:schema node_modules/wrangler/config-schema.json
 name = "project-sites"
 main = "src/index.ts"
-compatibility_date = "2024-01-01"
+compatibility_date = "2026-05-01"
 compatibility_flags = ["nodejs_compat"]
 send_metrics = false
+
+# ─── Required secrets (declarative inventory) ────────────────
+# Wrangler 4.x doesn't yet ship a first-class `[secrets.required]` schema
+# entry, so this stays as an inventory block consumed by
+# `scripts/provision-secrets.mjs` + audited by `scripts/check-secrets.mjs`
+# pre-deploy. Every secret read in `src/` via `env.<KEY>` should be listed
+# here (skip ones already in `[env.production.vars]`). Update on every
+# integration add so the provisioning loop has a single source of truth.
+#
+# Auto-generated from `grep -rhoE 'env\.[A-Z_]+' apps/project-sites/src/`
+# minus `[env.production.vars]` entries (AI_GATEWAY_ENABLED, CF_ACCOUNT_ID,
+# ENVIRONMENT, INTERNAL_CALLBACK_URL, SENTRY_RELEASE, WFP_NAMESPACE_NAME).
+#
+# secrets.required = [
+#   "ANTHROPIC_API_KEY",
+#   "BRANDFETCH_API_KEY",
+#   "CF_API_TOKEN",
+#   "CF_ZONE_ID",
+#   "CLOUDFLARE_API_KEY",
+#   "CLOUDFLARE_EMAIL",
+#   "DEEPGRAM_API_KEY",
+#   "DUB_WEBHOOK_SECRET",
+#   "ELEVENLABS_API_KEY",
+#   "FOURSQUARE_API_KEY",
+#   "GITHUB_CLIENT_ID",
+#   "GITHUB_CLIENT_SECRET",
+#   "GOOGLE_CLIENT_ID",
+#   "GOOGLE_CLIENT_SECRET",
+#   "GOOGLE_CSE_CX",
+#   "GOOGLE_CSE_KEY",
+#   "GOOGLE_PLACES_API_KEY",
+#   "GOOGLE_SHEETS_API_KEY",
+#   "GTM_CONTAINER_ID",
+#   "HUBSPOT_CLIENT_ID",
+#   "HUBSPOT_CLIENT_SECRET",
+#   "IDEOGRAM_API_KEY",
+#   "INTERNAL_BUILD_SECRET",
+#   "LOGODEV_TOKEN",
+#   "MAILCHIMP_CLIENT_ID",
+#   "MAILCHIMP_CLIENT_SECRET",
+#   "MAX_GENERATED_IMAGES",
+#   "MCP_ENCRYPTION_KEY",
+#   "NEON_API_KEY",
+#   "OPENAI_API_KEY",
+#   "PAGESPEED_API_KEY",
+#   "PEXELS_API_KEY",
+#   "PIXABAY_API_KEY",
+#   "POSTHOG_API_KEY",
+#   "POSTHOG_HOST",
+#   "REMOVEBG_API_KEY",
+#   "REPLICATE_API_TOKEN",
+#   "RESEARCH_JSON_PUBLIC",
+#   "RESEARCH_MODEL",
+#   "RESEND_API_KEY",
+#   "SALE_WEBHOOK_SECRET",
+#   "SALE_WEBHOOK_URL",
+#   "SENDGRID_API_KEY",
+#   "SENTRY_DSN",
+#   "STABILITY_API_KEY",
+#   "STRIPE_CONNECT_CLIENT_ID",
+#   "STRIPE_PRICE_ID_MONTHLY_WALLET",
+#   "STRIPE_PUBLISHABLE_KEY",
+#   "STRIPE_SECRET_KEY",
+#   "STRIPE_USAGE_PRICE_IDS",
+#   "STRIPE_WEBHOOK_SECRET",
+#   "TELEGRAM_BOT_TOKEN",
+#   "TWILIO_ACCOUNT_SID",
+#   "TWILIO_API_KEY",
+#   "TWILIO_API_SECRET",
+#   "TWILIO_AUTH_TOKEN",
+#   "TWILIO_TWIML_APP_SID",
+#   "UNSPLASH_ACCESS_KEY",
+#   "WEEKLY_DIGEST_SECRET",
+#   "WHOISXML_API_KEY",
+#   "YELP_API_KEY",
+#   "YOUTUBE_API_KEY",
+# ]
 
 # ─── Observability ───────────────────────────────────────────
 [observability]
@@ -287,8 +364,11 @@ class_name = "ActivityHub"
 name = "APP_RUNTIME"
 class_name = "AppRuntimeContainer"
 
-# Pulse Inbox — one DO per chat_conversations.id, SQLite-backed, hibernation-aware
-# WebSocket fan-out (agent dashboards + visitor widgets).
+# Pulse Inbox — REMOVED from UI/code 2026-05-25. Binding kept active +
+# pointing at a 410-stub class (`src/durable_objects/conversation_hub.ts`)
+# so the existing v_conversation_hub migration tag stays valid (deleting
+# the binding without a `deleted_classes` migration breaks deploys with
+# error 10064). D1 data in chat_conversations/chat_messages stays intact.
 [[env.production.durable_objects.bindings]]
 name = "CONVERSATION_HUB"
 class_name = "ConversationHub"
@@ -382,11 +462,15 @@ class_name = "ConversationHub"
 # (GA April 2025, paid since Jan 2026) so they can use this.ctx.storage.sql.
 # [[env.production.migrations]] block intentionally omitted.
 
-# Pulse Inbox — new SQLite-backed DO for per-conversation realtime fan-out.
-# Standalone migration tag so apply is idempotent + auditable.
-[[env.production.migrations]]
-tag = "v_conversation_hub"
-new_sqlite_classes = ["ConversationHub"]
+# Pulse Inbox — REMOVED from UI/code 2026-05-25. Class kept as a 410-stub
+# at `src/durable_objects/conversation_hub.ts` so the existing
+# v_conversation_hub migration tag stays consistent. To hard-delete later:
+# (1) confirm no live DO instances need data, (2) ship a separate deploy
+# with `deleted_classes = ["ConversationHub"]` migration tag, (3) delete
+# the stub file + binding below.
+# [[env.production.migrations]]
+# tag = "v_conversation_hub"
+# new_sqlite_classes = ["ConversationHub"]
 # TraceHub + ActivityHub + SiteBuilderContainer were already deployed under
 # the legacy classic-Durable-Object storage backend in a prior `wrangler
 # deploy`. Cloudflare's 10074 error blocks in-place class migrations once
@@ -437,7 +521,7 @@ namespace = "project-sites-endpoints"
 
 # Cron triggers:
 #   * * * * *    — Pulse Social due-post sweep (every minute, capped 25/run)
-#   */5 * * * *  — (sibling) inbox snooze-resume sweep
+#   */5 * * * *  — no-op (was inbox snooze-resume sweep, removed 2026-05-25)
 #   */30 * * * * — verify hostnames + unstick stuck builds
 #   0 * * * *    — Drive re-sync + Pulse Social hourly analytics poll
 #   0 14 * * 1   — Mon 14:00 UTC (9 AM ET) weekly summary digest emails (#96)

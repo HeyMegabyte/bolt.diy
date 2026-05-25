@@ -496,8 +496,10 @@ src/
 │   ├── api.ts                  # Auth, sites CRUD, billing, hostnames, audit logs
 │   └── webhooks.ts             # POST /webhooks/stripe (signature verification + idempotency)
 ├── services/
+│   ├── ai_crypto.ts            # AES-GCM helpers (per-record IV) for secrets at rest
+│   ├── ai_env_vars.ts          # Per-org/site/MCP encrypted env vars; resolveEnvVarsForAI()
 │   ├── ai_workflows.ts         # Multi-phase AI pipeline + prompt registration
-│   ├── analytics.ts            # PostHog server-side event capture
+│   ├── analytics.ts            # PostHog server-side event capture + captureLLMCall ($ai_*)
 │   ├── audit.ts                # Append-only audit log writes
 │   ├── auth.ts                 # Magic link, Google OAuth, sessions
 │   ├── billing.ts              # Stripe checkout, subscriptions, entitlements
@@ -512,10 +514,13 @@ src/
 │   ├── google_places.ts        # Google Places API integration
 │   ├── image_discovery.ts      # Multi-API image discovery (Unsplash, Pexels, etc.)
 │   ├── image_generation.ts     # AI image generation (DALL-E, Stability, etc.)
+│   ├── media.ts                # Unified media library (uploads + stock + DALL·E + Sora + TTS + send-to-bolt)
 │   ├── notifications.ts        # Email notifications (Resend/SendGrid)
 │   ├── openai_research.ts      # OpenAI-powered research pipeline
+│   ├── rag.ts                  # Vectorize + AutoRAG (embed, indexChunk, semanticSearch, autoRagQuery)
 │   ├── sentry.ts               # Error tracking (Toucan SDK)
 │   ├── site_serving.ts         # R2 static file serving + top bar injection for unpaid
+│   ├── task_inbox.ts           # Task tray: postAskUser, resolveTask, applyExpiredDefaults
 │   ├── template_cache.ts       # R2 template caching for container builds
 │   └── webhook.ts              # Stripe signature verification, idempotency
 ├── prompts/
@@ -587,6 +592,36 @@ src/
 | POST | `/api/domains/purchase` | Purchase domain |
 | GET | `/api/admin/domains` | Admin: list all domains |
 | POST | `/api/publish/bolt` | Publish from bolt |
+
+### Media Library — `/api/media/*` (auth required)
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/media/assets` | List assets with `kind/source/q` filters |
+| GET | `/api/media/assets/:id` | Single asset metadata |
+| GET | `/api/media/assets/:id/raw` | Stream the R2 object |
+| POST | `/api/media/upload` | Multipart upload (25 MB cap; exempt from 256 KB global limit) |
+| DELETE | `/api/media/assets/:id` | Soft delete |
+| POST | `/api/media/stock/search` | Federated Unsplash/Pexels/Pixabay search |
+| POST | `/api/media/stock/save` | Persist a candidate to the library |
+| POST | `/api/media/generate/image` | DALL·E 3 generation |
+| POST | `/api/media/generate/video` | Queued Sora / Veo (workflow callback flips status) |
+| POST | `/api/media/generate/podcast` | ElevenLabs / OpenAI TTS |
+| POST | `/api/media/send-to-bolt` | Mint a signed URL the bolt iframe consumes |
+
+### AI Env Vars — `/api/env-vars/*` (auth required)
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/env-vars` | List org+site+mcp env vars (decrypted values hidden) |
+| POST | `/api/env-vars` | Create scoped env var (org / site / mcp) |
+| PATCH | `/api/env-vars/:id` | Update value or label |
+| DELETE | `/api/env-vars/:id` | Soft delete |
+| POST | `/api/env-vars/import` | Bulk import (dotenv-style payload) |
+
+### Task Tray (Inbox) — `/api/inbox/tasks/*` (auth required)
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/inbox/tasks` | List open tasks for the caller's org |
+| POST | `/api/inbox/tasks/:id/resolve` | Resolve a task; fans event into waiting workflow |
 
 ### Error Response Format
 ```json
@@ -701,11 +736,24 @@ dbExecute(db, sql, params)       // Raw execute
 - `CACHE_KV`: KV namespace for caching
 - `PROMPT_STORE`: KV namespace for prompt hot-patching
 - `DB`: D1 database
-- `SITES_BUCKET`: R2 bucket for static sites
+- `SITES_BUCKET`: R2 bucket for static sites + per-org media (`media/{orgId}/...`)
 - `QUEUE`: Queue (optional, commented out — not yet enabled on account)
-- `SITE_WORKFLOW`: Cloudflare Workflow binding
+- `SITE_WORKFLOW`: Cloudflare Workflow binding (site generation)
+- `DRIVE_SYNC_WORKFLOW`: Resumable Google Drive ingest
+- `IMAGE_GENERATION_WORKFLOW`: Resumable DALL·E → Stability fallback
+- `SNAPSHOT_QUALITY_WORKFLOW`: Screenshot + composition + SEO + a11y matrix
+- `SOCIAL_PUBLISH_WORKFLOW`: Per-account fan-out for pulse_posts rows
 - `SITE_BUILDER`: Durable Object (Cloudflare Container) for Claude Code builds (production only)
-- `AI`: Workers AI binding
+- `APP_RUNTIME`: Durable Object for installed-app runtime (auto-restart 3/min, idle-30m hibernation)
+- `AI`: Workers AI binding (Llama 3.3 70B FP8, BGE embeddings)
+- `RAG_INDEX`: Vectorize binding (768-dim cosine, `projectsites-rag`). Create via
+  `npx wrangler vectorize create projectsites-rag --dimensions=768 --metric=cosine`
+  plus metadata indexes on `kind` and `orgId`. See `docs/DEPLOYMENT.md`.
+- `AI_GATEWAY_ENABLED` (var): when `"true"` + `CF_ACCOUNT_ID` set, routes
+  OpenAI + Anthropic via `gateway.ai.cloudflare.com/v1/{account}/projectsites/{provider}`.
+  Falls back to direct vendor URL on 5xx. See `docs/AI_INTEGRATION.md`.
+- `MCP_ENCRYPTION_KEY` (secret): AES-GCM master key for `ai_env_vars` +
+  `mcp_connections`. Tier 1.5 data-at-rest — NEVER rotate without re-encryption.
 
 ## Testing
 ```bash

@@ -18,6 +18,68 @@
 
 import type { Env } from '../types/env.js';
 import { withRetry, classifyError } from './retry.js';
+import { captureLLMCall } from './analytics.js';
+
+/**
+ * Caller-supplied tracing context threaded through every external LLM call.
+ *
+ * @remarks
+ * Used as the PostHog `distinctId` + `$ai_trace_id` so multi-step agentic
+ * flows (research → brand → site-gen → score) roll up as a single trace in
+ * PostHog's LLM Observability dashboards. Every field is optional so legacy
+ * callers keep working with `'system'` as the distinctId fallback.
+ *
+ * **Callers that should pass this:**
+ * - `workflows/site-generation.ts` (one traceId per workflow instance)
+ * - `voice_agent.ts` (one traceId per voice turn — owned by Anthropic agent)
+ * - `ai_workflows.ts` `runSiteGenerationWorkflowV2` (traceId per orchestration)
+ * - `openai_research.ts` `researchAndFormulatePrompt` (traceId per research run)
+ * - Any `/api/sites/improve-prompt` + `/api/sites/generate-prompt` route handler
+ *
+ * @example
+ * ```ts
+ * await callExternalLLM(env, {
+ *   system: '...', user: '...',
+ *   traceContext: { orgId: 'o_123', userId: 'u_456', traceId: requestId, promptId: 'research_brand' },
+ * });
+ * ```
+ */
+export interface TraceContext {
+  /** Organization id — preferred PostHog distinctId when set. */
+  orgId?: string;
+  /** User id — fallback PostHog distinctId when orgId is absent. */
+  userId?: string;
+  /** Stable trace id (request id, workflow instance id) for multi-call rollup. */
+  traceId?: string;
+  /** Prompt id (e.g. `research_brand`, `generate_website`) for cost-per-prompt rollups. */
+  promptId?: string;
+}
+
+/**
+ * Parsed Anthropic Citations API entry surfaced on the response.
+ *
+ * @remarks
+ * Populated only when the caller passes `documents` and `citations` is enabled
+ * on the request. See {@link callExternalLLM} + Anthropic docs:
+ * https://docs.anthropic.com/en/docs/build-with-claude/citations
+ */
+export interface AnthropicCitation {
+  /** Index of the source document the citation refers to. */
+  documentIndex: number;
+  /** Optional document title supplied at request time. */
+  documentTitle?: string;
+  /** Verbatim text from the source document that was cited. */
+  citedText: string;
+  /** PDF page (when source is a PDF). */
+  startPageNumber?: number;
+  endPageNumber?: number;
+  /** Plain-text char index (when source is text). */
+  startCharIndex?: number;
+  endCharIndex?: number;
+  /** Custom-content block index (when source is custom JSON blocks). */
+  startBlockIndex?: number;
+  endBlockIndex?: number;
+}
 
 export interface ExternalLLMOptions {
   /** System prompt */
@@ -48,6 +110,36 @@ export interface ExternalLLMOptions {
    * if both are enabled on the same request). Pick one per call.
    */
   responseSchema?: Record<string, unknown>;
+  /**
+   * Optional source documents for Anthropic Citations API.
+   *
+   * @remarks
+   * When supplied (and `responseSchema` is NOT set — the two are mutually
+   * exclusive), each document is sent with `citations: { enabled: true }` so
+   * Claude returns grounded answers with verbatim quotes + char/page/block
+   * index ranges. Returned citations are surfaced on
+   * {@link ExternalLLMResult.citations}.
+   *
+   * Source kinds:
+   * - `text` — plain UTF-8; citations carry `start_char_index`/`end_char_index`
+   * - `pdf` — base64-encoded PDF; citations carry `start_page_number`/`end_page_number`
+   * - `custom` — array of `{type:'text',text}` blocks; citations carry block indices
+   *
+   * @see https://docs.anthropic.com/en/docs/build-with-claude/citations
+   */
+  documents?: Array<{
+    title?: string;
+    kind: 'text' | 'pdf' | 'custom';
+    /** UTF-8 text for `text`; base64 for `pdf`; ignored for `custom`. */
+    data?: string;
+    /** For `custom` kind only — array of text content blocks. */
+    blocks?: Array<{ type: 'text'; text: string }>;
+  }>;
+  /**
+   * Tracing context for PostHog LLM Observability rollups.
+   * @see {@link TraceContext}
+   */
+  traceContext?: TraceContext;
 }
 
 export interface ExternalLLMResult {
@@ -57,6 +149,16 @@ export interface ExternalLLMResult {
   latency_ms: number;
   token_count: number;
   cost_estimate: number;
+  /**
+   * Parsed Anthropic citations (when `documents` was passed + Anthropic was the
+   * resolved provider). Empty array otherwise.
+   */
+  citations?: AnthropicCitation[];
+  /**
+   * True when the Anthropic response reported `usage.cache_read_input_tokens > 0`,
+   * indicating the prompt-cache prefix was reused.
+   */
+  cache_hit?: boolean;
 }
 
 /**
@@ -111,13 +213,17 @@ export function aiGatewayUrl(env: Env, provider: 'openai' | 'anthropic'): string
  *
  * Caller supplies `pathSuffix` (the part after the provider base, e.g.
  * `/v1/chat/completions` for OpenAI or `/v1/messages` for Anthropic).
+ *
+ * @returns Tuple of `[response, gatewayUsed]` — `gatewayUsed` is `true` when
+ * the successful response came through the AI Gateway, `false` when it came
+ * from the direct vendor URL (initial direct call OR 5xx fallback).
  */
 async function fetchWithGatewayFallback(
   env: Env,
   provider: 'openai' | 'anthropic',
   pathSuffix: string,
   init: RequestInit,
-): Promise<Response> {
+): Promise<[Response, boolean]> {
   const gatewayActive = env.AI_GATEWAY_ENABLED === 'true' && !!env.CF_ACCOUNT_ID;
   const primaryBase = aiGatewayUrl(env, provider);
   const primaryUrl = `${primaryBase}${pathSuffix}`;
@@ -138,10 +244,11 @@ async function fetchWithGatewayFallback(
     const directUrl = `${DIRECT_URLS[provider]}${pathSuffix}`;
     const fallbackHeaders = new Headers(init.headers ?? {});
     fallbackHeaders.set('X-PS-Gateway-Fallback', 'true');
-    return fetch(directUrl, { ...init, headers: fallbackHeaders });
+    const fallbackRes = await fetch(directUrl, { ...init, headers: fallbackHeaders });
+    return [fallbackRes, false];
   }
 
-  return res;
+  return [res, gatewayActive];
 }
 
 // ─── Circuit Breaker State ──────────────────────────────────────────────────
@@ -252,6 +359,9 @@ function chooseProvider(
  *
  * Routes through `aiGatewayUrl(env, 'openai')` when AI Gateway is enabled;
  * falls back to direct vendor URL once on 5xx.
+ *
+ * @returns Text + token detail + `gatewayUsed` so the orchestrator can flag the
+ * call in PostHog LLM Observability.
  */
 async function callOpenAI(
   env: Env,
@@ -259,7 +369,13 @@ async function callOpenAI(
   model: string,
   options: ExternalLLMOptions,
   messages?: Array<Record<string, unknown>>,
-): Promise<{ text: string; tokens: number }> {
+): Promise<{
+  text: string;
+  tokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  gatewayUsed: boolean;
+}> {
   const body: Record<string, unknown> = {
     model,
     messages: messages ?? [
@@ -287,8 +403,9 @@ async function callOpenAI(
   const timeoutId = setTimeout(() => controller.abort(), 240_000);
 
   let res: Response;
+  let gatewayUsed = false;
   try {
-    res = await fetchWithGatewayFallback(env, 'openai', '/v1/chat/completions', {
+    [res, gatewayUsed] = await fetchWithGatewayFallback(env, 'openai', '/v1/chat/completions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -308,12 +425,17 @@ async function callOpenAI(
 
   const data = (await res.json()) as {
     choices: Array<{ message: { content: string } }>;
-    usage?: { total_tokens: number };
+    usage?: { total_tokens: number; prompt_tokens?: number; completion_tokens?: number };
   };
 
+  const inputTokens = data.usage?.prompt_tokens ?? 0;
+  const outputTokens = data.usage?.completion_tokens ?? 0;
   return {
     text: data.choices[0]?.message?.content ?? '',
-    tokens: data.usage?.total_tokens ?? 0,
+    tokens: data.usage?.total_tokens ?? inputTokens + outputTokens,
+    inputTokens,
+    outputTokens,
+    gatewayUsed,
   };
 }
 
@@ -336,13 +458,46 @@ async function callOpenAI(
  * Setting both `responseSchema` and citations on the same request returns 400.
  * Pick one per call.
  */
+/**
+ * Shape of a single Anthropic response content block — `text` blocks may carry
+ * a `citations[]` array when the Citations API is enabled on the request.
+ */
+interface AnthropicContentBlock {
+  type: string;
+  text?: string;
+  citations?: Array<{
+    type:
+      | 'char_location'
+      | 'page_location'
+      | 'content_block_location'
+      | 'web_search_result_location';
+    document_index: number;
+    document_title?: string;
+    cited_text: string;
+    start_char_index?: number;
+    end_char_index?: number;
+    start_page_number?: number;
+    end_page_number?: number;
+    start_block_index?: number;
+    end_block_index?: number;
+  }>;
+}
+
 async function callAnthropic(
   env: Env,
   apiKey: string,
   model: string,
   options: ExternalLLMOptions,
   messages?: Array<Record<string, unknown>>,
-): Promise<{ text: string; tokens: number }> {
+): Promise<{
+  text: string;
+  tokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheHit: boolean;
+  citations: AnthropicCitation[];
+  gatewayUsed: boolean;
+}> {
   // Build system: either a plain string or an array with cache_control on the
   // last block when the system prompt is long enough to be worth caching.
   const systemPayload: string | Array<Record<string, unknown>> =
@@ -350,10 +505,45 @@ async function callAnthropic(
       ? [{ type: 'text', text: options.system, cache_control: { type: 'ephemeral' } }]
       : options.system;
 
+  // When the caller supplies source documents, fold them into the first user
+  // message as `document` content blocks per the Citations API spec.
+  // Mutually exclusive with `responseSchema` — the server returns 400 if both
+  // are set on the same request.
+  const hasDocuments = !!options.documents?.length && !options.responseSchema;
+
+  let resolvedMessages: Array<Record<string, unknown>>;
+  if (messages) {
+    resolvedMessages = messages;
+  } else if (hasDocuments) {
+    const documentBlocks = options.documents!.map((doc) => {
+      const base: Record<string, unknown> = {
+        type: 'document',
+        citations: { enabled: true },
+        title: doc.title,
+      };
+      if (doc.kind === 'text') {
+        base.source = { type: 'text', media_type: 'text/plain', data: doc.data ?? '' };
+      } else if (doc.kind === 'pdf') {
+        base.source = { type: 'base64', media_type: 'application/pdf', data: doc.data ?? '' };
+      } else {
+        base.source = { type: 'content', content: doc.blocks ?? [] };
+      }
+      return base;
+    });
+    resolvedMessages = [
+      {
+        role: 'user',
+        content: [...documentBlocks, { type: 'text', text: options.user }],
+      },
+    ];
+  } else {
+    resolvedMessages = [{ role: 'user', content: options.user }];
+  }
+
   const body: Record<string, unknown> = {
     model,
     system: systemPayload,
-    messages: messages ?? [{ role: 'user', content: options.user }],
+    messages: resolvedMessages,
     temperature: options.temperature ?? 0.3,
     max_tokens: options.maxTokens ?? 8192,
   };
@@ -377,8 +567,9 @@ async function callAnthropic(
   const timeoutId = setTimeout(() => controller.abort(), 480_000);
 
   let res: Response;
+  let gatewayUsed = false;
   try {
-    res = await fetchWithGatewayFallback(env, 'anthropic', '/v1/messages', {
+    [res, gatewayUsed] = await fetchWithGatewayFallback(env, 'anthropic', '/v1/messages', {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -394,8 +585,13 @@ async function callAnthropic(
   }
 
   const data = (await res.json()) as {
-    content: Array<{ type: string; text?: string }>;
-    usage?: { input_tokens: number; output_tokens: number };
+    content: AnthropicContentBlock[];
+    usage?: {
+      input_tokens: number;
+      output_tokens: number;
+      cache_read_input_tokens?: number;
+      cache_creation_input_tokens?: number;
+    };
   };
 
   const text = data.content
@@ -403,24 +599,84 @@ async function callAnthropic(
     .map((b) => b.text ?? '')
     .join('');
 
-  const tokens = (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0);
+  const inputTokens = data.usage?.input_tokens ?? 0;
+  const outputTokens = data.usage?.output_tokens ?? 0;
+  const tokens = inputTokens + outputTokens;
+  const cacheHit = (data.usage?.cache_read_input_tokens ?? 0) > 0;
 
-  return { text, tokens };
+  // Flatten citations from every text block into a single array. Anthropic
+  // returns one entry per cited span; downstream consumers can group by
+  // document_index to reconstruct per-source reference lists.
+  const citations: AnthropicCitation[] = [];
+  for (const block of data.content) {
+    if (!block.citations) continue;
+    for (const c of block.citations) {
+      citations.push({
+        documentIndex: c.document_index,
+        documentTitle: c.document_title,
+        citedText: c.cited_text,
+        startCharIndex: c.start_char_index,
+        endCharIndex: c.end_char_index,
+        startPageNumber: c.start_page_number,
+        endPageNumber: c.end_page_number,
+        startBlockIndex: c.start_block_index,
+        endBlockIndex: c.end_block_index,
+      });
+    }
+  }
+
+  return { text, tokens, inputTokens, outputTokens, cacheHit, citations, gatewayUsed };
 }
 
 // ─── Cost Estimation ────────────────────────────────────────────────────────
 
 /**
- * Estimate cost in USD based on model and token count.
+ * Estimate cost in USD when exact input/output token counts are available.
+ *
+ * @example
+ * ```ts
+ * const cost = estimateCostPrecise('claude-sonnet-4-6', 1500, 600); // → ~$0.0135
+ * ```
  */
-function estimateCost(model: string, tokens: number): number {
+function estimateCostPrecise(model: string, inputTokens: number, outputTokens: number): number {
   const key = Object.keys(MODEL_COSTS).find((k) => model.includes(k));
   if (!key) return 0;
   const costs = MODEL_COSTS[key];
-  // Rough split: assume 30% input, 70% output for generation tasks
-  const inputTokens = Math.round(tokens * 0.3);
-  const outputTokens = tokens - inputTokens;
   return (inputTokens * costs.input + outputTokens * costs.output) / 1_000_000;
+}
+
+/**
+ * Resolve the PostHog distinctId for a trace context.
+ *
+ * Priority: `orgId` → `userId` → `'system'`. Analytics-only — never used for
+ * authorization, never logged at info level (PII surface).
+ */
+function resolveDistinctId(traceContext?: TraceContext): string {
+  return traceContext?.orgId ?? traceContext?.userId ?? 'system';
+}
+
+/**
+ * Fire-and-forget PostHog LLM Observability capture. Wrapped in try/catch so
+ * analytics failures NEVER bubble into the LLM response path.
+ *
+ * @see {@link captureLLMCall}
+ */
+async function safeCaptureLLM(
+  env: Env,
+  params: Parameters<typeof captureLLMCall>[1],
+): Promise<void> {
+  try {
+    await captureLLMCall(env, params);
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'external_llm',
+        event: 'analytics_capture_failed',
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
 }
 
 // ─── Main LLM Call ──────────────────────────────────────────────────────────
@@ -455,6 +711,10 @@ export async function callExternalLLM(
 
   const providers: Array<'openai' | 'anthropic'> = [primary, fallback];
 
+  const distinctId = resolveDistinctId(options.traceContext);
+  const traceId = options.traceContext?.traceId;
+  const promptId = options.traceContext?.promptId;
+
   for (const provider of providers) {
     // Circuit breaker: skip provider if circuit is open
     if (isCircuitOpen(provider)) {
@@ -467,6 +727,16 @@ export async function callExternalLLM(
           message: `Skipping ${provider} — circuit breaker is open`,
         }),
       );
+      const skipModel = options.model ?? DEFAULT_MODELS[provider];
+      void safeCaptureLLM(env, {
+        distinctId,
+        provider,
+        model: skipModel,
+        promptId,
+        latencyMs: 0,
+        status: 'circuit_open',
+        traceId,
+      });
       continue;
     }
 
@@ -508,6 +778,18 @@ export async function callExternalLLM(
       const latency = Date.now() - start;
       recordSuccess(provider);
 
+      // Result shape diverges between providers — only Anthropic carries
+      // `cacheHit` + `citations` + `inputTokens`/`outputTokens`/`gatewayUsed`.
+      // Use a loose cast for the extended fields rather than threading a
+      // discriminated union through every callsite.
+      const r = result as Record<string, unknown> & { text: string; tokens: number };
+      const cacheHit = Boolean(r.cacheHit);
+      const citations = (Array.isArray(r.citations) ? r.citations : []) as AnthropicCitation[];
+      const inputTokens = typeof r.inputTokens === 'number' ? r.inputTokens : 0;
+      const outputTokens = typeof r.outputTokens === 'number' ? r.outputTokens : 0;
+      const gatewayUsed = Boolean(r.gatewayUsed);
+      const costUsd = estimateCostPrecise(model, inputTokens, outputTokens);
+
       console.warn(
         JSON.stringify({
           level: 'info',
@@ -517,9 +799,29 @@ export async function callExternalLLM(
           model,
           latency_ms: latency,
           tokens: result.tokens,
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
+          cache_hit: cacheHit,
+          gateway_used: gatewayUsed,
+          citations_count: citations.length,
           output_length: result.text.length,
         }),
       );
+
+      void safeCaptureLLM(env, {
+        distinctId,
+        provider,
+        model,
+        promptId,
+        inputTokens,
+        outputTokens,
+        latencyMs: latency,
+        costUsd,
+        status: 'ok',
+        traceId,
+        cacheHit,
+        gatewayUsed,
+      });
 
       return {
         output: result.text,
@@ -527,7 +829,9 @@ export async function callExternalLLM(
         provider,
         latency_ms: latency,
         token_count: result.tokens,
-        cost_estimate: estimateCost(model, result.tokens),
+        cost_estimate: costUsd,
+        citations,
+        cache_hit: cacheHit,
       };
     } catch (err) {
       const latency = Date.now() - start;
@@ -550,6 +854,17 @@ export async function callExternalLLM(
               : `${provider} failed after retries, trying ${fallback}`,
         }),
       );
+
+      void safeCaptureLLM(env, {
+        distinctId,
+        provider,
+        model,
+        promptId,
+        latencyMs: latency,
+        status: errorCategory === 'timeout' ? 'timeout' : 'error',
+        errorMessage: err instanceof Error ? err.message : String(err),
+        traceId,
+      });
 
       // If this is the fallback too, rethrow
       if (provider === fallback) throw err;
@@ -595,6 +910,10 @@ export async function callExternalLLMWithVision(
 
   const providers: Array<'openai' | 'anthropic'> = [primary, fallback];
 
+  const distinctId = resolveDistinctId(options.traceContext);
+  const traceId = options.traceContext?.traceId;
+  const promptId = options.traceContext?.promptId;
+
   for (const provider of providers) {
     if (isCircuitOpen(provider)) {
       console.warn(
@@ -606,6 +925,16 @@ export async function callExternalLLMWithVision(
           message: `Skipping ${provider} vision — circuit breaker is open`,
         }),
       );
+      const skipModel = options.model ?? DEFAULT_MODELS[provider];
+      void safeCaptureLLM(env, {
+        distinctId,
+        provider,
+        model: skipModel,
+        promptId,
+        latencyMs: 0,
+        status: 'circuit_open',
+        traceId,
+      });
       continue;
     }
 
@@ -649,6 +978,14 @@ export async function callExternalLLMWithVision(
       const latency = Date.now() - start;
       recordSuccess(provider);
 
+      const r = result as Record<string, unknown> & { text: string; tokens: number };
+      const cacheHit = Boolean(r.cacheHit);
+      const citations = (Array.isArray(r.citations) ? r.citations : []) as AnthropicCitation[];
+      const inputTokens = typeof r.inputTokens === 'number' ? r.inputTokens : 0;
+      const outputTokens = typeof r.outputTokens === 'number' ? r.outputTokens : 0;
+      const gatewayUsed = Boolean(r.gatewayUsed);
+      const costUsd = estimateCostPrecise(model, inputTokens, outputTokens);
+
       console.warn(
         JSON.stringify({
           level: 'info',
@@ -658,9 +995,28 @@ export async function callExternalLLMWithVision(
           model,
           latency_ms: latency,
           tokens: result.tokens,
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
+          cache_hit: cacheHit,
+          gateway_used: gatewayUsed,
           output_length: result.text.length,
         }),
       );
+
+      void safeCaptureLLM(env, {
+        distinctId,
+        provider,
+        model,
+        promptId: promptId ? `${promptId}:vision` : 'vision',
+        inputTokens,
+        outputTokens,
+        latencyMs: latency,
+        costUsd,
+        status: 'ok',
+        traceId,
+        cacheHit,
+        gatewayUsed,
+      });
 
       return {
         output: result.text,
@@ -668,7 +1024,9 @@ export async function callExternalLLMWithVision(
         provider,
         latency_ms: latency,
         token_count: result.tokens,
-        cost_estimate: estimateCost(model, result.tokens),
+        cost_estimate: costUsd,
+        citations,
+        cache_hit: cacheHit,
       };
     } catch (err) {
       const latency = Date.now() - start;
@@ -691,6 +1049,17 @@ export async function callExternalLLMWithVision(
               : `${provider} vision failed after retries, trying ${fallback}`,
         }),
       );
+
+      void safeCaptureLLM(env, {
+        distinctId,
+        provider,
+        model,
+        promptId: promptId ? `${promptId}:vision` : 'vision',
+        latencyMs: latency,
+        status: errorCategory === 'timeout' ? 'timeout' : 'error',
+        errorMessage: err instanceof Error ? err.message : String(err),
+        traceId,
+      });
 
       if (provider === fallback) throw err;
     }
@@ -776,4 +1145,63 @@ async function callAnthropicWithVision(
   ];
 
   return callAnthropic(env, apiKey, model, options, messages);
+}
+
+// ─── OpenAI Files API ───────────────────────────────────────────────────────
+
+/**
+ * Upload a document to the OpenAI Files API for downstream use with Assistants,
+ * the Responses API file-search tool, or batch jobs.
+ *
+ * @remarks
+ * - Endpoint: `POST https://api.openai.com/v1/files` (multipart/form-data)
+ * - `purpose: 'assistants'` is the broadest grant; switch to `'batch'` or
+ *   `'fine-tune'` for those specific call paths.
+ * - Files persist on OpenAI infrastructure until deleted via
+ *   `DELETE /v1/files/{file_id}` — call site is responsible for lifecycle.
+ * - This helper is **unwired** by design: no caller in this turn. Reserved for
+ *   future Anthropic-Files / OpenAI Assistants research flows where the
+ *   uploaded document_id is the source for a Citations or file-search call.
+ *
+ * @throws Error when `OPENAI_API_KEY` is missing or the upload fails (non-2xx).
+ *
+ * @example
+ * ```ts
+ * const bytes = await (await fetch(pdfUrl)).arrayBuffer();
+ * const fileId = await uploadDocToOpenAI(env, {
+ *   name: 'njsk-2024-annual-report.pdf',
+ *   bytes,
+ *   mime: 'application/pdf',
+ * });
+ * // → 'file_abc123'
+ * ```
+ *
+ * @see https://platform.openai.com/docs/api-reference/files/create
+ */
+export async function uploadDocToOpenAI(
+  env: Env,
+  file: { name: string; bytes: ArrayBuffer | Uint8Array; mime: string },
+): Promise<string> {
+  if (!env.OPENAI_API_KEY) {
+    throw new Error('uploadDocToOpenAI: OPENAI_API_KEY is not configured');
+  }
+
+  const blob = new Blob([file.bytes], { type: file.mime });
+  const formData = new FormData();
+  formData.append('purpose', 'assistants');
+  formData.append('file', blob, file.name);
+
+  const res = await fetch('https://api.openai.com/v1/files', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}` },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`OpenAI Files API error ${res.status}: ${text}`);
+  }
+
+  const data = (await res.json()) as { id: string };
+  return data.id;
 }

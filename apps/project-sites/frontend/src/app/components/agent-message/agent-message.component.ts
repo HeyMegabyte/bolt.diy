@@ -615,12 +615,18 @@ export class AgentMessageComponent {
 
   // ---------- Tool-chip header click ----------
 
+  /**
+   * Handler for the static chip row above the message body — forwards the
+   * tool name through the `toolClick` output. The inline `<tool/>` sigils
+   * flow through the host click delegate instead.
+   */
   onToolChipClick(name: string): void {
     this.toolClick.emit(name);
   }
 
   // ---------- Citation popover ----------
 
+  /** Set the active citation and open the `<dialog>` on the next animation frame. */
   private openCitation(c: AgentCitation): void {
     this.activeCitation.set(c);
     // Defer to next frame so the @if block has rendered the <dialog>.
@@ -639,6 +645,11 @@ export class AgentMessageComponent {
     });
   }
 
+  /**
+   * Close the citation popover. Uses native `<dialog>.close()` when available
+   * so the browser handles `::backdrop` teardown, otherwise falls back to
+   * clearing the active citation signal (the `@if` branch unmounts the node).
+   */
   closePopover(): void {
     const dlg = this.popoverEl?.nativeElement;
     if (dlg?.open && typeof dlg.close === 'function') {
@@ -648,8 +659,12 @@ export class AgentMessageComponent {
     }
   }
 
+  /**
+   * Dismiss the popover when the user clicks the `::backdrop` (the dialog
+   * element receives the event because the backdrop is its pseudo-element,
+   * not a child node).
+   */
   onPopoverBackdropClick(ev: MouseEvent): void {
-    // `<dialog>` backdrop clicks land on the dialog element itself, not its children.
     if (ev.target === this.popoverEl?.nativeElement) {
       this.closePopover();
     }

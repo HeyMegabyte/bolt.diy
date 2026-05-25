@@ -38,6 +38,15 @@ const impressionSchema = z.object({
   variant: z.string(),
 });
 
+/**
+ * `POST /_ps/i` — Public impression beacon for a Thompson-sampling experiment.
+ *
+ * @remarks
+ * Body: `{ eid, vid, sid, variant }`. Writes to `impressions` via
+ * `waitUntil` and returns `204` immediately — fire-and-forget.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ */
 experiments.post('/_ps/i', zValidator('json', impressionSchema), async (c) => {
   const body = c.req.valid('json');
   c.executionCtx.waitUntil(
@@ -59,6 +68,16 @@ const conversionSchema = z.object({
   kind: z.enum(['click', 'form', 'booking', 'purchase']).default('click'),
 });
 
+/**
+ * `POST /_ps/c` — Public conversion beacon. Updates the variant's Beta
+ * posterior (α += 1) and inserts a row into `conversions`.
+ *
+ * @remarks
+ * Body: `{ eid, vid, sid, variant, value_cents?, kind? }` where `kind`
+ * is one of `click|form|booking|purchase`. Fire-and-forget — returns `204`.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ */
 experiments.post('/_ps/c', zValidator('json', conversionSchema), async (c) => {
   const body = c.req.valid('json');
   c.executionCtx.waitUntil(
@@ -90,6 +109,16 @@ const sessionEventSchema = z.object({
   viewport_w: z.number().int().min(0).optional(),
 });
 
+/**
+ * `POST /_ps/e` — Public session-event beacon (nav, scroll, hover, click,
+ * dwell) feeding the predictive prerender model.
+ *
+ * @remarks
+ * Body: `{ sid, vid, site_id, path, kind, dwell_ms?, scroll_pct?,
+ * viewport_w? }`. Fire-and-forget — returns `204`.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ */
 experiments.post('/_ps/e', zValidator('json', sessionEventSchema), async (c) => {
   const body = c.req.valid('json');
   c.executionCtx.waitUntil(
@@ -113,6 +142,14 @@ experiments.post('/_ps/e', zValidator('json', sessionEventSchema), async (c) => 
   return new Response(null, { status: 204 });
 });
 
+/**
+ * `GET /_ps/predict?sid=…` — Public endpoint returning the predicted
+ * next routes for a session id (drives Speculation-Rules prerender hints).
+ *
+ * Response: `{ routes: string[] }`.
+ *
+ * @throws 400 BAD_REQUEST when `sid` is missing.
+ */
 experiments.get('/_ps/predict', async (c) => {
   const sid = c.req.query('sid');
   if (!sid) return c.json({ predictions: [] });
@@ -138,6 +175,18 @@ experiments.use('/api/sites/:siteId/experiments/*', requirePro);
 experiments.use('/api/sites/:siteId/experiments', requirePro);
 experiments.use('/api/experiments/*', requirePro);
 
+/**
+ * `GET /api/sites/:siteId/experiments` — List experiments on a site
+ * including variant Beta posteriors.
+ *
+ * @remarks
+ * Pro-only. The Beta posterior shown (`α, β`) is the live count used by
+ * the Thompson sampler at edge time.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the org is not on Pro.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ */
 experiments.get('/api/sites/:siteId/experiments', async (c) => {
   const siteId = c.req.param('siteId');
   await assertSiteOwnership(c, siteId);
@@ -168,6 +217,19 @@ const createExpSchema = z.object({
     .max(8),
 });
 
+/**
+ * `POST /api/sites/:siteId/experiments` — Create an experiment with 2–8
+ * variants.
+ *
+ * @remarks
+ * Body: {@link createExpSchema}. Each variant starts with `beta_alpha=1`,
+ * `beta_beta=1` (uniform prior). Pro-only.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the org is not on Pro.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ */
 experiments.post(
   '/api/sites/:siteId/experiments',
   zValidator('json', createExpSchema),
@@ -202,6 +264,19 @@ experiments.post(
   },
 );
 
+/**
+ * `POST /api/experiments/:id/promote` — Promote the current Thompson-sample
+ * winner to be the always-served variant, freezing the experiment.
+ *
+ * @remarks
+ * Pro-only. Sets `experiments.status = 'promoted'` +
+ * `promoted_variant_id = ?` so the edge stops sampling.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the org is not on Pro.
+ * @throws 403 FORBIDDEN when the experiment is not owned by the caller's org.
+ * @throws 404 NOT_FOUND when the experiment id doesn't exist.
+ */
 experiments.post('/api/experiments/:id/promote', async (c) => {
   const id = c.req.param('id');
   const orgId = c.get('orgId');

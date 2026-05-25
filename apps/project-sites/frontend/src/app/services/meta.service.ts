@@ -67,7 +67,15 @@ const PAGE_META: Record<string, PageMeta> = {
   },
   'changelog': {
     title: 'Changelog - Project Sites',
-    description: 'See what\'s new in Project Sites. Feature releases, improvements, and fixes.',
+    description: 'See what\'s new in Project Sites. Feature releases, improvements, and fixes. Subscribe via RSS.',
+  },
+  'roadmap': {
+    title: 'Roadmap - Project Sites',
+    description: 'See what we are building next for Project Sites. Trello-style public roadmap with shipped, in-progress, and planned features.',
+  },
+  'integrations': {
+    title: 'Integrations - Project Sites',
+    description: 'Connect Project Sites with Stripe, Square, Twilio, OpenAI, Anthropic, Slack, HubSpot, and 30 more services across nine categories.',
   },
   'status': {
     title: 'System Status - Project Sites',

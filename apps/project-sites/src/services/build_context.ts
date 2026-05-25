@@ -40,7 +40,22 @@ interface BuildContext {
 }
 
 /**
- * Generate a build context JSON from research data and asset manifest.
+ * Build the JSON envelope that bolt.diy fetches when it boots inside the editor iframe.
+ *
+ * @remarks
+ * Replaces a large `postMessage` with a stable R2 URL so the editor can
+ * pull assets + research without round-tripping the parent worker.
+ * Enriches each asset with the public `https://{slug}.projectsites.dev`
+ * URL when the caller did not pre-resolve one.
+ *
+ * @example
+ * ```ts
+ * const ctx = generateBuildContext(business, research, assets, slug);
+ * const url = await storeBuildContext(env, slug, ctx);
+ * iframe.src = `${EDITOR_ORIGIN}/chat?context=${encodeURIComponent(url)}`;
+ * ```
+ *
+ * @see {@link storeBuildContext}
  */
 export function generateBuildContext(
   business: { name: string; address?: string; phone?: string; website?: string; category?: string },
@@ -83,7 +98,19 @@ export function generateBuildContext(
 }
 
 /**
- * Store the build context JSON to R2 and return its URL.
+ * Persist a build context envelope to R2 under `sites/{slug}/assets/_build-context.json`.
+ *
+ * @remarks
+ * Returns the public URL the editor iframe can fetch directly. The R2
+ * `httpMetadata.contentType` is set so the browser parses JSON without
+ * additional headers from the worker.
+ *
+ * @example
+ * ```ts
+ * const url = await storeBuildContext(env, 'vitos-salon', ctx);
+ * ```
+ *
+ * @see {@link generateBuildContext}
  */
 export async function storeBuildContext(
   env: Env,

@@ -1,17 +1,25 @@
 /**
- * Public AI endpoints router.
+ * @module routes/ai_endpoints_public
+ * @description Public ingress for user-authored AI endpoints.
  *
- *   GET|POST https://projectsites.dev/api/ai/:siteSlug/:endpointSlug
+ * Exposes a single dispatch handler bound to
+ * `GET|POST https://projectsites.dev/api/ai/:siteSlug/:endpointSlug`.
+ * No org/user auth — site-slug + endpoint-slug routing is sufficient,
+ * and credit gating fail-closes when the owning org runs out of balance.
  *
  * Each endpoint is either:
- *   • kind='prompt'  → we run the saved prompt + request payload through
- *                      Workers AI (Llama 3.1) with the connected MCP tool
- *                      list available; the LLM picks a tool, we execute it,
- *                      and the JSON envelope is returned to the caller.
- *   • kind='worker'  → we dispatch the request to a user-Worker uploaded
- *                      into the Workers for Platforms namespace.
+ * - `kind='prompt'` — runs the saved prompt + request payload through
+ *   Workers AI (Llama 3.x) with the connected MCP tool list available;
+ *   the LLM picks a tool, we execute it, and the JSON envelope is
+ *   returned to the caller.
+ * - `kind='worker'` — dispatches the request to a user-Worker uploaded
+ *   into the Workers for Platforms namespace via
+ *   {@link dispatchToUserWorker}.
  *
- * Every call writes one `ai_form_logs` row and debits 1 credit.
+ * Every call writes one `ai_form_logs` row and debits 1 credit via
+ * {@link debitCredits}.
+ *
+ * @packageDocumentation
  */
 import { Hono } from 'hono';
 import type { Context } from 'hono';
@@ -183,5 +191,37 @@ async function handle(c: Ctx): Promise<Response> {
   }, status === 'ok' ? 200 : 502);
 }
 
+/**
+ * `GET /api/ai/:siteSlug/:endpointSlug` — Invoke a public AI endpoint via GET.
+ *
+ * @remarks
+ * Query parameters become the request payload. Endpoint `method` field
+ * gates which verb is allowed (`GET`, `POST`, or `BOTH`).
+ *
+ * Response: `{ ok, output, tool_result?, credits_remaining, trace_id }`.
+ *
+ * @throws 402 PAYMENT_REQUIRED when the owning org has 0 credits.
+ * @throws 404 NOT_FOUND when the site/endpoint slug doesn't resolve.
+ * @throws 405 METHOD_NOT_ALLOWED when the endpoint disallows GET.
+ * @throws 502 BAD_GATEWAY when upstream Workers AI or MCP tool call fails.
+ */
 aiEndpointsPublic.get('/api/ai/:siteSlug/:endpointSlug', handle);
+
+/**
+ * `POST /api/ai/:siteSlug/:endpointSlug` — Invoke a public AI endpoint via POST.
+ *
+ * @remarks
+ * Request body is forwarded as the AI prompt payload (or the user-Worker
+ * body for `kind='worker'` endpoints). Endpoint `method` field gates
+ * which verb is allowed (`GET`, `POST`, or `BOTH`).
+ *
+ * Response: `{ ok, output, tool_result?, credits_remaining, trace_id }`.
+ *
+ * @throws 402 PAYMENT_REQUIRED when the owning org has 0 credits.
+ * @throws 404 NOT_FOUND when the site/endpoint slug doesn't resolve.
+ * @throws 405 METHOD_NOT_ALLOWED when the endpoint disallows POST.
+ * @throws 502 BAD_GATEWAY when upstream Workers AI or MCP tool call fails.
+ * @throws 503 SERVICE_UNAVAILABLE when a `kind='worker'` endpoint hasn't
+ *   been deployed yet (no `wfp_script_name`).
+ */
 aiEndpointsPublic.post('/api/ai/:siteSlug/:endpointSlug', handle);

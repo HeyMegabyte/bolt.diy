@@ -1,3 +1,9 @@
+-- DEPRECATED: Inbox feature removed from UI/code 2026-05-25. Tables retained
+-- for data preservation; access via direct D1 query only. Do NOT reintroduce
+-- the surface without also restoring services/inbox_ai.ts, routes/inbox.ts,
+-- durable_objects/conversation_hub.ts, the CONVERSATION_HUB binding in
+-- wrangler.toml, and the frontend pages/admin/sections/inbox*.component.ts.
+--
 -- 0035_pulse_inbox.sql
 --
 -- Pulse Inbox — Chatwoot-equivalent multi-channel customer messaging surface.

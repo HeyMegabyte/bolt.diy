@@ -9,6 +9,13 @@
  * @packageDocumentation
  */
 
+/**
+ * A single message in a synthesized bolt.diy chat thread.
+ *
+ * @remarks
+ * `id` follows bolt.diy's `msg-{user|asst}-{8-char-uuid}` convention so the
+ * editor's history hydrator recognizes it as a real conversation.
+ */
 export interface SynthesizedMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -16,6 +23,15 @@ export interface SynthesizedMessage {
   createdAt: string;
 }
 
+/**
+ * Full export-format envelope written to R2 for bolt.diy to load.
+ *
+ * @remarks
+ * Mirrors bolt.diy's chat-export JSON exactly so the editor's "Load Chat"
+ * picker can deserialize without translation. `metadata.generator` flags
+ * headless-pipeline conversations so the UI can show a "Continue with AI"
+ * affordance instead of the manual-edit default.
+ */
 export interface SynthesizedChat {
   messages: SynthesizedMessage[];
   description: string;
@@ -28,6 +44,14 @@ export interface SynthesizedChat {
   };
 }
 
+/**
+ * Input contract for {@link synthesizeChatJson}.
+ *
+ * @remarks
+ * `files[]` is wrapped in a `<boltArtifact>` block on the assistant turn so
+ * the editor reconstructs the in-browser project. `structurePlan` is rendered
+ * as a JSON preview before the artifact so the user sees the plan first.
+ */
 export interface SynthesisInput {
   businessName: string;
   businessAddress?: string;

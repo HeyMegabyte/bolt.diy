@@ -8,9 +8,21 @@
  *
  * The default model is `o3-mini` (extended thinking), configurable via
  * the `RESEARCH_MODEL` environment variable.
+ *
+ * @remarks
+ * **Anthropic Citations API is not invoked here** — this module talks to
+ * OpenAI exclusively. When/if an Anthropic research path is added, route it
+ * through {@link services/external_llm.callExternalLLM} with `documents` set;
+ * the Citations parsing is already wired there. Citation persistence into
+ * `_research.json` happens at the {@link services/external_llm} layer, which
+ * returns `result.citations` on every Anthropic response.
+ *
+ * @packageDocumentation
  */
 
 import type { Env } from '../types/env.js';
+import { captureLLMCall } from './analytics.js';
+import type { TraceContext } from './external_llm.js';
 
 const DEFAULT_MODEL = 'o3-mini';
 
@@ -20,6 +32,14 @@ interface BusinessInfo {
   businessPhone?: string;
   googlePlaceId?: string;
   additionalContext?: string;
+  /**
+   * Optional tracing context — when supplied, every nested OpenAI call fires a
+   * `$ai_generation` event so the full research pipeline rolls up as one trace
+   * in PostHog LLM Observability.
+   *
+   * @see {@link TraceContext}
+   */
+  traceContext?: TraceContext;
 }
 
 export interface ResearchResult {
@@ -31,13 +51,73 @@ export interface ResearchResult {
 }
 
 /**
+ * Per-1M-token pricing for OpenAI research models. Used to compute
+ * `costUsd` in PostHog LLM Observability captures.
+ */
+const OPENAI_RESEARCH_COSTS: Record<string, { input: number; output: number }> = {
+  'o3-mini': { input: 1.1, output: 4.4 },
+  'gpt-4o': { input: 2.5, output: 10 },
+  'gpt-4o-mini': { input: 0.15, output: 0.6 },
+};
+
+/**
+ * Best-effort cost estimate for an OpenAI research call.
+ *
+ * @remarks
+ * Falls back to `0` when the model is unknown; callers should treat the value
+ * as advisory, not billing-grade.
+ */
+function estimateOpenAiCost(model: string, inputTokens: number, outputTokens: number): number {
+  const key = Object.keys(OPENAI_RESEARCH_COSTS).find((k) => model.includes(k));
+  if (!key) return 0;
+  const costs = OPENAI_RESEARCH_COSTS[key];
+  return (inputTokens * costs.input + outputTokens * costs.output) / 1_000_000;
+}
+
+/**
+ * Fire-and-forget PostHog capture wrapped in try/catch so analytics never
+ * bubbles into the research pipeline's response path.
+ */
+async function safeCaptureLLM(
+  env: Env,
+  params: Parameters<typeof captureLLMCall>[1],
+): Promise<void> {
+  try {
+    await captureLLMCall(env, params);
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'openai_research',
+        event: 'analytics_capture_failed',
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
+}
+
+/**
  * Call OpenAI Chat Completions API.
+ *
+ * @remarks
+ * Every call emits a PostHog `$ai_generation` event (success or failure)
+ * routed through {@link captureLLMCall}. Analytics failures are swallowed and
+ * NEVER bubble into the caller. Pass `traceContext` to attribute multi-step
+ * research pipelines to a single trace in PostHog LLM Observability.
+ *
+ * @throws Error when `OPENAI_API_KEY` is missing or the HTTP call fails.
  */
 async function callOpenAI(
   env: Env,
   systemPrompt: string,
   userPrompt: string,
-  options?: { temperature?: number; maxTokens?: number; jsonMode?: boolean },
+  options?: {
+    temperature?: number;
+    maxTokens?: number;
+    jsonMode?: boolean;
+    traceContext?: TraceContext;
+    promptId?: string;
+  },
 ): Promise<string> {
   if (!env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
@@ -58,23 +138,76 @@ async function callOpenAI(
     body.response_format = { type: 'json_object' };
   }
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+  const distinctId =
+    options?.traceContext?.orgId ?? options?.traceContext?.userId ?? 'system';
+  const traceId = options?.traceContext?.traceId;
+  const promptId = options?.promptId ?? options?.traceContext?.promptId;
+  const start = Date.now();
+
+  let res: Response;
+  try {
+    res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    const latency = Date.now() - start;
+    void safeCaptureLLM(env, {
+      distinctId,
+      provider: 'openai',
+      model,
+      promptId,
+      latencyMs: latency,
+      status: 'error',
+      errorMessage: err instanceof Error ? err.message : String(err),
+      traceId,
+    });
+    throw err;
+  }
 
   if (!res.ok) {
+    const latency = Date.now() - start;
     const text = await res.text();
+    void safeCaptureLLM(env, {
+      distinctId,
+      provider: 'openai',
+      model,
+      promptId,
+      latencyMs: latency,
+      status: 'error',
+      errorMessage: `OpenAI ${res.status}: ${text.slice(0, 200)}`,
+      traceId,
+    });
     throw new Error(`OpenAI API error ${res.status}: ${text}`);
   }
 
   const data = (await res.json()) as {
     choices: Array<{ message: { content: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
   };
+
+  const latency = Date.now() - start;
+  const inputTokens = data.usage?.prompt_tokens ?? 0;
+  const outputTokens = data.usage?.completion_tokens ?? 0;
+  const costUsd = estimateOpenAiCost(model, inputTokens, outputTokens);
+
+  void safeCaptureLLM(env, {
+    distinctId,
+    provider: 'openai',
+    model,
+    promptId,
+    inputTokens,
+    outputTokens,
+    latencyMs: latency,
+    costUsd,
+    status: 'ok',
+    traceId,
+    gatewayUsed: false,
+  });
 
   return data.choices[0]?.message?.content ?? '';
 }
@@ -129,6 +262,8 @@ ${info.additionalContext ? `Additional context: ${info.additionalContext}` : ''}
     temperature: 0.2,
     maxTokens: 8192,
     jsonMode: true,
+    traceContext: info.traceContext,
+    promptId: 'openai_research:profile',
   });
 
   return extractJson(result) as Record<string, unknown>;
@@ -159,6 +294,8 @@ Profile: ${JSON.stringify(profile, null, 2)}`;
     temperature: 0.3,
     maxTokens: 2048,
     jsonMode: true,
+    traceContext: info.traceContext,
+    promptId: 'openai_research:brand',
   });
 
   return extractJson(result) as Record<string, unknown>;
@@ -190,6 +327,8 @@ Profile: ${JSON.stringify(profile, null, 2)}`;
     temperature: 0.4,
     maxTokens: 2048,
     jsonMode: true,
+    traceContext: info.traceContext,
+    promptId: 'openai_research:selling_points',
   });
 
   return extractJson(result) as Record<string, unknown>;
@@ -220,6 +359,8 @@ Profile: ${JSON.stringify(profile, null, 2)}`;
     temperature: 0.2,
     maxTokens: 2048,
     jsonMode: true,
+    traceContext: info.traceContext,
+    promptId: 'openai_research:social',
   });
 
   return extractJson(result) as Record<string, unknown>;
@@ -250,6 +391,7 @@ export async function researchAndFormulatePrompt(
     sellingPoints,
     social,
     additionalContext: info.additionalContext,
+    traceContext: info.traceContext,
   });
 
   return { profile, brand, sellingPoints, social, expertPrompt };
@@ -267,6 +409,7 @@ async function formulateExpertPrompt(
     sellingPoints: Record<string, unknown>;
     social: Record<string, unknown>;
     additionalContext?: string;
+    traceContext?: TraceContext;
   },
 ): Promise<string> {
   const systemPrompt = `You are an expert web developer and designer. Your job is to write a SINGLE, comprehensive prompt
@@ -322,5 +465,7 @@ Social: ${JSON.stringify(data.social, null, 2)}`;
   return callOpenAI(env, systemPrompt, userPrompt, {
     temperature: 0.4,
     maxTokens: 16000,
+    traceContext: data.traceContext,
+    promptId: 'openai_research:expert_prompt',
   });
 }

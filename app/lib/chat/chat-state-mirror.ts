@@ -10,7 +10,13 @@
 import type { Message } from 'ai';
 
 const SYNC_INTERVAL_MS = 30_000;
-const ENDPOINT_BASE = '/admin-api/sites/by-slug';
+// Absolute URL targeting the projectsites.dev worker. The iframe runs on
+// editor.projectsites.dev where the zone WAF blocks every POST; we must
+// hit the API on the projectsites.dev zone instead. The `/api/bolt/`
+// prefix avoids the legacy `/admin-api/` WAF block. See
+// `apps/project-sites/src/routes/bolt_admin.ts` JSDoc for the full
+// auth + path-migration contract.
+const ENDPOINT_BASE = 'https://projectsites.dev/api/bolt/sites/by-slug';
 
 let timer: ReturnType<typeof setInterval> | null = null;
 let lastHash = '';

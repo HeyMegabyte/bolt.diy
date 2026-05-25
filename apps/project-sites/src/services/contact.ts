@@ -187,11 +187,21 @@ function buildContactConfirmationEmail(data: ContactForm): string {
 /* ------------------------------------------------------------------ */
 
 /**
- * Handle a contact form submission.
+ * Validate + dispatch a contact-form submission as two transactional emails.
  *
- * 1. Validates the input against `contactFormSchema`.
- * 2. Sends a notification email to `BRAND.CONTACT_EMAIL`.
- * 3. Sends a confirmation email to the user.
+ * @remarks
+ * Email 1 lands in `BRAND.CONTACT_EMAIL` with `replyTo` set to the user's
+ * address so a single reply round-trips. Email 2 is the user's receipt.
+ * Provider order: Resend primary, SendGrid fallback.
+ *
+ * @example
+ * ```ts
+ * await handleContactForm(env, await c.req.json());
+ * ```
+ *
+ * @throws {AppError} `BAD_REQUEST` when input fails `contactFormSchema`
+ *   validation, when both providers are unconfigured, or when delivery
+ *   returns a non-2xx status.
  */
 export async function handleContactForm(env: Env, input: unknown): Promise<void> {
   const validated = contactFormSchema.parse(input);

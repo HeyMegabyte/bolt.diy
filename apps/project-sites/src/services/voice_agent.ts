@@ -20,6 +20,11 @@ import type { Env } from '../types/env.js';
 import { callExternalLLM } from './external_llm.js';
 import { executeTool, loadAvailableTools } from './mcp_client.js';
 import { writeAiLog } from './ai_logger.js';
+import {
+  buildMemoryToolDef,
+  executeMemoryTool,
+  type MemoryScope,
+} from './anthropic_memory.js';
 
 // ─── PROMPT_META (IMMUTABLE — pre + post wrap on every turn) ───
 
@@ -151,8 +156,13 @@ export async function runTurn(env: Env, opts: RunTurnOpts): Promise<RunTurnResul
     .join('\n');
   const userBlock = `${historyLines ? historyLines + '\n' : ''}Caller: ${opts.userTranscript}\nAgent:`;
 
-  // Tool surface (MCP + browse) — described in-prompt; actual dispatch happens
-  // on a follow-up turn if the LLM returns a `TOOL_CALL:` directive.
+  // Tool surface (MCP + browse + memory) — described in-prompt; actual
+  // dispatch happens on a follow-up turn if the LLM returns a `TOOL_CALL:`
+  // directive. The Anthropic-style Memory tool is exposed via the same
+  // free-text bridge so the OpenAI / Anthropic / Workers AI routing in
+  // `callExternalLLM` all converge on one parsing path.
+  const memoryScope: MemoryScope = { kind: 'voice_agent', id: opts.sessionId };
+  const memoryTool = buildMemoryToolDef(memoryScope);
   let toolsDescription = '';
   if (opts.enableBrowseAgent || opts.mode === 'voice') {
     try {
@@ -161,6 +171,7 @@ export async function runTurn(env: Env, opts: RunTurnOpts): Promise<RunTurnResul
       lines.push('- browse_web(query: string)');
       lines.push('- fill_form(url: string, fields: object)');
       lines.push('- escalate_to_human()');
+      lines.push(`- ${memoryTool.name}: ${memoryTool.description}`);
       for (const t of mcpTools) {
         lines.push(`- ${t.name}: ${t.description ?? ''}`);
       }
@@ -215,6 +226,10 @@ export async function runTurn(env: Env, opts: RunTurnOpts): Promise<RunTurnResul
       } else if (call.name === 'browse_web' || call.name === 'fill_form') {
         // Surfaced for the orchestrator — it owns the VoiceBrowseAgent DO.
         result = { ok: true, deferred: 'browse_agent', deferred_call: { name: call.name, args } };
+      } else if (call.name === 'memory') {
+        // Anthropic-style Memory tool — per-call scoped key/value store.
+        const out = await executeMemoryTool(env, memoryScope, { input: args });
+        result = JSON.parse(out);
       } else {
         const dispatched = await executeTool(env, opts.siteId, {
           name: call.name,

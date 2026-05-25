@@ -358,12 +358,22 @@ export class TaskTrayComponent implements OnInit, OnDestroy {
       });
   }
 
+  /**
+   * Resolve a task with the user-typed free-form answer. No-op when the
+   * input is empty so accidental Enter presses don't post blank choices.
+   */
   resolveFreeform(task: TaskInboxView): void {
     const value = (this.freeformText[task.id] || '').trim();
     if (!value) return;
     this.resolve(task, value);
   }
 
+  /**
+   * Human-readable expiry label rendered on each card — bucketed into
+   * `shortly` / `in <1 min` / `in N min` / `in N hr` for legibility.
+   *
+   * @example expiresLabel({ expiresAt: Date.now() + 5*60_000, ...}) // 'in 5 min'
+   */
   expiresLabel(task: TaskInboxView): string {
     const ms = task.expiresAt - Date.now();
     if (ms <= 0) return 'shortly';

@@ -13,12 +13,49 @@ import { registry } from '../prompts/index.js';
 import { renderPrompt } from '../prompts/renderer.js';
 import { validatePromptInput, validatePromptOutput } from '../prompts/schemas.js';
 import { withObservability } from '../prompts/observability.js';
+import { captureLLMCall } from './analytics.js';
+import type { TraceContext } from './external_llm.js';
+
+/**
+ * Best-effort PostHog LLM Observability capture wrapped in try/catch so
+ * analytics failures NEVER bubble into the workflow path.
+ *
+ * @remarks
+ * Workers AI does not return a usage block, so the `inputTokens` /
+ * `outputTokens` passed here are best-effort approximations based on the
+ * rendered prompt + output character lengths (assume ~4 chars per token). The
+ * resulting `costUsd` is `0` because Workers AI is included on Workers paid.
+ */
+async function safeCaptureWorkersAi(
+  env: Env,
+  params: Parameters<typeof captureLLMCall>[1],
+): Promise<void> {
+  try {
+    await captureLLMCall(env, params);
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'ai_workflows',
+        event: 'analytics_capture_failed',
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
+}
 
 // ── Core LLM call ────────────────────────────────────────────
 
 /**
  * Call an LLM model through the Workers AI binding.
  * Uses the prompt registry for resolution, rendering, and observability.
+ *
+ * @remarks
+ * Every successful `env.AI.run()` fires a PostHog `$ai_generation` event via
+ * {@link captureLLMCall} with `provider: 'workers_ai'`. Token counts are
+ * **best-effort approximations** (`~chars/4`) because Workers AI does not
+ * return a usage block. Pass `traceContext` so multi-prompt workflows roll up
+ * as one trace in PostHog LLM Observability.
  */
 export async function runPrompt(
   env: Env,
@@ -30,6 +67,7 @@ export async function runPrompt(
     seed?: string;
     retryCount?: number;
     modelOverride?: string;
+    traceContext?: TraceContext;
   } = {},
 ): Promise<LlmCallResult> {
   // 1. Resolve the prompt spec (with optional A/B variant)

@@ -80,6 +80,194 @@ function snapshotUrl(slug: string, snapshotName: string): string {
   return `https://${slug}-${snapshotName}.projectsites.dev`;
 }
 
+/**
+ * Workers AI Llama 4 Scout vision model identifier. Multimodal 17B vision-language
+ * variant; cheaper + faster than GPT-4o and runs at the edge for free on Workers
+ * AI. Pinned here so the regression test in `__tests__/workers-ai-model-names.test.ts`
+ * catches the day the alias is retired.
+ *
+ * @see [[god-tier-engineering]] rule 10 — model-alias regression discipline.
+ */
+const VISION_MODEL = '@cf/meta/llama-4-scout-17b-16e-instruct';
+
+/**
+ * Rubric returned by the vision step. Each axis scored 1-10 by the LLM;
+ * `overall` is computed (mean of axes) when present in the response.
+ * `notes` is either the model's free-text critique OR a sentinel describing
+ * why we have no real score this run.
+ */
+interface VisionScore {
+  layout: number | null;
+  typography: number | null;
+  color: number | null;
+  imagery: number | null;
+  whitespace: number | null;
+  distinctiveness: number | null;
+  overall: number | null;
+  notes: string;
+  model: string;
+}
+
+/**
+ * Score a snapshot screenshot via Workers AI Llama 4 Scout vision.
+ *
+ * @remarks
+ * Best-effort: any failure (model unavailable, R2 read miss, JSON parse fail,
+ * malformed shape) is captured in `notes` and the row still writes with
+ * `overall: null`. The whole workflow MUST NOT fail on this step — vision
+ * scoring is additive, not load-bearing.
+ *
+ * The system prompt forces strict JSON shape so we can parse without
+ * post-processing. We accept either a top-level rubric object OR a
+ * `{score: {...}}` wrapper to be defensive against model drift.
+ *
+ * @example
+ * ```ts
+ * const score = await runVisionScore(env, 'snapshots/abc/screenshot-1920x1080.png');
+ * // → { layout: 8, typography: 7, color: 9, ..., overall: 8.0, notes: '...' }
+ * ```
+ *
+ * @throws Never — every error is swallowed into `notes`.
+ * @see [[12-media-orchestration]] critique-loop scoring rubric (1-10 axes).
+ */
+async function runVisionScore(env: Env, screenshotKey: string): Promise<VisionScore> {
+  const fallback = (notes: string): VisionScore => ({
+    layout: null,
+    typography: null,
+    color: null,
+    imagery: null,
+    whitespace: null,
+    distinctiveness: null,
+    overall: null,
+    notes,
+    model: VISION_MODEL,
+  });
+
+  if (!env.AI) return fallback('model_unavailable');
+
+  let imageDataUrl: string;
+  try {
+    const obj = await env.SITES_BUCKET.get(screenshotKey);
+    if (!obj) return fallback('screenshot_missing');
+    const bytes = new Uint8Array(await obj.arrayBuffer());
+    // Llama 4 Scout's messages variant accepts a base64 data URL inside
+    // `image_url.url` — HTTP URLs are rejected, per the workers-types
+    // interface comment. btoa() works on Latin-1 only; chunk-encode to
+    // avoid blowing the call stack on multi-MB screenshots.
+    let binary = '';
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+    }
+    imageDataUrl = `data:${obj.httpMetadata?.contentType || 'image/png'};base64,${btoa(binary)}`;
+  } catch (err) {
+    return fallback(
+      `screenshot_fetch_failed: ${err instanceof Error ? err.message : String(err)}`.slice(0, 200),
+    );
+  }
+
+  const system =
+    'You are a senior brand designer scoring website screenshots 1-10 across: ' +
+    'layout, typography, color, imagery, whitespace, distinctiveness. ' +
+    'Reply JSON exactly: {layout, typography, color, imagery, whitespace, distinctiveness, overall, notes}.';
+
+  try {
+    // Llama 4 Scout vision uses the OpenAI-shaped multimodal messages format:
+    // the user message's `content` is an array of `{type: 'text'|'image_url'}`
+    // parts with the image inlined as a base64 data URL (not an HTTP URL).
+    const response = (await env.AI.run(VISION_MODEL, {
+      messages: [
+        { role: 'system', content: system },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Score this homepage screenshot and reply with the JSON rubric only.',
+            },
+            { type: 'image_url', image_url: { url: imageDataUrl } },
+          ],
+        },
+      ],
+      max_tokens: 512,
+    })) as { response?: string } | string;
+
+    const raw =
+      typeof response === 'string'
+        ? response
+        : typeof response?.response === 'string'
+          ? response.response
+          : '';
+    if (!raw) return fallback('empty_response');
+
+    // Strip optional ```json fences the model sometimes wraps around output.
+    const cleaned = raw
+      .replace(/```json\s*/gi, '')
+      .replace(/```/g, '')
+      .trim();
+
+    // Best-effort: locate the first balanced JSON object in the response.
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+      return fallback('parse_failed');
+    }
+
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1)) as Record<string, unknown>;
+    } catch {
+      return fallback('parse_failed');
+    }
+
+    // Accept either flat shape OR a `{score: {...}}` / `{rubric: {...}}` wrapper.
+    const rubric =
+      (parsed.score as Record<string, unknown> | undefined) ||
+      (parsed.rubric as Record<string, unknown> | undefined) ||
+      parsed;
+
+    const num = (k: string): number | null => {
+      const v = rubric[k];
+      if (typeof v === 'number' && Number.isFinite(v)) return Math.max(0, Math.min(10, v));
+      if (typeof v === 'string' && v.trim() && Number.isFinite(Number(v))) {
+        return Math.max(0, Math.min(10, Number(v)));
+      }
+      return null;
+    };
+
+    const axes = {
+      layout: num('layout'),
+      typography: num('typography'),
+      color: num('color'),
+      imagery: num('imagery'),
+      whitespace: num('whitespace'),
+      distinctiveness: num('distinctiveness'),
+    };
+    const declaredOverall = num('overall');
+    const presentAxes = Object.values(axes).filter((v): v is number => v !== null);
+    const computedOverall =
+      presentAxes.length > 0
+        ? Math.round((presentAxes.reduce((a, b) => a + b, 0) / presentAxes.length) * 10) / 10
+        : null;
+    const notesField = rubric.notes;
+    const notes =
+      typeof notesField === 'string' && notesField.trim()
+        ? notesField.trim().slice(0, 1000)
+        : 'ok';
+
+    return {
+      ...axes,
+      overall: declaredOverall ?? computedOverall,
+      notes,
+      model: VISION_MODEL,
+    };
+  } catch (err) {
+    return fallback(
+      `model_error: ${err instanceof Error ? err.message : String(err)}`.slice(0, 200),
+    );
+  }
+}
+
 /** Capture a full-page screenshot via Cloudflare Browser Rendering REST API. */
 async function captureScreenshot(
   env: Env,
@@ -334,10 +522,24 @@ function buildMetricsRow(
   seo: SeoMetrics | null,
   composition: CompositionMetrics | null,
   axe: AxeMetrics | null,
+  vision: VisionScore | null,
   screenshotKey: string | null,
   durationMs: number,
   error: string | null,
 ): Record<string, unknown> {
+  // Persist the per-axis sub-scores as a JSON blob in `vision_scores_json` so
+  // the dashboard can render a radar chart without a column-per-axis migration.
+  const visionScoresJson = vision
+    ? JSON.stringify({
+        layout: vision.layout,
+        typography: vision.typography,
+        color: vision.color,
+        imagery: vision.imagery,
+        whitespace: vision.whitespace,
+        distinctiveness: vision.distinctiveness,
+      })
+    : null;
+
   return {
     id: metricsId,
     snapshot_id: params.snapshotId,
@@ -375,6 +577,11 @@ function buildMetricsRow(
     target_size_failures: axe?.targetSizeFailures ?? null,
     // Screenshot
     screenshot_r2_key: screenshotKey,
+    // Vision (Workers AI Llama 4 Scout) — see migration 0043
+    vision_overall: vision?.overall ?? null,
+    vision_scores_json: visionScoresJson,
+    vision_notes: vision?.notes ?? null,
+    vision_model: vision?.model ?? null,
     // Run metadata
     captured_via: params.capturedVia,
     duration_ms: durationMs,
@@ -427,6 +634,7 @@ export class SnapshotQualityWorkflow extends WorkflowEntrypoint<Env, SnapshotQua
     let seo: SeoMetrics | null = null;
     let composition: CompositionMetrics | null = null;
     let axe: AxeMetrics | null = null;
+    let vision: VisionScore | null = null;
     let catastrophicError: string | null = null;
 
     try {
@@ -509,8 +717,49 @@ export class SnapshotQualityWorkflow extends WorkflowEntrypoint<Env, SnapshotQua
       );
     }
 
+    // Workers AI Llama 4 Scout vision scoring runs ONLY when the screenshot
+    // capture succeeded — there's nothing useful to grade without an image.
+    // The step itself never throws (the helper swallows errors into `notes`)
+    // but we still wrap in step.do so each retry charges its own AI quota
+    // bucket and the workflow ledger shows the attempt.
+    if (screenshotKey) {
+      try {
+        const visionJson = await step.do(
+          'ai-visual-score',
+          {
+            retries: { limit: 2, delay: '2 seconds', backoff: 'exponential' },
+            timeout: '90 seconds',
+          },
+          async () => JSON.stringify(await runVisionScore(env, screenshotKey as string)),
+        );
+        vision = JSON.parse(visionJson) as VisionScore;
+      } catch (err) {
+        // step.do exhausted retries — record the failure inline so the row
+        // still writes with full context but the whole workflow keeps running.
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            service: 'snapshot-quality',
+            step: 'ai-visual-score',
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+        vision = {
+          layout: null,
+          typography: null,
+          color: null,
+          imagery: null,
+          whitespace: null,
+          distinctiveness: null,
+          overall: null,
+          notes: 'model_unavailable',
+          model: VISION_MODEL,
+        };
+      }
+    }
+
     // If literally nothing resolved, flag the row with a catastrophic-error note.
-    if (!screenshotKey && !seo && !composition && !axe) {
+    if (!screenshotKey && !seo && !composition && !axe && !vision) {
       catastrophicError = 'all capture steps failed';
     }
 
@@ -521,6 +770,7 @@ export class SnapshotQualityWorkflow extends WorkflowEntrypoint<Env, SnapshotQua
       seo,
       composition,
       axe,
+      vision,
       screenshotKey,
       durationMs,
       catastrophicError,

@@ -38,7 +38,7 @@
  * @see ./ai-endpoints/ide.component.ts for the IDE shell
  * @see ../../../../src/routes/ai_admin.ts for the matching server routes
  */
-import { Component, HostListener, computed, inject, signal, type OnInit } from '@angular/core';
+import { Component, HostListener, computed, inject, input, signal, type OnInit } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
@@ -83,11 +83,11 @@ interface InlineEdit {
     DialogShellComponent,
   ],
   template: `
-    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" data-testid="ai-endpoints-page">
+    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" [class.agents--compact]="compact()" data-testid="ai-endpoints-page">
       <header class="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div class="kicker">Workers</div>
-          <h2 class="section-h text-lg font-bold text-white m-0">AI Endpoints</h2>
+          <h2 class="section-h text-lg font-bold text-white m-0">AI Agents</h2>
           <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
             Build your own backend at <code class="font-mono text-primary text-[0.78rem]">{{ baseUrl() }}/&#123;slug&#125;</code>.
             Pick an AI prompt or write JS / TS / Python / Rust-WASM.
@@ -96,7 +96,7 @@ interface InlineEdit {
         <div class="flex items-center gap-2 flex-wrap">
           <input
             class="input-field w-56"
-            placeholder="Filter endpoints…"
+            placeholder="Filter agents…"
             [ngModel]="filterText()"
             (ngModelChange)="filterText.set($event)"
             data-testid="ai-endpoints-filter" />
@@ -109,16 +109,19 @@ interface InlineEdit {
             <option value="GET">GET</option><option value="POST">POST</option>
             <option value="PUT">PUT</option><option value="DELETE">DELETE</option><option value="PATCH">PATCH</option>
           </select>
-          <select
-            class="input-field"
-            [ngModel]="filterLanguage()"
-            (ngModelChange)="filterLanguage.set($event)"
-            data-testid="ai-endpoints-filter-language">
-            <option value="">All languages</option>
-            @for (l of langs; track l.id) {
-              <option [value]="l.id">{{ l.label }}</option>
-            }
-          </select>
+          <!-- Language filter hidden in compact mode to clear bar space. -->
+          @if (!compact()) {
+            <select
+              class="input-field"
+              [ngModel]="filterLanguage()"
+              (ngModelChange)="filterLanguage.set($event)"
+              data-testid="ai-endpoints-filter-language">
+              <option value="">All languages</option>
+              @for (l of langs; track l.id) {
+                <option [value]="l.id">{{ l.label }}</option>
+              }
+            </select>
+          }
           @if (hasActiveFilters()) {
             <button
               type="button"
@@ -144,9 +147,9 @@ interface InlineEdit {
         } @else if (endpoints().length === 0) {
           <app-empty-state
             icon="⌬"
-            title="Build your first AI endpoint"
+            title="Build your first AI agent"
             body="Pick an AI prompt, JS, TS, Python, or Rust-WASM. Edit code in the browser, deploy to a live URL."
-            primary="+ Create endpoint"
+            primary="+ Create agent"
             secondary="✨ Use AI"
             (primaryClick)="openCreateManual()"
             (secondaryClick)="openCreateAi()" />
@@ -288,7 +291,7 @@ interface InlineEdit {
           (click)="openCreateManual()"
           data-testid="ai-endpoint-create-manual">
           <span class="plus" aria-hidden="true">＋</span>
-          <span>Create endpoint</span>
+          <span>Create agent</span>
         </button>
         <button
           type="button"
@@ -306,7 +309,7 @@ interface InlineEdit {
           <span dialogIcon>
             <svg class="text-primary" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
           </span>
-          <span dialogTitle>New endpoint</span>
+          <span dialogTitle>New agent</span>
 
           <div class="p-5 flex flex-col gap-4" data-testid="ai-endpoint-create-panel">
             <!-- URL preview / slug input -->
@@ -330,7 +333,7 @@ interface InlineEdit {
               <span class="muted-h block mb-1">Description (optional)</span>
               <input
                 class="input-field w-full"
-                placeholder="What does this endpoint do?"
+                placeholder="What does this agent do?"
                 [(ngModel)]="createDraft().description"
                 maxlength="200" />
             </label>
@@ -365,7 +368,7 @@ interface InlineEdit {
               [disabled]="saving()"
               data-testid="ai-endpoint-create-submit"
               (click)="createEndpoint()">
-              {{ saving() ? 'Creating…' : 'Create endpoint' }}
+              {{ saving() ? 'Creating…' : 'Create agent' }}
             </button>
           </div>
         </app-dialog-shell>
@@ -377,7 +380,7 @@ interface InlineEdit {
           <span dialogIcon>
             <svg class="text-violet-300" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 13.5 8.5 20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5z"/></svg>
           </span>
-          <span dialogTitle>Describe an endpoint</span>
+          <span dialogTitle>Describe an agent</span>
 
           <div class="p-5 flex flex-col gap-3" data-testid="ai-endpoint-suggest-panel">
             <p class="text-[0.74rem] text-text-secondary m-0">
@@ -386,7 +389,7 @@ interface InlineEdit {
             <textarea
               class="input-field w-full font-mono text-[0.74rem]"
               rows="5"
-              placeholder="Describe what your endpoint should do…"
+              placeholder="Describe what your agent should do…"
               [(ngModel)]="suggestDescription"
               data-testid="ai-endpoint-suggest-input"
               autofocus></textarea>
@@ -838,12 +841,41 @@ interface InlineEdit {
     @media (prefers-reduced-motion: reduce) { .btn-primary { transition: none; } .btn-primary:hover:not(:disabled) { transform: none; } }
     .btn-ghost { padding: 0.5rem 1rem; border-radius: 8px; background: transparent; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 0.74rem; }
     .muted-h { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; }
+
+    /* ─── Compact mode (rendered inside the editor overlay) ─── */
+    /* When AI Agents is mounted as a half-screen overlay on top of the bolt
+       iframe (via [compact]=true), shrink the chrome so the file-tree + IDE
+       still feel usable inside ~50vw. */
+    .agents--compact { padding: 1rem !important; }
+    .agents--compact .section-h { font-size: 1rem; }
+    .agents--compact header > div > p { font-size: 0.68rem !important; }
+    .agents--compact .input-field { font-size: 0.72rem; padding: 0.35rem 0.55rem; }
+    .agents--compact .input-field.w-56 { width: 12rem; }
+    .agents--compact .url-host { font-size: 0.72rem; }
+    .agents--compact .url-slug { font-size: 0.78rem; }
+    .agents--compact .endpoint-row { padding: 10px 12px; }
+    .agents--compact .btn-action { padding: 6px 10px; font-size: 0.68rem; }
+    .agents--compact .lang-pill { font-size: 0.6rem; padding: 2px 7px; }
+    .agents--compact .when { font-size: 0.62rem; }
+    .agents--compact .description-text { font-size: 0.7rem; }
+    .agents--compact .create-split .split-btn { padding: 10px 14px; font-size: 0.78rem; }
+    .agents--compact .ide-toolbar { font-size: 0.7rem; }
+    .agents--compact .file-tree-pane { min-width: 140px !important; }
   `],
 })
 export class AdminAiEndpointsComponent implements OnInit {
   state = inject(AdminStateService);
   private api = inject(ApiService);
   private toast = inject(ToastService);
+
+  /**
+   * Compact-mode flag. When `true` the component renders inside the editor
+   * overlay (half-screen, right-side) with the `.agents--compact` style
+   * branch — smaller toolbars, narrower IDE columns, hidden tag filter.
+   * When `false` (default) the component renders standalone at
+   * `/admin/ai-endpoints` with full chrome.
+   */
+  readonly compact = input<boolean>(false);
 
   endpoints = signal<EndpointRow[]>([]);
   loading = signal(false);

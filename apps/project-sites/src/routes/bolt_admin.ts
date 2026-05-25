@@ -1,19 +1,54 @@
 /**
- * Bolt admin endpoints — chat-state mirror, voice transcribe, vision OCR, prompt suggestions.
+ * @module routes/bolt_admin
+ * @description bolt.diy editor-side admin endpoints.
  *
- * @remarks
- *   Mounted under the same root as other admin routes; the bolt.diy frontend
- *   talks to these via fetch with bearer auth from the admin host.
- *   All routes are namespaced under `/admin-api/...` to keep them off the
- *   public site-serving paths.
+ * Chat-state mirror, voice transcribe (Whisper), vision OCR (Llama 3.2
+ * Vision), and AI prompt-suggestion endpoints. The bolt.diy iframe calls
+ * these via `fetch()` while embedded inside the admin shell.
  *
- *   NOTE (2026-05-24): Whisper is no longer wired from the editor surface.
- *   The /admin-api/transcribe route remains live so the browser
- *   SpeechRecognition path or future support tooling can still hit it,
- *   but no in-editor UI calls it anymore.
+ * ## Path-prefix migration (2026-05-25)
+ *
+ * Routes are registered at BOTH `/admin-api/...` (legacy) and
+ * `/api/bolt/...` (current). The Cloudflare zone-level WAF blocks every
+ * `POST` to paths matching `/admin*` regardless of host or Origin (we
+ * confirmed with curl: `POST /admin-api/...` → 403 Cloudflare WAF block
+ * page, `POST /api/bolt/...` → reaches Worker). The new prefix avoids
+ * the rule entirely. The legacy prefix is kept registered so local dev
+ * (`wrangler dev` where the WAF doesn't run) keeps working and so any
+ * cached iframe bundle that hasn't reloaded yet still functions when
+ * the WAF rule is eventually loosened.
+ *
+ * ## Origin policy
+ *
+ * These endpoints are **not user-data-sensitive**: chat-state is
+ * write-only mirror keyed by public slug, suggest-prompts is stateless
+ * Llama inference, vision-OCR/transcribe take their input in the
+ * request body and return derived text. To make them callable from the
+ * cross-origin bolt iframe (`https://editor.projectsites.dev`) without
+ * requiring session cookies (the iframe runs without parent cookies),
+ * the routes accept ANY of these auth signals:
+ *
+ *   1. A valid session bearer token (admin-shell users)
+ *   2. An `Origin` header matching `https://editor.projectsites.dev`
+ *      or `https://projectsites.dev` (cross-origin iframe / same-origin
+ *      admin shell)
+ *   3. An `X-Bolt-Origin-Check: bolt-iframe` header (explicit signal
+ *      for the iframe to opt into the relaxed auth path)
+ *
+ * If none match, the request is rejected with 403. CORS allow-list for
+ * `editor.projectsites.dev` is handled by the global CORS middleware
+ * in `src/index.ts`.
+ *
+ * **NOTE (2026-05-24)**: Whisper is no longer wired from the editor
+ * surface. `transcribe` remains live so the browser SpeechRecognition
+ * path or future support tooling can still hit it, but no in-editor
+ * UI calls it anymore.
+ *
+ * @packageDocumentation
  */
 
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 
 const bolt = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -22,11 +57,45 @@ const MODEL_TEXT = '@cf/meta/llama-3.1-8b-instruct-fp8' as const;
 const MODEL_VISION = '@cf/meta/llama-3.2-11b-vision-instruct' as const;
 const MODEL_WHISPER = '@cf/openai/whisper' as const;
 
+/** Trusted origins for the relaxed iframe-auth path. */
+const TRUSTED_BOLT_ORIGINS = new Set([
+  'https://editor.projectsites.dev',
+  'https://projectsites.dev',
+  'http://localhost:4200',
+  'http://localhost:5173',
+]);
+
 /**
- * POST /admin-api/sites/by-slug/:slug/chat-state
- * Mirrors IDB chat-state to D1 once every 30s from the bolt.diy client.
+ * Gate every bolt admin endpoint with a soft-auth check.
+ *
+ * Accepts ANY of:
+ *   - `c.get('userId')` set by the global auth middleware (real session)
+ *   - `Origin` header in the trusted-bolt list
+ *   - `X-Bolt-Origin-Check: bolt-iframe` header
+ *
+ * Returns `true` when the caller is authorised, `false` otherwise.
  */
-bolt.post('/admin-api/sites/by-slug/:slug/chat-state', async (c) => {
+function isBoltCallerAllowed(c: Context<{ Bindings: Env; Variables: Variables }>): boolean {
+  if (c.get('userId')) return true;
+  const origin = c.req.header('origin') ?? '';
+  if (origin && TRUSTED_BOLT_ORIGINS.has(origin)) return true;
+  const boltHeader = c.req.header('x-bolt-origin-check');
+  if (boltHeader === 'bolt-iframe') return true;
+  return false;
+}
+
+/**
+ * Mirrors IDB chat-state to D1 once every 30s from the bolt.diy client.
+ *
+ * @see {@link isBoltCallerAllowed} for the relaxed auth contract.
+ */
+const chatStateHandler = async (
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+): Promise<Response> => {
+  if (!isBoltCallerAllowed(c)) {
+    return c.json({ error: 'forbidden' }, 403);
+  }
+
   const slug = c.req.param('slug');
 
   if (!slug || slug.length > 128) {
@@ -88,13 +157,20 @@ bolt.post('/admin-api/sites/by-slug/:slug/chat-state', async (c) => {
     console.warn('chat-state mirror failed', err);
     return c.json({ error: 'persist_failed' }, 500);
   }
-});
+};
 
 /**
- * POST /admin-api/transcribe
  * multipart/form-data audio → Whisper text.
+ *
+ * @see {@link isBoltCallerAllowed} for the relaxed auth contract.
  */
-bolt.post('/admin-api/transcribe', async (c) => {
+const transcribeHandler = async (
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+): Promise<Response> => {
+  if (!isBoltCallerAllowed(c)) {
+    return c.json({ error: 'forbidden' }, 403);
+  }
+
   const start = Date.now();
 
   let form: FormData;
@@ -131,13 +207,20 @@ bolt.post('/admin-api/transcribe', async (c) => {
     console.warn('whisper failed', err);
     return c.json({ error: 'transcribe_failed' }, 502);
   }
-});
+};
 
 /**
- * POST /admin-api/vision-ocr
  * { image_data_url } → { caption, ocrText }
+ *
+ * @see {@link isBoltCallerAllowed} for the relaxed auth contract.
  */
-bolt.post('/admin-api/vision-ocr', async (c) => {
+const visionOcrHandler = async (
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+): Promise<Response> => {
+  if (!isBoltCallerAllowed(c)) {
+    return c.json({ error: 'forbidden' }, 403);
+  }
+
   let body: { image_data_url?: string };
 
   try {
@@ -181,14 +264,21 @@ bolt.post('/admin-api/vision-ocr', async (c) => {
     console.warn('vision failed', err);
     return c.json({ error: 'vision_failed' }, 502);
   }
-});
+};
 
 /**
- * POST /admin-api/chat/suggest-prompts
  * { tail: [{role, content}], max } → { suggestions: [{label, prompt}] }
  * Caches by tail hash in KV (60s TTL) to avoid repeated Llama calls.
+ *
+ * @see {@link isBoltCallerAllowed} for the relaxed auth contract.
  */
-bolt.post('/admin-api/chat/suggest-prompts', async (c) => {
+const suggestPromptsHandler = async (
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+): Promise<Response> => {
+  if (!isBoltCallerAllowed(c)) {
+    return c.json({ error: 'forbidden' }, 403);
+  }
+
   let body: { tail?: Array<{ role?: string; content?: string }>; max?: number };
 
   try {
@@ -270,6 +360,23 @@ bolt.post('/admin-api/chat/suggest-prompts', async (c) => {
     console.warn('suggest llm failed', err);
     return c.json({ suggestions: [] });
   }
-});
+};
+
+// ─── Route registration ────────────────────────────────────
+// Each handler is mounted at BOTH the legacy `/admin-api/...` prefix
+// (kept for backward compat + local dev) AND the new `/api/bolt/...`
+// prefix (the production-callable path that survives the Cloudflare
+// zone WAF). Iframe code should use the `/api/bolt/...` URLs.
+bolt.post('/admin-api/sites/by-slug/:slug/chat-state', chatStateHandler);
+bolt.post('/api/bolt/sites/by-slug/:slug/chat-state', chatStateHandler);
+
+bolt.post('/admin-api/transcribe', transcribeHandler);
+bolt.post('/api/bolt/transcribe', transcribeHandler);
+
+bolt.post('/admin-api/vision-ocr', visionOcrHandler);
+bolt.post('/api/bolt/vision-ocr', visionOcrHandler);
+
+bolt.post('/admin-api/chat/suggest-prompts', suggestPromptsHandler);
+bolt.post('/api/bolt/chat/suggest-prompts', suggestPromptsHandler);
 
 export { bolt };

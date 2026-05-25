@@ -7,6 +7,16 @@
  * Falls back gracefully when GOOGLE_PLACES_API_KEY is not configured.
  */
 
+/**
+ * Normalized envelope returned by {@link lookupBusiness} after Places API
+ * Text Search + Details have completed.
+ *
+ * @remarks
+ * Every nullable field is `null` (not `undefined`) so the v3 confidence
+ * transformer can distinguish "not provided by Places" from "field missing
+ * from response". `photos[]` come pre-resolved to short-lived Places media
+ * URLs — re-fetch on render rather than persisting the URL.
+ */
 export interface PlacesResult {
   place_id: string;
   name: string;

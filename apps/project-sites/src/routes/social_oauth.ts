@@ -31,7 +31,20 @@ function redirectUriFor(req: Request, platform: Platform): string {
   return `${url.origin}/api/social/${platform}/callback`;
 }
 
-// ── GET /api/social/:platform/connect ───────────────────────
+/**
+ * `GET /api/social/:platform/connect` — Start social-platform OAuth.
+ *
+ * @remarks
+ * Generates PKCE state, stashes it in KV under
+ * `social-oauth-state:{state}` (5 min TTL), and returns either a redirect
+ * to the platform authorize URL or a paste-key form spec for platforms
+ * without OAuth (Bluesky, Mastodon).
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when `platform` isn't a known publisher.
+ * @throws 501 NOT_IMPLEMENTED when the platform OAuth client_id env vars
+ *   are missing — UI falls back to paste-key.
+ */
 socialOauthRoutes.get('/api/social/:platform/connect', async (c) => {
   const orgId = c.get('orgId') as string | undefined;
   const userId = c.get('userId') as string | undefined;
@@ -90,6 +103,21 @@ socialOauthRoutes.get('/api/social/:platform/connect', async (c) => {
 });
 
 // ── GET /api/social/:platform/callback ──────────────────────
+/**
+ * `GET /api/social/:platform/callback?code=&state=` — OAuth redirect
+ * landing endpoint.
+ *
+ * @remarks
+ * Validates the state KV row, exchanges the code via the platform
+ * publisher's `exchangeCode`, encrypts tokens via {@link encrypt}
+ * (AES-GCM per-record IV), upserts into `social_accounts` keyed by
+ * `(org_id, platform, platform_user_id)`, then redirects back to the
+ * dashboard.
+ *
+ * @throws 400 BAD_REQUEST when `code`/`state` missing or state expired.
+ * @throws 404 NOT_FOUND when `platform` isn't a known publisher.
+ * @throws 502 BAD_GATEWAY when the upstream token exchange fails.
+ */
 socialOauthRoutes.get('/api/social/:platform/callback', async (c) => {
   const platform = c.req.param('platform');
   if (!isPlatform(platform)) return c.json({ error: { code: 'NOT_FOUND', message: 'unknown platform' } }, 404);
@@ -173,6 +201,21 @@ const PasteSchema = z.union([
   z.object({ kind: z.literal('discord'), channel_id: z.string().min(5).max(40), display_name: z.string().max(120).optional() }),
 ]);
 
+/**
+ * `POST /api/social/:platform/paste` — Paste-key / login flow for
+ * platforms without OAuth (currently Bluesky via app-password,
+ * Mastodon via access token).
+ *
+ * @remarks
+ * Body: {@link PasteSchema}. Bluesky validates via
+ * {@link blueskyLogin}; Mastodon via {@link mastodonVerify}. Encrypts
+ * resulting tokens via {@link encrypt}.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails or credentials
+ *   are rejected by the platform.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when `platform` isn't paste-key supported.
+ */
 socialOauthRoutes.post('/api/social/:platform/paste', zValidator('json', PasteSchema), async (c) => {
   const orgId = c.get('orgId') as string | undefined;
   const userId = c.get('userId') as string | undefined;

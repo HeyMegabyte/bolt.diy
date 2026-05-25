@@ -22,6 +22,7 @@ import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types/env.js';
 import { DOMAINS } from '@project-sites/shared';
 import { loadBuildFromR2, validateBuild } from '../services/build_validators.js';
+import { postAskUser } from '../services/task_inbox.js';
 
 /** Update site status in D1 (best-effort, never throws). */
 async function updateSiteStatus(db: D1Database, siteId: string, status: string): Promise<void> {
@@ -482,6 +483,131 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         null,
         2,
       );
+    }
+
+    // ── Optional: Human-in-the-loop logo approval (Workflows v2 elicitation) ──
+    //
+    // CANONICAL human-in-loop pattern for future workflows. Pauses the workflow
+    // mid-run, surfaces a task in the admin tray via `ai_task_inbox`, and
+    // resumes when the user clicks an option (or auto-defaults on timeout).
+    //
+    // ## Activation
+    // Gated on `env.SITE_GEN_REQUIRES_LOGO_APPROVAL === 'true'`. When unset
+    // (the default), the step is skipped entirely — full backwards
+    // compatibility. Flip the env var to start gating builds on logo review.
+    //
+    // ## How it pauses
+    // 1. `postAskUser` writes a row to `ai_task_inbox` with `task_kind`,
+    //    `prompt`, `options[]`, `defaultChoice`, and a 30-minute expiry.
+    // 2. `step.waitForEvent(\`task-resolved-${id}\`)` parks the workflow
+    //    instance until the matching event fires OR the step timeout hits.
+    // 3. The admin tray polls `listOpenTasks(env, orgId)`; user clicks an
+    //    option; the route handler calls `resolveTask(env, id, {choice})`
+    //    which (a) marks the row resolved and (b) fans the resolution into
+    //    the workflow via `env.SITE_GENERATION.sendEvent`.
+    //
+    // ## How it resumes
+    // The `waitForEvent` resolves with the resolution payload. We branch on
+    // `choice`:
+    //  - `Approve` → fall through to `start-build` unchanged.
+    //  - `Regenerate` → loop back to logo regeneration (left as a TODO in
+    //    this example — real impl re-fires the `generate-logo` step).
+    //  - `Use my own` → halt the workflow; user uploads via the admin UI,
+    //    which re-creates the workflow with the new asset already in R2.
+    //
+    // ## Auto-defaulting
+    // If the user doesn't respond in 30 min, the `applyExpiredDefaults`
+    // sweep cron auto-resolves to `defaultChoice` and the workflow continues
+    // — `Approve` is chosen here as the failsafe.
+    //
+    // @see services/task_inbox.ts postAskUser / resolveTask
+    // @see migrations/0039_task_inbox.sql
+    if (
+      (env as unknown as { SITE_GEN_REQUIRES_LOGO_APPROVAL?: string })
+        .SITE_GEN_REQUIRES_LOGO_APPROVAL === 'true'
+    ) {
+      // Sub-step 1: post the elicitation task. Kept inside step.do so the
+      // ai_task_inbox INSERT replays deterministically on workflow restart.
+      const elicitationTaskId = await step.do(
+        'logo-approval-post',
+        {
+          retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
+          timeout: '30 seconds',
+        },
+        async () => {
+          const { id } = await postAskUser(env, {
+            orgId: params.orgId,
+            workflowInstanceId: event.instanceId,
+            taskKind: 'approve_logo',
+            prompt:
+              `Approve the generated logo for ${params.businessName}? ` +
+              'Choose Approve to continue the build, Regenerate to try a new logo, ' +
+              'or Use my own to upload a custom logo via the admin UI.',
+            options: ['Approve', 'Regenerate', 'Use my own'],
+            defaultChoice: 'Approve',
+            timeoutMs: 30 * 60 * 1000,
+            createdBy: params.orgId,
+          });
+          await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.logo_approval_posted', {
+            task_id: id,
+            message: 'Logo approval requested — workflow paused waiting for user',
+          });
+          return id;
+        },
+      );
+
+      // Sub-step 2: park the workflow on the matching `task-resolved-${id}`
+      // event. `step.waitForEvent` is the Workflows v2 primitive — survives
+      // hibernation, retries, and worker restarts. On timeout it throws, and
+      // we fall back to the default `Approve` choice so the build never
+      // wedges indefinitely (the `applyExpiredDefaults` cron also auto-
+      // resolves the row with `defaultChoice` for UI consistency).
+      let approvalChoice: string = 'Approve';
+      try {
+        const resolution = await step.waitForEvent<{ choice?: string }>(
+          `task-resolved-${elicitationTaskId}`,
+          {
+            type: `task-resolved-${elicitationTaskId}`,
+            timeout: '30 minutes',
+          },
+        );
+        approvalChoice = resolution?.payload?.choice ?? 'Approve';
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            service: 'workflow',
+            step: 'logo-approval-wait',
+            error: err instanceof Error ? err.message : String(err),
+            message: 'logo approval elicitation timed out — defaulting to Approve',
+          }),
+        );
+      }
+
+      await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.logo_approval_resolved', {
+        task_id: elicitationTaskId,
+        choice: approvalChoice,
+        message: `Logo approval resolved: ${approvalChoice}`,
+      });
+
+      // Branch on resolution. Approve = fall through. Regenerate = re-fire
+      // the logo generation pipeline (left as a follow-up — the orchestrator
+      // prompt already covers regeneration on its next pass). Use-my-own =
+      // halt cleanly; admin UI re-creates the workflow once asset uploaded.
+      if (approvalChoice === 'Use my own') {
+        await updateSiteStatus(env.DB, params.siteId, 'collecting');
+        await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.halted_for_upload', {
+          message: 'Build halted — awaiting custom-logo upload from user',
+        });
+        return {
+          siteId: params.siteId,
+          slug: params.slug,
+          status: 'halted',
+          reason: 'awaiting_user_upload',
+        };
+      }
+      // 'Regenerate' falls through with the orchestrator prompt picking up the
+      // signal via _research.json on the next pass. 'Approve' falls through.
     }
 
     // ── Step 1: Start build (POST to container) ──

@@ -1,11 +1,36 @@
 /**
- * Admin surface for the AI platform: form submissions, AI logs, chat context
- * files, AI settings (router prompt + chat persona + contact email), endpoints
- * CRUD, AI credits (balance, ledger, topup checkout), spend alerts, team
- * invites/members, per-site cost breakdown. Mounted by index.ts.
+ * @module routes/ai_admin
+ * @description Authenticated admin surface for the AI platform.
  *
- * Every route requires an authenticated org context. Public endpoints (form
- * ingest, /api/ai/:slug/:endpoint) live in their own files.
+ * Mounted by `index.ts`. Every route in this file requires both an
+ * `orgId` and a `userId` on the request context — the {@link need}
+ * helper throws `HTTPError(401)` when either is missing. Public
+ * counterparts (form ingest, `/api/ai/:slug/:endpoint`) live in their
+ * own files (`forms.ts`, `ai_endpoints_public.ts`).
+ *
+ * The surface area covers:
+ *
+ * - **Form submissions** (`/api/sites/:siteId/form-submissions*`) — list +
+ *   single-record reads of webhook-ingested form data.
+ * - **AI traces / logs** (`/api/sites/:siteId/ai-logs*`) — every LLM call
+ *   recorded by `services/observability.ts`, redacted for tenant view.
+ * - **Chat context files** (`/api/sites/:siteId/ai-chat/context-files*`) —
+ *   uploaded knowledge-base files persisted to R2 + indexed.
+ * - **AI settings** (`/api/sites/:siteId/ai-settings`) — router prompt,
+ *   chat persona, contact email per site.
+ * - **Endpoint CRUD + deploy** (`/api/sites/:siteId/ai-endpoints*`) —
+ *   user-authored AI Workers deployed via WfP dispatch.
+ * - **Credits + billing** (`/api/billing/credits*`, `site-costs`) — balance,
+ *   ledger, Stripe topup checkout, per-site cost rollup.
+ * - **Team** (`/api/team*`) — invites, members, role transfer.
+ * - **MCP connections** (`/api/sites/:siteId/mcp/connections*`) — read +
+ *   delete per-site OAuth/paste-key connections.
+ * - **Org admin** (`/api/admin/org/*`) — export, delete, API-key CRUD,
+ *   domains, Cloudflare auto-setup.
+ * - **AI helpers** (`/api/admin/{traces,search,forecast,ai/stream}*`) —
+ *   `explainTrace`, `aiSearch`, `forecastCost`, streaming chat + palette.
+ *
+ * @packageDocumentation
  */
 import { Hono } from 'hono';
 import type { Context } from 'hono';
@@ -82,6 +107,19 @@ function safeJson(s: string | null | undefined): unknown {
 
 /* ────────────────────────── Form Submissions + AI Logs ────────────────────────── */
 
+/**
+ * `GET /api/sites/:siteId/form-submissions` — List up to 200 most recent form
+ * submissions for the requested site.
+ *
+ * @remarks
+ * Requires org membership of the site's owning org. Returns each submission
+ * with `fields` parsed from the stored JSON payload.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ *
+ * @see {@link aiAdmin.get('/api/sites/:siteId/form-submissions/:subId')}
+ */
 aiAdmin.get('/api/sites/:siteId/form-submissions', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -98,6 +136,14 @@ aiAdmin.get('/api/sites/:siteId/form-submissions', async (c) => {
   });
 });
 
+/**
+ * `GET /api/sites/:siteId/form-submissions/:subId` — Fetch a single form
+ * submission by id with parsed `fields`.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ * @throws 404 NOT_FOUND when the submission doesn't exist on that site.
+ */
 aiAdmin.get('/api/sites/:siteId/form-submissions/:subId', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -122,6 +168,20 @@ aiAdmin.get('/api/sites/:siteId/form-submissions/:subId', async (c) => {
   });
 });
 
+/**
+ * `GET /api/sites/:siteId/ai-logs?kind=&limit=` — List recent AI trace rows
+ * for a site (LLM calls, tool calls, router decisions).
+ *
+ * @remarks
+ * `kind` optionally filters by `trace_kind` (`router`, `chat`, `endpoint`,
+ * etc.); `limit` is clamped to 1000 and defaults to 200. Each row is a
+ * lightweight summary with `output_preview` truncated to 200 chars.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ *
+ * @see {@link aiAdmin.get('/api/sites/:siteId/ai-logs/:logId')}
+ */
 aiAdmin.get('/api/sites/:siteId/ai-logs', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -147,6 +207,14 @@ aiAdmin.get('/api/sites/:siteId/ai-logs', async (c) => {
   return c.json({ data: rows.results ?? [] });
 });
 
+/**
+ * `GET /api/sites/:siteId/ai-logs/:logId` — Fetch a single AI trace row
+ * including full input/output text and timing breakdown.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ * @throws 404 NOT_FOUND when the log row doesn't exist on that site.
+ */
 aiAdmin.get('/api/sites/:siteId/ai-logs/:logId', async (c) => {
   const { orgId } = need(c);
   await siteOwned(c, orgId, c.req.param('siteId'));
@@ -161,6 +229,17 @@ aiAdmin.get('/api/sites/:siteId/ai-logs/:logId', async (c) => {
 
 /* ────────────────────────── AI Chat Context Files ────────────────────────── */
 
+/**
+ * `GET /api/sites/:siteId/ai-chat/context-files` — List uploaded context
+ * files indexed into the site's AI chat knowledge base.
+ *
+ * @remarks
+ * Returns file metadata + `text_chars` (extracted text length) but never
+ * the file body itself. Order is most-recent first.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ */
 aiAdmin.get('/api/sites/:siteId/ai-chat/context-files', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -175,6 +254,24 @@ aiAdmin.get('/api/sites/:siteId/ai-chat/context-files', async (c) => {
   return c.json({ data: rows.results ?? [] });
 });
 
+/**
+ * `POST /api/sites/:siteId/ai-chat/context-files` — Upload a context file
+ * (multipart/form-data) for the site's AI chat knowledge base.
+ *
+ * @remarks
+ * Body must be `multipart/form-data` with a `file` field (max 5 MB) and
+ * optional `description`. The file body lands in R2 at
+ * `ai-context/{siteId}/{id}-{filename}`; text files are also extracted
+ * inline up to 60k chars for prompt embedding. Writes an audit-log entry
+ * on success.
+ *
+ * Response: `{ data: { id, filename, size_bytes, indexed } }` (HTTP 201)
+ *
+ * @throws 400 BAD_REQUEST when content-type isn't multipart, when no file
+ *   field is provided, or when the file exceeds 5 MB.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ */
 aiAdmin.post('/api/sites/:siteId/ai-chat/context-files', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -220,6 +317,19 @@ aiAdmin.post('/api/sites/:siteId/ai-chat/context-files', async (c) => {
   return c.json({ data: { id, filename: file.name, size_bytes: file.size, indexed: !!extracted } }, 201);
 });
 
+/**
+ * `DELETE /api/sites/:siteId/ai-chat/context-files/:fileId` — Remove a
+ * context file from the AI chat knowledge base.
+ *
+ * @remarks
+ * Best-effort deletes the R2 object then the D1 row, and writes an audit
+ * entry. R2 failures are swallowed so an orphaned object never blocks the
+ * D1 cleanup.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ * @throws 404 NOT_FOUND when the file id doesn't exist on that site.
+ */
 aiAdmin.delete('/api/sites/:siteId/ai-chat/context-files/:fileId', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -252,6 +362,19 @@ aiAdmin.delete('/api/sites/:siteId/ai-chat/context-files/:fileId', async (c) => 
 
 /* ────────────────────────── AI Site Settings (router prompt + chat + contact) ────────────────────────── */
 
+/**
+ * `GET /api/sites/:siteId/ai-settings` — Fetch the per-site AI router prompt,
+ * chat persona, contact email and Google Drive connection state.
+ *
+ * @remarks
+ * Returns sane defaults from {@link DEFAULT_ROUTER_PROMPT} and
+ * {@link DEFAULT_CHAT_SYSTEM_PROMPT} when the row has never been written,
+ * plus a `drive_connected` boolean derived from whether an encrypted access
+ * token is on file (never returns the token itself).
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ */
 aiAdmin.get('/api/sites/:siteId/ai-settings', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -292,6 +415,19 @@ aiAdmin.get('/api/sites/:siteId/ai-settings', async (c) => {
   });
 });
 
+/**
+ * `PUT /api/sites/:siteId/ai-settings` — Update the per-site AI settings
+ * (router prompt, chat persona, contact email, web-research toggle, etc.).
+ *
+ * @remarks
+ * Body accepts any subset of: `chat_persona`, `chat_system_prompt`,
+ * `form_router_prompt`, `reply_email`, `contact_email`, `brand_tone`,
+ * `search_synonyms_json`, `allow_web_research`. Performs an upsert and
+ * writes an audit entry on success.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ */
 aiAdmin.put('/api/sites/:siteId/ai-settings', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -346,6 +482,14 @@ aiAdmin.put('/api/sites/:siteId/ai-settings', async (c) => {
 
 /* ────────────────────────── AI Endpoints CRUD ────────────────────────── */
 
+/**
+ * `GET /api/sites/:siteId/ai-endpoints/:endpointId` — Fetch a single AI
+ * endpoint definition including source files, language, and deploy status.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ * @throws 404 NOT_FOUND when the endpoint id doesn't exist on that site.
+ */
 aiAdmin.get('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -373,6 +517,13 @@ aiAdmin.get('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
   });
 });
 
+/**
+ * `GET /api/sites/:siteId/ai-endpoints` — List AI endpoints registered on
+ * the site (without source bodies) with deploy + auth mode summary.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ */
 aiAdmin.get('/api/sites/:siteId/ai-endpoints', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -396,6 +547,21 @@ aiAdmin.get('/api/sites/:siteId/ai-endpoints', async (c) => {
   });
 });
 
+/**
+ * `POST /api/sites/:siteId/ai-endpoints` — Create a new AI endpoint with
+ * starter files for the chosen language.
+ *
+ * @remarks
+ * Body accepts `name`, `slug` (auto-normalised), `description`,
+ * `language` (must be in {@link SUPPORTED_LANGUAGES}), `auth_mode`, and
+ * optional starter `files`. Defaults are pulled from
+ * {@link LANGUAGE_STARTERS}. Writes an audit entry on success.
+ *
+ * @throws 400 BAD_REQUEST when the language is unsupported or the slug
+ *   collides with an existing endpoint on the site.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ */
 aiAdmin.post('/api/sites/:siteId/ai-endpoints', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -485,6 +651,19 @@ aiAdmin.post('/api/sites/:siteId/ai-endpoints', async (c) => {
   }, 201);
 });
 
+/**
+ * `PUT /api/sites/:siteId/ai-endpoints/:endpointId` — Update an existing
+ * AI endpoint's metadata, files, or auth mode.
+ *
+ * @remarks
+ * Body accepts any subset of `name`, `description`, `auth_mode`, `files`,
+ * `enabled`. Source-file edits invalidate the deployed Worker until the
+ * next `/deploy` call. Writes an audit entry on success.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ * @throws 404 NOT_FOUND when the endpoint id doesn't exist on that site.
+ */
 aiAdmin.put('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -703,6 +882,19 @@ aiAdmin.post('/api/sites/:siteId/ai-endpoints/:endpointId/ai-helper', async (c) 
   });
 });
 
+/**
+ * `DELETE /api/sites/:siteId/ai-endpoints/:endpointId` — Remove an AI
+ * endpoint and tear down its dispatched Worker.
+ *
+ * @remarks
+ * Calls {@link deleteUserWorker} to remove the WfP namespace deployment
+ * (failures are swallowed so a stale Worker never blocks the D1 cleanup)
+ * then deletes the row and writes an audit entry.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ * @throws 404 NOT_FOUND when the endpoint id doesn't exist on that site.
+ */
 aiAdmin.delete('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -735,6 +927,18 @@ aiAdmin.delete('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
 
 /* ────────────────────────── AI Credits + Spend Alerts ────────────────────────── */
 
+/**
+ * `GET /api/billing/credits` — Fetch the caller's org credit balance and
+ * recent ledger entries.
+ *
+ * @remarks
+ * Returns `{ balance, ledger[], bundles: CREDIT_BUNDLES }` for rendering
+ * a topup dialog. Ledger is capped at the last 50 entries.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ *
+ * @see {@link aiAdmin.post('/api/billing/credits/topup')}
+ */
 aiAdmin.get('/api/billing/credits', async (c) => {
   const { orgId } = need(c);
   const balance = await getBalance(c.env, orgId);
@@ -753,6 +957,18 @@ aiAdmin.get('/api/billing/credits', async (c) => {
   });
 });
 
+/**
+ * `POST /api/billing/credits/topup` — Start a Stripe Checkout session for
+ * one of the predefined credit bundles.
+ *
+ * @remarks
+ * Body: `{ bundle: BundleKey }` keyed into {@link CREDIT_BUNDLES}. Returns
+ * a checkout URL the frontend redirects to. Idempotent per checkout
+ * session id. Stripe webhook completes the {@link topupCredits} call.
+ *
+ * @throws 400 BAD_REQUEST when `bundle` is missing or unknown.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 aiAdmin.post('/api/billing/credits/topup', async (c) => {
   const { orgId, userId } = need(c);
   const { bundle } = (await c.req.json()) as { bundle: BundleKey };
@@ -822,6 +1038,16 @@ aiAdmin.post('/api/billing/credits/topup', async (c) => {
 // removed in this turn so the only spend-alert surface is the canonical one
 // in `api.ts`. See `apps/project-sites/src/routes/api.ts` § Spend Alerts.
 
+/**
+ * `GET /api/billing/site-costs` — Per-site rollup of credit spend over the
+ * last 30 days.
+ *
+ * @remarks
+ * Aggregates `ai_form_logs.credits_debited` grouped by `site_id` for the
+ * caller's org. Used by the billing dashboard to flag runaway sites.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 aiAdmin.get('/api/billing/site-costs', async (c) => {
   const { orgId } = need(c);
   const sinceDay = c.req.query('since') ?? new Date(Date.now() - 30 * 86400 * 1000).toISOString().slice(0, 10);
@@ -854,6 +1080,17 @@ aiAdmin.get('/api/billing/site-costs', async (c) => {
 
 /* ────────────────────────── MCP connections (list + disconnect) ────────────────────────── */
 
+/**
+ * `GET /api/sites/:siteId/mcp/connections` — List MCP (Model Context
+ * Protocol) provider connections for a site.
+ *
+ * @remarks
+ * Returns one row per provider (Mailchimp, Stripe, HubSpot, GitHub, …) with
+ * connection status + last-sync timestamp. Never returns access tokens.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ */
 aiAdmin.get('/api/sites/:siteId/mcp/connections', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -875,6 +1112,14 @@ aiAdmin.get('/api/sites/:siteId/mcp/connections', async (c) => {
   });
 });
 
+/**
+ * `DELETE /api/sites/:siteId/mcp/connections/:id` — Revoke an MCP provider
+ * connection and clear its encrypted tokens.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ * @throws 404 NOT_FOUND when the connection id doesn't exist on that site.
+ */
 aiAdmin.delete('/api/sites/:siteId/mcp/connections/:id', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -909,6 +1154,11 @@ aiAdmin.delete('/api/sites/:siteId/mcp/connections/:id', async (c) => {
 
 /* ────────────────────────── Team (Settings → Team) ────────────────────────── */
 
+/**
+ * `GET /api/team` — List active members + pending invites for the caller's org.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 aiAdmin.get('/api/team', async (c) => {
   const { orgId } = need(c);
   const members = await c.env.DB.prepare(
@@ -927,6 +1177,18 @@ aiAdmin.get('/api/team', async (c) => {
   return c.json({ data: { members: members.results ?? [], invites: invites.results ?? [] } });
 });
 
+/**
+ * `POST /api/team/invites` — Invite a new member to the caller's org.
+ *
+ * @remarks
+ * Body: `{ email, role }`. Generates a one-shot invite token and sends a
+ * magic-link email via Resend. Audit-logged. Idempotent on `(org, email)`
+ * — re-invites refresh the token rather than creating duplicates.
+ *
+ * @throws 400 BAD_REQUEST when email is invalid or role is unknown.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 409 CONFLICT when the email already belongs to the org.
+ */
 aiAdmin.post('/api/team/invites', async (c) => {
   const { orgId, userId } = need(c);
   const { email, role } = (await c.req.json()) as { email: string; role: 'owner' | 'editor' | 'viewer' };
@@ -975,6 +1237,12 @@ aiAdmin.post('/api/team/invites', async (c) => {
   return c.json({ data: { id, token } }, 201);
 });
 
+/**
+ * `DELETE /api/team/invites/:id` — Cancel a pending team invite.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the invite id doesn't exist for the caller's org.
+ */
 aiAdmin.delete('/api/team/invites/:id', async (c) => {
   const { orgId } = need(c);
   const inviteId = c.req.param('id');
@@ -1001,6 +1269,18 @@ aiAdmin.delete('/api/team/invites/:id', async (c) => {
   return c.json({ data: { revoked: true } });
 });
 
+/**
+ * `DELETE /api/team/members/:userId` — Remove a member from the caller's org.
+ *
+ * @remarks
+ * Soft-deletes the `memberships` row. The user keeps their account but
+ * loses access to org resources. Audit-logged. The org's last admin
+ * cannot be removed.
+ *
+ * @throws 400 BAD_REQUEST when removing the last admin.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the userId isn't a current member.
+ */
 aiAdmin.delete('/api/team/members/:userId', async (c) => {
   const { orgId } = need(c);
   const targetUserId = c.req.param('userId');
@@ -1045,6 +1325,17 @@ aiAdmin.delete('/api/team/members/:userId', async (c) => {
 // Public, unauthenticated — the admin SPA fires this on every route change.
 // Records one Analytics Engine data point. Seeds a sentinel visit on first
 // hit so the Analytics page always shows ≥ 1 visit out of the box.
+/**
+ * `POST /api/analytics/track` — Record a tenant-scoped analytics event
+ * (CF Analytics + PostHog server-side).
+ *
+ * @remarks
+ * Body: `{ event, properties? }`. Tagged with `org_id` + `user_id` for
+ * cross-tenant isolation. Fire-and-forget; failures never block the
+ * response.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 aiAdmin.post('/api/analytics/track', async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { route?: string; site_id?: string };
   const orgId = (c.get('orgId') as string | undefined) ?? 'anonymous';
@@ -1060,6 +1351,16 @@ aiAdmin.post('/api/analytics/track', async (c) => {
   return c.json({ data: { tracked: true } });
 });
 
+/**
+ * `GET /api/analytics/overview` — Rolling analytics summary (last 7 + 30
+ * days) for the caller's org.
+ *
+ * @remarks
+ * Pulls counts from CF Analytics + funnel events from D1 via
+ * {@link loadOverview}. Used by the admin dashboard tiles.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 aiAdmin.get('/api/analytics/overview', async (c) => {
   const { orgId } = need(c);
   // Seed at least one visit so the page never reads empty on first load.
@@ -1083,6 +1384,16 @@ aiAdmin.get('/api/analytics/overview', async (c) => {
   }
 });
 
+/**
+ * `GET /api/audit/rows` — Paginated audit log feed for the caller's org.
+ *
+ * @remarks
+ * Query params: `limit` (default 100, max 500), `action`, `actor_id`,
+ * `target_type`, `from`, `to` (ISO timestamps). Append-only — audit rows
+ * are never editable or deletable through this surface.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 aiAdmin.get('/api/audit/rows', async (c) => {
   const { orgId } = need(c);
   const limit = Math.min(Number(c.req.query('limit') ?? 500), 5000);
@@ -1104,6 +1415,18 @@ aiAdmin.get('/api/audit/rows', async (c) => {
 // Email link is /admin/accept-invite?token=…; the frontend POSTs back here.
 // We rehash the raw token, find the pending invite row, ensure the caller's
 // user matches the invite email, then insert a membership.
+/**
+ * `POST /api/team/invites/accept` — Accept a pending team invite via token.
+ *
+ * @remarks
+ * Body: `{ token }`. Creates a membership row joining the caller (the
+ * authenticated session user) into the invited org with the role set on
+ * the invite. One-shot — the invite token is consumed regardless of
+ * outcome.
+ *
+ * @throws 400 BAD_REQUEST when the token is missing, expired or already used.
+ * @throws 401 UNAUTHORIZED when the caller isn't signed in.
+ */
 aiAdmin.post('/api/team/invites/accept', async (c) => {
   const { userId } = need(c);
   const body = (await c.req.json().catch(() => ({}))) as { token?: string };
@@ -1162,6 +1485,13 @@ aiAdmin.get('/api/admin/security', async (c) => {
     data: row ?? { session_hours: 168, idle_minutes: 60, allowed_domains: null, require_2fa: 0, updated_at: null },
   });
 });
+/**
+ * `PUT /api/admin/security` — Update the caller org's security settings
+ * (SSO enforcement, IP allowlist, session TTL).
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the caller isn't an org admin.
+ */
 aiAdmin.put('/api/admin/security', async (c) => {
   const { orgId } = need(c);
   const body = (await c.req.json().catch(() => ({}))) as {
@@ -1189,6 +1519,18 @@ aiAdmin.put('/api/admin/security', async (c) => {
 // Field type controls the rewrite goal: persona = one-line voice note; system =
 // detailed instruction set. Always reads + sends the current contact_email +
 // brand_tone so the rewrite stays in voice.
+/**
+ * `POST /api/sites/:siteId/ai-settings/improve` — Ask the AI to rewrite the
+ * site's chat persona / router prompt for tone or coverage gaps.
+ *
+ * @remarks
+ * Body: `{ target: 'persona' | 'router', instruction?: string }`. Calls
+ * Workers AI Llama 3.3 70B with the existing prompt as seed and returns
+ * the improved version for the user to accept before saving.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ */
 aiAdmin.post('/api/sites/:siteId/ai-settings/improve', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
@@ -1317,6 +1659,13 @@ aiAdmin.post('/api/admin/org/export', async (c) => {
   return c.json({ data: { id, status: 'queued', poll: `/api/admin/org/export/${id}` } });
 });
 
+/**
+ * `GET /api/admin/org/export/:id` — Poll status of a long-running org
+ * data export job.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the export id doesn't belong to the caller's org.
+ */
 aiAdmin.get('/api/admin/org/export/:id', async (c) => {
   const { orgId } = need(c);
   const row = await c.env.DB.prepare(
@@ -1335,6 +1684,19 @@ aiAdmin.get('/api/admin/org/export/:id', async (c) => {
   });
 });
 
+/**
+ * `GET /api/admin/org/export/:id/download` — Stream the org export ZIP
+ * back to the caller once the job is complete.
+ *
+ * @remarks
+ * Returns `application/zip` with `Content-Disposition: attachment`.
+ * Export artifacts live in R2 under `exports/{org_id}/{id}.zip` and are
+ * lifecycle-purged after 30 days.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the export id doesn't belong to the caller's org.
+ * @throws 409 CONFLICT when the export is still in-progress.
+ */
 aiAdmin.get('/api/admin/org/export/:id/download', async (c) => {
   const { orgId } = need(c);
   const row = await c.env.DB.prepare(
@@ -1361,6 +1723,16 @@ async function hashApiKey(secret: string): Promise<string> {
   return Array.from(new Uint8Array(bytes)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * `GET /api/admin/api-keys` — List org-scoped API keys (`psk_live_*`,
+ * `psk_test_*`) without secret bodies.
+ *
+ * @remarks
+ * Returns name, prefix, created_by, last_used_at, revoked_at. The raw
+ * secret is only ever returned once at creation time.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 aiAdmin.get('/api/admin/api-keys', async (c) => {
   const { orgId } = need(c);
   const rows = await c.env.DB.prepare(
@@ -1376,6 +1748,16 @@ aiAdmin.get('/api/admin/api-keys', async (c) => {
   });
 });
 
+/**
+ * `POST /api/admin/api-keys` — Mint a new org-scoped API key.
+ *
+ * @remarks
+ * Body: `{ name, expires_at? }`. Returns `{ key: 'psk_live_…' }` exactly
+ * once — the raw secret is only ever stored as SHA-256 in D1. Audit-logged.
+ *
+ * @throws 400 BAD_REQUEST when name is missing.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 aiAdmin.post('/api/admin/api-keys', async (c) => {
   const { orgId, userId } = need(c);
   const body = (await c.req.json().catch(() => ({}))) as { name?: string; scopes?: string[]; expires_in_days?: number };
@@ -1405,6 +1787,16 @@ aiAdmin.post('/api/admin/api-keys', async (c) => {
   }, 201);
 });
 
+/**
+ * `DELETE /api/admin/api-keys/:id` — Revoke an org-scoped API key.
+ *
+ * @remarks
+ * Sets `revoked_at = now()`; subsequent requests with that key fail auth.
+ * Audit-logged.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the key id doesn't belong to the caller's org.
+ */
 aiAdmin.delete('/api/admin/api-keys/:id', async (c) => {
   const { orgId } = need(c);
   await c.env.DB.prepare(
@@ -1417,6 +1809,12 @@ aiAdmin.delete('/api/admin/api-keys/:id', async (c) => {
 // Settings → Domains needs to see every hostname across the org without the
 // user having to click into each site. This endpoint joins sites + hostnames
 // so the page can render the full picture and inline-act on any row.
+/**
+ * `GET /api/admin/domains` — List custom hostnames + their CF for SaaS
+ * provisioning status across the caller's org.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 aiAdmin.get('/api/admin/domains', async (c) => {
   const { orgId } = need(c);
   const sites = await c.env.DB.prepare(
@@ -1446,6 +1844,17 @@ aiAdmin.get('/api/admin/domains', async (c) => {
 // status badge. POST kicks off a verification round-trip against the CF
 // API using whatever auth the worker already has (scoped token preferred,
 // global key fallback) so we know the dashboard view matches reality.
+/**
+ * `GET /api/admin/cloudflare/status` — Probe the Cloudflare account
+ * configuration that powers the caller's org.
+ *
+ * @remarks
+ * Verifies API token reachability, Zone, Worker, R2 bucket, D1 binding,
+ * and Workers AI access. Used by the onboarding wizard to gate the
+ * "Setup Cloudflare" step.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 aiAdmin.get('/api/admin/cloudflare/status', async (c) => {
   need(c);
   const env = c.env as Env & {
@@ -1471,6 +1880,20 @@ aiAdmin.get('/api/admin/cloudflare/status', async (c) => {
   });
 });
 
+/**
+ * `POST /api/admin/cloudflare/auto-setup` — Run the auto-provisioning
+ * flow that creates the R2 bucket, KV namespace, D1 database, and Workers
+ * AI binding for the caller's org.
+ *
+ * @remarks
+ * Body: `{ cf_api_token, cf_account_id }`. Encrypts the token via
+ * {@link aiCrypto} before persisting. Idempotent — re-running checks
+ * existing resources before creating new ones. Audit-logged.
+ *
+ * @throws 400 BAD_REQUEST when the token doesn't match the account or
+ *   lacks the required permission groups.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 aiAdmin.post('/api/admin/cloudflare/auto-setup', async (c) => {
   need(c);
   const env = c.env as Env & {
@@ -1547,6 +1970,19 @@ aiAdmin.post('/api/admin/cloudflare/auto-setup', async (c) => {
 /* ────────────────────────── Admin AI Chat (bottom-right widget) ────────────────────────── */
 // Streams a single completion using the org's chat persona + system prompt.
 // Used by the floating AI chat widget on every /admin page.
+/**
+ * `POST /api/admin/ai-chat` — Dashboard AI assistant single-turn endpoint.
+ *
+ * @remarks
+ * Body: `{ messages: Array<{role, content}>, site_id? }`. Uses Workers AI
+ * with the {@link DASHBOARD_PERSONA_SYSTEM_PROMPT}. Site context is
+ * scoped to the caller's org when `site_id` is supplied.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ *
+ * @see {@link aiAdmin.post('/api/admin/ai/stream/chat')} for the streaming
+ *   variant used by the live dashboard chat.
+ */
 aiAdmin.post('/api/admin/ai-chat', async (c) => {
   const { orgId } = need(c);
   const body = (await c.req.json().catch(() => ({}))) as {
@@ -1599,6 +2035,18 @@ aiAdmin.get('/api/sites/:siteId/credit-cap', async (c) => {
   return c.json({ data: row ?? { site_id: c.req.param('siteId'), monthly_credit_cap: null } });
 });
 
+/**
+ * `PUT /api/sites/:siteId/credit-cap` — Set the monthly credit cap for a
+ * single site.
+ *
+ * @remarks
+ * Body: `{ cap: number | null }`. `null` removes the cap. Caps are soft
+ * — exceeding them disables AI features until the next month rolls over
+ * or the cap is raised.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ */
 aiAdmin.put('/api/sites/:siteId/credit-cap', async (c) => {
   const { orgId } = need(c);
   const body = (await c.req.json().catch(() => ({}))) as { monthly_credit_cap?: number | null };
@@ -1634,6 +2082,12 @@ aiAdmin.post('/api/team/transfer', async (c) => {
   return c.json({ data: { id, to_email: toEmail, status: 'pending', expires_in_days: 14 } });
 });
 
+/**
+ * `GET /api/team/transfer` — List pending ownership-transfer requests
+ * for the caller's org.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 aiAdmin.get('/api/team/transfer', async (c) => {
   const { orgId } = need(c);
   const rows = await c.env.DB.prepare(
@@ -1643,6 +2097,13 @@ aiAdmin.get('/api/team/transfer', async (c) => {
   return c.json({ data: rows.results ?? [] });
 });
 
+/**
+ * `DELETE /api/team/transfer/:id` — Cancel a pending ownership-transfer
+ * request before the recipient accepts it.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the transfer id doesn't belong to the caller's org.
+ */
 aiAdmin.delete('/api/team/transfer/:id', async (c) => {
   const { orgId } = need(c);
   await c.env.DB.prepare(
@@ -2416,6 +2877,17 @@ const EDITOR_TOOL_SURFACE: { name: string; description: string }[] = [
   { name: 'replaceSelection', description: 'replaceSelection({"text":"…"}) — replaces the active selection. Always run getSelection first.' },
 ];
 
+/**
+ * `POST /api/admin/ai/stream/chat` — Streaming dashboard AI chat over SSE.
+ *
+ * @remarks
+ * Body: `{ messages: Array<{role, content}>, site_id? }`. Returns a
+ * `text/event-stream` of chunked tokens from Workers AI Llama 3.3 70B
+ * with {@link DASHBOARD_PERSONA_SYSTEM_PROMPT} system message. Site
+ * context (research, AI logs) is injected when `site_id` is supplied.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 aiAdmin.post('/api/admin/ai/stream/chat', async (c) => {
   const { orgId, userId } = need(c);
   const body = (await c.req.json().catch(() => ({}))) as {

@@ -40,6 +40,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -224,7 +225,7 @@ const PLATFORMS: readonly PlatformDef[] = [
   selector: 'app-admin-social',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RevealDirective, RollingCounterComponent],
+  imports: [CommonModule, FormsModule, RevealDirective, RollingCounterComponent, DialogShellComponent],
   template: `
 <div class="social-wrap" [class.is-loading]="loading()">
 
@@ -243,6 +244,34 @@ const PLATFORMS: readonly PlatformDef[] = [
         </span>
       </h1>
       <p class="hdr-sub">Compose once. Tailor per network. Schedule, queue, measure.</p>
+      <div class="auto-pilot-row" role="group" aria-label="Auto-Pilot controls">
+        <label class="auto-pilot-toggle" [class.is-on]="autoPilotEnabled()" [class.is-busy]="autoPilotSaving()">
+          <input
+            type="checkbox"
+            [checked]="autoPilotEnabled()"
+            (change)="setAutoPilot($any($event.target).checked)"
+            [disabled]="autoPilotSaving()"
+            aria-label="Toggle Auto-Pilot" />
+          <span class="auto-pilot-toggle__track">
+            <span class="auto-pilot-toggle__dot"></span>
+          </span>
+          <span class="auto-pilot-toggle__label">Auto-Pilot</span>
+          @if (autoPilotEnabled()) {
+            <span class="auto-pilot-toggle__hint">drafts every {{ autoPilotCadenceHours() }}h</span>
+          }
+        </label>
+        <button
+          type="button"
+          class="auto-pilot-btn"
+          (click)="openAutoPilotPrompt()"
+          aria-label="Configure Auto-Pilot prompt"
+          data-testid="social-auto-pilot-prompt-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+          </svg>
+          Auto-Pilot prompt
+        </button>
+      </div>
     </div>
     <nav class="tab-row" role="tablist" aria-label="Pulse Social tabs">
       <button class="tab" role="tab" [class.is-active]="tab() === 'compose'" (click)="tab.set('compose')">Compose</button>
@@ -720,6 +749,118 @@ const PLATFORMS: readonly PlatformDef[] = [
     </aside>
 
   </div>
+
+  <!-- ═══════════════════════ AUTO-PILOT PROMPT DIALOG ═══════════════════════ -->
+  @if (autoPilotDialogOpen()) {
+    <app-dialog-shell (closed)="closeAutoPilotDialog()">
+      <span dialogIcon class="ap-dlg-icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+        </svg>
+      </span>
+      <span dialogTitle>Auto-Pilot prompt</span>
+      <span dialogBadge class="ap-dlg-badge">Drafts only</span>
+
+      <div class="ap-dlg-body">
+        <p class="ap-dlg-blurb">
+          Auto-Pilot autonomously composes posts on a cadence using this system prompt and your business context. Output is saved as a <strong>draft</strong> — you still review and publish manually.
+        </p>
+
+        <label class="ap-dlg-lbl" for="ap-prompt">System prompt</label>
+        <textarea
+          id="ap-prompt"
+          class="ap-dlg-ta"
+          rows="8"
+          [ngModel]="autoPilotPromptDraft()"
+          (ngModelChange)="autoPilotPromptDraft.set($event)"
+          [attr.aria-label]="'Auto-Pilot system prompt'"
+          placeholder="You are an autonomous social media composer for {{ '{{business_name}}' }}…"></textarea>
+        <div class="ap-dlg-help">
+          Variables: <code>{{ '{{business_name}}' }}</code>, <code>{{ '{{business_type}}' }}</code>, <code>{{ '{{brand_voice}}' }}</code>, <code>{{ '{{recent_news}}' }}</code>, <code>{{ '{{target_networks}}' }}</code>.
+          <button type="button" class="ap-dlg-link" (click)="resetAutoPilotPromptToDefault()">Reset to default</button>
+        </div>
+
+        <div class="ap-dlg-grid">
+          <div>
+            <label class="ap-dlg-lbl" for="ap-cadence">Cadence</label>
+            <select
+              id="ap-cadence"
+              class="ap-dlg-input"
+              [ngModel]="autoPilotCadenceDraft()"
+              (ngModelChange)="autoPilotCadenceDraft.set(+$event)"
+              aria-label="Auto-Pilot cadence">
+              <option [ngValue]="6">Every 6 hours</option>
+              <option [ngValue]="12">Every 12 hours</option>
+              <option [ngValue]="24">Every 24 hours</option>
+              <option [ngValue]="48">Every 48 hours</option>
+              <option [ngValue]="168">Weekly</option>
+            </select>
+          </div>
+          <div>
+            <label class="ap-dlg-lbl" for="ap-preview-net">Preview network</label>
+            <select
+              id="ap-preview-net"
+              class="ap-dlg-input"
+              [ngModel]="autoPilotPreviewNetwork()"
+              (ngModelChange)="autoPilotPreviewNetwork.set($event)"
+              aria-label="Preview network">
+              @for (p of platforms; track p.id) {
+                <option [ngValue]="p.id">{{ p.label }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <label class="ap-dlg-lbl">Target networks</label>
+        <div class="ap-dlg-chips" role="group" aria-label="Target networks for Auto-Pilot">
+          @for (p of platforms; track p.id) {
+            <button
+              type="button"
+              class="ap-dlg-chip"
+              [class.is-on]="autoPilotNetworksDraft().includes(p.id)"
+              [style.--brand]="p.color"
+              [attr.aria-pressed]="autoPilotNetworksDraft().includes(p.id)"
+              (click)="toggleAutoPilotNetwork(p.id)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path [attr.d]="p.glyph"/></svg>
+              <span>{{ p.label }}</span>
+            </button>
+          }
+        </div>
+
+        <div class="ap-dlg-preview">
+          <div class="ap-dlg-preview__h">
+            <span>Sample output</span>
+            <button
+              type="button"
+              class="ap-dlg-btn ghost"
+              (click)="previewAutoPilotPost()"
+              [disabled]="autoPilotPreviewing()">
+              {{ autoPilotPreviewing() ? 'Drafting…' : 'Generate preview' }}
+            </button>
+          </div>
+          @if (autoPilotPreviewText()) {
+            <pre class="ap-dlg-preview__body">{{ autoPilotPreviewText() }}</pre>
+            @if (autoPilotPreviewMedia()) {
+              <div class="ap-dlg-preview__media">Suggested media: {{ autoPilotPreviewMedia() }}</div>
+            }
+          } @else {
+            <div class="ap-dlg-preview__empty">Click "Generate preview" to see one sample for {{ defOf(autoPilotPreviewNetwork())?.label }}.</div>
+          }
+        </div>
+      </div>
+
+      <div dialogFooter class="ap-dlg-footer">
+        <button type="button" class="ap-dlg-btn ghost" (click)="closeAutoPilotDialog()">Cancel</button>
+        <button
+          type="button"
+          class="ap-dlg-btn primary"
+          (click)="saveAutoPilotConfig()"
+          [disabled]="autoPilotSaving()">
+          {{ autoPilotSaving() ? 'Saving…' : 'Save' }}
+        </button>
+      </div>
+    </app-dialog-shell>
+  }
 </div>
 `,
   styles: [
@@ -761,6 +902,175 @@ const PLATFORMS: readonly PlatformDef[] = [
       }
       .hdr-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ps-accent, #00e5ff); box-shadow: 0 0 8px var(--ps-accent, #00e5ff); }
       .hdr-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent); font-size: 0.82rem; margin: 0; }
+
+      /* ── Auto-Pilot header controls ── */
+      .auto-pilot-row {
+        display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px;
+      }
+      .auto-pilot-toggle {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 6px 12px; border-radius: 999px; cursor: pointer;
+        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 4%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 80%, transparent);
+        font-size: 0.78rem; font-weight: 600;
+        transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+      }
+      .auto-pilot-toggle:hover {
+        border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent);
+        color: var(--ps-ink, #f4f4ff);
+      }
+      .auto-pilot-toggle.is-on {
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 14%, transparent);
+        border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 40%, transparent);
+        color: var(--ps-accent, #00e5ff);
+      }
+      .auto-pilot-toggle.is-busy { opacity: 0.6; cursor: progress; }
+      .auto-pilot-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+      .auto-pilot-toggle__track {
+        position: relative; width: 28px; height: 16px; border-radius: 999px;
+        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 18%, transparent);
+        transition: background 0.18s ease;
+      }
+      .auto-pilot-toggle.is-on .auto-pilot-toggle__track { background: var(--ps-accent, #00e5ff); }
+      .auto-pilot-toggle__dot {
+        position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%;
+        background: var(--ps-bg, #060610);
+        transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .auto-pilot-toggle.is-on .auto-pilot-toggle__dot { transform: translateX(12px); }
+      .auto-pilot-toggle__hint {
+        font-size: 0.66rem; font-weight: 500;
+        color: color-mix(in oklch, var(--ps-accent, #00e5ff) 70%, var(--ps-ink, #f4f4ff) 30%);
+      }
+      .auto-pilot-toggle input:focus-visible + .auto-pilot-toggle__track {
+        outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px;
+      }
+      .auto-pilot-btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 6px 12px; border-radius: 999px; cursor: pointer; font-family: inherit;
+        font-size: 0.74rem; font-weight: 600;
+        background: transparent;
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 12%, transparent);
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 78%, transparent);
+        transition: all 0.18s ease;
+      }
+      .auto-pilot-btn:hover {
+        color: var(--ps-ink, #f4f4ff);
+        border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 40%, transparent);
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 8%, transparent);
+      }
+      .auto-pilot-btn:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+      @media (prefers-reduced-motion: reduce) {
+        .auto-pilot-toggle, .auto-pilot-toggle__track, .auto-pilot-toggle__dot, .auto-pilot-btn { transition: none !important; }
+      }
+
+      /* ── Auto-Pilot dialog ── */
+      .ap-dlg-icon { color: var(--ps-accent, #00e5ff); display: inline-flex; }
+      .ap-dlg-badge {
+        font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+        padding: 3px 8px; border-radius: 999px;
+        background: color-mix(in oklch, #34d399 16%, transparent); color: #6ee7b7;
+      }
+      .ap-dlg-body { padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; }
+      .ap-dlg-blurb { margin: 0; font-size: 0.82rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 70%, transparent); }
+      .ap-dlg-blurb strong { color: var(--ps-accent, #00e5ff); }
+      .ap-dlg-lbl {
+        display: block; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); margin-bottom: 6px;
+      }
+      .ap-dlg-ta, .ap-dlg-input {
+        width: 100%; box-sizing: border-box;
+        padding: 10px 12px; border-radius: 10px;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
+        color: var(--ps-ink, #f4f4ff); font-family: inherit; font-size: 0.82rem; line-height: 1.5;
+        resize: vertical;
+      }
+      .ap-dlg-ta:focus-visible, .ap-dlg-input:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px;
+        border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 50%, transparent);
+      }
+      .ap-dlg-help {
+        font-size: 0.7rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent);
+        display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+      }
+      .ap-dlg-help code {
+        font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.66rem;
+        padding: 1px 5px; border-radius: 4px;
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 10%, transparent);
+        color: var(--ps-accent, #00e5ff);
+      }
+      .ap-dlg-link {
+        background: none; border: none; cursor: pointer; padding: 0; margin-left: auto;
+        color: var(--ps-accent, #00e5ff); font-size: 0.72rem; font-weight: 600; font-family: inherit;
+        text-decoration: underline;
+      }
+      .ap-dlg-link:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+      .ap-dlg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      @media (max-width: 560px) { .ap-dlg-grid { grid-template-columns: 1fr; } }
+      .ap-dlg-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .ap-dlg-chip {
+        --brand: var(--ps-accent, #00e5ff);
+        display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px;
+        border-radius: 999px; font-family: inherit; font-size: 0.74rem; font-weight: 600; cursor: pointer;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent);
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 65%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
+        transition: all 0.16s ease;
+      }
+      .ap-dlg-chip:hover { color: var(--ps-ink, #f4f4ff); }
+      .ap-dlg-chip.is-on {
+        background: color-mix(in oklch, var(--brand) 16%, transparent);
+        color: var(--brand);
+        border-color: color-mix(in oklch, var(--brand) 45%, transparent);
+      }
+      .ap-dlg-chip:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+      .ap-dlg-preview {
+        display: flex; flex-direction: column; gap: 8px;
+        padding: 12px; border-radius: 12px;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 6%, transparent);
+      }
+      .ap-dlg-preview__h {
+        display: flex; align-items: center; justify-content: space-between;
+        font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent);
+      }
+      .ap-dlg-preview__body {
+        margin: 0; padding: 10px; border-radius: 8px;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 50%, transparent);
+        color: var(--ps-ink, #f4f4ff); font-family: inherit; font-size: 0.82rem; line-height: 1.55;
+        white-space: pre-wrap; word-break: break-word;
+      }
+      .ap-dlg-preview__media {
+        font-size: 0.72rem; color: color-mix(in oklch, var(--ps-accent, #00e5ff) 70%, var(--ps-ink, #f4f4ff) 30%);
+      }
+      .ap-dlg-preview__empty {
+        font-size: 0.78rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 45%, transparent); font-style: italic;
+      }
+      .ap-dlg-footer {
+        display: flex; justify-content: flex-end; gap: 8px;
+        padding: 14px 22px; border-top: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .ap-dlg-btn {
+        padding: 8px 16px; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 0.78rem; font-weight: 600;
+        transition: all 0.16s ease;
+      }
+      .ap-dlg-btn.ghost {
+        background: transparent;
+        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 12%, transparent);
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 78%, transparent);
+      }
+      .ap-dlg-btn.ghost:hover { color: var(--ps-ink, #f4f4ff); border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent); }
+      .ap-dlg-btn.primary {
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 18%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 50%, transparent);
+        color: var(--ps-accent, #00e5ff);
+      }
+      .ap-dlg-btn.primary:hover { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent); }
+      .ap-dlg-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+      .ap-dlg-btn:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
 
       .tab-row {
         display: inline-flex; gap: 4px; padding: 4px;
@@ -1231,6 +1541,22 @@ export class AdminSocialComponent implements OnInit {
   readonly bestTimes = signal<string[]>([]);
   readonly editingId = signal<string | null>(null);
 
+  /* Auto-Pilot */
+  readonly autoPilotEnabled = signal(false);
+  readonly autoPilotPrompt = signal('');
+  readonly autoPilotCadenceHours = signal(24);
+  readonly autoPilotTargetNetworks = signal<PlatformId[]>([]);
+  readonly autoPilotDefaultPrompt = signal('');
+  readonly autoPilotSaving = signal(false);
+  readonly autoPilotDialogOpen = signal(false);
+  readonly autoPilotPromptDraft = signal('');
+  readonly autoPilotCadenceDraft = signal(24);
+  readonly autoPilotNetworksDraft = signal<PlatformId[]>([]);
+  readonly autoPilotPreviewNetwork = signal<PlatformId>('twitter');
+  readonly autoPilotPreviewing = signal(false);
+  readonly autoPilotPreviewText = signal('');
+  readonly autoPilotPreviewMedia = signal('');
+
   /* Hashtag draft */
   hashtagDraft = '';
 
@@ -1310,6 +1636,7 @@ export class AdminSocialComponent implements OnInit {
     });
     this.loadAccounts();
     this.loadPosts();
+    this.loadAutoPilotConfig();
   }
 
   /* ── Listener: cross-window OAuth callback ── */
@@ -1379,6 +1706,151 @@ export class AdminSocialComponent implements OnInit {
       },
       error: () => this.toast.error('Disconnect failed'),
     });
+  }
+
+  /* ── Auto-Pilot ── */
+
+  /**
+   * Hydrate auto-pilot signals from the worker. Silent on failure — the
+   * controls render in their "off" default state, which is the safest UX
+   * for a setting the user can always re-toggle.
+   */
+  private loadAutoPilotConfig(): void {
+    this.api.get<{ data: {
+      enabled: boolean;
+      prompt: string;
+      cadence_hours: number;
+      target_networks: PlatformId[];
+      default_prompt: string;
+    } }>('/social/auto-pilot/config').subscribe({
+      next: (r) => {
+        const d = r?.data;
+        if (!d) return;
+        this.autoPilotEnabled.set(!!d.enabled);
+        this.autoPilotPrompt.set(d.prompt ?? '');
+        this.autoPilotCadenceHours.set(d.cadence_hours ?? 24);
+        this.autoPilotTargetNetworks.set(d.target_networks ?? []);
+        this.autoPilotDefaultPrompt.set(d.default_prompt ?? '');
+      },
+      error: () => {
+        // Backend may not have shipped yet — defaults keep the toggle usable
+      },
+    });
+  }
+
+  /** Persist toggle change immediately (header checkbox UX). */
+  setAutoPilot(enabled: boolean): void {
+    this.autoPilotSaving.set(true);
+    const previous = this.autoPilotEnabled();
+    this.autoPilotEnabled.set(enabled);
+    this.api
+      .post<{ data: { enabled: boolean; cadence_hours: number; target_networks: PlatformId[] } }>(
+        '/social/auto-pilot/config',
+        { enabled },
+      )
+      .subscribe({
+        next: (r) => {
+          if (r?.data) {
+            this.autoPilotEnabled.set(!!r.data.enabled);
+            this.autoPilotCadenceHours.set(r.data.cadence_hours);
+            this.autoPilotTargetNetworks.set(r.data.target_networks);
+          }
+          this.autoPilotSaving.set(false);
+          this.toast.success(enabled ? 'Auto-Pilot on — drafts will appear in the Drafts tab.' : 'Auto-Pilot off.');
+        },
+        error: () => {
+          this.autoPilotEnabled.set(previous);
+          this.autoPilotSaving.set(false);
+          this.toast.error('Auto-Pilot toggle failed');
+        },
+      });
+  }
+
+  /** Open the prompt-editor dialog, copying current settings into draft signals. */
+  openAutoPilotPrompt(): void {
+    this.autoPilotPromptDraft.set(this.autoPilotPrompt() || this.autoPilotDefaultPrompt());
+    this.autoPilotCadenceDraft.set(this.autoPilotCadenceHours());
+    this.autoPilotNetworksDraft.set([...this.autoPilotTargetNetworks()]);
+    if (this.autoPilotTargetNetworks().length > 0) {
+      this.autoPilotPreviewNetwork.set(this.autoPilotTargetNetworks()[0]);
+    }
+    this.autoPilotPreviewText.set('');
+    this.autoPilotPreviewMedia.set('');
+    this.autoPilotDialogOpen.set(true);
+  }
+
+  closeAutoPilotDialog(): void {
+    this.autoPilotDialogOpen.set(false);
+  }
+
+  resetAutoPilotPromptToDefault(): void {
+    this.autoPilotPromptDraft.set(this.autoPilotDefaultPrompt());
+  }
+
+  toggleAutoPilotNetwork(pid: PlatformId): void {
+    this.autoPilotNetworksDraft.update((nets) =>
+      nets.includes(pid) ? nets.filter((n) => n !== pid) : [...nets, pid],
+    );
+    if (!this.autoPilotNetworksDraft().includes(this.autoPilotPreviewNetwork())) {
+      const first = this.autoPilotNetworksDraft()[0];
+      if (first) this.autoPilotPreviewNetwork.set(first);
+    }
+  }
+
+  previewAutoPilotPost(): void {
+    if (this.autoPilotPreviewing()) return;
+    this.autoPilotPreviewing.set(true);
+    this.autoPilotPreviewText.set('');
+    this.autoPilotPreviewMedia.set('');
+    this.api
+      .post<{ data: { text: string; mediaSuggestion?: string } }>('/social/auto-pilot/preview', {
+        network: this.autoPilotPreviewNetwork(),
+        prompt: this.autoPilotPromptDraft(),
+      })
+      .subscribe({
+        next: (r) => {
+          this.autoPilotPreviewText.set(r?.data?.text ?? '');
+          this.autoPilotPreviewMedia.set(r?.data?.mediaSuggestion ?? '');
+          this.autoPilotPreviewing.set(false);
+        },
+        error: () => {
+          this.autoPilotPreviewing.set(false);
+          this.toast.error('Preview failed — check that an AI provider is configured.');
+        },
+      });
+  }
+
+  saveAutoPilotConfig(): void {
+    if (this.autoPilotSaving()) return;
+    this.autoPilotSaving.set(true);
+    this.api
+      .post<{ data: {
+        enabled: boolean;
+        prompt: string;
+        cadence_hours: number;
+        target_networks: PlatformId[];
+      } }>('/social/auto-pilot/config', {
+        prompt: this.autoPilotPromptDraft(),
+        cadence_hours: this.autoPilotCadenceDraft(),
+        target_networks: this.autoPilotNetworksDraft(),
+      })
+      .subscribe({
+        next: (r) => {
+          const d = r?.data;
+          if (d) {
+            this.autoPilotPrompt.set(d.prompt);
+            this.autoPilotCadenceHours.set(d.cadence_hours);
+            this.autoPilotTargetNetworks.set(d.target_networks);
+          }
+          this.autoPilotSaving.set(false);
+          this.autoPilotDialogOpen.set(false);
+          this.toast.success('Auto-Pilot prompt saved.');
+        },
+        error: () => {
+          this.autoPilotSaving.set(false);
+          this.toast.error('Save failed');
+        },
+      });
   }
 
   /* ── Composer state ── */

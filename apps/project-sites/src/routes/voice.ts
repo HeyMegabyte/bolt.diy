@@ -96,6 +96,18 @@ const searchQuery = z.object({
   limit: z.coerce.number().int().min(1).max(30).optional(),
 });
 
+/**
+ * `GET /api/voice/numbers/search?contains=&areaCode=&country=&limit=` —
+ * Search available Twilio phone numbers.
+ *
+ * @remarks
+ * Proxies {@link searchAvailableNumbers}. Inputs validated against
+ * {@link searchQuery}.
+ *
+ * @throws 400 BAD_REQUEST when query validation fails.
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 501 NOT_IMPLEMENTED when Twilio isn't configured on this worker.
+ */
 voiceRoutes.get('/api/voice/numbers/search', async (c) => {
   requireAuth(c);
   if (!isTwilioConfigured(c.env)) throw notConfigured();
@@ -120,6 +132,17 @@ voiceRoutes.get('/api/voice/numbers/search', async (c) => {
 
 // ─── vanity suggestions ─────────────────────────────────────────
 
+/**
+ * `GET /api/voice/vanity-suggestions?site_id=` — AI-suggested vanity-number
+ * dial words for a site (e.g., 1-800-FLOWERS).
+ *
+ * @remarks
+ * Calls {@link suggestVanityWords} with the site's business profile.
+ *
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ * @throws 404 NOT_FOUND when site doesn't exist.
+ */
 voiceRoutes.get('/api/voice/vanity-suggestions', async (c) => {
   const { orgId } = requireAuth(c);
   const siteId = c.req.query('siteId');
@@ -143,6 +166,21 @@ const purchaseBody = z.object({
   vanityWord: z.string().regex(/^[A-Za-z]{3,7}$/).optional(),
 });
 
+/**
+ * `POST /api/voice/numbers/purchase` — Buy a Twilio phone number for a site.
+ *
+ * @remarks
+ * Body: `{ site_id, phone_number, vanity_word? }`. Enforces the
+ * 3-numbers-per-site cap. Wires Twilio webhooks to `/webhooks/voice/*`
+ * + `/webhooks/sms/*` on the public host. Audit-logged.
+ *
+ * @throws 400 BAD_REQUEST when payload missing required fields.
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ * @throws 404 NOT_FOUND when site doesn't exist.
+ * @throws 409 CONFLICT when site already owns 3 numbers.
+ * @throws 501 NOT_IMPLEMENTED when Twilio isn't configured on this worker.
+ */
 voiceRoutes.post('/api/voice/numbers/purchase', async (c) => {
   const { userId, orgId } = requireAuth(c);
   if (!isTwilioConfigured(c.env)) throw notConfigured();
@@ -223,6 +261,13 @@ voiceRoutes.post('/api/voice/numbers/purchase', async (c) => {
 
 // ─── list numbers ───────────────────────────────────────────────
 
+/**
+ * `GET /api/voice/numbers?site_id=` — List phone numbers owned by a site.
+ *
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ * @throws 404 NOT_FOUND when site doesn't exist.
+ */
 voiceRoutes.get('/api/voice/numbers', async (c) => {
   const { orgId } = requireAuth(c);
   const siteId = c.req.query('siteId');
@@ -243,6 +288,18 @@ voiceRoutes.get('/api/voice/numbers', async (c) => {
 
 // ─── release ────────────────────────────────────────────────────
 
+/**
+ * `DELETE /api/voice/numbers/:id` — Release a phone number back to Twilio
+ * and remove it from the site.
+ *
+ * @remarks
+ * Calls {@link releaseNumber} then deletes the row. Audit-logged.
+ *
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 403 FORBIDDEN when number isn't in the caller's org.
+ * @throws 404 NOT_FOUND when number id doesn't exist.
+ * @throws 501 NOT_IMPLEMENTED when Twilio isn't configured on this worker.
+ */
 voiceRoutes.delete('/api/voice/numbers/:id', async (c) => {
   const { userId, orgId } = requireAuth(c);
   const id = c.req.param('id');
@@ -301,6 +358,13 @@ voiceRoutes.delete('/api/voice/numbers/:id', async (c) => {
 
 // ─── unified conversation timeline ──────────────────────────────
 
+/**
+ * `GET /api/voice/conversations?site_id=&kind=&limit=` — List recent
+ * conversations (calls + SMS threads) for a site.
+ *
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ */
 voiceRoutes.get('/api/voice/conversations', async (c) => {
   const { orgId } = requireAuth(c);
   const siteId = c.req.query('siteId');
@@ -345,6 +409,14 @@ voiceRoutes.get('/api/voice/conversations', async (c) => {
 
 // ─── call detail ────────────────────────────────────────────────
 
+/**
+ * `GET /api/voice/calls/:id` — Fetch a single call with transcript +
+ * sentiment + intent breakdown.
+ *
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 403 FORBIDDEN when call isn't in the caller's org.
+ * @throws 404 NOT_FOUND when call id doesn't exist.
+ */
 voiceRoutes.get('/api/voice/calls/:id', async (c) => {
   const { orgId } = requireAuth(c);
   const id = c.req.param('id');
@@ -367,6 +439,19 @@ voiceRoutes.get('/api/voice/calls/:id', async (c) => {
 
 // ─── recording stream (range-aware R2 proxy) ────────────────────
 
+/**
+ * `GET /api/voice/recordings/:id/stream` — Stream the audio recording
+ * (MP3) for playback in the admin UI.
+ *
+ * @remarks
+ * Reads from R2 (`recordings/{call_sid}/{recording_sid}.mp3`) or falls
+ * back to Twilio if not yet mirrored. Sets `Content-Type: audio/mpeg`
+ * and `Cache-Control: private, max-age=3600`.
+ *
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 403 FORBIDDEN when recording isn't in the caller's org.
+ * @throws 404 NOT_FOUND when recording id doesn't exist.
+ */
 voiceRoutes.get('/api/voice/recordings/:id/stream', async (c) => {
   const { orgId } = requireAuth(c);
   const id = c.req.param('id');
@@ -438,6 +523,13 @@ const agentSettingsBody = z.object({
   knowledge_base_urls: z.array(z.string().url()).max(20).optional(),
 });
 
+/**
+ * `GET /api/voice/agent-settings?site_id=` — Read the AI voice agent's
+ * per-site settings (greeting, voice, escalation rules, hours).
+ *
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ */
 voiceRoutes.get('/api/voice/agent-settings', async (c) => {
   const { orgId } = requireAuth(c);
   const siteId = c.req.query('siteId');
@@ -451,6 +543,17 @@ voiceRoutes.get('/api/voice/agent-settings', async (c) => {
   return c.json({ settings: row ?? null });
 });
 
+/**
+ * `PUT /api/voice/agent-settings` — Update the AI voice agent settings
+ * for a site.
+ *
+ * @remarks
+ * Body: `{ site_id, greeting?, voice?, escalation_phone?, hours? }` —
+ * note: not yet Zod-validated (loose JSON parse). Audit-logged.
+ *
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ */
 voiceRoutes.put('/api/voice/agent-settings', async (c) => {
   const { userId, orgId } = requireAuth(c);
   const body = agentSettingsBody.parse(await c.req.json());
@@ -506,6 +609,17 @@ const testSmsBody = z.object({
   body: z.string().min(1).max(2000),
 });
 
+/**
+ * `POST /api/voice/test/sms` — Test-mode SMS agent simulator (does not
+ * send a real SMS; runs the inbound message through {@link simulateInbound}).
+ *
+ * @remarks
+ * Body: `{ site_id, from, body }`. Returns the agent's reply + intent +
+ * sentiment for debugging the persona.
+ *
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ */
 voiceRoutes.post('/api/voice/test/sms', async (c) => {
   const { orgId } = requireAuth(c);
   const body = testSmsBody.parse(await c.req.json());
@@ -532,6 +646,15 @@ voiceRoutes.post('/api/voice/test/sms', async (c) => {
 
 // ─── /test/call-token — short-lived Twilio Client JWT ───────────
 
+/**
+ * `POST /api/voice/test/call-token` — Mint a short-lived Twilio JWT for
+ * the admin "test call" widget so the admin's browser can place a call
+ * directly to the AI voice agent through the Twilio Voice SDK.
+ *
+ * @throws 401 UNAUTHORIZED when auth context is missing.
+ * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ * @throws 501 NOT_IMPLEMENTED when Twilio isn't configured on this worker.
+ */
 voiceRoutes.post('/api/voice/test/call-token', async (c) => {
   const { userId, orgId } = requireAuth(c);
   const body = z.object({ siteId: z.string().min(1) }).parse(await c.req.json());

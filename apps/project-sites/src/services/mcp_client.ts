@@ -11,6 +11,15 @@ import type { Env } from '../types/env.js';
 import { decrypt } from './ai_crypto.js';
 import { safeParseJSON } from '../utils/safe-parse.js';
 
+/**
+ * Identifier for every MCP-style OAuth provider the worker can connect.
+ *
+ * @remarks
+ * Adding a new entry requires (1) a {@link ProviderAdapter} implementation,
+ * (2) a `{PROVIDER}_OAUTH_CLIENT_ID` secret in `wrangler.toml`, and
+ * (3) registration via {@link allProviders} / `getAdapter`. See `routes/api.ts`
+ * `/api/mcp/:provider/connect` for the consumer flow.
+ */
 export type Provider =
   | 'mailchimp'
   | 'stripe'
@@ -37,6 +46,14 @@ export type Provider =
   | 'vercel'
   | 'netlify';
 
+/**
+ * JSON-schema-style tool descriptor that an LLM can pick + invoke.
+ *
+ * @remarks
+ * Surfaced to the model via `tools[]` on Anthropic/OpenAI messages calls.
+ * `parameters` follows JSON Schema Draft 2020-12 — keep arg names stable
+ * since the model memorizes them at prompt-cache time.
+ */
 export interface ToolDescriptor {
   name: string;
   description: string;
@@ -44,6 +61,14 @@ export interface ToolDescriptor {
   parameters: Record<string, unknown>;
 }
 
+/**
+ * Per-provider adapter for the full OAuth + tool-execution lifecycle.
+ *
+ * @remarks
+ * Implementations live further down this file. Each adapter must be
+ * stateless and side-effect free at module-load — all I/O happens through
+ * the env-aware methods so wrangler binding resolution stays at request time.
+ */
 export interface ProviderAdapter {
   provider: Provider;
   /** Authorization URL for the OAuth consent screen. */
@@ -656,10 +681,31 @@ const ADAPTERS: Partial<Record<Provider, ProviderAdapter>> = {
   twilio, calendly, airtable, zapier,
 };
 
+/**
+ * Look up the adapter implementation for an MCP provider.
+ *
+ * @remarks
+ * Returns `undefined` for providers that only OAuth-connect (cal_com, sentry,
+ * pagerduty, posthog, vercel, netlify) — callers must handle the no-adapter
+ * case and fall back to a paste-key flow or coming-soon UI per `routes/api.ts`.
+ *
+ * @example
+ * ```ts
+ * const adapter = getAdapter('mailchimp');
+ * if (!adapter) return c.json({ error: 'oauth_only' }, 501);
+ * ```
+ */
 export function getAdapter(provider: Provider): ProviderAdapter | undefined {
   return ADAPTERS[provider];
 }
 
+/**
+ * Enumerate every {@link Provider} that ships with a worker-side adapter.
+ *
+ * @remarks
+ * Useful for `/api/mcp/providers` listings and admin dashboards — excludes
+ * OAuth-only providers without a tools surface.
+ */
 export function allProviders(): Provider[] {
   return Object.keys(ADAPTERS) as Provider[];
 }
@@ -671,6 +717,19 @@ export interface ActiveConnection {
   metadata: Record<string, unknown>;
 }
 
+/**
+ * Load + decrypt every active MCP connection for a site.
+ *
+ * @remarks
+ * Rows whose ciphertext fails to decrypt (typically because
+ * `MCP_ENCRYPTION_KEY` rotated or is missing in dev) are silently skipped
+ * so a partial outage never blocks the whole tool surface.
+ *
+ * @example
+ * ```ts
+ * const conns = await loadConnections(env, siteId, ['stripe', 'slack']);
+ * ```
+ */
 export async function loadConnections(
   env: Env,
   siteId: string,
@@ -711,6 +770,23 @@ export async function loadAvailableTools(env: Env, siteId: string): Promise<Tool
   return conns.flatMap((c) => ADAPTERS[c.provider]?.tools() ?? []);
 }
 
+/**
+ * Dispatch an LLM-issued tool call across this site's connected MCP providers.
+ *
+ * @remarks
+ * Iterates active connections, picks the first adapter that owns the named
+ * tool, executes it with the per-site access token, and surfaces the
+ * provider's `{ ok, data, error }` envelope verbatim so the LLM can reason
+ * over success vs failure on the next turn.
+ *
+ * @example
+ * ```ts
+ * const result = await executeTool(env, siteId, {
+ *   name: 'mailchimp.add_subscriber',
+ *   arguments: { email: 'fan@example.com' },
+ * });
+ * ```
+ */
 export async function executeTool(
   env: Env,
   siteId: string,

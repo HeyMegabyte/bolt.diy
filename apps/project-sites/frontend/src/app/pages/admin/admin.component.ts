@@ -17,13 +17,16 @@ import { FocusTrapDirective } from '../../directives/focus-trap.directive';
 import { DomainPickerComponent } from '../../components/domain-picker/domain-picker.component';
 import { GlobalDropZoneComponent } from '../../components/global-drop-zone/global-drop-zone.component';
 import { TaskTrayComponent } from '../../components/task-tray/task-tray.component';
+import { EditorTabsComponent, type EditorTab } from '../../components/editor-tabs/editor-tabs.component';
+import { AdminMediaComponent } from './sections/media.component';
+import { AdminAiEndpointsComponent } from './sections/ai-endpoints.component';
 
 interface Notification { id: string; title: string; time: string; kind: 'info' | 'warn' | 'ok'; read: boolean; ts?: number; href?: string; }
 
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective, DomainPickerComponent, GlobalDropZoneComponent, TaskTrayComponent],
+  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective, DomainPickerComponent, GlobalDropZoneComponent, TaskTrayComponent, EditorTabsComponent, AdminMediaComponent, AdminAiEndpointsComponent],
   providers: [AdminStateService],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',
@@ -64,6 +67,27 @@ export class AdminComponent implements OnInit, OnDestroy {
   isEditorRoute = signal(false);
   currentSection = signal('Editor');
 
+  /**
+   * Active editor tab — bound to the slim tab strip rendered above the bolt
+   * iframe when the user is on `/admin/editor`. Initialised from
+   * `localStorage['editor.tab']` so a hard reload restores the last view.
+   * Valid values: `code` (default), `preview`, `media`, `agents`. The Media
+   * + Agents tabs swap in half-screen overlay panels rendered by the
+   * template; Code + Preview delegate to bolt via postMessage (handled
+   * inside `EditorTabsComponent.dispatch`).
+   */
+  editorActiveTab = signal<EditorTab>(((): EditorTab => {
+    try {
+      const saved = localStorage.getItem('editor.tab');
+      if (saved === 'code' || saved === 'preview' || saved === 'media' || saved === 'agents') {
+        return saved;
+      }
+    } catch {
+      /* localStorage unavailable — fall through to default */
+    }
+    return 'code';
+  })());
+
 
   // User menu + notifications + palette.
   userMenuOpen = signal(false);
@@ -95,8 +119,8 @@ export class AdminComponent implements OnInit, OnDestroy {
     const labels: Record<string, string> = {
       '': 'Editor', 'admin': 'Editor', 'editor': 'Editor',
       'snapshots': 'Snapshots', 'analytics': 'Analytics',
-      'forms': 'Forms', 'inbox': 'Inbox', 'traces': 'AI Traces', 'ai-logs': 'AI Traces',
-      'ai-endpoints': 'Endpoints', 'domains': 'Domains', 'docs': 'Docs',
+      'forms': 'Forms', 'traces': 'AI Traces', 'ai-logs': 'AI Traces',
+      'ai-endpoints': 'AI Agents', 'domains': 'Domains', 'docs': 'Docs',
       'user': 'User Settings', 'apps': 'Apps', 'instances': 'App Instances',
       'billing': 'Billing', 'audit': 'Audit Log', 'settings': 'Settings',
       'voice': 'Voice', 'media': 'Media',
@@ -155,6 +179,32 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   saveEditor(): void {
     this.bolt.saveAndDeploy();
+  }
+
+  /**
+   * Receive the user's tab selection from `<app-editor-tabs>` and mirror it
+   * into our local signal so the template can mount/unmount the Media or
+   * Agents overlay panel. Persistence + the iframe-side postMessage are
+   * already handled inside `EditorTabsComponent`.
+   *
+   * @param tab The newly-active editor tab.
+   */
+  onEditorTabChange(tab: EditorTab): void {
+    this.editorActiveTab.set(tab);
+  }
+
+  /**
+   * Close the active editor overlay (Media / Agents) and reset the tab
+   * strip back to `code` so the bolt iframe regains full focus. Wired to
+   * the X button rendered in the overlay header.
+   */
+  closeEditorOverlay(): void {
+    this.editorActiveTab.set('code');
+    try {
+      localStorage.setItem('editor.tab', 'code');
+    } catch {
+      /* ignore — non-fatal */
+    }
   }
 
   // ── Sidebar ─────────────────────────────────────────
@@ -485,7 +535,7 @@ export class AdminComponent implements OnInit, OnDestroy {
     if (!inField && !ev.metaKey && !ev.ctrlKey) {
       if (ev.key === 'g') { this.gPressedAt = Date.now(); return; }
       if (Date.now() - this.gPressedAt < 900) {
-        const map: Record<string, string> = { e: '/admin', s: '/admin/snapshots', a: '/admin/analytics', f: '/admin/forms', l: '/admin/traces', c: '/admin/ai-chat', b: '/admin/billing', i: '/admin/inbox', v: '/admin/voice' };
+        const map: Record<string, string> = { e: '/admin', s: '/admin/snapshots', a: '/admin/analytics', f: '/admin/forms', l: '/admin/traces', c: '/admin/ai-chat', b: '/admin/billing', v: '/admin/voice' };
         const path = map[ev.key.toLowerCase()];
         if (path) { ev.preventDefault(); this.router.navigateByUrl(path); this.gPressedAt = 0; }
       }

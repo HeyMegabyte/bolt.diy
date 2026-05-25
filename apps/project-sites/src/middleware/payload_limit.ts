@@ -1,3 +1,16 @@
+/**
+ * @module middleware/payload_limit
+ * @description Payload-size enforcement for the Project Sites Worker.
+ *
+ * Rejects requests whose `content-length` header exceeds the per-route cap
+ * before any handler body executes. Upload routes get a 100 MB ceiling;
+ * everything else uses {@link DEFAULT_CAPS.MAX_REQUEST_BODY_BYTES}. The
+ * bolt.diy editor origin bypasses the check entirely because its traffic
+ * is proxied through Cloudflare Pages, which enforces its own ceiling.
+ *
+ * @packageDocumentation
+ */
+
 import type { MiddlewareHandler } from 'hono';
 import { DEFAULT_CAPS, payloadTooLarge } from '@project-sites/shared';
 import type { Env, Variables } from '../types/env.js';
@@ -10,9 +23,21 @@ const UPLOAD_PATHS = ['/api/publish/bolt', '/api/sites/'];
 
 /**
  * Enforce max request payload size.
- * Upload endpoints (`/api/publish/bolt`, `/api/sites/:id/deploy`) get a
+ *
+ * @remarks
+ * Upload endpoints (`/api/publish/bolt`, `/api/sites/:id/deploy`,
+ * `/api/assets/upload`, `/api/media/upload`, `*\/publish-bolt`) get a
  * larger limit (100 MB) to support ZIP file uploads. All other endpoints
- * use the default cap.
+ * use {@link DEFAULT_CAPS.MAX_REQUEST_BODY_BYTES}. The bolt editor
+ * hostname is exempt because its requests are proxied to Cloudflare Pages
+ * which applies its own size limits.
+ *
+ * @throws 413 PAYLOAD_TOO_LARGE when `content-length` exceeds the cap.
+ *
+ * @example
+ * ```ts
+ * app.use('/api/*', payloadLimitMiddleware);
+ * ```
  */
 export const payloadLimitMiddleware: MiddlewareHandler<{
   Bindings: Env;

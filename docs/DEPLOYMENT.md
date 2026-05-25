@@ -1,5 +1,187 @@
 # Project Sites — Deployment & CI/CD Guide
 
+> Auth chain, pre-flight bindings, deploy commands, smoke-test curls, rollback.
+> Pairs with [ARCHITECTURE.md](./ARCHITECTURE.md) (system diagram) and
+> [AI_INTEGRATION.md](./AI_INTEGRATION.md) (AI Gateway + RAG + Media).
+
+## Quick Reference
+
+| Step | Command |
+| ---- | ------- |
+| 1. Auth | `eval "$(./bindings.sh)"` or set `CLOUDFLARE_API_TOKEN` |
+| 2. Typecheck | `cd apps/project-sites && npm run typecheck` |
+| 3. Tests | `npm test && npx playwright test` |
+| 4. Deploy worker | `npx wrangler deploy --env production` |
+| 5. Deploy frontend | `cd frontend && npm run deploy:production` |
+| 6. Smoke | curl `/health`, `/api/media/assets`, `/api/env-vars`, `/api/inbox/tasks` |
+| 7. Rollback | `npx wrangler rollback <version-id> --env production` |
+
+## Auth Fallback Chain
+
+Wrangler accepts credentials in three forms. Try in priority order:
+
+1. **`CLOUDFLARE_API_TOKEN`** (preferred — scoped token)
+   ```bash
+   export CLOUDFLARE_API_TOKEN=$(/Users/Apple/.local/bin/get-secret CLOUDFLARE_API_TOKEN)
+   export CLOUDFLARE_ACCOUNT_ID=84fa0d1b16ff8086dd958c468ce7fd59
+   ```
+   Token needs: `Workers Scripts:Edit`, `Workers KV:Edit`, `D1:Edit`,
+   `Workers R2 Storage:Edit`, `Workers AI:Edit`, `AI Gateway:Edit`,
+   `Pages:Edit`, `Workers Containers:Edit`, `Cache Purge`.
+
+2. **`CLOUDFLARE_API_KEY` + `CLOUDFLARE_EMAIL`** (global key — works everywhere
+   the token lacks a permission group)
+   ```bash
+   export CLOUDFLARE_API_KEY=$(/Users/Apple/.local/bin/get-secret CLOUDFLARE_API_KEY)
+   export CLOUDFLARE_EMAIL=blzalewski@gmail.com
+   ```
+
+3. **Interactive** (if both above are stale or missing)
+   ```bash
+   npx wrangler login
+   ```
+
+Verify auth before deploying:
+
+```bash
+npx wrangler whoami
+```
+
+## Pre-flight Bindings (one-time per environment)
+
+Run these once before the first deploy of a new environment. They are
+idempotent — re-running on an existing resource is a no-op.
+
+### Vectorize index (RAG_INDEX)
+
+```bash
+# Create the 768-dim cosine index
+npx wrangler vectorize create projectsites-rag \
+  --dimensions=768 --metric=cosine
+
+# Metadata indexes required by services/rag.ts queries
+npx wrangler vectorize create-metadata-index projectsites-rag \
+  --property-name=kind --type=string
+
+npx wrangler vectorize create-metadata-index projectsites-rag \
+  --property-name=orgId --type=string
+```
+
+Verify:
+
+```bash
+npx wrangler vectorize get projectsites-rag
+npx wrangler vectorize list-metadata-index projectsites-rag
+```
+
+### AI Gateway
+
+Pre-create the gateway named `projectsites` at
+[dash.cloudflare.com → AI Gateway](https://dash.cloudflare.com/?to=/:account/ai/ai-gateway).
+Enable Logs + Cache. Then flip `AI_GATEWAY_ENABLED = "true"` in
+`wrangler.toml` (already set for production).
+
+### D1 + KV + R2
+
+Already provisioned in production — IDs in the Cloudflare Resource IDs table
+below. For a new environment:
+
+```bash
+npx wrangler d1 create project-sites-db-<env>
+npx wrangler kv namespace create CACHE_<ENV>
+npx wrangler kv namespace create PROMPT_STORE_<ENV>
+npx wrangler r2 bucket create project-sites-<env>
+```
+
+Paste the resulting IDs into `wrangler.toml` under the matching
+`[env.<env>]` block.
+
+### Secrets
+
+Push every secret listed in `.env.example` via `wrangler secret put`. Use
+`/Users/Apple/.local/bin/get-secret <KEY>` to fetch from the local store:
+
+```bash
+for KEY in ANTHROPIC_API_KEY OPENAI_API_KEY RESEND_API_KEY \
+           STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET \
+           SENTRY_DSN POSTHOG_API_KEY \
+           MCP_ENCRYPTION_KEY GOOGLE_API_KEY; do
+  VAL=$(/Users/Apple/.local/bin/get-secret "$KEY" 2>/dev/null) \
+    && echo "$VAL" | npx wrangler secret put "$KEY" --env production
+done
+```
+
+`MCP_ENCRYPTION_KEY` is data-at-rest (Tier 1.5) — NEVER rotate without a
+re-encryption job. Every other secret can be rotated freely.
+
+## Smoke Tests (post-deploy)
+
+Run against the production URL after every deploy. Failure on any of these =
+rollback.
+
+```bash
+BASE=https://projectsites.dev
+TOKEN=<bearer-from-/api/auth/me>
+
+# 1. Health
+curl -fsS "$BASE/health" | jq '.status'        # expect "ok"
+
+# 2. Media library list (returns [] for a fresh org)
+curl -fsS -H "Authorization: Bearer $TOKEN" \
+  "$BASE/api/media/assets" | jq '.assets | length'
+
+# 3. Env vars list
+curl -fsS -H "Authorization: Bearer $TOKEN" \
+  "$BASE/api/env-vars" | jq '.env_vars | length'
+
+# 4. Task tray
+curl -fsS -H "Authorization: Bearer $TOKEN" \
+  "$BASE/api/inbox/tasks" | jq '.tasks | length'
+
+# 5. AI Gateway round-trip (assertion: latency < 2000ms)
+time curl -fsS -H "Authorization: Bearer $TOKEN" \
+  -X POST "$BASE/api/ai/categorize" \
+  -H 'content-type: application/json' \
+  -d '{"text":"pizza place in Brooklyn"}' | jq '.category'
+
+# 6. Site serving — verify R2 + KV cache path
+curl -fsSI "$BASE/" | grep -i 'content-type'   # expect text/html
+```
+
+If any check 5xx's, drop straight to the Rollback section.
+
+## Rollback
+
+Cloudflare keeps the last 10 worker versions. Roll back instantly:
+
+```bash
+# List recent versions
+npx wrangler deployments list --env production
+
+# Roll back to a specific version-id
+npx wrangler rollback <version-id> --env production
+
+# Verify
+curl -fsS https://projectsites.dev/health | jq '.version'
+```
+
+For D1 incidents, use Time Travel (30-day PIT recovery):
+
+```bash
+npx wrangler d1 time-travel restore project-sites-db-production \
+  --timestamp=2026-05-25T12:00:00Z
+```
+
+For R2 incidents, the marketing path is the only mutable surface in normal
+ops — just re-upload from `public/`:
+
+```bash
+cd apps/project-sites
+./scripts/upload-marketing.sh production   # idempotent overwrite
+```
+
+---
+
 ## Environments
 
 | Environment | Worker Name | Domain | D1 Database |

@@ -1,3 +1,23 @@
+/**
+ * @module middleware/error_handler
+ * @description Global error handler for the Project Sites Worker.
+ *
+ * Catches every uncaught error bubbling out of a route or middleware and
+ * converts it into either:
+ *
+ * - A branded animated HTML page for browser clients (`Accept: text/html`),
+ *   complete with Fira Code debug pane and recovery CTAs.
+ * - A structured JSON envelope (`{ error: { code, message, request_id } }`)
+ *   for API clients.
+ *
+ * Known {@link AppError} subclasses preserve their `statusCode` and `code`.
+ * {@link ZodError} becomes a `VALIDATION_ERROR` 400. Anything else is logged
+ * as `INTERNAL_ERROR` 500 and reported to Sentry + PostHog with the
+ * correlation `requestId` for forensic linking.
+ *
+ * @packageDocumentation
+ */
+
 import type { ErrorHandler } from 'hono';
 import { AppError } from '@project-sites/shared';
 import { ZodError } from 'zod';

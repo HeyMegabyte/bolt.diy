@@ -10,7 +10,8 @@ import React from 'react';
  *   The component now wraps the browser SpeechRecognition path only; the
  *   parent owns the actual recognizer instance (see `BaseChat.tsx`).
  *   Re-enable Whisper via a debug flag if support workflows need server
- *   transcription — the `/admin-api/transcribe` route is still live.
+ *   transcription — the `https://projectsites.dev/api/bolt/transcribe`
+ *   route is still live (legacy `/admin-api/transcribe` blocked by WAF).
  */
 interface SpeechRecognitionButtonProps {
   isListening: boolean;

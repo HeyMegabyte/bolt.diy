@@ -34,6 +34,7 @@ import {
   computed,
   effect,
   inject,
+  input,
   signal,
   ViewChild,
   type AfterViewInit,
@@ -130,7 +131,7 @@ interface BoltMediaAttachMessage {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="space-y-5">
+    <section class="space-y-5" [class.media--compact]="compact()">
       <!-- ───────────────────────────────── Header ──────────────────────────────── -->
       <header class="med-header">
         <div class="med-header__title-row">
@@ -218,7 +219,9 @@ interface BoltMediaAttachMessage {
         <!-- ═════ Library ═════ -->
         @case ('library') {
           <div id="med-panel-library" role="tabpanel">
-            @if (selectedIds().size > 0) {
+            <!-- Multi-select bulk-action bar hidden when embedded in the editor
+                 overlay (single-asset workflow only). -->
+            @if (selectedIds().size > 0 && !compact()) {
               <div class="bulk-bar" role="toolbar" aria-label="Bulk actions">
                 <span class="bulk-count">{{ selectedIds().size }} selected</span>
                 <button type="button" class="btn-ghost" (click)="sendSelectedToBolt()">
@@ -1025,6 +1028,31 @@ interface BoltMediaAttachMessage {
         .skel::after, .dot--pulse, .med-card { animation: none !important; transition: none !important; transform: none !important; }
       }
       button:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+
+      /* ─── Compact mode (rendered inside the editor overlay) ─── */
+      /* When the media library is mounted as a half-screen overlay on top of
+         the bolt iframe (via [compact]=true), shrink every chrome element so
+         the surface still feels generous in ~50vw and the focus stays on
+         pick-one-asset workflows rather than bulk management. */
+      .media--compact {
+        --med-tile-min: 140px;
+      }
+      .media--compact .med-title { font-size: 1.15rem; }
+      .media--compact .count-chip { padding: 2px 7px; font-size: 0.58rem; }
+      .media--compact .med-header__actions { gap: 0.35rem; }
+      .media--compact .input-field { min-height: 34px; padding: 0.35rem 0.55rem; font-size: 0.74rem; }
+      .media--compact .input-field--search { padding-left: 28px; }
+      .media--compact .med-search { min-width: 160px; }
+      .media--compact .btn-primary { min-height: 34px; padding: 0.4rem 0.8rem; font-size: 0.74rem; }
+      .media--compact .med-tabs { padding: 3px; border-radius: 10px; }
+      .media--compact .med-tab { min-height: 32px; padding: 0.35rem 0.7rem; font-size: 0.7rem; }
+      .media--compact .med-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+      .media--compact .med-card { border-radius: 14px; }
+      .media--compact .med-thumb { aspect-ratio: 1 / 1; }
+      .media--compact section.space-y-5 { gap: 0.85rem; }
+      /* Hide ancillary CTAs (secondary upload trigger surfaces, attribution
+         line in cards) so the grid breathes. */
+      .media--compact .med-empty__actions .btn-ghost { display: none; }
     `,
   ],
 })
@@ -1034,6 +1062,15 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly toast = inject(ToastService);
 
   @ViewChild('fileInput') private fileInputRef?: ElementRef<HTMLInputElement>;
+
+  /**
+   * Compact-mode flag. When `true` the component renders inside the editor
+   * overlay (half-screen, right-side) and applies the `.media--compact`
+   * style branch — smaller grid tiles, shrunken header, no bulk-action bar,
+   * tighter tabs. When `false` (default) the component renders standalone
+   * at `/admin/media` with full chrome.
+   */
+  readonly compact = input<boolean>(false);
 
   /** Skeleton placeholder count for loading grids. */
   readonly skeletonRows = [0, 1, 2, 3, 4, 5, 6, 7];

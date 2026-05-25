@@ -26,6 +26,13 @@ import { unauthorized, forbidden, notFound } from '@project-sites/shared';
 
 const templates = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+/**
+ * `GET /api/templates?category=` — Browse the public template catalog.
+ *
+ * @remarks
+ * No auth required. Returns up to 200 templates ordered by install count
+ * (most popular first). `category` is an optional facet filter.
+ */
 templates.get('/api/templates', async (c) => {
   const category = c.req.query('category') ?? '';
   const where = ['visibility = ?', "status = 'live'", 'deleted_at IS NULL'];
@@ -47,6 +54,14 @@ templates.get('/api/templates', async (c) => {
   return c.json({ templates: data });
 });
 
+/**
+ * `GET /api/templates/:slug` — Read one template's full detail + version
+ * history.
+ *
+ * No auth required.
+ *
+ * @throws 404 NOT_FOUND when the slug doesn't exist or is soft-deleted.
+ */
 templates.get('/api/templates/:slug', async (c) => {
   const slug = c.req.param('slug');
   const tpl = await dbQueryOne(
@@ -75,6 +90,20 @@ const installSchema = z.object({
   template_version: z.string().optional(),
 });
 
+/**
+ * `POST /api/sites/:siteId/install-template` — Install a template into an
+ * existing site.
+ *
+ * @remarks
+ * Body: {@link installSchema}. Increments `install_count` on the template
+ * row. Paid templates (`price_cents > 0`) require Pro on the caller.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 402 PAYMENT_REQUIRED when a paid template is installed without Pro.
+ * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
+ * @throws 404 NOT_FOUND when the template slug doesn't exist.
+ */
 templates.post(
   '/api/sites/:siteId/install-template',
   zValidator('json', installSchema),
@@ -137,6 +166,19 @@ const publishSchema = z.object({
 });
 
 templates.use('/api/templates', requirePro);
+/**
+ * `POST /api/templates` — Publish a community template to the public
+ * catalog.
+ *
+ * @remarks
+ * Pro-only (enforced by the `templates.use('/api/templates', requirePro)`
+ * sibling). Body: {@link publishSchema}.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the caller is not on Pro.
+ * @throws 409 CONFLICT when the slug already exists.
+ */
 templates.post('/api/templates', zValidator('json', publishSchema), async (c) => {
   const orgId = c.get('orgId');
   const userId = c.get('userId');

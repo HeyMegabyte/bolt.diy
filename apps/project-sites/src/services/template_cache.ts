@@ -11,6 +11,14 @@
 
 import type { Env } from '../types/env.js';
 
+/**
+ * Industry-specific scaffold the LLM customizes when generating a site.
+ *
+ * @remarks
+ * Returned by {@link getOrCreateTemplate}. Stored as JSON in KV under
+ * `template:{category}` with a 7-day TTL so cold reads stay sub-millisecond
+ * for the dominant categories.
+ */
 export interface TemplateShell {
   category: string;
   sections: string[];
@@ -38,6 +46,13 @@ const CATEGORIES = [
   'Other',
 ] as const;
 
+/**
+ * Closed-set of categories that {@link matchCategory} resolves to.
+ *
+ * @remarks
+ * Keep in lockstep with the `CATEGORIES` literal; downstream consumers
+ * (template repo selectors, R2 path scopes) assume this exact spelling.
+ */
 export type TemplateCategory = (typeof CATEGORIES)[number];
 
 /** Default TTL for template cache: 7 days */

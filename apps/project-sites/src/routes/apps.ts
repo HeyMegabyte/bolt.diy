@@ -133,6 +133,12 @@ async function decryptEnv(env: Env, row: AppInstanceRow): Promise<Record<string,
 
 // ─── Catalog routes (public, cacheable) ─────────────────────
 
+/**
+ * `GET /api/apps/catalog` — List every catalog app.
+ *
+ * @remarks
+ * No auth — the catalog drives signup conversion. Cached at the edge.
+ */
 apps.get('/api/apps/catalog', (c) => {
   // `?supported=true` filters to apps whose per-image DO subclass is wired
   // up in wrangler.toml (the live-bootable top-10). Used by the catalog UI
@@ -154,6 +160,12 @@ apps.get('/api/apps/catalog', (c) => {
   );
 });
 
+/**
+ * `GET /api/apps/catalog/:id` — Detail page for one catalog app
+ * (description, ports, env requirements, screenshots).
+ *
+ * @throws 404 NOT_FOUND when the id isn't in {@link APPS_CATALOG}.
+ */
 apps.get('/api/apps/catalog/:id', (c) => {
   const app = catalogById(c.req.param('id'));
   if (!app) throw notFound(`No app with id '${c.req.param('id')}' in catalog`);
@@ -166,6 +178,11 @@ apps.get('/api/apps/catalog/:id', (c) => {
 
 // ─── Instance list ───────────────────────────────────────────
 
+/**
+ * `GET /api/apps/instances` — List the current org's running app instances.
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ */
 apps.get('/api/apps/instances', async (c) => {
   const { orgId } = requireAuth(c);
   const { data, error } = await dbQuery<AppInstanceRow>(
@@ -181,6 +198,22 @@ apps.get('/api/apps/instances', async (c) => {
 
 // ─── Instance create ─────────────────────────────────────────
 
+/**
+ * `POST /api/apps/instances` — Provision aux infra (Neon DB, Upstash KV,
+ * etc.) and create a new container instance.
+ *
+ * @remarks
+ * Body: {@link createInstanceBody}. Calls {@link provisionInfra} to
+ * mint any required cloud resources, encrypts the resulting credentials,
+ * persists them on the `app_instances` row, then schedules the container
+ * boot. Audit-logged. The hostname follows `{subdomain}.app.projectsites.dev`.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails, subdomain is
+ *   malformed, or app slug isn't supported.
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 409 CONFLICT when the subdomain is already taken.
+ * @throws 502 BAD_GATEWAY when upstream provisioning (Neon, Upstash) fails.
+ */
 apps.post('/api/apps/instances', async (c) => {
   const { userId, orgId } = requireAuth(c);
   const body = createInstanceBody.parse(await c.req.json());
@@ -322,6 +355,14 @@ apps.post('/api/apps/instances', async (c) => {
 
 // ─── Instance detail (decrypted env, admin only) ────────────
 
+/**
+ * `GET /api/apps/instances/:id` — Fetch one instance with decrypted env
+ * vars for display in the admin UI.
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 403 FORBIDDEN when the instance isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the id doesn't exist.
+ */
 apps.get('/api/apps/instances/:id', async (c) => {
   const { orgId } = requireAuth(c);
   const role = c.get('userRole');
@@ -336,6 +377,20 @@ apps.get('/api/apps/instances/:id', async (c) => {
 
 // ─── Instance lifecycle ─────────────────────────────────────
 
+/**
+ * `POST /api/apps/instances/:id/restart` — Bounce the container without
+ * dropping its persistent state.
+ *
+ * @remarks
+ * Calls {@link dispatcher.restartInstance}. Capped at 3 restarts per
+ * rolling minute (enforced inside the container DO) to prevent crash
+ * loops. Audit-logged.
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 403 FORBIDDEN when the instance isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the id doesn't exist.
+ * @throws 429 RATE_LIMITED when the restart budget is exhausted.
+ */
 apps.post('/api/apps/instances/:id/restart', async (c) => {
   const { userId, orgId } = requireAuth(c);
   const row = await loadInstance(c.env, orgId, c.req.param('id'));
@@ -361,6 +416,14 @@ apps.post('/api/apps/instances/:id/restart', async (c) => {
   return c.json({ ok: r.ok, detail: r.detail ?? null });
 });
 
+/**
+ * `POST /api/apps/instances/:id/stop` — Graceful container shutdown
+ * (does not deprovision aux infra; `DELETE` for that).
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 403 FORBIDDEN when the instance isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the id doesn't exist.
+ */
 apps.post('/api/apps/instances/:id/stop', async (c) => {
   const { userId, orgId } = requireAuth(c);
   const row = await loadInstance(c.env, orgId, c.req.param('id'));
@@ -384,6 +447,19 @@ apps.post('/api/apps/instances/:id/stop', async (c) => {
   return c.json({ ok: r.ok, detail: r.detail ?? null });
 });
 
+/**
+ * `PATCH /api/apps/instances/:id/env` — Update encrypted env vars and
+ * schedule a restart for the new values to take effect.
+ *
+ * @remarks
+ * Body: `{ env: Record<string, string> }`. Values are re-encrypted via
+ * {@link encrypt} (AES-GCM per-record IV) before persisting. Audit-logged.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 403 FORBIDDEN when the instance isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the id doesn't exist.
+ */
 apps.patch('/api/apps/instances/:id/env', async (c) => {
   const { userId, orgId } = requireAuth(c);
   const body = patchEnvBody.parse(await c.req.json());
@@ -424,6 +500,18 @@ apps.patch('/api/apps/instances/:id/env', async (c) => {
   return c.json({ ok: true, status: 'starting' });
 });
 
+/**
+ * `DELETE /api/apps/instances/:id` — Destroy the instance and deprovision
+ * its aux infra (Neon DB, Upstash KV, R2 bucket, …).
+ *
+ * @remarks
+ * Calls {@link deprovisionInfra} which is best-effort — partial failures
+ * are logged but never block the row deletion. Audit-logged.
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 403 FORBIDDEN when the instance isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the id doesn't exist.
+ */
 apps.delete('/api/apps/instances/:id', async (c) => {
   const { userId, orgId } = requireAuth(c);
   const row = await loadInstance(c.env, orgId, c.req.param('id'));
@@ -463,6 +551,14 @@ apps.delete('/api/apps/instances/:id', async (c) => {
 
 // ─── Logs (SSE proxy) ───────────────────────────────────────
 
+/**
+ * `GET /api/apps/instances/:id/logs?tail=N` — Tail the last N log lines
+ * from the container's SQLite ring buffer (max 1000).
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 403 FORBIDDEN when the instance isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the id doesn't exist.
+ */
 apps.get('/api/apps/instances/:id/logs', async (c) => {
   const { orgId } = requireAuth(c);
   const row = await loadInstance(c.env, orgId, c.req.param('id'));
@@ -479,6 +575,14 @@ apps.get('/api/apps/instances/:id/logs', async (c) => {
 // APP_RUNTIME binding is missing we emit a single `info` event so the
 // client gets a deterministic message instead of hanging.
 
+/**
+ * `GET /api/apps/instances/:id/logs/stream` — SSE stream of live container
+ * logs (newline-delimited).
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 403 FORBIDDEN when the instance isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the id doesn't exist.
+ */
 apps.get('/api/apps/instances/:id/logs/stream', async (c) => {
   const { orgId } = requireAuth(c);
   const row = await loadInstance(c.env, orgId, c.req.param('id'));
@@ -493,6 +597,14 @@ apps.get('/api/apps/instances/:id/logs/stream', async (c) => {
 // last_error, restart_count, image}}`. Used by the admin UI to poll every
 // 5-10s while a container is booting / recovering from a crash.
 
+/**
+ * `GET /api/apps/instances/:id/health` — Probe the container's `/health`
+ * endpoint and return its response + latency.
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 403 FORBIDDEN when the instance isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the id doesn't exist.
+ */
 apps.get('/api/apps/instances/:id/health', async (c) => {
   const { orgId } = requireAuth(c);
   const row = await loadInstance(c.env, orgId, c.req.param('id'));

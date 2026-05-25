@@ -1,3 +1,27 @@
+/**
+ * @module services/api
+ *
+ * @description
+ * Single typed HTTP entry-point for every `/api/*` call the admin SPA + marketing
+ * shell make. Wraps `HttpClient` with: bearer-token injection, 30s timeout,
+ * `http.failure` telemetry, user-friendly toast on every error, and an automatic
+ * `/signin` redirect on 401 when the user is inside a protected route.
+ *
+ * @remarks
+ * - Every typed endpoint method (e.g. `listSites`, `getSubscription`) delegates
+ *   to the generic verb helpers (`get`/`post`/`put`/`patch`/`delete`) so the
+ *   error envelope is consistent.
+ * - 401 inside `/admin`, `/billing`, or `/editor` triggers a navigation to
+ *   `/signin?returnUrl=…`; 401 from public routes silently clears the session.
+ * - `postFormData()` omits the JSON `Content-Type` header so the browser sets
+ *   the multipart boundary correctly.
+ *
+ * @example
+ * ```ts
+ * const api = inject(ApiService);
+ * api.listSites().subscribe(res => this.sites.set(res.data));
+ * ```
+ */
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, type HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError, TimeoutError } from 'rxjs';
@@ -15,6 +39,7 @@ export class ApiService {
   private router = inject(Router);
   private telemetry = inject(TelemetryService);
 
+  /** Build common JSON headers — injects `Authorization: Bearer <token>` when signed in. */
   private headers(): HttpHeaders {
     let headers = new HttpHeaders({ 'Content-Type': 'application/json' });
     const token = this.auth.getToken();
@@ -82,6 +107,7 @@ export class ApiService {
     return qIdx === -1 ? url : url.slice(0, qIdx);
   }
 
+  /** Translate an HTTP failure into a user-friendly toast message. */
   private getErrorMessage(error: HttpErrorResponse): string {
     if (error.status === 0 || error.statusText === 'Unknown Error') {
       return "Can't reach the server. Check your connection.";
@@ -102,26 +128,35 @@ export class ApiService {
     }
   }
 
+  /** Generic GET — `path` is relative to `/api` (e.g. `/sites/123`). */
   get<T>(path: string, params?: Record<string, string>): Observable<T> {
     return this.http.get<T>(`/api${path}`, { headers: this.headers(), params }).pipe(this.handleError());
   }
 
+  /** Generic POST — JSON body, bearer header, 30s timeout. */
   post<T>(path: string, body?: unknown): Observable<T> {
     return this.http.post<T>(`/api${path}`, body, { headers: this.headers() }).pipe(this.handleError());
   }
 
+  /** Generic PUT — JSON body, bearer header, 30s timeout. */
   put<T>(path: string, body?: unknown): Observable<T> {
     return this.http.put<T>(`/api${path}`, body, { headers: this.headers() }).pipe(this.handleError());
   }
 
+  /** Generic PATCH — JSON body, bearer header, 30s timeout. */
   patch<T>(path: string, body?: unknown): Observable<T> {
     return this.http.patch<T>(`/api${path}`, body, { headers: this.headers() }).pipe(this.handleError());
   }
 
+  /** Generic DELETE — bearer header, 30s timeout. */
   delete<T>(path: string): Observable<T> {
     return this.http.delete<T>(`/api${path}`, { headers: this.headers() }).pipe(this.handleError());
   }
 
+  /**
+   * Multipart-form POST for binary uploads (assets, logos, ZIPs).
+   * Omits the JSON `Content-Type` so the browser sets the multipart boundary.
+   */
   postFormData<T>(path: string, formData: FormData): Observable<T> {
     let headers = new HttpHeaders();
     const token = this.auth.getToken();

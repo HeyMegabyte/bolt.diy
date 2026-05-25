@@ -34,9 +34,11 @@ function errorJson(code: string, message: string, requestId?: string) {
   return { error: { code, message, request_id: requestId } };
 }
 
-/** Parse `'org'|'site'|'mcp'` from a query string with fallback to undefined. */
+/** Parse `'org'|'site'|'mcp'|'endpoint'|'agent'` from a query string with fallback to undefined. */
 function parseScope(raw: string | undefined): EnvVarScope | undefined {
-  if (raw === 'org' || raw === 'site' || raw === 'mcp') return raw;
+  if (raw === 'org' || raw === 'site' || raw === 'mcp' || raw === 'endpoint' || raw === 'agent') {
+    return raw;
+  }
   return undefined;
 }
 
@@ -109,9 +111,17 @@ envVarsRoutes.get('/api/env-vars', async (c) => {
   const scope = parseScope(c.req.query('scope'));
   const siteId = c.req.query('siteId') ?? c.req.query('site_id') ?? undefined;
   const mcpProvider = c.req.query('mcpProvider') ?? c.req.query('mcp_provider') ?? undefined;
+  const endpointId = c.req.query('endpointId') ?? c.req.query('endpoint_id') ?? undefined;
+  const agentId = c.req.query('agentId') ?? c.req.query('agent_id') ?? undefined;
 
   try {
-    const vars = await listEnvVars(c.env, orgId, { scope, siteId, mcpProvider });
+    const vars = await listEnvVars(c.env, orgId, {
+      scope,
+      siteId,
+      mcpProvider,
+      endpointId,
+      agentId,
+    });
     return c.json({ vars });
   } catch (err) {
     console.warn(JSON.stringify({
@@ -144,7 +154,12 @@ envVarsRoutes.post('/api/env-vars', async (c) => {
   }
 
   const scope = parseScope(body.scope);
-  if (!scope) return c.json(errorJson('VALIDATION_ERROR', 'scope must be org|site|mcp', requestId), 400);
+  if (!scope) {
+    return c.json(
+      errorJson('VALIDATION_ERROR', 'scope must be org|site|mcp|endpoint|agent', requestId),
+      400,
+    );
+  }
 
   try {
     const stored = await setEnvVar(c.env, {
@@ -152,6 +167,8 @@ envVarsRoutes.post('/api/env-vars', async (c) => {
       scope,
       siteId: body.siteId,
       mcpProvider: body.mcpProvider,
+      endpointId: body.endpointId,
+      agentId: body.agentId,
       key: body.key as string,
       value: body.value as string,
       description: body.description,
@@ -172,6 +189,8 @@ envVarsRoutes.post('/api/env-vars', async (c) => {
           key: stored.key,
           site_id: stored.site_id,
           mcp_provider: stored.mcp_provider,
+          endpoint_id: stored.endpoint_id,
+          agent_id: stored.agent_id,
         },
         request_id: requestId,
       }),
@@ -209,6 +228,8 @@ envVarsRoutes.patch('/api/env-vars/:id', async (c) => {
     scope: EnvVarScope;
     site_id: string | null;
     mcp_provider: string | null;
+    endpoint_id: string | null;
+    agent_id: string | null;
     key: string;
     value_encrypted: string;
     description: string | null;
@@ -216,8 +237,8 @@ envVarsRoutes.patch('/api/env-vars/:id', async (c) => {
     exposed_to_ai: number;
   }>(
     c.env.DB,
-    `SELECT id, org_id, scope, site_id, mcp_provider, key, value_encrypted,
-            description, is_secret, exposed_to_ai
+    `SELECT id, org_id, scope, site_id, mcp_provider, endpoint_id, agent_id,
+            key, value_encrypted, description, is_secret, exposed_to_ai
        FROM ai_env_vars
       WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
     [id, orgId],
@@ -248,6 +269,8 @@ envVarsRoutes.patch('/api/env-vars/:id', async (c) => {
       scope: row.scope,
       siteId: row.site_id ?? undefined,
       mcpProvider: row.mcp_provider ?? undefined,
+      endpointId: row.endpoint_id ?? undefined,
+      agentId: row.agent_id ?? undefined,
       key: row.key,
       value: valueToStore,
       description: body.description === undefined ? (row.description ?? undefined) : body.description ?? undefined,
@@ -323,14 +346,26 @@ envVarsRoutes.post('/api/env-vars/import', async (c) => {
   const requestId = c.get('requestId');
   if (!orgId) return c.json(errorJson('UNAUTHORIZED', 'auth required', requestId), 401);
 
-  let body: { scope?: EnvVarScope; siteId?: string; mcpProvider?: string; dotenv?: string };
+  let body: {
+    scope?: EnvVarScope;
+    siteId?: string;
+    mcpProvider?: string;
+    endpointId?: string;
+    agentId?: string;
+    dotenv?: string;
+  };
   try {
     body = (await c.req.json()) as typeof body;
   } catch {
     return c.json(errorJson('BAD_REQUEST', 'invalid JSON body', requestId), 400);
   }
   const scope = parseScope(body.scope);
-  if (!scope) return c.json(errorJson('VALIDATION_ERROR', 'scope must be org|site|mcp', requestId), 400);
+  if (!scope) {
+    return c.json(
+      errorJson('VALIDATION_ERROR', 'scope must be org|site|mcp|endpoint|agent', requestId),
+      400,
+    );
+  }
   if (typeof body.dotenv !== 'string') {
     return c.json(errorJson('VALIDATION_ERROR', 'dotenv (string) required', requestId), 400);
   }
@@ -355,6 +390,8 @@ envVarsRoutes.post('/api/env-vars/import', async (c) => {
         scope,
         siteId: body.siteId,
         mcpProvider: body.mcpProvider,
+        endpointId: body.endpointId,
+        agentId: body.agentId,
         key,
         value,
         createdBy: userId,
@@ -377,6 +414,8 @@ envVarsRoutes.post('/api/env-vars/import', async (c) => {
         scope,
         site_id: body.siteId ?? null,
         mcp_provider: body.mcpProvider ?? null,
+        endpoint_id: body.endpointId ?? null,
+        agent_id: body.agentId ?? null,
         imported,
         failed,
       },
@@ -399,6 +438,8 @@ envVarsRoutes.get('/api/env-vars/export', async (c) => {
   const scope = parseScope(c.req.query('scope'));
   const siteId = c.req.query('siteId') ?? c.req.query('site_id') ?? undefined;
   const mcpProvider = c.req.query('mcpProvider') ?? c.req.query('mcp_provider') ?? undefined;
+  const endpointId = c.req.query('endpointId') ?? c.req.query('endpoint_id') ?? undefined;
+  const agentId = c.req.query('agentId') ?? c.req.query('agent_id') ?? undefined;
   const includeValues = c.req.query('include_values') === '1';
 
   // Plaintext export requires org-owner role.
@@ -412,7 +453,14 @@ envVarsRoutes.get('/api/env-vars/export', async (c) => {
 
   let vars;
   try {
-    vars = await listEnvVars(c.env, orgId, { scope, siteId, mcpProvider, unmask: includeValues });
+    vars = await listEnvVars(c.env, orgId, {
+      scope,
+      siteId,
+      mcpProvider,
+      endpointId,
+      agentId,
+      unmask: includeValues,
+    });
   } catch (err) {
     return c.json(
       errorJson('INTERNAL_ERROR', err instanceof Error ? err.message : 'export failed', requestId),
@@ -428,6 +476,8 @@ envVarsRoutes.get('/api/env-vars/export', async (c) => {
     `# scope=${scope ?? 'all'}`,
     siteId ? `# site_id=${siteId}` : null,
     mcpProvider ? `# mcp_provider=${mcpProvider}` : null,
+    endpointId ? `# endpoint_id=${endpointId}` : null,
+    agentId ? `# agent_id=${agentId}` : null,
     includeValues ? '# include_values=1 (plaintext)' : '# include_values=0 (values masked)',
     '',
   ].filter((line) => line !== null).join('\n');
@@ -442,6 +492,8 @@ envVarsRoutes.get('/api/env-vars/export', async (c) => {
       const scopeTag = `# scope=${v.scope}`
         + (v.site_id ? ` site_id=${v.site_id}` : '')
         + (v.mcp_provider ? ` mcp_provider=${v.mcp_provider}` : '')
+        + (v.endpoint_id ? ` endpoint_id=${v.endpoint_id}` : '')
+        + (v.agent_id ? ` agent_id=${v.agent_id}` : '')
         + ` exposed_to_ai=${v.exposed_to_ai ? '1' : '0'}`;
       return `${prefix}${scopeTag}\n${v.key}=${valOut}`;
     })
@@ -458,6 +510,8 @@ envVarsRoutes.get('/api/env-vars/export', async (c) => {
         scope: scope ?? null,
         site_id: siteId ?? null,
         mcp_provider: mcpProvider ?? null,
+        endpoint_id: endpointId ?? null,
+        agent_id: agentId ?? null,
         include_values: includeValues,
         count: vars.length,
       },

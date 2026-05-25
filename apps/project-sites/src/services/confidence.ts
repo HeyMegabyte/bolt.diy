@@ -210,6 +210,15 @@ function isImageRelevant(
 
 // ── Main Transformer ─────────────────────────────────────────
 
+/**
+ * Raw, untyped JSON returned by the 5 research prompts that fan out before
+ * the v3 transformer runs.
+ *
+ * @remarks
+ * Each field is the unvalidated `JSON.parse(response.text)` from the matching
+ * `research_*` prompt. Pass straight into {@link transformToV3} — it is the
+ * gatekeeper that produces the confidence-wrapped seed.
+ */
 export interface RawResearch {
   profile: Record<string, unknown>;
   social: Record<string, unknown>;
@@ -218,6 +227,27 @@ export interface RawResearch {
   images: Record<string, unknown>;
 }
 
+/**
+ * Merge raw research outputs + optional Google Places enrichment into a
+ * SmallBizSeedV3 envelope where every leaf is a `Conf<T>` record.
+ *
+ * @remarks
+ * - Cross-corroboration boosts confidence (Places phone matching LLM phone).
+ * - Inferred-only fields (payment methods, amenities) lose 0.15 confidence.
+ * - Images are filtered against {@link BUSINESS_IMAGE_KEYWORDS} per business
+ *   type so irrelevant gallery photos drop before template render.
+ * - The returned object is JSON-stable for R2 storage at
+ *   `sites/{slug}/_research.json`.
+ *
+ * @example
+ * ```ts
+ * const seed = transformToV3(raw, placesData, {
+ *   businessName: "Vito's Mens Salon",
+ *   businessPhone: '+19735551234',
+ * });
+ * await env.SITES_BUCKET.put(`sites/${slug}/_research.json`, JSON.stringify(seed));
+ * ```
+ */
 export function transformToV3(
   raw: RawResearch,
   placesData: PlacesResult | null,

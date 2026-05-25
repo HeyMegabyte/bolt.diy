@@ -542,3 +542,125 @@ aside::before {
   pointer-events: auto;
   z-index: 1;
 }
+
+/* When the editor tab strip is rendered above the iframe (44px tall), shift
+   the iframe down by the strip height so its content doesn't sit behind the
+   tabs. Composes with `.bolt-frame--visible` so non-editor routes are
+   unaffected. */
+.bolt-frame--visible.bolt-frame--with-tabs {
+  top: calc(62px + 44px);
+  height: calc(100% - 62px - 44px);
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   Editor tab strip host — sits flush above the bolt iframe on
+   /admin/editor. The 44px height is mirrored in
+   `.bolt-frame--with-tabs` above so the iframe slides down exactly that
+   much.
+   ─────────────────────────────────────────────────────────────────────── */
+.editor-tabs-host {
+  position: absolute;
+  top: 62px;        /* directly below the admin top bar */
+  left: 0;
+  right: 0;
+  height: 44px;
+  z-index: 30;      /* above iframe (z:1), below overlay (z:50) */
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   Half-screen overlay for Media / Agents tabs.
+
+   Rendered as a right-anchored aside that covers the right 50% of the
+   bolt iframe. Uses a glassmorphic backdrop so the iframe behind it
+   stays visually present without distracting. Brand tokens drive every
+   surface so a theme swap propagates automatically.
+   ─────────────────────────────────────────────────────────────────────── */
+.editor-overlay {
+  position: absolute;
+  top: calc(62px + 44px);     /* below top bar + tab strip */
+  right: 0;
+  bottom: 0;
+  width: 50%;
+  min-width: 360px;
+  max-width: 920px;
+  z-index: 50;                /* above iframe (z:1) and tab strip (z:30) */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
+    color-mix(in oklch, var(--ps-bg, #060610) 94%, transparent);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    -20px 0 40px -20px rgba(0, 0, 0, 0.55),
+    inset 1px 0 0 rgba(0, 229, 255, 0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: editor-overlay-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.editor-overlay > :last-child {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.editor-overlay__close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(244, 244, 255, 0.85);
+  cursor: pointer;
+  transition:
+    background 140ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 140ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 140ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.editor-overlay__close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--ps-ink, #f4f4ff);
+  transform: scale(1.05);
+}
+.editor-overlay__close:focus-visible {
+  outline: 2px solid var(--ps-accent, #00e5ff);
+  outline-offset: 2px;
+}
+
+@keyframes editor-overlay-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor-overlay {
+    animation: none;
+  }
+  .editor-overlay__close {
+    transition: none;
+  }
+}
+
+/* Narrow viewports: take the whole screen so the half-screen overlay
+   doesn't squeeze content unreadably. */
+@media (max-width: 768px) {
+  .editor-overlay {
+    width: 100%;
+    min-width: 0;
+    border-left: none;
+  }
+}

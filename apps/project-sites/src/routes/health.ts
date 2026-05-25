@@ -1,11 +1,35 @@
+/**
+ * @module routes/health
+ * @description Liveness + readiness probes for the Project Sites Worker.
+ *
+ * Provides two endpoints:
+ * - `GET /health` — lightweight probe (KV + R2 latency) suitable for
+ *   uptime monitors and edge load balancers.
+ * - `GET /health/deep` — full dependency sweep (KV + R2 + D1 + AI binding)
+ *   that returns `503` when any dependency is degraded so orchestrators
+ *   can route around the unhealthy POP.
+ *
+ * Neither endpoint requires auth.
+ *
+ * @packageDocumentation
+ */
+
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 
 const health = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 /**
- * Health check endpoint.
- * Returns system status and optional dependency checks.
+ * `GET /health` — Shallow health probe.
+ *
+ * @remarks
+ * Verifies KV + R2 reachability with timing. Always returns `200`; the
+ * `status` field flips to `"degraded"` when any check fails so monitors
+ * can alert without page status codes flapping.
+ *
+ * Response: `{ status, version, environment, timestamp, latency_ms, checks }`
+ *
+ * @see {@link health.get('/health/deep')}
  */
 health.get('/health', async (c) => {
   const startTime = Date.now();
@@ -49,8 +73,16 @@ health.get('/health', async (c) => {
 });
 
 /**
- * Deep health check with full dependency verification.
- * Checks: D1, KV, R2. Returns 503 if any dependency is degraded.
+ * `GET /health/deep` — Full-dependency readiness probe.
+ *
+ * @remarks
+ * Verifies KV + R2 + D1 + the AI binding. Returns HTTP `503` when any
+ * dependency reports `error` so orchestrators (Cloudflare Load Balancer,
+ * external uptime monitors) can withdraw the unhealthy POP from rotation.
+ *
+ * Response: `{ status, version, environment, timestamp, region, latency_ms, checks }`
+ *
+ * @see {@link health.get('/health')}
  */
 health.get('/health/deep', async (c) => {
   const startTime = Date.now();

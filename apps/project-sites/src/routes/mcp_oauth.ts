@@ -1,22 +1,29 @@
 /**
- * MCP OAuth start + callback for MailChimp, Stripe, Resend, HubSpot.
+ * @module routes/mcp_oauth
+ * @description Per-site MCP (Model Context Protocol) connection layer.
  *
- *   GET  /api/mcp/:provider/connect?site_id=…&return_url=…
- *   GET  /api/mcp/:provider/callback?code=…&state=…
+ * Endpoints:
+ * - `GET  /api/mcp/:provider/connect?site_id=…&return_url=…` — Build the
+ *   authorize URL with PKCE state, or return a paste-key form spec when
+ *   the provider has no OAuth.
+ * - `GET  /api/mcp/:provider/callback?code=…&state=…` — Exchange the
+ *   authorization code, encrypt + upsert tokens into `mcp_connections`,
+ *   and redirect back to the dashboard MCP tab.
+ * - `POST /api/mcp/:provider/paste` — Paste-key flow for providers
+ *   without OAuth (Resend, internal webhooks).
  *
- * After a successful exchange, we encrypt + store the access token in
- * `mcp_connections` (one row per site+provider) and redirect the user
- * back to the dashboard MCP tab.
+ * Supported providers: MailChimp, Stripe, HubSpot, Slack, Notion, GitHub,
+ * Linear, Discord, Google Calendar, Calendly, Airtable, Zapier, Cal.com,
+ * Sentry, PagerDuty, PostHog, Vercel, Netlify — plus paste-key fallback
+ * for Resend.
  *
- * Resend is special — it has no OAuth, so /connect returns a JSON form
- * spec the UI uses to render a paste-key form posting to
- * /api/mcp/resend/paste.
+ * For OAuth-supported providers that lack a configured client_id (no
+ * `{PROVIDER}_OAUTH_CLIENT_ID` worker secret), `/connect` returns HTTP
+ * 501 `{ error: 'oauth_not_configured', provider }` so the admin UI can
+ * fall back to the paste-API-key flow with a friendly toast instead of
+ * opening a broken popup.
  *
- * For OAuth-supported providers that lack a configured client_id (i.e. no
- * `{PROVIDER}_OAUTH_CLIENT_ID` worker secret), /connect returns HTTP 501
- * `{ error: 'oauth_not_configured', provider }` so the admin UI can fall
- * back to the paste-API-key flow with a friendly toast instead of opening
- * a broken popup.
+ * @packageDocumentation
  */
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
@@ -78,6 +85,25 @@ function isOauthConfigured(env: Env, provider: Provider): boolean {
   return keys.some((k) => readEnvString(env, k).length > 0);
 }
 
+/**
+ * `GET /api/mcp/:provider/connect?site_id=…&return_url=…` — Start an MCP
+ * provider connection (OAuth authorize redirect OR paste-key spec).
+ *
+ * @remarks
+ * Generates a one-shot `state` + PKCE `code_verifier`, persists them in
+ * `mcp_oauth_states`, and either:
+ * - **OAuth providers** — returns a `302` redirect to the authorize URL
+ *   built by {@link getAdapter}'s `authorizeUrl`.
+ * - **Paste-key providers** (Resend, internal webhooks) — returns
+ *   `{ data: { mode: 'paste_key', provider, state, post_to, instructions } }`
+ *   so the UI can render the paste form.
+ *
+ * @throws 400 BAD_REQUEST when `site_id` is missing.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the provider doesn't have an adapter.
+ * @throws 501 NOT_IMPLEMENTED when the provider has OAuth but the worker
+ *   lacks `{PROVIDER}_OAUTH_CLIENT_ID`. The UI falls back to paste-key.
+ */
 mcpOauth.get('/api/mcp/:provider/connect', async (c) => {
   const orgId = c.get('orgId') as string | undefined;
   const userId = c.get('userId') as string | undefined;
@@ -126,6 +152,22 @@ mcpOauth.get('/api/mcp/:provider/connect', async (c) => {
   return Response.redirect(url, 302);
 });
 
+/**
+ * `GET /api/mcp/:provider/callback?code=…&state=…` — OAuth redirect
+ * landing endpoint.
+ *
+ * @remarks
+ * Looks up the matching `mcp_oauth_states` row, exchanges the code via
+ * {@link getAdapter}'s `exchangeCode`, encrypts the resulting access
+ * (and optional refresh) token via {@link encrypt} (AES-GCM with a
+ * per-record IV), upserts into `mcp_connections` keyed by
+ * `(site_id, provider)`, deletes the state row, writes an audit entry,
+ * then `302`-redirects back to `return_url` with `?connected={provider}`.
+ *
+ * @throws 400 BAD_REQUEST when `code`/`state` missing or state row not found.
+ * @throws 404 NOT_FOUND when the provider doesn't have an adapter.
+ * @throws 502 BAD_GATEWAY when the upstream token exchange fails.
+ */
 mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
   const provider = c.req.param('provider') as Provider;
   const adapter = getAdapter(provider);
@@ -200,7 +242,19 @@ mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
   return Response.redirect(`https://projectsites.dev${stateRow.return_url}?connected=${provider}`, 302);
 });
 
-// Paste-key flow for providers with no OAuth (Resend).
+/**
+ * `POST /api/mcp/:provider/paste?state=…&site_id=…` — Paste-key flow for
+ * providers with no OAuth (Resend, internal webhooks).
+ *
+ * @remarks
+ * Body: `{ api_key }`. Encrypts the key via {@link encrypt} (AES-GCM
+ * per-record IV) and upserts into `mcp_connections` keyed by
+ * `(site_id, provider)`. `site_id` is resolved from the `state` row
+ * created by `/connect` or accepted directly as a query param. Audit-logged.
+ *
+ * @throws 400 BAD_REQUEST when `api_key` or `site_id` is missing.
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ */
 mcpOauth.post('/api/mcp/:provider/paste', async (c) => {
   const orgId = c.get('orgId') as string | undefined;
   if (!orgId) return c.json({ error: { message: 'auth required' } }, 401);

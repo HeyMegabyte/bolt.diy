@@ -19,6 +19,12 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne, dbUpdate } from '../services/db.js';
 import { PLATFORMS, type Platform } from '../services/social_publishers/index.js';
+import {
+  DEFAULT_AUTO_PILOT_PROMPT,
+  generateAutoPilotPostForNetwork,
+  loadAutoPilotConfig,
+  upsertAutoPilotConfig,
+} from '../services/social_auto_pilot.js';
 
 export const socialRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -33,6 +39,12 @@ const platformEnum = z.enum(PLATFORMS as readonly [Platform, ...Platform[]]);
 
 // ── Accounts ─────────────────────────────────────────────────
 
+/**
+ * `GET /api/social/accounts` — List connected social accounts for the
+ * caller's org.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 socialRoutes.get('/api/social/accounts', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -51,6 +63,13 @@ socialRoutes.get('/api/social/accounts', async (c) => {
   return c.json({ data });
 });
 
+/**
+ * `DELETE /api/social/accounts/:id` — Soft-delete (disconnect) a social
+ * account.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the account id doesn't belong to the caller's org.
+ */
 socialRoutes.delete('/api/social/accounts/:id', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -91,6 +110,17 @@ const CreatePostSchema = z.object({
   schedule_at: z.string().datetime().optional(),
 });
 
+/**
+ * `POST /api/social/posts` — Create a new social post draft.
+ *
+ * @remarks
+ * Body: {@link CreatePostSchema}. Content + platform list + optional
+ * media + scheduled-time. No publish triggered — call `/schedule` or
+ * `/publish-now` after to send.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 socialRoutes.post('/api/social/posts', zValidator('json', CreatePostSchema), async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -130,6 +160,12 @@ socialRoutes.post('/api/social/posts', zValidator('json', CreatePostSchema), asy
   return c.json({ data: { id, status } }, 201);
 });
 
+/**
+ * `GET /api/social/posts?status=&limit=` — List posts for the caller's
+ * org, optionally filtered by status (`draft|scheduled|published|failed`).
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 socialRoutes.get('/api/social/posts', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -153,6 +189,12 @@ socialRoutes.get('/api/social/posts', async (c) => {
   return c.json({ data });
 });
 
+/**
+ * `GET /api/social/posts/:id` — Fetch a single post with its full content.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the post id doesn't belong to the caller's org.
+ */
 socialRoutes.get('/api/social/posts/:id', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -167,6 +209,18 @@ socialRoutes.get('/api/social/posts/:id', async (c) => {
 
 const PatchPostSchema = CreatePostSchema.partial();
 
+/**
+ * `PATCH /api/social/posts/:id` — Edit a draft post.
+ *
+ * @remarks
+ * Body: {@link PatchPostSchema} (partial). Allowed only while
+ * `status='draft'`.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the post id doesn't belong to the caller's org.
+ * @throws 409 CONFLICT when the post is past draft state.
+ */
 socialRoutes.patch('/api/social/posts/:id', zValidator('json', PatchPostSchema), async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -201,6 +255,18 @@ socialRoutes.patch('/api/social/posts/:id', zValidator('json', PatchPostSchema),
 
 const ScheduleSchema = z.object({ scheduled_at: z.string().datetime() });
 
+/**
+ * `POST /api/social/posts/:id/schedule` — Schedule a draft post for
+ * publishing.
+ *
+ * @remarks
+ * Body: {@link ScheduleSchema} (`{ scheduled_for: ISO }`). Flips status
+ * to `scheduled`. A cron picks up the row when `scheduled_for <= now()`.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the post id doesn't belong to the caller's org.
+ */
 socialRoutes.post('/api/social/posts/:id/schedule', zValidator('json', ScheduleSchema), async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -216,6 +282,13 @@ socialRoutes.post('/api/social/posts/:id/schedule', zValidator('json', ScheduleS
   return c.json({ data: { scheduled_at } });
 });
 
+/**
+ * `POST /api/social/posts/:id/publish-now` — Schedule the post to publish
+ * at now+1 minute (slight delay so the user can cancel via Undo).
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the post id doesn't belong to the caller's org.
+ */
 socialRoutes.post('/api/social/posts/:id/publish-now', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -231,6 +304,13 @@ socialRoutes.post('/api/social/posts/:id/publish-now', async (c) => {
   return c.json({ data: { scheduled_at: when } });
 });
 
+/**
+ * `DELETE /api/social/posts/:id` — Soft-delete a post (sets `deleted_at`).
+ * History rows on per-platform publishes remain for analytics.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the post id doesn't belong to the caller's org.
+ */
 socialRoutes.delete('/api/social/posts/:id', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -245,6 +325,13 @@ socialRoutes.delete('/api/social/posts/:id', async (c) => {
   return c.json({ data: { deleted: true } });
 });
 
+/**
+ * `GET /api/social/posts/:id/publishes` — Per-platform publish rows
+ * (status, posted_at, platform_post_url, error).
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the post id doesn't belong to the caller's org.
+ */
 socialRoutes.get('/api/social/posts/:id/publishes', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -268,6 +355,13 @@ socialRoutes.get('/api/social/posts/:id/publishes', async (c) => {
   return c.json({ data });
 });
 
+/**
+ * `GET /api/social/posts/:id/analytics` — Aggregate analytics across all
+ * platforms the post published to (impressions, likes, shares, clicks).
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 404 NOT_FOUND when the post id doesn't belong to the caller's org.
+ */
 socialRoutes.get('/api/social/posts/:id/analytics', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -308,4 +402,191 @@ socialRoutes.get('/api/social/posts/:id/analytics', async (c) => {
     { impressions: 0, reach: 0, likes: 0, comments: 0, shares: 0, clicks: 0, saves: 0 },
   );
   return c.json({ data: { per_platform: data, totals } });
+});
+
+// ── Auto-Pilot ──────────────────────────────────────────────
+
+const targetNetworksSchema = z.array(platformEnum).max(20);
+
+const AutoPilotConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    prompt: z.string().max(8000).optional(),
+    cadence_hours: z.number().int().min(1).max(24 * 30).optional(),
+    target_networks: targetNetworksSchema.optional(),
+  })
+  .strict();
+
+/**
+ * `GET /api/social/auto-pilot/config` — Read the caller-org's auto-pilot
+ * settings.
+ *
+ * @remarks
+ * Returns the canonical row (creating an implicit "off" default when the
+ * org has never configured auto-pilot). Always includes `default_prompt`
+ * so the dialog can offer a one-click "reset to default" affordance.
+ *
+ * @example
+ * ```ts
+ * const r = await fetch('/api/social/auto-pilot/config').then(r => r.json());
+ * // r.data = { enabled, prompt, cadence_hours, target_networks, last_run_at,
+ * //            next_run_at, default_prompt }
+ * ```
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @see {@link upsertAutoPilotConfig}
+ */
+socialRoutes.get('/api/social/auto-pilot/config', async (c) => {
+  const ctx = requireAuth(c);
+  if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+  const row = await loadAutoPilotConfig(c.env.DB, ctx.orgId);
+  return c.json({ data: { ...row, default_prompt: DEFAULT_AUTO_PILOT_PROMPT } });
+});
+
+/**
+ * `POST /api/social/auto-pilot/config` — Upsert org-scoped auto-pilot
+ * config (enabled, prompt, cadence_hours, target_networks).
+ *
+ * @remarks
+ * Body: {@link AutoPilotConfigSchema} (all fields optional). Recomputes
+ * `next_run_at = now + cadence_hours * 3600_000` whenever `enabled` flips
+ * true OR `cadence_hours` changes. Recording `next_run_at` here means the
+ * every-minute cron sweep can find it cheaply via the partial index.
+ *
+ * Safety rail: writes never trigger an immediate generation — they only
+ * schedule the next one. Use `/api/social/auto-pilot/run-now` to fire on
+ * demand.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
+socialRoutes.post(
+  '/api/social/auto-pilot/config',
+  zValidator('json', AutoPilotConfigSchema),
+  async (c) => {
+    const ctx = requireAuth(c);
+    if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+    const body = c.req.valid('json');
+    const updated = await upsertAutoPilotConfig(c.env.DB, ctx.orgId, body);
+    return c.json({ data: { ...updated, default_prompt: DEFAULT_AUTO_PILOT_PROMPT } });
+  },
+);
+
+const AutoPilotPreviewSchema = z.object({
+  network: platformEnum,
+  prompt: z.string().max(8000).optional(),
+});
+
+/**
+ * `POST /api/social/auto-pilot/preview` — Generate one sample post for the
+ * given network using the current (or supplied) prompt + business context.
+ *
+ * @remarks
+ * Body: {@link AutoPilotPreviewSchema}. Does NOT persist — strictly a
+ * dialog-side "try before you save" affordance. Honors the org's saved
+ * prompt unless the caller overrides via `prompt`. Returns
+ * `{ text, mediaSuggestion? }`.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 502 AI_GENERATION_ERROR when the underlying LLM call fails (no
+ *   provider configured, all providers down, etc).
+ */
+socialRoutes.post(
+  '/api/social/auto-pilot/preview',
+  zValidator('json', AutoPilotPreviewSchema),
+  async (c) => {
+    const ctx = requireAuth(c);
+    if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+    const { network, prompt } = c.req.valid('json');
+    const cfg = await loadAutoPilotConfig(c.env.DB, ctx.orgId);
+    const effectivePrompt = prompt && prompt.trim().length > 0 ? prompt : cfg.prompt || DEFAULT_AUTO_PILOT_PROMPT;
+    try {
+      const result = await generateAutoPilotPostForNetwork(c.env, ctx.orgId, network, effectivePrompt);
+      return c.json({ data: result });
+    } catch (err) {
+      return c.json(
+        {
+          error: {
+            code: 'AI_GENERATION_ERROR',
+            message: err instanceof Error ? err.message : 'preview failed',
+          },
+        },
+        502,
+      );
+    }
+  },
+);
+
+/**
+ * `POST /api/social/auto-pilot/run-now` — Manually fire an auto-pilot run.
+ *
+ * @remarks
+ * Generates one draft post per `target_networks` using the saved prompt
+ * + business context, persists each as a `pulse_posts` row with
+ * `status='draft'`. The user reviews + publishes manually. Mirrors what
+ * the every-minute cron sweep does, but on demand.
+ *
+ * Auto-pilot does NOT need to be enabled to call this — operators may
+ * want a one-shot brainstorm without the recurring schedule.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 409 CONFLICT when no `target_networks` are configured.
+ * @see runAutoPilotIfDue (in src/index.ts cron handler)
+ */
+socialRoutes.post('/api/social/auto-pilot/run-now', async (c) => {
+  const ctx = requireAuth(c);
+  if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+  const cfg = await loadAutoPilotConfig(c.env.DB, ctx.orgId);
+  const networks = cfg.target_networks ?? [];
+  if (networks.length === 0) {
+    return c.json(
+      { error: { code: 'CONFLICT', message: 'configure at least one target network first' } },
+      409,
+    );
+  }
+  const effectivePrompt = cfg.prompt || DEFAULT_AUTO_PILOT_PROMPT;
+  const created: { id: string; network: Platform }[] = [];
+  for (const network of networks) {
+    try {
+      const out = await generateAutoPilotPostForNetwork(c.env, ctx.orgId, network, effectivePrompt);
+      const id = crypto.randomUUID();
+      const { error } = await dbInsert(c.env.DB, 'pulse_posts', {
+        id,
+        org_id: ctx.orgId,
+        site_id: null,
+        created_by: ctx.userId,
+        status: 'draft',
+        content: out.text,
+        per_platform_overrides: null,
+        media_keys: null,
+        account_ids: JSON.stringify([]),
+        hashtags: null,
+        mentions: null,
+        link: null,
+        thread_id: `auto-pilot-${Date.now()}`,
+      });
+      if (!error) created.push({ id, network });
+    } catch (err) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'social_auto_pilot',
+          message: 'run_now_generation_failed',
+          network,
+          org_id: ctx.orgId,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    }
+  }
+  // Push the schedule cursor forward so the cron sweep stays consistent.
+  const now = Date.now();
+  const next = now + cfg.cadence_hours * 3_600_000;
+  await dbExecute(
+    c.env.DB,
+    `UPDATE social_auto_pilot SET last_run_at = ?, next_run_at = ?, updated_at = ? WHERE org_id = ?`,
+    [now, next, now, ctx.orgId],
+  );
+  return c.json({ data: { created, count: created.length } });
 });

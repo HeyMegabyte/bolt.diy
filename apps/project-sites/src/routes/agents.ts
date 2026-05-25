@@ -52,6 +52,13 @@ const createSchema = z.object({
   monthly_budget_cents: z.number().int().min(0).max(50000).default(1000),
 });
 
+/**
+ * `GET /api/sites/:siteId/agents` — List active agents on a site.
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
+ * @throws 403 FORBIDDEN when the site isn't owned by the caller's org.
+ */
 agents.get('/api/sites/:siteId/agents', async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = await assertSiteOwnership(c, siteId);
@@ -68,6 +75,18 @@ agents.get('/api/sites/:siteId/agents', async (c) => {
   return c.json({ agents: data });
 });
 
+/**
+ * `POST /api/sites/:siteId/agents` — Create a new agent on a site.
+ *
+ * @remarks
+ * Body: {@link createSchema}. Defaults: Llama 3.3 70B FP8-fast, no tools,
+ * no schedule (manual-trigger only), 50¢ max cost per run, $10/mo budget.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails or slug collides.
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
+ * @throws 403 FORBIDDEN when the site isn't owned by the caller's org.
+ */
 agents.post('/api/sites/:siteId/agents', zValidator('json', createSchema), async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = await assertSiteOwnership(c, siteId);
@@ -104,6 +123,18 @@ const patchSchema = z.object({
   monthly_budget_cents: z.number().int().min(0).max(50000).optional(),
 });
 
+/**
+ * `PATCH /api/agents/:id` — Update agent config (prompt, tools, schedule,
+ * status, budget).
+ *
+ * @remarks
+ * Body: {@link patchSchema}. Pause/resume via `status`.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
+ * @throws 403 FORBIDDEN when the agent isn't owned by the caller's org.
+ */
 agents.patch('/api/agents/:id', zValidator('json', patchSchema), async (c) => {
   const id = c.req.param('id');
   const body = c.req.valid('json');
@@ -122,6 +153,20 @@ agents.patch('/api/agents/:id', zValidator('json', patchSchema), async (c) => {
   return c.json({ ok: true });
 });
 
+/**
+ * `POST /api/agents/:id/run` — Trigger a manual run.
+ *
+ * @remarks
+ * Returns HTTP `202` with `{ run_id, status: 'running' }` immediately —
+ * the actual model call happens in `ctx.waitUntil`. Poll
+ * `GET /api/agents/:id/runs` for the result.
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro or the agent's
+ *   monthly budget is exhausted.
+ * @throws 403 FORBIDDEN when the agent isn't owned by the caller's org.
+ * @throws 409 CONFLICT when the agent is paused (resume first).
+ */
 agents.post('/api/agents/:id/run', async (c) => {
   const id = c.req.param('id');
   const agent = await loadAgent(c, id);
@@ -150,6 +195,16 @@ agents.post('/api/agents/:id/run', async (c) => {
   return c.json({ run_id: runId, status: 'running' }, 202);
 });
 
+/**
+ * `GET /api/agents/:id/runs?limit=` — List past runs ordered most-recent first.
+ *
+ * @remarks
+ * `limit` clamped to 200 (default 50).
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
+ * @throws 403 FORBIDDEN when the agent isn't owned by the caller's org.
+ */
 agents.get('/api/agents/:id/runs', async (c) => {
   const id = c.req.param('id');
   const agent = await loadAgent(c, id);
@@ -167,6 +222,14 @@ agents.get('/api/agents/:id/runs', async (c) => {
   return c.json({ runs: data });
 });
 
+/**
+ * `DELETE /api/agents/:id` — Soft-delete an agent (sets `deleted_at` and
+ * `status='paused'`). History rows in `agent_runs` are retained.
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
+ * @throws 403 FORBIDDEN when the agent isn't owned by the caller's org.
+ */
 agents.delete('/api/agents/:id', async (c) => {
   const id = c.req.param('id');
   const agent = await loadAgent(c, id);

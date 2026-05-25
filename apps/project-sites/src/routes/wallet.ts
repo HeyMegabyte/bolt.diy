@@ -30,6 +30,12 @@ import { unauthorized } from '@project-sites/shared';
 
 const wallet = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+/**
+ * `GET /api/wallet` — Fetch the caller org's wallet balance + subscription
+ * status + payment-method presence.
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ */
 wallet.get('/api/wallet', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();
@@ -37,6 +43,19 @@ wallet.get('/api/wallet', async (c) => {
   return c.json(state);
 });
 
+/**
+ * `POST /api/wallet/subscribe` — Start a Stripe Checkout session for the
+ * $50/mo wallet subscription.
+ *
+ * @remarks
+ * Body: `{ return_url }`. Caller is redirected to the Checkout URL
+ * returned in `{ checkout_url }`. Stripe webhook completes the
+ * activation. Idempotent per session id.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails or upstream
+ *   Stripe rejects the checkout.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
 wallet.post(
   '/api/wallet/subscribe',
   zValidator('json', z.object({ return_url: z.string().url() })),
@@ -60,6 +79,20 @@ wallet.post(
   },
 );
 
+/**
+ * `POST /api/wallet/topup` — Charge the stored Stripe payment method to
+ * top up the caller org's wallet.
+ *
+ * @remarks
+ * Body: `{ amount_cents? }` clamped to 100–50000. Defaults to $50 when
+ * unset.
+ *
+ * Note: this handler currently does **not** Zod-validate its body (only
+ * the optional `amount_cents` is shape-checked inline). Consider tightening
+ * if non-numeric or extra fields become a concern.
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ */
 wallet.post('/api/wallet/topup', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();
@@ -72,6 +105,14 @@ wallet.post('/api/wallet/topup', async (c) => {
   return c.json(result);
 });
 
+/**
+ * `GET /api/wallet/transactions?days=` — Caller org's wallet ledger.
+ *
+ * @remarks
+ * `days` is 1–365 (default 30). Capped at 500 rows.
+ *
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ */
 wallet.get('/api/wallet/transactions', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();
@@ -88,6 +129,12 @@ wallet.get('/api/wallet/transactions', async (c) => {
   return c.json({ transactions: data });
 });
 
+/**
+ * `GET /api/wallet/cost-categories` — Read-only catalog of billable cost
+ * categories for UI rendering ("you pay $0.0042 per AI call", etc.).
+ *
+ * No auth required — pricing is public.
+ */
 wallet.get('/api/wallet/cost-categories', async (c) => {
   const { data } = await dbQuery(
     c.env.DB,

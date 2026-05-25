@@ -32,7 +32,11 @@
 // sidebar + top bar stay rock-solid (PWA feel) while the content area
 // does a quick crossfade + tiny upward slide.
 @supports (view-transition-name: a) {
-  aside[class*="sidebar"], aside.w-\[260px\], aside { view-transition-name: ps-sidebar; contain: layout style; }
+  // Scoped tightly to the admin shell's persistent 260px sidebar ONLY.
+  // The previous bare `aside` selector matched every aside on the page
+  // (social composer panes, inbox columns) and triggered "Unexpected
+  // duplicate view-transition-name: ps-sidebar" runtime errors.
+  app-admin > div > aside:first-of-type { view-transition-name: ps-sidebar; contain: layout style; }
   // Top bar is the first child of <main> — name it.
   main > div:first-child { view-transition-name: ps-topbar; contain: layout style; }
   // Top-level page content (sibling of <app-root>'s router-outlet). Scoped to
@@ -160,6 +164,24 @@
   --ps-surface-2: rgba(10, 10, 30, 0.97);
   --ps-surface-3: rgba(8, 8, 32, 0.98);
   --ps-surface-glass: rgba(13, 13, 40, 0.62);
+
+  // ── Admin polish v2 — OKLCH-derived surfaces + accent glow ──────
+  // Centralized so the admin shell, palette, modals, popovers, cards
+  // can pull from one place. Every new color additive — the legacy
+  // rgba surfaces above keep working until callers opt-in.
+  --ps-accent-glow:  color-mix(in oklch, var(--ps-accent, #00E5FF) 35%, transparent);
+  --ps-accent-soft:  color-mix(in oklch, var(--ps-accent, #00E5FF) 14%, transparent);
+  --ps-accent-line:  color-mix(in oklch, var(--ps-accent, #00E5FF) 28%, transparent);
+  --ps-accent-secondary: #7C3AED;
+  // Elevation surfaces derived in OKLCH space so they remain hue-true
+  // across dark + light themes. ink-mix percentages stay below 18% so
+  // contrast against --ps-ink never flips.
+  --ps-surface-base: var(--ps-bg, #060610);
+  --ps-elev-1: color-mix(in oklch, var(--ps-bg, #060610) 92%, var(--ps-ink, #f4f4ff) 8%);
+  --ps-elev-2: color-mix(in oklch, var(--ps-bg, #060610) 85%, var(--ps-ink, #f4f4ff) 15%);
+  --ps-elev-3: color-mix(in oklch, var(--ps-bg, #060610) 78%, var(--ps-ink, #f4f4ff) 22%);
+  --ps-hairline: color-mix(in oklch, var(--ps-ink, #f4f4ff) 8%, transparent);
+  --ps-hairline-hi: color-mix(in oklch, var(--ps-ink, #f4f4ff) 14%, transparent);
 }
 
 // ── Light-theme overrides ─────────────────────────────────────────

@@ -13,13 +13,18 @@ import { ToastService } from '../../services/toast.service';
 import { Dialog, DialogRef } from '@angular/cdk/dialog';
 import { DialogShellComponent } from '../dialog-shell/dialog-shell.component';
 
+/** Scope an env var applies at — mirrors `services/ai_env_vars.ts → EnvVarScope`. */
+export type EnvVarScopeDto = 'org' | 'site' | 'mcp' | 'endpoint' | 'agent';
+
 /** Public-facing env var shape mirroring `services/ai_env_vars.ts → EnvVar`. */
 export interface EnvVarDto {
   id: string;
   org_id: string;
-  scope: 'org' | 'site' | 'mcp';
+  scope: EnvVarScopeDto;
   site_id: string | null;
   mcp_provider: string | null;
+  endpoint_id: string | null;
+  agent_id: string | null;
   key: string;
   value_masked: string;
   description: string | null;
@@ -49,9 +54,34 @@ const EMPTY_DRAFT: NewVarDraft = {
 };
 
 /**
- * Per-scope AI Env Vars manager. Renders a table of existing vars + inline
- * add/edit row + import/export modal. Mounts under Settings (org-scope) and
- * per-MCP (mcp-scope). Site-scope reserved for future per-site overrides.
+ * Per-scope AI Env Vars manager.
+ *
+ * @remarks
+ * Renders a table of existing vars + inline add/edit row + import/export modal.
+ * Mounts under Settings (org-scope) and per-MCP (mcp-scope). Site-scope is
+ * reserved for future per-site overrides.
+ *
+ * Required `input()` signals:
+ * - `scope` (`'org' | 'site' | 'mcp' | 'endpoint' | 'agent'`) — drives query params + visible suffix
+ * - `siteId` — required when `scope === 'site'`
+ * - `mcpProvider` — required when `scope === 'mcp'`
+ * - `endpointId` — required when `scope === 'endpoint'`
+ * - `agentId` — required when `scope === 'agent'`
+ *
+ * Emits nothing — all mutations go through `ApiService` and toast feedback
+ * surfaces via {@link ToastService}.
+ *
+ * Brand tokens: `--ps-bg`, `--ps-ink`, `--ps-accent` from `_polish.scss`.
+ * A11y: every action button has an aria-label; secret values are masked by
+ * default and only revealed via the explicit "Show value" toggle.
+ *
+ * @example
+ * ```html
+ * <app-env-vars-manager scope="org" />
+ * <app-env-vars-manager scope="mcp" mcpProvider="mailchimp" />
+ * <app-env-vars-manager scope="endpoint" [endpointId]="endpointId" />
+ * <app-env-vars-manager scope="agent" [agentId]="agentId" />
+ * ```
  */
 @Component({
   selector: 'app-env-vars-manager',
@@ -71,6 +101,9 @@ const EMPTY_DRAFT: NewVarDraft = {
           <p class="ev-sub">
             Encrypted at rest. Exposed-to-AI vars flow into LLM tool calls + MCP requests for this scope.
           </p>
+          @if (scopeHint(); as hint) {
+            <p class="ev-hint" role="note">{{ hint }}</p>
+          }
         </div>
         <div class="ev-head-actions">
           <button type="button" class="ev-btn-ghost" (click)="openImport()" aria-label="Import .env file">
@@ -240,6 +273,16 @@ const EMPTY_DRAFT: NewVarDraft = {
     .ev-kicker { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); font-weight: 700; }
     .ev-title { margin: 0.25rem 0 0.25rem; font-family: 'Sora', system-ui, sans-serif; font-weight: 600; font-size: 0.95rem; letter-spacing: -0.01em; }
     .ev-sub { margin: 0; font-size: 0.7rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
+    .ev-hint {
+      margin: 0.35rem 0 0;
+      font-size: 0.68rem;
+      color: color-mix(in oklch, var(--ps-accent, #00E5FF) 78%, var(--ps-ink, #f4f4ff) 22%);
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 8%, transparent);
+      border-left: 2px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 45%, transparent);
+      padding: 0.35rem 0.55rem;
+      border-radius: 0 6px 6px 0;
+      max-width: 540px;
+    }
     .ev-head-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
     .ev-btn-primary, .ev-btn-ghost {
       padding: 0.42rem 0.85rem;
@@ -352,37 +395,74 @@ export class EnvVarsManagerComponent implements OnInit {
   private toast = inject(ToastService);
   private dialog = inject(Dialog);
 
-  /** Required. */
-  scope = input.required<'org' | 'site' | 'mcp'>();
+  /** Required. One of `org | site | mcp | endpoint | agent`. */
+  scope = input.required<EnvVarScopeDto>();
   /** Required when scope='site'. */
   siteId = input<string | undefined>(undefined);
   /** Required when scope='mcp'. */
   mcpProvider = input<string | undefined>(undefined);
+  /** Required when scope='endpoint'. */
+  endpointId = input<string | undefined>(undefined);
+  /** Required when scope='agent'. */
+  agentId = input<string | undefined>(undefined);
 
+  /** Active list of vars in this scope (refreshed via {@link load}). */
   vars = signal<EnvVarDto[]>([]);
+  /** True while the initial / scope-change fetch is in flight. */
   loading = signal<boolean>(false);
+  /** True while an add/edit POST/PATCH is round-tripping. */
   saving = signal<boolean>(false);
+  /** Whether the inline add/edit form is visible. */
   addingOpen = signal<boolean>(false);
+  /** Var id under edit (null = adding a new var). */
   editingId = signal<string | null>(null);
+  /** Working copy bound to the inline form — reset to EMPTY_DRAFT on cancel. */
   draft: NewVarDraft = { ...EMPTY_DRAFT };
 
+  /** Compose the table's aria-label from the current scope + suffix. */
   ariaLabel = (): string =>
     `Environment variables (${this.scope()}${this.scopeSuffix() || ''})`;
+
+  /** Human suffix appended after the scope name in the kicker / aria-label. */
   scopeSuffix = (): string => {
-    if (this.scope() === 'site' && this.siteId()) return ` · site ${this.siteId()}`;
-    if (this.scope() === 'mcp' && this.mcpProvider()) return ` · ${this.mcpProvider()}`;
+    const s = this.scope();
+    if (s === 'site' && this.siteId()) return ` · site ${this.siteId()}`;
+    if (s === 'mcp' && this.mcpProvider()) return ` · ${this.mcpProvider()}`;
+    if (s === 'endpoint' && this.endpointId()) return ` · endpoint ${this.endpointId()}`;
+    if (s === 'agent' && this.agentId()) return ` · agent ${this.agentId()}`;
     return '';
   };
 
+  /**
+   * Scope-specific human hint surfaced under the title. Returns `null` for
+   * the baseline org/site scopes (the default `.ev-sub` copy is sufficient).
+   */
+  scopeHint = (): string | null => {
+    switch (this.scope()) {
+      case 'mcp':
+        return 'Variables here override org/site vars when this MCP provider is called.';
+      case 'endpoint':
+        return 'Variables here override org/site/MCP vars for this endpoint only.';
+      case 'agent':
+        return 'Variables here have the highest precedence — they override every other scope when this agent runs.';
+      default:
+        return null;
+    }
+  };
+
   constructor() {
-    // Re-load whenever scope/site/mcp inputs change.
+    // Re-load whenever scope/site/mcp/endpoint/agent inputs change.
     effect(() => {
       const _scope = this.scope();
       const _site = this.siteId();
       const _mcp = this.mcpProvider();
+      const _endpoint = this.endpointId();
+      const _agent = this.agentId();
       void _scope;
       void _site;
       void _mcp;
+      void _endpoint;
+      void _agent;
       this.load();
     });
   }
@@ -391,14 +471,24 @@ export class EnvVarsManagerComponent implements OnInit {
     this.load();
   }
 
-  private buildScope(): { scope: 'org' | 'site' | 'mcp'; siteId?: string; mcpProvider?: string } {
+  private buildScope(): {
+    scope: EnvVarScopeDto;
+    siteId?: string;
+    mcpProvider?: string;
+    endpointId?: string;
+    agentId?: string;
+  } {
     const scope = this.scope();
     const siteId = this.siteId();
     const mcpProvider = this.mcpProvider();
+    const endpointId = this.endpointId();
+    const agentId = this.agentId();
     return {
       scope,
       siteId: scope === 'site' && siteId ? siteId : undefined,
       mcpProvider: scope === 'mcp' && mcpProvider ? mcpProvider : undefined,
+      endpointId: scope === 'endpoint' && endpointId ? endpointId : undefined,
+      agentId: scope === 'agent' && agentId ? agentId : undefined,
     };
   }
 
@@ -407,9 +497,12 @@ export class EnvVarsManagerComponent implements OnInit {
     const out: Record<string, string> = { scope: s.scope };
     if (s.siteId) out['siteId'] = s.siteId;
     if (s.mcpProvider) out['mcpProvider'] = s.mcpProvider;
+    if (s.endpointId) out['endpointId'] = s.endpointId;
+    if (s.agentId) out['agentId'] = s.agentId;
     return out;
   }
 
+  /** (Re)fetch the vars list for the current scope. */
   load(): void {
     this.loading.set(true);
     this.api.get<{ vars: EnvVarDto[] }>('/env-vars', this.buildQueryParams()).subscribe({
@@ -421,17 +514,24 @@ export class EnvVarsManagerComponent implements OnInit {
     });
   }
 
+  /** Clip text with an ellipsis when over `max` characters. Pure utility. */
   truncate(text: string | null, max: number): string {
     if (!text) return '';
     return text.length > max ? `${text.slice(0, max - 1)}…` : text;
   }
 
+  /** Open the inline form in "add" mode with a fresh empty draft. */
   startAdd(): void {
     this.draft = { ...EMPTY_DRAFT };
     this.editingId.set(null);
     this.addingOpen.set(true);
   }
 
+  /**
+   * Open the inline form pre-populated for editing `v`. The value field is
+   * intentionally left blank — we never round-trip the masked ciphertext, so
+   * the user must paste a fresh value to rotate the secret.
+   */
   startEdit(v: EnvVarDto): void {
     this.draft = {
       key: v.key,
@@ -445,12 +545,17 @@ export class EnvVarsManagerComponent implements OnInit {
     this.addingOpen.set(true);
   }
 
+  /** Close the inline form and discard any in-flight edit/add draft. */
   cancelAdd(): void {
     this.addingOpen.set(false);
     this.draft = { ...EMPTY_DRAFT };
     this.editingId.set(null);
   }
 
+  /**
+   * Submit the inline add/edit form. POSTs a new var or PATCHes the editing
+   * id. Toasts on success/failure and refreshes the list before closing.
+   */
   saveDraft(ev: Event): void {
     ev.preventDefault();
     if (!this.draft.key || !this.draft.value) {
@@ -462,6 +567,8 @@ export class EnvVarsManagerComponent implements OnInit {
       scope: s.scope,
       siteId: s.siteId,
       mcpProvider: s.mcpProvider,
+      endpointId: s.endpointId,
+      agentId: s.agentId,
       key: this.draft.key,
       value: this.draft.value,
       description: this.draft.description || null,
@@ -484,6 +591,10 @@ export class EnvVarsManagerComponent implements OnInit {
     });
   }
 
+  /**
+   * Flip the per-var "expose to AI tool-calls + MCP requests" flag. Optimistic
+   * update on the local signal; the worker re-asserts on the next `load()`.
+   */
   toggleExposedToAi(v: EnvVarDto): void {
     const next = !v.exposed_to_ai;
     this.api.patch<{ var: EnvVarDto }>(`/env-vars/${v.id}`, { exposedToAi: next }).subscribe({
@@ -495,6 +606,7 @@ export class EnvVarsManagerComponent implements OnInit {
     });
   }
 
+  /** Delete a var after explicit confirm. Removes the row optimistically. */
   remove(v: EnvVarDto): void {
     if (!confirm(`Delete env var ${v.key}? This cannot be undone.`)) return;
     this.api.delete<{ deleted: boolean }>(`/env-vars/${v.id}`).subscribe({
@@ -506,6 +618,11 @@ export class EnvVarsManagerComponent implements OnInit {
     });
   }
 
+  /**
+   * Open the paste-`.env` import modal and, on confirm, POST the dotenv blob
+   * to `/env-vars/import`. Worker handles parse + per-key validation and
+   * returns counts the UI surfaces in a toast.
+   */
   openImport(): void {
     const ref = this.dialog.open<{ text: string } | undefined>(ImportEnvVarsDialogComponent, {
       width: 'min(720px, 92vw)',
@@ -523,6 +640,8 @@ export class EnvVarsManagerComponent implements OnInit {
           scope: s.scope,
           siteId: s.siteId,
           mcpProvider: s.mcpProvider,
+          endpointId: s.endpointId,
+          agentId: s.agentId,
           dotenv: result.text,
         },
       ).subscribe({
@@ -535,6 +654,12 @@ export class EnvVarsManagerComponent implements OnInit {
     });
   }
 
+  /**
+   * Download the scope's vars as a `.env` text file. Uses `fetch()` directly
+   * (instead of {@link ApiService}) so we can stream the text body into a
+   * Blob + trigger an `<a download>` click. Server returns 403 for non-owners
+   * trying to fetch plaintext values.
+   */
   exportDotenv(): void {
     const s = this.buildScope();
     const qs = new URLSearchParams({ ...this.buildQueryParams(), include_values: '1' }).toString();
@@ -550,7 +675,11 @@ export class EnvVarsManagerComponent implements OnInit {
         }
         const text = await res.text();
         const ts = new Date().toISOString().slice(0, 10);
-        const filenameScope = s.scope + (s.siteId ? `-${s.siteId}` : '') + (s.mcpProvider ? `-${s.mcpProvider}` : '');
+        const filenameScope = s.scope
+          + (s.siteId ? `-${s.siteId}` : '')
+          + (s.mcpProvider ? `-${s.mcpProvider}` : '')
+          + (s.endpointId ? `-${s.endpointId}` : '')
+          + (s.agentId ? `-${s.agentId}` : '');
         const filename = `.env.${filenameScope}-${ts}.txt`;
         const blob = new Blob([text], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
@@ -640,12 +769,15 @@ export class EnvVarsManagerComponent implements OnInit {
 })
 export class ImportEnvVarsDialogComponent {
   private dialogRef = inject<DialogRef<{ text: string } | undefined>>(DialogRef);
+  /** Live-bound textarea contents — the parent surfaces the trimmed value. */
   text = '';
 
+  /** Close without importing — resolves the dialog promise to `undefined`. */
   cancel(): void {
     this.dialogRef.close(undefined);
   }
 
+  /** Resolve the dialog with the dotenv blob for the parent to POST. */
   confirm(): void {
     this.dialogRef.close({ text: this.text });
   }

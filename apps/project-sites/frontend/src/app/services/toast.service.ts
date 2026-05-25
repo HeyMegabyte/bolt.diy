@@ -1,7 +1,33 @@
+/**
+ * @module services/toast
+ *
+ * @description
+ * Dedupe-aware global toast queue. Components subscribe to {@link ToastService.toasts}
+ * (a signal) and render the array; this service owns id-allocation, deduplication
+ * within a short window, optional action buttons (Retry / Undo), correlationId
+ * surfacing for support hand-off, and auto-dismiss timers.
+ *
+ * @remarks
+ * - Default durations vary by type: error 7s, warning 6s, info 4.5s, success 4s.
+ * - `duration: 0` makes a toast sticky (caller must `dismiss(id)` manually).
+ * - Identical (`message` + `type`) toasts inside {@link DEDUPE_WINDOW_MS} collapse
+ *   into the existing one — the second `.show()` returns the prior id.
+ *
+ * @example
+ * ```ts
+ * const toast = inject(ToastService);
+ * toast.success('Saved');
+ * const id = toast.info('Uploading…', { duration: 0 });
+ * // later
+ * toast.dismiss(id);
+ * ```
+ */
 import { Injectable, signal } from '@angular/core';
 
+/** Toast severity → drives default duration and visual treatment. */
 export type ToastType = 'error' | 'success' | 'info' | 'warning';
 
+/** Optional one-click action surfaced as a button inside the toast. */
 export interface ToastAction {
   /** Visible button label, e.g., "Retry", "Undo". */
   readonly label: string;
@@ -48,10 +74,18 @@ function normalize(arg: ShowArg): ShowOptions {
 
 @Injectable({ providedIn: 'root' })
 export class ToastService {
+  /** Monotonic per-instance counter — never reused so dismiss() can target safely. */
   private counter = 0;
+
+  /** Active toast queue. Read by the global `<app-toast>` layer in `AppComponent`. */
   readonly toasts = signal<Toast[]>([]);
 
-  /** Generic dispatcher — kept backward-compatible: third arg may be a number (legacy duration) or options. */
+  /**
+   * Generic dispatcher — kept backward-compatible: third arg may be a number
+   * (legacy duration in ms) or a {@link ShowOptions} object.
+   *
+   * @returns The toast id (existing one on dedupe-hit, fresh otherwise).
+   */
   show(message: string, type: ToastType = 'info', durationOrOpts: ShowArg = undefined): number {
     const opts = normalize(durationOrOpts);
     const now = Date.now();
@@ -75,26 +109,32 @@ export class ToastService {
     return id;
   }
 
+  /** Remove a single toast by id. No-op when the id is not active. */
   dismiss(id: number): void {
     this.toasts.update((t) => t.filter((toast) => toast.id !== id));
   }
 
+  /** Clear every active toast — used on full sign-out / route reset. */
   dismissAll(): void {
     this.toasts.set([]);
   }
 
+  /** Shorthand for `show(message, 'error', durationOrOpts)`. */
   error(message: string, durationOrOpts: ShowArg = undefined): number {
     return this.show(message, 'error', durationOrOpts);
   }
 
+  /** Shorthand for `show(message, 'success', durationOrOpts)`. */
   success(message: string, durationOrOpts: ShowArg = undefined): number {
     return this.show(message, 'success', durationOrOpts);
   }
 
+  /** Shorthand for `show(message, 'warning', durationOrOpts)`. */
   warning(message: string, durationOrOpts: ShowArg = undefined): number {
     return this.show(message, 'warning', durationOrOpts);
   }
 
+  /** Shorthand for `show(message, 'info', durationOrOpts)`. */
   info(message: string, durationOrOpts: ShowArg = undefined): number {
     return this.show(message, 'info', durationOrOpts);
   }

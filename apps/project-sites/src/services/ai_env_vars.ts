@@ -1,15 +1,18 @@
 /**
  * @module services/ai_env_vars
- * @description Customizable per-org/per-site/per-MCP key-value store that the
- * AI and MCP-connectable surfaces can read at inference time. Values are
- * encrypted at rest via AES-GCM using the existing `MCP_ENCRYPTION_KEY` (see
- * {@link ./ai_crypto.ts}).
+ * @description Customizable per-org/per-site/per-MCP/per-endpoint/per-agent
+ * key-value store that the AI and MCP-connectable surfaces can read at
+ * inference time. Values are encrypted at rest via AES-GCM using the
+ * existing `MCP_ENCRYPTION_KEY` (see {@link ./ai_crypto.ts}).
  *
  * ## Scope precedence
  *
  * Resolved at LLM/tool-dispatch time by {@link resolveEnvVarsForAI}:
  *
- *   org → site (overrides org) → mcp (overrides org+site)
+ *   org → site → mcp → endpoint → agent
+ *
+ * Each later scope overrides earlier scopes when the same key is defined at
+ * multiple levels. The merge is performed in {@link resolveEnvVarsForAI}.
  *
  * Only rows with `exposed_to_ai = 1` flow into the AI context. Rows with
  * `exposed_to_ai = 0` stay backend-only (e.g. MCP-specific overrides used
@@ -20,7 +23,12 @@
  * ```ts
  * import { resolveEnvVarsForAI, injectIntoSystemPrompt } from './ai_env_vars.js';
  *
- * const resolved = await resolveEnvVarsForAI(env, { orgId, siteId });
+ * const resolved = await resolveEnvVarsForAI(env, {
+ *   orgId,
+ *   siteId,
+ *   endpointId,   // optional — overrides org/site/mcp when set
+ *   agentId,      // optional — overrides everything when set
+ * });
  * const augmented = injectIntoSystemPrompt(systemPrompt, resolved);
  * ```
  *
@@ -30,8 +38,19 @@ import type { Env } from '../types/env.js';
 import { encrypt, decrypt } from './ai_crypto.js';
 import { dbQuery, dbQueryOne, dbExecute } from './db.js';
 
-/** Scope an env var applies at. */
-export type EnvVarScope = 'org' | 'site' | 'mcp';
+/**
+ * Scope an env var applies at.
+ *
+ * - `org` — applies to every AI/LLM call within the org
+ * - `site` — overrides org for calls bound to a specific site
+ * - `mcp` — overrides for a specific MCP provider (e.g. mailchimp, stripe)
+ * - `endpoint` — overrides for a specific AI endpoint (custom model/provider config)
+ * - `agent` — overrides for a specific agent (highest precedence)
+ */
+export type EnvVarScope = 'org' | 'site' | 'mcp' | 'endpoint' | 'agent';
+
+/** All scopes ordered by resolve-time precedence (lowest → highest). */
+const SCOPE_ORDER: readonly EnvVarScope[] = ['org', 'site', 'mcp', 'endpoint', 'agent'] as const;
 
 /** Raw D1 row shape (numeric booleans as stored). */
 interface EnvVarRow {
@@ -40,6 +59,8 @@ interface EnvVarRow {
   scope: EnvVarScope;
   site_id: string | null;
   mcp_provider: string | null;
+  endpoint_id: string | null;
+  agent_id: string | null;
   key: string;
   value_encrypted: string;
   description: string | null;
@@ -58,6 +79,8 @@ export interface EnvVar {
   scope: EnvVarScope;
   site_id: string | null;
   mcp_provider: string | null;
+  endpoint_id: string | null;
+  agent_id: string | null;
   key: string;
   /** Always returned. `••••` + last 4 chars when `is_secret=1`, plaintext when `is_secret=0`. */
   value_masked: string;
@@ -77,6 +100,8 @@ export interface SetEnvVarArgs {
   scope: EnvVarScope;
   siteId?: string;
   mcpProvider?: string;
+  endpointId?: string;
+  agentId?: string;
   key: string;
   value: string;
   description?: string;
@@ -90,6 +115,8 @@ export interface ListEnvVarsOpts {
   scope?: EnvVarScope;
   siteId?: string;
   mcpProvider?: string;
+  endpointId?: string;
+  agentId?: string;
   /**
    * When `true`, also returns the decrypted plaintext `value` on each row.
    * SERVER-SIDE ONLY — never expose to a browser-facing endpoint.
@@ -102,6 +129,8 @@ export interface ResolveEnvVarsArgs {
   orgId: string;
   siteId?: string;
   mcpProvider?: string;
+  endpointId?: string;
+  agentId?: string;
 }
 
 const KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -112,8 +141,10 @@ const MAX_VALUE_LEN = 64 * 1024; // 64 KiB ciphertext-input cap
  * Validate and normalise the per-scope required fields. Throws a descriptive
  * `Error` whose message is safe to surface in a route JSON envelope.
  */
-function validateScopeFields(args: Pick<SetEnvVarArgs, 'scope' | 'siteId' | 'mcpProvider' | 'key' | 'value'>): void {
-  if (args.scope !== 'org' && args.scope !== 'site' && args.scope !== 'mcp') {
+function validateScopeFields(
+  args: Pick<SetEnvVarArgs, 'scope' | 'siteId' | 'mcpProvider' | 'endpointId' | 'agentId' | 'key' | 'value'>,
+): void {
+  if (!SCOPE_ORDER.includes(args.scope)) {
     throw new Error(`invalid scope: ${args.scope}`);
   }
   if (args.scope === 'site' && !args.siteId) {
@@ -121,6 +152,12 @@ function validateScopeFields(args: Pick<SetEnvVarArgs, 'scope' | 'siteId' | 'mcp
   }
   if (args.scope === 'mcp' && !args.mcpProvider) {
     throw new Error('mcpProvider required when scope=mcp');
+  }
+  if (args.scope === 'endpoint' && !args.endpointId) {
+    throw new Error('endpointId required when scope=endpoint');
+  }
+  if (args.scope === 'agent' && !args.agentId) {
+    throw new Error('agentId required when scope=agent');
   }
   if (!args.key || typeof args.key !== 'string') {
     throw new Error('key required');
@@ -174,6 +211,8 @@ async function rowToEnvVar(env: Env, row: EnvVarRow, unmask: boolean): Promise<E
     scope: row.scope,
     site_id: row.site_id,
     mcp_provider: row.mcp_provider,
+    endpoint_id: row.endpoint_id,
+    agent_id: row.agent_id,
     key: row.key,
     value_masked: masked,
     description: row.description,
@@ -188,8 +227,13 @@ async function rowToEnvVar(env: Env, row: EnvVarRow, unmask: boolean): Promise<E
 }
 
 /**
- * Upsert an env var. The unique key is `(org_id, scope, site_id, mcp_provider, key)`
- * — re-setting the same tuple replaces the value + description in place.
+ * Upsert an env var. The unique key is
+ * `(org_id, scope, site_id, mcp_provider, endpoint_id, agent_id, key)` —
+ * re-setting the same tuple replaces the value + description in place.
+ *
+ * Per-scope unique indexes enforce uniqueness within their slot (see
+ * migration 0041 + 0045). The ON CONFLICT clause here mirrors all five
+ * slot columns so re-setting works at every scope.
  *
  * @returns The masked {@link EnvVar} representation of the stored row.
  */
@@ -202,13 +246,19 @@ export async function setEnvVar(env: Env, args: SetEnvVarArgs): Promise<EnvVar> 
   const exposedToAi = args.exposedToAi === undefined ? 1 : args.exposedToAi ? 1 : 0;
   const siteId = args.scope === 'site' ? (args.siteId ?? null) : null;
   const mcpProvider = args.scope === 'mcp' ? (args.mcpProvider ?? null) : null;
+  const endpointId = args.scope === 'endpoint' ? (args.endpointId ?? null) : null;
+  const agentId = args.scope === 'agent' ? (args.agentId ?? null) : null;
 
   const sql = `
     INSERT INTO ai_env_vars
-      (id, org_id, scope, site_id, mcp_provider, key, value_encrypted, description,
-       is_secret, exposed_to_ai, created_by, created_at, updated_at, deleted_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
-    ON CONFLICT(org_id, scope, COALESCE(site_id, ''), COALESCE(mcp_provider, ''), key) DO UPDATE SET
+      (id, org_id, scope, site_id, mcp_provider, endpoint_id, agent_id, key,
+       value_encrypted, description, is_secret, exposed_to_ai, created_by,
+       created_at, updated_at, deleted_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+    ON CONFLICT(org_id, scope,
+                COALESCE(site_id, ''), COALESCE(mcp_provider, ''),
+                COALESCE(endpoint_id, ''), COALESCE(agent_id, ''),
+                key) DO UPDATE SET
       value_encrypted = excluded.value_encrypted,
       description = excluded.description,
       is_secret = excluded.is_secret,
@@ -222,6 +272,8 @@ export async function setEnvVar(env: Env, args: SetEnvVarArgs): Promise<EnvVar> 
     args.scope,
     siteId,
     mcpProvider,
+    endpointId,
+    agentId,
     args.key,
     valueEncrypted,
     args.description ?? null,
@@ -240,20 +292,22 @@ export async function setEnvVar(env: Env, args: SetEnvVarArgs): Promise<EnvVar> 
        WHERE org_id = ? AND scope = ?
          AND COALESCE(site_id, '') = COALESCE(?, '')
          AND COALESCE(mcp_provider, '') = COALESCE(?, '')
+         AND COALESCE(endpoint_id, '') = COALESCE(?, '')
+         AND COALESCE(agent_id, '') = COALESCE(?, '')
          AND key = ?
          AND deleted_at IS NULL`,
-    [args.orgId, args.scope, siteId, mcpProvider, args.key],
+    [args.orgId, args.scope, siteId, mcpProvider, endpointId, agentId, args.key],
   );
   if (!row) throw new Error('setEnvVar: stored row not found after upsert');
   return rowToEnvVar(env, row, false);
 }
 
 /**
- * List env vars for an org, optionally filtered by scope/site/mcp. NEVER
- * returns plaintext unless `opts.unmask === true` is explicitly passed
+ * List env vars for an org, optionally filtered by scope/site/mcp/endpoint/agent.
+ * NEVER returns plaintext unless `opts.unmask === true` is explicitly passed
  * (server-side only — see {@link ListEnvVarsOpts.unmask}).
  *
- * Order: scope rank (org→site→mcp), then key alphabetical.
+ * Order: scope rank (org→site→mcp→endpoint→agent), then key alphabetical.
  */
 export async function listEnvVars(env: Env, orgId: string, opts: ListEnvVarsOpts = {}): Promise<EnvVar[]> {
   const where: string[] = ['org_id = ?', 'deleted_at IS NULL'];
@@ -270,10 +324,25 @@ export async function listEnvVars(env: Env, orgId: string, opts: ListEnvVarsOpts
     where.push('mcp_provider = ?');
     params.push(opts.mcpProvider);
   }
+  if (opts.endpointId) {
+    where.push('endpoint_id = ?');
+    params.push(opts.endpointId);
+  }
+  if (opts.agentId) {
+    where.push('agent_id = ?');
+    params.push(opts.agentId);
+  }
   const sql = `
     SELECT * FROM ai_env_vars
      WHERE ${where.join(' AND ')}
-     ORDER BY CASE scope WHEN 'org' THEN 0 WHEN 'site' THEN 1 WHEN 'mcp' THEN 2 ELSE 3 END,
+     ORDER BY CASE scope
+                WHEN 'org' THEN 0
+                WHEN 'site' THEN 1
+                WHEN 'mcp' THEN 2
+                WHEN 'endpoint' THEN 3
+                WHEN 'agent' THEN 4
+                ELSE 5
+              END,
               key ASC
   `;
   const { data } = await dbQuery<EnvVarRow>(env.DB, sql, params);
@@ -317,9 +386,23 @@ export async function deleteEnvVar(env: Env, orgId: string, id: string): Promise
 
 /**
  * Resolve the effective env-var set for an AI/LLM call. Merges in priority
- * order: `org → site → mcp` (later scopes override earlier). Only rows with
- * `exposed_to_ai = 1` and `deleted_at IS NULL` are included. Values are
- * decrypted.
+ * order:
+ *
+ *   org → site → mcp → endpoint → agent
+ *
+ * Each later scope OVERRIDES earlier scopes when the same key is defined at
+ * multiple levels. Only rows with `exposed_to_ai = 1` and `deleted_at IS NULL`
+ * are included. Values are decrypted.
+ *
+ * ## Example
+ *
+ * Given:
+ * - org-scope `API_TOKEN=org-default`
+ * - site-scope `API_TOKEN=site-override`
+ * - agent-scope `API_TOKEN=agent-override` (agentId=foo)
+ *
+ * `resolveEnvVarsForAI(env, { orgId, siteId, agentId: 'foo' })` returns
+ * `{ API_TOKEN: 'agent-override' }` — agent beats site beats org.
  *
  * Call this inside any LLM/tool-call dispatch path (see
  * {@link ../services/external_llm.ts} and {@link ../services/mcp_client.ts})
@@ -327,27 +410,45 @@ export async function deleteEnvVar(env: Env, orgId: string, id: string): Promise
  */
 export async function resolveEnvVarsForAI(env: Env, args: ResolveEnvVarsArgs): Promise<Record<string, string>> {
   // Pull all candidate rows in one query — keeps the merge in-memory.
+  const orClauses: string[] = [`scope = 'org'`];
+  const params: unknown[] = [args.orgId];
+  if (args.siteId) {
+    orClauses.push(`(scope = 'site' AND site_id = ?)`);
+    params.push(args.siteId);
+  }
+  if (args.mcpProvider) {
+    orClauses.push(`(scope = 'mcp' AND mcp_provider = ?)`);
+    params.push(args.mcpProvider);
+  }
+  if (args.endpointId) {
+    orClauses.push(`(scope = 'endpoint' AND endpoint_id = ?)`);
+    params.push(args.endpointId);
+  }
+  if (args.agentId) {
+    orClauses.push(`(scope = 'agent' AND agent_id = ?)`);
+    params.push(args.agentId);
+  }
   const conds: string[] = [
     'org_id = ?',
     'deleted_at IS NULL',
     'exposed_to_ai = 1',
-    `(scope = 'org'`
-      + (args.siteId ? ` OR (scope = 'site' AND site_id = ?)` : '')
-      + (args.mcpProvider ? ` OR (scope = 'mcp' AND mcp_provider = ?)` : '')
-      + `)`,
+    `(${orClauses.join(' OR ')})`,
   ];
-  const params: unknown[] = [args.orgId];
-  if (args.siteId) params.push(args.siteId);
-  if (args.mcpProvider) params.push(args.mcpProvider);
 
   const sql = `SELECT * FROM ai_env_vars WHERE ${conds.join(' AND ')}`;
   const { data } = await dbQuery<EnvVarRow>(env.DB, sql, params);
 
-  // Merge in scope-precedence order: org < site < mcp.
+  // Merge in scope-precedence order: org < site < mcp < endpoint < agent.
   const merged: Record<string, string> = {};
-  const byScope: Record<EnvVarScope, EnvVarRow[]> = { org: [], site: [], mcp: [] };
+  const byScope: Record<EnvVarScope, EnvVarRow[]> = {
+    org: [],
+    site: [],
+    mcp: [],
+    endpoint: [],
+    agent: [],
+  };
   for (const row of data) byScope[row.scope].push(row);
-  for (const scope of ['org', 'site', 'mcp'] as const) {
+  for (const scope of SCOPE_ORDER) {
     for (const row of byScope[scope]) {
       try {
         merged[row.key] = await decrypt(env, row.value_encrypted);

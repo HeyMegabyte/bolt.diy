@@ -141,15 +141,6 @@ export const routes: Routes = [
           import('./pages/admin/sections/forms.component').then((m) => m.AdminFormsComponent),
       },
       {
-        // Pulse Inbox — unified conversation hub (email + slack + discord +
-        // telegram + website widget). 3-column layout with realtime WS
-        // updates. Backend owned by sibling agent — routes/inbox.ts +
-        // durable_objects/conversation_hub.ts.
-        path: 'inbox',
-        loadComponent: () =>
-          import('./pages/admin/sections/inbox.component').then((m) => m.AdminInboxComponent),
-      },
-      {
         // One-click site-import — paste a URL, crawler runs source-site-
         // enhancement pre-pass + spins the generation workflow. Bundle C
         // finish (2026-05-24).
@@ -197,6 +188,13 @@ export const routes: Routes = [
       // Old name kept for any deep links / bookmarks.
       { path: 'ai-logs', redirectTo: 'traces', pathMatch: 'full' },
       {
+        // AI Agents (née "Endpoints"). DUAL-MOUNT: the component renders here
+        // as a full-page standalone (for /admin/ai-endpoints deep links +
+        // bookmarks) AND inside the in-editor tab strip overlay
+        // (admin.component.html → `<app-admin-ai-endpoints [compact]="true">`)
+        // when the user selects the Agents tab on /admin/editor. The
+        // component honors a `compact` input that shrinks chrome for the
+        // overlay surface — see `.agents--compact` styles in the component.
         path: 'ai-endpoints',
         loadComponent: () =>
           import('./pages/admin/sections/ai-endpoints.component').then((m) => m.AdminAiEndpointsComponent),
@@ -212,8 +210,14 @@ export const routes: Routes = [
       },
       {
         // Media — Library + Stock Search + Image/Video/Podcast Studios.
-        // Companion to the global drag-and-drop overlay mounted in the
-        // admin shell — dropped files route here once uploaded.
+        // DUAL-MOUNT: this route renders the component standalone with full
+        // chrome (for /admin/media deep links + bookmarks + the global
+        // drag-and-drop overlay's post-upload landing). The SAME component
+        // also renders inside the in-editor tab strip overlay
+        // (admin.component.html → `<app-admin-media [compact]="true">`)
+        // when the user selects the Media tab on /admin/editor. The
+        // component honors a `compact` input that shrinks chrome for the
+        // overlay surface — see `.media--compact` styles in the component.
         path: 'media',
         loadComponent: () =>
           import('./pages/admin/sections/media.component').then((m) => m.AdminMediaComponent),
@@ -283,21 +287,14 @@ export const routes: Routes = [
           ),
       },
       // ─── Pulse Analytics drill-downs ──────────────────────────────
-      // Full-page versions of the dashboard SocialPerformance + InboxMetrics
-      // widgets. Same data sources (/api/social/analytics/aggregate +
-      // /api/inbox/metrics) with deeper breakdowns + window switcher.
+      // Full-page version of the dashboard SocialPerformance widget.
+      // Same data source (/api/social/analytics/aggregate) with deeper
+      // breakdowns + window switcher.
       {
         path: 'social/analytics',
         loadComponent: () =>
           import('./pages/admin/sections/social-analytics.component').then(
             (m) => m.AdminSocialAnalyticsComponent,
-          ),
-      },
-      {
-        path: 'inbox/analytics',
-        loadComponent: () =>
-          import('./pages/admin/sections/inbox-analytics.component').then(
-            (m) => m.AdminInboxAnalyticsComponent,
           ),
       },
     ],
@@ -347,6 +344,24 @@ export const routes: Routes = [
     path: 'changelog',
     loadComponent: () =>
       import('./pages/changelog/changelog.component').then((m) => m.ChangelogComponent),
+  },
+  {
+    // Public roadmap page — Trello-style 4-column board backed by
+    // /api/public/roadmap. Lazy-loaded so the marketing surfaces never pay
+    // for the board CSS until the user clicks through.
+    path: 'roadmap',
+    loadComponent: () =>
+      import('./pages/roadmap/roadmap.component').then((m) => m.RoadmapComponent),
+  },
+  {
+    // Public integrations catalog — every third-party service the platform
+    // speaks to. Filterable + searchable, backed by
+    // /api/public/integrations. Lazy-loaded.
+    path: 'integrations',
+    loadComponent: () =>
+      import('./pages/integrations/integrations.component').then(
+        (m) => m.IntegrationsComponent,
+      ),
   },
   {
     path: 'status',

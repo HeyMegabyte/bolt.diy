@@ -13,6 +13,30 @@ import type { MiddlewareHandler } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { DOMAINS } from '@project-sites/shared';
 
+/**
+ * Attach HSTS, MIME-sniffing protection, referrer, Permissions-Policy and
+ * a context-aware Content-Security-Policy to every response.
+ *
+ * @remarks
+ * Three rendering modes resolved from the hostname + pathname:
+ * - **bolt editor** (`editor.projectsites.dev`) — standalone mode keeps
+ *   cross-origin isolation (COOP + COEP + Origin-Agent-Cluster) so
+ *   WebContainers can use `SharedArrayBuffer`; embedded mode drops COOP
+ *   so `postMessage` to the parent admin shell continues to work.
+ * - **served sites** (any subdomain other than the editor) — permissive
+ *   CSP so AI-generated HTML can load arbitrary fonts, scripts, iframes.
+ * - **dashboard / marketing** — permissive CSP for inline scripts +
+ *   third-party SDKs (Stripe, PostHog, GTM, Transloadit) but locks
+ *   `frame-ancestors` to the projectsites.dev family.
+ *
+ * Runs `next()` first then attaches headers on the outgoing response so
+ * the handler can override individual headers if it needs to.
+ *
+ * @example
+ * ```ts
+ * app.use('*', securityHeadersMiddleware);
+ * ```
+ */
 export const securityHeadersMiddleware: MiddlewareHandler<{
   Bindings: Env;
   Variables: Variables;

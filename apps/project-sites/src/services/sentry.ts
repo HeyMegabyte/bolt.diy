@@ -119,6 +119,14 @@ export function parseSentryTrace(header: string | null): {
 
 // ── Transaction / Span Builder ───────────────────────────────
 
+/**
+ * Inputs for a child span captured during a {@link TransactionCollector} run.
+ *
+ * @remarks
+ * - `op` follows Sentry's span operation taxonomy (`db.query`, `http.client`).
+ * - `startTime` is `Date.now()` (ms); the collector divides by 1000 for the wire.
+ * - `data` is freeform JSON that surfaces in the Sentry UI under the span detail.
+ */
 export interface SpanContext {
   op: string;
   description: string;
@@ -126,6 +134,28 @@ export interface SpanContext {
   data?: Record<string, unknown>;
 }
 
+/**
+ * Per-request collector that fans Sentry traces, spans, and breadcrumbs into a
+ * single transaction envelope.
+ *
+ * @remarks
+ * Instantiated in `middleware/request_id.ts`, mutated by services along the
+ * request path, and flushed via {@link sendTransaction} on response complete.
+ * `toSentryTraceHeader()` produces the `sentry-trace` value to propagate to
+ * downstream services so distributed traces stitch end-to-end.
+ *
+ * @example
+ * ```ts
+ * const tx = new TransactionCollector({ transaction: 'POST /api/sites', op: 'http.server' });
+ * const endSpan = tx.startSpan({ op: 'db.query', description: 'sites lookup', startTime: Date.now() });
+ * await dbQueryOne(env.DB, '...', [orgId]);
+ * endSpan();
+ * await sendTransaction(env, tx);
+ * ```
+ *
+ * @see {@link captureException}
+ * @see {@link sendTransaction}
+ */
 export class TransactionCollector {
   public traceId: string;
   public spanId: string;

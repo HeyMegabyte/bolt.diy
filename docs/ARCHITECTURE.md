@@ -2,7 +2,85 @@
 
 > Detailed technical architecture for the Project Sites SaaS website delivery engine.
 
-## System Overview
+## System Overview (Mermaid)
+
+```mermaid
+flowchart TB
+  subgraph Browser["Browser / Admin SPA"]
+    Marketing["Marketing SPA<br/>(public/index.html)"]
+    Admin["Angular 19 Admin<br/>(frontend/dist)"]
+    BoltIframe["bolt.diy iframe<br/>(editor.projectsites.dev)"]
+  end
+
+  subgraph CFEdge["Cloudflare Edge"]
+    direction TB
+
+    subgraph Worker["Worker: project-sites (Hono)"]
+      direction TB
+      MW["Middleware Stack<br/>requestId → payloadLimit → securityHeaders<br/>→ cors → auth → errorHandler"]
+      Routes["Route Groups<br/>health · search · api · webhooks · forms · media<br/>env_vars · inbox · voice · social · agents · mcp_oauth"]
+      MW --> Routes
+    end
+
+    subgraph Services["Service Layer (src/services/)"]
+      AIGroup["AI<br/>ai_workflows · external_llm · rag<br/>analytics · ai_env_vars"]
+      MediaGroup["Media<br/>media · image_generation · image_discovery"]
+      BillingGroup["Billing<br/>billing · wallet · stripe_connect · credits"]
+      VoiceGroup["Voice<br/>voice_agent · voice_orchestrator · twilio · sms_agent"]
+      AuthGroup["Auth + MCP<br/>auth · mcp_client · ai_crypto"]
+      TasksGroup["Tasks + Notify<br/>task_inbox · notifications · audit"]
+    end
+
+    Routes --> Services
+
+    subgraph Storage["Storage"]
+      D1[(D1 SQLite)]
+      R2[(R2 Bucket)]
+      KV[(KV CACHE + PROMPT_STORE)]
+      Vec[(Vectorize<br/>RAG_INDEX)]
+    end
+
+    subgraph Compute["Async Compute"]
+      Workflows["Workflows v2<br/>site-generation · drive-sync<br/>image-generation · snapshot-quality<br/>social-publish"]
+      DO["Durable Objects<br/>SITE_BUILDER · APP_RUNTIME"]
+      Cron["Cron Triggers<br/>cleanup · digest · expired-tasks"]
+    end
+
+    Services --> Storage
+    Services --> Compute
+    Services -.->|via AI Gateway| WorkersAI["Workers AI<br/>(Llama 3.3 70B FP8 / BGE)"]
+  end
+
+  subgraph External["External Integrations"]
+    OpenAI["OpenAI<br/>GPT-4o · DALL·E 3"]
+    Anthropic["Anthropic<br/>Opus 4.7 · Sonnet 4.6 · Haiku 4.5"]
+    Stripe["Stripe<br/>Connect · Billing"]
+    Resend["Resend / SendGrid"]
+    Twilio["Twilio<br/>Voice + SMS"]
+    Google["Google Places + OAuth + Drive"]
+    PostHog["PostHog<br/>(LLM Obs + product)"]
+    Sentry["Sentry<br/>(error tracking)"]
+    GA4["GA4 / GTM"]
+    Stock["Unsplash · Pexels · Pixabay"]
+    ElevenLabs["ElevenLabs TTS"]
+  end
+
+  Browser -->|HTTPS| Worker
+  BoltIframe -.->|postMessage| Admin
+  Services -.->|AI Gateway| OpenAI
+  Services -.->|AI Gateway| Anthropic
+  Services --> Stripe
+  Services --> Resend
+  Services --> Twilio
+  Services --> Google
+  Services --> Stock
+  Services --> ElevenLabs
+  Services -.->|captureLLMCall| PostHog
+  Services -.->|Toucan| Sentry
+  Admin -.->|gtag/dataLayer| GA4
+```
+
+### Legacy ASCII overview (kept for terminals without Mermaid)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -38,6 +116,13 @@
                                                     │  Errors  │
                                                     └──────────┘
 ```
+
+### Related references
+
+- [AI_INTEGRATION.md](./AI_INTEGRATION.md) — AI Gateway, Vectorize, PostHog LLM-obs, Media, Env Vars, Task Tray
+- [DEPLOYMENT.md](./DEPLOYMENT.md) — auth chain, wrangler commands, pre-flight bindings, smoke tests
+- `apps/project-sites/CLAUDE.md` — worker source layout + API surface
+- `apps/project-sites/frontend/CLAUDE.md` — frontend source layout + components
 
 ## Request Flow
 

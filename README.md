@@ -2,6 +2,28 @@
 
 [![bolt.diy: AI-Powered Full-Stack Web Development in the Browser](./public/social_preview_index.jpg)](https://bolt.diy)
 
+## What's New (May 2026)
+
+The `apps/project-sites/` worker — the SaaS website delivery engine at
+[projectsites.dev](https://projectsites.dev) — shipped a wave of AI-native
+infrastructure. Full reference: [docs/AI_INTEGRATION.md](./docs/AI_INTEGRATION.md).
+
+| Area | Feature | Where to look |
+| ---- | ------- | ------------- |
+| Inference | **AI Gateway** routing for OpenAI + Anthropic with cache, fallback, structured logs | `apps/project-sites/src/services/external_llm.ts:101` · `wrangler.toml:187` |
+| Retrieval | **Vectorize + AutoRAG** — 768-dim cosine index across research, voice, audit, forms, AI traces | `apps/project-sites/src/services/rag.ts` · `wrangler.toml:153` |
+| Observability | **PostHog LLM-obs** — `$ai_generation` events from every LLM call | `apps/project-sites/src/services/analytics.ts:190` |
+| Inference | **Anthropic SDK upgrade** — Opus 4.7 / Sonnet 4.6 / Haiku 4.5 with prompt caching | `apps/project-sites/src/services/external_llm.ts:75` |
+| UX | **Streaming Markdown primitive** for live agent messages | `apps/project-sites/frontend/src/app/components/agent-message/` |
+| HITL | **Task Tray + Elicitation** — `postAskUser` + `step.waitForEvent` for in-app questions | `apps/project-sites/src/services/task_inbox.ts` |
+| Config | **AI Env Vars** — per-org / per-site / per-MCP encrypted KV pairs injected into prompts | `apps/project-sites/src/services/ai_env_vars.ts` |
+| Assets | **Unified Media Library** — uploads, stock search, DALL·E 3, queued Sora/Veo, ElevenLabs TTS | `apps/project-sites/src/services/media.ts` |
+| Ingest | **Global drop-zone** — drag a file anywhere in the admin to upload to media library | `apps/project-sites/frontend/src/app/components/global-drop-zone/` |
+| Architecture | **Mermaid system diagram** + updated request flow | `docs/ARCHITECTURE.md` |
+| Ops | **Deployment guide** — auth chain, pre-flight bindings, smoke-test matrix, rollback | `docs/DEPLOYMENT.md` |
+
+---
+
 Welcome to bolt.diy, the official open source version of Bolt.new, which allows you to choose the LLM that you use for each prompt! Currently, you can use OpenAI, Anthropic, Ollama, OpenRouter, Gemini, LMStudio, Mistral, xAI, HuggingFace, DeepSeek, Groq, Cohere, Together, Perplexity, Moonshot (Kimi), Hyperbolic, GitHub Models, Amazon Bedrock, and OpenAI-like providers - and it is easily extended to use any other model supported by the Vercel AI SDK! See the instructions below for running this locally and extending it to include more models.
 
 -----

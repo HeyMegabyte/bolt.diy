@@ -327,13 +327,37 @@ const POLL_INTERVAL_MS = 10_000;
               </p>
             </header>
 
+            <div class="scenario-pills" role="group" aria-label="Load example test scenario">
+              <span class="muted-h scenario-pills-label">Try a sample</span>
+              <div class="scenario-pills-row">
+                @for (s of testScenarios; track s.id) {
+                  <button type="button"
+                          class="scenario-pill"
+                          [class.is-active]="activeScenario() === s.id"
+                          [attr.aria-pressed]="activeScenario() === s.id"
+                          [attr.aria-label]="'Load ' + s.label + ' sample — ' + s.description"
+                          [title]="s.description"
+                          [attr.data-testid]="'forms-scenario-' + s.id"
+                          (click)="applyTestScenario(s.id)">
+                    {{ s.label }}
+                  </button>
+                }
+              </div>
+            </div>
+
             <label class="block mb-2">
               <span class="muted-h">form_name</span>
-              <input class="input-field w-full mt-1" placeholder="newsletter, contact, …" [(ngModel)]="testInput.form_name" data-testid="forms-test-form-name" />
+              <input class="input-field w-full mt-1" placeholder="newsletter, contact, …"
+                     [(ngModel)]="testInput.form_name"
+                     (ngModelChange)="onTestInputEdited()"
+                     data-testid="forms-test-form-name" />
             </label>
             <label class="block mb-2">
               <span class="muted-h">email</span>
-              <input class="input-field w-full mt-1" type="email" placeholder="you@example.com" [(ngModel)]="testInput.email" data-testid="forms-test-email" />
+              <input class="input-field w-full mt-1" type="email" placeholder="you@example.com"
+                     [(ngModel)]="testInput.email"
+                     (ngModelChange)="onTestInputEdited()"
+                     data-testid="forms-test-email" />
             </label>
             <label class="block mb-2">
               <span class="muted-h">fields (JSON)</span>
@@ -341,6 +365,7 @@ const POLL_INTERVAL_MS = 10_000;
                         rows="6"
                         placeholder='{ "message": "hi", "name": "Brian" }'
                         [(ngModel)]="testInput.fields_json"
+                        (ngModelChange)="onTestInputEdited()"
                         data-testid="forms-test-body"></textarea>
             </label>
 
@@ -623,6 +648,57 @@ const POLL_INTERVAL_MS = 10_000;
     }
     .designer-editor-actions { display: inline-flex; align-items: center; gap: 6px; float: right; }
 
+    /* ── Test-scenario pill row (tester pane) ─────────────────────
+       Sits above the form_name input. Each pill loads a sample payload
+       (newsletter, contact, quote) into the test inputs so operators can
+       iterate without typing JSON by hand. Brand-token only — no hex. */
+    .scenario-pills {
+      display: flex; flex-direction: column; gap: 4px;
+      margin-bottom: 10px;
+    }
+    .scenario-pills-label { margin: 0; }
+    .scenario-pills-row {
+      display: flex; flex-wrap: wrap; gap: 5px;
+    }
+    .scenario-pill {
+      display: inline-flex; align-items: center;
+      padding: 4px 11px;
+      min-height: 26px;
+      border-radius: var(--ps-radius-xl, 22px);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: rgba(255, 255, 255, 0.72);
+      font-family: 'Sora', system-ui, sans-serif;
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: -0.005em;
+      cursor: pointer;
+      transition:
+        background var(--ps-dur-fast, 140ms) ease,
+        border-color var(--ps-dur-fast, 140ms) ease,
+        color var(--ps-dur-fast, 140ms) ease,
+        transform var(--ps-dur-fast, 140ms) ease;
+    }
+    .scenario-pill:hover {
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 10%, transparent);
+      border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 35%, transparent);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+    .scenario-pill:focus-visible {
+      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline-offset: var(--ps-ring-focus-offset, 2px);
+    }
+    .scenario-pill.is-active {
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 18%, transparent);
+      border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 55%, transparent);
+      color: var(--ps-accent, #00E5FF);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .scenario-pill { transition: none; }
+      .scenario-pill:hover { transform: none; }
+    }
+
     /* Trace summary chip strip — at-a-glance LLM decision/mcp/latency/cost
        above the raw-JSON textarea inside the test panel. */
     .trace-summary {
@@ -772,6 +848,12 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
   testing = signal(false);
   testOpen = signal(false);
   improving = signal(false);
+  /**
+   * Active test-prompt scenario pill. `null` when the operator has typed
+   * something custom into the inputs (so we don't lie about which scenario
+   * is loaded). Set by {@link applyTestScenario}.
+   */
+  activeScenario = signal<string | null>(null);
   /** Controls the full-screen Prompt Designer overlay. Hidden by default;
    *  opens via the "Form Handling Prompt" button in the page header. */
   designerOpen = signal(false);
@@ -814,6 +896,163 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
       ? 'Insert a ready-to-edit example prompt (no AI credits used)'
       : 'Tighten + clarify the current prompt via AI',
   );
+
+  /**
+   * Rich, MCP-aware example template inserted by the "Load example" button.
+   *
+   * @remarks
+   * Uses Mustache-style `{{ … }}` placeholders that the worker
+   * (`services/template.ts → resolveTemplate`) substitutes before the LLM
+   * call. Demonstrates EVERY major variable family (business, form,
+   * submission, mcps, brand) so a new operator gets a copy-paste-ready
+   * baseline that already shows MCP routing, structured JSON output,
+   * spam scoring, and human-in-the-loop escalation via task_inbox.
+   *
+   * @example
+   * this.settings.form_router_prompt = this.RICH_EXAMPLE_PROMPT;
+   */
+  private readonly RICH_EXAMPLE_PROMPT: string = [
+    'You are processing a form submission for {{business.business_name}} (a {{business.business_type}} in {{business.city}}, {{business.state}}).',
+    '',
+    'FORM CONTEXT:',
+    '- Form name: {{form.form_name}}',
+    '- Form slug: {{form.slug}}',
+    '- Submitted at: {{submission.created_at}}',
+    '- Submitter IP: {{submission.ip_hash}}',
+    '- Submission ID: {{submission.id}}',
+    '',
+    'SUBMITTER DATA:',
+    '{{#each submission.fields}}',
+    '- {{this.label}}: {{this.value}}',
+    '{{/each}}',
+    '',
+    'ATTACHED MCPs (use intelligently when relevant):',
+    '{{#each mcps}}',
+    '- {{this.provider}} ({{this.scope}}): {{this.description}}',
+    '{{/each}}',
+    '',
+    'INSTRUCTIONS:',
+    '1. Classify the intent of this submission (contact / quote-request / complaint / newsletter-signup / booking / spam / other).',
+    '2. If spam (score >0.7), tag and skip downstream actions.',
+    '3. If contact/quote, draft a reply email matching the brand voice ({{brand.tone}}, {{brand.signature}}).',
+    '4. If newsletter-signup, add the email to the configured list via the {{mcps.email}} MCP.',
+    '5. If booking, attempt to schedule via the {{mcps.calendar}} MCP at the requested time.',
+    '6. Always log a structured summary (intent, confidence, action_taken, next_action) to the audit log.',
+    '7. If you need information you don\'t have, ask via task_inbox (postAskUser) — do NOT guess.',
+    '',
+    'RESPOND with strict JSON:',
+    '{',
+    '  "intent": "contact|quote|complaint|newsletter|booking|spam|other",',
+    '  "confidence": 0.0-1.0,',
+    '  "spam_score": 0.0-1.0,',
+    '  "reply_draft": "..." | null,',
+    '  "actions": [{"tool": "<mcp_name>", "args": {...}, "reason": "..."}],',
+    '  "audit_summary": "...",',
+    '  "needs_human_input": null | { "prompt": "...", "options": ["..."] }',
+    '}',
+  ].join('\n');
+
+  /**
+   * Sample payload shape used by every test-prompt scenario pill. Mirrors
+   * the structure the worker hands the LLM at runtime so the operator can
+   * see exactly what the router will receive.
+   */
+  readonly testScenarios: ReadonlyArray<{
+    readonly id: string;
+    readonly label: string;
+    readonly description: string;
+    readonly form_name: string;
+    readonly email: string;
+    readonly payload: Record<string, unknown>;
+  }> = [
+    {
+      id: 'newsletter',
+      label: 'Newsletter sign-up',
+      description: 'Adds a subscriber via the email MCP',
+      form_name: 'newsletter',
+      email: 'jane@example.com',
+      payload: {
+        form: { form_name: 'Newsletter', slug: 'newsletter' },
+        submission: {
+          id: 'sub_demo_001',
+          created_at: '2026-05-25T18:00:00Z',
+          ip_hash: 'ab12c3',
+          fields: [
+            { label: 'Email', value: 'jane@example.com' },
+            { label: 'First name', value: 'Jane' },
+            { label: 'Topics', value: 'AI updates, product news' },
+          ],
+        },
+        mcps: [
+          { provider: 'mailchimp', scope: 'org', description: 'Adds to Audience' },
+        ],
+      },
+    },
+    {
+      id: 'contact',
+      label: 'Contact form',
+      description: 'Inbound venue-booking inquiry',
+      form_name: 'contact',
+      email: 'marcus@bakery.example',
+      payload: {
+        form: { form_name: 'Contact', slug: 'contact' },
+        submission: {
+          id: 'sub_demo_002',
+          created_at: '2026-05-25T18:05:00Z',
+          ip_hash: 'cd34e5',
+          fields: [
+            { label: 'Name', value: 'Marcus Chen' },
+            { label: 'Email', value: 'marcus@bakery.example' },
+            { label: 'Phone', value: '+1-555-014-2287' },
+            {
+              label: 'Message',
+              value:
+                "Hi! I'd like to book your venue for a 50-person birthday party on June 14. Is the back patio available?",
+            },
+          ],
+        },
+        mcps: [
+          {
+            provider: 'google-calendar',
+            scope: 'org',
+            description: 'Check availability + create event',
+          },
+          { provider: 'resend', scope: 'org', description: 'Send confirmation email' },
+        ],
+      },
+    },
+    {
+      id: 'quote',
+      label: 'Quote request',
+      description: 'Roof-replacement quote with site visit',
+      form_name: 'quote',
+      email: '',
+      payload: {
+        form: { form_name: 'Free Quote', slug: 'quote' },
+        submission: {
+          id: 'sub_demo_003',
+          created_at: '2026-05-25T18:10:00Z',
+          ip_hash: 'ef56g7',
+          fields: [
+            { label: 'Service', value: 'Roof replacement' },
+            { label: 'Property address', value: '742 Evergreen Terrace, Springfield IL' },
+            { label: 'Roof age (years)', value: '22' },
+            { label: 'Square footage', value: '2100' },
+            { label: 'Preferred contact', value: 'Phone — evenings' },
+            { label: 'Phone', value: '+1-555-019-3344' },
+          ],
+        },
+        mcps: [
+          { provider: 'stripe', scope: 'org', description: 'Create draft invoice' },
+          {
+            provider: 'google-calendar',
+            scope: 'org',
+            description: 'Schedule site visit',
+          },
+        ],
+      },
+    },
+  ];
 
   /**
    * Template variables available inside `{{ … }}` inside the router prompt.
@@ -993,38 +1232,25 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Improve OR seed the current prompt. The backend decides which mode based
-   * on whether `value` is empty.
+   * Insert the rich, MCP-aware example prompt template into the editor.
+   *
+   * @remarks
+   * Replaced the previous server round-trip (`POST /sites/improve-prompt`
+   * with empty text) so operators get an INSTANT, deterministic baseline
+   * showing every template variable family + MCP routing + structured
+   * JSON output contract. No AI credits consumed; no network call.
    *
    * @example
-   * // textarea empty → loads seed template, toast "Loaded example prompt"
-   * // textarea has content → AI rewrite, toast "Improved with AI"
-   */
-  /**
-   * Insert the canonical seed prompt into the editor without consuming AI
-   * credits. Same backend endpoint as {@link improvePrompt} but forced to
-   * `mode === 'seed'` by sending an empty value.
+   * // Click "Load example" in the Forms designer →
+   * // this.settings.form_router_prompt becomes RICH_EXAMPLE_PROMPT.
    */
   loadExamplePrompt(): void {
-    const site = this.state.selectedSite();
-    if (!site) {
+    if (!this.state.selectedSite()) {
       this.toast.error('Select a site first');
       return;
     }
-    this.improving.set(true);
-    this.api
-      .post<{ data: { mode: 'seed' | 'improved'; text: string } }>(
-        '/sites/improve-prompt',
-        { text: '', business_name: site.business_name, business_address: site.business_address ?? undefined },
-      )
-      .subscribe({
-        next: (r) => {
-          this.settings.form_router_prompt = r.data?.text ?? this.settings.form_router_prompt;
-          this.toast.success('Loaded example prompt');
-          this.improving.set(false);
-        },
-        error: () => { this.improving.set(false); },
-      });
+    this.settings.form_router_prompt = this.RICH_EXAMPLE_PROMPT;
+    this.toast.success('Loaded example prompt — edit + save');
   }
 
   improvePrompt(): void {
@@ -1165,6 +1391,64 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     const cost = (r['cost_credits'] as number | undefined) ?? (r['cost'] as number | undefined);
     if (decision == null && mcp == null && ms == null && cost == null) return null;
     return { action: decision, mcp, ms, cost };
+  }
+
+  /**
+   * Internal guard: while true, `ngModelChange` handlers on the test inputs
+   * skip clearing `activeScenario` (programmatic apply is in progress).
+   * @internal
+   */
+  private applyingScenario = false;
+
+  /**
+   * Populate the test inputs from a named example scenario.
+   *
+   * @remarks
+   * Pretty-prints the full sample payload (form + submission + mcps) into
+   * the `fields_json` textarea so the operator sees exactly what the
+   * router will receive. Sets `activeScenario` so the matching pill
+   * highlights. Safe to call repeatedly — overwrites previous content.
+   * Uses {@link applyingScenario} as a re-entrancy guard so the
+   * `ngModelChange` listeners (which clear `activeScenario` on manual
+   * edits) don't fire mid-apply and wipe the highlight.
+   *
+   * @example
+   * this.applyTestScenario('newsletter');
+   * // → form_name='newsletter', email='jane@example.com',
+   * //   fields_json is the indented JSON of the newsletter sample.
+   */
+  applyTestScenario(id: string): void {
+    const scenario = this.testScenarios.find((s) => s.id === id);
+    if (!scenario) {
+      console.warn('[forms] unknown test scenario', id);
+      return;
+    }
+    this.applyingScenario = true;
+    this.testInput.form_name = scenario.form_name;
+    this.testInput.email = scenario.email;
+    try {
+      this.testInput.fields_json = JSON.stringify(scenario.payload, null, 2);
+    } catch (err) {
+      console.warn('[forms] could not serialize scenario payload', err);
+      this.testInput.fields_json = '{}';
+    }
+    this.activeScenario.set(id);
+    // Release the guard on the next microtask — gives Angular's change
+    // detection time to flush the ngModel writes before manual edits can
+    // clear the active scenario again.
+    queueMicrotask(() => {
+      this.applyingScenario = false;
+    });
+  }
+
+  /**
+   * Handler bound to every test-input `ngModelChange`. Clears the active
+   * scenario chip on a real user edit, but is a no-op while
+   * {@link applyTestScenario} is mid-flight.
+   */
+  onTestInputEdited(): void {
+    if (this.applyingScenario) return;
+    this.activeScenario.set(null);
   }
 
   /** Copy the formatted trace JSON to the clipboard with a toast confirm. */

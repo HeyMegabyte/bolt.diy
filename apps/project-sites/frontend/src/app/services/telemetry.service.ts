@@ -174,9 +174,19 @@ export class TelemetryService {
     if (typeof window === 'undefined') return;
 
     const apiKey = readMeta('x-posthog-key');
-    if (!apiKey) {
+    if (!apiKey || apiKey === 'none') {
       // No key wired — silently disabled. Same restraint as SentryService:
       // dev refreshes shouldn't noise the console when secrets are absent.
+      return;
+    }
+    // PostHog Project API keys start with `phc_`. Any other prefix (e.g. the
+    // personal `phx_` access token) returns 401 from /flags + /e + 404 from
+    // /array — disable to keep the console clean until a real project key
+    // is wired via `wrangler secret put POSTHOG_API_KEY`.
+    if (!apiKey.startsWith('phc_')) {
+      console.warn(
+        '[telemetry] PostHog disabled: x-posthog-key must start with "phc_" (Project API Key). See https://us.posthog.com/project/settings',
+      );
       return;
     }
 

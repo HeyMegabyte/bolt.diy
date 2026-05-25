@@ -54,7 +54,6 @@ import { editorChats } from './routes/editor_chats.js';
 import { apps as appsRoutes } from './routes/apps.js';
 import { snapshotQuality } from './routes/snapshot_quality.js';
 import { dashboard } from './routes/dashboard.js';
-import { inbox, runSnoozeResumeSweep } from './routes/inbox.js';
 import { socialRoutes } from './routes/social.js';
 import { socialOauthRoutes } from './routes/social_oauth.js';
 import { pulseAnalytics, runHourlyPulseAnalyticsCron } from './routes/pulse_analytics.js';
@@ -69,6 +68,7 @@ import { templates as templatesRoutes } from './routes/templates.js';
 import { mcpSite } from './routes/mcp_site.js';
 import { experiments } from './routes/experiments.js';
 import { mediaRoutes } from './routes/media.js';
+import { publicRoutes } from './routes/public.js';
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbQueryOne, dbUpdate } from './services/db.js';
@@ -81,8 +81,10 @@ export { SnapshotQualityWorkflow } from './workflows/snapshot-quality.js';
 export { SocialPublishWorkflow } from './workflows/social-publish.js';
 export { SiteBuilderContainer } from './container.js';
 export { TraceHub, ActivityHub } from './durable_objects/trace_hub.js';
-export { ConversationHub } from './durable_objects/conversation_hub.js';
 export { AppRuntimeContainer } from './durable_objects/app_runtime.js';
+// Pulse Inbox deprecated 2026-05-25 — 410-stub class kept so the existing
+// `v_conversation_hub` DO migration tag in Cloudflare's history stays valid.
+export { ConversationHub } from './durable_objects/conversation_hub.js';
 export {
   UmamiContainer,
   OutlineContainer,
@@ -233,8 +235,17 @@ app.use(
 // billable, prompt suggestions fire per chat-state change, chat-state mirror
 // writes D1 every 30s. Per-IP windowing prevents one client from melting the
 // AI binding or burning through Workers AI neurons.
+//
+// Each handler lives at BOTH `/admin-api/...` (legacy, dev-only) and
+// `/api/bolt/...` (current; survives Cloudflare zone WAF that 403's every
+// POST against `/admin*`). Rate-limit both prefixes so the limiter applies
+// regardless of which URL the iframe ultimately calls. See bolt_admin.ts.
 app.use(
   '/admin-api/vision-ocr',
+  rateLimitMiddleware({ maxRequests: 5, windowSeconds: 60, prefix: 'rl:vision' }),
+);
+app.use(
+  '/api/bolt/vision-ocr',
   rateLimitMiddleware({ maxRequests: 5, windowSeconds: 60, prefix: 'rl:vision' }),
 );
 app.use(
@@ -242,11 +253,23 @@ app.use(
   rateLimitMiddleware({ maxRequests: 10, windowSeconds: 60, prefix: 'rl:transcribe' }),
 );
 app.use(
+  '/api/bolt/transcribe',
+  rateLimitMiddleware({ maxRequests: 10, windowSeconds: 60, prefix: 'rl:transcribe' }),
+);
+app.use(
   '/admin-api/chat/suggest-prompts',
   rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:suggest' }),
 );
 app.use(
+  '/api/bolt/chat/suggest-prompts',
+  rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:suggest' }),
+);
+app.use(
   '/admin-api/sites/by-slug/*/chat-state',
+  rateLimitMiddleware({ maxRequests: 60, windowSeconds: 60, prefix: 'rl:chat-state' }),
+);
+app.use(
+  '/api/bolt/sites/by-slug/*/chat-state',
   rateLimitMiddleware({ maxRequests: 60, windowSeconds: 60, prefix: 'rl:chat-state' }),
 );
 
@@ -273,8 +296,7 @@ app.route('/', docs); // Interactive API explorer (OpenAPI + Angular overview)
 app.route('/', appsRoutes); // /admin/apps tab — catalog + per-org app_instances CRUD
 app.route('/', snapshotQuality); // /api/sites/:siteId/snapshots/:snapshotId/{capture,metrics,screenshot.png} — must precede `api` so the param order matches first
 app.route('/', dashboard); // /api/dashboard/chat (SSE) + /api/calendar/* — Perplexity-like dashboard surface
-app.route('/', inbox); // /api/inbox/* — Pulse Inbox CRUD + webhooks
-app.route('/', pulseAnalytics); // /api/social/analytics/aggregate + /api/inbox/metrics — must precede social/inbox catch-alls
+app.route('/', pulseAnalytics); // /api/social/analytics/aggregate — must precede social catch-alls
 app.route('/', socialOauthRoutes); // /api/social/:platform/{connect,callback,paste} — Pulse Social OAuth
 app.route('/', socialRoutes); // /api/social/{accounts,posts}/* — Pulse Social CRUD; must precede `api`
 app.route('/', voiceRoutes); // /api/voice/* — AI Voice + SMS Agent (numbers, vanity, calls, messages, settings)
@@ -288,58 +310,7 @@ app.route('/', templatesRoutes); // /api/templates + /api/sites/:siteId/install-
 app.route('/', mcpSite); // /{slug}/.well-known/* + /{slug}/mcp + /api/sites/:siteId/mcp/* — MCP per-site server
 app.route('/', experiments); // /_ps/{i,c,e,predict} + /api/sites/:siteId/experiments — Thompson-sampling A/B + predictive prerender
 app.route('/', mediaRoutes); // /api/media/* — unified media library (uploads, stock, AI gen, send-to-bolt)
-
-// ── Pulse Inbox WebSocket upgrade ────────────────────────────
-// `wss://projectsites.dev/api/inbox/ws/:conversation_id` proxies the
-// upgrade into the per-conversation Durable Object via `idFromName`.
-// Auth: bearer-token session already populated `c.get('userId')` +
-// `c.get('orgId')` by `authMiddleware`; we then verify the conversation
-// belongs to that org before forwarding the upgrade.
-app.get('/api/inbox/ws/:conversation_id', async (c) => {
-  const upgrade = c.req.header('upgrade');
-  if (upgrade !== 'websocket') {
-    return c.json({ error: { code: 'BAD_REQUEST', message: 'Expected WebSocket upgrade' } }, 426);
-  }
-  const userId = c.get('userId');
-  const orgId = c.get('orgId');
-  if (!userId || !orgId) {
-    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
-  }
-  const conversationId = c.req.param('conversation_id');
-  if (!conversationId) {
-    return c.json({ error: { code: 'BAD_REQUEST', message: 'conversation_id required' } }, 400);
-  }
-
-  // Verify the conversation belongs to the caller's org.
-  const { dbQueryOne } = await import('./services/db.js');
-  const row = await dbQueryOne<{ org_id: string }>(
-    c.env.DB,
-    `SELECT org_id FROM chat_conversations WHERE id = ? LIMIT 1`,
-    [conversationId],
-  );
-  if (!row) {
-    return c.json({ error: { code: 'NOT_FOUND', message: 'Conversation not found' } }, 404);
-  }
-  if (row.org_id !== orgId) {
-    return c.json({ error: { code: 'FORBIDDEN', message: 'Not accessible' } }, 403);
-  }
-  if (!c.env.CONVERSATION_HUB) {
-    return c.json(
-      { error: { code: 'NOT_CONFIGURED', message: 'CONVERSATION_HUB binding missing' } },
-      503,
-    );
-  }
-
-  const id = c.env.CONVERSATION_HUB.idFromName(conversationId);
-  const stub = c.env.CONVERSATION_HUB.get(id);
-  const hubUrl = new URL('http://hub/connect');
-  hubUrl.searchParams.set('conversation_id', conversationId);
-  hubUrl.searchParams.set('user_id', userId);
-  hubUrl.searchParams.set('role', 'agent');
-  return stub.fetch(hubUrl.toString(), {
-    headers: { upgrade: 'websocket' },
-  });
-});
+app.route('/', publicRoutes); // /changelog.json + /feed.xml + /api/public/{roadmap,integrations} — distribution flywheel surfaces; must precede the catch-all so the marketing worker never tries to resolve a site for these paths
 
 app.route('/', api);
 app.route('/', webhooks);
@@ -913,34 +884,6 @@ export default {
       );
     }
 
-    // Pulse Inbox — re-open snoozed conversations whose timer has elapsed.
-    // Fires on the */5 cron added in wrangler.toml. Idempotent — running the
-    // sweep twice in the same minute reopens nothing the second time.
-    if (_event.cron === '*/5 * * * *') {
-      try {
-        const result = await runSnoozeResumeSweep(env);
-        if (result.resumed > 0) {
-          console.warn(
-            JSON.stringify({
-              level: 'info',
-              service: 'cron',
-              message: 'Pulse Inbox snooze sweep',
-              resumed: result.resumed,
-            }),
-          );
-        }
-      } catch (err) {
-        console.warn(
-          JSON.stringify({
-            level: 'error',
-            service: 'cron',
-            message: 'Snooze sweep failed',
-            error: err instanceof Error ? err.message : String(err),
-          }),
-        );
-      }
-    }
-
     // Monday 14:00 UTC (9 AM ET) — weekly summary digest emails (#96).
     // Idempotent per (org, ISO week) — safe to retry/replay.
     if (_event.cron === '0 14 * * 1') {
@@ -1025,6 +968,37 @@ export default {
             level: 'error',
             service: 'cron',
             message: 'Drive sync failed',
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    }
+
+    // Every minute: Pulse Social Auto-Pilot sweep. Picks orgs whose
+    // auto-pilot is enabled and past due, generates one draft per target
+    // network, and bumps next_run_at by cadence_hours. Drafts only — the
+    // user reviews + publishes manually (safety rail). Capped at 10
+    // orgs/run so a backlog never burns the LLM budget.
+    if (_event.cron === '* * * * *') {
+      try {
+        const { runAutoPilotIfDue } = await import('./services/social_auto_pilot.js');
+        const result = await runAutoPilotIfDue(env, 10);
+        if (result.orgs_scanned > 0) {
+          console.warn(
+            JSON.stringify({
+              level: 'info',
+              service: 'cron',
+              message: 'Pulse Social auto-pilot sweep',
+              ...result,
+            }),
+          );
+        }
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'cron',
+            message: 'Pulse Social auto-pilot sweep failed',
             error: err instanceof Error ? err.message : String(err),
           }),
         );

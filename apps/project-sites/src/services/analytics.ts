@@ -6,8 +6,20 @@ interface EventProperties {
 }
 
 /**
- * PostHog analytics client for Cloudflare Workers.
- * Server-side event capture via PostHog HTTP API.
+ * Capture an arbitrary PostHog event from the worker via the HTTP capture API.
+ *
+ * @remarks
+ * No-op when `POSTHOG_API_KEY` is unset (local dev / preview workers).
+ * Network failures are logged at warn-level but never thrown — analytics
+ * must never break the request path.
+ *
+ * @example
+ * ```ts
+ * await captureEvent(env, 'site_created', orgId, { template: 'restaurant' });
+ * ```
+ *
+ * @see {@link capturePageView}
+ * @see {@link captureLLMCall}
  */
 export async function captureEvent(
   env: Env,
@@ -48,7 +60,18 @@ export async function captureEvent(
 }
 
 /**
- * Capture a page view event.
+ * Capture a PostHog `$pageview` event with the current URL.
+ *
+ * @remarks
+ * Thin wrapper over {@link captureEvent} that sets `$current_url` so
+ * PostHog's session-replay + funnel views auto-bucket the hit.
+ *
+ * @example
+ * ```ts
+ * await capturePageView(env, sessionId, request.url);
+ * ```
+ *
+ * @see {@link captureEvent}
  */
 export async function capturePageView(
   env: Env,
@@ -63,7 +86,18 @@ export async function capturePageView(
 }
 
 /**
- * Identify a user with properties.
+ * Bind PostHog person-properties to a distinctId via the `$identify` event.
+ *
+ * @remarks
+ * Use on signup or login so subsequent events join against `users` cohorts.
+ * No-op when `POSTHOG_API_KEY` is unset; errors warn-log only.
+ *
+ * @example
+ * ```ts
+ * await identifyUser(env, user.id, { email: user.email, plan: 'pro' });
+ * ```
+ *
+ * @see {@link captureEvent}
  */
 export async function identifyUser(
   env: Env,
@@ -99,7 +133,18 @@ export async function identifyUser(
 }
 
 /**
- * Capture funnel events for conversion tracking.
+ * Capture a named funnel-step event for conversion tracking dashboards.
+ *
+ * @remarks
+ * Emits as `funnel_{funnelStep}` so PostHog's funnel UI can chain steps
+ * (e.g. `funnel_landed → funnel_signed_in → funnel_paid`).
+ *
+ * @example
+ * ```ts
+ * await captureFunnelEvent(env, sessionId, 'signed_in', orgId);
+ * ```
+ *
+ * @see {@link captureEvent}
  */
 export async function captureFunnelEvent(
   env: Env,

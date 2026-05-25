@@ -64,15 +64,6 @@ export class SlashCommandRegistryService {
       pillGroup: 'data',
     },
     {
-      id: 'inbox',
-      label: 'Inbox',
-      description: 'Pulse Inbox — `inbox unassigned` jumps to that filter',
-      glyph: 'message',
-      argHint: 'unassigned|mine|open',
-      pillGroup: 'data',
-      autoSubmit: false,
-    },
-    {
       id: 'audit',
       label: 'Audit',
       description: 'Recent privileged actions across your org',
@@ -133,26 +124,6 @@ export class SlashCommandRegistryService {
         'Compose, schedule, analyze across 11 networks — `social new`, `social compose <topic>`, `social analytics`',
       glyph: 'megaphone',
       argHint: 'new | compose <topic> | analytics',
-      pillGroup: 'ops',
-      autoSubmit: false,
-    },
-    {
-      id: 'inbox',
-      label: 'Inbox',
-      description:
-        'Unified conversations — `inbox metrics` for CSAT + response time, `inbox unassigned` for the queue',
-      glyph: 'inbox',
-      argHint: 'metrics | unassigned',
-      pillGroup: 'data',
-      autoSubmit: false,
-    },
-    {
-      id: 'draft',
-      label: 'Draft reply',
-      description:
-        'When a conversation is in context, drafts 3 reply tones (concise / warm / formal)',
-      glyph: 'inbox',
-      argHint: 'reply',
       pillGroup: 'ops',
       autoSubmit: false,
     },

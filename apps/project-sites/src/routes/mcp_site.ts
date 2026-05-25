@@ -43,6 +43,12 @@ function slugFromHost(c: { req: { header: (k: string) => string | undefined } })
   return m ? m[1].toLowerCase() : null;
 }
 
+/**
+ * `GET /.well-known/oauth-protected-resource` — RFC 9728 Protected
+ * Resource Metadata for the subdomain-form MCP server (`{slug}.projectsites.dev`).
+ *
+ * @throws 404 NOT_FOUND when called on the base domain or the site doesn't exist.
+ */
 mcpSite.get('/.well-known/oauth-protected-resource', async (c) => {
   const slug = slugFromHost(c);
   if (!slug) return c.json({ error: 'not_a_site_subdomain' }, 404);
@@ -58,6 +64,12 @@ mcpSite.get('/.well-known/oauth-protected-resource', async (c) => {
   });
 });
 
+/**
+ * `GET /.well-known/mcp` — SEP-1960 capability discovery doc for the
+ * subdomain-form MCP server (forward-compat).
+ *
+ * @throws 404 NOT_FOUND when called on the base domain or the site doesn't exist.
+ */
 mcpSite.get('/.well-known/mcp', async (c) => {
   const slug = slugFromHost(c);
   if (!slug) return c.json({ error: 'not_a_site_subdomain' }, 404);
@@ -89,6 +101,12 @@ mcpSite.get('/.well-known/mcp', async (c) => {
   });
 });
 
+/**
+ * `GET /:slug/.well-known/oauth-protected-resource` — Path-based variant
+ * of the PRM doc for admin testing on the base domain.
+ *
+ * @throws 404 NOT_FOUND when the slug doesn't exist.
+ */
 mcpSite.get('/:slug/.well-known/oauth-protected-resource', async (c) => {
   const slug = c.req.param('slug');
   const site = await resolvePublicSite(c, slug);
@@ -104,6 +122,12 @@ mcpSite.get('/:slug/.well-known/oauth-protected-resource', async (c) => {
   });
 });
 
+/**
+ * `GET /:slug/.well-known/mcp` — Path-based variant of the SEP-1960
+ * capability doc for admin testing on the base domain.
+ *
+ * @throws 404 NOT_FOUND when the slug doesn't exist.
+ */
 mcpSite.get('/:slug/.well-known/mcp', async (c) => {
   const slug = c.req.param('slug');
   const site = await resolvePublicSite(c, slug);
@@ -133,12 +157,31 @@ mcpSite.get('/:slug/.well-known/mcp', async (c) => {
   });
 });
 
+/**
+ * `POST /mcp` — JSON-RPC 2.0 MCP server endpoint on the subdomain form
+ * (`{slug}.projectsites.dev/mcp`).
+ *
+ * @remarks
+ * Supports `initialize`, `tools/list`, `tools/call`. OAuth audience
+ * binding ties the access token to a single site to prevent
+ * confused-deputy attacks.
+ *
+ * @throws 401 UNAUTHORIZED when Bearer token missing or audience mismatch.
+ * @throws 404 NOT_FOUND when called on the base domain or the site doesn't exist.
+ */
 mcpSite.post('/mcp', async (c) => {
   const slug = slugFromHost(c);
   if (!slug) return c.json(jsonRpcError(-32601, 'not_a_site_subdomain', null), 404);
   return handleMcpPost(c, slug);
 });
 
+/**
+ * `POST /:slug/mcp` — Path-based variant of the JSON-RPC MCP server for
+ * admin testing on the base domain.
+ *
+ * @throws 401 UNAUTHORIZED when Bearer token missing or audience mismatch.
+ * @throws 404 NOT_FOUND when the slug doesn't exist.
+ */
 mcpSite.post('/:slug/mcp', async (c) => {
   const slug = c.req.param('slug');
   return handleMcpPost(c, slug);
@@ -230,6 +273,13 @@ async function handleMcpPost(c: McpCtx, slug: string): Promise<Response> {
 
 // ─── Admin: per-site MCP tool management (requires site ownership) ────────
 
+/**
+ * `GET /api/sites/:siteId/mcp/tools` — Admin: list per-site MCP tools
+ * exposed by the site's MCP server with enable/disable status.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site isn't owned by the caller's org.
+ */
 mcpSite.get('/api/sites/:siteId/mcp/tools', async (c) => {
   const siteId = c.req.param('siteId');
   await assertSiteOwnership(c, siteId);
@@ -248,6 +298,17 @@ const toolPatchSchema = z.object({
   enabled: z.boolean(),
 });
 
+/**
+ * `POST /api/sites/:siteId/mcp/tools` — Admin: enable or disable individual
+ * MCP tools per site.
+ *
+ * @remarks
+ * Body: {@link toolPatchSchema}.
+ *
+ * @throws 400 BAD_REQUEST when payload validation fails.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site isn't owned by the caller's org.
+ */
 mcpSite.post('/api/sites/:siteId/mcp/tools', zValidator('json', toolPatchSchema), async (c) => {
   const siteId = c.req.param('siteId');
   await assertSiteOwnership(c, siteId);
@@ -261,6 +322,13 @@ mcpSite.post('/api/sites/:siteId/mcp/tools', zValidator('json', toolPatchSchema)
   return c.json({ ok: true });
 });
 
+/**
+ * `GET /api/sites/:siteId/mcp/calls` — Admin: recent agent-call feed
+ * (tool name, agent identity, status, latency).
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 403 FORBIDDEN when the site isn't owned by the caller's org.
+ */
 mcpSite.get('/api/sites/:siteId/mcp/calls', async (c) => {
   const siteId = c.req.param('siteId');
   await assertSiteOwnership(c, siteId);

@@ -12,6 +12,12 @@
 // encapsulation hides the rules in admin.component.scss.
 @use "./styles/_polish.scss" as *;
 @use "./styles/_admin-buttons.scss" as *;
+// _admin-polish.scss — admin-shell-specific cinematic layer (glass,
+// OKLCH surfaces, typography micro-features, accent-driven focus,
+// view-transition + @starting-style enter animations, grain texture).
+// Loaded LAST so its rules win specificity ties against the older
+// polish + admin-buttons layers.
+@use "./styles/_admin-polish.scss" as *;
 
 // ═══════════════════════════════════════════
 // CDK Dialog Overrides

@@ -1,0 +1,437 @@
+// ══════════════════════════════════════════════════════════════════
+// Admin polish layer v2 — cinematic, OKLCH-driven, accessibility-safe.
+//
+// Loaded AFTER _polish.scss + _admin-buttons.scss so its rules win on
+// specificity ties. Pure CSS, no template restructuring. Hooks into
+// stable selectors that already exist in admin.component.html:
+//
+//   aside                        — left sidebar (glass + rim-light)
+//   main > div:first-child       — top bar (backdrop blur 24px)
+//   main > app-section-error-boundary > router-outlet  — content area
+//   .nav-item / .nav-item-active — sidebar nav items
+//   .top-btn / .cmdk-btn         — top-bar buttons
+//   .notif-pop / .user-pop       — popovers
+//   .input-field                 — admin inputs
+//   .btn-accent / .btn-primary   — primary CTAs
+//   .card                        — admin cards
+//   .loading-spinner             — global spinner
+//   [role="dialog"] / .modal-anim — modal/palette surfaces
+//
+// Tokens consumed from _polish.scss only — no hex literals here.
+// All animations gated behind `prefers-reduced-motion: no-preference`.
+// `prefers-contrast: more` thickens borders to 2px.
+// ══════════════════════════════════════════════════════════════════
+
+// ── 1. Typography micro-features ──────────────────────────────────
+// Stylistic alternates + tabular figures land app-wide because the
+// admin is signal-heavy: counts/durations/percentages should align.
+:root {
+  body, html {
+    font-feature-settings: 'ss01' 1, 'cv11' 1, 'kern' 1;
+    text-rendering: optimizeLegibility;
+  }
+}
+h1, h2, h3, h4, h5, h6,
+.section-h, .glow-h-grad {
+  text-wrap: balance;
+}
+.stat-num,
+[data-numeric],
+.metric-value,
+.count-value,
+.notif-dot,
+.cmdk-kbd,
+.kbd,
+.status-chip,
+time, [datetime] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'cv11' 1;
+}
+code, pre, kbd, samp,
+.cmdk-kbd, .kbd {
+  font-feature-settings: 'calt' 1, 'ss03' 1, 'zero' 1;
+}
+
+// ── 2. Sidebar — glass + nav refinement ───────────────────────────
+// Reaches the existing `<aside>` in admin.component.html. The base
+// gradient still lives in admin.component.scss; this layer adds glass
+// blur + inset gradient on hover + cinematic active state.
+//
+// `body:not(:has(.bolt-frame--visible))` keeps the blur off when the
+// editor iframe is owning the viewport so we don't double-paint.
+@supports (backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px)) {
+  body[data-admin] aside,
+  app-admin aside {
+    background:
+      radial-gradient(ellipse 80% 40% at 50% 0%, var(--ps-accent-soft), transparent 60%),
+      linear-gradient(180deg, color-mix(in oklch, var(--ps-ink, #f4f4ff) 3%, transparent), transparent),
+      color-mix(in oklch, var(--ps-bg, #060610) 88%, transparent) !important;
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+  }
+}
+
+// Nav items — inset gradient on hover (additive over admin.scss base).
+.nav-item {
+  &:hover {
+    background: linear-gradient(135deg,
+      var(--ps-accent-soft),
+      transparent 70%) !important;
+  }
+}
+
+// Active nav item — keeps existing 3px rail in admin.scss, adds glow.
+.nav-item-active {
+  box-shadow:
+    inset 0 1px 0 var(--ps-accent-soft),
+    0 0 24px -8px var(--ps-accent-glow) !important;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .nav-item svg {
+    transition: opacity 200ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)),
+                color 200ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)),
+                transform 200ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1));
+  }
+}
+
+// Site selector dropdown — sleeker hover-card affordance on selected
+// + refined search-input. Hooks into `.site-option-active` + the
+// search row's `.site-dropdown-row`.
+.site-option-active {
+  background: linear-gradient(135deg,
+    var(--ps-accent-soft),
+    color-mix(in oklch, var(--ps-accent-secondary) 6%, transparent) 70%) !important;
+}
+
+// ── 3. Top bar — backdrop blur + breadcrumb chevron + cmd-K chip ──
+// Hooks `main > div:first-child` (the top bar). Selectors mirror the
+// view-transition-name target in _polish.scss for symmetry.
+main > div:first-child {
+  @supports (backdrop-filter: blur(24px)) or (-webkit-backdrop-filter: blur(24px)) {
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    background:
+      linear-gradient(180deg,
+        color-mix(in oklch, var(--ps-bg, #060610) 72%, transparent),
+        color-mix(in oklch, var(--ps-bg, #060610) 86%, transparent)) !important;
+  }
+  // Breadcrumb chevron — animate on route change via @starting-style.
+  // The chevron sits between the domain-picker and `currentSection()`.
+  > div:first-child > svg {
+    transition: transform 320ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1));
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (transition-behavior: allow-discrete) {
+      > div:first-child > svg {
+        @starting-style {
+          transform: rotate(-12deg);
+          opacity: 0;
+        }
+      }
+    }
+  }
+}
+
+// Avatar — focus-visible accent ring (overrides admin.scss generic).
+.avatar-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--ps-bg, #060610),
+    0 0 0 4px var(--ps-accent, #00E5FF),
+    0 6px 18px -6px var(--ps-accent-glow);
+}
+
+// Notification badge — subtle pulse only when count > 0.
+// Uses the badge's currentColor (resolves to the red gradient set in
+// admin.component.scss) so the pulse halo matches without hard-coding.
+@media (prefers-reduced-motion: no-preference) {
+  .notif-dot {
+    animation: psNotifPulse 2.4s ease-in-out infinite;
+  }
+}
+@keyframes psNotifPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px var(--ps-bg, #060610),
+      0 0 0 0 color-mix(in oklch, currentColor 45%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px var(--ps-bg, #060610),
+      0 0 0 6px color-mix(in oklch, currentColor 0%, transparent);
+  }
+}
+
+// Cmd-K quick-find button — gradient text on hover + embossed kbd chip.
+.cmdk-btn {
+  transition: background 180ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)),
+              border-color 180ms ease,
+              color 180ms ease;
+  &:hover .cmdk-label {
+    background: linear-gradient(90deg,
+      var(--ps-accent, #00E5FF),
+      var(--ps-accent-secondary, #7C3AED));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+}
+.cmdk-kbd, .kbd {
+  background: linear-gradient(180deg,
+    color-mix(in oklch, var(--ps-ink, #f4f4ff) 8%, transparent),
+    color-mix(in oklch, var(--ps-ink, #f4f4ff) 3%, transparent)) !important;
+  border-color: var(--ps-hairline-hi) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent),
+    inset 0 -1px 0 color-mix(in oklch, var(--ps-bg, #060610) 40%, transparent),
+    0 1px 0 color-mix(in oklch, var(--ps-bg, #060610) 60%, transparent);
+}
+
+// ── 4. Content area — section enter + view-transition-name ─────────
+// `app-section-error-boundary` wraps the router-outlet (admin.html#400).
+// Naming it `section` gives same-document view transitions a hook;
+// `@starting-style` provides the polish for browsers without view-tr.
+main > app-section-error-boundary {
+  view-transition-name: ps-admin-section;
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (transition-behavior: allow-discrete) {
+    main > app-section-error-boundary {
+      animation: psAdminSectionIn 320ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)) both;
+    }
+  }
+}
+@keyframes psAdminSectionIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+// Loading spinner — brand-accent conic gradient (replaces 2px border).
+.loading-spinner,
+.loading-spinner-sm {
+  background:
+    conic-gradient(from 0deg,
+      transparent 0%,
+      var(--ps-accent, #00E5FF) 80%,
+      var(--ps-accent-secondary, #7C3AED) 100%);
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+          mask: radial-gradient(closest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  border: 0 !important;
+}
+.loading-spinner-sm {
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+          mask: radial-gradient(closest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner, .loading-spinner-sm { animation: none !important; }
+}
+
+// Empty-state — refine icon size + spacing for the "No sites yet" path.
+main > div > h2 + p + button.btn-accent {
+  margin-top: 0.875rem;
+}
+
+// ── 5. Bento + cards — hairline + radius + hover lift ─────────────
+// Augments the existing .card upgrade in styles.scss (which uses
+// rgba). This layer pulls those rgba values into OKLCH tokens.
+.card,
+.seo-card,
+.mcp-card,
+[class*="-card"]:not(.density-card):not(.card-light):not(.site-favicon-tile) {
+  border-radius: var(--ps-radius-xl, 22px) !important;
+  border: 1px solid var(--ps-hairline) !important;
+  box-shadow:
+    var(--ps-shadow-modal, 0 24px 64px rgba(0, 0, 0, 0.55)),
+    0 1px 0 color-mix(in oklch, var(--ps-ink, #f4f4ff) 4%, transparent) inset;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .card:hover,
+  .seo-card:hover,
+  .mcp-card:hover,
+  [class*="-card"]:not(.density-card):not(.card-light):not(.site-favicon-tile):hover {
+    transform: translateY(-2px);
+    border-color: var(--ps-hairline-hi) !important;
+    box-shadow:
+      var(--ps-shadow-lg, 0 16px 40px -16px rgba(0, 0, 0, 0.55)),
+      0 0 0 1px var(--ps-accent-line) inset !important;
+  }
+}
+
+// ── 6. Buttons — primary gradient hover + ghost focus ring ────────
+.btn-primary,
+.btn-accent,
+.top-btn-accent,
+[data-cta="primary"] {
+  @media (prefers-reduced-motion: no-preference) {
+    transition:
+      background 220ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)),
+      transform 160ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)),
+      box-shadow 220ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)),
+      border-color 220ms ease;
+  }
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg,
+      color-mix(in oklch, var(--ps-accent, #00E5FF) 26%, transparent),
+      color-mix(in oklch, var(--ps-accent-secondary, #7C3AED) 18%, transparent)) !important;
+    border-color: var(--ps-accent-line) !important;
+  }
+}
+
+// ── 7. Inputs + form fields — glass + accent focus ring ───────────
+.input-field {
+  @supports (backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px)) {
+    backdrop-filter: blur(8px) saturate(120%);
+    -webkit-backdrop-filter: blur(8px) saturate(120%);
+  }
+  border-radius: 6px !important;
+}
+.input-field:focus-within,
+.input-field:focus {
+  border-color: var(--ps-accent, #00E5FF) !important;
+  box-shadow:
+    0 0 0 3px var(--ps-accent-soft),
+    0 0 24px -6px var(--ps-accent-glow) !important;
+}
+
+// ── 8. Grain texture layer — subtle premium noise ─────────────────
+// Pointer-events: none + z-index 0 + low opacity. Improves perceived
+// premium quality without affecting any interactive layer.
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  // 80x80 fractal-noise tile, inline SVG, no extra HTTP request.
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1   0 0 0 0 1   0 0 0 0 1   0 0 0 0.55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 160px 160px;
+}
+// Suppress grain when reduced-motion is on (the OS user is signalling
+// minimum visual chrome) AND when light theme is active (grain reads
+// muddy on cream surfaces).
+@media (prefers-reduced-motion: reduce) {
+  body::after { display: none; }
+}
+html[data-theme="light"] body::after,
+html[data-theme="system"] body::after { display: none; }
+@media (prefers-color-scheme: light) {
+  html[data-theme="system"] body::after { display: none; }
+}
+
+// ── 9. Mandatory accessibility ────────────────────────────────────
+// Universal focus-visible ring at 2px var(--ps-accent). The existing
+// rule in styles.scss uses a 3-stop box-shadow; this layer wins via
+// :where() for low-specificity safety.
+:where(button, a, [role="button"], [role="tab"], [role="menuitem"],
+       [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--ps-accent, #00E5FF) !important;
+  outline-offset: 2px !important;
+  border-radius: var(--ps-radius-sm, 8px);
+}
+
+// `prefers-contrast: more` — thicken hairlines, accent borders.
+@media (prefers-contrast: more) {
+  :root {
+    --ps-hairline: color-mix(in oklch, var(--ps-ink, #f4f4ff) 32%, transparent);
+    --ps-hairline-hi: color-mix(in oklch, var(--ps-ink, #f4f4ff) 48%, transparent);
+  }
+  .card,
+  .seo-card,
+  .mcp-card,
+  .input-field,
+  .top-btn, .cmdk-btn,
+  .nav-item-active {
+    border-width: 2px !important;
+  }
+  *:focus-visible {
+    outline-width: 3px !important;
+  }
+}
+
+// `prefers-reduced-motion: reduce` master switch — kills enter/exit
+// animations, hover lifts, scale transforms. Belt-and-braces over the
+// individual gates above.
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+  main > app-section-error-boundary { animation: none !important; }
+  body::after { display: none; }
+}
+
+// ── 10. Cinematic touches ─────────────────────────────────────────
+
+// Cmd-K palette — subtle scale-in + opacity via @starting-style.
+// Hooks the role="dialog" on app-command-palette's host.
+@media (prefers-reduced-motion: no-preference) {
+  app-command-palette [role="dialog"],
+  .modal-anim,
+  [role="dialog"][aria-modal="true"] {
+    transition:
+      opacity 180ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)),
+      transform 180ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1));
+    @supports (transition-behavior: allow-discrete) {
+      @starting-style {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+    }
+  }
+}
+
+// Toast layer — subtle stagger via :nth-child delays. Existing
+// `.toast-host` already stacks; we add gentle enter-stagger.
+@media (prefers-reduced-motion: no-preference) {
+  .toast-host > *:nth-child(1) { animation-delay: 0ms; }
+  .toast-host > *:nth-child(2) { animation-delay: 60ms; }
+  .toast-host > *:nth-child(3) { animation-delay: 120ms; }
+  .toast-host > *:nth-child(4) { animation-delay: 180ms; }
+  .toast-host > *:nth-child(5) { animation-delay: 240ms; }
+}
+
+// Modal backdrop — blur 8px + dim. Targets the CDK overlay backdrop
+// + the existing `.ps-confirm-backdrop`. The CDK overlay's backdrop
+// has a stable `cdk-overlay-backdrop` class.
+.cdk-overlay-backdrop,
+.cdk-overlay-dark-backdrop,
+.ps-confirm-backdrop {
+  background: color-mix(in oklch, var(--ps-bg, #060610) 62%, transparent) !important;
+  @supports (backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px)) {
+    backdrop-filter: blur(8px) saturate(110%);
+    -webkit-backdrop-filter: blur(8px) saturate(110%);
+  }
+}
+
+// ── 11. Popovers — refined glass treatment for notif/user menus ───
+// The existing .notif-pop / .user-pop rules in admin.component.scss
+// supply the gradient base. Layer the OKLCH border + accent rail.
+.notif-pop,
+.user-pop {
+  border: 1px solid var(--ps-accent-line) !important;
+  border-radius: var(--ps-radius-lg, 16px) !important;
+  @supports (backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px)) {
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+  }
+}
+
+// ── 12. Site-favicon tile — gentle scale on hover (extras only) ───
+@media (prefers-reduced-motion: no-preference) {
+  .site-favicon-tile {
+    transition: transform 200ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)),
+                border-color 200ms ease;
+  }
+  .site-option:hover .site-favicon-tile {
+    transform: scale(1.05);
+    border-color: var(--ps-accent, #00E5FF);
+  }
+}

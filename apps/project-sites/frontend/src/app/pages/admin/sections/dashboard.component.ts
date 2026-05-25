@@ -498,15 +498,6 @@ export class AdminDashboardComponent {
       this.router.navigate(['/admin/docs']);
       return;
     }
-    if (cmd.id === 'inbox') {
-      // `/inbox` → list. `/inbox unassigned|mine|open` → pre-set filter
-      // via query param so InboxComponent applies it on mount.
-      const filter = arg.trim().toLowerCase();
-      const valid = ['unassigned', 'mine', 'open', 'snoozed', 'resolved'];
-      const queryParams = valid.includes(filter) ? { filter } : undefined;
-      this.router.navigate(['/admin/inbox'], queryParams ? { queryParams } : {});
-      return;
-    }
     if (cmd.id === 'social') {
       // `/social` → Pulse Social composer. `/social new` opens the composer
       // pre-focused via `?action=new` (AdminSocialComponent ngOnInit reads

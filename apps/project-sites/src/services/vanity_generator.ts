@@ -12,6 +12,13 @@
 import type { Env } from '../types/env.js';
 import { sha256Hex } from '@project-sites/shared';
 
+/**
+ * Inputs the LLM uses to brainstorm vanity words.
+ *
+ * @remarks
+ * Pass as much context as available — the model uses every field to bias
+ * suggestions toward the business identity (Capurso's Salon → CURLS, CUTZ).
+ */
 export interface VanityBusinessProfile {
   businessName: string;
   services?: string[];
@@ -20,12 +27,27 @@ export interface VanityBusinessProfile {
   industry?: string;
 }
 
+/**
+ * A single ranked vanity-word candidate emitted by {@link suggestVanityWords}.
+ *
+ * @remarks
+ * `word` is ALL CAPS 4-7 letters, ready to overlay on a tel-link button.
+ * `theme` lets the UI group suggestions (e.g. all `service` words together).
+ */
 export interface VanitySuggestion {
   word: string;               // ALL CAPS, 4-7 letters
   rationale: string;
   theme: 'name' | 'service' | 'location' | 'usp' | 'memorable';
 }
 
+/**
+ * Envelope returned by {@link suggestVanityWords}.
+ *
+ * @remarks
+ * `cached: true` signals the result came from KV (no LLM cost incurred this
+ * call). UI can show a "regenerate" affordance when the user wants fresh
+ * picks past the 7-day cache.
+ */
 export interface VanityResult {
   cached: boolean;
   words: VanitySuggestion[];

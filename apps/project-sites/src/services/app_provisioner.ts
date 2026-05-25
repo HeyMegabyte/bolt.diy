@@ -25,6 +25,15 @@ import type { InfraDep } from '../data/apps-catalog.js';
 import * as neon from './neon_provisioner.js';
 import * as upstash from './upstash_provisioner.js';
 
+/**
+ * Aggregated handles for every aux service spun up by {@link provisionInfra}.
+ *
+ * @remarks
+ * Each property is populated only when the corresponding `InfraDep` was
+ * requested by the catalog entry — caller should null-check before passing
+ * connection strings into the container env-var resolver. Pair with
+ * {@link deprovisionInfra} for clean teardown on app delete.
+ */
 export interface ProvisionedInfra {
   /** Postgres connection URI + parsed parts (when `postgres` was requested). */
   postgres?: neon.NeonProvisionResult;

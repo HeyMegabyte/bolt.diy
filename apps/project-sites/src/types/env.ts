@@ -120,15 +120,6 @@ export interface Env {
   TRACE_HUB?: DurableObjectNamespace;
   /** SQLite-backed Durable Object — global activity feed. */
   ACTIVITY_HUB?: DurableObjectNamespace;
-  /**
-   * SQLite-backed Durable Object — Pulse Inbox per-conversation realtime hub.
-   * One DO instance per `chat_conversations.id`. Owns WebSocket fan-out for
-   * agent dashboards + visitor widgets and ephemeral presence/typing state.
-   * Routed via `idFromName(conversationId)`. Optional during local dev when
-   * the migration tag hasn't been applied; routes degrade gracefully when
-   * unbound (broadcast is a no-op, REST writes still persist to D1).
-   */
-  CONVERSATION_HUB?: DurableObjectNamespace;
 
   // ── Workers AI ────────────────────────────────────────────
   /** Cloudflare Workers AI binding for LLM inference. */

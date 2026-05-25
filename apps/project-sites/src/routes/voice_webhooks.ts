@@ -63,6 +63,17 @@ async function requireTwilioSignature(
 
 // ─── Inbound voice call ─────────────────────────────────────────
 
+/**
+ * `POST /webhooks/voice/inbound` — Inbound-call TwiML response for Twilio.
+ *
+ * @remarks
+ * Verifies `X-Twilio-Signature` against the full request URL + form
+ * params. Delegates to {@link handleInboundCall} which builds the TwiML
+ * (greeting, transfer, IVR menu, or media-stream upgrade) per site
+ * config.
+ *
+ * @throws 403 FORBIDDEN when the Twilio signature is missing or invalid.
+ */
 voiceWebhookRoutes.post('/webhooks/voice/inbound', async (c) => {
   const params = await readFormParams(c.req.raw);
   if (!(await requireTwilioSignature(c.env, c.req.raw, params))) {
@@ -89,12 +100,35 @@ voiceWebhookRoutes.post('/webhooks/voice/inbound', async (c) => {
 // Streams currently only signs the websocket *URL* via a query token);
 // for defense in depth, callSid + siteId must round-trip to a known call.
 
+/**
+ * `GET /webhooks/voice/stream` — WebSocket upgrade handler for Twilio
+ * Media Streams (bidirectional µ-law audio between Twilio and the
+ * call-gpt orchestrator).
+ *
+ * @remarks
+ * Twilio signs the initial HTTP upgrade via a query-token rather than
+ * `X-Twilio-Signature`. The CallSid + siteId carried in the URL must
+ * round-trip to a known call row for defense in depth. Delegates to
+ * {@link handleMediaStream}.
+ *
+ * @throws 403 FORBIDDEN when the call context cannot be validated.
+ */
 voiceWebhookRoutes.get('/webhooks/voice/stream', async (c) => {
   return handleMediaStream(c.env, c.req.raw);
 });
 
 // ─── Call status ────────────────────────────────────────────────
 
+/**
+ * `POST /webhooks/voice/status` — Twilio call-status callback
+ * (`ringing|in-progress|completed|failed|busy|no-answer|canceled`).
+ *
+ * @remarks
+ * Upserts the call row by `CallSid`; the UNIQUE index makes the handler
+ * idempotent under Twilio retries.
+ *
+ * @throws 403 FORBIDDEN when the Twilio signature is missing or invalid.
+ */
 voiceWebhookRoutes.post('/webhooks/voice/status', async (c) => {
   const params = await readFormParams(c.req.raw);
   if (!(await requireTwilioSignature(c.env, c.req.raw, params))) {
@@ -121,6 +155,18 @@ voiceWebhookRoutes.post('/webhooks/voice/status', async (c) => {
 
 // ─── Recording ready → fetch + persist to R2 ────────────────────
 
+/**
+ * `POST /webhooks/voice/recording-ready` — Twilio recording-status callback
+ * fired when a call recording finishes processing.
+ *
+ * @remarks
+ * Verifies Twilio signature, then fetches the audio bytes from Twilio
+ * via {@link downloadRecordingBytes} and writes them to R2 under
+ * `recordings/{call_sid}/{recording_sid}.mp3` so subsequent playback
+ * doesn't burn Twilio bandwidth.
+ *
+ * @throws 403 FORBIDDEN when the Twilio signature is missing or invalid.
+ */
 voiceWebhookRoutes.post('/webhooks/voice/recording-ready', async (c) => {
   const params = await readFormParams(c.req.raw);
   if (!(await requireTwilioSignature(c.env, c.req.raw, params))) {
@@ -180,6 +226,15 @@ voiceWebhookRoutes.post('/webhooks/voice/recording-ready', async (c) => {
 
 // ─── Inbound SMS ────────────────────────────────────────────────
 
+/**
+ * `POST /webhooks/sms/inbound` — Inbound SMS TwiML response for Twilio.
+ *
+ * @remarks
+ * Verifies signature then routes to {@link handleInboundSms} which writes
+ * the message into the site's inbox conversation thread.
+ *
+ * @throws 403 FORBIDDEN when the Twilio signature is missing or invalid.
+ */
 voiceWebhookRoutes.post('/webhooks/sms/inbound', async (c) => {
   const params = await readFormParams(c.req.raw);
   if (!(await requireTwilioSignature(c.env, c.req.raw, params))) {
@@ -198,6 +253,14 @@ voiceWebhookRoutes.post('/webhooks/sms/inbound', async (c) => {
 
 // ─── SMS status ─────────────────────────────────────────────────
 
+/**
+ * `POST /webhooks/sms/status` — Twilio SMS delivery-status callback.
+ *
+ * @remarks
+ * Updates the message row by `MessageSid` (UNIQUE → idempotent).
+ *
+ * @throws 403 FORBIDDEN when the Twilio signature is missing or invalid.
+ */
 voiceWebhookRoutes.post('/webhooks/sms/status', async (c) => {
   const params = await readFormParams(c.req.raw);
   if (!(await requireTwilioSignature(c.env, c.req.raw, params))) {
@@ -222,6 +285,17 @@ voiceWebhookRoutes.post('/webhooks/sms/status', async (c) => {
 
 // ─── Browse-agent → worker callback (HMAC-signed) ───────────────
 
+/**
+ * `POST /internal/voice/recording-saved` — Internal callback from the
+ * browse-agent worker after it persists a recording transcript.
+ *
+ * @remarks
+ * Authenticated via HMAC `X-Internal-Sig` header (shared secret with
+ * the browse-agent). Updates the `voice_calls` row with the transcript
+ * + sentiment + intent extracted by the agent.
+ *
+ * @throws 403 FORBIDDEN when the HMAC signature is missing or invalid.
+ */
 voiceWebhookRoutes.post('/internal/voice/recording-saved', async (c) => {
   const secret = (c.env.INTERNAL_BUILD_SECRET ?? '').trim();
   if (!secret) return c.json({ error: 'callback not configured' }, 500);
