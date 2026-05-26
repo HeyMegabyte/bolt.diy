@@ -364,6 +364,15 @@ export const routes: Routes = [
       ),
   },
   {
+    // Public press kit — 8-slide 1920×1080 cinematic picture walkthrough,
+    // brand assets, founder bio, fact sheet, press releases, media contacts.
+    // Lazy-loaded so press traffic doesn't pay for the walkthrough chunk
+    // until requested.
+    path: 'press',
+    loadComponent: () =>
+      import('./pages/press/press.component').then((m) => m.PressComponent),
+  },
+  {
     path: 'status',
     loadComponent: () =>
       import('./pages/status/status.component').then((m) => m.StatusComponent),

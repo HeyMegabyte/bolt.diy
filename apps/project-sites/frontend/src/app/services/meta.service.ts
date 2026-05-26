@@ -30,59 +30,63 @@ interface PageMeta {
 /** Path → title/description map. Keys match `app.routes.ts` leaf paths. */
 const PAGE_META: Record<string, PageMeta> = {
   '': {
-    title: 'Project Sites - Your Website, Handled. Finally.',
-    description: 'AI-powered websites for small businesses. Search for your business and get a professional site in minutes — hosting, updates, and everything included.',
+    title: 'ProjectSites — We deliver websites in minutes',
+    description: 'AI-native website builder for real businesses. One prompt, four minutes, a gorgeous live URL with SSL, sitemap, OG cards, and JSON-LD baked in.',
   },
   'create': {
-    title: 'Create Your Website - Project Sites',
+    title: 'Create Your Website - ProjectSites',
     description: 'Tell us about your business and our AI builds a professional website in minutes. No coding required.',
   },
   'signin': {
-    title: 'Sign In - Project Sites',
+    title: 'Sign In - ProjectSites',
     description: 'Sign in to manage your AI-generated website. Magic link, no password needed.',
   },
   'waiting': {
-    title: 'Building Your Site - Project Sites',
+    title: 'Building Your Site - ProjectSites',
     description: 'Your AI-generated website is being built. Watch the progress in real time.',
   },
   'admin': {
-    title: 'Dashboard - Project Sites',
+    title: 'Dashboard - ProjectSites',
     description: 'Manage your websites, domains, files, and billing from one dashboard.',
   },
   'privacy': {
-    title: 'Privacy Policy - Project Sites',
-    description: 'How Project Sites collects, uses, and protects your personal information.',
+    title: 'Privacy Policy - ProjectSites',
+    description: 'How ProjectSites collects, uses, and protects your personal information.',
   },
   'terms': {
-    title: 'Terms of Service - Project Sites',
-    description: 'Terms and conditions for using the Project Sites website builder platform.',
+    title: 'Terms of Service - ProjectSites',
+    description: 'Terms and conditions for using the ProjectSites website builder platform.',
   },
   'content': {
-    title: 'Content Policy - Project Sites',
-    description: 'Acceptable use and content guidelines for websites built on Project Sites.',
+    title: 'Content Policy - ProjectSites',
+    description: 'Acceptable use and content guidelines for websites built on ProjectSites.',
   },
   'blog': {
-    title: 'Blog - Project Sites',
+    title: 'Blog - ProjectSites',
     description: 'Tips, updates, and insights on AI-powered website building for small businesses.',
   },
   'changelog': {
-    title: 'Changelog - Project Sites',
-    description: 'See what\'s new in Project Sites. Feature releases, improvements, and fixes. Subscribe via RSS.',
+    title: 'Changelog - ProjectSites',
+    description: 'See what\'s new in ProjectSites. Feature releases, improvements, and fixes. Subscribe via RSS.',
   },
   'roadmap': {
-    title: 'Roadmap - Project Sites',
-    description: 'See what we are building next for Project Sites. Trello-style public roadmap with shipped, in-progress, and planned features.',
+    title: 'Roadmap - ProjectSites',
+    description: 'See what we are building next for ProjectSites. Trello-style public roadmap with shipped, in-progress, and planned features.',
   },
   'integrations': {
-    title: 'Integrations - Project Sites',
-    description: 'Connect Project Sites with Stripe, Square, Twilio, OpenAI, Anthropic, Slack, HubSpot, and 30 more services across nine categories.',
+    title: 'Integrations - ProjectSites',
+    description: 'Connect ProjectSites with Stripe, Square, Twilio, OpenAI, Anthropic, Slack, HubSpot, and 30 more services across nine categories.',
+  },
+  'press': {
+    title: 'Press kit — ProjectSites',
+    description: 'Brand assets, founder bio, fact sheet, 8-slide cinematic picture walkthrough, press releases, and media contacts for ProjectSites by Megabyte Labs.',
   },
   'status': {
-    title: 'System Status - Project Sites',
-    description: 'Real-time status of Project Sites infrastructure, API, and build services.',
+    title: 'System Status - ProjectSites',
+    description: 'Real-time status of ProjectSites infrastructure, API, and build services.',
   },
   'search': {
-    title: 'Search - Project Sites',
+    title: 'Search - ProjectSites',
     description: 'Find businesses, browse pre-built sites, and discover what AI can build for you.',
   },
 };
@@ -149,5 +153,48 @@ export class MetaService {
     if (link) {
       link.href = url;
     }
+  }
+
+  /**
+   * Inject a JSON-LD `<script type="application/ld+json" data-route-jsonld>`
+   * block into `<head>`, replacing any prior route-scoped block. Components
+   * that want per-page structured data call this in `ngOnInit` (or via an
+   * effect) — see {@link ../lib/json-ld} for the factory helpers.
+   *
+   * Re-applying the same content is a no-op (we serialize + diff the body
+   * before mutating the DOM), so calling this from `ngOnInit` is safe even
+   * if the component re-renders.
+   *
+   * @example
+   * ```ts
+   * import { graph, organization, softwareApplication, webPage } from '../../lib/json-ld';
+   *
+   * ngOnInit(): void {
+   *   this.meta.setJsonLd(graph([
+   *     organization(),
+   *     softwareApplication(),
+   *     webPage({ url: 'https://projectsites.dev/press', title: 'Press kit' }),
+   *   ]));
+   * }
+   * ```
+   */
+  setJsonLd(payload: Record<string, unknown> | null): void {
+    if (typeof document === 'undefined') return;
+    const tagId = 'route-jsonld';
+    let el = document.getElementById(tagId) as HTMLScriptElement | null;
+    if (payload === null) {
+      el?.remove();
+      return;
+    }
+    const body = JSON.stringify(payload);
+    if (el && el.textContent === body) return;
+    if (!el) {
+      el = document.createElement('script');
+      el.id = tagId;
+      el.type = 'application/ld+json';
+      el.setAttribute('data-route-jsonld', '');
+      document.head.appendChild(el);
+    }
+    el.textContent = body;
   }
 }

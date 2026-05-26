@@ -14,10 +14,18 @@ const DIST = path.join(__dirname, '..', 'dist', 'project-sites-frontend', 'brows
 
 // ─── Mock data ────────────────────────────────────
 
+// Stubbed admin user for every E2E spec. Brian's account, role admin.
+// Specs sign in by setting `ps_session` in localStorage; the mock /api/auth/me
+// returns this user, and the Angular AuthService treats `is_admin` as the
+// gate for /admin routes.
 const MOCK_USER = {
-  id: 'user-001',
-  email: 'test@example.com',
-  org_id: 'org-001',
+  id: 'user-brian',
+  email: 'brian@megabyte.space',
+  org_id: 'org-megabyte-labs',
+  name: 'Brian Zalewski',
+  is_admin: true,
+  is_super_admin: true,
+  role: 'admin',
 };
 
 const MOCK_SITE = {
@@ -168,7 +176,7 @@ async function handleAPI(req, res, urlPath) {
     return json(res, { data: MOCK_USER });
   }
   if (urlPath === '/api/auth/magic-link' && method === 'POST') {
-    return json(res, { data: { token: 'mock-token-123', identifier: 'test@example.com' } });
+    return json(res, { data: { token: 'mock-token-123', identifier: 'brian@megabyte.space' } });
   }
 
   // Search

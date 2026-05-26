@@ -12,7 +12,7 @@ import { NotificationBellComponent } from '../notification-bell/notification-bel
     <header class="header" role="banner">
       <div class="header-inner">
         <a class="logo" (click)="goHome()">
-          <img src="/logo-header-icon.png" alt="Project Sites" width="48" height="48" class="logo-icon" />
+          <img src="/logo-header-icon.png" alt="ProjectSites" width="48" height="48" class="logo-icon" />
           <img src="/logo-text.png" alt="projectsites.dev" height="48" class="logo-text-img" />
         </a>
         <div class="header-right">
@@ -101,9 +101,11 @@ import { NotificationBellComponent } from '../notification-bell/notification-bel
     .logo:hover .logo-icon { transform: scale(1.05) rotate(-3deg); }
     .logo-text-img {
       flex-shrink: 0;
-      opacity: 0.9;
-      margin-top: 5px;
-      transition: opacity 0.2s;
+      /* Match the 48px icon height exactly; render fully opaque per brand-kit rules. */
+      height: 48px;
+      width: auto;
+      opacity: 1;
+      transition: none;
     }
     .logo:hover .logo-text-img { opacity: 1; }
     @media (max-width: 480px) {
