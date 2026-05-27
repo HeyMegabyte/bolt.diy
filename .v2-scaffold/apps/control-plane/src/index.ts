@@ -24,6 +24,9 @@ import { viewAsMiddleware } from './middleware/view-as.js';
 import { tenantMiddleware } from './middleware/tenant.js';
 import { errorHandler } from './middleware/error-handler.js';
 
+import { scheduledSnapshots } from './services/scheduled-snapshots.js';
+import { isJob, type Job, type JobType } from './services/queue.js';
+
 import healthRoutes from './routes/health.js';
 import authRoutes from './routes/auth.js';
 import meRoutes from './routes/me.js';
@@ -33,6 +36,7 @@ import jobsRoutes from './routes/jobs.js';
 import crewRoutes from './routes/crew.js';
 import bookingsRoutes from './routes/bookings.js';
 import billingRoutes from './routes/billing.js';
+import dispatchRoutes from './routes/dispatch.js';
 import teamRoutes from './routes/team.js';
 import settingsRoutes from './routes/settings.js';
 import integrationsRoutes from './routes/integrations.js';
@@ -46,6 +50,7 @@ export { JobChatRoom as JobChatHub } from './durable-objects/job-chat-room.js';
 export { JobTrackingHub } from './durable-objects/job-tracking-hub.js';
 export { UserNotificationQueue as NotificationHub } from './durable-objects/user-notification-queue.js';
 export { VoiceOrchestrator } from './durable-objects/voice-orchestrator.js';
+export { DispatchOptimizer } from './durable-objects/dispatch-optimizer.js';
 
 const app = new Hono<HonoEnv>();
 
@@ -108,6 +113,7 @@ app.route('/api/jobs', jobsRoutes);
 app.route('/api/crew', crewRoutes);
 app.route('/api/bookings', bookingsRoutes);
 app.route('/api/billing', billingRoutes);
+app.route('/api/dispatch', dispatchRoutes);
 app.route('/api/team', teamRoutes);
 app.route('/api/settings', settingsRoutes);
 app.route('/api/integrations', integrationsRoutes);
@@ -152,27 +158,87 @@ export default {
 
   /** Cron triggers — see wrangler.jsonc `triggers.crons`. */
   async scheduled(controller: ScheduledController, env: HonoEnv['Bindings']): Promise<void> {
-    if (controller.cron === '0 * * * *') {
-      // Hourly: cleanup expired magic links + oauth_state.
-      const now = Date.now();
-      await env.DB.batch([
-        env.DB.prepare(`DELETE FROM magic_links WHERE expires_at < ?1`).bind(now),
-        env.DB.prepare(`DELETE FROM oauth_state WHERE expires_at < ?1`).bind(now),
-        env.DB.prepare(`DELETE FROM webauthn_challenges WHERE expires_at < ?1`).bind(now),
-        env.DB.prepare(`DELETE FROM sessions WHERE expires_at < ?1`).bind(now),
-      ]);
+    switch (controller.cron) {
+      case '0 * * * *': {
+        // Hourly: cleanup expired magic links + oauth_state.
+        const now = Date.now();
+        await env.DB.batch([
+          env.DB.prepare(`DELETE FROM magic_links WHERE expires_at < ?1`).bind(now),
+          env.DB.prepare(`DELETE FROM oauth_state WHERE expires_at < ?1`).bind(now),
+          env.DB.prepare(`DELETE FROM webauthn_challenges WHERE expires_at < ?1`).bind(now),
+          env.DB.prepare(`DELETE FROM sessions WHERE expires_at < ?1`).bind(now),
+        ]);
+        return;
+      }
+      case '0 4 * * 0': {
+        // Weekly Sunday 04:00 UTC: auto-snapshot every active tenant site.
+        await scheduledSnapshots(env);
+        return;
+      }
+      default:
+        return;
     }
   },
 
   /** Queue consumer. Wired when wrangler.jsonc declares `[[queues.consumers]]`. */
-  async queue(batch: QueueBatch, _env: HonoEnv['Bindings']): Promise<void> {
+  async queue(batch: QueueBatch, env: HonoEnv['Bindings']): Promise<void> {
     for (const msg of batch.messages) {
       try {
-        // Default: just ack. Per-queue dispatch lands here as the v2 grows.
+        await dispatchJob(env, msg.body);
         msg.ack();
-      } catch {
+      } catch (err) {
+        console.warn('[queue] job failed, retrying', err);
         msg.retry({ delaySeconds: 30 });
       }
     }
   },
 };
+
+/** Type-safe dispatch for the `projectsites-jobs` queue. */
+async function dispatchJob(env: HonoEnv['Bindings'], body: unknown): Promise<void> {
+  if (!body || typeof body !== 'object' || !('type' in body)) {
+    console.warn('[queue] unknown job shape', body);
+    return;
+  }
+  const type = (body as { type: JobType }).type;
+  switch (type) {
+    case 'snapshot':
+      if (isJob(body, 'snapshot')) await handleSnapshotJob(env, body);
+      return;
+    case 'email':
+      if (isJob(body, 'email')) await handleEmailJob(env, body);
+      return;
+    case 'image-process':
+      if (isJob(body, 'image-process')) await handleImageJob(env, body);
+      return;
+    default:
+      console.warn('[queue] unhandled job type', type);
+      return;
+  }
+}
+
+async function handleSnapshotJob(
+  env: HonoEnv['Bindings'],
+  job: Job<'snapshot'>,
+): Promise<void> {
+  // Hand-off to the snapshot workflow lives outside this scaffold; for now
+  // emit a marker so observability picks the run up.
+  void env;
+  console.warn('[queue] snapshot job received', job.payload.site_id);
+}
+
+async function handleEmailJob(
+  env: HonoEnv['Bindings'],
+  job: Job<'email'>,
+): Promise<void> {
+  void env;
+  console.warn('[queue] email job received', job.payload.template);
+}
+
+async function handleImageJob(
+  env: HonoEnv['Bindings'],
+  job: Job<'image-process'>,
+): Promise<void> {
+  void env;
+  console.warn('[queue] image-process job received', job.payload.r2_input_key);
+}

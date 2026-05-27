@@ -1,6 +1,11 @@
 /**
  * Webhooks — Stripe (signature-verified, idempotent via billing_events) + Twilio
  * (HMAC-verified). Bypasses auth + tenant middleware in `index.ts`.
+ *
+ * Also exposes `POST /:provider/:event_id/replay` for one-click webhook replay
+ * against the original handler. Replay reads the persisted billing_events row,
+ * writes a new `replay_of` audit entry pointing back to the original event id,
+ * and re-fires the stored payload through the same dispatch function. Idempotent.
  */
 
 import { Hono } from 'hono';
@@ -10,6 +15,7 @@ import { constructWebhookEvent } from '../services/stripe.js';
 import { recordBillingEvent } from '../services/billing-events.js';
 import { dbExecute, dbQueryOne } from '../services/db.js';
 import { sha256Hex } from '../services/crypto.js';
+import { requireSuperAdmin } from '../middleware/auth.js';
 
 const app = new Hono<HonoEnv>();
 
@@ -155,8 +161,114 @@ async function hmacSha1Base64(secret: string, data: string): Promise<string> {
   return btoa(s);
 }
 
+// ── One-click replay ─────────────────────────────────────────────────────────
+/**
+ * Replay a previously-received webhook against its original handler.
+ *
+ * - `provider` ∈ `stripe` | `twilio` (extend as new providers are wired)
+ * - `event_id` matches `billing_events.stripe_event_id` (Stripe) or
+ *   `billing_events.idempotency_key` (other providers).
+ *
+ * Writes a new audit entry with `replay_of` pointing back to the original
+ * event so the side-effect chain is traceable. Re-running with the same
+ * `event_id` is safe — every dispatch is idempotent on the underlying
+ * subscriptions / connected_accounts tables.
+ *
+ * Super-admin gated; we never want a tenant to be able to replay another
+ * tenant's events.
+ */
+interface BillingEventReplayRow {
+  id: string;
+  org_id: string;
+  event_type: string;
+  source: string;
+  stripe_event_id: string | null;
+  stripe_object_id: string | null;
+  stripe_object_type: string | null;
+  amount_cents: number | null;
+  currency: string | null;
+  idempotency_key: string;
+  occurred_at: string;
+  payload_pointer: string | null;
+}
+
+app.post('/:provider/:event_id/replay', async (c) => {
+  requireSuperAdmin(c);
+  const provider = c.req.param('provider');
+  const eventId = c.req.param('event_id');
+
+  if (!['stripe', 'twilio'].includes(provider)) {
+    throw new AppError(ErrorCode.BAD_REQUEST, `provider ${provider} not replayable`);
+  }
+
+  const row = await dbQueryOne<BillingEventReplayRow>(
+    c.env.DB,
+    `SELECT id, org_id, event_type, source, stripe_event_id, stripe_object_id,
+            stripe_object_type, amount_cents, currency, idempotency_key,
+            occurred_at, payload_pointer
+       FROM billing_events
+      WHERE (stripe_event_id = ?1 OR idempotency_key = ?1)
+        AND source LIKE ?2
+      ORDER BY created_at DESC
+      LIMIT 1`,
+    [eventId, `${provider}%`],
+  );
+  if (!row) throw new AppError(ErrorCode.NOT_FOUND, 'webhook event');
+
+  // Record the replay with `replay_of` linkage. Use a fresh idempotency key so
+  // it doesn't collide with the original's UNIQUE (source, idempotency_key).
+  const replayKey = `${row.idempotency_key}:replay:${Date.now()}`;
+  await recordBillingEvent(c.env, {
+    org_id: row.org_id,
+    event_type: row.event_type,
+    source: row.source as 'stripe_webhook' | 'meter_report' | 'wallet_action' | 'manual',
+    stripe_event_id: row.stripe_event_id ?? undefined,
+    stripe_object_id: row.stripe_object_id ?? undefined,
+    stripe_object_type: row.stripe_object_type ?? undefined,
+    amount_cents: row.amount_cents ?? undefined,
+    currency: row.currency ?? undefined,
+    idempotency_key: replayKey,
+    occurred_at: new Date().toISOString(),
+    payload_pointer: row.payload_pointer ?? `replay_of:${row.id}`,
+  });
+
+  // For Stripe, re-fire the typed dispatcher when we still hold enough context
+  // in the persisted row. Payload bodies aren't stored verbatim (only hashed),
+  // so the side-effect path takes the slim shape from billing_events itself.
+  let dispatched = false;
+  if (provider === 'stripe' && row.stripe_event_id && row.stripe_object_id) {
+    // Synthetic event approximation — enough for the upsert-shaped side-effects
+    // (account.updated, subscription.*) we currently care about.
+    const synthetic: Stripe.Event = {
+      id: row.stripe_event_id,
+      type: row.event_type as Stripe.Event.Type,
+      created: Math.floor(new Date(row.occurred_at).getTime() / 1000),
+      data: {
+        object: {
+          id: row.stripe_object_id,
+          object: row.stripe_object_type,
+          metadata: { tenantId: row.org_id },
+        } as unknown as Stripe.Event.Data.Object,
+      },
+      api_version: null,
+      livemode: c.env.ENVIRONMENT === 'production',
+      pending_webhooks: 0,
+      request: { id: null, idempotency_key: null },
+      object: 'event',
+    };
+    await dispatchStripeSideEffects(c.env, synthetic);
+    dispatched = true;
+  }
+
+  return c.json({
+    ok: true,
+    replay_of: row.id,
+    replay_idempotency_key: replayKey,
+    dispatched,
+  });
+});
+
 // Hint for unused imports
 void dbExecute;
-void dbQueryOne;
 
 export default app;

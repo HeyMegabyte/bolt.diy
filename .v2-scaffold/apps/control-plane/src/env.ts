@@ -32,6 +32,7 @@ export interface Bindings {
   JOB_TRACKING_HUB: DurableObjectNamespace;
   NOTIFICATION_HUB: DurableObjectNamespace;
   VOICE_ORCHESTRATOR: DurableObjectNamespace;
+  DISPATCH_OPTIMIZER: DurableObjectNamespace;
 
   // Service bindings
   TENANT_RUNTIME?: Fetcher;
@@ -70,6 +71,7 @@ export const envSchema = z.object({
   TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
   TWILIO_VERIFY_SERVICE_SID: z.string().min(1).optional(),
   TWILIO_FROM_NUMBER: z.string().min(1).optional(),
+  TWILIO_PROXY_SERVICE_SID: z.string().min(1).optional(),
 
   // Resend / SendGrid (email)
   RESEND_API_KEY: z

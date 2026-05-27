@@ -57,3 +57,26 @@ export function timingSafeEqual(a: string, b: string): boolean {
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
 }
+
+/**
+ * HMAC-SHA-256 hex signature of `data` using `secret`. Used for legal-grade
+ * chain-of-custody signing (e.g. job photo records, `job_photos.server_signature`).
+ *
+ * @example
+ * ```ts
+ * const sig = await hmacSha256Hex(env.SESSION_SECRET, `${r2_key}|${captured_at}|${hash}`);
+ * ```
+ */
+export async function hmacSha256Hex(secret: string, data: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    ENC.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, ENC.encode(data));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}

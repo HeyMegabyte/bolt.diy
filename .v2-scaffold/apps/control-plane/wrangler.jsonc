@@ -28,6 +28,10 @@
     { "binding": "KV_FLAGS", "id": "REPLACE_WITH_FLAGS_KV_ID" },
     { "binding": "KV_PROMPT_OVERRIDES", "id": "REPLACE_WITH_PROMPT_KV_ID" }
   ],
+  // R2 lifecycle: `project-sites-production` MUST have a Standard → Infrequent
+  // Access transition rule after 30 days (snapshots + marketing assets + old
+  // uploads). The rule is bucket-level and cannot be expressed in wrangler.jsonc
+  // — apply via `tools/configure-r2-lifecycle.mjs` (uses the Cloudflare API).
   "r2_buckets": [
     { "binding": "BUCKET", "bucket_name": "projectsites-platform-production" }
   ],
@@ -56,8 +60,25 @@
   "services": [
     { "binding": "TENANT_RUNTIME", "service": "projectsites-tenant-runtime" }
   ],
+  "queues": {
+    "producers": [
+      { "binding": "JOB_QUEUE", "queue": "projectsites-jobs" }
+    ],
+    "consumers": [
+      {
+        "queue": "projectsites-jobs",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "projectsites-jobs-dlq"
+      }
+    ]
+  },
   "triggers": {
-    "crons": ["0 * * * *"]
+    "crons": [
+      "0 * * * *",
+      "0 4 * * 0"
+    ]
   },
   "secrets": {
     "required": [

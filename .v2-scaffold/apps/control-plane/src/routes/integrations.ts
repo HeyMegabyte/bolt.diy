@@ -31,6 +31,81 @@ app.get('/', async (c) => {
   return c.json({ integrations: rows });
 });
 
+// ── Health dashboard ─────────────────────────────────────────────────────────
+/**
+ * Per-integration health metrics for the connected providers of the current
+ * tenant.
+ *
+ * Returns, per provider:
+ *   - `last_success_at` — most-recent successful call (ISO-8601, nullable)
+ *   - `error_rate_15min` — failed / total over the last 15 minutes (0-1)
+ *   - `calls_24h` — total call count in the last 24h
+ *
+ * Source data: `billing_events` rows whose `source` LIKE 'stripe%' OR similar
+ * provider prefix, augmented by future provider-specific call logs. The
+ * Workers Tracing OTLP exporter (already enabled via `observability` block in
+ * `wrangler.jsonc`) is the canonical OpenTelemetry stream; this endpoint
+ * surfaces the high-level signal for the admin UI without round-tripping
+ * Axiom/Honeycomb on every dashboard render.
+ */
+interface IntegrationHealthRow {
+  provider: string;
+  status: string;
+  last_success_at: string | null;
+  ok_15min: number;
+  fail_15min: number;
+  calls_24h: number;
+}
+
+app.get('/health', async (c) => {
+  const tenantId = tenantOrThrow(c);
+  const now = Date.now();
+  const fifteenMinAgo = new Date(now - 15 * 60 * 1000).toISOString();
+  const twentyFourHrAgo = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+
+  // One pass over billing_events + integrations. SQLite supports CTE-style
+  // aggregation with filtered sums via CASE WHEN — keep it portable to D1.
+  const rows = await dbQuery<IntegrationHealthRow>(
+    c.env.DB,
+    `SELECT
+        i.provider AS provider,
+        i.status   AS status,
+        (SELECT be.occurred_at
+           FROM billing_events be
+          WHERE be.org_id = ?1
+            AND be.source LIKE i.provider || '%'
+            AND be.result = 'ok'
+          ORDER BY be.occurred_at DESC LIMIT 1) AS last_success_at,
+        COALESCE(SUM(CASE WHEN be.occurred_at >= ?2 AND be.result = 'ok' THEN 1 ELSE 0 END), 0) AS ok_15min,
+        COALESCE(SUM(CASE WHEN be.occurred_at >= ?2 AND be.result IN ('failed','disputed') THEN 1 ELSE 0 END), 0) AS fail_15min,
+        COALESCE(SUM(CASE WHEN be.occurred_at >= ?3 THEN 1 ELSE 0 END), 0) AS calls_24h
+       FROM integrations i
+       LEFT JOIN billing_events be ON be.org_id = ?1 AND be.source LIKE i.provider || '%'
+      WHERE i.tenant_id = ?1 AND i.deleted_at IS NULL
+      GROUP BY i.id, i.provider, i.status`,
+    [tenantId, fifteenMinAgo, twentyFourHrAgo],
+  );
+
+  const integrations = rows.map((r) => {
+    const total = r.ok_15min + r.fail_15min;
+    const errorRate = total > 0 ? r.fail_15min / total : 0;
+    return {
+      provider: r.provider,
+      status: r.status,
+      last_success_at: r.last_success_at,
+      error_rate_15min: Number(errorRate.toFixed(4)),
+      calls_24h: r.calls_24h,
+      // Signals consumed by the admin UI dashboard cards.
+      healthy: errorRate < 0.05 && r.status === 'active',
+    };
+  });
+
+  return c.json({
+    as_of: new Date(now).toISOString(),
+    integrations,
+  });
+});
+
 app.post(
   '/',
   zValidator(

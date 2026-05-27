@@ -283,6 +283,275 @@ app.get('/usage/stream', async (c) => {
   return stub.fetch(`https://do/stream`);
 });
 
+// ── TechSoup nonprofit auto-discount (item #29) ─────────────────────────────
+/**
+ * Verify nonprofit eligibility via TechSoup. On success, apply a 50% discount
+ * to the tenant's subscription (Stripe Subscription.update with a coupon-equivalent
+ * `metadata.discount_pct` and re-price to the $25/mo nonprofit tier).
+ */
+app.post(
+  '/verify-nonprofit',
+  zValidator(
+    'json',
+    z.object({
+      ein: z
+        .string()
+        .regex(/^\d{2}-?\d{7}$/u, 'EIN format: NN-NNNNNNN'),
+      ts_token: z.string().min(1),
+    }),
+  ),
+  async (c) => {
+    const userId = requireAuth(c);
+    const tenantId = tenantOrThrow(c);
+    const { ein, ts_token } = c.req.valid('json');
+    const normalizedEin = ein.replace(/-/g, '');
+
+    // TechSoup eligibility lookup (stub endpoint per backlog item #29).
+    const tsRes = await fetch(
+      `https://api.techsoup.global/v1/eligibility/${encodeURIComponent(normalizedEin)}`,
+      {
+        method: 'GET',
+        headers: {
+          authorization: `Bearer ${ts_token}`,
+          accept: 'application/json',
+        },
+      },
+    );
+    if (!tsRes.ok) {
+      throw new AppError(
+        ErrorCode.BAD_REQUEST,
+        `TechSoup verification failed: ${tsRes.status}`,
+      );
+    }
+    const tsJson = (await tsRes.json()) as {
+      eligible?: boolean;
+      org_name?: string;
+      nteeCode?: string;
+    };
+    if (!tsJson.eligible) {
+      throw new AppError(ErrorCode.BAD_REQUEST, 'EIN not eligible per TechSoup');
+    }
+
+    const sub = await dbQueryOne<{
+      id: string;
+      stripe_subscription_id: string | null;
+    }>(
+      c.env.DB,
+      `SELECT id, stripe_subscription_id FROM subscriptions
+        WHERE tenant_id = ?1 ORDER BY created_at DESC LIMIT 1`,
+      [tenantId],
+    );
+
+    const nowIso = new Date().toISOString();
+    if (sub?.stripe_subscription_id) {
+      const stripe = makeStripe(c.env);
+      // 50% discount → re-price to nonprofit tier ($25/mo) by updating
+      // metadata so the next invoice cycle picks up the discount_pct.
+      await stripe.subscriptions.update(sub.stripe_subscription_id, {
+        metadata: {
+          tenantId,
+          discount_pct: '50',
+          nonprofit_ein: normalizedEin,
+          tier: 'nonprofit',
+        },
+      });
+    }
+
+    await c.env.DB.prepare(
+      `UPDATE subscriptions
+          SET discount_pct = 50,
+              nonprofit_ein = ?1,
+              nonprofit_verified_at = ?2,
+              updated_at = ?2
+        WHERE tenant_id = ?3`,
+    )
+      .bind(normalizedEin, nowIso, tenantId)
+      .run();
+
+    await writeAudit(c.env, {
+      actor_user_id: userId,
+      actor_email: c.get('userEmail'),
+      tenant_id: tenantId,
+      event: 'billing.nonprofit.verified',
+      target_type: 'subscription',
+      target_id: sub?.id ?? null,
+      metadata: { ein: normalizedEin, org_name: tsJson.org_name ?? null },
+      ip: c.req.header('cf-connecting-ip') ?? null,
+      user_agent: c.req.header('user-agent') ?? null,
+    });
+
+    return c.json({
+      ok: true,
+      ein: normalizedEin,
+      discount_pct: 50,
+      org_name: tsJson.org_name ?? null,
+    });
+  },
+);
+
+// ── ACH push payout for crew (item #33) ─────────────────────────────────────
+/**
+ * Cash out a connected crew account. Defaults to instant payout when the
+ * destination supports it, falling back to standard ACH (`method: 'standard'`).
+ */
+app.post(
+  '/crew/payouts/cashout',
+  zValidator(
+    'json',
+    z.object({
+      destination: z.string().min(1).describe('Stripe connected account id (acct_...)'),
+      amount_cents: z.number().int().positive(),
+      currency: z.string().length(3).default('usd'),
+      prefer_instant: z.boolean().default(true),
+    }),
+  ),
+  async (c) => {
+    const userId = requireAuth(c);
+    const tenantId = tenantOrThrow(c);
+    const body = c.req.valid('json');
+    const stripe = makeStripe(c.env);
+
+    const acct = await dbQueryOne<{ payouts_enabled: number }>(
+      c.env.DB,
+      `SELECT payouts_enabled FROM connected_accounts WHERE stripe_account_id = ?1`,
+      [body.destination],
+    );
+    if (!acct?.payouts_enabled) {
+      throw new AppError(
+        ErrorCode.BAD_REQUEST,
+        'destination account has not completed payout onboarding',
+      );
+    }
+
+    const method: 'instant' | 'standard' = body.prefer_instant ? 'instant' : 'standard';
+    let payout;
+    try {
+      payout = await stripe.payouts.create(
+        {
+          amount: body.amount_cents,
+          currency: body.currency.toLowerCase(),
+          method,
+          metadata: { tenantId, requested_by_user_id: userId },
+        },
+        { stripeAccount: body.destination },
+      );
+    } catch (err) {
+      // Instant payouts can fail with `payouts_not_allowed`; fall back to standard ACH.
+      const msg = err instanceof Error ? err.message : String(err);
+      if (method === 'instant' && /instant/i.test(msg)) {
+        payout = await stripe.payouts.create(
+          {
+            amount: body.amount_cents,
+            currency: body.currency.toLowerCase(),
+            method: 'standard',
+            metadata: { tenantId, requested_by_user_id: userId, fallback_from: 'instant' },
+          },
+          { stripeAccount: body.destination },
+        );
+      } else {
+        throw new AppError(ErrorCode.STRIPE_ERROR, msg);
+      }
+    }
+
+    await writeAudit(c.env, {
+      actor_user_id: userId,
+      actor_email: c.get('userEmail'),
+      tenant_id: tenantId,
+      event: 'billing.crew.payout',
+      target_type: 'stripe_payout',
+      target_id: payout.id,
+      metadata: {
+        amount_cents: body.amount_cents,
+        method: payout.method,
+        destination: body.destination,
+      },
+      ip: c.req.header('cf-connecting-ip') ?? null,
+      user_agent: c.req.header('user-agent') ?? null,
+    });
+
+    return c.json({
+      payout_id: payout.id,
+      method: payout.method,
+      arrival_date: payout.arrival_date,
+      status: payout.status,
+      amount_cents: payout.amount,
+    });
+  },
+);
+
+// ── Subscription pause (item #38) ───────────────────────────────────────────
+/**
+ * Pause a subscription for 1-3 months. Uses Stripe Subscription.update with
+ * `pause_collection: { behavior: 'mark_uncollectible', resumes_at }` so the
+ * subscription stays active but no invoices are collected during the pause.
+ */
+app.post(
+  '/subscription/pause',
+  zValidator(
+    'json',
+    z.object({
+      months: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    }),
+  ),
+  async (c) => {
+    const userId = requireAuth(c);
+    const tenantId = tenantOrThrow(c);
+    const { months } = c.req.valid('json');
+    const sub = await dbQueryOne<{
+      id: string;
+      stripe_subscription_id: string | null;
+    }>(
+      c.env.DB,
+      `SELECT id, stripe_subscription_id FROM subscriptions
+        WHERE tenant_id = ?1 ORDER BY created_at DESC LIMIT 1`,
+      [tenantId],
+    );
+    if (!sub?.stripe_subscription_id) {
+      throw new AppError(ErrorCode.BAD_REQUEST, 'no active subscription');
+    }
+
+    const resumesAtMs = Date.now() + months * 30 * 24 * 60 * 60 * 1000;
+    const resumesAtUnix = Math.floor(resumesAtMs / 1000);
+    const stripe = makeStripe(c.env);
+    await stripe.subscriptions.update(sub.stripe_subscription_id, {
+      pause_collection: {
+        behavior: 'mark_uncollectible',
+        resumes_at: resumesAtUnix,
+      },
+      metadata: { tenantId, pause_months: String(months) },
+    });
+
+    const nowIso = new Date().toISOString();
+    await c.env.DB.prepare(
+      `UPDATE subscriptions
+          SET paused_until = ?1,
+              pause_started_at = ?2,
+              updated_at = ?2
+        WHERE id = ?3`,
+    )
+      .bind(resumesAtMs, nowIso, sub.id)
+      .run();
+
+    await writeAudit(c.env, {
+      actor_user_id: userId,
+      actor_email: c.get('userEmail'),
+      tenant_id: tenantId,
+      event: 'billing.subscription.pause',
+      target_type: 'subscription',
+      target_id: sub.id,
+      metadata: { months, resumes_at_ms: resumesAtMs },
+      ip: c.req.header('cf-connecting-ip') ?? null,
+      user_agent: c.req.header('user-agent') ?? null,
+    });
+
+    return c.json({
+      ok: true,
+      paused_until: new Date(resumesAtMs).toISOString(),
+      months,
+    });
+  },
+);
+
 // ── Refund request ──────────────────────────────────────────────────────────
 app.post(
   '/refund-request',

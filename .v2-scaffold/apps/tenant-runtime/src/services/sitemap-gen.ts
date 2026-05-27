@@ -11,6 +11,7 @@
  */
 import type { Env } from '../env';
 import { listPagesForSitemap } from './tenant-db';
+import { buildHreflangMapForEnv } from './hreflang';
 
 const KV_SITEMAP_KEY = 'sitemap:xml';
 const KV_ROBOTS_KEY = 'robots:txt';
@@ -21,7 +22,6 @@ export async function generateSitemap(env: Env): Promise<string> {
   if (cached) return cached;
   const rows = await listPagesForSitemap(env.SITE_DB);
   const origin = `https://${env.PRIMARY_HOSTNAME}`;
-  const supported = env.SUPPORTED_LOCALES.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
 
   // Group rows by slug to emit hreflang alternates.
   const bySlug = new Map<string, { locale: string; updated_at: number }[]>();
@@ -36,9 +36,16 @@ export async function generateSitemap(env: Env): Promise<string> {
   for (const [slug, variants] of bySlug.entries()) {
     const latest = variants.reduce((a, b) => (a.updated_at > b.updated_at ? a : b));
     const lastmod = new Date(latest.updated_at).toISOString();
-    const loc = `${origin}${slug === '/' ? '' : slug.startsWith('/') ? slug : `/${slug}`}`;
-    const alternates = supported
-      .map((loc2) => `    <xhtml:link rel="alternate" hreflang="${loc2}" href="${origin}/${loc2}${slug === '/' ? '' : slug}"/>`)
+    const path = slug === '/' ? '/' : slug.startsWith('/') ? slug : `/${slug}`;
+    const loc = `${origin}${path === '/' ? '' : path}`;
+    // hreflang alternates: emit per locale × per hostname (custom domains
+    // included) + an x-default row pointing at the primary hostname.
+    const hreflangEntries = buildHreflangMapForEnv(env, env.TENANT_ID, path);
+    const alternates = hreflangEntries
+      .map(
+        (e) =>
+          `    <xhtml:link rel="alternate" hreflang="${escapeXml(e.hreflang)}" href="${escapeXml(e.href)}"/>`,
+      )
       .join('\n');
     urls.push(
       `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${slug === '/' ? '1.0' : '0.7'}</priority>\n${alternates}\n  </url>`,
