@@ -32,6 +32,7 @@
       "@org/feature-snapshots": ["./libs/feature-snapshots/src/index.ts"],
       "@org/feature-sql": ["./libs/feature-sql/src/index.ts"],
       "@org/feature-logs": ["./libs/feature-logs/src/index.ts"],
+      "@org/util-maps": ["./libs/util-maps/src/index.ts"],
       "@org/util-zod": ["./libs/util-zod/src/index.ts"],
       "@org/util-platform": ["./libs/util-platform/src/index.ts"],
       "@org/util-rxjs": ["./libs/util-rxjs/src/index.ts"],

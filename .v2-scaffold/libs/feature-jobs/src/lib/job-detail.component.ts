@@ -155,7 +155,7 @@ export class JobDetailComponent implements AfterViewInit, OnDestroy {
         this.updateMarker(loc);
       });
 
-    this.maps.load$().subscribe((g) => {
+    this.maps.load$().subscribe((g: unknown) => {
       if (!this.mapHost) return;
       this.google = g;
       const maps = (g as { maps: { Map: new (el: HTMLElement, opts: unknown) => unknown } }).maps;
