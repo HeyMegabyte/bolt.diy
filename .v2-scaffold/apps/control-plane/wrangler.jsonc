@@ -42,7 +42,8 @@
       { "name": "JOB_CHAT_HUB", "class_name": "JobChatRoom" },
       { "name": "JOB_TRACKING_HUB", "class_name": "JobTrackingHub" },
       { "name": "NOTIFICATION_HUB", "class_name": "UserNotificationQueue" },
-      { "name": "VOICE_ORCHESTRATOR", "class_name": "VoiceOrchestrator" }
+      { "name": "VOICE_ORCHESTRATOR", "class_name": "VoiceOrchestrator" },
+      { "name": "DISPATCH_OPTIMIZER", "class_name": "DispatchOptimizer" }
     ]
   },
   "migrations": [
@@ -55,6 +56,10 @@
         "UserNotificationQueue",
         "VoiceOrchestrator"
       ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["DispatchOptimizer"]
     }
   ],
   "services": [
@@ -77,7 +82,8 @@
   "triggers": {
     "crons": [
       "0 * * * *",
-      "0 4 * * 0"
+      "0 4 * * 0",
+      "0 8 * * *"
     ]
   },
   "secrets": {

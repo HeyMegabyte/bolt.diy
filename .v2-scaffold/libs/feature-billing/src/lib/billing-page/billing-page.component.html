@@ -69,6 +69,25 @@
           data-testid="refund-btn"
           (onClick)="openRefundDialog()"
         />
+        <div class="plan-card__pause" data-testid="pause-controls">
+          <p-selectButton
+            [options]="pauseOptions"
+            [(ngModel)]="pauseMonths"
+            optionLabel="label"
+            optionValue="value"
+            [allowEmpty]="false"
+            data-testid="pause-months"
+          />
+          <p-button
+            label="Pause subscription"
+            icon="pi pi-pause-circle"
+            severity="warning"
+            size="small"
+            [loading]="pauseBusy()"
+            data-testid="pause-btn"
+            (onClick)="confirmPauseSubscription()"
+          />
+        </div>
       </ng-template>
     </p-card>
 
@@ -195,6 +214,9 @@
       <div #upgradeTrigger>Loading upgrade flow…</div>
     }
   </p-dialog>
+
+  <p-confirmDialog data-testid="pause-confirm"></p-confirmDialog>
+  <p-toast></p-toast>
 
   <p-dialog
     [(visible)]="refundDialogOpen"

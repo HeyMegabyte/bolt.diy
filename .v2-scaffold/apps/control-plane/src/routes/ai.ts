@@ -278,11 +278,17 @@ app.post(
     const tenantId = c.get('tenantId') ?? c.get('orgId');
 
     // Crawl each competitor in parallel via Browser Rendering REST.
-    const snippets = await Promise.all(
-      competitor_urls.map(async (url) => {
+    interface Snippet {
+      url: string;
+      text: string;
+      error: string | null;
+    }
+    const urlList = (competitor_urls as ReadonlyArray<string>) ?? [];
+    const snippets: Snippet[] = await Promise.all(
+      urlList.map(async (url: string): Promise<Snippet> => {
         try {
           const html = await renderContent(c.env, url);
-          return { url, text: htmlToPromptText(html, 3_000), error: null as string | null };
+          return { url, text: htmlToPromptText(html, 3_000), error: null };
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           return { url, text: '', error: msg };
@@ -290,13 +296,13 @@ app.post(
       }),
     );
 
+    const summary: string =
+      typeof tenant_site_summary === 'string' ? String(tenant_site_summary) : '';
     const userPrompt = [
-      tenant_site_summary
-        ? `Tenant site summary:\n${tenant_site_summary.slice(0, 2_000)}\n\n`
-        : '',
+      summary ? `Tenant site summary:\n${summary.slice(0, 2_000)}\n\n` : '',
       'Competitor pages:\n',
       ...snippets.map(
-        (s) =>
+        (s: Snippet) =>
           `--- ${s.url} ---\n${s.error ? `[crawl error: ${s.error}]` : s.text}\n`,
       ),
     ].join('');
@@ -313,7 +319,7 @@ app.post(
       id,
       org_id,
       tenant_id: tenantId,
-      competitor_urls: JSON.stringify(competitor_urls),
+      competitor_urls: JSON.stringify(urlList),
       result_json: JSON.stringify(parsed),
       model: MODELS.LLAMA_3_3_70B,
     });
@@ -325,7 +331,7 @@ app.post(
       event: 'ai.competitor_gap',
       target_type: 'competitor_gap',
       target_id: id,
-      metadata: { org_id, competitor_count: competitor_urls.length },
+      metadata: { org_id, competitor_count: urlList.length },
       ip: c.req.header('cf-connecting-ip') ?? null,
       user_agent: c.req.header('user-agent') ?? null,
     });
@@ -342,6 +348,7 @@ app.post(
  */
 export function sanitizeAlt(raw: string): string {
   return raw
+    .trim()
     .replace(/^["'`]+|["'`]+$/g, '')
     .replace(/^(alt text:|description:|image:)\s*/i, '')
     .replace(/\s+/g, ' ')

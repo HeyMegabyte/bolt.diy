@@ -18,3 +18,7 @@ export * from './lib/webhooks.service';
 export * from './lib/sites.service';
 export * from './lib/bookings.service';
 export * from './lib/crew.service';
+export * from './lib/crew-verification.service';
+export * from './lib/dispatch.service';
+export * from './lib/media.service';
+export * from './lib/ai.service';

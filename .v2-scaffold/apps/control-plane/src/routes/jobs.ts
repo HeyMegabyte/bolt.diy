@@ -171,7 +171,7 @@ app.post(
           accuracy_m: z.number().nonnegative().optional(),
         })
         .optional(),
-      exif: z.record(z.unknown()).optional(),
+      exif: z.record(z.string(), z.unknown()).optional(),
     }),
   ),
   async (c) => {

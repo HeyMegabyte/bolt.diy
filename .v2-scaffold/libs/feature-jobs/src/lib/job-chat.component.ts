@@ -15,9 +15,12 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
-import { BehaviorSubject, scan, switchMap, take } from 'rxjs';
+import { BehaviorSubject, EMPTY, catchError, scan, switchMap, take } from 'rxjs';
+import { AiService } from '@org/data-access';
 import { JobsService } from './services/jobs.service';
 import type { ChatMessage } from '@org/domain';
+
+type SupportedLang = 'en' | 'es';
 
 @Component({
   selector: 'lib-job-chat',
@@ -26,14 +29,39 @@ import type { ChatMessage } from '@org/domain';
   imports: [CommonModule, FormsModule, ButtonModule, InputTextModule, DatePipe],
   template: `
     <section class="chat" data-testid="job-chat">
-      <header><h3>Chat</h3></header>
+      <header class="head">
+        <h3>Chat</h3>
+        <button
+          pButton
+          type="button"
+          class="p-button-text p-button-sm"
+          [attr.data-testid]="'chat-translate-toggle'"
+          [attr.aria-pressed]="targetLang() !== null"
+          (click)="toggleTranslate()"
+        >
+          {{ targetLang() ? '🌐 ES' : '🌐 Translate' }}
+        </button>
+      </header>
       <ul class="msgs">
         <li
           *ngFor="let m of (history$ | async) ?? []"
           [attr.data-testid]="'chat-msg-' + m.id"
         >
           <span class="who">{{ m.role }}</span>
-          <span class="body">{{ m.content }}</span>
+          <span class="body">
+            {{ m.content }}
+            <button
+              *ngIf="targetLang()"
+              pButton
+              type="button"
+              class="p-button-text p-button-sm translate-btn"
+              [attr.data-testid]="'chat-translate-' + m.id"
+              [disabled]="translatingId() === m.id"
+              (click)="translateOne(m)"
+            >
+              {{ translations()[m.id] ? translations()[m.id] : 'translate' }}
+            </button>
+          </span>
           <span class="time">{{ m.created_at | date: 'shortTime' }}</span>
         </li>
       </ul>
@@ -71,6 +99,7 @@ import type { ChatMessage } from '@org/domain';
 })
 export class JobChatComponent {
   private readonly api = inject(JobsService);
+  private readonly ai = inject(AiService);
 
   private readonly jobId$ = new BehaviorSubject<string>('');
   @Input({ required: true }) set jobId(v: string) {
@@ -82,6 +111,13 @@ export class JobChatComponent {
 
   protected draft = '';
   protected readonly sending = signal(false);
+
+  /** Currently-active translation target, or `null` when toggle is off. */
+  protected readonly targetLang = signal<SupportedLang | null>(null);
+  /** Per-message translated content. Keyed by ChatMessage.id. */
+  protected readonly translations = signal<Readonly<Record<string, string>>>({});
+  /** ID of the message currently being translated (for spinner / disable). */
+  protected readonly translatingId = signal<string | null>(null);
 
   /** Accumulated chat history derived from the live socket. */
   protected readonly history$ = this.jobId$.pipe(
@@ -105,6 +141,40 @@ export class JobChatComponent {
           this.sending.set(false);
         },
         error: () => this.sending.set(false),
+      });
+  }
+
+  /** Flip the translate toggle. Defaults to Spanish per i18n-by-demographics. */
+  protected toggleTranslate(): void {
+    this.targetLang.update((cur) => (cur === null ? 'es' : null));
+    if (this.targetLang() === null) this.translations.set({});
+  }
+
+  /**
+   * Lazy-translate a single message on tap. Caches the result on the client +
+   * server. Tapping a translated row re-renders the cached translation
+   * (no network round-trip).
+   */
+  protected translateOne(message: ChatMessage): void {
+    const target = this.targetLang();
+    if (!target) return;
+    if (this.translations()[message.id]) return; // already translated
+    this.translatingId.set(message.id);
+    this.ai
+      .translateChatMessage$(this.jobId, message.content, target)
+      .pipe(
+        take(1),
+        catchError(() => {
+          this.translatingId.set(null);
+          return EMPTY;
+        }),
+      )
+      .subscribe((result) => {
+        this.translations.update((cur) => ({
+          ...cur,
+          [message.id]: result.translated_text,
+        }));
+        this.translatingId.set(null);
       });
   }
 }

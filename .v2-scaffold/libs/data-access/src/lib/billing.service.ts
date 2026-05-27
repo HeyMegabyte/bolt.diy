@@ -325,4 +325,73 @@ export class BillingService {
       .post<RefundRequestResponse>('/api/billing/refunds', payload)
       .pipe(tap(() => this.invoiceRefresh$$.next()));
   }
+
+  /**
+   * Pause the subscription for 1, 2, or 3 months (backlog item #38). Stripe's
+   * `pause_collection.behavior: 'mark_uncollectible'` keeps the subscription
+   * active but suppresses invoice collection until `resumes_at`.
+   */
+  pauseSubscription$(
+    months: 1 | 2 | 3,
+  ): Observable<{ ok: boolean; paused_until: string; months: 1 | 2 | 3 }> {
+    return this.http
+      .post<{ ok: boolean; paused_until: string; months: 1 | 2 | 3 }>(
+        '/api/billing/subscription/pause',
+        { months },
+      )
+      .pipe(tap(() => this.subscriptionRefresh$$.next()));
+  }
+
+  /**
+   * Verify nonprofit eligibility via TechSoup (backlog item #29). On success
+   * the subscription's discount_pct flips to 50 and the next invoice
+   * cycle picks up the $25/mo nonprofit rate.
+   */
+  verifyNonprofit$(args: {
+    ein: string;
+    ts_token: string;
+  }): Observable<{
+    ok: boolean;
+    ein: string;
+    discount_pct: number;
+    org_name: string | null;
+  }> {
+    return this.http
+      .post<{ ok: boolean; ein: string; discount_pct: number; org_name: string | null }>(
+        '/api/billing/verify-nonprofit',
+        args,
+      )
+      .pipe(tap(() => this.subscriptionRefresh$$.next()));
+  }
+
+  /**
+   * Cash out a connected crew account via ACH push (backlog item #33).
+   * Defaults to instant payout; auto-falls back to standard ACH server-side
+   * when the destination doesn't support instant.
+   */
+  cashoutCrewPayout$(args: {
+    destination: string;
+    amount_cents: number;
+    currency?: string;
+    prefer_instant?: boolean;
+  }): Observable<{
+    payout_id: string;
+    method: string;
+    arrival_date: number;
+    status: string;
+    amount_cents: number;
+  }> {
+    return this.http.post<{
+      payout_id: string;
+      method: string;
+      arrival_date: number;
+      status: string;
+      amount_cents: number;
+    }>('/api/billing/crew/payouts/cashout', {
+      destination: args.destination,
+      amount_cents: args.amount_cents,
+      currency: args.currency ?? 'usd',
+      prefer_instant: args.prefer_instant ?? true,
+    });
+  }
 }

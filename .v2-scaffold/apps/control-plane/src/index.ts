@@ -26,6 +26,7 @@ import { errorHandler } from './middleware/error-handler.js';
 
 import { scheduledSnapshots } from './services/scheduled-snapshots.js';
 import { isJob, type Job, type JobType } from './services/queue.js';
+import { runMeterAlerts } from './services/meter-alerts.js';
 
 import healthRoutes from './routes/health.js';
 import authRoutes from './routes/auth.js';
@@ -173,6 +174,11 @@ export default {
       case '0 4 * * 0': {
         // Weekly Sunday 04:00 UTC: auto-snapshot every active tenant site.
         await scheduledSnapshots(env);
+        return;
+      }
+      case '0 8 * * *': {
+        // Daily 08:00 UTC: 80%-of-quota meter alerts (backlog item #36).
+        await runMeterAlerts(env);
         return;
       }
       default:

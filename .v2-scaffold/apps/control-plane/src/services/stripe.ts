@@ -45,7 +45,13 @@ export async function createConnectOnboardingLink(
   return { accountId, url: link.url };
 }
 
-/** Marketplace booking — split with platform take rate (12% default, 8% promo). */
+/**
+ * Marketplace booking — split with platform take rate (12% default, 8% promo).
+ *
+ * Accepts an optional `loyaltyFactor` (0 < f ≤ 1) — multiplied against the
+ * computed application fee. Backlog item #24 uses this to give every 5th
+ * same-crew booking a 5% application_fee discount (factor = 0.95).
+ */
 export async function createBookingPaymentIntent(
   env: Env,
   args: {
@@ -57,12 +63,18 @@ export async function createBookingPaymentIntent(
     takeRateBps: number;
     customerId?: string;
     isLiveMode: boolean;
+    loyaltyFactor?: number;
   },
 ): Promise<Stripe.PaymentIntent> {
   const stripe = makeStripe(env);
-  const applicationFeeCents = args.isLiveMode
+  const baseFeeCents = args.isLiveMode
     ? Math.round((args.amountCents * args.takeRateBps) / 10_000)
     : 0;
+  const loyaltyFactor =
+    args.loyaltyFactor != null && args.loyaltyFactor > 0 && args.loyaltyFactor <= 1
+      ? args.loyaltyFactor
+      : 1;
+  const applicationFeeCents = Math.round(baseFeeCents * loyaltyFactor);
   return stripe.paymentIntents.create({
     amount: args.amountCents,
     currency: args.currency.toLowerCase(),
@@ -75,6 +87,7 @@ export async function createBookingPaymentIntent(
       tenantId: args.tenantId,
       bookingId: args.bookingId,
       takeRateBps: String(args.takeRateBps),
+      loyaltyFactor: String(loyaltyFactor),
       rail: 'marketplace',
     },
   });

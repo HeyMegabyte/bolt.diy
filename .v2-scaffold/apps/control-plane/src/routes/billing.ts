@@ -21,6 +21,7 @@ import {
   createDirectPaymentIntent,
   makeStripe,
 } from '../services/stripe.js';
+import { evaluateLoyalty } from '../services/loyalty.js';
 
 const app = new Hono<HonoEnv>();
 
@@ -116,6 +117,31 @@ app.post(
         throw new AppError(ErrorCode.BAD_REQUEST, 'booking_id required for marketplace rail');
       }
       const takeRateBps = computeTakeRateBps(c.env, new Date(tenant.created_at).getTime());
+
+      // Loyalty (#24): every 5th same-customer↔crew completion gets 5% off
+      // the application_fee. Booking must already carry both ids.
+      const booking = await dbQueryOne<{
+        customer_id: string;
+        crew_id: string | null;
+      }>(
+        c.env.DB,
+        `SELECT b.customer_id AS customer_id, j.crew_id AS crew_id
+           FROM bookings b
+           LEFT JOIN jobs j ON j.booking_id = b.id
+          WHERE b.id = ?1 AND b.tenant_id = ?2
+          ORDER BY j.created_at DESC LIMIT 1`,
+        [body.booking_id, tenantId],
+      );
+      let loyaltyFactor = 1;
+      if (booking?.customer_id && booking.crew_id) {
+        const decision = await evaluateLoyalty(c.env, {
+          tenantId,
+          customerId: booking.customer_id,
+          crewId: booking.crew_id,
+        });
+        loyaltyFactor = decision.applicationFeeFactor;
+      }
+
       intent = await createBookingPaymentIntent(c.env, {
         tenantId,
         bookingId: body.booking_id,
@@ -123,6 +149,7 @@ app.post(
         currency: body.currency,
         connectedAccountId: tenant.stripe_account_id,
         takeRateBps,
+        loyaltyFactor,
         isLiveMode: isLive,
       });
     } else {

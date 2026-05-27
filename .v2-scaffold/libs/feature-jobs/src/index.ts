@@ -11,4 +11,5 @@ export * from './lib/job-chat.component.js';
 export * from './lib/job-rating.component.js';
 export * from './lib/job-tip-dialog.component.js';
 export * from './lib/job-safety-button.component.js';
+export * from './lib/photo-verification.component.js';
 export * from './lib/jobs.routes.js';

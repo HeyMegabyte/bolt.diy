@@ -16,7 +16,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { CommonModule, CurrencyPipe } from '@angular/common';
+import { CommonModule, CurrencyPipe, DecimalPipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ButtonModule } from 'primeng/button';
@@ -25,11 +25,13 @@ import { TagModule } from 'primeng/tag';
 import { Subject, interval, map, startWith, switchMap, takeUntil } from 'rxjs';
 import { MapsLoaderService } from '@org/util-maps';
 import { LiveActivityService } from '@org/util-platform';
+import { DispatchService, type SurgeSnapshot } from '@org/data-access';
 import { JobsService } from './services/jobs.service';
 import { JobChatComponent } from './job-chat.component';
 import { JobRatingComponent } from './job-rating.component';
 import { JobTipDialogComponent } from './job-tip-dialog.component';
 import { JobSafetyButtonComponent } from './job-safety-button.component';
+import { PhotoVerificationComponent } from './photo-verification.component';
 import type { JobLocation } from '@org/domain';
 
 @Component({
@@ -46,7 +48,9 @@ import type { JobLocation } from '@org/domain';
     JobRatingComponent,
     JobTipDialogComponent,
     JobSafetyButtonComponent,
+    PhotoVerificationComponent,
     CurrencyPipe,
+    DecimalPipe,
   ],
   template: `
     <section class="job-detail" data-testid="job-detail" *ngIf="jobId() as id">
@@ -80,6 +84,18 @@ import type { JobLocation } from '@org/domain';
             ></button>
             <lib-job-safety-button [jobId]="id"></lib-job-safety-button>
           </div>
+          @if (surge(); as s) {
+            @if (s.multiplier > 1) {
+              <p-card header="Surge">
+                <div class="surge" data-testid="job-surge">
+                  <span class="mult">{{ s.multiplier | number: '1.1-1' }}×</span>
+                  <span class="reason">{{ s.reason }}</span>
+                  <small>demand {{ s.demand_index }} · supply {{ s.supply_index }}</small>
+                </div>
+              </p-card>
+            }
+          }
+          <lib-photo-verification [jobId]="id"></lib-photo-verification>
           <lib-job-rating [jobId]="id"></lib-job-rating>
         </aside>
       </div>
@@ -104,6 +120,10 @@ import type { JobLocation } from '@org/domain';
       .side { display: flex; flex-direction: column; gap: 1rem; }
       .actions { display: flex; flex-direction: column; gap: 0.5rem; }
       .eta { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+      .surge { display: flex; flex-direction: column; gap: 0.25rem; }
+      .surge .mult { font-size: 1.5rem; font-weight: 700; color: var(--orange-400, #fb923c); font-variant-numeric: tabular-nums; }
+      .surge .reason { font-size: 0.875rem; color: var(--text-color-secondary, #999); }
+      .surge small { font-size: 0.75rem; color: var(--text-color-secondary, #999); }
       @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
     `,
   ],
@@ -113,11 +133,13 @@ export class JobDetailComponent implements AfterViewInit, OnDestroy {
   private readonly api = inject(JobsService);
   private readonly maps = inject(MapsLoaderService);
   private readonly liveActivity = inject(LiveActivityService);
+  private readonly dispatch = inject(DispatchService);
 
   private readonly destroy$ = new Subject<void>();
   private liveActivityStarted = false;
   protected readonly tipOpen = signal(false);
   private readonly location = signal<JobLocation | null>(null);
+  protected readonly surge = signal<SurgeSnapshot | null>(null);
 
   protected readonly jobId = toSignal(
     this.route.paramMap.pipe(map((p) => p.get('id') ?? '')),
@@ -150,6 +172,7 @@ export class JobDetailComponent implements AfterViewInit, OnDestroy {
     const id = this.jobId();
     if (!id) return;
 
+    let lastGeohash = '';
     this.api
       .locationStream$(id)
       .pipe(takeUntil(this.destroy$))
@@ -157,6 +180,15 @@ export class JobDetailComponent implements AfterViewInit, OnDestroy {
         this.location.set(loc);
         this.updateMarker(loc);
         this.syncLiveActivity(id, loc);
+
+        const gh = this.dispatch.encodeGeohash(loc.lat, loc.lng, 5);
+        if (gh !== lastGeohash) {
+          lastGeohash = gh;
+          this.dispatch
+            .surge$(gh)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe((s) => this.surge.set(s));
+        }
       });
 
     this.maps.load$().subscribe((g: unknown) => {
