@@ -1,6 +1,7 @@
 ---
 title: "Headless CMS is a Trap for 90% of Websites"
 dek: "It promises flexibility and power. It delivers operational debt and JavaScript bloat."
+quotable_answer: "Headless CMS makes sense only when you genuinely feed the same content to multiple channels at scale. For a 50-page marketing site, it trades build simplicity for deploy complexity and pays for optionality you'll never exercise — a worse outcome than boring static HTML."
 author: Brian Zalewski
 date: 2026-05-26
 tags: [opinion, cms, architecture]

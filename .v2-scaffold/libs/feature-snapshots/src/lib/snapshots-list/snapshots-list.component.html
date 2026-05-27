@@ -100,6 +100,18 @@
               <div><dt>24h reqs</dt><dd>{{ snap.request_count_24h ?? '—' }}</dd></div>
             </dl>
 
+            <p class="preview-url" data-testid="snapshot-preview-url">
+              <span class="preview-label">Preview</span>
+              <a
+                [href]="'https://' + previewUrl(snap)"
+                target="_blank"
+                rel="noopener noreferrer"
+                [attr.data-testid]="'snapshot-preview-link'"
+              >
+                {{ previewUrl(snap) }}
+              </a>
+            </p>
+
             <div class="actions">
               <button
                 type="button"

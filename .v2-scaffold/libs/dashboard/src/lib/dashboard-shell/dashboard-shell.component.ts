@@ -33,10 +33,12 @@ import { HealthService } from '../services/health.service';
 import { MeStore } from '../services/me.store';
 import { NotificationsStore } from '../services/notifications.store';
 import { RoleService } from '../services/role.service';
+import { UndoManagerService } from '../services/undo-manager.service';
 import { CommandPaletteService } from '../command-palette/command-palette.component';
 import { NotificationsBellComponent } from '../notifications-bell/notifications-bell.component';
 import { RoleSwitcherComponent } from '../role-switcher/role-switcher.component';
 import { RightRailComponent } from '../right-rail/right-rail.component';
+import { UndoToastComponent } from '../undo-toast/undo-toast.component';
 import type { Capability, Tenant } from '../types/domain';
 
 interface NavItem {
@@ -80,6 +82,7 @@ interface NavItem {
     NotificationsBellComponent,
     RoleSwitcherComponent,
     RightRailComponent,
+    UndoToastComponent,
   ],
   template: `
     <div class="ps-shell" [attr.data-view-as]="viewAs()" data-testid="dashboard-shell">
@@ -167,6 +170,8 @@ interface NavItem {
         </div>
       </div>
 
+      <lib-undo-toast />
+
       <footer class="ps-shell__footer" role="contentinfo">
         <span>© {{ year() }} Megabyte Labs</span>
         <span class="ps-shell__footer-links">
@@ -201,6 +206,7 @@ export class DashboardShellComponent implements OnInit, OnDestroy {
   private readonly health = inject(HealthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly undo = inject(UndoManagerService);
 
   readonly buildVersion: string = '2.0.0-alpha';
 
@@ -316,10 +322,13 @@ export class DashboardShellComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Cmd+K / Ctrl+K opens the palette globally. */
+  /** Cmd+K / Ctrl+K opens the palette globally. Cmd+Z triggers undo. */
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: Event): void {
     if (!(event instanceof KeyboardEvent)) return;
+    // Undo gets first crack so a queued action wins over palette open if both
+    // were somehow bound — they aren't, but the precedence is deliberate.
+    if (this.undo.tryUndoShortcut(event)) return;
     const isPalette = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
     if (!isPalette) return;
     event.preventDefault();

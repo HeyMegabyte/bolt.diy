@@ -1,6 +1,7 @@
 ---
 title: "An On-Demand Economy Without the Race to the Bottom"
 dek: "Workers are subsidizing your convenience. There is a way out of it that doesn't require killing the model."
+quotable_answer: "On-demand platforms can pay above-market wages and still grow because the labor savings come from matching efficiency, not from underpaying workers. Marketplaces win when they capture coordination value while leaving worker margins intact — a model algorithm-first dispatch makes feasible."
 author: Brian Zalewski
 date: 2026-05-26
 tags: [opinion, labor, economy, marketplaces]

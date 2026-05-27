@@ -23,6 +23,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { Quote } from '@org/domain';
 import { catchError, of, switchMap } from 'rxjs';
+import { UndoManagerService } from '@org/dashboard';
 import { QuotesService } from './services/quotes.service.js';
 
 @Component({
@@ -151,6 +152,27 @@ import { QuotesService } from './services/quotes.service.js';
 export class QuoteDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly quotes = inject(QuotesService);
+  private readonly undoManager = inject(UndoManagerService);
+
+  /**
+   * Example undo-wired CRUD entry point. Archiving a quote queues
+   * `restoreQuote$` behind a 5-second undo toast, so Cmd+Z (or the
+   * toast button) reverts the state change cleanly.
+   *
+   * Real wiring lands when `QuotesService.archiveQuote$` ships; the
+   * shape here is the contract the service must satisfy.
+   */
+  archive(quote: Pick<Quote, 'id'>): void {
+    void this.undoManager.register({
+      label: `Quote ${quote.id.slice(0, 8)}… archived`,
+      do: async () => {
+        // TODO: wire to QuotesService.archiveQuote$(id) once it lands.
+      },
+      undo: async () => {
+        // TODO: wire to QuotesService.restoreQuote$(id) once it lands.
+      },
+    });
+  }
 
   @ViewChild('payMount') private payMount?: ElementRef<HTMLDivElement>;
 

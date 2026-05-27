@@ -103,11 +103,34 @@ export class SnapshotsListComponent {
     },
     { field: 'ai_description', headerName: 'Description', flex: 1 },
     {
+      headerName: 'Preview URL',
+      width: 280,
+      valueGetter: (p) => (p.data ? this.previewUrl(p.data) : ''),
+      cellRenderer: (p: { value: string }) =>
+        p.value
+          ? `<a href="https://${p.value}" target="_blank" rel="noopener noreferrer">${p.value}</a>`
+          : '',
+    },
+    {
       headerName: 'Actions',
       width: 240,
       cellRenderer: () => '<button data-action="rollback">Rollback</button>',
     },
   ];
+
+  /**
+   * Per-snapshot preview hostname. The tenant runtime serves these
+   * from R2 prefix `sites/{slug}/snapshots/{id}/` so reviewers can
+   * eyeball any historical build without rolling production back.
+   *
+   * @example
+   *   previewUrl({ id: 'snap_42', site_id: 'site_x', ... })
+   *   // → 'acme-snap_42.preview.projectsites.dev'
+   */
+  previewUrl(snapshot: Snapshot): string {
+    const slug = this.siteSlug || 'site';
+    return `${slug}-${snapshot.id}.preview.projectsites.dev`;
+  }
 
   setView(v: View): void {
     this.view.set(v);

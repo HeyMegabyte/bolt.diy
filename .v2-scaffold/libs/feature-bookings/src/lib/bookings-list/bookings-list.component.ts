@@ -22,7 +22,7 @@ import {
   BookingsService,
   type BookingsFilter,
 } from '@org/data-access';
-import { RoleService } from '@org/dashboard';
+import { RoleService, UndoManagerService } from '@org/dashboard';
 import type { Booking } from '@org/domain';
 
 @Component({
@@ -66,6 +66,28 @@ import type { Booking } from '@org/domain';
 export class BookingsListComponent {
   private readonly bookings = inject(BookingsService);
   private readonly role = inject(RoleService);
+  private readonly undoManager = inject(UndoManagerService);
+
+  /**
+   * Example undo-wired CRUD entry point. Any caller (toolbar button,
+   * row-action, command palette) can hand a `Booking` to `cancel()`
+   * and the user gets a 5-second window to undo via toast or Cmd+Z.
+   *
+   * Pairs with `BookingsService.cancelBooking$` / `.restoreBooking$`
+   * (added once the data-access layer lands). The TODO markers stay
+   * here until those land — service methods are the natural seam.
+   */
+  cancel(booking: Pick<Booking, 'id'>): void {
+    void this.undoManager.register({
+      label: `Booking ${booking.id.slice(0, 8)}… cancelled`,
+      do: async () => {
+        // TODO: wire to BookingsService.cancelBooking$(id) once it lands.
+      },
+      undo: async () => {
+        // TODO: wire to BookingsService.restoreBooking$(id) once it lands.
+      },
+    });
+  }
 
   protected readonly columnDefs: ColDef<Booking>[] = [
     {

@@ -14,9 +14,67 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { CapabilityService } from '../services/capability.service';
 import type { Capability } from '../types/domain';
+
+/**
+ * Verb tokens that flip the palette into action-mode. When the trimmed
+ * input begins with one of these, the palette POSTs the raw string to
+ * `POST /api/ai/intent` instead of filtering the static command list.
+ *
+ * Kept narrow on purpose — anything wider tends to capture noun-led
+ * queries ("bookings tomorrow") which should stay as nav-filter.
+ */
+export const ACTION_MODE_VERBS = [
+  'create',
+  'new',
+  'add',
+  'schedule',
+  'book',
+  'send',
+  'invite',
+  'show',
+  'find',
+  'open',
+  'go',
+  'cancel',
+  'delete',
+  'archive',
+  'remind',
+  'pay',
+] as const;
+export type ActionVerb = (typeof ACTION_MODE_VERBS)[number];
+
+/**
+ * Pure detection — does the input begin with an action verb?
+ * Exported so the palette spec can assert it without spinning up the
+ * full component tree.
+ */
+export function isActionModeInput(input: string): boolean {
+  const trimmed = input.trim().toLowerCase();
+  if (!trimmed) return false;
+  const head = trimmed.split(/\s+/)[0] ?? '';
+  return (ACTION_MODE_VERBS as readonly string[]).includes(head);
+}
+
+/**
+ * Response envelope from `POST /api/ai/intent`. The action types here
+ * mirror routes the dashboard knows how to invoke; unknown types are
+ * surfaced as toast errors rather than blind navigation.
+ */
+export interface IntentResponse {
+  readonly action_type:
+    | 'create_booking'
+    | 'create_quote'
+    | 'create_job'
+    | 'open_billing'
+    | 'show_metric'
+    | 'unknown';
+  readonly params: Readonly<Record<string, string | number | boolean | null>>;
+  readonly natural_response?: string;
+}
 
 interface CommandItem {
   readonly id: string;
@@ -88,9 +146,21 @@ interface CommandItem {
           <li class="ps-palette__empty">No matches — try “bookings”, “site”, “settings”.</li>
         }
       </ul>
+      @if (actionMode()) {
+        <div class="ps-palette__action" data-testid="command-palette-action-mode">
+          @if (busy()) {
+            <span class="ps-palette__action-busy">Asking AI…</span>
+          } @else {
+            <span class="ps-palette__action-hint">↵ runs this as an AI action</span>
+          }
+          @if (actionError(); as err) {
+            <span class="ps-palette__action-err" role="alert">{{ err }}</span>
+          }
+        </div>
+      }
       <footer class="ps-palette__foot">
         <span>↑↓ navigate</span>
-        <span>↵ open</span>
+        <span>↵ {{ actionMode() ? 'run action' : 'open' }}</span>
         <span>esc close</span>
         <span>? shortcuts</span>
       </footer>
@@ -154,6 +224,26 @@ interface CommandItem {
         color: color-mix(in oklch, currentColor 50%, transparent);
         border-top: 1px solid rgba(255, 255, 255, 0.06);
       }
+      .ps-palette__action {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 6px 22px;
+        font-size: 0.75rem;
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 10%, transparent);
+        border-top: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 24%, transparent);
+      }
+      .ps-palette__action-hint {
+        color: var(--ps-ink-accent, var(--ps-accent, #00e5ff));
+        font-weight: 600;
+      }
+      .ps-palette__action-busy {
+        color: color-mix(in oklch, currentColor 70%, transparent);
+      }
+      .ps-palette__action-err {
+        margin-left: auto;
+        color: #f87171;
+      }
       @media (prefers-reduced-motion: no-preference) {
         :host {
           animation: enter 160ms ease-out;
@@ -176,12 +266,16 @@ export class CommandPaletteComponent implements AfterViewInit {
   private readonly router = inject(Router);
   private readonly caps = inject(CapabilityService);
   private readonly dialog = inject(Dialog);
+  private readonly http = inject(HttpClient);
 
   @ViewChild('input', { static: true })
   private readonly inputRef!: ElementRef<HTMLInputElement>;
 
   readonly query = signal('');
   readonly sel = signal(0);
+  readonly actionMode = computed(() => isActionModeInput(this.query()));
+  readonly busy = signal(false);
+  readonly actionError = signal<string | null>(null);
 
   private readonly commands: readonly CommandItem[] = [
     { id: 'bookings', label: 'Bookings', hint: 'g b', route: ['/dashboard', 'bookings'], requires: 'bookings:read' },
@@ -236,9 +330,77 @@ export class CommandPaletteComponent implements AfterViewInit {
   }
 
   activate(): void {
+    if (this.actionMode()) {
+      void this.runAction();
+      return;
+    }
     const list = this.filtered();
     const target = list[this.sel()];
     if (target) this.run(target);
+  }
+
+  /**
+   * Hand the raw query off to `POST /api/ai/intent`. The server
+   * returns a structured action; the palette translates it into a
+   * route or dialog launch. Unknown intents surface as inline errors
+   * so the user can revise the phrasing.
+   */
+  async runAction(): Promise<void> {
+    const text = this.query().trim();
+    if (!text) return;
+    this.busy.set(true);
+    this.actionError.set(null);
+    try {
+      const res = await new Promise<IntentResponse>((resolve, reject) => {
+        this.http.post<IntentResponse>('/api/ai/intent', { input: text }).subscribe({
+          next: resolve,
+          error: reject,
+        });
+      });
+      this.dispatchIntent(res);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'AI intent failed';
+      this.actionError.set(message);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  /** Route the parsed intent to its dashboard target. Visible for testing. */
+  dispatchIntent(intent: IntentResponse): void {
+    switch (intent.action_type) {
+      case 'create_booking':
+        this.close();
+        void this.router.navigate(['/dashboard', 'bookings', 'new'], {
+          queryParams: intent.params,
+        });
+        return;
+      case 'create_quote':
+        this.close();
+        void this.router.navigate(['/dashboard', 'quotes', 'new'], {
+          queryParams: intent.params,
+        });
+        return;
+      case 'create_job':
+        this.close();
+        void this.router.navigate(['/dashboard', 'jobs', 'new'], {
+          queryParams: intent.params,
+        });
+        return;
+      case 'open_billing':
+        this.close();
+        void this.router.navigate(['/dashboard', 'billing']);
+        return;
+      case 'show_metric':
+        this.close();
+        void this.router.navigate(['/dashboard'], { queryParams: intent.params });
+        return;
+      case 'unknown':
+      default:
+        this.actionError.set(
+          intent.natural_response ?? 'I did not understand that — try rephrasing.',
+        );
+    }
   }
 
   run(item: CommandItem): void {

@@ -25,6 +25,9 @@ export { RoleService } from './lib/services/role.service';
 export { CapabilityService } from './lib/services/capability.service';
 export { NotificationsStore } from './lib/services/notifications.store';
 export { HealthService } from './lib/services/health.service';
+export { UndoManagerService } from './lib/services/undo-manager.service';
+export type { UndoableAction, UndoToast } from './lib/services/undo-manager.service';
+export { UndoToastComponent } from './lib/undo-toast/undo-toast.component';
 export { superAdminGuard } from './lib/guards/super-admin.guard';
 
 export type {

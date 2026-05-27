@@ -73,14 +73,28 @@
       href="fonts/jetbrains-mono-variable.woff2"
     />
 
-    <!-- Speculation Rules: prerender the dashboard shell on viewport-edge
-         hover. Marketing routes are excluded so GA4 page-views stay
-         conversion-accurate per `[[always]]` § resource hints. -->
+    <!-- Speculation Rules: prerender the three highest-leverage routes
+         eagerly via a list source, plus every internal `/dashboard/*` link
+         that isn't explicitly opted-out via `[data-no-prerender]`.
+         Marketing root-level routes stay out of the document rule so GA4
+         page-views remain conversion-accurate per `[[always]]` §
+         resource hints. -->
     <script type="speculationrules">
       {
         "prerender": [
           {
-            "where": { "href_matches": "/dashboard" },
+            "source": "list",
+            "urls": ["/dashboard", "/login", "/pricing"],
+            "eagerness": "moderate"
+          },
+          {
+            "source": "document",
+            "where": {
+              "and": [
+                { "href_matches": "/dashboard/*" },
+                { "not": { "selector_matches": "[data-no-prerender]" } }
+              ]
+            },
             "eagerness": "moderate"
           }
         ]

@@ -199,3 +199,32 @@
 .grid {
   width: 100%;
 }
+
+.preview-url {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-block: 0.5rem 0.25rem;
+  font-size: 0.78rem;
+  color: color-mix(in oklch, currentColor 70%, transparent);
+}
+
+.preview-url .preview-label {
+  font-family: var(--ps-font-mono, ui-monospace, monospace);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.66rem;
+  color: color-mix(in oklch, currentColor 55%, transparent);
+}
+
+.preview-url a {
+  color: var(--ps-ink-accent, var(--ps-accent, #00e5ff));
+  text-decoration: none;
+  border-bottom: 1px dotted color-mix(in oklch, var(--ps-accent, #00e5ff) 60%, transparent);
+}
+
+.preview-url a:hover,
+.preview-url a:focus-visible {
+  border-bottom-style: solid;
+  outline: none;
+}

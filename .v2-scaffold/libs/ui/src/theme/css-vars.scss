@@ -33,6 +33,16 @@
   --ps-accent-glow: color-mix(in oklch, var(--ps-accent) 35%, transparent);
   --ps-accent-soft: color-mix(in oklch, var(--ps-accent) 14%, transparent);
   --ps-accent-line: color-mix(in oklch, var(--ps-accent) 28%, transparent);
+
+  // Palette-extracted accent → contrast-safe ink-blend for body copy. The
+  // 70/30 ink mix is the safe default; the JS `ensureContrast()` helper
+  // (libs/ui src/theme/wcag-color-adjuster.ts) emits a per-tenant override
+  // when the extracted accent still fails AA after the mix. Numeric/HUD
+  // overlays use the neon clamp (relative-color syntax) so a dull
+  // palette-extracted navy still reads as vivid neon. See `text-contrast`
+  // rule for the full pattern.
+  --ps-ink-accent: color-mix(in oklch, var(--ps-accent) 70%, var(--ps-ink) 30%);
+  --ps-ink-accent-neon: oklch(from var(--ps-accent) max(l, 0.78) max(c, 0.22) h);
   --ps-elev-1: color-mix(in oklch, var(--ps-bg) 92%, var(--ps-ink) 8%);
   --ps-elev-2: color-mix(in oklch, var(--ps-bg) 85%, var(--ps-ink) 15%);
   --ps-elev-3: color-mix(in oklch, var(--ps-bg) 78%, var(--ps-ink) 22%);
