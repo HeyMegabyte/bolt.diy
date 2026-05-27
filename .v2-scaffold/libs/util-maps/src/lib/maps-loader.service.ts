@@ -49,22 +49,22 @@ export interface GoogleMapsLoadOptions {
   version?: string;
 }
 
-declare global {
-  // eslint-disable-next-line no-var
-  var google: typeof globalThis.google | undefined;
-}
+// Opaque alias — `typeof google` self-references when @types/google.maps is
+// loaded as a global, so we keep this as `unknown` and `as`-cast at call sites
+// where the consumer actually needs the SDK shape.
+type GoogleNS = unknown;
 
 @Injectable({ providedIn: 'root' })
 export class MapsLoaderService {
   private readonly key = inject(GOOGLE_MAPS_API_KEY, { optional: true });
-  private cached$: Observable<typeof google> | null = null;
+  private cached$: Observable<GoogleNS> | null = null;
 
   /**
-   * Returns a shared `Observable<typeof google>` that completes once
+   * Returns a shared `Observable<GoogleNS>` that completes once
    * the SDK is ready. Multiple subscribers reuse the same load. After
    * the first success the observable is replayed synchronously.
    */
-  load$(opts: GoogleMapsLoadOptions = {}): Observable<typeof google> {
+  load$(opts: GoogleMapsLoadOptions = {}): Observable<GoogleNS> {
     if (this.cached$) return this.cached$;
     this.cached$ = defer(() => from(this.loadOnce(opts))).pipe(
       shareReplay({ bufferSize: 1, refCount: false })
@@ -73,18 +73,18 @@ export class MapsLoaderService {
   }
 
   /** Promise-flavoured façade for non-Rx callers. */
-  load(opts: GoogleMapsLoadOptions = {}): Promise<typeof google> {
+  load(opts: GoogleMapsLoadOptions = {}): Promise<GoogleNS> {
     return this.loadOnce(opts);
   }
 
-  private existing?: Promise<typeof google>;
+  private existing?: Promise<GoogleNS>;
 
-  private loadOnce(opts: GoogleMapsLoadOptions): Promise<typeof google> {
+  private loadOnce(opts: GoogleMapsLoadOptions): Promise<GoogleNS> {
     if (typeof window === 'undefined') {
       return Promise.reject(new Error('Maps loader is browser-only'));
     }
-    if (typeof globalThis.google !== 'undefined') {
-      return Promise.resolve(globalThis.google as typeof google);
+    if (typeof (globalThis as Record<string, unknown>)["google"] !== 'undefined') {
+      return Promise.resolve((globalThis as Record<string, unknown>)["google"] as GoogleNS);
     }
     if (this.existing) return this.existing;
     if (!this.key) {
@@ -95,15 +95,15 @@ export class MapsLoaderService {
     const version = opts.version ?? 'weekly';
     const callbackName = `__mapsLoaderCb_${Date.now().toString(36)}`;
 
-    this.existing = new Promise<typeof google>((resolve, reject) => {
+    this.existing = new Promise<GoogleNS>((resolve, reject) => {
       const existingScript = document.querySelector<HTMLScriptElement>(
         'script[data-maps-loader="1"]'
       );
       if (existingScript) {
         // Another loader instance already attached; poll the global.
         const wait = (): void => {
-          if (typeof globalThis.google !== 'undefined') {
-            resolve(globalThis.google as typeof google);
+          if (typeof (globalThis as Record<string, unknown>)["google"] !== 'undefined') {
+            resolve((globalThis as Record<string, unknown>)["google"] as GoogleNS);
           } else setTimeout(wait, 60);
         };
         wait();
@@ -112,10 +112,10 @@ export class MapsLoaderService {
 
       (window as unknown as Record<string, unknown>)[callbackName] = () => {
         delete (window as unknown as Record<string, unknown>)[callbackName];
-        if (typeof globalThis.google === 'undefined') {
+        if (typeof (globalThis as Record<string, unknown>)["google"] === 'undefined') {
           reject(new Error('Maps SDK loaded but `google` is undefined'));
         } else {
-          resolve(globalThis.google as typeof google);
+          resolve((globalThis as Record<string, unknown>)["google"] as GoogleNS);
         }
       };
 
@@ -140,9 +140,9 @@ export class MapsLoaderService {
 
 /** Test seam — resets the singleton between specs. */
 export function __resetMapsLoaderForTests(svc: MapsLoaderService): void {
-  type T = MapsLoaderService & { cached$: unknown; existing: unknown };
-  (svc as unknown as T).cached$ = null;
-  (svc as unknown as T).existing = undefined;
+  const bag = svc as unknown as Record<string, unknown>;
+  bag['cached$'] = null;
+  bag['existing'] = undefined;
   if (typeof window !== 'undefined') {
     document
       .querySelectorAll('script[data-maps-loader="1"]')
