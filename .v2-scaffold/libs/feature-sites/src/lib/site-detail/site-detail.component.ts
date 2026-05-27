@@ -21,6 +21,10 @@ import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
 import { switchMap, take } from 'rxjs';
 import { SitesService } from '@org/data-access';
+import {
+  ColorBlindFilterComponent,
+  type ColorBlindMode,
+} from '@org/ui';
 import { LogsViewerComponent } from '@org/feature-logs';
 import { SnapshotsListComponent } from '@org/feature-snapshots';
 import { SqlConsoleComponent } from '@org/feature-sql';
@@ -37,6 +41,7 @@ import { DeleteSiteDialogComponent } from '../delete-site-dialog/delete-site-dia
     RouterLink,
     ButtonModule,
     TagModule,
+    ColorBlindFilterComponent,
     LogsViewerComponent,
     SnapshotsListComponent,
     SqlConsoleComponent,
@@ -69,6 +74,26 @@ import { DeleteSiteDialogComponent } from '../delete-site-dialog/delete-site-dia
       </header>
 
       <lib-hostnames-panel [siteId]="id"></lib-hostnames-panel>
+
+      <section class="preview" data-testid="site-preview-shell">
+        <header class="preview__hdr">
+          <h2>Live preview</h2>
+          <lib-color-blind-filter
+            [mode]="cbMode()"
+            (modeChange)="cbMode.set($event)"
+          ></lib-color-blind-filter>
+        </header>
+        <iframe
+          *ngIf="previewUrl() as src"
+          class="preview__frame"
+          data-testid="site-preview-iframe"
+          [src]="src"
+          [style.filter]="cbFilter()"
+          title="Live site preview"
+          loading="lazy"
+          sandbox="allow-scripts allow-same-origin"
+        ></iframe>
+      </section>
 
       <nav class="tab-bar" role="tablist">
         <button
@@ -113,6 +138,10 @@ import { DeleteSiteDialogComponent } from '../delete-site-dialog/delete-site-dia
       .tab-bar button { background: transparent; border: 0; padding: 0.6rem 1rem; color: var(--text-color-secondary, #999); cursor: pointer; border-bottom: 2px solid transparent; }
       .tab-bar button.active { color: var(--text-color, #fff); border-bottom-color: var(--primary-color, #6366f1); }
       .tab-body { padding-top: 1rem; }
+      .preview { display: flex; flex-direction: column; gap: 0.5rem; }
+      .preview__hdr { display: flex; justify-content: space-between; align-items: center; }
+      .preview__hdr h2 { font-size: 1rem; margin: 0; opacity: 0.85; }
+      .preview__frame { width: 100%; height: 480px; border: 1px solid var(--border, #2a2a3a); border-radius: 14px; background: #000; }
     `,
   ],
 })
@@ -135,6 +164,21 @@ export class SiteDetailComponent {
 
   protected readonly deleteOpen = signal(false);
   protected readonly active = signal<'logs' | 'snapshots' | 'sql' | 'integrations'>('logs');
+
+  /** Color-blind simulator mode for the preview iframe (#37). */
+  protected readonly cbMode = signal<ColorBlindMode>('normal');
+  protected readonly cbFilter = computed(() => {
+    const m = this.cbMode();
+    return m === 'normal' ? null : `url(#cbf-${m})`;
+  });
+  /** Iframe `src` — defaults to the site's primary hostname when known. */
+  protected readonly previewUrl = computed<string | null>(() => {
+    const s = this.site() as { slug?: string; primary_hostname?: string } | null;
+    if (!s) return null;
+    if (s.primary_hostname) return `https://${s.primary_hostname}`;
+    if (s.slug) return `https://${s.slug}.projectsites.dev`;
+    return null;
+  });
   protected readonly tabs = [
     { id: 'logs' as const, label: 'Logs' },
     { id: 'snapshots' as const, label: 'Snapshots' },

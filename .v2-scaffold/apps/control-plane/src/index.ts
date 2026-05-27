@@ -44,6 +44,7 @@ import integrationsRoutes from './routes/integrations.js';
 import aiRoutes from './routes/ai.js';
 import notificationsRoutes from './routes/notifications.js';
 import webhookRoutes from './routes/webhooks.js';
+import marketplaceRoutes from './routes/marketplace.js';
 
 // Durable Object class exports (wrangler.jsonc binding names map to these).
 export { SiteLogStream as LogHub } from './durable-objects/site-log-stream.js';
@@ -120,6 +121,9 @@ app.route('/api/settings', settingsRoutes);
 app.route('/api/integrations', integrationsRoutes);
 app.route('/api/ai', aiRoutes);
 app.route('/api/notifications', notificationsRoutes);
+app.route('/api/marketplace', marketplaceRoutes);
+// `/api/tenants/:id/invoices` alias — managed invoicing lives in billing.
+app.route('/api/tenants', billingRoutes);
 
 app.notFound((c) =>
   c.json(

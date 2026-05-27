@@ -2,7 +2,9 @@
   "name": "@org/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "a11y:fix": "node tools/a11y-fixer.mjs --dist dist/apps/web/browser --out a11y-fixes.patch"
+  },
   "private": true,
   "dependencies": {
     "@angular-devkit/build-angular": "21.2.7",

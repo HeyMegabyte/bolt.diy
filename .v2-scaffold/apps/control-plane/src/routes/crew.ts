@@ -9,6 +9,7 @@ import { AppError, ErrorCode, type HonoEnv } from '../types.js';
 import { requireAuth } from '../middleware/auth.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { writeAudit } from '../services/audit.js';
+import { buildCrewHeatmap } from '../services/schedule-predictor.js';
 
 const app = new Hono<HonoEnv>();
 
@@ -329,6 +330,36 @@ app.get('/:id/verification', async (c) => {
       verified_at: null,
     },
   );
+});
+
+// ── #41 Crew schedule heatmap (historical roll-up, no ML in v1) ─────────────
+/**
+ * GET /api/crew/:id/schedule-heatmap
+ *
+ * Returns a 7-day × 24-hour heatmap of past completed bookings for the crew
+ * member. `cells[]` is always exactly 168 entries (fills empties so the UI
+ * doesn't have to). `intensity` is normalized 0..1 against the busiest cell.
+ */
+app.get('/:id/schedule-heatmap', async (c) => {
+  const tenantId = tenantOrThrow(c);
+  const crewId = c.req.param('id');
+  const weeksParam = c.req.query('weeks');
+  const weeks = (() => {
+    const parsed = weeksParam ? parseInt(weeksParam, 10) : 12;
+    if (!Number.isFinite(parsed)) return 12;
+    return Math.min(52, Math.max(1, parsed));
+  })();
+
+  const member = await dbQueryOne<{ user_id: string }>(
+    c.env.DB,
+    `SELECT user_id FROM team_members
+      WHERE tenant_id = ?1 AND user_id = ?2 AND deleted_at IS NULL`,
+    [tenantId, crewId],
+  );
+  if (!member) throw new AppError(ErrorCode.NOT_FOUND, 'crew member');
+
+  const heatmap = await buildCrewHeatmap(c.env, { tenantId, crewId, weeks });
+  return c.json(heatmap);
 });
 
 export default app;

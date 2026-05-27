@@ -13,6 +13,11 @@ import { writeAudit } from '../services/audit.js';
 import { MODELS, aiTextCompletion } from '../services/ai-gateway.js';
 import { hmacSha256Hex, sha256Hex } from '../services/crypto.js';
 import { createProxySession } from '../services/twilio.js';
+import {
+  estimateJobCarbon,
+  offsetCostCents,
+  type VehicleType,
+} from '../services/carbon.js';
 
 const app = new Hono<HonoEnv>();
 
@@ -396,5 +401,127 @@ app.post(
     });
   },
 );
+
+// ── #42 Per-job carbon-footprint estimator ──────────────────────────────────
+/**
+ * POST /api/jobs/:id/carbon
+ *
+ * Compute (and persist) a carbon estimate for the given job. Idempotent — a
+ * follow-up call with the same inputs writes the same row via `INSERT OR
+ * REPLACE`. `offset_cents` is the Stripe Climate removal estimate the caller
+ * can pass straight into a checkout line item.
+ */
+app.post(
+  '/:id/carbon',
+  zValidator(
+    'json',
+    z.object({
+      distance_miles: z.number().nonnegative().max(10_000),
+      vehicle_type: z.enum(['gas', 'electric', 'pickup', 'van', 'hybrid']),
+      duration_hours: z.number().nonnegative().max(72),
+    }),
+  ),
+  async (c) => {
+    const userId = requireAuth(c);
+    const tenantId = tenantOrThrow(c);
+    const jobId = c.req.param('id');
+    const body = c.req.valid('json');
+
+    const job = await dbQueryOne<{ id: string }>(
+      c.env.DB,
+      `SELECT id FROM jobs WHERE id = ?1 AND tenant_id = ?2 AND deleted_at IS NULL`,
+      [jobId, tenantId],
+    );
+    if (!job) throw new AppError(ErrorCode.NOT_FOUND, 'job');
+
+    const estimate = estimateJobCarbon({
+      distance_miles: body.distance_miles,
+      vehicle_type: body.vehicle_type as VehicleType,
+      duration_hours: body.duration_hours,
+    });
+    const offset_cents = offsetCostCents(estimate.co2_kg);
+    const offsetUrl = `https://climate.stripe.com/?amount_cents=${offset_cents}`;
+
+    const nowIso = new Date().toISOString();
+    await c.env.DB.prepare(
+      `INSERT INTO job_carbon_estimates
+         (job_id, tenant_id, co2_kg, distance_miles, vehicle_type, duration_hours,
+          equivalent_text, factors_version, created_at, updated_at)
+       VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?9)
+       ON CONFLICT(job_id) DO UPDATE SET
+         co2_kg = excluded.co2_kg,
+         distance_miles = excluded.distance_miles,
+         vehicle_type = excluded.vehicle_type,
+         duration_hours = excluded.duration_hours,
+         equivalent_text = excluded.equivalent_text,
+         factors_version = excluded.factors_version,
+         updated_at = excluded.updated_at`,
+    )
+      .bind(
+        jobId,
+        tenantId,
+        estimate.co2_kg,
+        body.distance_miles,
+        body.vehicle_type,
+        body.duration_hours,
+        estimate.equivalent_text,
+        estimate.factors_version,
+        nowIso,
+      )
+      .run();
+
+    await writeAudit(c.env, {
+      actor_user_id: userId,
+      actor_email: c.get('userEmail'),
+      tenant_id: tenantId,
+      event: 'job.carbon.estimate',
+      target_type: 'job',
+      target_id: jobId,
+      metadata: {
+        co2_kg: estimate.co2_kg,
+        miles: body.distance_miles,
+        vehicle: body.vehicle_type,
+      },
+      ip: c.req.header('cf-connecting-ip') ?? null,
+      user_agent: c.req.header('user-agent') ?? null,
+    });
+
+    return c.json({
+      job_id: jobId,
+      co2_kg: estimate.co2_kg,
+      equivalent_text: estimate.equivalent_text,
+      factors_version: estimate.factors_version,
+      offset_cents,
+      offset_url: offsetUrl,
+    });
+  },
+);
+
+/** GET the most recent carbon estimate for a job. */
+app.get('/:id/carbon', async (c) => {
+  const tenantId = tenantOrThrow(c);
+  const jobId = c.req.param('id');
+  const row = await dbQueryOne<{
+    co2_kg: number;
+    distance_miles: number;
+    vehicle_type: string;
+    duration_hours: number;
+    equivalent_text: string;
+    factors_version: string;
+  }>(
+    c.env.DB,
+    `SELECT co2_kg, distance_miles, vehicle_type, duration_hours,
+            equivalent_text, factors_version
+       FROM job_carbon_estimates
+      WHERE job_id = ?1 AND tenant_id = ?2`,
+    [jobId, tenantId],
+  );
+  if (!row) return c.json(null);
+  return c.json({
+    job_id: jobId,
+    ...row,
+    offset_cents: offsetCostCents(row.co2_kg),
+  });
+});
 
 export default app;

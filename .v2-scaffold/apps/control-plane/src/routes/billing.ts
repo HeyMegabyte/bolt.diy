@@ -12,7 +12,7 @@ import { z } from 'zod';
 import type Stripe from 'stripe';
 import { AppError, ErrorCode, type HonoEnv } from '../types.js';
 import { requireAuth } from '../middleware/auth.js';
-import { dbQueryOne } from '../services/db.js';
+import { dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { writeAudit } from '../services/audit.js';
 import {
   computeTakeRateBps,
@@ -579,7 +579,123 @@ app.post(
   },
 );
 
-// ── Refund request ──────────────────────────────────────────────────────────
+// ── Refund (#40 — card refund OR refund-as-credit) ──────────────────────────
+/**
+ * POST /api/billing/refund
+ *
+ * Caller picks the disposition:
+ *   - `type: 'card'`    → Stripe refund to the original payment method.
+ *   - `type: 'credits'` → positive `wallet_transactions` entry; nothing
+ *                         touches Stripe. Customer redeems against future
+ *                         bookings via the existing wallet-consume path.
+ *
+ * Preserves the legacy `POST /refund-request` body shape — defaults to
+ * `type: 'card'` so existing callers don't break.
+ */
+app.post(
+  '/refund',
+  zValidator(
+    'json',
+    z.object({
+      type: z.enum(['card', 'credits']).default('card'),
+      payment_intent: z.string().min(1).optional(),
+      charge_id: z.string().min(1).optional(),
+      amount_cents: z.number().int().positive(),
+      currency: z.string().length(3).default('usd'),
+      reason: z.string().max(500).optional(),
+      customer_id: z.string().optional(),
+      customer_email: z.string().email().optional(),
+    }),
+  ),
+  async (c) => {
+    const userId = requireAuth(c);
+    const tenantId = tenantOrThrow(c);
+    const body = c.req.valid('json');
+
+    if (body.type === 'credits') {
+      const id = crypto.randomUUID();
+      await dbInsert(c.env.DB, 'wallet_transactions', {
+        id,
+        tenant_id: tenantId,
+        customer_id: body.customer_id ?? null,
+        customer_email: body.customer_email ?? null,
+        type: 'refund_credit',
+        amount_cents: body.amount_cents,
+        currency: body.currency.toLowerCase(),
+        reference: body.payment_intent ?? body.charge_id ?? null,
+        reason: body.reason ?? null,
+        metadata_json: JSON.stringify({
+          source: 'refund_request',
+          requested_by_user_id: userId,
+        }),
+        created_by: userId,
+      });
+      await writeAudit(c.env, {
+        actor_user_id: userId,
+        actor_email: c.get('userEmail'),
+        tenant_id: tenantId,
+        event: 'billing.refund.credit',
+        target_type: 'wallet_transaction',
+        target_id: id,
+        metadata: {
+          amount_cents: body.amount_cents,
+          reference: body.payment_intent ?? body.charge_id ?? null,
+        },
+        ip: c.req.header('cf-connecting-ip') ?? null,
+        user_agent: c.req.header('user-agent') ?? null,
+      });
+      return c.json({
+        wallet_transaction_id: id,
+        type: 'credits',
+        amount_cents: body.amount_cents,
+        currency: body.currency.toLowerCase(),
+        status: 'posted',
+      });
+    }
+
+    if (!body.payment_intent && !body.charge_id) {
+      throw new AppError(
+        ErrorCode.BAD_REQUEST,
+        'payment_intent or charge_id required for card refunds',
+      );
+    }
+    const stripe = makeStripe(c.env);
+    const refund = await stripe.refunds.create({
+      payment_intent: body.payment_intent,
+      charge: body.charge_id,
+      amount: body.amount_cents,
+      reason: 'requested_by_customer',
+      metadata: {
+        tenantId,
+        requested_by_user_id: userId,
+        reason: body.reason ?? '',
+      },
+    });
+    await writeAudit(c.env, {
+      actor_user_id: userId,
+      actor_email: c.get('userEmail'),
+      tenant_id: tenantId,
+      event: 'billing.refund.card',
+      target_type: 'stripe_refund',
+      target_id: refund.id,
+      metadata: {
+        payment_intent: body.payment_intent ?? null,
+        charge_id: body.charge_id ?? null,
+        amount_cents: body.amount_cents,
+      },
+      ip: c.req.header('cf-connecting-ip') ?? null,
+      user_agent: c.req.header('user-agent') ?? null,
+    });
+    return c.json({
+      refund_id: refund.id,
+      type: 'card',
+      status: refund.status,
+      amount_cents: body.amount_cents,
+    });
+  },
+);
+
+// Backwards-compat alias for the legacy `/refund-request` consumer path.
 app.post(
   '/refund-request',
   zValidator(
@@ -615,5 +731,196 @@ app.post(
     return c.json({ refund_id: refund.id, status: refund.status });
   },
 );
+
+// ── #39 Customer-managed invoicing ──────────────────────────────────────────
+/**
+ * POST /api/tenants/:id/invoices
+ *
+ * Draft + send a Stripe Invoice ON the tenant's Connect account. Creates
+ * `InvoiceItem`s first (one per line item), then `Invoice` with
+ * `collection_method='send_invoice'` + `days_until_due=30` (configurable).
+ *
+ * Path-mounted at `/api/billing/tenants/:id/invoices` AND
+ * `/api/tenants/:id/invoices` (alias) so the route reads naturally on both
+ * surfaces.
+ */
+const invoiceLineSchema = z.object({
+  description: z.string().min(1).max(500),
+  amount_cents: z.number().int().positive(),
+  quantity: z.number().int().positive().default(1),
+});
+
+const createInvoiceSchema = z.object({
+  customer_email: z.string().email(),
+  customer_name: z.string().max(200).optional(),
+  line_items: z.array(invoiceLineSchema).min(1).max(40),
+  due_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD')
+    .optional(),
+  currency: z.string().length(3).default('usd'),
+  send_now: z.boolean().default(true),
+  memo: z.string().max(1_000).optional(),
+});
+
+app.post(
+  '/tenants/:id/invoices',
+  zValidator('json', createInvoiceSchema),
+  async (c) => {
+    const userId = requireAuth(c);
+    const tenantId = tenantOrThrow(c);
+    const pathTenantId = c.req.param('id');
+    if (pathTenantId !== tenantId) {
+      throw new AppError(ErrorCode.FORBIDDEN, 'tenant mismatch');
+    }
+    const body = c.req.valid('json');
+
+    const tenant = await dbQueryOne<{ stripe_account_id: string | null }>(
+      c.env.DB,
+      `SELECT stripe_account_id FROM tenants WHERE id = ?1`,
+      [tenantId],
+    );
+    if (!tenant?.stripe_account_id) {
+      throw new AppError(ErrorCode.BAD_REQUEST, 'tenant has no connected Stripe account');
+    }
+
+    const stripe = makeStripe(c.env);
+    const currency = body.currency.toLowerCase();
+    const totalCents = body.line_items.reduce(
+      (acc, l) => acc + l.amount_cents * l.quantity,
+      0,
+    );
+    const dueUnix = body.due_date
+      ? Math.floor(new Date(`${body.due_date}T23:59:59Z`).getTime() / 1000)
+      : Math.floor((Date.now() + 30 * 86_400_000) / 1000);
+
+    // 1. Resolve / create the Stripe customer on the connected account.
+    const customerList = await stripe.customers.list(
+      { email: body.customer_email, limit: 1 },
+      { stripeAccount: tenant.stripe_account_id },
+    );
+    const customerId =
+      customerList.data[0]?.id ??
+      (
+        await stripe.customers.create(
+          {
+            email: body.customer_email,
+            name: body.customer_name,
+            metadata: { tenantId, created_by_user_id: userId },
+          },
+          { stripeAccount: tenant.stripe_account_id },
+        )
+      ).id;
+
+    // 2. Create one InvoiceItem per line.
+    for (const line of body.line_items) {
+      await stripe.invoiceItems.create(
+        {
+          customer: customerId,
+          amount: line.amount_cents * line.quantity,
+          currency,
+          description: line.description,
+          metadata: { tenantId, quantity: String(line.quantity) },
+        },
+        { stripeAccount: tenant.stripe_account_id },
+      );
+    }
+
+    // 3. Create the Invoice (auto-finalizes line items into it).
+    let invoice = await stripe.invoices.create(
+      {
+        customer: customerId,
+        collection_method: 'send_invoice',
+        days_until_due: 30,
+        due_date: dueUnix,
+        description: body.memo,
+        metadata: {
+          tenantId,
+          created_by_user_id: userId,
+          rail: 'managed-invoice',
+        },
+      },
+      { stripeAccount: tenant.stripe_account_id },
+    );
+
+    let status: string = invoice.status ?? 'draft';
+    if (body.send_now) {
+      invoice = await stripe.invoices.sendInvoice(invoice.id, {
+        stripeAccount: tenant.stripe_account_id,
+      });
+      status = invoice.status ?? 'sent';
+    }
+
+    const id = crypto.randomUUID();
+    await dbInsert(c.env.DB, 'managed_invoices', {
+      id,
+      tenant_id: tenantId,
+      stripe_invoice_id: invoice.id,
+      stripe_customer_id: customerId,
+      customer_email: body.customer_email,
+      line_items_json: JSON.stringify(body.line_items),
+      amount_cents: totalCents,
+      currency,
+      due_date: body.due_date ?? null,
+      status,
+      hosted_invoice_url: invoice.hosted_invoice_url ?? null,
+      pdf_url: invoice.invoice_pdf ?? null,
+      metadata_json: JSON.stringify({ memo: body.memo ?? null }),
+      created_by: userId,
+    });
+
+    await writeAudit(c.env, {
+      actor_user_id: userId,
+      actor_email: c.get('userEmail'),
+      tenant_id: tenantId,
+      event: 'billing.invoice.create',
+      target_type: 'managed_invoice',
+      target_id: id,
+      metadata: {
+        amount_cents: totalCents,
+        currency,
+        send_now: body.send_now,
+        stripe_invoice_id: invoice.id,
+      },
+      ip: c.req.header('cf-connecting-ip') ?? null,
+      user_agent: c.req.header('user-agent') ?? null,
+    });
+
+    return c.json({
+      invoice_id: id,
+      stripe_invoice_id: invoice.id,
+      hosted_invoice_url: invoice.hosted_invoice_url,
+      pdf_url: invoice.invoice_pdf,
+      status,
+      amount_cents: totalCents,
+      currency,
+    });
+  },
+);
+
+/** List managed invoices for the current tenant. */
+app.get('/tenants/:id/invoices', async (c) => {
+  const tenantId = tenantOrThrow(c);
+  const pathTenantId = c.req.param('id');
+  if (pathTenantId !== tenantId) {
+    throw new AppError(ErrorCode.FORBIDDEN, 'tenant mismatch');
+  }
+  const limit = (() => {
+    const n = parseInt(c.req.query('limit') ?? '50', 10);
+    if (!Number.isFinite(n)) return 50;
+    return Math.min(200, Math.max(1, n));
+  })();
+  const rows = await dbQuery(
+    c.env.DB,
+    `SELECT id, stripe_invoice_id, customer_email, amount_cents, currency,
+            status, hosted_invoice_url, pdf_url, due_date, created_at
+       FROM managed_invoices
+      WHERE tenant_id = ?1
+      ORDER BY created_at DESC
+      LIMIT ?2`,
+    [tenantId, limit],
+  );
+  return c.json({ invoices: rows });
+});
 
 export default app;

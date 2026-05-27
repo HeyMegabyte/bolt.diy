@@ -41,7 +41,17 @@
               "maximumError": "8kb"
             }
           ],
-          "outputHashing": "all"
+          "outputHashing": "all",
+          "optimization": {
+            "scripts": true,
+            "styles": {
+              "minify": true,
+              "inlineCritical": true
+            },
+            "fonts": {
+              "inline": true
+            }
+          }
         },
         "development": {
           "optimization": false,
@@ -81,6 +91,13 @@
         "port": 4200,
         "staticFilePath": "dist/apps/web/browser",
         "spa": true
+      }
+    },
+    "a11y:fix": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/a11y-fixer.mjs --dist dist/apps/web/browser --out a11y-fixes.patch",
+        "cwd": "{workspaceRoot}"
       }
     }
   }

@@ -178,6 +178,18 @@ function newDay(label: string, hour = 9, end = 17): WizardDay {
         font: inherit;
         width: 100%;
       }
+      .ps-bundle-upsell {
+        display: grid;
+        gap: 4px;
+        padding: 12px 16px;
+        margin-bottom: 14px;
+        border-radius: 14px;
+        border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent);
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 7%, transparent);
+        cursor: pointer;
+      }
+      .ps-bundle-upsell strong { font-size: 1rem; }
+      .ps-bundle-upsell span { font-size: 0.85rem; opacity: 0.85; }
     `,
   ],
   template: `
@@ -233,6 +245,20 @@ function newDay(label: string, hour = 9, end = 17): WizardDay {
 
         @case ('schedule') {
           <div data-testid="step-schedule">
+            @if (showBundleUpsell()) {
+              <aside
+                class="ps-bundle-upsell"
+                role="note"
+                data-testid="bundle-upsell"
+                (click)="acceptBundleUpsell()"
+              >
+                <strong>Add a 2nd service, save 12%</strong>
+                <span>
+                  Bundle two jobs on the same day with the same crew and we'll
+                  knock 12% off the platform fee.
+                </span>
+              </aside>
+            }
             <label class="ps-toggle">
               <input
                 type="checkbox"
@@ -431,6 +457,20 @@ export class QuoteWizardComponent implements OnInit {
   readonly activeDay = computed(() => this.state().days[this.activeDayIdx()] ?? null);
   readonly singleStartLocal = computed(() => toLocal(this.state().days[0]?.start));
   readonly singleEndLocal = computed(() => toLocal(this.state().days[0]?.end));
+
+  /**
+   * #32 — show the "Add a 2nd service, save 12%" upsell when the wizard is in
+   * single-day mode and the customer hasn't already opted into multi-stop. Once
+   * they click the upsell, we flip to multi-day to seed a second day card.
+   */
+  readonly showBundleUpsell = computed(() => {
+    const s = this.state();
+    return !s.multiDay && s.details.stops.length === 0;
+  });
+
+  acceptBundleUpsell(): void {
+    this.setMultiDay(true);
+  }
 
   private readonly addressInput$ = new Subject<string>();
 

@@ -13,3 +13,14 @@ export {
   oklchToRgb,
 } from './theme/wcag-color-adjuster.js';
 export type { OKLCH, RGB } from './theme/wcag-color-adjuster.js';
+
+// Lib components — surfaced from `./lib/`.
+export {
+  VideoWithCaptionsComponent,
+  type TranscribeResult,
+} from './lib/video-with-captions/video-with-captions.component.js';
+export {
+  ColorBlindFilterComponent,
+  COLOR_BLIND_MATRICES,
+  type ColorBlindMode,
+} from './lib/color-blind-filter/color-blind-filter.component.js';

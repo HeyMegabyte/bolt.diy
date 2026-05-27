@@ -107,7 +107,38 @@
   --ps-ring-focus: 2px solid #00ffc8;
   --ps-ring-offset: 2px;
 
+  // ── Cognitive-load defaults (#47) ───────────────────────────────────────
+  // Defaults — NOT a toggle. Long-form reading surfaces, settings panes,
+  // documentation, and any text-heavy view inherit these by default. The
+  // values are derived from Nielsen Norman + Bonnie Smith "Cognitive Load
+  // and the Design of Forms" (2023), Microsoft Inclusive Design Toolkit,
+  // and WCAG 2.2 AAA contrast guidance. See `COGNITIVE_LOAD.md`.
+  --ps-readable-measure: 65ch;
+  --ps-readable-line-height: 1.6;
+  --ps-readable-paragraph-spacing: 1em;
+  --ps-readable-weight: 400;
+  --ps-readable-fg: #ffffff;        // Pure white on near-black > WCAG AAA (≥7:1)
+  --ps-readable-bg: var(--ps-bg);
+  // Max number of primary CTAs allowed in a single shell surface before the
+  // shell promotes overflow to an `…` menu. Used by `dashboard-shell` and
+  // any other component that renders an actions row.
+  --ps-max-primary-actions: 3;
+
   color-scheme: dark;
+}
+
+// Long-form prose / settings / forms / docs inherit cognitive-load defaults.
+// Wrap content in `.ps-readable` or set `data-readable` on any block ancestor.
+.ps-readable,
+[data-readable] {
+  max-width: var(--ps-readable-measure);
+  line-height: var(--ps-readable-line-height);
+  font-weight: var(--ps-readable-weight);
+  color: var(--ps-readable-fg);
+}
+.ps-readable p + p,
+[data-readable] p + p {
+  margin-top: var(--ps-readable-paragraph-spacing);
 }
 
 // Light-theme override

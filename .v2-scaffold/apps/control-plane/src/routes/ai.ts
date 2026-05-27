@@ -248,6 +248,191 @@ app.post(
   },
 );
 
+// ── #31 Whisper-generated video captions ─────────────────────────────────────
+
+interface WhisperSegment {
+  readonly start: number;
+  readonly end: number;
+  readonly text: string;
+}
+
+interface TranscribeResponse {
+  readonly segments: readonly WhisperSegment[];
+  readonly language: string | null;
+  readonly vtt_url: string;
+  readonly vtt_r2_key: string;
+  readonly cached: boolean;
+}
+
+app.post(
+  '/transcribe',
+  zValidator(
+    'json',
+    z.object({
+      audio_url: z.string().url(),
+    }),
+  ),
+  async (c) => {
+    const userId = requireAuth(c);
+    const { audio_url } = c.req.valid('json');
+    const tenantId = c.get('tenantId') ?? c.get('orgId') ?? null;
+
+    // Hash on the source URL — same R2 object hashes identically.
+    const video_hash = await sha256Hex(audio_url);
+
+    // Cache hit: KV first (cheapest), then D1 row.
+    const kvKey = `cap:${video_hash}`;
+    const cachedKv = await c.env.CACHE.get<TranscribeResponse>(kvKey, 'json');
+    if (cachedKv) {
+      return c.json({ ...cachedKv, cached: true });
+    }
+    const existing = await dbQueryOne<{
+      segments_json: string;
+      language: string | null;
+      vtt_url: string;
+      vtt_r2_key: string;
+    }>(
+      c.env.DB,
+      `SELECT segments_json, language, vtt_url, vtt_r2_key FROM video_captions WHERE video_hash = ?1`,
+      [video_hash],
+    );
+    if (existing) {
+      const response: TranscribeResponse = {
+        segments: JSON.parse(existing.segments_json) as readonly WhisperSegment[],
+        language: existing.language,
+        vtt_url: existing.vtt_url,
+        vtt_r2_key: existing.vtt_r2_key,
+        cached: true,
+      };
+      await c.env.CACHE.put(kvKey, JSON.stringify(response), { expirationTtl: 86_400 });
+      return c.json(response);
+    }
+
+    // Stream audio bytes from source (R2 or external) and hand to Workers AI.
+    const audioRes = await fetch(audio_url);
+    if (!audioRes.ok) {
+      throw new AppError(
+        ErrorCode.AI_GENERATION_ERROR,
+        `audio fetch failed (${audioRes.status}) for ${audio_url}`,
+      );
+    }
+    const audioBytes = new Uint8Array(await audioRes.arrayBuffer());
+
+    const runner = c.env.AI as unknown as {
+      run: (model: string, body: Record<string, unknown>) => Promise<unknown>;
+    };
+    const whisperRaw = await runner.run(MODELS.WHISPER, {
+      audio: Array.from(audioBytes),
+    });
+
+    const { segments, language } = parseWhisper(whisperRaw);
+    const vtt = segmentsToVtt(segments);
+
+    const vtt_r2_key = `captions/${video_hash}.vtt`;
+    await c.env.BUCKET.put(vtt_r2_key, vtt, {
+      httpMetadata: { contentType: 'text/vtt; charset=utf-8', cacheControl: 'public, max-age=31536000' },
+      customMetadata: { video_hash, source_url: audio_url, language: language ?? '' },
+    });
+    const vtt_url = `https://cdn.projectsites.dev/${vtt_r2_key}`;
+
+    await dbInsert(c.env.DB, 'video_captions', {
+      id: crypto.randomUUID(),
+      tenant_id: tenantId,
+      video_hash,
+      source_url: audio_url,
+      vtt_r2_key,
+      vtt_url,
+      language,
+      segments_json: JSON.stringify(segments),
+      model: MODELS.WHISPER,
+      bytes: vtt.length,
+    });
+
+    const response: TranscribeResponse = {
+      segments,
+      language,
+      vtt_url,
+      vtt_r2_key,
+      cached: false,
+    };
+    await c.env.CACHE.put(kvKey, JSON.stringify(response), { expirationTtl: 86_400 });
+
+    await writeAudit(c.env, {
+      actor_user_id: userId,
+      actor_email: c.get('userEmail'),
+      tenant_id: tenantId,
+      event: 'ai.transcribe',
+      target_type: 'video_caption',
+      target_id: video_hash,
+      metadata: { audio_url, segments: segments.length, language },
+      ip: c.req.header('cf-connecting-ip') ?? null,
+      user_agent: c.req.header('user-agent') ?? null,
+    });
+
+    return c.json(response);
+  },
+);
+
+/** Workers AI Whisper returns heterogenous shapes — parse defensively. */
+export function parseWhisper(raw: unknown): {
+  segments: WhisperSegment[];
+  language: string | null;
+} {
+  if (!raw || typeof raw !== 'object') return { segments: [], language: null };
+  const obj = raw as Record<string, unknown>;
+  const language =
+    typeof obj['language'] === 'string'
+      ? (obj['language'] as string)
+      : null;
+
+  // Preferred shape: { segments: [{ start, end, text }] }
+  const rawSegments = obj['segments'];
+  if (Array.isArray(rawSegments)) {
+    const segments: WhisperSegment[] = [];
+    for (const s of rawSegments) {
+      if (!s || typeof s !== 'object') continue;
+      const seg = s as Record<string, unknown>;
+      const start = typeof seg['start'] === 'number' ? (seg['start'] as number) : null;
+      const end = typeof seg['end'] === 'number' ? (seg['end'] as number) : null;
+      const text = typeof seg['text'] === 'string' ? (seg['text'] as string) : null;
+      if (start === null || end === null || text === null) continue;
+      segments.push({ start, end, text: text.trim() });
+    }
+    if (segments.length > 0) return { segments, language };
+  }
+
+  // Fallback shape: { text: '...' } → single segment covering 0..duration.
+  if (typeof obj['text'] === 'string') {
+    return {
+      segments: [{ start: 0, end: 5, text: (obj['text'] as string).trim() }],
+      language,
+    };
+  }
+  return { segments: [], language };
+}
+
+/** Convert Whisper segments to a WebVTT cue file. */
+export function segmentsToVtt(segments: readonly WhisperSegment[]): string {
+  const lines = ['WEBVTT', ''];
+  for (const seg of segments) {
+    lines.push(`${formatVttTime(seg.start)} --> ${formatVttTime(seg.end)}`);
+    lines.push(seg.text);
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+/** Format seconds as HH:MM:SS.mmm per WebVTT spec. */
+export function formatVttTime(seconds: number): string {
+  const safe = Math.max(0, seconds);
+  const h = Math.floor(safe / 3600);
+  const m = Math.floor((safe % 3600) / 60);
+  const s = Math.floor(safe % 60);
+  const ms = Math.floor((safe - Math.floor(safe)) * 1000);
+  const pad = (n: number, w = 2): string => `${n}`.padStart(w, '0');
+  return `${pad(h)}:${pad(m)}:${pad(s)}.${pad(ms, 3)}`;
+}
+
 // ── #13 Competitor-gap detector ──────────────────────────────────────────────
 
 const GAP_PROMPT_SYSTEM =

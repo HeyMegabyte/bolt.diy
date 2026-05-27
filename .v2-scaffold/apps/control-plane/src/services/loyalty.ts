@@ -81,3 +81,136 @@ export async function recordLoyaltyCompletion(
     )
     .run();
 }
+
+// ── #32 Multi-stop bundle discount ──────────────────────────────────────────
+
+/** Bundle-discount thresholds — externalised so tests + finance can tune. */
+export const BUNDLE_DISCOUNT_PCT = 12;
+export const BUNDLE_MIN_BOOKINGS = 2;
+
+/** Minimal booking shape consumed by {@link evaluateBundle}. */
+export interface BundleBooking {
+  readonly id: string;
+  readonly customer_id: string;
+  readonly crew_id: string | null;
+  /** ISO datetime; only the calendar-day portion matters. */
+  readonly scheduled_for: string | null;
+}
+
+export interface BundleDecision {
+  readonly bundleApplies: boolean;
+  readonly discountPct: number;
+  /** Multiplier to apply to base application fee (1.0 = no discount, 0.88 = 12% off). */
+  readonly applicationFeeFactor: number;
+  readonly bundleDate: string | null;
+  readonly bookingIds: readonly string[];
+  readonly reason: 'too-few' | 'mixed-customer' | 'mixed-crew' | 'mixed-day' | 'applied';
+}
+
+/** Calendar-day key (YYYY-MM-DD) extracted from an ISO timestamp. */
+function dayKey(iso: string | null): string | null {
+  if (!iso) return null;
+  const idx = iso.indexOf('T');
+  return idx > 0 ? iso.slice(0, idx) : iso.slice(0, 10);
+}
+
+/**
+ * Backlog item #32 — when ≥2 bookings share the same customer, the same crew,
+ * and the same calendar day, apply a 12% bundle discount on the marketplace
+ * application fee. Pure function — caller persists the decision via
+ * {@link recordBundleDiscount}.
+ *
+ * @example
+ * ```ts
+ * const decision = evaluateBundle(bookings);
+ * if (decision.bundleApplies) {
+ *   appFee = Math.round(appFee * decision.applicationFeeFactor);
+ * }
+ * ```
+ */
+export function evaluateBundle(bookings: readonly BundleBooking[]): BundleDecision {
+  if (bookings.length < BUNDLE_MIN_BOOKINGS) {
+    return {
+      bundleApplies: false,
+      discountPct: 0,
+      applicationFeeFactor: 1,
+      bundleDate: null,
+      bookingIds: bookings.map((b) => b.id),
+      reason: 'too-few',
+    };
+  }
+  const first = bookings[0]!;
+  const customerId = first.customer_id;
+  const crewId = first.crew_id;
+  const day = dayKey(first.scheduled_for);
+
+  for (const b of bookings) {
+    if (b.customer_id !== customerId) {
+      return mismatch(bookings, 'mixed-customer');
+    }
+    if ((b.crew_id ?? '') !== (crewId ?? '')) {
+      return mismatch(bookings, 'mixed-crew');
+    }
+    if (dayKey(b.scheduled_for) !== day) {
+      return mismatch(bookings, 'mixed-day');
+    }
+  }
+  return {
+    bundleApplies: true,
+    discountPct: BUNDLE_DISCOUNT_PCT,
+    applicationFeeFactor: (100 - BUNDLE_DISCOUNT_PCT) / 100,
+    bundleDate: day,
+    bookingIds: bookings.map((b) => b.id),
+    reason: 'applied',
+  };
+}
+
+function mismatch(
+  bookings: readonly BundleBooking[],
+  reason: BundleDecision['reason'],
+): BundleDecision {
+  return {
+    bundleApplies: false,
+    discountPct: 0,
+    applicationFeeFactor: 1,
+    bundleDate: null,
+    bookingIds: bookings.map((b) => b.id),
+    reason,
+  };
+}
+
+/** Persist the bundle decision for audit. Idempotent on (tenant, customer, bundle_date). */
+export async function recordBundleDiscount(
+  env: Env,
+  args: {
+    tenantId: string;
+    customerId: string;
+    crewId: string | null;
+    decision: BundleDecision;
+    baseApplicationFeeCents: number;
+  },
+): Promise<void> {
+  if (!args.decision.bundleApplies || !args.decision.bundleDate) return;
+  const discounted = Math.round(
+    args.baseApplicationFeeCents * args.decision.applicationFeeFactor,
+  );
+  await env.DB.prepare(
+    `INSERT INTO bundle_discounts
+       (id, tenant_id, customer_id, crew_id, bundle_date, booking_ids, booking_count,
+        discount_pct, base_application_fee_cents, discounted_application_fee_cents)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
+  )
+    .bind(
+      crypto.randomUUID(),
+      args.tenantId,
+      args.customerId,
+      args.crewId,
+      args.decision.bundleDate,
+      JSON.stringify(args.decision.bookingIds),
+      args.decision.bookingIds.length,
+      args.decision.discountPct,
+      args.baseApplicationFeeCents,
+      discounted,
+    )
+    .run();
+}

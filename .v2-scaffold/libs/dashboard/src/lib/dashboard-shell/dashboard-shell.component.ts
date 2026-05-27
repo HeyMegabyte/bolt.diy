@@ -269,7 +269,14 @@ export class DashboardShellComponent implements OnInit, OnDestroy {
     { label: 'Admin', route: ['/dashboard', 'admin'], icon: 'pi pi-shield', requires: 'super_admin', superAdminOnly: true },
   ];
 
-  readonly navMenu = computed<MenuItem[]>(() =>
+  /**
+   * Cognitive-load default (#47): cap a single surface at 3 primary actions.
+   * The left rail is navigation — not "primary actions" — so it's exempt; the
+   * cap applies to toolbar-end CTAs + future contextual action rows.
+   */
+  protected readonly MAX_PRIMARY_ACTIONS = 3;
+
+  readonly allNavItems = computed<MenuItem[]>(() =>
     this.navDef
       .filter((n) => {
         if (n.superAdminOnly && (!this.me.isSuperAdmin() || this.viewAs() !== 'super_admin')) {
@@ -284,6 +291,28 @@ export class DashboardShellComponent implements OnInit, OnDestroy {
         styleClass: `ps-nav__item ps-nav__item--${n.label.toLowerCase()}`,
       })),
   );
+
+  readonly navMenu = this.allNavItems;
+
+  /**
+   * Generic helper: collapse a list of primary CTAs at `MAX_PRIMARY_ACTIONS`,
+   * folding the tail into an overflow "…" menu. Consumers in this shell or any
+   * future contextual action row use this to satisfy `[[cognitive-load]]`.
+   *
+   * @returns `{ visible, overflow }` — `overflow` is empty when input ≤ cap.
+   */
+  collapsePrimaryActions<T>(items: readonly T[]): {
+    readonly visible: readonly T[];
+    readonly overflow: readonly T[];
+  } {
+    if (items.length <= this.MAX_PRIMARY_ACTIONS) {
+      return { visible: items, overflow: [] };
+    }
+    return {
+      visible: items.slice(0, this.MAX_PRIMARY_ACTIONS - 1),
+      overflow: items.slice(this.MAX_PRIMARY_ACTIONS - 1),
+    };
+  }
 
   readonly accountMenuItems = computed<MenuItem[]>(() => [
     { label: 'Profile', icon: 'pi pi-user', routerLink: ['/dashboard', 'settings', 'profile'] },
