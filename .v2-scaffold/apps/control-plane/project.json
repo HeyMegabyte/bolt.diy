@@ -1,0 +1,21 @@
+{
+  "name": "control-plane",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/control-plane/src",
+  "projectType": "library",
+  "tags": ["scope:edge", "type:worker"],
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/control-plane",
+        "main": "apps/control-plane/src/index.ts",
+        "tsConfig": "apps/control-plane/tsconfig.lib.json",
+        "assets": ["apps/control-plane/*.md"],
+        "format": ["cjs"],
+        "generatePackageJson": true
+      }
+    }
+  }
+}

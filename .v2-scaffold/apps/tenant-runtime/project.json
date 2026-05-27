@@ -1,0 +1,21 @@
+{
+  "name": "tenant-runtime",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/tenant-runtime/src",
+  "projectType": "library",
+  "tags": ["scope:edge", "type:worker"],
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/tenant-runtime",
+        "main": "apps/tenant-runtime/src/index.ts",
+        "tsConfig": "apps/tenant-runtime/tsconfig.lib.json",
+        "assets": ["apps/tenant-runtime/*.md"],
+        "format": ["cjs"],
+        "generatePackageJson": true
+      }
+    }
+  }
+}

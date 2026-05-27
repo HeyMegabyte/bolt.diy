@@ -1,0 +1,37 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "projectsites.dev v2 API",
+  "entryPointStrategy": "expand",
+  "entryPoints": [
+    "apps/web/src",
+    "apps/mobile/src",
+    "apps/control-plane/src",
+    "apps/tenant-runtime/src",
+    "libs"
+  ],
+  "out": "docs/api",
+  "exclude": [
+    "**/*.spec.ts",
+    "**/*.test.ts",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/__tests__/**"
+  ],
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": true,
+  "categorizeByGroup": true,
+  "readme": "README.md",
+  "tsconfig": "tsconfig.base.json",
+  "hideGenerator": true,
+  "treatWarningsAsErrors": false,
+  "skipErrorChecking": true,
+  "githubPages": false,
+  "navigationLinks": {
+    "Repo": "https://github.com/HeyMegabyte/projectsites.dev"
+  },
+  "sidebarLinks": {
+    "Architecture": "../ARCHITECTURE.md",
+    "Deployment": "../DEPLOYMENT.md"
+  }
+}

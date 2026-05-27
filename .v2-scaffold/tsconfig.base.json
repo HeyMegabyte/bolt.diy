@@ -1,0 +1,43 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "es2015",
+    "module": "esnext",
+    "lib": ["es2020", "dom"],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@org/ui": ["./libs/ui/src/index.ts"],
+      "@org/auth": ["./libs/auth/src/index.ts"],
+      "@org/dashboard": ["./libs/dashboard/src/index.ts"],
+      "@org/data-access": ["./libs/data-access/src/index.ts"],
+      "@org/domain": ["./libs/domain/src/index.ts"],
+      "@org/feature-bookings": ["./libs/feature-bookings/src/index.ts"],
+      "@org/feature-quotes": ["./libs/feature-quotes/src/index.ts"],
+      "@org/feature-jobs": ["./libs/feature-jobs/src/index.ts"],
+      "@org/feature-crew": ["./libs/feature-crew/src/index.ts"],
+      "@org/feature-sites": ["./libs/feature-sites/src/index.ts"],
+      "@org/feature-billing": ["./libs/feature-billing/src/index.ts"],
+      "@org/feature-team": ["./libs/feature-team/src/index.ts"],
+      "@org/feature-settings": ["./libs/feature-settings/src/index.ts"],
+      "@org/feature-integrations": ["./libs/feature-integrations/src/index.ts"],
+      "@org/feature-snapshots": ["./libs/feature-snapshots/src/index.ts"],
+      "@org/feature-sql": ["./libs/feature-sql/src/index.ts"],
+      "@org/feature-logs": ["./libs/feature-logs/src/index.ts"],
+      "@org/util-zod": ["./libs/util-zod/src/index.ts"],
+      "@org/util-rxjs": ["./libs/util-rxjs/src/index.ts"],
+      "@org/util-wasm": ["./libs/util-wasm/src/index.ts"],
+      "@org/control-plane": ["./apps/control-plane/src/index.ts"],
+      "@org/tenant-runtime": ["./apps/tenant-runtime/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "tmp"]
+}
