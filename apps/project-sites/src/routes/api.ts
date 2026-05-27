@@ -112,6 +112,7 @@ import {
   createSiteSchema,
   createCheckoutSessionSchema,
   createEmbeddedCheckoutSchema,
+  createPaymentIntentSchema,
   createMagicLinkSchema,
   verifyMagicLinkSchema,
   createHostnameSchema,
@@ -1423,6 +1424,88 @@ api.post('/api/billing/embedded-checkout', async (c) => {
 
   return c.json({
     data: { client_secret: result.client_secret, publishable_key: c.env.STRIPE_PUBLISHABLE_KEY },
+  });
+});
+
+/**
+ * Create a Stripe **PaymentIntent** for inline 1-click checkout via Express
+ * Checkout Element (Apple Pay / Google Pay / Link) + Payment Element.
+ *
+ * @route POST /api/billing/payment-intent
+ * @auth Bearer — `userId` AND `orgId` MUST resolve from session
+ * @body createPaymentIntentSchema — `{ amount_cents, currency?, site_id?, description?, save_for_future_use? }`
+ * @returns 200 OK `{ data: { client_secret, publishable_key, payment_intent_id } }`
+ *
+ * @remarks
+ * Caller mounts `stripeService.mountExpressCheckout()` or
+ * `stripeService.mountPaymentElement()` with the returned `client_secret`. The
+ * minimal-widget row appears inline (no modal, no redirect) and Stripe picks
+ * the right method per browser. Returns `payment_intent_id` so callers can
+ * poll status server-side if needed.
+ */
+api.post('/api/billing/payment-intent', async (c) => {
+  const body = await c.req.json();
+  const validated = createPaymentIntentSchema.parse(body);
+
+  const orgId = c.get('orgId');
+  const userId = c.get('userId');
+  if (!orgId || !userId) throw unauthorized('Must be authenticated');
+  if (validated.org_id && validated.org_id !== orgId) {
+    throw forbidden('Cannot create payment for another org');
+  }
+
+  const userRow = await dbQueryOne<{ email: string }>(
+    c.env.DB,
+    'SELECT email FROM users WHERE id = ? AND deleted_at IS NULL',
+    [userId],
+  );
+
+  const result = await billingService.createPaymentIntent(c.env.DB, c.env, {
+    orgId,
+    siteId: validated.site_id,
+    customerEmail: userRow?.email || '',
+    amountCents: validated.amount_cents,
+    currency: validated.currency,
+    description: validated.description,
+    saveForFutureUse: validated.save_for_future_use,
+  });
+
+  auditService
+    .writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId,
+      action: 'billing.payment_intent_created',
+      message: `PaymentIntent ${result.payment_intent_id} created for ${validated.amount_cents}¢`,
+      target_type: 'billing',
+      target_id: validated.site_id || orgId,
+      metadata_json: {
+        site_id: validated.site_id ?? null,
+        amount_cents: validated.amount_cents,
+        currency: validated.currency,
+        payment_intent_id: result.payment_intent_id,
+      },
+      request_id: c.get('requestId'),
+    })
+    .catch(() => {});
+
+  try {
+    posthog.trackSite(
+      c.env,
+      c.executionCtx,
+      'payment_intent_created',
+      userId,
+      { site_id: validated.site_id, amount_cents: validated.amount_cents },
+    );
+  } catch {
+    /* fire-and-forget */
+  }
+
+  return c.json({
+    data: {
+      client_secret: result.client_secret,
+      publishable_key: c.env.STRIPE_PUBLISHABLE_KEY,
+      payment_intent_id: result.payment_intent_id,
+    },
   });
 });
 

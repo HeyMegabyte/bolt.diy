@@ -1,0 +1,30 @@
+# .cleanup-allowlist
+# Files allowed to be "homepage-ish" without tripping the resurrection guard.
+#
+# Plain lines: exact path match (relative to repo root, no leading ./)
+# Lines starting with `glob:` are evaluated as shell glob patterns.
+# Lines starting with `#` are comments. Blank lines ignored.
+
+# v2 Angular 19+ canonical homepages (target state after Phase 8)
+apps/web/src/app/pages/marketing-home/marketing-home.component.ts
+apps/web/src/app/pages/marketing-home/marketing-home.component.html
+apps/web/src/app/pages/marketing-home/marketing-home.component.scss
+apps/web/src/index.html
+apps/mobile/src/index.html
+content/marketing/index.md
+
+# Legacy v1 homepage (delete in Phase 8)
+apps/project-sites/frontend/src/app/pages/homepage/homepage.component.ts
+apps/project-sites/frontend/src/app/pages/homepage/homepage.component.html
+apps/project-sites/frontend/src/app/pages/homepage/homepage.component.scss
+apps/project-sites/frontend/src/index.html
+
+# Generated / sample R2 sync artifacts (not source homepages)
+glob:apps/project-sites/r2-sync/**/index.html
+glob:apps/project-sites/samples/**/index.html
+
+# Documentation references (not implementations)
+apps/project-sites/docs/marketing-image-budget.md
+apps/project-sites/e2e/marketing-sections.spec.ts
+
+# After Phase 8 cleanup, prune the apps/project-sites/frontend/ entries above.

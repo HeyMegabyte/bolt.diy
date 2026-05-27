@@ -464,6 +464,15 @@ async function handleAPI(req, res, urlPath) {
   if (urlPath === '/api/billing/embedded-checkout' && method === 'POST') {
     return json(res, { data: { client_secret: 'cs_mock' } });
   }
+  if (urlPath === '/api/billing/payment-intent' && method === 'POST') {
+    return json(res, {
+      data: {
+        client_secret: 'pi_mock_secret_abc123',
+        publishable_key: 'pk_test_mock',
+        payment_intent_id: 'pi_mock_abc123',
+      },
+    });
+  }
 
   // Domain summary
   if (urlPath === '/api/admin/domains/summary' && method === 'GET') {

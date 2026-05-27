@@ -1,0 +1,46 @@
+name: Resurrection Guard
+
+# v2 doctrine §22 — prevent legacy homepage files from being resurrected.
+# Fails the build if any file matching homepage-ish patterns exists outside
+# .cleanup-allowlist.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: Scan for resurrected homepages
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify guard script is present
+        run: |
+          if [ ! -x tools/resurrection-check.sh ]; then
+            echo "::error::tools/resurrection-check.sh missing or not executable"
+            exit 1
+          fi
+          if [ ! -f .cleanup-allowlist ]; then
+            echo "::error::.cleanup-allowlist missing at repo root"
+            exit 1
+          fi
+
+      - name: Run Resurrection Guard
+        id: scan
+        run: bash tools/resurrection-check.sh
+
+      - name: Annotate failures
+        if: failure() && steps.scan.outcome == 'failure'
+        run: |
+          echo "::error title=Resurrection Guard failed::A homepage-ish file exists that is not in .cleanup-allowlist. See the job log above for the file list and remediation steps. The canonical marketing home lives at apps/web/src/app/pages/marketing-home/."

@@ -1,0 +1,27 @@
+# lefthook.yml — git hook orchestration for projectsites.dev
+# Docs: https://lefthook.dev
+#
+# Install:  brew install lefthook && lefthook install
+# Run all:  lefthook run pre-commit
+
+pre-commit:
+  parallel: true
+  commands:
+    resurrection-guard:
+      # v2 doctrine §22 — block any legacy homepage from sneaking back in.
+      glob: '*.{ts,tsx,html,scss,css,vue,svelte}'
+      run: bash tools/resurrection-check.sh --staged
+      stage_fixed: false
+      fail_text: |
+        Resurrection Guard rejected staged changes.
+        Run `bash tools/resurrection-check.sh` for the full report.
+        The canonical marketing home lives at apps/web/src/app/pages/marketing-home/.
+
+pre-push:
+  parallel: true
+  commands:
+    resurrection-guard-full:
+      run: bash tools/resurrection-check.sh
+      fail_text: |
+        Resurrection Guard found legacy homepage files in the working tree.
+        Fix them locally before pushing.

@@ -378,6 +378,15 @@ export const routes: Routes = [
       import('./pages/status/status.component').then((m) => m.StatusComponent),
   },
   {
+    // Inline checkout harness — mounts <app-inline-checkout> with a fixed
+    // amount so Playwright can drive the 1-click Stripe Link flow under
+    // the brian@megabyte.space stub. Production traffic also lands here
+    // when a "Buy credits" CTA is clicked.
+    path: 'checkout',
+    loadComponent: () =>
+      import('./pages/checkout/checkout.component').then((m) => m.CheckoutComponent),
+  },
+  {
     path: 'error',
     loadComponent: () =>
       import('./pages/error/server-error.component').then((m) => m.ServerErrorComponent),

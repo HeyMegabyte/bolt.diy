@@ -95,6 +95,32 @@ export const createEmbeddedCheckoutSchema = z.object({
 });
 
 /**
+ * Validation schema for creating a one-shot Stripe **PaymentIntent** that the
+ * frontend mounts via Express Checkout Element (Apple Pay / Google Pay / Link
+ * 1-click row) or Payment Element (card + Link Authentication form).
+ *
+ * Used for inline 1-click upgrades, credit-pack top-ups, and any "just charge
+ * me" surface where a Checkout-redirect (or even embedded Checkout) would be
+ * heavier than warranted. `automatic_payment_methods.enabled = true` lets
+ * Stripe surface every PMC method the account has on — Link, Apple Pay,
+ * Google Pay, Klarna, Affirm, card — without us hardcoding the list.
+ */
+export const createPaymentIntentSchema = z.object({
+  org_id: uuidSchema.optional(),
+  site_id: uuidSchema.optional(),
+  amount_cents: z.number().int().positive().max(99_999_999),
+  currency: z
+    .string()
+    .length(3)
+    .regex(/^[a-z]{3}$/)
+    .default('usd'),
+  description: z.string().max(255).optional(),
+  /** When true, attach the payment_method to the customer for future Link 1-click. */
+  save_for_future_use: z.boolean().default(true),
+});
+export type CreatePaymentIntent = z.infer<typeof createPaymentIntentSchema>;
+
+/**
  * Tuple of Stripe webhook event types that the system processes.
  *
  * Used to filter incoming Stripe webhooks to only the events the billing

@@ -514,6 +514,123 @@ export async function createEmbeddedCheckoutSession(
 }
 
 /**
+ * Create a one-shot Stripe **PaymentIntent** for inline 1-click checkout via
+ * Express Checkout Element (Apple Pay / Google Pay / Link row) + Payment
+ * Element (card + Link Authentication).
+ *
+ * Returns a `client_secret` the frontend uses with `stripe.confirmPayment()` —
+ * no full-page redirect, no embedded Checkout iframe, just the minimal-widget
+ * row mounted directly inside our Angular dialog. Apple Pay / Google Pay /
+ * Link surface automatically based on the account's PMC + browser support.
+ *
+ * @param opts.amountCents       Amount in cents (min 50¢ for USD).
+ * @param opts.currency          ISO 4217 lowercase, defaults to 'usd'.
+ * @param opts.description       Human-readable charge description (statement).
+ * @param opts.saveForFutureUse  Attach payment_method to customer for future Link 1-click.
+ */
+export async function createPaymentIntent(
+  db: D1Database,
+  env: Env,
+  opts: {
+    orgId: string;
+    siteId?: string;
+    customerEmail: string;
+    amountCents: number;
+    currency?: string;
+    description?: string;
+    saveForFutureUse?: boolean;
+  },
+): Promise<{ client_secret: string; payment_intent_id: string }> {
+  const { stripe_customer_id } = await getOrCreateStripeCustomer(
+    db,
+    env,
+    opts.orgId,
+    opts.customerEmail,
+  );
+
+  const params = new URLSearchParams({
+    amount: String(opts.amountCents),
+    currency: opts.currency || PRICING.CURRENCY,
+    customer: stripe_customer_id,
+    'automatic_payment_methods[enabled]': 'true',
+    'automatic_payment_methods[allow_redirects]': 'never',
+    'metadata[org_id]': opts.orgId,
+  });
+  if (opts.siteId) params.append('metadata[site_id]', opts.siteId);
+  if (opts.description) params.append('description', opts.description);
+  if (opts.saveForFutureUse !== false) {
+    params.append('setup_future_usage', 'off_session');
+  }
+
+  let response: Response;
+  try {
+    response = await fetch('https://api.stripe.com/v1/payment_intents', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params,
+    });
+  } catch (networkErr) {
+    const msg = networkErr instanceof Error ? networkErr.message : String(networkErr);
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'billing',
+        message: 'Stripe PaymentIntent fetch failed (network)',
+        org_id: opts.orgId,
+        site_id: opts.siteId ?? null,
+        error: msg,
+      }),
+    );
+    throw badRequest(`Could not reach Stripe. Please retry. (stripe_network_error)`);
+  }
+
+  if (!response.ok) {
+    const raw = await response.text();
+    const { code: stripeCode, message: stripeMsg, type: stripeType } = parseStripeError(raw);
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'billing',
+        message: 'Stripe PaymentIntent creation failed',
+        org_id: opts.orgId,
+        site_id: opts.siteId ?? null,
+        status: response.status,
+        stripe_error_code: stripeCode,
+        stripe_error_type: stripeType,
+        stripe_message: stripeMsg,
+      }),
+    );
+    sentryCaptureMessage(env, 'Stripe PaymentIntent error', 'warning', {
+      stripe_error_code: stripeCode,
+      stripe_error_type: stripeType,
+      stripe_status: response.status,
+      org_id: opts.orgId,
+      site_id: opts.siteId ?? null,
+      amount_cents: opts.amountCents,
+    }).catch(() => {});
+    throw badRequest(`Stripe payment failed (${stripeCode}): ${stripeMsg}`);
+  }
+
+  const pi = (await response.json()) as { id: string; client_secret: string };
+  console.warn(
+    JSON.stringify({
+      level: 'info',
+      service: 'billing',
+      message: 'PaymentIntent created',
+      org_id: opts.orgId,
+      payment_intent_id: pi.id,
+      amount_cents: opts.amountCents,
+      currency: opts.currency || PRICING.CURRENCY,
+    }),
+  );
+
+  return { client_secret: pi.client_secret, payment_intent_id: pi.id };
+}
+
+/**
  * Handle the `checkout.session.completed` Stripe webhook event.
  *
  * Updates the organisation's subscription row to `plan = 'paid'` and
