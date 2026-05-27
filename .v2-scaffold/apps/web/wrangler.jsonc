@@ -1,0 +1,72 @@
+{
+  // ProjectSites web worker — Angular 21 SSR at the edge.
+  // Companion to `cloudflare-worker/src/index.ts`. Built by `nx run web:build`.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "projectsites-web",
+  "main": "cloudflare-worker/src/index.ts",
+  "compatibility_date": "2026-05-26",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "minify": true,
+  "keep_vars": false,
+
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1.0,
+    "logs": { "enabled": true, "head_sampling_rate": 1.0 }
+  },
+
+  "assets": {
+    "directory": "../../dist/apps/web/browser",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "single-page-application"
+  },
+
+  "vars": {
+    "ENV": "production"
+  },
+
+  "services": [
+    {
+      "binding": "CONTROL_PLANE",
+      "service": "projectsites-control-plane"
+    }
+  ],
+
+  "placement": { "mode": "smart" },
+
+  "limits": {
+    "cpu_ms": 50
+  },
+
+  "env": {
+    "staging": {
+      "name": "projectsites-web-staging",
+      "vars": { "ENV": "staging" },
+      "services": [
+        { "binding": "CONTROL_PLANE", "service": "projectsites-control-plane-staging" }
+      ],
+      "assets": {
+        "directory": "../../dist/apps/web/browser",
+        "binding": "ASSETS",
+        "html_handling": "auto-trailing-slash",
+        "not_found_handling": "single-page-application"
+      }
+    },
+    "preview": {
+      "name": "projectsites-web-preview",
+      "vars": { "ENV": "preview" },
+      "services": [
+        { "binding": "CONTROL_PLANE", "service": "projectsites-control-plane-staging" }
+      ],
+      "assets": {
+        "directory": "../../dist/apps/web/browser",
+        "binding": "ASSETS",
+        "html_handling": "auto-trailing-slash",
+        "not_found_handling": "single-page-application"
+      }
+    }
+  }
+}

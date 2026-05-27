@@ -1,13 +1,18 @@
+/**
+ * `apps/mobile` root component — Ionic shell with a single router outlet.
+ * The dashboard shell from `@org/dashboard` renders inside the outlet
+ * so feature parity with `apps/web` is automatic.
+ */
 import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
-import { NxWelcome } from './nx-welcome';
+import { IonApp, IonRouterOutlet } from '@ionic/angular/standalone';
 
 @Component({
-  imports: [NxWelcome, RouterModule],
   selector: 'app-root',
-  templateUrl: './app.html',
+  imports: [IonApp, IonRouterOutlet, RouterModule],
+  template: `<ion-app><ion-router-outlet /></ion-app>`,
   styleUrl: './app.scss',
 })
 export class App {
-  protected title = 'mobile';
+  protected title = 'ProjectSites';
 }
