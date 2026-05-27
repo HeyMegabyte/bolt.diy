@@ -1,0 +1,144 @@
+// Captured design tokens as CSS custom properties.
+// AUDIT.md §4.1: the brand tokens existed only as `var(--ps-bg, #060610)`
+// fallback inlines in v1. This file materialises them on `:root` so any
+// stylesheet reading `var(--ps-bg)` without a fallback resolves correctly.
+//
+// Source of truth: ./extracted-tokens.ts
+// Keep this file in lockstep with that one — every token below has a
+// twin in the TS export.
+
+:root {
+  // Brand — dark-first
+  --ps-bg: #060610;
+  --ps-ink: #f4f4ff;
+  --ps-accent: #00e5ff;
+  --ps-accent-secondary: #7c3aed;
+
+  // Legacy Tailwind aliases (kept until full migration)
+  --ps-primary: #00e5ff;
+  --ps-primary-dim: rgba(0, 229, 255, 0.12);
+  --ps-secondary: #50aae3;
+  --ps-dark-card: #0c0c1e;
+  --ps-dark-surface: #111128;
+  --ps-light: #f0f0f8;
+  --ps-text-secondary: #94a3b8;
+
+  // Dark-first surface stack
+  --ps-surface-1: rgba(13, 13, 40, 0.85);
+  --ps-surface-2: rgba(10, 10, 30, 0.97);
+  --ps-surface-3: rgba(8, 8, 32, 0.98);
+  --ps-surface-glass: rgba(13, 13, 40, 0.62);
+
+  // Derived (color-mix in oklch)
+  --ps-accent-glow: color-mix(in oklch, var(--ps-accent) 35%, transparent);
+  --ps-accent-soft: color-mix(in oklch, var(--ps-accent) 14%, transparent);
+  --ps-accent-line: color-mix(in oklch, var(--ps-accent) 28%, transparent);
+  --ps-elev-1: color-mix(in oklch, var(--ps-bg) 92%, var(--ps-ink) 8%);
+  --ps-elev-2: color-mix(in oklch, var(--ps-bg) 85%, var(--ps-ink) 15%);
+  --ps-elev-3: color-mix(in oklch, var(--ps-bg) 78%, var(--ps-ink) 22%);
+  --ps-hairline: color-mix(in oklch, var(--ps-ink) 8%, transparent);
+  --ps-hairline-hi: color-mix(in oklch, var(--ps-ink) 14%, transparent);
+
+  // Typography
+  --ps-font-sans: 'Sora', system-ui, sans-serif;
+  --ps-font-heading: 'Space Grotesk', system-ui, sans-serif;
+  --ps-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  // Fluid clamp() type scale
+  --ps-text-xs: clamp(0.72rem, 0.7rem + 0.1vw, 0.78rem);
+  --ps-text-sm: clamp(0.82rem, 0.78rem + 0.2vw, 0.9rem);
+  --ps-text-base: clamp(0.95rem, 0.9rem + 0.25vw, 1rem);
+  --ps-text-lg: clamp(1.05rem, 1rem + 0.3vw, 1.15rem);
+  --ps-text-xl: clamp(1.2rem, 1.1rem + 0.5vw, 1.4rem);
+  --ps-text-2xl: clamp(1.5rem, 1.3rem + 1vw, 2rem);
+  --ps-text-3xl: clamp(1.875rem, 1.5rem + 1.875vw, 3rem);
+  --ps-text-4xl: clamp(2.25rem, 1.8rem + 2.25vw, 4rem);
+  --ps-text-5xl: clamp(3rem, 2.4rem + 3vw, 5rem);
+  --ps-text-6xl: clamp(3.75rem, 3rem + 3.75vw, 6rem);
+
+  // Radii
+  --ps-radius-xs: 6px;
+  --ps-radius-sm: 8px;
+  --ps-radius-md: 12px;
+  --ps-radius-lg: 16px;
+  --ps-radius-xl: 22px;
+
+  // Shadows
+  --ps-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --ps-shadow-md: 0 6px 18px -8px rgba(0, 0, 0, 0.42);
+  --ps-shadow-lg: 0 16px 40px -16px rgba(0, 0, 0, 0.55);
+  --ps-shadow-xl: 0 24px 64px -16px rgba(0, 0, 0, 0.7);
+  --ps-shadow-card: 0 6px 18px -8px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  --ps-shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.55),
+    0 0 80px rgba(0, 229, 255, 0.04);
+
+  // Motion
+  --ps-duration-fast: 140ms;
+  --ps-duration-base: 220ms;
+  --ps-duration-slow: 380ms;
+  --ps-easing-in: cubic-bezier(0.4, 0, 1, 1);
+  --ps-easing-out: cubic-bezier(0, 0, 0.2, 1);
+  --ps-easing-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --ps-easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  // Z-index
+  --ps-z-dropdown: 1000;
+  --ps-z-sticky: 1100;
+  --ps-z-modal-backdrop: 1900;
+  --ps-z-modal: 2000;
+  --ps-z-side-panel: 2050;
+  --ps-z-popover: 99950;
+  --ps-z-banner: 10000;
+  --ps-z-toast: 9999;
+  --ps-z-overlay-takeover: 2147483647;
+
+  // Focus
+  --ps-ring-focus: 2px solid #00ffc8;
+  --ps-ring-offset: 2px;
+
+  color-scheme: dark;
+}
+
+// Light-theme override
+[data-theme='light'] {
+  --ps-bg: #f7f7fc;
+  --ps-ink: #060610;
+  --ps-surface-1: rgba(255, 255, 255, 0.92);
+  --ps-surface-2: rgba(250, 250, 252, 0.97);
+  --ps-surface-3: rgba(244, 244, 248, 0.98);
+  --ps-surface-glass: rgba(255, 255, 255, 0.72);
+
+  color-scheme: light;
+}
+
+// Density modes — wired via <html data-density="…">
+[data-density='comfortable'] {
+  --ps-card-pad: 1.4rem;
+  --ps-row-pad: 0.5rem;
+  --ps-gap: 0.95rem;
+  --ps-font-base: 0.78rem;
+}
+
+[data-density='compact'] {
+  --ps-card-pad: 0.95rem;
+  --ps-row-pad: 0.3rem;
+  --ps-gap: 0.55rem;
+  --ps-font-base: 0.72rem;
+}
+
+[data-density='spacious'] {
+  --ps-card-pad: 1.85rem;
+  --ps-row-pad: 0.75rem;
+  --ps-gap: 1.4rem;
+  --ps-font-base: 0.85rem;
+}
+
+// Reduced-motion override
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ps-duration-fast: 1ms;
+    --ps-duration-base: 1ms;
+    --ps-duration-slow: 1ms;
+  }
+}
