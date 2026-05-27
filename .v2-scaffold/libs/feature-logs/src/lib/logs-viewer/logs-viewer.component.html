@@ -1,0 +1,87 @@
+<section class="logs-viewer" data-testid="logs-viewer">
+  <header class="toolbar" data-testid="logs-toolbar">
+    <button
+      type="button"
+      class="btn"
+      [class.is-active]="paused()"
+      (click)="togglePause()"
+      data-testid="logs-pause-btn"
+      [attr.aria-pressed]="paused()"
+    >
+      {{ paused() ? 'Resume' : 'Pause' }}
+    </button>
+
+    <button
+      type="button"
+      class="btn"
+      [class.is-active]="followMode()"
+      (click)="toggleFollow()"
+      data-testid="logs-follow-btn"
+      [attr.aria-pressed]="followMode()"
+    >
+      Follow
+    </button>
+
+    <div class="levels" role="group" aria-label="Log level filter">
+      @for (level of availableLevels; track level) {
+        <button
+          type="button"
+          class="lvl-chip"
+          [class.is-on]="levelSelections().includes(level)"
+          [class]="levelClass(level)"
+          (click)="toggleLevel(level)"
+          [attr.data-testid]="'logs-level-' + level"
+        >
+          {{ level }}
+        </button>
+      }
+    </div>
+
+    <label class="search">
+      <input
+        type="search"
+        [formControl]="searchCtrl"
+        placeholder="Search…"
+        data-testid="logs-search-input"
+        aria-label="Search log lines"
+      />
+    </label>
+
+    <input
+      type="datetime-local"
+      class="jump-to-time"
+      aria-label="Jump to timestamp"
+      data-testid="logs-jump-input"
+      (change)="jumpToTime($any($event.target).value)"
+    />
+  </header>
+
+  @if (!hasLines()) {
+    <p class="empty" data-testid="logs-empty">
+      Streaming… first line appears here.
+    </p>
+  }
+
+  <cdk-virtual-scroll-viewport
+    itemSize="22"
+    class="viewport"
+    data-testid="logs-viewport"
+  >
+    <div
+      *cdkVirtualFor="let line of visibleLines(); trackBy: trackByLine"
+      class="line"
+      [class]="levelClass(line.level)"
+      [attr.data-testid]="'logs-line'"
+      [attr.data-level]="line.level"
+      (dblclick)="copyLine(line)"
+    >
+      <time class="ts">{{ line.timestamp }}</time>
+      <span class="lvl">{{ line.level.toUpperCase() }}</span>
+      <span class="src">{{ line.source }}</span>
+      <span
+        class="msg"
+        [innerHTML]="highlight(line, searchTerm())"
+      ></span>
+    </div>
+  </cdk-virtual-scroll-viewport>
+</section>

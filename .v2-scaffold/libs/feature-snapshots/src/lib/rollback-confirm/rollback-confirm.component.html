@@ -1,0 +1,61 @@
+<div
+  class="backdrop"
+  role="presentation"
+  (click)="onBackdrop($event)"
+  data-testid="rollback-backdrop"
+>
+  <div
+    class="dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="rollback-title"
+    data-testid="rollback-dialog"
+  >
+    <h3 id="rollback-title">Rollback to iteration #{{ snapshot.iteration }}?</h3>
+
+    <p class="warning">
+      This replaces the current live site with snapshot
+      <code>{{ snapshot.id }}</code> captured at
+      <time>{{ snapshot.captured_at }}</time>. To confirm, type the site
+      slug <strong>{{ siteSlug }}</strong> below.
+    </p>
+
+    <label class="typed-field">
+      <span class="lbl">Type <code>{{ siteSlug }}</code> to confirm</span>
+      <input
+        type="text"
+        [formControl]="typedCtrl"
+        autocomplete="off"
+        spellcheck="false"
+        autocapitalize="off"
+        data-testid="rollback-typed-input"
+        [attr.aria-invalid]="typed().length > 0 && !canConfirm()"
+      />
+    </label>
+
+    @if (error()) {
+      <p class="error" role="alert" data-testid="rollback-error">{{ error() }}</p>
+    }
+
+    <div class="actions">
+      <button
+        type="button"
+        class="btn"
+        (click)="close.emit()"
+        [disabled]="busy()"
+        data-testid="rollback-cancel-btn"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="btn danger"
+        (click)="doRollback()"
+        [disabled]="!canConfirm()"
+        data-testid="rollback-confirm-btn"
+      >
+        {{ busy() ? 'Rolling back…' : 'Rollback' }}
+      </button>
+    </div>
+  </div>
+</div>

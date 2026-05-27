@@ -1,0 +1,68 @@
+<form
+  class="refund-request"
+  [formGroup]="form"
+  (ngSubmit)="submit()"
+  data-testid="refund-form"
+>
+  <p class="refund-request__intro">
+    Refund requests are reviewed manually within 1 business day. Submitting
+    does not automatically reverse the charge.
+  </p>
+
+  <label class="refund-request__field">
+    <span>Charge ID</span>
+    <input
+      pInputText
+      type="text"
+      formControlName="charge_id"
+      placeholder="ch_…"
+      data-testid="refund-charge-id"
+    />
+  </label>
+
+  <label class="refund-request__field">
+    <span>Reason</span>
+    <p-select
+      formControlName="reason"
+      [options]="reasons"
+      optionLabel="label"
+      optionValue="value"
+      placeholder="Select a reason"
+      data-testid="refund-reason"
+    />
+  </label>
+
+  <label class="refund-request__field">
+    <span>Notes (optional)</span>
+    <textarea
+      pTextarea
+      formControlName="notes"
+      rows="3"
+      placeholder="Anything our team should know"
+      data-testid="refund-notes"
+    ></textarea>
+  </label>
+
+  @if (error()) {
+    <p class="refund-request__error" role="alert">{{ error() }}</p>
+  }
+  @if (success()) {
+    <p class="refund-request__success" role="status">{{ success() }}</p>
+  }
+
+  <div class="refund-request__actions">
+    <p-button
+      type="button"
+      label="Cancel"
+      severity="secondary"
+      (onClick)="cancel()"
+      data-testid="refund-cancel"
+    />
+    <p-button
+      type="submit"
+      label="Submit request"
+      [loading]="busy()"
+      data-testid="refund-submit"
+    />
+  </div>
+</form>

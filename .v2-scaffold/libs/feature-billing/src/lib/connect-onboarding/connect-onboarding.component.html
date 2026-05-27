@@ -1,0 +1,32 @@
+<section class="connect-onboarding" data-testid="connect-onboarding">
+  <p-card>
+    <ng-template pTemplate="title">Stripe Connect onboarding</ng-template>
+    <ng-template pTemplate="content">
+      <p>
+        Connect Express enables crew payouts and lets your tenant sites accept
+        end-customer payments directly. A <strong>1.5% Connect fee</strong>
+        applies in addition to standard Stripe processing.
+      </p>
+      <ul class="connect-onboarding__steps">
+        <li>Verify identity (KYC) with Stripe</li>
+        <li>Add a bank account for payouts</li>
+        <li>Return here to wire your live secret keys</li>
+      </ul>
+      @if (error()) {
+        <p class="connect-onboarding__error" role="alert">{{ error() }}</p>
+      }
+      @if (expiresAt()) {
+        <p class="connect-onboarding__expiry">
+          Onboarding link expires {{ expiresAt() | date: 'short' }}
+        </p>
+      }
+      <p-button
+        label="Start onboarding"
+        icon="pi pi-external-link"
+        [loading]="busy()"
+        data-testid="start-connect-btn"
+        (onClick)="startOnboarding()"
+      />
+    </ng-template>
+  </p-card>
+</section>

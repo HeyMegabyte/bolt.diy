@@ -1,0 +1,40 @@
+:host {
+  display: block;
+}
+
+.refund-request {
+  display: grid;
+  gap: 16px;
+}
+
+.refund-request__intro {
+  margin: 0;
+  font-size: 0.85rem;
+  color: color-mix(in oklch, currentColor 65%, transparent);
+}
+
+.refund-request__field {
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.refund-request__field span {
+  font-weight: 500;
+}
+
+.refund-request__error {
+  color: #ff5a5a;
+  font-size: 0.85rem;
+}
+
+.refund-request__success {
+  color: #50e3a4;
+  font-size: 0.85rem;
+}
+
+.refund-request__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}

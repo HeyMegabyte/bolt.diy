@@ -1,0 +1,56 @@
+<div class="upgrade-dialog" data-testid="upgrade-dialog-body">
+  @if (!clientSecret()) {
+    <ul class="upgrade-dialog__tiers">
+      @for (t of tiers; track t.id) {
+        <li>
+          <label class="upgrade-dialog__tier">
+            <p-radioButton
+              [value]="t.id"
+              [(ngModel)]="selectedTier"
+              name="tier"
+              [inputId]="'tier-' + t.id"
+            />
+            <div class="upgrade-dialog__tier-body">
+              <strong>{{ t.name }}</strong>
+              <span class="upgrade-dialog__tier-desc">{{ t.description }}</span>
+              <ul class="upgrade-dialog__tier-features">
+                @for (f of t.features; track f) {
+                  <li>{{ f }}</li>
+                }
+              </ul>
+            </div>
+          </label>
+        </li>
+      }
+    </ul>
+    @if (error()) {
+      <p class="upgrade-dialog__error" role="alert">{{ error() }}</p>
+    }
+    <div class="upgrade-dialog__actions">
+      <p-button
+        label="Cancel"
+        severity="secondary"
+        (onClick)="cancel()"
+        data-testid="upgrade-cancel"
+      />
+      <p-button
+        label="Continue to checkout"
+        [loading]="busy()"
+        (onClick)="startCheckout()"
+        data-testid="upgrade-continue"
+      />
+    </div>
+  } @else {
+    <div
+      #checkoutMount
+      class="upgrade-dialog__checkout"
+      data-testid="stripe-embedded-checkout"
+      [attr.data-client-secret]="clientSecret()"
+    >
+      <!-- Stripe Embedded Checkout (Link) mounts here via stripe-js -->
+      <noscript>
+        Stripe Embedded Checkout requires JavaScript.
+      </noscript>
+    </div>
+  }
+</div>

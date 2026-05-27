@@ -1,0 +1,34 @@
+<h2 class="ps-section-title">Active sessions across team</h2>
+<ng-container *ngIf="sessions$ | async as sessions">
+  <table class="ps-sessions-table" *ngIf="sessions.length > 0; else empty">
+    <thead>
+      <tr>
+        <th scope="col">Member</th>
+        <th scope="col">Device</th>
+        <th scope="col">IP</th>
+        <th scope="col">Last seen</th>
+        <th scope="col"><span class="sr-only">Actions</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let s of sessions; trackBy: trackSession">
+        <td>{{ s.user_email }}</td>
+        <td>{{ s.device }}</td>
+        <td>{{ s.ip }}</td>
+        <td>{{ s.last_seen_at | date: 'short' }}</td>
+        <td class="ps-actions">
+          <button
+            type="button"
+            class="ps-btn ps-btn--danger"
+            (click)="revoke(s.session_id)"
+          >
+            Revoke
+          </button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <ng-template #empty>
+    <p class="ps-empty">No active sessions.</p>
+  </ng-template>
+</ng-container>

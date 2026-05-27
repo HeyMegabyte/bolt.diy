@@ -1,0 +1,23 @@
+:host {
+  display: block;
+  padding: clamp(16px, 2vw, 32px);
+}
+
+.connect-onboarding__steps {
+  padding-left: 20px;
+  margin: 12px 0 16px;
+}
+
+.connect-onboarding__steps li {
+  margin-bottom: 6px;
+}
+
+.connect-onboarding__error {
+  color: #ff5a5a;
+  font-size: 0.85rem;
+}
+
+.connect-onboarding__expiry {
+  font-size: 0.8rem;
+  color: color-mix(in oklch, currentColor 60%, transparent);
+}

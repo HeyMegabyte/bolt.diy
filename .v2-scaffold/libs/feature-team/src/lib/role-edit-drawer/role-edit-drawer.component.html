@@ -1,0 +1,54 @@
+<aside
+  class="ps-drawer"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="role-drawer-title"
+  data-testid="role-drawer"
+>
+  <header class="ps-drawer-head">
+    <h2 id="role-drawer-title">Permissions · {{ member.name ?? member.email }}</h2>
+    <button
+      type="button"
+      class="ps-btn ps-btn--ghost"
+      (click)="cancel()"
+      aria-label="Close drawer"
+    >
+      ✕
+    </button>
+  </header>
+
+  <div class="ps-drawer-body">
+    <label class="ps-field">
+      <span>Workspace role</span>
+      <select [(ngModel)]="selectedRole" name="role" class="ps-select">
+        <option *ngFor="let r of roles" [value]="r">{{ r }}</option>
+      </select>
+    </label>
+
+    <fieldset class="ps-toggle-group">
+      <legend>Resource overrides</legend>
+      <label
+        *ngFor="let t of resourceToggles"
+        class="ps-toggle"
+      >
+        <input type="checkbox" [(ngModel)]="t.enabled" [name]="t.key" />
+        <span>{{ t.label }}</span>
+      </label>
+    </fieldset>
+  </div>
+
+  <footer class="ps-drawer-foot">
+    <button type="button" class="ps-btn ps-btn--ghost" (click)="cancel()">
+      Cancel
+    </button>
+    <button
+      type="button"
+      class="ps-btn ps-btn--primary"
+      (click)="save()"
+      [disabled]="submitting()"
+      data-testid="role-drawer-save"
+    >
+      {{ submitting() ? 'Saving…' : 'Save changes' }}
+    </button>
+  </footer>
+</aside>

@@ -1,0 +1,67 @@
+:host {
+  display: block;
+}
+
+.upgrade-dialog__tiers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.upgrade-dialog__tier {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklch, currentColor 15%, transparent);
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+
+.upgrade-dialog__tier:hover {
+  border-color: color-mix(in oklch, currentColor 30%, transparent);
+}
+
+.upgrade-dialog__tier-body {
+  display: grid;
+  gap: 4px;
+}
+
+.upgrade-dialog__tier-desc {
+  font-size: 0.85rem;
+  color: color-mix(in oklch, currentColor 65%, transparent);
+}
+
+.upgrade-dialog__tier-features {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  font-size: 0.8rem;
+}
+
+.upgrade-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.upgrade-dialog__error {
+  margin: 12px 0 0;
+  color: #ff5a5a;
+  font-size: 0.85rem;
+}
+
+.upgrade-dialog__checkout {
+  min-height: 420px;
+  border-radius: 12px;
+  background: color-mix(in oklch, currentColor 4%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upgrade-dialog__tier {
+    transition: none;
+  }
+}

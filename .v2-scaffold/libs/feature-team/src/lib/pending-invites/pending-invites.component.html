@@ -1,0 +1,41 @@
+<h2 class="ps-section-title">Pending invites</h2>
+<table class="ps-invite-table" *ngIf="invites.length > 0; else empty">
+  <thead>
+    <tr>
+      <th scope="col">Email</th>
+      <th scope="col">Role</th>
+      <th scope="col">Sent</th>
+      <th scope="col">Expires</th>
+      <th scope="col"><span class="sr-only">Actions</span></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let invite of invites; trackBy: trackInvite">
+      <td>{{ invite.email }}</td>
+      <td class="ps-role">{{ invite.workspace_role }}</td>
+      <td>{{ invite.invited_at | date: 'mediumDate' }}</td>
+      <td>{{ invite.expires_at | date: 'mediumDate' }}</td>
+      <td class="ps-actions">
+        <button
+          type="button"
+          class="ps-btn ps-btn--ghost"
+          (click)="resend(invite)"
+          data-testid="pending-resend"
+        >
+          Resend
+        </button>
+        <button
+          type="button"
+          class="ps-btn ps-btn--danger"
+          (click)="revoke(invite)"
+          data-testid="pending-revoke"
+        >
+          Revoke
+        </button>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<ng-template #empty>
+  <p class="ps-empty">No pending invites. Send one from the button above.</p>
+</ng-template>

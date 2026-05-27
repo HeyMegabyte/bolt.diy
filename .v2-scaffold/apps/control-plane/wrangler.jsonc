@@ -1,0 +1,68 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "projectsites-control-plane",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-26",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "api.projectsites.dev/*", "zone_name": "projectsites.dev" },
+    { "pattern": "webhooks.projectsites.dev/*", "zone_name": "projectsites.dev" }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "projectsites-platform",
+      "database_id": "REPLACE_WITH_PLATFORM_D1_ID",
+      "migrations_dir": "src/migrations"
+    }
+  ],
+  "kv_namespaces": [
+    { "binding": "CACHE", "id": "REPLACE_WITH_CACHE_KV_ID" },
+    { "binding": "SESSION_STORE", "id": "REPLACE_WITH_SESSION_KV_ID" },
+    { "binding": "KV_HOST_CACHE", "id": "REPLACE_WITH_HOST_CACHE_KV_ID" },
+    { "binding": "KV_FLAGS", "id": "REPLACE_WITH_FLAGS_KV_ID" },
+    { "binding": "KV_PROMPT_OVERRIDES", "id": "REPLACE_WITH_PROMPT_KV_ID" }
+  ],
+  "r2_buckets": [
+    { "binding": "BUCKET", "bucket_name": "projectsites-platform-production" }
+  ],
+  "ai": { "binding": "AI" },
+  "durable_objects": {
+    "bindings": [
+      { "name": "LOG_HUB", "class_name": "SiteLogStream" },
+      { "name": "JOB_CHAT_HUB", "class_name": "JobChatRoom" },
+      { "name": "JOB_TRACKING_HUB", "class_name": "JobTrackingHub" },
+      { "name": "NOTIFICATION_HUB", "class_name": "UserNotificationQueue" },
+      { "name": "VOICE_ORCHESTRATOR", "class_name": "VoiceOrchestrator" }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "SiteLogStream",
+        "JobChatRoom",
+        "JobTrackingHub",
+        "UserNotificationQueue",
+        "VoiceOrchestrator"
+      ]
+    }
+  ],
+  "services": [
+    { "binding": "TENANT_RUNTIME", "service": "projectsites-tenant-runtime" }
+  ],
+  "vars": {
+    "ENVIRONMENT": "production",
+    "AI_GATEWAY_ENABLED": "true",
+    "AI_GATEWAY_PROJECT": "projectsites",
+    "PLATFORM_TAKE_RATE_BPS": "1200",
+    "DIRECT_TAKE_RATE_BPS": "150",
+    "PROMO_TAKE_RATE_BPS": "800",
+    "PROMO_DAYS": "30"
+  }
+}

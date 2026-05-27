@@ -1,0 +1,83 @@
+:host {
+  display: block;
+  padding: 24px 32px;
+  color: var(--ps-ink, #f4f4ff);
+}
+
+.ps-team-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.ps-team-title {
+  font-size: clamp(1.5rem, 1vw + 1.25rem, 2rem);
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.ps-team-sub {
+  margin: 0;
+  color: color-mix(in oklch, currentColor 60%, transparent);
+  font-size: 0.875rem;
+}
+
+.ps-team-section {
+  margin-bottom: 32px;
+}
+
+.ps-team-grid {
+  width: 100%;
+  height: clamp(360px, 50vh, 640px);
+  border-radius: var(--ps-radius-xl, 22px);
+  overflow: hidden;
+}
+
+.ps-btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.ps-btn--primary {
+  background: var(--ps-accent, #00e5ff);
+  color: #06121a;
+}
+.ps-btn--primary:hover { filter: brightness(1.05); }
+.ps-btn--ghost {
+  background: transparent;
+  color: var(--ps-ink, #f4f4ff);
+  border: 1px solid color-mix(in oklch, currentColor 20%, transparent);
+  margin-right: 8px;
+}
+.ps-btn--danger {
+  background: transparent;
+  color: #ff7a7a;
+  border: 1px solid color-mix(in oklch, #ff7a7a 40%, transparent);
+}
+
+:host ::ng-deep .ps-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+:host ::ng-deep .ps-avatar--initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, #0a0a18);
+  color: var(--ps-ink, #f4f4ff);
+  font-weight: 600;
+}
+:host ::ng-deep .ps-platform-role {
+  text-transform: capitalize;
+  color: color-mix(in oklch, var(--ps-accent, #00e5ff) 70%, var(--ps-ink, #f4f4ff));
+  font-variant-numeric: tabular-nums;
+}

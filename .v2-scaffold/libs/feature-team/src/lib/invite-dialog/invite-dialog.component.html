@@ -1,0 +1,84 @@
+<div
+  class="ps-modal-backdrop"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="invite-dialog-title"
+  data-testid="invite-dialog"
+>
+  <div class="ps-modal">
+    <header class="ps-modal-head">
+      <h2 id="invite-dialog-title">Invite people</h2>
+      <button
+        type="button"
+        class="ps-btn ps-btn--ghost"
+        (click)="cancel()"
+        aria-label="Close dialog"
+      >
+        ✕
+      </button>
+    </header>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <ul class="ps-invite-rows" formArrayName="rows">
+        <li
+          *ngFor="let row of rows.controls; let i = index"
+          [formGroupName]="i"
+          class="ps-invite-row"
+        >
+          <label class="sr-only" [attr.for]="'invite-email-' + i">Email</label>
+          <input
+            [id]="'invite-email-' + i"
+            type="email"
+            placeholder="teammate@example.com"
+            formControlName="email"
+            autocomplete="off"
+            [attr.data-testid]="'invite-email-' + i"
+            class="ps-input"
+          />
+          <label class="sr-only" [attr.for]="'invite-role-' + i">Role</label>
+          <select
+            [id]="'invite-role-' + i"
+            formControlName="role"
+            class="ps-select"
+          >
+            <option *ngFor="let r of roles" [value]="r">{{ r }}</option>
+          </select>
+          <button
+            type="button"
+            class="ps-btn ps-btn--ghost"
+            (click)="removeRow(i)"
+            [disabled]="rows.length === 1"
+            aria-label="Remove row"
+          >
+            ✕
+          </button>
+        </li>
+      </ul>
+
+      <button
+        type="button"
+        class="ps-btn ps-btn--ghost"
+        (click)="addRow()"
+        data-testid="invite-add-row"
+      >
+        + Add another
+      </button>
+
+      <p *ngIf="error()" class="ps-form-error" role="alert">{{ error() }}</p>
+
+      <footer class="ps-modal-foot">
+        <button type="button" class="ps-btn ps-btn--ghost" (click)="cancel()">
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="ps-btn ps-btn--primary"
+          data-testid="invite-submit"
+          [disabled]="submitting()"
+        >
+          {{ submitting() ? 'Sending…' : 'Send invites' }}
+        </button>
+      </footer>
+    </form>
+  </div>
+</div>

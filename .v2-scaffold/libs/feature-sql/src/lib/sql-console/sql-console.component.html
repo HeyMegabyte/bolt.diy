@@ -1,0 +1,114 @@
+<section class="sql" data-testid="sql-console">
+  <header class="toolbar">
+    <button
+      type="button"
+      class="btn primary"
+      [disabled]="busy()"
+      (click)="run()"
+      data-testid="sql-run-btn"
+    >
+      {{ busy() ? 'Running…' : pendingConfirm() ? 'Confirm dangerous run' : 'Run' }}
+    </button>
+
+    <label class="toggle">
+      <input
+        type="checkbox"
+        [checked]="writeMode()"
+        (change)="toggleWriteMode()"
+        data-testid="sql-write-toggle"
+      />
+      Write mode
+    </label>
+
+    <label class="toggle">
+      <input
+        type="checkbox"
+        [checked]="safeMode()"
+        (change)="toggleSafeMode()"
+        data-testid="sql-safemode-toggle"
+      />
+      Safe mode
+    </label>
+
+    <span class="grow"></span>
+
+    <button
+      type="button"
+      class="btn"
+      (click)="exportCsv()"
+      [disabled]="!result()"
+      data-testid="sql-export-csv"
+    >
+      Export CSV
+    </button>
+    <button
+      type="button"
+      class="btn"
+      (click)="exportJson()"
+      [disabled]="!result()"
+      data-testid="sql-export-json"
+    >
+      Export JSON
+    </button>
+  </header>
+
+  <div class="editor" data-testid="sql-editor-shell">
+    <!-- TODO: lock in once @ng-monaco/monaco-editor lands. Until then, a
+         textarea with the same data-testid keeps specs + UX serviceable. -->
+    <textarea
+      class="textarea"
+      [formControl]="queryCtrl"
+      spellcheck="false"
+      data-testid="sql-editor-input"
+      [attr.aria-label]="'SQL editor'"
+    ></textarea>
+
+    <aside class="completions" aria-label="Schema completions">
+      <h4>Schema</h4>
+      <ul data-testid="sql-completions">
+        @for (c of completions(); track c) {
+          <li><code>{{ c }}</code></li>
+        }
+      </ul>
+    </aside>
+  </div>
+
+  @if (error()) {
+    <p class="error" role="alert" data-testid="sql-error">{{ error() }}</p>
+  }
+
+  @if (result(); as r) {
+    <div class="results" data-testid="sql-results">
+      <p class="stats">
+        {{ r.rows.length }} rows • read {{ r.rows_read }} • wrote {{ r.rows_written }}
+        • {{ r.duration_ms }} ms
+      </p>
+      <ag-grid-angular
+        class="ag-theme-quartz-dark grid"
+        [rowData]="rowData()"
+        [columnDefs]="colDefs()"
+        data-testid="sql-results-grid"
+        style="height: 360px"
+      />
+    </div>
+  }
+
+  <section class="history" aria-labelledby="history-h">
+    <h4 id="history-h">Recent queries</h4>
+    <ul data-testid="sql-history">
+      @for (h of history(); track trackByEntry($index, h)) {
+        <li
+          [class.failed]="!h.success"
+          (click)="rerunHistory(h)"
+          data-testid="sql-history-entry"
+        >
+          <time>{{ h.executed_at }}</time>
+          <code>{{ h.sql }}</code>
+          <span class="metrics">
+            {{ h.rows_returned }} rows • {{ h.duration_ms }} ms
+          </span>
+        </li>
+      }
+    </ul>
+  </section>
+</section>

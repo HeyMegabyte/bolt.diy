@@ -1,0 +1,211 @@
+<section class="billing-page" data-testid="billing-page">
+  <header class="billing-page__header">
+    <h1 class="billing-page__title">Billing</h1>
+    <div class="billing-page__actions">
+      <p-button
+        label="Upgrade plan"
+        icon="pi pi-arrow-up-right"
+        severity="primary"
+        data-testid="upgrade-btn"
+        (onClick)="openUpgradeDialog()"
+      />
+      <p-button
+        label="Customer portal"
+        icon="pi pi-external-link"
+        severity="secondary"
+        [loading]="portalBusy()"
+        data-testid="portal-btn"
+        (onClick)="openCustomerPortal()"
+      />
+    </div>
+  </header>
+
+  @if (portalError()) {
+    <div class="billing-page__error" role="alert">{{ portalError() }}</div>
+  }
+
+  <div class="billing-page__grid">
+    <p-card styleClass="billing-page__plan-card" data-testid="plan-card">
+      <ng-template pTemplate="title">
+        @if (subscription(); as sub) {
+          <span class="plan-card__tier">{{ sub.plan_tier }}</span>
+        } @else {
+          <span class="plan-card__tier">—</span>
+        }
+        <p-tag value="Current plan" severity="info" />
+      </ng-template>
+      <ng-template pTemplate="content">
+        <dl class="plan-card__stats">
+          <div>
+            <dt>Monthly base</dt>
+            <dd>{{ baseMonthlyCents / 100 | currency }}</dd>
+          </div>
+          <div>
+            <dt>Included requests</dt>
+            <dd>{{ includedRequests.toLocaleString() }}</dd>
+          </div>
+          <div>
+            <dt>Overage rate</dt>
+            <dd>$0.001 / request</dd>
+          </div>
+          <div>
+            <dt>Projected this period</dt>
+            <dd data-testid="projected-month">
+              {{ projectedMonthCents() / 100 | currency }}
+            </dd>
+          </div>
+          @if (subscription()?.renews_at) {
+            <div>
+              <dt>Renews</dt>
+              <dd>{{ subscription()!.renews_at! | date: 'mediumDate' }}</dd>
+            </div>
+          }
+        </dl>
+        <p-button
+          label="Request refund"
+          icon="pi pi-undo"
+          severity="secondary"
+          size="small"
+          data-testid="refund-btn"
+          (onClick)="openRefundDialog()"
+        />
+      </ng-template>
+    </p-card>
+
+    <p-card styleClass="billing-page__usage-card" data-testid="usage-meter">
+      <ng-template pTemplate="title">
+        <span>Usage this period</span>
+        <p-tag
+          [value]="progressColor() === 'danger' ? 'Over quota' : progressColor() === 'warning' ? 'Approaching limit' : 'Healthy'"
+          [severity]="progressColor()"
+        />
+      </ng-template>
+      <ng-template pTemplate="content">
+        <div class="usage-card__counts">
+          <span class="usage-card__counts-current" data-testid="usage-current">
+            {{ usage().period_requests.toLocaleString() }}
+          </span>
+          <span class="usage-card__counts-divider">/</span>
+          <span class="usage-card__counts-total">
+            {{ usage().included.toLocaleString() }}
+          </span>
+          <span class="usage-card__counts-label">requests</span>
+        </div>
+        <p-progressBar
+          [value]="usage().pct"
+          [showValue]="true"
+          [styleClass]="progressClass()"
+        />
+        @if (usage().projected_period_overage_cents > 0) {
+          <p class="usage-card__overage">
+            Projected overage:
+            <strong data-testid="overage-projection">
+              {{ usage().projected_period_overage_cents / 100 | currency }}
+            </strong>
+          </p>
+        }
+        @if (usage().updated_at) {
+          <p class="usage-card__updated">
+            Last update: {{ usage().updated_at | date: 'short' }}
+          </p>
+        }
+      </ng-template>
+    </p-card>
+
+    <p-card styleClass="billing-page__payouts-card" data-testid="connect-card">
+      <ng-template pTemplate="title">Payouts (Stripe Connect)</ng-template>
+      <ng-template pTemplate="content">
+        <p>
+          Crew payouts + tenant-site payment acceptance route through Stripe
+          Connect Express. 1.5% Connect fee on top of standard processing.
+        </p>
+        <p-button
+          label="Connect onboarding"
+          icon="pi pi-id-card"
+          severity="secondary"
+          data-testid="connect-onboarding-btn"
+          (onClick)="goToConnectOnboarding()"
+        />
+      </ng-template>
+    </p-card>
+
+    <p-card styleClass="billing-page__methods-card" data-testid="methods-card">
+      <ng-template pTemplate="title">Payment methods</ng-template>
+      <ng-template pTemplate="content">
+        @if (paymentMethods().length === 0) {
+          <p class="methods-card__empty">
+            No saved methods. Manage them inside the Stripe Customer Portal.
+          </p>
+        } @else {
+          <ul class="methods-card__list">
+            @for (m of paymentMethods(); track m.id) {
+              <li>
+                <span class="methods-card__brand">{{ m.brand }}</span>
+                <span class="methods-card__last4">•••• {{ m.last4 }}</span>
+                <span class="methods-card__exp">
+                  {{ m.exp_month }}/{{ m.exp_year }}
+                </span>
+                @if (m.is_default) {
+                  <p-tag value="Default" severity="info" />
+                }
+              </li>
+            }
+          </ul>
+        }
+      </ng-template>
+    </p-card>
+  </div>
+
+  <section class="billing-page__invoices">
+    <header>
+      <h2>Recent invoices</h2>
+      <p-button
+        label="View receipts"
+        icon="pi pi-receipt"
+        severity="secondary"
+        size="small"
+        data-testid="receipts-btn"
+        (onClick)="goToReceipts()"
+      />
+    </header>
+    <div class="billing-page__grid-wrap ag-theme-alpine-dark" data-testid="invoices-grid">
+      <ag-grid-angular
+        [rowData]="invoices()"
+        [columnDefs]="invoiceCols"
+        [domLayout]="'autoHeight'"
+        [animateRows]="true"
+        [suppressCellFocus]="true"
+      />
+    </div>
+  </section>
+
+  <p-dialog
+    [(visible)]="upgradeDialogOpen"
+    [modal]="true"
+    [closable]="true"
+    [draggable]="false"
+    header="Upgrade plan"
+    [style]="{ width: '560px' }"
+    data-testid="upgrade-dialog"
+    (onHide)="closeUpgradeDialog()"
+  >
+    @defer (on interaction(upgradeTrigger)) {
+      <lib-upgrade-dialog (closed)="closeUpgradeDialog()" />
+    } @placeholder {
+      <div #upgradeTrigger>Loading upgrade flow…</div>
+    }
+  </p-dialog>
+
+  <p-dialog
+    [(visible)]="refundDialogOpen"
+    [modal]="true"
+    [closable]="true"
+    [draggable]="false"
+    header="Request a refund"
+    [style]="{ width: '480px' }"
+    data-testid="refund-dialog"
+    (onHide)="closeRefundDialog()"
+  >
+    <lib-refund-request (closed)="closeRefundDialog()" />
+  </p-dialog>
+</section>

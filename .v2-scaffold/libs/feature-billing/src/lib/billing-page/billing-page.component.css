@@ -1,0 +1,168 @@
+:host {
+  --ps-radius-xl: 22px;
+  display: block;
+  padding: clamp(16px, 2vw, 32px);
+  color: var(--ps-ink, #f4f4ff);
+}
+
+.billing-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.billing-page__title {
+  font-size: clamp(1.4rem, 1.4vw + 1rem, 2.1rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.billing-page__actions {
+  display: flex;
+  gap: 12px;
+}
+
+.billing-page__error {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: color-mix(in oklch, #ff5a5a 20%, transparent);
+  border: 1px solid color-mix(in oklch, #ff5a5a 50%, transparent);
+  color: oklch(from #ff5a5a max(l, 0.85) max(c, 0.18) h);
+}
+
+.billing-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.plan-card__tier {
+  font-size: 1.4rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  margin-right: 8px;
+}
+
+.plan-card__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 24px;
+  margin: 0 0 16px;
+}
+
+.plan-card__stats dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in oklch, currentColor 60%, transparent);
+}
+
+.plan-card__stats dd {
+  margin: 4px 0 0;
+  font-size: 1rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-card__counts {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.usage-card__counts-current {
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-card__counts-divider {
+  font-size: 1.2rem;
+  color: color-mix(in oklch, currentColor 40%, transparent);
+}
+
+.usage-card__counts-total,
+.usage-card__counts-label {
+  font-size: 1rem;
+  color: color-mix(in oklch, currentColor 60%, transparent);
+}
+
+:host ::ng-deep .usage-meter--success .p-progressbar-value {
+  background: linear-gradient(90deg, #00e5ff, #50aae3);
+}
+
+:host ::ng-deep .usage-meter--warning .p-progressbar-value {
+  background: linear-gradient(90deg, #ffb84d, #ff9100);
+}
+
+:host ::ng-deep .usage-meter--danger .p-progressbar-value {
+  background: linear-gradient(90deg, #ff5a5a, #ff2d2d);
+}
+
+.usage-card__overage {
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+}
+
+.usage-card__updated {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: color-mix(in oklch, currentColor 50%, transparent);
+}
+
+.methods-card__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.methods-card__list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.methods-card__brand {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.methods-card__empty {
+  font-size: 0.9rem;
+  color: color-mix(in oklch, currentColor 65%, transparent);
+}
+
+.billing-page__invoices header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.billing-page__invoices h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.billing-page__grid-wrap {
+  min-height: 220px;
+  border-radius: var(--ps-radius-xl);
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host ::ng-deep .p-progressbar-value {
+    transition: none !important;
+  }
+}

@@ -1,0 +1,52 @@
+<ng-container *ngIf="viewModel$ | async as vm">
+  <header class="ps-team-header">
+    <div>
+      <h1 class="ps-team-title">Team</h1>
+      <p class="ps-team-sub">
+        {{ vm.memberCount }} member{{ vm.memberCount === 1 ? '' : 's' }} ·
+        {{ vm.pendingCount }} pending invite{{ vm.pendingCount === 1 ? '' : 's' }}
+      </p>
+    </div>
+    <button
+      type="button"
+      class="ps-btn ps-btn--primary"
+      data-testid="team-invite-cta"
+      (click)="openInvite()"
+    >
+      Invite people
+    </button>
+  </header>
+
+  <section class="ps-team-section" aria-label="Workspace members">
+    <ag-grid-angular
+      class="ag-theme-quartz-dark ps-team-grid"
+      [rowData]="vm.members"
+      [columnDefs]="columnDefs"
+      [gridOptions]="gridOptions"
+      [getRowId]="trackMember"
+      data-testid="team-members-grid"
+    />
+  </section>
+
+  <section class="ps-team-section" aria-label="Pending invites">
+    <lib-pending-invites
+      [invites]="vm.pending"
+      (changed)="onPendingChanged()"
+    />
+  </section>
+
+  <section class="ps-team-section" aria-label="Active sessions">
+    <lib-active-sessions-view />
+  </section>
+
+  <lib-invite-dialog
+    *ngIf="inviteOpen"
+    (closed)="onInviteClosed($event)"
+  />
+
+  <lib-role-edit-drawer
+    *ngIf="drawerMember"
+    [member]="drawerMember"
+    (closed)="onDrawerClosed($event)"
+  />
+</ng-container>

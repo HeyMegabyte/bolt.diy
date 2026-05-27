@@ -1,0 +1,131 @@
+:host {
+  display: block;
+  block-size: 100%;
+  color: var(--ps-ink, #f4f4ff);
+  background: var(--ps-bg, #060610);
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.logs-viewer {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-block-end: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 12%, transparent);
+  background: color-mix(in oklch, var(--ps-bg, #060610) 90%, transparent);
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 18%, transparent);
+  background: transparent;
+  color: inherit;
+  padding: 0.3rem 0.7rem;
+  border-radius: 0.5rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.btn.is-active {
+  background: var(--ps-accent, #00e5ff);
+  color: #02020a;
+  border-color: transparent;
+}
+
+.levels {
+  display: inline-flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.lvl-chip {
+  appearance: none;
+  border: 1px solid currentColor;
+  background: transparent;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  color: color-mix(in oklch, currentColor 60%, transparent);
+}
+
+.lvl-chip.is-on {
+  color: inherit;
+  background: color-mix(in oklch, currentColor 8%, transparent);
+}
+
+.lvl-trace { color: #94a3b8; }
+.lvl-debug { color: #60a5fa; }
+.lvl-info  { color: #34d399; }
+.lvl-warn  { color: #fbbf24; }
+.lvl-error { color: #f87171; }
+.lvl-fatal { color: #f472b6; }
+
+.search input,
+.jump-to-time {
+  appearance: none;
+  background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent);
+  color: inherit;
+  border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 18%, transparent);
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.5rem;
+  font: inherit;
+}
+
+.empty {
+  padding: 1rem;
+  color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent);
+}
+
+.viewport {
+  flex: 1 1 auto;
+  block-size: 100%;
+  min-block-size: 400px;
+  overflow: auto;
+  contain: strict;
+}
+
+.line {
+  display: grid;
+  grid-template-columns: 11rem 4rem 8rem 1fr;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding-inline: 0.75rem;
+  line-height: 22px;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.line:hover {
+  background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 6%, transparent);
+}
+
+.line .ts {
+  color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent);
+}
+
+.line .lvl {
+  font-weight: 600;
+}
+
+.line .src {
+  color: color-mix(in oklch, var(--ps-accent, #00e5ff) 80%, var(--ps-ink, #f4f4ff) 20%);
+}
+
+.line .msg :is(mark) {
+  background: color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent);
+  color: inherit;
+  padding-inline: 0.15em;
+  border-radius: 0.25em;
+}

@@ -1,0 +1,134 @@
+<section class="snapshots" data-testid="snapshots-list">
+  <header class="bar">
+    <h2 class="title">Snapshots &amp; Deploy History</h2>
+    <div class="view-toggle" role="tablist" aria-label="View mode">
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="view() === 'timeline'"
+        [class.is-active]="view() === 'timeline'"
+        (click)="setView('timeline')"
+        data-testid="snapshots-view-timeline"
+      >
+        Timeline
+      </button>
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="view() === 'grid'"
+        [class.is-active]="view() === 'grid'"
+        (click)="setView('grid')"
+        data-testid="snapshots-view-grid"
+      >
+        Grid
+      </button>
+    </div>
+  </header>
+
+  @if (!hasRows()) {
+    <p class="empty" data-testid="snapshots-empty">
+      No snapshots yet — they appear after every successful build.
+    </p>
+  }
+
+  @if (view() === 'grid' && hasRows()) {
+    <ag-grid-angular
+      class="ag-theme-quartz-dark grid"
+      [rowData]="sortedRows()"
+      [columnDefs]="colDefs"
+      data-testid="snapshots-grid"
+      style="height: 480px"
+    />
+  }
+
+  @if (view() === 'timeline' && hasRows()) {
+    <ol class="timeline" data-testid="snapshots-timeline">
+      @for (snap of sortedRows(); track trackById($index, snap)) {
+        <li
+          class="card"
+          [attr.data-testid]="'snapshot-card'"
+          [attr.data-snapshot-id]="snap.id"
+        >
+          <figure class="screenshot">
+            <img
+              [src]="snap.screenshot_url"
+              [alt]="'Homepage screenshot at iteration ' + snap.iteration"
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
+
+          <div class="meta">
+            <div class="meta-head">
+              <span class="iteration">#{{ snap.iteration }}</span>
+              <time [attr.datetime]="snap.captured_at">{{ snap.captured_at }}</time>
+            </div>
+
+            <p class="desc" data-testid="snapshot-ai-description">
+              {{ snap.ai_description || 'No AI description for this snapshot.' }}
+            </p>
+
+            <ul class="scores" data-testid="snapshot-scores">
+              @for (key of lighthouseKeys; track key) {
+                <li
+                  class="score"
+                  [class]="scoreClass(scoreFor(snap, key))"
+                  [attr.data-key]="key"
+                  [attr.data-testid]="'snapshot-score-' + key"
+                >
+                  <span class="label">{{ key }}</span>
+                  <span class="value">
+                    {{ scoreFor(snap, key) ?? '—' }}
+                  </span>
+                  @if (delta(snap, key); as d) {
+                    <span
+                      class="delta"
+                      [class]="deltaClass(d)"
+                      [attr.data-testid]="'snapshot-delta-' + key"
+                    >
+                      {{ d > 0 ? '↑' : d < 0 ? '↓' : '=' }} {{ d }}
+                    </span>
+                  }
+                </li>
+              }
+            </ul>
+
+            <dl class="ops">
+              <div><dt>Bundle</dt><dd>{{ bytesHuman(snap.bundle_size_bytes) }}</dd></div>
+              <div><dt>R2</dt><dd>{{ bytesHuman(snap.r2_storage_bytes) }}</dd></div>
+              <div><dt>D1 rows</dt><dd>{{ snap.d1_row_count ?? '—' }}</dd></div>
+              <div><dt>24h reqs</dt><dd>{{ snap.request_count_24h ?? '—' }}</dd></div>
+            </dl>
+
+            <div class="actions">
+              <button
+                type="button"
+                class="btn danger"
+                (click)="openRollback(snap)"
+                [attr.data-testid]="'snapshot-rollback-btn'"
+              >
+                Rollback
+              </button>
+              <button
+                type="button"
+                class="btn"
+                (click)="promote(snap)"
+                [attr.data-testid]="'snapshot-promote-btn'"
+              >
+                Promote to prod
+              </button>
+            </div>
+          </div>
+        </li>
+      }
+    </ol>
+  }
+
+  @if (rollbackTarget()) {
+    <lib-rollback-confirm
+      [snapshot]="rollbackTarget()!"
+      [siteSlug]="siteSlug"
+      (close)="closeRollback()"
+    />
+  }
+</section>

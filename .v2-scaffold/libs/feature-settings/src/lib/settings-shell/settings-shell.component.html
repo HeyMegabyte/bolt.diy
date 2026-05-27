@@ -1,0 +1,45 @@
+<div class="ps-settings-layout">
+  <nav class="ps-settings-nav" aria-label="Settings sections">
+    <ul role="tablist">
+      <li
+        *ngFor="let tab of tabs"
+        role="presentation"
+      >
+        <button
+          type="button"
+          role="tab"
+          [attr.id]="'tab-' + tab.id"
+          [attr.aria-selected]="activeTabId() === tab.id"
+          [attr.aria-controls]="'panel-' + tab.id"
+          [attr.tabindex]="activeTabId() === tab.id ? 0 : -1"
+          [class.ps-tab--active]="activeTabId() === tab.id"
+          [attr.data-testid]="tab.testid"
+          (click)="activate(tab.id)"
+          class="ps-tab"
+        >
+          {{ tab.label }}
+        </button>
+      </li>
+    </ul>
+  </nav>
+
+  <section
+    class="ps-settings-panel"
+    role="tabpanel"
+    [attr.id]="'panel-' + activeTabId()"
+    [attr.aria-labelledby]="'tab-' + activeTabId()"
+    data-testid="settings-active-panel"
+  >
+    <ng-container *ngIf="loadedComponent() as cmp; else loading">
+      <ng-container *ngComponentOutlet="cmp" />
+    </ng-container>
+    <ng-template #loading>
+      <p *ngIf="!loadError(); else err" class="ps-loading" aria-live="polite">
+        Loading {{ activeTabId() }}…
+      </p>
+      <ng-template #err>
+        <p class="ps-error" role="alert">{{ loadError() }}</p>
+      </ng-template>
+    </ng-template>
+  </section>
+</div>

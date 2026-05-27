@@ -1,0 +1,46 @@
+<aside class="drawer" role="dialog" aria-label="Snapshot diff" data-testid="diff-drawer">
+  <header class="head">
+    <h3>Snapshot diff</h3>
+    <button
+      type="button"
+      class="close"
+      (click)="close.emit()"
+      data-testid="diff-close"
+      aria-label="Close diff drawer"
+    >
+      ×
+    </button>
+  </header>
+
+  @if (!diff()) {
+    <p class="empty">Loading diff…</p>
+  } @else {
+    <section class="group added">
+      <h4>Added ({{ added().length }})</h4>
+      <ul>
+        @for (e of added(); track trackByPath($index, e)) {
+          <li><code>{{ e.path }}</code> <span>{{ bytesHuman(e.bytes_after) }}</span></li>
+        }
+      </ul>
+    </section>
+    <section class="group modified">
+      <h4>Modified ({{ modified().length }})</h4>
+      <ul>
+        @for (e of modified(); track trackByPath($index, e)) {
+          <li>
+            <code>{{ e.path }}</code>
+            <span>{{ bytesHuman(e.bytes_before) }} → {{ bytesHuman(e.bytes_after) }}</span>
+          </li>
+        }
+      </ul>
+    </section>
+    <section class="group removed">
+      <h4>Removed ({{ removed().length }})</h4>
+      <ul>
+        @for (e of removed(); track trackByPath($index, e)) {
+          <li><code>{{ e.path }}</code> <span>{{ bytesHuman(e.bytes_before) }}</span></li>
+        }
+      </ul>
+    </section>
+  }
+</aside>

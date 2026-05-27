@@ -1,0 +1,133 @@
+<section class="integrations-marketplace" data-testid="integrations-marketplace">
+  <header class="integrations-marketplace__header">
+    <h1>Integrations</h1>
+    <div class="integrations-marketplace__sub-nav">
+      <p-button
+        label="API keys"
+        icon="pi pi-key"
+        severity="secondary"
+        size="small"
+        data-testid="api-keys-link"
+        (onClick)="goToApiKeys()"
+      />
+      <p-button
+        label="Webhooks"
+        icon="pi pi-share-alt"
+        severity="secondary"
+        size="small"
+        data-testid="webhooks-link"
+        (onClick)="goToWebhooks()"
+      />
+      <p-button
+        label="OAuth apps"
+        icon="pi pi-shield"
+        severity="secondary"
+        size="small"
+        data-testid="oauth-apps-link"
+        (onClick)="goToOauthApps()"
+      />
+    </div>
+  </header>
+
+  <div class="integrations-marketplace__controls">
+    <input
+      pInputText
+      type="search"
+      [formControl]="searchControl"
+      placeholder="Search integrations…"
+      data-testid="integrations-search"
+    />
+    <ul
+      class="integrations-marketplace__pills"
+      role="tablist"
+      aria-label="Integration categories"
+      data-testid="category-pills"
+    >
+      @for (c of categories; track c.id) {
+        <li>
+          <button
+            type="button"
+            role="tab"
+            class="pill"
+            [class.pill--active]="activeCategory() === c.id"
+            [attr.aria-selected]="activeCategory() === c.id"
+            [attr.data-testid]="'category-' + c.id"
+            (click)="setCategory(c.id)"
+          >
+            {{ c.label }}
+          </button>
+        </li>
+      }
+    </ul>
+  </div>
+
+  <div class="integrations-marketplace__grid" data-testid="integrations-grid">
+    @for (def of visible(); track trackById($index, def)) {
+      <article
+        class="integration-card"
+        [class.integration-card--disabled]="def.disabled"
+        [attr.data-testid]="'integration-card-' + def.id"
+      >
+        <header class="integration-card__head">
+          <i [class]="def.icon" aria-hidden="true"></i>
+          <div>
+            <h3>{{ def.name }}</h3>
+            <p-tag
+              [value]="statusFor(def.id)"
+              [severity]="statusSeverity(def.id)"
+            />
+          </div>
+        </header>
+        <p class="integration-card__desc">{{ def.description }}</p>
+        @if (def.disabled) {
+          <p class="integration-card__disabled-reason" role="note">
+            {{ def.disabledReason }}
+          </p>
+        }
+        <footer>
+          <p-button
+            [label]="ctaLabel(def.id)"
+            [disabled]="def.disabled"
+            severity="primary"
+            size="small"
+            [attr.data-testid]="'connect-' + def.id"
+            (onClick)="openDrawer(def)"
+          />
+          @if (def.docsUrl) {
+            <a
+              [href]="def.docsUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="integration-card__docs"
+              [attr.data-testid]="'docs-' + def.id"
+            >
+              Docs
+              <i class="pi pi-external-link" aria-hidden="true"></i>
+            </a>
+          }
+        </footer>
+      </article>
+    } @empty {
+      <p class="integrations-marketplace__empty" data-testid="empty-state">
+        No integrations match your search.
+      </p>
+    }
+  </div>
+
+  <p-drawer
+    [(visible)]="drawerOpen"
+    position="right"
+    [style]="{ width: '480px' }"
+    [modal]="true"
+    data-testid="integration-drawer"
+    (onHide)="closeDrawer()"
+  >
+    @if (drawerProvider(); as def) {
+      <lib-integration-drawer
+        [def]="def"
+        [connection]="byProvider().get(def.id) ?? null"
+        (closed)="closeDrawer()"
+      />
+    }
+  </p-drawer>
+</section>

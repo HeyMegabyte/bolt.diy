@@ -1,0 +1,53 @@
+:host {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  z-index: var(--ps-z-overlay-takeover, 100000);
+  inline-size: min(480px, 92vw);
+  background: var(--ps-bg, #060610);
+  color: var(--ps-ink, #f4f4ff);
+  border-inline-start: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 14%, transparent);
+  box-shadow: -24px 0 60px rgba(0, 0, 0, 0.45);
+  overflow-y: auto;
+}
+
+.drawer { padding: 1rem; }
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-end: 1rem;
+}
+
+.head h3 { margin: 0; font-size: 1.125rem; }
+
+.close {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+}
+
+.empty { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent); }
+
+.group { margin-block-end: 1.25rem; }
+.group h4 { margin: 0 0 0.5rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.group ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.group li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.4rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.8125rem;
+}
+
+.added li    { background: color-mix(in oklch, #34d399 12%, transparent); }
+.modified li { background: color-mix(in oklch, #fbbf24 10%, transparent); }
+.removed li  { background: color-mix(in oklch, #f87171 12%, transparent); }
