@@ -181,3 +181,69 @@ CREATE TABLE IF NOT EXISTS connected_accounts (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
+
+CREATE TABLE IF NOT EXISTS quotes (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  customer_id TEXT,
+  status TEXT NOT NULL DEFAULT 'draft',
+  subtotal_cents INTEGER NOT NULL DEFAULT 0,
+  tax_cents INTEGER NOT NULL DEFAULT 0,
+  total_cents INTEGER NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'usd',
+  metadata_json TEXT,
+  accepted_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  deleted_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_quotes_tenant ON quotes(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_quotes_customer ON quotes(customer_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS bookings (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  customer_id TEXT NOT NULL,
+  quote_id TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  scheduled_for TEXT,
+  total_cents INTEGER NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'usd',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  deleted_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_bookings_tenant ON bookings(tenant_id, scheduled_for DESC);
+CREATE INDEX IF NOT EXISTS idx_bookings_customer ON bookings(customer_id, scheduled_for DESC);
+
+CREATE TABLE IF NOT EXISTS jobs (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  booking_id TEXT,
+  crew_id TEXT,
+  customer_id TEXT,
+  status TEXT NOT NULL DEFAULT 'scheduled',
+  scheduled_for TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  deleted_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_jobs_tenant ON jobs(tenant_id, scheduled_for ASC);
+CREATE INDEX IF NOT EXISTS idx_jobs_crew ON jobs(crew_id, scheduled_for ASC);
+CREATE INDEX IF NOT EXISTS idx_jobs_customer ON jobs(customer_id, scheduled_for ASC);
+
+CREATE TABLE IF NOT EXISTS integrations (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  access_ciphertext TEXT NOT NULL,
+  access_iv TEXT NOT NULL,
+  refresh_ciphertext TEXT,
+  refresh_iv TEXT,
+  metadata_json TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  deleted_at TEXT,
+  UNIQUE (tenant_id, provider) ON CONFLICT REPLACE
+);

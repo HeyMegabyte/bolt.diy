@@ -94,6 +94,20 @@ export const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
 
+  // WebAuthn / passkey
+  WEBAUTHN_RP_ID: z.string().min(1).default('projectsites.dev'),
+  WEBAUTHN_RP_NAME: z.string().min(1).default('ProjectSites'),
+  WEBAUTHN_ORIGIN: z.string().url().default('https://app.projectsites.dev'),
+
+  // TOTP
+  TOTP_ISSUER: z.string().min(1).default('ProjectSites'),
+
+  // Session-signing secret (HMAC). Generate via `openssl rand -base64 32`.
+  SESSION_SECRET: z.string().min(32, 'Generate via `openssl rand -base64 32`'),
+
+  // Google Places + Maps (site-from-search)
+  GOOGLE_MAPS_API_KEY: z.string().min(1).optional(),
+
   // Sentry + PostHog
   SENTRY_DSN: z.string().url().optional(),
   POSTHOG_API_KEY: z.string().min(1).optional(),

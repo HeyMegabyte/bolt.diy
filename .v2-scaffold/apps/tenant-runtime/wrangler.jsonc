@@ -1,0 +1,47 @@
+{
+  // TEMPLATE: the control-plane provisioner clones this file per tenant + replaces
+  // `__SLUG__` / `__D1_ID__` / `__KV_ID__` placeholders during create-from-search.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "projectsites-tenant-__SLUG__",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-26",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "__SLUG__.projectsites.dev/*",
+      "zone_name": "projectsites.dev"
+    }
+  ],
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "d1_databases": [
+    {
+      "binding": "SITE_DB",
+      "database_name": "projectsites-tenant-__SLUG__",
+      "database_id": "__D1_ID__",
+      "migrations_dir": "src/migrations"
+    }
+  ],
+  "kv_namespaces": [
+    { "binding": "KV", "id": "__KV_ID__" }
+  ],
+  "r2_buckets": [
+    { "binding": "BUCKET", "bucket_name": "projectsites-platform-production" }
+  ],
+  "services": [
+    { "binding": "CONTROL_PLANE", "service": "projectsites-control-plane" }
+  ],
+  "vars": {
+    "ENVIRONMENT": "production",
+    "TENANT_SLUG": "__SLUG__",
+    "TENANT_ID": "__TENANT_ID__",
+    "TENANT_NAME": "__TENANT_NAME__",
+    "SITE_VERSION": "v1",
+    "PRIMARY_HOSTNAME": "__SLUG__.projectsites.dev",
+    "DEFAULT_LOCALE": "en",
+    "SUPPORTED_LOCALES": "en",
+    "PLATFORM_FEE_BPS": "150",
+    "CONTACT_FROM_EMAIL": "hello@projectsites.dev",
+    "SITE_TYPE": "__SITE_TYPE__"
+  }
+}

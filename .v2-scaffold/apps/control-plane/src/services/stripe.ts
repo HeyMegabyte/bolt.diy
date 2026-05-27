@@ -12,7 +12,8 @@ import { AppError, ErrorCode } from '../types.js';
 
 export function makeStripe(env: Env): Stripe {
   return new Stripe(env.STRIPE_SECRET_KEY, {
-    apiVersion: '2025-04-30.basil',
+    // Use the Stripe SDK's pinned default API version. Override only when an
+    // explicit dashboard version is in play; otherwise the SDK type drives this.
     httpClient: Stripe.createFetchHttpClient(),
   });
 }

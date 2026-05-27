@@ -56,6 +56,27 @@
   "services": [
     { "binding": "TENANT_RUNTIME", "service": "projectsites-tenant-runtime" }
   ],
+  "triggers": {
+    "crons": ["0 * * * *"]
+  },
+  "secrets": {
+    "required": [
+      "STRIPE_SECRET_KEY",
+      "STRIPE_WEBHOOK_SECRET",
+      "GOOGLE_OAUTH_CLIENT_ID",
+      "GOOGLE_OAUTH_CLIENT_SECRET",
+      "GITHUB_OAUTH_CLIENT_ID",
+      "GITHUB_OAUTH_CLIENT_SECRET",
+      "CLOUDFLARE_API_TOKEN",
+      "CLOUDFLARE_ACCOUNT_ID",
+      "CLOUDFLARE_ZONE_ID",
+      "TURNSTILE_SECRET_KEY",
+      "TURNSTILE_SITE_KEY",
+      "MCP_ENCRYPTION_KEY",
+      "SESSION_SECRET",
+      "SUPER_ADMIN_EMAIL"
+    ]
+  },
   "vars": {
     "ENVIRONMENT": "production",
     "AI_GATEWAY_ENABLED": "true",

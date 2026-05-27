@@ -56,7 +56,10 @@ export async function dbUpdate(
   where: string,
   whereParams: readonly unknown[],
 ): Promise<D1Result> {
-  const fields = { ...updates, updated_at: new Date().toISOString() };
+  const fields: Record<string, unknown> = {
+    ...updates,
+    updated_at: new Date().toISOString(),
+  };
   const cols = Object.keys(fields);
   const sets = cols.map((c, i) => `${c} = ?${i + 1}`).join(', ');
   const offset = cols.length;
