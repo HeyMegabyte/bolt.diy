@@ -27,9 +27,9 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { BehaviorSubject, combineLatest, of, switchMap } from 'rxjs';
+import { BehaviorSubject, EMPTY, catchError, combineLatest, of, switchMap } from 'rxjs';
 import { debounceTime, distinctUntilChanged, map, scan, startWith } from 'rxjs/operators';
-import { LogsService } from '@org/data-access';
+import { AiService, LogsService, type LogSearchRow } from '@org/data-access';
 import type { LogLine } from '@org/domain';
 
 const LEVELS: ReadonlyArray<LogLine['level']> = [
@@ -60,9 +60,46 @@ export class LogsViewerComponent {
   viewport?: CdkVirtualScrollViewport;
 
   private readonly logs = inject(LogsService);
+  private readonly ai = inject(AiService);
   private readonly host = inject(ElementRef<HTMLElement>);
 
   private readonly siteId$ = new BehaviorSubject<string>('');
+
+  /** Natural-language search input (Wave 1B #14). */
+  readonly nlSearchCtrl = new FormControl<string>('', { nonNullable: true });
+  /** Last NL-search result rows, populated by `runNaturalLanguageSearch()`. */
+  readonly nlResults = signal<ReadonlyArray<LogSearchRow>>([]);
+  /** Translated WHERE clause shown to power users for transparency. */
+  readonly nlClause = signal<string>('');
+  readonly nlLoading = signal(false);
+  readonly nlError = signal<string | null>(null);
+
+  /**
+   * Kick off the natural-language log search against the control-plane.
+   * Result rows render alongside the live tail; the live stream stays running.
+   */
+  runNaturalLanguageSearch(): void {
+    const query = this.nlSearchCtrl.value.trim();
+    const siteId = this.siteId$.value;
+    if (!query || !siteId) return;
+    this.nlLoading.set(true);
+    this.nlError.set(null);
+    this.ai
+      .searchLogs$(siteId, query)
+      .pipe(
+        catchError((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.nlError.set(msg);
+          this.nlLoading.set(false);
+          return EMPTY;
+        }),
+      )
+      .subscribe((result) => {
+        this.nlClause.set(result.where);
+        this.nlResults.set(result.rows);
+        this.nlLoading.set(false);
+      });
+  }
 
   /** Pause auto-scroll + freeze the visible buffer. */
   readonly paused = signal(false);
