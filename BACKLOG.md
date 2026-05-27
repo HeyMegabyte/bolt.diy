@@ -178,3 +178,345 @@ These are tracked here so they don't get accidentally rebuilt. Promotion to acti
 - [`apps/project-sites/frontend/CLAUDE.md`](apps/project-sites/frontend/CLAUDE.md) — current Angular 21 SPA docs
 - [`~/.claude/plugins/heymegabyte-claude-skills/rules/rxjs-first-angular.md`](https://github.com/heymegabyte/claude-skills/blob/master/rules/rxjs-first-angular.md) — RxJS-first SUPREME rule
 - [`~/.claude/plugins/heymegabyte-claude-skills/rules/angular-nx-monorepo.md`](https://github.com/heymegabyte/claude-skills/blob/master/rules/angular-nx-monorepo.md) — Nx + Angular 21 SUPREME rule
+
+---
+
+# Post-v1 Queue
+
+> **Purpose:** Track work intentionally deferred past v1. Each item names what it is, why it's not in v1, the trigger that would promote it, the rough cost, and dependencies.
+> **Cadence:** Reviewed monthly. Items promoted to the active sprint board move out of this section; items dropped get strikethrough + a "dropped because" line.
+
+This is **not a roadmap** (a roadmap promises dates). This is a queue with **promotion triggers**: concrete conditions that justify pulling each item into active work.
+
+## Post-v1 index
+
+| # | Item | Cost | Trigger | Status |
+|---|------|------|---------|--------|
+| P1-01 | Tauri 2 desktop shells | ~120 hrs | Capacitor mobile lands + 50 tenants request desktop | Queued |
+| P1-02 | Apollo Angular + GraphQL gateway | ~160 hrs | REST API >40 endpoints OR mobile asks for federated query | Queued |
+| P1-03 | NgRx Signal Store formalization | ~40 hrs | `AdminStateService` pattern proves out across 3+ surfaces | Queued |
+| P1-04 | Storybook 8 component library | ~60 hrs | `libs/ui` hits 20+ wrap-layer components | Queued |
+| P1-05 | SAML / OIDC enterprise SSO | ~80 hrs | First Enterprise tier deal contingent on SSO | Queued (scaffolded behind flag) |
+| P1-06 | SOC 2 Type II readiness | ~480 hrs | First Enterprise prospect requires it | Queued |
+| P1-07 | Full i18n mirror (ES, FR, PT, ZH-Hans) | ~120 hrs | Tenant geo-demographics trigger per i18n rule | Queued |
+| P1-08 | Stripe Payment Element migration | ~24 hrs | Stripe deprecates Link OR conversion data shifts | Contingent |
+| P1-09 | WASM widgets (PDF gen, OCR, image processing) | ~200 hrs phased | First customer-pull feature requires it | Queued (3 phases) |
+| P1-10 | LaunchDarkly migration | ~40 hrs | D1-backed feature flags hit limits (>1000 flags or <100ms latency) | Contingent |
+| P1-11 | Square Web Payments fallback | ~80 hrs | Stripe Connect breaks materially in a target country | Contingent |
+| P1-12 | CSP Level 3 strict-dynamic + Trusted Types | ~80 hrs | Threat escalation OR all third-party scripts ship nonce-compat | Queued |
+| P1-13 | Penetration test | ~40 hrs internal + $8k vendor | v1 + 90 days post-launch | Scheduled |
+| P1-14 | Bug bounty program | ~16 hrs setup | v1 + 60 days post-launch | Scheduled |
+| P1-15 | Stripe Tax integration | ~60 hrs | First 50 tenants OR first multi-jurisdiction tenant | Queued |
+| P1-16 | Mandatory FIDO2 hardware keys for super-admins | ~8 hrs | Second admin role added | Queued |
+| P1-17 | Visual regression via Percy + Chromatic | ~24 hrs | Storybook (P1-04) ships | Depends on P1-04 |
+| P1-18 | Cross-tenant analytics dashboard | ~80 hrs | Platform-wide reporting demand | Queued |
+| P1-19 | Outbound webhook destination management | ~60 hrs | First tenant requests Zapier-like outbound | Queued |
+| P1-20 | Tenant API keys + public REST docs | ~80 hrs | First developer-tenant requests programmatic site access | Queued |
+| P1-21 | AI agent for tenant onboarding ("guide me") | ~100 hrs | Conversion data shows onboarding drop-off >40% | Queued |
+| P1-22 | Real-time collaborative editing (multi-user) | ~200 hrs | Tenants seat >5 users on the same site | Queued |
+| P1-23 | Marketplace search with vector embedding | ~80 hrs | Marketplace listings exceed 1000 entries | Queued |
+| P1-24 | A/B testing infrastructure (server-side) | ~40 hrs | Brian wants pricing/conversion variants | Queued |
+| P1-25 | Tenant billing portal (Stripe Customer Portal embedded) | ~16 hrs | Manual subscription change requests >5/wk | Queued |
+| P1-26 | GitHub Actions → Cloudflare deploy via OIDC | ~8 hrs | Manual `wrangler deploy` happens >2x/wk | Queued |
+| P1-27 | D1 → R2 export quarterly drill | ~4 hrs/quarter | Q1 2026, then quarterly | Scheduled |
+| P1-28 | Service-bound rate-limit redesign (KV → Workers Rate Limiting API everywhere) | ~16 hrs | KV cost >$10/mo for rate-limit counters | Queued |
+| P1-29 | Image optimization pipeline (Sharp → Cloudflare Images) | ~24 hrs | Tenant image bandwidth costs >$50/mo | Queued |
+| P1-30 | Tenant-facing audit log viewer | ~40 hrs | First compliance-conscious tenant requests it | Queued |
+
+## P1-01 Tauri 2 desktop shells
+
+**What:** Native macOS / Windows / Linux desktop apps wrapping the Angular admin SPA.
+
+**Why post-v1:** Mobile (Capacitor 6) is the higher-value cross-platform target. Desktop usage is browser-first for the first 6 months.
+
+**Trigger:** Capacitor 6 mobile ships AND 50+ tenants explicitly request desktop AND we have a use case that demands native (file system, system tray, OS notifications) beyond what a PWA can do.
+
+**Cost:** ~120 hours. Tauri 2 GA mid-2025; Rust scaffold + Angular embed + auto-update + code signing pipeline.
+
+**Stack:** Tauri 2 + Rust core + Angular SPA loaded via `tauri://localhost`. Same Angular bundle as web; conditional native bridges via Tauri commands.
+
+**Dependencies:** Capacitor mobile must ship first to prove the cross-platform architecture.
+
+## P1-02 Apollo Angular + GraphQL gateway
+
+**What:** A GraphQL layer in front of the Hono REST API. Apollo Client in the Angular apps. Schema-first design with code generation.
+
+**Why post-v1:** REST + RxJS + `HttpClient` is sufficient at the v1 endpoint count (~25 routes). GraphQL adds value when (a) the mobile app needs federated queries, (b) different surfaces need different field sets, or (c) caching becomes a bottleneck.
+
+**Trigger:** REST API surface >40 endpoints OR mobile app explicitly requests field-selection efficiency OR third tenant requests a public API.
+
+**Cost:** ~160 hours.
+
+**Stack:** GraphQL Yoga or Apollo Server on a Worker, federated to subgraphs per domain (auth, billing, sites, marketplace). Apollo Angular client with cache normalization.
+
+## P1-03 NgRx Signal Store formalization
+
+**What:** Replace ad-hoc service-based state (`AdminStateService` + visibility-aware polling pattern) with NgRx Signal Store for state-heavy domains.
+
+**Why post-v1:** The `AdminStateService` pattern works. Premature abstraction risks trading working code for ceremony. Wait until 3+ surfaces independently want the same pattern.
+
+**Trigger:** Three distinct features (admin dashboard, marketplace job tracking, notifications inbox) converge on the same state-shape needs.
+
+**Cost:** ~40 hours.
+
+**Stack:** `@ngrx/signals` (the new Signal Store) + `@ngrx/operators` for RxJS-bridged effects.
+
+## P1-04 Storybook 8 component library
+
+**What:** A documented, visually-tested component library for `libs/ui`.
+
+**Why post-v1:** The wrap-layer around PrimeNG is small (~10 components in v1). Storybook ROI kicks in around 20+ components.
+
+**Trigger:** `libs/ui` reaches 20 wrap-layer components OR a designer joins the team.
+
+**Cost:** ~60 hours.
+
+**Dependencies:** Required precursor for P1-17 (visual regression).
+
+## P1-05 SAML / OIDC enterprise SSO
+
+**What:** SSO for Enterprise-tier tenants via SAML 2.0 (Okta, Azure AD, OneLogin, Ping) and OIDC (Google Workspace, Auth0, Keycloak).
+
+**Why post-v1:** Clerk supports SSO out of the box via their Enterprise plan. Scaffold the integration but don't enable until an Enterprise deal demands it.
+
+**Trigger:** First Enterprise tier prospect explicitly contingent on SSO support.
+
+**Cost:** ~80 hours.
+
+**Pre-v1 prep:** Schema is SSO-ready (`users.external_id`, `orgs.idp_metadata_url` columns exist with nulls); UI surfaces are flag-gated behind `ENABLE_SSO=false`.
+
+## P1-06 SOC 2 Type II readiness
+
+**What:** Formal SOC 2 Type II audit prep: documented policies, control evidence collection, third-party auditor engagement.
+
+**Why post-v1:** Substantive controls are in place (SECURITY.md § 2). Missing piece is *formal documentation and audit trail*. SOC 2 Type II requires 6 months of operational evidence before audit can begin.
+
+**Trigger:** First Enterprise prospect requires SOC 2 Type II report as deal-gate.
+
+**Cost:** ~480 hours over 9 months. Compliance platform ($15k/yr Drata or similar), policy authoring, control evidence collection, auditor engagement (~$30k–$50k), gap remediation.
+
+## P1-07 Full i18n mirror (ES, FR, PT, ZH-Hans)
+
+**What:** Per-locale route mirrors (`/es/*`, `/fr/*`, `/pt/*`, `/zh-Hans/*`) for marketing site, admin (translated UI strings), and tenant-runtime template defaults.
+
+**Why post-v1:** Per `rules/i18n-by-demographics.md`, locales auto-fire when ≥10% community share is detected in the tenant's service area. v1 launches with English only; locale auto-fire kicks in per-tenant as they onboard.
+
+**Trigger:** Tenant geo-demographics meet the auto-fire threshold OR Brian explicitly prioritizes a market expansion.
+
+**Cost:** ~120 hours.
+
+**Languages prioritized:** Spanish → Portuguese → French → Simplified Chinese.
+
+## P1-08 Stripe Payment Element migration
+
+**What:** Migrate from Stripe Link-only to Stripe Payment Element (full payment method matrix: cards, ACH, Apple Pay, Google Pay, BNPL, bank redirects).
+
+**Why post-v1:** Per ADR-0004, Link is the v1 choice for conversion lift and integration simplicity.
+
+**Trigger:** Either Stripe deprecates Link, or conversion data shows Link underperforming Payment Element in a target market.
+
+**Cost:** ~24 hours.
+
+## P1-09 WASM widgets (PDF generation, OCR, image processing)
+
+**What:** Three Worker-deployed WASM modules:
+
+- **PDF generation:** wkhtmltopdf or weasyprint compiled to WASM for invoices/receipts/exports
+- **OCR:** Tesseract-WASM for tenant receipt-scanning feature
+- **Image processing:** Sharp compiled to WASM for runtime resizing in tenant-runtime
+
+**Trigger per phase:**
+
+- PDF: first tenant requests branded PDF invoices
+- OCR: first marketplace tenant requests scan-receipt-to-expense feature
+- Image: tenant image bandwidth exceeds $50/mo (intersects with P1-29)
+
+**Cost:** ~200 hours total, phased (~70 PDF, ~70 OCR, ~60 image).
+
+**Stack:** Cloudflare Workers WASM runtime; each module a separate Worker bound as service binding.
+
+## P1-10 LaunchDarkly migration
+
+**What:** Move feature flags from D1-backed tables to LaunchDarkly.
+
+**Why post-v1:** D1 + KV cache handles feature flags fine at our scale.
+
+**Trigger:** Flag count exceeds 1000 OR per-user evaluation latency exceeds 100ms on a hot path.
+
+**Cost:** ~40 hours.
+
+## P1-11 Square Web Payments fallback
+
+**What:** Add Square Web Payments SDK as alternative payment rail for the country exclusion list (BILLING.md § 6).
+
+**Why post-v1:** Per ADR-0004, Stripe Link is the exclusive v1 rail. Square is explicitly skipped. This entry exists for the contingency where Stripe Connect breaks materially in a country we care about.
+
+**Trigger:** Stripe Connect breaks materially in a country with ≥10 paying tenants OR an Enterprise prospect requires Square POS integration.
+
+**Cost:** ~80 hours.
+
+**Status:** Contingent only. Not pre-built.
+
+## P1-12 CSP Level 3 strict-dynamic + Trusted Types
+
+**What:** Per SECURITY.md § 3.1, the strict-dynamic CSP with per-response nonces + Trusted Types policies on every DOM mutation.
+
+**Trigger:** Either (a) threat profile escalates (HIPAA, FedRAMP, finserv regulated tenant), or (b) all four third-party scripts (Stripe, Clerk, PostHog, Sentry) ship clean nonce-compatible loaders. Monitor third-party docs quarterly.
+
+**Cost:** ~80 hours.
+
+## P1-13 Penetration test
+
+**When:** v1 + 90 days. Budget $8k. Vendor TBD (Trail of Bits, NCC Group, Doyensec shortlisted).
+
+**Status:** Scheduled.
+
+## P1-14 Bug bounty program
+
+**When:** v1 + 60 days post-launch. Reward range $500–$5k. Scope: production domains.
+
+**Status:** Scheduled.
+
+## P1-15 Stripe Tax integration
+
+**Why post-v1:** Per BILLING.md § 8, tax responsibility is explicitly deferred to tenants in v1.
+
+**Trigger:** First 50 tenants milestone OR first multi-jurisdiction tenant.
+
+**Cost:** ~60 hours.
+
+## P1-16 Mandatory FIDO2 hardware keys for super-admins
+
+**Why post-v1:** Currently single super-admin (Brian). Adding a hardware-key requirement on top of passkey is incremental risk reduction at low ROI for a single admin.
+
+**Trigger:** Second admin role added.
+
+**Cost:** ~8 hours.
+
+## P1-17 Visual regression via Percy + Chromatic
+
+**What:** Percy for full-page visual regression on marketing + admin; Chromatic for component-level on Storybook.
+
+**Trigger:** Storybook (P1-04) ships.
+
+**Cost:** ~24 hours.
+
+## P1-18 Cross-tenant analytics dashboard
+
+**What:** Platform-wide reporting (GMV across all tenants, signup funnel, retention cohorts, expansion revenue).
+
+**Why post-v1:** Per ADR-0008, per-tenant D1 isolation means cross-tenant queries need fan-out. A nightly aggregation Workflow handles this; we just don't have a UI for it.
+
+**Trigger:** Brian wants to look at the data more than weekly.
+
+**Cost:** ~80 hours.
+
+## P1-19 Outbound webhook destination management
+
+**What:** Tenants configure outbound webhooks ("when a booking happens, POST to my Zapier") with retry, dead-letter, signing.
+
+**Trigger:** First tenant requests Zapier-like outbound.
+
+**Cost:** ~60 hours.
+
+## P1-20 Tenant API keys + public REST docs
+
+**What:** Programmatic access for tenants. Per-tenant API keys with scoped permissions, OpenAPI-generated public docs.
+
+**Trigger:** First explicit developer-tenant signup + API request.
+
+**Cost:** ~80 hours.
+
+## P1-21 AI agent for tenant onboarding
+
+**What:** A conversational onboarding copilot using Claude Opus 4.7 via AI Gateway. "Walk me through setting up my plumbing business site" → tool calls into platform APIs.
+
+**Trigger:** Conversion data shows >40% drop-off in onboarding funnel.
+
+**Cost:** ~100 hours.
+
+## P1-22 Real-time collaborative editing (multi-user)
+
+**What:** Two-or-more users editing the same tenant site simultaneously with conflict resolution.
+
+**Trigger:** Tenants seat >5 users on the same site OR agency-tier tenant requests it.
+
+**Cost:** ~200 hours.
+
+**Stack:** Yjs CRDT or Automerge on Durable Object.
+
+## P1-23 Marketplace search with vector embedding
+
+**What:** Semantic search over marketplace listings via Vectorize.
+
+**Trigger:** Marketplace listings exceed 1000 OR keyword search relevance complaints.
+
+**Cost:** ~80 hours.
+
+**Stack:** Vectorize index per tenant, embedding pipeline (Workers AI BGE-large), hybrid keyword+vector search ranking.
+
+## P1-24 A/B testing infrastructure (server-side)
+
+**Trigger:** Brian wants to test pricing or conversion variants experimentally.
+
+**Cost:** ~40 hours.
+
+## P1-25 Tenant billing portal (Stripe Customer Portal embedded)
+
+**Trigger:** Manual subscription change requests exceed 5/week.
+
+**Cost:** ~16 hours.
+
+## P1-26 GitHub Actions → Cloudflare deploy via OIDC
+
+**What:** Migrate manual `wrangler deploy` to GitHub Actions with Cloudflare OIDC trust policy.
+
+**Trigger:** Manual deploys happen >2x/week.
+
+**Cost:** ~8 hours.
+
+## P1-27 D1 → R2 export quarterly drill
+
+**What:** Quarterly restore-from-backup drill. Pick a random tenant DB, restore the nightly R2 backup to a scratch DB, verify integrity.
+
+**When:** Q1 2026, then quarterly.
+
+**Cost:** ~4 hours per drill.
+
+**Status:** Scheduled.
+
+## P1-28 Service-bound rate-limit redesign
+
+**What:** Replace KV-backed rate-limit counters with Workers Rate Limiting API everywhere, including tier-quota counters.
+
+**Trigger:** KV cost for rate-limit counters exceeds $10/mo OR counter latency exceeds 50ms budget.
+
+**Cost:** ~16 hours.
+
+## P1-29 Image optimization pipeline (Sharp → Cloudflare Images)
+
+**What:** Move from build-time Sharp triplet generation (AVIF+WebP+JPEG) to runtime Cloudflare Images for tenant uploads.
+
+**Trigger:** Tenant image bandwidth costs exceed $50/mo.
+
+**Cost:** ~24 hours.
+
+## P1-30 Tenant-facing audit log viewer
+
+**What:** Tenants can see their own audit log (sign-ins, settings changes, payouts) in the admin UI.
+
+**Trigger:** First compliance-conscious tenant requests it.
+
+**Cost:** ~40 hours.
+
+## Dropped (kept for transparency)
+
+_None yet. First quarterly review on 2026-08-26._
+
+## Promotion process
+
+1. Each month, walk the index and re-evaluate triggers.
+2. Items whose triggers fired → move into the active sprint board (top section of this file).
+3. Items whose triggers became impossible → strikethrough with reason.
+4. Items whose costs have changed materially → update Cost column.
+5. New post-v1 items → append to the bottom with the next P1-NN number.
