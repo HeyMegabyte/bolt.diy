@@ -67,3 +67,4 @@ export { superAdminGuard } from './lib/guards/super-admin.guard.js';
 export { authInterceptor } from './lib/interceptors/auth.interceptor.js';
 export { viewAsInterceptor } from './lib/interceptors/view-as.interceptor.js';
 export { tenantInterceptor } from './lib/interceptors/tenant.interceptor.js';
+export { offlineInterceptor } from './lib/interceptors/offline.interceptor.js';

@@ -10,3 +10,7 @@
  */
 export * from './lib/platform.service';
 export * from './lib/platform.types';
+export * from './lib/native-pay.service';
+export * from './lib/biometric-auth.service';
+export * from './lib/live-activity.service';
+export * from './lib/offline-queue.service';

@@ -24,6 +24,7 @@ import { CardModule } from 'primeng/card';
 import { TagModule } from 'primeng/tag';
 import { Subject, interval, map, startWith, switchMap, takeUntil } from 'rxjs';
 import { MapsLoaderService } from '@org/util-maps';
+import { LiveActivityService } from '@org/util-platform';
 import { JobsService } from './services/jobs.service';
 import { JobChatComponent } from './job-chat.component';
 import { JobRatingComponent } from './job-rating.component';
@@ -111,8 +112,10 @@ export class JobDetailComponent implements AfterViewInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(JobsService);
   private readonly maps = inject(MapsLoaderService);
+  private readonly liveActivity = inject(LiveActivityService);
 
   private readonly destroy$ = new Subject<void>();
+  private liveActivityStarted = false;
   protected readonly tipOpen = signal(false);
   private readonly location = signal<JobLocation | null>(null);
 
@@ -153,6 +156,7 @@ export class JobDetailComponent implements AfterViewInit, OnDestroy {
       .subscribe((loc) => {
         this.location.set(loc);
         this.updateMarker(loc);
+        this.syncLiveActivity(id, loc);
       });
 
     this.maps.load$().subscribe((g: unknown) => {
@@ -170,6 +174,46 @@ export class JobDetailComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    const id = this.jobId();
+    if (this.liveActivityStarted && id) {
+      this.liveActivity.endJobActivity$(id).subscribe();
+    }
+  }
+
+  private syncLiveActivity(id: string, loc: JobLocation): void {
+    const j = this.job();
+    const status: string = j?.status ?? 'enroute';
+    const statusText: string =
+      status === 'enroute'
+        ? 'On the way'
+        : status === 'on_site'
+          ? 'Arrived'
+          : status === 'completed'
+            ? 'Completed'
+            : status;
+    const eta = loc.eta_seconds ?? 0;
+
+    const terminal = status === 'on_site' || status === 'completed' || status === 'cancelled';
+    if (terminal) {
+      if (this.liveActivityStarted) {
+        this.liveActivityStarted = false;
+        this.liveActivity.endJobActivity$(id).subscribe();
+      }
+      return;
+    }
+
+    if (!this.liveActivityStarted) {
+      this.liveActivityStarted = true;
+      this.liveActivity.startJobActivity$({ jobId: id, eta, statusText }).subscribe();
+      return;
+    }
+
+    this.liveActivity
+      .updateJobActivity$({
+        jobId: id,
+        patch: { eta, statusText, lat: loc.lat, lng: loc.lng },
+      })
+      .subscribe();
   }
 
   private updateMarker(loc: JobLocation): void {

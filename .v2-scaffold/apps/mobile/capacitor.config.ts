@@ -67,6 +67,22 @@ const config: CapacitorConfig = {
       backgroundColor: '#060610',
       overlaysWebView: true,
     },
+    Stripe: {
+      // Replaced at build time per environment. Apple Pay merchant id
+      // `merchant.space.megabyte.projectsites` is registered in the iOS
+      // Apple Developer portal and added to the App's Capabilities.
+      publishableKey: 'pk_live_REPLACE_AT_BUILD',
+      merchantIdentifier: 'merchant.space.megabyte.projectsites',
+    },
+    BiometricAuth: {
+      // Defaults; per-call options take precedence.
+      allowDeviceCredential: true,
+    },
+    LiveActivity: {
+      // iOS-only; the widget extension reads attributes via the
+      // `JobActivityAttributes` Swift struct bundled in
+      // `ios/App/ProjectSitesWidget/`.
+    },
   },
 };
 

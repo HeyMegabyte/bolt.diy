@@ -1,0 +1,12 @@
+{
+  "name": "@org/mobile",
+  "version": "0.0.1",
+  "private": true,
+  "description": "ProjectSites mobile shell — Ionic + Capacitor (iOS / Android).",
+  "dependencies": {
+    "@capacitor-community/stripe": "latest",
+    "@capacitor-community/biometric-auth": "latest",
+    "@capacitor-community/live-activity": "latest",
+    "idb-keyval": "^6.2.1"
+  }
+}

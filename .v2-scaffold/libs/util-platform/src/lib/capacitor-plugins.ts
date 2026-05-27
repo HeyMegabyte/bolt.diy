@@ -108,3 +108,80 @@ export async function loadHaptics(): Promise<HapticsModule> {
   const mod = (await import(/* @vite-ignore */ '@capacitor/haptics' as string)) as unknown;
   return mod as HapticsModule;
 }
+
+/* ---------- Stripe (Apple Pay / Google Pay) ------------------------- */
+
+export interface StripeCreatePaymentSheetOpts {
+  readonly paymentIntentClientSecret: string;
+  readonly customerEphemeralKeySecret?: string;
+  readonly customerId?: string;
+  readonly merchantDisplayName: string;
+  readonly style?: 'alwaysDark' | 'alwaysLight' | 'automatic';
+  readonly enableApplePay?: boolean;
+  readonly applePayMerchantId?: string;
+  readonly enableGooglePay?: boolean;
+  readonly googlePayIsTesting?: boolean;
+  readonly countryCode?: string;
+}
+
+export interface StripePresentPaymentSheetResult {
+  readonly paymentResult: 'paymentSheetCompleted' | 'paymentSheetCanceled' | 'paymentSheetFailed';
+  readonly paymentIntent?: { readonly id?: string };
+}
+
+export interface StripeModule {
+  readonly Stripe: {
+    initialize(opts: { publishableKey: string }): Promise<void>;
+    createPaymentSheet(opts: StripeCreatePaymentSheetOpts): Promise<void>;
+    presentPaymentSheet(): Promise<StripePresentPaymentSheetResult>;
+  };
+}
+
+export async function loadStripe(): Promise<StripeModule> {
+  const mod = (await import(/* @vite-ignore */ '@capacitor-community/stripe' as string)) as unknown;
+  return mod as StripeModule;
+}
+
+/* ---------- Biometric Auth ------------------------------------------ */
+
+export interface BiometricAuthModule {
+  readonly BiometricAuth: {
+    checkBiometry(): Promise<{
+      readonly isAvailable: boolean;
+      readonly biometryType?: string;
+      readonly reason?: string;
+    }>;
+    authenticate(opts: {
+      readonly reason?: string;
+      readonly cancelTitle?: string;
+      readonly allowDeviceCredential?: boolean;
+      readonly iosFallbackTitle?: string;
+      readonly androidTitle?: string;
+      readonly androidSubtitle?: string;
+    }): Promise<void>;
+  };
+}
+
+export async function loadBiometricAuth(): Promise<BiometricAuthModule> {
+  const mod = (await import(
+    /* @vite-ignore */ '@capacitor-community/biometric-auth' as string
+  )) as unknown;
+  return mod as BiometricAuthModule;
+}
+
+/* ---------- Live Activity (iOS) ------------------------------------- */
+
+export interface LiveActivityModule {
+  readonly LiveActivity: {
+    startActivity(opts: { readonly activityId: string; readonly attributes: Record<string, unknown>; readonly initialState: Record<string, unknown> }): Promise<{ readonly activityId: string }>;
+    updateActivity(opts: { readonly activityId: string; readonly state: Record<string, unknown> }): Promise<void>;
+    endActivity(opts: { readonly activityId: string; readonly state?: Record<string, unknown> }): Promise<void>;
+  };
+}
+
+export async function loadLiveActivity(): Promise<LiveActivityModule> {
+  const mod = (await import(
+    /* @vite-ignore */ '@capacitor-community/live-activity' as string
+  )) as unknown;
+  return mod as LiveActivityModule;
+}
