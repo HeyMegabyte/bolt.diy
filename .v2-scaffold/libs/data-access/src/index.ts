@@ -16,3 +16,5 @@ export * from './lib/integrations.service';
 export * from './lib/api-keys.service';
 export * from './lib/webhooks.service';
 export * from './lib/sites.service';
+export * from './lib/bookings.service';
+export * from './lib/crew.service';

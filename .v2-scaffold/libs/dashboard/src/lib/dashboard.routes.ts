@@ -28,46 +28,48 @@ export const dashboardRoutes: Routes = [
       },
       {
         path: 'bookings',
-        loadChildren: (): Promise<Routes> =>
-          // TODO: lock in once the foundation lands — `@org/feature-bookings`
-          // is currently a scaffold stub; replace with its `bookingsRoutes`.
-          Promise.resolve<Routes>([]),
+        loadChildren: () =>
+          import('@org/feature-bookings').then((m) => m.bookingsRoutes),
       },
       {
         path: 'quotes',
-        loadChildren: (): Promise<Routes> => Promise.resolve<Routes>([]),
-        // TODO: lock in once the foundation lands — add child route
-        // `:id → feature-quotes/QuoteDetailComponent` here.
+        loadChildren: () =>
+          import('@org/feature-quotes').then((m) => m.quotesRoutes),
       },
       {
         path: 'jobs',
-        loadChildren: (): Promise<Routes> => Promise.resolve<Routes>([]),
-        // TODO: child `:id → feature-jobs/JobDetailComponent`.
+        loadChildren: () =>
+          import('@org/feature-jobs').then((m) => m.jobsRoutes),
       },
       {
         path: 'crew',
-        loadChildren: (): Promise<Routes> => Promise.resolve<Routes>([]),
+        loadChildren: () =>
+          import('@org/feature-crew').then((m) => m.crewRoutes),
       },
       {
         path: 'sites',
-        loadChildren: (): Promise<Routes> => Promise.resolve<Routes>([]),
-        // TODO: child `:id → feature-sites/SiteDetailComponent`.
+        loadChildren: () =>
+          import('@org/feature-sites').then((m) => m.sitesRoutes),
       },
       {
         path: 'billing',
-        loadChildren: (): Promise<Routes> => Promise.resolve<Routes>([]),
+        loadChildren: () =>
+          import('@org/feature-billing').then((m) => m.FEATURE_BILLING_ROUTES),
       },
       {
         path: 'team',
-        loadChildren: (): Promise<Routes> => Promise.resolve<Routes>([]),
+        loadChildren: () =>
+          import('@org/feature-team').then((m) => m.teamRoutes),
       },
       {
         path: 'integrations',
-        loadChildren: (): Promise<Routes> => Promise.resolve<Routes>([]),
+        loadChildren: () =>
+          import('@org/feature-integrations').then((m) => m.integrationsRoutes),
       },
       {
         path: 'settings',
-        loadChildren: (): Promise<Routes> => Promise.resolve<Routes>([]),
+        loadChildren: () =>
+          import('@org/feature-settings').then((m) => m.settingsRoutes),
       },
       {
         path: 'changelog',
