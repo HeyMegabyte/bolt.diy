@@ -10,6 +10,19 @@
   </p>
 
   <label class="refund-request__field">
+    <span>Disposition</span>
+    <p-selectButton
+      [options]="refundTypeOptions"
+      optionLabel="label"
+      optionValue="value"
+      [ngModel]="refundType()"
+      [ngModelOptions]="{ standalone: true }"
+      (ngModelChange)="setRefundType($event)"
+      data-testid="refund-type"
+    />
+  </label>
+
+  <label class="refund-request__field">
     <span>Charge ID</span>
     <input
       pInputText
@@ -19,6 +32,21 @@
       data-testid="refund-charge-id"
     />
   </label>
+
+  @if (refundType() === 'credits') {
+    <label class="refund-request__field">
+      <span>Credit amount (cents)</span>
+      <input
+        pInputText
+        type="number"
+        min="1"
+        step="100"
+        formControlName="amount_cents"
+        placeholder="2500"
+        data-testid="refund-amount-cents"
+      />
+    </label>
+  }
 
   <label class="refund-request__field">
     <span>Reason</span>

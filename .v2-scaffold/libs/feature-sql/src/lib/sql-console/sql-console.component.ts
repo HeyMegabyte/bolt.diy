@@ -26,7 +26,7 @@ import {
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { BehaviorSubject, of, switchMap } from 'rxjs';
+import { BehaviorSubject, catchError, of, switchMap, take } from 'rxjs';
 import { AgGridAngular } from 'ag-grid-angular';
 import type { ColDef } from 'ag-grid-community';
 import {
@@ -34,6 +34,7 @@ import {
   SqlHistoryEntry,
   SqlSchema,
   SqlService,
+  type SqlAiProposal,
 } from '@org/data-access';
 
 const DANGER_RE = /^\s*(drop\s+table|delete\s+from\s+\S+\s*(;|$))/i;
@@ -65,6 +66,12 @@ export class SqlConsoleComponent {
   readonly result = signal<SqlExecuteResponse | null>(null);
   readonly error = signal<string | null>(null);
   readonly pendingConfirm = signal<string | null>(null);
+
+  /** #43 — AI text-to-SQL proposal awaiting user confirmation. */
+  readonly aiIntent = new FormControl<string>('', { nonNullable: true });
+  readonly aiBusy = signal(false);
+  readonly aiError = signal<string | null>(null);
+  readonly aiProposal = signal<SqlAiProposal | null>(null);
 
   readonly schema = toSignal(
     this.siteId$.pipe(
@@ -158,6 +165,47 @@ export class SqlConsoleComponent {
 
   rerunHistory(entry: SqlHistoryEntry): void {
     this.queryCtrl.setValue(entry.sql);
+  }
+
+  /** #43 — Ask the AI to propose a SELECT. Two-pane confirm: never auto-runs. */
+  askAi(): void {
+    const id = this.siteId$.getValue();
+    if (!id) return;
+    const intent = this.aiIntent.value.trim();
+    if (intent.length < 4) {
+      this.aiError.set('Describe what you want to query (at least 4 chars).');
+      return;
+    }
+    this.aiBusy.set(true);
+    this.aiError.set(null);
+    this.aiProposal.set(null);
+    this.sql
+      .proposeFromAi$(id, intent)
+      .pipe(
+        take(1),
+        catchError((err: { message?: string }) => {
+          this.aiBusy.set(false);
+          this.aiError.set(err?.message ?? 'AI proposal failed.');
+          return of(null);
+        }),
+      )
+      .subscribe((p) => {
+        this.aiBusy.set(false);
+        if (p) this.aiProposal.set(p);
+      });
+  }
+
+  /** Accept the AI's proposal: copy SQL into the editor + clear the proposal. */
+  acceptAiProposal(): void {
+    const p = this.aiProposal();
+    if (!p) return;
+    this.queryCtrl.setValue(p.sql);
+    this.aiProposal.set(null);
+    this.aiIntent.setValue('');
+  }
+
+  rejectAiProposal(): void {
+    this.aiProposal.set(null);
   }
 
   exportJson(): void {

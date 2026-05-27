@@ -10,4 +10,5 @@ export * from './lib/crew-earnings/crew-earnings.component';
 export * from './lib/crew-schedule/crew-schedule.component';
 export * from './lib/crew-documents/crew-documents.component';
 export * from './lib/verification-pills.component';
+export * from './lib/schedule-heatmap.component';
 export * from './lib/crew.routes';

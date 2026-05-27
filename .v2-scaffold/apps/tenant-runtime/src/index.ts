@@ -30,6 +30,8 @@ import stripeWebhookRoutes from './routes/stripe-webhook';
 import newsletterRoutes from './routes/newsletter';
 import healthRoutes from './routes/api-health';
 import changelogRoutes from './routes/changelog';
+import analyticsRoutes from './routes/analytics';
+import widgetsRoutes from './routes/widgets';
 import { generateRobots, generateSitemap } from './services/sitemap-gen';
 import { loadLocaleJson } from './services/i18n-loader';
 
@@ -76,6 +78,8 @@ app.route('/api/newsletter', newsletterRoutes);
 app.route('/api/pay', payRoutes);
 app.route('/api/stripe/webhook', stripeWebhookRoutes);
 app.route('/changelog', changelogRoutes);
+app.route('/_pa', analyticsRoutes);
+app.route('/_widget', widgetsRoutes);
 
 // Catch-all static serving — must be LAST.
 app.route('/', staticRoutes);

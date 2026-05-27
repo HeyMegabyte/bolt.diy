@@ -149,3 +149,72 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* #43 — AI text-to-SQL ask + proposal pane */
+.ai-ask {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.ai-input {
+  flex: 1;
+  padding: 0.55rem 0.75rem;
+  background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent);
+  color: inherit;
+  border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 16%, transparent);
+  border-radius: 0.5rem;
+  font: inherit;
+}
+
+.ai-proposal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.85rem;
+  border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent);
+  background: color-mix(in oklch, var(--ps-accent, #00e5ff) 6%, transparent);
+  border-radius: 0.75rem;
+}
+
+.ai-proposal header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.ai-proposal header small {
+  color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 70%, transparent);
+}
+
+.ai-sql {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent);
+  border-radius: 0.5rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ai-explain {
+  margin: 0;
+  font-size: 0.85rem;
+  color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 85%, transparent);
+}
+
+.ai-plan {
+  margin: 0.25rem 0 0;
+  padding: 0.5rem;
+  background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent);
+  border-radius: 0.4rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+}
+
+.ai-proposal footer {
+  display: flex;
+  gap: 0.5rem;
+}

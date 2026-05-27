@@ -54,6 +54,15 @@ export interface SqlHistoryEntry {
   readonly success: boolean;
 }
 
+/** Backlog #43 — AI-proposed SELECT with dry-run plan. */
+export interface SqlAiProposal {
+  readonly proposal_id: string;
+  readonly sql: string;
+  readonly explanation: string;
+  readonly confidence: number;
+  readonly dry_run_plan: string;
+}
+
 const HISTORY_CAP = 100;
 
 // TODO: lock in once util-rxjs lands — replace with retryWithBackoff from @org/util-rxjs.
@@ -105,6 +114,16 @@ export class SqlService {
   /** Observable of the running per-site query history. */
   queryHistory$(siteId: string): Observable<ReadonlyArray<SqlHistoryEntry>> {
     return this.historySubject(siteId).asObservable();
+  }
+
+  /**
+   * #43 — Ask the AI to translate `intent` into a SELECT against this site's
+   * schema. Server enforces SELECT-only + dry-runs via `EXPLAIN QUERY PLAN`
+   * before returning, so this method NEVER mutates data — it returns a
+   * proposal the user reviews then runs through `executeQuery$` themselves.
+   */
+  proposeFromAi$(siteId: string, intent: string): Observable<SqlAiProposal> {
+    return this.http.post<SqlAiProposal>(`/api/sites/${siteId}/sql/ai`, { intent });
   }
 
   /** Used by feature-sql after a query error to record the failure. */

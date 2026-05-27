@@ -11,4 +11,5 @@ export * from './lib/upgrade-dialog/upgrade-dialog.component';
 export * from './lib/connect-onboarding/connect-onboarding.component';
 export * from './lib/refund-request/refund-request.component';
 export * from './lib/receipts-page/receipts-page.component';
+export * from './lib/invoicing.component';
 export * from './lib/feature-billing.routes';

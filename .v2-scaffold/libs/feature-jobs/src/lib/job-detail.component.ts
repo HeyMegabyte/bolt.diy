@@ -25,7 +25,12 @@ import { TagModule } from 'primeng/tag';
 import { Subject, interval, map, startWith, switchMap, takeUntil } from 'rxjs';
 import { MapsLoaderService } from '@org/util-maps';
 import { LiveActivityService } from '@org/util-platform';
-import { DispatchService, type SurgeSnapshot } from '@org/data-access';
+import {
+  CarbonService,
+  DispatchService,
+  type CarbonEstimate,
+  type SurgeSnapshot,
+} from '@org/data-access';
 import { JobsService } from './services/jobs.service';
 import { JobChatComponent } from './job-chat.component';
 import { JobRatingComponent } from './job-rating.component';
@@ -95,6 +100,22 @@ import type { JobLocation } from '@org/domain';
               </p-card>
             }
           }
+          @if (carbon(); as cb) {
+            <div class="carbon" data-testid="job-carbon" role="group" aria-label="Carbon footprint">
+              <span class="carbon__leaf" aria-hidden="true">🍃</span>
+              <span class="carbon__val">{{ cb.co2_kg | number: '1.0-2' }} kg CO₂</span>
+              <span class="carbon__eq">{{ cb.equivalent_text }}</span>
+              @if (cb.offset_cents > 0) {
+                <a
+                  class="carbon__offset"
+                  [href]="cb.offset_url || stripeClimateUrl(cb.offset_cents)"
+                  target="_blank"
+                  rel="noopener"
+                  data-testid="job-carbon-offset"
+                >Offset for {{ cb.offset_cents / 100 | currency: 'USD' }}</a>
+              }
+            </div>
+          }
           <lib-photo-verification [jobId]="id"></lib-photo-verification>
           <lib-job-rating [jobId]="id"></lib-job-rating>
         </aside>
@@ -124,6 +145,10 @@ import type { JobLocation } from '@org/domain';
       .surge .mult { font-size: 1.5rem; font-weight: 700; color: var(--orange-400, #fb923c); font-variant-numeric: tabular-nums; }
       .surge .reason { font-size: 0.875rem; color: var(--text-color-secondary, #999); }
       .surge small { font-size: 0.75rem; color: var(--text-color-secondary, #999); }
+      .carbon { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.6rem; background: var(--green-950, #052e16); color: var(--green-300, #86efac); border-radius: 999px; font-size: 0.8rem; flex-wrap: wrap; }
+      .carbon__val { font-weight: 600; font-variant-numeric: tabular-nums; }
+      .carbon__eq { color: var(--green-400, #4ade80); font-size: 0.75rem; }
+      .carbon__offset { margin-left: 0.25rem; color: var(--cyan-300, #67e8f9); text-decoration: underline; font-size: 0.75rem; }
       @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
     `,
   ],
@@ -134,12 +159,24 @@ export class JobDetailComponent implements AfterViewInit, OnDestroy {
   private readonly maps = inject(MapsLoaderService);
   private readonly liveActivity = inject(LiveActivityService);
   private readonly dispatch = inject(DispatchService);
+  private readonly carbonApi = inject(CarbonService);
 
   private readonly destroy$ = new Subject<void>();
   private liveActivityStarted = false;
   protected readonly tipOpen = signal(false);
   private readonly location = signal<JobLocation | null>(null);
   protected readonly surge = signal<SurgeSnapshot | null>(null);
+
+  protected readonly carbon = toSignal(
+    this.route.paramMap.pipe(
+      switchMap((p) => this.carbonApi.current$(p.get('id') ?? '')),
+    ),
+    { initialValue: null as CarbonEstimate | null },
+  );
+
+  protected stripeClimateUrl(cents: number): string {
+    return `https://climate.stripe.com/?amount_cents=${cents}`;
+  }
 
   protected readonly jobId = toSignal(
     this.route.paramMap.pipe(map((p) => p.get('id') ?? '')),

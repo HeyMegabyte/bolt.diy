@@ -117,9 +117,10 @@ function siteInputFromEnv(env: Env, reqUrl: URL): SiteInput {
 }
 
 /**
- * For HTML responses, inject org-type-aware JSON-LD into `<head>`. R2
- * objects are streams; we materialize as text only when the content
- * type is HTML so non-HTML payloads stay zero-copy.
+ * For HTML responses, inject org-type-aware JSON-LD into `<head>` and the
+ * privacy-analytics beacon (`<script async src="/_pa/script.js">`) before
+ * `</body>`. R2 objects are streams; we materialize as text only when the
+ * content type is HTML so non-HTML payloads stay zero-copy.
  */
 async function withJsonLd(
   body: ReadableStream<Uint8Array> | null,
@@ -128,7 +129,22 @@ async function withJsonLd(
 ): Promise<string | ReadableStream<Uint8Array> | null> {
   if (!body) return null;
   const html = await new Response(body).text();
-  return injectJsonLd(html, orgTypeFromEnv(env), siteInputFromEnv(env, reqUrl));
+  const withLd = injectJsonLd(html, orgTypeFromEnv(env), siteInputFromEnv(env, reqUrl));
+  return injectAnalyticsBeacon(withLd);
+}
+
+/**
+ * Inject the privacy-analytics beacon script just before `</body>` (case
+ * insensitive). Idempotent — if the page already references `/_pa/script.js`
+ * we leave it alone so authored pages can override placement.
+ */
+export function injectAnalyticsBeacon(html: string): string {
+  if (html.includes('/_pa/script.js')) return html;
+  const tag = '<script async src="/_pa/script.js"></script>';
+  const lower = html.toLowerCase();
+  const idx = lower.lastIndexOf('</body>');
+  if (idx < 0) return `${html}${tag}`;
+  return `${html.slice(0, idx)}${tag}${html.slice(idx)}`;
 }
 
 app.get('*', async (c) => {

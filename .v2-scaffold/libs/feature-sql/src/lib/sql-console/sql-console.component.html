@@ -52,6 +52,63 @@
     </button>
   </header>
 
+  <div class="ai-ask" data-testid="sql-ai-ask" role="group" aria-label="Ask AI to write a SELECT">
+    <input
+      type="text"
+      class="ai-input"
+      [formControl]="aiIntent"
+      placeholder="Ask AI — e.g. 'top 10 customers by revenue last 30 days'"
+      data-testid="sql-ai-input"
+      (keyup.enter)="askAi()"
+    />
+    <button
+      type="button"
+      class="btn"
+      [disabled]="aiBusy()"
+      (click)="askAi()"
+      data-testid="sql-ai-ask-btn"
+    >
+      {{ aiBusy() ? 'Asking…' : 'Ask AI' }}
+    </button>
+  </div>
+
+  @if (aiError()) {
+    <p class="error" role="alert" data-testid="sql-ai-error">{{ aiError() }}</p>
+  }
+
+  @if (aiProposal(); as p) {
+    <div class="ai-proposal" data-testid="sql-ai-proposal" role="region" aria-label="AI proposal — review before running">
+      <header>
+        <strong>AI proposal</strong>
+        <small>confidence {{ p.confidence | percent: '1.0-0' }}</small>
+      </header>
+      <pre class="ai-sql"><code>{{ p.sql }}</code></pre>
+      @if (p.explanation) {
+        <p class="ai-explain">{{ p.explanation }}</p>
+      }
+      @if (p.dry_run_plan) {
+        <details>
+          <summary>Dry-run plan</summary>
+          <pre class="ai-plan">{{ p.dry_run_plan }}</pre>
+        </details>
+      }
+      <footer>
+        <button
+          type="button"
+          class="btn primary"
+          (click)="acceptAiProposal()"
+          data-testid="sql-ai-accept"
+        >Use this SQL</button>
+        <button
+          type="button"
+          class="btn"
+          (click)="rejectAiProposal()"
+          data-testid="sql-ai-reject"
+        >Discard</button>
+      </footer>
+    </div>
+  }
+
   <div class="editor" data-testid="sql-editor-shell">
     <!-- TODO: lock in once @ng-monaco/monaco-editor lands. Until then, a
          textarea with the same data-testid keeps specs + UX serviceable. -->

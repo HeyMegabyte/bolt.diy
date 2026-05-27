@@ -22,3 +22,8 @@ export * from './lib/crew-verification.service';
 export * from './lib/dispatch.service';
 export * from './lib/media.service';
 export * from './lib/ai.service';
+export * from './lib/analytics.service';
+export * from './lib/marketplace.service';
+export * from './lib/invoicing.service';
+export * from './lib/schedule.service';
+export * from './lib/carbon.service';

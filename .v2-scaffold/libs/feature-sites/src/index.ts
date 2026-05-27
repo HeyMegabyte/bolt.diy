@@ -8,4 +8,6 @@ export * from './lib/site-detail/site-detail.component';
 export * from './lib/site-create-dialog/site-create-dialog.component';
 export * from './lib/delete-site-dialog/delete-site-dialog.component';
 export * from './lib/hostnames-panel/hostnames-panel.component';
+export * from './lib/site-analytics.component';
+export * from './lib/section-marketplace.component';
 export * from './lib/sites.routes';
