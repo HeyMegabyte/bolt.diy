@@ -49,11 +49,11 @@ const OAUTH_CLIENT_ID_ENV: Partial<Record<Provider, readonly (keyof Env)[]>> = {
   mailchimp: ['MAILCHIMP_CLIENT_ID', 'MAILCHIMP_OAUTH_CLIENT_ID' as keyof Env],
   hubspot: ['HUBSPOT_CLIENT_ID', 'HUBSPOT_OAUTH_CLIENT_ID' as keyof Env],
   stripe: ['STRIPE_CONNECT_CLIENT_ID', 'STRIPE_OAUTH_CLIENT_ID' as keyof Env],
-  slack: ['SLACK_OAUTH_CLIENT_ID' as keyof Env],
+  slack: ['SLACK_CLIENT_ID' as keyof Env, 'SLACK_OAUTH_CLIENT_ID' as keyof Env],
   notion: ['NOTION_OAUTH_CLIENT_ID' as keyof Env],
   github: ['GITHUB_CLIENT_ID', 'GITHUB_OAUTH_CLIENT_ID' as keyof Env],
   linear: ['LINEAR_OAUTH_CLIENT_ID' as keyof Env],
-  discord: ['DISCORD_OAUTH_CLIENT_ID' as keyof Env],
+  discord: ['DISCORD_CLIENT_ID' as keyof Env, 'DISCORD_OAUTH_CLIENT_ID' as keyof Env],
   google_calendar: ['GOOGLE_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_ID' as keyof Env],
   calendly: ['CALENDLY_OAUTH_CLIENT_ID' as keyof Env],
   // Turn 5 — additional providers flipped to OAuth-first in the catalogue.

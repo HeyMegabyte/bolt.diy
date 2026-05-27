@@ -14,8 +14,8 @@
     <polygon points="256,288 416,384 416,416 256,320" fill="#3b82f6"/>
   </g>
 
-  <!-- "Project Sites" text -->
+  <!-- "ProjectSites" text -->
   <text x="78" y="54" font-family="'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="42" font-weight="800" letter-spacing="-0.5" fill="#9ca3af">
-    Project Sites
+    ProjectSites
   </text>
 </svg>

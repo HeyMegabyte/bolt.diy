@@ -67,7 +67,7 @@ Your website is the only digital property you truly own. Your content, your desi
 
 A professional website isn't an expense. It's an investment that pays for itself through increased visibility, credibility, and conversions. Every month without one is revenue left on the table.
 
-Project Sites builds professional, AI-powered websites for small businesses in minutes — not weeks. No design skills needed. No monthly fees to get started.`,
+ProjectSites builds professional, AI-powered websites for small businesses in minutes — not weeks. No design skills needed. No monthly fees to get started.`,
   },
   {
     slug: 'how-ai-is-changing-web-design-for-small-businesses',
@@ -215,7 +215,7 @@ Local SEO isn't complicated, but it requires consistency. The businesses that sh
 
 Start with your Google Business Profile today. Add schema markup to your website this week. Ask your next happy customer for a review. Small, consistent actions compound into dominant local search rankings.
 
-Project Sites automatically implements local SEO best practices — schema markup, meta tags, local keywords, and Google Maps integration — for every site we build.`,
+ProjectSites automatically implements local SEO best practices — schema markup, meta tags, local keywords, and Google Maps integration — for every site we build.`,
   },
 ];
 

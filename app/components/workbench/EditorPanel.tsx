@@ -21,19 +21,21 @@ import { renderLogger } from '~/utils/logger';
 import { isMobile } from '~/utils/mobile';
 import { FileBreadcrumb } from './FileBreadcrumb';
 import { FileTree } from './FileTree';
-import { DEFAULT_TERMINAL_SIZE } from './terminal/TerminalTabs';
+import { DEFAULT_BOTTOM_PANEL_SIZE } from './extensions/BottomPanelTabs';
 import { workbenchStore } from '~/lib/stores/workbench';
 
 /**
- * Item 2 + 7 (perf): Defer the terminal tab shell + xterm.js (~150KB) until
- * the user actually opens the terminal. `TerminalTabs` pulls in `@xterm/xterm`,
- * `@xterm/addon-fit`, `@xterm/addon-web-links`, plus the terminal manager —
- * none needed for the "open + edit a file" path. The Workbench LCP no longer
- * blocks on this chunk; it streams in the first time `showTerminal` flips.
+ * Item 2 + 7 (perf): Defer the bottom-panel shell + xterm.js (~150KB) until
+ * the user actually opens the panel. `BottomPanelTabs` pulls in `@xterm/xterm`,
+ * `@xterm/addon-fit`, `@xterm/addon-web-links`, plus the terminal manager
+ * AND the 10 extension tabs — each tab is itself lazy, so opening Terminal
+ * doesn't pay for the SQL editor or KV browser. The Workbench LCP no longer
+ * blocks on any of this; it streams in the first time `showTerminal` flips.
  */
-const TerminalTabsLazy = lazy(() =>
-  import('./terminal/TerminalTabs').then((m) => ({ default: m.TerminalTabs })),
+const BottomPanelTabsLazy = lazy(() =>
+  import('./extensions/BottomPanelTabs').then((m) => ({ default: m.BottomPanelTabs })),
 );
+const DEFAULT_TERMINAL_SIZE = DEFAULT_BOTTOM_PANEL_SIZE;
 import { Search } from './Search'; // <-- Ensure Search is imported
 import { classNames } from '~/utils/classNames'; // <-- Import classNames if not already present
 import { LockManager } from './LockManager'; // <-- Import LockManager
@@ -199,10 +201,10 @@ export const EditorPanel = memo(
     }, [diffEnabled, editorDocument, fileHistory]);
 
     return (
-      <PanelGroup direction="vertical">
-        <Panel defaultSize={showTerminal ? DEFAULT_EDITOR_SIZE : 100} minSize={20}>
-          <PanelGroup direction="horizontal">
-            <Panel defaultSize={20} minSize={15} collapsible className="border-r border-bolt-elements-borderColor">
+      <PanelGroup direction="vertical" id="editor-vertical">
+        <Panel id="editor" order={1} defaultSize={showTerminal ? DEFAULT_EDITOR_SIZE : 100} minSize={20}>
+          <PanelGroup direction="horizontal" id="editor-horizontal">
+            <Panel id="file-tree" order={1} defaultSize={20} minSize={15} collapsible className="border-r border-bolt-elements-borderColor">
               <div className="h-full">
                 <Tabs.Root defaultValue="files" className="flex flex-col h-full">
                   <PanelHeader className="w-full text-sm font-medium text-bolt-elements-textSecondary px-1">
@@ -261,7 +263,7 @@ export const EditorPanel = memo(
             </Panel>
 
             <PanelResizeHandle />
-            <Panel className="flex flex-col" defaultSize={80} minSize={20}>
+            <Panel id="editor-main" order={2} className="flex flex-col" defaultSize={80} minSize={20}>
               <PanelHeader className="overflow-x-auto">
                 {activeFileSegments?.length && (
                   <div className="flex items-center flex-1 text-sm">
@@ -393,7 +395,7 @@ export const EditorPanel = memo(
             the user because they just clicked the terminal toggle. */}
         {terminalEverOpened ? (
           <Suspense fallback={null}>
-            <TerminalTabsLazy />
+            <BottomPanelTabsLazy />
           </Suspense>
         ) : null}
       </PanelGroup>

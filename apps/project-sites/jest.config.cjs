@@ -7,6 +7,7 @@ const config = {
   coverageProvider: 'v8',
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '\\.wasm$': '<rootDir>/src/__tests__/__mocks__/wasm.js',
   },
 };
 

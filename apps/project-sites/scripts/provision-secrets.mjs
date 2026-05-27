@@ -15,6 +15,7 @@
  *   --env            Worker env to push to (default: production)
  */
 
+import { execSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -37,6 +38,7 @@ const ACCOUNT_ID = '84fa0d1b16ff8086dd958c468ce7fd59';
 const ZONE_ID = '75a6f8d5e441cd7124552976ba894f83';
 const ARGS = new Set(process.argv.slice(2));
 const PUSH = ARGS.has('--push');
+const COMPUTER_USE = ARGS.has('--computer-use');
 const ENV = [...ARGS].find((a) => a.startsWith('--env='))?.slice(6) ?? 'production';
 
 const log = (icon, msg) => console.log(`${icon} ${msg}`);
@@ -205,7 +207,20 @@ function tier3ComputerUseSuggestions() {
     console.log(`     Flow : ${m.flow}`);
     if (m.redirect_uri) console.log(`     RedirectURI: ${m.redirect_uri}`);
   }
-  log('ℹ', 'Re-run with --computer-use to launch the flows via macOS Computer Use MCP');
+  if (!COMPUTER_USE) {
+    log('ℹ', 'Re-run with --computer-use to launch Playwright-driven OAuth provisioning across all 13 MCP providers');
+    return;
+  }
+  log('▶', 'Tier 3 auto-provisioning via Playwright (scripts/provision-oauth-apps.mjs)');
+  const pushFlag = PUSH ? '--push' : '';
+  try {
+    execSync(
+      `node ${join(__dirname, 'provision-oauth-apps.mjs')} --headed --skip-existing ${pushFlag}`.trim(),
+      { stdio: 'inherit', cwd: PROJECT_ROOT },
+    );
+  } catch (e) {
+    log('✗', `OAuth provisioner exited non-zero: ${e.message}`);
+  }
 }
 
 // ────────────────────────────────────────────────────────────
@@ -242,7 +257,19 @@ function pushAll() {
     'STRIPE_CONNECT_CLIENT_ID', 'METERING_PROVIDER',
     'GOOGLE_PLACES_API_KEY', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET',
     'MAILCHIMP_CLIENT_ID', 'MAILCHIMP_CLIENT_SECRET',
+    'MAILCHIMP_OAUTH_CLIENT_ID', 'MAILCHIMP_OAUTH_CLIENT_SECRET',
     'HUBSPOT_CLIENT_ID', 'HUBSPOT_CLIENT_SECRET',
+    'HUBSPOT_OAUTH_CLIENT_ID', 'HUBSPOT_OAUTH_CLIENT_SECRET',
+    'NOTION_OAUTH_CLIENT_ID', 'NOTION_OAUTH_CLIENT_SECRET',
+    'LINEAR_OAUTH_CLIENT_ID', 'LINEAR_OAUTH_CLIENT_SECRET',
+    'SENTRY_OAUTH_CLIENT_ID', 'SENTRY_OAUTH_CLIENT_SECRET',
+    'CALENDLY_OAUTH_CLIENT_ID', 'CALENDLY_OAUTH_CLIENT_SECRET',
+    'AIRTABLE_OAUTH_CLIENT_ID', 'AIRTABLE_OAUTH_CLIENT_SECRET',
+    'ZAPIER_OAUTH_CLIENT_ID', 'ZAPIER_OAUTH_CLIENT_SECRET',
+    'CAL_COM_OAUTH_CLIENT_ID', 'CAL_COM_OAUTH_CLIENT_SECRET',
+    'PAGERDUTY_OAUTH_CLIENT_ID', 'PAGERDUTY_OAUTH_CLIENT_SECRET',
+    'VERCEL_OAUTH_CLIENT_ID', 'VERCEL_OAUTH_CLIENT_SECRET',
+    'NETLIFY_OAUTH_CLIENT_ID', 'NETLIFY_OAUTH_CLIENT_SECRET',
     'GA4_PROPERTY_ID', 'GA4_SERVICE_ACCOUNT_JSON',
     'CLARITY_PROJECT_ID', 'PLAUSIBLE_DOMAIN',
     'GROQ_API_KEY', 'OPEN_ROUTER_API_KEY',

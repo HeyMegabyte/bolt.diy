@@ -21,7 +21,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DashboardChatService } from './dashboard/dashboard-chat.service';
@@ -37,12 +37,7 @@ import { AdminStateService } from '../admin-state.service';
   selector: 'app-admin-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    CommonModule,
-    FormsModule,
-    WidgetRendererComponent,
-    RevealDirective,
-  ],
+  imports: [FormsModule, WidgetRendererComponent, RevealDirective],
   template: `
     <main class="dash" aria-label="Dashboard">
       @if (chat.messages().length === 0) {
@@ -50,8 +45,8 @@ import { AdminStateService } from '../admin-state.service';
           <div class="halo" aria-hidden="true"></div>
           <h1 class="h">Ask anything about your sites</h1>
           <p class="s">
-            Type a question, or click a feature pill. The AI responds with
-            live widgets — metrics, charts, calendars, code — not just text.
+            Type a question, or click a feature pill. The AI responds with live widgets — metrics,
+            charts, calendars, code — not just text.
           </p>
           <ul class="examples">
             @for (ex of examples; track ex) {
@@ -64,7 +59,11 @@ import { AdminStateService } from '../admin-state.service';
       } @else {
         <section class="thread" #thread>
           @for (msg of chat.messages(); track msg.id) {
-            <article class="msg" [class.user]="msg.role === 'user'" [class.asst]="msg.role === 'assistant'">
+            <article
+              class="msg"
+              [class.user]="msg.role === 'user'"
+              [class.asst]="msg.role === 'assistant'"
+            >
               @if (msg.role === 'user') {
                 <div class="user-bubble">{{ msg.text }}</div>
               } @else {
@@ -123,8 +122,12 @@ import { AdminStateService } from '../admin-state.service';
             (input)="onInput()"
             (keydown)="onKey($event)"
           />
-          <button type="submit" class="dock-go" [disabled]="!draft.trim() || chat.streaming()"
-                  [attr.aria-busy]="chat.streaming()">
+          <button
+            type="submit"
+            class="dock-go"
+            [disabled]="!draft.trim() || chat.streaming()"
+            [attr.aria-busy]="chat.streaming()"
+          >
             {{ chat.streaming() ? '…' : 'Ask' }}
           </button>
         </div>
@@ -142,7 +145,12 @@ import { AdminStateService } from '../admin-state.service';
               >
                 <span class="p-g">{{ glyph(m.glyph) }}</span>
                 <span class="p-tx">
-                  <span class="p-id">/{{ m.id }}<span class="p-arg" *ngIf="m.argHint"> {{ m.argHint }}</span></span>
+                  <span class="p-id"
+                    >/{{ m.id }}
+                    @if (m.argHint) {
+                      <span class="p-arg"> {{ m.argHint }}</span>
+                    }
+                  </span>
                   <span class="p-d">{{ m.description }}</span>
                 </span>
               </button>
@@ -178,7 +186,9 @@ import { AdminStateService } from '../admin-state.service';
         position: relative;
       }
       .halo {
-        position: absolute; inset: -40px 10% auto 10%; height: 280px;
+        position: absolute;
+        inset: -40px 10% auto 10%;
+        height: 280px;
         background:
           radial-gradient(ellipse 60% 100% at 50% 0%, rgba(0, 229, 255, 0.18), transparent 70%),
           radial-gradient(ellipse 40% 80% at 30% 30%, rgba(124, 58, 237, 0.18), transparent 70%);
@@ -198,21 +208,34 @@ import { AdminStateService } from '../admin-state.service';
         color: transparent;
       }
       .s {
-        font-size: 1rem; opacity: 0.7; max-width: 580px; margin: 0 auto;
+        font-size: 1rem;
+        opacity: 0.7;
+        max-width: 580px;
+        margin: 0 auto;
         text-wrap: balance;
       }
       .examples {
-        list-style: none; padding: 0; margin: 28px 0 0;
-        display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+        list-style: none;
+        padding: 0;
+        margin: 28px 0 0;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
       }
       .examples button {
-        padding: 8px 14px; min-height: 36px;
+        padding: 8px 14px;
+        min-height: 36px;
         border-radius: 999px;
         background: rgba(0, 229, 255, 0.05);
         border: 1px solid rgba(0, 229, 255, 0.18);
-        color: var(--ps-ink, #f4f4ff); cursor: pointer;
-        font: inherit; font-size: 0.82rem;
-        transition: background 200ms ease, transform 200ms ease;
+        color: var(--ps-ink, #f4f4ff);
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.82rem;
+        transition:
+          background 200ms ease,
+          transform 200ms ease;
       }
       .examples button:hover {
         background: rgba(0, 229, 255, 0.12);
@@ -220,9 +243,15 @@ import { AdminStateService } from '../admin-state.service';
       }
 
       /* Thread */
-      .thread { display: flex; flex-direction: column; gap: 22px; padding: 8px 0 12px; }
+      .thread {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        padding: 8px 0 12px;
+      }
       .msg.user .user-bubble {
-        align-self: flex-end; max-width: 80%;
+        align-self: flex-end;
+        max-width: 80%;
         margin-left: auto;
         padding: 10px 14px;
         background: rgba(0, 229, 255, 0.12);
@@ -230,67 +259,128 @@ import { AdminStateService } from '../admin-state.service';
         border-radius: 18px 18px 4px 18px;
         font-size: 0.92rem;
       }
-      .msg.asst { display: flex; flex-direction: column; gap: 12px; }
-      .asst-parts { display: flex; flex-direction: column; gap: 12px; }
-      .prose { margin: 0; font-size: 0.95rem; line-height: 1.55; opacity: 0.92; text-wrap: pretty; }
+      .msg.asst {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .asst-parts {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .prose {
+        margin: 0;
+        font-size: 0.95rem;
+        line-height: 1.55;
+        opacity: 0.92;
+        text-wrap: pretty;
+      }
       .streaming {
-        display: inline-flex; gap: 6px; align-items: center;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
         padding: 10px 14px;
         background: rgba(124, 58, 237, 0.08);
         border-radius: 14px;
       }
       .streaming .dot {
-        width: 6px; height: 6px; border-radius: 50%;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
         background: rgba(0, 229, 255, 0.8);
         animation: bob 1.4s ease-in-out infinite;
       }
-      .streaming .dot:nth-child(2) { animation-delay: 0.16s; }
-      .streaming .dot:nth-child(3) { animation-delay: 0.32s; }
-      .strm-tx { font-size: 0.85rem; opacity: 0.75; margin-left: 8px; max-height: 1.4em; overflow: hidden; }
+      .streaming .dot:nth-child(2) {
+        animation-delay: 0.16s;
+      }
+      .streaming .dot:nth-child(3) {
+        animation-delay: 0.32s;
+      }
+      .strm-tx {
+        font-size: 0.85rem;
+        opacity: 0.75;
+        margin-left: 8px;
+        max-height: 1.4em;
+        overflow: hidden;
+      }
       @keyframes bob {
-        0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
-        30% { transform: translateY(-4px); opacity: 1; }
+        0%,
+        60%,
+        100% {
+          transform: translateY(0);
+          opacity: 0.5;
+        }
+        30% {
+          transform: translateY(-4px);
+          opacity: 1;
+        }
       }
 
       /* Pill row */
       .pills {
-        position: fixed; left: 0; right: 0; bottom: 96px;
-        display: flex; gap: 8px;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 96px;
+        display: flex;
+        gap: 8px;
         padding: 8px max(24px, env(safe-area-inset-left)) 8px max(24px, env(safe-area-inset-right));
-        overflow-x: auto; scrollbar-width: none;
+        overflow-x: auto;
+        scrollbar-width: none;
         justify-content: center;
         z-index: 30;
         pointer-events: auto;
       }
-      .pills::-webkit-scrollbar { display: none; }
+      .pills::-webkit-scrollbar {
+        display: none;
+      }
       .pill {
         flex: 0 0 auto;
-        min-height: 36px; padding: 0 14px;
+        min-height: 36px;
+        padding: 0 14px;
         border-radius: 999px;
         background: rgba(8, 8, 32, 0.6);
         border: 1px solid rgba(255, 255, 255, 0.08);
         color: var(--ps-ink, #f4f4ff);
-        cursor: pointer; font: inherit; font-size: 0.78rem;
-        display: inline-flex; align-items: center; gap: 6px;
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.78rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
         backdrop-filter: blur(10px);
-        transition: border-color 180ms ease, transform 180ms ease;
+        transition:
+          border-color 180ms ease,
+          transform 180ms ease;
       }
-      .pill:hover { border-color: rgba(0, 229, 255, 0.4); transform: translateY(-1px); }
+      .pill:hover {
+        border-color: rgba(0, 229, 255, 0.4);
+        transform: translateY(-1px);
+      }
       .pill.on {
         border-color: rgba(0, 229, 255, 0.55);
-        box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.3) inset, 0 12px 28px -16px rgba(0, 229, 255, 0.4);
+        box-shadow:
+          0 0 0 1px rgba(0, 229, 255, 0.3) inset,
+          0 12px 28px -16px rgba(0, 229, 255, 0.4);
       }
-      .pill .g { font-size: 0.95rem; }
+      .pill .g {
+        font-size: 0.95rem;
+      }
 
       /* Dock */
       .dock {
-        position: fixed; left: 50%; bottom: 24px;
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
         transform: translateX(-50%);
         width: min(800px, calc(100vw - 32px));
         z-index: 40;
       }
       .dock-inner {
-        display: flex; align-items: center; gap: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
         padding: 6px 6px 6px 18px;
         border-radius: 999px;
         background: rgba(8, 8, 32, 0.78);
@@ -307,58 +397,111 @@ import { AdminStateService } from '../admin-state.service';
       }
       .dock-inner input {
         flex: 1;
-        background: transparent; border: 0; outline: none;
+        background: transparent;
+        border: 0;
+        outline: none;
         color: var(--ps-ink, #f4f4ff);
-        font: inherit; font-size: 0.95rem;
+        font: inherit;
+        font-size: 0.95rem;
         padding: 12px 0;
       }
-      .dock-inner input::placeholder { color: rgba(255, 255, 255, 0.4); }
+      .dock-inner input::placeholder {
+        color: rgba(255, 255, 255, 0.4);
+      }
       .dock-go {
-        min-height: 40px; min-width: 64px; padding: 0 18px;
+        min-height: 40px;
+        min-width: 64px;
+        padding: 0 18px;
         border-radius: 999px;
         background: linear-gradient(135deg, #00e5ff, #7c3aed);
         border: 0;
-        color: #060610; font-weight: 700; cursor: pointer;
-        transition: transform 200ms ease, box-shadow 200ms ease;
+        color: #060610;
+        font-weight: 700;
+        cursor: pointer;
+        transition:
+          transform 200ms ease,
+          box-shadow 200ms ease;
       }
-      .dock-go:hover:not([disabled]) { transform: translateY(-1px); box-shadow: 0 16px 36px -16px rgba(0, 229, 255, 0.6); }
-      .dock-go[disabled] { opacity: 0.5; cursor: not-allowed; }
+      .dock-go:hover:not([disabled]) {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 36px -16px rgba(0, 229, 255, 0.6);
+      }
+      .dock-go[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
 
       /* Slash palette */
       .palette {
-        position: absolute; left: 0; right: 0; bottom: calc(100% + 8px);
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: calc(100% + 8px);
         background: rgba(12, 12, 32, 0.95);
         border-radius: 18px;
         border: 1px solid rgba(0, 229, 255, 0.18);
         box-shadow: 0 22px 64px rgba(0, 0, 0, 0.55);
         backdrop-filter: blur(20px);
-        max-height: 320px; overflow-y: auto;
+        max-height: 320px;
+        overflow-y: auto;
         padding: 6px;
       }
       .p-row {
-        display: flex; align-items: center; gap: 10px;
-        width: 100%; padding: 8px 12px; min-height: 44px;
-        background: transparent; border: 0; border-radius: 10px;
-        color: var(--ps-ink, #f4f4ff); cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 8px 12px;
+        min-height: 44px;
+        background: transparent;
+        border: 0;
+        border-radius: 10px;
+        color: var(--ps-ink, #f4f4ff);
+        cursor: pointer;
         text-align: left;
       }
-      .p-row.on { background: rgba(0, 229, 255, 0.1); }
-      .p-g { font-size: 1.1rem; opacity: 0.75; width: 24px; text-align: center; }
-      .p-tx { display: flex; flex-direction: column; gap: 2px; }
+      .p-row.on {
+        background: rgba(0, 229, 255, 0.1);
+      }
+      .p-g {
+        font-size: 1.1rem;
+        opacity: 0.75;
+        width: 24px;
+        text-align: center;
+      }
+      .p-tx {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
       .p-id {
-        font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
         color: rgba(0, 229, 255, 0.9);
       }
-      .p-arg { opacity: 0.5; }
-      .p-d { font-size: 0.76rem; opacity: 0.65; }
+      .p-arg {
+        opacity: 0.5;
+      }
+      .p-d {
+        font-size: 0.76rem;
+        opacity: 0.65;
+      }
 
       @media (max-width: 720px) {
-        .dash { padding: 18px 14px 220px; }
-        .pills { bottom: 86px; }
-        .hero { padding: 40px 8px 24px; }
+        .dash {
+          padding: 18px 14px 220px;
+        }
+        .pills {
+          bottom: 86px;
+        }
+        .hero {
+          padding: 40px 8px 24px;
+        }
       }
       @media (prefers-reduced-motion: reduce) {
-        .streaming .dot { animation: none; }
+        .streaming .dot {
+          animation: none;
+        }
       }
     `,
   ],
@@ -532,9 +675,7 @@ export class AdminDashboardComponent {
     const target = ev.target as HTMLElement | null;
     if (
       target &&
-      (target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable)
+      (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
     ) {
       return;
     }
@@ -546,9 +687,21 @@ export class AdminDashboardComponent {
 
   glyph(name: string): string {
     const map: Record<string, string> = {
-      globe: '🌐', camera: '📸', rocket: '🚀', inbox: '📥', shield: '🛡',
-      chart: '📈', 'credit-card': '💳', download: '⬇', calendar: '📅',
-      clock: '⏱', grid: '▦', book: '📖', help: '?', code: '⌨', message: '💬',
+      globe: '🌐',
+      camera: '📸',
+      rocket: '🚀',
+      inbox: '📥',
+      shield: '🛡',
+      chart: '📈',
+      'credit-card': '💳',
+      download: '⬇',
+      calendar: '📅',
+      clock: '⏱',
+      grid: '▦',
+      book: '📖',
+      help: '?',
+      code: '⌨',
+      message: '💬',
     };
     return map[name] ?? '✦';
   }

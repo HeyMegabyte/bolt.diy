@@ -15,7 +15,7 @@
   "form": { "required": "This field is required", "email": "Enter a valid email address", "minLength": "Must be at least {{min}} characters", "maxLength": "Must be no more than {{max}} characters", "invalidUrl": "Enter a valid URL" },
   "feedback": { "title": "Send Feedback", "ratingLabel": "How's your experience?", "placeholder": "Tell us more (optional)...", "submit": "Send Feedback", "success": "Thank you for your feedback!", "error": "Failed to send feedback. Please try again." },
   "blog": { "title": "Blog", "subtitle": "Tips, updates, and insights for small business owners", "readMore": "Read More", "minRead": "min read", "backToBlog": "Back to Blog" },
-  "changelog": { "title": "Changelog", "subtitle": "What's new in Project Sites" },
+  "changelog": { "title": "Changelog", "subtitle": "What's new in ProjectSites" },
   "status": { "title": "System Status", "operational": "All Systems Operational", "degraded": "Degraded Performance", "down": "Service Disruption" },
   "auth": { "signIn": "Sign In", "signOut": "Sign Out", "magicLink": "Sign in with email", "magicLinkSent": "Check your inbox for the magic link", "googleSignIn": "Continue with Google", "emailPlaceholder": "you@example.com" }
 }

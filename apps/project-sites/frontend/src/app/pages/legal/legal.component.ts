@@ -14,7 +14,7 @@ const PAGES: Record<string, LegalPage> = {
     breadcrumb: 'Privacy',
     lastUpdated: 'March 1, 2026',
     content: `
-<p class="legal-intro">Megabyte LLC ("we," "us," or "our") operates the Project Sites platform at <strong>projectsites.dev</strong>. This policy explains how we collect, use, share, and protect your personal data.</p>
+<p class="legal-intro">Megabyte LLC ("we," "us," or "our") operates the ProjectSites platform at <strong>projectsites.dev</strong>. This policy explains how we collect, use, share, and protect your personal data.</p>
 
 <h2>1. Information We Collect</h2>
 
@@ -115,10 +115,10 @@ const PAGES: Record<string, LegalPage> = {
     breadcrumb: 'Terms',
     lastUpdated: 'March 1, 2026',
     content: `
-<p class="legal-intro">These Terms of Service ("Terms") are a binding agreement between you and Megabyte LLC governing your use of the Project Sites platform at <strong>projectsites.dev</strong>. By using the service, you agree to these Terms.</p>
+<p class="legal-intro">These Terms of Service ("Terms") are a binding agreement between you and Megabyte LLC governing your use of the ProjectSites platform at <strong>projectsites.dev</strong>. By using the service, you agree to these Terms.</p>
 
 <h2>1. Service Description</h2>
-<p>Project Sites is an AI-powered website builder that generates, hosts, and maintains professional business websites. The service includes:</p>
+<p>ProjectSites is an AI-powered website builder that generates, hosts, and maintains professional business websites. The service includes:</p>
 <ul>
   <li>AI-powered website generation from business information and public data sources.</li>
   <li>Website hosting on Cloudflare's global edge network with SSL/TLS encryption.</li>
@@ -154,7 +154,7 @@ const PAGES: Record<string, LegalPage> = {
 </ul>
 
 <h3>3.3 Our Intellectual Property</h3>
-<p>The Project Sites platform, including its source code, design, branding, and documentation, is owned by Megabyte LLC and protected by intellectual property laws. These Terms do not grant you any rights to our intellectual property beyond what is necessary to use the service.</p>
+<p>The ProjectSites platform, including its source code, design, branding, and documentation, is owned by Megabyte LLC and protected by intellectual property laws. These Terms do not grant you any rights to our intellectual property beyond what is necessary to use the service.</p>
 
 <h2>4. Billing, Payments, and Cancellation</h2>
 <ul>
@@ -227,10 +227,10 @@ const PAGES: Record<string, LegalPage> = {
     breadcrumb: 'Content Policy',
     lastUpdated: 'March 1, 2026',
     content: `
-<p class="legal-intro">This Content Policy defines what is and is not allowed on websites hosted by Project Sites. All users must follow this policy. Violations may lead to content removal, site suspension, or account termination.</p>
+<p class="legal-intro">This Content Policy defines what is and is not allowed on websites hosted by ProjectSites. All users must follow this policy. Violations may lead to content removal, site suspension, or account termination.</p>
 
 <h2>1. Permitted Use</h2>
-<p>Project Sites is designed for hosting legitimate websites. Permitted uses include:</p>
+<p>ProjectSites is designed for hosting legitimate websites. Permitted uses include:</p>
 <ul>
   <li>Business websites for real, operating businesses and services.</li>
   <li>Personal websites, portfolios, and resumes.</li>

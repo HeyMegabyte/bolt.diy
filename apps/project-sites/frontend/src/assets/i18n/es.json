@@ -15,7 +15,7 @@
   "form": { "required": "Este campo es obligatorio", "email": "Ingresa un correo electrónico válido", "minLength": "Debe tener al menos {{min}} caracteres", "maxLength": "No debe tener más de {{max}} caracteres", "invalidUrl": "Ingresa una URL válida" },
   "feedback": { "title": "Enviar Comentario", "ratingLabel": "¿Cómo es tu experiencia?", "placeholder": "Cuéntanos más (opcional)...", "submit": "Enviar Comentario", "success": "¡Gracias por tu comentario!", "error": "No se pudo enviar. Intenta de nuevo." },
   "blog": { "title": "Blog", "subtitle": "Consejos, actualizaciones e ideas para pequeños negocios", "readMore": "Leer Más", "minRead": "min de lectura", "backToBlog": "Volver al Blog" },
-  "changelog": { "title": "Registro de Cambios", "subtitle": "Novedades en Project Sites" },
+  "changelog": { "title": "Registro de Cambios", "subtitle": "Novedades en ProjectSites" },
   "status": { "title": "Estado del Sistema", "operational": "Todos los Sistemas Operativos", "degraded": "Rendimiento Degradado", "down": "Interrupción del Servicio" },
   "auth": { "signIn": "Iniciar Sesión", "signOut": "Cerrar Sesión", "magicLink": "Iniciar sesión con correo", "magicLinkSent": "Revisa tu bandeja de entrada", "googleSignIn": "Continuar con Google", "emailPlaceholder": "tu@ejemplo.com" }
 }

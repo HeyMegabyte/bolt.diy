@@ -571,7 +571,7 @@ export class BlogPostComponent implements OnInit, OnDestroy {
       },
       publisher: {
         '@type': 'Organization',
-        name: 'Project Sites',
+        name: 'ProjectSites',
         url: 'https://projectsites.dev',
       },
       mainEntityOfPage: {

@@ -31,6 +31,7 @@
 import { DOMAINS } from '@project-sites/shared';
 import type { Env } from '../types/env.js';
 import { dbQueryOne } from './db.js';
+import { minifyCssCached } from './css_minify.js';
 
 /**
  * Generate the promotional top bar HTML injected into unpaid sites.
@@ -856,6 +857,20 @@ async function buildSiteResponse(
     }
 
     return new Response(html, { status: 200, headers });
+  }
+
+  // CSS minify-on-serve via lightningcss-wasm with KV cache. Falls through to
+  // raw bytes on any error so a WASM blip never breaks the serve path.
+  if (env && contentType.startsWith('text/css')) {
+    try {
+      const raw = await object.arrayBuffer();
+      const { bytes, cacheHit } = await minifyCssCached(env, raw, `${site.slug}.css`);
+      headers.set('X-CSS-Min', cacheHit ? 'hit' : 'miss');
+      headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+      return new Response(bytes, { status: 200, headers });
+    } catch (err) {
+      console.warn('[site_serving] css_minify failed, serving raw:', err);
+    }
   }
 
   return new Response(object.body, { status: 200, headers });

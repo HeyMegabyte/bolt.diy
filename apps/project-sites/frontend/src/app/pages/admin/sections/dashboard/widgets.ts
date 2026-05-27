@@ -6,15 +6,8 @@
  *
  * Renderer maps `{name → component}`. Unknown names fall back to MarkdownWidget.
  */
-import {
-  Component,
-  ChangeDetectionStrategy,
-  Input,
-  computed,
-  input,
-  signal,
-} from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, ChangeDetectionStrategy, Input, computed, input, signal } from '@angular/core';
+
 import { RollingCounterComponent } from '../../../../components/rolling-counter/rolling-counter.component';
 import { RevealDirective } from '../../../../directives/reveal.directive';
 import { CalendarWidgetComponent } from './calendar-widget.component';
@@ -28,7 +21,10 @@ function sparkPath(values: number[], w = 88, h = 28): string {
   const span = max - min || 1;
   const step = w / Math.max(1, values.length - 1);
   return values
-    .map((v, i) => `${i ? 'L' : 'M'} ${(i * step).toFixed(1)} ${(h - ((v - min) / span) * h).toFixed(1)}`)
+    .map(
+      (v, i) =>
+        `${i ? 'L' : 'M'} ${(i * step).toFixed(1)} ${(h - ((v - min) / span) * h).toFixed(1)}`,
+    )
     .join(' ');
 }
 
@@ -47,7 +43,7 @@ interface MetricTile {
   selector: 'app-w-metric-grid',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RollingCounterComponent, RevealDirective],
+  imports: [RollingCounterComponent, RevealDirective],
   template: `
     <div class="grid" appReveal>
       @for (t of tiles(); track t.label) {
@@ -68,7 +64,12 @@ interface MetricTile {
           }
           @if (t.spark?.length) {
             <svg class="spark" viewBox="0 0 88 28" preserveAspectRatio="none" aria-hidden="true">
-              <path [attr.d]="path(t.spark!)" fill="none" stroke="var(--ps-accent, #00e5ff)" stroke-width="1.5" />
+              <path
+                [attr.d]="path(t.spark!)"
+                fill="none"
+                stroke="var(--ps-accent, #00e5ff)"
+                stroke-width="1.5"
+              />
             </svg>
           }
         </div>
@@ -77,7 +78,9 @@ interface MetricTile {
   `,
   styles: [
     `
-      :host { display: block; }
+      :host {
+        display: block;
+      }
       .grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -106,12 +109,24 @@ interface MetricTile {
         color: var(--ps-ink, #f4f4ff);
         margin-top: 4px;
       }
-      .delta { font-size: 0.72rem; margin-top: 2px; opacity: 0.85; }
-      .delta.up { color: #34d399; }
-      .delta.dn { color: #f87171; }
+      .delta {
+        font-size: 0.72rem;
+        margin-top: 2px;
+        opacity: 0.85;
+      }
+      .delta.up {
+        color: #34d399;
+      }
+      .delta.dn {
+        color: #f87171;
+      }
       .spark {
-        position: absolute; right: 12px; bottom: 10px;
-        width: 88px; height: 28px; opacity: 0.75;
+        position: absolute;
+        right: 12px;
+        bottom: 10px;
+        width: 88px;
+        height: 28px;
+        opacity: 0.75;
       }
     `,
   ],
@@ -136,7 +151,7 @@ interface ChartSeries {
   selector: 'app-w-chart',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RevealDirective],
+  imports: [RevealDirective],
   template: `
     <div class="wrap" appReveal>
       <div class="hd">
@@ -151,7 +166,9 @@ interface ChartSeries {
         <svg viewBox="0 0 120 120" class="donut" aria-hidden="true">
           @for (seg of donutSegs(); track seg.name) {
             <circle
-              cx="60" cy="60" r="48"
+              cx="60"
+              cy="60"
+              r="48"
               fill="none"
               [attr.stroke]="seg.color"
               stroke-width="16"
@@ -166,8 +183,15 @@ interface ChartSeries {
           @for (s of normalized(); track s.name) {
             @if (kind() === 'bar') {
               @for (pt of s.points; track $index) {
-                <rect [attr.x]="pt.x - 6" [attr.y]="pt.y" width="12" [attr.height]="200 - pt.y"
-                      [attr.fill]="s.color" opacity="0.75" rx="2" />
+                <rect
+                  [attr.x]="pt.x - 6"
+                  [attr.y]="pt.y"
+                  width="12"
+                  [attr.height]="200 - pt.y"
+                  [attr.fill]="s.color"
+                  opacity="0.75"
+                  rx="2"
+                />
               }
             } @else {
               <path [attr.d]="s.path" fill="none" [attr.stroke]="s.color" stroke-width="2" />
@@ -180,29 +204,66 @@ interface ChartSeries {
   `,
   styles: [
     `
-      :host { display: block; }
+      :host {
+        display: block;
+      }
       .wrap {
         padding: 16px;
         border-radius: 14px;
         background: rgba(8, 8, 32, 0.55);
         border: 1px solid rgba(0, 229, 255, 0.12);
       }
-      .hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-      .t { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; color: var(--ps-ink, #f4f4ff); }
-      .legend { display: flex; gap: 12px; font-size: 0.72rem; opacity: 0.7; }
-      .lg { display: inline-flex; align-items: center; gap: 5px; }
-      .lg i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
-      .line { width: 100%; height: 200px; }
-      .donut { width: 200px; height: 200px; display: block; margin: 0 auto; }
+      .hd {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      .t {
+        font-family: 'Sora', system-ui, sans-serif;
+        font-weight: 600;
+        color: var(--ps-ink, #f4f4ff);
+      }
+      .legend {
+        display: flex;
+        gap: 12px;
+        font-size: 0.72rem;
+        opacity: 0.7;
+      }
+      .lg {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .lg i {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        display: inline-block;
+      }
+      .line {
+        width: 100%;
+        height: 200px;
+      }
+      .donut {
+        width: 200px;
+        height: 200px;
+        display: block;
+        margin: 0 auto;
+      }
     `,
   ],
 })
 export class WChartComponent {
-  @Input() set props(v: {
-    kind?: 'line' | 'bar' | 'donut';
-    title?: string;
-    series?: ChartSeries[];
-  } | undefined) {
+  @Input() set props(
+    v:
+      | {
+          kind?: 'line' | 'bar' | 'donut';
+          title?: string;
+          series?: ChartSeries[];
+        }
+      | undefined,
+  ) {
     this.kind.set(v?.kind ?? 'line');
     this.title.set(v?.title ?? '');
     this.series.set(v?.series ?? []);
@@ -264,10 +325,12 @@ export class WChartComponent {
   selector: 'app-w-table',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RevealDirective],
+  imports: [RevealDirective],
   template: `
     <div class="wrap" appReveal>
-      @if (title()) { <div class="t">{{ title() }}</div> }
+      @if (title()) {
+        <div class="t">{{ title() }}</div>
+      }
       <div class="tbl-scroll">
         <table>
           <thead>
@@ -286,7 +349,9 @@ export class WChartComponent {
               </tr>
             }
             @if (!rows().length) {
-              <tr><td [attr.colspan]="columns().length" class="empty">No rows.</td></tr>
+              <tr>
+                <td [attr.colspan]="columns().length" class="empty">No rows.</td>
+              </tr>
             }
           </tbody>
         </table>
@@ -295,25 +360,57 @@ export class WChartComponent {
   `,
   styles: [
     `
-      :host { display: block; }
+      :host {
+        display: block;
+      }
       .wrap {
         padding: 14px;
         border-radius: 14px;
         background: rgba(8, 8, 32, 0.55);
         border: 1px solid rgba(0, 229, 255, 0.12);
       }
-      .t { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; margin-bottom: 8px; color: var(--ps-ink, #f4f4ff); }
-      .tbl-scroll { overflow-x: auto; }
-      table { width: 100%; border-collapse: collapse; font-size: 0.85rem; color: var(--ps-ink, #f4f4ff); }
-      th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
-      th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.55; }
-      tr:hover td { background: rgba(0, 229, 255, 0.04); }
-      .empty { text-align: center; opacity: 0.5; padding: 20px; }
+      .t {
+        font-family: 'Sora', system-ui, sans-serif;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--ps-ink, #f4f4ff);
+      }
+      .tbl-scroll {
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+        color: var(--ps-ink, #f4f4ff);
+      }
+      th,
+      td {
+        padding: 8px 10px;
+        text-align: left;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      th {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.55;
+      }
+      tr:hover td {
+        background: rgba(0, 229, 255, 0.04);
+      }
+      .empty {
+        text-align: center;
+        opacity: 0.5;
+        padding: 20px;
+      }
     `,
   ],
 })
 export class WTableComponent {
-  @Input() set props(v: { title?: string; columns?: string[]; rows?: (string | number)[][] } | undefined) {
+  @Input() set props(
+    v: { title?: string; columns?: string[]; rows?: (string | number)[][] } | undefined,
+  ) {
     this.title.set(v?.title ?? '');
     this.columns.set(v?.columns ?? []);
     this.rows.set(v?.rows ?? []);
@@ -336,15 +433,20 @@ interface TimelineItem {
   selector: 'app-w-timeline',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RevealDirective],
+  imports: [RevealDirective],
   template: `
     <ol class="tl" appReveal>
       @for (it of items(); track it.at + it.title) {
         <li [class]="'tl-item k-' + (it.kind ?? 'info')">
           <div class="dot"></div>
           <div class="bd">
-            <div class="hd"><span class="tt">{{ it.title }}</span><span class="at">{{ rel(it.at) }}</span></div>
-            @if (it.body) { <div class="bb">{{ it.body }}</div> }
+            <div class="hd">
+              <span class="tt">{{ it.title }}</span
+              ><span class="at">{{ rel(it.at) }}</span>
+            </div>
+            @if (it.body) {
+              <div class="bb">{{ it.body }}</div>
+            }
           </div>
         </li>
       }
@@ -352,26 +454,71 @@ interface TimelineItem {
   `,
   styles: [
     `
-      :host { display: block; }
-      .tl { list-style: none; padding: 0 0 0 16px; margin: 0; position: relative; }
-      .tl::before {
-        content: ''; position: absolute; left: 5px; top: 6px; bottom: 6px;
-        width: 1px; background: rgba(0, 229, 255, 0.18);
+      :host {
+        display: block;
       }
-      .tl-item { position: relative; padding: 6px 0 12px 16px; }
+      .tl {
+        list-style: none;
+        padding: 0 0 0 16px;
+        margin: 0;
+        position: relative;
+      }
+      .tl::before {
+        content: '';
+        position: absolute;
+        left: 5px;
+        top: 6px;
+        bottom: 6px;
+        width: 1px;
+        background: rgba(0, 229, 255, 0.18);
+      }
+      .tl-item {
+        position: relative;
+        padding: 6px 0 12px 16px;
+      }
       .dot {
-        position: absolute; left: -1px; top: 8px;
-        width: 12px; height: 12px; border-radius: 50%;
+        position: absolute;
+        left: -1px;
+        top: 8px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
         background: var(--ps-accent, #00e5ff);
         box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.18);
       }
-      .k-success .dot { background: #34d399; box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.2); }
-      .k-warning .dot { background: #fbbf24; box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.2); }
-      .k-error   .dot { background: #f87171; box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.2); }
-      .hd { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
-      .tt { font-weight: 600; color: var(--ps-ink, #f4f4ff); font-size: 0.92rem; }
-      .at { font-size: 0.7rem; opacity: 0.55; font-family: 'JetBrains Mono', monospace; }
-      .bb { margin-top: 4px; font-size: 0.82rem; opacity: 0.75; }
+      .k-success .dot {
+        background: #34d399;
+        box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.2);
+      }
+      .k-warning .dot {
+        background: #fbbf24;
+        box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.2);
+      }
+      .k-error .dot {
+        background: #f87171;
+        box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.2);
+      }
+      .hd {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: baseline;
+      }
+      .tt {
+        font-weight: 600;
+        color: var(--ps-ink, #f4f4ff);
+        font-size: 0.92rem;
+      }
+      .at {
+        font-size: 0.7rem;
+        opacity: 0.55;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .bb {
+        margin-top: 4px;
+        font-size: 0.82rem;
+        opacity: 0.75;
+      }
     `,
   ],
 })
@@ -398,7 +545,7 @@ export class WTimelineComponent {
   selector: 'app-w-status-grid',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RevealDirective],
+  imports: [RevealDirective],
   template: `
     <div class="grid" appReveal>
       @for (c of cells(); track c.label) {
@@ -406,36 +553,83 @@ export class WTimelineComponent {
           <div class="dot"></div>
           <div class="lbl">{{ c.label }}</div>
           <div class="state">{{ c.state }}</div>
-          @if (c.note) { <div class="note">{{ c.note }}</div> }
+          @if (c.note) {
+            <div class="note">{{ c.note }}</div>
+          }
         </div>
       }
     </div>
   `,
   styles: [
     `
-      :host { display: block; }
-      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+      :host {
+        display: block;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+      }
       .cell {
-        position: relative; padding: 14px;
+        position: relative;
+        padding: 14px;
         border-radius: 14px;
         background: rgba(8, 8, 32, 0.55);
         border: 1px solid rgba(0, 229, 255, 0.12);
       }
-      .dot { width: 10px; height: 10px; border-radius: 50%; background: #34d399; box-shadow: 0 0 12px currentColor; }
-      [data-state='warning'] .dot { background: #fbbf24; }
-      [data-state='degraded'] .dot { background: #fb923c; }
-      [data-state='idle'] .dot { background: rgba(255, 255, 255, 0.3); box-shadow: none; }
-      [data-state='error'] .dot { background: #f87171; }
-      .lbl { font-weight: 600; color: var(--ps-ink, #f4f4ff); margin-top: 8px; }
-      .state { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.6; margin-top: 2px; }
-      .note { font-size: 0.78rem; opacity: 0.7; margin-top: 6px; font-family: 'JetBrains Mono', monospace; }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #34d399;
+        box-shadow: 0 0 12px currentColor;
+      }
+      [data-state='warning'] .dot {
+        background: #fbbf24;
+      }
+      [data-state='degraded'] .dot {
+        background: #fb923c;
+      }
+      [data-state='idle'] .dot {
+        background: rgba(255, 255, 255, 0.3);
+        box-shadow: none;
+      }
+      [data-state='error'] .dot {
+        background: #f87171;
+      }
+      .lbl {
+        font-weight: 600;
+        color: var(--ps-ink, #f4f4ff);
+        margin-top: 8px;
+      }
+      .state {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.6;
+        margin-top: 2px;
+      }
+      .note {
+        font-size: 0.78rem;
+        opacity: 0.7;
+        margin-top: 6px;
+        font-family: 'JetBrains Mono', monospace;
+      }
     `,
   ],
 })
 export class WStatusGridComponent {
-  @Input() set props(v: {
-    cells?: { label: string; state: 'healthy' | 'warning' | 'degraded' | 'error' | 'idle'; note?: string }[];
-  } | undefined) {
+  @Input() set props(
+    v:
+      | {
+          cells?: {
+            label: string;
+            state: 'healthy' | 'warning' | 'degraded' | 'error' | 'idle';
+            note?: string;
+          }[];
+        }
+      | undefined,
+  ) {
     this.cells.set(v?.cells ?? []);
   }
   cells = signal<{ label: string; state: string; note?: string }[]>([]);
@@ -447,7 +641,7 @@ export class WStatusGridComponent {
   selector: 'app-w-cta',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RevealDirective],
+  imports: [RevealDirective],
   template: `
     <a class="cta" [attr.href]="href()" appReveal>
       <span class="g" [attr.aria-hidden]="true">{{ glyph() }}</span>
@@ -457,9 +651,13 @@ export class WStatusGridComponent {
   `,
   styles: [
     `
-      :host { display: block; }
+      :host {
+        display: block;
+      }
       .cta {
-        display: inline-flex; align-items: center; gap: 10px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
         padding: 12px 18px;
         border-radius: 999px;
         background: linear-gradient(135deg, rgba(0, 229, 255, 0.18), rgba(124, 58, 237, 0.16));
@@ -467,11 +665,20 @@ export class WStatusGridComponent {
         color: var(--ps-ink, #f4f4ff);
         font-weight: 600;
         text-decoration: none;
-        transition: transform 200ms ease, box-shadow 200ms ease;
+        transition:
+          transform 200ms ease,
+          box-shadow 200ms ease;
       }
-      .cta:hover { transform: translateY(-2px); box-shadow: 0 16px 36px -16px rgba(0, 229, 255, 0.45); }
-      .g { font-size: 1.2rem; }
-      .arr { opacity: 0.7; }
+      .cta:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 16px 36px -16px rgba(0, 229, 255, 0.45);
+      }
+      .g {
+        font-size: 1.2rem;
+      }
+      .arr {
+        opacity: 0.7;
+      }
     `,
   ],
 })
@@ -488,9 +695,20 @@ export class WCtaComponent {
 
 function glyphOf(name: string): string {
   const map: Record<string, string> = {
-    rocket: '🚀', camera: '📸', book: '📖', calendar: '📅', chart: '📈',
-    inbox: '📥', shield: '🛡', code: '⌨', globe: '🌐', clock: '⏱',
-    'credit-card': '💳', grid: '▦', help: '?', download: '⬇',
+    rocket: '🚀',
+    camera: '📸',
+    book: '📖',
+    calendar: '📅',
+    chart: '📈',
+    inbox: '📥',
+    shield: '🛡',
+    code: '⌨',
+    globe: '🌐',
+    clock: '⏱',
+    'credit-card': '💳',
+    grid: '▦',
+    help: '?',
+    download: '⬇',
   };
   return map[name] ?? '✦';
 }
@@ -501,7 +719,7 @@ function glyphOf(name: string): string {
   selector: 'app-w-file-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RevealDirective],
+  imports: [RevealDirective],
   template: `
     <ul class="files" appReveal>
       @for (f of files(); track f.name) {
@@ -509,7 +727,9 @@ function glyphOf(name: string): string {
           <a [attr.href]="f.href ?? '#'" class="row">
             <span class="kind" [attr.data-kind]="f.kind">{{ f.kind ?? 'file' }}</span>
             <span class="name">{{ f.name }}</span>
-            @if (f.size) { <span class="sz">{{ f.size }}</span> }
+            @if (f.size) {
+              <span class="sz">{{ f.size }}</span>
+            }
           </a>
         </li>
       }
@@ -517,33 +737,72 @@ function glyphOf(name: string): string {
   `,
   styles: [
     `
-      :host { display: block; }
-      .files { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+      :host {
+        display: block;
+      }
+      .files {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
       .row {
-        display: flex; align-items: center; gap: 10px;
-        padding: 8px 12px; border-radius: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 10px;
         background: rgba(8, 8, 32, 0.4);
         border: 1px solid rgba(0, 229, 255, 0.06);
         color: var(--ps-ink, #f4f4ff);
         text-decoration: none;
       }
-      .row:hover { background: rgba(0, 229, 255, 0.06); border-color: rgba(0, 229, 255, 0.18); }
+      .row:hover {
+        background: rgba(0, 229, 255, 0.06);
+        border-color: rgba(0, 229, 255, 0.18);
+      }
       .kind {
-        padding: 2px 8px; border-radius: 6px;
-        font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em;
-        background: rgba(0, 229, 255, 0.12); color: rgba(0, 229, 255, 0.9);
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        background: rgba(0, 229, 255, 0.12);
+        color: rgba(0, 229, 255, 0.9);
         font-family: 'JetBrains Mono', monospace;
       }
-      [data-kind='tsx'], [data-kind='ts'] { background: rgba(0, 229, 255, 0.18); color: #67e8f9; }
-      [data-kind='css'], [data-kind='scss'] { background: rgba(244, 114, 182, 0.18); color: #f9a8d4; }
-      [data-kind='json'] { background: rgba(251, 191, 36, 0.18); color: #fcd34d; }
-      .name { flex: 1; font-size: 0.88rem; }
-      .sz { font-size: 0.7rem; opacity: 0.5; font-family: 'JetBrains Mono', monospace; }
+      [data-kind='tsx'],
+      [data-kind='ts'] {
+        background: rgba(0, 229, 255, 0.18);
+        color: #67e8f9;
+      }
+      [data-kind='css'],
+      [data-kind='scss'] {
+        background: rgba(244, 114, 182, 0.18);
+        color: #f9a8d4;
+      }
+      [data-kind='json'] {
+        background: rgba(251, 191, 36, 0.18);
+        color: #fcd34d;
+      }
+      .name {
+        flex: 1;
+        font-size: 0.88rem;
+      }
+      .sz {
+        font-size: 0.7rem;
+        opacity: 0.5;
+        font-family: 'JetBrains Mono', monospace;
+      }
     `,
   ],
 })
 export class WFileListComponent {
-  @Input() set props(v: { files?: { name: string; kind?: string; href?: string; size?: string }[] } | undefined) {
+  @Input() set props(
+    v: { files?: { name: string; kind?: string; href?: string; size?: string }[] } | undefined,
+  ) {
     this.files.set(v?.files ?? []);
   }
   files = signal<{ name: string; kind?: string; href?: string; size?: string }[]>([]);
@@ -555,7 +814,7 @@ export class WFileListComponent {
   selector: 'app-w-map',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RevealDirective],
+  imports: [RevealDirective],
   template: `
     <div class="wrap" appReveal>
       <div class="hd">{{ address() }}</div>
@@ -569,20 +828,34 @@ export class WFileListComponent {
   `,
   styles: [
     `
-      :host { display: block; }
+      :host {
+        display: block;
+      }
       .wrap {
         padding: 12px;
         border-radius: 14px;
         background: rgba(8, 8, 32, 0.55);
         border: 1px solid rgba(0, 229, 255, 0.12);
       }
-      .hd { font-weight: 600; margin-bottom: 8px; color: var(--ps-ink, #f4f4ff); }
-      iframe { width: 100%; height: 240px; border: 0; border-radius: 8px; filter: invert(0.92) hue-rotate(180deg); }
+      .hd {
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--ps-ink, #f4f4ff);
+      }
+      iframe {
+        width: 100%;
+        height: 240px;
+        border: 0;
+        border-radius: 8px;
+        filter: invert(0.92) hue-rotate(180deg);
+      }
     `,
   ],
 })
 export class WMapComponent {
-  @Input() set props(v: { address?: string; lat?: number; lng?: number; zoom?: number } | undefined) {
+  @Input() set props(
+    v: { address?: string; lat?: number; lng?: number; zoom?: number } | undefined,
+  ) {
     this.address.set(v?.address ?? '');
     const lat = v?.lat ?? 40.88;
     const lng = v?.lng ?? -74.39;
@@ -603,32 +876,61 @@ export class WMapComponent {
   selector: 'app-w-code',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RevealDirective],
+  imports: [RevealDirective],
   template: `
     <figure class="wrap" appReveal>
-      <figcaption><span class="lang">{{ language() }}</span>
-        <button type="button" (click)="copy()" class="cp">{{ copied() ? 'Copied' : 'Copy' }}</button>
+      <figcaption>
+        <span class="lang">{{ language() }}</span>
+        <button type="button" (click)="copy()" class="cp">
+          {{ copied() ? 'Copied' : 'Copy' }}
+        </button>
       </figcaption>
       <pre><code>{{ code() }}</code></pre>
     </figure>
   `,
   styles: [
     `
-      :host { display: block; }
+      :host {
+        display: block;
+      }
       .wrap {
         border-radius: 14px;
         background: rgba(8, 8, 32, 0.55);
         border: 1px solid rgba(0, 229, 255, 0.12);
         overflow: hidden;
       }
-      figcaption { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; border-bottom: 1px solid rgba(0, 229, 255, 0.1); }
-      .lang { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.6; font-family: 'JetBrains Mono', monospace; color: var(--ps-ink, #f4f4ff); }
-      .cp {
-        font-size: 0.7rem; padding: 4px 10px; border-radius: 6px;
-        background: rgba(0, 229, 255, 0.12); color: rgba(0, 229, 255, 0.9);
-        border: 1px solid rgba(0, 229, 255, 0.2); cursor: pointer;
+      figcaption {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 14px;
+        border-bottom: 1px solid rgba(0, 229, 255, 0.1);
       }
-      pre { margin: 0; padding: 14px; overflow: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: var(--ps-ink, #f4f4ff); }
+      .lang {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.6;
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--ps-ink, #f4f4ff);
+      }
+      .cp {
+        font-size: 0.7rem;
+        padding: 4px 10px;
+        border-radius: 6px;
+        background: rgba(0, 229, 255, 0.12);
+        color: rgba(0, 229, 255, 0.9);
+        border: 1px solid rgba(0, 229, 255, 0.2);
+        cursor: pointer;
+      }
+      pre {
+        margin: 0;
+        padding: 14px;
+        overflow: auto;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.82rem;
+        color: var(--ps-ink, #f4f4ff);
+      }
     `,
   ],
 })
@@ -657,23 +959,42 @@ export class WCodeComponent {
   selector: 'app-w-markdown',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RevealDirective],
+  imports: [RevealDirective],
   template: `<div class="md" appReveal [innerHTML]="html()"></div>`,
   styles: [
     `
-      :host { display: block; }
+      :host {
+        display: block;
+      }
       .md {
         color: var(--ps-ink, #f4f4ff);
-        font-size: 0.92rem; line-height: 1.55;
+        font-size: 0.92rem;
+        line-height: 1.55;
       }
-      .md h1, .md h2, .md h3 { font-family: 'Sora', system-ui, sans-serif; margin: 0.6em 0 0.3em; }
-      .md p { margin: 0.4em 0; }
+      .md h1,
+      .md h2,
+      .md h3 {
+        font-family: 'Sora', system-ui, sans-serif;
+        margin: 0.6em 0 0.3em;
+      }
+      .md p {
+        margin: 0.4em 0;
+      }
       .md code {
-        background: rgba(0, 229, 255, 0.1); color: #67e8f9;
-        padding: 1px 6px; border-radius: 4px; font-size: 0.85em;
+        background: rgba(0, 229, 255, 0.1);
+        color: #67e8f9;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 0.85em;
       }
-      .md a { color: var(--ps-accent, #00e5ff); }
-      .md ul, .md ol { padding-left: 1.4em; margin: 0.4em 0; }
+      .md a {
+        color: var(--ps-accent, #00e5ff);
+      }
+      .md ul,
+      .md ol {
+        padding-left: 1.4em;
+        margin: 0.4em 0;
+      }
     `,
   ],
 })
@@ -690,11 +1011,7 @@ export class WMarkdownComponent {
  */
 function miniMarkdown(src: string): string {
   const esc = (s: string): string =>
-    s
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const safe = esc(src);
   return safe
     .replace(/^### (.*)$/gm, '<h3>$1</h3>')
@@ -703,7 +1020,10 @@ function miniMarkdown(src: string): string {
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(
+      /\[([^\]]+)\]\(([^)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
+    )
     .replace(/\n{2,}/g, '</p><p>')
     .replace(/^(?!<h\d|<p)/, '<p>')
     .replace(/$/, '</p>');
@@ -754,7 +1074,7 @@ const PLATFORM_GLYPH: Record<string, string> = {
   selector: 'app-w-social-performance',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RollingCounterComponent, RevealDirective],
+  imports: [RollingCounterComponent, RevealDirective],
   template: `
     <div class="wrap" appReveal>
       <header class="hd">
@@ -778,7 +1098,7 @@ const PLATFORM_GLYPH: Record<string, string> = {
               </div>
               <div class="bar-foot">
                 <app-rolling-counter [value]="p.impressions" suffix=" impr." />
-                <span class="eng">·  {{ p.engagement }} engagements</span>
+                <span class="eng">· {{ p.engagement }} engagements</span>
               </div>
             </div>
           }
@@ -831,73 +1151,190 @@ const PLATFORM_GLYPH: Record<string, string> = {
   `,
   styles: [
     `
-      :host { display: block; }
+      :host {
+        display: block;
+      }
       .wrap {
         padding: 16px;
         border-radius: 14px;
         background: rgba(8, 8, 32, 0.55);
         border: 1px solid rgba(0, 229, 255, 0.12);
       }
-      .hd { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
-      .t { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; color: var(--ps-ink, #f4f4ff); }
+      .hd {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 14px;
+      }
+      .t {
+        font-family: 'Sora', system-ui, sans-serif;
+        font-weight: 600;
+        color: var(--ps-ink, #f4f4ff);
+      }
       .win {
-        font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
-        opacity: 0.55; font-family: 'JetBrains Mono', monospace;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.55;
+        font-family: 'JetBrains Mono', monospace;
       }
-      .empty { font-size: 0.85rem; opacity: 0.6; padding: 14px 0; }
-      .bars { display: flex; flex-direction: column; gap: 10px; }
-      .bar { padding: 10px 12px; border-radius: 10px; background: rgba(0, 229, 255, 0.04); }
-      .bar-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+      .empty {
+        font-size: 0.85rem;
+        opacity: 0.6;
+        padding: 14px 0;
+      }
+      .bars {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .bar {
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(0, 229, 255, 0.04);
+      }
+      .bar-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
       .glyph {
-        display: inline-flex; align-items: center; justify-content: center;
-        width: 22px; height: 22px; border-radius: 6px;
-        background: rgba(0, 229, 255, 0.18); color: var(--ps-accent, #00e5ff);
-        font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: rgba(0, 229, 255, 0.18);
+        color: var(--ps-accent, #00e5ff);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.7rem;
+        font-weight: 700;
       }
-      .glyph.sm { width: 18px; height: 18px; font-size: 0.65rem; flex-shrink: 0; }
-      .name { font-weight: 600; color: var(--ps-ink, #f4f4ff); text-transform: capitalize; flex: 1; }
-      .posts { font-size: 0.72rem; opacity: 0.55; font-family: 'JetBrains Mono', monospace; }
-      .bar-fill { height: 6px; border-radius: 3px; background: rgba(0, 229, 255, 0.08); overflow: hidden; }
+      .glyph.sm {
+        width: 18px;
+        height: 18px;
+        font-size: 0.65rem;
+        flex-shrink: 0;
+      }
+      .name {
+        font-weight: 600;
+        color: var(--ps-ink, #f4f4ff);
+        text-transform: capitalize;
+        flex: 1;
+      }
+      .posts {
+        font-size: 0.72rem;
+        opacity: 0.55;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .bar-fill {
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(0, 229, 255, 0.08);
+        overflow: hidden;
+      }
       .bar-inner {
         height: 100%;
         background: linear-gradient(90deg, var(--ps-accent, #00e5ff), #7c3aed);
         transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
       }
-      .bar-foot { display: flex; align-items: baseline; gap: 6px; margin-top: 6px; font-size: 0.78rem; }
-      .eng { opacity: 0.6; }
-      .best { margin-top: 16px; }
+      .bar-foot {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        margin-top: 6px;
+        font-size: 0.78rem;
+      }
+      .eng {
+        opacity: 0.6;
+      }
+      .best {
+        margin-top: 16px;
+      }
       .best-t {
-        font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
-        opacity: 0.55; margin-bottom: 8px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.55;
+        margin-bottom: 8px;
       }
       .best-post {
-        display: flex; align-items: flex-start; gap: 10px;
-        padding: 10px 12px; border-radius: 8px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 8px;
         background: rgba(0, 229, 255, 0.03);
         border: 1px solid rgba(0, 229, 255, 0.05);
-        text-decoration: none; color: var(--ps-ink, #f4f4ff);
+        text-decoration: none;
+        color: var(--ps-ink, #f4f4ff);
         margin-bottom: 6px;
       }
-      .best-post:hover { background: rgba(0, 229, 255, 0.06); border-color: rgba(0, 229, 255, 0.18); }
-      .bp-body { flex: 1; min-width: 0; }
-      .bp-text { font-size: 0.85rem; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-      .bp-meta { font-size: 0.7rem; opacity: 0.6; margin-top: 4px; display: flex; gap: 6px; align-items: baseline; }
-      .dot { opacity: 0.5; }
-      .heatmap { margin-top: 16px; }
-      .heat-t {
-        font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
-        opacity: 0.55; margin-bottom: 8px;
+      .best-post:hover {
+        background: rgba(0, 229, 255, 0.06);
+        border-color: rgba(0, 229, 255, 0.18);
       }
-      .heat-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+      .bp-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .bp-text {
+        font-size: 0.85rem;
+        line-height: 1.4;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+      .bp-meta {
+        font-size: 0.7rem;
+        opacity: 0.6;
+        margin-top: 4px;
+        display: flex;
+        gap: 6px;
+        align-items: baseline;
+      }
+      .dot {
+        opacity: 0.5;
+      }
+      .heatmap {
+        margin-top: 16px;
+      }
+      .heat-t {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.55;
+        margin-bottom: 8px;
+      }
+      .heat-grid {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
       .slot {
-        display: flex; flex-direction: column; align-items: center;
-        padding: 8px 12px; border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 8px;
         background: linear-gradient(135deg, var(--ps-accent, #00e5ff), #7c3aed);
-        color: #060610; font-weight: 600;
+        color: #060610;
+        font-weight: 600;
         min-width: 56px;
       }
-      .slot .d { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; }
-      .slot .h { font-size: 0.95rem; font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+      .slot .d {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .slot .h {
+        font-size: 0.95rem;
+        font-family: 'JetBrains Mono', monospace;
+        margin-top: 2px;
+      }
     `,
   ],
 })
@@ -948,7 +1385,6 @@ export class WSocialPerformanceComponent {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CommonModule,
     WMetricGridComponent,
     WChartComponent,
     WTableComponent,
@@ -964,18 +1400,42 @@ export class WSocialPerformanceComponent {
   ],
   template: `
     @switch (name()) {
-      @case ('metric-grid')        { <app-w-metric-grid [props]="props()" /> }
-      @case ('chart')              { <app-w-chart [props]="props()" /> }
-      @case ('table')              { <app-w-table [props]="props()" /> }
-      @case ('timeline')           { <app-w-timeline [props]="props()" /> }
-      @case ('status-grid')        { <app-w-status-grid [props]="props()" /> }
-      @case ('cta')                { <app-w-cta [props]="props()" /> }
-      @case ('file-list')          { <app-w-file-list [props]="props()" /> }
-      @case ('map')                { <app-w-map [props]="props()" /> }
-      @case ('code')               { <app-w-code [props]="props()" /> }
-      @case ('calendar')           { <app-calendar-widget [props]="props()" /> }
-      @case ('social-performance') { <app-w-social-performance [props]="props()" /> }
-      @default                     { <app-w-markdown [props]="props()" /> }
+      @case ('metric-grid') {
+        <app-w-metric-grid [props]="props()" />
+      }
+      @case ('chart') {
+        <app-w-chart [props]="props()" />
+      }
+      @case ('table') {
+        <app-w-table [props]="props()" />
+      }
+      @case ('timeline') {
+        <app-w-timeline [props]="props()" />
+      }
+      @case ('status-grid') {
+        <app-w-status-grid [props]="props()" />
+      }
+      @case ('cta') {
+        <app-w-cta [props]="props()" />
+      }
+      @case ('file-list') {
+        <app-w-file-list [props]="props()" />
+      }
+      @case ('map') {
+        <app-w-map [props]="props()" />
+      }
+      @case ('code') {
+        <app-w-code [props]="props()" />
+      }
+      @case ('calendar') {
+        <app-calendar-widget [props]="props()" />
+      }
+      @case ('social-performance') {
+        <app-w-social-performance [props]="props()" />
+      }
+      @default {
+        <app-w-markdown [props]="props()" />
+      }
     }
   `,
 })

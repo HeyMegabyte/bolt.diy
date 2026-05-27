@@ -27,7 +27,6 @@ import {
   signal,
   type OnInit,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
 
 /** Discriminator for the four editor tabs. */
 export type EditorTab = 'code' | 'preview' | 'media' | 'agents';
@@ -50,7 +49,7 @@ interface TabDef {
   selector: 'app-editor-tabs',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule],
+  imports: [],
   styleUrl: './editor-tabs.component.scss',
   template: `
     <nav
@@ -75,34 +74,62 @@ interface TabDef {
           <span class="et-tab__icon" aria-hidden="true">
             @switch (t.id) {
               @case ('code') {
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <polyline points="16 18 22 12 16 6" />
                   <polyline points="8 6 2 12 8 18" />
                 </svg>
               }
               @case ('preview') {
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
               }
               @case ('media') {
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <rect x="2" y="6" width="20" height="14" rx="2" />
                   <circle cx="8.5" cy="11.5" r="1.5" />
                   <polyline points="21 16 16 11 5 22" />
                 </svg>
               }
               @case ('agents') {
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <circle cx="12" cy="8" r="3" />
                   <path d="M5 21a7 7 0 0 1 14 0" />
                   <path d="M12 11v3" />

@@ -13,7 +13,7 @@
  * - Lazy-loaded from `app.routes.ts`.
  */
 import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterLink } from '@angular/router';
 import { MetaService } from '../../services/meta.service';
 import {
@@ -40,11 +40,10 @@ interface Slide {
   selector: 'app-press',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterLink],
+  imports: [RouterLink],
   template: `
     <section class="press-page">
       <div class="container">
-
         <!-- HERO -->
         <header class="press-hero">
           <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -60,7 +59,9 @@ interface Slide {
           </p>
           <div class="cta-row">
             <a class="cta-primary" routerLink="/brand">Download brand kit (4 MB) →</a>
-            <a class="cta-secondary" href="mailto:press@megabyte.space">Email press&#64;megabyte.space</a>
+            <a class="cta-secondary" href="mailto:press@megabyte.space"
+              >Email press&#64;megabyte.space</a
+            >
           </div>
         </header>
 
@@ -95,7 +96,11 @@ interface Slide {
                       <h3>{{ slide.title }}</h3>
                       <p>{{ slide.caption }}</p>
                     </div>
-                    <a class="slide-dl" [href]="slide.src" [download]="'projectsites-' + slide.slug + '.jpg'">
+                    <a
+                      class="slide-dl"
+                      [href]="slide.src"
+                      [download]="'projectsites-' + slide.slug + '.jpg'"
+                    >
                       Download ↓
                     </a>
                   </figcaption>
@@ -116,10 +121,10 @@ interface Slide {
             <article class="card">
               <h3>What it is</h3>
               <p>
-                ProjectSites is an AI-native website builder that turns a single Google Places lookup
-                plus a short brand brief into a deployed, magazine-grade business website in under
-                15 minutes — hosted on Cloudflare, edited in-browser, with WCAG 2.2 AA, SEO, PWA,
-                and AI search optimization baked in by default.
+                ProjectSites is an AI-native website builder that turns a single Google Places
+                lookup plus a short brand brief into a deployed, magazine-grade business website in
+                under 15 minutes — hosted on Cloudflare, edited in-browser, with WCAG 2.2 AA, SEO,
+                PWA, and AI search optimization baked in by default.
               </p>
             </article>
             <article class="card">
@@ -127,17 +132,17 @@ interface Slide {
               <p>
                 Real-world businesses: restaurants, salons, nonprofits, healthcare providers,
                 lawyers, local services. Anyone who&apos;d otherwise pay $5k–$25k for an agency
-                build and wait 8–12 weeks. We ship the same outcome in 15 minutes for a fraction
-                of the price.
+                build and wait 8–12 weeks. We ship the same outcome in 15 minutes for a fraction of
+                the price.
               </p>
             </article>
             <article class="card">
               <h3>How it works</h3>
               <p>
-                Six AI passes (research → brand → structure → copy → media → polish) run in
-                parallel inside Cloudflare Workers + Workers AI. Output is a Vite + React 19 +
-                Tailwind v4 site with shadcn/ui components, served from Cloudflare Workers + R2
-                over the edge network.
+                Six AI passes (research → brand → structure → copy → media → polish) run in parallel
+                inside Cloudflare Workers + Workers AI. Output is a Vite + React 19 + Tailwind v4
+                site with shadcn/ui components, served from Cloudflare Workers + R2 over the edge
+                network.
               </p>
             </article>
             <article class="card">
@@ -145,8 +150,8 @@ interface Slide {
               <p>
                 No stock-image slop, no lorem ipsum, no <q>coming soon</q> placeholders. Every site
                 ships with real content, real photography (sourced from your Google Places listing
-                first), real performance (LCP ≤ 2.0s), and real accessibility (axe-core 0
-                violations at 6 breakpoints).
+                first), real performance (LCP ≤ 2.0s), and real accessibility (axe-core 0 violations
+                at 6 breakpoints).
               </p>
             </article>
             <article class="card">
@@ -173,7 +178,8 @@ interface Slide {
 
           <p class="fact-foot">
             Need PDF fact sheet, investor deck, or product roadmap?
-            <a href="mailto:press@megabyte.space">Email press&#64;megabyte.space</a> — we respond within 24 hours.
+            <a href="mailto:press@megabyte.space">Email press&#64;megabyte.space</a> — we respond
+            within 24 hours.
           </p>
         </section>
 
@@ -190,24 +196,31 @@ interface Slide {
               <h3>Brian Zalewski</h3>
               <p class="founder-role">Founder &amp; Principal Engineer · Megabyte Labs</p>
               <p>
-                Brian is a Principal Software Engineer (14 yrs) building solo with AI. Megabyte
-                Labs is the umbrella for his AI-native product work — ProjectSites is the flagship.
+                Brian is a Principal Software Engineer (14 yrs) building solo with AI. Megabyte Labs
+                is the umbrella for his AI-native product work — ProjectSites is the flagship.
                 Previously: open-source maintainer (200+ GitHub repos), Cloudflare early adopter,
                 Claude Agent SDK power user.
               </p>
               <p class="boilerplate-lead">Boilerplate for press releases:</p>
               <blockquote class="boilerplate">
                 ProjectSites by Megabyte Labs is an AI-native website builder for real-world
-                businesses. Founded January 2026 by principal engineer Brian Zalewski,
-                ProjectSites ships gorgeous, fully-optimized business websites in under 15 minutes
-                — hosted on Cloudflare, edited in-browser, and built to rank in Google + ChatGPT
-                from day one.
+                businesses. Founded January 2026 by principal engineer Brian Zalewski, ProjectSites
+                ships gorgeous, fully-optimized business websites in under 15 minutes — hosted on
+                Cloudflare, edited in-browser, and built to rank in Google + ChatGPT from day one.
               </blockquote>
               <ul class="founder-links" role="list">
                 <li><a href="https://x.com/MegabyteLabs" rel="noopener">&#64;MegabyteLabs</a></li>
-                <li><a href="https://github.com/blzalewski" rel="noopener">github.com/blzalewski</a></li>
-                <li><a href="https://www.linkedin.com/in/brianzalewski" rel="noopener">LinkedIn</a></li>
-                <li><a href="mailto:brian@megabyte.space" class="email-link">brian&#64;megabyte.space</a></li>
+                <li>
+                  <a href="https://github.com/blzalewski" rel="noopener">github.com/blzalewski</a>
+                </li>
+                <li>
+                  <a href="https://www.linkedin.com/in/brianzalewski" rel="noopener">LinkedIn</a>
+                </li>
+                <li>
+                  <a href="mailto:brian@megabyte.space" class="email-link"
+                    >brian&#64;megabyte.space</a
+                  >
+                </li>
               </ul>
             </div>
           </div>
@@ -237,7 +250,10 @@ interface Slide {
             <article class="card">
               <h3>Color palette</h3>
               <div class="palette">
-                <div class="swatch" style="background:#060610;color:#f4f4ff;border:1px solid rgba(244,244,255,.14)">
+                <div
+                  class="swatch"
+                  style="background:#060610;color:#f4f4ff;border:1px solid rgba(244,244,255,.14)"
+                >
                   <b>Void</b><br />#060610
                 </div>
                 <div class="swatch" style="background:#00E5FF;color:#060610">
@@ -344,7 +360,6 @@ interface Slide {
             Response time: typically &lt;24h on weekdays, &lt;48h on weekends.
           </p>
         </section>
-
       </div>
     </section>
   `,
@@ -449,7 +464,9 @@ interface Slide {
         font-weight: 600;
         font-size: 0.98rem;
         text-decoration: none;
-        transition: transform 0.18s, box-shadow 0.2s;
+        transition:
+          transform 0.18s,
+          box-shadow 0.2s;
       }
 
       .cta-primary {
@@ -563,7 +580,9 @@ interface Slide {
         border-radius: var(--ps-radius-lg, 18px);
         background: color-mix(in oklch, var(--ps-bg, #060610) 88%, var(--ps-ink, #f4f4ff));
         border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 8%, transparent);
-        transition: border-color 0.2s, transform 0.2s;
+        transition:
+          border-color 0.2s,
+          transform 0.2s;
       }
 
       .card:hover {
@@ -898,20 +917,102 @@ export class PressComponent implements OnInit {
   }
 
   protected readonly slides: readonly Slide[] = [
-    { n: 1, slug: 'search', title: 'Find your business.', caption: 'Type your name, address, or storefront. We surface real listings in 300ms.', src: '/walkthrough/01-search.jpg', alt: 'Glass-morphism search bar floating in dark cinematic void with three business suggestion cards below' },
-    { n: 2, slug: 'select', title: 'Pick the one that’s yours.', caption: 'Logo, address, ratings already pulled. One click and we know who we’re building for.', src: '/walkthrough/02-select.jpg', alt: 'Premium frosted business profile card with circular logo, name, address, rating row, and cyan CTA button' },
-    { n: 3, slug: 'brief', title: 'Brand it in 30 seconds.', caption: 'Drop a logo, choose colors, describe the vibe. The AI does the rest.', src: '/walkthrough/03-brief.jpg', alt: 'Upload modal with drag-drop zone, three brand color swatches, description field, and Generate CTA' },
-    { n: 4, slug: 'generate', title: 'Six AI passes, one site.', caption: 'Research, voice, design, code, deploy, verify. Each pass measurably improves the site.', src: '/walkthrough/04-generate.jpg', alt: 'Six glowing node cards arranged in arc with monoline icons and progress bars, connected by cyan trace lines' },
-    { n: 5, slug: 'preview', title: 'Watch it come alive.', caption: 'Magazine-quality photography, real content, gorgeous typography. Live in under 15 minutes.', src: '/walkthrough/05-preview.jpg', alt: 'Browser window mockup showing a generated restaurant homepage with hero dish photograph and reservation CTA' },
-    { n: 6, slug: 'edit', title: 'Tweak anything, instantly.', caption: 'Edit code or chat with the AI in the browser. No deploy step.', src: '/walkthrough/06-edit.jpg', alt: 'Split-screen IDE mockup with dark-theme code editor on left and live website preview on right' },
-    { n: 7, slug: 'deploy', title: 'Bring your own domain.', caption: 'We mint SSL, set up DNS, and verify in under a minute.', src: '/walkthrough/07-deploy.jpg', alt: 'DNS configuration card with custom-domain pill, green Verified badge, and three DNS record rows' },
-    { n: 8, slug: 'live', title: 'Live on every device.', caption: 'Laptop, tablet, phone — the same gorgeous brand everywhere.', src: '/walkthrough/08-live.jpg', alt: 'Cinematic shot of MacBook, iPad mini, and iPhone arranged on dark reflective stage, all showing the same restaurant brand' },
+    {
+      n: 1,
+      slug: 'search',
+      title: 'Find your business.',
+      caption: 'Type your name, address, or storefront. We surface real listings in 300ms.',
+      src: '/walkthrough/01-search.jpg',
+      alt: 'Glass-morphism search bar floating in dark cinematic void with three business suggestion cards below',
+    },
+    {
+      n: 2,
+      slug: 'select',
+      title: 'Pick the one that’s yours.',
+      caption:
+        'Logo, address, ratings already pulled. One click and we know who we’re building for.',
+      src: '/walkthrough/02-select.jpg',
+      alt: 'Premium frosted business profile card with circular logo, name, address, rating row, and cyan CTA button',
+    },
+    {
+      n: 3,
+      slug: 'brief',
+      title: 'Brand it in 30 seconds.',
+      caption: 'Drop a logo, choose colors, describe the vibe. The AI does the rest.',
+      src: '/walkthrough/03-brief.jpg',
+      alt: 'Upload modal with drag-drop zone, three brand color swatches, description field, and Generate CTA',
+    },
+    {
+      n: 4,
+      slug: 'generate',
+      title: 'Six AI passes, one site.',
+      caption:
+        'Research, voice, design, code, deploy, verify. Each pass measurably improves the site.',
+      src: '/walkthrough/04-generate.jpg',
+      alt: 'Six glowing node cards arranged in arc with monoline icons and progress bars, connected by cyan trace lines',
+    },
+    {
+      n: 5,
+      slug: 'preview',
+      title: 'Watch it come alive.',
+      caption:
+        'Magazine-quality photography, real content, gorgeous typography. Live in under 15 minutes.',
+      src: '/walkthrough/05-preview.jpg',
+      alt: 'Browser window mockup showing a generated restaurant homepage with hero dish photograph and reservation CTA',
+    },
+    {
+      n: 6,
+      slug: 'edit',
+      title: 'Tweak anything, instantly.',
+      caption: 'Edit code or chat with the AI in the browser. No deploy step.',
+      src: '/walkthrough/06-edit.jpg',
+      alt: 'Split-screen IDE mockup with dark-theme code editor on left and live website preview on right',
+    },
+    {
+      n: 7,
+      slug: 'deploy',
+      title: 'Bring your own domain.',
+      caption: 'We mint SSL, set up DNS, and verify in under a minute.',
+      src: '/walkthrough/07-deploy.jpg',
+      alt: 'DNS configuration card with custom-domain pill, green Verified badge, and three DNS record rows',
+    },
+    {
+      n: 8,
+      slug: 'live',
+      title: 'Live on every device.',
+      caption: 'Laptop, tablet, phone — the same gorgeous brand everywhere.',
+      src: '/walkthrough/08-live.jpg',
+      alt: 'Cinematic shot of MacBook, iPad mini, and iPhone arranged on dark reflective stage, all showing the same restaurant brand',
+    },
   ];
 
   protected readonly releases = [
-    { date: '2026-05-25', dateLabel: 'May 25, 2026', tag: 'Design', tone: 'violet', title: 'New cinematic homepage + 8-slide picture walkthrough', summary: 'A full visual story from search to ship — 1920×1080 cinematic frames available for editorial use.' },
-    { date: '2026-05-25', dateLabel: 'May 25, 2026', tag: 'Product', tone: 'default', title: '31 OAuth integrations now live: Stripe, Square, Notion, Linear, Sentry, and 26 more', summary: 'Connect your business stack with one click. Full list at /integrations.' },
-    { date: '2026-05-24', dateLabel: 'May 24, 2026', tag: 'Launch', tone: 'accent', title: 'ProjectSites ships v1.0 — AI-native website builder for real businesses', summary: 'Megabyte Labs announces general availability of ProjectSites, an AI-native website builder that ships magazine-grade business websites in under 15 minutes.' },
+    {
+      date: '2026-05-25',
+      dateLabel: 'May 25, 2026',
+      tag: 'Design',
+      tone: 'violet',
+      title: 'New cinematic homepage + 8-slide picture walkthrough',
+      summary:
+        'A full visual story from search to ship — 1920×1080 cinematic frames available for editorial use.',
+    },
+    {
+      date: '2026-05-25',
+      dateLabel: 'May 25, 2026',
+      tag: 'Product',
+      tone: 'default',
+      title: '31 OAuth integrations now live: Stripe, Square, Notion, Linear, Sentry, and 26 more',
+      summary: 'Connect your business stack with one click. Full list at /integrations.',
+    },
+    {
+      date: '2026-05-24',
+      dateLabel: 'May 24, 2026',
+      tag: 'Launch',
+      tone: 'accent',
+      title: 'ProjectSites ships v1.0 — AI-native website builder for real businesses',
+      summary:
+        'Megabyte Labs announces general availability of ProjectSites, an AI-native website builder that ships magazine-grade business websites in under 15 minutes.',
+    },
   ];
 
   protected pad(n: number): string {

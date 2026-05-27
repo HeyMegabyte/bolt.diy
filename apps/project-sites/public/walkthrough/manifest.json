@@ -1,0 +1,74 @@
+{
+  "$schema": "./manifest.schema.json",
+  "name": "ProjectSites.dev — Picture Walkthrough",
+  "format": "16:9",
+  "resolution": "1920x1080",
+  "generated_by": "ideogram-v3-quality + sharp lanczos3 upscale",
+  "generated_at": "2026-05-26T01:30:00Z",
+  "slides": [
+    {
+      "n": 1,
+      "slug": "search",
+      "title": "Find your business",
+      "caption": "Type your name, address, or storefront. We surface real listings in 300ms.",
+      "src": "/walkthrough/01-search.jpg",
+      "alt": "Glass-morphism search bar floating in dark cinematic void with three business suggestion cards below"
+    },
+    {
+      "n": 2,
+      "slug": "select",
+      "title": "Pick the one that's yours",
+      "caption": "Logo, address, ratings already pulled. One click and we know who we're building for.",
+      "src": "/walkthrough/02-select.jpg",
+      "alt": "Premium frosted business profile card with circular logo, name, address, rating row, and cyan CTA button"
+    },
+    {
+      "n": 3,
+      "slug": "brief",
+      "title": "Brand it in 30 seconds",
+      "caption": "Drop a logo, choose colors, describe the vibe. The AI does the rest.",
+      "src": "/walkthrough/03-brief.jpg",
+      "alt": "Upload modal with drag-drop zone, three brand color swatches, description field, and Generate CTA"
+    },
+    {
+      "n": 4,
+      "slug": "generate",
+      "title": "Six AI passes, one site",
+      "caption": "Research, voice, design, code, deploy, verify. Each pass measurably improves the site.",
+      "src": "/walkthrough/04-generate.jpg",
+      "alt": "Six glowing node cards arranged in arc with monoline icons and progress bars, connected by cyan trace lines"
+    },
+    {
+      "n": 5,
+      "slug": "preview",
+      "title": "Watch it come alive",
+      "caption": "Magazine-quality photography, real content, gorgeous typography. Live in under 15 minutes.",
+      "src": "/walkthrough/05-preview.jpg",
+      "alt": "Browser window mockup showing a generated restaurant homepage with hero dish photograph and reservation CTA"
+    },
+    {
+      "n": 6,
+      "slug": "edit",
+      "title": "Tweak anything, instantly",
+      "caption": "Edit code or chat with the AI in the browser. No deploy step.",
+      "src": "/walkthrough/06-edit.jpg",
+      "alt": "Split-screen IDE mockup with dark-theme code editor on left and live website preview on right"
+    },
+    {
+      "n": 7,
+      "slug": "deploy",
+      "title": "Bring your own domain",
+      "caption": "We mint SSL, set up DNS, and verify in under a minute.",
+      "src": "/walkthrough/07-deploy.jpg",
+      "alt": "DNS configuration card with custom-domain pill, green Verified badge, and three DNS record rows"
+    },
+    {
+      "n": 8,
+      "slug": "live",
+      "title": "Live on every device",
+      "caption": "Laptop, tablet, phone — the same gorgeous brand everywhere.",
+      "src": "/walkthrough/08-live.jpg",
+      "alt": "Cinematic shot of MacBook, iPad mini, and iPhone arranged on dark reflective stage, all showing the same restaurant brand"
+    }
+  ]
+}

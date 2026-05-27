@@ -54,7 +54,7 @@ const POLL_INTERVAL_MS = 8_000;
   selector: 'app-task-tray',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   styles: [
     `
       :host {
@@ -120,11 +120,19 @@ const POLL_INTERVAL_MS = 8_000;
         animation: tt-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
       }
       @keyframes tt-in {
-        from { opacity: 0; transform: translateY(-6px) scale(0.985); }
-        to { opacity: 1; transform: translateY(0) scale(1); }
+        from {
+          opacity: 0;
+          transform: translateY(-6px) scale(0.985);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
       }
       @media (prefers-reduced-motion: reduce) {
-        .tt-card { animation: none; }
+        .tt-card {
+          animation: none;
+        }
       }
       .tt-kind {
         display: inline-flex;
@@ -160,7 +168,10 @@ const POLL_INTERVAL_MS = 8_000;
         font: inherit;
         font-size: 0.84rem;
         cursor: pointer;
-        transition: border-color 0.18s, background 0.18s, transform 0.12s;
+        transition:
+          border-color 0.18s,
+          background 0.18s,
+          transform 0.12s;
       }
       .tt-opt:hover {
         border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 55%, transparent);
@@ -208,7 +219,9 @@ const POLL_INTERVAL_MS = 8_000;
         font-weight: 600;
         font-size: 0.82rem;
         cursor: pointer;
-        transition: opacity 0.18s, transform 0.12s;
+        transition:
+          opacity 0.18s,
+          transform 0.12s;
       }
       .tt-send:hover {
         opacity: 0.92;
@@ -239,11 +252,7 @@ const POLL_INTERVAL_MS = 8_000;
       </div>
     }
     @for (task of tasks(); track task.id) {
-      <article
-        class="tt-card"
-        role="dialog"
-        [attr.aria-label]="'AI task: ' + task.taskKind"
-      >
+      <article class="tt-card" role="dialog" [attr.aria-label]="'AI task: ' + task.taskKind">
         <span class="tt-kind">{{ task.taskKind }}</span>
         <p class="tt-prompt">{{ task.prompt }}</p>
 
@@ -262,10 +271,7 @@ const POLL_INTERVAL_MS = 8_000;
             }
           </div>
         } @else {
-          <form
-            class="tt-freeform"
-            (ngSubmit)="resolveFreeform(task)"
-          >
+          <form class="tt-freeform" (ngSubmit)="resolveFreeform(task)">
             <input
               type="text"
               class="tt-input"
@@ -347,7 +353,9 @@ export class TaskTrayComponent implements OnInit, OnDestroy {
       .pipe(
         catchError(() => {
           // Restore the row on hard network failure so the user can retry.
-          this.tasks.update((list) => (list.some((t) => t.id === task.id) ? list : [task, ...list]));
+          this.tasks.update((list) =>
+            list.some((t) => t.id === task.id) ? list : [task, ...list],
+          );
           return of({ ok: false });
         }),
       )

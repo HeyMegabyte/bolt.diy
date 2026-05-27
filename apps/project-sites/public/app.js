@@ -1,5 +1,5 @@
 /**
- * Project Sites — universal site script.
+ * ProjectSites — universal site script.
  *
  * One <script src="https://projectsites.dev/app.js" data-slug="YOUR-SLUG" defer></script>
  * gives any website:

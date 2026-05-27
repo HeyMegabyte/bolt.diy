@@ -617,13 +617,13 @@ export class ChangelogComponent implements OnInit {
     ) as HTMLLinkElement | null;
     if (existing) {
       existing.href = '/feed.xml';
-      existing.title = 'Project Sites Changelog';
+      existing.title = 'ProjectSites Changelog';
       return;
     }
     const link = document.createElement('link');
     link.rel = 'alternate';
     link.type = 'application/rss+xml';
-    link.title = 'Project Sites Changelog';
+    link.title = 'ProjectSites Changelog';
     link.href = '/feed.xml';
     document.head.appendChild(link);
   }

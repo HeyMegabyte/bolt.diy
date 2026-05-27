@@ -21,7 +21,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -81,7 +81,7 @@ const CATEGORY_ORDER: readonly string[] = [
   selector: 'app-integrations',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink],
   template: `
     <section class="integrations-page">
       <div class="integrations-inner">
@@ -167,9 +167,7 @@ const CATEGORY_ORDER: readonly string[] = [
           } @empty {
             <p class="state-msg">
               No integrations match your filters.
-              <button type="button" class="link-btn" (click)="clearFilters()">
-                Clear filters
-              </button>
+              <button type="button" class="link-btn" (click)="clearFilters()">Clear filters</button>
             </p>
           }
         }
@@ -248,13 +246,14 @@ const CATEGORY_ORDER: readonly string[] = [
         font-size: 0.92rem;
         min-width: 280px;
         outline: none;
-        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        transition:
+          border-color 0.2s ease,
+          box-shadow 0.2s ease;
       }
 
       .search-input:focus {
         border-color: var(--ps-accent, #00e5ff);
-        box-shadow: 0 0 0 3px
-          color-mix(in oklch, var(--ps-accent, #00e5ff) 25%, transparent);
+        box-shadow: 0 0 0 3px color-mix(in oklch, var(--ps-accent, #00e5ff) 25%, transparent);
       }
 
       .filter-chip {
@@ -345,7 +344,10 @@ const CATEGORY_ORDER: readonly string[] = [
         border-radius: var(--ps-radius-xl, 16px);
         text-decoration: none;
         color: inherit;
-        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        transition:
+          transform 0.2s ease,
+          border-color 0.2s ease,
+          box-shadow 0.2s ease;
       }
 
       .card:hover {
@@ -375,7 +377,8 @@ const CATEGORY_ORDER: readonly string[] = [
         padding: 6px;
         border-radius: 12px;
         background: #ffffff;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18),
+        box-shadow:
+          0 1px 2px rgba(0, 0, 0, 0.18),
           inset 0 0 0 1px rgba(0, 0, 0, 0.04);
         display: flex;
         align-items: center;

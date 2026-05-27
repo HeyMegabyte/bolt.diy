@@ -886,7 +886,7 @@ export class DocsEndpointComponent implements OnInit {
         this.applyMeta(op);
       } else if (this.endpointId() && this.specService.spec()) {
         // 404 — endpoint id present but no matching operation.
-        this.title.setTitle('API Docs — Endpoint not found — Project Sites');
+        this.title.setTitle('API Docs — Endpoint not found — ProjectSites');
         this.meta.updateTag({
           name: 'description',
           content: 'The requested API endpoint does not exist in the current OpenAPI spec.',
@@ -905,7 +905,7 @@ export class DocsEndpointComponent implements OnInit {
 
   /** Update per-route `<title>` + `<meta description>` from the selected op. */
   private applyMeta(op: Operation): void {
-    this.title.setTitle(`API Docs — ${op.method} ${op.path} — Project Sites`);
+    this.title.setTitle(`API Docs — ${op.method} ${op.path} — ProjectSites`);
     const meta = ENDPOINT_META[`${op.method} ${op.path}`];
     const raw = (meta?.description ?? op.summary ?? `${op.method} ${op.path}`).replace(/\s+/g, ' ').trim();
     // Truncate to 156 chars per Yoast-strict + our SEO budget. Cut at the last

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- Project Sites: 3D interlocking chevrons (icon only, square) -->
+  <!-- ProjectSites: 3D interlocking chevrons (icon only, square) -->
 
   <!-- === GREEN CHEVRON (back, upper) === -->
   <polygon points="96,128 256,32 256,176 96,272" fill="#2d9a5c"/>

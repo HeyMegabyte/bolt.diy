@@ -34,7 +34,7 @@ import { DocsSpecService, renderMarkdown, type Operation } from '../docs.compone
       <!-- ── Hero ────────────────────────────────────────────────── -->
       <header class="ov-hero" appReveal>
         <div class="ov-kicker">API documentation</div>
-        <h1 class="ov-title">Build on Project Sites.</h1>
+        <h1 class="ov-title">Build on ProjectSites.</h1>
         <p class="ov-tagline">
           One bearer token, {{ stats()?.total ?? operations().length }} endpoints, zero ceremony. Every call below is signed with your active session — try them inline, copy a cURL, ship.
         </p>
@@ -506,10 +506,10 @@ export class DocsOverviewComponent implements OnInit {
   readonly referenceHtml = computed<string>(() => renderMarkdown(REFERENCE_MARKDOWN));
 
   ngOnInit(): void {
-    this.title.setTitle('API Docs — Project Sites');
+    this.title.setTitle('API Docs — ProjectSites');
     this.meta.updateTag({
       name: 'description',
-      content: 'Project Sites API — endpoints, auth, rate limits, quick-start, and a live OpenAPI explorer.',
+      content: 'ProjectSites API — endpoints, auth, rate limits, quick-start, and a live OpenAPI explorer.',
     });
   }
 

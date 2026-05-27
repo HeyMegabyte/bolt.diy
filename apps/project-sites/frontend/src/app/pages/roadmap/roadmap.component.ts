@@ -20,7 +20,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { MetaService } from '../../services/meta.service';
@@ -69,7 +69,7 @@ interface BoardColumn {
   selector: 'app-roadmap',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterLink],
+  imports: [RouterLink],
   template: `
     <section class="roadmap-page">
       <div class="roadmap-inner">
@@ -77,7 +77,7 @@ interface BoardColumn {
           <p class="eyebrow">Roadmap</p>
           <h1>What we are building next</h1>
           <p class="subtitle">
-            Public roadmap for Project Sites. Tracked items move left to right as we ship.
+            Public roadmap for ProjectSites. Tracked items move left to right as we ship.
           </p>
           <div class="stats" aria-label="Roadmap counts">
             <div class="stat">
@@ -94,9 +94,7 @@ interface BoardColumn {
             </div>
           </div>
           <div class="cta-row">
-            <a class="cta-primary" [href]="suggestMailto" rel="noopener">
-              Suggest a feature
-            </a>
+            <a class="cta-primary" [href]="suggestMailto" rel="noopener"> Suggest a feature </a>
             <a class="cta-secondary" routerLink="/changelog">Read the changelog</a>
           </div>
         </header>
@@ -238,7 +236,9 @@ interface BoardColumn {
         font-size: 0.92rem;
         font-weight: 600;
         text-decoration: none;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
       }
 
       .cta-primary {
@@ -357,7 +357,9 @@ interface BoardColumn {
         background: color-mix(in oklch, var(--ps-bg, #060610) 70%, var(--ps-ink, #f4f4ff));
         border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 7%, transparent);
         border-radius: 12px;
-        transition: transform 0.2s ease, border-color 0.2s ease;
+        transition:
+          transform 0.2s ease,
+          border-color 0.2s ease;
       }
 
       .card:hover {
@@ -469,11 +471,9 @@ export class RoadmapComponent implements OnInit {
   protected readonly suggestMailto =
     'mailto:hey@megabyte.space' +
     '?subject=' +
-    encodeURIComponent('Project Sites — Roadmap suggestion') +
+    encodeURIComponent('ProjectSites — Roadmap suggestion') +
     '&body=' +
-    encodeURIComponent(
-      'Hey,\n\nI would love to see this on the Project Sites roadmap:\n\n— ',
-    );
+    encodeURIComponent('Hey,\n\nI would love to see this on the ProjectSites roadmap:\n\n— ');
 
   /**
    * Four-column board derived from the API response. Items are bucketed by

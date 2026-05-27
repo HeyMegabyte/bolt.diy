@@ -373,11 +373,30 @@ export interface Env {
   /** MailChimp OAuth app client ID + secret (single tenant; per-site tokens). */
   MAILCHIMP_CLIENT_ID?: string;
   MAILCHIMP_CLIENT_SECRET?: string;
-  /** HubSpot OAuth app credentials. */
+  /** HubSpot OAuth app credentials. Legacy keys; new code reads `HUBSPOT_OAUTH_CLIENT_ID` first. */
   HUBSPOT_CLIENT_ID?: string;
   HUBSPOT_CLIENT_SECRET?: string;
+  HUBSPOT_OAUTH_CLIENT_ID?: string;
+  HUBSPOT_OAUTH_CLIENT_SECRET?: string;
+  HUBSPOT_APP_ID?: string;
+  HUBSPOT_PORTAL_ID?: string;
   /** Stripe Connect client ID (separate from STRIPE_SECRET_KEY which is our own account). */
   STRIPE_CONNECT_CLIENT_ID?: string;
+  STRIPE_CONNECT_CLIENT_ID_TEST?: string;
+  STRIPE_OAUTH_CLIENT_ID?: string;
+  STRIPE_ACCOUNT_ID?: string;
+  /** Calendly OAuth app credentials (auth.calendly.com). */
+  CALENDLY_OAUTH_CLIENT_ID?: string;
+  CALENDLY_OAUTH_CLIENT_SECRET?: string;
+  CALENDLY_WEBHOOK_SIGNING_KEY?: string;
+  /** Airtable OAuth integration credentials (airtable.com/oauth2/v1). */
+  AIRTABLE_OAUTH_CLIENT_ID?: string;
+  AIRTABLE_OAUTH_CLIENT_SECRET?: string;
+  AIRTABLE_INTEGRATION_ID?: string;
+  /** PagerDuty OAuth 2.0 app credentials (identity.pagerduty.com). */
+  PAGERDUTY_OAUTH_CLIENT_ID?: string;
+  PAGERDUTY_OAUTH_CLIENT_SECRET?: string;
+  PAGERDUTY_ACCOUNT_SUBDOMAIN?: string;
   /** Stripe Price IDs for AI credit topups (one-time purchases). */
   STRIPE_PRICE_CREDITS_100?: string;
   STRIPE_PRICE_CREDITS_500?: string;

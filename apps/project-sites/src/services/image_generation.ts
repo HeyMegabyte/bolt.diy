@@ -7,6 +7,7 @@
  */
 
 import type { Env } from '../types/env.js';
+import { optimizeAndStoreToR2 } from './image_optimization.js';
 
 interface GeneratedImage {
   key: string;
@@ -15,6 +16,8 @@ interface GeneratedImage {
   type: string;
   confidence: number;
   source: 'generated' | 'uploaded' | 'discovered';
+  /** When optimization succeeded, sibling AVIF + WebP keys for `<picture>` source-set emission. */
+  variants?: { avifKey: string; webpKey: string; pngKey: string };
 }
 
 /**
@@ -104,20 +107,42 @@ export async function generateLogo(
   const imageData = await callDallE3(env, prompt);
   if (!imageData) return null;
 
-  const key = `sites/${slug}/assets/logo.png`;
-  await env.SITES_BUCKET.put(key, imageData, {
-    httpMetadata: { contentType: 'image/png' },
-    customMetadata: { source: 'generated', confidence: '85', prompt: prompt.substring(0, 200) },
-  });
-
-  return {
-    key,
-    name: 'logo.png',
-    size: imageData.byteLength,
-    type: 'image/png',
-    confidence: 85,
-    source: 'generated',
-  };
+  const baseKey = `sites/${slug}/assets/logo`;
+  try {
+    const variants = await optimizeAndStoreToR2(env, baseKey, imageData, {
+      source: 'generated',
+      confidence: '85',
+      prompt,
+    });
+    return {
+      key: variants.avifKey,
+      name: 'logo.avif',
+      size: variants.sizes.avif,
+      type: 'image/avif',
+      confidence: 85,
+      source: 'generated',
+      variants: {
+        avifKey: variants.avifKey,
+        webpKey: variants.webpKey,
+        pngKey: variants.pngKey,
+      },
+    };
+  } catch (err) {
+    console.warn('[image_generation] logo optimize failed, falling back to raw PNG:', err);
+    const key = `${baseKey}.png`;
+    await env.SITES_BUCKET.put(key, imageData, {
+      httpMetadata: { contentType: 'image/png' },
+      customMetadata: { source: 'generated', confidence: '85', prompt: prompt.substring(0, 200) },
+    });
+    return {
+      key,
+      name: 'logo.png',
+      size: imageData.byteLength,
+      type: 'image/png',
+      confidence: 85,
+      source: 'generated',
+    };
+  }
 }
 
 /**
@@ -134,20 +159,46 @@ export async function generateSectionImage(
   if (!imageData) return null;
 
   const safeName = imageName.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 60);
-  const key = `sites/${slug}/assets/generated/${safeName}.png`;
-  await env.SITES_BUCKET.put(key, imageData, {
-    httpMetadata: { contentType: 'image/png' },
-    customMetadata: { source: 'generated', confidence: '75', prompt: prompt.substring(0, 200) },
-  });
-
-  return {
-    key,
-    name: `${safeName}.png`,
-    size: imageData.byteLength,
-    type: 'image/png',
-    confidence: 75,
-    source: 'generated',
-  };
+  const baseKey = `sites/${slug}/assets/generated/${safeName}`;
+  // Hero/section images render at 1920px max; keep the wider resize ceiling here.
+  const maxWidth = size === '1024x1024' ? 1024 : 1792;
+  try {
+    const variants = await optimizeAndStoreToR2(
+      env,
+      baseKey,
+      imageData,
+      { source: 'generated', confidence: '75', prompt },
+      { maxWidth },
+    );
+    return {
+      key: variants.avifKey,
+      name: `${safeName}.avif`,
+      size: variants.sizes.avif,
+      type: 'image/avif',
+      confidence: 75,
+      source: 'generated',
+      variants: {
+        avifKey: variants.avifKey,
+        webpKey: variants.webpKey,
+        pngKey: variants.pngKey,
+      },
+    };
+  } catch (err) {
+    console.warn('[image_generation] section image optimize failed, falling back to PNG:', err);
+    const key = `${baseKey}.png`;
+    await env.SITES_BUCKET.put(key, imageData, {
+      httpMetadata: { contentType: 'image/png' },
+      customMetadata: { source: 'generated', confidence: '75', prompt: prompt.substring(0, 200) },
+    });
+    return {
+      key,
+      name: `${safeName}.png`,
+      size: imageData.byteLength,
+      type: 'image/png',
+      confidence: 75,
+      source: 'generated',
+    };
+  }
 }
 
 /**

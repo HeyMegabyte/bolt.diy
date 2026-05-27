@@ -28,20 +28,17 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../../../pages/admin/admin-state.service';
 import { EditorChatService, type EditorMessage } from '../../services/editor-chat.service';
-import {
-  PROVIDER_PRESETS,
-  type LlmProvider,
-} from '../../services/editor-llm.service';
+import { PROVIDER_PRESETS, type LlmProvider } from '../../services/editor-llm.service';
 
 @Component({
   selector: 'app-editor-chat',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   providers: [EditorChatService],
   template: `
     <section class="enc-shell" data-testid="editor-native-chat">
@@ -64,7 +61,8 @@ import {
               [ngModel]="provider()"
               (ngModelChange)="onProviderChange($event)"
               data-testid="enc-provider"
-              aria-label="LLM provider">
+              aria-label="LLM provider"
+            >
               @for (p of providerList; track p.key) {
                 <option [value]="p.key">{{ p.label }}</option>
               }
@@ -77,7 +75,8 @@ import {
               [ngModel]="model()"
               (ngModelChange)="onModelChange($event)"
               data-testid="enc-model"
-              aria-label="Model">
+              aria-label="Model"
+            >
               @for (m of modelChoices(); track m) {
                 <option [value]="m">{{ m }}</option>
               }
@@ -95,14 +94,16 @@ import {
           </div>
           <h3 class="enc-hero-h">Start a new conversation</h3>
           <p class="enc-hero-p">
-            The native editor lives outside the bolt.diy iframe — pure Angular signals, faster cold load, real D1 persistence.
+            The native editor lives outside the bolt.diy iframe — pure Angular signals, faster cold
+            load, real D1 persistence.
           </p>
           <button
             type="button"
             class="enc-cta"
             (click)="startNewChat()"
             [disabled]="!state.selectedSite() || chat.loading()"
-            data-testid="enc-start-chat">
+            data-testid="enc-start-chat"
+          >
             @if (chat.loading()) {
               Creating…
             } @else {
@@ -114,7 +115,8 @@ import {
         <div class="enc-scroll" #scrollWindow>
           @if (chat.messages().length === 0) {
             <div class="enc-empty">
-              <p>Type your first message below. Try:
+              <p>
+                Type your first message below. Try:
                 <code>"Add a hero section with a CTA"</code>
               </p>
             </div>
@@ -126,13 +128,16 @@ import {
               [class.is-assistant]="msg.role === 'assistant'"
               [class.is-streaming]="msg.streaming"
               [class.is-failed]="msg.failed"
-              [attr.data-role]="msg.role">
+              [attr.data-role]="msg.role"
+            >
               <span class="enc-rail" aria-hidden="true"></span>
               <div class="enc-msg-body">
                 <span class="enc-msg-role">{{ msg.role }}</span>
                 <pre class="enc-msg-text">{{ msg.content || (msg.streaming ? '…' : '') }}</pre>
                 @if (msg.tokens_out && !msg.streaming) {
-                  <span class="enc-msg-meta">{{ msg.tokens_in ?? 0 }} → {{ msg.tokens_out }} tok</span>
+                  <span class="enc-msg-meta"
+                    >{{ msg.tokens_in ?? 0 }} → {{ msg.tokens_out }} tok</span
+                  >
                 }
               </div>
             </article>
@@ -150,7 +155,8 @@ import {
             (keydown.enter)="onEnter($event)"
             [disabled]="chat.streaming()"
             data-testid="enc-composer"
-            aria-label="Compose message"></textarea>
+            aria-label="Compose message"
+          ></textarea>
           <div class="enc-compose-row">
             <span class="enc-hint">Shift+Enter for a new line · Enter to send</span>
             @if (chat.streaming()) {
@@ -159,7 +165,8 @@ import {
                 class="enc-stop"
                 (click)="chat.cancelStream()"
                 data-testid="enc-stop"
-                aria-label="Stop generating">
+                aria-label="Stop generating"
+              >
                 Stop
               </button>
             } @else {
@@ -168,7 +175,8 @@ import {
                 class="enc-send"
                 [disabled]="!draft().trim()"
                 data-testid="enc-send"
-                aria-label="Send message">
+                aria-label="Send message"
+              >
                 Send →
               </button>
             }
@@ -212,8 +220,17 @@ import {
         border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         flex-wrap: wrap;
       }
-      .enc-head-left { display: flex; flex-direction: column; gap: 0.15rem; }
-      .enc-head-right { display: flex; gap: 0.85rem; align-items: flex-end; flex-wrap: wrap; }
+      .enc-head-left {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+      }
+      .enc-head-right {
+        display: flex;
+        gap: 0.85rem;
+        align-items: flex-end;
+        flex-wrap: wrap;
+      }
 
       .enc-eyebrow {
         font-family: 'JetBrains Mono', ui-monospace, monospace;
@@ -236,7 +253,11 @@ import {
         color: transparent;
       }
 
-      .enc-field { display: flex; flex-direction: column; gap: 0.2rem; }
+      .enc-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+      }
       .enc-label {
         font-size: 0.6rem;
         letter-spacing: 0.16em;
@@ -253,7 +274,9 @@ import {
         font-size: 0.8rem;
         min-width: 200px;
         appearance: none;
-        background-image: linear-gradient(45deg, transparent 50%, var(--enc-accent) 50%), linear-gradient(135deg, var(--enc-accent) 50%, transparent 50%);
+        background-image:
+          linear-gradient(45deg, transparent 50%, var(--enc-accent) 50%),
+          linear-gradient(135deg, var(--enc-accent) 50%, transparent 50%);
         background-position:
           calc(100% - 14px) 50%,
           calc(100% - 8px) 50%;
@@ -324,13 +347,18 @@ import {
         border-radius: 999px;
         border: 0;
         cursor: pointer;
-        transition: transform 180ms var(--enc-ease), box-shadow 180ms var(--enc-ease);
+        transition:
+          transform 180ms var(--enc-ease),
+          box-shadow 180ms var(--enc-ease);
       }
       .enc-cta:hover:not(:disabled) {
         transform: translateY(-1px);
         box-shadow: 0 10px 28px -10px rgba(0, 229, 255, 0.6);
       }
-      .enc-cta:disabled { opacity: 0.45; cursor: not-allowed; }
+      .enc-cta:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
 
       .enc-scroll {
         flex: 1;
@@ -363,7 +391,10 @@ import {
         animation: encMsgIn 280ms var(--enc-ease);
       }
       @starting-style {
-        .enc-msg { opacity: 0; transform: translateY(6px); }
+        .enc-msg {
+          opacity: 0;
+          transform: translateY(6px);
+        }
       }
       .enc-rail {
         border-radius: 4px;
@@ -410,7 +441,9 @@ import {
         animation: encBlink 1s steps(2, end) infinite;
         color: var(--enc-accent);
       }
-      .enc-msg.is-failed .enc-msg-text { color: #fca5a5; }
+      .enc-msg.is-failed .enc-msg-text {
+        color: #fca5a5;
+      }
       .enc-msg-meta {
         font-size: 0.65rem;
         color: rgba(244, 244, 255, 0.4);
@@ -471,23 +504,44 @@ import {
         background: linear-gradient(135deg, var(--enc-accent), var(--enc-purple));
         color: var(--enc-bg);
       }
-      .enc-send:hover:not(:disabled) { transform: translateY(-1px); }
-      .enc-send:disabled { opacity: 0.4; cursor: not-allowed; }
+      .enc-send:hover:not(:disabled) {
+        transform: translateY(-1px);
+      }
+      .enc-send:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
       .enc-stop {
         background: rgba(239, 68, 68, 0.15);
         border: 1px solid rgba(239, 68, 68, 0.5);
         color: #fca5a5;
       }
 
-      @keyframes encSpin { to { transform: rotate(360deg); } }
-      @keyframes encBlink { 50% { opacity: 0; } }
+      @keyframes encSpin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes encBlink {
+        50% {
+          opacity: 0;
+        }
+      }
       @keyframes encMsgIn {
-        from { opacity: 0; transform: translateY(6px); }
-        to { opacity: 1; transform: translateY(0); }
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .enc-orb-r, .enc-msg, .enc-msg.is-streaming .enc-msg-text::after {
+        .enc-orb-r,
+        .enc-msg,
+        .enc-msg.is-streaming .enc-msg-text::after {
           animation: none;
         }
       }
@@ -507,7 +561,9 @@ export class EditorChatComponent {
     ...value,
   }));
 
-  readonly provider = computed<LlmProvider>(() => this.chat.currentChat()?.provider ?? 'workers-ai');
+  readonly provider = computed<LlmProvider>(
+    () => this.chat.currentChat()?.provider ?? 'workers-ai',
+  );
   readonly model = computed<string>(() => {
     const c = this.chat.currentChat();
     if (c) return c.model;
