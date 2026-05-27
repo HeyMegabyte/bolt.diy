@@ -1,0 +1,32 @@
+:host {
+  display: block;
+}
+
+.ps-passkey-enroll {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid color-mix(in oklch, currentColor 12%, transparent);
+  border-radius: var(--ps-radius-xl, 22px);
+  background: color-mix(in oklch, currentColor 3%, transparent);
+}
+
+.ps-passkey-enroll__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ps-passkey-enroll__title {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.ps-passkey-enroll__copy {
+  font-size: 0.9rem;
+  margin: 0;
+  color: color-mix(in oklch, currentColor 70%, transparent);
+}

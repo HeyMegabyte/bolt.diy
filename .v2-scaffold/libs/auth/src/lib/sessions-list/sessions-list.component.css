@@ -1,0 +1,35 @@
+:host {
+  display: block;
+}
+
+.ps-sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ps-sessions-list__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ps-sessions-list__header h3 {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.ps-sessions-list__empty {
+  font-size: 0.9rem;
+  color: color-mix(in oklch, currentColor 65%, transparent);
+  margin: 0;
+}
+
+.ps-sessions-list__actions-col {
+  width: 7rem;
+  text-align: right;
+}

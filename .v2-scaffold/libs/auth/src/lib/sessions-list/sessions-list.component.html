@@ -1,0 +1,58 @@
+<section class="ps-sessions-list" data-testid="sessions-list">
+  <header class="ps-sessions-list__header">
+    <h3>Active sessions</h3>
+    <button
+      pButton
+      type="button"
+      severity="secondary"
+      outlined="true"
+      size="small"
+      label="Sign out everywhere else"
+      icon="pi pi-sign-out"
+      data-testid="sessions-revoke-others"
+      (click)="revokeAllOther()"
+    ></button>
+  </header>
+
+  @if (error()) {
+    <p-message severity="error" [text]="error()!" data-testid="sessions-list-error"></p-message>
+  }
+
+  @if (rows().length === 0) {
+    <p class="ps-sessions-list__empty">No active sessions found.</p>
+  } @else {
+    <p-table [value]="[...rows()]" responsiveLayout="stack" data-testid="sessions-table">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Device</th>
+          <th>IP</th>
+          <th>Created</th>
+          <th>Last seen</th>
+          <th>Expires</th>
+          <th class="ps-sessions-list__actions-col"></th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-row>
+        <tr [attr.data-testid]="'session-row-' + row.id">
+          <td>{{ describe(row) }}</td>
+          <td>{{ row.ip ?? '—' }}</td>
+          <td>{{ row.created_at | date: 'medium' }}</td>
+          <td>{{ row.last_seen_at | date: 'medium' }}</td>
+          <td>{{ row.expires_at | date: 'medium' }}</td>
+          <td class="ps-sessions-list__actions-col">
+            <button
+              pButton
+              type="button"
+              severity="danger"
+              size="small"
+              icon="pi pi-times"
+              label="Revoke"
+              [attr.data-testid]="'session-revoke-' + row.id"
+              (click)="revoke(row)"
+            ></button>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  }
+</section>

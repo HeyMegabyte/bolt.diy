@@ -1,0 +1,216 @@
+:host {
+  display: block;
+  min-height: 100dvh;
+  background: var(--ps-bg, #060610);
+  color: var(--ps-ink, #f4f4ff);
+}
+
+.ps-login {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 100dvh;
+}
+
+@media (min-width: 1024px) {
+  .ps-login {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.ps-login__brand {
+  display: none;
+  position: relative;
+  overflow: hidden;
+  padding: 3rem;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(0, 229, 255, 0.25), transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.25), transparent 40%),
+    var(--ps-bg, #060610);
+  color: var(--ps-ink, #f4f4ff);
+}
+
+@media (min-width: 1024px) {
+  .ps-login__brand {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+}
+
+.ps-login__brand-inner {
+  margin-top: auto;
+}
+
+.ps-login__mark {
+  display: inline-block;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  color: var(--ps-accent, #00e5ff);
+  text-transform: uppercase;
+  margin-bottom: 2rem;
+}
+
+.ps-login__brand-title {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(2rem, 3vw, 3rem);
+  line-height: 1.05;
+  text-wrap: balance;
+  margin: 0 0 1rem;
+}
+
+.ps-login__brand-copy {
+  max-width: 36ch;
+  color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 75%, transparent);
+  font-size: 1rem;
+  line-height: 1.5;
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.ps-login__panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: var(--ps-bg, #060610);
+}
+
+@media (min-width: 1024px) {
+  .ps-login__panel {
+    background: #ffffff;
+    color: #0c0c1a;
+  }
+}
+
+.ps-login__card {
+  width: min(100%, 28rem);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--ps-radius-xl, 22px);
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  box-shadow: var(--ps-shadow-modal, 0 30px 80px rgba(0, 0, 0, 0.4));
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .ps-login__card {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.08);
+    color: #0c0c1a;
+  }
+}
+
+.ps-login__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.ps-login__title {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 1.75rem;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.ps-login__subtitle {
+  font-size: 0.95rem;
+  margin: 0;
+  color: color-mix(in oklch, currentColor 65%, transparent);
+}
+
+.ps-login__providers {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+@media (max-width: 480px) {
+  .ps-login__providers {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.ps-login__provider {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.ps-login__provider-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.ps-login__passkey {
+  background: var(--ps-accent, #00e5ff);
+  color: #060610;
+  border: 0;
+  font-weight: 600;
+  min-height: 48px;
+}
+
+.ps-login__passkey:focus-visible {
+  outline: 2px solid var(--ps-accent, #00e5ff);
+  outline-offset: 3px;
+}
+
+.ps-login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ps-login__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.ps-login__2fa {
+  border-top: 1px solid color-mix(in oklch, currentColor 12%, transparent);
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ps-login__2fa-title {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.ps-login__2fa-copy {
+  font-size: 0.9rem;
+  margin: 0;
+  color: color-mix(in oklch, currentColor 70%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ps-login__card {
+    animation: ps-login-rise 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes ps-login-rise {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}

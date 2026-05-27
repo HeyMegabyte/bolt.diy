@@ -1,0 +1,90 @@
+<section class="ps-totp-enroll" data-testid="totp-enroll">
+  @if (error()) {
+    <p-message severity="error" [text]="error()!" data-testid="totp-enroll-error"></p-message>
+  }
+
+  @switch (stage()) {
+    @case ('idle') {
+      <header class="ps-totp-enroll__header">
+        <h3>Authenticator app</h3>
+        <p>Use Google Authenticator, 1Password, or any TOTP app as a second factor.</p>
+      </header>
+      <button
+        pButton
+        type="button"
+        icon="pi pi-shield"
+        label="Set up authenticator"
+        [loading]="busy()"
+        data-testid="totp-start"
+        (click)="start()"
+      ></button>
+    }
+
+    @case ('challenge') {
+      <header class="ps-totp-enroll__header">
+        <h3>Scan with your authenticator</h3>
+        <p>Then save the backup codes — you’ll only see them once.</p>
+      </header>
+      <div class="ps-totp-enroll__qr">
+        <canvas #qrCanvas data-testid="totp-qr"></canvas>
+      </div>
+      <p class="ps-totp-enroll__secret">
+        <span>Can’t scan? Enter this manually:</span>
+        <code data-testid="totp-secret">{{ challenge()?.secret }}</code>
+      </p>
+
+      <details class="ps-totp-enroll__backup" open>
+        <summary>Backup codes — save these</summary>
+        <ul data-testid="totp-backup-codes">
+          @for (bc of challenge()?.backup_codes ?? []; track bc) {
+            <li><code>{{ bc }}</code></li>
+          }
+        </ul>
+      </details>
+
+      <button
+        pButton
+        type="button"
+        label="I saved them — verify a code"
+        data-testid="totp-proceed"
+        (click)="proceedToVerify()"
+      ></button>
+    }
+
+    @case ('verify') {
+      <header class="ps-totp-enroll__header">
+        <h3>Enter the 6-digit code</h3>
+        <p>From your authenticator app.</p>
+      </header>
+      <form (ngSubmit)="verify()" class="ps-totp-enroll__form">
+        <input
+          pInputText
+          type="text"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          maxlength="6"
+          [ngModel]="code()"
+          (ngModelChange)="code.set($event)"
+          name="code"
+          placeholder="123456"
+          data-testid="totp-verify-input"
+        />
+        <button
+          pButton
+          type="submit"
+          label="Verify"
+          [loading]="busy()"
+          data-testid="totp-verify-submit"
+        ></button>
+      </form>
+    }
+
+    @case ('done') {
+      <p-message
+        severity="success"
+        text="Authenticator app is now active on your account."
+        data-testid="totp-enroll-done"
+      ></p-message>
+    }
+  }
+</section>

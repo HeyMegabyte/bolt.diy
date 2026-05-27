@@ -1,0 +1,155 @@
+<section class="ps-login" data-testid="login-page">
+  <aside class="ps-login__brand" aria-hidden="true">
+    <div class="ps-login__brand-inner">
+      <span class="ps-login__mark">projectsites.dev</span>
+      <h1 class="ps-login__brand-title">Build a site in one prompt.</h1>
+      <p class="ps-login__brand-copy">
+        Sign in to keep your sites, snapshots, and bookings in sync across
+        every device.
+      </p>
+    </div>
+  </aside>
+
+  <main class="ps-login__panel" role="main">
+    <div class="ps-login__card">
+      <header class="ps-login__header">
+        <h2 class="ps-login__title">Sign in</h2>
+        <p class="ps-login__subtitle">No password. Pick any path below.</p>
+      </header>
+
+      @if (errorMessage()) {
+        <p-message
+          severity="error"
+          [text]="errorMessage()!"
+          data-testid="login-error"
+        ></p-message>
+      }
+
+      @if (passkeySupported()) {
+        <button
+          pButton
+          type="button"
+          class="ps-login__passkey w-full"
+          icon="pi pi-key"
+          label="Sign in with a passkey"
+          data-testid="passkey-cta"
+          [disabled]="busy()"
+          (click)="signInWithPasskey()"
+        ></button>
+
+        <p-divider align="center"><span>or</span></p-divider>
+      }
+
+      <div class="ps-login__providers" role="group" aria-label="Sign in with a provider">
+        @for (p of providers; track p.id) {
+          <button
+            pButton
+            type="button"
+            severity="secondary"
+            outlined="true"
+            class="ps-login__provider"
+            [attr.aria-label]="'Sign in with ' + p.label"
+            [attr.data-testid]="p.testId"
+            [disabled]="busy()"
+            (click)="startOAuth(p.id)"
+          >
+            <span class="ps-login__provider-label">{{ p.label }}</span>
+          </button>
+        }
+      </div>
+
+      <p-divider align="center"><span>or with email or phone</span></p-divider>
+
+      @if (magicLinkSent()) {
+        <p-message
+          severity="success"
+          text="If that email is registered, a sign-in link is on its way."
+          data-testid="magic-link-sent"
+        ></p-message>
+      } @else {
+        <form
+          (ngSubmit)="submitPrimary()"
+          class="ps-login__form"
+          data-testid="login-form"
+        >
+          <label class="ps-login__label" for="identifier">
+            Email or phone
+          </label>
+          <input
+            id="identifier"
+            pInputText
+            type="text"
+            autocomplete="username webauthn"
+            inputmode="email"
+            [ngModel]="identifier()"
+            (ngModelChange)="identifier.set($event)"
+            name="identifier"
+            placeholder="you@example.com or +1 555 0123"
+            data-testid="identifier-input"
+            [disabled]="busy() || !!verificationSid()"
+          />
+
+          @if (verificationSid()) {
+            <label class="ps-login__label" for="otp">Code from the call</label>
+            <input
+              id="otp"
+              pInputText
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              [ngModel]="otpCode()"
+              (ngModelChange)="otpCode.set($event)"
+              name="otp"
+              maxlength="6"
+              placeholder="123456"
+              data-testid="otp-input"
+              [disabled]="busy()"
+            />
+          }
+
+          <button
+            pButton
+            type="submit"
+            class="w-full"
+            [label]="primaryCtaLabel()"
+            [loading]="busy()"
+            [disabled]="primaryCtaDisabled()"
+            data-testid="primary-cta"
+          ></button>
+        </form>
+      }
+
+      @if (requires2fa()) {
+        <section class="ps-login__2fa" data-testid="two-factor">
+          <h3 class="ps-login__2fa-title">Two-factor required</h3>
+          <p class="ps-login__2fa-copy">
+            Enter the 6-digit code from your authenticator app.
+          </p>
+          <form (ngSubmit)="submitTwoFactor()" class="ps-login__form">
+            <input
+              id="totp"
+              pInputText
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="6"
+              [ngModel]="twoFactorCode()"
+              (ngModelChange)="twoFactorCode.set($event)"
+              name="totp"
+              placeholder="123456"
+              data-testid="totp-input"
+            />
+            <button
+              pButton
+              type="submit"
+              label="Verify code"
+              class="w-full"
+              [loading]="busy()"
+              data-testid="totp-submit"
+            ></button>
+          </form>
+        </section>
+      }
+    </div>
+  </main>
+</section>

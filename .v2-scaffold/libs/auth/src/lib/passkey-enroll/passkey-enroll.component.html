@@ -1,0 +1,35 @@
+<section class="ps-passkey-enroll" data-testid="passkey-enroll">
+  <header class="ps-passkey-enroll__header">
+    <h3 class="ps-passkey-enroll__title">Add a passkey</h3>
+    <p class="ps-passkey-enroll__copy">
+      Use Touch ID, Face ID, Windows Hello, or a security key to sign in
+      without a password on this device.
+    </p>
+  </header>
+
+  @if (success()) {
+    <p-message
+      severity="success"
+      [text]="success()!"
+      data-testid="passkey-enroll-success"
+    ></p-message>
+  }
+  @if (error()) {
+    <p-message
+      severity="error"
+      [text]="error()!"
+      data-testid="passkey-enroll-error"
+    ></p-message>
+  }
+
+  <button
+    pButton
+    type="button"
+    icon="pi pi-key"
+    label="Add a passkey"
+    [loading]="busy()"
+    [disabled]="busy()"
+    data-testid="passkey-enroll-cta"
+    (click)="enroll()"
+  ></button>
+</section>

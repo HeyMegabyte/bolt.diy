@@ -1,0 +1,27 @@
+:host {
+  display: block;
+}
+
+.ps-passkey-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ps-passkey-list__header h3 {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.ps-passkey-list__empty {
+  font-size: 0.9rem;
+  color: color-mix(in oklch, currentColor 65%, transparent);
+  margin: 0;
+}
+
+.ps-passkey-list__actions-col {
+  width: 7rem;
+  text-align: right;
+}
