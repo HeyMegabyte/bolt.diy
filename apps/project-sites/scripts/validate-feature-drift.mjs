@@ -119,7 +119,12 @@ function parseManifestSource(src) {
   const arr = (name) => {
     const m = src.match(new RegExp(`${name}\\s*:\\s*\\[([^\\]]*)\\]`));
     if (!m) return [];
-    return m[1].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+    // Strip JS line + block comments so inline drift notes inside the
+    // array literal don't end up as fake "entries".
+    const cleaned = m[1]
+      .replace(/\/\/[^\n]*/g, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    return cleaned.split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
   };
   return {
     slug: str('slug'),
@@ -350,28 +355,32 @@ function checkManifestTestPaths(manifests) {
     if (!manifest) continue;
 
     for (const testPath of manifest.e2eTests ?? []) {
-      const abs = path.resolve(ROOT, testPath);
+      // Paths are relative to e2e/ unless they already include the prefix.
+      const normalized = testPath.startsWith('e2e/') ? testPath : `e2e/${testPath}`;
+      const abs = path.resolve(ROOT, normalized);
       if (!exists(abs)) {
         violations.push({
           type: 'MANIFEST_TEST_BROKEN',
           slug,
           file: rel(file),
           path: testPath,
-          message: `Manifest "${slug}": e2eTests entry "${testPath}" does not exist on disk`,
+          message: `Manifest "${slug}": e2eTests entry "${testPath}" does not exist on disk (looked at ${normalized})`,
           severity: 'error',
         });
       }
     }
 
     for (const testPath of manifest.unitTests ?? []) {
-      const abs = path.resolve(ROOT, testPath);
+      // Paths are relative to src/ unless they already include the prefix.
+      const normalized = testPath.startsWith('src/') ? testPath : `src/${testPath}`;
+      const abs = path.resolve(ROOT, normalized);
       if (!exists(abs)) {
         violations.push({
           type: 'MANIFEST_TEST_BROKEN',
           slug,
           file: rel(file),
           path: testPath,
-          message: `Manifest "${slug}": unitTests entry "${testPath}" does not exist on disk`,
+          message: `Manifest "${slug}": unitTests entry "${testPath}" does not exist on disk (looked at ${normalized})`,
           severity: 'error',
         });
       }

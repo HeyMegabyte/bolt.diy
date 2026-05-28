@@ -78,11 +78,17 @@ export type FeatureRollout = z.infer<typeof FeatureRolloutSchema>;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const FeatureManifestSchema = z.object({
-  /** Stable kebab-case slug. Matches `libs/features/<slug>/`. */
+  /**
+   * Stable slug. Matches `libs/features/<slug>/`.
+   *
+   * Permitted: snake_case (matching `FLAG_REGISTRY` keys, e.g. `donations_engine`)
+   * OR kebab-case (e.g. `donations-engine`). Snake_case is preferred for
+   * consistency with the existing 104-entry flag registry.
+   */
   slug: z
     .string()
     .min(1)
-    .regex(/^[a-z][a-z0-9_]*$/, 'slug must be lowercase alphanumeric + underscores, starting with a letter'),
+    .regex(/^[a-z][a-z0-9_-]*$/, 'slug must be lowercase alphanumeric + underscores/hyphens, starting with a letter'),
 
   /** Human-readable name shown in admin UIs + reports. */
   name: z.string().min(1),

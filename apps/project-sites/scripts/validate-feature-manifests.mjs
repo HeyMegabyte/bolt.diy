@@ -42,10 +42,10 @@ function validateManifest(m, file) {
     }
   }
 
-  // slug must be kebab-case ≤64 chars
+  // slug must be snake_case OR kebab-case ≤64 chars (matching the schema regex)
   if (typeof m.slug === 'string') {
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(m.slug)) {
-      errors.push(`${file}: 'slug' must be kebab-case (got "${m.slug}")`);
+    if (!/^[a-z][a-z0-9_-]*$/.test(m.slug)) {
+      errors.push(`${file}: 'slug' must be snake_case or kebab-case (got "${m.slug}")`);
     }
     if (m.slug.length > 64) {
       errors.push(`${file}: 'slug' must be ≤64 chars`);
@@ -97,14 +97,19 @@ function validateManifest(m, file) {
     }
   }
 
-  // e2eTests / unitTests paths must exist on disk when declared
+  // e2eTests / unitTests paths must exist on disk when declared.
+  // Paths are resolved relative to the `base` directory (e2e/ or src/).
+  // Entries that already include the base prefix are accepted as-is.
   for (const [field, base] of [['e2eTests', 'e2e'], ['unitTests', 'src']]) {
     const list = m[field];
     if (!Array.isArray(list)) continue;
     for (const rel of list) {
-      const abs = path.resolve(ROOT, rel);
+      // Skip empties / comment strings that the text-parser picked up.
+      if (!rel || rel.startsWith('//') || rel.startsWith('/*')) continue;
+      const normalized = rel.startsWith(`${base}/`) ? rel : `${base}/${rel}`;
+      const abs = path.resolve(ROOT, normalized);
       if (!existsSync(abs)) {
-        errors.push(`${file}: '${field}' entry "${rel}" does not exist on disk`);
+        errors.push(`${file}: '${field}' entry "${rel}" does not exist on disk (looked at ${normalized})`);
       }
     }
   }
@@ -215,7 +220,12 @@ function evalManifestBody(body, file) {
   const arrayField = (name) => {
     const m = body.match(new RegExp(`${name}\\s*:\\s*\\[([^\\]]*)]`));
     if (!m) return undefined;
-    return m[1]
+    // Strip JS line + block comments so inline drift notes inside the array
+    // literal don't end up as fake "entries".
+    const cleaned = m[1]
+      .replace(/\/\/[^\n]*/g, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    return cleaned
       .split(',')
       .map((s) => s.trim().replace(/^['"]|['"]$/g, ''))
       .filter(Boolean);

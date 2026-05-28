@@ -45,9 +45,9 @@ export default defineFeatureManifest({
     'forms-handling-widget.spec.ts',
   ],
   unitTests: [
-    // billing.test.ts covers Stripe checkout session creation helpers
-    // DRIFT: no dedicated donations unit test
-    'billing.test.ts',
+    // billing.test.ts covers Stripe checkout session creation helpers (tangential).
+    // DRIFT: no dedicated donations unit test — needs src/__tests__/donations_engine.test.ts
+    '__tests__/billing.test.ts',
   ],
   integrationTests: [],
   testStatus: 'partial',
