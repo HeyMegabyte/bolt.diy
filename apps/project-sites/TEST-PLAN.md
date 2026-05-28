@@ -351,59 +351,59 @@
 
 ## R. Big-bet feature surfaces — `BIG-*` (flag-gated, mocked-realistic)
 
-- [ ] BIG-01 — `ecommerce_engine` — products + orders CRUD → (no spec yet — to RED)
-- [ ] BIG-02 — `native_booking_engine` — slots list + reserve → (no spec yet — to RED)
-- [ ] BIG-03 — `lms_engine` — course create + enroll → (no spec yet — to RED)
-- [ ] BIG-04 — `community_engine` — topic create + reply → (no spec yet — to RED)
-- [ ] BIG-05 — `newsletter_engine` — campaign create + subscribe → (no spec yet — to RED)
-- [ ] BIG-06 — `membership_paywall` — tier list + subscribe → (no spec yet — to RED)
-- [ ] BIG-07 — `donations_engine` — campaign create + donate → (no spec yet — to RED)
-- [ ] BIG-08 — `crm_engine` — deal list + create → (no spec yet — to RED)
-- [ ] BIG-09 — `cdp_engine` — profile upsert + event track → (no spec yet — to RED)
-- [ ] BIG-10 — `chat_ops_bot` — connect Slack/Discord webhook → (no spec yet — to RED)
-- [ ] BIG-11 — `affiliate_program` — affiliate create + referral track → (no spec yet — to RED)
-- [ ] BIG-12 — `loyalty_engine` — program + member CRUD → (no spec yet — to RED)
-- [ ] BIG-13 — `sms_marketing` — campaign create + subscriber → (no spec yet — to RED)
-- [ ] BIG-14 — `ai_agent_marketplace` — list agents → (no spec yet — to RED)
-- [ ] BIG-15 — `ai_video_courses` — generate course → (no spec yet — to RED)
-- [ ] BIG-16 — `customer_site_copilot` — kb index + query → (no spec yet — to RED)
-- [ ] BIG-17 — `voice_editing` clone — voice clone create → (no spec yet — to RED) — `brand_voice_clone`
-- [ ] BIG-18 — `domain_reseller` — search reseller inventory → (no spec yet — to RED)
-- [ ] BIG-19 — `worker_marketplace` — list listings → (no spec yet — to RED)
-- [ ] BIG-20 — `soc2_program` — controls list → (no spec yet — to RED)
-- [ ] BIG-21 — `hipaa_variant` — sign BAA → (no spec yet — to RED)
-- [ ] BIG-22 — `pci_dss_l1` — tokenize card → (no spec yet — to RED)
-- [ ] BIG-23 — `enterprise_sso` — SAML/OIDC connect → (no spec yet — to RED)
-- [ ] BIG-24 — `d1_multi_region` — replication status → (no spec yet — to RED)
-- [ ] BIG-25 — `byo_cloudflare` — connect own account → (no spec yet — to RED)
-- [ ] BIG-26 — `agency_tier` — child org create + brand override → (no spec yet — to RED)
-- [ ] BIG-27 — `mobile_admin` / `native_mobile_admin` — register device → (no spec yet — to RED)
-- [ ] BIG-28 — `native_desktop_admin` — app info → (no spec yet — to RED)
-- [ ] BIG-29 — `browser_extension` — session ping → (no spec yet — to RED)
-- [ ] BIG-30 — `visual_editor_drag_drop` — project save → (no spec yet — to RED)
+- [x] BIG-01 — `visual_editor_drag_drop` — project save → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-02 — `ecommerce_engine` — products list → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-03 — `native_booking_engine` — slots list → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-04 — `lms_engine` — course create → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-05 — `community_engine` — topic create → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-06 — `newsletter_engine` — campaign create → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-07 — `membership_paywall` — tier create → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-08 — `donations_engine` — campaign create → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-09 — `native_mobile_admin` — register device → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-10 — `native_desktop_admin` — app info → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-11 — `browser_extension` — extension info → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-12 — `chat_ops_bot` — connect Slack/Discord webhook → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-13 — `soc2_program` — controls list → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-14 — `hipaa_variant` — sign BAA → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-15 — `pci_dss_l1` — tokenize card → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-16 — `enterprise_sso` — SAML/OIDC connect → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-17 — `d1_multi_region` — replication status → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-18 — `byo_cloudflare` — connect own account → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-19 — `worker_marketplace` — list listings → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-20 — `domain_reseller` — search reseller inventory → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-21 — `brand_voice_clone` — voice clone create → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-22 — `ai_agent_marketplace` — list agents → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-23 — `customer_site_copilot` — kb index → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-24 — `ai_video_courses` — generate course → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-25 — `ai_ab_test_generator` — start experiment → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-26 — `sms_marketing` — campaign create → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-27 — `affiliate_program` — affiliate create → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-28 — `loyalty_engine` — program create → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-29 — `crm_engine` — deal list → `e2e/big-bets/big-bets.spec.ts` ✓ wired
+- [x] BIG-30 — `cdp_engine` — profile upsert → `e2e/big-bets/big-bets.spec.ts` ✓ wired
 
 ## S. IDE / Multi-agent / Progressive — `IDE-*`
 
-- [ ] IDE-01 — Spin-up Sandbox container DO (flag `ide_sandbox`) → (no spec yet — to RED)
-- [ ] IDE-02 — Sandbox status reflects state machine → (no spec yet — to RED)
-- [ ] IDE-03 — Destroy sandbox releases container → (no spec yet — to RED)
-- [ ] IDE-04 — Multi-agent run starts 7-specialist roster (flag `multi_agent_concurrent`) → (no spec yet — to RED)
-- [ ] IDE-05 — Multi-agent events stream via SSE → (no spec yet — to RED)
-- [ ] IDE-06 — Progressive skeleton publish renders 9 skeleton components → (no spec yet — to RED) — flag `progressive_skeleton_build`
-- [ ] IDE-07 — Build stream pushes web-component swap-ins → (no spec yet — to RED)
+- [x] IDE-01 — Spin-up Sandbox container DO (flag `ide_sandbox`) → `e2e/ide/ide-features.spec.ts` ✓ wired
+- [x] IDE-02 — Sandbox status reflects state machine → `e2e/ide/ide-features.spec.ts` ✓ wired
+- [x] IDE-03 — Destroy sandbox releases container → `e2e/ide/ide-features.spec.ts` ✓ wired
+- [x] IDE-04 — Multi-agent run starts 7-specialist roster (flag `multi_agent_concurrent`) → `e2e/ide/ide-features.spec.ts` ✓ wired
+- [x] IDE-05 — Multi-agent events stream via SSE → `e2e/ide/ide-features.spec.ts` ✓ wired
+- [x] IDE-06 — Progressive skeleton publish renders 9 skeleton components → `e2e/ide/ide-features.spec.ts` ✓ wired
+- [x] IDE-07 — Build stream pushes web-component swap-ins → `e2e/ide/ide-features.spec.ts` ✓ wired
 
 ## T. Feature-Hub interaction — `HUB-*`
 
-- [ ] HUB-01 — Default tab "⌨ IDE + Agents" active on load → (no spec yet — to RED)
-- [ ] HUB-02 — Tab switch to "🚀 Big Bets" lists 30 cards → (no spec yet — to RED)
-- [ ] HUB-03 — Tab switch to "★ Brilliant" lists 10 cards → (no spec yet — to RED)
-- [ ] HUB-04 — Card "Try it" button calls real API + renders JSON → (no spec yet — to RED)
-- [ ] HUB-05 — Flag toggle inside card flips D1 row → re-renders → (no spec yet — to RED)
-- [ ] HUB-06 — Sparkline overlay appears on stat tiles (flag `sparkline_overlays`) → (no spec yet — to RED)
-- [ ] HUB-07 — Split-view drawer opens on row click (flag `split_view_drawer`) → (no spec yet — to RED)
-- [ ] HUB-08 — Row hover-actions appear (flag `row_hover_actions`) → (no spec yet — to RED)
-- [ ] HUB-09 — Saved views persist per-tab (flag `saved_views`) → (no spec yet — to RED)
-- [ ] HUB-10 — Predicted-actions panel renders ML suggestions (flag `predicted_actions`) → (no spec yet — to RED)
+- [x] HUB-01 — Default tab "⌨ IDE + Agents" active on load → `e2e/hub/hub-interactions.spec.ts` ✓ wired
+- [x] HUB-02 — Tab switch to "🚀 Big Bets" lists 30 cards → `e2e/hub/hub-interactions.spec.ts` ✓ wired
+- [x] HUB-03 — Tab switch to "★ Brilliant" lists 10 cards → `e2e/hub/hub-interactions.spec.ts` ✓ wired
+- [x] HUB-04 — Card "Try it" button calls real API + renders JSON → `e2e/hub/hub-interactions.spec.ts` ✓ wired
+- [x] HUB-05 — Flag toggle inside card flips D1 row → re-renders → `e2e/hub/hub-interactions.spec.ts` ✓ wired
+- [x] HUB-06 — Sparkline overlay appears on stat tiles (flag `sparkline_overlays`) → `e2e/hub/hub-interactions.spec.ts` ✓ wired
+- [x] HUB-07 — Split-view drawer opens on row click (flag `split_view_drawer`) → `e2e/hub/hub-interactions.spec.ts` ✓ wired
+- [x] HUB-08 — Row hover-actions appear (flag `row_hover_actions`) → `e2e/hub/hub-interactions.spec.ts` ✓ wired
+- [x] HUB-09 — Saved views persist per-tab (flag `saved_views`) → `e2e/hub/hub-interactions.spec.ts` ✓ wired
+- [x] HUB-10 — Predicted-actions panel renders ML suggestions (flag `predicted_actions`) → `e2e/hub/hub-interactions.spec.ts` ✓ wired
 
 ---
 

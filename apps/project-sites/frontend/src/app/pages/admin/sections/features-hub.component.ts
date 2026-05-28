@@ -107,9 +107,48 @@ const FEATURES: Feature[] = [
   { flag: 'visitor_recognition', name: 'Visitor recognition', tab: 'brilliant', endpoints: [{ method: 'POST', path: '/api/visitor/recognize', sample_body: { site_id: 'demo-site', anon_id: 'anon-abc123', source: 'google', city: 'Newark', country: 'US' } }, { method: 'GET', path: '/api/visitor/personalize/demo-site?anon_id=anon-abc123' }], why: 'Anon DO tracks visit count; 2nd+ visit shows personalized hero variant.' },
   { flag: 'faq_from_tickets', name: 'FAQ-from-tickets', tab: 'brilliant', endpoints: [{ method: 'POST', path: '/api/faq-builder/from-tickets', sample_body: { site_id: 'demo-site', tickets: [{ id: 't1', body: 'Do you ship internationally?' }, { id: 't2', body: 'How do I cancel my subscription?' }, { id: 't3', body: 'Do you ship outside US?' }] } }, { method: 'GET', path: '/api/faq-builder/draft/demo-site' }], why: 'Vectorize clusters real support tickets → FAQPage drafts. Real questions, not generic.' },
   { flag: 'competitor_monitor', name: 'Competitor monitor + counter-ship', tab: 'brilliant', endpoints: [{ method: 'POST', path: '/api/competitor-monitor/scan/demo-org' }, { method: 'GET', path: '/api/competitor-monitor/list/demo-org' }], why: 'Daily scrape of competitors. New section detected → AI drafts counter-section.' },
+
+  // ── 30 Big Bets (Tab: bigbets) — signature surfaces, 4-20wk each
+  { flag: 'visual_editor_drag_drop', name: 'Visual editor (Webflow-class)', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/visual-editor/save', sample_body: { site_id: 'demo-site', layout: { sections: [{ type: 'hero' }] }, breakpoint: 'desktop' } }], why: 'Drag-drop site builder beyond bolt chat. 12-16 wks.' },
+  { flag: 'ecommerce_engine', name: 'E-commerce (Medusa.js)', tab: 'bigbets', endpoints: [{ method: 'GET', path: '/api/ecommerce/products/demo-site' }, { method: 'POST', path: '/api/ecommerce/orders', sample_body: { site_id: 'demo-site', email: 'buyer@demo.com', cents: 2500 } }], why: 'Full cart/checkout/inventory/orders. 8-10 wks.' },
+  { flag: 'native_booking_engine', name: 'Native booking (Cal.com-class)', tab: 'bigbets', endpoints: [{ method: 'GET', path: '/api/booking/slots/demo-site' }, { method: 'POST', path: '/api/booking/reserve', sample_body: { slot_id: 's0', email: 'visitor@demo.com' } }], why: 'Availability + deposits + reminders. 6-8 wks.' },
+  { flag: 'lms_engine', name: 'LMS engine', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/lms/courses', sample_body: { site_id: 'demo-site', title: 'Sourdough Fundamentals', modules: [{ title: 'Intro' }, { title: 'Levain' }] } }, { method: 'GET', path: '/api/lms/courses/demo-site' }], why: 'Modules + lessons + quizzes + certificates. 10-12 wks.' },
+  { flag: 'community_engine', name: 'Community / forum', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/community/topics', sample_body: { site_id: 'demo-site', title: 'Welcome!', body: 'Hi all', author_email: 'mod@demo.com' } }, { method: 'GET', path: '/api/community/topics/demo-site' }], why: 'Discourse-class threaded forum. 8-10 wks.' },
+  { flag: 'newsletter_engine', name: 'Newsletter (Listmonk-class)', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/newsletter/campaigns', sample_body: { site_id: 'demo-site', subject: 'Spring menu live', body_html: '<h1>Try it</h1>', segment: 'all' } }, { method: 'POST', path: '/api/newsletter/subscribe', sample_body: { site_id: 'demo-site', email: 'fan@demo.com' } }], why: 'Campaigns + drip + double opt-in. 6-8 wks.' },
+  { flag: 'membership_paywall', name: 'Membership paywall', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/membership/tiers', sample_body: { site_id: 'demo-site', name: 'Silver', price_cents: 1500, perks: ['Early access'] } }, { method: 'GET', path: '/api/membership/tiers/demo-site' }], why: 'Stripe-billed tiers + per-page gating. 4-6 wks.' },
+  { flag: 'donations_engine', name: 'Donations (Donorbox-class)', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/donations/campaigns', sample_body: { site_id: 'demo-site', name: 'Holiday Fund', goal_cents: 1000000 } }, { method: 'POST', path: '/api/donations/process', sample_body: { campaign_id: 'demo-camp', email: 'donor@demo.com', amount_cents: 5000, recurring: true } }], why: 'One-time + recurring + DAFpay. 6-8 wks.' },
+  { flag: 'native_mobile_admin', name: 'Native iOS + Android admin', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/mobile/register', sample_body: { user_id: 'demo-user', platform: 'ios', device_id: 'demo-device', push_token: 'tok', app_version: '0.1.0' } }], why: 'Capacitor 6 + push. 8-10 wks.' },
+  { flag: 'native_desktop_admin', name: 'Native macOS/Win/Linux admin', tab: 'bigbets', endpoints: [{ method: 'GET', path: '/api/desktop/info' }], why: 'Tauri 2 menu-bar admin. 4-6 wks.' },
+  { flag: 'browser_extension', name: 'Browser extension', tab: 'bigbets', endpoints: [{ method: 'GET', path: '/api/extension/info' }], why: 'Edit any element from any tab. 6-8 wks.' },
+  { flag: 'chat_ops_bot', name: 'Slack / Teams / Discord bot', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/chatops/connect', sample_body: { org_id: 'demo-org', platform: 'slack', webhook_url: 'https://hooks.slack.com/demo' } }], why: 'Slash commands + incident pings. 4 wks.' },
+  { flag: 'soc2_program', name: 'SOC 2 Type II program', tab: 'bigbets', endpoints: [{ method: 'GET', path: '/api/soc2/controls' }], why: 'Controls catalog + evidence + auditor portal. 16-20 wks.' },
+  { flag: 'hipaa_variant', name: 'HIPAA-compliant variant', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/hipaa/baa', sample_body: { customer_org_id: 'demo-org', business_name: 'Demo Health' } }], why: 'BAA + encrypted-at-rest + segmented infra. 12-16 wks.' },
+  { flag: 'pci_dss_l1', name: 'PCI DSS Level 1 tokenization', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/pci/tokenize', sample_body: { customer_id: 'cus_demo', last4: '4242', brand: 'visa' } }], why: 'Tokenize cards; reduce customer PCI scope. 10-12 wks.' },
+  { flag: 'enterprise_sso', name: 'Enterprise SSO (SAML+OIDC)', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/sso/connect', sample_body: { org_id: 'demo-org', protocol: 'saml', idp_metadata_url: 'https://demo.okta.com/metadata', idp_entity_id: 'https://demo.okta.com' } }], why: 'Okta / Azure AD / Auth0 federation. 6-8 wks.' },
+  { flag: 'd1_multi_region', name: 'Multi-region D1 active-active', tab: 'bigbets', endpoints: [{ method: 'GET', path: '/api/d1/replication-status' }], why: 'Sessions API + cross-region + auto-failover. 8-10 wks.' },
+  { flag: 'byo_cloudflare', name: 'BYO Cloudflare account', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/byo-cloudflare/connect', sample_body: { org_id: 'demo-org', cf_account_id: 'abc123' } }], why: 'Enterprise: customer owns the resources; we orchestrate. 10-12 wks.' },
+  { flag: 'worker_marketplace', name: 'Worker marketplace', tab: 'bigbets', endpoints: [{ method: 'GET', path: '/api/worker-marketplace' }], why: 'Customers publish + install Worker adapters; 70/30 split. 12-16 wks.' },
+  { flag: 'domain_reseller', name: 'Domain reseller', tab: 'bigbets', endpoints: [{ method: 'GET', path: '/api/domain-reseller/search?q=bayonnebakery' }], why: 'Sell domains via OpenSRS with one-click DNS. 6-8 wks.' },
+  { flag: 'brand_voice_clone', name: 'Per-brand AI voice clone', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/voice-clones', sample_body: { org_id: 'demo-org', name: 'Brand Voice', sample_r2_keys: [] } }], why: 'ElevenLabs clone for podcasts + IVR + tours. 6-8 wks.' },
+  { flag: 'ai_agent_marketplace', name: 'AI agent marketplace', tab: 'bigbets', endpoints: [{ method: 'GET', path: '/api/ai-agent-marketplace' }], why: 'Customers build + sell agents via MCP; 70/30 split. 12-16 wks.' },
+  { flag: 'customer_site_copilot', name: 'Customer-site AI copilot', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/site-copilot/index/demo-site' }], why: 'Vectorize-RAG embedded chat per customer site. 8-10 wks.' },
+  { flag: 'ai_video_courses', name: 'AI-generated video courses', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/ai-video-courses', sample_body: { site_id: 'demo-site', title: 'Sourdough 101', outline: '1. Intro\n2. Levain\n3. Shape\n4. Bake' } }], why: 'Veo + ElevenLabs auto-builds multi-lesson course. 6-8 wks.' },
+  { flag: 'ai_ab_test_generator', name: 'AI A/B test generator', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/ai-ab-experiments', sample_body: { site_id: 'demo-site', goal: 'increase bookings', variant_count: 3 } }], why: 'AI generates variants + Thompson sampling. 6-8 wks.' },
+  { flag: 'sms_marketing', name: 'SMS marketing platform', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/sms-campaigns', sample_body: { site_id: 'demo-site', name: 'Flash sale', body: '20% off today', segment: 'all' } }], why: 'Twilio + drip + STOP compliance. 6-8 wks.' },
+  { flag: 'affiliate_program', name: 'Affiliate program', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/affiliates', sample_body: { org_id: 'demo-org', email: 'partner@demo.com', commission_pct: 20 } }], why: 'Stripe Connect payouts + tracking. 6-8 wks.' },
+  { flag: 'loyalty_engine', name: 'Loyalty / rewards engine', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/loyalty/programs', sample_body: { site_id: 'demo-site', name: 'Rewards', points_per_dollar: 10 } }], why: 'Points + 4 tiers + redemption catalog. 8-10 wks.' },
+  { flag: 'crm_engine', name: 'CRM (HubSpot-class)', tab: 'bigbets', endpoints: [{ method: 'GET', path: '/api/crm/deals/demo-site' }, { method: 'POST', path: '/api/crm/deals', sample_body: { site_id: 'demo-site', customer_name: 'Acme Co', email: 'cto@acme.co', value_cents: 50000 } }], why: 'Pipeline + tasks + email/call logs. 12-16 wks.' },
+  { flag: 'cdp_engine', name: 'Customer Data Platform', tab: 'bigbets', endpoints: [{ method: 'POST', path: '/api/cdp/profiles', sample_body: { site_id: 'demo-site', email: 'lead@demo.com', phone: '+15551234567' } }, { method: 'POST', path: '/api/cdp/events', sample_body: { site_id: 'demo-site', source: 'web', kind: 'page_view', payload: {} } }], why: 'Unified identity across web/SMS/email/CRM. 10-12 wks.' },
+
+  // ── IDE Sandbox + multi-agent + progressive (Tab: ide)
+  { flag: 'ide_sandbox', name: 'IDE Sandbox (Cloudflare Sandbox)', tab: 'ide', endpoints: [{ method: 'POST', path: '/api/ide-sandbox/spin-up', sample_body: { site_id: 'demo-site', user_id: 'demo-user' } }, { method: 'GET', path: '/api/ide-sandbox/status/demo-sandbox-id' }], why: 'Full IDE for power users — Monaco + terminal + file tree + live preview. Each session is its own Cloudflare Sandbox container (node:22-slim).' },
+  { flag: 'multi_agent_concurrent', name: 'Multi-agent concurrent build', tab: 'ide', endpoints: [{ method: 'POST', path: '/api/multi-agent/start', sample_body: { site_id: 'demo-site', agents: ['design', 'copy', 'seo', 'a11y'], prompt: 'Build a landing page for an artisan bakery' } }, { method: 'GET', path: '/api/multi-agent/runs/demo-site' }, { method: 'GET', path: '/api/multi-agent/run/demo-run-1' }], why: '7-specialist roster (design/copy/seo/a11y/media/motion/qa) works in parallel on one site. Each agent isolated context window + file partition. Real-time stream events visible in admin.' },
+  { flag: 'progressive_skeleton_build', name: 'Progressive skeleton build', tab: 'ide', endpoints: [{ method: 'POST', path: '/api/progressive-build/publish-skeleton/demo-site' }, { method: 'GET', path: '/api/progressive-build/stream/demo-site' }], why: 'Site goes LIVE as skeleton immediately on publish. Real components stream in via SSE; skeleton blocks swap to real via View Transitions API. No 5-min blank page.' },
 ];
 
 const TABS: Array<{ id: string; label: string; icon: string }> = [
+  { id: 'ide', label: '⌨ IDE + Agents', icon: '⌨' },
+  { id: 'bigbets', label: '🚀 Big Bets', icon: '🚀' },
   { id: 'brilliant', label: '★ Brilliant', icon: '★' },
   { id: 'stack', label: 'Stack', icon: '⚙' },
   { id: 'cwv', label: 'Core Web Vitals', icon: '⚡' },
@@ -149,7 +188,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
         </div>
       </header>
 
-      <nav class="hub-tabs" role="tablist" aria-label="Feature categories">
+      <nav class="hub-tabs" role="tablist" aria-label="Feature categories" data-testid="hub-tabs">
         @for (t of tabs; track t.id) {
           <button
             class="hub-tab"
@@ -157,6 +196,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
             (click)="setTab(t.id)"
             role="tab"
             [attr.aria-selected]="tab() === t.id"
+            [attr.data-testid]="'hub-tab-' + t.id"
           >
             <span class="hub-tab-icon">{{ t.icon }}</span>
             <span class="hub-tab-label">{{ t.label }}</span>
@@ -167,7 +207,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
 
       <ul class="hub-grid">
         @for (f of visible(); track f.flag) {
-          <li class="hub-card" [attr.data-flag-on]="flagState(f.flag)?.default_enabled">
+          <li class="hub-card" [attr.data-flag-on]="flagState(f.flag)?.default_enabled" [attr.data-testid]="'hub-card-' + f.flag">
             <header class="hub-card-head">
               <div>
                 <h2 class="hub-card-name">{{ f.name }}</h2>
@@ -175,7 +215,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
               </div>
               <div class="hub-state">
                 @if (flagState(f.flag); as s) {
-                  <span class="hub-pill" [class.hub-pill-on]="s.default_enabled" [class.hub-pill-off]="!s.default_enabled">
+                  <span class="hub-pill" [class.hub-pill-on]="s.default_enabled" [class.hub-pill-off]="!s.default_enabled" data-testid="hub-flag-pill">
                     {{ s.default_enabled ? 'ON' : 'OFF' }} · {{ s.stage }}
                   </span>
                 } @else {
@@ -191,12 +231,12 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
                 <div class="hub-endpoint">
                   <span class="hub-method" [attr.data-method]="e.method">{{ e.method }}</span>
                   <code class="hub-path" title="Click to copy" (click)="copy(e.path)">{{ e.path }}</code>
-                  <button class="hub-try" (click)="tryIt(f, i)" [disabled]="loading()[f.flag + ':' + i]">
+                  <button class="hub-try" (click)="tryIt(f, i)" [disabled]="loading()[f.flag + ':' + i]" data-testid="hub-try-btn">
                     {{ loading()[f.flag + ':' + i] ? '…' : 'Try' }}
                   </button>
                 </div>
                 @if (result()[f.flag + ':' + i]; as r) {
-                  <div class="hub-result" [attr.data-status]="r.status">
+                  <div class="hub-result" [attr.data-status]="r.status" data-testid="hub-result">
                     <header>
                       <span class="hub-result-status">HTTP {{ r.status }}</span>
                       @if (r.status === 404) {
@@ -273,7 +313,7 @@ export class AdminFeaturesHubComponent implements OnInit {
 
   readonly tabs = TABS;
   readonly features = FEATURES;
-  readonly tab = signal<string>('brilliant');
+  readonly tab = signal<string>('ide');
   readonly search = signal('');
   readonly flags = signal<Record<string, FlagDef>>({});
   readonly loading = signal<Record<string, boolean>>({});
