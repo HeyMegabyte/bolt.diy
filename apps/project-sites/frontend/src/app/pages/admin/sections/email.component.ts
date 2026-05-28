@@ -34,7 +34,7 @@ const PROVIDERS: ProviderMeta[] = [
   standalone: true,
   imports: [FormsModule],
   template: `
-    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4">
+    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4" data-testid="email-section">
       @if (!state.selectedSite()) {
         <div class="flex flex-col items-center justify-center text-center py-20 px-5 text-text-secondary gap-3">
           <h3 class="text-white font-semibold text-base m-0">No site selected</h3>

@@ -19,24 +19,24 @@
 
 ## A. Public marketing surface — `PUB-*`
 
-- [ ] PUB-01 — Homepage renders, hero copy visible, no console errors → `e2e/homepage.spec.ts`
-- [ ] PUB-02 — Marketing sections (features grid, pricing, testimonials, FAQ) render → `e2e/marketing-sections.spec.ts`
-- [ ] PUB-03 — `/health` returns 200 with KV+R2 probe → `e2e/health.spec.ts`
-- [ ] PUB-04 — `/changelog.json` returns valid JSON feed → `e2e/features/public-discovery.spec.ts` (no spec yet — to RED)
-- [ ] PUB-05 — `/feed.xml` returns valid RSS → (no spec yet — to RED)
-- [ ] PUB-06 — `/api/public/roadmap` returns structured data → (no spec yet — to RED)
-- [ ] PUB-07 — `/api/public/integrations` returns vendor matrix → (no spec yet — to RED)
-- [ ] PUB-08 — `/.well-known/security.txt` served → (no spec yet — to RED)
-- [ ] PUB-09 — `/llms.txt` served (flag-gated `llms_txt`) → (no spec yet — to RED)
-- [ ] PUB-10 — `/accessibility` statement page renders (flag-gated `accessibility_statement`) → (no spec yet — to RED)
-- [ ] PUB-11 — `robots.txt` served with sitemap directive → (no spec yet — to RED)
-- [ ] PUB-12 — `sitemap.xml` lists routes with lastmod → (no spec yet — to RED)
-- [ ] PUB-13 — Marketing OG meta + JSON-LD present → (no spec yet — to RED)
-- [ ] PUB-14 — `/blog` index renders post list → (no spec yet — to RED)
-- [ ] PUB-15 — `/blog/:slug` permalink renders → (no spec yet — to RED)
-- [ ] PUB-16 — `/privacy` + `/terms` pages render → (no spec yet — to RED)
+- [ ] PUB-01 — Homepage renders, hero copy visible, no console errors → `e2e/public/marketing.spec.ts` ✓ wired
+- [ ] PUB-02 — Marketing sections (features grid, pricing, testimonials, FAQ) render → `e2e/public/marketing.spec.ts` ✓ wired
+- [ ] PUB-03 — `/health` returns 200 with KV+R2 probe → `e2e/health.spec.ts` + `e2e/public/marketing.spec.ts` ✓ wired
+- [ ] PUB-04 — `/changelog.json` returns valid JSON feed → `e2e/public/discovery.spec.ts` ✓ wired
+- [ ] PUB-05 — `/feed.xml` returns valid RSS → `e2e/public/discovery.spec.ts` ✓ wired
+- [ ] PUB-06 — `/api/public/roadmap` returns structured data → `e2e/public/discovery.spec.ts` ✓ wired
+- [ ] PUB-07 — `/api/public/integrations` returns vendor matrix → `e2e/public/discovery.spec.ts` ✓ wired
+- [ ] PUB-08 — `/.well-known/security.txt` served → `e2e/public/discovery.spec.ts` ✓ wired
+- [ ] PUB-09 — `/llms.txt` served (flag-gated `llms_txt`) → `e2e/public/discovery.spec.ts` ✓ wired
+- [ ] PUB-10 — `/accessibility` statement page renders → `e2e/public/discovery.spec.ts` ✓ wired
+- [ ] PUB-11 — `robots.txt` served with sitemap directive → `e2e/public/discovery.spec.ts` ✓ wired
+- [ ] PUB-12 — `sitemap.xml` listed via robots.txt Sitemap: directive → `e2e/public/discovery.spec.ts` ✓ wired
+- [ ] PUB-13 — Marketing OG meta + JSON-LD present → `e2e/public/discovery.spec.ts` ✓ wired
+- [ ] PUB-14 — `/blog` index renders post list → `e2e/public/marketing.spec.ts` ✓ wired
+- [ ] PUB-15 — `/blog/:slug` permalink renders → `e2e/public/marketing.spec.ts` ✓ wired
+- [ ] PUB-16 — `/privacy` + `/terms` pages render → `e2e/public/marketing.spec.ts` ✓ wired
 - [ ] PUB-17 — Cmd+K opens command palette + focuses input → `e2e/command-palette.spec.ts`
-- [ ] PUB-18 — Marketing homepage contact form submits → `e2e/contact.spec.ts`
+- [ ] PUB-18 — Marketing homepage contact form submits → `e2e/public/marketing.spec.ts` ✓ wired
 
 ## B. Homepage SPA + create wizard — `HOME-*`
 
@@ -64,37 +64,37 @@
 
 ## D. Admin shell — `ADMIN-*` (one per route component)
 
-- [ ] ADMIN-01 — `/admin` dashboard loads, sidebar visible → `e2e/admin-and-billing.spec.ts`
-- [ ] ADMIN-02 — Sidebar nav switches sub-route WITHOUT full reload (View Transitions) → `e2e/admin-upgrades-30.spec.ts`
+- [ ] ADMIN-01 — `/admin` dashboard loads, sidebar visible → `e2e/admin/admin-shell.spec.ts` ✓ wired
+- [ ] ADMIN-02 — Sidebar nav switches sub-route WITHOUT full reload (View Transitions) → `e2e/admin/admin-shell.spec.ts` ✓ wired
 - [ ] ADMIN-03 — `/admin/sites` lists user's sites with status badges → (no spec yet — to RED)
 - [ ] ADMIN-04 — `/admin/forms` lists form submissions → `e2e/forms-handling-widget.spec.ts`
-- [ ] ADMIN-05 — `/admin/snapshots` lists snapshots with capture/preview → (no spec yet — to RED)
-- [ ] ADMIN-06 — `/admin/snapshots-diff` compares two snapshots side-by-side → (no spec yet — to RED)
+- [ ] ADMIN-05 — `/admin/snapshots` lists snapshots with capture/preview → `e2e/admin/snapshots.spec.ts` ✓ wired
+- [ ] ADMIN-06 — `/admin/snapshots-diff` compares two snapshots side-by-side → `e2e/admin/snapshots.spec.ts` ✓ wired
 - [ ] ADMIN-07 — `/admin/billing` shows subscription + entitlements → `e2e/admin-and-billing.spec.ts`
 - [ ] ADMIN-08 — `/admin/audit` shows audit log table → `e2e/audit-logs.spec.ts`
 - [ ] ADMIN-09 — `/admin/audit?site=…` filter applies → `e2e/audit-site-filter.spec.ts`
 - [ ] ADMIN-10 — `/admin/docs` interactive API explorer renders → `e2e/admin-docs.spec.ts`
 - [ ] ADMIN-11 — `/admin/ai-endpoints` lists endpoints + try-it form → `e2e/ai-endpoints-ide.spec.ts`
 - [ ] ADMIN-12 — `/admin/ai-logs` lists LLM call traces → `e2e/ai-traces.spec.ts`
-- [ ] ADMIN-13 — `/admin/ai-chat-extras` flag-gated tools render → (no spec yet — to RED)
-- [ ] ADMIN-14 — `/admin/settings` org settings save → (no spec yet — to RED)
-- [ ] ADMIN-15 — `/admin/user-settings` profile save → (no spec yet — to RED)
-- [ ] ADMIN-16 — `/admin/analytics` Pulse analytics renders → (no spec yet — to RED)
-- [ ] ADMIN-17 — `/admin/mcp` MCP provider list + connect buttons → (no spec yet — to RED)
-- [ ] ADMIN-18 — `/admin/apps` apps catalog renders → (no spec yet — to RED)
-- [ ] ADMIN-19 — `/admin/apps-detail/:id` install/configure → (no spec yet — to RED)
-- [ ] ADMIN-20 — `/admin/apps-instances` lists installed app instances → (no spec yet — to RED)
-- [ ] ADMIN-21 — `/admin/editor` mounts bolt iframe ONCE; survives nav → (no spec yet — to RED)
+- [ ] ADMIN-13 — `/admin/ai-chat-extras` flag-gated tools render → `e2e/admin/ai-chat-extras.spec.ts` ✓ wired
+- [ ] ADMIN-14 — `/admin/settings` org settings save → `e2e/admin/settings.spec.ts` ✓ wired
+- [ ] ADMIN-15 — `/admin/user-settings` profile save → `e2e/admin/settings.spec.ts` ✓ wired
+- [ ] ADMIN-16 — `/admin/analytics` Pulse analytics renders → `e2e/admin/analytics.spec.ts` ✓ wired
+- [ ] ADMIN-17 — `/admin/mcp` MCP provider list + connect buttons → `e2e/admin/mcp.spec.ts` ✓ wired
+- [ ] ADMIN-18 — `/admin/apps` apps catalog renders → `e2e/admin/apps.spec.ts` ✓ wired
+- [ ] ADMIN-19 — `/admin/apps-detail/:id` install/configure → `e2e/admin/apps.spec.ts` ✓ wired
+- [ ] ADMIN-20 — `/admin/apps-instances` lists installed app instances → `e2e/admin/apps.spec.ts` ✓ wired
+- [ ] ADMIN-21 — `/admin/editor` mounts bolt iframe ONCE; survives nav → `e2e/admin/editor.spec.ts` ✓ wired
 - [ ] ADMIN-22 — `/admin/media` library lists assets → `e2e/media-library.spec.ts`
-- [ ] ADMIN-23 — `/admin/email` provider config saves → (no spec yet — to RED)
-- [ ] ADMIN-24 — `/admin/feature-flags` lists 103 flags + toggle works → (no spec yet — to RED)
-- [ ] ADMIN-25 — `/admin/features-hub` 70+ cards render with "Try it" → (no spec yet — to RED)
-- [ ] ADMIN-26 — `/admin/social` Pulse social posting UI → (no spec yet — to RED)
-- [ ] ADMIN-27 — `/admin/social-analytics` aggregate dashboards → (no spec yet — to RED)
-- [ ] ADMIN-28 — `/admin/voice` Twilio voice/SMS config → (no spec yet — to RED)
-- [ ] ADMIN-29 — `/admin/seo` per-site SEO panel → (no spec yet — to RED)
+- [ ] ADMIN-23 — `/admin/email` provider config saves → `e2e/admin/email.spec.ts` ✓ wired
+- [ ] ADMIN-24 — `/admin/feature-flags` lists 103 flags + toggle works → `e2e/admin/feature-flags.spec.ts` ✓ wired
+- [ ] ADMIN-25 — `/admin/features-hub` 70+ cards render with "Try it" → `e2e/admin/features-hub.spec.ts` ✓ wired
+- [ ] ADMIN-26 — `/admin/social` Pulse social posting UI → `e2e/admin/social.spec.ts` ✓ wired
+- [ ] ADMIN-27 — `/admin/social-analytics` aggregate dashboards → `e2e/admin/social.spec.ts` ✓ wired
+- [ ] ADMIN-28 — `/admin/voice` Twilio voice/SMS config → `e2e/admin/voice.spec.ts` ✓ wired
+- [ ] ADMIN-29 — `/admin/seo` per-site SEO panel → `e2e/admin/seo.spec.ts` ✓ wired
 - [ ] ADMIN-30 — `/admin/domains` lists hostnames + add → `e2e/domain-management.spec.ts`
-- [ ] ADMIN-31 — `/admin/accept-invite` org invitation acceptance → (no spec yet — to RED)
+- [ ] ADMIN-31 — `/admin/accept-invite` org invitation acceptance → `e2e/admin/accept-invite.spec.ts` ✓ wired
 - [ ] ADMIN-32 — Cmd+K opens command palette inside admin + focuses → `e2e/command-palette.spec.ts`
 - [ ] ADMIN-33 — Network-status banner appears when offline → (no spec yet — to RED)
 - [ ] ADMIN-34 — Toast layer dedupes + supports action buttons → (no spec yet — to RED)

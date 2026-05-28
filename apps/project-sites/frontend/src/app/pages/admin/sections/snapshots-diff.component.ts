@@ -55,7 +55,7 @@ interface DiffResponse {
   standalone: true,
   imports: [RouterModule],
   template: `
-    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
+    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" data-testid="snapshots-diff-section">
       <header class="flex items-start justify-between gap-4">
         <div>
           <h1 class="text-[1.4rem] font-semibold text-white">Snapshot diff</h1>

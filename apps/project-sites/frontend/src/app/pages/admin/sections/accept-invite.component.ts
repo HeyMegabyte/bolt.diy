@@ -7,7 +7,7 @@ import { ToastService } from '../../../services/toast.service';
   selector: 'app-admin-accept-invite',
   standalone: true,
   template: `
-    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4">
+    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4" data-testid="accept-invite-section">
       <section class="card max-w-xl mx-auto text-center">
         @if (state() === 'verifying') {
           <h2 class="text-base font-semibold text-white m-0">Verifying invite…</h2>

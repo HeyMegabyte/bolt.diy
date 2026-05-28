@@ -62,7 +62,7 @@ const TABS: readonly TabSpec[] = [
     VoiceShareComponent,
   ],
   template: `
-    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
+    <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" data-testid="voice-section">
       <!-- Header -->
       <header psReveal>
         <div class="kicker">Phone · SMS · Browser</div>

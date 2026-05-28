@@ -60,7 +60,7 @@ interface AggregateResponse {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, RouterLink, RevealDirective, WidgetRendererComponent],
   template: `
-    <section class="page" appReveal>
+    <section class="page" appReveal data-testid="social-analytics-section">
       <header class="page-hd">
         <div>
           <h1>Social analytics</h1>
