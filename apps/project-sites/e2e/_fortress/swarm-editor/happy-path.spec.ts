@@ -5,6 +5,7 @@
  * SSE stream tokens → conflict detect → finished + Site-DNA feedback.
  */
 import { test, expect } from '../../fixtures.js';
+import AxeBuilder from '@axe-core/playwright';
 
 const BASE = process.env['PROD_URL'] ?? 'https://projectsites.dev';
 const MOCK_SITE_ID = 'swarm-test-site-001';
@@ -110,4 +111,22 @@ test.describe('SWARM HAPPY — start run → SSE stream → feedback', () => {
     );
     expect(blocking, 'no blocking console errors in swarm editor').toHaveLength(0);
   });
+
+  test('A11Y — page has zero serious/critical axe violations', async ({ page }) => {
+    await page.route('**/api/**', async (route) => {
+      // Pass through — axe needs the real DOM; network errors suppressed below.
+      await route.continue().catch(() => {});
+    });
+    await page.goto(`${BASE}/admin`);
+    // Wait for the SPA shell to mount before scanning.
+    await page.waitForSelector('body', { timeout: 10_000 });
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+      .analyze();
+    const hardViolations = results.violations.filter(
+      (v) => v.impact === 'critical' || v.impact === 'serious',
+    );
+    expect(hardViolations, 'no serious/critical axe violations').toEqual([]);
+  });
+
 });

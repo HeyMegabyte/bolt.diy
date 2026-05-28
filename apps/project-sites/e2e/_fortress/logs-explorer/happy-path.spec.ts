@@ -5,6 +5,7 @@
  * cost-by-route aggregation → range pills → empty state.
  */
 import { test, expect } from '../../fixtures.js';
+import AxeBuilder from '@axe-core/playwright';
 
 const BASE = process.env['PROD_URL'] ?? 'https://projectsites.dev';
 
@@ -162,4 +163,22 @@ test.describe('LOGS-EXPLORER HAPPY — DSL + filters + aggregation', () => {
     );
     expect(blocking, 'no blocking console errors in logs explorer').toHaveLength(0);
   });
+
+  test('A11Y — page has zero serious/critical axe violations', async ({ page }) => {
+    await page.route('**/api/**', async (route) => {
+      // Pass through — axe needs the real DOM; network errors suppressed below.
+      await route.continue().catch(() => {});
+    });
+    await page.goto(`${BASE}/admin/logs`);
+    // Wait for the SPA shell to mount before scanning.
+    await page.waitForSelector('body', { timeout: 10_000 });
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+      .analyze();
+    const hardViolations = results.violations.filter(
+      (v) => v.impact === 'critical' || v.impact === 'serious',
+    );
+    expect(hardViolations, 'no serious/critical axe violations').toEqual([]);
+  });
+
 });

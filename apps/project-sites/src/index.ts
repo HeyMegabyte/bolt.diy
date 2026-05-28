@@ -101,6 +101,16 @@ export { TraceHub, ActivityHub } from './durable_objects/trace_hub.js';
 export { AppRuntimeContainer } from './durable_objects/app_runtime.js';
 // Pulse Inbox deprecated 2026-05-25 — 410-stub class kept so the existing
 // `v_conversation_hub` DO migration tag in Cloudflare's history stays valid.
+//
+// TODO Wave 3 deletion (safe after 2026-08-01):
+//   1. Confirm no live DO instances remain (check CF dashboard → Durable Objects →
+//      conversation_hub namespace object count = 0).
+//   2. Remove this export line.
+//   3. Delete `src/durable_objects/conversation_hub.ts`.
+//   4. Remove the `v_conversation_hub` entry from wrangler.toml [[durable_objects.bindings]].
+//   Rationale: the 410-stub keeps the Cloudflare Workers migration history valid so
+//   redeployment doesn't fail with "unknown class" for the historical DO namespace.
+//   Once all instances are drained the stub is safe to remove entirely.
 export { ConversationHub } from './durable_objects/conversation_hub.js';
 export {
   UmamiContainer,
