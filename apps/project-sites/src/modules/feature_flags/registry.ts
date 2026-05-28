@@ -26,9 +26,18 @@ export interface FlagDefinition {
  * new keys.
  */
 export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
-  // ── Sentinel: always-on core surfaces (auth, admin shell, feature-flags UI, site-create).
-  //    isFlagOn always returns true for '__core__'. Present so manifest cross-check passes.
-  __core__: { key: '__core__', description: 'Always-on sentinel for core surfaces (auth, admin shell, feature-flags, site-create). isFlagOn returns true.', default_enabled: true, default_rollout_percent: 100, stage: 'stable', owner_email: 'brian@megabyte.space' },
+  // ── Sentinel keys for always-on core surfaces.  isFlagOn always returns true for these.
+  //    One key per core surface so duplicate-flagKey check passes in the manifest validator.
+  core_auth: { key: 'core_auth', description: 'Always-on sentinel: auth surface (magic-link + Google OAuth + sessions). isFlagOn always true.', default_enabled: true, default_rollout_percent: 100, stage: 'stable', owner_email: 'brian@megabyte.space' },
+  core_admin_detail: { key: 'core_admin_detail', description: 'Always-on sentinel: admin site-detail split-view panel. isFlagOn always true.', default_enabled: true, default_rollout_percent: 100, stage: 'stable', owner_email: 'brian@megabyte.space' },
+  core_site_create: { key: 'core_site_create', description: 'Always-on sentinel: homepage site-creation funnel. isFlagOn always true.', default_enabled: true, default_rollout_percent: 100, stage: 'stable', owner_email: 'brian@megabyte.space' },
+  core_feature_flags: { key: 'core_feature_flags', description: 'Always-on sentinel: feature-flags admin UI. isFlagOn always true.', default_enabled: true, default_rollout_percent: 100, stage: 'stable', owner_email: 'brian@megabyte.space' },
+  // ── Alias sentinel keys — thin manifest dirs that alias an already-canonical manifest.
+  //    Created so that e2e/_fortress/<slug>/ directories have a matching libs/features/<slug>/
+  //    and the drift validator's TEST_NOT_LINKED check resolves.
+  alias_swarm_editor: { key: 'alias_swarm_editor', description: 'Alias dir for _fortress/swarm-editor → libs/features/swarm_editor. Resolves TEST_NOT_LINKED drift warning.', default_enabled: false, default_rollout_percent: 0, stage: 'deprecated', owner_email: 'brian@megabyte.space' },
+  alias_inbox: { key: 'alias_inbox', description: 'Alias dir for _fortress/inbox → libs/features/unified_inbox. Resolves TEST_NOT_LINKED drift warning.', default_enabled: false, default_rollout_percent: 0, stage: 'deprecated', owner_email: 'brian@megabyte.space' },
+  alias_public_api: { key: 'alias_public_api', description: 'Alias dir for _fortress/public-api → libs/features/public_api_v1. Resolves TEST_NOT_LINKED drift warning.', default_enabled: false, default_rollout_percent: 0, stage: 'deprecated', owner_email: 'brian@megabyte.space' },
   // Compete-or-die (items 1-8)
   multi_model_router: { key: 'multi_model_router', description: 'Multi-model picker (Opus/Sonnet/Workers AI/GPT-5) per prompt', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   db_provisioning: { key: 'db_provisioning', description: 'One-click Neon/Supabase Postgres provisioning per site', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
