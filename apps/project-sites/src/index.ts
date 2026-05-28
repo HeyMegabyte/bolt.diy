@@ -88,6 +88,7 @@ import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbQueryOne, dbUpdate } from './services/db.js';
 import { registerAllPrompts } from './services/ai_workflows.js';
 import { DOMAINS } from '@project-sites/shared';
+import { parseEnv } from './lib/env.js';
 export { SiteGenerationWorkflow } from './workflows/site-generation.js';
 export { DriveSyncWorkflow } from './workflows/drive-sync.js';
 export { ImageGenerationWorkflow } from './workflows/image-generation.js';
@@ -120,6 +121,13 @@ registerAllPrompts();
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // ─── Global Middleware ───────────────────────────────────────
+
+// Env validation — runs before any route logic.
+// parseEnv throws ZodError on missing required secrets → errorHandler returns 500.
+app.use('*', async (c, next) => {
+  parseEnv(c.env as unknown as Record<string, unknown>);
+  await next();
+});
 
 // Request ID on every request
 app.use('*', requestIdMiddleware);
@@ -521,9 +529,15 @@ app.all('*', async (c) => {
         const phKey = c.env.POSTHOG_API_KEY ?? 'none';
         const stripePk = c.env.STRIPE_PUBLISHABLE_KEY ?? '';
         const sentryDsn = c.env.SENTRY_DSN ?? '';
+        const sentryRelease = c.env.SENTRY_RELEASE ?? 'project-sites@0.2.0';
         html = html.replace(
           '<meta name="x-sentry-dsn" content="">',
           `<meta name="x-sentry-dsn" content="${sentryDsn}">`,
+        );
+        // Inject SENTRY_RELEASE so the Angular SDK groups events to the correct release.
+        html = html.replace(
+          '<meta name="x-app-release" content="@project-sites/frontend@1.0.0">',
+          `<meta name="x-app-release" content="${sentryRelease}">`,
         );
 
         // ALL-STAR items #15 + #20 + #21 injection block.

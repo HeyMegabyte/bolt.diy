@@ -31,6 +31,8 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { z } from 'zod';
+import { zValidator } from '@hono/zod-validator';
 import type { Env } from '../types/env.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import {
@@ -273,14 +275,15 @@ v1.get('/v1/sites/:id', requireScope('sites:read'), async (c) => {
   return c.json(site);
 });
 
-v1.post('/v1/sites', requireScope('sites:write'), async (c) => {
-  const body = await c.req.json().catch(() => ({}));
-  const orgId = c.get('v1OrgId');
-  const { slug, business_name } = body as { slug?: string; business_name?: string };
+const CreateSiteBodySchema = z.object({
+  slug: z.string().min(1, 'slug is required').max(64).regex(/^[a-z0-9-]+$/, 'slug must be lowercase alphanumeric with hyphens'),
+  business_name: z.string().min(1, 'business_name is required').max(200),
+});
+type CreateSiteInput = z.infer<typeof CreateSiteBodySchema>;
 
-  if (!slug || !business_name) {
-    return c.json({ error: 'bad_request', message: '`slug` and `business_name` are required.' }, 400);
-  }
+v1.post('/v1/sites', requireScope('sites:write'), zValidator('json', CreateSiteBodySchema), async (c) => {
+  const orgId = c.get('v1OrgId');
+  const { slug, business_name } = c.req.valid('json') as CreateSiteInput;
 
   const existing = await c.env.DB.prepare(`SELECT id FROM sites WHERE slug = ? AND deleted_at IS NULL LIMIT 1`).bind(slug).first().catch(() => null);
   if (existing) return c.json({ error: 'conflict', message: `Slug "${slug}" is already taken.` }, 409);
@@ -295,25 +298,25 @@ v1.post('/v1/sites', requireScope('sites:write'), async (c) => {
   return c.json(site, 201);
 });
 
-v1.patch('/v1/sites/:id', requireScope('sites:write'), async (c) => {
+const PatchSiteBodySchema = z.object({
+  business_name: z.string().min(1).max(200).optional(),
+  slug: z.string().min(1).max(64).regex(/^[a-z0-9-]+$/).optional(),
+}).refine((d) => d.business_name !== undefined || d.slug !== undefined, {
+  message: 'At least one of business_name or slug must be provided',
+});
+type PatchSiteInput = z.infer<typeof PatchSiteBodySchema>;
+
+v1.patch('/v1/sites/:id', requireScope('sites:write'), zValidator('json', PatchSiteBodySchema), async (c) => {
   const orgId = c.get('v1OrgId');
   const siteId = c.req.param('id');
-  const body = await c.req.json().catch(() => ({}));
+  const body = c.req.valid('json') as PatchSiteInput;
 
   const site = await c.env.DB.prepare(`SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL LIMIT 1`).bind(siteId, orgId).first().catch(() => null);
   if (!site) return c.json({ error: 'not_found', message: 'Site not found' }, 404);
 
-  const allowed = ['business_name', 'slug'] as const;
   const updates: Record<string, string> = {};
-  for (const k of allowed) {
-    if (k in (body as object) && typeof (body as Record<string, unknown>)[k] === 'string') {
-      updates[k] = (body as Record<string, string>)[k];
-    }
-  }
-
-  if (Object.keys(updates).length === 0) {
-    return c.json({ error: 'bad_request', message: 'No updatable fields provided.' }, 400);
-  }
+  if (body.business_name !== undefined) updates.business_name = body.business_name;
+  if (body.slug !== undefined) updates.slug = body.slug;
 
   const now = new Date().toISOString();
   const setClauses = Object.keys(updates).map((k) => `${k} = ?`).join(', ');

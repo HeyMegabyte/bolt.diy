@@ -11,6 +11,8 @@
  */
 
 import { Hono } from 'hono';
+import { z } from 'zod';
+import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import {
   recordDnaFeedback,
@@ -32,7 +34,14 @@ async function assertFlagOn(env: Env): Promise<boolean> {
 
 // ── POST /api/site-dna/:siteId/feedback ──────────────────────────────────
 
-siteDna.post('/api/site-dna/:siteId/feedback', async (c) => {
+const DnaFeedbackBodySchema = z.object({
+  component_id: z.string().min(1, 'component_id is required'),
+  action: z.enum(['accept', 'reject', 'edit'] as [DnaAction, ...DnaAction[]]),
+  context: z.record(z.unknown()).optional(),
+});
+type DnaFeedbackInput = z.infer<typeof DnaFeedbackBodySchema>;
+
+siteDna.post('/api/site-dna/:siteId/feedback', zValidator('json', DnaFeedbackBodySchema), async (c) => {
   if (!(await assertFlagOn(c.env))) {
     return c.json({ error: { code: 'NOT_FOUND', message: 'site_dna_taste_graph not enabled' } }, 404);
   }
@@ -41,18 +50,7 @@ siteDna.post('/api/site-dna/:siteId/feedback', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, 401);
 
-  const rawBody = await c.req.json<{
-    component_id?: string;
-    action?: string;
-    context?: Record<string, unknown>;
-  }>().catch(() => null);
-  const body = rawBody ?? {};
-
-  if (!body.component_id) return c.json({ error: { code: 'BAD_REQUEST', message: 'component_id required' } }, 400);
-  const validActions: DnaAction[] = ['accept', 'reject', 'edit'];
-  if (!body.action || !validActions.includes(body.action as DnaAction)) {
-    return c.json({ error: { code: 'BAD_REQUEST', message: 'action must be accept|reject|edit' } }, 400);
-  }
+  const body = c.req.valid('json') as DnaFeedbackInput;
 
   // Derive component_class from context or component_id prefix.
   const ctx = body.context ?? {};
@@ -63,11 +61,11 @@ siteDna.post('/api/site-dna/:siteId/feedback', async (c) => {
     siteId,
     componentId: body.component_id,
     componentClass,
-    action: body.action as DnaAction,
+    action: body.action,
     context: ctx,
   });
 
-  return c.json({ ...result, site_id: siteId, component_id: body.component_id ?? '', action: body.action ?? '' }, 201);
+  return c.json({ ...result, site_id: siteId, component_id: body.component_id, action: body.action }, 201);
 });
 
 // ── GET /api/site-dna/:siteId/preferences ─────────────────────────────────

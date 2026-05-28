@@ -15,6 +15,8 @@
  */
 
 import { Hono } from 'hono';
+import { z } from 'zod';
+import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import {
@@ -85,15 +87,19 @@ inboxRoutes.get('/api/inbox/conversations/:id', async (c) => {
 });
 
 // ── POST /api/inbox/conversations/:id/reply ───────────────────────────────────
-inboxRoutes.post('/api/inbox/conversations/:id/reply', async (c) => {
+
+const ReplyBodySchema = z.object({
+  body: z.string().min(1, 'body is required').max(10000),
+});
+
+inboxRoutes.post('/api/inbox/conversations/:id/reply', zValidator('json', ReplyBodySchema), async (c) => {
   const orgId = c.req.header('x-org-id') ?? '';
   if (!(await guardFlag(c.env, orgId))) return c.json({ error: 'not_found' }, 404);
 
   const convId = c.req.param('id');
   const userId = c.get('userId');
 
-  const body = await c.req.json<{ body: string }>().catch(() => null);
-  if (!body?.body?.trim()) return c.json({ error: 'body is required' }, 400);
+  const body = c.req.valid('json');
 
   // Verify the conversation belongs to this org
   const conv = await c.env.DB.prepare(
@@ -129,14 +135,17 @@ inboxRoutes.post('/api/inbox/conversations/:id/reply', async (c) => {
 });
 
 // ── POST /api/inbox/conversations/:id/assign ──────────────────────────────────
-inboxRoutes.post('/api/inbox/conversations/:id/assign', async (c) => {
+
+const AssignBodySchema = z.object({
+  assigned_to: z.string().uuid().nullable(),
+});
+
+inboxRoutes.post('/api/inbox/conversations/:id/assign', zValidator('json', AssignBodySchema), async (c) => {
   const orgId = c.req.header('x-org-id') ?? '';
   if (!(await guardFlag(c.env, orgId))) return c.json({ error: 'not_found' }, 404);
 
   const convId = c.req.param('id');
-  const body = await c.req.json<{ assigned_to: string | null }>().catch(() => null);
-  if (body === null) return c.json({ error: 'invalid_body' }, 400);
-
+  const body = c.req.valid('json');
   const ok = await assignConversation(c.env, convId, orgId, body.assigned_to);
   if (!ok) return c.json({ error: 'not_found' }, 404);
 
@@ -144,16 +153,17 @@ inboxRoutes.post('/api/inbox/conversations/:id/assign', async (c) => {
 });
 
 // ── POST /api/inbox/conversations/:id/status ──────────────────────────────────
-inboxRoutes.post('/api/inbox/conversations/:id/status', async (c) => {
+
+const ConversationStatusBodySchema = z.object({
+  status: z.enum(['open', 'pending', 'resolved', 'spam']),
+});
+
+inboxRoutes.post('/api/inbox/conversations/:id/status', zValidator('json', ConversationStatusBodySchema), async (c) => {
   const orgId = c.req.header('x-org-id') ?? '';
   if (!(await guardFlag(c.env, orgId))) return c.json({ error: 'not_found' }, 404);
 
   const convId = c.req.param('id');
-  const body = await c.req.json<{ status: 'open' | 'pending' | 'resolved' | 'spam' }>().catch(() => null);
-  const validStatuses = ['open', 'pending', 'resolved', 'spam'] as const;
-  if (!body?.status || !validStatuses.includes(body.status)) {
-    return c.json({ error: 'status must be one of open|pending|resolved|spam' }, 400);
-  }
+  const body = c.req.valid('json');
 
   const ok = await updateConversationStatus(c.env, convId, orgId, body.status);
   if (!ok) return c.json({ error: 'not_found' }, 404);

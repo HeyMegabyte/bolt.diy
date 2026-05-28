@@ -17,6 +17,8 @@
  */
 
 import { Hono } from 'hono';
+import { z } from 'zod';
+import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import {
   startMultiAgentRun,
@@ -32,7 +34,15 @@ const swarm = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // ── POST /api/swarm/:siteId/start ──────────────────────────────────────────
 
-swarm.post('/api/swarm/:siteId/start', async (c) => {
+const VALID_AGENTS = ['visual', 'copy', 'seo', 'a11y', 'motion', 'media', 'qa'] as const;
+
+const SwarmStartBodySchema = z.object({
+  prompt: z.string().max(4000).optional(),
+  agents: z.array(z.enum(VALID_AGENTS)).min(1).max(7).optional(),
+});
+type SwarmStartInput = z.infer<typeof SwarmStartBodySchema>;
+
+swarm.post('/api/swarm/:siteId/start', zValidator('json', SwarmStartBodySchema), async (c) => {
   // Flag gate — 404 when off (per [[feature-flags]] never 403)
   const flagRow = await c.env.DB.prepare(
     "SELECT enabled FROM feature_flags WHERE key = 'swarm_editor' LIMIT 1",
@@ -40,10 +50,9 @@ swarm.post('/api/swarm/:siteId/start', async (c) => {
   if (!flagRow?.enabled) return c.json({ error: { code: 'NOT_FOUND', message: 'swarm_editor not enabled' } }, 404);
 
   const siteId = c.req.param('siteId');
-  const rawBody = await c.req.json<{ prompt?: string; agents?: string[] }>().catch(() => null);
-  const body = rawBody ?? {};
-  const prompt = (body.prompt ?? '').trim() || 'Improve the site with all specialists in parallel';
+  const body = c.req.valid('json') as SwarmStartInput;
   const allAgents: SwarmSpecialist[] = ['visual', 'copy', 'seo', 'a11y', 'motion', 'media', 'qa'];
+  const prompt = (body.prompt ?? '').trim() || 'Improve the site with all specialists in parallel';
   const agents = ((body.agents ?? allAgents) as string[]).filter((a: string) => a in SPECIALIST_PARTITION) as SwarmSpecialist[];
   if (!agents.length) return c.json({ error: { code: 'BAD_REQUEST', message: 'No valid agents specified' } }, 400);
 

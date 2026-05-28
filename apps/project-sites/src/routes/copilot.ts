@@ -15,6 +15,8 @@
  */
 
 import { Hono } from 'hono';
+import { z } from 'zod';
+import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import { processMultimodalIntent, saveCopilotSession } from '../services/multimodal_intent.js';
@@ -170,14 +172,18 @@ copilotRoutes.get('/api/sites/:siteId/copilot/config', async (c) => {
 });
 
 // ── PUT /api/sites/:siteId/copilot/config (admin) ─────────────────────────────
-copilotRoutes.put('/api/sites/:siteId/copilot/config', async (c) => {
+
+const CopilotConfigBodySchema = z.object({
+  enabled: z.boolean({ required_error: 'enabled (boolean) required' }),
+});
+
+copilotRoutes.put('/api/sites/:siteId/copilot/config', zValidator('json', CopilotConfigBodySchema), async (c) => {
   const siteId = c.req.param('siteId');
   const orgId = c.req.header('x-org-id') ?? '';
   const userId = (c.get as (key: string) => string | undefined)('userId');
   if (!(await guardFlag(c.env, orgId, siteId))) return c.json({ error: 'not_found' }, 404);
 
-  const body = await c.req.json<{ enabled: boolean }>().catch(() => null);
-  if (typeof body?.enabled !== 'boolean') return c.json({ error: 'enabled (boolean) required' }, 400);
+  const body = c.req.valid('json');
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
