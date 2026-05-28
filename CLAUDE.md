@@ -701,6 +701,81 @@ Fix notes:
 
 ---
 
+# PART 23 — Feature Module Architecture (SUPREME)
+
+## Post-Launch Feature Module Rule (SUPREME)
+
+After the initial application foundation is complete, every meaningful new product capability MUST be implemented as a **feature module**. A feature module is the atomic unit of post-launch work.
+
+**Every feature module must include:**
+- Typed feature manifest (`manifest.ts` — see 7 required fields below)
+- Typed feature flag wired to the D1 `feature_flags` table + KV cache layer
+- Colocated UI, API handlers, unit tests, E2E specs, and docs under `libs/features/<slug>/`
+- Zod schemas for all request/response/config shapes (never leak raw types)
+- Playwright E2E coverage with `e2e/<slug>/` spec directory
+- Sentry breadcrumbs + structured log fields carrying `featureSlug` context
+- Lifecycle metadata: `stage`, `owner`, `rollout_percent`, `created_at`
+
+**Reference implementation:** `libs/features/donations_engine/` — canonical example of a complete module.
+
+**Reference docs:** `docs/architecture/feature-modules.md` + `docs/architecture/feature-flags.md`
+
+See also: [[feature-flags]] rule (`~/.claude/plugins/heymegabyte-claude-skills/rules/feature-flags.md`)
+
+---
+
+## Feature Flag Requirement
+
+Every post-launch feature MUST be controllable by a typed feature flag. A bare `enabled` boolean is not sufficient.
+
+**Required flag shape (all fields mandatory):**
+- `key` — lowercase snake_case ≤32 chars, matches `manifest.slug`
+- `description` — one-sentence human explanation of what the flag gates
+- `enabled` — 0/1 global default (always `0` at launch)
+- `rollout_percent` — 0-100 (always `0` at launch)
+- `stage` — `experimental | beta | stable | deprecated | killswitch`
+- `owner_email` — responsible team member for promotion decisions
+- `linked_manifest` — path to `libs/features/<slug>/manifest.ts`
+- `linked_e2e` — path to `e2e/<slug>/` spec directory
+- `risk_notes` — one-sentence description of what breaks when disabled
+- Safe disabled behavior: server returns 404 (never 403); UI returns null
+
+**Admin surface:** every flag auto-appears in `/admin/feature-flags` via the seed migration.
+
+**Reference implementation:** `libs/core/feature-flags/` + `apps/project-sites/src/services/feature_flags.ts`
+
+See also: [[feature-flags]] rule (`~/.claude/plugins/heymegabyte-claude-skills/rules/feature-flags.md`)
+
+---
+
+## Whole-App Feature Architecture Scan
+
+Before adding a new major feature:
+1. Run `npm run validate:features` — surfaces any existing drift
+2. Scan `libs/features/*/manifest.ts` — determine if the capability belongs in an existing module
+3. Scan `apps/project-sites/src/routes/` + `apps/project-sites/src/services/` — check for partial implementations already scattered in the codebase
+4. If the feature is genuinely new: `npm run gen:feature -- --slug <name>` scaffolds the full module skeleton
+5. If the feature extends an existing module: add to that module's colocated files — never scatter across root-level service files
+
+Avoid: API handlers in `routes/` without a corresponding module in `libs/features/`. Avoid: UI components in `frontend/` without a matching feature flag and E2E spec.
+
+---
+
+## Feature Drift Prevention
+
+**Drift** is any of the following — CI blocks the merge:
+- UI component exists but `e2e/<slug>/` spec directory is missing or empty
+- API handler in `routes/` has no corresponding feature flag in D1 seeds
+- Feature flag exists but `libs/features/<slug>/manifest.ts` is absent
+- E2E tests reference a feature not listed in `e2e/FEATURES.md`
+- Zod schemas duplicated outside the feature's `libs/features/<slug>/schemas.ts`
+- Sentry/PostHog events fired without `featureSlug` tag
+- `manifest.ts` fields missing any of the 7 required fields
+
+**CI gate:** `.github/workflows/feature-architecture.yml` runs `npm run validate:features` on every push. Fix drift before landing.
+
+---
+
 # PART 23 — Final Combined Master Prompt (for quick reference)
 
 ```
