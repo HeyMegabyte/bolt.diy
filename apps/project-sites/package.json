@@ -23,7 +23,10 @@
     "format": "prettier --write src",
     "format:check": "prettier --check src",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm run test:unit",
-    "upload-sourcemaps": "node scripts/upload-sentry-sourcemaps.mjs"
+    "upload-sourcemaps": "node scripts/upload-sentry-sourcemaps.mjs",
+    "gen:feature": "node scripts/gen-feature.mjs",
+    "validate:features": "node scripts/validate-feature-manifests.mjs && node scripts/validate-feature-drift.mjs",
+    "validate:features:quick": "node scripts/validate-feature-manifests.mjs && node scripts/validate-feature-drift.mjs --quick"
   },
   "dependencies": {
     "@cloudflare/containers": "^0.3.2",
