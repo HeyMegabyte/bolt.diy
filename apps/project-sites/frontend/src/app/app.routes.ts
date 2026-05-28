@@ -1,5 +1,6 @@
 import { type Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
+import { featureFlagGuard } from './services/feature-flag.service';
 
 export const routes: Routes = [
   {
@@ -79,10 +80,13 @@ export const routes: Routes = [
           import('./pages/admin/sections/editor.component').then((m) => m.AdminEditorComponent),
       },
       {
-        // Phase-1 native Angular port of the bolt.diy editor. Feature-flagged
-        // via `localStorage['editor.native'] === 'true'` OR `?native=1`. The
-        // host component renders an opt-in gate when neither flag is set.
+        // Phase-1 native Angular port of the bolt.diy editor. Server-side
+        // flag-gated via `native_editor` flag — admin can killswitch without
+        // redeploy. Guard redirects to /admin/feature-flags?disabled=native_editor
+        // when off. Local opt-in (`localStorage['editor.native']` or `?native=1`)
+        // is preserved inside the component itself for developer testing.
         path: 'editor-native',
+        canActivate: [featureFlagGuard('native_editor')],
         loadComponent: () =>
           import('./editor-native/pages/editor-native-page.component').then(
             (m) => m.EditorNativePageComponent,
@@ -392,6 +396,16 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/admin/sections/site-copilot.component').then(
             (m) => m.AdminSiteCopilotComponent,
+          ),
+      },
+      // ─── Site DNA Taste Graph (#7) ────────────────────────────────
+      // Per-site taste-signal admin: feedback history + preference bars +
+      // manual feedback form. Flag-gated: site_dna_taste_graph.
+      {
+        path: 'sites/:id/dna',
+        loadComponent: () =>
+          import('./pages/admin/sections/site-dna.component').then(
+            (m) => m.AdminSiteDnaComponent,
           ),
       },
       // ── Swarm-stream-marketplace-DNA (Wave 2C — features #5-8) ─────────

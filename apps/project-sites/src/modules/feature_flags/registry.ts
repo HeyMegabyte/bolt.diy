@@ -26,6 +26,9 @@ export interface FlagDefinition {
  * new keys.
  */
 export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
+  // ── Sentinel: always-on core surfaces (auth, admin shell, feature-flags UI, site-create).
+  //    isFlagOn always returns true for '__core__'. Present so manifest cross-check passes.
+  __core__: { key: '__core__', description: 'Always-on sentinel for core surfaces (auth, admin shell, feature-flags, site-create). isFlagOn returns true.', default_enabled: true, default_rollout_percent: 100, stage: 'stable', owner_email: 'brian@megabyte.space' },
   // Compete-or-die (items 1-8)
   multi_model_router: { key: 'multi_model_router', description: 'Multi-model picker (Opus/Sonnet/Workers AI/GPT-5) per prompt', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   db_provisioning: { key: 'db_provisioning', description: 'One-click Neon/Supabase Postgres provisioning per site', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
@@ -159,6 +162,8 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   live_stream_preview: { key: 'live_stream_preview', description: '#6 Live Component-Stream Preview: <app-progressive-preview> subscribes to swarm SSE and swaps skeleton → real components via View Transitions', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   site_dna_taste_graph: { key: 'site_dna_taste_graph', description: '#7 Site DNA Taste Graph: per-tenant accept/reject/edit feedback → BGE Vectorize embeddings → soft preference in build orchestrator', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   section_marketplace: { key: 'section_marketplace', description: '#8 Vertical Section Marketplace: curated bento sections per industry (nonprofit/restaurant/lawyer/salon/medical), 30 seed entries, admin UI at /admin/marketplace', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
+  // ── Native editor enforcement (rec #3 from 2026-05-28 close-the-loop) — was localStorage-only; now real server-side flag so killswitch works without redeploy
+  native_editor: { key: 'native_editor', description: 'Phase-1 native Angular port of the bolt.diy editor at /admin/editor-native. Server-side flag-gated so admin can killswitch without redeploy.', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;

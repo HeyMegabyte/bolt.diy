@@ -330,6 +330,10 @@ function detectDuplicates(manifests) {
     }
 
     if (!manifest?.flagKey) continue;
+    // `__core__` is the sentinel for core surfaces (auth, admin shell,
+    // feature-flags UI, site-create) that are not flag-gated by design.
+    // Multiple manifests legitimately share it.
+    if (manifest.flagKey === '__core__') continue;
     if (seenFlagKeys.has(manifest.flagKey)) {
       violations.push({
         type: 'DUPLICATE_FLAG_KEY',
@@ -564,8 +568,16 @@ async function main() {
   await writeFile(reportPath, JSON.stringify(report, null, 2), 'utf8');
   console.log(`Report written → ${rel(reportPath)}\n`);
 
-  // Exit 1 only on hard errors (not warnings)
-  process.exit(errorCount > 0 ? 1 : 0);
+  // Default: exit 1 only on hard errors. `--strict` mode treats warnings
+  // as errors too — used by CI once we cross 20 reference manifests so
+  // every TEST_NOT_LINKED orphan and FLAG_WITHOUT_IMPL surface as merge
+  // blockers (per close-the-loop rec #4 from 2026-05-28).
+  const strict = process.argv.includes('--strict');
+  const fail = strict ? errorCount + warnCount > 0 : errorCount > 0;
+  if (strict && warnCount > 0 && errorCount === 0) {
+    console.log(`(--strict mode promoted ${warnCount} warning(s) to failure)`);
+  }
+  process.exit(fail ? 1 : 0);
 }
 
 main().catch((err) => {
