@@ -21,6 +21,7 @@
 import {
   Component, inject, signal, computed, effect, ChangeDetectionStrategy, OnInit,
 } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
@@ -78,7 +79,7 @@ const LEVEL_COLORS: Record<string, string> = {
   selector: 'app-logs-explorer',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, RollingCounterComponent],
+  imports: [CommonModule, FormsModule, RouterLink, RollingCounterComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-5">
 

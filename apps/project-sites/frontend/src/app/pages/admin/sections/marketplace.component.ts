@@ -169,7 +169,7 @@ const SLOT_COLORS: Record<string, string> = {
               {{ forkedIds().has(section.id) ? '✓ Forked' : 'Fork' }}
             </button>
             <button class="mkt-card__preview-btn"
-                    (click)="previewSection(section)"
+                    (click)="openPreview(section)"
                     [attr.aria-label]="'Preview ' + section.name">
               Preview
             </button>

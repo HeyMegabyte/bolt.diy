@@ -19,6 +19,7 @@
 import {
   Component, inject, signal, computed, effect, OnDestroy, input,
 } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { AdminStateService } from '../admin-state.service';
@@ -52,7 +53,7 @@ interface StackAdvanceResponse {
 @Component({
   selector: 'app-domain-stack',
   standalone: true,
-  imports: [RouterLink, RollingCounterComponent],
+  imports: [CommonModule, RouterLink, RollingCounterComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <!-- Header -->

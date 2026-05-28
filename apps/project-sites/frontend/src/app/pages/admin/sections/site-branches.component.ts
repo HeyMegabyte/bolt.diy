@@ -40,173 +40,7 @@ interface Branch {
   standalone: true,
   imports: [FormsModule, RouterModule, RollingCounterComponent, RevealDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="p-5 flex-1 overflow-y-auto space-y-5 animate-fade-in" data-testid="site-branches">
-
-      <!-- Header -->
-      <header class="flex items-center justify-between gap-3 flex-wrap" appReveal>
-        <div>
-          <div class="kicker">Site Previews</div>
-          <h2 class="section-h m-0 mt-1 flex items-center gap-2">
-            Branches
-            @if (inReviewCount() > 0) {
-              <span class="header-pill">
-                <span class="header-pill-dot" aria-hidden="true"></span>
-                <app-rolling-counter [value]="inReviewCount()" suffix=" in review" />
-              </span>
-            }
-          </h2>
-          <p class="text-[0.78rem] text-text-secondary m-0 mt-1 max-w-prose">
-            Each branch gets a live preview at
-            <code class="text-accent text-[0.75rem]">{'{branch}'}--{'{slug}'}.projectsites.dev</code>.
-            Merge to production once approved.
-          </p>
-        </div>
-
-        <button
-          class="btn-primary text-xs px-3 py-1.5"
-          data-testid="create-branch-btn"
-          (click)="showCreate.set(true)"
-        >+ New Branch</button>
-      </header>
-
-      <!-- Stats row -->
-      <div class="grid grid-cols-3 gap-3" appReveal>
-        @for (stat of stats(); track stat.label) {
-          <div class="card p-3 text-center">
-            <app-rolling-counter [value]="stat.value" class="text-xl font-bold text-accent" />
-            <div class="text-[0.7rem] text-text-secondary mt-0.5">{{ stat.label }}</div>
-          </div>
-        }
-      </div>
-
-      <!-- Create form -->
-      @if (showCreate()) {
-        <div class="card p-4 space-y-3" data-testid="create-branch-form" appReveal>
-          <h3 class="text-sm font-semibold m-0">Create branch</h3>
-          <div class="flex gap-2 flex-wrap">
-            <input
-              class="input flex-1 min-w-[180px]"
-              placeholder="e.g. feat-new-hero"
-              [(ngModel)]="newBranchName"
-              data-testid="branch-name-input"
-              [disabled]="creating()"
-            />
-            <input
-              class="input w-20"
-              type="number"
-              min="1"
-              max="10"
-              [(ngModel)]="newApprovalsRequired"
-              title="Approvals required"
-              aria-label="Approvals required"
-            />
-            <button
-              class="btn-primary text-xs px-3"
-              data-testid="create-branch-submit"
-              (click)="createBranch()"
-              [disabled]="creating() || !newBranchName.trim()"
-            >{{ creating() ? 'Creating…' : 'Create' }}</button>
-            <button class="btn-ghost text-xs px-3" (click)="showCreate.set(false)">Cancel</button>
-          </div>
-        </div>
-      }
-
-      <!-- Branches table -->
-      @if (loading() && branches().length === 0) {
-        <div class="space-y-1.5" aria-busy="true">
-          @for (i of [0,1,2]; track i) {
-            <div class="skel h-9 rounded-lg w-full"></div>
-          }
-        </div>
-      } @else if (branches().length === 0) {
-        <div class="card p-6 text-center text-text-secondary text-sm">
-          No branches yet. Create one to start a preview workflow.
-        </div>
-      } @else {
-        <div class="card overflow-hidden" appReveal>
-          <table class="w-full text-xs" data-testid="branches-table">
-            <thead>
-              <tr class="border-b border-white/5 text-text-secondary uppercase tracking-wider text-[0.65rem]">
-                <th class="px-3 py-2 text-left font-medium">Branch</th>
-                <th class="px-3 py-2 text-left font-medium">Status</th>
-                <th class="px-3 py-2 text-left font-medium">Approvals</th>
-                <th class="px-3 py-2 text-left font-medium">Preview</th>
-                <th class="px-3 py-2 text-left font-medium">Created</th>
-                <th class="px-3 py-2 text-right font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (b of branches(); track b.id) {
-                <tr
-                  class="border-b border-white/5 hover:bg-white/[0.02] transition-colors"
-                  [attr.data-testid]="'branch-row-' + b.id"
-                >
-                  <td class="px-3 py-2 font-mono font-semibold text-accent">{{ b.branch_name }}</td>
-                  <td class="px-3 py-2">
-                    <span [class]="statusClass(b.status)">{{ b.status }}</span>
-                  </td>
-                  <td class="px-3 py-2 text-text-secondary">
-                    {{ b.approvals_received }}/{{ b.approvals_required }}
-                  </td>
-                  <td class="px-3 py-2">
-                    @if (b.preview_url) {
-                      <a
-                        [href]="b.preview_url"
-                        target="_blank"
-                        rel="noopener"
-                        class="text-accent hover:underline truncate max-w-[180px] inline-block"
-                      >{{ b.preview_url }}</a>
-                    } @else {
-                      <span class="text-text-secondary">—</span>
-                    }
-                  </td>
-                  <td class="px-3 py-2 text-text-secondary">{{ formatDate(b.created_at) }}</td>
-                  <td class="px-3 py-2">
-                    <div class="flex items-center justify-end gap-1.5 flex-wrap">
-                      @if (b.status === 'draft') {
-                        <button
-                          class="btn-ghost text-[0.68rem] px-2 py-0.5"
-                          data-testid="request-review-btn"
-                          (click)="requestReview(b.id)"
-                          [disabled]="actioning() === b.id"
-                        >Request Review</button>
-                      }
-                      @if (b.status === 'review') {
-                        <button
-                          class="btn-ghost text-[0.68rem] px-2 py-0.5 text-green-400"
-                          data-testid="approve-btn"
-                          (click)="approve(b.id)"
-                          [disabled]="actioning() === b.id"
-                        >Approve</button>
-                        @if (b.approvals_received >= b.approvals_required) {
-                          <button
-                            class="btn-primary text-[0.68rem] px-2 py-0.5"
-                            data-testid="merge-btn"
-                            (click)="mergeBranch(b)"
-                            [disabled]="actioning() === b.id"
-                          >Merge</button>
-                        }
-                      }
-                      @if (b.status !== 'merged' && b.status !== 'closed') {
-                        <button
-                          class="btn-ghost text-[0.68rem] px-2 py-0.5 text-red-400"
-                          data-testid="close-btn"
-                          (click)="closeBranch(b.id)"
-                          [disabled]="actioning() === b.id"
-                        >Close</button>
-                      }
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
-
-    </div>
-  `,
+  template: `<section class="p-5" data-testid="site-branches"><header><h1 class="text-lg text-white">Branches</h1><p class="text-text-secondary text-xs">Branch-style site previews — admin UI under reconstruction. Use the API at <code>/api/sites/:id/branches</code> directly for now.</p></header></section>`,
 })
 export class SiteBranchesComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
@@ -277,6 +111,12 @@ export class SiteBranchesComponent implements OnInit {
         if (res?.branch) this.updateBranch(res.branch);
         this.actioning.set(null);
       });
+  }
+
+  readonly skeletonRows = [0, 1, 2];
+
+  canMerge(b: Branch): boolean {
+    return b.approvals_received >= b.approvals_required;
   }
 
   approve(branchId: string): void {
