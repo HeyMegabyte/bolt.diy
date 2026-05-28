@@ -604,8 +604,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       "GET /api/competitor-monitor/list/{orgId} → returns alerts: {alert_type, diff_summary, counter_draft_id, status}",
       "POST /api/competitor-monitor/dismiss/{alertId} or ship counter via approval flow",
     ],
-  },
-};
+  },};
 
 export function getDocs(key: string): FlagDocs | undefined {
   return FLAG_DOCS[key];

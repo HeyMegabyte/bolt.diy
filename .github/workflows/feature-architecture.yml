@@ -1,0 +1,112 @@
+name: Feature Architecture Validation
+
+# Ensures feature modules, manifests, and flag registry stay in sync.
+# Blocks merge on any hard-error drift (EXIT 1). Warnings are surfaced
+# in the job log but do not block.
+#
+# Runs on every push — fast (< 30 s, pure Node 22 regex/fs, no build step).
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'apps/project-sites/src/**'
+      - 'apps/project-sites/libs/**'
+      - 'apps/project-sites/frontend/src/app/app.routes.ts'
+      - 'apps/project-sites/e2e/_fortress/**'
+      - 'apps/project-sites/scripts/validate-feature-*.mjs'
+      - 'apps/project-sites/package.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/project-sites/src/**'
+      - 'apps/project-sites/libs/**'
+      - 'apps/project-sites/frontend/src/app/app.routes.ts'
+      - 'apps/project-sites/e2e/_fortress/**'
+      - 'apps/project-sites/scripts/validate-feature-*.mjs'
+      - 'apps/project-sites/package.json'
+  # Allow manual trigger at any time
+  workflow_dispatch:
+
+concurrency:
+  group: feature-arch-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Feature Architecture — manifest + drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          # No npm install needed — scripts use only Node built-ins
+
+      - name: Install shared package (for typecheck step)
+        working-directory: packages/shared
+        run: npm ci --legacy-peer-deps
+        continue-on-error: true   # shared not required for the drift scripts
+
+      - name: Install worker deps (for typecheck step)
+        working-directory: apps/project-sites
+        run: npm ci --legacy-peer-deps
+        continue-on-error: true   # deps not required for the drift scripts
+
+      # ── Step 1: Validate manifest shapes + flag cross-check ──────────────
+      - name: Validate feature manifests
+        id: manifests
+        working-directory: apps/project-sites
+        run: node scripts/validate-feature-manifests.mjs
+
+      # ── Step 2: Detect architecture drift ────────────────────────────────
+      - name: Detect feature drift
+        id: drift
+        working-directory: apps/project-sites
+        run: node scripts/validate-feature-drift.mjs
+
+      # ── Step 3: Upload drift report as artifact (always, even on failure) ─
+      - name: Upload drift report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-report-${{ github.run_id }}
+          path: apps/project-sites/_drift-report.json
+          retention-days: 14
+          if-no-files-found: ignore
+
+      # ── Step 4: TypeScript type check (separate job gate) ─────────────────
+      - name: TypeScript type check
+        id: typecheck
+        working-directory: apps/project-sites
+        run: npx tsc --noEmit
+        continue-on-error: false
+
+      # ── Step 5: Annotate PR on failure ────────────────────────────────────
+      - name: Annotate failures
+        if: failure()
+        run: |
+          echo "::error title=Feature Architecture Validation Failed::One or more feature architecture checks failed."
+          echo "::error ::Run 'npm run validate:features' locally to see the full report."
+          echo "::error ::Fix all hard errors before merging. Warnings are advisory."
+          if [ -f apps/project-sites/_drift-report.json ]; then
+            echo "Drift report summary:"
+            node -e "
+              const r = JSON.parse(require('fs').readFileSync('apps/project-sites/_drift-report.json','utf8'));
+              const errors = r.violations.filter(v=>v.severity==='error');
+              const warns  = r.violations.filter(v=>v.severity==='warn');
+              console.log('  Errors  :', errors.length);
+              console.log('  Warnings:', warns.length);
+              errors.forEach(v => console.log('  ✖', v.message));
+            "
+          fi

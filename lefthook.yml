@@ -7,6 +7,18 @@
 pre-commit:
   parallel: true
   commands:
+    feature-drift:
+      # Fast drift check (--quick skips the slow impl-without-flag file scan).
+      # Only runs when feature-architecture files change.
+      glob: '{apps/project-sites/libs/**,apps/project-sites/src/modules/**,apps/project-sites/frontend/src/app/app.routes.ts,apps/project-sites/e2e/_fortress/**}'
+      run: npm --prefix apps/project-sites run validate:features:quick
+      stage_fixed: false
+      fail_text: |
+        Feature architecture drift detected.
+        Run `npm --prefix apps/project-sites run validate:features` for the full report.
+        Fix all hard errors (severity: error) before committing.
+        Warnings are advisory and do not block.
+
     resurrection-guard:
       # v2 doctrine §22 — block any legacy homepage from sneaking back in.
       glob: '*.{ts,tsx,html,scss,css,vue,svelte}'
