@@ -151,6 +151,11 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   // ── #24 Unified Visitor Inbox + #25 Multimodal Site Copilot
   unified_inbox: { key: 'unified_inbox', description: 'Unified Visitor Inbox: forms+chat+voice+email+SMS under one identity, assignable, SLA-tracked, AI-drafted replies', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   multimodal_copilot: { key: 'multimodal_copilot', description: 'Multimodal AI Site Copilot: visitor photo+voice+text → intent extraction + autofill + booking', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
+  // ── #5+#6+#7+#8 Swarm editor + live stream + Site DNA + section marketplace
+  swarm_editor: { key: 'swarm_editor', description: '#5 Multi-Agent Swarm Editor: 7 specialists co-edit via file partition + SSE + conflict detection', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
+  live_stream_preview: { key: 'live_stream_preview', description: '#6 Live Component-Stream Preview: <app-progressive-preview> subscribes to swarm SSE and swaps skeleton → real components via View Transitions', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
+  site_dna_taste_graph: { key: 'site_dna_taste_graph', description: '#7 Site DNA Taste Graph: per-tenant accept/reject/edit feedback → BGE Vectorize embeddings → soft preference in build orchestrator', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
+  section_marketplace: { key: 'section_marketplace', description: '#8 Vertical Section Marketplace: curated bento sections per industry (nonprofit/restaurant/lawyer/salon/medical), 30 seed entries, admin UI at /admin/marketplace', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;

@@ -605,6 +605,41 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       "POST /api/competitor-monitor/dismiss/{alertId} or ship counter via approval flow",
     ],
   },
+  swarm_editor: {
+    explanation: '7-specialist swarm (visual / copy / seo / a11y / motion / media / qa) work in parallel, each owning a non-overlapping file-glob partition. A merge-conflict detector fires when two agents emit overlapping paths. SSE channel at GET /api/swarm/:siteId/stream pushes per-specialist progress events in real time. Admin board at /admin/swarm/:siteId shows a 7-column live status grid.',
+    smoke_test: [
+      "POST /api/swarm/{siteId}/start with body {prompt:'Build bakery homepage', agents:['visual','copy','seo','a11y','motion','media','qa']} → run_id + 7 agents[] queued + sse_url",
+      'GET /api/swarm/{siteId}/stream — open in a browser tab or curl --no-buffer — events flow: agent_started, file_emitted, agent_done, swarm_complete',
+      'GET /api/swarm/{siteId}/runs → run history with conflict_detected flag',
+      'GET /api/swarm/{siteId}/run/{runId} → live agent status + file_glob ownership + conflicts[]',
+    ],
+  },
+  live_stream_preview: {
+    explanation: 'Reuses the swarm SSE channel to stream each generated web-component to the browser as it completes. <app-progressive-preview> subscribes to the stream and progressively swaps shimmer skeletons for real components via View Transitions API. 9 skeleton slots: nav/hero/features/social-proof/pricing/testimonials/faq/cta/footer. Visitors see the page assemble live — zero blank-page wait.',
+    smoke_test: [
+      "GET /api/swarm/{siteId}/stream?mode=progressive — SSE events: skeleton_live (initial), component_ready (x9 every ~4s), all_components_ready",
+      'Each component_ready event carries: {component, index, total, progress_pct}',
+      'UI: /admin/swarm/:siteId — progressive preview panel shows swap-in animation as events arrive',
+    ],
+  },
+  site_dna_taste_graph: {
+    explanation: "Per-tenant component preference engine. Every time a user accepts, rejects, or edits a generated section the action is persisted to D1 site_dna_feedback + BGE-embedded into Vectorize index 'site-dna-{orgId}'. The build orchestrator reads top-K accepted patterns at generation time as a soft prior — not enforced but steers component selection toward proven taste. Accept rate per component_class surfaces in /admin/swarm.",
+    smoke_test: [
+      "POST /api/site-dna/{siteId}/feedback with body {component_id:'hero', action:'accept', context:{slot:'hero',industry:'restaurant'}} → id + vectorized:bool",
+      "GET /api/site-dna/{siteId}/preferences?class=hero → preferences[] with accept_rate + count + context_sample",
+      "GET /api/site-dna/{siteId}/history → last 50 feedback rows",
+    ],
+  },
+  section_marketplace: {
+    explanation: "Curated bento section variants per industry. D1 section_marketplace table seeded with 5 industries × 6 slots = 30 starter entries (migration 0506). Each variant ships a Mustache-style html_template + scoped css_template + JSON-Schema data_schema. Admin UI at /admin/marketplace filters by industry/slot. Fork count increments when an org copies a variant. Build orchestrator reads top-scored variants as layout candidates.",
+    smoke_test: [
+      "GET /api/section-marketplace?industry=nonprofit → 6 sections (hero/services/testimonials/donor-wall/faq/cta)",
+      'GET /api/section-marketplace/sections → all 30 variants with quality_score + fork_count',
+      'GET /api/section-marketplace/sections/smp-np-hero → full detail with html_template + css_template + data_schema',
+      "POST /api/section-marketplace/sections/smp-np-hero/fork → fork_count increments",
+      'UI: /admin/marketplace → industry filter pills → section cards with quality chip + Fork button',
+    ],
+  },
 };
 
 export function getDocs(key: string): FlagDocs | undefined {
