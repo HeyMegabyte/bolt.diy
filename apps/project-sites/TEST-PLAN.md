@@ -19,86 +19,86 @@
 
 ## A. Public marketing surface — `PUB-*`
 
-- [ ] PUB-01 — Homepage renders, hero copy visible, no console errors → `e2e/public/marketing.spec.ts` ✓ wired
-- [ ] PUB-02 — Marketing sections (features grid, pricing, testimonials, FAQ) render → `e2e/public/marketing.spec.ts` ✓ wired
-- [ ] PUB-03 — `/health` returns 200 with KV+R2 probe → `e2e/health.spec.ts` + `e2e/public/marketing.spec.ts` ✓ wired + `e2e/public/marketing.spec.ts` ✓ wired
-- [ ] PUB-04 — `/changelog.json` returns valid JSON feed → `e2e/public/discovery.spec.ts` ✓ wired
-- [ ] PUB-05 — `/feed.xml` returns valid RSS → `e2e/public/discovery.spec.ts` ✓ wired
-- [ ] PUB-06 — `/api/public/roadmap` returns structured data → `e2e/public/discovery.spec.ts` ✓ wired
-- [ ] PUB-07 — `/api/public/integrations` returns vendor matrix → `e2e/public/discovery.spec.ts` ✓ wired
-- [ ] PUB-08 — `/.well-known/security.txt` served → `e2e/public/discovery.spec.ts` ✓ wired
-- [ ] PUB-09 — `/llms.txt` served (flag-gated `llms_txt`) → `e2e/public/discovery.spec.ts` ✓ wired
-- [ ] PUB-10 — `/accessibility` statement page renders → `e2e/public/discovery.spec.ts` ✓ wired
-- [ ] PUB-11 — `robots.txt` served with sitemap directive → `e2e/public/discovery.spec.ts` ✓ wired
-- [ ] PUB-12 — `sitemap.xml` listed via robots.txt Sitemap: directive → `e2e/public/discovery.spec.ts` ✓ wired
-- [ ] PUB-13 — Marketing OG meta + JSON-LD present → `e2e/public/discovery.spec.ts` ✓ wired
-- [ ] PUB-14 — `/blog` index renders post list → `e2e/public/marketing.spec.ts` ✓ wired
-- [ ] PUB-15 — `/blog/:slug` permalink renders → `e2e/public/marketing.spec.ts` ✓ wired
-- [ ] PUB-16 — `/privacy` + `/terms` pages render → `e2e/public/marketing.spec.ts` ✓ wired
-- [ ] PUB-17 — Cmd+K opens command palette + focuses input → `e2e/command-palette.spec.ts`
-- [ ] PUB-18 — Marketing homepage contact form submits → `e2e/public/marketing.spec.ts` ✓ wired
+- [x] PUB-01 — Homepage renders, hero copy visible, no console errors → `e2e/public/marketing.spec.ts` ✓ wired
+- [x] PUB-02 — Marketing sections (features grid, pricing, testimonials, FAQ) render → `e2e/public/marketing.spec.ts` ✓ wired
+- [x] PUB-03 — `/health` returns 200 with KV+R2 probe → `e2e/health.spec.ts` + `e2e/public/marketing.spec.ts` ✓ wired + `e2e/public/marketing.spec.ts` ✓ wired
+- [x] PUB-04 — `/changelog.json` returns valid JSON feed → `e2e/public/discovery.spec.ts` ✓ wired
+- [x] PUB-05 — `/feed.xml` returns valid RSS → `e2e/public/discovery.spec.ts` ✓ wired
+- [x] PUB-06 — `/api/public/roadmap` returns structured data → `e2e/public/discovery.spec.ts` ✓ wired
+- [x] PUB-07 — `/api/public/integrations` returns vendor matrix → `e2e/public/discovery.spec.ts` ✓ wired
+- [x] PUB-08 — `/.well-known/security.txt` served → `e2e/public/discovery.spec.ts` ✓ wired
+- [x] PUB-09 — `/llms.txt` served (flag-gated `llms_txt`) → `e2e/public/discovery.spec.ts` ✓ wired
+- [x] PUB-10 — `/accessibility` statement page renders → `e2e/public/discovery.spec.ts` ✓ wired
+- [x] PUB-11 — `robots.txt` served with sitemap directive → `e2e/public/discovery.spec.ts` ✓ wired
+- [x] PUB-12 — `sitemap.xml` listed via robots.txt Sitemap: directive → `e2e/public/discovery.spec.ts` ✓ wired
+- [x] PUB-13 — Marketing OG meta + JSON-LD present → `e2e/public/discovery.spec.ts` ✓ wired
+- [x] PUB-14 — `/blog` index renders post list → `e2e/public/marketing.spec.ts` ✓ wired
+- [x] PUB-15 — `/blog/:slug` permalink renders → `e2e/public/marketing.spec.ts` ✓ wired
+- [x] PUB-16 — `/privacy` + `/terms` pages render → `e2e/public/marketing.spec.ts` ✓ wired
+- [x] PUB-17 — Cmd+K opens command palette + focuses input → `e2e/command-palette.spec.ts` ✓ wired
+- [x] PUB-18 — Marketing homepage contact form submits → `e2e/public/marketing.spec.ts` ✓ wired
 
 ## B. Homepage SPA + create wizard — `HOME-*`
 
-- [ ] HOME-01 — Search screen accepts text + debounces 300ms → `e2e/home/create-wizard.spec.ts` ✓ wired
-- [ ] HOME-02 — `/api/search/businesses` + `/api/sites/search` fire in parallel → `e2e/home/create-wizard.spec.ts` ✓ wired
-- [ ] HOME-03 — Select business → signin screen transition → `e2e/home/create-wizard.spec.ts` ✓ wired
-- [ ] HOME-04 — Signin screen accepts magic-link email → `e2e/home/create-wizard.spec.ts` ✓ wired
-- [ ] HOME-05 — Signin screen accepts Google OAuth start → `e2e/home/create-wizard.spec.ts` ✓ wired
-- [ ] HOME-06 — Details screen captures business info → `e2e/home/create-wizard.spec.ts` ✓ wired
-- [ ] HOME-07 — Waiting screen shows live workflow progress → `e2e/home/create-wizard.spec.ts` ✓ wired
-- [ ] HOME-08 — `/api/sites/create-from-search` POST succeeds → `e2e/home/create-wizard.spec.ts` ✓ wired
-- [ ] HOME-09 — Slug availability check `/api/slug/check` → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [x] HOME-01 — Search screen accepts text + debounces 300ms → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [x] HOME-02 — `/api/search/businesses` + `/api/sites/search` fire in parallel → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [x] HOME-03 — Select business → signin screen transition → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [x] HOME-04 — Signin screen accepts magic-link email → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [x] HOME-05 — Signin screen accepts Google OAuth start → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [x] HOME-06 — Details screen captures business info → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [x] HOME-07 — Waiting screen shows live workflow progress → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [x] HOME-08 — `/api/sites/create-from-search` POST succeeds → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [x] HOME-09 — Slug availability check `/api/slug/check` → `e2e/home/create-wizard.spec.ts` ✓ wired
 
 ## C. Auth & session — `AUTH-*`
 
-- [ ] AUTH-01 — Magic-link request → email enqueued → `e2e/auth/auth-flows.spec.ts` ✓ wired
-- [ ] AUTH-02 — Magic-link verify `?token=…` → session created → `e2e/auth/auth-flows.spec.ts` ✓ wired
-- [ ] AUTH-03 — Google OAuth start → redirect to Google → `e2e/auth/auth-flows.spec.ts` ✓ wired
-- [ ] AUTH-04 — Google OAuth callback → user upserted + session → `e2e/auth/auth-flows.spec.ts` ✓ wired
-- [ ] AUTH-05 — `GET /api/auth/me` returns current user → `e2e/auth/auth-flows.spec.ts` ✓ wired
-- [ ] AUTH-06 — 401 on protected route redirects to `/signin?returnUrl=` → `e2e/auth/auth-flows.spec.ts` ✓ wired
-- [ ] AUTH-07 — brian@megabyte.space mocked admin session (TEST fixture) → `e2e/auth/auth-flows.spec.ts` ✓ wired
-- [ ] AUTH-08 — Sign-out clears session + bounces to `/` → `e2e/auth/auth-flows.spec.ts` ✓ wired
-- [ ] AUTH-09 — Session-expired toast + auto-recover → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [x] AUTH-01 — Magic-link request → email enqueued → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [x] AUTH-02 — Magic-link verify `?token=…` → session created → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [x] AUTH-03 — Google OAuth start → redirect to Google → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [x] AUTH-04 — Google OAuth callback → user upserted + session → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [x] AUTH-05 — `GET /api/auth/me` returns current user → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [x] AUTH-06 — 401 on protected route redirects to `/signin?returnUrl=` → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [x] AUTH-07 — brian@megabyte.space mocked admin session (TEST fixture) → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [x] AUTH-08 — Sign-out clears session + bounces to `/` → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [x] AUTH-09 — Session-expired toast + auto-recover → `e2e/auth/auth-flows.spec.ts` ✓ wired
 
 ## D. Admin shell — `ADMIN-*` (one per route component)
 
-- [ ] ADMIN-01 — `/admin` dashboard loads, sidebar visible → `e2e/admin/admin-shell.spec.ts` ✓ wired
-- [ ] ADMIN-02 — Sidebar nav switches sub-route WITHOUT full reload (View Transitions) → `e2e/admin/admin-shell.spec.ts` ✓ wired
+- [x] ADMIN-01 — `/admin` dashboard loads, sidebar visible → `e2e/admin/admin-shell.spec.ts` ✓ wired
+- [x] ADMIN-02 — Sidebar nav switches sub-route WITHOUT full reload (View Transitions) → `e2e/admin/admin-shell.spec.ts` ✓ wired
 - [ ] ADMIN-03 — `/admin/sites` lists user's sites with status badges → (no spec yet — to RED)
-- [ ] ADMIN-04 — `/admin/forms` lists form submissions → `e2e/forms-handling-widget.spec.ts`
-- [ ] ADMIN-05 — `/admin/snapshots` lists snapshots with capture/preview → `e2e/admin/snapshots.spec.ts` ✓ wired
-- [ ] ADMIN-06 — `/admin/snapshots-diff` compares two snapshots side-by-side → `e2e/admin/snapshots.spec.ts` ✓ wired
-- [ ] ADMIN-07 — `/admin/billing` shows subscription + entitlements → `e2e/admin-and-billing.spec.ts`
-- [ ] ADMIN-08 — `/admin/audit` shows audit log table → `e2e/audit-logs.spec.ts`
-- [ ] ADMIN-09 — `/admin/audit?site=…` filter applies → `e2e/audit-site-filter.spec.ts`
-- [ ] ADMIN-10 — `/admin/docs` interactive API explorer renders → `e2e/admin-docs.spec.ts`
-- [ ] ADMIN-11 — `/admin/ai-endpoints` lists endpoints + try-it form → `e2e/ai-endpoints-ide.spec.ts`
-- [ ] ADMIN-12 — `/admin/ai-logs` lists LLM call traces → `e2e/ai-traces.spec.ts`
-- [ ] ADMIN-13 — `/admin/ai-chat-extras` flag-gated tools render → `e2e/admin/ai-chat-extras.spec.ts` ✓ wired
-- [ ] ADMIN-14 — `/admin/settings` org settings save → `e2e/admin/settings.spec.ts` ✓ wired
-- [ ] ADMIN-15 — `/admin/user-settings` profile save → `e2e/admin/settings.spec.ts` ✓ wired
-- [ ] ADMIN-16 — `/admin/analytics` Pulse analytics renders → `e2e/admin/analytics.spec.ts` ✓ wired
-- [ ] ADMIN-17 — `/admin/mcp` MCP provider list + connect buttons → `e2e/admin/mcp.spec.ts` ✓ wired
-- [ ] ADMIN-18 — `/admin/apps` apps catalog renders → `e2e/admin/apps.spec.ts` ✓ wired
-- [ ] ADMIN-19 — `/admin/apps-detail/:id` install/configure → `e2e/admin/apps.spec.ts` ✓ wired
-- [ ] ADMIN-20 — `/admin/apps-instances` lists installed app instances → `e2e/admin/apps.spec.ts` ✓ wired
-- [ ] ADMIN-21 — `/admin/editor` mounts bolt iframe ONCE; survives nav → `e2e/admin/editor.spec.ts` ✓ wired
-- [ ] ADMIN-22 — `/admin/media` library lists assets → `e2e/media-library.spec.ts`
-- [ ] ADMIN-23 — `/admin/email` provider config saves → `e2e/admin/email.spec.ts` ✓ wired
-- [ ] ADMIN-24 — `/admin/feature-flags` lists 103 flags + toggle works → `e2e/admin/feature-flags.spec.ts` ✓ wired
-- [ ] ADMIN-25 — `/admin/features-hub` 70+ cards render with "Try it" → `e2e/admin/features-hub.spec.ts` ✓ wired
-- [ ] ADMIN-26 — `/admin/social` Pulse social posting UI → `e2e/admin/social.spec.ts` ✓ wired
-- [ ] ADMIN-27 — `/admin/social-analytics` aggregate dashboards → `e2e/admin/social.spec.ts` ✓ wired
-- [ ] ADMIN-28 — `/admin/voice` Twilio voice/SMS config → `e2e/admin/voice.spec.ts` ✓ wired
-- [ ] ADMIN-29 — `/admin/seo` per-site SEO panel → `e2e/admin/seo.spec.ts` ✓ wired
-- [ ] ADMIN-30 — `/admin/domains` lists hostnames + add → `e2e/domain-management.spec.ts`
-- [ ] ADMIN-31 — `/admin/accept-invite` org invitation acceptance → `e2e/admin/accept-invite.spec.ts` ✓ wired
-- [ ] ADMIN-32 — Cmd+K opens command palette inside admin + focuses → `e2e/command-palette.spec.ts`
+- [x] ADMIN-04 — `/admin/forms` lists form submissions → `e2e/forms-handling-widget.spec.ts` ✓ wired
+- [x] ADMIN-05 — `/admin/snapshots` lists snapshots with capture/preview → `e2e/admin/snapshots.spec.ts` ✓ wired
+- [x] ADMIN-06 — `/admin/snapshots-diff` compares two snapshots side-by-side → `e2e/admin/snapshots.spec.ts` ✓ wired
+- [x] ADMIN-07 — `/admin/billing` shows subscription + entitlements → `e2e/admin-and-billing.spec.ts` ✓ wired
+- [x] ADMIN-08 — `/admin/audit` shows audit log table → `e2e/audit-logs.spec.ts` ✓ wired
+- [x] ADMIN-09 — `/admin/audit?site=…` filter applies → `e2e/audit-site-filter.spec.ts` ✓ wired
+- [x] ADMIN-10 — `/admin/docs` interactive API explorer renders → `e2e/admin-docs.spec.ts` ✓ wired
+- [x] ADMIN-11 — `/admin/ai-endpoints` lists endpoints + try-it form → `e2e/ai-endpoints-ide.spec.ts` ✓ wired
+- [x] ADMIN-12 — `/admin/ai-logs` lists LLM call traces → `e2e/ai-traces.spec.ts` ✓ wired
+- [x] ADMIN-13 — `/admin/ai-chat-extras` flag-gated tools render → `e2e/admin/ai-chat-extras.spec.ts` ✓ wired
+- [x] ADMIN-14 — `/admin/settings` org settings save → `e2e/admin/settings.spec.ts` ✓ wired
+- [x] ADMIN-15 — `/admin/user-settings` profile save → `e2e/admin/settings.spec.ts` ✓ wired
+- [x] ADMIN-16 — `/admin/analytics` Pulse analytics renders → `e2e/admin/analytics.spec.ts` ✓ wired
+- [x] ADMIN-17 — `/admin/mcp` MCP provider list + connect buttons → `e2e/admin/mcp.spec.ts` ✓ wired
+- [x] ADMIN-18 — `/admin/apps` apps catalog renders → `e2e/admin/apps.spec.ts` ✓ wired
+- [x] ADMIN-19 — `/admin/apps-detail/:id` install/configure → `e2e/admin/apps.spec.ts` ✓ wired
+- [x] ADMIN-20 — `/admin/apps-instances` lists installed app instances → `e2e/admin/apps.spec.ts` ✓ wired
+- [x] ADMIN-21 — `/admin/editor` mounts bolt iframe ONCE; survives nav → `e2e/admin/editor.spec.ts` ✓ wired
+- [x] ADMIN-22 — `/admin/media` library lists assets → `e2e/media-library.spec.ts` ✓ wired
+- [x] ADMIN-23 — `/admin/email` provider config saves → `e2e/admin/email.spec.ts` ✓ wired
+- [x] ADMIN-24 — `/admin/feature-flags` lists 103 flags + toggle works → `e2e/admin/feature-flags.spec.ts` ✓ wired
+- [x] ADMIN-25 — `/admin/features-hub` 70+ cards render with "Try it" → `e2e/admin/features-hub.spec.ts` ✓ wired
+- [x] ADMIN-26 — `/admin/social` Pulse social posting UI → `e2e/admin/social.spec.ts` ✓ wired
+- [x] ADMIN-27 — `/admin/social-analytics` aggregate dashboards → `e2e/admin/social.spec.ts` ✓ wired
+- [x] ADMIN-28 — `/admin/voice` Twilio voice/SMS config → `e2e/admin/voice.spec.ts` ✓ wired
+- [x] ADMIN-29 — `/admin/seo` per-site SEO panel → `e2e/admin/seo.spec.ts` ✓ wired
+- [x] ADMIN-30 — `/admin/domains` lists hostnames + add → `e2e/domain-management.spec.ts` ✓ wired
+- [x] ADMIN-31 — `/admin/accept-invite` org invitation acceptance → `e2e/admin/accept-invite.spec.ts` ✓ wired
+- [x] ADMIN-32 — Cmd+K opens command palette inside admin + focuses → `e2e/command-palette.spec.ts` ✓ wired
 - [ ] ADMIN-33 — Network-status banner appears when offline → (no spec yet — to RED)
 - [ ] ADMIN-34 — Toast layer dedupes + supports action buttons → (no spec yet — to RED)
-- [ ] ADMIN-35 — Section error boundary isolates crashes → `e2e/error-boundary.spec.ts`
+- [x] ADMIN-35 — Section error boundary isolates crashes → `e2e/error-boundary.spec.ts` ✓ wired
 
 ## E. Per-project tabs (prompt spec) — `TAB-*`
 
@@ -139,54 +139,54 @@
 ## G. Site lifecycle — `SITE-*`
 
 - [x] SITE-01 — Create site (manual `POST /api/sites`) → row in D1 → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
-- [ ] SITE-02 — Create from search → triggers `site-generation` workflow → `e2e/ai-workflow.spec.ts`
+- [x] SITE-02 — Create from search → triggers `site-generation` workflow → `e2e/ai-workflow.spec.ts` ✓ wired
 - [x] SITE-03 — `GET /api/sites` lists caller's sites → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
 - [x] SITE-04 — `GET /api/sites/:id` returns single → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
-- [ ] SITE-05 — `GET /api/sites/:id/workflow` shows step-by-step progress → `e2e/ai-workflow.spec.ts`
-- [ ] SITE-06 — `GET /api/sites/:id/logs` returns audit log slice → `e2e/logs-and-delete.spec.ts`
+- [x] SITE-05 — `GET /api/sites/:id/workflow` shows step-by-step progress → `e2e/ai-workflow.spec.ts` ✓ wired
+- [x] SITE-06 — `GET /api/sites/:id/logs` returns audit log slice → `e2e/logs-and-delete.spec.ts` ✓ wired
 - [x] SITE-07 — `POST /api/sites/:id/reset` flips status to draft + rebuilds → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
 - [x] SITE-08 — `POST /api/sites/:id/deploy` accepts zip → unpacks to R2 → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
 - [x] SITE-09 — `POST /api/sites/:id/publish-bolt` publishes bolt files → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
-- [ ] SITE-10 — `DELETE /api/sites/:id` soft-deletes + clears KV → `e2e/logs-and-delete.spec.ts`
+- [x] SITE-10 — `DELETE /api/sites/:id` soft-deletes + clears KV → `e2e/logs-and-delete.spec.ts` ✓ wired
 - [x] SITE-11 — Subdomain serving: `{slug}.projectsites.dev` resolves from D1+KV → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
 - [x] SITE-12 — Unpaid site injects top bar after `<body>` → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
-- [ ] SITE-13 — Custom hostname provisioning via CF for SaaS → `e2e/domain-management.spec.ts`
-- [ ] SITE-14 — Set primary hostname swaps default → `e2e/domain-management.spec.ts`
-- [ ] SITE-15 — Hostname unsubscribe removes from primary → `e2e/domain-management.spec.ts`
+- [x] SITE-13 — Custom hostname provisioning via CF for SaaS → `e2e/domain-management.spec.ts` ✓ wired
+- [x] SITE-14 — Set primary hostname swaps default → `e2e/domain-management.spec.ts` ✓ wired
+- [x] SITE-15 — Hostname unsubscribe removes from primary → `e2e/domain-management.spec.ts` ✓ wired
 - [x] SITE-16 — Branded error pages (400/404/500/503) render with Fira Code → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
 
 ## H. Editor / Bolt embed — `EDITOR-*`
 
-- [ ] EDITOR-01 — `/admin/editor` mounts iframe to `editor.projectsites.dev` → `e2e/bolt-chat-ready.spec.ts`
+- [x] EDITOR-01 — `/admin/editor` mounts iframe to `editor.projectsites.dev` → `e2e/bolt-chat-ready.spec.ts` ✓ wired
 - [x] EDITOR-02 — Bolt iframe survives admin sub-route nav (BoltEmbedService) → `e2e/editor/editor-lifecycle.spec.ts` ✓ wired
-- [ ] EDITOR-03 — `PS_BOLT_READY` postMessage flips loading state → `e2e/bolt-chat-ready.spec.ts`
+- [x] EDITOR-03 — `PS_BOLT_READY` postMessage flips loading state → `e2e/bolt-chat-ready.spec.ts` ✓ wired
 - [x] EDITOR-04 — `PS_APP_RUNNING` postMessage enables save → `e2e/editor/editor-lifecycle.spec.ts` ✓ wired
 - [x] EDITOR-05 — `PS_FILES_READY` postMessage enables publish → `e2e/editor/editor-lifecycle.spec.ts` ✓ wired
 - [x] EDITOR-06 — Bolt chat persists via `/api/editor/chats/*` → `e2e/editor/editor-lifecycle.spec.ts` ✓ wired
-- [ ] EDITOR-07 — AI-edit (Cmd+I in iframe) round-trips → `e2e/ai-edit.spec.ts`
-- [ ] EDITOR-08 — Inline editing in published preview → `e2e/inline-editing.spec.ts`
+- [x] EDITOR-07 — AI-edit (Cmd+I in iframe) round-trips → `e2e/ai-edit.spec.ts` ✓ wired
+- [x] EDITOR-08 — Inline editing in published preview → `e2e/inline-editing.spec.ts` ✓ wired
 
 ## I. Media library — `MEDIA-*`
 
-- [ ] MEDIA-01 — `/api/media/assets` GET lists by kind+source+q → `e2e/media-library.spec.ts`
-- [ ] MEDIA-02 — `/api/media/upload` multipart upload to R2 → `e2e/media-drop-zone.spec.ts`
-- [ ] MEDIA-03 — Stock search across Unsplash/Pexels/Pixabay → `e2e/media-stock-search.spec.ts`
-- [ ] MEDIA-04 — DALL·E image generation → `e2e/media-image-studio.spec.ts`
-- [ ] MEDIA-05 — Podcast TTS generation (ElevenLabs / OpenAI) → `e2e/media-podcast-studio.spec.ts`
-- [ ] MEDIA-06 — Send-to-bolt mints signed URL consumed by iframe → `e2e/media-send-to-bolt.spec.ts`
+- [x] MEDIA-01 — `/api/media/assets` GET lists by kind+source+q → `e2e/media-library.spec.ts` ✓ wired
+- [x] MEDIA-02 — `/api/media/upload` multipart upload to R2 → `e2e/media-drop-zone.spec.ts` ✓ wired
+- [x] MEDIA-03 — Stock search across Unsplash/Pexels/Pixabay → `e2e/media-stock-search.spec.ts` ✓ wired
+- [x] MEDIA-04 — DALL·E image generation → `e2e/media-image-studio.spec.ts` ✓ wired
+- [x] MEDIA-05 — Podcast TTS generation (ElevenLabs / OpenAI) → `e2e/media-podcast-studio.spec.ts` ✓ wired
+- [x] MEDIA-06 — Send-to-bolt mints signed URL consumed by iframe → `e2e/media-send-to-bolt.spec.ts` ✓ wired
 - [x] MEDIA-07 — Soft-delete asset hides from list → `e2e/media/media-coverage.spec.ts` ✓ wired
 
 ## J. Env vars — `ENV-*`
 
-- [ ] ENV-01 — `/api/env-vars` GET lists org+site+mcp vars with values hidden → `e2e/env-vars-manager.spec.ts`
-- [ ] ENV-02 — Create scoped env var (org / site / mcp) → `e2e/env-vars-manager.spec.ts`
-- [ ] ENV-03 — Update value + label preserves ID → `e2e/env-vars-manager.spec.ts`
-- [ ] ENV-04 — Bulk import dotenv-style payload → `e2e/env-vars-import-export.spec.ts`
-- [ ] ENV-05 — MCP-scoped env var picked up by AI dispatch → `e2e/env-vars-mcp-scope.spec.ts`
+- [x] ENV-01 — `/api/env-vars` GET lists org+site+mcp vars with values hidden → `e2e/env-vars-manager.spec.ts` ✓ wired
+- [x] ENV-02 — Create scoped env var (org / site / mcp) → `e2e/env-vars-manager.spec.ts` ✓ wired
+- [x] ENV-03 — Update value + label preserves ID → `e2e/env-vars-manager.spec.ts` ✓ wired
+- [x] ENV-04 — Bulk import dotenv-style payload → `e2e/env-vars-import-export.spec.ts` ✓ wired
+- [x] ENV-05 — MCP-scoped env var picked up by AI dispatch → `e2e/env-vars-mcp-scope.spec.ts` ✓ wired
 
 ## K. AI workflow & build — `WORK-*`
 
-- [ ] WORK-01 — Workflow step 1: `research-profile` returns business_type → `e2e/ai-workflow.spec.ts`
+- [x] WORK-01 — Workflow step 1: `research-profile` returns business_type → `e2e/ai-workflow.spec.ts` ✓ wired
 - [x] WORK-02 — Workflow step 2 parallel: social+brand+selling-points+images all complete → `e2e/work/workflow-steps.spec.ts` ✓ wired
 - [x] WORK-03 — Workflow step 2.5: logo + favicon-set + section-images generated → `e2e/work/workflow-steps.spec.ts` ✓ wired
 - [x] WORK-04 — Workflow step 2.5b: scrape-website populates `_scraped_content.json` → `e2e/work/workflow-steps.spec.ts` ✓ wired
@@ -194,8 +194,8 @@
 - [x] WORK-06 — Workflow step 4: container-build returns dist → R2 → `e2e/work/workflow-steps.spec.ts` ✓ wired
 - [x] WORK-07 — Workflow step 5: visual-inspection-final scores ≥7 → `e2e/work/workflow-steps.spec.ts` ✓ wired
 - [x] WORK-08 — Workflow retries on transient failure (3x backoff) → `e2e/work/workflow-steps.spec.ts` ✓ wired
-- [ ] WORK-09 — Confidence UI surfaces per-attribute scores → `e2e/confidence-ui.spec.ts`
-- [ ] WORK-10 — Business enrichment via Google Places → `e2e/business-enrichment.spec.ts`
+- [x] WORK-09 — Confidence UI surfaces per-attribute scores → `e2e/confidence-ui.spec.ts` ✓ wired
+- [x] WORK-10 — Business enrichment via Google Places → `e2e/business-enrichment.spec.ts` ✓ wired
 
 ## L. Webhooks — `WEBHOOK-*`
 
@@ -327,11 +327,11 @@
 
 ## O. Domains — `DOMAIN-*`
 
-- [ ] DOMAIN-01 — `/api/domains/search` returns availability across TLDs → `e2e/domain-management.spec.ts`
+- [x] DOMAIN-01 — `/api/domains/search` returns availability across TLDs → `e2e/domain-management.spec.ts` ✓ wired
 - [x] DOMAIN-02 — `/api/domains/purchase` charges wallet → registers domain → `e2e/domain/domain-flows.spec.ts` ✓ wired
 - [x] DOMAIN-03 — Domain picker shows live RDAP availability → `e2e/domain/domain-flows.spec.ts` ✓ wired
-- [ ] DOMAIN-04 — Add custom hostname → CF for SaaS verifies CNAME → `e2e/domain-management.spec.ts`
-- [ ] DOMAIN-05 — Hostname modal interactive (delete/primary toggle) → `e2e/domain-modal-interactive.spec.ts`
+- [x] DOMAIN-04 — Add custom hostname → CF for SaaS verifies CNAME → `e2e/domain-management.spec.ts` ✓ wired
+- [x] DOMAIN-05 — Hostname modal interactive (delete/primary toggle) → `e2e/domain-modal-interactive.spec.ts` ✓ wired
 - [x] DOMAIN-06 — `/api/admin/domains` super-admin lists all domains → `e2e/domain/domain-flows.spec.ts` ✓ wired
 
 ## P. Voice / SMS — `VOICE-*` (flag-gated `voice_editing`)
