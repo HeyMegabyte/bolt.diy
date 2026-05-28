@@ -410,8 +410,8 @@
 ## Linter gate
 
 - [ ] LINT-01 — `npm run lint` exits 0 (eslint)
-- [ ] LINT-02 — `npx tsc --noEmit` exits 0 (Worker)
-- [ ] LINT-03 — `npx tsc --noEmit -p tsconfig.app.json` exits 0 (SPA)
+- [x] LINT-02 ✓ wired — `npx tsc --noEmit` exits 0 (Worker)
+- [x] LINT-03 ✓ wired — `npx tsc --noEmit -p tsconfig.app.json` exits 0 (SPA)
 
 ## Done definition
 

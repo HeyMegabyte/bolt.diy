@@ -373,6 +373,9 @@ export interface Env {
   /** MailChimp OAuth app client ID + secret (single tenant; per-site tokens). */
   MAILCHIMP_CLIENT_ID?: string;
   MAILCHIMP_CLIENT_SECRET?: string;
+  /** Canonical OAuth-prefix aliases for Mailchimp (new naming convention). Legacy bare keys above kept as fallbacks. */
+  MAILCHIMP_OAUTH_CLIENT_ID?: string;
+  MAILCHIMP_OAUTH_CLIENT_SECRET?: string;
   /** HubSpot OAuth app credentials. Legacy keys; new code reads `HUBSPOT_OAUTH_CLIENT_ID` first. */
   HUBSPOT_CLIENT_ID?: string;
   HUBSPOT_CLIENT_SECRET?: string;
