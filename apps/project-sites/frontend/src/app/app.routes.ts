@@ -129,6 +129,22 @@ export const routes: Routes = [
           ),
       },
       {
+        // Branch-style site previews — /admin/sites/:id/branches (#27)
+        path: 'sites/:id/branches',
+        loadComponent: () =>
+          import('./pages/admin/sections/site-branches.component').then(
+            (m) => m.SiteBranchesComponent,
+          ),
+      },
+      {
+        // Per-site MCP server management — /admin/sites/:id/mcp-server (#29)
+        path: 'sites/:id/mcp-server',
+        loadComponent: () =>
+          import('./pages/admin/sections/site-mcp-server.component').then(
+            (m) => m.SiteMcpServerComponent,
+          ),
+      },
+      {
         path: 'analytics',
         loadComponent: () =>
           import('./pages/admin/sections/analytics.component').then((m) => m.AdminAnalyticsComponent),
@@ -156,6 +172,22 @@ export const routes: Routes = [
         path: 'feature-flags',
         loadComponent: () =>
           import('./pages/admin/sections/feature-flags.component').then((m) => m.AdminFeatureFlagsComponent),
+      },
+      {
+        // Content Freshness — Feature #16. AI rewrite drafts for idle sections.
+        // Daily cron (0 6 * * *) scans stale sections; owner approves here.
+        path: 'content-freshness',
+        loadComponent: () =>
+          import('./pages/admin/sections/content-freshness.component').then(
+            (m) => m.AdminContentFreshnessComponent,
+          ),
+      },
+      {
+        // pSEO Matrix Builder — Feature #17. service×city×intent×season pages.
+        // Trigger generation per site; approve/publish via this grid.
+        path: 'pseo',
+        loadComponent: () =>
+          import('./pages/admin/sections/pseo.component').then((m) => m.AdminPseoComponent),
       },
       {
         // Features Hub — every shipped feature in one searchable surface.
@@ -340,6 +372,26 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/admin/sections/social-analytics.component').then(
             (m) => m.AdminSocialAnalyticsComponent,
+          ),
+      },
+      // ─── Unified Visitor Inbox (#24) ──────────────────────────────
+      // 3-pane: conversation list + thread + AI-draft panel.
+      // Flag-gated: unified_inbox. Shows gate notice when off.
+      {
+        path: 'inbox',
+        loadComponent: () =>
+          import('./pages/admin/sections/inbox.component').then(
+            (m) => m.AdminInboxComponent,
+          ),
+      },
+      // ─── Multimodal AI Site Copilot (#25) ────────────────────────
+      // Per-site copilot admin: enable toggle + intent distribution + sessions.
+      // Flag-gated: multimodal_copilot. Shows gate notice when off.
+      {
+        path: 'sites/:id/copilot',
+        loadComponent: () =>
+          import('./pages/admin/sections/site-copilot.component').then(
+            (m) => m.AdminSiteCopilotComponent,
           ),
       },
     ],
