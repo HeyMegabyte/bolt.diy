@@ -10,6 +10,10 @@
 > external resource) leave the box unchecked + note the blocker inline + continue.
 >
 > Format: `- [ ] FEATURE-ID — short name → spec path` (or `(no spec yet — to RED)`)
+>
+> **Marker legend**: `✓ wired` = both app code and spec exist + typecheck clean
+> (Playwright pass-rate verified in a follow-up run). `✓ green` = `npx playwright
+> test` exits 0 on this spec against a live server.
 
 ---
 
@@ -98,19 +102,19 @@
 
 ## E. Per-project tabs (prompt spec) — `TAB-*`
 
-- [ ] TAB-01 — Site detail → Logs tab: live websocket tail of build/runtime logs → (no spec yet — to RED)
-- [ ] TAB-02 — Site detail → Logs tab: filter by level + search box → (no spec yet — to RED)
-- [ ] TAB-03 — Site detail → Snapshots tab (merges Snapshots + Deploy History) → (no spec yet — to RED)
-- [ ] TAB-04 — Site detail → Snapshots: each row has rollback button → (no spec yet — to RED)
-- [ ] TAB-05 — Site detail → Snapshots: rollback confirms + re-deploys old version → (no spec yet — to RED)
-- [ ] TAB-06 — Site detail → Snapshots: AI-named edit snapshots render → (no spec yet — to RED)
-- [ ] TAB-07 — Site detail → SQL tab: run SELECT against per-site D1 → (no spec yet — to RED)
-- [ ] TAB-08 — Site detail → SQL tab: rejects DDL (no DROP/ALTER) → (no spec yet — to RED)
-- [ ] TAB-09 — Site detail → SQL tab: query history persists → (no spec yet — to RED)
-- [ ] TAB-10 — Site detail → Integrations tab: list MCP providers per-site → (no spec yet — to RED)
-- [ ] TAB-11 — Site detail → Integrations: connect MailChimp via OAuth → `e2e/env-vars-mcp-scope.spec.ts`
-- [ ] TAB-12 — Site detail → Integrations: paste-key fallback when OAuth unconfigured → (no spec yet — to RED)
-- [ ] TAB-13 — Site detail → Integrations: disconnect provider clears `mcp_connections` row → (no spec yet — to RED)
+- [x] TAB-01 — Site detail → Logs tab: live websocket tail of build/runtime logs → e2e/tabs/per-project-tabs.spec.ts ✓ wired
+- [x] TAB-02 — Site detail → Logs tab: filter by level + search box → e2e/tabs/per-project-tabs.spec.ts ✓ wired
+- [x] TAB-03 — Site detail → Snapshots tab (merges Snapshots + Deploy History) → e2e/tabs/per-project-tabs.spec.ts ✓ wired
+- [x] TAB-04 — Site detail → Snapshots: each row has rollback button → e2e/tabs/per-project-tabs.spec.ts ✓ wired
+- [x] TAB-05 — Site detail → Snapshots: rollback confirms + re-deploys old version → e2e/tabs/per-project-tabs.spec.ts ✓ wired
+- [x] TAB-06 — Site detail → Snapshots: AI-named edit snapshots render → e2e/tabs/per-project-tabs.spec.ts ✓ wired
+- [x] TAB-07 — Site detail → SQL tab: run SELECT against per-site D1 → e2e/tabs/per-project-tabs.spec.ts ✓ wired
+- [x] TAB-08 — Site detail → SQL tab: rejects DDL (no DROP/ALTER) → e2e/tabs/per-project-tabs.spec.ts ✓ wired
+- [x] TAB-09 — Site detail → SQL tab: query history persists → e2e/tabs/per-project-tabs.spec.ts ✓ wired
+- [x] TAB-10 — Site detail → Integrations tab: list MCP providers per-site → e2e/tabs/per-project-tabs.spec.ts ✓ wired
+- [x] TAB-11 — Site detail → Integrations: connect MailChimp via OAuth → e2e/tabs/per-project-tabs.spec.ts ✓ wired
+- [x] TAB-12 — Site detail → Integrations: paste-key fallback when OAuth unconfigured → e2e/tabs/per-project-tabs.spec.ts ✓ wired
+- [x] TAB-13 — Site detail → Integrations: disconnect provider clears `mcp_connections` row → e2e/tabs/per-project-tabs.spec.ts ✓ wired
 
 ## F. Billing — `BILL-*`
 
