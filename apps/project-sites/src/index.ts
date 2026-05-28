@@ -63,12 +63,15 @@ import { domainPurchase } from './routes/domain_purchase.js';
 import { superAdmin } from './routes/super_admin.js';
 import { wallet as walletRoutes } from './routes/wallet.js';
 import { agency } from './routes/agency.js';
+import { billingAddons } from './routes/billing_addons.js';
 import { agents } from './routes/agents.js';
 import { templates as templatesRoutes } from './routes/templates.js';
 import { mcpSite } from './routes/mcp_site.js';
 import { experiments } from './routes/experiments.js';
 import { mediaRoutes } from './routes/media.js';
 import { publicRoutes } from './routes/public.js';
+import features from './routes/features.js';
+import { siteDetailTabs } from './routes/site_detail_tabs.js';
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbQueryOne, dbUpdate } from './services/db.js';
@@ -295,6 +298,7 @@ app.route('/', aiAdmin); // Form submissions, AI logs, chat, endpoints, credits,
 app.route('/', docs); // Interactive API explorer (OpenAPI + Angular overview)
 app.route('/', appsRoutes); // /admin/apps tab — catalog + per-org app_instances CRUD
 app.route('/', snapshotQuality); // /api/sites/:siteId/snapshots/:snapshotId/{capture,metrics,screenshot.png} — must precede `api` so the param order matches first
+app.route('/', siteDetailTabs); // /api/sites/:siteId/{logs/tail,snapshots/:id/rollback,sql/exec,integrations} — must precede `api` so the param order matches first
 app.route('/', dashboard); // /api/dashboard/chat (SSE) + /api/calendar/* — Perplexity-like dashboard surface
 app.route('/', pulseAnalytics); // /api/social/analytics/aggregate — must precede social catch-alls
 app.route('/', socialOauthRoutes); // /api/social/:platform/{connect,callback,paste} — Pulse Social OAuth
@@ -305,8 +309,10 @@ app.route('/', domainPurchase); // Wallet-charged /api/domains/purchase + /api/b
 app.route('/', superAdmin); // /api/super-admin/* — cost-factor controls + wallet ops + 100-feature ops (is_super_admin=1 guarded)
 app.route('/', walletRoutes); // /api/wallet/* — customer-facing wallet read/subscribe/topup (additive aliases over domain_purchase /api/billing/wallet)
 app.route('/', agency); // /api/agency/* — white-label / agency surface (Pro-gated, manages child orgs + brand overrides + Stripe Connect)
+app.route('/', billingAddons); // /api/billing/addons/*, /api/billing/checkout/topup, /api/billing/usage/*, /api/billing/invoices/*, /api/billing/subscription/cancel, /api/agency/stripe-connect/onboard, /api/affiliates/payouts
 app.route('/', agents); // /api/(sites/:siteId/agents|agents/:id)/* — AI Agents (per-site autonomous maintenance, Pro-gated)
 app.route('/', templatesRoutes); // /api/templates + /api/sites/:siteId/install-template — templates marketplace
+app.route('/', features); // Feature endpoints (every /api/* path flag-gated via isFlagOn) + public discovery surfaces (llms.txt, /accessibility, /.well-known/mcp, /api/openapi.json). Must precede mcpSite so marketing-root /.well-known/mcp wins.
 app.route('/', mcpSite); // /{slug}/.well-known/* + /{slug}/mcp + /api/sites/:siteId/mcp/* — MCP per-site server
 app.route('/', experiments); // /_ps/{i,c,e,predict} + /api/sites/:siteId/experiments — Thompson-sampling A/B + predictive prerender
 app.route('/', mediaRoutes); // /api/media/* — unified media library (uploads, stock, AI gen, send-to-bolt)
@@ -495,10 +501,58 @@ app.all('*', async (c) => {
           '<meta name="x-sentry-dsn" content="">',
           `<meta name="x-sentry-dsn" content="${sentryDsn}">`,
         );
+
+        // ALL-STAR items #15 + #20 + #21 injection block.
+        // #15 Speculation Rules: prerender same-origin nav, prefetch external on hover.
+        // #20 Structured-data autopilot: Organization + WebSite emitted on every marketing route.
+        // #21 Quotable answer block: 40-60 word AI-search-extractable lead paragraph; visually
+        //     hidden but available to crawlers + screen readers (sr-only pattern).
+        const speculationRules = `<script type="speculationrules">{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/admin/*"}},{"not":{"href_matches":"/api/*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"href_matches":"/*"},"eagerness":"conservative"}]}</script>`;
+        const jsonLd = `<script type="application/ld+json">${JSON.stringify({
+          '@context': 'https://schema.org',
+          '@graph': [
+            {
+              '@type': 'Organization',
+              '@id': 'https://projectsites.dev/#org',
+              name: 'Project Sites',
+              url: 'https://projectsites.dev/',
+              logo: 'https://projectsites.dev/logo.svg',
+              email: 'hey@projectsites.dev',
+              sameAs: ['https://github.com/HeyMegabyte/projectsites.dev'],
+            },
+            {
+              '@type': 'WebSite',
+              '@id': 'https://projectsites.dev/#site',
+              url: 'https://projectsites.dev/',
+              name: 'Project Sites',
+              publisher: { '@id': 'https://projectsites.dev/#org' },
+              inLanguage: 'en-US',
+              potentialAction: {
+                '@type': 'SearchAction',
+                target: 'https://projectsites.dev/?q={search_term_string}',
+                'query-input': 'required name=search_term_string',
+              },
+            },
+            {
+              '@type': 'WebPage',
+              '@id': 'https://projectsites.dev/#webpage',
+              url: 'https://projectsites.dev/',
+              name: 'Project Sites — AI Website Builder on Cloudflare',
+              description:
+                'AI-generated websites for small business in under 15 minutes. Multi-model router, axe-core publish gate, Core Web Vitals publish gate, GEO + AI search built-in.',
+              isPartOf: { '@id': 'https://projectsites.dev/#site' },
+              about: { '@id': 'https://projectsites.dev/#org' },
+            },
+          ],
+        })}</script>`;
+        const quotable = `<div data-quotable style="position:absolute;left:-9999px;top:0;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.</div>`;
+
         html = html.replace(
           '</head>',
-          `<meta name="x-posthog-key" content="${phKey}">\n<meta name="x-stripe-pk" content="${stripePk}">\n</head>`,
+          `<meta name="x-posthog-key" content="${phKey}">\n<meta name="x-stripe-pk" content="${stripePk}">\n${speculationRules}\n${jsonLd}\n</head>`,
         );
+        html = html.replace('<body>', `<body>\n${quotable}\n`);
+
         return new Response(html, {
           headers: {
             'Content-Type': 'text/html',
@@ -507,6 +561,8 @@ app.all('*', async (c) => {
             'Cross-Origin-Opener-Policy': 'same-origin',
             'Cross-Origin-Embedder-Policy': 'credentialless',
             'Origin-Agent-Cluster': '?1',
+            // ALL-STAR #15 hint to CDN/CDN-aware clients
+            Link: '<https://projectsites.dev/>; rel="prerender"',
           },
         });
       }
