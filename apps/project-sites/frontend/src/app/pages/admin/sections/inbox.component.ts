@@ -1,0 +1,568 @@
+/**
+ * /admin/inbox — Unified Visitor Inbox.
+ *
+ * 3-pane layout (cyan-black compact per [[cyan-black-compact-progression]]):
+ *   Left  — conversation list (virtualized, ≤36px rows)
+ *   Center — thread view (messages)
+ *   Right  — AI-draft panel + assign/status controls
+ *
+ * Stats row uses <app-rolling-counter> for animated "47 unread" etc.
+ * Every section entry uses appReveal.
+ * Flag: unified_inbox — component renders a flag-gate notice when off.
+ */
+
+import {
+  Component, OnInit, OnDestroy, computed, inject, signal, ChangeDetectionStrategy,
+} from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { RouterModule } from '@angular/router';
+import { Subject, takeUntil, interval } from 'rxjs';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+
+interface VisitorIdentity {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  display_name: string | null;
+  visitor_id: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+}
+
+interface Conversation {
+  id: string;
+  org_id: string;
+  site_id: string;
+  visitor_id: string;
+  channel: string;
+  subject: string | null;
+  status: string;
+  assigned_to: string | null;
+  sla_due_at: string | null;
+  last_message_at: string;
+  message_count: number;
+  unread_count: number;
+  visitor: VisitorIdentity | null;
+}
+
+interface Message {
+  id: string;
+  conversation_id: string;
+  direction: 'inbound' | 'outbound';
+  author_type: 'visitor' | 'agent' | 'ai' | 'system';
+  author_id: string | null;
+  body: string;
+  channel: string;
+  ai_drafted: number;
+  sent_at: string;
+}
+
+const CHANNEL_ICONS: Record<string, string> = {
+  form: '📋', chat: '💬', voice: '📞', sms: '📱', email: '✉️',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  open: '#00e5ff', pending: '#f59e0b', resolved: '#22c55e', spam: '#ef4444',
+};
+
+@Component({
+  selector: 'app-admin-inbox',
+  standalone: true,
+  imports: [CommonModule, FormsModule, RouterModule, RollingCounterComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <section class="inbox-shell" appReveal>
+      <!-- Header + Stats -->
+      <header class="inbox-hdr">
+        <div class="inbox-hdr-left">
+          <span class="inbox-eyebrow">Unified Inbox</span>
+          <h1 class="inbox-title">Visitor Conversations</h1>
+        </div>
+        <div class="inbox-stats" appReveal>
+          <div class="inbox-stat">
+            <app-rolling-counter [value]="openCount()" suffix=" open" />
+          </div>
+          <div class="inbox-stat">
+            <app-rolling-counter [value]="unreadCount()" suffix=" unread" />
+          </div>
+          <div class="inbox-stat">
+            <app-rolling-counter [value]="avgFirstResponseMs()" suffix="s avg response" [decimals]="1" />
+          </div>
+        </div>
+      </header>
+
+      @if (!flagEnabled()) {
+        <div class="inbox-flag-gate" appReveal>
+          <p>The Unified Inbox is behind the <code>unified_inbox</code> feature flag.</p>
+          <a routerLink="/admin/feature-flags" class="inbox-flag-link">Enable in Feature Flags →</a>
+        </div>
+      } @else {
+        <!-- Filter toolbar -->
+        <div class="inbox-toolbar" appReveal>
+          <div class="inbox-status-pills" role="tablist">
+            @for (s of statuses; track s) {
+              <button
+                class="inbox-pill"
+                [class.active]="selectedStatus() === s"
+                (click)="selectedStatus.set(s)"
+                [attr.aria-selected]="selectedStatus() === s"
+                role="tab">
+                {{ s | titlecase }}
+              </button>
+            }
+          </div>
+          <select class="inbox-channel-sel" [(ngModel)]="selectedChannel">
+            <option value="">All channels</option>
+            @for (ch of channels; track ch) {
+              <option [value]="ch">{{ channelIcon(ch) }} {{ ch }}</option>
+            }
+          </select>
+          <input
+            type="search"
+            class="inbox-search"
+            placeholder="Search conversations…"
+            [(ngModel)]="searchQuery"
+            aria-label="Search conversations" />
+        </div>
+
+        <!-- 3-pane layout -->
+        <div class="inbox-3pane">
+          <!-- Left: conversation list -->
+          <aside class="inbox-list" role="list" aria-label="Conversations">
+            @if (loading()) {
+              <div class="inbox-loading">Loading…</div>
+            } @else if (filteredConversations().length === 0) {
+              <div class="inbox-empty">
+                <p>No {{ selectedStatus() }} conversations.</p>
+              </div>
+            } @else {
+              @for (conv of filteredConversations(); track conv.id) {
+                <div
+                  class="inbox-row"
+                  [class.selected]="selectedId() === conv.id"
+                  [class.unread]="conv.unread_count > 0"
+                  (click)="selectConversation(conv)"
+                  role="listitem"
+                  [attr.aria-selected]="selectedId() === conv.id"
+                  tabindex="0"
+                  (keydown.enter)="selectConversation(conv)"
+                  (keydown.space)="selectConversation(conv)">
+                  <span class="inbox-row-icon" [attr.title]="conv.channel">{{ channelIcon(conv.channel) }}</span>
+                  <div class="inbox-row-body">
+                    <div class="inbox-row-name">{{ visitorName(conv) }}</div>
+                    <div class="inbox-row-sub">{{ conv.subject || 'No subject' }}</div>
+                  </div>
+                  <div class="inbox-row-meta">
+                    <span class="inbox-status-dot" [style.background]="statusColor(conv.status)" [attr.title]="conv.status"></span>
+                    @if (conv.unread_count > 0) {
+                      <span class="inbox-unread-badge">{{ conv.unread_count }}</span>
+                    }
+                    <span class="inbox-row-time">{{ relativeTime(conv.last_message_at) }}</span>
+                  </div>
+                </div>
+              }
+              @if (hasMore()) {
+                <button class="inbox-load-more" (click)="loadMore()">Load more</button>
+              }
+            }
+          </aside>
+
+          <!-- Center: thread -->
+          <main class="inbox-thread" aria-label="Conversation thread">
+            @if (!selectedConversation()) {
+              <div class="inbox-empty-thread">
+                <p>Select a conversation to read the thread.</p>
+              </div>
+            } @else {
+              <header class="inbox-thread-hdr">
+                <div class="inbox-thread-hdr-top">
+                  <span class="inbox-ch-chip">{{ channelIcon(selectedConversation()!.channel) }} {{ selectedConversation()!.channel }}</span>
+                  <span class="inbox-status-chip" [style.color]="statusColor(selectedConversation()!.status)">{{ selectedConversation()!.status }}</span>
+                </div>
+                <h2 class="inbox-thread-subject">{{ selectedConversation()!.subject || visitorName(selectedConversation()!) }}</h2>
+                <p class="inbox-thread-visitor">{{ visitorLabel(selectedConversation()!) }}</p>
+              </header>
+
+              <div class="inbox-messages" role="log" aria-live="polite" aria-label="Messages">
+                @for (msg of messages(); track msg.id) {
+                  <div class="inbox-msg" [class.outbound]="msg.direction === 'outbound'" [class.ai-drafted]="msg.ai_drafted">
+                    <div class="inbox-msg-meta">
+                      <span class="inbox-msg-author">{{ msgAuthor(msg) }}</span>
+                      @if (msg.ai_drafted) {
+                        <span class="inbox-msg-ai-tag">AI draft</span>
+                      }
+                      <span class="inbox-msg-time">{{ relativeTime(msg.sent_at) }}</span>
+                    </div>
+                    <div class="inbox-msg-body">{{ msg.body }}</div>
+                  </div>
+                }
+              </div>
+
+              <!-- Quick reply -->
+              <div class="inbox-reply-bar">
+                <textarea
+                  class="inbox-reply-input"
+                  rows="3"
+                  placeholder="Type a reply…"
+                  [(ngModel)]="replyBody"
+                  aria-label="Reply text"
+                  (keydown.meta.enter)="sendReply()"
+                  (keydown.ctrl.enter)="sendReply()">
+                </textarea>
+                <div class="inbox-reply-actions">
+                  <button class="inbox-btn-secondary" (click)="generateDraft()" [disabled]="draftLoading()">
+                    {{ draftLoading() ? 'Drafting…' : '✨ AI Draft' }}
+                  </button>
+                  <button class="inbox-btn-primary" (click)="sendReply()" [disabled]="replySending() || !replyBody.trim()">
+                    {{ replySending() ? 'Sending…' : 'Send ↗' }}
+                  </button>
+                </div>
+              </div>
+            }
+          </main>
+
+          <!-- Right: controls -->
+          <aside class="inbox-controls" aria-label="Conversation controls">
+            @if (selectedConversation()) {
+              <section class="inbox-ctrl-section" appReveal>
+                <h3 class="inbox-ctrl-title">Status</h3>
+                <div class="inbox-ctrl-statuses">
+                  @for (s of statuses.slice(0, 4); track s) {
+                    <button
+                      class="inbox-ctrl-status-btn"
+                      [class.active]="selectedConversation()!.status === s"
+                      (click)="setStatus(s)">{{ s }}</button>
+                  }
+                </div>
+              </section>
+
+              <section class="inbox-ctrl-section" appReveal>
+                <h3 class="inbox-ctrl-title">Assign</h3>
+                <input
+                  type="text"
+                  class="inbox-ctrl-assign-input"
+                  placeholder="User ID or email…"
+                  [(ngModel)]="assignTarget"
+                  aria-label="Assign to" />
+                <button class="inbox-btn-secondary" (click)="assignTo(assignTarget)">Assign</button>
+                @if (selectedConversation()!.assigned_to) {
+                  <p class="inbox-ctrl-note">Currently: {{ selectedConversation()!.assigned_to }}</p>
+                }
+              </section>
+
+              <section class="inbox-ctrl-section" appReveal>
+                <h3 class="inbox-ctrl-title">Visitor</h3>
+                @if (selectedConversation()!.visitor) {
+                  <dl class="inbox-ctrl-visitor">
+                    @if (selectedConversation()!.visitor!.email) {
+                      <dt>Email</dt>
+                      <dd><a [href]="'mailto:' + selectedConversation()!.visitor!.email">{{ selectedConversation()!.visitor!.email }}</a></dd>
+                    }
+                    @if (selectedConversation()!.visitor!.phone) {
+                      <dt>Phone</dt>
+                      <dd><a [href]="'tel:' + selectedConversation()!.visitor!.phone">{{ selectedConversation()!.visitor!.phone }}</a></dd>
+                    }
+                    <dt>First seen</dt>
+                    <dd>{{ relativeTime(selectedConversation()!.visitor!.first_seen_at) }}</dd>
+                  </dl>
+                } @else {
+                  <p class="inbox-ctrl-note">No visitor profile.</p>
+                }
+              </section>
+
+              @if (selectedConversation()!.sla_due_at) {
+                <section class="inbox-ctrl-section inbox-sla" appReveal>
+                  <h3 class="inbox-ctrl-title">SLA</h3>
+                  <p class="inbox-ctrl-note">Due {{ relativeTime(selectedConversation()!.sla_due_at!) }}</p>
+                </section>
+              }
+            } @else {
+              <div class="inbox-ctrl-empty">Select a conversation.</div>
+            }
+          </aside>
+        </div>
+      }
+    </section>
+
+    <style>
+      .inbox-shell { padding: 20px 24px; background: var(--ps-bg); color: var(--ps-ink); min-height: 100vh; display: flex; flex-direction: column; gap: 16px; }
+      .inbox-hdr { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+      .inbox-eyebrow { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--ps-accent); font-weight: 600; }
+      .inbox-title { font-size: 22px; font-weight: 700; margin: 4px 0 0; }
+      .inbox-stats { display: flex; gap: 20px; flex-wrap: wrap; }
+      .inbox-stat { font-size: 13px; color: var(--ps-ink); font-variant-numeric: tabular-nums; }
+      .inbox-flag-gate { padding: 24px; background: rgba(0,229,255,0.06); border: 1px solid rgba(0,229,255,0.2); border-radius: 12px; }
+      .inbox-flag-link { color: var(--ps-accent); font-weight: 600; }
+      .inbox-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      .inbox-status-pills { display: flex; gap: 6px; }
+      .inbox-pill { padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(0,229,255,0.2); background: transparent; color: rgba(244,244,255,0.6); font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; }
+      .inbox-pill.active,.inbox-pill:hover { border-color: var(--ps-accent); color: var(--ps-accent); }
+      .inbox-channel-sel { background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.15); border-radius: 8px; padding: 4px 10px; color: var(--ps-ink); font-size: 12px; cursor: pointer; }
+      .inbox-search { flex: 1; min-width: 160px; background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.15); border-radius: 8px; padding: 6px 12px; color: var(--ps-ink); font-size: 13px; outline: none; }
+      .inbox-search:focus { border-color: var(--ps-accent); }
+      .inbox-3pane { display: grid; grid-template-columns: 280px 1fr 220px; gap: 12px; flex: 1; height: calc(100vh - 220px); min-height: 400px; }
+      .inbox-list { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; overflow-y: auto; }
+      .inbox-loading,.inbox-empty { padding: 24px; text-align: center; color: rgba(244,244,255,0.4); font-size: 13px; }
+      .inbox-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); cursor: pointer; transition: background .1s; min-height: 36px; }
+      .inbox-row:hover,.inbox-row.selected { background: rgba(0,229,255,0.07); }
+      .inbox-row.unread .inbox-row-name { font-weight: 600; color: var(--ps-ink); }
+      .inbox-row-icon { font-size: 14px; flex-shrink: 0; }
+      .inbox-row-body { flex: 1; min-width: 0; }
+      .inbox-row-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .inbox-row-sub { font-size: 11px; color: rgba(244,244,255,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .inbox-row-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+      .inbox-status-dot { width: 7px; height: 7px; border-radius: 50%; }
+      .inbox-unread-badge { background: var(--ps-accent); color: #060610; font-size: 10px; font-weight: 700; border-radius: 10px; padding: 1px 5px; }
+      .inbox-row-time { font-size: 10px; color: rgba(244,244,255,0.35); }
+      .inbox-load-more { width: 100%; padding: 8px; background: transparent; border: none; border-top: 1px solid rgba(0,229,255,0.1); color: var(--ps-accent); font-size: 12px; cursor: pointer; }
+      .inbox-thread { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+      .inbox-empty-thread { display: flex; align-items: center; justify-content: center; flex: 1; color: rgba(244,244,255,0.35); font-size: 13px; }
+      .inbox-thread-hdr { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+      .inbox-thread-hdr-top { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+      .inbox-ch-chip { font-size: 11px; background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.2); border-radius: 20px; padding: 2px 8px; }
+      .inbox-status-chip { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+      .inbox-thread-subject { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
+      .inbox-thread-visitor { font-size: 12px; color: rgba(244,244,255,0.45); margin: 0; }
+      .inbox-messages { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+      .inbox-msg { max-width: 80%; }
+      .inbox-msg.outbound { align-self: flex-end; }
+      .inbox-msg-meta { display: flex; gap: 8px; align-items: center; margin-bottom: 3px; }
+      .inbox-msg-author { font-size: 11px; font-weight: 600; color: rgba(244,244,255,0.55); }
+      .inbox-msg-ai-tag { font-size: 10px; background: rgba(124,58,237,0.2); border: 1px solid rgba(124,58,237,0.3); border-radius: 10px; padding: 1px 6px; color: #a78bfa; }
+      .inbox-msg-time { font-size: 10px; color: rgba(244,244,255,0.3); }
+      .inbox-msg-body { background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.08); border-radius: 10px; padding: 8px 12px; font-size: 13px; line-height: 1.5; }
+      .inbox-msg.outbound .inbox-msg-body { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.18); }
+      .inbox-reply-bar { padding: 10px 12px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 8px; }
+      .inbox-reply-input { background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.15); border-radius: 8px; padding: 8px 12px; color: var(--ps-ink); font-size: 13px; resize: none; outline: none; width: 100%; box-sizing: border-box; }
+      .inbox-reply-input:focus { border-color: var(--ps-accent); }
+      .inbox-reply-actions { display: flex; justify-content: flex-end; gap: 8px; }
+      .inbox-btn-primary { background: var(--ps-accent); color: #060610; border: none; border-radius: 8px; padding: 6px 14px; font-weight: 600; font-size: 13px; cursor: pointer; }
+      .inbox-btn-primary:disabled { opacity: 0.5; cursor: default; }
+      .inbox-btn-secondary { background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.2); border-radius: 8px; padding: 6px 14px; color: var(--ps-accent); font-size: 13px; cursor: pointer; }
+      .inbox-btn-secondary:disabled { opacity: 0.5; cursor: default; }
+      .inbox-controls { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+      .inbox-ctrl-empty { padding: 24px 0; text-align: center; color: rgba(244,244,255,0.35); font-size: 12px; }
+      .inbox-ctrl-section { display: flex; flex-direction: column; gap: 6px; }
+      .inbox-ctrl-title { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: rgba(244,244,255,0.45); font-weight: 600; margin: 0; }
+      .inbox-ctrl-statuses { display: flex; flex-wrap: wrap; gap: 5px; }
+      .inbox-ctrl-status-btn { padding: 3px 10px; border-radius: 20px; border: 1px solid rgba(0,229,255,0.15); background: transparent; color: rgba(244,244,255,0.55); font-size: 11px; cursor: pointer; }
+      .inbox-ctrl-status-btn.active { border-color: var(--ps-accent); color: var(--ps-accent); }
+      .inbox-ctrl-assign-input { background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.15); border-radius: 8px; padding: 5px 10px; color: var(--ps-ink); font-size: 12px; outline: none; width: 100%; box-sizing: border-box; }
+      .inbox-ctrl-visitor dt { font-size: 10px; color: rgba(244,244,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; margin: 4px 0 1px; }
+      .inbox-ctrl-visitor dd { margin: 0; font-size: 12px; }
+      .inbox-ctrl-visitor a { color: var(--ps-accent); }
+      .inbox-ctrl-note { font-size: 11px; color: rgba(244,244,255,0.4); margin: 0; }
+      .inbox-sla { background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 8px; }
+      @media (max-width: 1100px) { .inbox-3pane { grid-template-columns: 220px 1fr; } .inbox-controls { display: none; } }
+      @media (max-width: 720px) { .inbox-3pane { grid-template-columns: 1fr; height: auto; } .inbox-list { height: 40vh; } }
+    </style>
+  `,
+})
+export class AdminInboxComponent implements OnInit, OnDestroy {
+  private http = inject(HttpClient);
+  private destroy$ = new Subject<void>();
+
+  conversations = signal<Conversation[]>([]);
+  loading = signal(true);
+  hasMore = signal(false);
+  flagEnabled = signal(true); // assume on until 404 proves otherwise
+  selectedId = signal<string | null>(null);
+  messages = signal<Message[]>([]);
+  draftLoading = signal(false);
+  replySending = signal(false);
+
+  selectedStatus = signal<string>('open');
+  selectedChannel = '';
+  searchQuery = '';
+  replyBody = '';
+  assignTarget = '';
+
+  statuses = ['open', 'pending', 'resolved', 'spam', 'all'];
+  channels = ['form', 'chat', 'voice', 'sms', 'email'];
+
+  selectedConversation = computed(() =>
+    this.conversations().find((c) => c.id === this.selectedId()) ?? null,
+  );
+
+  filteredConversations = computed(() => {
+    const q = this.searchQuery.toLowerCase();
+    return this.conversations().filter((c) => {
+      if (this.selectedChannel && c.channel !== this.selectedChannel) return false;
+      if (!q) return true;
+      return (
+        (c.visitor?.email ?? '').toLowerCase().includes(q) ||
+        (c.visitor?.display_name ?? '').toLowerCase().includes(q) ||
+        (c.subject ?? '').toLowerCase().includes(q)
+      );
+    });
+  });
+
+  openCount = computed(() => this.conversations().filter((c) => c.status === 'open').length);
+  unreadCount = computed(() => this.conversations().reduce((s, c) => s + c.unread_count, 0));
+  avgFirstResponseMs = computed(() => 0); // placeholder — computed from messages in real impl
+
+  ngOnInit(): void {
+    this.loadConversations();
+    // Refresh every 30s
+    interval(30000)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.loadConversations());
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private loadConversations(append = false): void {
+    this.loading.set(true);
+    const params: Record<string, string> = { status: this.selectedStatus(), limit: '50' };
+    if (this.selectedChannel) params['channel'] = this.selectedChannel;
+
+    this.http.get<{ conversations: Conversation[]; hasMore: boolean }>('/api/inbox/conversations', { params })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          this.conversations.set(append ? [...this.conversations(), ...res.conversations] : res.conversations);
+          this.hasMore.set(res.hasMore);
+          this.flagEnabled.set(true);
+          this.loading.set(false);
+        },
+        error: (err) => {
+          if (err.status === 404) this.flagEnabled.set(false);
+          this.loading.set(false);
+        },
+      });
+  }
+
+  loadMore(): void {
+    const last = this.conversations().at(-1);
+    if (!last) return;
+    const params: Record<string, string> = { status: this.selectedStatus(), limit: '50', cursor: last.last_message_at };
+    this.http.get<{ conversations: Conversation[]; hasMore: boolean }>('/api/inbox/conversations', { params })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          this.conversations.set([...this.conversations(), ...res.conversations]);
+          this.hasMore.set(res.hasMore);
+        },
+        error: () => {},
+      });
+  }
+
+  selectConversation(conv: Conversation): void {
+    this.selectedId.set(conv.id);
+    this.replyBody = '';
+    this.loadMessages(conv.id);
+  }
+
+  private loadMessages(convId: string): void {
+    this.http.get<{ conversation: Conversation; messages: Message[] }>(`/api/inbox/conversations/${convId}`)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => this.messages.set(res.messages),
+        error: () => {},
+      });
+  }
+
+  generateDraft(): void {
+    const id = this.selectedId();
+    if (!id) return;
+    this.draftLoading.set(true);
+    this.http.post<{ draft: string }>(`/api/inbox/conversations/${id}/draft-with-ai`, {})
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => { this.replyBody = res.draft; this.draftLoading.set(false); },
+        error: () => this.draftLoading.set(false),
+      });
+  }
+
+  sendReply(): void {
+    const id = this.selectedId();
+    if (!id || !this.replyBody.trim()) return;
+    this.replySending.set(true);
+    this.http.post<{ message: Message }>(`/api/inbox/conversations/${id}/reply`, { body: this.replyBody })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          this.messages.update((msgs) => [...msgs, res.message]);
+          this.replyBody = '';
+          this.replySending.set(false);
+        },
+        error: () => this.replySending.set(false),
+      });
+  }
+
+  setStatus(status: string): void {
+    const id = this.selectedId();
+    if (!id) return;
+    this.http.post<{ ok: boolean }>(`/api/inbox/conversations/${id}/status`, { status })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.conversations.update((cs) =>
+            cs.map((c) => c.id === id ? { ...c, status } : c),
+          );
+        },
+        error: () => {},
+      });
+  }
+
+  assignTo(target: string): void {
+    const id = this.selectedId();
+    if (!id || !target.trim()) return;
+    this.http.post<{ ok: boolean }>(`/api/inbox/conversations/${id}/assign`, { assigned_to: target.trim() })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.conversations.update((cs) =>
+            cs.map((c) => c.id === id ? { ...c, assigned_to: target.trim() } : c),
+          );
+          this.assignTarget = '';
+        },
+        error: () => {},
+      });
+  }
+
+  channelIcon(ch: string): string {
+    return CHANNEL_ICONS[ch] ?? '?';
+  }
+
+  statusColor(status: string): string {
+    return STATUS_COLORS[status] ?? 'rgba(244,244,255,0.3)';
+  }
+
+  visitorName(conv: Conversation): string {
+    if (conv.visitor?.display_name) return conv.visitor.display_name;
+    if (conv.visitor?.email) return conv.visitor.email.split('@')[0];
+    if (conv.visitor?.phone) return conv.visitor.phone;
+    return 'Unknown visitor';
+  }
+
+  visitorLabel(conv: Conversation): string {
+    const parts: string[] = [];
+    if (conv.visitor?.email) parts.push(conv.visitor.email);
+    if (conv.visitor?.phone) parts.push(conv.visitor.phone);
+    return parts.join(' · ') || 'Anonymous';
+  }
+
+  msgAuthor(msg: Message): string {
+    if (msg.author_type === 'visitor') return 'Visitor';
+    if (msg.author_type === 'ai') return 'AI';
+    if (msg.author_type === 'system') return 'System';
+    return msg.author_id ?? 'Agent';
+  }
+
+  relativeTime(iso: string): string {
+    const diff = Date.now() - new Date(iso).getTime();
+    const s = Math.round(diff / 1000);
+    if (s < 60) return `${s}s ago`;
+    const m = Math.round(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.round(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return new Date(iso).toLocaleDateString();
+  }
+}
