@@ -30,6 +30,24 @@ export interface SentryUser {
   readonly orgId?: string;
 }
 
+/**
+ * Cheap one-way hash of a string using Web Crypto SHA-256.
+ * Used to anonymise email addresses before they reach Sentry (keeps PII out
+ * of the error tracker while still allowing "same user across events" grouping).
+ */
+async function hashString(value: string): Promise<string> {
+  try {
+    const data = new TextEncoder().encode(value);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hash))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .substring(0, 16); // 16 hex chars is enough for grouping
+  } catch {
+    return '[hash-error]';
+  }
+}
+
 /** Free-form breadcrumb payload — kept narrow so consumers can't pass `any`. */
 export interface SentryBreadcrumb {
   readonly category: string;
@@ -93,6 +111,17 @@ export function initSentryEarly(): boolean {
       replaysOnErrorSampleRate: 1.0,
       // Server-side PII redaction is enforced; client passes user.id only.
       sendDefaultPii: false,
+      beforeSend: (event) => {
+        // Non-production: expose a global hook so Playwright can assert
+        // captureException was invoked (see e2e/sentry-crash.spec.ts).
+        if (environment !== 'production') {
+          (window as unknown as Record<string, unknown>)['__sentry_test_hook'] =
+            ((window as unknown as Record<string, unknown>)['__sentry_test_hook_count'] as number ?? 0) + 1;
+          (window as unknown as Record<string, unknown>)['__sentry_test_hook_count'] =
+            (window as unknown as Record<string, unknown>)['__sentry_test_hook'];
+        }
+        return event;
+      },
     });
     Sentry.setTag('service', 'project-sites-frontend');
     return true;
@@ -127,20 +156,35 @@ export class SentryService {
     return this.enabled;
   }
 
-  /** Attach the logged-in user. Call from AuthService.setSession() and on login. */
+  /**
+   * Attach the logged-in user. Call from AuthService.setSession() and on login.
+   *
+   * @remarks
+   * Email is one-way hashed before reaching Sentry to keep PII out of the
+   * error tracker while still allowing "same user across events" grouping.
+   * org_id is stored as a tag for easy filtering; it is not PII.
+   */
   setUser(user: SentryUser | null): void {
     if (!this.enabled) return;
     if (!user) {
       Sentry.setUser(null);
       return;
     }
-    Sentry.setUser({
-      id: user.id,
-      email: user.email,
-      // `orgId` is a custom tag — also surface as a contextual field for filtering.
-      org_id: user.orgId,
-    });
+    // Hash email asynchronously; set user.id immediately so the next event
+    // already carries the user context.
+    const sentryUser: Record<string, string> = { id: user.id };
+    if (user.orgId) sentryUser['org_id'] = user.orgId;
+    Sentry.setUser(sentryUser);
     if (user.orgId) Sentry.setTag('org_id', user.orgId);
+
+    // Asynchronously update with the hashed email once the hash resolves.
+    if (user.email) {
+      hashString(user.email).then((hashed) => {
+        Sentry.setUser({ ...sentryUser, email_hash: hashed });
+      }).catch(() => {
+        // Hash failure is non-fatal — user.id is already set above.
+      });
+    }
   }
 
   /** Drop a breadcrumb. Categories: `bolt`, `http`, `auth`, `nav`, `ui`, `editor`. */

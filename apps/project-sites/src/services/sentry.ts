@@ -52,6 +52,8 @@ interface SentryEvent {
   timestamp: number;
   platform: string;
   server_name: string;
+  release?: string;
+  environment?: string;
   contexts?: {
     trace?: {
       trace_id: string;
@@ -220,12 +222,94 @@ export class TransactionCollector {
   }
 }
 
+// ── PII Scrubbing ────────────────────────────────────────────
+
+/**
+ * Header names that MUST never appear in Sentry payloads.
+ * Prevents accidental credential leakage via breadcrumb/request context.
+ */
+const SCRUBBED_HEADERS = new Set([
+  'authorization',
+  'cookie',
+  'set-cookie',
+  'stripe-signature',
+  'x-auth-key',
+  'x-auth-email',
+  'x-api-key',
+  'x-forwarded-for', // can contain real IPs (sendDefaultPii off, but belt+suspenders)
+]);
+
+/**
+ * Remove sensitive headers from a header map.
+ * Returns a new record — never mutates the input.
+ */
+export function scrubHeaders(
+  headers: Record<string, string>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(headers)) {
+    if (SCRUBBED_HEADERS.has(k.toLowerCase())) {
+      out[k] = '[Filtered]';
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
+/**
+ * Apply `beforeSend`-style scrubbing to a Sentry event before it is
+ * transmitted. Strips sensitive headers from request context and breadcrumb
+ * data. Returns a new event — never mutates the input.
+ */
+export function scrubSentryEvent(event: SentryEvent): SentryEvent {
+  // Deep-clone cheaply via JSON round-trip (events are always serialisable).
+  const ev: SentryEvent = JSON.parse(JSON.stringify(event)) as SentryEvent;
+
+  // Scrub top-level request headers
+  if (ev.request?.headers) {
+    ev.request.headers = scrubHeaders(ev.request.headers);
+  }
+
+  // Scrub request headers in contexts.request
+  if (ev.contexts?.request?.headers) {
+    ev.contexts.request.headers = scrubHeaders(ev.contexts.request.headers);
+  }
+
+  // Scrub breadcrumb `data` objects that carry header maps
+  if (ev.breadcrumbs?.values) {
+    for (const crumb of ev.breadcrumbs.values) {
+      if (crumb.data && typeof crumb.data === 'object') {
+        const d = crumb.data as Record<string, unknown>;
+        for (const key of Object.keys(d)) {
+          if (SCRUBBED_HEADERS.has(key.toLowerCase())) {
+            d[key] = '[Filtered]';
+          }
+        }
+      }
+    }
+  }
+
+  return ev;
+}
+
 // ── Core API ─────────────────────────────────────────────────
 
 async function sendToSentry(env: Env, sentryEvent: SentryEvent): Promise<void> {
   if (!env.SENTRY_DSN) return;
   const dsn = parseDsn(env.SENTRY_DSN);
   if (!dsn) return;
+
+  const release = env.SENTRY_RELEASE ?? 'project-sites@0.2.0';
+  const environment = env.ENVIRONMENT ?? 'development';
+
+  // Apply beforeSend scrubbing + merge release/environment tags
+  const scrubbedEvent = scrubSentryEvent({
+    ...sentryEvent,
+    release,
+    environment,
+    tags: { environment, service: 'project-sites-worker', ...sentryEvent.tags },
+  });
 
   try {
     await fetch(`https://${dsn.host}/api/${dsn.projectId}/store/`, {
@@ -234,7 +318,7 @@ async function sendToSentry(env: Env, sentryEvent: SentryEvent): Promise<void> {
         'Content-Type': 'application/json',
         'X-Sentry-Auth': `Sentry sentry_version=7, sentry_client=project-sites/0.2.0, sentry_key=${dsn.publicKey}`,
       },
-      body: JSON.stringify(sentryEvent),
+      body: JSON.stringify(scrubbedEvent),
     });
   } catch {
     // Sentry reporting should never break the request

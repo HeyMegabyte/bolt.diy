@@ -1,20 +1,37 @@
 /**
- * Structured logging library — item #50.
+ * Structured logging library.
  *
  * @remarks
- * Emits exactly one JSON line per call with the schema mandated by
- * `~/.claude/.../verification-loop.md` §9.2:
- *   `{ level, service, env, eventName, requestId, userId, orgId, durationMs,
- *     status, ts, ...safeFields }`
+ * Two usage modes:
  *
- * Every value passes through a redaction allowlist before serialization so
- * full request bodies, secrets, and tokens never reach Wrangler tail, Axiom,
- * or downstream parsers. Callers can pass either a plain fields object or a
- * Hono `Context` — the context branch auto-extracts `requestId`, `userId`,
- * `orgId`, and `ENVIRONMENT` so handlers never have to thread them by hand.
+ * 1. **Module-level singleton** (`log`) — same API as before, zero migration pain.
+ * 2. **Scoped child logger** (`log.child('scope')`) — returns a {@link Logger} whose
+ *    every call carries a `scope` field so you can grep by service area:
+ *    ```ts
+ *    const l = log.child('auth');
+ *    l.info('magic_link_sent', { userId });
+ *    // → { level:'info', scope:'auth', eventName:'magic_link_sent', … }
+ *    ```
  *
- * Output format keeps the historical `console.warn(JSON.stringify(...))`
- * shape so existing log queries against `level` / `service` keep working.
+ * **Production format** (`ENVIRONMENT === 'production'`):
+ *   One JSON line per call: `{ts, level, scope, msg, request_id, ...safeCtx}`
+ *   Written to stdout via `console.warn` (ESLint blocks `console.log`).
+ *   Workers Tail picks it up automatically.
+ *
+ * **Local format** (all other environments):
+ *   ANSI-colourised human-readable line:
+ *   `[HH:MM:SS] LEVEL scope · msg · {ctx}`
+ *   No extra dependencies — pure ANSI escape codes.
+ *
+ * **Sampling**:
+ * - `error` and `warn` — always emitted.
+ * - `info` — always in dev; sampled 1-in-N in production where N = `LOG_INFO_SAMPLE` (default 1 = all).
+ * - `debug` — only when `LOG_LEVEL=debug` or environment is not production.
+ *
+ * **Redaction** (two layers):
+ * 1. Allowlist — only keys in {@link SAFE_FIELD_ALLOWLIST} pass through.
+ * 2. Key-pattern — values whose key matches `/(authorization|cookie|token|secret|password|key|stripe-signature)/i` become `[REDACTED]`.
+ * 3. Value-pattern — values that look like known secret formats (Stripe keys, JWTs, etc.) become `[REDACTED]`.
  *
  * @example
  * ```ts
@@ -24,91 +41,110 @@
  * // Context-aware (auto-fills requestId/userId/orgId/env)
  * log.warn('rate_limit_exceeded', { path: c.req.path }, c);
  *
- * // Error
- * log.error('payment_failed', { order_id, cause: err.code });
+ * // Scoped child
+ * const l = log.child('billing');
+ * l.error('stripe_error', { code: 'card_declined' });
  * ```
  */
 
 import type { Context } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 
+// ── Public types ─────────────────────────────────────────────────────────────
+
 /**
  * Structured fields attached to every log entry.
- *
- * @remarks
- * Keys are snake_case for downstream JSON-log parser compatibility (PostHog,
- * Axiom, Datadog). Values must be JSON-serializable.
+ * Keys must be JSON-serializable; snake_case preferred.
  */
 export type LogFields = Record<string, unknown>;
 
-/** Hono context type alias for ergonomic call signatures. */
+/** Hono context type alias used for auto-extracting correlation IDs. */
 export type LogContext = Context<{ Bindings: Env; Variables: Variables }>;
 
-/** Allowed log levels. */
-export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
+/** Log severity levels. */
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 /**
- * Safe-context allowlist. Any key NOT in this set is dropped from the log
- * line — prevents accidental leakage of `password`, `api_key`, full request
- * bodies, PII, etc. Add a new key only after auditing it is safe.
+ * Scoped logger interface. Obtain one via {@link Logger.child}.
  *
- * @remarks
- * Keep this conservative. Logs are immortal; one leaked secret is one too
- * many. When in doubt, hash before logging instead of adding the field here.
+ * @example
+ * ```ts
+ * const l: Logger = log.child('payments');
+ * l.info('checkout_started', { amount: 1000 });
+ * ```
+ */
+export interface Logger {
+  debug(msg: string, ctx?: LogFields, c?: LogContext): void;
+  info(msg: string, ctx?: LogFields, c?: LogContext): void;
+  warn(msg: string, ctx?: LogFields, c?: LogContext): void;
+  error(msg: string, ctx?: LogFields, c?: LogContext): void;
+  /** Return a new Logger that inherits all fields and prepends `scope`. */
+  child(scope: string): Logger;
+}
+
+// ── ANSI colour helpers ───────────────────────────────────────────────────────
+
+const ANSI = {
+  reset: '\x1b[0m',
+  dim: '\x1b[2m',
+  bold: '\x1b[1m',
+  red: '\x1b[31m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+  blue: '\x1b[34m',
+  gray: '\x1b[90m',
+} as const;
+
+const LEVEL_COLOR: Record<LogLevel, string> = {
+  debug: ANSI.gray,
+  info: ANSI.cyan,
+  warn: ANSI.yellow,
+  error: ANSI.red,
+};
+
+// ── Redaction: allowlist ──────────────────────────────────────────────────────
+
+/**
+ * Only keys present here survive the redaction pass.
+ * Add a key ONLY after confirming it cannot carry PII or secrets.
  */
 const SAFE_FIELD_ALLOWLIST: ReadonlySet<string> = new Set([
-  'service',
-  'env',
-  'eventName',
-  'event',
-  'requestId',
-  'request_id',
-  'userId',
-  'user_id',
-  'orgId',
-  'org_id',
-  'siteId',
-  'site_id',
-  'slug',
-  'path',
-  'method',
-  'status',
-  'statusCode',
-  'durationMs',
-  'duration_ms',
-  'attempt',
-  'max',
-  'provider',
-  'event_id',
-  'eventId',
-  'job_name',
-  'jobId',
-  'version',
-  'release',
-  'code',
-  'error_code',
-  'error',
-  'message',
-  'cause',
-  'ts',
-  'level',
-  'route',
-  'cf_ray',
-  'colo',
-  'business_name',
-  'ip_hash',
-  'count',
-  'success',
-  'failed',
-  'ok',
-  'total',
-  'fields',
+  'service', 'env', 'eventName', 'event',
+  'requestId', 'request_id',
+  'userId', 'user_id',
+  'orgId', 'org_id',
+  'siteId', 'site_id',
+  'slug', 'path', 'method', 'status', 'statusCode',
+  'durationMs', 'duration_ms',
+  'attempt', 'max',
+  'provider', 'event_id', 'eventId',
+  'job_name', 'jobId',
+  'version', 'release',
+  'code', 'error_code', 'error', 'message', 'cause',
+  'ts', 'level', 'scope',
+  'route', 'cf_ray', 'colo',
+  'business_name', 'ip_hash',
+  'count', 'success', 'failed', 'ok', 'total', 'fields',
+  'action', 'r2Path', 'r2Key', 'hostname',
+  'phase', 'html_size', 'quality_score',
+  'social_links_found', 'logo_found', 'missing_sections',
+  'flatPath', 'requestPath',
+  'msg',
 ]);
 
+// ── Redaction: sensitive-key patterns ────────────────────────────────────────
+
 /**
- * Patterns whose VALUES we never log even when the key looks safe. Defends
- * against callers passing raw tokens under an innocuous key.
+ * Keys matching this regex have their value replaced with `[REDACTED]`
+ * regardless of whether they are in the allowlist.
+ *
+ * Catches: authorization, cookie, token, secret, password, key,
+ * stripe-signature, x-api-key, etc.
  */
+const SENSITIVE_KEY_RE = /(authorization|cookie|token|secret|password|key|stripe-signature)/i;
+
+// ── Redaction: secret-value patterns ─────────────────────────────────────────
+
 const SECRET_VALUE_PATTERNS: readonly RegExp[] = [
   /^sk_(live|test)_[A-Za-z0-9]{16,}$/, // Stripe secret keys
   /^rk_(live|test)_[A-Za-z0-9]{16,}$/, // Stripe restricted keys
@@ -118,19 +154,28 @@ const SECRET_VALUE_PATTERNS: readonly RegExp[] = [
   /^xox[bpa]-[A-Za-z0-9-]{20,}$/, // Slack
   /^ghp_[A-Za-z0-9]{30,}$/, // GitHub PAT
   /^gho_[A-Za-z0-9]{30,}$/, // GitHub OAuth
-  /^Bearer\s+[A-Za-z0-9._-]{20,}$/i, // Authorization headers
+  /^Bearer\s+[A-Za-z0-9._-]{20,}$/i, // Authorization: Bearer …
   /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{20,}$/, // JWT
 ];
 
+// ── Core redaction logic ──────────────────────────────────────────────────────
+
 /**
- * Apply the safe-context allowlist to a fields object.
+ * Apply both allowlist and key/value pattern redaction.
  *
  * @internal
  */
 function redact(fields: LogFields): LogFields {
   const out: LogFields = {};
   for (const [key, value] of Object.entries(fields)) {
+    // Key-pattern gate: always redact sensitive-named fields
+    if (SENSITIVE_KEY_RE.test(key)) {
+      out[key] = '[REDACTED]';
+      continue;
+    }
+    // Allowlist gate: drop fields that aren't explicitly safe
     if (!SAFE_FIELD_ALLOWLIST.has(key)) continue;
+    // Value-pattern gate: redact secret-shaped string values
     if (typeof value === 'string' && SECRET_VALUE_PATTERNS.some((p) => p.test(value))) {
       out[key] = '[REDACTED]';
       continue;
@@ -140,12 +185,8 @@ function redact(fields: LogFields): LogFields {
   return out;
 }
 
-/**
- * Pull request-scoped context (requestId/userId/orgId/env) off a Hono
- * `Context`. Soft-fails if any field is missing.
- *
- * @internal
- */
+// ── Context extraction ────────────────────────────────────────────────────────
+
 function extractContext(c: LogContext | undefined): LogFields {
   if (!c) return {};
   const out: LogFields = {};
@@ -159,110 +200,146 @@ function extractContext(c: LogContext | undefined): LogFields {
     const env = c.env?.ENVIRONMENT;
     if (env) out.env = env;
   } catch {
-    // No-op: missing context is non-fatal for logging.
+    // Non-fatal — context can be unavailable in test environments.
   }
   return out;
 }
 
-/**
- * Internal: emit one structured JSON line via `console.warn` (eslint blocks
- * `console.log`).
- *
- * @internal
- */
-function emit(
-  level: LogLevel,
-  eventName: string,
-  fields: LogFields,
-  c?: LogContext,
-): void {
-  const ctxFields = extractContext(c);
-  const payload = {
-    level,
-    service: 'project-sites',
-    env: ctxFields.env ?? 'unknown',
-    eventName,
-    ts: new Date().toISOString(),
-    ...redact({ ...ctxFields, ...fields }),
-  };
-  console.warn(JSON.stringify(payload));
+// ── Environment detection ─────────────────────────────────────────────────────
+
+/** Return the effective environment string — works inside Workers and Node. */
+function getNodeEnv(): string {
+  return (typeof process !== 'undefined' && process.env?.NODE_ENV) || 'development';
 }
 
+// ── Sampling ──────────────────────────────────────────────────────────────────
+
 /**
- * Structured logger used across the Worker.
+ * Decide whether an `info` call should be emitted in production.
+ *
+ * Reads `LOG_INFO_SAMPLE` from `process.env` (Node/test) or the Worker global
+ * `self.LOG_INFO_SAMPLE` (set via `wrangler.toml [vars]`). Defaults to `1`
+ * (emit all). Set to `10` to emit 1-in-10.
+ */
+function shouldSampleInfo(): boolean {
+  let n = 1;
+  try {
+    const raw = (typeof process !== 'undefined' && process.env?.LOG_INFO_SAMPLE)
+      || (typeof globalThis !== 'undefined' && (globalThis as Record<string, unknown>).LOG_INFO_SAMPLE);
+    if (raw) n = Math.max(1, parseInt(String(raw), 10));
+  } catch { /* ignore */ }
+  return n <= 1 || Math.random() < 1 / n;
+}
+
+// ── Emission ──────────────────────────────────────────────────────────────────
+
+function emit(
+  level: LogLevel,
+  msg: string,
+  fields: LogFields,
+  c: LogContext | undefined,
+  scope: string,
+): void {
+  const ctxFields = extractContext(c);
+  const env = (ctxFields.env as string | undefined) ?? getNodeEnv();
+  const isProd = env === 'production';
+
+  const merged = redact({ ...ctxFields, ...fields });
+
+  if (isProd) {
+    // Structured JSON — one line, Wrangler tail parseable
+    const payload: LogFields = {
+      ts: new Date().toISOString(),
+      level,
+      scope,
+      msg,
+      env,
+      service: 'project-sites',
+      ...merged,
+    };
+    console.warn(JSON.stringify(payload));
+  } else {
+    // Human-friendly colourised output for local dev
+    const time = new Date().toTimeString().slice(0, 8);
+    const colour = LEVEL_COLOR[level];
+    const ctxStr = Object.keys(merged).length > 0
+      ? ` ${ANSI.dim}${JSON.stringify(merged)}${ANSI.reset}`
+      : '';
+    const scopePart = scope ? ` ${ANSI.blue}${scope}${ANSI.reset}` : '';
+    console.warn(
+      `${ANSI.gray}[${time}]${ANSI.reset} ${colour}${ANSI.bold}${level.toUpperCase()}${ANSI.reset}${scopePart} · ${msg}${ctxStr}`,
+    );
+  }
+}
+
+// ── Logger factory ────────────────────────────────────────────────────────────
+
+function makeLogger(scope: string): Logger {
+  return {
+    debug(msg, ctx = {}, c): void {
+      // Debug: only in non-production, unless LOG_LEVEL=debug explicitly set
+      const envStr = extractContext(c).env as string | undefined ?? getNodeEnv();
+      if (envStr === 'production') {
+        const logLevel = (typeof process !== 'undefined' && process.env?.LOG_LEVEL)
+          || (typeof globalThis !== 'undefined' && (globalThis as Record<string, unknown>).LOG_LEVEL);
+        if (logLevel !== 'debug') return;
+      }
+      emit('debug', msg, ctx, c, scope);
+    },
+
+    info(msg, ctx = {}, c): void {
+      const envStr = extractContext(c).env as string | undefined ?? getNodeEnv();
+      if (envStr === 'production' && !shouldSampleInfo()) return;
+      emit('info', msg, ctx, c, scope);
+    },
+
+    warn(msg, ctx = {}, c): void {
+      emit('warn', msg, ctx, c, scope);
+    },
+
+    error(msg, ctx = {}, c): void {
+      emit('error', msg, ctx, c, scope);
+    },
+
+    child(childScope: string): Logger {
+      return makeLogger(childScope ? `${scope}/${childScope}` : childScope);
+    },
+  };
+}
+
+// ── Root logger ───────────────────────────────────────────────────────────────
+
+/**
+ * Root structured logger. Use directly or obtain a scoped child via `.child()`.
+ *
+ * **Backwards-compatible** with the previous `log.info(eventName, fields, c)` call shape —
+ * existing callers pass an `eventName` as the first argument and the new code maps it
+ * to the `msg` field.
  *
  * @example
  * ```ts
  * log.info('site_created', { site_id, slug });
  * log.warn('retry_attempt', { attempt: 2, max: 3 }, c);
  * log.error('payment_failed', { order_id });
+ *
+ * const l = log.child('billing');
+ * l.info('checkout_started', { amount: 1000 });
  * ```
  */
-export const log = {
-  /**
-   * Emit an `info`-level event.
-   *
-   * @param eventName - Snake_case event name (e.g. `site_created`).
-   * @param fields - Structured context appended to the log payload.
-   * @param c - Optional Hono context for auto-extracting requestId/userId/orgId/env.
-   */
-  info: (eventName: string, fields: LogFields = {}, c?: LogContext): void =>
-    emit('info', eventName, fields, c),
+export const log: Logger = makeLogger('project-sites');
 
-  /**
-   * Emit a `warn`-level event.
-   *
-   * @param eventName - Snake_case event name (e.g. `rate_limit_exceeded`).
-   * @param fields - Structured context appended to the log payload.
-   * @param c - Optional Hono context for auto-extracting requestId/userId/orgId/env.
-   */
-  warn: (eventName: string, fields: LogFields = {}, c?: LogContext): void =>
-    emit('warn', eventName, fields, c),
-
-  /**
-   * Emit an `error`-level event.
-   *
-   * @remarks
-   * Does NOT capture to Sentry — pair with `captureError` from
-   * `src/lib/sentry.ts` at the call site when an exception is involved.
-   *
-   * @param eventName - Snake_case event name (e.g. `payment_failed`).
-   * @param fields - Structured context appended to the log payload.
-   * @param c - Optional Hono context for auto-extracting requestId/userId/orgId/env.
-   */
-  error: (eventName: string, fields: LogFields = {}, c?: LogContext): void =>
-    emit('error', eventName, fields, c),
-
-  /**
-   * Emit a `debug`-level event. Suppressed in production unless `LOG_DEBUG`
-   * env var is set to a truthy value.
-   *
-   * @param eventName - Snake_case event name (e.g. `route_matched`).
-   * @param fields - Structured context appended to the log payload.
-   * @param c - Optional Hono context for auto-extracting requestId/userId/orgId/env.
-   */
-  debug: (eventName: string, fields: LogFields = {}, c?: LogContext): void => {
-    const env = c?.env?.ENVIRONMENT;
-    if (env === 'production') return;
-    emit('debug', eventName, fields, c);
-  },
-} as const;
+// ── Request-access-log middleware ─────────────────────────────────────────────
 
 /**
  * Hono middleware: emit one structured log line per request.
  *
- * @remarks
  * Mount AFTER `requestIdMiddleware` so `requestId` is already on the context.
- * Captures `path`, `method`, `status`, `durationMs`, and `requestId` — never
- * the request body (size + secret risk).
  *
  * @example
  * ```ts
  * app.use('*', requestIdMiddleware);
  * app.use('*', requestLogger);
  * ```
- *
- * @throws Never — soft-fails so logging issues cannot break a request.
  */
 export async function requestLogger(c: LogContext, next: () => Promise<void>): Promise<void> {
   const start = Date.now();
@@ -271,19 +348,14 @@ export async function requestLogger(c: LogContext, next: () => Promise<void>): P
   } finally {
     const durationMs = Date.now() - start;
     try {
-      emit(
-        'info',
-        'http_request',
-        {
-          method: c.req.method,
-          path: new URL(c.req.url).pathname,
-          status: c.res.status,
-          durationMs,
-        },
-        c,
-      );
+      log.info('http_request', {
+        method: c.req.method,
+        path: new URL(c.req.url).pathname,
+        status: c.res.status,
+        durationMs,
+      }, c);
     } catch {
-      // No-op: never let logging break a response.
+      // Never let logging break a response.
     }
   }
 }

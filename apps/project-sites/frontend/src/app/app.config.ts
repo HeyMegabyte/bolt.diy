@@ -1,4 +1,4 @@
-import { type ApplicationConfig, APP_INITIALIZER, ErrorHandler, importProvidersFrom, inject, isDevMode, provideZoneChangeDetection } from '@angular/core';
+import { type ApplicationConfig, APP_INITIALIZER, ErrorHandler, Injector, importProvidersFrom, inject, isDevMode, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter, Router, withViewTransitions } from '@angular/router';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
@@ -45,20 +45,29 @@ function initTranslations(translate: TranslateService) {
 
 /**
  * Composite ErrorHandler: forwards to the existing GlobalErrorHandler (toasts +
- * structured logs + section-error-bus) AND to `Sentry.errorHandler()` so events
- * are captured for offline analysis. Both paths run for every error — neither
- * is allowed to swallow the other.
+ * structured logs + section-error-bus) AND to `Sentry.createErrorHandler()` so
+ * every unhandled exception reaches Sentry even when the DI-injected
+ * SentryService is unavailable (e.g., very early bootstrap errors).
+ *
+ * Uses `Injector` to lazily resolve `GlobalErrorHandler` so Angular's full DI
+ * tree (ToastService, Router, SectionErrorBus, SentryService) is available when
+ * `handleError` is first called — not during construction.
  */
 class CompositeErrorHandler implements ErrorHandler {
-  private readonly app = new GlobalErrorHandler();
+  private readonly injector = inject(Injector);
   private readonly sentryHandler = Sentry.createErrorHandler({
     showDialog: false,
     logErrors: false,
   });
 
+  /** Lazy-resolved so we don't instantiate GlobalErrorHandler before DI is ready. */
+  private get appHandler(): GlobalErrorHandler {
+    return this.injector.get(GlobalErrorHandler);
+  }
+
   handleError(error: unknown): void {
     try {
-      this.app.handleError(error);
+      this.appHandler.handleError(error);
     } finally {
       try {
         this.sentryHandler.handleError(error);
@@ -78,10 +87,14 @@ export const appConfig: ApplicationConfig = {
       withInterceptors([retryInterceptor, sentryBreadcrumbInterceptor, loadingInterceptor]),
     ),
     provideAnimations(),
-    // Single ErrorHandler that fans out to both the in-app toast surface AND
-    // Sentry. Plain GlobalErrorHandler also self-reports to Sentry via
-    // SentryService for cases where it's instantiated directly (tests).
-    { provide: ErrorHandler, useClass: GlobalErrorHandler },
+    // CompositeErrorHandler fans out to both GlobalErrorHandler (toast +
+    // structured logs + section-error-bus) AND Sentry.createErrorHandler() so
+    // every unhandled exception reaches Sentry even when the DI-injected
+    // SentryService is unavailable (e.g., very early bootstrap errors).
+    // GlobalErrorHandler is also registered directly so CompositeErrorHandler's
+    // lazy injector.get() can resolve it with the full DI tree intact.
+    GlobalErrorHandler,
+    { provide: ErrorHandler, useClass: CompositeErrorHandler },
     // Sentry TraceService — auto-instruments router navigations as transactions.
     {
       provide: Sentry.TraceService,
@@ -131,8 +144,8 @@ export const appConfig: ApplicationConfig = {
   ],
 };
 
-// Re-export CompositeErrorHandler for tests/inspection. The active provider
-// above uses GlobalErrorHandler (which itself reports to Sentry via injection)
-// so the composite handler is available as an alternative provider strategy
-// if a future config wants explicit dual-dispatch.
+// Re-export CompositeErrorHandler for tests/inspection.
+// CompositeErrorHandler is the active provider — it delegates to
+// GlobalErrorHandler (toast + logs + section-error-bus) AND to
+// Sentry.createErrorHandler() for belt-and-suspenders capture.
 export { CompositeErrorHandler };
