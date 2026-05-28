@@ -1,5 +1,5 @@
 import { Component, type OnInit, type OnDestroy, inject, signal, ElementRef, ViewChild } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, forkJoin, of, takeUntil } from 'rxjs';
 import { ApiService, type BusinessResult } from '../../services/api.service';
@@ -27,7 +27,7 @@ interface SearchItem {
 @Component({
   selector: 'app-search',
   standalone: true,
-  imports: [FormsModule ],
+  imports: [FormsModule, RouterLink],
   templateUrl: './search.component.html',
   styleUrl: './search.component.scss',
 })

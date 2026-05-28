@@ -10,13 +10,13 @@
       </div>
       <h2 class="text-[1.6rem] font-[800] mb-2 bg-gradient-to-r from-white to-primary bg-clip-text text-transparent">Dashboard</h2>
       <p class="text-[0.9rem] text-text-secondary mb-8 leading-normal">Sign in to access your admin dashboard and manage your sites.</p>
-      <a class="inline-flex items-center justify-center gap-2.5 w-full py-3.5 px-6 rounded-xl bg-primary text-dark font-semibold text-base cursor-pointer transition-all hover:brightness-110 hover:shadow-[0_0_24px_rgba(0,229,255,0.4)] no-underline" href="/signin">
+      <a class="inline-flex items-center justify-center gap-2.5 w-full py-3.5 px-6 rounded-xl bg-primary text-dark font-semibold text-base cursor-pointer transition-all hover:brightness-110 hover:shadow-[0_0_24px_rgba(0,229,255,0.4)] no-underline" routerLink="/signin">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
         </svg>
         Sign In
       </a>
-      <a class="inline-flex items-center gap-1.5 text-[0.85rem] text-text-secondary cursor-pointer mt-5 transition-all hover:text-primary no-underline" href="/">
+      <a class="inline-flex items-center gap-1.5 text-[0.85rem] text-text-secondary cursor-pointer mt-5 transition-all hover:text-primary no-underline" routerLink="/">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
         Back to homepage
       </a>
@@ -37,7 +37,7 @@
   <!-- LEFT SIDEBAR                                        -->
   <!-- ═══════════════════════════════════════════════════ -->
   <aside
-    class="w-[260px] min-w-[260px] bg-dark border-r border-white/[0.06] flex flex-col h-screen sticky top-0 z-[100] overflow-y-auto overflow-x-hidden flex-shrink-0 sidebar-scrollbar max-md:fixed max-md:left-0 max-md:top-0 max-md:bottom-0 max-md:z-[1000] max-md:transition-transform max-md:duration-[250ms] max-md:ease-[cubic-bezier(0.4,0,0.2,1)]"
+    class="w-[232px] min-w-[232px] bg-dark border-r border-white/[0.06] flex flex-col h-screen sticky top-0 z-[100] overflow-y-auto overflow-x-hidden flex-shrink-0 sidebar-scrollbar max-md:fixed max-md:left-0 max-md:top-0 max-md:bottom-0 max-md:z-[1000] max-md:transition-transform max-md:duration-[250ms] max-md:ease-[cubic-bezier(0.4,0,0.2,1)]"
     [class.max-md:-translate-x-full]="sidebarCollapsed()">
 
     <!-- Logo -->

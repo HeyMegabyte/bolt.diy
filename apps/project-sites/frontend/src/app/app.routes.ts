@@ -3,21 +3,20 @@ import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   {
-    // Cinematic landing — persona-aligned voice, animated OKLCH mesh, typing
-    // AI pill that routes to /create. Bundle "Cinematic" finish, 2026-05-24.
+    // Marketing homepage — classic A/B/C surface restored as the default
+    // per 2026-05-28 user directive. All navigation stays SPA-only inside
+    // the AppComponent shell (no full page reloads on internal nav).
     path: '',
     loadComponent: () =>
-      import('./pages/homepage/cinematic/cinematic-landing.component').then(
-        (m) => m.CinematicLandingComponent,
-      ),
+      import('./pages/homepage/homepage.component').then((m) => m.HomepageComponent),
   },
   {
-    // Previous A/B/C marketing homepage preserved as a fallback so any
-    // existing inbound link, screenshot test, or PostHog event can still
-    // reach it.
+    // Backward-compat alias: any old link to /classic still resolves to
+    // the same homepage component (no 404 for inbound PostHog events /
+    // screenshot tests / external bookmarks).
     path: 'classic',
-    loadComponent: () =>
-      import('./pages/homepage/homepage.component').then((m) => m.HomepageComponent),
+    redirectTo: '',
+    pathMatch: 'full',
   },
   {
     // Super-admin — gated server-side on `users.is_super_admin = 1` (the
