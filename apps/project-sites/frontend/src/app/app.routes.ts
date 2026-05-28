@@ -144,6 +144,13 @@ export const routes: Routes = [
           import('./pages/admin/sections/audit.component').then((m) => m.AdminAuditComponent),
       },
       {
+        // Public API token management — create / list / revoke psk_* tokens.
+        // Backend: GET|POST|DELETE /api/v1-tokens; flag-gated: public_api_v1.
+        path: 'api-tokens',
+        loadComponent: () =>
+          import('./pages/admin/sections/api-tokens.component').then((m) => m.AdminApiTokensComponent),
+      },
+      {
         // Feature flag registry browser + admin override editor.
         // Reads from GET /api/feature-flags, supports filter / search / toggle.
         path: 'feature-flags',
@@ -267,6 +274,20 @@ export const routes: Routes = [
         path: 'domains',
         loadComponent: () =>
           import('./pages/admin/sections/domains.component').then((m) => m.AdminDomainsComponent),
+      },
+      // Domain Stack Wizard — 7-tile progress board (DNS→SSL→email-auth→GSC).
+      // Feature-flagged: domain_stack_wizard.
+      {
+        path: 'domains/:id/stack',
+        loadComponent: () =>
+          import('./pages/admin/sections/domain-stack.component').then((m) => m.AdminDomainStackComponent),
+      },
+      // Worker Tail Log Explorer — 30-day FTS + cost attribution per route.
+      // Feature-flagged: log_explorer.
+      {
+        path: 'logs',
+        loadComponent: () =>
+          import('./pages/admin/sections/logs-explorer.component').then((m) => m.AdminLogsExplorerComponent),
       },
       // ─── Apps store ───────────────────────────────────────────────
       // Catalog of self-hostable apps deployable to Cloudflare Workers

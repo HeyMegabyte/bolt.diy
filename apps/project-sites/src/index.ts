@@ -60,6 +60,8 @@ import { pulseAnalytics, runHourlyPulseAnalyticsCron } from './routes/pulse_anal
 import { voiceRoutes } from './routes/voice.js';
 import { voiceWebhookRoutes } from './routes/voice_webhooks.js';
 import { domainPurchase } from './routes/domain_purchase.js';
+import { domainStack } from './routes/domain_stack.js';
+import { logs as logsRoutes } from './routes/logs.js';
 import { superAdmin } from './routes/super_admin.js';
 import { wallet as walletRoutes } from './routes/wallet.js';
 import { agency } from './routes/agency.js';
@@ -67,10 +69,16 @@ import { billingAddons } from './routes/billing_addons.js';
 import { agents } from './routes/agents.js';
 import { templates as templatesRoutes } from './routes/templates.js';
 import { mcpSite } from './routes/mcp_site.js';
+import { siteBranchesApp } from './routes/site_branches.js';
 import { experiments } from './routes/experiments.js';
 import { mediaRoutes } from './routes/media.js';
 import { publicRoutes } from './routes/public.js';
+import { publicApiV1 } from './routes/public_api.js';
+import { contentRoutes } from './routes/content.js';
+import { pseoRoutes } from './routes/pseo.js';
 import features from './routes/features.js';
+import { inbox } from './routes/inbox.js';
+import { copilot } from './routes/copilot.js';
 import { siteDetailTabs } from './routes/site_detail_tabs.js';
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
@@ -82,6 +90,8 @@ export { DriveSyncWorkflow } from './workflows/drive-sync.js';
 export { ImageGenerationWorkflow } from './workflows/image-generation.js';
 export { SnapshotQualityWorkflow } from './workflows/snapshot-quality.js';
 export { SocialPublishWorkflow } from './workflows/social-publish.js';
+export { ContentFreshnessWorkflow } from './workflows/content-freshness-workflow.js';
+export { PseoGenerationWorkflow } from './workflows/pseo-generation-workflow.js';
 export { SiteBuilderContainer } from './container.js';
 export { TraceHub, ActivityHub } from './durable_objects/trace_hub.js';
 export { AppRuntimeContainer } from './durable_objects/app_runtime.js';
@@ -306,17 +316,25 @@ app.route('/', socialRoutes); // /api/social/{accounts,posts}/* — Pulse Social
 app.route('/', voiceRoutes); // /api/voice/* — AI Voice + SMS Agent (numbers, vanity, calls, messages, settings)
 app.route('/', voiceWebhookRoutes); // /webhooks/voice/* + /webhooks/sms/* + /internal/voice/* — Twilio webhook + media stream bridge
 app.route('/', domainPurchase); // Wallet-charged /api/domains/purchase + /api/billing/checkout/{wallet,topup} + /api/billing/wallet — must precede `api` so the wallet-aware purchase route wins over the legacy hosted-checkout route
+app.route('/', domainStack); // Domain Stack Wizard: POST /api/domains/:hostname/stack + GET /api/domains/:hostname/stack-status (flag: domain_stack_wizard)
+app.route('/', logsRoutes); // Worker tail log explorer: POST /api/logs/search + GET /api/logs/cost-by-route (flag: log_explorer)
 app.route('/', superAdmin); // /api/super-admin/* — cost-factor controls + wallet ops + 100-feature ops (is_super_admin=1 guarded)
 app.route('/', walletRoutes); // /api/wallet/* — customer-facing wallet read/subscribe/topup (additive aliases over domain_purchase /api/billing/wallet)
 app.route('/', agency); // /api/agency/* — white-label / agency surface (Pro-gated, manages child orgs + brand overrides + Stripe Connect)
 app.route('/', billingAddons); // /api/billing/addons/*, /api/billing/checkout/topup, /api/billing/usage/*, /api/billing/invoices/*, /api/billing/subscription/cancel, /api/agency/stripe-connect/onboard, /api/affiliates/payouts
 app.route('/', agents); // /api/(sites/:siteId/agents|agents/:id)/* — AI Agents (per-site autonomous maintenance, Pro-gated)
 app.route('/', templatesRoutes); // /api/templates + /api/sites/:siteId/install-template — templates marketplace
+app.route('/', inbox); // /api/inbox/* — Unified Visitor Inbox (flag: unified_inbox)
+app.route('/', copilot); // /api/sites/:slug/copilot/* + /sites/:slug/copilot.js — Multimodal Copilot (flag: multimodal_copilot)
 app.route('/', features); // Feature endpoints (every /api/* path flag-gated via isFlagOn) + public discovery surfaces (llms.txt, /accessibility, /.well-known/mcp, /api/openapi.json). Must precede mcpSite so marketing-root /.well-known/mcp wins.
 app.route('/', mcpSite); // /{slug}/.well-known/* + /{slug}/mcp + /api/sites/:siteId/mcp/* — MCP per-site server
+app.route('/', siteBranchesApp); // /api/sites/:siteId/branches — branch-style site previews (#27)
 app.route('/', experiments); // /_ps/{i,c,e,predict} + /api/sites/:siteId/experiments — Thompson-sampling A/B + predictive prerender
 app.route('/', mediaRoutes); // /api/media/* — unified media library (uploads, stock, AI gen, send-to-bolt)
 app.route('/', publicRoutes); // /changelog.json + /feed.xml + /api/public/{roadmap,integrations} — distribution flywheel surfaces; must precede the catch-all so the marketing worker never tries to resolve a site for these paths
+app.route('/', publicApiV1); // Public REST API v1 (/v1/*) + token management (/api/v1-tokens) — flag-gated behind public_api_v1
+app.route('/api/content', contentRoutes); // Content Freshness — feature #16: drafts list/approve/reject/trigger
+app.route('/api/pseo', pseoRoutes); // pSEO Matrix Builder — feature #17: service×city×intent×season generator
 
 app.route('/', api);
 app.route('/', webhooks);
@@ -963,6 +981,18 @@ export default {
             error: err instanceof Error ? err.message : String(err),
           }),
         );
+      }
+    }
+
+    // Daily 06:00 UTC — content freshness: scan stale sections, AI-rewrite,
+    // post drafts to task inbox. Flag-gated (content_freshness, default off).
+    if (_event.cron === '0 6 * * *') {
+      try {
+        const { scheduledContentFreshness } = await import('./services/content_freshness.js');
+        await scheduledContentFreshness(env);
+        console.warn(JSON.stringify({ level: 'info', service: 'cron', message: 'Content freshness run complete' }));
+      } catch (err) {
+        console.warn(JSON.stringify({ level: 'error', service: 'cron', message: 'Content freshness failed', error: String(err) }));
       }
     }
 
