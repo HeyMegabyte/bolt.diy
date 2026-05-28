@@ -136,6 +136,22 @@ export const routes: Routes = [
           import('./pages/admin/sections/audit.component').then((m) => m.AdminAuditComponent),
       },
       {
+        // Feature flag registry browser + admin override editor.
+        // Reads from GET /api/feature-flags, supports filter / search / toggle.
+        path: 'feature-flags',
+        loadComponent: () =>
+          import('./pages/admin/sections/feature-flags.component').then((m) => m.AdminFeatureFlagsComponent),
+      },
+      {
+        // Features Hub — every shipped feature in one searchable surface.
+        // Tabbed by theme (Stack / CWV / GEO / A11y / Editor / Monetize /
+        // Observability / Media / Platform / Gaps). Per-card flag state +
+        // "Try it" buttons that hit the real endpoints.
+        path: 'features',
+        loadComponent: () =>
+          import('./pages/admin/sections/features-hub.component').then((m) => m.AdminFeaturesHubComponent),
+      },
+      {
         path: 'forms',
         loadComponent: () =>
           import('./pages/admin/sections/forms.component').then((m) => m.AdminFormsComponent),

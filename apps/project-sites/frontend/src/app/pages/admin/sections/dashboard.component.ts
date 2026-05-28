@@ -23,7 +23,7 @@ import {
 } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { DashboardChatService } from './dashboard/dashboard-chat.service';
 import {
   SlashCommandRegistryService,
@@ -31,15 +31,42 @@ import {
 } from './dashboard/slash-command-registry.service';
 import { WidgetRendererComponent } from './dashboard/widgets';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { AdminUpgradesShellComponent } from '../../../components/admin-upgrades/admin-upgrades-shell.component';
 import { AdminStateService } from '../admin-state.service';
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, WidgetRendererComponent, RevealDirective],
+  imports: [FormsModule, RouterLink, WidgetRendererComponent, RevealDirective, AdminUpgradesShellComponent],
   template: `
     <main class="dash" aria-label="Dashboard">
+      <!-- 30 admin-dashboard upgrades shell — all features mounted here so
+           they render across every /admin/* route via the persistent
+           dashboard host. Each feature carries data-upgrade="N" for E2E. -->
+      <app-admin-upgrades-shell></app-admin-upgrades-shell>
+      <!-- New: Features Hub + Feature Flags discovery banner. Sidebar entries
+           for these two surfaces aren't compiling into the bundle yet
+           (Angular templateUrl cache issue, under investigation), so we
+           render a prominent entry point on the dashboard itself. -->
+      <section class="features-banner" role="navigation" aria-label="Newly shipped features">
+        <a class="features-banner-card" routerLink="/admin/features">
+          <span class="features-banner-icon" aria-hidden="true">⚡</span>
+          <span class="features-banner-body">
+            <strong>Features Hub</strong>
+            <span class="features-banner-sub">Every feature in one place — Stack / CWV / GEO / A11y / Editor / Monetize / Observability / Media / Platform / Gaps. Live "Try it" buttons.</span>
+          </span>
+          <span class="features-banner-cta" aria-hidden="true">→</span>
+        </a>
+        <a class="features-banner-card features-banner-card-alt" routerLink="/admin/feature-flags">
+          <span class="features-banner-icon" aria-hidden="true">⚑</span>
+          <span class="features-banner-body">
+            <strong>Feature Flags</strong>
+            <span class="features-banner-sub">Toggle, roll out, killswitch 50+ feature flags. Stage filter, per-flag inspect, hash-chain audit trail.</span>
+          </span>
+          <span class="features-banner-cta" aria-hidden="true">→</span>
+        </a>
+      </section>
       @if (chat.messages().length === 0) {
         <section class="hero" appReveal>
           <div class="halo" aria-hidden="true"></div>
@@ -161,6 +188,20 @@ import { AdminStateService } from '../admin-state.service';
     </main>
   `,
   styles: [
+    `
+    .features-banner { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; padding: 1.25rem 1.5rem 0; }
+    @media (max-width: 720px) { .features-banner { grid-template-columns: 1fr; } }
+    .features-banner-card { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.15rem; background: color-mix(in oklch, var(--ps-bg, #060610) 50%, transparent); border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent); border-radius: 14px; text-decoration: none; color: inherit; transition: border-color .15s ease, transform .15s ease; }
+    .features-banner-card:hover { border-color: var(--ps-accent, #00e5ff); transform: translateY(-1px); }
+    .features-banner-card-alt { border-color: color-mix(in oklch, #fbbf24 30%, transparent); }
+    .features-banner-card-alt:hover { border-color: #fbbf24; }
+    .features-banner-icon { font-size: 1.6rem; flex-shrink: 0; }
+    .features-banner-body { display: flex; flex-direction: column; gap: .15rem; flex: 1; }
+    .features-banner-body strong { font-size: 1.05rem; }
+    .features-banner-sub { font-size: .8rem; color: color-mix(in oklch, currentColor 65%, transparent); line-height: 1.45; }
+    .features-banner-cta { font-size: 1.4rem; opacity: .65; }
+    .features-banner-card:hover .features-banner-cta { opacity: 1; }
+    `,
     `
       :host {
         display: block;
