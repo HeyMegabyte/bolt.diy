@@ -1,0 +1,12 @@
+{
+  "entry": [
+    "src/main.ts",
+    "src/app/app.config.ts"
+  ],
+  "project": ["src/**/*.ts"],
+  "ignore": [
+    "e2e/**",
+    "src/**/*.spec.ts"
+  ],
+  "ignoreExportsUsedInFile": true
+}

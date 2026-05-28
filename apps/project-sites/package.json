@@ -54,7 +54,6 @@
     "@types/jszip": "^3.4.0",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.54.0",
-    "cli-real-favicon": "^0.0.9",
     "eslint": "^9.39.2",
     "eslint-plugin-perfectionist": "^5.9.0",
     "jest": "^29.7.0",

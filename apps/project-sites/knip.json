@@ -1,0 +1,17 @@
+{
+  "entry": [
+    "src/index.ts",
+    "src/durable_objects/**/*.ts",
+    "src/workflows/**/*.ts",
+    "src/container.ts"
+  ],
+  "project": ["src/**/*.ts"],
+  "ignore": [
+    "src/**/__tests__/**",
+    "migrations/**",
+    "e2e/**",
+    "prompts/**"
+  ],
+  "ignoreDependencies": [],
+  "ignoreExportsUsedInFile": true
+}
