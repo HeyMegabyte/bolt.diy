@@ -138,31 +138,31 @@
 
 ## G. Site lifecycle — `SITE-*`
 
-- [ ] SITE-01 — Create site (manual `POST /api/sites`) → row in D1 → (no spec yet — to RED)
+- [x] SITE-01 — Create site (manual `POST /api/sites`) → row in D1 → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
 - [ ] SITE-02 — Create from search → triggers `site-generation` workflow → `e2e/ai-workflow.spec.ts`
-- [ ] SITE-03 — `GET /api/sites` lists caller's sites → (no spec yet — to RED)
-- [ ] SITE-04 — `GET /api/sites/:id` returns single → (no spec yet — to RED)
+- [x] SITE-03 — `GET /api/sites` lists caller's sites → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
+- [x] SITE-04 — `GET /api/sites/:id` returns single → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
 - [ ] SITE-05 — `GET /api/sites/:id/workflow` shows step-by-step progress → `e2e/ai-workflow.spec.ts`
 - [ ] SITE-06 — `GET /api/sites/:id/logs` returns audit log slice → `e2e/logs-and-delete.spec.ts`
-- [ ] SITE-07 — `POST /api/sites/:id/reset` flips status to draft + rebuilds → (no spec yet — to RED)
-- [ ] SITE-08 — `POST /api/sites/:id/deploy` accepts zip → unpacks to R2 → (no spec yet — to RED)
-- [ ] SITE-09 — `POST /api/sites/:id/publish-bolt` publishes bolt files → (no spec yet — to RED)
+- [x] SITE-07 — `POST /api/sites/:id/reset` flips status to draft + rebuilds → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
+- [x] SITE-08 — `POST /api/sites/:id/deploy` accepts zip → unpacks to R2 → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
+- [x] SITE-09 — `POST /api/sites/:id/publish-bolt` publishes bolt files → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
 - [ ] SITE-10 — `DELETE /api/sites/:id` soft-deletes + clears KV → `e2e/logs-and-delete.spec.ts`
-- [ ] SITE-11 — Subdomain serving: `{slug}.projectsites.dev` resolves from D1+KV → (no spec yet — to RED)
-- [ ] SITE-12 — Unpaid site injects top bar after `<body>` → (no spec yet — to RED)
+- [x] SITE-11 — Subdomain serving: `{slug}.projectsites.dev` resolves from D1+KV → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
+- [x] SITE-12 — Unpaid site injects top bar after `<body>` → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
 - [ ] SITE-13 — Custom hostname provisioning via CF for SaaS → `e2e/domain-management.spec.ts`
 - [ ] SITE-14 — Set primary hostname swaps default → `e2e/domain-management.spec.ts`
 - [ ] SITE-15 — Hostname unsubscribe removes from primary → `e2e/domain-management.spec.ts`
-- [ ] SITE-16 — Branded error pages (400/404/500/503) render with Fira Code → (no spec yet — to RED)
+- [x] SITE-16 — Branded error pages (400/404/500/503) render with Fira Code → `e2e/site-lifecycle/site-crud.spec.ts` ✓ wired
 
 ## H. Editor / Bolt embed — `EDITOR-*`
 
 - [ ] EDITOR-01 — `/admin/editor` mounts iframe to `editor.projectsites.dev` → `e2e/bolt-chat-ready.spec.ts`
-- [ ] EDITOR-02 — Bolt iframe survives admin sub-route nav (BoltEmbedService) → (no spec yet — to RED)
+- [x] EDITOR-02 — Bolt iframe survives admin sub-route nav (BoltEmbedService) → `e2e/editor/editor-lifecycle.spec.ts` ✓ wired
 - [ ] EDITOR-03 — `PS_BOLT_READY` postMessage flips loading state → `e2e/bolt-chat-ready.spec.ts`
-- [ ] EDITOR-04 — `PS_APP_RUNNING` postMessage enables save → (no spec yet — to RED)
-- [ ] EDITOR-05 — `PS_FILES_READY` postMessage enables publish → (no spec yet — to RED)
-- [ ] EDITOR-06 — Bolt chat persists via `/api/editor/chats/*` → (no spec yet — to RED)
+- [x] EDITOR-04 — `PS_APP_RUNNING` postMessage enables save → `e2e/editor/editor-lifecycle.spec.ts` ✓ wired
+- [x] EDITOR-05 — `PS_FILES_READY` postMessage enables publish → `e2e/editor/editor-lifecycle.spec.ts` ✓ wired
+- [x] EDITOR-06 — Bolt chat persists via `/api/editor/chats/*` → `e2e/editor/editor-lifecycle.spec.ts` ✓ wired
 - [ ] EDITOR-07 — AI-edit (Cmd+I in iframe) round-trips → `e2e/ai-edit.spec.ts`
 - [ ] EDITOR-08 — Inline editing in published preview → `e2e/inline-editing.spec.ts`
 
@@ -174,7 +174,7 @@
 - [ ] MEDIA-04 — DALL·E image generation → `e2e/media-image-studio.spec.ts`
 - [ ] MEDIA-05 — Podcast TTS generation (ElevenLabs / OpenAI) → `e2e/media-podcast-studio.spec.ts`
 - [ ] MEDIA-06 — Send-to-bolt mints signed URL consumed by iframe → `e2e/media-send-to-bolt.spec.ts`
-- [ ] MEDIA-07 — Soft-delete asset hides from list → (no spec yet — to RED)
+- [x] MEDIA-07 — Soft-delete asset hides from list → `e2e/media/media-coverage.spec.ts` ✓ wired
 
 ## J. Env vars — `ENV-*`
 
@@ -187,23 +187,23 @@
 ## K. AI workflow & build — `WORK-*`
 
 - [ ] WORK-01 — Workflow step 1: `research-profile` returns business_type → `e2e/ai-workflow.spec.ts`
-- [ ] WORK-02 — Workflow step 2 parallel: social+brand+selling-points+images all complete → (no spec yet — to RED)
-- [ ] WORK-03 — Workflow step 2.5: logo + favicon-set + section-images generated → (no spec yet — to RED)
-- [ ] WORK-04 — Workflow step 2.5b: scrape-website populates `_scraped_content.json` → (no spec yet — to RED)
-- [ ] WORK-05 — Workflow step 3: structure-plan emits route tree → (no spec yet — to RED)
-- [ ] WORK-06 — Workflow step 4: container-build returns dist → R2 → (no spec yet — to RED)
-- [ ] WORK-07 — Workflow step 5: visual-inspection-final scores ≥7 → (no spec yet — to RED)
-- [ ] WORK-08 — Workflow retries on transient failure (3x backoff) → (no spec yet — to RED)
+- [x] WORK-02 — Workflow step 2 parallel: social+brand+selling-points+images all complete → `e2e/work/workflow-steps.spec.ts` ✓ wired
+- [x] WORK-03 — Workflow step 2.5: logo + favicon-set + section-images generated → `e2e/work/workflow-steps.spec.ts` ✓ wired
+- [x] WORK-04 — Workflow step 2.5b: scrape-website populates `_scraped_content.json` → `e2e/work/workflow-steps.spec.ts` ✓ wired
+- [x] WORK-05 — Workflow step 3: structure-plan emits route tree → `e2e/work/workflow-steps.spec.ts` ✓ wired
+- [x] WORK-06 — Workflow step 4: container-build returns dist → R2 → `e2e/work/workflow-steps.spec.ts` ✓ wired
+- [x] WORK-07 — Workflow step 5: visual-inspection-final scores ≥7 → `e2e/work/workflow-steps.spec.ts` ✓ wired
+- [x] WORK-08 — Workflow retries on transient failure (3x backoff) → `e2e/work/workflow-steps.spec.ts` ✓ wired
 - [ ] WORK-09 — Confidence UI surfaces per-attribute scores → `e2e/confidence-ui.spec.ts`
 - [ ] WORK-10 — Business enrichment via Google Places → `e2e/business-enrichment.spec.ts`
 
 ## L. Webhooks — `WEBHOOK-*`
 
-- [ ] WEBHOOK-01 — `/webhooks/stripe` signature verification rejects bad signature → (no spec yet — to RED)
-- [ ] WEBHOOK-02 — `/webhooks/stripe` dedupes by `event.id` (idempotency) → (no spec yet — to RED)
-- [ ] WEBHOOK-03 — `/webhooks/voice/twilio-voice` accepts call events → (no spec yet — to RED)
-- [ ] WEBHOOK-04 — `/webhooks/sms/twilio-sms` accepts inbound SMS → (no spec yet — to RED)
-- [ ] WEBHOOK-05 — `/internal/voice/media-stream` bridges Twilio audio → ElevenLabs → (no spec yet — to RED)
+- [x] WEBHOOK-01 — `/webhooks/stripe` signature verification rejects bad signature → `e2e/webhook/webhooks.spec.ts` ✓ wired
+- [x] WEBHOOK-02 — `/webhooks/stripe` dedupes by `event.id` (idempotency) → `e2e/webhook/webhooks.spec.ts` ✓ wired
+- [x] WEBHOOK-03 — `/webhooks/voice/twilio-voice` accepts call events → `e2e/webhook/webhooks.spec.ts` ✓ wired
+- [x] WEBHOOK-04 — `/webhooks/sms/twilio-sms` accepts inbound SMS → `e2e/webhook/webhooks.spec.ts` ✓ wired
+- [x] WEBHOOK-05 — `/internal/voice/media-stream` bridges Twilio audio → ElevenLabs → `e2e/webhook/webhooks.spec.ts` ✓ wired
 
 ## M. Per-feature-flag — `FLAG-*` (one per of 103 flags)
 
@@ -318,36 +318,36 @@
 
 ## N. MCP — `MCP-*`
 
-- [ ] MCP-01 — `/api/mcp/:provider/connect` returns authorize URL with PKCE → (no spec yet — to RED)
-- [ ] MCP-02 — `/api/mcp/:provider/callback` exchanges code + encrypts token → (no spec yet — to RED)
-- [ ] MCP-03 — `/api/mcp/:provider/connect` returns 501 when OAuth unconfigured → (no spec yet — to RED)
-- [ ] MCP-04 — `/api/mcp/:provider/paste` accepts paste-key when 501 → (no spec yet — to RED)
-- [ ] MCP-05 — Site MCP server `/{slug}/mcp` serves manifest → (no spec yet — to RED)
-- [ ] MCP-06 — Site MCP server `/{slug}/.well-known/mcp` discovery → (no spec yet — to RED)
+- [x] MCP-01 — `/api/mcp/:provider/connect` returns authorize URL with PKCE → `e2e/mcp/mcp-providers.spec.ts` ✓ wired
+- [x] MCP-02 — `/api/mcp/:provider/callback` exchanges code + encrypts token → `e2e/mcp/mcp-providers.spec.ts` ✓ wired
+- [x] MCP-03 — `/api/mcp/:provider/connect` returns 501 when OAuth unconfigured → `e2e/mcp/mcp-providers.spec.ts` ✓ wired
+- [x] MCP-04 — `/api/mcp/:provider/paste` accepts paste-key when 501 → `e2e/mcp/mcp-providers.spec.ts` ✓ wired
+- [x] MCP-05 — Site MCP server `/{slug}/mcp` serves manifest → `e2e/mcp/mcp-providers.spec.ts` ✓ wired
+- [x] MCP-06 — Site MCP server `/{slug}/.well-known/mcp` discovery → `e2e/mcp/mcp-providers.spec.ts` ✓ wired
 
 ## O. Domains — `DOMAIN-*`
 
 - [ ] DOMAIN-01 — `/api/domains/search` returns availability across TLDs → `e2e/domain-management.spec.ts`
-- [ ] DOMAIN-02 — `/api/domains/purchase` charges wallet → registers domain → (no spec yet — to RED)
-- [ ] DOMAIN-03 — Domain picker shows live RDAP availability → (no spec yet — to RED)
+- [x] DOMAIN-02 — `/api/domains/purchase` charges wallet → registers domain → `e2e/domain/domain-flows.spec.ts` ✓ wired
+- [x] DOMAIN-03 — Domain picker shows live RDAP availability → `e2e/domain/domain-flows.spec.ts` ✓ wired
 - [ ] DOMAIN-04 — Add custom hostname → CF for SaaS verifies CNAME → `e2e/domain-management.spec.ts`
 - [ ] DOMAIN-05 — Hostname modal interactive (delete/primary toggle) → `e2e/domain-modal-interactive.spec.ts`
-- [ ] DOMAIN-06 — `/api/admin/domains` super-admin lists all domains → (no spec yet — to RED)
+- [x] DOMAIN-06 — `/api/admin/domains` super-admin lists all domains → `e2e/domain/domain-flows.spec.ts` ✓ wired
 
 ## P. Voice / SMS — `VOICE-*` (flag-gated `voice_editing`)
 
-- [ ] VOICE-01 — Reserve Twilio phone number → (no spec yet — to RED) — needs `TWILIO_*` secrets
-- [ ] VOICE-02 — Configure inbound voice agent prompt → (no spec yet — to RED)
-- [ ] VOICE-03 — Outbound SMS campaign send → (no spec yet — to RED)
-- [ ] VOICE-04 — Voice-mode keyboard shortcut activates dictation → (no spec yet — to RED)
+- [ ] VOICE-01 — Reserve Twilio phone number → `e2e/voice/voice-sms.spec.ts` — BLOCKED: needs `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` → https://console.twilio.com/us1/account/keys-credentials/api-keys
+- [ ] VOICE-02 — Configure inbound voice agent prompt → `e2e/voice/voice-sms.spec.ts` — BLOCKED: needs `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` → https://console.twilio.com/us1/account/keys-credentials/api-keys
+- [ ] VOICE-03 — Outbound SMS campaign send → `e2e/voice/voice-sms.spec.ts` — BLOCKED: needs `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_PHONE_NUMBER` → https://console.twilio.com/us1/develop/phone-numbers/manage/active
+- [x] VOICE-04 — Voice-mode keyboard shortcut activates dictation → `e2e/voice/voice-sms.spec.ts` ✓ wired (flag-off guard test)
 
 ## Q. Pulse Social — `SOCIAL-*`
 
-- [ ] SOCIAL-01 — Connect social account via OAuth (X, IG, FB, LI) → (no spec yet — to RED)
-- [ ] SOCIAL-02 — Paste-key fallback when OAuth unconfigured → (no spec yet — to RED)
-- [ ] SOCIAL-03 — Create + schedule cross-platform post → (no spec yet — to RED)
-- [ ] SOCIAL-04 — Aggregate analytics across accounts → (no spec yet — to RED)
-- [ ] SOCIAL-05 — Pulse post fan-out via Workflow → (no spec yet — to RED)
+- [x] SOCIAL-01 — Connect social account via OAuth (X, IG, FB, LI) → `e2e/social/social-flows.spec.ts` ✓ wired
+- [x] SOCIAL-02 — Paste-key fallback when OAuth unconfigured → `e2e/social/social-flows.spec.ts` ✓ wired
+- [x] SOCIAL-03 — Create + schedule cross-platform post → `e2e/social/social-flows.spec.ts` ✓ wired
+- [x] SOCIAL-04 — Aggregate analytics across accounts → `e2e/social/social-flows.spec.ts` ✓ wired
+- [x] SOCIAL-05 — Pulse post fan-out via Workflow → `e2e/social/social-flows.spec.ts` ✓ wired
 
 ## R. Big-bet feature surfaces — `BIG-*` (flag-gated, mocked-realistic)
 
