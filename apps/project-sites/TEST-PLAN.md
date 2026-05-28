@@ -336,9 +336,9 @@
 
 ## P. Voice / SMS — `VOICE-*` (flag-gated `voice_editing`)
 
-- [ ] VOICE-01 — Reserve Twilio phone number → `e2e/voice/voice-sms.spec.ts` — BLOCKED: needs `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` → https://console.twilio.com/us1/account/keys-credentials/api-keys
-- [ ] VOICE-02 — Configure inbound voice agent prompt → `e2e/voice/voice-sms.spec.ts` — BLOCKED: needs `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` → https://console.twilio.com/us1/account/keys-credentials/api-keys
-- [ ] VOICE-03 — Outbound SMS campaign send → `e2e/voice/voice-sms.spec.ts` — BLOCKED: needs `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_PHONE_NUMBER` → https://console.twilio.com/us1/develop/phone-numbers/manage/active
+- [x] VOICE-01 — Reserve Twilio phone number → `e2e/voice/voice-sms.spec.ts` ✓ wired — secrets provisioned (account currently suspended; reactivate at https://console.twilio.com/us1/billing/manage-billing/billing-overview before live SMS/voice)
+- [x] VOICE-02 — Configure inbound voice agent prompt → `e2e/voice/voice-sms.spec.ts` ✓ wired — secrets provisioned (account currently suspended; reactivate at https://console.twilio.com/us1/billing/manage-billing/billing-overview before live SMS/voice)
+- [x] VOICE-03 — Outbound SMS campaign send → `e2e/voice/voice-sms.spec.ts` ✓ wired — secrets provisioned (account currently suspended; reactivate at https://console.twilio.com/us1/billing/manage-billing/billing-overview before live SMS/voice)
 - [x] VOICE-04 — Voice-mode keyboard shortcut activates dictation → `e2e/voice/voice-sms.spec.ts` ✓ wired (flag-off guard test)
 
 ## Q. Pulse Social — `SOCIAL-*`
