@@ -18,11 +18,12 @@ import { Router, RouterLink, NavigationEnd } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { HttpClient } from '@angular/common/http';
 import { AdminUpgradesService } from '../../services/admin-upgrades.service';
+import { SparklineComponent, SplitViewDrawerComponent, SavedViewsComponent, PredictedActionsComponent, RowActionsDirective } from './top5.components';
 
 @Component({
   selector: 'app-admin-upgrades-shell',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, TranslateModule],
+  imports: [CommonModule, FormsModule, RouterLink, TranslateModule, SparklineComponent, SplitViewDrawerComponent, SavedViewsComponent, PredictedActionsComponent, RowActionsDirective],
   template: `
     <!-- #3 Top progress bar (YouTube-style) -->
     @if (upgrades.routeProgress() >= 0) {
@@ -269,6 +270,25 @@ import { AdminUpgradesService } from '../../services/admin-upgrades.service';
     <!-- #27 Per-list keyboard nav hint -->
     <small class="adm-kbnav-hint" data-upgrade="27">{{ 'admin.kbnav.hint' | translate }}</small>
 
+    <!-- Round-2 top-5 (flag-gated, opt-in beta) -->
+    <app-predicted-actions />
+    <app-saved-views />
+    <app-split-view-drawer />
+    <section class="adm-r2-demo">
+      <button class="adm-r2-demo-btn" (click)="openSplitDemo()" data-testid="r2-split-open">Open split-view demo</button>
+      <span class="adm-r2-demo-metric">
+        New sites this week: <strong>12</strong>
+        <app-sparkline [data]="[3, 5, 4, 7, 6, 9, 12]" ariaLabel="Sites this week"></app-sparkline>
+      </span>
+      <span class="adm-r2-demo-metric">
+        Lead conversions: <strong>4.2%</strong>
+        <app-sparkline [data]="[2.1, 2.8, 3.4, 3.9, 4.0, 4.1, 4.2]" ariaLabel="Conversion trend"></app-sparkline>
+      </span>
+      <div class="adm-r2-row-demo" [appRowActions]="rowDemoActions" data-testid="r2-row-demo">
+        Hover this row → quick actions appear (publish / archive / duplicate / share)
+      </div>
+    </section>
+
     <!-- #15 URL filter chips demo / #17 inline edit demo / #30 mention demo / #24 intl-format demo (small inline showcase) -->
     <section class="adm-showcase">
       <span data-upgrade="15" class="adm-filter-chip">filter:stage=experimental</span>
@@ -280,9 +300,10 @@ import { AdminUpgradesService } from '../../services/admin-upgrades.service';
     </section>
   `,
   styles: [`
-    :host { display: block; position: relative; }
-    .adm-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 100100; pointer-events: none; }
-    .adm-progress-bar { height: 100%; background: linear-gradient(90deg, var(--ps-accent, #00e5ff), #7c3aed); transition: width .2s ease-out; box-shadow: 0 0 10px var(--ps-accent, #00e5ff); }
+    /* ── Aesthetic pass 2026-05-28: tighter spacing, deeper gradients, subtle motion, glass layering. */
+    :host { display: block; position: relative; --ps-glass: color-mix(in oklch, var(--ps-bg, #060610) 65%, transparent); --ps-edge: color-mix(in oklch, currentColor 12%, transparent); --ps-elev: 0 1px 0 color-mix(in oklch, white 8%, transparent) inset, 0 8px 24px rgba(0, 0, 0, .12); }
+    .adm-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 100100; pointer-events: none; background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent); }
+    .adm-progress-bar { height: 100%; background: linear-gradient(90deg, var(--ps-accent, #00e5ff) 0%, #7c3aed 60%, #ff6b9d 100%); transition: width .18s cubic-bezier(.4, 0, .2, 1); box-shadow: 0 0 14px color-mix(in oklch, var(--ps-accent, #00e5ff) 70%, transparent); }
     .adm-skel { padding: 1rem 1.5rem; opacity: .65; }
     .adm-skel-line { height: 18px; border-radius: 6px; background: linear-gradient(90deg, color-mix(in oklch, currentColor 8%, transparent) 25%, color-mix(in oklch, currentColor 14%, transparent) 50%, color-mix(in oklch, currentColor 8%, transparent) 75%); background-size: 200% 100%; animation: adm-shimmer 1.4s linear infinite; margin-bottom: .5rem; }
     .adm-skel-line-1 { width: 40%; }
@@ -292,7 +313,7 @@ import { AdminUpgradesService } from '../../services/admin-upgrades.service';
     @keyframes adm-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
     @media (prefers-reduced-motion: reduce) { .adm-progress-bar, .adm-skel-line, .adm-skel-card { animation: none; transition: none; } }
 
-    .adm-topbar { display: flex; align-items: center; gap: .65rem; padding: .65rem 1.25rem; background: color-mix(in oklch, var(--ps-bg, #060610) 55%, transparent); border-bottom: 1px solid color-mix(in oklch, currentColor 10%, transparent); flex-wrap: wrap; position: relative; }
+    .adm-topbar { display: flex; align-items: center; gap: .65rem; padding: .7rem 1.25rem; background: var(--ps-glass); backdrop-filter: blur(14px) saturate(180%); -webkit-backdrop-filter: blur(14px) saturate(180%); border-bottom: 1px solid var(--ps-edge); flex-wrap: wrap; position: sticky; top: 0; z-index: 50; box-shadow: var(--ps-elev); }
     .adm-env { background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); padding: .25rem .55rem; border-radius: 6px; border: 0; font: inherit; font-weight: 700; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; }
     .adm-env[data-env="staging"] { background: #fbbf24; }
     .adm-env[data-env="local"] { background: #94a3b8; }
@@ -342,8 +363,9 @@ import { AdminUpgradesService } from '../../services/admin-upgrades.service';
     .adm-bulk button { background: var(--ps-bg, #060610); color: #fff; border: 0; padding: .35rem .8rem; border-radius: 999px; font: inherit; font-size: .85rem; cursor: pointer; }
     .adm-bulk-clear { background: transparent !important; color: inherit !important; font-size: 1.2rem !important; padding: 0 .25rem !important; }
 
-    .adm-fab { position: fixed; bottom: 1.25rem; right: 1.25rem; width: 56px; height: 56px; border-radius: 50%; background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); border: 0; cursor: pointer; box-shadow: 0 12px 32px rgba(0, 229, 255, .35); z-index: 99; display: flex; align-items: center; justify-content: center; }
-    .adm-fab:hover { transform: scale(1.04); }
+    .adm-fab { position: fixed; bottom: 1.25rem; right: 1.25rem; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--ps-accent, #00e5ff), #7c3aed); color: #fff; border: 0; cursor: pointer; box-shadow: 0 12px 32px rgba(0, 229, 255, .35), 0 4px 12px rgba(124, 58, 237, .25); z-index: 99; display: flex; align-items: center; justify-content: center; transition: transform .15s cubic-bezier(.4, 0, .2, 1), box-shadow .2s; }
+    .adm-fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 18px 42px rgba(0, 229, 255, .45), 0 6px 16px rgba(124, 58, 237, .35); }
+    @media (prefers-reduced-motion: reduce) { .adm-fab { transition: none; } .adm-fab:hover { transform: none; } }
     .adm-fab-panel { position: fixed; bottom: 5.5rem; right: 1.25rem; width: 360px; max-width: calc(100vw - 2.5rem); background: var(--ps-bg, #060610); border: 1px solid color-mix(in oklch, currentColor 16%, transparent); border-radius: 14px; padding: 1rem; z-index: 100; display: flex; flex-direction: column; gap: .65rem; }
     .adm-fab-panel header { display: flex; justify-content: space-between; align-items: center; }
     .adm-fab-panel textarea { background: color-mix(in oklch, currentColor 6%, transparent); border: 1px solid color-mix(in oklch, currentColor 14%, transparent); color: inherit; padding: .55rem; border-radius: 8px; font: inherit; }
@@ -381,6 +403,10 @@ import { AdminUpgradesService } from '../../services/admin-upgrades.service';
     .adm-intl { color: #4ade80; }
     .adm-preload { color: #a78bfa; }
     .adm-autotrans { color: #ff6b9d; }
+    .adm-r2-demo { padding: .65rem 1.5rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+    .adm-r2-demo-btn { background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); border: 0; padding: .35rem .85rem; border-radius: 6px; cursor: pointer; font: inherit; font-weight: 600; font-size: .85rem; }
+    .adm-r2-demo-metric { display: inline-flex; align-items: center; gap: .35rem; font-size: .9rem; opacity: .85; }
+    .adm-r2-row-demo { flex: 1 1 100%; padding: .75rem 1rem; background: color-mix(in oklch, currentColor 6%, transparent); border-radius: 8px; font-size: .85rem; }
   `],
 })
 export class AdminUpgradesShellComponent implements OnInit {
@@ -598,5 +624,26 @@ export class AdminUpgradesShellComponent implements OnInit {
   }
   selectRow(): void {
     this.selectedRowCount.update((c) => c + 1);
+  }
+
+  // Round-2 demo wiring
+  readonly rowDemoActions = [
+    { label: 'Publish', onClick: () => this.upgrades.trackAction({ label: 'row-publish' }) },
+    { label: 'Archive', onClick: () => this.upgrades.trackAction({ label: 'row-archive' }) },
+    { label: 'Duplicate', onClick: () => this.upgrades.trackAction({ label: 'row-duplicate' }) },
+    { label: 'Share', onClick: () => this.upgrades.trackAction({ label: 'row-share' }) },
+  ];
+
+  openSplitDemo(): void {
+    document.dispatchEvent(
+      new CustomEvent('ps-split-open', {
+        detail: {
+          title: 'Bayonne Bakery',
+          subtitle: 'Sample site detail in the split-view drawer',
+          route: '/admin/sites',
+          bodyHtml: '<p>This drawer opened without leaving the dashboard list. Click "Open full →" to navigate, or × to dismiss. Production: lists dispatch <code>ps-split-open</code> when a row is clicked.</p><p>The split-view drawer keeps the list visible while you inspect one item — no full-page navigation.</p>',
+        },
+      }),
+    );
   }
 }

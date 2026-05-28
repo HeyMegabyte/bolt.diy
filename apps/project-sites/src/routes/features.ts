@@ -20,6 +20,8 @@ import type { Env } from '../types/env';
 import { DOMAINS } from '@project-sites/shared';
 import * as F from '../services/features.js';
 import * as B from '../services/brilliant.js';
+import * as BB from '../services/big_bets.js';
+import * as IDE from '../services/ide_sandbox.js';
 import { isFlagOn, resolveFlag, FLAG_REGISTRY } from '../modules/feature_flags/services.js';
 import { listFlags } from '../modules/feature_flags/registry.js';
 import { FLAG_DOCS, getDocs } from '../modules/feature_flags/docs.js';
@@ -476,6 +478,203 @@ features.post('/api/changelog/generate', requireFlag('auto_changelog'), async (c
   const body = (await c.req.json().catch(() => ({}))) as { commits?: Array<{ sha: string; message: string; author: string; date: string }> };
   return c.json(await F.generateAutoChangelog(c.env, body.commits ?? [{ sha: 'abc1234', message: 'feat: ship features rollout', author: 'projectsites', date: new Date().toISOString() }]));
 });
+
+// ── 30 big-bet features — semantic per-feature endpoints ──────────────
+
+const json = async (c: { req: { json: () => Promise<unknown> } }) => (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+
+// A1 Visual editor
+features.post('/api/visual-editor/save', requireFlag('visual_editor_drag_drop'), async (c) => {
+  const b = await json(c) as { site_id?: string; layout?: unknown; breakpoint?: string };
+  return c.json(await BB.visualEditorSave(c.env, { siteId: b.site_id ?? 'demo-site', layout: b.layout ?? { sections: [] }, breakpoint: b.breakpoint }));
+});
+
+// A2 Ecommerce
+features.get('/api/ecommerce/products/:siteId', requireFlag('ecommerce_engine'), async (c) => c.json({ products: await BB.ecommerceListProducts(c.env, c.req.param('siteId')) }));
+features.post('/api/ecommerce/orders', requireFlag('ecommerce_engine'), async (c) => {
+  const b = await json(c) as { site_id?: string; email?: string; cents?: number };
+  return c.json(await BB.ecommerceCreateOrder(c.env, { siteId: b.site_id ?? 'demo-site', email: b.email ?? 'guest@demo.com', cents: b.cents ?? 1000 }));
+});
+
+// A3 Booking
+features.get('/api/booking/slots/:siteId', requireFlag('native_booking_engine'), async (c) => c.json({ slots: await BB.bookingListSlots(c.env, c.req.param('siteId')) }));
+features.post('/api/booking/reserve', requireFlag('native_booking_engine'), async (c) => {
+  const b = await json(c) as { slot_id?: string; email?: string };
+  return c.json(await BB.bookingReserve(c.env, { slotId: b.slot_id ?? 's0', email: b.email ?? 'guest@demo.com' }));
+});
+
+// A4 LMS
+features.post('/api/lms/courses', requireFlag('lms_engine'), async (c) => {
+  const b = await json(c) as { site_id?: string; title?: string; modules?: unknown[]; price_cents?: number };
+  return c.json(await BB.lmsCreateCourse(c.env, { siteId: b.site_id ?? 'demo-site', title: b.title ?? 'New Course', modules: b.modules ?? [], priceCents: b.price_cents }));
+});
+features.get('/api/lms/courses/:siteId', requireFlag('lms_engine'), async (c) => c.json({ courses: await BB.lmsListCourses(c.env, c.req.param('siteId')) }));
+
+// A5 Community
+features.post('/api/community/topics', requireFlag('community_engine'), async (c) => {
+  const b = await json(c) as { site_id?: string; title?: string; body?: string; author_email?: string };
+  return c.json(await BB.communityCreateTopic(c.env, { siteId: b.site_id ?? 'demo-site', title: b.title ?? 'New topic', body: b.body ?? '', authorEmail: b.author_email ?? 'guest@demo.com' }));
+});
+features.get('/api/community/topics/:siteId', requireFlag('community_engine'), async (c) => c.json({ topics: await BB.communityListTopics(c.env, c.req.param('siteId')) }));
+
+// A6 Newsletter
+features.post('/api/newsletter/campaigns', requireFlag('newsletter_engine'), async (c) => {
+  const b = await json(c) as { site_id?: string; subject?: string; body_html?: string; segment?: string };
+  return c.json(await BB.newsletterCreateCampaign(c.env, { siteId: b.site_id ?? 'demo-site', subject: b.subject ?? 'Test', bodyHtml: b.body_html ?? '<p>Hello</p>', segment: b.segment }));
+});
+features.post('/api/newsletter/subscribe', requireFlag('newsletter_engine'), async (c) => {
+  const b = await json(c) as { site_id?: string; email?: string; segment?: string };
+  return c.json(await BB.newsletterSubscribe(c.env, { siteId: b.site_id ?? 'demo-site', email: b.email ?? 'sub@demo.com', segment: b.segment }));
+});
+
+// A7 Membership
+features.post('/api/membership/tiers', requireFlag('membership_paywall'), async (c) => {
+  const b = await json(c) as { site_id?: string; name?: string; price_cents?: number; perks?: string[] };
+  return c.json(await BB.membershipCreateTier(c.env, { siteId: b.site_id ?? 'demo-site', name: b.name ?? 'Bronze', priceCents: b.price_cents ?? 500, perks: b.perks ?? ['Member newsletter'] }));
+});
+features.get('/api/membership/tiers/:siteId', requireFlag('membership_paywall'), async (c) => c.json({ tiers: await BB.membershipListTiers(c.env, c.req.param('siteId')) }));
+
+// A8 Donations
+features.post('/api/donations/campaigns', requireFlag('donations_engine'), async (c) => {
+  const b = await json(c) as { site_id?: string; name?: string; goal_cents?: number; ends_at?: string };
+  return c.json(await BB.donationCreateCampaign(c.env, { siteId: b.site_id ?? 'demo-site', name: b.name ?? 'Holiday Fund', goalCents: b.goal_cents ?? 100000, endsAt: b.ends_at }));
+});
+features.post('/api/donations/process', requireFlag('donations_engine'), async (c) => {
+  const b = await json(c) as { campaign_id?: string; email?: string; amount_cents?: number; recurring?: boolean };
+  return c.json(await BB.donationProcess(c.env, { campaignId: b.campaign_id ?? 'demo-camp', email: b.email ?? 'donor@demo.com', amountCents: b.amount_cents ?? 2500, recurring: b.recurring }));
+});
+
+// B9 Mobile admin
+features.post('/api/mobile/register', requireFlag('native_mobile_admin'), async (c) => {
+  const b = await json(c) as { user_id?: string; platform?: 'ios' | 'android'; device_id?: string; push_token?: string; app_version?: string };
+  return c.json(await BB.mobileRegisterDevice(c.env, { userId: b.user_id ?? 'demo-user', platform: b.platform ?? 'ios', deviceId: b.device_id ?? 'demo-device', pushToken: b.push_token ?? 'demo-token', appVersion: b.app_version ?? '0.1.0' }));
+});
+
+// B10 Desktop admin
+features.get('/api/desktop/info', requireFlag('native_desktop_admin'), (c) => c.json(BB.desktopAppInfo()));
+
+// B11 Browser extension
+features.get('/api/extension/info', requireFlag('browser_extension'), (c) => c.json(BB.browserExtensionInfo()));
+
+// B12 Chat-ops bot
+features.post('/api/chatops/connect', requireFlag('chat_ops_bot'), async (c) => {
+  const b = await json(c) as { org_id?: string; platform?: 'slack' | 'teams' | 'discord'; webhook_url?: string; workspace_name?: string };
+  return c.json(await BB.chatopsConnect(c.env, { orgId: b.org_id ?? 'demo-org', platform: b.platform ?? 'slack', webhookUrl: b.webhook_url ?? 'https://hooks.slack.com/test', workspaceName: b.workspace_name }));
+});
+
+// C13 SOC 2
+features.get('/api/soc2/controls', requireFlag('soc2_program'), (c) => c.json({ controls: BB.soc2Controls() }));
+
+// C14 HIPAA
+features.post('/api/hipaa/baa', requireFlag('hipaa_variant'), async (c) => {
+  const b = await json(c) as { customer_org_id?: string; business_name?: string };
+  return c.json(await BB.hipaaSignBaa(c.env, { customerOrgId: b.customer_org_id ?? 'demo-org', businessName: b.business_name ?? 'Demo Health' }));
+});
+
+// C15 PCI tokenize
+features.post('/api/pci/tokenize', requireFlag('pci_dss_l1'), async (c) => {
+  const b = await json(c) as { customer_id?: string; last4?: string; brand?: string };
+  return c.json(await BB.pciTokenize(c.env, { customerId: b.customer_id ?? 'cus_demo', last4: b.last4 ?? '4242', brand: b.brand ?? 'visa' }));
+});
+
+// C16 Enterprise SSO
+features.post('/api/sso/connect', requireFlag('enterprise_sso'), async (c) => {
+  const b = await json(c) as { org_id?: string; protocol?: 'saml' | 'oidc'; idp_metadata_url?: string; idp_entity_id?: string };
+  return c.json(await BB.ssoConnect(c.env, { orgId: b.org_id ?? 'demo-org', protocol: b.protocol ?? 'saml', idpMetadataUrl: b.idp_metadata_url ?? 'https://demo.okta.com/metadata', idpEntityId: b.idp_entity_id ?? 'https://demo.okta.com' }));
+});
+
+// D17 Multi-region D1
+features.get('/api/d1/replication-status', requireFlag('d1_multi_region'), (c) => c.json(BB.d1ReplicationStatus()));
+
+// D18 BYO Cloudflare
+features.post('/api/byo-cloudflare/connect', requireFlag('byo_cloudflare'), async (c) => {
+  const b = await json(c) as { org_id?: string; cf_account_id?: string };
+  return c.json(await BB.byoCloudflareConnect(c.env, { orgId: b.org_id ?? 'demo-org', cfAccountId: b.cf_account_id ?? 'demo-account-id' }));
+});
+
+// D19 Worker marketplace
+features.get('/api/worker-marketplace', requireFlag('worker_marketplace'), async (c) => c.json({ listings: await BB.workerMarketplaceList(c.env) }));
+
+// D20 Domain reseller
+features.get('/api/domain-reseller/search', requireFlag('domain_reseller'), async (c) => c.json(await BB.domainResellerSearch(c.env, c.req.query('q') ?? 'projectsites')));
+
+// E21 Voice clone
+features.post('/api/voice-clones', requireFlag('brand_voice_clone'), async (c) => {
+  const b = await json(c) as { org_id?: string; name?: string; sample_r2_keys?: string[] };
+  return c.json(await BB.voiceCloneCreate(c.env, { orgId: b.org_id ?? 'demo-org', name: b.name ?? 'Brand Voice', sampleR2Keys: b.sample_r2_keys ?? [] }));
+});
+
+// E22 AI agent marketplace
+features.get('/api/ai-agent-marketplace', requireFlag('ai_agent_marketplace'), async (c) => c.json({ listings: await BB.aiAgentMarketplaceList(c.env) }));
+
+// E23 Site copilot
+features.post('/api/site-copilot/index/:siteId', requireFlag('customer_site_copilot'), async (c) => c.json(await BB.siteCopilotIndex(c.env, { siteId: c.req.param('siteId') })));
+
+// E24 AI video courses
+features.post('/api/ai-video-courses', requireFlag('ai_video_courses'), async (c) => {
+  const b = await json(c) as { site_id?: string; title?: string; outline?: string };
+  return c.json(await BB.aiVideoCourseGenerate(c.env, { siteId: b.site_id ?? 'demo-site', title: b.title ?? 'Demo Course', outline: b.outline ?? '1. Intro\n2. Setup\n3. First steps' }));
+});
+
+// E25 AI A/B experiments
+features.post('/api/ai-ab-experiments', requireFlag('ai_ab_test_generator'), async (c) => {
+  const b = await json(c) as { site_id?: string; goal?: string; variant_count?: number };
+  return c.json(await BB.aiAbExperimentStart(c.env, { siteId: b.site_id ?? 'demo-site', goal: b.goal ?? 'increase bookings', variantCount: b.variant_count }));
+});
+
+// F26 SMS marketing
+features.post('/api/sms-campaigns', requireFlag('sms_marketing'), async (c) => {
+  const b = await json(c) as { site_id?: string; name?: string; body?: string; segment?: string };
+  return c.json(await BB.smsCampaignCreate(c.env, { siteId: b.site_id ?? 'demo-site', name: b.name ?? 'Flash sale', body: b.body ?? 'Save 20% today only', segment: b.segment }));
+});
+
+// F27 Affiliates
+features.post('/api/affiliates', requireFlag('affiliate_program'), async (c) => {
+  const b = await json(c) as { org_id?: string; email?: string; commission_pct?: number };
+  return c.json(await BB.affiliateCreate(c.env, { orgId: b.org_id ?? 'demo-org', email: b.email ?? 'partner@demo.com', commissionPct: b.commission_pct }));
+});
+
+// F28 Loyalty
+features.post('/api/loyalty/programs', requireFlag('loyalty_engine'), async (c) => {
+  const b = await json(c) as { site_id?: string; name?: string; points_per_dollar?: number };
+  return c.json(await BB.loyaltyProgramCreate(c.env, { siteId: b.site_id ?? 'demo-site', name: b.name ?? 'Rewards', pointsPerDollar: b.points_per_dollar }));
+});
+
+// F29 CRM
+features.get('/api/crm/deals/:siteId', requireFlag('crm_engine'), async (c) => c.json({ deals: await BB.crmListDeals(c.env, c.req.param('siteId')) }));
+features.post('/api/crm/deals', requireFlag('crm_engine'), async (c) => {
+  const b = await json(c) as { site_id?: string; customer_name?: string; email?: string; value_cents?: number; stage?: string };
+  return c.json(await BB.crmCreateDeal(c.env, { siteId: b.site_id ?? 'demo-site', customerName: b.customer_name ?? 'Demo Co', email: b.email, valueCents: b.value_cents ?? 5000, stage: b.stage }));
+});
+
+// F30 CDP
+features.post('/api/cdp/profiles', requireFlag('cdp_engine'), async (c) => {
+  const b = await json(c) as { site_id?: string; email?: string; phone?: string; traits?: Record<string, unknown> };
+  return c.json(await BB.cdpUpsertProfile(c.env, { siteId: b.site_id ?? 'demo-site', email: b.email, phone: b.phone, traits: b.traits }));
+});
+features.post('/api/cdp/events', requireFlag('cdp_engine'), async (c) => {
+  const b = await json(c) as { profile_id?: string; site_id?: string; source?: string; kind?: string; payload?: unknown };
+  return c.json(await BB.cdpTrackEvent(c.env, { profileId: b.profile_id, siteId: b.site_id ?? 'demo-site', source: b.source ?? 'web', kind: b.kind ?? 'page_view', payload: b.payload ?? {} }));
+});
+
+// ── 3 NEW: IDE Sandbox + multi-agent + progressive skeleton ──────────
+
+features.post('/api/ide-sandbox/spin-up', requireFlag('ide_sandbox'), async (c) => {
+  const b = await json(c) as { site_id?: string; user_id?: string };
+  return c.json(await IDE.spinUpSandbox(c.env, { siteId: b.site_id ?? 'demo-site', userId: b.user_id ?? 'demo-user' }));
+});
+features.get('/api/ide-sandbox/status/:sandboxId', requireFlag('ide_sandbox'), async (c) => c.json(await IDE.getSandboxStatus(c.env, c.req.param('sandboxId'))));
+features.post('/api/ide-sandbox/destroy/:sandboxId', requireFlag('ide_sandbox'), async (c) => c.json(await IDE.destroySandbox(c.env, c.req.param('sandboxId'))));
+
+features.post('/api/multi-agent/start', requireFlag('multi_agent_concurrent'), async (c) => {
+  const b = await json(c) as { site_id?: string; agents?: string[]; prompt?: string };
+  return c.json(await IDE.startMultiAgentRun(c.env, { siteId: b.site_id ?? 'demo-site', agents: b.agents ?? ['design', 'copy', 'seo', 'a11y'], prompt: b.prompt ?? 'Build a landing page for an artisan bakery' }));
+});
+features.get('/api/multi-agent/runs/:siteId', requireFlag('multi_agent_concurrent'), async (c) => c.json({ runs: await IDE.listMultiAgentRuns(c.env, c.req.param('siteId')) }));
+features.get('/api/multi-agent/run/:runId', requireFlag('multi_agent_concurrent'), async (c) => c.json(await IDE.getMultiAgentRunDetail(c.env, c.req.param('runId'))));
+
+features.post('/api/progressive-build/publish-skeleton/:siteId', requireFlag('progressive_skeleton_build'), async (c) => c.json(await IDE.publishSkeleton(c.env, c.req.param('siteId'))));
+features.get('/api/progressive-build/stream/:siteId', requireFlag('progressive_skeleton_build'), async (c) => c.json(await IDE.getBuildStream(c.env, c.req.param('siteId'))));
 
 // ── 10 brilliant — semantic per-feature endpoints ────────────────────
 
