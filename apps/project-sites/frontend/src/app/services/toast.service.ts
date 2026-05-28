@@ -80,6 +80,13 @@ export class ToastService {
   /** Active toast queue. Read by the global `<app-toast>` layer in `AppComponent`. */
   readonly toasts = signal<Toast[]>([]);
 
+  constructor() {
+    // Expose for E2E tests (ADMIN-34). No-op in SSR.
+    if (typeof window !== 'undefined') {
+      (window as unknown as { __toastService?: ToastService }).__toastService = this;
+    }
+  }
+
   /**
    * Generic dispatcher — kept backward-compatible: third arg may be a number
    * (legacy duration in ms) or a {@link ShowOptions} object.
