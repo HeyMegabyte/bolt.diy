@@ -66,7 +66,11 @@ v1.use(
 );
 
 // ─── Feature flag gate ──────────────────────────────────────────────────────
-v1.use('*', async (c, next) => {
+// CRITICAL: only gate /v1/* paths. `v1.use('*', ...)` previously matched
+// EVERY request including `/` (the marketing homepage) because the sub-app
+// is mounted at `/` in index.ts. That returned 503 to the entire site
+// whenever the flag was off.
+v1.use('/v1/*', async (c, next) => {
   const flagOn = await isFlagOn(c.env, 'public_api_v1', {});
   if (!flagOn) {
     return c.json({ error: 'feature_disabled', message: 'Public API v1 is not yet enabled.' }, 503);
@@ -75,7 +79,7 @@ v1.use('*', async (c, next) => {
 });
 
 // ─── Auth middleware — skip only for openapi.json ──────────────────────────
-v1.use('*', async (c, next) => {
+v1.use('/v1/*', async (c, next) => {
   const path = new URL(c.req.url).pathname;
   if (path === '/v1/openapi.json') return next();
 
