@@ -210,111 +210,111 @@
 > Each flag spec verifies: (a) GET `/api/feature-flags/:key` returns docs+resolved, (b) flag-off API returns 404, (c) toggle ON via admin UI flips state.
 
 ### Stage = stable (7 flags — verify happy path only)
-- [ ] FLAG-accessibility_statement → (no spec yet — to RED)
-- [ ] FLAG-cli_tool → (no spec yet — to RED)
-- [ ] FLAG-llms_txt → (no spec yet — to RED)
-- [ ] FLAG-mcp_server → (no spec yet — to RED)
-- [ ] FLAG-public_api → (no spec yet — to RED)
-- [ ] FLAG-quotable_answer_block → (no spec yet — to RED)
-- [ ] FLAG-speculation_rules → (no spec yet — to RED)
-- [ ] FLAG-structured_data_autopilot → (no spec yet — to RED)
+- [x] FLAG-accessibility_statement → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-cli_tool → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-llms_txt → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-mcp_server → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-public_api → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-quotable_answer_block → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-speculation_rules → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-structured_data_autopilot → e2e/flags/all-flags.spec.ts ✓ wired
 
 ### Stage = experimental (95 flags — verify flag-off 404 + flag-on 200)
-- [ ] FLAG-affiliate_program → (no spec yet — to RED)
-- [ ] FLAG-agency_tier → (no spec yet — to RED)
-- [ ] FLAG-ai_ab_test_generator → (no spec yet — to RED)
-- [ ] FLAG-ai_agent_marketplace → (no spec yet — to RED)
-- [ ] FLAG-ai_alt_text → (no spec yet — to RED)
-- [ ] FLAG-ai_auto_router → (no spec yet — to RED)
-- [ ] FLAG-ai_video_courses → (no spec yet — to RED)
-- [ ] FLAG-approval_workflow → (no spec yet — to RED)
-- [ ] FLAG-audit_hash_chain → (no spec yet — to RED)
-- [ ] FLAG-auto_changelog → (no spec yet — to RED)
-- [ ] FLAG-auto_gen_static_files → (no spec yet — to RED)
-- [ ] FLAG-axe_publish_gate → (no spec yet — to RED)
-- [ ] FLAG-brand_voice_clone → (no spec yet — to RED)
-- [ ] FLAG-browser_extension → (no spec yet — to RED)
-- [ ] FLAG-byo_cloudflare → (no spec yet — to RED)
-- [ ] FLAG-cdp_engine → (no spec yet — to RED)
-- [ ] FLAG-chat_ops_bot → (no spec yet — to RED)
-- [ ] FLAG-cold_tier_thaw → (no spec yet — to RED)
-- [ ] FLAG-community_engine → (no spec yet — to RED)
-- [ ] FLAG-competitor_monitor → (no spec yet — to RED)
-- [ ] FLAG-cornerstone_autorefresh → (no spec yet — to RED)
-- [ ] FLAG-cost_attribution → (no spec yet — to RED)
-- [ ] FLAG-crdt_coedit → (no spec yet — to RED)
-- [ ] FLAG-critical_css_inline → (no spec yet — to RED)
-- [ ] FLAG-crm_engine → (no spec yet — to RED)
-- [ ] FLAG-customer_site_copilot → (no spec yet — to RED)
-- [ ] FLAG-cwv_publish_gate → (no spec yet — to RED)
-- [ ] FLAG-d1_multi_region → (no spec yet — to RED)
-- [ ] FLAG-db_provisioning → (no spec yet — to RED)
-- [ ] FLAG-diff_revert → (no spec yet — to RED)
-- [ ] FLAG-domain_reseller → (no spec yet — to RED)
-- [ ] FLAG-donations_engine → (no spec yet — to RED)
-- [ ] FLAG-ecommerce_engine → (no spec yet — to RED)
-- [ ] FLAG-egress_control → (no spec yet — to RED)
-- [ ] FLAG-enterprise_sso → (no spec yet — to RED)
-- [ ] FLAG-faq_from_tickets → (no spec yet — to RED)
-- [ ] FLAG-geo_visibility_tracker → (no spec yet — to RED)
-- [ ] FLAG-ghost_routes → (no spec yet — to RED)
-- [ ] FLAG-github_sync → (no spec yet — to RED)
-- [ ] FLAG-hallucination_guard → (no spec yet — to RED)
-- [ ] FLAG-hipaa_variant → (no spec yet — to RED)
-- [ ] FLAG-i18n_auto_locale → (no spec yet — to RED)
-- [ ] FLAG-ide_sandbox → (no spec yet — to RED)
-- [ ] FLAG-image_triplet_pipeline → (no spec yet — to RED)
-- [ ] FLAG-lms_engine → (no spec yet — to RED)
-- [ ] FLAG-logo_regenerator → (no spec yet — to RED)
-- [ ] FLAG-loyalty_engine → (no spec yet — to RED)
-- [ ] FLAG-membership_paywall → (no spec yet — to RED)
-- [ ] FLAG-mobile_admin → (no spec yet — to RED)
-- [ ] FLAG-multi_agent_concurrent → (no spec yet — to RED)
-- [ ] FLAG-multi_model_router → (no spec yet — to RED)
-- [ ] FLAG-native_booking_engine → (no spec yet — to RED)
-- [ ] FLAG-native_desktop_admin → (no spec yet — to RED)
-- [ ] FLAG-native_mobile_admin → (no spec yet — to RED)
-- [ ] FLAG-newsletter_engine → (no spec yet — to RED)
-- [ ] FLAG-oklch_contrast_lift → (no spec yet — to RED)
-- [ ] FLAG-otlp_unified_events → (no spec yet — to RED)
-- [ ] FLAG-page_podcast → (no spec yet — to RED)
-- [ ] FLAG-pci_dss_l1 → (no spec yet — to RED)
-- [ ] FLAG-predicted_actions → (no spec yet — to RED)
-- [ ] FLAG-progressive_skeleton_build → (no spec yet — to RED)
-- [ ] FLAG-pwa_manifest_full → (no spec yet — to RED)
-- [ ] FLAG-referral_credits → (no spec yet — to RED)
-- [ ] FLAG-row_hover_actions → (no spec yet — to RED)
-- [ ] FLAG-rum_telemetry → (no spec yet — to RED)
-- [ ] FLAG-runway_style_ref → (no spec yet — to RED)
-- [ ] FLAG-saved_views → (no spec yet — to RED)
-- [ ] FLAG-section_overlay → (no spec yet — to RED)
-- [ ] FLAG-site_mcp_server → (no spec yet — to RED)
-- [ ] FLAG-slo_tracker → (no spec yet — to RED)
-- [ ] FLAG-sms_marketing → (no spec yet — to RED)
-- [ ] FLAG-snapshot_rollback → (no spec yet — to RED)
-- [ ] FLAG-soc2_program → (no spec yet — to RED)
-- [ ] FLAG-sparkline_overlays → (no spec yet — to RED)
-- [ ] FLAG-speed_compare_widget → (no spec yet — to RED)
-- [ ] FLAG-speed_score_widget → (no spec yet — to RED)
-- [ ] FLAG-split_view_drawer → (no spec yet — to RED)
-- [ ] FLAG-streaming_generation → (no spec yet — to RED)
-- [ ] FLAG-stripe_meters → (no spec yet — to RED)
-- [ ] FLAG-template_marketplace → (no spec yet — to RED)
-- [ ] FLAG-tenant_hot_state → (no spec yet — to RED)
-- [ ] FLAG-tenant_sentry_releases → (no spec yet — to RED)
-- [ ] FLAG-tier_rate_limit → (no spec yet — to RED)
-- [ ] FLAG-token_burn_meter → (no spec yet — to RED)
-- [ ] FLAG-upsell_campaign_month3 → (no spec yet — to RED)
-- [ ] FLAG-veo_hero_loop → (no spec yet — to RED)
-- [ ] FLAG-visitor_recognition → (no spec yet — to RED)
-- [ ] FLAG-visual_editor_drag_drop → (no spec yet — to RED)
-- [ ] FLAG-voice_editing → (no spec yet — to RED)
-- [ ] FLAG-wcag22_wizard → (no spec yet — to RED)
-- [ ] FLAG-web_push → (no spec yet — to RED)
-- [ ] FLAG-wfp_dispatch → (no spec yet — to RED)
-- [ ] FLAG-whitelabel_admin → (no spec yet — to RED)
-- [ ] FLAG-worker_marketplace → (no spec yet — to RED)
-- [ ] FLAG-workflows_v2_sitegen → (no spec yet — to RED)
+- [x] FLAG-affiliate_program → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-agency_tier → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-ai_ab_test_generator → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-ai_agent_marketplace → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-ai_alt_text → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-ai_auto_router → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-ai_video_courses → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-approval_workflow → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-audit_hash_chain → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-auto_changelog → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-auto_gen_static_files → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-axe_publish_gate → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-brand_voice_clone → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-browser_extension → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-byo_cloudflare → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-cdp_engine → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-chat_ops_bot → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-cold_tier_thaw → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-community_engine → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-competitor_monitor → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-cornerstone_autorefresh → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-cost_attribution → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-crdt_coedit → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-critical_css_inline → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-crm_engine → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-customer_site_copilot → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-cwv_publish_gate → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-d1_multi_region → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-db_provisioning → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-diff_revert → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-domain_reseller → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-donations_engine → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-ecommerce_engine → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-egress_control → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-enterprise_sso → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-faq_from_tickets → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-geo_visibility_tracker → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-ghost_routes → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-github_sync → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-hallucination_guard → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-hipaa_variant → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-i18n_auto_locale → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-ide_sandbox → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-image_triplet_pipeline → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-lms_engine → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-logo_regenerator → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-loyalty_engine → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-membership_paywall → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-mobile_admin → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-multi_agent_concurrent → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-multi_model_router → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-native_booking_engine → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-native_desktop_admin → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-native_mobile_admin → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-newsletter_engine → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-oklch_contrast_lift → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-otlp_unified_events → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-page_podcast → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-pci_dss_l1 → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-predicted_actions → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-progressive_skeleton_build → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-pwa_manifest_full → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-referral_credits → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-row_hover_actions → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-rum_telemetry → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-runway_style_ref → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-saved_views → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-section_overlay → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-site_mcp_server → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-slo_tracker → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-sms_marketing → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-snapshot_rollback → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-soc2_program → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-sparkline_overlays → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-speed_compare_widget → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-speed_score_widget → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-split_view_drawer → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-streaming_generation → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-stripe_meters → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-template_marketplace → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-tenant_hot_state → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-tenant_sentry_releases → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-tier_rate_limit → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-token_burn_meter → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-upsell_campaign_month3 → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-veo_hero_loop → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-visitor_recognition → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-visual_editor_drag_drop → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-voice_editing → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-wcag22_wizard → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-web_push → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-wfp_dispatch → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-whitelabel_admin → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-worker_marketplace → e2e/flags/all-flags.spec.ts ✓ wired
+- [x] FLAG-workflows_v2_sitegen → e2e/flags/all-flags.spec.ts ✓ wired
 
 ## N. MCP — `MCP-*`
 
