@@ -80,6 +80,9 @@ import features from './routes/features.js';
 import { inbox } from './routes/inbox.js';
 import { copilot } from './routes/copilot.js';
 import { siteDetailTabs } from './routes/site_detail_tabs.js';
+import { swarm } from './routes/swarm.js';
+import { siteDna } from './routes/site_dna.js';
+import { sectionMarketplace } from './routes/section_marketplace.js';
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbQueryOne, dbUpdate } from './services/db.js';
@@ -309,6 +312,9 @@ app.route('/', docs); // Interactive API explorer (OpenAPI + Angular overview)
 app.route('/', appsRoutes); // /admin/apps tab — catalog + per-org app_instances CRUD
 app.route('/', snapshotQuality); // /api/sites/:siteId/snapshots/:snapshotId/{capture,metrics,screenshot.png} — must precede `api` so the param order matches first
 app.route('/', siteDetailTabs); // /api/sites/:siteId/{logs/tail,snapshots/:id/rollback,sql/exec,integrations} — must precede `api` so the param order matches first
+app.route('/', swarm);            // /api/swarm/:siteId/{start,stream,runs,run/:runId} — #5 Swarm Editor + #6 Live-stream Preview
+app.route('/', siteDna);          // /api/site-dna/:siteId/{feedback,preferences,history} — #7 Site DNA Taste Graph
+app.route('/', sectionMarketplace); // /api/section-marketplace + /sections — #8 Vertical Section Marketplace
 app.route('/', dashboard); // /api/dashboard/chat (SSE) + /api/calendar/* — Perplexity-like dashboard surface
 app.route('/', pulseAnalytics); // /api/social/analytics/aggregate — must precede social catch-alls
 app.route('/', socialOauthRoutes); // /api/social/:platform/{connect,callback,paste} — Pulse Social OAuth
