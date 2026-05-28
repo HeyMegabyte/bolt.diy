@@ -1,11 +1,13 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
+    "target": "ES2023",
+    "module": "ES2022",
     "moduleResolution": "Bundler",
-    "lib": ["ESNext"],
+    "lib": ["ES2023"],
     "types": ["@cloudflare/workers-types"],
     "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -14,8 +16,13 @@
     "verbatimModuleSyntax": true,
     "noEmit": true,
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": ".",
+    "paths": {
+      "@projectsites/feature-manifests": ["./libs/core/feature-manifests/src/index.ts"],
+      "@projectsites/feature-flags": ["./libs/core/feature-flags/src/index.ts"]
+    },
+    "baseUrl": "."
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "libs/**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }
