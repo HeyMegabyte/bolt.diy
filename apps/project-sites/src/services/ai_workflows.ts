@@ -15,6 +15,9 @@ import { validatePromptInput, validatePromptOutput } from '../prompts/schemas.js
 import { withObservability } from '../prompts/observability.js';
 import { captureLLMCall } from './analytics.js';
 import type { TraceContext } from './external_llm.js';
+import { log } from '../lib/log.js';
+
+const wfLog = log.child('ai_workflows');
 
 /**
  * Best-effort PostHog LLM Observability capture wrapped in try/catch so
@@ -33,14 +36,7 @@ async function safeCaptureWorkersAi(
   try {
     await captureLLMCall(env, params);
   } catch (err) {
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        service: 'ai_workflows',
-        event: 'analytics_capture_failed',
-        error: err instanceof Error ? err.message : String(err),
-      }),
-    );
+    wfLog.warn('analytics_capture_failed', { error: err instanceof Error ? err.message : String(err) });
   }
 }
 
@@ -458,25 +454,10 @@ Notes: ${parsed.notes || 'none'}
 Confidence: ${parsed.confidence}
 USE THESE COLORS as the primary palette. Do NOT override with industry-generic colors.`;
       }
-      console.warn(
-        JSON.stringify({
-          level: 'info',
-          service: 'ai_workflows',
-          step: 'color_extraction',
-          website: websiteUrl,
-          colors: parsed,
-        }),
-      );
+      wfLog.info('color_extraction_ok', { slug: websiteUrl });
     } catch (err) {
       // Non-fatal — fall back to LLM color inference
-      console.warn(
-        JSON.stringify({
-          level: 'warn',
-          service: 'ai_workflows',
-          step: 'color_extraction',
-          error: err instanceof Error ? err.message : String(err),
-        }),
-      );
+      wfLog.warn('color_extraction_failed', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -601,15 +582,7 @@ export async function runSiteGenerationWorkflowV2(
   // Phase 1: Research profile first (we need business_type for other prompts)
   const profile = await runResearchProfile(env, input);
 
-  console.warn(
-    JSON.stringify({
-      level: 'info',
-      service: 'ai_workflow',
-      phase: 1,
-      message: 'Profile research complete',
-      business_type: profile.business_type,
-    }),
-  );
+  wfLog.info('phase_1_done', { message: 'Profile research complete' });
 
   // Phase 2: Parallel research (all depend on profile.business_type)
   const servicesJson = JSON.stringify(profile.services.map((s) => s.name));
@@ -626,30 +599,12 @@ export async function runSiteGenerationWorkflowV2(
 
   const research: WorkflowResearch = { profile, social, brand, sellingPoints, images };
 
-  console.warn(
-    JSON.stringify({
-      level: 'info',
-      service: 'ai_workflow',
-      phase: 2,
-      message: 'Parallel research complete',
-      social_links_found: social.social_links.filter((l) => l.url && (l.confidence ?? 0) >= 0.9)
-        .length,
-      logo_found: brand.logo.found_online,
-    }),
-  );
+  wfLog.info('phase_2_done', { message: 'Parallel research complete', success: brand.logo.found_online });
 
   // Phase 3: Generate main website HTML
   const html = await runGenerateWebsite(env, research, input.uploadedAssets);
 
-  console.warn(
-    JSON.stringify({
-      level: 'info',
-      service: 'ai_workflow',
-      phase: 3,
-      message: 'Website HTML generated',
-      html_size: html.length,
-    }),
-  );
+  wfLog.info('phase_3_done', { message: 'Website HTML generated' });
 
   // Phase 4: Parallel - legal pages + quality scoring
   const [privacyHtml, termsHtml, quality] = await Promise.all([
@@ -658,16 +613,7 @@ export async function runSiteGenerationWorkflowV2(
     runScoreWebsite(env, html, input.businessName),
   ]);
 
-  console.warn(
-    JSON.stringify({
-      level: 'info',
-      service: 'ai_workflow',
-      phase: 4,
-      message: 'Legal pages and scoring complete',
-      quality_score: quality.overall,
-      missing_sections: quality.missing_sections,
-    }),
-  );
+  wfLog.info('phase_4_done', { message: 'Legal pages and scoring complete' });
 
   return { research, html, privacyHtml, termsHtml, quality };
 }

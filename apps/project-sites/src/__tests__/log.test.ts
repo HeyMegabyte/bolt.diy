@@ -2,12 +2,15 @@
  * @module __tests__/log
  *
  * @description
- * Validates the structured logger (item #50):
- *   - emits exactly one JSON line per call,
+ * Validates the structured logger:
+ *   - emits exactly one JSON line per call (JSON mode in test env),
  *   - payload contains every required key (`level`, `service`, `env`,
- *     `eventName`, `ts`),
+ *     `eventName`/`msg`, `ts`),
  *   - the safe-context allowlist drops untrusted keys + secret-pattern
  *     values become `[REDACTED]`,
+ *   - sensitive-KEY names (authorization, token, etc.) are also REDACTED
+ *     regardless of allowlist,
+ *   - `child(scope)` adds a `scope` field to every entry,
  *   - `requestLogger` middleware emits one `http_request` entry per
  *     request with `method`, `path`, `status`, `durationMs`.
  */
@@ -51,9 +54,12 @@ describe('log.* — structured logger', () => {
       const entry = calls[0]!;
       expect(entry.level).toBe('info');
       expect(entry.service).toBe('project-sites');
+      // `eventName` is the backward-compat alias for `msg`
       expect(entry.eventName).toBe('webhook_received');
+      expect(entry.msg).toBe('webhook_received');
       expect(entry.ts).toEqual(expect.any(String));
-      expect(entry.env).toBe('unknown'); // no context provided
+      // In test env, NODE_ENV=test is the resolved env (no Hono context provided)
+      expect(entry.env).toBe('test');
       expect(entry.provider).toBe('stripe');
       expect(entry.event_id).toBe('evt_123');
     } finally {
@@ -61,24 +67,50 @@ describe('log.* — structured logger', () => {
     }
   });
 
-  it('drops non-allowlisted fields and redacts secret-pattern values', () => {
+  it('drops non-allowlisted fields and redacts secret-VALUE-pattern fields', () => {
     const { calls, restore } = captureWarn();
     try {
       log.warn('payment_failed', {
-        order_id: 'should-be-dropped',
-        password: 'p@ssw0rd',
-        Authorization: 'Bearer ' + 'a'.repeat(40),
-        message: 'sk_live_' + 'x'.repeat(32), // looks like a Stripe key
-        status: 500, // allowlisted
+        order_id: 'should-be-dropped',      // not in allowlist → dropped
+        message: 'sk_live_' + 'x'.repeat(32), // allowlisted key but secret value → redacted
+        status: 500,  // allowlisted
         slug: 'vitos', // allowlisted
       });
       const entry = calls[0]!;
       expect(entry).not.toHaveProperty('order_id');
-      expect(entry).not.toHaveProperty('password');
-      expect(entry).not.toHaveProperty('Authorization');
       expect(entry.message).toBe('[REDACTED]');
       expect(entry.status).toBe(500);
       expect(entry.slug).toBe('vitos');
+    } finally {
+      restore();
+    }
+  });
+
+  it('redacts fields whose KEY name is sensitive (authorization, token, password, etc.)', () => {
+    const { calls, restore } = captureWarn();
+    try {
+      log.warn('auth_attempt', {
+        // Keys that match SENSITIVE_KEY_RE — values MUST be [REDACTED]
+        authorization: 'Bearer tok_' + 'a'.repeat(30),
+        token: 'super-secret-jwt',
+        password: 'hunter2',
+        api_key: 'sk_live_' + 'k'.repeat(20),
+        'stripe-signature': 't=123,v1=abc',
+        cookie: '__session=xyz',
+        // Safe fields that should pass through
+        status: 401,
+        slug: 'test-site',
+      });
+      const entry = calls[0]!;
+      expect(entry.authorization).toBe('[REDACTED]');
+      expect(entry.token).toBe('[REDACTED]');
+      expect(entry.password).toBe('[REDACTED]');
+      expect(entry.api_key).toBe('[REDACTED]');
+      expect(entry['stripe-signature']).toBe('[REDACTED]');
+      expect(entry.cookie).toBe('[REDACTED]');
+      // Safe fields pass through unchanged
+      expect(entry.status).toBe(401);
+      expect(entry.slug).toBe('test-site');
     } finally {
       restore();
     }
@@ -99,7 +131,7 @@ describe('log.* — structured logger', () => {
   it('debug is suppressed when env=production', () => {
     const { calls, restore } = captureWarn();
     try {
-      // Without context, env=unknown, debug emits
+      // Without context, env=test (NODE_ENV=test), debug emits
       log.debug('route_matched', { path: '/api/foo' });
       expect(calls.length).toBe(1);
 
@@ -110,6 +142,19 @@ describe('log.* — structured logger', () => {
       } as unknown as Parameters<typeof log.debug>[2];
       log.debug('route_matched', { path: '/api/foo' }, fakeCtx);
       expect(calls.length).toBe(1); // still 1
+    } finally {
+      restore();
+    }
+  });
+
+  it('child(scope) adds scope field to every entry', () => {
+    const { calls, restore } = captureWarn();
+    try {
+      const scoped = log.child('billing');
+      scoped.info('checkout_started', { status: 200 });
+      const entry = calls[0]!;
+      expect(entry.scope).toBe('project-sites/billing');
+      expect(entry.level).toBe('info');
     } finally {
       restore();
     }

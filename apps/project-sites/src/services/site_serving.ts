@@ -33,6 +33,9 @@ import type { Env } from '../types/env.js';
 import { dbQueryOne } from './db.js';
 import { minifyCssCached } from './css_minify.js';
 import { parseBranchHost } from './site_branches.js';
+import { log } from '../lib/log.js';
+
+const serveLog = log.child('site_serving');
 
 /**
  * Generate the promotional top bar HTML injected into unpaid sites.
@@ -375,14 +378,7 @@ export async function resolveSite(
   const cached = await env.CACHE_KV.get(cacheKey, 'json');
 
   if (cached) {
-    console.warn(
-      JSON.stringify({
-        level: 'debug',
-        service: 'site_serving',
-        message: 'KV cache hit',
-        hostname,
-      }),
-    );
+    serveLog.debug('kv_cache_hit', { hostname });
     return cached as {
       site_id: string;
       slug: string;
@@ -487,16 +483,7 @@ export async function resolveSite(
           if (snapshot) {
             siteRow = candidateRow;
             snapshotVersion = snapshot.build_version;
-            console.warn(
-              JSON.stringify({
-                level: 'debug',
-                service: 'site_serving',
-                message: 'Snapshot resolved',
-                slug: candidateSlug,
-                snapshot: candidateSnapshot,
-                version: snapshot.build_version,
-              }),
-            );
+            serveLog.debug('snapshot_resolved', { slug: candidateSlug, version: snapshot.build_version });
           }
           break;
         }
@@ -547,14 +534,7 @@ export async function resolveSite(
     }
   }
 
-  console.warn(
-    JSON.stringify({
-      level: 'debug',
-      service: 'site_serving',
-      message: 'Site not found for hostname',
-      hostname,
-    }),
-  );
+  serveLog.debug('site_not_found', { hostname });
   return null;
 }
 
@@ -587,14 +567,7 @@ export async function serveSiteFromR2(
 ): Promise<Response> {
   // Block access to meta files and manifests
   if (requestPath.startsWith('/_meta/') || requestPath === '/_manifest.json') {
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        action: 'serve_blocked_path',
-        slug: site.slug,
-        path: requestPath,
-      }),
-    );
+    serveLog.warn('serve_blocked_path', { slug: site.slug, path: requestPath });
 
     return new Response('Not Found', { status: 404 });
   }
@@ -626,15 +599,7 @@ export async function serveSiteFromR2(
     ? `${version}${filePath.replace(/^\//, '')}`
     : `sites/${site.slug}/${version}${filePath}`;
 
-  console.warn(
-    JSON.stringify({
-      level: 'info',
-      action: 'serve_site_lookup',
-      slug: site.slug,
-      version,
-      r2Path,
-    }),
-  );
+  serveLog.debug('serve_site_lookup', { slug: site.slug, version, r2Path });
 
   let object = await env.SITES_BUCKET.get(r2Path);
 
@@ -662,9 +627,7 @@ export async function serveSiteFromR2(
     const flatPath = versionedPath(`/${flatName}.html`);
     object = await env.SITES_BUCKET.get(flatPath);
     if (object) {
-      console.warn(
-        JSON.stringify({ level: 'info', action: 'serve_flat_fallback', slug: site.slug, flatPath }),
-      );
+      serveLog.debug('serve_flat_fallback', { slug: site.slug, flatPath });
     }
   }
 
@@ -697,28 +660,12 @@ export async function serveSiteFromR2(
       const fallback = await env.SITES_BUCKET.get(fallbackPath);
 
       if (fallback) {
-        console.warn(
-          JSON.stringify({
-            level: 'info',
-            action: 'serve_spa_fallback',
-            slug: site.slug,
-            requestPath,
-          }),
-        );
-
+        serveLog.debug('serve_spa_fallback', { slug: site.slug, requestPath });
         return buildSiteResponse(fallback, site, 'text/html; charset=utf-8', env);
       }
     }
 
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        action: 'serve_not_found',
-        slug: site.slug,
-        r2Path,
-        requestPath,
-      }),
-    );
+    serveLog.warn('serve_not_found', { slug: site.slug, r2Path, requestPath });
 
     return new Response('Not Found', { status: 404 });
   }
@@ -920,7 +867,7 @@ async function buildSiteResponse(
       headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400');
       return new Response(bytes, { status: 200, headers });
     } catch (err) {
-      console.warn('[site_serving] css_minify failed, serving raw:', err);
+      serveLog.warn('css_minify_failed', { error: err instanceof Error ? err.message : String(err) });
     }
   }
 

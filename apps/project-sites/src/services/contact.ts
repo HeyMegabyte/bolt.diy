@@ -11,6 +11,9 @@
 import { BRAND, contactFormSchema, badRequest } from '@project-sites/shared';
 import type { ContactForm } from '@project-sites/shared';
 import type { Env } from '../types/env.js';
+import { log } from '../lib/log.js';
+
+const contactLog = log.child('contact');
 
 /* ------------------------------------------------------------------ */
 /*  Email Sending (Resend primary, SendGrid fallback)                 */
@@ -43,16 +46,8 @@ async function sendViaResend(apiKey: string, opts: EmailOpts): Promise<void> {
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    console.warn(
-      JSON.stringify({
-        level: 'error',
-        service: 'contact',
-        message: 'Resend API error',
-        status: res.status,
-        body: text.slice(0, 500),
-        to: opts.to,
-      }),
-    );
+    void text; // logged at level error for observability
+    contactLog.error('resend_api_error', { status: res.status });
     throw badRequest(`Failed to send email (status ${res.status}).`);
   }
 }
@@ -82,16 +77,8 @@ async function sendViaSendGrid(apiKey: string, opts: EmailOpts): Promise<void> {
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    console.warn(
-      JSON.stringify({
-        level: 'error',
-        service: 'contact',
-        message: 'SendGrid API error',
-        status: res.status,
-        body: text.slice(0, 500),
-        to: opts.to,
-      }),
-    );
+    void text;
+    contactLog.error('sendgrid_api_error', { status: res.status });
     throw badRequest(`Failed to send email (status ${res.status}).`);
   }
 }
@@ -102,15 +89,7 @@ async function sendEmail(env: Env, opts: EmailOpts): Promise<void> {
       return await sendViaResend(env.RESEND_API_KEY, opts);
     } catch (err) {
       if (env.SENDGRID_API_KEY) {
-        console.warn(
-          JSON.stringify({
-            level: 'warn',
-            service: 'contact',
-            message: 'Resend failed, falling back to SendGrid',
-            error: err instanceof Error ? err.message : String(err),
-            to: opts.to,
-          }),
-        );
+        contactLog.warn('resend_fallback_to_sendgrid', { error: err instanceof Error ? err.message : String(err) });
         return sendViaSendGrid(env.SENDGRID_API_KEY, opts);
       }
       throw err;

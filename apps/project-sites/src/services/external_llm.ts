@@ -19,6 +19,9 @@
 import type { Env } from '../types/env.js';
 import { withRetry, classifyError } from './retry.js';
 import { captureLLMCall } from './analytics.js';
+import { log } from '../lib/log.js';
+
+const llmLog = log.child('external_llm');
 
 /**
  * Caller-supplied tracing context threaded through every external LLM call.
@@ -231,16 +234,7 @@ async function fetchWithGatewayFallback(
   const res = await fetch(primaryUrl, init);
 
   if (gatewayActive && res.status >= 500 && res.status < 600) {
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        service: 'external_llm',
-        event: 'gateway_5xx_fallback',
-        provider,
-        status: res.status,
-        message: `AI Gateway returned ${res.status}; falling back to direct vendor URL once`,
-      }),
-    );
+    llmLog.warn('gateway_5xx_fallback', { provider, status: res.status });
     const directUrl = `${DIRECT_URLS[provider]}${pathSuffix}`;
     const fallbackHeaders = new Headers(init.headers ?? {});
     fallbackHeaders.set('X-PS-Gateway-Fallback', 'true');
@@ -302,16 +296,7 @@ function recordFailure(provider: 'openai' | 'anthropic'): void {
 
   if (state.failures >= CIRCUIT_FAILURE_THRESHOLD) {
     state.openUntil = now + CIRCUIT_OPEN_DURATION_MS;
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        service: 'external_llm',
-        event: 'circuit_open',
-        provider,
-        open_until: new Date(state.openUntil).toISOString(),
-        message: `Circuit breaker opened for ${provider} after ${state.failures} failures`,
-      }),
-    );
+    llmLog.warn('circuit_open', { provider, count: state.failures });
   }
 }
 
@@ -668,14 +653,7 @@ async function safeCaptureLLM(
   try {
     await captureLLMCall(env, params);
   } catch (err) {
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        service: 'external_llm',
-        event: 'analytics_capture_failed',
-        error: err instanceof Error ? err.message : String(err),
-      }),
-    );
+    llmLog.warn('analytics_capture_failed', { error: err instanceof Error ? err.message : String(err) });
   }
 }
 
@@ -718,15 +696,7 @@ export async function callExternalLLM(
   for (const provider of providers) {
     // Circuit breaker: skip provider if circuit is open
     if (isCircuitOpen(provider)) {
-      console.warn(
-        JSON.stringify({
-          level: 'info',
-          service: 'external_llm',
-          event: 'circuit_open_skip',
-          provider,
-          message: `Skipping ${provider} — circuit breaker is open`,
-        }),
-      );
+      llmLog.info('circuit_open_skip', { provider });
       const skipModel = options.model ?? DEFAULT_MODELS[provider];
       void safeCaptureLLM(env, {
         distinctId,
@@ -757,20 +727,8 @@ export async function callExternalLLM(
         {
           maxRetries: 3,
           baseDelayMs: 1000,
-          onRetry: (attempt, err, delayMs) => {
-            console.warn(
-              JSON.stringify({
-                level: 'warn',
-                service: 'external_llm',
-                event: 'retry',
-                provider,
-                model,
-                attempt,
-                delay_ms: delayMs,
-                error_category: classifyError(err),
-                error: err instanceof Error ? err.message : String(err),
-              }),
-            );
+          onRetry: (attempt, err, _delayMs) => {
+            llmLog.warn('retry', { provider, model, attempt, error: err instanceof Error ? err.message : String(err) });
           },
         },
       );
@@ -790,23 +748,7 @@ export async function callExternalLLM(
       const gatewayUsed = Boolean(r.gatewayUsed);
       const costUsd = estimateCostPrecise(model, inputTokens, outputTokens);
 
-      console.warn(
-        JSON.stringify({
-          level: 'info',
-          service: 'external_llm',
-          event: 'call_success',
-          provider,
-          model,
-          latency_ms: latency,
-          tokens: result.tokens,
-          input_tokens: inputTokens,
-          output_tokens: outputTokens,
-          cache_hit: cacheHit,
-          gateway_used: gatewayUsed,
-          citations_count: citations.length,
-          output_length: result.text.length,
-        }),
-      );
+      llmLog.info('call_success', { provider, model, durationMs: latency, count: result.tokens });
 
       void safeCaptureLLM(env, {
         distinctId,
@@ -838,22 +780,7 @@ export async function callExternalLLM(
       const errorCategory = classifyError(err);
       recordFailure(provider);
 
-      console.warn(
-        JSON.stringify({
-          level: 'warn',
-          service: 'external_llm',
-          event: 'provider_exhausted',
-          provider,
-          model,
-          latency_ms: latency,
-          error_category: errorCategory,
-          error: err instanceof Error ? err.message : String(err),
-          message:
-            provider === fallback
-              ? `Both providers failed`
-              : `${provider} failed after retries, trying ${fallback}`,
-        }),
-      );
+      llmLog.warn('provider_exhausted', { provider, model, durationMs: latency, error: err instanceof Error ? err.message : String(err) });
 
       void safeCaptureLLM(env, {
         distinctId,
@@ -916,15 +843,7 @@ export async function callExternalLLMWithVision(
 
   for (const provider of providers) {
     if (isCircuitOpen(provider)) {
-      console.warn(
-        JSON.stringify({
-          level: 'info',
-          service: 'external_llm',
-          event: 'circuit_open_skip_vision',
-          provider,
-          message: `Skipping ${provider} vision — circuit breaker is open`,
-        }),
-      );
+      llmLog.info('circuit_open_skip_vision', { provider });
       const skipModel = options.model ?? DEFAULT_MODELS[provider];
       void safeCaptureLLM(env, {
         distinctId,
@@ -957,20 +876,8 @@ export async function callExternalLLMWithVision(
         {
           maxRetries: 3,
           baseDelayMs: 1000,
-          onRetry: (attempt, err, delayMs) => {
-            console.warn(
-              JSON.stringify({
-                level: 'warn',
-                service: 'external_llm',
-                event: 'retry_vision',
-                provider,
-                model,
-                attempt,
-                delay_ms: delayMs,
-                error_category: classifyError(err),
-                error: err instanceof Error ? err.message : String(err),
-              }),
-            );
+          onRetry: (attempt, err, _delayMs) => {
+            llmLog.warn('retry_vision', { provider, model, attempt, error: err instanceof Error ? err.message : String(err) });
           },
         },
       );
@@ -986,22 +893,7 @@ export async function callExternalLLMWithVision(
       const gatewayUsed = Boolean(r.gatewayUsed);
       const costUsd = estimateCostPrecise(model, inputTokens, outputTokens);
 
-      console.warn(
-        JSON.stringify({
-          level: 'info',
-          service: 'external_llm',
-          event: 'vision_call_success',
-          provider,
-          model,
-          latency_ms: latency,
-          tokens: result.tokens,
-          input_tokens: inputTokens,
-          output_tokens: outputTokens,
-          cache_hit: cacheHit,
-          gateway_used: gatewayUsed,
-          output_length: result.text.length,
-        }),
-      );
+      llmLog.info('vision_call_success', { provider, model, durationMs: latency, count: result.tokens });
 
       void safeCaptureLLM(env, {
         distinctId,
@@ -1033,22 +925,7 @@ export async function callExternalLLMWithVision(
       const errorCategory = classifyError(err);
       recordFailure(provider);
 
-      console.warn(
-        JSON.stringify({
-          level: 'warn',
-          service: 'external_llm',
-          event: 'vision_provider_exhausted',
-          provider,
-          model,
-          latency_ms: latency,
-          error_category: errorCategory,
-          error: err instanceof Error ? err.message : String(err),
-          message:
-            provider === fallback
-              ? `Both vision providers failed`
-              : `${provider} vision failed after retries, trying ${fallback}`,
-        }),
-      );
+      llmLog.warn('vision_provider_exhausted', { provider, model, durationMs: latency, error: err instanceof Error ? err.message : String(err) });
 
       void safeCaptureLLM(env, {
         distinctId,
