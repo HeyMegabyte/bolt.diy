@@ -297,6 +297,24 @@ export const routes: Routes = [
             (m) => m.AdminSocialAnalyticsComponent,
           ),
       },
+      // ── Swarm-stream-marketplace-DNA (Wave 2C — features #5-8) ─────────
+      {
+        // #5 Multi-Agent Swarm Editor + #6 Live-stream Preview.
+        // Per-site live board; :siteId is the slug or UUID.
+        path: 'swarm/:siteId',
+        loadComponent: () =>
+          import('./pages/admin/sections/swarm.component').then(
+            (m) => m.AdminSwarmComponent,
+          ),
+      },
+      {
+        // #8 Vertical Section Marketplace — /admin/marketplace
+        path: 'marketplace',
+        loadComponent: () =>
+          import('./pages/admin/sections/marketplace.component').then(
+            (m) => m.AdminMarketplaceComponent,
+          ),
+      },
     ],
   },
   {
