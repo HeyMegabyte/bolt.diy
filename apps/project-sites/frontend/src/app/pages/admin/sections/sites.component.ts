@@ -77,6 +77,18 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
         <div class="rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-red-200 text-sm">
           {{ error() }}
         </div>
+      } @else if (rows().length === 0 && fallbackSites().length > 0) {
+        <ul class="rounded-xl border border-white/10 bg-white/[0.02] divide-y divide-white/[0.06]">
+          @for (s of fallbackSites(); track s.id) {
+            <li class="px-4 py-3">
+              <a [routerLink]="['/admin/sites', s.id]"
+                 class="text-white font-medium hover:text-[var(--ps-accent)]">
+                {{ s.name || s.slug }}
+              </a>
+              <span class="text-[0.75rem] text-white/50 ml-2">{{ s.slug }}.projectsites.dev</span>
+            </li>
+          }
+        </ul>
       } @else if (rows().length === 0) {
         <div class="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/60">
           No sites yet. Create one from the homepage.
@@ -112,9 +124,10 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
                     [attr.title]="rowTooltip(r)">
                   <td class="px-4 py-3">
                     <div class="flex flex-col">
-                      <span class="text-white font-medium truncate max-w-[260px]">
+                      <a [routerLink]="['/admin/sites', r.site_id]"
+                         class="text-white font-medium truncate max-w-[260px] hover:text-[var(--ps-accent)]">
                         {{ r.business_name || r.slug }}
-                      </span>
+                      </a>
                       <a [href]="'https://' + r.slug + '.projectsites.dev'" target="_blank" rel="noopener"
                          class="text-[0.7rem] text-white/50 hover:text-[var(--ps-accent)] truncate">
                         {{ r.slug }}.projectsites.dev
@@ -156,6 +169,7 @@ export class AdminSitesComponent implements OnInit {
   loading = signal(true);
   error = signal<string | null>(null);
   rows = signal<SiteSparkline[]>([]);
+  fallbackSites = signal<Array<{ id: string; slug: string; name: string }>>([]);
   sortKey = signal<SortKey>('composite');
   sortDir = signal<'asc' | 'desc'>('asc');
   triage = signal<boolean>(false);
@@ -167,16 +181,28 @@ export class AdminSitesComponent implements OnInit {
   async reload(): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
+    // Always load the raw sites list so we can router-link to /admin/sites/:id
+    // even when the sparklines endpoint hasn't been populated yet.
+    this.api
+      .get<{ sites?: Array<{ id: string; slug: string; name: string }> }>('/sites')
+      .subscribe({
+        next: (res) => this.fallbackSites.set(res.sites ?? []),
+        error: () => this.fallbackSites.set([]),
+      });
     try {
       const res = await firstValueFrom(
         this.api.get<{ data: SiteSparkline[] }>('/sites/sparklines', { days: '30' }),
       );
       this.rows.set(res.data ?? []);
     } catch (err) {
+      // Sparklines may not be populated for a brand-new org. Silently fall
+      // back to the simple list above; only toast on hard 5xx.
       const msg = err instanceof Error ? err.message : String(err);
       console.warn('sites heatmap load failed', { error: msg });
-      this.error.set(`Could not load sites — ${msg}`);
-      this.toast.error('Sites heatmap failed to load');
+      if (this.fallbackSites().length === 0) {
+        this.error.set(`Could not load sites — ${msg}`);
+        this.toast.error('Sites heatmap failed to load');
+      }
     } finally {
       this.loading.set(false);
     }

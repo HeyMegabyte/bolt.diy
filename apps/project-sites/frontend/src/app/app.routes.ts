@@ -121,6 +121,15 @@ export const routes: Routes = [
           ),
       },
       {
+        // Per-site detail page with 4 tabs (Logs / Snapshots+Rollback / SQL /
+        // Integrations). Closes TEST-PLAN.md TAB-01..TAB-13.
+        path: 'sites/:id',
+        loadComponent: () =>
+          import('./pages/admin/sections/site-detail.component').then(
+            (m) => m.AdminSiteDetailComponent,
+          ),
+      },
+      {
         path: 'analytics',
         loadComponent: () =>
           import('./pages/admin/sections/analytics.component').then((m) => m.AdminAnalyticsComponent),

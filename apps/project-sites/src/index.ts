@@ -70,6 +70,7 @@ import { experiments } from './routes/experiments.js';
 import { mediaRoutes } from './routes/media.js';
 import { publicRoutes } from './routes/public.js';
 import features from './routes/features.js';
+import { siteDetailTabs } from './routes/site_detail_tabs.js';
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbQueryOne, dbUpdate } from './services/db.js';
@@ -296,6 +297,7 @@ app.route('/', aiAdmin); // Form submissions, AI logs, chat, endpoints, credits,
 app.route('/', docs); // Interactive API explorer (OpenAPI + Angular overview)
 app.route('/', appsRoutes); // /admin/apps tab — catalog + per-org app_instances CRUD
 app.route('/', snapshotQuality); // /api/sites/:siteId/snapshots/:snapshotId/{capture,metrics,screenshot.png} — must precede `api` so the param order matches first
+app.route('/', siteDetailTabs); // /api/sites/:siteId/{logs/tail,snapshots/:id/rollback,sql/exec,integrations} — must precede `api` so the param order matches first
 app.route('/', dashboard); // /api/dashboard/chat (SSE) + /api/calendar/* — Perplexity-like dashboard surface
 app.route('/', pulseAnalytics); // /api/social/analytics/aggregate — must precede social catch-alls
 app.route('/', socialOauthRoutes); // /api/social/:platform/{connect,callback,paste} — Pulse Social OAuth
