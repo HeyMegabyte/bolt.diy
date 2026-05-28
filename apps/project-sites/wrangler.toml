@@ -141,6 +141,18 @@ name = "social-publish-workflow"
 binding = "SOCIAL_PUBLISH_WORKFLOW"
 class_name = "SocialPublishWorkflow"
 
+# ─── Content Freshness Cron workflow (#16) ─────────────────────
+[[workflows]]
+name = "content-freshness-workflow"
+binding = "CONTENT_FRESHNESS_WORKFLOW"
+class_name = "ContentFreshnessWorkflow"
+
+# ─── pSEO Matrix Generation workflow (#17) ─────────────────────
+[[workflows]]
+name = "pseo-generation-workflow"
+binding = "PSEO_GENERATION_WORKFLOW"
+class_name = "PseoGenerationWorkflow"
+
 # ─── AI binding for Cloudflare Workers AI ─────────────────────
 [ai]
 binding = "AI"

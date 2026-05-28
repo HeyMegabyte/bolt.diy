@@ -26,6 +26,13 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
 import { unauthorized, forbidden } from '@project-sites/shared';
+import {
+  SITE_MCP_TOOLS,
+  dispatchTool,
+  mintSiteMcpToken,
+  verifySiteMcpToken,
+  revokeSiteMcpToken,
+} from '../services/mcp_site_tools.js';
 
 type McpCtx = Context<{ Bindings: Env; Variables: Variables }>;
 const mcpSite = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -87,17 +94,26 @@ mcpSite.get('/.well-known/mcp', async (c) => {
        FROM mcp_tools WHERE site_id = ? AND enabled = 1`,
     [site.id],
   );
+  // Merge DB tools + built-in CRUD tools (SITE_MCP_TOOLS) in the manifest.
   return c.json({
     protocol_version: '2025-11-25',
     transport: 'streamable-http',
     endpoint: `https://${host}/mcp`,
     site_slug: slug,
-    tools: tools.map((t) => ({
-      name: t.tool_name,
-      handler: t.handler_kind,
-      input_schema: safeParse(t.schema_json),
-      requires_auth: t.requires_auth === 1,
-    })),
+    tools: [
+      ...tools.map((t) => ({
+        name: t.tool_name,
+        handler: t.handler_kind,
+        input_schema: safeParse(t.schema_json),
+        requires_auth: t.requires_auth === 1,
+      })),
+      ...SITE_MCP_TOOLS.map((t) => ({
+        name: t.name,
+        description: t.description,
+        input_schema: t.inputSchema,
+        requires_auth: true,
+      })),
+    ],
   });
 });
 
@@ -148,12 +164,20 @@ mcpSite.get('/:slug/.well-known/mcp', async (c) => {
     protocol_version: '2025-11-25',
     transport: 'streamable-http',
     endpoint: `https://${host}/mcp`,
-    tools: tools.map((t) => ({
-      name: t.tool_name,
-      handler: t.handler_kind,
-      input_schema: safeParse(t.schema_json),
-      requires_auth: t.requires_auth === 1,
-    })),
+    tools: [
+      ...tools.map((t) => ({
+        name: t.tool_name,
+        handler: t.handler_kind,
+        input_schema: safeParse(t.schema_json),
+        requires_auth: t.requires_auth === 1,
+      })),
+      ...SITE_MCP_TOOLS.map((t) => ({
+        name: t.name,
+        description: t.description,
+        input_schema: t.inputSchema,
+        requires_auth: true,
+      })),
+    ],
   });
 });
 
@@ -219,10 +243,19 @@ async function handleMcpPost(c: McpCtx, slug: string): Promise<Response> {
           [site.id],
         );
         response = {
-          tools: tools.map((t) => ({
-            name: t.tool_name,
-            inputSchema: safeParse(t.schema_json),
-          })),
+          tools: [
+            ...tools.map((t) => ({
+              name: t.tool_name,
+              inputSchema: safeParse(t.schema_json),
+              requiresAuth: t.requires_auth === 1,
+            })),
+            ...SITE_MCP_TOOLS.map((t) => ({
+              name: t.name,
+              description: t.description,
+              inputSchema: t.inputSchema,
+              requiresAuth: true,
+            })),
+          ],
         };
         break;
       }
@@ -232,16 +265,20 @@ async function handleMcpPost(c: McpCtx, slug: string): Promise<Response> {
           status = 'error';
           response = jsonRpcError(-32602, 'tool name required', body.id).error;
         } else {
-          // Minimal first-pass dispatch — handlers TODO.
-          response = {
-            content: [
-              {
-                type: 'text',
-                text: `[stub] tool ${params.name} would execute with args ${JSON.stringify(params.arguments ?? {})}`,
-              },
-            ],
-            isError: false,
-          };
+          // Verify per-site MCP token for CRUD tools that mutate site data.
+          const bearer = c.req.header('authorization')?.replace(/^Bearer\s+/i, '');
+          if (!bearer || !(await verifySiteMcpToken(c.env.DB, site.id, bearer))) {
+            status = 'unauthorized';
+            response = jsonRpcError(-32001, 'unauthorized', body.id).error;
+          } else {
+            response = await dispatchTool(
+              c.env.DB,
+              site.id,
+              params.name,
+              (params.arguments ?? {}) as Record<string, unknown>,
+            );
+            if ((response as { isError?: boolean }).isError) status = 'error';
+          }
         }
         break;
       }
@@ -342,6 +379,68 @@ mcpSite.get('/api/sites/:siteId/mcp/calls', async (c) => {
     [siteId, limit],
   );
   return c.json({ calls: data });
+});
+
+// ─── Admin: per-site MCP token management ─────────────────────────────────
+
+/**
+ * `GET /api/sites/:siteId/mcp/tokens` — list non-revoked tokens (hashes hidden).
+ */
+mcpSite.get('/api/sites/:siteId/mcp/tokens', async (c) => {
+  const siteId = c.req.param('siteId');
+  await assertSiteOwnership(c, siteId);
+  const { data } = await dbQuery(
+    c.env.DB,
+    `SELECT id, label, last_used, created_at, created_by
+       FROM site_mcp_tokens
+      WHERE site_id = ? AND revoked_at IS NULL
+      ORDER BY created_at DESC`,
+    [siteId],
+  );
+  return c.json({ tokens: data });
+});
+
+const mintTokenSchema = z.object({ label: z.string().min(1).max(64).optional() });
+
+/**
+ * `POST /api/sites/:siteId/mcp/tokens` — mint a new token. Raw token returned once.
+ */
+mcpSite.post('/api/sites/:siteId/mcp/tokens', zValidator('json', mintTokenSchema), async (c) => {
+  const siteId = c.req.param('siteId');
+  await assertSiteOwnership(c, siteId);
+  const userId = c.get('userId');
+  if (!userId) throw unauthorized();
+  const { label } = c.req.valid('json');
+  const result = await mintSiteMcpToken(c.env.DB, siteId, userId, label ?? 'Default');
+  return c.json(result, 201);
+});
+
+/**
+ * `DELETE /api/sites/:siteId/mcp/tokens/:tokenId` — revoke a token.
+ */
+mcpSite.delete('/api/sites/:siteId/mcp/tokens/:tokenId', async (c) => {
+  const siteId = c.req.param('siteId');
+  await assertSiteOwnership(c, siteId);
+  const tokenId = c.req.param('tokenId');
+  await revokeSiteMcpToken(c.env.DB, tokenId, siteId);
+  return c.json({ ok: true });
+});
+
+/**
+ * `GET /api/sites/:siteId/mcp/tool-usage` — per-tool daily usage (last 30d).
+ */
+mcpSite.get('/api/sites/:siteId/mcp/tool-usage', async (c) => {
+  const siteId = c.req.param('siteId');
+  await assertSiteOwnership(c, siteId);
+  const { data } = await dbQuery(
+    c.env.DB,
+    `SELECT tool_name, day, call_count, error_count
+       FROM site_mcp_tool_usage
+      WHERE site_id = ? AND day >= date('now','-30 days')
+      ORDER BY day DESC, call_count DESC`,
+    [siteId],
+  );
+  return c.json({ usage: data });
 });
 
 // ─── helpers ──────────────────────────────────────────────────────────────

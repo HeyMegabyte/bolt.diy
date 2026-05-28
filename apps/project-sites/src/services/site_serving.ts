@@ -32,6 +32,7 @@ import { DOMAINS } from '@project-sites/shared';
 import type { Env } from '../types/env.js';
 import { dbQueryOne } from './db.js';
 import { minifyCssCached } from './css_minify.js';
+import { parseBranchHost } from './site_branches.js';
 
 /**
  * Generate the promotional top bar HTML injected into unpaid sites.
@@ -328,6 +329,47 @@ export async function resolveSite(
   current_build_version: string | null;
   plan: string;
 } | null> {
+  // Branch preview fast path: {branch}--{slug}.projectsites.dev
+  // The `--` separator distinguishes branches from snapshot names (which use `-`).
+  const branchInfo = parseBranchHost(hostname);
+  if (branchInfo) {
+    const branchRow = await dbQueryOne<{
+      id: string;
+      site_id: string;
+      r2_path: string | null;
+      status: string;
+    }>(
+      db,
+      `SELECT b.id, b.site_id, b.r2_path, b.status
+         FROM site_branches b
+         JOIN sites s ON s.id = b.site_id
+        WHERE b.branch_name = ? AND s.slug = ?
+          AND b.deleted_at IS NULL AND s.deleted_at IS NULL
+        LIMIT 1`,
+      [branchInfo.branchName, branchInfo.slug],
+    );
+
+    if (branchRow && branchRow.r2_path && branchRow.status !== 'closed') {
+      const siteRow = await dbQueryOne<{ id: string; org_id: string }>(
+        db,
+        'SELECT id, org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
+        [branchRow.site_id],
+      );
+      if (siteRow) {
+        return {
+          site_id: branchRow.site_id,
+          slug: `${branchInfo.branchName}--${branchInfo.slug}`,
+          org_id: siteRow.org_id,
+          // Branch R2 path IS the version — stored as sites/{slug}/branches/{name}/
+          current_build_version: branchRow.r2_path,
+          plan: 'free', // Branch previews always show top bar (never claim-able)
+        };
+      }
+    }
+    // Branch not found / closed → fall through to 404 (do NOT resolve as base slug)
+    return null;
+  }
+
   // Fast path: check KV cache
   const cacheKey = `host:${hostname}`;
   const cached = await env.CACHE_KV.get(cacheKey, 'json');
@@ -577,7 +619,12 @@ export async function serveSiteFromR2(
     filePath += 'index.html';
   }
 
-  const r2Path = `sites/${site.slug}/${version}${filePath}`;
+  // Branch previews store `current_build_version` as the full R2 prefix
+  // (e.g. `sites/vitos/branches/feat-hero/`). Detect and use verbatim.
+  const isBranchPath = version?.startsWith('sites/') && version.includes('/branches/');
+  const r2Path = isBranchPath
+    ? `${version}${filePath.replace(/^\//, '')}`
+    : `sites/${site.slug}/${version}${filePath}`;
 
   console.warn(
     JSON.stringify({
@@ -591,15 +638,19 @@ export async function serveSiteFromR2(
 
   let object = await env.SITES_BUCKET.get(r2Path);
 
+  // Helper: build a versioned R2 path respecting branch-path format.
+  const versionedPath = (suffix: string): string =>
+    isBranchPath ? `${version}${suffix.replace(/^\//, '')}` : `sites/${site.slug}/${version}${suffix}`;
+
   // For paths without extensions (e.g. /about), try directory index then .html extension
   if (!object && !filePath.includes('.')) {
     // /about → try /about/index.html
-    const dirIndexPath = `sites/${site.slug}/${version}${filePath}/index.html`;
+    const dirIndexPath = versionedPath(`${filePath}/index.html`);
     object = await env.SITES_BUCKET.get(dirIndexPath);
 
     if (!object) {
       // /about → try /about.html
-      const htmlPath = `sites/${site.slug}/${version}${filePath}.html`;
+      const htmlPath = versionedPath(`${filePath}.html`);
       object = await env.SITES_BUCKET.get(htmlPath);
     }
   }
@@ -608,7 +659,7 @@ export async function serveSiteFromR2(
   // e.g. /blog/barbara-cary → try /blog-barbara-cary.html
   if (!object && filePath.includes('/') && !filePath.includes('.')) {
     const flatName = filePath.replace(/^\//, '').replace(/\//g, '-');
-    const flatPath = `sites/${site.slug}/${version}/${flatName}.html`;
+    const flatPath = versionedPath(`/${flatName}.html`);
     object = await env.SITES_BUCKET.get(flatPath);
     if (object) {
       console.warn(
@@ -642,7 +693,7 @@ export async function serveSiteFromR2(
 
     // Try index.html for SPA fallback (catch-all for client-side routing)
     if (!requestPath.includes('.')) {
-      const fallbackPath = `sites/${site.slug}/${version}/index.html`;
+      const fallbackPath = versionedPath('/index.html');
       const fallback = await env.SITES_BUCKET.get(fallbackPath);
 
       if (fallback) {
