@@ -66,7 +66,7 @@
 
 - [x] ADMIN-01 — `/admin` dashboard loads, sidebar visible → `e2e/admin/admin-shell.spec.ts` ✓ wired
 - [x] ADMIN-02 — Sidebar nav switches sub-route WITHOUT full reload (View Transitions) → `e2e/admin/admin-shell.spec.ts` ✓ wired
-- [ ] ADMIN-03 — `/admin/sites` lists user's sites with status badges → (no spec yet — to RED)
+- [x] ADMIN-03 — `/admin/sites` lists user's sites with status badges → `e2e/admin/admin-gaps.spec.ts` ✓ wired
 - [x] ADMIN-04 — `/admin/forms` lists form submissions → `e2e/forms-handling-widget.spec.ts` ✓ wired
 - [x] ADMIN-05 — `/admin/snapshots` lists snapshots with capture/preview → `e2e/admin/snapshots.spec.ts` ✓ wired
 - [x] ADMIN-06 — `/admin/snapshots-diff` compares two snapshots side-by-side → `e2e/admin/snapshots.spec.ts` ✓ wired
@@ -96,8 +96,8 @@
 - [x] ADMIN-30 — `/admin/domains` lists hostnames + add → `e2e/domain-management.spec.ts` ✓ wired
 - [x] ADMIN-31 — `/admin/accept-invite` org invitation acceptance → `e2e/admin/accept-invite.spec.ts` ✓ wired
 - [x] ADMIN-32 — Cmd+K opens command palette inside admin + focuses → `e2e/command-palette.spec.ts` ✓ wired
-- [ ] ADMIN-33 — Network-status banner appears when offline → (no spec yet — to RED)
-- [ ] ADMIN-34 — Toast layer dedupes + supports action buttons → (no spec yet — to RED)
+- [x] ADMIN-33 — Network-status banner appears when offline → `e2e/admin/admin-gaps.spec.ts` ✓ wired
+- [x] ADMIN-34 — Toast layer dedupes + supports action buttons → `e2e/admin/admin-gaps.spec.ts` ✓ wired
 - [x] ADMIN-35 — Section error boundary isolates crashes → `e2e/error-boundary.spec.ts` ✓ wired
 
 ## E. Per-project tabs (prompt spec) — `TAB-*`
@@ -409,7 +409,7 @@
 
 ## Linter gate
 
-- [ ] LINT-01 — `npm run lint` exits 0 (eslint)
+- [x] LINT-01 — `npm run lint` exits 0 (eslint) ✓ wired — 0 errors / 7802 warnings (perfectionist nits, non-failing)
 - [x] LINT-02 ✓ wired — `npx tsc --noEmit` exits 0 (Worker)
 - [x] LINT-03 ✓ wired — `npx tsc --noEmit -p tsconfig.app.json` exits 0 (SPA)
 
