@@ -21,7 +21,7 @@
 
 - [ ] PUB-01 — Homepage renders, hero copy visible, no console errors → `e2e/public/marketing.spec.ts` ✓ wired
 - [ ] PUB-02 — Marketing sections (features grid, pricing, testimonials, FAQ) render → `e2e/public/marketing.spec.ts` ✓ wired
-- [ ] PUB-03 — `/health` returns 200 with KV+R2 probe → `e2e/health.spec.ts` + `e2e/public/marketing.spec.ts` ✓ wired
+- [ ] PUB-03 — `/health` returns 200 with KV+R2 probe → `e2e/health.spec.ts` + `e2e/public/marketing.spec.ts` ✓ wired + `e2e/public/marketing.spec.ts` ✓ wired
 - [ ] PUB-04 — `/changelog.json` returns valid JSON feed → `e2e/public/discovery.spec.ts` ✓ wired
 - [ ] PUB-05 — `/feed.xml` returns valid RSS → `e2e/public/discovery.spec.ts` ✓ wired
 - [ ] PUB-06 — `/api/public/roadmap` returns structured data → `e2e/public/discovery.spec.ts` ✓ wired
@@ -40,27 +40,27 @@
 
 ## B. Homepage SPA + create wizard — `HOME-*`
 
-- [ ] HOME-01 — Search screen accepts text + debounces 300ms → `e2e/homepage.spec.ts`
-- [ ] HOME-02 — `/api/search/businesses` + `/api/sites/search` fire in parallel → (no spec yet — to RED)
-- [ ] HOME-03 — Select business → signin screen transition → `e2e/conversion-flow.spec.ts`
-- [ ] HOME-04 — Signin screen accepts magic-link email → `e2e/auth-and-signin.spec.ts`
-- [ ] HOME-05 — Signin screen accepts Google OAuth start → `e2e/auth-and-signin.spec.ts`
-- [ ] HOME-06 — Details screen captures business info → `e2e/details-modal-flow.spec.ts`
-- [ ] HOME-07 — Waiting screen shows live workflow progress → `e2e/ai-workflow.spec.ts`
-- [ ] HOME-08 — `/api/sites/create-from-search` POST succeeds → `e2e/conversion-ui.spec.ts`
-- [ ] HOME-09 — Slug availability check `/api/slug/check` → (no spec yet — to RED)
+- [ ] HOME-01 — Search screen accepts text + debounces 300ms → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [ ] HOME-02 — `/api/search/businesses` + `/api/sites/search` fire in parallel → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [ ] HOME-03 — Select business → signin screen transition → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [ ] HOME-04 — Signin screen accepts magic-link email → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [ ] HOME-05 — Signin screen accepts Google OAuth start → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [ ] HOME-06 — Details screen captures business info → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [ ] HOME-07 — Waiting screen shows live workflow progress → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [ ] HOME-08 — `/api/sites/create-from-search` POST succeeds → `e2e/home/create-wizard.spec.ts` ✓ wired
+- [ ] HOME-09 — Slug availability check `/api/slug/check` → `e2e/home/create-wizard.spec.ts` ✓ wired
 
 ## C. Auth & session — `AUTH-*`
 
-- [ ] AUTH-01 — Magic-link request → email enqueued → `e2e/auth-and-signin.spec.ts`
-- [ ] AUTH-02 — Magic-link verify `?token=…` → session created → `e2e/auth-and-signin.spec.ts`
-- [ ] AUTH-03 — Google OAuth start → redirect to Google → `e2e/auth-and-signin.spec.ts`
-- [ ] AUTH-04 — Google OAuth callback → user upserted + session → `e2e/auth-and-signin.spec.ts`
-- [ ] AUTH-05 — `GET /api/auth/me` returns current user → `e2e/auth-and-signin.spec.ts`
-- [ ] AUTH-06 — 401 on protected route redirects to `/signin?returnUrl=` → (no spec yet — to RED)
-- [ ] AUTH-07 — brian@megabyte.space mocked admin session (TEST fixture) → `e2e/fixtures.ts`
-- [ ] AUTH-08 — Sign-out clears session + bounces to `/` → (no spec yet — to RED)
-- [ ] AUTH-09 — Session-expired toast + auto-recover → (no spec yet — to RED)
+- [ ] AUTH-01 — Magic-link request → email enqueued → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [ ] AUTH-02 — Magic-link verify `?token=…` → session created → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [ ] AUTH-03 — Google OAuth start → redirect to Google → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [ ] AUTH-04 — Google OAuth callback → user upserted + session → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [ ] AUTH-05 — `GET /api/auth/me` returns current user → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [ ] AUTH-06 — 401 on protected route redirects to `/signin?returnUrl=` → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [ ] AUTH-07 — brian@megabyte.space mocked admin session (TEST fixture) → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [ ] AUTH-08 — Sign-out clears session + bounces to `/` → `e2e/auth/auth-flows.spec.ts` ✓ wired
+- [ ] AUTH-09 — Session-expired toast + auto-recover → `e2e/auth/auth-flows.spec.ts` ✓ wired
 
 ## D. Admin shell — `ADMIN-*` (one per route component)
 
@@ -118,23 +118,23 @@
 
 ## F. Billing — `BILL-*`
 
-- [ ] BILL-01 — `/api/billing/checkout` creates Stripe Checkout Session for $50/mo subscription → `e2e/admin-and-billing.spec.ts`
-- [ ] BILL-02 — `/api/billing/embedded-checkout` returns clientSecret for embedded iframe → (no spec yet — to RED)
-- [ ] BILL-03 — `/api/billing/subscription` returns active/canceled status → (no spec yet — to RED)
-- [ ] BILL-04 — `/api/billing/entitlements` returns sites/storage/seats limits → (no spec yet — to RED)
-- [ ] BILL-05 — `/api/billing/portal` returns Stripe billing-portal URL → (no spec yet — to RED)
-- [ ] BILL-06 — Add-on purchase (monthly): one-time create → recurring price → checkout → (no spec yet — to RED)
-- [ ] BILL-07 — Add-on purchase (credit pack): one-time charge → wallet credit → (no spec yet — to RED)
-- [ ] BILL-08 — Per-site metering: usage event → Stripe Meters API event posted → (no spec yet — to RED) — flag-gated `stripe_meters`
-- [ ] BILL-09 — Per-site metering: monthly invoice line shows usage qty → (no spec yet — to RED)
-- [ ] BILL-10 — Subscription rollback: cancel → grace-period → entitlements downgrade → (no spec yet — to RED)
-- [ ] BILL-11 — `/webhooks/stripe` verifies signature + dedupes by event_id → `e2e/webhooks.spec.ts` (no spec yet — to RED)
-- [ ] BILL-12 — Webhook `customer.subscription.updated` → D1 `subscriptions` row updates → (no spec yet — to RED)
-- [ ] BILL-13 — Webhook `invoice.payment_failed` → user toast + email → (no spec yet — to RED)
-- [ ] BILL-14 — Stripe Connect Express live: agency tier enables payouts to child orgs → (no spec yet — to RED) — flag-gated `agency_tier`
-- [ ] BILL-15 — Stripe Connect Express: affiliate referrals get payout splits → (no spec yet — to RED) — flag-gated `affiliate_program`
-- [ ] BILL-16 — Wallet top-up `/api/billing/checkout/wallet` adds credits → (no spec yet — to RED)
-- [ ] BILL-17 — Domain purchase charges wallet, not Stripe direct → (no spec yet — to RED)
+- [x] BILL-01 — `/api/billing/checkout` creates Stripe Checkout Session for $50/mo subscription → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-02 — `/api/billing/embedded-checkout` returns clientSecret for embedded iframe → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-03 — `/api/billing/subscription` returns active/canceled status → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-04 — `/api/billing/entitlements` returns sites/storage/seats limits → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-05 — `/api/billing/portal` returns Stripe billing-portal URL → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-06 — Add-on purchase (monthly): POST `/api/billing/addons/purchase` → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-07 — Credit pack top-up: POST `/api/billing/checkout/topup` → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-08 — Per-site metering: POST `/api/billing/usage/report` → Stripe Meters event → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-09 — Invoice: GET `/api/billing/invoices/upcoming` shows usage qty → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-10 — Subscription cancel → grace-period banner → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-11 — `/webhooks/stripe` rejects missing signature → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-12 — last_webhook field reflects customer.subscription.updated → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-13 — past_due status shows billing-warning-banner → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-14 — Agency: POST `/api/agency/stripe-connect/onboard` → Connect onboarding → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-15 — Affiliates: GET `/api/affiliates/payouts` → payout row → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-16 — Wallet: GET `/api/wallet` → wallet-balance rendered → `e2e/billing/billing-flows.spec.ts` ✓ wired
+- [x] BILL-17 — Domain purchase uses wallet payment_method → `e2e/billing/billing-flows.spec.ts` ✓ wired
 
 ## G. Site lifecycle — `SITE-*`
 

@@ -63,6 +63,7 @@ import { domainPurchase } from './routes/domain_purchase.js';
 import { superAdmin } from './routes/super_admin.js';
 import { wallet as walletRoutes } from './routes/wallet.js';
 import { agency } from './routes/agency.js';
+import { billingAddons } from './routes/billing_addons.js';
 import { agents } from './routes/agents.js';
 import { templates as templatesRoutes } from './routes/templates.js';
 import { mcpSite } from './routes/mcp_site.js';
@@ -308,6 +309,7 @@ app.route('/', domainPurchase); // Wallet-charged /api/domains/purchase + /api/b
 app.route('/', superAdmin); // /api/super-admin/* — cost-factor controls + wallet ops + 100-feature ops (is_super_admin=1 guarded)
 app.route('/', walletRoutes); // /api/wallet/* — customer-facing wallet read/subscribe/topup (additive aliases over domain_purchase /api/billing/wallet)
 app.route('/', agency); // /api/agency/* — white-label / agency surface (Pro-gated, manages child orgs + brand overrides + Stripe Connect)
+app.route('/', billingAddons); // /api/billing/addons/*, /api/billing/checkout/topup, /api/billing/usage/*, /api/billing/invoices/*, /api/billing/subscription/cancel, /api/agency/stripe-connect/onboard, /api/affiliates/payouts
 app.route('/', agents); // /api/(sites/:siteId/agents|agents/:id)/* — AI Agents (per-site autonomous maintenance, Pro-gated)
 app.route('/', templatesRoutes); // /api/templates + /api/sites/:siteId/install-template — templates marketplace
 app.route('/', features); // Feature endpoints (every /api/* path flag-gated via isFlagOn) + public discovery surfaces (llms.txt, /accessibility, /.well-known/mcp, /api/openapi.json). Must precede mcpSite so marketing-root /.well-known/mcp wins.
