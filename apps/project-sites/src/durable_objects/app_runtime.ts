@@ -124,7 +124,7 @@ const RESTART_MAX_PER_WINDOW = 3;
  */
 export class AppRuntimeContainer extends Container<Env> {
   /** Default port. Overridden per-instance by `start()`. */
-  defaultPort = 3000;
+  override defaultPort = 3000;
 
   /** Hibernate after 30 min of idleness — keeps compute costs predictable. */
   override sleepAfter = '30m';

@@ -2731,11 +2731,11 @@ search.get('/api/public-data/:table', async (c) => {
       .all();
 
     // Parse the JSON data column for each row
-    const rows = (result.results || []).map((row: any) => {
+    const rows = (result.results || []).map((row: Record<string, unknown>) => {
       try {
-        return { id: row.id, ...JSON.parse(row.data_json || '{}') };
+        return { id: row['id'], ...JSON.parse((row['data_json'] as string | undefined) ?? '{}') };
       } catch {
-        return { id: row.id };
+        return { id: row['id'] };
       }
     });
 
@@ -2767,11 +2767,11 @@ search.get('/api/sites/:siteId/data/:table', async (c) => {
     .bind(siteId, table)
     .all();
 
-  const rows = (result.results || []).map((row: any) => {
+  const rows = (result.results || []).map((row: Record<string, unknown>) => {
     try {
-      return { id: row.id, sort_order: row.sort_order, ...JSON.parse(row.data_json || '{}') };
+      return { id: row['id'], sort_order: row['sort_order'], ...JSON.parse((row['data_json'] as string | undefined) ?? '{}') };
     } catch {
-      return { id: row.id, sort_order: row.sort_order };
+      return { id: row['id'], sort_order: row['sort_order'] };
     }
   });
 

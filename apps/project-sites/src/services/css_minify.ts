@@ -45,14 +45,16 @@ const TARGETS = {
 async function getTransformer(): Promise<(opts: TransformOptions) => TransformResult> {
   if (transformer) return transformer;
   transformer = (async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-var-requires */
-    const mod: any = await import('lightningcss-wasm');
     // lightningcss-wasm exports a default async init() in the browser/Workers path,
     // followed by sync `transform()`. The module shape is: { default: init, transform }
+    const mod = await import('lightningcss-wasm') as {
+      default?: () => Promise<void>;
+      transform: (opts: TransformOptions) => TransformResult;
+    };
     if (typeof mod.default === 'function') {
       await mod.default();
     }
-    return mod.transform as (opts: TransformOptions) => TransformResult;
+    return mod.transform;
   })();
   return transformer;
 }

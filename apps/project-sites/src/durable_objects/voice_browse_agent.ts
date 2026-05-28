@@ -152,7 +152,7 @@ CREATE INDEX IF NOT EXISTS idx_restart_ts ON restart_window(ts DESC);
  */
 export class VoiceBrowseAgent extends Container<Env> {
   /** Container internal port — entry.mjs wires Playwright + bridge here. */
-  defaultPort = 9223;
+  override defaultPort = 9223;
 
   /** Hibernate after 30 min idle. */
   override sleepAfter = '30m';

@@ -25,7 +25,7 @@ export interface PseoGenerationParams {
 }
 
 export class PseoGenerationWorkflow extends WorkflowEntrypoint<Env, PseoGenerationParams> {
-  async run(event: WorkflowEvent<PseoGenerationParams>, step: WorkflowStep): Promise<void> {
+  override async run(event: WorkflowEvent<PseoGenerationParams>, step: WorkflowStep): Promise<void> {
     const { siteId, orgId } = event.payload;
 
     const flagOn = await step.do('check-flag', async () => {

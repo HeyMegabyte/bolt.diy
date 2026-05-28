@@ -212,6 +212,14 @@ function getNodeEnv(): string {
   return (typeof process !== 'undefined' && process.env?.NODE_ENV) || 'development';
 }
 
+/**
+ * Returns true when the runtime is JSON-friendly (production or test).
+ * Test env emits JSON so existing Jest `captureWarn` helpers can parse it.
+ */
+function isJsonEnv(env: string): boolean {
+  return env === 'production' || env === 'test';
+}
+
 // ── Sampling ──────────────────────────────────────────────────────────────────
 
 /**
@@ -246,13 +254,15 @@ function emit(
 
   const merged = redact({ ...ctxFields, ...fields });
 
-  if (isProd) {
-    // Structured JSON — one line, Wrangler tail parseable
+  if (isJsonEnv(env)) {
+    // Structured JSON — one line, Wrangler tail parseable + Jest-parseable in test.
+    // `eventName` is kept for backward compat with existing log queries / tests.
     const payload: LogFields = {
       ts: new Date().toISOString(),
       level,
       scope,
       msg,
+      eventName: msg, // backward-compat alias
       env,
       service: 'project-sites',
       ...merged,

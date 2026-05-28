@@ -29,7 +29,7 @@
  * @packageDocumentation
  */
 
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
@@ -52,8 +52,7 @@ interface V1Vars {
   v1OrgId: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const v1 = new Hono<{ Bindings: Env; Variables: any }>();
+const v1 = new Hono<{ Bindings: Env; Variables: V1Vars }>();
 
 // ─── CORS for public API ────────────────────────────────────────────────────
 v1.use(
@@ -98,9 +97,8 @@ v1.use('*', async (c, next) => {
 
 /** Require a specific scope — returns 403 if missing. */
 function requireScope(scope: ApiScope) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return async (c: any, next: () => Promise<void>) => {
-    const row = c.get('apiTokenRow') as ApiTokenRow;
+  return async (c: Context<{ Bindings: Env; Variables: V1Vars }>, next: () => Promise<void>) => {
+    const row = c.get('apiTokenRow');
     if (!hasScope(row, scope)) {
       return c.json({ error: 'forbidden', message: `Token missing required scope: ${scope}` }, 403);
     }

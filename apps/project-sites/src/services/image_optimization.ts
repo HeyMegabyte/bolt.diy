@@ -15,17 +15,40 @@
  * @see services/build_validators.ts (image.png_too_large gate this closes)
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import type { Env } from '../types/env.js';
+import type { WorkerResizeOptions } from '@jsquash/resize/meta.js';
+
+/**
+ * Shape of decoded image data returned by jsquash PNG/JPEG decoders.
+ * Mirrors the DOM `ImageData` interface without requiring the DOM lib.
+ */
+interface JsquashImageData {
+  readonly data: Uint8ClampedArray;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** Narrow wrapper so resize options carry the exact jsquash method literal. */
+type ResizeOpts = Partial<WorkerResizeOptions> & { width: number; height: number };
+
+/** AVIF encode options */
+interface AvifOpts {
+  cqLevel: number;
+  speed: number;
+}
+
+/** WebP encode options */
+interface WebpOpts {
+  quality: number;
+}
 
 interface Codecs {
-  decodePng: (b: ArrayBuffer) => Promise<any>;
-  decodeJpeg: (b: ArrayBuffer) => Promise<any>;
-  encodeAvif: (img: any, opts: any) => Promise<ArrayBuffer>;
-  encodeWebp: (img: any, opts: any) => Promise<ArrayBuffer>;
-  encodePng: (img: any) => Promise<ArrayBuffer>;
-  resize: (img: any, opts: any) => Promise<any>;
+  decodePng: (b: ArrayBuffer) => Promise<JsquashImageData>;
+  decodeJpeg: (b: ArrayBuffer) => Promise<JsquashImageData>;
+  encodeAvif: (img: JsquashImageData, opts: AvifOpts) => Promise<ArrayBuffer>;
+  encodeWebp: (img: JsquashImageData, opts: WebpOpts) => Promise<ArrayBuffer>;
+  encodePng: (img: JsquashImageData) => Promise<ArrayBuffer>;
+  resize: (img: JsquashImageData, opts: ResizeOpts) => Promise<JsquashImageData>;
 }
 
 let codecsReady: Promise<Codecs> | null = null;
@@ -95,7 +118,7 @@ export interface OptimizedImage {
   sourceHeight: number;
 }
 
-async function decodeBytes(bytes: ArrayBuffer): Promise<any> {
+async function decodeBytes(bytes: ArrayBuffer): Promise<JsquashImageData> {
   const head = new Uint8Array(bytes, 0, Math.min(bytes.byteLength, 4));
   const isPng = head[0] === 0x89 && head[1] === 0x50;
   const isJpeg = head[0] === 0xff && head[1] === 0xd8;
@@ -105,7 +128,7 @@ async function decodeBytes(bytes: ArrayBuffer): Promise<any> {
   throw new Error('image_optimization: unsupported source format (expected PNG or JPEG)');
 }
 
-async function maybeResize(image: any, maxWidth: number): Promise<any> {
+async function maybeResize(image: JsquashImageData, maxWidth: number): Promise<JsquashImageData> {
   if (image.width <= maxWidth) return image;
   const codecs = await loadCodecs();
   const ratio = maxWidth / image.width;

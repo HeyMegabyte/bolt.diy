@@ -24,7 +24,7 @@ export class ConversationHub extends DurableObject<Env> {
   /**
    * Always responds 410 Gone. Inbox feature has been removed.
    */
-  async fetch(_request: Request): Promise<Response> {
+  override async fetch(_request: Request): Promise<Response> {
     return new Response(
       JSON.stringify({
         error: 'gone',

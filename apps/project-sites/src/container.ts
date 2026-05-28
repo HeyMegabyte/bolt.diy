@@ -17,13 +17,13 @@ import type { Env } from './types/env.js';
  * 7. Container does NOT touch D1 or R2 directly — workflow handles D1; container uploads via REST.
  */
 export class SiteBuilderContainer extends Container<Env> {
-  defaultPort = 8080;
-  enableInternet = true;
+  override defaultPort = 8080;
+  override enableInternet = true;
   // Keep container warm across the full build window — workflows poll every
   // 30s for up to 60min. Hibernation between polls would lose child processes.
-  sleepAfter = '90m';
+  override sleepAfter = '90m';
 
-  entrypoint = ['node', '/home/cuser/container-server.mjs'];
+  override entrypoint = ['node', '/home/cuser/container-server.mjs'];
 
   override async fetch(request: Request): Promise<Response> {
     try {

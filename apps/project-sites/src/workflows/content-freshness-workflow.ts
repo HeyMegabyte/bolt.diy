@@ -20,7 +20,7 @@ export interface ContentFreshnessParams {
 }
 
 export class ContentFreshnessWorkflow extends WorkflowEntrypoint<Env, ContentFreshnessParams> {
-  async run(event: WorkflowEvent<ContentFreshnessParams>, step: WorkflowStep): Promise<void> {
+  override async run(event: WorkflowEvent<ContentFreshnessParams>, step: WorkflowStep): Promise<void> {
     const flagOn = await step.do('check-flag', async () => {
       return await isFlagOn(this.env, 'content_freshness');
     });
