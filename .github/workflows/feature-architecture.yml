@@ -69,11 +69,15 @@ jobs:
         working-directory: apps/project-sites
         run: node scripts/validate-feature-manifests.mjs
 
-      # ── Step 2: Detect architecture drift ────────────────────────────────
+      # ── Step 2: Detect architecture drift (HARD GATE) ────────────────────
+      # --strict promotes warnings (orphan _fortress dirs, impl-without-flag
+      # handlers) to errors. We landed --strict here after the 2026-05-28
+      # close-the-loop wave dropped warnings to 0 — keeping the gate honest
+      # so any new drift fails CI immediately rather than accruing.
       - name: Detect feature drift
         id: drift
         working-directory: apps/project-sites
-        run: node scripts/validate-feature-drift.mjs
+        run: node scripts/validate-feature-drift.mjs --strict
 
       # ── Step 3: Upload drift report as artifact (always, even on failure) ─
       - name: Upload drift report

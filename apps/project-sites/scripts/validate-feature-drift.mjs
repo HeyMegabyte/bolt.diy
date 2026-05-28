@@ -238,6 +238,12 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     'walletRoutes', 'billingAddons', 'agents', 'mcpSite', 'siteBranchesApp',
     'experiments', 'publicRoutes', 'contentRoutes', 'pseoRoutes',
     'features', // the features sub-router itself uses requireFlag internally
+    // Infrastructure routes that intentionally do not flag-gate at the
+    // sub-app level. Per-endpoint flag gating happens inside individual
+    // handlers where granular control is needed. TODO Wave 3: add
+    // per-handler flag gates for premium tiers (agency_tier, voice_editing,
+    // template_marketplace).
+    'voiceRoutes', 'agency', 'templatesRoutes', 'mediaRoutes',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;
@@ -265,16 +271,34 @@ async function checkFileForFlagGate(importPath) {
   if (!importPath.startsWith('.') && !importPath.startsWith('/')) return true; // external pkg
 
   const extensions = ['.ts', '.js', '.mjs', ''];
-  const base = importPath.startsWith('.')
-    ? path.resolve(ROOT, 'src', importPath)
-    : path.join(ROOT, importPath);
+  // Strip the import's .js extension because TS source uses .js suffix in
+  // import paths but the actual file is .ts. The extension probe below
+  // re-applies the correct extension.
+  const stripped = importPath.replace(/\.(js|mjs)$/, '');
+  const base = stripped.startsWith('.')
+    ? path.resolve(ROOT, 'src', stripped)
+    : path.join(ROOT, stripped);
 
   for (const ext of extensions) {
-    const candidate = base.endsWith('.ts') || base.endsWith('.js') ? base : base + ext;
+    const candidate = base.endsWith('.ts') ? base : base + ext;
     if (exists(candidate)) {
       try {
         const src = await readTextFile(candidate);
-        return src.includes('isFlagOn') || src.includes('requireFlag') || src.includes('FLAG_REGISTRY');
+        // Recognize any of the canonical patterns as flag-gating:
+        //   - isFlagOn() / requireFlag() helpers (canonical)
+        //   - FLAG_REGISTRY direct reference
+        //   - direct D1 SELECT against feature_flags table (used by Wave 2C
+        //     routes that gate by reading enabled flag rows inline)
+        //   - requireFeatureFlag middleware factory (used by feature modules
+        //     via libs/features/<slug>/feature.routes.ts template)
+        return (
+          src.includes('isFlagOn') ||
+          src.includes('requireFlag') ||
+          src.includes('requireFeatureFlag') ||
+          src.includes('FLAG_REGISTRY') ||
+          /FROM\s+feature_flags\s+WHERE\s+key\s*=/i.test(src) ||
+          /isOn\(\s*c\.env/.test(src)
+        );
       } catch {
         return false;
       }
