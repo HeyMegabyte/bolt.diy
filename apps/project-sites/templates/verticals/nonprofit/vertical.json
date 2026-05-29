@@ -1,0 +1,30 @@
+{
+  "slug": "nonprofit",
+  "name": "Nonprofit / NGO",
+  "industry": "social_services",
+  "default_service_pages": [
+    { "slug": "about", "title": "Our Mission", "intent": "trust" },
+    { "slug": "programs", "title": "Programs + Services", "intent": "service" },
+    { "slug": "donate", "title": "Donate", "intent": "conversion" },
+    { "slug": "ways-to-give", "title": "Ways to Give", "intent": "pricing" },
+    { "slug": "planned-giving", "title": "Planned + Legacy Giving", "intent": "conversion" },
+    { "slug": "annual-report", "title": "Annual Report", "intent": "trust" },
+    { "slug": "financials", "title": "Financial Transparency", "intent": "trust" },
+    { "slug": "volunteer", "title": "Volunteer", "intent": "conversion" },
+    { "slug": "events", "title": "Events", "intent": "pricing" },
+    { "slug": "press", "title": "Press + News", "intent": "trust" }
+  ],
+  "jsonld_presets": ["NGO", "Organization", "DonateAction", "Event", "FAQPage", "BreadcrumbList"],
+  "trust_signals": ["501(c)(3) verified", "Charity Navigator", "GuideStar Platinum", "BBB Wise Giving"],
+  "payment_routing": "square_donate_button_or_pp_giving_fund_per_payments-routing_rule",
+  "lead_magnets": [
+    "How-to-apply-for-services flowchart",
+    "Volunteer onboarding pack",
+    "Annual impact report PDF"
+  ],
+  "compliance_notes": [
+    "Donation receipt language varies by state — see IRS Pub 1771.",
+    "DAFpay / Chariot routing for donor-advised funds is required at floor.",
+    "PayPal Giving Fund for 0% fee on PPGF-verified 501c3s; Square for instant cash."
+  ]
+}

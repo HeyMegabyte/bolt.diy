@@ -1,0 +1,23 @@
+{
+  "slug": "hvac",
+  "name": "HVAC / Heating + Cooling",
+  "industry": "residential_services",
+  "default_service_pages": [
+    { "slug": "ac-repair", "title": "AC Repair", "intent": "diagnostic" },
+    { "slug": "ac-installation", "title": "AC Installation", "intent": "service" },
+    { "slug": "furnace-repair", "title": "Furnace Repair", "intent": "diagnostic" },
+    { "slug": "heat-pump-installation", "title": "Heat Pump Installation", "intent": "service" },
+    { "slug": "duct-cleaning", "title": "Duct Cleaning", "intent": "service" },
+    { "slug": "emergency-hvac", "title": "24/7 Emergency HVAC", "intent": "emergency" },
+    { "slug": "maintenance-plans", "title": "Maintenance Plans", "intent": "pricing" },
+    { "slug": "indoor-air-quality", "title": "Indoor Air Quality", "intent": "educational" }
+  ],
+  "jsonld_presets": ["LocalBusiness", "HVACBusiness", "Service", "AggregateRating", "FAQPage"],
+  "trust_signals": ["EPA 608 certified", "NATE certified", "BBB accredited", "Licensed + insured"],
+  "seasonal_cta": { "spring": "AC tune-up", "fall": "furnace check", "summer": "AC repair", "winter": "furnace repair" },
+  "lead_magnets": [
+    "Annual HVAC maintenance schedule PDF",
+    "Symptoms-to-cause diagnostic flowchart",
+    "Energy-bill audit checklist"
+  ]
+}

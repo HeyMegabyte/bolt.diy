@@ -76,6 +76,10 @@ import { publicRoutes } from './routes/public.js';
 import { publicApiV1 } from './routes/public_api.js';
 import { contentRoutes } from './routes/content.js';
 import { pseoRoutes } from './routes/pseo.js';
+import { pseoMatrixV2Routes } from './routes/pseo_matrix_v2.js';
+import { integrationDirectoryRoutes } from './routes/integration_directory.js';
+import { comparisonPagesRoutes } from './routes/comparison_pages.js';
+import { changelogPublicRoutes } from './routes/changelog_public.js';
 import features from './routes/features.js';
 import { inbox } from './routes/inbox.js';
 import { copilot } from './routes/copilot.js';
@@ -86,6 +90,14 @@ import { sectionMarketplace } from './routes/section_marketplace.js';
 import { reviewRoutes } from './routes/reviews.js';
 import { seoAutopilot } from './routes/seo_autopilot.js';
 import { conversationalEdits } from './routes/conversational_edits.js';
+import { trustCenter } from './routes/trust_center.js';
+import { enterprisePlan } from './routes/enterprise_plan.js';
+import { stripeAppStatus } from './routes/stripe_app_status.js';
+// Feature modules (libs/features/*) — ideas #33, #34, #36, #46
+import { referralLoop } from '../libs/features/referral_loop/handlers.js';
+import { agencyWhiteLabel } from '../libs/features/agency_white_label/handlers.js';
+import { stripeMarketplace } from '../libs/features/stripe_marketplace/handlers.js';
+import { auditHashChain } from '../libs/features/audit_hash_chain/handlers.js';
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbQueryOne, dbUpdate } from './services/db.js';
@@ -362,9 +374,21 @@ app.route('/', publicRoutes); // /changelog.json + /feed.xml + /api/public/{road
 app.route('/', publicApiV1); // Public REST API v1 (/v1/*) + token management (/api/v1-tokens) — flag-gated behind public_api_v1
 app.route('/api/content', contentRoutes); // Content Freshness — feature #16: drafts list/approve/reject/trigger
 app.route('/api/pseo', pseoRoutes); // pSEO Matrix Builder — feature #17: service×city×intent×season generator
+app.route('/api/sites', pseoMatrixV2Routes); // pSEO v2 (#29) — /api/sites/:id/pseo/v2/* — user-tasks + 40% unique-data floor
+app.route('/api/sites', integrationDirectoryRoutes); // Integration Directory (#30) — /api/sites/:id/integrations/* — pair pages
+app.route('/api/sites', comparisonPagesRoutes); // Comparison Pages (#31) — /api/sites/:id/comparisons/* — vs/alternatives
+app.route('/', changelogPublicRoutes); // Public Changelog (#35) — /changelog + /changelog.rss + /changelog.json
 app.route('/api/reviews', reviewRoutes); // Verified Review Synthesis — idea #24: Google reviews → AggregateRating JSON-LD (verified origin only)
 app.route('/api/seo', seoAutopilot); // SEO/GEO Autopilot — idea #23: AI title/meta/JSON-LD/answer-block drafts per route
 app.route('/api/conversational-edits', conversationalEdits); // Conversational Editing — idea #1: NL site edits with reversible changesets
+app.route('/', trustCenter); // Trust Center — idea #50: per-org admin /admin/trust + per-site public /trust (flag: trust_center). Routes are prefixed with /api/trust + /api/public/trust internally
+app.route('/', enterprisePlan); // Enterprise Plan — idea #44: $500-$2k/mo tier (SSO + 99.9% SLA + audit export + custom terms + Slack)
+app.route('/', stripeAppStatus); // Stripe App Marketplace status — idea #36 admin slice: /api/stripe-app/{installs,summary,lifecycle}
+// libs/features/* — viral + billing + audit-chain modules (ideas #33, #34, #36, #46)
+app.route('/', referralLoop); // /api/referrals/* — built-in referral loop (idea #33)
+app.route('/', agencyWhiteLabel); // /api/agency-white-label/* — white-label agency tier (idea #34)
+app.route('/', stripeMarketplace); // /api/stripe-marketplace/* — Stripe App Marketplace manifest + OAuth callback (idea #36)
+app.route('/', auditHashChain); // /api/audit-chain/* — SHA-256 chained audit ledger (idea #46)
 
 app.route('/', api);
 app.route('/', webhooks);

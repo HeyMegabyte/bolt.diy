@@ -29,6 +29,17 @@ import type {
   DeployResponse,
   ListResponse,
   ApiError,
+  TrustProfile,
+  TrustProfileUpdate,
+  PublicTrustProfile,
+  EnterpriseContract,
+  EnterpriseContractUpdate,
+  SsoConfig,
+  SlaSnapshot,
+  SlaResponse,
+  AuditExport,
+  StripeAppInstall,
+  StripeAppSummary,
 } from './types.js';
 import { ProjectSitesApiError } from './types.js';
 
@@ -101,6 +112,139 @@ class SitesResource extends BaseResource {
 class AuthResource extends BaseResource {
   me(): Promise<MeResponse> {
     return this.http.get<MeResponse>('/v1/me');
+  }
+}
+
+/**
+ * Trust Center — per-org admin profile + per-site overrides + the public
+ * redacted view rendered at `/trust` on a published site.
+ */
+class TrustResource extends BaseResource {
+  /** Org-level profile (private — admin scope). */
+  getProfile(): Promise<{ data: TrustProfile | null }> {
+    return this.http.get<{ data: TrustProfile | null }>('/api/trust/profile');
+  }
+
+  updateProfile(update: TrustProfileUpdate): Promise<{ data: TrustProfile }> {
+    return this.http.put<{ data: TrustProfile }>('/api/trust/profile', update);
+  }
+
+  publishProfile(): Promise<{ data: TrustProfile }> {
+    return this.http.post<{ data: TrustProfile }>(
+      '/api/trust/profile/publish',
+      {},
+    );
+  }
+
+  getSiteProfile(siteId: string): Promise<{ data: TrustProfile | null }> {
+    return this.http.get<{ data: TrustProfile | null }>(
+      `/api/trust/site/${siteId}`,
+    );
+  }
+
+  updateSiteProfile(
+    siteId: string,
+    update: TrustProfileUpdate,
+  ): Promise<{ data: TrustProfile }> {
+    return this.http.put<{ data: TrustProfile }>(
+      `/api/trust/site/${siteId}`,
+      update,
+    );
+  }
+
+  /** Public, redacted view — safe to render on the public `/trust` page. */
+  getPublic(siteSlug: string): Promise<{
+    data: PublicTrustProfile;
+    jsonld: Record<string, unknown>;
+  }> {
+    return this.http.get<{
+      data: PublicTrustProfile;
+      jsonld: Record<string, unknown>;
+    }>(`/api/public/trust/${siteSlug}`);
+  }
+}
+
+/**
+ * Enterprise Plan — contract row, SLA monitoring, audit-log exports, SSO
+ * config. Stripe + Cloudflare Access provisioning is operator-side.
+ */
+class EnterpriseResource extends BaseResource {
+  getContract(): Promise<{ data: EnterpriseContract | null }> {
+    return this.http.get<{ data: EnterpriseContract | null }>(
+      '/api/enterprise/contract',
+    );
+  }
+
+  updateContract(
+    update: EnterpriseContractUpdate,
+  ): Promise<{ data: EnterpriseContract }> {
+    return this.http.put<{ data: EnterpriseContract }>(
+      '/api/enterprise/contract',
+      update,
+    );
+  }
+
+  getSla(): Promise<{ data: SlaResponse }> {
+    return this.http.get<{ data: SlaResponse }>('/api/enterprise/sla');
+  }
+
+  appendSlaSnapshot(snapshot: SlaSnapshot): Promise<{ data: SlaSnapshot }> {
+    return this.http.post<{ data: SlaSnapshot }>(
+      '/api/enterprise/sla/snapshot',
+      snapshot,
+    );
+  }
+
+  listAuditExports(): Promise<{ data: AuditExport[] }> {
+    return this.http.get<{ data: AuditExport[] }>(
+      '/api/enterprise/audit-exports',
+    );
+  }
+
+  enqueueAuditExport(args: {
+    range_start: string;
+    range_end: string;
+  }): Promise<{ data: AuditExport }> {
+    return this.http.post<{ data: AuditExport }>(
+      '/api/enterprise/audit-exports',
+      args,
+    );
+  }
+
+  getSsoConfig(): Promise<{ data: SsoConfig }> {
+    return this.http.get<{ data: SsoConfig }>('/api/enterprise/sso/config');
+  }
+
+  updateSsoConfig(config: SsoConfig): Promise<{ data: SsoConfig }> {
+    return this.http.put<{ data: SsoConfig }>(
+      '/api/enterprise/sso/config',
+      config,
+    );
+  }
+}
+
+/**
+ * Stripe App Marketplace install analytics.
+ */
+class StripeAppResource extends BaseResource {
+  listInstalls(
+    opts: { limit?: number; offset?: number } = {},
+  ): Promise<{ data: StripeAppInstall[]; limit: number; offset: number }> {
+    const params = new URLSearchParams();
+    if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+    if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+    const qs = params.size ? `?${params}` : '';
+    return this.http.get<{
+      data: StripeAppInstall[];
+      limit: number;
+      offset: number;
+    }>(`/api/stripe-app/installs${qs}`);
+  }
+
+  getSummary(): Promise<{ data: StripeAppSummary }> {
+    return this.http.get<{ data: StripeAppSummary }>(
+      '/api/stripe-app/summary',
+    );
   }
 }
 
@@ -180,6 +324,9 @@ class HttpClient {
 export class ProjectSitesClient {
   readonly sites: SitesResource;
   readonly auth: AuthResource;
+  readonly trust: TrustResource;
+  readonly enterprise: EnterpriseResource;
+  readonly stripeApp: StripeAppResource;
   private readonly http: HttpClient;
 
   constructor(config: ClientConfig) {
@@ -190,5 +337,8 @@ export class ProjectSitesClient {
     );
     this.sites = new SitesResource(this.http);
     this.auth = new AuthResource(this.http);
+    this.trust = new TrustResource(this.http);
+    this.enterprise = new EnterpriseResource(this.http);
+    this.stripeApp = new StripeAppResource(this.http);
   }
 }

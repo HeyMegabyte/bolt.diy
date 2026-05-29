@@ -95,3 +95,168 @@ export class ProjectSitesApiError extends Error {
     this.name = 'ProjectSitesApiError';
   }
 }
+
+// ─── Trust Center ──────────────────────────────────────────────────────────
+
+export type DataResidency = 'global' | 'us' | 'eu' | 'apac';
+export type AuditLogPolicy = 'on-request' | 'self-serve' | 'realtime-stream';
+export type AiOutageBehavior =
+  | 'graceful-degradation'
+  | 'queue-and-retry'
+  | 'manual-fallback';
+
+export interface AiModelEntry {
+  vendor: string;
+  model: string;
+  version?: string;
+  purpose: string;
+  policy_url?: string;
+}
+
+export interface ContentProvenanceEntry {
+  area: string;
+  origin: 'ai-generated' | 'human-authored' | 'ai-assisted';
+  reviewed_by?: string;
+  notes?: string;
+}
+
+export interface TrustProfile {
+  id: string;
+  org_id: string;
+  site_id: string | null;
+  ai_models: AiModelEntry[];
+  data_residency: DataResidency;
+  audit_log_policy: AuditLogPolicy;
+  content_provenance: ContentProvenanceEntry[];
+  ai_outage_behavior: AiOutageBehavior;
+  custom_disclosures: string | null;
+  published: boolean;
+  published_at: string | null;
+  updated_at: string;
+}
+
+export interface TrustProfileUpdate {
+  ai_models?: AiModelEntry[];
+  data_residency?: DataResidency;
+  audit_log_policy?: AuditLogPolicy;
+  content_provenance?: ContentProvenanceEntry[];
+  ai_outage_behavior?: AiOutageBehavior;
+  custom_disclosures?: string | null;
+}
+
+export interface PublicTrustProfile {
+  site_slug: string;
+  ai_models: AiModelEntry[];
+  data_residency: DataResidency;
+  audit_log_policy: AuditLogPolicy;
+  content_provenance: ContentProvenanceEntry[];
+  ai_outage_behavior: AiOutageBehavior;
+  custom_disclosures: string | null;
+  published_at: string | null;
+}
+
+// ─── Enterprise plan ───────────────────────────────────────────────────────
+
+export type EnterprisePlanTier =
+  | 'enterprise-small'
+  | 'enterprise-mid'
+  | 'enterprise-large';
+
+export type SsoProvider = 'saml' | 'oidc' | 'cloudflare-access';
+export type ContractStatus = 'pending' | 'active' | 'churned' | 'cancelled';
+export type AuditExportStatus = 'pending' | 'ready' | 'expired' | 'failed';
+
+export interface EnterpriseContract {
+  id: string;
+  org_id: string;
+  plan_tier: EnterprisePlanTier;
+  sla_pct: number;
+  sso_enabled: boolean;
+  sso_provider: SsoProvider | null;
+  sso_metadata_url: string | null;
+  custom_terms_md: string | null;
+  dedicated_slack_channel: string | null;
+  annual_value_cents: number;
+  contract_start: string | null;
+  contract_end: string | null;
+  audit_export_enabled: boolean;
+  contract_signed_url: string | null;
+  status: ContractStatus;
+  notes: string | null;
+  updated_at: string;
+}
+
+export interface EnterpriseContractUpdate {
+  plan_tier?: EnterprisePlanTier;
+  sla_pct?: number;
+  sso_enabled?: boolean;
+  sso_provider?: SsoProvider | null;
+  sso_metadata_url?: string | null;
+  custom_terms_md?: string | null;
+  dedicated_slack_channel?: string | null;
+  annual_value_cents?: number;
+  contract_start?: string | null;
+  contract_end?: string | null;
+  audit_export_enabled?: boolean;
+  contract_signed_url?: string | null;
+  status?: ContractStatus;
+  notes?: string | null;
+}
+
+export interface SsoConfig {
+  sso_enabled: boolean;
+  sso_provider: SsoProvider | null;
+  sso_metadata_url: string | null;
+}
+
+export interface SlaSnapshot {
+  measured_on: string;
+  uptime_pct: number;
+  incidents_count: number;
+  p95_latency_ms?: number;
+  notes?: string;
+}
+
+export interface SlaResponse {
+  contract_sla_pct: number;
+  rolling_uptime_pct: number | null;
+  breached: boolean;
+  snapshots: SlaSnapshot[];
+}
+
+export interface AuditExport {
+  id: string;
+  org_id: string;
+  range_start: string;
+  range_end: string;
+  status: AuditExportStatus;
+  r2_key: string | null;
+  expires_at: string | null;
+  created_at: string;
+}
+
+// ─── Stripe App Marketplace status ─────────────────────────────────────────
+
+export type InstallSource = 'marketplace' | 'direct' | 'referral';
+export type InstallStatus = 'installed' | 'uninstalled' | 'paused';
+
+export interface StripeAppInstall {
+  id: string;
+  org_id: string | null;
+  stripe_account: string;
+  install_source: InstallSource;
+  status: InstallStatus;
+  installed_at: string;
+  uninstalled_at: string | null;
+  last_event_at: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface StripeAppSummary {
+  total_installs: number;
+  active_installs: number;
+  uninstalled: number;
+  paused: number;
+  by_source: Record<InstallSource, number>;
+  last_event_at: string | null;
+}

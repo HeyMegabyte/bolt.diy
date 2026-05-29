@@ -1,0 +1,27 @@
+{
+  "slug": "personal-injury-law",
+  "name": "Personal Injury Law",
+  "industry": "legal_services",
+  "default_service_pages": [
+    { "slug": "car-accident", "title": "Car Accident Claims", "intent": "diagnostic" },
+    { "slug": "truck-accident", "title": "Truck Accident Claims", "intent": "diagnostic" },
+    { "slug": "motorcycle-accident", "title": "Motorcycle Accident Claims", "intent": "diagnostic" },
+    { "slug": "slip-and-fall", "title": "Slip + Fall Cases", "intent": "diagnostic" },
+    { "slug": "medical-malpractice", "title": "Medical Malpractice", "intent": "diagnostic" },
+    { "slug": "workplace-injury", "title": "Workplace Injury / Workers Comp", "intent": "diagnostic" },
+    { "slug": "wrongful-death", "title": "Wrongful Death Claims", "intent": "diagnostic" },
+    { "slug": "free-consultation", "title": "Free Case Evaluation", "intent": "conversion" }
+  ],
+  "jsonld_presets": ["LegalService", "Attorney", "FAQPage", "BreadcrumbList", "Person"],
+  "trust_signals": ["State Bar verified", "Super Lawyers", "AV Preeminent", "Million Dollar Advocates Forum"],
+  "compliance_notes": [
+    "No client testimonials with case-result figures without bar-approved disclaimer.",
+    "No guarantee language. Include attorney advertising disclaimer footer.",
+    "State-bar specifics vary; vertical pack ships generic; per-state customization required."
+  ],
+  "lead_magnets": [
+    "What to do after a car accident PDF",
+    "Statute-of-limitations cheatsheet per state",
+    "How injury settlement amounts are calculated"
+  ]
+}

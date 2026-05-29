@@ -1,0 +1,19 @@
+{
+  "id": "com.projectsites.app",
+  "version": "0.1.0",
+  "name": "projectsites",
+  "icon": "https://projectsites.dev/icons/stripe-app-icon.png",
+  "permissions": [
+    {
+      "permission": "customer_read",
+      "purpose": "Display the customer behind a published projectsites site."
+    },
+    {
+      "permission": "charge_read",
+      "purpose": "Surface a quick revenue snapshot on the dashboard."
+    }
+  ],
+  "app_url": "https://projectsites.dev/stripe-app",
+  "post_install_url": "https://projectsites.dev/admin?stripe_installed=1",
+  "distribution_type": "public"
+}
