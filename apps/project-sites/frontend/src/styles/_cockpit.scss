@@ -1,0 +1,130 @@
+// =============================================================================
+// _cockpit.scss — Admin Cockpit v2 design-token layer
+// =============================================================================
+// Black + cyan compact dev-cockpit token system. Implements _ideas-100.md
+// dimension 1 (Visual System), 2 (Density), 13 (dark-viz hierarchy), 14 (motion).
+//
+// ZERO-REGRESSION CONTRACT: every token here is scoped to
+// `:root[data-cockpit="v2"]`. The current admin is UNCHANGED until Wave 1 sets
+// `document.documentElement.dataset.cockpit = 'v2'` after visual verification.
+// This re-skins all 54 sections via the shared `--ps-*` tokens — no section
+// file is edited. Cross-ref: rules/text-contrast.md, cinematic-ui-patterns.md.
+//
+// Research anchors: Linear opacity-elevation + warm near-black; Vercel Geist
+// 3-border/2-surface model + concentric radii; OKLCH lightness-for-contrast
+// (never neon chroma on near-black); View-Transitions route-only + reduced-motion.
+// =============================================================================
+
+:root[data-cockpit="v2"] {
+  // --- Canvas + surfaces (warm near-black, elevation = white-opacity over bg) ---
+  --ck-bg: #03070a;                 // deepest canvas (terminal black)
+  --ck-bg-alt: #060610;             // brand near-black (kept from legacy)
+  --ck-surface-1: color-mix(in oklch, #ffffff 3%, var(--ck-bg));
+  --ck-surface-2: color-mix(in oklch, #ffffff 6%, var(--ck-bg));
+  --ck-surface-3: color-mix(in oklch, #ffffff 9%, var(--ck-bg));
+  --ck-surface-glass: color-mix(in oklch, #ffffff 7%, transparent);
+
+  // --- Cyan ramp (OKLCH, lightness buys contrast; chroma capped < 0.37 sRGB) ---
+  --ck-cyan-50:  oklch(0.96 0.05 210);
+  --ck-cyan-100: oklch(0.90 0.10 210);
+  --ck-cyan-300: oklch(0.82 0.16 205);
+  --ck-cyan-500: #00e5ff;           // hero accent (≈ oklch(0.84 0.16 200))
+  --ck-cyan-600: oklch(0.74 0.15 205);
+  --ck-cyan-700: oklch(0.62 0.13 208);
+  --ck-cyan-soft: color-mix(in oklch, var(--ck-cyan-500) 16%, transparent);
+  --ck-cyan-line: color-mix(in oklch, var(--ck-cyan-500) 24%, transparent);
+
+  // --- Borders: 3-token Geist model (subtle / strong / focus) ---
+  --ck-border: color-mix(in oklch, var(--ck-cyan-500) 22%, transparent);
+  --ck-border-strong: color-mix(in oklch, var(--ck-cyan-500) 44%, transparent);
+  --ck-border-focus: oklch(0.88 0.14 195);   // focus ring ≥ 3:1
+
+  // --- Text: two-color system (lead + muted), AA-validated on near-black ---
+  --ck-text: #e8fbff;                         // L≈0.95 low-chroma
+  --ck-text-2: #b7cfd6;
+  --ck-muted: #7aa7b3;                        // L≈0.7, dims secondary/nav
+  // Cyan text variants per text-contrast.md (body-lift + neon-clamped HUD)
+  --ck-ink-accent: color-mix(in oklch, var(--ck-cyan-500) 70%, var(--ck-text) 30%);
+  --ck-ink-accent-neon: oklch(from var(--ck-cyan-500) max(l, 0.82) max(c, 0.18) h);
+
+  // --- Status (color-blind-safe: always pair with icon/shape) ---
+  --ck-danger: #ff4d6d;
+  --ck-warning: #ffd166;
+  --ck-success: #4dffb5;
+  --ck-info: var(--ck-cyan-500);
+  // AI-origin elements use violet EXCLUSIVELY (visual "this came from AI")
+  --ck-ai: #7c3aed;
+  --ck-ai-soft: color-mix(in oklch, #7c3aed 18%, transparent);
+
+  // --- Radii: concentric (child ≤ parent) ---
+  --ck-radius-xs: 6px;
+  --ck-radius-sm: 8px;
+  --ck-radius-md: 10px;
+  --ck-radius-lg: 14px;
+  --ck-radius-xl: 18px;
+
+  // --- Elevation + the single glow token (used sparingly: focus + active) ---
+  --ck-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ck-shadow-md: 0 6px 18px -8px rgba(0, 0, 0, 0.55);
+  --ck-shadow-lg: 0 18px 44px -16px rgba(0, 0, 0, 0.7);
+  --ck-glow: 0 0 24px rgba(0, 229, 255, 0.14);
+
+  // --- Density: 13px cells / 1.4 line-height sweet spot; 3-mode rows ---
+  --ck-row-h: 40px;                 // normal (overridden by data-density)
+  --ck-cell-font: 13px;
+  --ck-cell-lh: 1.4;
+  --ck-pad-x: 10px;
+  --ck-pad-y: 6px;
+  --ck-gap: 10px;
+
+  // --- Dark data-viz hierarchy: line prominent → axis muted → grid faint ---
+  --ck-viz-line: var(--ck-cyan-500);
+  --ck-viz-line-2: var(--ck-ai);
+  --ck-viz-axis: var(--ck-muted);
+  --ck-viz-grid: color-mix(in oklch, var(--ck-muted) 18%, transparent);
+  --ck-viz-area: color-mix(in oklch, var(--ck-cyan-500) 12%, transparent);
+
+  // --- Motion: route-only View Transitions; durations + emphasized easing ---
+  --ck-dur-fast: 120ms;
+  --ck-dur-base: 200ms;
+  --ck-dur-slow: 360ms;
+  --ck-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+
+  // =========================================================================
+  // Re-map the shared --ps-* tokens onto cockpit v2 so ALL 54 sections inherit
+  // the new system with zero per-section edits (god-tier pattern #5).
+  // =========================================================================
+  --ps-bg: var(--ck-bg);
+  --ps-ink: var(--ck-text);
+  --ps-accent: var(--ck-cyan-500);
+  --ps-accent-secondary: var(--ck-ai);
+  --ps-accent-soft: var(--ck-cyan-soft);
+  --ps-accent-line: var(--ck-cyan-line);
+  --ps-surface-1: var(--ck-surface-1);
+  --ps-surface-2: var(--ck-surface-2);
+  --ps-surface-3: var(--ck-surface-3);
+  --ps-surface-glass: var(--ck-surface-glass);
+  --ps-hairline: var(--ck-border);
+  --ps-hairline-hi: var(--ck-border-strong);
+  --ps-radius-xs: var(--ck-radius-xs);
+  --ps-radius-sm: var(--ck-radius-sm);
+  --ps-radius-md: var(--ck-radius-md);
+  --ps-radius-lg: var(--ck-radius-lg);
+  --ps-radius-xl: var(--ck-radius-xl);
+  --ps-shadow-sm: var(--ck-shadow-sm);
+  --ps-shadow-md: var(--ck-shadow-md);
+  --ps-shadow-lg: var(--ck-shadow-lg);
+}
+
+// Compact density default for the cockpit (denser than legacy), overridable
+// by the existing [data-density] toggle.
+:root[data-cockpit="v2"][data-density="compact"] { --ck-row-h: 32px; --ck-pad-y: 4px; --ck-gap: 8px; }
+:root[data-cockpit="v2"][data-density="spacious"] { --ck-row-h: 48px; --ck-pad-y: 9px; --ck-gap: 14px; }
+
+// Tabular numerals everywhere in the cockpit so digits never reflow (idea #6).
+:root[data-cockpit="v2"] { font-variant-numeric: tabular-nums; }
+
+// Motion is OPT-IN (prefers-reduced-motion: no-preference), per design research.
+@media (prefers-reduced-motion: reduce) {
+  :root[data-cockpit="v2"] { --ck-dur-fast: 0ms; --ck-dur-base: 0ms; --ck-dur-slow: 0ms; }
+}

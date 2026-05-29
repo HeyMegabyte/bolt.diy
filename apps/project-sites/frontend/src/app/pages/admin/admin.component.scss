@@ -570,31 +570,29 @@ aside::before {
 }
 
 /* ───────────────────────────────────────────────────────────────────────
-   Half-screen overlay for Media / Agents tabs.
+   FULL-WIDTH overlay for Media / Agents tabs.
 
-   Rendered as a right-anchored aside that covers the right 50% of the
-   bolt iframe. Uses a glassmorphic backdrop so the iframe behind it
-   stays visually present without distracting. Brand tokens drive every
-   surface so a theme swap propagates automatically.
+   Brian's directive: Media + Agents open FULL WIDTH (not a 50% right rail).
+   Covers the entire bolt editor surface below the top bar + tab strip with
+   an opaque cockpit backdrop, fully replacing the editor while open. Brand
+   tokens drive every surface so a theme swap propagates automatically.
    ─────────────────────────────────────────────────────────────────────── */
 .editor-overlay {
   position: absolute;
   top: calc(62px + 44px);     /* below top bar + tab strip */
+  left: 0;                    /* full width (was right:0 + width:50%) */
   right: 0;
   bottom: 0;
-  width: 50%;
-  min-width: 360px;
-  max-width: 920px;
   z-index: 50;                /* above iframe (z:1) and tab strip (z:30) */
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
-    color-mix(in oklch, var(--ps-bg, #060610) 94%, transparent);
+    color-mix(in oklch, var(--ps-bg, #060610) 98%, transparent);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(0, 229, 255, 0.1);
   box-shadow:
-    -20px 0 40px -20px rgba(0, 0, 0, 0.55),
-    inset 1px 0 0 rgba(0, 229, 255, 0.08);
+    0 -20px 40px -20px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(0, 229, 255, 0.08);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -639,11 +637,11 @@ aside::before {
 
 @keyframes editor-overlay-in {
   from {
-    transform: translateX(24px);
+    transform: translateY(16px);
     opacity: 0;
   }
   to {
-    transform: translateX(0);
+    transform: translateY(0);
     opacity: 1;
   }
 }

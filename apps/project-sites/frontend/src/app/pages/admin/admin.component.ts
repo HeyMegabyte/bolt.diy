@@ -69,17 +69,18 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   /**
    * Active editor tab — bound to the slim tab strip rendered above the bolt
-   * iframe when the user is on `/admin/editor`. Initialised from
+   * editor when the user is on `/admin/editor`. Initialised from
    * `localStorage['editor.tab']` so a hard reload restores the last view.
-   * Valid values: `code` (default), `preview`, `media`, `agents`. The Media
-   * + Agents tabs swap in half-screen overlay panels rendered by the
-   * template; Code + Preview delegate to bolt via postMessage (handled
-   * inside `EditorTabsComponent.dispatch`).
+   * Valid values: `code` (default), `media`, `agents`. The Media + Agents
+   * tabs swap in FULL-WIDTH overlay panels rendered by the template; Code
+   * delegates to bolt via postMessage (handled inside
+   * `EditorTabsComponent.dispatch`). Legacy persisted `'preview'` normalizes
+   * to `'code'`.
    */
   editorActiveTab = signal<EditorTab>(((): EditorTab => {
     try {
       const saved = localStorage.getItem('editor.tab');
-      if (saved === 'code' || saved === 'preview' || saved === 'media' || saved === 'agents') {
+      if (saved === 'code' || saved === 'media' || saved === 'agents') {
         return saved;
       }
     } catch {
