@@ -194,6 +194,15 @@ export const routes: Routes = [
           import('./pages/admin/sections/pseo.component').then((m) => m.AdminPseoComponent),
       },
       {
+        // SEO — Meta Tags, Google Search Preview, OG/Twitter cards, JSON-LD per
+        // route. Companion surface to the seo_autopilot feature module; landing
+        // page for the autopilot draft-approval flow. Component existed
+        // standalone but was orphaned (not routed) — wired 2026-05-28.
+        path: 'seo',
+        loadComponent: () =>
+          import('./pages/admin/sections/seo.component').then((m) => m.AdminSeoComponent),
+      },
+      {
         // Features Hub — every shipped feature in one searchable surface.
         // Tabbed by theme (Stack / CWV / GEO / A11y / Editor / Monetize /
         // Observability / Media / Platform / Gaps). Per-card flag state +
