@@ -66,8 +66,15 @@ export type PluginEnvVar = z.infer<typeof PluginEnvVarSchema>;
 export const PluginScriptInjectionSchema = z.object({
   /** Where to inject the script tag. */
   position: z.enum(['head', 'body-start', 'body-end']),
-  /** URL of the script (typically a CDN). */
-  src: z.string().url(),
+  /**
+   * URL of the script. Restricted to `https:` and `http:` schemes — XSS
+   * vectors (`javascript:`, `data:`, `blob:`, `vbscript:`) are rejected at
+   * submission time so the build pipeline never injects them.
+   */
+  src: z
+    .string()
+    .url()
+    .refine((u) => /^https?:\/\//i.test(u), 'src must be http(s) URL'),
   /** Whether to defer / async. */
   defer: z.boolean().default(false),
   async: z.boolean().default(false),

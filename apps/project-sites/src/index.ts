@@ -90,6 +90,11 @@ import { sectionMarketplace } from './routes/section_marketplace.js';
 import { reviewRoutes } from './routes/reviews.js';
 import { seoAutopilot } from './routes/seo_autopilot.js';
 import { conversationalEdits } from './routes/conversational_edits.js';
+// ── Marketplace + Creator Economy (IDEAS-50 #39/#40/#41/#42)
+import { templateMarketplace } from './routes/template_marketplace.js';
+import { sectionMarketplaceSubmissions } from './routes/section_marketplace_submissions.js';
+import { pluginMarketplace } from './routes/plugin_marketplace.js';
+import { aiComponents } from './routes/ai_components.js';
 import { trustCenter } from './routes/trust_center.js';
 import { enterprisePlan } from './routes/enterprise_plan.js';
 import { stripeAppStatus } from './routes/stripe_app_status.js';
@@ -381,6 +386,10 @@ app.route('/', changelogPublicRoutes); // Public Changelog (#35) — /changelog 
 app.route('/api/reviews', reviewRoutes); // Verified Review Synthesis — idea #24: Google reviews → AggregateRating JSON-LD (verified origin only)
 app.route('/api/seo', seoAutopilot); // SEO/GEO Autopilot — idea #23: AI title/meta/JSON-LD/answer-block drafts per route
 app.route('/api/conversational-edits', conversationalEdits); // Conversational Editing — idea #1: NL site edits with reversible changesets
+app.route('/', templateMarketplace); // /api/template-marketplace/* — IDEAS-50 #39 Template Marketplace v1 (Framer-style 0%-cut + 50% on referrals)
+app.route('/', sectionMarketplaceSubmissions); // /api/marketplace/sections/* — IDEAS-50 #40 Section Marketplace creator submissions + admin curation
+app.route('/', pluginMarketplace); // /api/plugin-marketplace/* — IDEAS-50 #41 Plugin / Integration Marketplace (70/30 split)
+app.route('/', aiComponents); // /api/sites/:siteId/ai-components/* + /api/ai-components/* — IDEAS-50 #42 AI Code Components Generator
 app.route('/', trustCenter); // Trust Center — idea #50: per-org admin /admin/trust + per-site public /trust (flag: trust_center). Routes are prefixed with /api/trust + /api/public/trust internally
 app.route('/', enterprisePlan); // Enterprise Plan — idea #44: $500-$2k/mo tier (SSO + 99.9% SLA + audit export + custom terms + Slack)
 app.route('/', stripeAppStatus); // Stripe App Marketplace status — idea #36 admin slice: /api/stripe-app/{installs,summary,lifecycle}

@@ -237,7 +237,7 @@ describe('generateComponent', () => {
     });
     const result = await generateComponent(
       env,
-      { site_id: 'site_x', description: 'Anything', name: 'UserChoseThis' },
+      { site_id: 'site_x', description: 'Anything reasonable here', name: 'UserChoseThis' },
       'usr',
       'org',
     );
