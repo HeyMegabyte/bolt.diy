@@ -1,5 +1,5 @@
 import { type ApplicationConfig, APP_INITIALIZER, ErrorHandler, Injector, importProvidersFrom, inject, isDevMode, provideZoneChangeDetection } from '@angular/core';
-import { provideRouter, Router, withViewTransitions } from '@angular/router';
+import { PreloadAllModules, provideRouter, Router, withPreloading, withViewTransitions } from '@angular/router';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideServiceWorker } from '@angular/service-worker';
@@ -81,7 +81,16 @@ class CompositeErrorHandler implements ErrorHandler {
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideRouter(routes, withViewTransitions({ skipInitialTransition: true })),
+    // PreloadAllModules: kick off every lazy chunk in the background once the
+    // shell has painted. Eliminates the white-flash that read as "the dashboard
+    // reloads when I click a side-nav tab" — each tab's chunk is already in
+    // memory by the time it's clicked. Pair with withViewTransitions so the
+    // remaining swap is a quick cross-fade, not a network-bound mount.
+    provideRouter(
+      routes,
+      withPreloading(PreloadAllModules),
+      withViewTransitions({ skipInitialTransition: true }),
+    ),
     provideHttpClient(
       withFetch(),
       withInterceptors([retryInterceptor, sentryBreadcrumbInterceptor, loadingInterceptor]),
