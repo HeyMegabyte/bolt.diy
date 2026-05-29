@@ -173,6 +173,10 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   section_marketplace: { key: 'section_marketplace', description: '#8 Vertical Section Marketplace: curated bento sections per industry (nonprofit/restaurant/lawyer/salon/medical), 30 seed entries, admin UI at /admin/marketplace', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   // ── Native editor enforcement (rec #3 from 2026-05-28 close-the-loop) — was localStorage-only; now real server-side flag so killswitch works without redeploy
   native_editor: { key: 'native_editor', description: 'Phase-1 native Angular port of the bolt.diy editor at /admin/editor-native. Server-side flag-gated so admin can killswitch without redeploy.', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
+  // ── AI wave (ideas #1/#23/#24, 2026-05-28)
+  review_synthesis: { key: 'review_synthesis', description: 'Synthesizes a site\'s verified Google reviews into a trust paragraph + AggregateRating JSON-LD (verified origin only, never fabricated).', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
+  seo_autopilot: { key: 'seo_autopilot', description: 'AI generates SEO/GEO meta (title 50-60, description 120-156, 40-60 word quotable answer block) + schema.org JSON-LD per route for existing sites. Owner approves drafts before they apply.', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
+  conversational_editing: { key: 'conversational_editing', description: 'Natural-language site editing with reversible, parent-chained changesets. Undo is forward-only; history is preserved.', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;

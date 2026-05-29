@@ -83,6 +83,9 @@ import { siteDetailTabs } from './routes/site_detail_tabs.js';
 import { swarm } from './routes/swarm.js';
 import { siteDna } from './routes/site_dna.js';
 import { sectionMarketplace } from './routes/section_marketplace.js';
+import { reviewRoutes } from './routes/reviews.js';
+import { seoAutopilot } from './routes/seo_autopilot.js';
+import { conversationalEdits } from './routes/conversational_edits.js';
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbQueryOne, dbUpdate } from './services/db.js';
@@ -359,6 +362,9 @@ app.route('/', publicRoutes); // /changelog.json + /feed.xml + /api/public/{road
 app.route('/', publicApiV1); // Public REST API v1 (/v1/*) + token management (/api/v1-tokens) — flag-gated behind public_api_v1
 app.route('/api/content', contentRoutes); // Content Freshness — feature #16: drafts list/approve/reject/trigger
 app.route('/api/pseo', pseoRoutes); // pSEO Matrix Builder — feature #17: service×city×intent×season generator
+app.route('/api/reviews', reviewRoutes); // Verified Review Synthesis — idea #24: Google reviews → AggregateRating JSON-LD (verified origin only)
+app.route('/api/seo', seoAutopilot); // SEO/GEO Autopilot — idea #23: AI title/meta/JSON-LD/answer-block drafts per route
+app.route('/api/conversational-edits', conversationalEdits); // Conversational Editing — idea #1: NL site edits with reversible changesets
 
 app.route('/', api);
 app.route('/', webhooks);

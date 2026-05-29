@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-05-29T00:05:38.327Z",
+  "quick_mode": false,
+  "stats": {
+    "flagCount": 125,
+    "manifestCount": 19,
+    "missingManifestCount": 0,
+    "routeCount": 1,
+    "handlerCount": 49,
+    "fortressCount": 11
+  },
+  "violations": [],
+  "summary": {
+    "total": 0,
+    "errors": 0,
+    "warnings": 0
+  }
+}
