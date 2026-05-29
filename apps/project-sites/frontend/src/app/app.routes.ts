@@ -435,6 +435,30 @@ export const routes: Routes = [
             (m) => m.AdminMarketplaceComponent,
           ),
       },
+      {
+        // #50 Trust Center — /admin/trust
+        path: 'trust',
+        loadComponent: () =>
+          import('./pages/admin/sections/trust-center.component').then(
+            (m) => m.AdminTrustCenterComponent,
+          ),
+      },
+      {
+        // #44 Enterprise Plan — /admin/enterprise
+        path: 'enterprise',
+        loadComponent: () =>
+          import('./pages/admin/sections/enterprise.component').then(
+            (m) => m.AdminEnterpriseComponent,
+          ),
+      },
+      {
+        // #36 Stripe App Marketplace status — /admin/stripe-app-status
+        path: 'stripe-app-status',
+        loadComponent: () =>
+          import('./pages/admin/sections/stripe-app-status.component').then(
+            (m) => m.AdminStripeAppStatusComponent,
+          ),
+      },
     ],
   },
   {
