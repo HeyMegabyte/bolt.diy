@@ -24,6 +24,7 @@ import {
   type BadgeVariant,
 } from '../../../ui';
 import { V2CodeViewerComponent } from './code-viewer.component';
+import { RelativeDatePipe } from './relative-date.pipe';
 
 type DetailState =
   | { status: 'loading' }
@@ -42,6 +43,7 @@ type DetailState =
     HlmCardDescriptionDirective,
     HlmBadgeDirective,
     V2CodeViewerComponent,
+    RelativeDatePipe,
   ],
   template: `
     <a routerLink="/admin/v2" hlmBtn variant="ghost" size="sm" class="mb-3" data-testid="v2-detail-back">← All sites</a>
@@ -72,7 +74,7 @@ type DetailState =
             <div><dt class="text-muted-foreground text-xs uppercase tracking-wider">Build</dt>
               <dd class="text-foreground mt-0.5 tabular-nums">v{{ site()!.current_build_version ?? 0 }}</dd></div>
             <div><dt class="text-muted-foreground text-xs uppercase tracking-wider">Created</dt>
-              <dd class="text-foreground mt-0.5 tabular-nums">{{ shortDate(site()!.created_at) }}</dd></div>
+              <dd class="text-foreground mt-0.5 tabular-nums" [title]="shortDate(site()!.created_at)">{{ site()!.created_at | relativeDate }}</dd></div>
           </dl>
         </div>
 

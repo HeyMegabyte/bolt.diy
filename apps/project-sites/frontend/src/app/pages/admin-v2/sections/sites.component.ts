@@ -34,6 +34,7 @@ import {
   HlmBadgeDirective,
   type BadgeVariant,
 } from '../../../ui';
+import { RelativeDatePipe } from './relative-date.pipe';
 
 type SitesState =
   | { status: 'loading' }
@@ -52,6 +53,7 @@ type SitesState =
     HlmCardDescriptionDirective,
     HlmInputDirective,
     HlmBadgeDirective,
+    RelativeDatePipe,
   ],
   template: `
     @switch (state().status) {
@@ -115,7 +117,7 @@ type SitesState =
                       <span hlmBadge [variant]="badgeVariant(row.original.status)">{{ row.original.status }}</span>
                     </td>
                     <td class="px-3 py-2 text-muted-foreground">{{ row.original.plan || '—' }}</td>
-                    <td class="px-3 py-2 text-muted-foreground tabular-nums">{{ shortDate(row.original.created_at) }}</td>
+                    <td class="px-3 py-2 text-muted-foreground tabular-nums" [title]="shortDate(row.original.created_at)">{{ row.original.created_at | relativeDate }}</td>
                     <td class="px-3 py-2 text-right">
                       <a [routerLink]="['/admin/v2/sites', row.original.id]" hlmBtn variant="ghost" size="sm">Open</a>
                     </td>
