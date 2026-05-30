@@ -100,6 +100,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/cost.component').then((m) => m.V2CostComponent),
       },
       {
+        path: 'audit',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/audit.component').then((m) => m.V2AuditComponent),
+      },
+      {
         path: 'integrations',
         loadComponent: () =>
           import('./pages/admin-v2/sections/integrations.component').then((m) => m.V2IntegrationsComponent),

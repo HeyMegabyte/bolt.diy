@@ -90,6 +90,7 @@ export class AdminV2ShellComponent {
     { id: 'domains', label: 'Domains', link: '/admin/v2/domains', exact: false },
     { id: 'billing', label: 'Billing', link: '/admin/v2/billing', exact: false },
     { id: 'cost', label: 'Cost', link: '/admin/v2/cost', exact: false },
+    { id: 'audit', label: 'Audit', link: '/admin/v2/audit', exact: false },
     { id: 'integrations', label: 'Integrations', link: '/admin/v2/integrations', exact: false },
     { id: 'settings', label: 'Settings', link: '/admin/v2/settings', exact: false },
   ];
