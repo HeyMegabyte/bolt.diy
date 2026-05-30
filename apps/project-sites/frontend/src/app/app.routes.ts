@@ -95,6 +95,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/billing.component').then((m) => m.V2BillingComponent),
       },
       {
+        path: 'cost',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/cost.component').then((m) => m.V2CostComponent),
+      },
+      {
         path: 'settings',
         loadComponent: () =>
           import('./pages/admin-v2/sections/settings.component').then((m) => m.V2SettingsComponent),
