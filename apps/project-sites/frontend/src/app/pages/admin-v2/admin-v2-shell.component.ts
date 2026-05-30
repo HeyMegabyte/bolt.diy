@@ -86,6 +86,7 @@ export class AdminV2ShellComponent {
     { id: 'analytics', label: 'Analytics', link: '/admin/v2/analytics', exact: false },
     { id: 'media', label: 'Media', link: '/admin/v2/media', exact: false },
     { id: 'domains', label: 'Domains', link: '/admin/v2/domains', exact: false },
+    { id: 'billing', label: 'Billing', link: '/admin/v2/billing', exact: false },
     { id: 'settings', label: 'Settings', link: '/admin/v2/settings', exact: false },
   ];
 
