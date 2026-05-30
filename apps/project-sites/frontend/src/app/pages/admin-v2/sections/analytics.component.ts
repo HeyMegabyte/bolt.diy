@@ -22,6 +22,7 @@ import {
   HlmBadgeDirective,
   type BadgeVariant,
 } from '../../../ui';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
 type Status = 'loading' | 'error' | 'ready';
 interface Bucket {
@@ -40,6 +41,7 @@ interface Bucket {
     HlmCardTitleDirective,
     HlmCardDescriptionDirective,
     HlmBadgeDirective,
+    RollingCounterComponent,
   ],
   template: `
     @switch (status()) {
@@ -62,7 +64,9 @@ interface Bucket {
           @for (stat of stats(); track stat.label) {
             <div hlmCard>
               <p hlmCardDescription class="uppercase tracking-wider text-[0.6rem]">{{ stat.label }}</p>
-              <p class="mt-1 text-2xl font-semibold tabular-nums text-foreground">{{ stat.count }}</p>
+              <p class="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+                <app-rolling-counter [value]="stat.count" />
+              </p>
             </div>
           }
         </section>
@@ -79,7 +83,9 @@ interface Bucket {
                   <div class="flex-1 h-2 rounded bg-card border border-border overflow-hidden">
                     <div class="h-full bg-primary/60" [style.width.%]="pct(b.count)"></div>
                   </div>
-                  <span class="w-10 text-right tabular-nums text-muted-foreground">{{ b.count }}</span>
+                  <span class="w-10 text-right tabular-nums text-muted-foreground">
+                    <app-rolling-counter [value]="b.count" />
+                  </span>
                 </li>
               }
             </ul>

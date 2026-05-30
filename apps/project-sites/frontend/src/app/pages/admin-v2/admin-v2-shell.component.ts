@@ -7,22 +7,29 @@
  * `/admin/v2` route; the legacy admin stays the default until this is verified
  * + promoted.
  *
- * The shell is now a PERSISTENT chrome (sidebar + top command bar) wrapping a
+ * The shell is PERSISTENT chrome (sidebar + top command bar) wrapping a
  * `<router-outlet>` — child sections (sites / analytics / domains / settings)
  * are lazy-loaded and swap without re-mounting the chrome, so there are zero
  * full page reloads on internal nav per [[angular-large-app-supervisor]] +
  * the dashboard-cockpit no-full-reload mandate. `routerLinkActive` drives the
  * cyan active state.
+ *
+ * Command surface: `Meta/Ctrl+K` (and the topbar ⌘K button) open the shared
+ * {@link CommandPaletteComponent} — the canonical palette is `!inAdmin()`-gated
+ * in `app.component`, so v2 mounts its own instance. `+ New site` routes to the
+ * create flow. Honors the global Cmd+K focus mandate via the palette's own
+ * autofocus.
  */
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { RouterModule } from '@angular/router';
+import { ChangeDetectionStrategy, Component, HostListener, inject, signal } from '@angular/core';
+import { Router, RouterModule } from '@angular/router';
 import { HlmButtonDirective } from '../../ui/button';
+import { CommandPaletteComponent } from '../../components/command-palette/command-palette.component';
 
 @Component({
   selector: 'app-admin-v2-shell',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterModule, HlmButtonDirective],
+  imports: [RouterModule, HlmButtonDirective, CommandPaletteComponent],
   host: { 'data-cockpit': 'v2', class: 'block min-h-screen bg-background text-foreground' },
   template: `
     <div class="flex min-h-screen">
@@ -54,8 +61,8 @@ import { HlmButtonDirective } from '../../ui/button';
             <span>Spartan UI</span>
           </div>
           <div class="flex items-center gap-2">
-            <button hlmBtn variant="outline" size="sm" data-testid="v2-search">⌘K Search</button>
-            <button hlmBtn variant="primary" size="sm" data-testid="v2-create">+ New site</button>
+            <button hlmBtn variant="outline" size="sm" data-testid="v2-search" (click)="openPalette()">⌘K Search</button>
+            <button hlmBtn variant="primary" size="sm" data-testid="v2-create" (click)="newSite()">+ New site</button>
           </div>
         </header>
 
@@ -65,13 +72,38 @@ import { HlmButtonDirective } from '../../ui/button';
         </main>
       </div>
     </div>
+
+    @if (showPalette()) {
+      <app-command-palette (closed)="showPalette.set(false)" />
+    }
   `,
 })
 export class AdminV2ShellComponent {
+  private readonly router = inject(Router);
+
   protected readonly nav = [
     { id: 'sites', label: 'Sites', link: '/admin/v2', exact: true },
     { id: 'analytics', label: 'Analytics', link: '/admin/v2/analytics', exact: false },
     { id: 'domains', label: 'Domains', link: '/admin/v2/domains', exact: false },
     { id: 'settings', label: 'Settings', link: '/admin/v2/settings', exact: false },
   ];
+
+  protected readonly showPalette = signal(false);
+
+  /** Global Cmd/Ctrl+K toggles the palette (focus handled by the palette). */
+  @HostListener('document:keydown', ['$event'])
+  protected onKeydown(e: KeyboardEvent): void {
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      this.showPalette.update((v) => !v);
+    }
+  }
+
+  protected openPalette(): void {
+    this.showPalette.set(true);
+  }
+
+  protected newSite(): void {
+    void this.router.navigate(['/create']);
+  }
 }
