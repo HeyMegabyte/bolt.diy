@@ -123,6 +123,26 @@ webhooks.post('/webhooks/stripe', async (c) => {
             subscription: obj.subscription as string,
             metadata: obj.metadata as { org_id?: string; site_id?: string },
           });
+          // Fire-and-forget Novu: notify the org owner their plan is active.
+          // Fully isolated — Hono's c.executionCtx getter throws when absent
+          // (e.g. tests), so guard it; notification never affects the webhook.
+          if (meta.org_id) {
+            try {
+              const { notifySiteOwner } = await import('../services/notify.js');
+              const p = notifySiteOwner(c.env, db, {
+                orgId: meta.org_id,
+                subject: 'Plan upgraded 🎉',
+                body: 'Your subscription is active — paid features are now unlocked.',
+              });
+              try {
+                c.executionCtx.waitUntil(p);
+              } catch {
+                void p;
+              }
+            } catch {
+              /* notify is best-effort */
+            }
+          }
         }
         break;
       }
@@ -156,12 +176,32 @@ webhooks.post('/webhooks/stripe', async (c) => {
         });
         break;
 
-      case 'invoice.payment_failed':
+      case 'invoice.payment_failed': {
+        const failMeta = (obj.metadata as { org_id?: string } | undefined) ?? {};
         await billingService.handlePaymentFailed(db, {
           subscription: obj.subscription as string,
-          metadata: obj.metadata as { org_id?: string },
+          metadata: failMeta,
         });
+        // Fire-and-forget Novu: alert the org owner so they can fix billing.
+        if (failMeta.org_id) {
+          try {
+            const { notifySiteOwner } = await import('../services/notify.js');
+            const p = notifySiteOwner(c.env, db, {
+              orgId: failMeta.org_id,
+              subject: 'Payment failed ⚠️',
+              body: 'We couldn\'t process your latest payment. Update your card to keep paid features.',
+            });
+            try {
+              c.executionCtx.waitUntil(p);
+            } catch {
+              void p;
+            }
+          } catch {
+            /* notify is best-effort */
+          }
+        }
         break;
+      }
 
       case 'invoice.paid':
         // Backup for checkout.session.completed + wallet sub renewal credit.

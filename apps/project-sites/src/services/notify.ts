@@ -71,3 +71,40 @@ export async function notifyUser(env: Env, input: NotifyInput): Promise<NotifyRe
     return { ok: false, detail: 'exception' };
   }
 }
+
+/**
+ * Notify an org's owner by resolving their email from D1, then triggering Novu.
+ * For server contexts WITHOUT an authenticated user (webhooks, workflow
+ * callbacks) where only `orgId` is known. The resolved email matches the bell's
+ * subscriberId for that user. Never throws.
+ *
+ * @example
+ * c.executionCtx.waitUntil(
+ *   notifySiteOwner(c.env, c.env.DB, { orgId, subject: 'Payment received', body: 'Your subscription is active.' })
+ * );
+ */
+export async function notifySiteOwner(
+  env: Env,
+  db: D1Database,
+  input: { orgId: string; subject: string; body: string; workflowId?: string },
+): Promise<NotifyResult> {
+  if (!input.orgId) return { ok: false, detail: 'no_org' };
+  try {
+    const row = await db
+      .prepare(
+        'SELECT u.email AS email FROM users u JOIN memberships m ON u.id = m.user_id WHERE m.org_id = ? ORDER BY u.created_at ASC LIMIT 1',
+      )
+      .bind(input.orgId)
+      .first<{ email: string }>();
+    if (!row?.email) return { ok: false, detail: 'no_owner' };
+    return await notifyUser(env, {
+      subscriberId: row.email,
+      subject: input.subject,
+      body: input.body,
+      workflowId: input.workflowId,
+    });
+  } catch (err) {
+    console.warn(JSON.stringify({ event: 'notify.owner_lookup_failed', message: (err as Error)?.message }));
+    return { ok: false, detail: 'lookup_failed' };
+  }
+}

@@ -1878,7 +1878,7 @@ api.post('/api/sites/:siteId/hostnames', async (c) => {
         [actorId],
       );
       if (owner?.email) {
-        c.executionCtx.waitUntil(
+        c.executionCtx?.waitUntil(
           notifyUser(c.env, {
             subscriberId: owner.email,
             subject: validated.type === 'custom_cname' ? 'Domain connected 🌐' : 'Subdomain ready 🌐',
@@ -4152,7 +4152,7 @@ api.post('/api/sites/:id/deploy', async (c) => {
         [publisherId],
       );
       if (owner?.email) {
-        c.executionCtx.waitUntil(
+        c.executionCtx?.waitUntil(
           notifyUser(c.env, {
             subscriberId: owner.email,
             subject: 'Site published 🎉',
