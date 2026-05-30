@@ -31,6 +31,34 @@ import {
 
 const FLAG_KEY = 'pseo_matrix_v2';
 
+// ─── Tenant ownership ────────────────────────────────────────────────
+
+/**
+ * Resolve the owning org of a site, for multi-tenant isolation checks.
+ *
+ * @remarks Defensive read — a missing/soft-deleted site returns `undefined`
+ * (handlers map that to a 404, never a throw). Every `:id` (siteId) route
+ * compares the result to the caller's `orgId` so a caller can't read another
+ * org's pSEO axes/pages, or generate/publish onto a site they don't own, by
+ * guessing a `siteId`.
+ * @param env    - Worker env (D1 binding).
+ * @param siteId - The site whose owner is being resolved.
+ * @returns The owning `org_id`, or `undefined` when the site does not exist.
+ * @example
+ * ```ts
+ * const owner = await siteOrgId(env, siteId);
+ * if (!owner || owner !== orgId) return notFound;
+ * ```
+ */
+export async function siteOrgId(env: Env, siteId: string): Promise<string | undefined> {
+  const row = await dbQueryOne<{ org_id: string }>(
+    env.DB,
+    'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
+    [siteId],
+  );
+  return row?.org_id ?? undefined;
+}
+
 // ─── Axes CRUD ───────────────────────────────────────────────────────
 
 export async function listAxes(env: Env, siteId: string): Promise<PseoAxis[]> {
@@ -52,7 +80,12 @@ export async function listAxes(env: Env, siteId: string): Promise<PseoAxis[]> {
   return out;
 }
 
-export async function saveAxis(env: Env, siteId: string, orgId: string, axis: PseoAxis): Promise<void> {
+export async function saveAxis(
+  env: Env,
+  siteId: string,
+  orgId: string,
+  axis: PseoAxis,
+): Promise<void> {
   const id = crypto.randomUUID();
   // upsert pattern: delete-then-insert under unique partial index
   await dbExecute(

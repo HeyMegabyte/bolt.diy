@@ -27,7 +27,10 @@ import {
   clampTitle,
   freshenSite,
   generateSeoMeta,
+  siteOrgId,
 } from '../services/seo_autopilot.js';
+import { seoAutopilot } from '../routes/seo_autopilot.js';
+import { authApp, harnessEnv } from './helpers/route_harness.js';
 import {
   ANSWER_WORDS_MAX,
   ANSWER_WORDS_MIN,
@@ -99,7 +102,10 @@ describe('clamp helpers', () => {
   });
 
   it('clampAnswerBlock pads short text up to ≥40 words', () => {
-    const out = clampAnswerBlock('Short answer.', 'extra context words to pad the answer block out to forty');
+    const out = clampAnswerBlock(
+      'Short answer.',
+      'extra context words to pad the answer block out to forty',
+    );
     expect(countWords(out)).toBeGreaterThanOrEqual(ANSWER_WORDS_MIN);
   });
 
@@ -123,7 +129,8 @@ describe('generateSeoMeta', () => {
     const meta = await generateSeoMeta(env, {
       siteId: 'site_1',
       route: '/services',
-      pageText: 'Our services include plumbing, heating, and emergency repair across Newark and the surrounding towns.',
+      pageText:
+        'Our services include plumbing, heating, and emergency repair across Newark and the surrounding towns.',
     });
 
     expect(meta.title.length).toBeLessThanOrEqual(TITLE_MAX);
@@ -145,7 +152,11 @@ describe('generateSeoMeta', () => {
       },
     );
 
-    await generateSeoMeta(env, { siteId: 'site_1', route: '/', pageText: 'Homepage copy goes here for context.' });
+    await generateSeoMeta(env, {
+      siteId: 'site_1',
+      route: '/',
+      pageText: 'Homepage copy goes here for context.',
+    });
 
     expect(usedModel).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
     expect(AI_MODEL).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
@@ -161,7 +172,8 @@ describe('generateSeoMeta', () => {
     const meta = await generateSeoMeta(env, {
       siteId: 'site_1',
       route: '/about',
-      pageText: 'About our long-running family business serving the local community since nineteen ninety two with pride.',
+      pageText:
+        'About our long-running family business serving the local community since nineteen ninety two with pride.',
     });
 
     expect(() => SeoMetaSchema.parse(meta)).not.toThrow();
@@ -175,7 +187,12 @@ describe('generateSeoMeta', () => {
 describe('buildJsonLd', () => {
   it('returns WebPage by default and omits FAQPage when no Q&A', async () => {
     const env = makeEnv({});
-    const ld = await buildJsonLd(env, { siteId: 'site_1', route: '/about', kind: 'WebPage', faqs: [] });
+    const ld = await buildJsonLd(env, {
+      siteId: 'site_1',
+      route: '/about',
+      kind: 'WebPage',
+      faqs: [],
+    });
 
     expect(ld['@type']).toBe('WebPage');
     expect(ld['@context']).toBe('https://schema.org');
@@ -184,7 +201,12 @@ describe('buildJsonLd', () => {
 
   it('falls back to WebPage when FAQPage requested but no real Q&A', async () => {
     const env = makeEnv({});
-    const ld = await buildJsonLd(env, { siteId: 'site_1', route: '/faq', kind: 'FAQPage', faqs: [] });
+    const ld = await buildJsonLd(env, {
+      siteId: 'site_1',
+      route: '/faq',
+      kind: 'FAQPage',
+      faqs: [],
+    });
 
     expect(ld['@type']).toBe('WebPage');
     expect(ld.mainEntity).toBeUndefined();
@@ -230,7 +252,12 @@ describe('freshenSite', () => {
 
     const summary = await freshenSite(env, 'site_1', {
       orgId: 'org_1',
-      routes: [{ route: '/', pageText: 'Welcome to our homepage with plenty of descriptive context copy here.' }],
+      routes: [
+        {
+          route: '/',
+          pageText: 'Welcome to our homepage with plenty of descriptive context copy here.',
+        },
+      ],
     });
 
     expect(summary.draftsCreated).toBe(1);
@@ -255,7 +282,8 @@ describe('freshenSite', () => {
     mockQuery.mockResolvedValue({ data: [], error: null });
     const env = makeEnv({
       title: 'Homepage SEO title that fits inside the fifty to sixty bound',
-      description: 'Homepage description copy that sits inside the one twenty to one fifty six char window nicely.',
+      description:
+        'Homepage description copy that sits inside the one twenty to one fifty six char window nicely.',
       answerBlock: 'short',
     });
 
@@ -306,5 +334,77 @@ describe('approveDraft', () => {
     const result = await approveDraft(env, 'd1', 'user_1');
     expect(result.ok).toBe(false);
     expect(result.error).toContain('already');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// siteOrgId (tenant-ownership resolver)
+// ---------------------------------------------------------------------------
+describe('siteOrgId', () => {
+  it('returns the owning org for an existing site', async () => {
+    mockQueryOne.mockResolvedValueOnce({ org_id: 'org_7' } as any);
+    expect(await siteOrgId({ DB: {} } as any, 'site_1')).toBe('org_7');
+  });
+  it('returns undefined for a missing site', async () => {
+    mockQueryOne.mockResolvedValueOnce(null);
+    expect(await siteOrgId({ DB: {} } as any, 'ghost')).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Route layer: tenant isolation on :siteId routes
+// ---------------------------------------------------------------------------
+describe('seo_autopilot handler (route layer — tenant isolation)', () => {
+  // db.js is globally mocked, so the route's siteOrgId/dbQuery calls resolve via
+  // mockQueryOne/mockQuery. isFlagOn reads CACHE_KV (flagKv); on the flag-OFF
+  // path it falls through to env.DB.prepare — this stub makes that resolve to
+  // the registry default (off) instead of throwing.
+  const routeDb = () =>
+    ({
+      prepare: () => ({
+        bind: () => ({
+          first: async () => null,
+          all: async () => ({ results: [] }),
+          run: async () => ({ meta: {} }),
+        }),
+      }),
+    }) as unknown as D1Database;
+
+  it('401 when unauthenticated', async () => {
+    const app = authApp(seoAutopilot);
+    const res = await app.request('/site1/drafts', {}, harnessEnv(routeDb(), true));
+    expect(res.status).toBe(401);
+  });
+
+  it('404 when the flag is off', async () => {
+    const app = authApp(seoAutopilot, { userId: 'u', orgId: 'org-a' });
+    const res = await app.request('/site1/drafts', {}, harnessEnv(routeDb(), false));
+    expect(res.status).toBe(404);
+  });
+
+  it('404 listing drafts for a site owned by another org', async () => {
+    mockQueryOne.mockResolvedValueOnce({ org_id: 'OTHER_ORG' } as any); // siteOrgId
+    const app = authApp(seoAutopilot, { userId: 'u', orgId: 'org-a' });
+    const res = await app.request('/site1/drafts', {}, harnessEnv(routeDb(), true));
+    expect(res.status).toBe(404);
+  });
+
+  it('200 listing drafts for an org-owned site', async () => {
+    mockQueryOne.mockResolvedValueOnce({ org_id: 'org-a' } as any); // siteOrgId
+    mockQuery.mockResolvedValueOnce({ data: [], error: null });
+    const app = authApp(seoAutopilot, { userId: 'u', orgId: 'org-a' });
+    const res = await app.request('/site1/drafts', {}, harnessEnv(routeDb(), true));
+    expect(res.status).toBe(200);
+  });
+
+  it('404 approving a draft owned by another org', async () => {
+    mockQueryOne.mockResolvedValueOnce({ site_id: 'site1', org_id: 'OTHER_ORG' } as any);
+    const app = authApp(seoAutopilot, { userId: 'u', orgId: 'org-a' });
+    const res = await app.request(
+      '/drafts/d1/approve',
+      { method: 'POST' },
+      harnessEnv(routeDb(), true),
+    );
+    expect(res.status).toBe(404);
   });
 });

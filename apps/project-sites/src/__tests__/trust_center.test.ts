@@ -166,9 +166,7 @@ describe('trust_center schemas', () => {
   });
 
   test('TrustProfileUpdateSchema rejects bad enum', () => {
-    expect(() =>
-      TrustProfileUpdateSchema.parse({ data_residency: 'mars' as never }),
-    ).toThrow();
+    expect(() => TrustProfileUpdateSchema.parse({ data_residency: 'mars' as never })).toThrow();
   });
 
   test('toPublicProfile redacts private surface', () => {
@@ -229,10 +227,8 @@ describe('buildTrustJsonLd', () => {
     });
     expect(ld['@type']).toBe('DigitalDocument');
     expect(ld['url']).toBe('https://vito.projectsites.dev/trust');
-    expect(ld['name']).toContain("Vito");
-    expect((ld['publisher'] as Record<string, unknown>)['@type']).toBe(
-      'Organization',
-    );
+    expect(ld['name']).toContain('Vito');
+    expect((ld['publisher'] as Record<string, unknown>)['@type']).toBe('Organization');
   });
 });
 
@@ -317,11 +313,7 @@ describe('trust_center service', () => {
       siteId: 'site-7',
       update: { data_residency: 'eu' },
     });
-    const effective = await getEffectiveProfileForSite(
-      env as never,
-      'org-4',
-      'site-7',
-    );
+    const effective = await getEffectiveProfileForSite(env as never, 'org-4', 'site-7');
     expect(effective?.data_residency).toBe('eu');
     expect(effective?.site_id).toBe('site-7');
   });

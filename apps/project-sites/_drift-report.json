@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-05-29T00:05:38.327Z",
-  "quick_mode": false,
+  "generated_at": "2026-05-30T03:08:50.635Z",
+  "quick_mode": true,
   "stats": {
-    "flagCount": 125,
-    "manifestCount": 19,
+    "flagCount": 151,
+    "manifestCount": 46,
     "missingManifestCount": 0,
     "routeCount": 1,
-    "handlerCount": 49,
+    "handlerCount": 79,
     "fortressCount": 11
   },
   "violations": [],

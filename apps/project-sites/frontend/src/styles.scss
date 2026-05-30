@@ -25,6 +25,16 @@
 @use "./styles/_cockpit.scss" as *;
 
 // ═══════════════════════════════════════════
+// Cascade layer order — PrimeNG lives in @layer primeng (declared via
+// providePrimeNG cssLayer in app.config.ts: order "theme, base, primeng").
+// Declaring the layer names here, and keeping ALL cockpit SCSS UNLAYERED,
+// guarantees the cockpit's black+cyan tokens + overrides beat PrimeNG's
+// default Aura styling on every specificity tie — unlayered rules always
+// win over layered ones. This is what stops default-PrimeNG-blue leakage.
+// ═══════════════════════════════════════════
+@layer theme, base, primeng;
+
+// ═══════════════════════════════════════════
 // CDK Dialog Overrides
 // ═══════════════════════════════════════════
 .cdk-overlay-transparent .cdk-overlay-pane {

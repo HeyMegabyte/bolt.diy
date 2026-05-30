@@ -24,8 +24,8 @@ import type { Context } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
-import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
-import { unauthorized, forbidden } from '@project-sites/shared';
+import { dbQuery, dbQueryOne, dbInsert } from '../services/db.js';
+import { unauthorized, notFound } from '@project-sites/shared';
 import {
   SITE_MCP_TOOLS,
   dispatchTool,
@@ -229,7 +229,10 @@ async function handleMcpPost(c: McpCtx, slug: string): Promise<Response> {
   try {
     switch (body.method) {
       case 'initialize':
-        response = { protocolVersion: '2025-11-25', serverInfo: { name: `projectsites:${slug}`, version: '1.0.0' } };
+        response = {
+          protocolVersion: '2025-11-25',
+          serverInfo: { name: `projectsites:${slug}`, version: '1.0.0' },
+        };
         break;
       case 'tools/list': {
         const { data: tools } = await dbQuery<{
@@ -260,7 +263,8 @@ async function handleMcpPost(c: McpCtx, slug: string): Promise<Response> {
         break;
       }
       case 'tools/call': {
-        const params = (body.params as { name?: string; arguments?: Record<string, unknown> }) ?? {};
+        const params =
+          (body.params as { name?: string; arguments?: Record<string, unknown> }) ?? {};
         if (!params.name) {
           status = 'error';
           response = jsonRpcError(-32602, 'tool name required', body.id).error;
@@ -288,7 +292,11 @@ async function handleMcpPost(c: McpCtx, slug: string): Promise<Response> {
     }
   } catch (err) {
     status = 'error';
-    response = jsonRpcError(-32603, err instanceof Error ? err.message : 'internal error', body.id).error;
+    response = jsonRpcError(
+      -32603,
+      err instanceof Error ? err.message : 'internal error',
+      body.id,
+    ).error;
   }
   const latencyMs = Date.now() - startedAt;
   // Log call asynchronously to keep p99 fast.
@@ -297,7 +305,9 @@ async function handleMcpPost(c: McpCtx, slug: string): Promise<Response> {
       id: crypto.randomUUID(),
       site_id: site.id,
       tool_name:
-        body.method === 'tools/call' ? (body.params as { name?: string })?.name ?? '?' : body.method,
+        body.method === 'tools/call'
+          ? ((body.params as { name?: string })?.name ?? '?')
+          : body.method,
       agent_user_agent: c.req.header('user-agent') ?? null,
       agent_client_id: null,
       result_status: status,
@@ -315,7 +325,7 @@ async function handleMcpPost(c: McpCtx, slug: string): Promise<Response> {
  * exposed by the site's MCP server with enable/disable status.
  *
  * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 403 FORBIDDEN when the site isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the site isn't owned by the caller's org (never 403 — don't leak existence).
  */
 mcpSite.get('/api/sites/:siteId/mcp/tools', async (c) => {
   const siteId = c.req.param('siteId');
@@ -344,7 +354,7 @@ const toolPatchSchema = z.object({
  *
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 403 FORBIDDEN when the site isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the site isn't owned by the caller's org (never 403 — don't leak existence).
  */
 mcpSite.post('/api/sites/:siteId/mcp/tools', zValidator('json', toolPatchSchema), async (c) => {
   const siteId = c.req.param('siteId');
@@ -364,7 +374,7 @@ mcpSite.post('/api/sites/:siteId/mcp/tools', zValidator('json', toolPatchSchema)
  * (tool name, agent identity, status, latency).
  *
  * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 403 FORBIDDEN when the site isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the site isn't owned by the caller's org (never 403 — don't leak existence).
  */
 mcpSite.get('/api/sites/:siteId/mcp/calls', async (c) => {
   const siteId = c.req.param('siteId');
@@ -451,10 +461,7 @@ interface SiteRow {
   org_id: string;
 }
 
-async function resolvePublicSite(
-  c: { env: Env },
-  slug: string,
-): Promise<SiteRow | null> {
+async function resolvePublicSite(c: { env: Env }, slug: string): Promise<SiteRow | null> {
   return await dbQueryOne<SiteRow>(
     c.env.DB,
     'SELECT id, slug, org_id FROM sites WHERE slug = ? AND deleted_at IS NULL LIMIT 1',
@@ -462,6 +469,20 @@ async function resolvePublicSite(
   );
 }
 
+/**
+ * Assert the authenticated caller's org owns `siteId` — the multi-tenant gate
+ * for every `/api/sites/:siteId/mcp/*` admin route.
+ *
+ * @remarks A missing session throws `unauthorized()` (401); a site owned by
+ * another org — or one that does not exist — throws `notFound()` (404, **never
+ * 403**, so a foreign site id can't be confirmed to exist by probing the MCP
+ * admin surface). The public per-site MCP endpoints already 404 on an unknown
+ * slug; this keeps the admin surface consistent.
+ * @param c      - Hono context (reads `orgId` set by auth middleware).
+ * @param siteId - the site id from the URL path.
+ * @returns the verified owning `orgId`.
+ * @throws {AppError} `unauthorized` (401) when no session; `notFound` (404) when the site is not owned by the caller.
+ */
 async function assertSiteOwnership(
   c: { env: Env; get: (k: string) => string | undefined },
   siteId: string,
@@ -473,7 +494,7 @@ async function assertSiteOwnership(
     'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL LIMIT 1',
     [siteId],
   );
-  if (!row || row.org_id !== orgId) throw forbidden('Site not accessible');
+  if (!row || row.org_id !== orgId) throw notFound('Site not found');
   return orgId;
 }
 

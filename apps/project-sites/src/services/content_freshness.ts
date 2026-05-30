@@ -126,7 +126,10 @@ async function loadBrandVoice(env: Env, siteId: string): Promise<string> {
     const tone = typeof brand.tone === 'string' ? brand.tone : '';
     const voice = typeof brand.voice === 'string' ? brand.voice : '';
     const personality = typeof brand.personality === 'string' ? brand.personality : '';
-    return [tone, voice, personality].filter(Boolean).join('. ') || 'Professional, clear, and trustworthy.';
+    return (
+      [tone, voice, personality].filter(Boolean).join('. ') ||
+      'Professional, clear, and trustworthy.'
+    );
   } catch {
     return 'Professional, clear, and trustworthy.';
   }
@@ -159,13 +162,16 @@ Rules:
   const userPrompt = `Rewrite this website section HTML:\n\n${original.slice(0, 8000)}`;
 
   try {
-    const response = await env.AI.run(AI_MODEL as Parameters<typeof env.AI.run>[0], {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 2048,
-    } as Parameters<typeof env.AI.run>[1]);
+    const response = await env.AI.run(
+      AI_MODEL as Parameters<typeof env.AI.run>[0],
+      {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 2048,
+      } as Parameters<typeof env.AI.run>[1],
+    );
 
     const result = response as { response?: string; usage?: { total_tokens?: number } };
     const html = result.response ?? original;
@@ -216,13 +222,7 @@ export async function createRewriteDraft(
       createdBy: 'content-freshness-cron',
     });
 
-    await dbUpdate(
-      env.DB,
-      'content_rewrite_drafts',
-      { task_inbox_id: task.id },
-      'id = ?',
-      [id],
-    );
+    await dbUpdate(env.DB, 'content_rewrite_drafts', { task_inbox_id: task.id }, 'id = ?', [id]);
   } catch {
     // Task inbox failure is non-blocking — draft still created.
   }
@@ -234,27 +234,49 @@ export async function createRewriteDraft(
 
 /**
  * Publishes an approved draft HTML to R2, replacing the live section.
+ *
+ * @remarks Multi-tenant isolation: `expectedOrgId` is the authenticated
+ * caller's org. The draft is looked up by id, then its `org_id` is compared to
+ * `expectedOrgId`; a mismatch (or missing draft) returns
+ * `{ ok: false, error: 'Draft not found' }` — a 404-equivalent that never
+ * reveals another org's draft exists and, critically, runs BEFORE any R2 write
+ * or status mutation. This closes a cross-org publish gap where the route
+ * passed only the user id and the service published any draft by id.
+ * @param env          - Worker env (D1 + R2 bindings).
+ * @param draftId      - The rewrite draft to publish.
+ * @param approvedBy   - User id recorded as the approver.
+ * @param expectedOrgId- The caller's org; the draft MUST belong to it.
+ * @returns `{ ok: true }` on publish, else `{ ok, error }`; never throws.
+ * @example
+ * ```ts
+ * const r = await publishRewriteDraft(env, draftId, userId, c.get('orgId') ?? '');
+ * if (!r.ok) return c.json({ error: { code: 'BAD_REQUEST', message: r.error } }, 400);
+ * ```
  */
 export async function publishRewriteDraft(
   env: Env,
   draftId: string,
   approvedBy: string,
+  expectedOrgId: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const draft = await dbQueryOne<{
     id: string;
+    org_id: string;
     site_id: string;
     section_key: string;
     section_html_draft: string;
     status: string;
   }>(
     env.DB,
-    `SELECT id, site_id, section_key, section_html_draft, status
+    `SELECT id, org_id, site_id, section_key, section_html_draft, status
      FROM content_rewrite_drafts
      WHERE id = ? AND deleted_at IS NULL`,
     [draftId],
   );
 
-  if (!draft) return { ok: false, error: 'Draft not found' };
+  // Tenant isolation: a draft owned by another org is treated as not-found —
+  // never leak its existence, never publish it (check precedes any R2 write).
+  if (!draft || draft.org_id !== expectedOrgId) return { ok: false, error: 'Draft not found' };
   if (draft.status !== 'pending') return { ok: false, error: `Draft already ${draft.status}` };
 
   // Get site slug for R2 path
@@ -279,7 +301,13 @@ export async function publishRewriteDraft(
   await dbUpdate(
     env.DB,
     'content_rewrite_drafts',
-    { status: 'published', approved_by: approvedBy, approved_at: now, published_at: now, r2_path: r2Key },
+    {
+      status: 'published',
+      approved_by: approvedBy,
+      approved_at: now,
+      published_at: now,
+      r2_path: r2Key,
+    },
     'id = ?',
     [draftId],
   );

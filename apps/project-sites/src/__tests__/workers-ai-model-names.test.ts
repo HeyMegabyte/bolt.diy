@@ -44,6 +44,16 @@ function listSourceFiles(dir: string): string[] {
   return out;
 }
 
+/**
+ * Strip block + line comments so the guard checks CODE, not prose. Doc comments
+ * legitimately mention deprecated aliases (e.g. "the bare X is deprecated"); a
+ * model-name guard must not cry wolf on documentation, or it gets ignored and
+ * stops catching real code usages.
+ */
+function stripComments(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
 describe('Workers AI model names', () => {
   const sourceFiles = listSourceFiles(SRC_ROOT);
 
@@ -54,7 +64,7 @@ describe('Workers AI model names', () => {
     const pattern = new RegExp(`${escaped}(?![A-Za-z0-9_-])`);
     const offenders: string[] = [];
     for (const file of sourceFiles) {
-      const contents = readFileSync(file, 'utf8');
+      const contents = stripComments(readFileSync(file, 'utf8'));
       if (pattern.test(contents)) offenders.push(file);
     }
     expect(offenders).toEqual([]);
@@ -79,7 +89,7 @@ describe('Workers AI model names', () => {
     const llamaRe = /@cf\/meta(?:-llama)?\/llama-[a-z0-9.-]+/g;
     const found = new Set<string>();
     for (const file of sourceFiles) {
-      const contents = readFileSync(file, 'utf8');
+      const contents = stripComments(readFileSync(file, 'utf8'));
       const matches = contents.match(llamaRe);
       if (matches) matches.forEach((m) => found.add(m));
     }

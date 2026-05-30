@@ -198,6 +198,17 @@ main > app-section-error-boundary {
   flex: 1 1 auto;
   min-height: 0;
 }
+
+// ── 4b. Persistent shell layers — sidebar + topbar stay STATIC across nav ──
+// Without their own view-transition-name, the sidebar + topbar fall into the
+// `root` snapshot and crossfade on every route change — which reads as "the
+// whole page reloaded". Naming them snapshots each independently; since they
+// don't change between routes, old == new → no animation → they hold still
+// while ONLY `ps-admin-section` (the content) transitions. This is what turns
+// tab clicks from a full-page flash into smooth SPA nav.
+.admin-sidebar { view-transition-name: ps-admin-sidebar; }
+.admin-topbar  { view-transition-name: ps-admin-topbar; }
+
 @media (prefers-reduced-motion: no-preference) {
   @supports (transition-behavior: allow-discrete) {
     main > app-section-error-boundary {

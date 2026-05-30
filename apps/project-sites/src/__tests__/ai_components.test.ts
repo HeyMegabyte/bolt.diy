@@ -26,6 +26,7 @@ import {
   buildPrompt,
   callAi,
   generateComponent,
+  getComponent,
   loadBrandSnapshot,
   publishComponent,
   regenerateComponent,
@@ -41,11 +42,13 @@ const mockQueryOne = dbQueryOne as jest.MockedFunction<typeof dbQueryOne>;
 const mockInsert = dbInsert as jest.MockedFunction<typeof dbInsert>;
 const mockExecute = dbExecute as jest.MockedFunction<typeof dbExecute>;
 
-function makeEnv(opts: {
-  brandJson?: unknown;
-  aiReply?: unknown;
-  captureModel?: (model: string) => void;
-} = {}): any {
+function makeEnv(
+  opts: {
+    brandJson?: unknown;
+    aiReply?: unknown;
+    captureModel?: (model: string) => void;
+  } = {},
+): any {
   const r2Get = jest.fn(async (_key: string) => {
     if (opts.brandJson === undefined) return null;
     return {
@@ -59,12 +62,14 @@ function makeEnv(opts: {
       response:
         typeof opts.aiReply === 'string'
           ? opts.aiReply
-          : JSON.stringify(opts.aiReply ?? {
-              name: 'QuoteCalculator',
-              description: 'A multi-step quote calculator with conditional pricing.',
-              component_code:
-                'export default function QuoteCalculator() { return <div className="text-primary">hi</div>; }',
-            }),
+          : JSON.stringify(
+              opts.aiReply ?? {
+                name: 'QuoteCalculator',
+                description: 'A multi-step quote calculator with conditional pricing.',
+                component_code:
+                  'export default function QuoteCalculator() { return <div className="text-primary">hi</div>; }',
+              },
+            ),
       usage: { total_tokens: 512 },
     };
   });
@@ -174,7 +179,8 @@ describe('buildPrompt', () => {
 describe('callAi', () => {
   it('strips fenced JSON and validates', async () => {
     const env = makeEnv({
-      aiReply: '```json\n{"name":"Widget","description":"valid description here","component_code":"export default function Widget(){return null;}\\n\\n// padding so we exceed the schema min of 50 chars"}\n```',
+      aiReply:
+        '```json\n{"name":"Widget","description":"valid description here","component_code":"export default function Widget(){return null;}\\n\\n// padding so we exceed the schema min of 50 chars"}\n```',
     });
     const result = await callAi(env, { system: 's', user: 'u' });
     expect(result.generated.name).toBe('Widget');
@@ -232,7 +238,8 @@ describe('generateComponent', () => {
       aiReply: {
         name: 'ModelChoseThis',
         description: 'A widget the model named.',
-        component_code: 'export default function ModelChoseThis() { return <div>hi padding padding padding</div>; }',
+        component_code:
+          'export default function ModelChoseThis() { return <div>hi padding padding padding</div>; }',
       },
     });
     const result = await generateComponent(
@@ -272,10 +279,11 @@ describe('regenerateComponent', () => {
       aiReply: {
         name: 'Widget',
         description: 'Regenerated description for the widget.',
-        component_code: 'export default function Widget() { return <div>regenerated padding padding padding</div>; }',
+        component_code:
+          'export default function Widget() { return <div>regenerated padding padding padding</div>; }',
       },
     });
-    const result = await regenerateComponent(env, 'aic_1');
+    const result = await regenerateComponent(env, 'aic_1', 'org_x');
     expect(result.id).toBe('aic_1');
     expect(mockExecute).toHaveBeenCalledWith(
       env.DB,
@@ -286,7 +294,19 @@ describe('regenerateComponent', () => {
 
   it('rejects when component missing', async () => {
     const env = makeEnv();
-    await expect(regenerateComponent(env, 'aic_missing')).rejects.toThrow('COMPONENT_NOT_FOUND');
+    await expect(regenerateComponent(env, 'aic_missing', 'org_x')).rejects.toThrow(
+      'COMPONENT_NOT_FOUND',
+    );
+  });
+
+  it('refuses to regenerate a component owned by another org (no UPDATE)', async () => {
+    // getComponent is org-scoped now → a cross-org id resolves to null.
+    mockQueryOne.mockResolvedValueOnce(null);
+    const env = makeEnv();
+    await expect(regenerateComponent(env, 'aic_other', 'org_a')).rejects.toThrow(
+      'COMPONENT_NOT_FOUND',
+    );
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 });
 
@@ -301,7 +321,8 @@ describe('publishComponent', () => {
     created_by: 'usr_owner',
     name: 'Widget',
     description: 'Reusable widget.',
-    component_code: 'export default function Widget() { return <div>x x x x x x x x x x x x x x x x</div>; }',
+    component_code:
+      'export default function Widget() { return <div>x x x x x x x x x x x x x x x x</div>; }',
     brand_tokens_snapshot: '{}',
     ai_model: AI_MODEL,
     ai_tokens: 100,
@@ -320,6 +341,7 @@ describe('publishComponent', () => {
       env,
       { component_id: 'aic_1', price_cents: 0, category: 'other' },
       'usr_owner',
+      'org_x',
     );
     expect(result.plugin_id).toMatch(/^plg_/);
     expect(mockInsert).toHaveBeenCalledWith(
@@ -337,7 +359,12 @@ describe('publishComponent', () => {
     mockQueryOne.mockResolvedValueOnce({ ...baseComponent, published_to_marketplace: 1 });
     const env = makeEnv();
     await expect(
-      publishComponent(env, { component_id: 'aic_1', price_cents: 0, category: 'other' }, 'usr_owner'),
+      publishComponent(
+        env,
+        { component_id: 'aic_1', price_cents: 0, category: 'other' },
+        'usr_owner',
+        'org_x',
+      ),
     ).rejects.toThrow('ALREADY_PUBLISHED');
   });
 
@@ -345,8 +372,27 @@ describe('publishComponent', () => {
     mockQueryOne.mockResolvedValueOnce(baseComponent);
     const env = makeEnv();
     await expect(
-      publishComponent(env, { component_id: 'aic_1', price_cents: 0, category: 'other' }, 'usr_intruder'),
+      publishComponent(
+        env,
+        { component_id: 'aic_1', price_cents: 0, category: 'other' },
+        'usr_intruder',
+        'org_x',
+      ),
     ).rejects.toThrow('FORBIDDEN');
+  });
+
+  it('refuses to publish a component owned by another org (not-found, no plugin row)', async () => {
+    mockQueryOne.mockResolvedValueOnce(null); // org-scoped getComponent → null
+    const env = makeEnv();
+    await expect(
+      publishComponent(
+        env,
+        { component_id: 'aic_other', price_cents: 0, category: 'other' },
+        'usr',
+        'org_a',
+      ),
+    ).rejects.toThrow('COMPONENT_NOT_FOUND');
+    expect(mockInsert).not.toHaveBeenCalled();
   });
 });
 
@@ -362,7 +408,8 @@ describe('archiveComponent', () => {
       created_by: 'usr_owner',
       name: 'Widget',
       description: 'A widget',
-      component_code: 'export default function Widget(){return null}// padding padding padding padding',
+      component_code:
+        'export default function Widget(){return null}// padding padding padding padding',
       brand_tokens_snapshot: '{}',
       ai_model: AI_MODEL,
       ai_tokens: 0,
@@ -373,7 +420,7 @@ describe('archiveComponent', () => {
       created_at: '2026-05-27T00:00:00Z',
     });
     const env = makeEnv();
-    const result = await archiveComponent(env, 'aic_1', 'usr_owner');
+    const result = await archiveComponent(env, 'aic_1', 'usr_owner', 'org_x');
     expect(result.ok).toBe(true);
   });
 
@@ -385,7 +432,8 @@ describe('archiveComponent', () => {
       created_by: 'usr_owner',
       name: 'Widget',
       description: 'A widget',
-      component_code: 'export default function Widget(){return null}// padding padding padding padding',
+      component_code:
+        'export default function Widget(){return null}// padding padding padding padding',
       brand_tokens_snapshot: '{}',
       ai_model: AI_MODEL,
       ai_tokens: 0,
@@ -396,7 +444,56 @@ describe('archiveComponent', () => {
       created_at: '2026-05-27T00:00:00Z',
     });
     const env = makeEnv();
-    await expect(archiveComponent(env, 'aic_1', 'usr_intruder')).rejects.toThrow('FORBIDDEN');
+    await expect(archiveComponent(env, 'aic_1', 'usr_intruder', 'org_x')).rejects.toThrow(
+      'FORBIDDEN',
+    );
+  });
+
+  it('refuses to archive a component owned by another org (not-found, no UPDATE)', async () => {
+    mockQueryOne.mockResolvedValueOnce(null); // org-scoped getComponent → null
+    const env = makeEnv();
+    await expect(archiveComponent(env, 'aic_other', 'usr', 'org_a')).rejects.toThrow(
+      'COMPONENT_NOT_FOUND',
+    );
+    expect(mockExecute).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getComponent — org-scoped read (tenant isolation)
+// ---------------------------------------------------------------------------
+describe('getComponent — tenant isolation', () => {
+  it('queries with id AND org_id and returns the owned row', async () => {
+    mockQueryOne.mockResolvedValueOnce({
+      id: 'aic_1',
+      site_id: 'site_x',
+      org_id: 'org_x',
+      created_by: 'usr',
+      name: 'Widget',
+      description: 'A widget',
+      component_code:
+        'export default function Widget(){return null}// padding padding padding padding',
+      brand_tokens_snapshot: '{}',
+      ai_model: AI_MODEL,
+      ai_tokens: 0,
+      status: 'draft',
+      published_to_marketplace: 0,
+      marketplace_plugin_id: null,
+      generation_count: 1,
+      created_at: '2026-05-27T00:00:00Z',
+    });
+    const env = makeEnv();
+    const row = await getComponent(env, 'aic_1', 'org_x');
+    expect(row?.id).toBe('aic_1');
+    const [, sql, params] = mockQueryOne.mock.calls[0]!;
+    expect(sql).toContain('org_id = ?');
+    expect(params).toEqual(['aic_1', 'org_x']);
+  });
+
+  it('returns null for a component owned by another org', async () => {
+    mockQueryOne.mockResolvedValueOnce(null); // WHERE org_id mismatch → no row
+    const env = makeEnv();
+    expect(await getComponent(env, 'aic_other', 'org_a')).toBeNull();
   });
 });
 

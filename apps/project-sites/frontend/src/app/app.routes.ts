@@ -55,6 +55,16 @@ export const routes: Routes = [
       import('./pages/waiting/waiting.component').then((m) => m.WaitingComponent),
   },
   {
+    // Spartan UI admin shell (Wave C) — the rebuilt dashboard, hidden/opt-in
+    // ("v2") so the legacy admin stays the default until each module is
+    // verified + promoted. Declared BEFORE `admin` so `/admin/v2` matches
+    // this standalone shell, not an `admin` child. authGuard-gated.
+    path: 'admin/v2',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/admin-v2/admin-v2-shell.component').then((m) => m.AdminV2ShellComponent),
+  },
+  {
     path: 'admin',
     canActivate: [authGuard],
     loadComponent: () =>

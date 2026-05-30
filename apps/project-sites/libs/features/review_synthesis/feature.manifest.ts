@@ -27,11 +27,7 @@ export default defineFeatureManifest({
 
   // ---- surfaces ----
   routes: [],
-  apiRoutes: [
-    'POST /api/reviews/:siteId/synthesize',
-    'GET  /api/reviews/:siteId',
-    'GET  /api/reviews/:siteId/jsonld',
-  ],
+  apiRoutes: ['POST /api/reviews/:siteId/synthesize', 'GET /api/reviews/:siteId'],
 
   // ---- governance ----
   permissions: ['sites:write'],
@@ -39,12 +35,15 @@ export default defineFeatureManifest({
 
   // ---- tests ----
   e2eTests: [],
-  unitTests: ['src/__tests__/review_synthesis.test.ts'],
+  unitTests: [
+    '../libs/features/review_synthesis/__tests__/review_synthesis.test.ts',
+    '../libs/features/review_synthesis/__tests__/review_synthesis_handlers.test.ts',
+  ],
   integrationTests: [],
-  testStatus: 'passing',
+  testStatus: 'partial',
 
   // ---- schemas ----
-  zodSchemas: ['libs/features/review_synthesis/feature.schemas.ts'],
+  zodSchemas: ['feature.schemas.ts'],
 
   // ---- observability ----
   observability: {
@@ -73,6 +72,6 @@ export default defineFeatureManifest({
 
   removalNotes:
     'Remove: routes/reviews.ts, services/review_synthesis.ts, libs/features/review_synthesis/, ' +
-    'migration 0517_review_synthesis.sql, the app.route(\'/api/reviews\', reviewRoutes) mount in src/index.ts, ' +
+    "migration 0517_review_synthesis.sql, the app.route('/api/reviews', reviewRoutes) mount in src/index.ts, " +
     'and the review_synthesis FLAG_REGISTRY entry.',
 });

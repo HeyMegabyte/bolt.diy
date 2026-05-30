@@ -26,6 +26,7 @@ import {
   installPlugin,
   listPlugins,
   listSiteInstalls,
+  siteOrgId,
   submitPlugin,
   uninstallPlugin,
 } from '../services/plugin_marketplace.js';
@@ -128,15 +129,9 @@ pluginMarketplace.post('/api/plugin-marketplace/submissions', async (c) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     if (message === 'SLUG_TAKEN') {
-      return c.json(
-        { error: { code: 'CONFLICT', message: 'Plugin slug already taken' } },
-        409,
-      );
+      return c.json({ error: { code: 'CONFLICT', message: 'Plugin slug already taken' } }, 409);
     }
-    return c.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Submission failed' } },
-      500,
-    );
+    return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Submission failed' } }, 500);
   }
 });
 
@@ -185,16 +180,22 @@ pluginMarketplace.post('/api/plugin-marketplace/plugins/:id/install', async (c) 
     if (message === 'PLUGIN_NOT_FOUND' || message === 'PLUGIN_NOT_LIVE') {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Plugin not available' } }, 404);
     }
+    if (message === 'SITE_NOT_OWNED') {
+      // Don't leak that another org's site exists — 404, never 403.
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
+    }
     if (message === 'PAYMENT_REQUIRED') {
       return c.json(
-        { error: { code: 'PAYMENT_REQUIRED', message: 'Stripe PaymentIntent required for paid plugin' } },
+        {
+          error: {
+            code: 'PAYMENT_REQUIRED',
+            message: 'Stripe PaymentIntent required for paid plugin',
+          },
+        },
         402,
       );
     }
-    return c.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Install failed' } },
-      500,
-    );
+    return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Install failed' } }, 500);
   }
 });
 
@@ -206,7 +207,17 @@ pluginMarketplace.get('/api/plugin-marketplace/sites/:siteId/installs', async (c
   const blocked = await guard(c, true);
   if (blocked) return blocked;
 
+  const orgId = c.get('orgId');
+  if (!orgId) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Org context required' } }, 403);
+  }
   const siteId = c.req.param('siteId');
+  // Tenant isolation: only list installs for a site the caller's org owns —
+  // a mismatch (or missing site) returns 404, never leaking another org's data.
+  const owner = await siteOrgId(c.env, siteId);
+  if (!owner || owner !== orgId) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
+  }
   const installs = await listSiteInstalls(c.env, siteId);
   return c.json({ installs, count: installs.length });
 });
@@ -218,11 +229,14 @@ pluginMarketplace.get('/api/plugin-marketplace/sites/:siteId/installs', async (c
 pluginMarketplace.delete('/api/plugin-marketplace/installs/:installId', async (c) => {
   const blocked = await guard(c, true);
   if (blocked) return blocked;
-  const userId = c.get('userId') as string;
+  const orgId = c.get('orgId');
+  if (!orgId) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Org context required' } }, 403);
+  }
   const installId = c.req.param('installId');
 
   try {
-    const result = await uninstallPlugin(c.env, installId, userId);
+    const result = await uninstallPlugin(c.env, installId, orgId);
     return c.json(result, 200);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -230,15 +244,9 @@ pluginMarketplace.delete('/api/plugin-marketplace/installs/:installId', async (c
       return c.json({ error: { code: 'NOT_FOUND', message: 'Install not found' } }, 404);
     }
     if (message === 'ALREADY_UNINSTALLED') {
-      return c.json(
-        { error: { code: 'CONFLICT', message: 'Plugin already uninstalled' } },
-        409,
-      );
+      return c.json({ error: { code: 'CONFLICT', message: 'Plugin already uninstalled' } }, 409);
     }
-    return c.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Uninstall failed' } },
-      500,
-    );
+    return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Uninstall failed' } }, 500);
   }
 });
 

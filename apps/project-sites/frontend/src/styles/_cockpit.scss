@@ -4,18 +4,19 @@
 // Black + cyan compact dev-cockpit token system. Implements _ideas-100.md
 // dimension 1 (Visual System), 2 (Density), 13 (dark-viz hierarchy), 14 (motion).
 //
-// ZERO-REGRESSION CONTRACT: every token here is scoped to
-// `:root[data-cockpit="v2"]`. The current admin is UNCHANGED until Wave 1 sets
-// `document.documentElement.dataset.cockpit = 'v2'` after visual verification.
-// This re-skins all 54 sections via the shared `--ps-*` tokens — no section
-// file is edited. Cross-ref: rules/text-contrast.md, cinematic-ui-patterns.md.
+// SCOPE: every token is scoped to `[data-cockpit="v2"]`, set statically on the
+// AdminComponent host (`<app-admin data-cockpit="v2">`). ACTIVE. Re-skins all 54
+// admin sections + overlays via the shared `--ps-*` remap, zero per-section
+// edits, and leaves the marketing surface on its own theme.
+// Rollback = remove `host: { 'data-cockpit': 'v2' }` in admin.component.ts.
+// Cross-ref: rules/text-contrast.md, cinematic-ui-patterns.md.
 //
 // Research anchors: Linear opacity-elevation + warm near-black; Vercel Geist
 // 3-border/2-surface model + concentric radii; OKLCH lightness-for-contrast
 // (never neon chroma on near-black); View-Transitions route-only + reduced-motion.
 // =============================================================================
 
-:root[data-cockpit="v2"] {
+[data-cockpit="v2"] {
   // --- Canvas + surfaces (warm near-black, elevation = white-opacity over bg) ---
   --ck-bg: #03070a;                 // deepest canvas (terminal black)
   --ck-bg-alt: #060610;             // brand near-black (kept from legacy)
@@ -118,13 +119,46 @@
 
 // Compact density default for the cockpit (denser than legacy), overridable
 // by the existing [data-density] toggle.
-:root[data-cockpit="v2"][data-density="compact"] { --ck-row-h: 32px; --ck-pad-y: 4px; --ck-gap: 8px; }
-:root[data-cockpit="v2"][data-density="spacious"] { --ck-row-h: 48px; --ck-pad-y: 9px; --ck-gap: 14px; }
+[data-cockpit="v2"][data-density="compact"] { --ck-row-h: 32px; --ck-pad-y: 4px; --ck-gap: 8px; }
+[data-cockpit="v2"][data-density="spacious"] { --ck-row-h: 48px; --ck-pad-y: 9px; --ck-gap: 14px; }
 
 // Tabular numerals everywhere in the cockpit so digits never reflow (idea #6).
-:root[data-cockpit="v2"] { font-variant-numeric: tabular-nums; }
+[data-cockpit="v2"] { font-variant-numeric: tabular-nums; }
 
 // Motion is OPT-IN (prefers-reduced-motion: no-preference), per design research.
 @media (prefers-reduced-motion: reduce) {
-  :root[data-cockpit="v2"] { --ck-dur-fast: 0ms; --ck-dur-base: 0ms; --ck-dur-slow: 0ms; }
+  [data-cockpit="v2"] { --ck-dur-fast: 0ms; --ck-dur-base: 0ms; --ck-dur-slow: 0ms; }
+}
+
+// =============================================================================
+// Lotus serenity pass — calm, minimal, gorgeous. A still pond: one quiet focal
+// bloom, type that settles, motion that exhales. Scoped to admin; additive.
+// =============================================================================
+// A single faint cyan bloom from top-center — the lotus on still water. Draws
+// the eye to the content's heart with no hard edge.
+[data-cockpit="v2"] main {
+  background-image: radial-gradient(
+    130% 90% at 50% -12%,
+    color-mix(in oklch, var(--ck-cyan-500) 6%, transparent),
+    transparent 58%
+  );
+}
+// Type that settles — balanced headings, pretty body, breath between letters.
+[data-cockpit="v2"] h1,
+[data-cockpit="v2"] h2,
+[data-cockpit="v2"] h3,
+[data-cockpit="v2"] .section-h { text-wrap: balance; letter-spacing: -0.012em; }
+[data-cockpit="v2"] p,
+[data-cockpit="v2"] .text-text-secondary { text-wrap: pretty; }
+// Motion exhales — gentler deceleration on interactive surfaces; nothing snaps.
+[data-cockpit="v2"] .nav-item,
+[data-cockpit="v2"] .top-btn,
+[data-cockpit="v2"] .card {
+  transition-timing-function: var(--ck-ease-emphasized);
+  transition-duration: var(--ck-dur-base);
+}
+// Dividers soften to a whisper.
+[data-cockpit="v2"] hr,
+[data-cockpit="v2"] .glow-divider {
+  border-color: color-mix(in oklch, var(--ck-cyan-500) 10%, transparent);
 }

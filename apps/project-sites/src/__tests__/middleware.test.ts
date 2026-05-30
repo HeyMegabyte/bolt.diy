@@ -261,8 +261,15 @@ describe('securityHeadersMiddleware', () => {
     const app = createApp();
     const res = await app.request('/test');
 
+    // Pins the current policy: mic/camera/display-capture/autoplay are allowed on
+    // the bolt editor (editor.projectsites.dev) + sites origin for Whisper voice
+    // input + preview autoplay (see security_headers.ts); geolocation = admin only.
     expect(res.headers.get('Permissions-Policy')).toBe(
-      'camera=(), microphone=(), geolocation=(self)',
+      'microphone=(self "https://projectsites.dev" "https://editor.projectsites.dev"), ' +
+        'camera=(self "https://projectsites.dev" "https://editor.projectsites.dev"), ' +
+        'display-capture=(self "https://projectsites.dev" "https://editor.projectsites.dev"), ' +
+        'autoplay=(self "https://projectsites.dev" "https://editor.projectsites.dev"), ' +
+        'geolocation=(self)',
     );
   });
 

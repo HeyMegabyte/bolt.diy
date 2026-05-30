@@ -1,5 +1,6 @@
 import { Component, type OnInit, type OnDestroy, inject, signal, computed, effect, ViewChild, ViewChildren, ElementRef, HostListener, type QueryList, afterNextRender, Injector } from '@angular/core';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
+import { Title, Meta } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { Subscription, filter } from 'rxjs';
 import { TranslateService } from '@ngx-translate/core';
@@ -30,6 +31,10 @@ interface Notification { id: string; title: string; time: string; kind: 'info' |
   providers: [AdminStateService],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',
+  // Activates the black+cyan compact cockpit token layer (_cockpit.scss) for
+  // the entire admin subtree ONLY — the marketing surface keeps its own theme.
+  // Tokens cascade to all 54 sections + overlays via the shared --ps-* remap.
+  host: { 'data-cockpit': 'v2' },
 })
 export class AdminComponent implements OnInit, OnDestroy {
   // AfterViewInit is declared via the hook below; no need for a separate
@@ -40,6 +45,8 @@ export class AdminComponent implements OnInit, OnDestroy {
   bolt = inject(BoltEmbedService);
   private toast = inject(ToastService);
   private api = inject(ApiService);
+  private titleService = inject(Title);
+  private metaService = inject(Meta);
   private translate = inject(TranslateService);
   private appShell = inject(AppShellService);
 
@@ -116,17 +123,31 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   private updateRouteState(url: string): void {
     this.isEditorRoute.set(url === '/admin' || url.startsWith('/admin/editor'));
-    const segment = url.split('/').pop() || '';
+    const segment = url.split('?')[0].split('#')[0].split('/').pop() || '';
     const labels: Record<string, string> = {
-      '': 'Editor', 'admin': 'Editor', 'editor': 'Editor',
+      '': 'Editor', 'admin': 'Editor', 'editor': 'Editor', 'editor-native': 'Editor',
       'snapshots': 'Snapshots', 'analytics': 'Analytics',
       'forms': 'Forms', 'traces': 'AI Traces', 'ai-logs': 'AI Traces',
       'ai-endpoints': 'AI Agents', 'domains': 'Domains', 'docs': 'Docs',
       'user': 'User Settings', 'apps': 'Apps', 'instances': 'App Instances',
       'billing': 'Billing', 'audit': 'Audit Log', 'settings': 'Settings',
       'voice': 'Voice', 'media': 'Media',
+      'feature-flags': 'Feature Flags', 'features': 'Features', 'social': 'Social',
+      'pseo': 'pSEO', 'content-freshness': 'Content Freshness', 'logs': 'Logs',
+      'mcp': 'MCP', 'seo': 'SEO', 'inbox': 'Inbox', 'marketplace': 'Marketplace',
+      'import': 'Import', 'sites': 'Sites', 'welcome': 'Welcome', 'email': 'Email',
+      'swarm': 'Swarm', 'copilot': 'Copilot', 'dna': 'Site DNA', 'branches': 'Branches',
     };
-    this.currentSection.set(labels[segment] || 'Editor');
+    const section = labels[segment] || 'Editor';
+    this.currentSection.set(section);
+    // Per-route meta swap — only the title + description change; the shell
+    // (sidebar + topbar) is never touched. Keeps each tab a distinct, share-
+    // able, bookmark-correct view without a full document load.
+    this.titleService.setTitle(`${section} · ProjectSites`);
+    this.metaService.updateTag({
+      name: 'description',
+      content: `${section} — your ProjectSites admin dashboard.`,
+    });
     this.api.post('/analytics/track', {
       route: url.split('?')[0],
       site_id: this.state.selectedSite()?.id ?? null,

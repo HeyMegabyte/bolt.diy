@@ -23,7 +23,35 @@ import {
   type IntegrationService,
 } from '../../libs/features/integration_directory/feature.schemas.js';
 
-const FLAG_KEY = 'integration_directory';
+/** Feature-flag key gating every Integration Directory route. */
+export const FLAG_KEY = 'integration_directory';
+
+// ─── Tenant ownership ────────────────────────────────────────────────
+
+/**
+ * Resolve the owning org of a site, for multi-tenant isolation checks.
+ *
+ * @remarks Defensive read — a missing/soft-deleted site returns `undefined`
+ * (caller maps that to a 404, never a throw). Handlers compare the result to
+ * the authenticated `orgId` so a caller can never read or mutate another org's
+ * integration pages by guessing a `siteId`.
+ * @param env    - Worker env (D1 binding).
+ * @param siteId - The site whose owner is being resolved.
+ * @returns The owning `org_id`, or `undefined` when the site does not exist.
+ * @example
+ * ```ts
+ * const owner = await siteOrgId(env, siteId);
+ * if (!owner || owner !== orgId) return notFound(c);
+ * ```
+ */
+export async function siteOrgId(env: Env, siteId: string): Promise<string | undefined> {
+  const row = await dbQueryOne<{ org_id: string }>(
+    env.DB,
+    'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
+    [siteId],
+  );
+  return row?.org_id ?? undefined;
+}
 
 // ─── Service registry ────────────────────────────────────────────────
 
@@ -52,9 +80,7 @@ export async function listServices(env: Env, siteId: string): Promise<Integratio
       docsUrl: row.docs_url ?? undefined,
       configJson: row.config_json ? JSON.parse(row.config_json) : undefined,
     });
-    return parsed.success
-      ? parsed.data
-      : { slug: row.slug, name: row.name };
+    return parsed.success ? parsed.data : { slug: row.slug, name: row.name };
   });
 }
 

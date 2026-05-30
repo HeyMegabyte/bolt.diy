@@ -5,8 +5,10 @@ import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideServiceWorker } from '@angular/service-worker';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
+import { providePrimeNG } from 'primeng/config';
 import * as Sentry from '@sentry/angular';
 import { routes } from './app.routes';
+import { CockpitPreset } from './theme/cockpit-preset';
 import { firstValueFrom } from 'rxjs';
 import { GlobalErrorHandler } from './services/error-handler.service';
 import { initSentryEarly, SentryService } from './services/sentry.service';
@@ -96,6 +98,35 @@ export const appConfig: ApplicationConfig = {
       withInterceptors([retryInterceptor, sentryBreadcrumbInterceptor, loadingInterceptor]),
     ),
     provideAnimations(),
+    /**
+     * PrimeNG v20 — themed to the cockpit (NOT default Aura blue).
+     *
+     * `CockpitPreset` overrides Aura's primary→blue with the cockpit cyan ramp
+     * and maps PrimeNG dark surfaces onto the near-black cockpit canvas
+     * (#03070a…#060610). See `src/app/theme/cockpit-preset.ts`.
+     *
+     * `darkModeSelector: '[data-cockpit="v2"]'` ties PrimeNG's dark color
+     * scheme to the cockpit host attribute set on `<app-admin>`. PrimeNG then
+     * applies the dark (cockpit) tokens to every component rendered inside the
+     * admin subtree, while leaving the marketing surface unaffected.
+     *
+     * `cssLayer` nests PrimeNG styles into an explicit `@layer` so cockpit
+     * SCSS (`_cockpit.scss`, `_polish.scss`) can still win specificity ties —
+     * order: theme (PrimeNG) < cockpit overrides.
+     */
+    providePrimeNG({
+      theme: {
+        preset: CockpitPreset,
+        options: {
+          darkModeSelector: '[data-cockpit="v2"]',
+          cssLayer: {
+            name: 'primeng',
+            order: 'theme, base, primeng',
+          },
+        },
+      },
+      ripple: true,
+    }),
     // CompositeErrorHandler fans out to both GlobalErrorHandler (toast +
     // structured logs + section-error-bus) AND Sentry.createErrorHandler() so
     // every unhandled exception reaches Sentry even when the DI-injected

@@ -20,6 +20,12 @@ import type { Env } from '../types/env.js';
 import { withRetry, classifyError } from './retry.js';
 import { captureLLMCall } from './analytics.js';
 import { log } from '../lib/log.js';
+import {
+  gatewayBaseUrl,
+  gatewayFetch,
+  gatewayMetadata,
+  type GatewayCallOptions,
+} from './ai_gateway.js';
 
 const llmLog = log.child('external_llm');
 
@@ -188,61 +194,62 @@ const DEFAULT_MODELS: Record<'openai' | 'anthropic', string> = {
   anthropic: 'claude-sonnet-4-6',
 };
 
-/** Direct vendor base URLs. */
-const DIRECT_URLS: Record<'openai' | 'anthropic', string> = {
-  openai: 'https://api.openai.com',
-  anthropic: 'https://api.anthropic.com',
-};
-
 // ─── AI Gateway Helper ──────────────────────────────────────────────────────
 
 /**
  * Resolve the base URL for a provider, routing through Cloudflare AI Gateway
- * when both `AI_GATEWAY_ENABLED === "true"` AND `CF_ACCOUNT_ID` are set.
+ * by default (whenever `CF_ACCOUNT_ID` is set and `AI_GATEWAY_ENABLED !== "false"`).
  *
- * Returns `https://gateway.ai.cloudflare.com/v1/{accountId}/projectsites/{provider}`
+ * @deprecated Thin back-compat shim — delegates to
+ * {@link services/ai_gateway.gatewayBaseUrl}. Prefer importing from `ai_gateway.ts`.
+ *
+ * @returns `https://gateway.ai.cloudflare.com/v1/{accountId}/{gatewayName}/{provider}`
  * for gateway mode, else the direct vendor base URL.
  */
 export function aiGatewayUrl(env: Env, provider: 'openai' | 'anthropic'): string {
-  if (env.AI_GATEWAY_ENABLED === 'true' && env.CF_ACCOUNT_ID) {
-    return `https://gateway.ai.cloudflare.com/v1/${env.CF_ACCOUNT_ID}/projectsites/${provider}`;
-  }
-  return DIRECT_URLS[provider];
+  return gatewayBaseUrl(env, provider);
 }
 
 /**
- * Run a fetch against the gateway URL; on 5xx, retry once against the direct
- * vendor URL with `X-PS-Gateway-Fallback: true` header for log filtering.
+ * Run a fetch through the AI Gateway with cache + metadata headers and a
+ * single direct-vendor fallback on gateway 5xx.
  *
- * Caller supplies `pathSuffix` (the part after the provider base, e.g.
- * `/v1/chat/completions` for OpenAI or `/v1/messages` for Anthropic).
+ * Delegates to {@link services/ai_gateway.gatewayFetch}. Caller supplies
+ * `pathSuffix` (the part after the provider base, e.g. `/v1/chat/completions`
+ * for OpenAI or `/v1/messages` for Anthropic) and optional cache/metadata opts.
  *
  * @returns Tuple of `[response, gatewayUsed]` — `gatewayUsed` is `true` when
  * the successful response came through the AI Gateway, `false` when it came
- * from the direct vendor URL (initial direct call OR 5xx fallback).
+ * from the direct vendor URL (gateway inactive OR 5xx fallback).
  */
 async function fetchWithGatewayFallback(
   env: Env,
   provider: 'openai' | 'anthropic',
   pathSuffix: string,
   init: RequestInit,
+  gatewayOptions: GatewayCallOptions = {},
 ): Promise<[Response, boolean]> {
-  const gatewayActive = env.AI_GATEWAY_ENABLED === 'true' && !!env.CF_ACCOUNT_ID;
-  const primaryBase = aiGatewayUrl(env, provider);
-  const primaryUrl = `${primaryBase}${pathSuffix}`;
+  const { response, gatewayUsed } = await gatewayFetch(
+    env,
+    provider,
+    pathSuffix,
+    init,
+    gatewayOptions,
+  );
+  return [response, gatewayUsed];
+}
 
-  const res = await fetch(primaryUrl, init);
-
-  if (gatewayActive && res.status >= 500 && res.status < 600) {
-    llmLog.warn('gateway_5xx_fallback', { provider, status: res.status });
-    const directUrl = `${DIRECT_URLS[provider]}${pathSuffix}`;
-    const fallbackHeaders = new Headers(init.headers ?? {});
-    fallbackHeaders.set('X-PS-Gateway-Fallback', 'true');
-    const fallbackRes = await fetch(directUrl, { ...init, headers: fallbackHeaders });
-    return [fallbackRes, false];
-  }
-
-  return [res, gatewayActive];
+/**
+ * Decide the cache TTL + skip-cache for a call. Deterministic, low-temperature
+ * calls are cacheable; high-temperature / streaming-style calls skip the cache.
+ *
+ * @remarks
+ * Temperature ≥ 0.5 means the caller WANTS variation, so a cached identical
+ * response would defeat the purpose — skip. Otherwise cache for the default TTL.
+ */
+function cacheOptionsFor(options: ExternalLLMOptions): Pick<GatewayCallOptions, 'cacheTtl' | 'skipCache'> {
+  const temperature = options.temperature ?? 0.3;
+  return temperature >= 0.5 ? { skipCache: true } : { cacheTtl: 3600 };
 }
 
 // ─── Circuit Breaker State ──────────────────────────────────────────────────
@@ -390,15 +397,21 @@ async function callOpenAI(
   let res: Response;
   let gatewayUsed = false;
   try {
-    [res, gatewayUsed] = await fetchWithGatewayFallback(env, 'openai', '/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+    [res, gatewayUsed] = await fetchWithGatewayFallback(
+      env,
+      'openai',
+      '/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
       },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+      { ...cacheOptionsFor(options), metadata: gatewayMetadata(options.traceContext) },
+    );
   } finally {
     clearTimeout(timeoutId);
   }
@@ -554,12 +567,18 @@ async function callAnthropic(
   let res: Response;
   let gatewayUsed = false;
   try {
-    [res, gatewayUsed] = await fetchWithGatewayFallback(env, 'anthropic', '/v1/messages', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+    [res, gatewayUsed] = await fetchWithGatewayFallback(
+      env,
+      'anthropic',
+      '/v1/messages',
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      },
+      { ...cacheOptionsFor(options), metadata: gatewayMetadata(options.traceContext) },
+    );
   } finally {
     clearTimeout(timeoutId);
   }

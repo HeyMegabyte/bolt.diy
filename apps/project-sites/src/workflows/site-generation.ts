@@ -20,9 +20,59 @@
 import { WorkflowEntrypoint } from 'cloudflare:workers';
 import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types/env.js';
-import { DOMAINS } from '@project-sites/shared';
+import { DOMAINS, AppError } from '@project-sites/shared';
 import { loadBuildFromR2, validateBuild } from '../services/build_validators.js';
 import { postAskUser } from '../services/task_inbox.js';
+import { appendBuildEvent, type BuildEvent } from '../services/build_events.js';
+import { checkBudget, recordSpend } from '../services/build_budget.js';
+import { isFlagOn } from '../modules/feature_flags/services.js';
+import { submitSite } from '../../libs/features/search_submit/service.js';
+
+/**
+ * Per-variant omit of the auto-injected base fields, distributed across the
+ * discriminated union so each variant keeps its own discriminator + payload.
+ * A plain `Omit<BuildEvent, ...>` collapses the union and trips excess-property
+ * checks; this distributive form preserves the per-`type` shape.
+ */
+type BuildEventBody = BuildEvent extends infer T
+  ? T extends BuildEvent
+    ? Omit<T, 'buildId' | 'ts' | 'featureSlug'>
+    : never
+  : never;
+
+/**
+ * Emit an event-sourced build-progress event (best-effort, never throws).
+ *
+ * Keyed by `siteId` so the cockpit subscribes via `/api/sites/:id/build/*`
+ * with the id it already has. Validates via `BuildEventSchema` inside
+ * `appendBuildEvent`; a malformed event is swallowed here so build progress
+ * never breaks the workflow. See feature module `libs/features/build_progress/`.
+ */
+async function emitBuildEvent(
+  env: Env,
+  siteId: string,
+  event: BuildEventBody,
+): Promise<void> {
+  try {
+    await appendBuildEvent(env, {
+      ...event,
+      buildId: siteId,
+      ts: new Date().toISOString(),
+      featureSlug: 'build_progress',
+    } as BuildEvent);
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'workflow',
+        message: 'Failed to emit build event',
+        siteId,
+        type: (event as { type?: string }).type,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
+}
 
 /** Update site status in D1 (best-effort, never throws). */
 async function updateSiteStatus(db: D1Database, siteId: string, status: string): Promise<void> {
@@ -264,6 +314,11 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     });
 
     await updateSiteStatus(env.DB, params.siteId, 'generating');
+
+    await emitBuildEvent(env, params.siteId, {
+      type: 'build.started',
+      prompt: `${params.businessName} (${params.slug})`,
+    });
 
     // ── Validate container binding ──
     if (!env.SITE_BUILDER) {
@@ -610,6 +665,60 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       // signal via _research.json on the next pass. 'Approve' falls through.
     }
 
+    // ── Budget killswitch: cap AI spend per org BEFORE the expensive build ──
+    // Feature `token_burn_meter` (idea #13). Flag-gated so unmetered builds run
+    // exactly as before when the flag is off. When monthly spend hits the plan
+    // cap, throw a friendly AppError pre-build so a runaway org never burns past
+    // its budget. See services/build_budget.ts + libs/features/token_burn_meter/.
+    await step.do(
+      'budget-killswitch',
+      { retries: { limit: 1, delay: '2 seconds', backoff: 'exponential' }, timeout: '30 seconds' },
+      async () => {
+        const flagOn = await isFlagOn(env, 'token_burn_meter', { orgId: params.orgId }).catch(
+          () => false,
+        );
+        if (!flagOn) return JSON.stringify({ skipped: true, reason: 'flag_off' });
+
+        const sub = (await env.DB.prepare(
+          'SELECT plan, status FROM subscriptions WHERE org_id = ? AND deleted_at IS NULL',
+        )
+          .bind(params.orgId)
+          .first()
+          .catch(() => null)) as { plan: string; status: string } | null;
+        const plan = sub?.plan === 'paid' && sub.status === 'active' ? 'paid' : 'free';
+
+        const meter = await checkBudget(env.DB, params.orgId, plan);
+        if (!meter.allowed) {
+          const friendly =
+            `AI budget exhausted for this month — $${meter.spentUsd.toFixed(2)} of ` +
+            `$${meter.capUsd === Infinity ? '∞' : meter.capUsd.toFixed(2)} used. ` +
+            'Upgrade your plan or wait for the monthly reset to build again.';
+          await updateSiteStatus(env.DB, params.siteId, 'error');
+          await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.budget_blocked', {
+            spent_usd: meter.spentUsd,
+            cap_usd: meter.capUsd,
+            pct: meter.pct,
+            message: friendly,
+          });
+          await emitBuildEvent(env, params.siteId, {
+            type: 'build.failed',
+            reason: friendly,
+            code: 'budget_exhausted',
+          });
+          throw new AppError({ code: 'FORBIDDEN', message: friendly, statusCode: 403 });
+        }
+
+        await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.budget_ok', {
+          spent_usd: meter.spentUsd,
+          cap_usd: meter.capUsd,
+          remaining_usd: meter.remainingUsd,
+          pct: meter.pct,
+          message: `Budget OK: $${meter.spentUsd.toFixed(2)}/$${meter.capUsd === Infinity ? '∞' : meter.capUsd.toFixed(2)} (${meter.pct.toFixed(0)}%)`,
+        });
+        return JSON.stringify({ allowed: true, plan, pct: meter.pct });
+      },
+    );
+
     // ── Step 1: Start build (POST to container) ──
     // Use workers.dev URL to bypass zone-level CF managed challenge intercepting POSTs.
     const callbackSecret = env.INTERNAL_BUILD_SECRET || '';
@@ -656,6 +765,12 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           prompt_length: prompt.length,
           env_vars_count: Object.keys(envVars).length,
           message: `Claude Code build started (${Math.round(prompt.length / 1024)}KB prompt, ${Object.keys(envVars).length} API keys)`,
+        });
+
+        await emitBuildEvent(env, params.siteId, {
+          type: 'agent.started',
+          agent: 'orchestrator',
+          step: 'container-build',
         });
 
         return result.jobId;
@@ -795,6 +910,16 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         });
       }
 
+      // Surface phase transitions to the event stream — only on state change
+      // so the cockpit gets a clean phase log, not 120 polls of noise.
+      if (stateChanged && parsed.step) {
+        await emitBuildEvent(env, params.siteId, {
+          type: 'agent.started',
+          agent: 'container',
+          step: parsed.step,
+        });
+      }
+
       if (TERMINAL.has(String(parsed.status))) {
         finalStatus = {
           status: parsed.status,
@@ -831,6 +956,11 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.timeout', {
         message: `Build timed out after ${MAX_POLLS} polls (${MAX_POLLS * 30}s)`,
       });
+      await emitBuildEvent(env, params.siteId, {
+        type: 'build.failed',
+        reason: `Build timed out after ${MAX_POLLS} heartbeat polls`,
+        code: 'timeout',
+      });
       throw new Error('Build timed out after ' + MAX_POLLS + ' heartbeat polls');
     }
 
@@ -840,6 +970,11 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         error: finalStatus.error,
         elapsed_seconds: finalStatus.elapsed,
         message: `Build failed after ${finalStatus.elapsed}s: ${finalStatus.error}`,
+      });
+      await emitBuildEvent(env, params.siteId, {
+        type: 'build.failed',
+        reason: finalStatus.error || 'unknown error',
+        code: finalStatus.step || 'build_failed',
       });
       throw new Error('Build failed: ' + (finalStatus.error || 'unknown error'));
     }
@@ -875,6 +1010,11 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             upload_result: uploadResult,
             message: `R2 upload failed — refusing to mark published. uploaded=${uploadCount} failed=${uploadResult?.failed ?? 'n/a'}`,
           });
+          await emitBuildEvent(env, params.siteId, {
+            type: 'build.failed',
+            reason: `R2 upload produced 0 files (failed=${uploadResult?.failed ?? 'n/a'})`,
+            code: 'upload_failed',
+          });
           throw new Error(
             `R2 upload produced 0 files (uploadResult=${JSON.stringify(uploadResult)})`,
           );
@@ -901,6 +1041,50 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           .bind(crypto.randomUUID(), params.siteId, version)
           .run();
 
+        await emitBuildEvent(env, params.siteId, {
+          type: 'preview.updated',
+          url: `https://${params.slug}.${DOMAINS.SITES_SUFFIX}`,
+        });
+
+        // Best-effort: auto-submit the freshly-published site to search + AI
+        // engines (IndexNow → Bing+Yandex, Bing+Google sitemap pings). Idea #3.
+        // Flag-gated so it's a no-op when search_engine_submit is off; awaited
+        // but error-swallowed so a submission failure NEVER fails the publish.
+        try {
+          const submitOn = await isFlagOn(env, 'search_engine_submit', {
+            orgId: params.orgId,
+          }).catch(() => false);
+          if (submitOn) {
+            await submitSite(env, params.siteId).catch(() => []);
+          }
+        } catch {
+          // search-engine submission must never break the publish path
+        }
+
+        // Best-effort: accumulate the build's AI spend into the token-burn meter.
+        // The container build's exact token usage isn't surfaced here yet, so we
+        // record a conservative per-build estimate keyed off elapsed time. Never
+        // throws; flag-gated so it's a no-op when token_burn_meter is off.
+        try {
+          const meterOn = await isFlagOn(env, 'token_burn_meter', { orgId: params.orgId }).catch(
+            () => false,
+          );
+          if (meterOn) {
+            const elapsedSec = finalStatus!.elapsed || 0;
+            // Rough container-build estimate: ~$0.01 per build-minute, $1 floor.
+            const estUsd = Math.max(1, (elapsedSec / 60) * 0.01);
+            await recordSpend(env, params.orgId, {
+              tokensIn: 0,
+              tokensOut: 0,
+              model: 'container-build',
+              usd: estUsd,
+              siteId: params.siteId,
+            });
+          }
+        } catch {
+          // metering must never break the build
+        }
+
         return JSON.stringify({ fileCount, version });
       },
     );
@@ -918,9 +1102,18 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       },
       async () => {
         try {
+          await emitBuildEvent(env, params.siteId, {
+            type: 'tests.started',
+            runner: 'build_validators',
+          });
           const prefix = `sites/${params.slug}/${version}/`;
           const files = await loadBuildFromR2(env.SITES_BUCKET, prefix);
           const report = validateBuild(files);
+          await emitBuildEvent(env, params.siteId, {
+            type: 'tests.completed',
+            passed: report.ok ? 1 : 0,
+            failed: report.errors.length,
+          });
           await workflowLog(env.DB, params.orgId, params.siteId, 'workflow.build_validation', {
             ok: report.ok,
             file_count: files.length,
@@ -1150,6 +1343,12 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       files: result.fileCount,
       version: result.version,
       message: `Published ${params.businessName} with ${result.fileCount} files in ${totalSeconds}s`,
+    });
+
+    await emitBuildEvent(env, params.siteId, {
+      type: 'publish.completed',
+      fileCount: result.fileCount,
+      version: result.version,
     });
 
     return {

@@ -102,11 +102,15 @@ content.post('/freshness/approve/:draftId', async (c) => {
   if (!userId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
 
   const { draftId } = c.req.param();
+  const orgId = c.get('orgId') ?? '';
 
-  const result = await publishRewriteDraft(c.env, draftId, userId);
+  const result = await publishRewriteDraft(c.env, draftId, userId, orgId);
 
   if (!result.ok) {
-    return c.json({ error: { code: 'BAD_REQUEST', message: result.error ?? 'Publish failed' } }, 400);
+    return c.json(
+      { error: { code: 'BAD_REQUEST', message: result.error ?? 'Publish failed' } },
+      400,
+    );
   }
 
   return c.json({ ok: true, draftId, published: true });
@@ -129,7 +133,10 @@ content.post('/freshness/reject/:draftId', async (c) => {
 
   if (!draft) return c.json({ error: { code: 'NOT_FOUND', message: 'Draft not found' } }, 404);
   if (draft.status !== 'pending') {
-    return c.json({ error: { code: 'BAD_REQUEST', message: `Draft already ${draft.status}` } }, 400);
+    return c.json(
+      { error: { code: 'BAD_REQUEST', message: `Draft already ${draft.status}` } },
+      400,
+    );
   }
 
   await dbUpdate(c.env.DB, 'content_rewrite_drafts', { status: 'rejected' }, 'id = ?', [draftId]);

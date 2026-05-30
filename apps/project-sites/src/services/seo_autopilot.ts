@@ -24,7 +24,6 @@ import { dbInsert, dbQuery, dbQueryOne, dbUpdate } from './db.js';
 import {
   ANSWER_WORDS_MAX,
   ANSWER_WORDS_MIN,
-  countWords,
   DESCRIPTION_MAX,
   DESCRIPTION_MIN,
   SeoMetaSchema,
@@ -44,13 +43,41 @@ export const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
 const WS = /\s+/;
 
+/**
+ * Resolve the owning org of a site, for multi-tenant isolation checks.
+ *
+ * @remarks Defensive read — a missing/soft-deleted site returns `undefined`
+ * (handlers map that to a 404, never a throw). Every `:siteId` route compares
+ * the result to the caller's `orgId` so a caller can't read another org's SEO
+ * drafts, or freshen/approve drafts on a site they don't own, by guessing an id.
+ * @param env    - Worker env (D1 binding).
+ * @param siteId - The site whose owner is being resolved.
+ * @returns The owning `org_id`, or `undefined` when the site does not exist.
+ * @example
+ * ```ts
+ * const owner = await siteOrgId(env, siteId);
+ * if (!owner || owner !== orgId) return notFound;
+ * ```
+ */
+export async function siteOrgId(env: Env, siteId: string): Promise<string | undefined> {
+  const row = await dbQueryOne<{ org_id: string }>(
+    env.DB,
+    'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
+    [siteId],
+  );
+  return row?.org_id ?? undefined;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Length enforcement helpers — keep generated copy inside the Hard Gates.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Strip JSON/markdown wrappers + collapse whitespace from a raw AI string. */
 function clean(raw: string): string {
-  return raw.replace(/^["'\s]+|["'\s]+$/g, '').replace(WS, ' ').trim();
+  return raw
+    .replace(/^["'\s]+|["'\s]+$/g, '')
+    .replace(WS, ' ')
+    .trim();
 }
 
 /**
@@ -66,7 +93,12 @@ export function clampTitle(raw: string, pad: string, min = TITLE_MIN, max = TITL
 }
 
 /** Clamp a description to [min,max] chars with the same boundary discipline. */
-export function clampDescription(raw: string, pad: string, min = DESCRIPTION_MIN, max = DESCRIPTION_MAX): string {
+export function clampDescription(
+  raw: string,
+  pad: string,
+  min = DESCRIPTION_MIN,
+  max = DESCRIPTION_MAX,
+): string {
   let d = clean(raw);
   if (d.length > max) d = truncateToBoundary(d, max);
   if (d.length < min) d = padTo(d, pad, min, max);
@@ -77,7 +109,12 @@ export function clampDescription(raw: string, pad: string, min = DESCRIPTION_MIN
  * Clamp an answer block to [min,max] WORDS. Over → keep first `max` words.
  * Under → append filler derived from the pad text until the floor is met.
  */
-export function clampAnswerBlock(raw: string, pad: string, min = ANSWER_WORDS_MIN, max = ANSWER_WORDS_MAX): string {
+export function clampAnswerBlock(
+  raw: string,
+  pad: string,
+  min = ANSWER_WORDS_MIN,
+  max = ANSWER_WORDS_MAX,
+): string {
   let words = clean(raw).split(WS).filter(Boolean);
   if (words.length > max) words = words.slice(0, max);
   if (words.length < min) {
@@ -124,15 +161,23 @@ interface AiTextResult {
   tokensUsed: number;
 }
 
-async function runAi(env: Env, system: string, user: string, maxTokens: number): Promise<AiTextResult> {
+async function runAi(
+  env: Env,
+  system: string,
+  user: string,
+  maxTokens: number,
+): Promise<AiTextResult> {
   try {
-    const response = await env.AI.run(AI_MODEL as Parameters<typeof env.AI.run>[0], {
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      max_tokens: maxTokens,
-    } as Parameters<typeof env.AI.run>[1]);
+    const response = await env.AI.run(
+      AI_MODEL as Parameters<typeof env.AI.run>[0],
+      {
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        max_tokens: maxTokens,
+      } as Parameters<typeof env.AI.run>[1],
+    );
 
     const result = response as { response?: string; usage?: { total_tokens?: number } };
     return { text: result.response ?? '', tokensUsed: result.usage?.total_tokens ?? 0 };
@@ -145,7 +190,11 @@ async function runAi(env: Env, system: string, user: string, maxTokens: number):
  * Best-effort parse of the model's JSON reply. Tolerates code fences and prose
  * surrounding the JSON object.
  */
-function parseJsonReply(text: string): { title?: string; description?: string; answerBlock?: string } {
+function parseJsonReply(text: string): {
+  title?: string;
+  description?: string;
+  answerBlock?: string;
+} {
   if (!text) return {};
   const fenced = text.replace(/```json|```/gi, '');
   const start = fenced.indexOf('{');
@@ -429,14 +478,18 @@ export async function approveDraft(
  * approval workflow has an auditable terminal state. Wire the R2/KV rewrite into
  * site_serving and call it from here when that surface lands.
  */
-export async function applyToSite(env: Env, draftId: string): Promise<{ ok: boolean; error?: string }> {
+export async function applyToSite(
+  env: Env,
+  draftId: string,
+): Promise<{ ok: boolean; error?: string }> {
   const draft = await dbQueryOne<SeoMetaDraft>(
     env.DB,
     'SELECT id, status FROM seo_meta_drafts WHERE id = ? AND deleted_at IS NULL',
     [draftId],
   );
   if (!draft) return { ok: false, error: 'Draft not found' };
-  if (draft.status !== 'approved') return { ok: false, error: 'Draft must be approved before apply' };
+  if (draft.status !== 'approved')
+    return { ok: false, error: 'Draft must be approved before apply' };
 
   // TODO(site_serving): call site_serving.applySeoMeta(env, draft) to rewrite the
   // served HTML in R2 + purge host KV cache. D1-only status advance for now.

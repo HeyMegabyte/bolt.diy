@@ -37,7 +37,7 @@
   <!-- LEFT SIDEBAR                                        -->
   <!-- ═══════════════════════════════════════════════════ -->
   <aside
-    class="w-[232px] min-w-[232px] bg-dark border-r border-white/[0.06] flex flex-col h-screen sticky top-0 z-[100] overflow-y-auto overflow-x-hidden flex-shrink-0 sidebar-scrollbar max-md:fixed max-md:left-0 max-md:top-0 max-md:bottom-0 max-md:z-[1000] max-md:transition-transform max-md:duration-[250ms] max-md:ease-[cubic-bezier(0.4,0,0.2,1)]"
+    class="admin-sidebar w-[232px] min-w-[232px] bg-dark border-r border-white/[0.06] flex flex-col h-screen sticky top-0 z-[100] overflow-y-auto overflow-x-hidden flex-shrink-0 sidebar-scrollbar max-md:fixed max-md:left-0 max-md:top-0 max-md:bottom-0 max-md:z-[1000] max-md:transition-transform max-md:duration-[250ms] max-md:ease-[cubic-bezier(0.4,0,0.2,1)]"
     [class.max-md:-translate-x-full]="sidebarCollapsed()">
 
     <!-- Logo -->
@@ -251,7 +251,7 @@
          editor's loading veil (which sits inside `<main>` at z-10). Without
          this, `backdrop-blur-lg` creates a stacking context at z:auto and
          the user menu's z:99950 only resolves inside that context. -->
-    <div class="relative z-50 flex items-center justify-between px-7 py-3 border-b border-white/[0.06] bg-dark/60 backdrop-blur-lg flex-shrink-0 gap-3 flex-wrap max-md:px-4 max-md:pl-[52px]">
+    <div class="admin-topbar sticky top-0 z-50 flex items-center justify-between px-7 py-3 border-b border-white/[0.06] bg-dark/80 backdrop-blur-lg flex-shrink-0 gap-3 flex-wrap max-md:px-4 max-md:pl-[52px]">
       <div class="flex items-center gap-1.5 text-[0.82rem] text-text-secondary">
         <!-- Domain picker collapses "ProjectSites › {site name}" into one
              home-icon + dropdown widget. The current section name stays

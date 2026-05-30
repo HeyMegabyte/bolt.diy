@@ -36,9 +36,9 @@ export default defineFeatureManifest({
   dependencies: [],
 
   e2eTests: [],
-  unitTests: [],
+  unitTests: ['../libs/features/comparison_pages/__tests__/comparison_pages.test.ts'],
   integrationTests: [],
-  testStatus: 'not-started',
+  testStatus: 'passing',
 
   zodSchemas: ['libs/features/comparison_pages/feature.schemas.ts'],
 

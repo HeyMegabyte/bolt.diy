@@ -38,12 +38,13 @@ export interface SiteBranch {
  * Max 32 chars to keep the preview hostname under 63 chars.
  */
 function sanitiseBranchName(raw: string): string {
-  return raw
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 32)
-    || 'branch';
+  return (
+    raw
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 32) || 'branch'
+  );
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
@@ -91,26 +92,39 @@ export async function createBranch(
     approvals_received: 0,
   });
 
-  return (await dbQueryOne<SiteBranch>(
-    db,
-    'SELECT * FROM site_branches WHERE id = ?',
-    [id],
-  ))!;
+  return (await dbQueryOne<SiteBranch>(db, 'SELECT * FROM site_branches WHERE id = ?', [id]))!;
 }
 
 /**
  * Transition a branch to `review` status and optionally fire a Slack notification.
  * No-op if the branch is already in review or beyond.
+ *
+ * @remarks Multi-tenant isolation — the lookup is scoped by BOTH `id` AND
+ * `site_id` so a caller who owns `siteId` can only act on branches that
+ * actually belong to that site. A `branchId` belonging to another org's site
+ * resolves to `null` → the route maps that to a 404 (never 403, never leak).
+ * @param db        - D1 database
+ * @param siteId    - the owning site (from the authenticated, ownership-checked path)
+ * @param branchId  - the branch to transition
+ * @param slackWebhookUrl - optional Slack webhook; notify failures never throw
+ * @returns the updated branch, or `null` when not found / not owned by `siteId` / not in `draft`
+ * @throws never — best-effort Slack notification is wrapped in try/catch
+ * @example
+ * ```ts
+ * const branch = await requestReview(env.DB, siteId, branchId, env.BRANCHES_SLACK_WEBHOOK);
+ * if (!branch) return notFound(c);
+ * ```
  */
 export async function requestReview(
   db: D1Database,
+  siteId: string,
   branchId: string,
   slackWebhookUrl?: string,
 ): Promise<SiteBranch | null> {
   const branch = await dbQueryOne<SiteBranch>(
     db,
-    'SELECT * FROM site_branches WHERE id = ? AND deleted_at IS NULL',
-    [branchId],
+    'SELECT * FROM site_branches WHERE id = ? AND site_id = ? AND deleted_at IS NULL',
+    [branchId, siteId],
   );
   if (!branch || branch.status !== 'draft') return null;
 
@@ -137,7 +151,14 @@ export async function requestReview(
       });
     } catch {
       // Notification failures must never break the workflow.
-      console.warn(JSON.stringify({ level: 'warn', service: 'site_branches', event: 'slack_notify_failed', branch_id: branchId }));
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'site_branches',
+          event: 'slack_notify_failed',
+          branch_id: branchId,
+        }),
+      );
     }
   }
 
@@ -148,16 +169,31 @@ export async function requestReview(
  * Record an approval for a branch.
  * When `approvals_received` reaches `approvals_required` the status
  * stays `review`; the merge step is explicit (separate action).
+ *
+ * @remarks Multi-tenant isolation — scoped by `id` AND `site_id` (see
+ * {@link requestReview}). Idempotent: a re-approval by the same approver is a
+ * no-op on the counter.
+ * @param db         - D1 database
+ * @param siteId     - the owning site (ownership-checked at the route)
+ * @param branchId   - the branch being approved
+ * @param approverId - the approving user
+ * @returns `{ branch, readyToMerge }`, or `null` when not found / not owned by `siteId` / not in `review`
+ * @example
+ * ```ts
+ * const result = await approveBranch(env.DB, siteId, branchId, userId);
+ * if (!result) return notFound(c);
+ * ```
  */
 export async function approveBranch(
   db: D1Database,
+  siteId: string,
   branchId: string,
   approverId: string,
 ): Promise<{ branch: SiteBranch; readyToMerge: boolean } | null> {
   const branch = await dbQueryOne<SiteBranch>(
     db,
-    'SELECT * FROM site_branches WHERE id = ? AND deleted_at IS NULL',
-    [branchId],
+    'SELECT * FROM site_branches WHERE id = ? AND site_id = ? AND deleted_at IS NULL',
+    [branchId, siteId],
   );
   if (!branch || branch.status !== 'review') return null;
 
@@ -175,17 +211,15 @@ export async function approveBranch(
     });
     await db
       .prepare(
-        'UPDATE site_branches SET approvals_received = approvals_received + 1, updated_at = datetime(\'now\') WHERE id = ?',
+        "UPDATE site_branches SET approvals_received = approvals_received + 1, updated_at = datetime('now') WHERE id = ?",
       )
       .bind(branchId)
       .run();
   }
 
-  const updated = await dbQueryOne<SiteBranch>(
-    db,
-    'SELECT * FROM site_branches WHERE id = ?',
-    [branchId],
-  );
+  const updated = await dbQueryOne<SiteBranch>(db, 'SELECT * FROM site_branches WHERE id = ?', [
+    branchId,
+  ]);
   return updated
     ? { branch: updated, readyToMerge: updated.approvals_received >= updated.approvals_required }
     : null;
@@ -197,51 +231,79 @@ export async function approveBranch(
  *
  * This function only updates D1 status — actual R2 file copying must be done
  * by the caller (Worker route) using `env.SITES_BUCKET.list` + `put`.
+ *
+ * @remarks Multi-tenant isolation — scoped by `id` AND `site_id` (see
+ * {@link requestReview}). The site build-version bump uses `branch.site_id`,
+ * which now provably equals the ownership-checked `siteId`.
+ * @param db              - D1 database
+ * @param siteId          - the owning site (ownership-checked at the route)
+ * @param branchId        - the branch to merge
+ * @param newBuildVersion - the build version to stamp on the site
+ * @returns the merged branch, or `null` when not found / not owned by `siteId` / not mergeable
+ * @example
+ * ```ts
+ * const branch = await mergeBranch(env.DB, siteId, branchId, buildVersion);
+ * if (!branch) return notFound(c);
+ * ```
  */
 export async function mergeBranch(
   db: D1Database,
+  siteId: string,
   branchId: string,
   newBuildVersion: string,
 ): Promise<SiteBranch | null> {
   const branch = await dbQueryOne<SiteBranch>(
     db,
-    'SELECT * FROM site_branches WHERE id = ? AND deleted_at IS NULL',
-    [branchId],
+    'SELECT * FROM site_branches WHERE id = ? AND site_id = ? AND deleted_at IS NULL',
+    [branchId, siteId],
   );
   if (!branch || (branch.status !== 'review' && branch.status !== 'draft')) return null;
 
   await dbUpdate(db, 'site_branches', { status: 'merged' }, 'id = ?', [branchId]);
 
   // Bump the site's build version to the merged content.
-  await dbUpdate(
-    db,
-    'sites',
-    { current_build_version: newBuildVersion },
-    'id = ?',
-    [branch.site_id],
-  );
+  await dbUpdate(db, 'sites', { current_build_version: newBuildVersion }, 'id = ?', [
+    branch.site_id,
+  ]);
 
   return dbQueryOne<SiteBranch>(db, 'SELECT * FROM site_branches WHERE id = ?', [branchId]);
 }
 
 /**
  * Close a branch without merging (rejected or abandoned).
+ *
+ * @remarks Multi-tenant isolation — the UPDATE is scoped by `id` AND `site_id`
+ * so a foreign `branchId` matches zero rows and the follow-up read (also
+ * `site_id`-scoped) returns `null` → 404 at the route. Idempotent.
+ * @param db       - D1 database
+ * @param siteId   - the owning site (ownership-checked at the route)
+ * @param branchId - the branch to close
+ * @returns the closed branch, or `null` when not found / not owned by `siteId`
+ * @example
+ * ```ts
+ * const branch = await closeBranch(env.DB, siteId, branchId);
+ * if (!branch) return notFound(c);
+ * ```
  */
 export async function closeBranch(
   db: D1Database,
+  siteId: string,
   branchId: string,
 ): Promise<SiteBranch | null> {
-  await dbUpdate(db, 'site_branches', { status: 'closed' }, 'id = ?', [branchId]);
-  return dbQueryOne<SiteBranch>(db, 'SELECT * FROM site_branches WHERE id = ?', [branchId]);
+  await dbUpdate(db, 'site_branches', { status: 'closed' }, 'id = ? AND site_id = ?', [
+    branchId,
+    siteId,
+  ]);
+  return dbQueryOne<SiteBranch>(db, 'SELECT * FROM site_branches WHERE id = ? AND site_id = ?', [
+    branchId,
+    siteId,
+  ]);
 }
 
 /**
  * List all branches for a site, ordered by newest first.
  */
-export async function listBranches(
-  db: D1Database,
-  siteId: string,
-): Promise<SiteBranch[]> {
+export async function listBranches(db: D1Database, siteId: string): Promise<SiteBranch[]> {
   const { data } = await dbQuery<SiteBranch>(
     db,
     `SELECT sb.*, COUNT(sba.id) AS approval_count
@@ -259,9 +321,7 @@ export async function listBranches(
  * Resolve a branch from a hostname of the form `{branch}--{slug}.projectsites.dev`.
  * Returns `{ slug, branchName }` or `null` when the host does not match the pattern.
  */
-export function parseBranchHost(
-  hostname: string,
-): { slug: string; branchName: string } | null {
+export function parseBranchHost(hostname: string): { slug: string; branchName: string } | null {
   // Pattern: {branch}--{slug}.projectsites.dev
   const m = hostname.match(/^([a-z0-9-]+)--([a-z0-9-]+)\.projectsites\.dev$/i);
   if (!m) return null;

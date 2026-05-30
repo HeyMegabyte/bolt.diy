@@ -9,9 +9,15 @@
  * Data source: `GET /api/sites/sparklines?days=30` — see
  * `apps/project-sites/src/routes/api.ts` for shape + scoring.
  */
-import { Component, computed, inject, signal, type OnInit } from '@angular/core';
-import { RouterModule } from '@angular/router';
+import { Component, computed, inject, type OnInit, signal } from '@angular/core';
+import { Router, RouterModule } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+
+import {
+  EmptyStateComponent,
+  ErrorCardComponent,
+  SkeletonComponent,
+} from '../../../components/states';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 
@@ -44,9 +50,13 @@ type SortKey = 'name' | 'lcp' | 'cls' | 'inp' | 'lh' | 'composite';
 type Tier = 'green' | 'yellow' | 'red' | 'neutral';
 
 @Component({
+  imports: [RouterModule, SkeletonComponent, EmptyStateComponent, ErrorCardComponent],
   selector: 'app-admin-sites',
   standalone: true,
-  imports: [RouterModule],
+  styles: [`
+    :host ::ng-deep .spark { display: inline-block; vertical-align: middle; margin-left: 6px; }
+    :host ::ng-deep .cell-val { display: inline-block; vertical-align: middle; min-width: 48px; }
+  `],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-5">
       <header class="flex items-center justify-between gap-4">
@@ -70,13 +80,14 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
       </header>
 
       @if (loading()) {
-        <div class="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/60">
-          Loading metrics for every site…
-        </div>
+        <app-skeleton variant="table" [rows]="6" [columns]="6"
+                      label="Loading metrics for every site…" />
       } @else if (error()) {
-        <div class="rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-red-200 text-sm">
-          {{ error() }}
-        </div>
+        <app-error-card
+          title="Couldn't load the Web Vitals heatmap"
+          [message]="error()!"
+          [correlationId]="errorRef()"
+          (retry)="reload()" />
       } @else if (rows().length === 0 && fallbackSites().length > 0) {
         <ul class="rounded-xl border border-white/10 bg-white/[0.02] divide-y divide-white/[0.06]">
           @for (s of fallbackSites(); track s.id) {
@@ -90,9 +101,12 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
           }
         </ul>
       } @else if (rows().length === 0) {
-        <div class="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/60">
-          No sites yet. Create one from the homepage.
-        </div>
+        <app-empty-state
+          icon="🌐"
+          title="No sites yet"
+          message="Build your first AI-generated site and its Web Vitals will appear here."
+          ctaLabel="Create your first site"
+          (ctaClick)="createSite()" />
       } @else {
         <div class="rounded-xl border border-white/10 bg-white/[0.02] overflow-x-auto">
           <table class="w-full text-[0.85rem] text-left">
@@ -157,17 +171,15 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
       }
     </div>
   `,
-  styles: [`
-    :host ::ng-deep .spark { display: inline-block; vertical-align: middle; margin-left: 6px; }
-    :host ::ng-deep .cell-val { display: inline-block; vertical-align: middle; min-width: 48px; }
-  `],
 })
 export class AdminSitesComponent implements OnInit {
   private api = inject(ApiService);
   private toast = inject(ToastService);
+  private router = inject(Router);
 
   loading = signal(true);
   error = signal<string | null>(null);
+  errorRef = signal<string>('');
   rows = signal<SiteSparkline[]>([]);
   fallbackSites = signal<Array<{ id: string; slug: string; name: string }>>([]);
   sortKey = signal<SortKey>('composite');
@@ -186,8 +198,8 @@ export class AdminSitesComponent implements OnInit {
     this.api
       .get<{ sites?: Array<{ id: string; slug: string; name: string }> }>('/sites')
       .subscribe({
-        next: (res) => this.fallbackSites.set(res.sites ?? []),
         error: () => this.fallbackSites.set([]),
+        next: (res) => this.fallbackSites.set(res.sites ?? []),
       });
     try {
       const res = await firstValueFrom(
@@ -201,11 +213,19 @@ export class AdminSitesComponent implements OnInit {
       console.warn('sites heatmap load failed', { error: msg });
       if (this.fallbackSites().length === 0) {
         this.error.set(`Could not load sites — ${msg}`);
+        // Surface a copy-able reference for support hand-off.
+        const ref = (err as { request_id?: string })?.request_id;
+        this.errorRef.set(ref ?? `sites-heatmap-${Date.now().toString(36)}`);
         this.toast.error('Sites heatmap failed to load');
       }
     } finally {
       this.loading.set(false);
     }
+  }
+
+  /** Empty-state CTA → first-result action: kick off a new site build. */
+  createSite(): void {
+    void this.router.navigate(['/']);
   }
 
   toggleTriage(): void {

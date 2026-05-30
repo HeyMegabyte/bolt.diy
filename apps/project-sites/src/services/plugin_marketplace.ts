@@ -24,6 +24,35 @@ function uuid(): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tenant ownership.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Resolve the owning org of a site, for multi-tenant isolation checks.
+ *
+ * @remarks Defensive read — a missing/soft-deleted site returns `undefined`
+ * (callers map that to a 404/throw, never trust the supplied id). Used so a
+ * caller can never install a plugin onto, or list installs of, another org's
+ * site by passing a foreign `site_id`.
+ * @param env    - Worker env (D1 binding).
+ * @param siteId - The site whose owner is being resolved.
+ * @returns The owning `org_id`, or `undefined` when the site does not exist.
+ * @example
+ * ```ts
+ * const owner = await siteOrgId(env, siteId);
+ * if (!owner || owner !== orgId) throw new Error('SITE_NOT_OWNED');
+ * ```
+ */
+export async function siteOrgId(env: Env, siteId: string): Promise<string | undefined> {
+  const row = await dbQueryOne<{ org_id: string }>(
+    env.DB,
+    'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
+    [siteId],
+  );
+  return row?.org_id ?? undefined;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Catalog reads.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -49,7 +78,10 @@ export interface PluginSummary {
   creator_user_id: string | null;
 }
 
-export async function listPlugins(env: Env, opts: ListPluginsOptions = {}): Promise<PluginSummary[]> {
+export async function listPlugins(
+  env: Env,
+  opts: ListPluginsOptions = {},
+): Promise<PluginSummary[]> {
   const where = ['deleted_at IS NULL'];
   const params: unknown[] = [];
 
@@ -176,6 +208,12 @@ export async function installPlugin(
     throw new Error('PAYMENT_REQUIRED');
   }
 
+  // Tenant isolation: the target site MUST belong to the installer's org —
+  // otherwise a caller could install a plugin onto another org's site by
+  // passing a foreign `site_id` in the body.
+  const owner = await siteOrgId(env, input.site_id);
+  if (!owner || owner !== orgId) throw new Error('SITE_NOT_OWNED');
+
   const split = computePluginRevenueSplit(plugin.price_cents);
 
   const id = `plgi_${uuid()}`;
@@ -214,14 +252,19 @@ export async function installPlugin(
   };
 }
 
-export async function listSiteInstalls(env: Env, siteId: string): Promise<Array<{
-  install_id: string;
-  plugin_id: string;
-  plugin_name: string;
-  plugin_slug: string;
-  installed_at: string;
-  config: Record<string, unknown>;
-}>> {
+export async function listSiteInstalls(
+  env: Env,
+  siteId: string,
+): Promise<
+  Array<{
+    install_id: string;
+    plugin_id: string;
+    plugin_name: string;
+    plugin_slug: string;
+    installed_at: string;
+    config: Record<string, unknown>;
+  }>
+> {
   const { data } = await dbQuery<{
     install_id: string;
     plugin_id: string;
@@ -254,14 +297,17 @@ export async function listSiteInstalls(env: Env, siteId: string): Promise<Array<
 export async function uninstallPlugin(
   env: Env,
   installId: string,
-  uninstallerUserId: string,
+  orgId: string,
 ): Promise<{ ok: true; install_id: string }> {
-  const row = await dbQueryOne<{ id: string; uninstalled_at: string | null }>(
+  const row = await dbQueryOne<{ id: string; org_id: string; uninstalled_at: string | null }>(
     env.DB,
-    'SELECT id, uninstalled_at FROM plugin_installs WHERE id = ? AND deleted_at IS NULL',
+    'SELECT id, org_id, uninstalled_at FROM plugin_installs WHERE id = ? AND deleted_at IS NULL',
     [installId],
   );
-  if (!row) throw new Error('INSTALL_NOT_FOUND');
+  // Tenant isolation: treat an install owned by another org as not-found (never
+  // 403 — don't leak that the install id exists). Prevents cross-org uninstall
+  // by id-guessing; the previous `uninstallerUserId` arg was never enforced.
+  if (!row || row.org_id !== orgId) throw new Error('INSTALL_NOT_FOUND');
   if (row.uninstalled_at) throw new Error('ALREADY_UNINSTALLED');
 
   await dbUpdate(

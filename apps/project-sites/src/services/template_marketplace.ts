@@ -201,12 +201,50 @@ export interface PurchaseResult {
 }
 
 /**
+ * Validate a buyer-supplied referral attribution before it can redirect 50% of
+ * a creator's revenue.
+ *
+ * @remarks Referral attribution arrives in the purchase request body, so it is
+ * untrusted. This guard refuses two abuse vectors: (a) **self-referral** — the
+ * buyer naming themselves to skim 50% of their own purchase back; (b) a
+ * **non-existent referrer** — attributing the split to a typo'd/garbage id that
+ * could never be paid out. Either case degrades the sale to a direct sale
+ * (returns `undefined`) rather than throwing, so a bad referrer never blocks a
+ * legitimate purchase. (Collusion between two real accounts is a fraud-detection
+ * concern handled upstream by platform-tracked referral codes — see Recs.)
+ * @param env             - Worker env (D1 binding).
+ * @param referrerUserId  - The buyer-supplied referrer id (may be undefined).
+ * @param buyerUserId     - The authenticated buyer; can never be their own referrer.
+ * @returns A trusted referrer id, or `undefined` to treat the sale as direct.
+ * @example
+ * ```ts
+ * const ref = await resolveReferrer(env, input.referrer_user_id, buyerUserId);
+ * const split = computeRevenueSplit(price, ref ?? null);
+ * ```
+ */
+export async function resolveReferrer(
+  env: Env,
+  referrerUserId: string | undefined,
+  buyerUserId: string,
+): Promise<string | undefined> {
+  if (!referrerUserId || referrerUserId === buyerUserId) return undefined;
+  const row = await dbQueryOne<{ id: string }>(
+    env.DB,
+    'SELECT id FROM users WHERE id = ? AND deleted_at IS NULL',
+    [referrerUserId],
+  );
+  return row ? referrerUserId : undefined;
+}
+
+/**
  * Record a purchase. The Stripe PaymentIntent is the idempotency key — calling
  * this twice with the same `stripe_payment_intent` is a no-op on the second
  * call (returns the previously-recorded result).
  *
  * The split is computed via the pure `computeRevenueSplit` helper and persisted
- * on the ledger row so future split policy changes don't rewrite history.
+ * on the ledger row so future split policy changes don't rewrite history. The
+ * referral attribution is validated by {@link resolveReferrer} first, so a
+ * buyer cannot skim the referral share by naming themselves or a fake user.
  *
  * @throws Error('TEMPLATE_NOT_FOUND') when template_id doesn't resolve.
  * @throws Error('TEMPLATE_NOT_APPROVED') when the template is pending/rejected.
@@ -249,7 +287,10 @@ export async function recordPurchase(
   if (!tpl) throw new Error('TEMPLATE_NOT_FOUND');
   if (tpl.submission_status !== 'approved') throw new Error('TEMPLATE_NOT_APPROVED');
 
-  const split = computeRevenueSplit(tpl.price_cents, input.referrer_user_id ?? null);
+  // Untrusted referral attribution → validated server-side (no self-referral,
+  // referrer must exist) before it can redirect 50% of the creator's revenue.
+  const referrerUserId = await resolveReferrer(env, input.referrer_user_id, buyerUserId);
+  const split = computeRevenueSplit(tpl.price_cents, referrerUserId ?? null);
 
   const purchaseId = `tplp_${uuid()}`;
   const insertRes = await dbInsert(env.DB, 'template_purchases', {
@@ -257,7 +298,7 @@ export async function recordPurchase(
     template_id: tpl.id,
     buyer_user_id: buyerUserId,
     buyer_site_id: input.buyer_site_id ?? null,
-    referrer_user_id: input.referrer_user_id ?? null,
+    referrer_user_id: referrerUserId ?? null,
     stripe_payment_intent: input.stripe_payment_intent,
     amount_cents: tpl.price_cents,
     creator_share_cents: split.creator_share_cents,
@@ -312,7 +353,10 @@ export interface CreatorRevenueSummary {
 /**
  * Aggregate a creator's lifetime sales + revenue across all their templates.
  */
-export async function getCreatorRevenue(env: Env, creatorUserId: string): Promise<CreatorRevenueSummary> {
+export async function getCreatorRevenue(
+  env: Env,
+  creatorUserId: string,
+): Promise<CreatorRevenueSummary> {
   const row = await dbQueryOne<{
     templates: number;
     sales_count: number;
@@ -346,14 +390,20 @@ export async function getCreatorRevenue(env: Env, creatorUserId: string): Promis
 }
 
 /** List a buyer's purchase history. */
-export async function listBuyerPurchases(env: Env, buyerUserId: string, limit = 100): Promise<Array<{
-  purchase_id: string;
-  template_id: string;
-  template_name: string;
-  amount_cents: number;
-  license: string;
-  purchased_at: string;
-}>> {
+export async function listBuyerPurchases(
+  env: Env,
+  buyerUserId: string,
+  limit = 100,
+): Promise<
+  Array<{
+    purchase_id: string;
+    template_id: string;
+    template_name: string;
+    amount_cents: number;
+    license: string;
+    purchased_at: string;
+  }>
+> {
   const { data } = await dbQuery<{
     purchase_id: string;
     template_id: string;

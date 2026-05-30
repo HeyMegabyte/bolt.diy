@@ -105,10 +105,7 @@ aiComponents.post('/api/sites/:siteId/ai-components/generate', async (c) => {
         502,
       );
     }
-    return c.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Generation failed' } },
-      500,
-    );
+    return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Generation failed' } }, 500);
   }
 });
 
@@ -119,12 +116,17 @@ aiComponents.post('/api/sites/:siteId/ai-components/generate', async (c) => {
 aiComponents.get('/api/sites/:siteId/ai-components', async (c) => {
   const blocked = await guard(c);
   if (blocked) return blocked;
+  const orgId = c.get('orgId');
+  if (!orgId) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Org context required' } }, 403);
+  }
 
   const siteId = c.req.param('siteId');
   const limit = Number(c.req.query('limit') ?? '100');
   const components = await listSiteComponents(
     c.env,
     siteId,
+    orgId,
     Number.isFinite(limit) ? limit : 100,
   );
   return c.json({ components, count: components.length });
@@ -138,8 +140,12 @@ aiComponents.get('/api/ai-components/:id', async (c) => {
   const blocked = await guard(c);
   if (blocked) return blocked;
 
+  const orgId = c.get('orgId');
+  if (!orgId) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Org context required' } }, 403);
+  }
   const id = c.req.param('id');
-  const component = await getComponent(c.env, id);
+  const component = await getComponent(c.env, id, orgId);
   if (!component) {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Component not found' } }, 404);
   }
@@ -153,10 +159,14 @@ aiComponents.get('/api/ai-components/:id', async (c) => {
 aiComponents.post('/api/ai-components/:id/regenerate', async (c) => {
   const blocked = await guard(c);
   if (blocked) return blocked;
+  const orgId = c.get('orgId');
+  if (!orgId) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Org context required' } }, 403);
+  }
   const id = c.req.param('id');
 
   try {
-    const result = await regenerateComponent(c.env, id);
+    const result = await regenerateComponent(c.env, id, orgId);
     return c.json(result, 200);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -165,14 +175,16 @@ aiComponents.post('/api/ai-components/:id/regenerate', async (c) => {
     }
     if (message === 'AI_INVALID_OUTPUT') {
       return c.json(
-        { error: { code: 'AI_GENERATION_ERROR', message: 'AI returned malformed output. Try again.' } },
+        {
+          error: {
+            code: 'AI_GENERATION_ERROR',
+            message: 'AI returned malformed output. Try again.',
+          },
+        },
         502,
       );
     }
-    return c.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Regeneration failed' } },
-      500,
-    );
+    return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Regeneration failed' } }, 500);
   }
 });
 
@@ -184,6 +196,10 @@ aiComponents.post('/api/ai-components/:id/publish', async (c) => {
   const blocked = await guard(c);
   if (blocked) return blocked;
   const userId = c.get('userId') as string;
+  const orgId = c.get('orgId');
+  if (!orgId) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Org context required' } }, 403);
+  }
   const id = c.req.param('id');
 
   let body: unknown = {};
@@ -211,7 +227,7 @@ aiComponents.post('/api/ai-components/:id/publish', async (c) => {
   }
 
   try {
-    const result = await publishComponent(c.env, parsed.data, userId);
+    const result = await publishComponent(c.env, parsed.data, userId, orgId);
     return c.json(result, 201);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -225,15 +241,9 @@ aiComponents.post('/api/ai-components/:id/publish', async (c) => {
       );
     }
     if (message === 'FORBIDDEN') {
-      return c.json(
-        { error: { code: 'FORBIDDEN', message: 'Only the creator can publish' } },
-        403,
-      );
+      return c.json({ error: { code: 'FORBIDDEN', message: 'Only the creator can publish' } }, 403);
     }
-    return c.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Publish failed' } },
-      500,
-    );
+    return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Publish failed' } }, 500);
   }
 });
 
@@ -245,10 +255,14 @@ aiComponents.delete('/api/ai-components/:id', async (c) => {
   const blocked = await guard(c);
   if (blocked) return blocked;
   const userId = c.get('userId') as string;
+  const orgId = c.get('orgId');
+  if (!orgId) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Org context required' } }, 403);
+  }
   const id = c.req.param('id');
 
   try {
-    const result = await archiveComponent(c.env, id, userId);
+    const result = await archiveComponent(c.env, id, userId, orgId);
     return c.json(result, 200);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -256,15 +270,9 @@ aiComponents.delete('/api/ai-components/:id', async (c) => {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Component not found' } }, 404);
     }
     if (message === 'FORBIDDEN') {
-      return c.json(
-        { error: { code: 'FORBIDDEN', message: 'Only the creator can archive' } },
-        403,
-      );
+      return c.json({ error: { code: 'FORBIDDEN', message: 'Only the creator can archive' } }, 403);
     }
-    return c.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Archive failed' } },
-      500,
-    );
+    return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Archive failed' } }, 500);
   }
 });
 

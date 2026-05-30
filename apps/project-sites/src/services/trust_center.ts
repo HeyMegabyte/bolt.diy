@@ -56,16 +56,41 @@ function rowToProfile(row: TrustProfileRow): TrustProfile {
     ai_models: safeJsonArray<AiModelEntry>(row.ai_models_json, []),
     data_residency: row.data_residency as DataResidency,
     audit_log_policy: row.audit_log_policy as AuditLogPolicy,
-    content_provenance: safeJsonArray<ContentProvenanceEntry>(
-      row.content_provenance,
-      [],
-    ),
+    content_provenance: safeJsonArray<ContentProvenanceEntry>(row.content_provenance, []),
     ai_outage_behavior: row.ai_outage_behavior as AiOutageBehavior,
     custom_disclosures: row.custom_disclosures,
     published: row.published === 1,
     published_at: row.published_at,
     updated_at: row.updated_at,
   });
+}
+
+/**
+ * Resolve the owning org of a site, for multi-tenant isolation checks.
+ *
+ * @remarks Defensive read — a missing/soft-deleted site returns `undefined`
+ * (handlers map that to a 404, never a throw). The `PUT /api/trust/site/:siteId`
+ * override route compares this to the caller's `orgId` so a caller can't create
+ * a per-site override row referencing a site they don't own (prevents orphan /
+ * mis-attributed `trust_profiles` rows). Reads stay safe regardless because
+ * `selectProfile` already filters by `org_id`.
+ * @param env    - Worker env (D1 binding).
+ * @param siteId - The site whose owner is being resolved.
+ * @returns The owning `org_id`, or `undefined` when the site does not exist.
+ * @example
+ * ```ts
+ * const owner = await siteOrgId(env, siteId);
+ * if (!owner || owner !== orgId) return notFound;
+ * ```
+ */
+export async function siteOrgId(env: Env, siteId: string): Promise<string | undefined> {
+  const row = await env.DB.prepare(
+    'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL LIMIT 1',
+  )
+    .bind(siteId)
+    .first<{ org_id: string }>()
+    .catch(() => null);
+  return row?.org_id ?? undefined;
 }
 
 async function selectProfile(
@@ -94,10 +119,7 @@ async function selectProfile(
 }
 
 /** Org-level profile (`site_id = NULL`). */
-export async function getOrgProfile(
-  env: Env,
-  orgId: string,
-): Promise<TrustProfile | null> {
+export async function getOrgProfile(env: Env, orgId: string): Promise<TrustProfile | null> {
   return selectProfile(env, orgId, null);
 }
 
@@ -143,18 +165,11 @@ export async function upsertProfile(
     org_id: args.orgId,
     site_id: args.siteId,
     ai_models: args.update.ai_models ?? existing?.ai_models ?? [],
-    data_residency:
-      args.update.data_residency ?? existing?.data_residency ?? 'global',
-    audit_log_policy:
-      args.update.audit_log_policy ??
-      existing?.audit_log_policy ??
-      'on-request',
-    content_provenance:
-      args.update.content_provenance ?? existing?.content_provenance ?? [],
+    data_residency: args.update.data_residency ?? existing?.data_residency ?? 'global',
+    audit_log_policy: args.update.audit_log_policy ?? existing?.audit_log_policy ?? 'on-request',
+    content_provenance: args.update.content_provenance ?? existing?.content_provenance ?? [],
     ai_outage_behavior:
-      args.update.ai_outage_behavior ??
-      existing?.ai_outage_behavior ??
-      'graceful-degradation',
+      args.update.ai_outage_behavior ?? existing?.ai_outage_behavior ?? 'graceful-degradation',
     custom_disclosures:
       args.update.custom_disclosures !== undefined
         ? args.update.custom_disclosures
@@ -200,10 +215,7 @@ export async function upsertProfile(
 }
 
 /** Flip published=1, stamp published_at. Idempotent. */
-export async function publishOrgProfile(
-  env: Env,
-  orgId: string,
-): Promise<TrustProfile | null> {
+export async function publishOrgProfile(env: Env, orgId: string): Promise<TrustProfile | null> {
   const existing = await getOrgProfile(env, orgId);
   if (!existing) return null;
   const stampedAt = new Date().toISOString();

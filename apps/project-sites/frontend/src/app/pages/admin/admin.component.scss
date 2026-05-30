@@ -6,8 +6,12 @@
 :host { display: block; }
 
 // Subtle glow on the sidebar surface — depth via radial accent + rim-light.
+// NOTE: do NOT set `position: relative` here — this component-scoped `aside`
+// selector outranks Tailwind's layered `.sticky` utility and would pin the
+// sidebar to `relative`, breaking `sticky top-0` (desktop) + `max-md:fixed`
+// (mobile drawer). `sticky`/`fixed` are both positioned, so the absolutely-
+// positioned `::after` rim-light still anchors correctly without it.
 aside {
-  position: relative;
   isolation: isolate;
   background:
     radial-gradient(ellipse 80% 40% at 50% 0%, rgba(0,229,255,0.05), transparent 60%),

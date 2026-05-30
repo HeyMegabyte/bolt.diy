@@ -16,6 +16,29 @@
   --color-light: #f0f0f8;
   --color-text-secondary: #94a3b8;
 
+  /* ── Spartan UI (helm) semantic tokens — black/cyan cockpit map. ──────────
+     All NEW token names (additive); `--color-primary`/`--color-secondary`
+     above are reused as-is. Enables `bg-card`, `text-foreground`,
+     `border-border`, `bg-primary text-primary-foreground`, etc. on Spartan
+     helm components without colliding with the existing theme. */
+  --color-background: #03070a;
+  --color-foreground: #e8fbff;
+  --color-card: #071014;
+  --color-card-foreground: #e8fbff;
+  --color-popover: #0b171d;
+  --color-popover-foreground: #e8fbff;
+  --color-primary-foreground: #03070a;
+  --color-secondary-foreground: #e8fbff;
+  --color-muted: #0b171d;
+  --color-muted-foreground: #7aa7b3;
+  --color-accent: #0e2630;
+  --color-accent-foreground: #e8fbff;
+  --color-destructive: #ff4d6d;
+  --color-destructive-foreground: #ffffff;
+  --color-border: rgba(0, 229, 255, 0.18);
+  --color-input: rgba(0, 229, 255, 0.22);
+  --color-ring: #00e5ff;
+
   /* ── Fonts ──────────────────────────────── */
   --font-sans: 'Sora', system-ui, sans-serif;
   --font-heading: 'Space Grotesk', sans-serif;

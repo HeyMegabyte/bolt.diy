@@ -40,17 +40,11 @@ async function readGuard(c: AppContext): Promise<Response | null> {
   const userId = c.get('userId');
   const orgId = c.get('orgId');
   if (!userId || !orgId) {
-    return c.json(
-      { error: { code: 'UNAUTHORIZED', message: 'Auth required' } },
-      401,
-    );
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
   }
   const on = await isFlagOn(c.env, FLAG_KEY, { orgId });
   if (!on) {
-    return c.json(
-      { error: { code: 'NOT_FOUND', message: 'Not found' } },
-      404,
-    );
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
   }
   return null;
 }
@@ -87,19 +81,27 @@ stripeAppStatus.post(
     // the scope via either header context OR the event payload.
     const orgFromCtx = c.get('orgId');
     const event = c.req.valid('json');
-    const orgForFlag = orgFromCtx ?? event.org_id;
-    const on = await isFlagOn(c.env, FLAG_KEY, {
-      orgId: orgForFlag,
-    });
-    if (!on) {
+    // An authenticated caller may not attribute a lifecycle event to a
+    // DIFFERENT org than their own — that would let org A pollute org B's
+    // install analytics. Reject the mismatch (403). The unauthenticated Stripe
+    // marketplace callback has no ctx org, so it still attributes via the
+    // payload (the row is joined to the org once the merchant signs in).
+    if (orgFromCtx && event.org_id && event.org_id !== orgFromCtx) {
       return c.json(
-        { error: { code: 'NOT_FOUND', message: 'Not found' } },
-        404,
+        { error: { code: 'FORBIDDEN', message: 'org_id does not match authenticated org' } },
+        403,
       );
+    }
+    // Trust the authenticated context over the body; fall back to the payload
+    // org only for the unauthenticated marketplace callback path.
+    const resolvedOrgId = orgFromCtx ?? event.org_id;
+    const on = await isFlagOn(c.env, FLAG_KEY, { orgId: resolvedOrgId });
+    if (!on) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
     }
     const row = await recordLifecycleEvent(c.env, {
       ...event,
-      org_id: event.org_id ?? orgFromCtx,
+      org_id: resolvedOrgId,
     });
     return c.json({ data: row }, 202);
   },

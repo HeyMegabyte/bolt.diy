@@ -28,7 +28,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AdminStateService } from '../../admin-state.service';
 import { ApiService } from '../../../../services/api.service';
 import { ToastService } from '../../../../services/toast.service';
@@ -184,6 +184,7 @@ export class VoiceMcpsComponent {
   readonly state = inject(AdminStateService);
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
+  private readonly router = inject(Router);
 
   connections = signal<McpConnection[]>([]);
   loading = signal(true);
@@ -248,9 +249,16 @@ export class VoiceMcpsComponent {
     });
   }
 
+  /**
+   * Open the Settings → MCP tab via SPA navigation. Previously this set
+   * `window.location.pathname` + `.hash`, which triggered a full-page reload
+   * (destroying the persistent bolt iframe + all admin state). Routed
+   * navigation keeps the cockpit shell alive and lets View Transitions handle
+   * the swap. The `mcp` fragment is consumed by the Settings section to focus
+   * its MCP panel.
+   */
   goSettings(): void {
-    window.location.hash = 'mcp';
-    window.location.pathname = '/admin/settings';
+    void this.router.navigate(['/admin/settings'], { fragment: 'mcp' });
   }
 
   private currentKey = computed(() =>

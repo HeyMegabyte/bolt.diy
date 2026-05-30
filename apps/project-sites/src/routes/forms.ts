@@ -33,6 +33,9 @@ import { dbExecute, dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { dispatchToIntegrations, type IntegrationRow } from '../services/newsletter_dispatch.js';
 import { improveRouterPrompt } from '../services/form_router.js';
 import * as auditService from '../services/audit.js';
+import { isFlagOn } from '../modules/feature_flags/services.js';
+import { recordContact } from '../../libs/features/contacts_core/service.js';
+import { formSubmissionToContactInput } from '../../libs/features/contacts_core/mappers.js';
 
 /** Workers AI model used for reply drafting. NEVER use the bare alias. */
 const REPLY_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast' as const;
@@ -150,6 +153,36 @@ forms.post('/api/v1/forms/submit', async (c) => {
     created_at: submittedAt,
   });
 
+  // Contacts Core (CRM) — dedupe this submitter into the shared `contacts` store.
+  // Additive + flag-gated (`contacts_core`, default off) so it's a no-op until
+  // enabled; a CRM failure must NEVER break the form submission, hence try/catch.
+  try {
+    if (await isFlagOn(c.env, 'contacts_core', { orgId: site.org_id, siteId: site.id })) {
+      const contactInput = formSubmissionToContactInput({
+        orgId: site.org_id,
+        siteId: site.id,
+        formName: validated.form_name,
+        email: validated.email,
+        fields: validated.fields as Record<string, unknown> | null,
+      });
+      if (contactInput) {
+        contactInput.metadata = { ...contactInput.metadata, submissionId };
+        await recordContact(c.env, contactInput);
+      }
+    }
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'forms',
+        message: 'contacts_core recordContact failed (non-fatal)',
+        feature_slug: 'contacts_core',
+        site_id: site.id,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
+
   // Audit: form submission processed (routes to integrations or just recorded)
   const successfulProviders = successful.map((r) => r.provider).join(', ');
   const auditMsg =
@@ -187,7 +220,8 @@ forms.post('/api/v1/forms/submit', async (c) => {
   // worker executes it server-side and writes one ai_form_logs row.
   c.executionCtx.waitUntil(
     (async () => {
-      const { buildPrompt, parseRouterAction, executeRouterAction } = await import('../services/form_router.js');
+      const { buildPrompt, parseRouterAction, executeRouterAction } =
+        await import('../services/form_router.js');
       const { loadAvailableTools } = await import('../services/mcp_client.js');
       const { writeAiLog, estTokens } = await import('../services/ai_logger.js');
       const { debitCredits, getBalance, maybeFireAlerts } = await import('../services/credits.js');
@@ -215,7 +249,8 @@ forms.post('/api/v1/forms/submit', async (c) => {
         .bind(site.id)
         .all<{ extracted_text: string }>();
       const tools = await loadAvailableTools(c.env, site.id as string);
-      const businessName = (site as { business_name?: string }).business_name ?? (site.slug as string);
+      const businessName =
+        (site as { business_name?: string }).business_name ?? (site.slug as string);
       // ── Assemble the template context exposed to `{{ }}` placeholders in
       // the customer's router prompt. Kept in sync with the variable list
       // surfaced in the Dashboard UI (see services/template.ts → TEMPLATE_VARIABLES).
@@ -645,96 +680,94 @@ async function loadOwnedSubmission(
  *
  * @returns 200 OK `{ data: { subject, body, model, ms, cost_usd } }`
  */
-forms.post(
-  '/api/sites/:siteId/form-submissions/:submissionId/draft-reply',
-  async (c) => {
-    const orgId = c.get('orgId');
-    if (!orgId) throw unauthorized('Must be authenticated');
-    const { submission, site } = await loadOwnedSubmission(c, orgId);
+forms.post('/api/sites/:siteId/form-submissions/:submissionId/draft-reply', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  const { submission, site } = await loadOwnedSubmission(c, orgId);
 
-    let fieldsObj: Record<string, unknown> = {};
+  let fieldsObj: Record<string, unknown> = {};
+  try {
+    fieldsObj = JSON.parse(submission.payload) as Record<string, unknown>;
+  } catch {
+    /* fall through with empty fields */
+  }
+  const fieldsText = Object.entries(fieldsObj)
+    .filter(([k]) => k !== 'cf-turnstile-response' && k !== '_token')
+    .map(([k, v]) => `${k}: ${String(v).slice(0, 500)}`)
+    .join('\n');
+
+  const systemPrompt =
+    `You are the owner of "${site.slug}". A visitor just submitted the "${submission.form_name}" form. ` +
+    `Draft a warm, concise, personal reply as the business owner. ` +
+    `Address them by first name when known. Acknowledge what they asked, ` +
+    `answer if you can, and propose ONE clear next step (reply with a time, book a call, ` +
+    `visit the location). Keep it under 120 words. No marketing fluff, no "Thank you for ` +
+    `reaching out!" preamble. Return STRICT JSON: ` +
+    `{"subject":"...","body":"...<html-safe, paragraph tags allowed>"}`;
+  const userPrompt = `Visitor email: ${submission.email ?? 'unknown'}\n` + fieldsText;
+
+  const started = Date.now();
+  let raw = '';
+  try {
+    const result = (await c.env.AI.run(
+      REPLY_MODEL as Parameters<typeof c.env.AI.run>[0],
+      {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 600,
+        temperature: 0.55,
+      } as Parameters<typeof c.env.AI.run>[1],
+    )) as { response?: string };
+    raw = (result?.response ?? '').trim();
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'forms.draft_reply',
+        message: 'Workers AI draft failed',
+        submission_id: submission.id,
+        err: String(err).slice(0, 300),
+      }),
+    );
+    throw badRequest('AI drafting failed — try again or write the reply manually');
+  }
+
+  const ms = Date.now() - started;
+  // Strip code fences / accidental preamble.
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  let subject = `Re: ${submission.form_name} — ${site.slug}`;
+  let body = '';
+  if (jsonMatch) {
     try {
-      fieldsObj = JSON.parse(submission.payload) as Record<string, unknown>;
+      const parsed = JSON.parse(jsonMatch[0]) as { subject?: string; body?: string };
+      if (typeof parsed.subject === 'string' && parsed.subject.trim())
+        subject = parsed.subject.trim();
+      if (typeof parsed.body === 'string') body = parsed.body.trim();
     } catch {
-      /* fall through with empty fields */
-    }
-    const fieldsText = Object.entries(fieldsObj)
-      .filter(([k]) => k !== 'cf-turnstile-response' && k !== '_token')
-      .map(([k, v]) => `${k}: ${String(v).slice(0, 500)}`)
-      .join('\n');
-
-    const systemPrompt =
-      `You are the owner of "${site.slug}". A visitor just submitted the "${submission.form_name}" form. ` +
-      `Draft a warm, concise, personal reply as the business owner. ` +
-      `Address them by first name when known. Acknowledge what they asked, ` +
-      `answer if you can, and propose ONE clear next step (reply with a time, book a call, ` +
-      `visit the location). Keep it under 120 words. No marketing fluff, no "Thank you for ` +
-      `reaching out!" preamble. Return STRICT JSON: ` +
-      `{"subject":"...","body":"...<html-safe, paragraph tags allowed>"}`;
-    const userPrompt = `Visitor email: ${submission.email ?? 'unknown'}\n` + fieldsText;
-
-    const started = Date.now();
-    let raw = '';
-    try {
-      const result = (await c.env.AI.run(
-        REPLY_MODEL as Parameters<typeof c.env.AI.run>[0],
-        {
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          max_tokens: 600,
-          temperature: 0.55,
-        } as Parameters<typeof c.env.AI.run>[1],
-      )) as { response?: string };
-      raw = (result?.response ?? '').trim();
-    } catch (err) {
-      console.warn(
-        JSON.stringify({
-          level: 'error',
-          service: 'forms.draft_reply',
-          message: 'Workers AI draft failed',
-          submission_id: submission.id,
-          err: String(err).slice(0, 300),
-        }),
-      );
-      throw badRequest('AI drafting failed — try again or write the reply manually');
-    }
-
-    const ms = Date.now() - started;
-    // Strip code fences / accidental preamble.
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    let subject = `Re: ${submission.form_name} — ${site.slug}`;
-    let body = '';
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[0]) as { subject?: string; body?: string };
-        if (typeof parsed.subject === 'string' && parsed.subject.trim()) subject = parsed.subject.trim();
-        if (typeof parsed.body === 'string') body = parsed.body.trim();
-      } catch {
-        body = raw;
-      }
-    } else {
       body = raw;
     }
-    if (!body) throw badRequest('AI returned an empty reply — try again');
+  } else {
+    body = raw;
+  }
+  if (!body) throw badRequest('AI returned an empty reply — try again');
 
-    // Cost estimate (output tokens only — Workers AI input is cheaper but the
-    // worst-case output-rate is the right CYA number for a draft preview).
-    const outTokens = Math.ceil(body.length / 4) + Math.ceil(subject.length / 4);
-    const cost_usd = (outTokens / 1_000_000) * REPLY_COST_PER_MTOK_USD;
+  // Cost estimate (output tokens only — Workers AI input is cheaper but the
+  // worst-case output-rate is the right CYA number for a draft preview).
+  const outTokens = Math.ceil(body.length / 4) + Math.ceil(subject.length / 4);
+  const cost_usd = (outTokens / 1_000_000) * REPLY_COST_PER_MTOK_USD;
 
-    return c.json({
-      data: {
-        subject,
-        body,
-        model: REPLY_MODEL,
-        ms,
-        cost_usd: Number(cost_usd.toFixed(6)),
-      },
-    });
-  },
-);
+  return c.json({
+    data: {
+      subject,
+      body,
+      model: REPLY_MODEL,
+      ms,
+      cost_usd: Number(cost_usd.toFixed(6)),
+    },
+  });
+});
 
 /**
  * POST /api/sites/:siteId/form-submissions/:submissionId/send-reply
@@ -746,110 +779,106 @@ forms.post(
  *
  * @body `{ subject, body, override_to? }`
  */
-forms.post(
-  '/api/sites/:siteId/form-submissions/:submissionId/send-reply',
-  async (c) => {
-    const orgId = c.get('orgId');
-    const userId = c.get('userId');
-    if (!orgId) throw unauthorized('Must be authenticated');
-    const { submission, site } = await loadOwnedSubmission(c, orgId);
+forms.post('/api/sites/:siteId/form-submissions/:submissionId/send-reply', async (c) => {
+  const orgId = c.get('orgId');
+  const userId = c.get('userId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  const { submission, site } = await loadOwnedSubmission(c, orgId);
 
-    const json = (await c.req.json().catch(() => ({}))) as unknown;
-    const parsed = sendReplyBody.parse(json);
+  const json = (await c.req.json().catch(() => ({}))) as unknown;
+  const parsed = sendReplyBody.parse(json);
 
-    const to = parsed.override_to ?? submission.email ?? '';
-    if (!to) throw badRequest('Submission has no email and no override_to provided');
+  const to = parsed.override_to ?? submission.email ?? '';
+  if (!to) throw badRequest('Submission has no email and no override_to provided');
 
-    if (!c.env.RESEND_API_KEY) {
-      throw badRequest('Email delivery is not configured (RESEND_API_KEY missing)');
-    }
+  if (!c.env.RESEND_API_KEY) {
+    throw badRequest('Email delivery is not configured (RESEND_API_KEY missing)');
+  }
 
-    const fromAddr = `${site.slug} <noreply@megabyte.space>`;
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${c.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: fromAddr,
-        to: [to],
-        subject: parsed.subject,
-        html: parsed.body,
-        tags: [
-          { name: 'category', value: 'form_reply' },
-          { name: 'site_slug', value: site.slug },
-        ],
-      }),
-    });
-    const resendRequestId =
-      res.headers.get('x-resend-request-id') ?? res.headers.get('x-request-id');
-    if (!res.ok) {
-      const text = await res.text();
-      console.warn(
-        JSON.stringify({
-          level: 'error',
-          service: 'forms.send_reply',
-          message: 'Resend send failed',
-          status: res.status,
-          body_excerpt: text.slice(0, 400),
-          to,
-          request_id: resendRequestId,
-        }),
-      );
-      throw badRequest(`Resend rejected the reply (${res.status})`);
-    }
+  const fromAddr = `${site.slug} <noreply@megabyte.space>`;
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${c.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: fromAddr,
+      to: [to],
+      subject: parsed.subject,
+      html: parsed.body,
+      tags: [
+        { name: 'category', value: 'form_reply' },
+        { name: 'site_slug', value: site.slug },
+      ],
+    }),
+  });
+  const resendRequestId = res.headers.get('x-resend-request-id') ?? res.headers.get('x-request-id');
+  if (!res.ok) {
+    const text = await res.text();
     console.warn(
       JSON.stringify({
-        level: 'info',
+        level: 'error',
         service: 'forms.send_reply',
-        message: 'Form reply sent',
+        message: 'Resend send failed',
+        status: res.status,
+        body_excerpt: text.slice(0, 400),
         to,
-        site_slug: site.slug,
-        submission_id: submission.id,
         request_id: resendRequestId,
       }),
     );
+    throw badRequest(`Resend rejected the reply (${res.status})`);
+  }
+  console.warn(
+    JSON.stringify({
+      level: 'info',
+      service: 'forms.send_reply',
+      message: 'Form reply sent',
+      to,
+      site_slug: site.slug,
+      submission_id: submission.id,
+      request_id: resendRequestId,
+    }),
+  );
 
-    const nowIso = new Date().toISOString();
-    await dbExecute(
-      c.env.DB,
-      `UPDATE form_submissions
+  const nowIso = new Date().toISOString();
+  await dbExecute(
+    c.env.DB,
+    `UPDATE form_submissions
        SET reply_subject = ?, reply_body = ?, replied_at = ?
        WHERE id = ? AND site_id = ?`,
-      [parsed.subject, parsed.body, nowIso, submission.id, site.id],
-    );
+    [parsed.subject, parsed.body, nowIso, submission.id, site.id],
+  );
 
-    c.executionCtx.waitUntil(
-      auditService.writeAuditLog(c.env.DB, {
-        org_id: orgId,
-        actor_id: userId ?? null,
-        action: 'form.reply_sent',
-        message: `Reply sent to '${to}' for submission '${submission.id}' on site '${site.slug}'`,
-        target_type: 'form_submission',
-        target_id: submission.id,
-        metadata_json: {
-          site_id: site.id,
-          slug: site.slug,
-          form_name: submission.form_name,
-          to,
-          subject: parsed.subject,
-          resend_request_id: resendRequestId,
-        },
-        request_id: c.get('requestId'),
-      }),
-    );
-
-    return c.json({
-      data: {
-        sent: true,
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId ?? null,
+      action: 'form.reply_sent',
+      message: `Reply sent to '${to}' for submission '${submission.id}' on site '${site.slug}'`,
+      target_type: 'form_submission',
+      target_id: submission.id,
+      metadata_json: {
+        site_id: site.id,
+        slug: site.slug,
+        form_name: submission.form_name,
         to,
-        replied_at: nowIso,
+        subject: parsed.subject,
         resend_request_id: resendRequestId,
       },
-    });
-  },
-);
+      request_id: c.get('requestId'),
+    }),
+  );
+
+  return c.json({
+    data: {
+      sent: true,
+      to,
+      replied_at: nowIso,
+      resend_request_id: resendRequestId,
+    },
+  });
+});
 
 /**
  * Improve OR seed the form-router prompt.

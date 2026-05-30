@@ -29,7 +29,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
 import { requirePro } from '../services/pro.js';
-import { unauthorized, forbidden } from '@project-sites/shared';
+import { unauthorized, notFound } from '@project-sites/shared';
 
 type AgentCtx = Context<{ Bindings: Env; Variables: Variables }>;
 
@@ -40,7 +40,11 @@ agents.use('/api/sites/:siteId/agents', requirePro);
 agents.use('/api/agents/*', requirePro);
 
 const createSchema = z.object({
-  slug: z.string().regex(/^[a-z0-9-]+$/).min(3).max(64),
+  slug: z
+    .string()
+    .regex(/^[a-z0-9-]+$/)
+    .min(3)
+    .max(64),
   name: z.string().min(2).max(120),
   description: z.string().max(500).optional(),
   system_prompt: z.string().min(20).max(8000),
@@ -57,7 +61,7 @@ const createSchema = z.object({
  *
  * @throws 401 UNAUTHORIZED when org context is missing.
  * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
- * @throws 403 FORBIDDEN when the site isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the site isn't owned by the caller's org (never 403 — don't leak existence).
  */
 agents.get('/api/sites/:siteId/agents', async (c) => {
   const siteId = c.req.param('siteId');
@@ -85,7 +89,7 @@ agents.get('/api/sites/:siteId/agents', async (c) => {
  * @throws 400 BAD_REQUEST when payload validation fails or slug collides.
  * @throws 401 UNAUTHORIZED when org context is missing.
  * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
- * @throws 403 FORBIDDEN when the site isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the site isn't owned by the caller's org (never 403 — don't leak existence).
  */
 agents.post('/api/sites/:siteId/agents', zValidator('json', createSchema), async (c) => {
   const siteId = c.req.param('siteId');
@@ -133,7 +137,7 @@ const patchSchema = z.object({
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 401 UNAUTHORIZED when org context is missing.
  * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
- * @throws 403 FORBIDDEN when the agent isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the agent isn't owned by the caller's org (never 403 — don't leak existence).
  */
 agents.patch('/api/agents/:id', zValidator('json', patchSchema), async (c) => {
   const id = c.req.param('id');
@@ -146,7 +150,8 @@ agents.patch('/api/agents/:id', zValidator('json', patchSchema), async (c) => {
   if (body.tools !== undefined) patch.tools_json = JSON.stringify(body.tools);
   if (body.schedule_cron !== undefined) patch.schedule_cron = body.schedule_cron;
   if (body.status !== undefined) patch.status = body.status;
-  if (body.monthly_budget_cents !== undefined) patch.monthly_budget_cents = body.monthly_budget_cents;
+  if (body.monthly_budget_cents !== undefined)
+    patch.monthly_budget_cents = body.monthly_budget_cents;
   if (Object.keys(patch).length > 0) {
     await dbUpdate(c.env.DB, 'agents', patch, 'id = ?', [agent.id]);
   }
@@ -164,7 +169,7 @@ agents.patch('/api/agents/:id', zValidator('json', patchSchema), async (c) => {
  * @throws 401 UNAUTHORIZED when org context is missing.
  * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro or the agent's
  *   monthly budget is exhausted.
- * @throws 403 FORBIDDEN when the agent isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the agent isn't owned by the caller's org (never 403 — don't leak existence).
  * @throws 409 CONFLICT when the agent is paused (resume first).
  */
 agents.post('/api/agents/:id/run', async (c) => {
@@ -175,7 +180,12 @@ agents.post('/api/agents/:id/run', async (c) => {
   }
   if (agent.spend_this_month_cents >= agent.monthly_budget_cents) {
     return c.json(
-      { error: { code: 'BUDGET_EXCEEDED', message: 'Monthly budget reached — raise budget to retry' } },
+      {
+        error: {
+          code: 'BUDGET_EXCEEDED',
+          message: 'Monthly budget reached — raise budget to retry',
+        },
+      },
       402,
     );
   }
@@ -203,7 +213,7 @@ agents.post('/api/agents/:id/run', async (c) => {
  *
  * @throws 401 UNAUTHORIZED when org context is missing.
  * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
- * @throws 403 FORBIDDEN when the agent isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the agent isn't owned by the caller's org (never 403 — don't leak existence).
  */
 agents.get('/api/agents/:id/runs', async (c) => {
   const id = c.req.param('id');
@@ -228,12 +238,18 @@ agents.get('/api/agents/:id/runs', async (c) => {
  *
  * @throws 401 UNAUTHORIZED when org context is missing.
  * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
- * @throws 403 FORBIDDEN when the agent isn't owned by the caller's org.
+ * @throws 404 NOT_FOUND when the agent isn't owned by the caller's org (never 403 — don't leak existence).
  */
 agents.delete('/api/agents/:id', async (c) => {
   const id = c.req.param('id');
   const agent = await loadAgent(c, id);
-  await dbUpdate(c.env.DB, 'agents', { deleted_at: new Date().toISOString(), status: 'paused' }, 'id = ?', [agent.id]);
+  await dbUpdate(
+    c.env.DB,
+    'agents',
+    { deleted_at: new Date().toISOString(), status: 'paused' },
+    'id = ?',
+    [agent.id],
+  );
   return c.json({ ok: true });
 });
 
@@ -252,6 +268,19 @@ interface AgentRow {
   max_cost_cents_per_run: number;
 }
 
+/**
+ * Load an agent the caller's org owns.
+ *
+ * @remarks Multi-tenant isolation — a missing agent AND a foreign-org agent
+ * both throw `notFound()` (404). Previously the two cases returned different
+ * statuses (404 missing vs **403** foreign), which let a prober distinguish
+ * "this agent id exists but isn't yours" from "doesn't exist" — leaking other
+ * orgs' agent-id existence. Collapsing both to 404 closes that oracle.
+ * @param c  - Hono context (reads `orgId` set by auth middleware).
+ * @param id - the agent id from the URL path.
+ * @returns the owned `AgentRow`.
+ * @throws {AppError} `unauthorized` (401) when no session; `notFound` (404) when the agent is missing or not owned by the caller.
+ */
 async function loadAgent(c: AgentCtx, id: string): Promise<AgentRow> {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();
@@ -262,11 +291,22 @@ async function loadAgent(c: AgentCtx, id: string): Promise<AgentRow> {
        FROM agents WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
     [id],
   );
-  if (!row) throw forbidden('Agent not found');
-  if (row.org_id !== orgId) throw forbidden('Agent belongs to another org');
+  // 404 for both missing AND foreign-org (never 403 — don't leak that the id exists).
+  if (!row || row.org_id !== orgId) throw notFound('Agent not found');
   return row;
 }
 
+/**
+ * Assert the authenticated caller's org owns `siteId`.
+ *
+ * @remarks A missing session throws `unauthorized()` (401); a site owned by
+ * another org — or one that does not exist — throws `notFound()` (404, **never
+ * 403**, so a foreign site id can't be confirmed to exist by probing).
+ * @param c      - Hono context (reads `orgId` set by auth middleware).
+ * @param siteId - the site id from the URL path.
+ * @returns the verified owning `orgId`.
+ * @throws {AppError} `unauthorized` (401) when no session; `notFound` (404) when the site is not owned by the caller.
+ */
 async function assertSiteOwnership(c: AgentCtx, siteId: string): Promise<string> {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();
@@ -275,7 +315,7 @@ async function assertSiteOwnership(c: AgentCtx, siteId: string): Promise<string>
     'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL LIMIT 1',
     [siteId],
   );
-  if (!row || row.org_id !== orgId) throw forbidden('Site not accessible');
+  if (!row || row.org_id !== orgId) throw notFound('Site not found');
   return orgId;
 }
 
@@ -284,7 +324,10 @@ async function executeRun(env: Env, agent: AgentRow, runId: string): Promise<voi
   try {
     // Minimal first-pass: prompt → Workers AI → record. Tool-call loop will land in a follow-up turn.
     const ai = env.AI as unknown as {
-      run: (model: string, input: { messages: Array<{ role: string; content: string }> }) => Promise<{
+      run: (
+        model: string,
+        input: { messages: Array<{ role: string; content: string }> },
+      ) => Promise<{
         response: string;
         usage?: { prompt_tokens?: number; completion_tokens?: number };
       }>;
@@ -292,7 +335,10 @@ async function executeRun(env: Env, agent: AgentRow, runId: string): Promise<voi
     const result = await ai.run(agent.model, {
       messages: [
         { role: 'system', content: agent.system_prompt },
-        { role: 'user', content: 'Run your scheduled task. Output a JSON object with `summary` and `actions[]`.' },
+        {
+          role: 'user',
+          content: 'Run your scheduled task. Output a JSON object with `summary` and `actions[]`.',
+        },
       ],
     });
     const tokensIn = result.usage?.prompt_tokens ?? 0;
@@ -304,7 +350,14 @@ async function executeRun(env: Env, agent: AgentRow, runId: string): Promise<voi
               cost_cents = ?, finished_at = CURRENT_TIMESTAMP
         WHERE id = ?`,
     )
-      .bind('completed', JSON.stringify({ response: result.response }), tokensIn, tokensOut, costCents, runId)
+      .bind(
+        'completed',
+        JSON.stringify({ response: result.response }),
+        tokensIn,
+        tokensOut,
+        costCents,
+        runId,
+      )
       .run();
     await env.DB.prepare(
       `UPDATE agents

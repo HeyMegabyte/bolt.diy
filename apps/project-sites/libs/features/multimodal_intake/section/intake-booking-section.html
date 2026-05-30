@@ -1,0 +1,176 @@
+<!--
+  Multimodal Intake — drop-in booking section (idea #18)
+  Self-contained: photo upload + mic record + form. POSTs multipart to
+  /api/sites/{SITE_ID}/intake, prefills the form from the AI-extracted intent,
+  then the visitor submits to the booking endpoint.
+
+  Placement: the generator drops this onto a generated site's /book page and
+  replaces {{SITE_ID}} with the real site id. No external deps.
+-->
+<section class="mmi" data-multimodal-intake data-site-id="{{SITE_ID}}" data-endpoint="/api/sites/{{SITE_ID}}/intake" aria-labelledby="mmi-title">
+  <div class="mmi__inner">
+    <h2 id="mmi-title" class="mmi__title">Show us the problem — we'll handle the rest</h2>
+    <p class="mmi__lede">Snap a photo, leave a voice note, or both. Our AI reads it, fills in your request, and books you in.</p>
+
+    <div class="mmi__capture">
+      <label class="mmi__drop" for="mmi-photo">
+        <input id="mmi-photo" class="mmi__file" type="file" accept="image/*" capture="environment" />
+        <span class="mmi__drop-icon" aria-hidden="true">📷</span>
+        <span class="mmi__drop-label" data-mmi-photo-label>Upload a photo of the problem</span>
+      </label>
+
+      <button type="button" class="mmi__mic" data-mmi-mic aria-pressed="false">
+        <span class="mmi__mic-icon" aria-hidden="true">🎙️</span>
+        <span data-mmi-mic-label>Record a voice note</span>
+      </button>
+    </div>
+
+    <p class="mmi__status" data-mmi-status role="status" aria-live="polite"></p>
+
+    <form class="mmi__form" data-mmi-form novalidate>
+      <label class="mmi__field">
+        <span>Service needed</span>
+        <input name="service" type="text" autocomplete="off" />
+      </label>
+      <label class="mmi__field">
+        <span>Describe what's going on</span>
+        <textarea name="description" rows="3"></textarea>
+      </label>
+      <label class="mmi__field">
+        <span>Your name</span>
+        <input name="name" type="text" autocomplete="name" />
+      </label>
+      <label class="mmi__field">
+        <span>Phone or email</span>
+        <input name="contact" type="text" autocomplete="tel" required />
+      </label>
+      <div class="mmi__urgency" data-mmi-urgency hidden>
+        <span class="mmi__urgency-label">Urgency</span>
+        <progress data-mmi-urgency-bar max="100" value="0"></progress>
+        <span data-mmi-urgency-text></span>
+      </div>
+      <button type="submit" class="mmi__submit" data-mmi-submit>Book my appointment</button>
+    </form>
+  </div>
+
+  <style>
+    .mmi{padding:4rem 1.5rem;background:#060610;color:#f4f4ff}
+    .mmi__inner{max-width:48rem;margin:0 auto}
+    .mmi__title{font-size:clamp(1.6rem,3vw,2.4rem);text-wrap:balance;margin:0 0 .5rem}
+    .mmi__lede{opacity:.8;margin:0 0 2rem}
+    .mmi__capture{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem}
+    .mmi__drop,.mmi__mic{flex:1 1 200px;display:flex;flex-direction:column;align-items:center;gap:.5rem;padding:1.5rem;border:1px dashed rgba(0,229,255,.4);border-radius:14px;background:rgba(0,229,255,.04);cursor:pointer;color:inherit;font:inherit}
+    .mmi__drop:focus-within,.mmi__mic:focus-visible{outline:2px solid #00e5ff;outline-offset:2px}
+    .mmi__mic[aria-pressed="true"]{border-color:#00e5ff;background:rgba(0,229,255,.12)}
+    .mmi__file{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+    .mmi__drop-icon,.mmi__mic-icon{font-size:1.8rem}
+    .mmi__status{min-height:1.4rem;font-size:.9rem;color:#00e5ff;margin:0 0 1rem}
+    .mmi__form{display:grid;gap:1rem}
+    .mmi__field{display:flex;flex-direction:column;gap:.35rem;font-size:.9rem}
+    .mmi__field input,.mmi__field textarea{padding:.7rem .9rem;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:inherit;font:inherit}
+    .mmi__field input:focus-visible,.mmi__field textarea:focus-visible{outline:2px solid #00e5ff;outline-offset:1px}
+    .mmi__urgency{display:flex;align-items:center;gap:.75rem;font-size:.85rem}
+    .mmi__urgency progress{flex:1;height:8px}
+    .mmi__submit{margin-top:.5rem;background:#00e5ff;color:#060610;border:0;border-radius:9999px;padding:.9rem 2rem;font-weight:700;cursor:pointer}
+    .mmi__submit[disabled]{opacity:.6;cursor:progress}
+    @media (prefers-reduced-motion:reduce){.mmi *{transition:none!important;animation:none!important}}
+  </style>
+
+  <script>
+    (function () {
+      var root = document.currentScript.closest('[data-multimodal-intake]');
+      if (!root) return;
+      var endpoint = root.getAttribute('data-endpoint');
+      var photoInput = root.querySelector('#mmi-photo');
+      var photoLabel = root.querySelector('[data-mmi-photo-label]');
+      var micBtn = root.querySelector('[data-mmi-mic]');
+      var micLabel = root.querySelector('[data-mmi-mic-label]');
+      var statusEl = root.querySelector('[data-mmi-status]');
+      var form = root.querySelector('[data-mmi-form]');
+      var submitBtn = root.querySelector('[data-mmi-submit]');
+      var urgencyWrap = root.querySelector('[data-mmi-urgency]');
+      var urgencyBar = root.querySelector('[data-mmi-urgency-bar]');
+      var urgencyText = root.querySelector('[data-mmi-urgency-text]');
+
+      var audioBlob = null;
+      var mediaRecorder = null;
+      var chunks = [];
+
+      function setStatus(msg) { statusEl.textContent = msg || ''; }
+
+      photoInput.addEventListener('change', function () {
+        var f = photoInput.files && photoInput.files[0];
+        photoLabel.textContent = f ? ('Photo ready: ' + f.name) : 'Upload a photo of the problem';
+      });
+
+      micBtn.addEventListener('click', function () {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+          mediaRecorder.stop();
+          return;
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setStatus('Voice recording is not supported in this browser.');
+          return;
+        }
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+          chunks = [];
+          mediaRecorder = new MediaRecorder(stream);
+          mediaRecorder.ondataavailable = function (e) { if (e.data.size) chunks.push(e.data); };
+          mediaRecorder.onstop = function () {
+            audioBlob = new Blob(chunks, { type: 'audio/webm' });
+            stream.getTracks().forEach(function (t) { t.stop(); });
+            micBtn.setAttribute('aria-pressed', 'false');
+            micLabel.textContent = 'Voice note ready — tap to re-record';
+            setStatus('Voice note captured.');
+          };
+          mediaRecorder.start();
+          micBtn.setAttribute('aria-pressed', 'true');
+          micLabel.textContent = 'Recording… tap to stop';
+          setStatus('Listening…');
+        }).catch(function () { setStatus('Microphone permission denied.'); });
+      });
+
+      function prefill(submission) {
+        if (!submission) return;
+        var byName = {};
+        (submission.suggestedFields || []).forEach(function (sf) { byName[sf.name] = sf.value; });
+        var svc = form.querySelector('[name="service"]');
+        var desc = form.querySelector('[name="description"]');
+        if (svc && (submission.suggestedService || byName.service)) svc.value = submission.suggestedService || byName.service;
+        if (desc) desc.value = byName.description || submission.extractedIntent || desc.value;
+        if (byName.name) { var nm = form.querySelector('[name="name"]'); if (nm) nm.value = byName.name; }
+        if (byName.contact) { var ct = form.querySelector('[name="contact"]'); if (ct) ct.value = byName.contact; }
+        var u = submission.urgency || 0;
+        urgencyWrap.hidden = false;
+        urgencyBar.value = u;
+        urgencyText.textContent = u >= 70 ? 'Urgent' : u >= 30 ? 'Soon' : 'Routine';
+      }
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        submitBtn.disabled = true;
+        setStatus('Analyzing your photo and voice note…');
+        var fd = new FormData();
+        var note = (form.querySelector('[name="description"]') || {}).value || '';
+        if (note) fd.append('note', note);
+        if (photoInput.files && photoInput.files[0]) fd.append('photo', photoInput.files[0]);
+        if (audioBlob) fd.append('audio', audioBlob, 'voice-note.webm');
+
+        fetch(endpoint, { method: 'POST', body: fd })
+          .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+          .then(function (data) {
+            prefill(data.submission);
+            setStatus(data.bookingId
+              ? 'Got it — we prefilled your request and reserved a slot. Review and confirm below.'
+              : 'Got it — we prefilled your request from what you shared. Review and confirm.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Confirm booking';
+          })
+          .catch(function () {
+            setStatus('We could not process the upload — please fill the form manually.');
+            submitBtn.disabled = false;
+          });
+      });
+    })();
+  </script>
+</section>

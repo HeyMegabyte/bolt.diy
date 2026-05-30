@@ -211,6 +211,27 @@ export async function signInAsTestUser(
   const prodUrl = process.env.PROD_URL ?? 'https://projectsites.dev';
   const useRealAuth = process.env.STUB_AUTH === '0';
 
+  // Pathway C — REAL API-key auth (preferred when available).
+  // `E2E_API_KEY` is a `psk_test_…` org-scoped key (test org `e2e-test-org`,
+  // user `e2e-test-user`) the worker authenticates via the `api_keys` table.
+  // Seeding it into `ps_session` gives the SPA a genuine session: `/api/auth/me`
+  // returns the real test user and every data API responds with real (test-org)
+  // data — no stubbing. This is what lets the journey browse live features.
+  // Revoke by setting `revoked_at` on the `e2e-test-key` row in prod D1.
+  const apiKey = process.env.E2E_API_KEY;
+  if (apiKey) {
+    await page.addInitScript(
+      ({ token, sessionEmail }: { token: string; sessionEmail: string }) => {
+        localStorage.setItem(
+          'ps_session',
+          JSON.stringify({ token, email: sessionEmail }),
+        );
+      },
+      { token: apiKey, sessionEmail: email },
+    );
+    return;
+  }
+
   if (useRealAuth) {
     // Pathway B — requires worker to have shipped /api/auth/magic-link/peek
     // TODO: remove the comment below once the endpoint is confirmed deployed.

@@ -25,7 +25,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
 import { requirePro } from '../services/pro.js';
-import { unauthorized, forbidden } from '@project-sites/shared';
+import { unauthorized, notFound } from '@project-sites/shared';
 
 const experiments = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -85,7 +85,15 @@ experiments.post('/_ps/c', zValidator('json', conversionSchema), async (c) => {
       c.env.DB.prepare(
         `INSERT INTO conversions(experiment_id, variant_id, visitor_id, session_id, value_cents, kind, ts) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-        .bind(body.eid, body.variant, body.vid, body.sid, body.value_cents, body.kind, Math.floor(Date.now() / 1000))
+        .bind(
+          body.eid,
+          body.variant,
+          body.vid,
+          body.sid,
+          body.value_cents,
+          body.kind,
+          Math.floor(Date.now() / 1000),
+        )
         .run(),
       // Increment Beta posterior — α += 1 on conversion.
       c.env.DB.prepare(
@@ -274,13 +282,16 @@ experiments.post(
  *
  * @throws 401 UNAUTHORIZED when org/user context is missing.
  * @throws 402 PAYMENT_REQUIRED when the org is not on Pro.
- * @throws 403 FORBIDDEN when the experiment is not owned by the caller's org.
- * @throws 404 NOT_FOUND when the experiment id doesn't exist.
+ * @throws 404 NOT_FOUND when the experiment id doesn't exist OR is not owned by
+ *   the caller's org — a 404 (never 403) so a foreign experiment id can't be
+ *   confirmed to exist by probing.
  */
 experiments.post('/api/experiments/:id/promote', async (c) => {
   const id = c.req.param('id');
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();
+  // The JOIN already scopes by `s.org_id = ?`, so a foreign OR missing
+  // experiment both resolve to no row → 404 (never 403, never leak existence).
   const exp = await dbQueryOne<{ site_id: string; id: string }>(
     c.env.DB,
     `SELECT e.id, e.site_id FROM experiments e
@@ -288,7 +299,7 @@ experiments.post('/api/experiments/:id/promote', async (c) => {
        WHERE e.id = ? AND s.org_id = ? AND s.deleted_at IS NULL LIMIT 1`,
     [id, orgId],
   );
-  if (!exp) throw forbidden('Experiment not accessible');
+  if (!exp) throw notFound('Experiment not found');
   const { data: variants } = await dbQuery<{ id: string; beta_alpha: number; beta_beta: number }>(
     c.env.DB,
     `SELECT id, beta_alpha, beta_beta FROM variants WHERE experiment_id = ?`,
@@ -314,6 +325,18 @@ experiments.post('/api/experiments/:id/promote', async (c) => {
   return c.json({ ok: true, promoted_variant_id: winnerId });
 });
 
+/**
+ * Assert the authenticated caller's org owns `siteId` (multi-tenant gate for the
+ * Pro experiment routes).
+ *
+ * @remarks A missing session throws `unauthorized()` (401); a site owned by
+ * another org — or one that does not exist — throws `notFound()` (404, **never
+ * 403**, so a foreign site id can't be confirmed to exist by probing).
+ * @param c      - Hono context (reads `orgId` set by auth middleware).
+ * @param siteId - the site id from the URL path.
+ * @returns the verified owning `orgId`.
+ * @throws {AppError} `unauthorized` (401) when no session; `notFound` (404) when the site is not owned by the caller.
+ */
 async function assertSiteOwnership(
   c: { env: Env; get: (k: string) => string | undefined },
   siteId: string,
@@ -325,7 +348,7 @@ async function assertSiteOwnership(
     'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL LIMIT 1',
     [siteId],
   );
-  if (!row || row.org_id !== orgId) throw forbidden('Site not accessible');
+  if (!row || row.org_id !== orgId) throw notFound('Site not found');
   return orgId;
 }
 

@@ -19,6 +19,9 @@ import {
   getInstallSummary,
   recordLifecycleEvent,
 } from '../services/stripe_app_status.js';
+import { stripeAppStatus } from '../routes/stripe_app_status.js';
+import { authApp, flagKv } from './helpers/route_harness.js';
+import type { Env } from '../types/env.js';
 
 // ─── Mock D1 ─────────────────────────────────────────────────────────────────
 
@@ -47,9 +50,7 @@ function makeEnv() {
       async first<T>(): Promise<T | null> {
         if (/FROM stripe_app_installations/.test(sql)) {
           const account = binds[0] as string;
-          const row = rows.find(
-            (r) => r.stripe_account === account && r.deleted_at === null,
-          );
+          const row = rows.find((r) => r.stripe_account === account && r.deleted_at === null);
           return (row as unknown as T) ?? null;
         }
         return null;
@@ -62,15 +63,13 @@ function makeEnv() {
             const orgId = binds[0] as string;
             filtered = filtered.filter((r) => r.org_id === orgId);
           }
-          filtered.sort((a, b) =>
-            b.installed_at.localeCompare(a.installed_at),
-          );
+          filtered.sort((a, b) => b.installed_at.localeCompare(a.installed_at));
           return { results: filtered as unknown as T[] };
         }
         return { results: [] };
       },
       async run() {
-        if (/^INSERT INTO stripe_app_installations/.test(sql.trim())) {
+        if (sql.trim().startsWith('INSERT INTO stripe_app_installations')) {
           const [
             id,
             org_id,
@@ -83,8 +82,7 @@ function makeEnv() {
             metadata_json,
           ] = binds as never[];
           const existing = rows.find(
-            (r) =>
-              r.stripe_account === stripe_account && r.deleted_at === null,
+            (r) => r.stripe_account === stripe_account && r.deleted_at === null,
           );
           if (existing) {
             existing.org_id = org_id ?? existing.org_id;
@@ -250,5 +248,85 @@ describe('stripe_app_status service', () => {
     expect(summary.active_installs).toBe(1);
     expect(summary.paused).toBe(1);
     expect(summary.by_source.referral).toBe(1);
+  });
+});
+
+// ── Route layer: lifecycle org-attribution precedence ────────────────────────
+
+describe('stripe_app_status lifecycle route (org precedence)', () => {
+  const LIFECYCLE = '/api/stripe-app/lifecycle';
+
+  function lifecycleBody(org_id?: string) {
+    return JSON.stringify({
+      stripe_account: 'acct_route1',
+      install_source: 'marketplace',
+      event_type: 'installed',
+      ...(org_id ? { org_id } : {}),
+    });
+  }
+
+  /** In-memory D1 fake + a flag-aware KV the route guard reads. */
+  function routeEnv(flagOn: boolean): Env {
+    const { env } = makeEnv();
+    return {
+      DB: (env as { DB: D1Database }).DB,
+      CACHE_KV: flagKv(flagOn),
+    } as unknown as Env;
+  }
+
+  it('403 when an authenticated caller attributes the event to another org', async () => {
+    const app = authApp(stripeAppStatus, { userId: 'u', orgId: 'org-a' });
+    const res = await app.request(
+      LIFECYCLE,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: lifecycleBody('org-b'),
+      },
+      routeEnv(true),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it('202 and persists the trusted CONTEXT org (ignores absent body org)', async () => {
+    const app = authApp(stripeAppStatus, { userId: 'u', orgId: 'org-a' });
+    const res = await app.request(
+      LIFECYCLE,
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body: lifecycleBody() },
+      routeEnv(true),
+    );
+    expect(res.status).toBe(202);
+    const json = (await res.json()) as { data: { org_id: string | null } };
+    expect(json.data.org_id).toBe('org-a');
+  });
+
+  it('202 for the unauthenticated marketplace callback using the payload org', async () => {
+    const app = authApp(stripeAppStatus); // no auth context (Stripe callback)
+    const res = await app.request(
+      LIFECYCLE,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: lifecycleBody('org-merchant'),
+      },
+      routeEnv(true),
+    );
+    expect(res.status).toBe(202);
+    const json = (await res.json()) as { data: { org_id: string | null } };
+    expect(json.data.org_id).toBe('org-merchant');
+  });
+
+  it('404 when the flag is off', async () => {
+    const app = authApp(stripeAppStatus, { userId: 'u', orgId: 'org-a' });
+    const res = await app.request(
+      LIFECYCLE,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: lifecycleBody('org-a'),
+      },
+      routeEnv(false),
+    );
+    expect(res.status).toBe(404);
   });
 });

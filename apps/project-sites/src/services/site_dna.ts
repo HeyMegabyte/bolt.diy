@@ -55,10 +55,9 @@ const dnIndexName = (orgId: string) => `site-dna-${orgId}`;
  */
 async function embedText(env: Env, text: string): Promise<number[] | null> {
   try {
-    const res = await (env.AI as { run: (model: string, input: { text: string[] }) => Promise<{ data: number[][] }> }).run(
-      '@cf/baai/bge-large-en-v1.5',
-      { text: [text] },
-    );
+    const res = await (
+      env.AI as { run: (model: string, input: { text: string[] }) => Promise<{ data: number[][] }> }
+    ).run('@cf/baai/bge-large-en-v1.5', { text: [text] });
     return res?.data?.[0] ?? null;
   } catch {
     return null;
@@ -68,7 +67,10 @@ async function embedText(env: Env, text: string): Promise<number[] | null> {
 /**
  * Record a component feedback action and (optionally) embed it into Vectorize.
  */
-export async function recordDnaFeedback(env: Env, input: DnaFeedbackInput): Promise<{ id: string; vectorized: boolean }> {
+export async function recordDnaFeedback(
+  env: Env,
+  input: DnaFeedbackInput,
+): Promise<{ id: string; vectorized: boolean }> {
   const id = uuid();
   const t = nowIso();
   const contextJson = JSON.stringify(input.context ?? {});
@@ -77,7 +79,18 @@ export async function recordDnaFeedback(env: Env, input: DnaFeedbackInput): Prom
     `INSERT INTO site_dna_feedback
        (id, org_id, site_id, component_id, component_class, action, context_json, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).bind(id, input.orgId, input.siteId, input.componentId, input.componentClass, input.action, contextJson, t, t)
+  )
+    .bind(
+      id,
+      input.orgId,
+      input.siteId,
+      input.componentId,
+      input.componentClass,
+      input.action,
+      contextJson,
+      t,
+      t,
+    )
     .run()
     .catch(() => {});
 
@@ -89,23 +102,37 @@ export async function recordDnaFeedback(env: Env, input: DnaFeedbackInput): Prom
   if (vector) {
     // Use RAG_INDEX as a proxy since Vectorize binding names are wrangler-configured.
     // In production this should be `site-dna-{orgId}` index.
-    const ragIndex = (env as { RAG_INDEX?: { upsert: (rows: { id: string; values: number[]; metadata: Record<string, unknown> }[]) => Promise<void> } }).RAG_INDEX;
+    const ragIndex = (
+      env as {
+        RAG_INDEX?: {
+          upsert: (
+            rows: { id: string; values: number[]; metadata: Record<string, unknown> }[],
+          ) => Promise<void>;
+        };
+      }
+    ).RAG_INDEX;
     if (ragIndex) {
-      await ragIndex.upsert([{
-        id,
-        values: vector,
-        metadata: {
-          org_id: input.orgId,
-          site_id: input.siteId,
-          component_id: input.componentId,
-          component_class: input.componentClass,
-          action: input.action,
-          index_name: dnIndexName(input.orgId),
-        },
-      }]).catch(() => {});
+      await ragIndex
+        .upsert([
+          {
+            id,
+            values: vector,
+            metadata: {
+              org_id: input.orgId,
+              site_id: input.siteId,
+              component_id: input.componentId,
+              component_class: input.componentClass,
+              action: input.action,
+              index_name: dnIndexName(input.orgId),
+            },
+          },
+        ])
+        .catch(() => {});
       // Persist the vectorize id back to D1.
       await env.DB.prepare('UPDATE site_dna_feedback SET vectorize_id = ? WHERE id = ?')
-        .bind(id, id).run().catch(() => {});
+        .bind(id, id)
+        .run()
+        .catch(() => {});
       vectorized = true;
     }
   }
@@ -116,15 +143,34 @@ export async function recordDnaFeedback(env: Env, input: DnaFeedbackInput): Prom
 /**
  * Return top-K accepted component patterns for a site, grouped by component_class.
  * Used by the build orchestrator as a soft preference signal.
+ *
+ * @remarks Multi-tenant isolation — the query is scoped by BOTH `org_id` AND
+ * `site_id`, so a caller can only read the taste graph of a site their org
+ * owns. The `site_dna_feedback` table carries `org_id` (written by
+ * {@link recordDnaFeedback}); without the `org_id` predicate a caller could read
+ * another org's accepted-pattern signal by guessing a `siteId`. `topK` is
+ * clamped by the caller (route caps at 50) and interpolated as a validated
+ * integer, never user text.
+ * @param env            - Worker env (D1 binding)
+ * @param orgId          - the caller's org (from the authenticated context)
+ * @param siteId         - the site whose preferences are requested
+ * @param componentClass - optional class filter (e.g. `hero`, `cta`)
+ * @param topK           - max rows (caller-clamped)
+ * @returns accepted-pattern preferences for `(orgId, siteId)`, newest-weighted; `[]` on any DB error (defensive)
+ * @example
+ * ```ts
+ * const prefs = await getDnaPreferences(env, orgId, siteId, 'hero', 5);
+ * ```
  */
 export async function getDnaPreferences(
   env: Env,
+  orgId: string,
   siteId: string,
   componentClass?: string,
   topK = 10,
 ): Promise<DnaPreference[]> {
   const classFilter = componentClass ? 'AND component_class = ?' : '';
-  const params: string[] = componentClass ? [siteId, componentClass] : [siteId];
+  const params: string[] = componentClass ? [orgId, siteId, componentClass] : [orgId, siteId];
 
   const rows = await env.DB.prepare(
     `SELECT
@@ -135,13 +181,30 @@ export async function getDnaPreferences(
        MAX(created_at) AS last_seen_at,
        context_json
      FROM site_dna_feedback
-     WHERE site_id = ? AND deleted_at IS NULL ${classFilter}
+     WHERE org_id = ? AND site_id = ? AND deleted_at IS NULL ${classFilter}
      GROUP BY component_id, component_class, action
      ORDER BY count DESC
      LIMIT ${topK}`,
-  ).bind(...params)
-    .all<{ component_id: string; component_class: string; action: string; count: number; last_seen_at: string; context_json: string }>()
-    .catch(() => ({ results: [] as Array<{ component_id: string; component_class: string; action: string; count: number; last_seen_at: string; context_json: string }> }));
+  )
+    .bind(...params)
+    .all<{
+      component_id: string;
+      component_class: string;
+      action: string;
+      count: number;
+      last_seen_at: string;
+      context_json: string;
+    }>()
+    .catch(() => ({
+      results: [] as Array<{
+        component_id: string;
+        component_class: string;
+        action: string;
+        count: number;
+        last_seen_at: string;
+        context_json: string;
+      }>,
+    }));
 
   // Compute accept rate by pairing with reject counts.
   const countMap = new Map<string, { accept: number; reject: number; edit: number }>();
@@ -174,20 +237,54 @@ export async function getDnaPreferences(
 
 function safeJsonParse<T>(s: string | null | undefined, fallback: T): T {
   if (!s) return fallback;
-  try { return JSON.parse(s) as T; } catch { return fallback; }
+  try {
+    return JSON.parse(s) as T;
+  } catch {
+    return fallback;
+  }
 }
 
-/** List recent DNA feedback for a site (admin view). */
-export async function listDnaFeedback(
-  env: Env,
-  siteId: string,
-  limit = 50,
-) {
+/**
+ * List recent DNA feedback for a site (admin view).
+ *
+ * @remarks Multi-tenant isolation — scoped by BOTH `org_id` AND `site_id` (see
+ * {@link getDnaPreferences}). A foreign `siteId` (or a guessed one belonging to
+ * another org) matches zero rows.
+ * @param env    - Worker env (D1 binding)
+ * @param orgId  - the caller's org (from the authenticated context)
+ * @param siteId - the site whose feedback history is requested
+ * @param limit  - max rows (caller-clamped, route caps at 200)
+ * @returns recent feedback rows for `(orgId, siteId)`, newest-first; `[]` on any DB error (defensive)
+ * @example
+ * ```ts
+ * const history = await listDnaFeedback(env, orgId, siteId, 50);
+ * ```
+ */
+export async function listDnaFeedback(env: Env, orgId: string, siteId: string, limit = 50) {
   const rows = await env.DB.prepare(
-    'SELECT * FROM site_dna_feedback WHERE site_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT ?',
-  ).bind(siteId, limit)
-    .all<{ id: string; component_id: string; component_class: string; action: string; context_json: string; created_at: string; vectorize_id: string | null }>()
-    .catch(() => ({ results: [] as Array<{ id: string; component_id: string; component_class: string; action: string; context_json: string; created_at: string; vectorize_id: string | null }> }));
+    'SELECT * FROM site_dna_feedback WHERE org_id = ? AND site_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT ?',
+  )
+    .bind(orgId, siteId, limit)
+    .all<{
+      id: string;
+      component_id: string;
+      component_class: string;
+      action: string;
+      context_json: string;
+      created_at: string;
+      vectorize_id: string | null;
+    }>()
+    .catch(() => ({
+      results: [] as Array<{
+        id: string;
+        component_id: string;
+        component_class: string;
+        action: string;
+        context_json: string;
+        created_at: string;
+        vectorize_id: string | null;
+      }>,
+    }));
 
   return (rows.results ?? []).map((r) => ({
     ...r,

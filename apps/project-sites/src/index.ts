@@ -103,6 +103,22 @@ import { referralLoop } from '../libs/features/referral_loop/handlers.js';
 import { agencyWhiteLabel } from '../libs/features/agency_white_label/handlers.js';
 import { stripeMarketplace } from '../libs/features/stripe_marketplace/handlers.js';
 import { auditHashChain } from '../libs/features/audit_hash_chain/handlers.js';
+import { buildProgress } from '../libs/features/build_progress/handlers.js'; // #10 event-sourced + streamed build progress (flag: streaming_generation)
+import { tokenBurnMeter } from '../libs/features/token_burn_meter/handlers.js'; // #13 per-tenant token-burn meter + budget killswitch (flag: token_burn_meter)
+import { contactsCore } from '../libs/features/contacts_core/handlers.js'; // shared contacts/CRM core (flag: contacts_core)
+import { siteAnalytics } from '../libs/features/site_analytics/handlers.js'; // owner-facing per-site analytics summary (flag: site_analytics)
+import { visitorEvents } from '../libs/features/visitor_events_core/handlers.js'; // public pageview/event beacon ingest (flag: visitor_events_core)
+import { emailMarketing } from '../libs/features/email_marketing/handlers.js'; // real campaign send to consented audience (flag: email_marketing)
+import { dataExport } from '../libs/features/data_export/handlers.js'; // owner contacts CSV export (flag: data_export)
+import { donationsEngine } from '../libs/features/donations_engine/handlers.js'; // campaign + donor-CRM layer (flag: donations_engine)
+import { reviewSynthesis } from '../libs/features/review_synthesis/handlers.js'; // verified review synthesis + AggregateRating JSON-LD (flag: review_synthesis)
+// IDEAS-50 wave 3 — GEO + reputation + growth
+import { reputation } from '../libs/features/reputation/handlers.js'; // #10/#11/#13 review requests + responder + monitor
+import { affiliateProgram } from '../libs/features/affiliate_program/handlers.js'; // #32 50%-recurring affiliate program
+import { searchSubmit } from '../libs/features/search_submit/handlers.js'; // #3 IndexNow + Bing/Google submit on publish (flag: search_engine_submit)
+import { gbpAssist } from '../libs/features/gbp_assist/handlers.js'; // #9 Google Business Profile setup + optimizer (flag: gbp_assist)
+import { publicGallery } from '../libs/features/public_gallery/handlers.js'; // #34 public indexable gallery of opted-in sites (flag: public_gallery)
+import { multimodalIntake } from '../libs/features/multimodal_intake/handlers.js'; // #18 PARKED — booking-page photo+voice intake (flag: multimodal_intake, dark)
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbQueryOne, dbUpdate } from './services/db.js';
@@ -327,6 +343,28 @@ app.use(
   rateLimitMiddleware({ maxRequests: 60, windowSeconds: 60, prefix: 'rl:chat-state' }),
 );
 
+// ─── Read/stream parity (idea #19) ──────────────────────────
+// Polling + SSE GET endpoints were previously unthrottled. Workflow-status
+// and audit-log reads get a generous polling budget; SSE surfaces (build
+// progress + dashboard chat) get tighter budgets since each holds a
+// long-lived connection + (for chat) burns LLM tokens.
+app.use(
+  '/api/sites/:id/workflow',
+  rateLimitMiddleware({ maxRequests: 60, windowSeconds: 60, prefix: 'rl:workflow-status' }),
+);
+app.use(
+  '/api/sites/:id/logs',
+  rateLimitMiddleware({ maxRequests: 60, windowSeconds: 60, prefix: 'rl:site-logs' }),
+);
+app.use(
+  '/api/sites/:id/build/stream',
+  rateLimitMiddleware({ maxRequests: 30, windowSeconds: 60, prefix: 'rl:build-stream' }),
+);
+app.use(
+  '/api/dashboard/chat',
+  rateLimitMiddleware({ maxRequests: 20, windowSeconds: 60, prefix: 'rl:dashboard-chat' }),
+);
+
 // Auth middleware for API routes (sets userId/orgId if valid session)
 app.use('/api/*', authMiddleware);
 
@@ -398,6 +436,22 @@ app.route('/', referralLoop); // /api/referrals/* — built-in referral loop (id
 app.route('/', agencyWhiteLabel); // /api/agency-white-label/* — white-label agency tier (idea #34)
 app.route('/', stripeMarketplace); // /api/stripe-marketplace/* — Stripe App Marketplace manifest + OAuth callback (idea #36)
 app.route('/', auditHashChain); // /api/audit-chain/* — SHA-256 chained audit ledger (idea #46)
+app.route('/', buildProgress); // /api/sites/:id/build/{stream,events} — #10 event-sourced + streamed build progress (flag: streaming_generation). Must precede `api` so the :id/build/* suffix wins.
+app.route('/', tokenBurnMeter); // /api/usage/budget + /api/admin/usage/budget — #13 per-tenant token-burn meter + budget killswitch (flag: token_burn_meter)
+app.route('/', contactsCore); // /api/contacts{,/:id} — shared contacts/CRM core (flag: contacts_core)
+app.route('/', siteAnalytics); // /api/sites/:siteId/analytics — owner analytics summary (flag: site_analytics). Must precede `api` so the :siteId/analytics suffix wins.
+app.route('/', visitorEvents); // POST /api/v1/events — public beacon ingest (flag: visitor_events_core)
+app.route('/', emailMarketing); // /api/marketing/campaigns/:id/{recipients,send} + /api/marketing/unsubscribe — real campaign send (flag: email_marketing)
+app.route('/', dataExport); // /api/exports/contacts.csv — owner data portability (flag: data_export)
+app.route('/', donationsEngine); // /api/donations/campaigns{,/:id} — campaign + donor-CRM layer (flag: donations_engine)
+app.route('/', reviewSynthesis); // /api/reviews/:siteId{,/synthesize} — verified review synthesis + JSON-LD (flag: review_synthesis)
+// ── IDEAS-50 wave 3 mounts — must precede `api` so :id/* suffixes + /r/:code + /gallery win
+app.route('/', reputation); // /api/sites/:id/reputation/{review-request,reply-draft,monitor} — #10/#11/#13 (flags: review_requests/review_responder/reputation_monitor)
+app.route('/', affiliateProgram); // /api/affiliate/* + /r/:code attribution redirect — #32 (flag: affiliate_program)
+app.route('/', searchSubmit); // /api/sites/:id/search-submit + /{key}.txt IndexNow verify — #3 (flag: search_engine_submit)
+app.route('/', gbpAssist); // /api/sites/:id/gbp/* — #9 Google Business Profile assist (flag: gbp_assist)
+app.route('/', publicGallery); // /gallery + /gallery/sitemap.xml + /api/gallery — #34 (flag: public_gallery)
+app.route('/', multimodalIntake); // /api/sites/:id/intake — #18 PARKED, dark (flag: multimodal_intake @ 0%)
 
 app.route('/', api);
 app.route('/', webhooks);

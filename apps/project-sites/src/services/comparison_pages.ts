@@ -21,7 +21,35 @@ import {
   type PricingPlan,
 } from '../../libs/features/comparison_pages/feature.schemas.js';
 
-const FLAG_KEY = 'comparison_pages';
+/** Feature-flag key gating every Comparison Pages route. */
+export const FLAG_KEY = 'comparison_pages';
+
+// ─── Tenant ownership ────────────────────────────────────────────────
+
+/**
+ * Resolve the owning org of a site, for multi-tenant isolation checks.
+ *
+ * @remarks Defensive read — a missing/soft-deleted site returns `undefined`
+ * (caller maps that to a 404, never a throw). Handlers compare the result to
+ * the authenticated `orgId` so a caller can never read or mutate another org's
+ * competitors or comparison pages by guessing a `siteId`.
+ * @param env    - Worker env (D1 binding).
+ * @param siteId - The site whose owner is being resolved.
+ * @returns The owning `org_id`, or `undefined` when the site does not exist.
+ * @example
+ * ```ts
+ * const owner = await siteOrgId(env, siteId);
+ * if (!owner || owner !== orgId) return notFound(c);
+ * ```
+ */
+export async function siteOrgId(env: Env, siteId: string): Promise<string | undefined> {
+  const row = await dbQueryOne<{ org_id: string }>(
+    env.DB,
+    'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
+    [siteId],
+  );
+  return row?.org_id ?? undefined;
+}
 
 // ─── Competitor registry ─────────────────────────────────────────────
 
@@ -185,12 +213,12 @@ export async function refreshPricing(
   if (!(await isFlagOn(env, FLAG_KEY))) {
     return { refreshed: 0, failed: 0 };
   }
-  const slugFilter = competitorSlugs && competitorSlugs.length > 0
-    ? `AND slug IN (${competitorSlugs.map(() => '?').join(',')})`
-    : '';
-  const params = competitorSlugs && competitorSlugs.length > 0
-    ? [siteId, ...competitorSlugs]
-    : [siteId];
+  const slugFilter =
+    competitorSlugs && competitorSlugs.length > 0
+      ? `AND slug IN (${competitorSlugs.map(() => '?').join(',')})`
+      : '';
+  const params =
+    competitorSlugs && competitorSlugs.length > 0 ? [siteId, ...competitorSlugs] : [siteId];
   const { data } = await dbQuery<{ id: string; slug: string; pricing_url: string | null }>(
     env.DB,
     `SELECT id, slug, pricing_url FROM competitors

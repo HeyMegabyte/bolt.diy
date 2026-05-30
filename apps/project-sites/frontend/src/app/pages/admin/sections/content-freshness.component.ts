@@ -3,14 +3,34 @@
  *
  * Shows pending AI rewrite drafts for the owner to approve or reject.
  * Counts awaiting badge uses <app-rolling-counter>.
- * Rows are ≤36px, card padding ≤12px. View Transitions wired.
+ *
+ * ── PrimeNG reference migration ──────────────────────────────────────────
+ * This section is the canonical "table-heavy" PrimeNG migration example for
+ * the cockpit (see `PRIMENG_MIGRATION.md`). It maps the former hand-rolled
+ * patterns onto PrimeNG components, all themed black+cyan via `CockpitPreset`:
+ *   - hand-rolled `<table>`  → `p-table` (built-in sort + paginator + rows-per-page)
+ *   - status `<span>` pill   → `p-tag` (severity-driven, cockpit-tinted)
+ *   - filter `<button>` pills→ `p-selectButton` (single-select segmented control)
+ *   - action `<button>`s     → `p-button` (severity success/danger, sm, text)
+ *   - silent error swallow   → `p-toast` + `MessageService` (the prior code had a
+ *                              "toast would require ToastService injection" gap —
+ *                              now closed with PrimeNG's MessageService).
+ * Every PrimeNG surface inherits the cockpit cyan/near-black tokens; the
+ * `:host ::ng-deep` block only fine-tunes density to the cockpit's 13px/compact
+ * rhythm — no color overrides needed (the preset handles those).
  */
 
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { TableModule } from 'primeng/table';
+import { ButtonModule } from 'primeng/button';
+import { TagModule } from 'primeng/tag';
+import { SelectButtonModule } from 'primeng/selectbutton';
+import { ToastModule } from 'primeng/toast';
+import { MessageService } from 'primeng/api';
 import { AdminStateService } from '../admin-state.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
@@ -34,12 +54,30 @@ interface DraftsResponse {
 
 type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
 
+/** PrimeNG `p-tag` severity per draft status (drives the tag's color band). */
+type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
+
 @Component({
   selector: 'app-admin-content-freshness',
   standalone: true,
-  imports: [CommonModule, RouterLink, RollingCounterComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RollingCounterComponent,
+    TableModule,
+    ButtonModule,
+    TagModule,
+    SelectButtonModule,
+    ToastModule,
+  ],
+  // MessageService is the PrimeNG toast bus; provided at the component level so
+  // <p-toast> in this template gets a fresh, isolated queue.
+  providers: [MessageService],
   template: `
     <div class="cf-page" data-testid="content-freshness-section">
+
+      <!-- PrimeNG toast layer (cockpit-themed via CockpitPreset). -->
+      <p-toast position="bottom-right" />
 
       <!-- Header -->
       <header class="cf-header">
@@ -57,112 +95,111 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
           </p>
         </div>
         <div class="cf-header-actions">
-          <button class="cf-btn-outline" (click)="triggerScan()" [disabled]="triggering()">
-            @if (triggering()) { ⟳ Running… } @else { ↺ Run scan now }
-          </button>
-          <button class="cf-btn-refresh" (click)="load()" [disabled]="loading()">
-            ↻ Refresh
-          </button>
+          <p-button
+            label="Run scan now"
+            icon="pi pi-sync"
+            severity="secondary"
+            [outlined]="true"
+            size="small"
+            [loading]="triggering()"
+            (onClick)="triggerScan()" />
+          <p-button
+            label="Refresh"
+            icon="pi pi-refresh"
+            [text]="true"
+            size="small"
+            [loading]="loading()"
+            (onClick)="load()" />
         </div>
       </header>
 
-      <!-- Status filter pills -->
-      <div class="cf-pills" role="tablist" aria-label="Filter by status">
-        @for (s of statuses; track s) {
-          <button
-            class="cf-pill"
-            [class.cf-pill-active]="statusFilter() === s"
-            (click)="statusFilter.set(s); load()"
-            role="tab"
-            [attr.aria-selected]="statusFilter() === s">
-            {{ s }}
-          </button>
-        }
-      </div>
-
-      <!-- Loading state -->
-      @if (loading()) {
-        <div class="cf-loading" role="status" aria-live="polite">Loading drafts…</div>
-      }
+      <!-- Status filter — PrimeNG segmented single-select -->
+      <p-selectButton
+        class="cf-filter"
+        [options]="statusOptions"
+        [(ngModel)]="statusModel"
+        optionLabel="label"
+        optionValue="value"
+        [allowEmpty]="false"
+        (onChange)="onFilterChange($event.value)"
+        aria-label="Filter drafts by status" />
 
       <!-- Error state -->
       @if (error()) {
         <div class="cf-error" role="alert">{{ error() }}</div>
       }
 
-      <!-- Empty state -->
-      @if (!loading() && !error() && drafts().length === 0) {
-        <div class="cf-empty">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".35"><circle cx="12" cy="12" r="10"/><polyline points="16 12 12 8 8 12"/><line x1="12" y1="16" x2="12" y2="8"/></svg>
-          <p>No {{ statusFilter() }} drafts — sections are fresh.</p>
-        </div>
-      }
-
-      <!-- Draft table -->
-      @if (!loading() && drafts().length > 0) {
-        <div class="cf-table-wrap" role="region" aria-label="Content freshness drafts">
-          <table class="cf-table" aria-label="Drafts list">
-            <thead>
-              <tr>
-                <th scope="col">Section</th>
-                <th scope="col">Idle days</th>
-                <th scope="col">Avg dwell</th>
-                <th scope="col">Status</th>
-                <th scope="col">Created</th>
-                <th scope="col" class="cf-th-actions">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (d of drafts(); track d.id; let i = $index) {
-                <tr class="cf-row" [style.animation-delay.ms]="i * 35">
-                  <td class="cf-cell-key">
-                    <span class="cf-section-key" [attr.title]="d.section_key">{{ d.section_key }}</span>
-                  </td>
-                  <td class="cf-cell-num">
-                    <span class="cf-num">{{ d.idle_days }}d</span>
-                  </td>
-                  <td class="cf-cell-num">
-                    <span class="cf-num">{{ d.dwell_seconds_avg | number:'1.0-0' }}s</span>
-                  </td>
-                  <td>
-                    <span class="cf-status-pill" [attr.data-status]="d.status">{{ d.status }}</span>
-                  </td>
-                  <td class="cf-cell-date">{{ d.created_at | date:'MMM d' }}</td>
-                  <td class="cf-cell-actions">
-                    @if (d.status === 'pending') {
-                      <button
-                        class="cf-act-approve"
-                        (click)="approve(d.id)"
-                        [disabled]="acting().has(d.id)"
-                        aria-label="Approve rewrite for {{ d.section_key }}">
-                        Approve
-                      </button>
-                      <button
-                        class="cf-act-reject"
-                        (click)="reject(d.id)"
-                        [disabled]="acting().has(d.id)"
-                        aria-label="Reject rewrite for {{ d.section_key }}">
-                        Reject
-                      </button>
-                    } @else {
-                      <span class="cf-act-done">—</span>
-                    }
-                  </td>
-                </tr>
+      <!-- Draft table (PrimeNG) -->
+      <p-table
+        #dt
+        [value]="drafts()"
+        [loading]="loading()"
+        [paginator]="total() > limit"
+        [rows]="limit"
+        [totalRecords]="total()"
+        [lazy]="true"
+        (onLazyLoad)="onLazyLoad($event)"
+        [first]="(page() - 1) * limit"
+        dataKey="id"
+        styleClass="cf-grid p-datatable-sm"
+        [tableStyle]="{ 'min-width': '40rem' }"
+        data-testid="cf-table">
+        <ng-template #header>
+          <tr>
+            <th pSortableColumn="section_key">Section <p-sortIcon field="section_key" /></th>
+            <th pSortableColumn="idle_days" class="cf-num-col">Idle days <p-sortIcon field="idle_days" /></th>
+            <th pSortableColumn="dwell_seconds_avg" class="cf-num-col">Avg dwell <p-sortIcon field="dwell_seconds_avg" /></th>
+            <th pSortableColumn="status">Status <p-sortIcon field="status" /></th>
+            <th pSortableColumn="created_at">Created <p-sortIcon field="created_at" /></th>
+            <th class="cf-actions-col">Actions</th>
+          </tr>
+        </ng-template>
+        <ng-template #body let-d>
+          <tr>
+            <td>
+              <span class="cf-section-key" [attr.title]="d.section_key">{{ d.section_key }}</span>
+            </td>
+            <td class="cf-num-col"><span class="cf-num">{{ d.idle_days }}d</span></td>
+            <td class="cf-num-col"><span class="cf-num">{{ d.dwell_seconds_avg | number:'1.0-0' }}s</span></td>
+            <td>
+              <p-tag [value]="d.status" [severity]="statusSeverity(d.status)" [rounded]="true" />
+            </td>
+            <td class="cf-cell-date">{{ d.created_at | date:'MMM d' }}</td>
+            <td class="cf-actions-col">
+              @if (d.status === 'pending') {
+                <p-button
+                  label="Approve"
+                  severity="success"
+                  size="small"
+                  [text]="true"
+                  [loading]="acting().has(d.id)"
+                  (onClick)="approve(d.id)"
+                  [attr.aria-label]="'Approve rewrite for ' + d.section_key" />
+                <p-button
+                  label="Reject"
+                  severity="danger"
+                  size="small"
+                  [text]="true"
+                  [loading]="acting().has(d.id)"
+                  (onClick)="reject(d.id)"
+                  [attr.aria-label]="'Reject rewrite for ' + d.section_key" />
+              } @else {
+                <span class="cf-act-done">—</span>
               }
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Pagination -->
-        @if (total() > limit) {
-          <div class="cf-pagination">
-            <button class="cf-btn-outline" [disabled]="page() <= 1" (click)="prevPage()">← Prev</button>
-            <span class="cf-page-info">Page {{ page() }} of {{ totalPages() }}</span>
-            <button class="cf-btn-outline" [disabled]="page() >= totalPages()" (click)="nextPage()">Next →</button>
-          </div>
-        }
-      }
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template #emptymessage>
+          <tr>
+            <td colspan="6">
+              <div class="cf-empty">
+                <i class="pi pi-check-circle" style="font-size: 1.6rem; opacity: .35"></i>
+                <p>No {{ statusFilter() }} drafts — sections are fresh.</p>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
 
     </div>
   `,
@@ -181,6 +218,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
       from { opacity: 0; transform: translateY(10px); }
       to   { opacity: 1; transform: none; }
     }
+    @media (prefers-reduced-motion: reduce) { .cf-page { animation: none; } }
 
     .cf-header {
       display: flex;
@@ -192,118 +230,57 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
     }
     .cf-header-actions { display: flex; gap: .5rem; align-items: center; flex-shrink: 0; }
     .cf-eyebrow { font-size: .65rem; letter-spacing: .1em; color: var(--ps-accent); text-transform: uppercase; font-weight: 700; display: block; margin-bottom: .25rem; }
-    .cf-h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0 0 .25rem; }
+    .cf-h1 { font-size: 1.25rem; font-weight: 700; color: var(--ps-ink, #fff); margin: 0 0 .25rem; }
     .cf-sub { font-size: .75rem; color: rgba(244,244,255,.55); margin: 0; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
     .cf-badge {
       display: inline-flex; align-items: center; gap: .25rem;
-      background: rgba(0,229,255,.12); border: 1px solid rgba(0,229,255,.3);
+      background: var(--ps-accent-soft, rgba(0,229,255,.12)); border: 1px solid var(--ps-accent-line, rgba(0,229,255,.3));
       color: var(--ps-accent); font-weight: 700; font-size: .62rem;
       padding: .125rem .625rem; border-radius: 9999px; letter-spacing: .04em;
     }
 
-    .cf-btn-outline {
-      font-size: .72rem; font-weight: 600; padding: .35rem .75rem;
-      border: 1px solid rgba(0,229,255,.3); border-radius: 8px;
-      background: transparent; color: var(--ps-accent); cursor: pointer;
-      transition: border-color 200ms var(--ease), background 200ms var(--ease);
-    }
-    .cf-btn-outline:hover:not(:disabled) { background: rgba(0,229,255,.08); border-color: rgba(0,229,255,.6); }
-    .cf-btn-outline:disabled { opacity: .45; cursor: not-allowed; }
+    .cf-filter { display: block; margin-bottom: 1rem; }
 
-    .cf-btn-refresh { @extend .cf-btn-outline; }
-
-    .cf-pills {
-      display: flex; gap: .375rem; flex-wrap: wrap; margin-bottom: 1rem;
-    }
-    .cf-pill {
-      font-size: .65rem; font-weight: 700; padding: .2rem .6rem;
-      border-radius: 9999px; border: 1px solid rgba(255,255,255,.1);
-      background: transparent; color: rgba(244,244,255,.55);
-      cursor: pointer; text-transform: capitalize;
-      transition: all 180ms var(--ease);
-    }
-    .cf-pill:hover { color: var(--ps-accent); border-color: rgba(0,229,255,.3); }
-    .cf-pill-active { background: rgba(0,229,255,.12); color: var(--ps-accent); border-color: rgba(0,229,255,.35); }
-
-    .cf-loading, .cf-empty, .cf-error {
-      text-align: center; padding: 2.5rem 1rem;
-      color: rgba(244,244,255,.45); font-size: .8rem;
-    }
-    .cf-empty { display: flex; flex-direction: column; align-items: center; gap: .75rem; }
-    .cf-error { color: #f87171; }
-
-    .cf-table-wrap {
-      border: 1px solid rgba(255,255,255,.06); border-radius: 12px; overflow: hidden;
-    }
-    .cf-table { width: 100%; border-collapse: collapse; font-size: .72rem; }
-    .cf-table th {
-      background: rgba(255,255,255,.03); padding: .5rem .75rem;
-      color: rgba(244,244,255,.5); font-weight: 600; font-size: .65rem;
-      text-transform: uppercase; letter-spacing: .06em; text-align: left;
-      border-bottom: 1px solid rgba(255,255,255,.06);
-    }
-    .cf-th-actions { text-align: right; }
-
-    .cf-row {
-      border-bottom: 1px solid rgba(255,255,255,.04);
-      transition: background 180ms var(--ease);
-      animation: fadeUp 300ms var(--ease) both;
-    }
-    .cf-row:last-child { border-bottom: none; }
-    .cf-row:hover { background: rgba(255,255,255,.025); }
-
-    .cf-table td { padding: .45rem .75rem; vertical-align: middle; max-height: 36px; }
+    .cf-error { text-align: center; padding: 1.25rem 1rem; color: #f87171; font-size: .8rem; }
+    .cf-empty { display: flex; flex-direction: column; align-items: center; gap: .6rem; padding: 2rem 1rem; color: rgba(244,244,255,.45); font-size: .8rem; }
 
     .cf-section-key {
       font-family: 'JetBrains Mono', monospace; font-size: .68rem;
       color: rgba(244,244,255,.85); max-width: 160px;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;
     }
-    .cf-cell-num { color: rgba(244,244,255,.7); text-align: right; }
-    .cf-num { font-variant-numeric: tabular-nums; font-size: .72rem; }
+    .cf-num { font-variant-numeric: tabular-nums; font-size: .72rem; color: rgba(244,244,255,.8); }
+    .cf-num-col { text-align: right; }
     .cf-cell-date { color: rgba(244,244,255,.4); font-size: .68rem; white-space: nowrap; }
-    .cf-cell-actions { text-align: right; white-space: nowrap; }
-
-    .cf-status-pill {
-      font-size: .6rem; font-weight: 700; padding: .1rem .5rem;
-      border-radius: 9999px; text-transform: uppercase; letter-spacing: .04em;
-    }
-    .cf-status-pill[data-status='pending'] { background: rgba(234,179,8,.12); border: 1px solid rgba(234,179,8,.35); color: #fbbf24; }
-    .cf-status-pill[data-status='approved'], .cf-status-pill[data-status='published'] { background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.35); color: #4ade80; }
-    .cf-status-pill[data-status='rejected'] { background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.3); color: #f87171; }
-
-    .cf-act-approve {
-      font-size: .65rem; font-weight: 700; padding: .2rem .55rem;
-      border-radius: 6px; border: 1px solid rgba(34,197,94,.35);
-      background: rgba(34,197,94,.08); color: #4ade80; cursor: pointer;
-      transition: background 180ms; margin-right: .25rem;
-    }
-    .cf-act-approve:hover:not(:disabled) { background: rgba(34,197,94,.18); }
-    .cf-act-approve:disabled { opacity: .4; cursor: not-allowed; }
-
-    .cf-act-reject {
-      font-size: .65rem; font-weight: 700; padding: .2rem .55rem;
-      border-radius: 6px; border: 1px solid rgba(248,113,113,.3);
-      background: rgba(248,113,113,.07); color: #f87171; cursor: pointer;
-      transition: background 180ms;
-    }
-    .cf-act-reject:hover:not(:disabled) { background: rgba(248,113,113,.15); }
-    .cf-act-reject:disabled { opacity: .4; cursor: not-allowed; }
-
+    .cf-actions-col { text-align: right; white-space: nowrap; }
     .cf-act-done { color: rgba(244,244,255,.25); font-size: .68rem; }
 
-    .cf-pagination {
-      display: flex; align-items: center; justify-content: center;
-      gap: .75rem; margin-top: 1rem; font-size: .72rem;
+    /* ── Cockpit density tuning for the PrimeNG table ──────────────────────
+       Colors come from CockpitPreset (cyan/near-black). These rules only
+       compress the rhythm to the cockpit's 13px/compact spec; the unlayered
+       cascade ensures they win over PrimeNG's default sizing. */
+    :host ::ng-deep .cf-grid .p-datatable-thead > tr > th {
+      font-size: .65rem; text-transform: uppercase; letter-spacing: .06em;
+      padding: .5rem .75rem; font-weight: 600;
     }
-    .cf-page-info { color: rgba(244,244,255,.5); }
+    :host ::ng-deep .cf-grid .p-datatable-tbody > tr > td {
+      font-size: .72rem; padding: .45rem .75rem;
+    }
+    :host ::ng-deep .cf-grid .p-datatable-tbody > tr { transition: background 180ms var(--ease); }
+    :host ::ng-deep .cf-grid .p-button-sm { padding: .2rem .55rem; font-size: .65rem; }
   `],
 })
 export class AdminContentFreshnessComponent implements OnInit {
   private http = inject(HttpClient);
   private adminState = inject(AdminStateService);
+  private messages = inject(MessageService);
 
   readonly statuses: StatusFilter[] = ['pending', 'approved', 'published', 'rejected'];
+  /** Options for the `p-selectButton` filter (label/value pairs). */
+  readonly statusOptions = this.statuses.map((s) => ({
+    label: s.charAt(0).toUpperCase() + s.slice(1),
+    value: s,
+  }));
   readonly limit = 25;
 
   loading = signal(false);
@@ -313,6 +290,8 @@ export class AdminContentFreshnessComponent implements OnInit {
   total = signal(0);
   page = signal(1);
   statusFilter = signal<StatusFilter>('pending');
+  /** Plain ngModel mirror of `statusFilter` for the two-way p-selectButton bind. */
+  statusModel: StatusFilter = 'pending';
   acting = signal<Set<string>>(new Set());
 
   readonly pending = computed(() => {
@@ -324,6 +303,34 @@ export class AdminContentFreshnessComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+  }
+
+  /** SelectButton change → swap the active status filter and reload page 1. */
+  onFilterChange(value: StatusFilter): void {
+    this.statusFilter.set(value);
+    this.page.set(1);
+    this.load();
+  }
+
+  /** p-table lazy paginator → translate `first` offset into our 1-based page. */
+  onLazyLoad(ev: { first?: number }): void {
+    const first = ev.first ?? 0;
+    const nextPage = Math.floor(first / this.limit) + 1;
+    if (nextPage !== this.page()) {
+      this.page.set(nextPage);
+      this.load();
+    }
+  }
+
+  /** Map a draft status to its PrimeNG `p-tag` severity (cockpit-tinted). */
+  statusSeverity(status: FreshnessDraft['status']): TagSeverity {
+    switch (status) {
+      case 'pending': return 'warn';
+      case 'approved':
+      case 'published': return 'success';
+      case 'rejected': return 'danger';
+      default: return 'secondary';
+    }
   }
 
   async load(): Promise<void> {
@@ -350,8 +357,9 @@ export class AdminContentFreshnessComponent implements OnInit {
       await firstValueFrom(this.http.post(`/api/content/freshness/approve/${draftId}`, {}));
       this.drafts.update((list) => list.filter((d) => d.id !== draftId));
       this.total.update((t) => Math.max(0, t - 1));
+      this.messages.add({ severity: 'success', summary: 'Approved', detail: 'Rewrite queued to publish.' });
     } catch {
-      // Surface inline error silently for now — toast would require ToastService injection
+      this.messages.add({ severity: 'error', summary: 'Approve failed', detail: 'Try again in a moment.' });
     } finally {
       this.acting.update((s) => { const n = new Set(s); n.delete(draftId); return n; });
     }
@@ -363,8 +371,9 @@ export class AdminContentFreshnessComponent implements OnInit {
       await firstValueFrom(this.http.post(`/api/content/freshness/reject/${draftId}`, {}));
       this.drafts.update((list) => list.filter((d) => d.id !== draftId));
       this.total.update((t) => Math.max(0, t - 1));
+      this.messages.add({ severity: 'info', summary: 'Rejected', detail: 'Draft discarded.' });
     } catch {
-      /* silent */
+      this.messages.add({ severity: 'error', summary: 'Reject failed', detail: 'Try again in a moment.' });
     } finally {
       this.acting.update((s) => { const n = new Set(s); n.delete(draftId); return n; });
     }
@@ -374,24 +383,11 @@ export class AdminContentFreshnessComponent implements OnInit {
     this.triggering.set(true);
     try {
       await firstValueFrom(this.http.post('/api/content/freshness/trigger', {}));
+      this.messages.add({ severity: 'success', summary: 'Scan started', detail: 'New drafts appear shortly.' });
     } catch {
-      /* silent */
+      this.messages.add({ severity: 'error', summary: 'Scan failed', detail: 'Could not start the scan.' });
     } finally {
       this.triggering.set(false);
-    }
-  }
-
-  prevPage(): void {
-    if (this.page() > 1) {
-      this.page.update((p) => p - 1);
-      this.load();
-    }
-  }
-
-  nextPage(): void {
-    if (this.page() < this.totalPages()) {
-      this.page.update((p) => p + 1);
-      this.load();
     }
   }
 }

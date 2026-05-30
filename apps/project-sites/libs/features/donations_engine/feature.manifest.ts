@@ -1,12 +1,17 @@
 /**
  * @module libs/features/donations_engine
  *
- * Feature manifest for the Donations Engine.
- * Donorbox-class: one-time + recurring gifts, DAFpay (Donor-Advised Fund),
- * memorial gifts, embedded donate widget, Stripe Link Express Checkout.
+ * Feature manifest for the Donations Engine — the campaign + donor-CRM layer.
  *
- * This file is the registry entry only — NO source files are moved here.
- * Everything points at where existing implementation lives.
+ * Scope of THIS module: fundraising campaigns (goal/raised/donor-count progress)
+ * on the existing `donation_campaigns`/`donations` tables, plus `recordDonation`
+ * which captures the donor into `contacts_core` (5th consumer).
+ *
+ * Relationship to the legacy path: a one-shot Stripe checkout `POST /api/donate`
+ * already lives in `routes/search.ts` (no campaigns, no donor-CRM). This module
+ * does NOT replace it — it adds the campaign/progress + donor-capture layer that
+ * path lacks. Payment capture should converge on Square (per payments-routing)
+ * whose verified webhook calls `recordDonation`.
  */
 
 import { defineFeatureManifest } from '@projectsites/feature-manifests';
@@ -16,47 +21,34 @@ export default defineFeatureManifest({
   slug: 'donations_engine',
   name: 'Donations Engine',
   description:
-    'Donorbox-class fundraising: one-time + recurring gifts, DAFpay (Donor-Advised Fund routing), ' +
-    'memorial gifts, sandboxed donate widget iframe, Stripe Link Express Checkout with 1.5% platform fee.',
+    'Fundraising campaigns (goal/raised/donor-count) on the donation_campaigns/donations tables + recordDonation which ' +
+    'captures the donor into contacts_core (5th consumer). Complements the legacy one-shot Stripe /api/donate; payment capture converges on Square via webhook.',
   lifecycle: 'alpha',
   flagKey: 'donations_engine',
   owner: 'brian@megabyte.space',
   createdAt: '2026-05-28',
-  updatedAt: '2026-05-28',
+  updatedAt: '2026-05-29',
 
   // ---- surfaces ----
-  routes: [
-    // DRIFT: /admin/sites/:id/donations component not yet built
-  ],
+  routes: [],
   apiRoutes: [
-    'POST /api/donate',
-    'GET  /_widget/donate.js',
-    'GET  /_widget/donate/embed',
+    'POST /api/donations/campaigns',
+    'GET /api/donations/campaigns',
+    'GET /api/donations/campaigns/:id',
   ],
 
   // ---- governance ----
   permissions: ['billing:read', 'billing:write'],
-  dependencies: [],
+  dependencies: ['contacts_core'],
 
   // ---- tests ----
-  e2eTests: [
-    // Tangential coverage only — no dedicated donations spec yet
-    // DRIFT: e2e/donations_engine/ directory missing
-    'forms-handling-widget.spec.ts',
-  ],
-  unitTests: [
-    // billing.test.ts covers Stripe checkout session creation helpers (tangential).
-    // DRIFT: no dedicated donations unit test — needs src/__tests__/donations_engine.test.ts
-    '__tests__/billing.test.ts',
-  ],
+  e2eTests: [],
+  unitTests: ['../libs/features/donations_engine/__tests__/donations_engine.test.ts'],
   integrationTests: [],
   testStatus: 'partial',
 
   // ---- schemas ----
-  zodSchemas: [
-    // Donation body schema lives inline in routes/search.ts
-    // DRIFT: should be extracted to libs/features/donations_engine/schemas.ts
-  ],
+  zodSchemas: ['schemas.ts'],
 
   // ---- observability ----
   observability: {
@@ -73,16 +65,16 @@ export default defineFeatureManifest({
     },
     notes:
       'Experimental. Enable via /admin/feature-flags. ' +
-      'Beta after: dedicated D1 donations table + admin UI component + dedicated E2E spec.',
+      'Beta after: Square Web Payments capture → webhook calls recordDonation + admin campaign UI + dedicated E2E spec.',
   },
 
   risks: [
-    'Stripe Connect application_fee rate (1.5%) must not exceed platform limits.',
-    'Widget iframe served unconditionally — should be flag-gated on the serve path.',
-    'No dedicated D1 tables yet; uses subscriptions + Stripe as source of truth.',
+    'recordDonation must ONLY be called post-capture by a verified payment webhook — it is intentionally NOT a public route (no fabricated donations).',
+    'Coexists with the legacy Stripe /api/donate path; reconcile onto one rail (Square per payments-routing) before beta to avoid two donation systems.',
+    'D1 has no multi-statement transaction — donation insert + campaign-total bump are two statements; a crash between them under-counts a campaign total (rare; reconcilable from the donations rows).',
   ],
 
   removalNotes:
-    'Remove: routes/search.ts POST /api/donate handler, routes/public.ts /_widget/donate* handlers, ' +
-    'billing.ts Stripe Connect application_fee paths. Drop FLAG_REGISTRY entry.',
+    'Remove: this module, the donationsEngine app.route() mount in src/index.ts, and the donations_engine flag in registry.ts. ' +
+    'Legacy /api/donate (routes/search.ts) is separate. No migration to revert — uses existing donation_campaigns/donations tables.',
 });

@@ -79,7 +79,10 @@ export async function loadBrandSnapshot(env: Env, siteId: string): Promise<Brand
 // Prompt builder.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function buildPrompt(input: GenerateComponentInput, brand: BrandTokensSnapshot): {
+export function buildPrompt(
+  input: GenerateComponentInput,
+  brand: BrandTokensSnapshot,
+): {
   system: string;
   user: string;
 } {
@@ -225,7 +228,24 @@ export async function generateComponent(
 // Reads + lifecycle.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getComponent(env: Env, id: string): Promise<AiComponentRow | null> {
+/**
+ * Read a single component, scoped to the caller's org.
+ *
+ * @remarks Multi-tenant isolation: the `org_id = ?` filter means a caller can
+ * only ever read a component their org owns; a foreign id resolves to `null`
+ * (the route maps that to 404, never leaking another org's generated code).
+ * Every lifecycle mutation (`regenerate`/`publish`/`archive`) routes its
+ * ownership check through here, so the single filter protects them all.
+ * @param env   - Worker env (D1 binding).
+ * @param id    - Component id.
+ * @param orgId - The caller's org; the row MUST belong to it.
+ * @returns The validated row, or `null` when missing or owned by another org.
+ */
+export async function getComponent(
+  env: Env,
+  id: string,
+  orgId: string,
+): Promise<AiComponentRow | null> {
   const row = await dbQueryOne<Record<string, unknown>>(
     env.DB,
     `SELECT id, site_id, org_id, created_by, name, description, component_code,
@@ -233,22 +253,39 @@ export async function getComponent(env: Env, id: string): Promise<AiComponentRow
             published_to_marketplace, marketplace_plugin_id, generation_count,
             created_at, updated_at
        FROM ai_components
-       WHERE id = ? AND deleted_at IS NULL`,
-    [id],
+       WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
+    [id, orgId],
   );
   if (!row) return null;
   const parsed = AiComponentRowSchema.safeParse(row);
   return parsed.success ? parsed.data : null;
 }
 
-export async function listSiteComponents(env: Env, siteId: string, limit = 100): Promise<Array<{
-  id: string;
-  name: string;
-  description: string;
-  status: string;
-  created_at: string;
-  generation_count: number;
-}>> {
+/**
+ * List a site's components, scoped to the caller's org.
+ *
+ * @remarks The `org_id = ?` filter prevents a caller from listing another
+ * org's components by guessing a `siteId`.
+ * @param env    - Worker env (D1 binding).
+ * @param siteId - The site whose components to list.
+ * @param orgId  - The caller's org; rows are filtered to it.
+ * @param limit  - Max rows (capped at 500).
+ */
+export async function listSiteComponents(
+  env: Env,
+  siteId: string,
+  orgId: string,
+  limit = 100,
+): Promise<
+  Array<{
+    id: string;
+    name: string;
+    description: string;
+    status: string;
+    created_at: string;
+    generation_count: number;
+  }>
+> {
   const { data } = await dbQuery<{
     id: string;
     name: string;
@@ -260,10 +297,10 @@ export async function listSiteComponents(env: Env, siteId: string, limit = 100):
     env.DB,
     `SELECT id, name, description, status, created_at, generation_count
        FROM ai_components
-       WHERE site_id = ? AND deleted_at IS NULL
+       WHERE site_id = ? AND org_id = ? AND deleted_at IS NULL
        ORDER BY created_at DESC
        LIMIT ?`,
-    [siteId, Math.min(limit, 500)],
+    [siteId, orgId, Math.min(limit, 500)],
   );
   return data ?? [];
 }
@@ -276,8 +313,9 @@ export async function listSiteComponents(env: Env, siteId: string, limit = 100):
 export async function regenerateComponent(
   env: Env,
   componentId: string,
+  orgId: string,
 ): Promise<GenerateResult> {
-  const existing = await getComponent(env, componentId);
+  const existing = await getComponent(env, componentId, orgId);
   if (!existing) throw new Error('COMPONENT_NOT_FOUND');
 
   const brand = await loadBrandSnapshot(env, existing.site_id);
@@ -327,9 +365,10 @@ export async function publishComponent(
   env: Env,
   input: PublishComponentInput,
   userId: string,
+  orgId: string,
 ): Promise<{ ok: true; plugin_id: string }> {
   const validated = PublishComponentInputSchema.parse(input);
-  const component = await getComponent(env, validated.component_id);
+  const component = await getComponent(env, validated.component_id, orgId);
   if (!component) throw new Error('COMPONENT_NOT_FOUND');
   if (component.published_to_marketplace === 1) throw new Error('ALREADY_PUBLISHED');
   if (component.created_by !== userId) throw new Error('FORBIDDEN');
@@ -375,8 +414,13 @@ export async function publishComponent(
   return { ok: true, plugin_id: pluginId };
 }
 
-export async function archiveComponent(env: Env, id: string, userId: string): Promise<{ ok: true }> {
-  const existing = await getComponent(env, id);
+export async function archiveComponent(
+  env: Env,
+  id: string,
+  userId: string,
+  orgId: string,
+): Promise<{ ok: true }> {
+  const existing = await getComponent(env, id, orgId);
   if (!existing) throw new Error('COMPONENT_NOT_FOUND');
   if (existing.created_by !== userId) throw new Error('FORBIDDEN');
   await dbExecute(

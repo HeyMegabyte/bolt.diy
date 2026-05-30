@@ -23,6 +23,7 @@ import {
   installPlugin,
   listPlugins,
   listSiteInstalls,
+  siteOrgId,
   submitPlugin,
   uninstallPlugin,
 } from '../services/plugin_marketplace.js';
@@ -141,7 +142,9 @@ describe('submitPlugin', () => {
       env_vars: [
         { name: 'STRIPE_PUBLISHABLE_KEY', required: true, description: 'Publishable key' },
       ],
-      scripts: [{ position: 'head' as const, src: 'https://js.stripe.com/v3/', defer: false, async: false }],
+      scripts: [
+        { position: 'head' as const, src: 'https://js.stripe.com/v3/', defer: false, async: false },
+      ],
       permissions: [],
     },
     price_cents: 1_900,
@@ -197,7 +200,8 @@ describe('installPlugin', () => {
   };
 
   it('installs a paid plugin with payment + records 70/30 split', async () => {
-    mockQueryOne.mockResolvedValueOnce(livePlugin);
+    mockQueryOne.mockResolvedValueOnce(livePlugin); // getPlugin
+    mockQueryOne.mockResolvedValueOnce({ org_id: 'org_42' }); // siteOrgId — owned
     const env = makeEnv();
     const result = await installPlugin(
       env,
@@ -242,7 +246,8 @@ describe('installPlugin', () => {
   });
 
   it('installs free plugin without payment intent', async () => {
-    mockQueryOne.mockResolvedValueOnce({ ...livePlugin, price_cents: 0 });
+    mockQueryOne.mockResolvedValueOnce({ ...livePlugin, price_cents: 0 }); // getPlugin
+    mockQueryOne.mockResolvedValueOnce({ org_id: 'org_42' }); // siteOrgId — owned
     const env = makeEnv();
     const result = await installPlugin(
       env,
@@ -253,16 +258,45 @@ describe('installPlugin', () => {
     expect(result.price_paid_cents).toBe(0);
     expect(result.creator_share_cents).toBe(0);
   });
+
+  it('rejects installing onto a site owned by another org (tenant isolation)', async () => {
+    mockQueryOne.mockResolvedValueOnce({ ...livePlugin, price_cents: 0 }); // getPlugin
+    mockQueryOne.mockResolvedValueOnce({ org_id: 'OTHER_ORG' }); // siteOrgId — foreign
+    const env = makeEnv();
+    await expect(
+      installPlugin(
+        env,
+        { plugin_id: 'plg_free', site_id: 'site_other', config: {} },
+        'usr_installer',
+        'org_42',
+      ),
+    ).rejects.toThrow('SITE_NOT_OWNED');
+    expect(mockInsert).not.toHaveBeenCalled(); // blocked before any write
+  });
+
+  it('rejects installing onto a non-existent site', async () => {
+    mockQueryOne.mockResolvedValueOnce({ ...livePlugin, price_cents: 0 }); // getPlugin
+    mockQueryOne.mockResolvedValueOnce(null); // siteOrgId — missing
+    const env = makeEnv();
+    await expect(
+      installPlugin(
+        env,
+        { plugin_id: 'plg_free', site_id: 'ghost', config: {} },
+        'usr_installer',
+        'org_42',
+      ),
+    ).rejects.toThrow('SITE_NOT_OWNED');
+  });
 });
 
 // ---------------------------------------------------------------------------
 // uninstallPlugin
 // ---------------------------------------------------------------------------
 describe('uninstallPlugin', () => {
-  it('marks an install as uninstalled', async () => {
-    mockQueryOne.mockResolvedValueOnce({ id: 'plgi_1', uninstalled_at: null });
+  it('marks an install as uninstalled (org owns it)', async () => {
+    mockQueryOne.mockResolvedValueOnce({ id: 'plgi_1', org_id: 'org_1', uninstalled_at: null });
     const env = makeEnv();
-    const result = await uninstallPlugin(env, 'plgi_1', 'usr_owner');
+    const result = await uninstallPlugin(env, 'plgi_1', 'org_1');
     expect(result.ok).toBe(true);
     expect(mockUpdate).toHaveBeenCalledWith(
       env.DB,
@@ -276,13 +310,26 @@ describe('uninstallPlugin', () => {
   it('rejects when install missing', async () => {
     mockQueryOne.mockResolvedValueOnce(null);
     const env = makeEnv();
-    await expect(uninstallPlugin(env, 'plgi_missing', 'usr')).rejects.toThrow('INSTALL_NOT_FOUND');
+    await expect(uninstallPlugin(env, 'plgi_missing', 'org_1')).rejects.toThrow(
+      'INSTALL_NOT_FOUND',
+    );
+  });
+
+  it('rejects cross-org uninstall as not-found (tenant isolation)', async () => {
+    mockQueryOne.mockResolvedValueOnce({ id: 'plgi_1', org_id: 'OTHER_ORG', uninstalled_at: null });
+    const env = makeEnv();
+    await expect(uninstallPlugin(env, 'plgi_1', 'org_1')).rejects.toThrow('INSTALL_NOT_FOUND');
+    expect(mockUpdate).not.toHaveBeenCalled(); // never mutated another org's install
   });
 
   it('rejects when already uninstalled', async () => {
-    mockQueryOne.mockResolvedValueOnce({ id: 'plgi_1', uninstalled_at: '2026-05-27T00:00:00Z' });
+    mockQueryOne.mockResolvedValueOnce({
+      id: 'plgi_1',
+      org_id: 'org_1',
+      uninstalled_at: '2026-05-27T00:00:00Z',
+    });
     const env = makeEnv();
-    await expect(uninstallPlugin(env, 'plgi_1', 'usr')).rejects.toThrow('ALREADY_UNINSTALLED');
+    await expect(uninstallPlugin(env, 'plgi_1', 'org_1')).rejects.toThrow('ALREADY_UNINSTALLED');
   });
 });
 
@@ -393,5 +440,20 @@ describe('getPlugin', () => {
     const env = makeEnv();
     const result = await getPlugin(env, 'plg_missing');
     expect(result).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// siteOrgId
+// ---------------------------------------------------------------------------
+describe('siteOrgId', () => {
+  it('returns the owning org for an existing site', async () => {
+    mockQueryOne.mockResolvedValueOnce({ org_id: 'org_9' });
+    expect(await siteOrgId(makeEnv(), 'site_1')).toBe('org_9');
+  });
+
+  it('returns undefined for a missing site', async () => {
+    mockQueryOne.mockResolvedValueOnce(null);
+    expect(await siteOrgId(makeEnv(), 'ghost')).toBeUndefined();
   });
 });

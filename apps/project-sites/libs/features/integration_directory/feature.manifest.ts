@@ -37,9 +37,9 @@ export default defineFeatureManifest({
   dependencies: [],
 
   e2eTests: [],
-  unitTests: [],
+  unitTests: ['../libs/features/integration_directory/__tests__/integration_directory.test.ts'],
   integrationTests: [],
-  testStatus: 'not-started',
+  testStatus: 'passing',
 
   zodSchemas: ['libs/features/integration_directory/feature.schemas.ts'],
 

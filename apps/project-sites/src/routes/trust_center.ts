@@ -36,6 +36,7 @@ import {
   getEffectiveProfileForSite,
   upsertProfile,
   publishOrgProfile,
+  siteOrgId,
 } from '../services/trust_center.js';
 import { dbQueryOne } from '../services/db.js';
 
@@ -50,17 +51,11 @@ async function guard(c: AppContext, siteId?: string): Promise<Response | null> {
   const userId = c.get('userId');
   const orgId = c.get('orgId');
   if (!userId || !orgId) {
-    return c.json(
-      { error: { code: 'UNAUTHORIZED', message: 'Auth required' } },
-      401,
-    );
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
   }
   const on = await isFlagOn(c.env, FLAG_KEY, { siteId, orgId });
   if (!on) {
-    return c.json(
-      { error: { code: 'NOT_FOUND', message: 'Not found' } },
-      404,
-    );
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
   }
   return null;
 }
@@ -77,22 +72,18 @@ trustCenter.get('/api/trust/profile', async (c) => {
 
 // ─── PUT /api/trust/profile (org-level) ─────────────────────────────────────
 
-trustCenter.put(
-  '/api/trust/profile',
-  zValidator('json', TrustProfileUpdateSchema),
-  async (c) => {
-    const blocked = await guard(c);
-    if (blocked) return blocked;
-    const orgId = c.get('orgId')!;
-    const update = c.req.valid('json');
-    const profile = await upsertProfile(c.env, {
-      orgId,
-      siteId: null,
-      update,
-    });
-    return c.json({ data: profile });
-  },
-);
+trustCenter.put('/api/trust/profile', zValidator('json', TrustProfileUpdateSchema), async (c) => {
+  const blocked = await guard(c);
+  if (blocked) return blocked;
+  const orgId = c.get('orgId')!;
+  const update = c.req.valid('json');
+  const profile = await upsertProfile(c.env, {
+    orgId,
+    siteId: null,
+    update,
+  });
+  return c.json({ data: profile });
+});
 
 // ─── POST /api/trust/profile/publish ────────────────────────────────────────
 
@@ -136,6 +127,13 @@ trustCenter.put(
     const blocked = await guard(c, siteId);
     if (blocked) return blocked;
     const orgId = c.get('orgId')!;
+    // Tenant isolation: only create/update a per-site override for a site this
+    // org owns — otherwise a caller could write orphan `trust_profiles` rows
+    // referencing another org's site. Missing/foreign site → 404 (never leak).
+    const owner = await siteOrgId(c.env, siteId);
+    if (!owner || owner !== orgId) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
+    }
     const update = c.req.valid('json');
     const profile = await upsertProfile(c.env, {
       orgId,
@@ -170,10 +168,7 @@ trustCenter.get('/api/public/trust/:siteSlug', async (c) => {
     [siteSlug],
   );
   if (!site) {
-    return c.json(
-      { error: { code: 'NOT_FOUND', message: 'Not found' } },
-      404,
-    );
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
   }
 
   const flagOn = await isFlagOn(c.env, FLAG_KEY, {
@@ -181,18 +176,12 @@ trustCenter.get('/api/public/trust/:siteSlug', async (c) => {
     orgId: site.org_id,
   });
   if (!flagOn) {
-    return c.json(
-      { error: { code: 'NOT_FOUND', message: 'Not found' } },
-      404,
-    );
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
   }
 
   const profile = await getEffectiveProfileForSite(c.env, site.org_id, site.id);
   if (!profile || !profile.published) {
-    return c.json(
-      { error: { code: 'NOT_FOUND', message: 'Trust profile not published' } },
-      404,
-    );
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Trust profile not published' } }, 404);
   }
 
   const publicProfile = toPublicProfile(profile, site.slug);

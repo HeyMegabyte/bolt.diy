@@ -24,6 +24,7 @@ import {
   listBuyerPurchases,
   listTemplates,
   recordPurchase,
+  resolveReferrer,
   submitTemplate,
 } from '../services/template_marketplace.js';
 import {
@@ -193,7 +194,9 @@ describe('submitTemplate', () => {
   it('throws SLUG_TAKEN when slug already exists', async () => {
     mockQueryOne.mockResolvedValueOnce({ id: 'tpl_existing' });
     const env = makeEnv();
-    await expect(submitTemplate(env, validSubmission, 'usr_creator_1')).rejects.toThrow('SLUG_TAKEN');
+    await expect(submitTemplate(env, validSubmission, 'usr_creator_1')).rejects.toThrow(
+      'SLUG_TAKEN',
+    );
   });
 });
 
@@ -258,7 +261,8 @@ describe('recordPurchase', () => {
   it('records a referred sale with 50/50 creator/referrer split', async () => {
     mockQueryOne
       .mockResolvedValueOnce(null) // idempotency lookup
-      .mockResolvedValueOnce(mockApprovedTemplate); // getTemplate
+      .mockResolvedValueOnce(mockApprovedTemplate) // getTemplate
+      .mockResolvedValueOnce({ id: 'usr_referrer_1' }); // resolveReferrer — referrer exists
 
     const env = makeEnv();
     const result = await recordPurchase(
@@ -274,6 +278,52 @@ describe('recordPurchase', () => {
     expect(result.creator_share_cents).toBe(2_450);
     expect(result.referrer_share_cents).toBe(2_450);
     expect(result.platform_share_cents).toBe(0);
+  });
+
+  it('ignores self-referral — buyer cannot skim by naming themselves', async () => {
+    mockQueryOne
+      .mockResolvedValueOnce(null) // idempotency lookup
+      .mockResolvedValueOnce(mockApprovedTemplate); // getTemplate (no users lookup — short-circuits)
+
+    const env = makeEnv();
+    const result = await recordPurchase(
+      env,
+      {
+        template_id: 'tpl_modern_bakery',
+        stripe_payment_intent: 'pi_self_001',
+        referrer_user_id: 'usr_buyer_self', // == buyer
+      },
+      'usr_buyer_self',
+    );
+
+    expect(result.referrer_share_cents).toBe(0); // degraded to a direct sale
+    expect(result.creator_share_cents).toBe(4_900);
+    expect(mockInsert).toHaveBeenCalledWith(
+      env.DB,
+      'template_purchases',
+      expect.objectContaining({ referrer_user_id: null }),
+    );
+  });
+
+  it('ignores a non-existent referrer (no attributing revenue to a fake id)', async () => {
+    mockQueryOne
+      .mockResolvedValueOnce(null) // idempotency lookup
+      .mockResolvedValueOnce(mockApprovedTemplate) // getTemplate
+      .mockResolvedValueOnce(null); // resolveReferrer — referrer does NOT exist
+
+    const env = makeEnv();
+    const result = await recordPurchase(
+      env,
+      {
+        template_id: 'tpl_modern_bakery',
+        stripe_payment_intent: 'pi_fakeref_001',
+        referrer_user_id: 'usr_ghost',
+      },
+      'usr_buyer_9',
+    );
+
+    expect(result.referrer_share_cents).toBe(0);
+    expect(result.creator_share_cents).toBe(4_900);
   });
 
   it('is idempotent on the same Stripe PaymentIntent', async () => {
@@ -329,6 +379,31 @@ describe('recordPurchase', () => {
         'usr_buyer',
       ),
     ).rejects.toThrow('TEMPLATE_NOT_APPROVED');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveReferrer — referral-attribution integrity guard
+// ---------------------------------------------------------------------------
+describe('resolveReferrer', () => {
+  it('returns undefined when no referrer is supplied', async () => {
+    expect(await resolveReferrer(makeEnv(), undefined, 'usr_buyer')).toBeUndefined();
+  });
+
+  it('rejects self-referral without any DB lookup', async () => {
+    const env = makeEnv();
+    expect(await resolveReferrer(env, 'usr_buyer', 'usr_buyer')).toBeUndefined();
+    expect(mockQueryOne).not.toHaveBeenCalled();
+  });
+
+  it('returns the referrer when it exists and differs from the buyer', async () => {
+    mockQueryOne.mockResolvedValueOnce({ id: 'usr_ref' });
+    expect(await resolveReferrer(makeEnv(), 'usr_ref', 'usr_buyer')).toBe('usr_ref');
+  });
+
+  it('returns undefined when the referrer does not exist', async () => {
+    mockQueryOne.mockResolvedValueOnce(null);
+    expect(await resolveReferrer(makeEnv(), 'usr_ghost', 'usr_buyer')).toBeUndefined();
   });
 });
 
