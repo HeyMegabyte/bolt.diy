@@ -14,7 +14,13 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, forkJoin, map, of, startWith, switchMap } from 'rxjs';
-import { ApiService, type Site, type LogEntry, type FormSubmission } from '../../../services/api.service';
+import {
+  ApiService,
+  type Site,
+  type LogEntry,
+  type FormSubmission,
+  type AnalyticsData,
+} from '../../../services/api.service';
 import {
   HlmButtonDirective,
   HlmCardDirective,
@@ -25,6 +31,8 @@ import {
 } from '../../../ui';
 import { V2CodeViewerComponent } from './code-viewer.component';
 import { RelativeDatePipe } from './relative-date.pipe';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { V2BarComponent, type BarPoint } from './bar-chart.component';
 
 type DetailState =
   | { status: 'loading' }
@@ -44,6 +52,8 @@ type DetailState =
     HlmBadgeDirective,
     V2CodeViewerComponent,
     RelativeDatePipe,
+    RollingCounterComponent,
+    V2BarComponent,
   ],
   template: `
     <a routerLink="/admin/v2" hlmBtn variant="ghost" size="sm" class="mb-3" data-testid="v2-detail-back">← All sites</a>
@@ -128,6 +138,58 @@ type DetailState =
             }
           </div>
         }
+
+        @if (tab() === 'analytics') {
+          @if (!analytics()) {
+            <div hlmCard data-testid="v2-detail-analytics-empty">
+              <p hlmCardDescription>No analytics available for this site yet.</p>
+            </div>
+          } @else {
+            <section class="grid grid-cols-2 lg:grid-cols-4 gap-3" data-testid="v2-detail-analytics">
+              <div hlmCard>
+                <p hlmCardDescription class="uppercase tracking-wider text-[0.6rem]">Page views</p>
+                <p class="mt-1 text-2xl font-semibold tabular-nums text-foreground"><app-rolling-counter [value]="analytics()!.stats.pageViews" /></p>
+              </div>
+              <div hlmCard>
+                <p hlmCardDescription class="uppercase tracking-wider text-[0.6rem]">Unique visitors</p>
+                <p class="mt-1 text-2xl font-semibold tabular-nums text-foreground"><app-rolling-counter [value]="analytics()!.stats.uniqueVisitors" /></p>
+              </div>
+              <div hlmCard>
+                <p hlmCardDescription class="uppercase tracking-wider text-[0.6rem]">Bounce rate</p>
+                <p class="mt-1 text-2xl font-semibold tabular-nums text-foreground"><app-rolling-counter [value]="analytics()!.stats.bounceRate" suffix="%" /></p>
+              </div>
+              <div hlmCard>
+                <p hlmCardDescription class="uppercase tracking-wider text-[0.6rem]">Avg session</p>
+                <p class="mt-1 text-2xl font-semibold tabular-nums text-foreground">{{ analytics()!.stats.avgSessionDuration || '—' }}</p>
+              </div>
+            </section>
+
+            <div hlmCard class="mt-3">
+              <h3 hlmCardTitle>Traffic — last 7 days</h3>
+              @if (trafficBars().length === 0) {
+                <p hlmCardDescription class="mt-1">No traffic recorded in this window.</p>
+              } @else {
+                <div class="mt-3"><app-v2-bar [bars]="trafficBars()" /></div>
+              }
+            </div>
+
+            <div hlmCard class="mt-3">
+              <h3 hlmCardTitle>Top pages</h3>
+              @if (!analytics()!.topPages || analytics()!.topPages.length === 0) {
+                <p hlmCardDescription class="mt-1">No page-level data yet.</p>
+              } @else {
+                <ul class="mt-3 divide-y divide-border/50">
+                  @for (p of analytics()!.topPages; track p.path) {
+                    <li class="flex items-center justify-between py-1.5 text-sm">
+                      <span class="truncate text-foreground">{{ p.path }}</span>
+                      <span class="text-muted-foreground tabular-nums shrink-0">{{ p.views }}</span>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          }
+        }
       }
     }
   `,
@@ -178,8 +240,9 @@ export class V2SiteDetailComponent {
   protected readonly tabs = [
     { id: 'logs' as const, label: 'Logs' },
     { id: 'forms' as const, label: 'Forms' },
+    { id: 'analytics' as const, label: 'Analytics' },
   ];
-  protected readonly tab = signal<'logs' | 'forms'>('logs');
+  protected readonly tab = signal<'logs' | 'forms' | 'analytics'>('logs');
 
   /** Form submissions, reactive on the route :id (independent of the meta stream). */
   private readonly formsRaw = toSignal(
@@ -194,6 +257,23 @@ export class V2SiteDetailComponent {
     { initialValue: [] as FormSubmission[] },
   );
   protected readonly forms = computed(() => this.formsRaw());
+
+  /** Per-site analytics (7-day), reactive on :id. Null until loaded / on error. */
+  private readonly analyticsRaw = toSignal(
+    this.route.paramMap.pipe(
+      switchMap((pm) =>
+        this.api.getAnalytics(pm.get('id') ?? '', '7').pipe(
+          map((r) => r.data),
+          catchError(() => of(null)),
+        ),
+      ),
+    ),
+    { initialValue: null as AnalyticsData | null },
+  );
+  protected readonly analytics = computed(() => this.analyticsRaw());
+  protected readonly trafficBars = computed<BarPoint[]>(() =>
+    (this.analytics()?.chartData ?? []).map((p) => ({ label: this.shortDate(p.date), value: p.views })),
+  );
 
   protected shortDate(iso: string): string {
     if (!iso) return '—';
