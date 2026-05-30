@@ -105,6 +105,15 @@ interface NavItem {
     @if (showPalette()) {
       <app-command-palette (closed)="showPalette.set(false)" />
     }
+
+    <!-- Pre-warm: hidden throwaway iframe warms editor.projectsites.dev's TLS +
+         static assets so the per-site Editor section loads fast on first open
+         (BoltEmbedService technique). Mounted once with the persistent shell. -->
+    <iframe
+      src="https://editor.projectsites.dev/?embedded=true&prewarm=true"
+      aria-hidden="true" tabindex="-1" title="editor prewarm"
+      class="absolute -left-[9999px] top-0 w-px h-px opacity-0 pointer-events-none"
+      data-testid="v2-editor-prewarm"></iframe>
   `,
 })
 export class AdminV2ShellComponent {
