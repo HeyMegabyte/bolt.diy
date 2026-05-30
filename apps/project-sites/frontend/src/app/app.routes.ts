@@ -80,6 +80,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/site-forms.component').then((m) => m.V2SiteFormsComponent),
       },
       {
+        path: 'site/files',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/site-files.component').then((m) => m.V2SiteFilesComponent),
+      },
+      {
         path: 'analytics',
         loadComponent: () =>
           import('./pages/admin-v2/sections/analytics.component').then((m) => m.V2AnalyticsComponent),
