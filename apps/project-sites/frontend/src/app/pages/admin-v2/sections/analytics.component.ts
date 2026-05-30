@@ -23,6 +23,7 @@ import {
   type BadgeVariant,
 } from '../../../ui';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { V2DonutComponent, type DonutSlice } from './donut-chart.component';
 
 type Status = 'loading' | 'error' | 'ready';
 interface Bucket {
@@ -42,6 +43,7 @@ interface Bucket {
     HlmCardDescriptionDirective,
     HlmBadgeDirective,
     RollingCounterComponent,
+    V2DonutComponent,
   ],
   template: `
     @switch (status()) {
@@ -76,19 +78,22 @@ interface Bucket {
           @if (total() === 0) {
             <p hlmCardDescription class="mt-1">No sites to summarize yet.</p>
           } @else {
-            <ul class="mt-3 flex flex-col gap-2">
-              @for (b of buckets(); track b.label) {
-                <li class="flex items-center gap-3 text-sm">
-                  <span hlmBadge [variant]="b.variant" class="w-24 justify-center">{{ b.label }}</span>
-                  <div class="flex-1 h-2 rounded bg-card border border-border overflow-hidden">
-                    <div class="h-full bg-primary/60" [style.width.%]="pct(b.count)"></div>
-                  </div>
-                  <span class="w-10 text-right tabular-nums text-muted-foreground">
-                    <app-rolling-counter [value]="b.count" />
-                  </span>
-                </li>
-              }
-            </ul>
+            <div class="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
+              <ul class="flex flex-col gap-2">
+                @for (b of buckets(); track b.label) {
+                  <li class="flex items-center gap-3 text-sm">
+                    <span hlmBadge [variant]="b.variant" class="w-24 justify-center">{{ b.label }}</span>
+                    <div class="flex-1 h-2 rounded bg-card border border-border overflow-hidden">
+                      <div class="h-full bg-primary/60" [style.width.%]="pct(b.count)"></div>
+                    </div>
+                    <span class="w-10 text-right tabular-nums text-muted-foreground">
+                      <app-rolling-counter [value]="b.count" />
+                    </span>
+                  </li>
+                }
+              </ul>
+              <app-v2-donut [slices]="donutSlices()" title="Sites by status" data-testid="v2-analytics-donut" />
+            </div>
           }
         </div>
       }
@@ -142,6 +147,22 @@ export class V2AnalyticsComponent {
     { label: 'Draft', count: this.count((s) => s.status === 'draft' || s.status === 'collecting'), variant: 'neutral' },
     { label: 'Error', count: this.count((s) => s.status === 'error'), variant: 'danger' },
   ]);
+
+  /** Breakdown mapped to donut slices with cockpit-hex colors (helm tokens). */
+  protected readonly donutSlices = computed<DonutSlice[]>(() =>
+    this.buckets().map((b) => ({
+      name: b.label,
+      value: b.count,
+      color:
+        b.variant === 'success'
+          ? '#4dffb5'
+          : b.variant === 'info'
+            ? '#00e5ff'
+            : b.variant === 'danger'
+              ? '#ff4d6d'
+              : '#7aa7b3',
+    })),
+  );
 
   protected pct(count: number): number {
     const t = this.total();
