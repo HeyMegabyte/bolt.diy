@@ -70,6 +70,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/sites.component').then((m) => m.V2SitesComponent),
       },
       {
+        path: 'sites/:id',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/site-detail.component').then((m) => m.V2SiteDetailComponent),
+      },
+      {
         path: 'analytics',
         loadComponent: () =>
           import('./pages/admin-v2/sections/analytics.component').then((m) => m.V2AnalyticsComponent),

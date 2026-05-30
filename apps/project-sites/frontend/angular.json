@@ -78,7 +78,10 @@
             ],
             "scripts": [],
             "allowedCommonJsDependencies": ["jszip"],
-            "serviceWorker": "ngsw-config.json"
+            "serviceWorker": "ngsw-config.json",
+            "loader": {
+              ".ttf": "file"
+            }
           },
           "configurations": {
             "production": {

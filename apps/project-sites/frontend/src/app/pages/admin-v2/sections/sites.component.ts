@@ -117,7 +117,7 @@ type SitesState =
                     <td class="px-3 py-2 text-muted-foreground">{{ row.original.plan || '—' }}</td>
                     <td class="px-3 py-2 text-muted-foreground tabular-nums">{{ shortDate(row.original.created_at) }}</td>
                     <td class="px-3 py-2 text-right">
-                      <a routerLink="/admin/v2/domains" hlmBtn variant="ghost" size="sm">Open</a>
+                      <a [routerLink]="['/admin/v2/sites', row.original.id]" hlmBtn variant="ghost" size="sm">Open</a>
                     </td>
                   </tr>
                 }
