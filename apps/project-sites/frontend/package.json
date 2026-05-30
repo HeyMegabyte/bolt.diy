@@ -37,6 +37,7 @@
     "@codemirror/view": "^6.43.0",
     "@ngx-translate/core": "^17.0.0",
     "@ngx-translate/http-loader": "^17.0.0",
+    "@novu/js": "^3.16.0",
     "@primeuix/themes": "^2.0.3",
     "@sentry/angular": "^9.47.1",
     "@spartan-ng/brain": "^0.0.1-alpha.700",

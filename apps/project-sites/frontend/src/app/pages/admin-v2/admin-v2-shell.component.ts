@@ -24,12 +24,13 @@ import { ChangeDetectionStrategy, Component, HostListener, inject, signal } from
 import { Router, RouterModule } from '@angular/router';
 import { HlmButtonDirective } from '../../ui/button';
 import { CommandPaletteComponent } from '../../components/command-palette/command-palette.component';
+import { V2NotifBellComponent } from './sections/notif-bell.component';
 
 @Component({
   selector: 'app-admin-v2-shell',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterModule, HlmButtonDirective, CommandPaletteComponent],
+  imports: [RouterModule, HlmButtonDirective, CommandPaletteComponent, V2NotifBellComponent],
   host: { 'data-cockpit': 'v2', class: 'block min-h-screen bg-background text-foreground' },
   template: `
     <div class="flex min-h-screen">
@@ -62,6 +63,7 @@ import { CommandPaletteComponent } from '../../components/command-palette/comman
           </div>
           <div class="flex items-center gap-2">
             <button hlmBtn variant="outline" size="sm" data-testid="v2-search" (click)="openPalette()">⌘K Search</button>
+            <app-v2-notif-bell />
             <button hlmBtn variant="primary" size="sm" data-testid="v2-create" (click)="newSite()">+ New site</button>
           </div>
         </header>
