@@ -1351,6 +1351,22 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       version: result.version,
     });
 
+    // Notify the org owner that their AI-built site is live (ai.job.completed).
+    // In a step.do so workflow replay never double-sends. Best-effort.
+    await step.do('notify-owner-published', async () => {
+      try {
+        const { notifySiteOwner } = await import('../services/notify.js');
+        const r = await notifySiteOwner(env, env.DB, {
+          orgId: params.orgId,
+          subject: 'Your site is live 🎉',
+          body: `${params.businessName} is published at ${params.slug}.${DOMAINS.SITES_SUFFIX} (built in ${totalSeconds}s).`,
+        });
+        return r.ok ? 'sent' : `skipped:${r.detail ?? 'unknown'}`;
+      } catch {
+        return 'error';
+      }
+    });
+
     return {
       siteId: params.siteId,
       slug: params.slug,
