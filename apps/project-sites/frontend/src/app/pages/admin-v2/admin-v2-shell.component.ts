@@ -84,6 +84,7 @@ export class AdminV2ShellComponent {
   protected readonly nav = [
     { id: 'sites', label: 'Sites', link: '/admin/v2', exact: true },
     { id: 'analytics', label: 'Analytics', link: '/admin/v2/analytics', exact: false },
+    { id: 'media', label: 'Media', link: '/admin/v2/media', exact: false },
     { id: 'domains', label: 'Domains', link: '/admin/v2/domains', exact: false },
     { id: 'settings', label: 'Settings', link: '/admin/v2/settings', exact: false },
   ];

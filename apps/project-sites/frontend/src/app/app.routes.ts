@@ -80,6 +80,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/analytics.component').then((m) => m.V2AnalyticsComponent),
       },
       {
+        path: 'media',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/media.component').then((m) => m.V2MediaComponent),
+      },
+      {
         path: 'domains',
         loadComponent: () =>
           import('./pages/admin-v2/sections/domains.component').then((m) => m.V2DomainsComponent),
