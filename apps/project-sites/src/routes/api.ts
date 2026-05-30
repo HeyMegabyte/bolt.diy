@@ -1863,6 +1863,34 @@ api.post('/api/sites/:siteId/hostnames', async (c) => {
     /* fire-and-forget */
   }
 
+  // Fire-and-forget Novu notification to the user (bell + channels). Safe no-op
+  // without NOVU_SECRET_KEY; never affects the provisioning response.
+  try {
+    const actorId = c.get('userId');
+    if (actorId) {
+      const [{ notifyUser }, { dbQueryOne }] = await Promise.all([
+        import('../services/notify.js'),
+        import('../services/db.js'),
+      ]);
+      const owner = await dbQueryOne<{ email: string }>(
+        c.env.DB,
+        'SELECT email FROM users WHERE id = ?',
+        [actorId],
+      );
+      if (owner?.email) {
+        c.executionCtx.waitUntil(
+          notifyUser(c.env, {
+            subscriberId: owner.email,
+            subject: validated.type === 'custom_cname' ? 'Domain connected 🌐' : 'Subdomain ready 🌐',
+            body: `${result.hostname} is now connected to your site.`,
+          }),
+        );
+      }
+    }
+  } catch {
+    /* notification is best-effort */
+  }
+
   return c.json({ data: result }, 201);
 });
 
