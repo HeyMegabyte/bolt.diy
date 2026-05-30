@@ -109,6 +109,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/admin-v2/sections/settings.component').then((m) => m.V2SettingsComponent),
       },
+      {
+        path: '**',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/not-found.component').then((m) => m.V2NotFoundComponent),
+      },
     ],
   },
   {
