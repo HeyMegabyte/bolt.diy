@@ -12,7 +12,7 @@
  * @example Routed as the `''` (index) child under `/admin/v2`.
  */
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, map, of, startWith } from 'rxjs';
 import {
@@ -35,6 +35,7 @@ import {
   type BadgeVariant,
 } from '../../../ui';
 import { RelativeDatePipe } from './relative-date.pipe';
+import { V2SiteContextService } from '../v2-site-context.service';
 
 type SitesState =
   | { status: 'loading' }
@@ -111,7 +112,10 @@ type SitesState =
               <tbody>
                 @for (row of table.getRowModel().rows; track row.id) {
                   <tr class="border-b border-border/50 hover:bg-primary/5 transition-colors" data-testid="v2-site-row">
-                    <td class="px-3 py-2 font-medium text-foreground">{{ row.original.business_name }}</td>
+                    <td class="px-3 py-2 font-medium">
+                      <a [routerLink]="['/admin/v2/sites', row.original.id]"
+                         class="text-foreground hover:text-primary transition-colors">{{ row.original.business_name }}</a>
+                    </td>
                     <td class="px-3 py-2 text-muted-foreground">{{ row.original.slug }}.projectsites.dev</td>
                     <td class="px-3 py-2">
                       <span hlmBadge [variant]="badgeVariant(row.original.status)">{{ row.original.status }}</span>
@@ -119,7 +123,8 @@ type SitesState =
                     <td class="px-3 py-2 text-muted-foreground">{{ row.original.plan || '—' }}</td>
                     <td class="px-3 py-2 text-muted-foreground tabular-nums" [title]="shortDate(row.original.created_at)">{{ row.original.created_at | relativeDate }}</td>
                     <td class="px-3 py-2 text-right">
-                      <a [routerLink]="['/admin/v2/sites', row.original.id]" hlmBtn variant="ghost" size="sm">Open</a>
+                      <button hlmBtn variant="ghost" size="sm" (click)="openEditor(row.original)"
+                              [attr.data-testid]="'v2-site-edit-' + row.original.id">Edit →</button>
                     </td>
                   </tr>
                 }
@@ -133,7 +138,15 @@ type SitesState =
 })
 export class V2SitesComponent {
   private readonly api = inject(ApiService);
+  private readonly router = inject(Router);
+  private readonly ctx = inject(V2SiteContextService);
   protected readonly skeletons = [0, 1, 2, 3, 4, 5];
+
+  /** Pick this site as the active Project, then open it in the editor (main flow). */
+  protected openEditor(site: Site): void {
+    this.ctx.selectSite(site.id);
+    void this.router.navigate(['/admin/v2/site/editor']);
+  }
 
   protected readonly state = toSignal(
     this.api.listSites().pipe(
