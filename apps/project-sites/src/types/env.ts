@@ -315,6 +315,10 @@ export interface Env {
   // ── Novu (Notifications) ──────────────────────────────────
   /** Novu API key for multi-channel notifications. */
   NOVU_API_KEY?: string;
+  /** Novu secret/API key used server-side to trigger workflows (api.novu.co). */
+  NOVU_SECRET_KEY?: string;
+  /** Novu public application identifier (client-safe; mirrors the frontend bell). */
+  NOVU_APP_ID?: string;
 
   // ── GitHub (OAuth) ─────────────────────────────────────────
   /** GitHub OAuth App client ID. */

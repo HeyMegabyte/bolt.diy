@@ -4109,6 +4109,34 @@ api.post('/api/sites/:id/deploy', async (c) => {
     .bind(version, siteId)
     .run();
 
+  // Fire-and-forget Novu notification to the publisher (bell + channels).
+  // Safe no-op when NOVU_SECRET_KEY is unset; never blocks the publish response.
+  try {
+    const publisherId = c.get('userId');
+    if (publisherId) {
+      const [{ notifyUser }, { dbQueryOne }] = await Promise.all([
+        import('../services/notify.js'),
+        import('../services/db.js'),
+      ]);
+      const owner = await dbQueryOne<{ email: string }>(
+        c.env.DB,
+        'SELECT email FROM users WHERE id = ?',
+        [publisherId],
+      );
+      if (owner?.email) {
+        c.executionCtx.waitUntil(
+          notifyUser(c.env, {
+            subscriberId: owner.email,
+            subject: 'Site published 🎉',
+            body: `${slug}.projectsites.dev is now live (v${version}).`,
+          }),
+        );
+      }
+    }
+  } catch {
+    /* notification is best-effort; never affects publish */
+  }
+
   // Auto-create snapshot on each AI Edit publish with AI-generated name
   try {
     // Count existing snapshots to determine naming
