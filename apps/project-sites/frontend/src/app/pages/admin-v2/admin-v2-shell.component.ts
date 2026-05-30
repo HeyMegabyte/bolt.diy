@@ -114,6 +114,7 @@ export class AdminV2ShellComponent {
   /** Per-site editor surfaces (operate on the selected Project). */
   protected readonly siteNav: NavItem[] = [
     { id: 'sites', label: 'Sites', link: '/admin/v2', exact: true },
+    { id: 'site-forms', label: 'Forms', link: '/admin/v2/site/forms', exact: false },
   ];
 
   /** Org-wide / sys-admin surfaces. */
