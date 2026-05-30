@@ -75,6 +75,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/site-detail.component').then((m) => m.V2SiteDetailComponent),
       },
       {
+        path: 'site/editor',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/site-editor.component').then((m) => m.V2SiteEditorComponent),
+      },
+      {
         path: 'site/forms',
         loadComponent: () =>
           import('./pages/admin-v2/sections/site-forms.component').then((m) => m.V2SiteFormsComponent),
