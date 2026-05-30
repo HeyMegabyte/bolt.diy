@@ -10,11 +10,11 @@
  *
  * @example Routed as `sites/:id` under `/admin/v2`.
  */
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, forkJoin, map, of, startWith, switchMap } from 'rxjs';
-import { ApiService, type Site, type LogEntry } from '../../../services/api.service';
+import { ApiService, type Site, type LogEntry, type FormSubmission } from '../../../services/api.service';
 import {
   HlmButtonDirective,
   HlmCardDirective,
@@ -78,18 +78,56 @@ type DetailState =
           </dl>
         </div>
 
-        <div hlmCard class="mt-3" data-testid="v2-detail-logs">
-          <div class="flex items-center justify-between">
-            <h3 hlmCardTitle>Recent logs</h3>
-            <span class="text-xs text-muted-foreground tabular-nums">{{ logs().length }} entries</span>
-          </div>
-          @if (logs().length === 0) {
-            <p hlmCardDescription class="mt-1 mb-2">No log entries yet — showing an empty log stream.</p>
+        <!-- Tab bar -->
+        <div class="flex items-center gap-1 mt-4 mb-3 border-b border-border" role="tablist" data-testid="v2-detail-tabs">
+          @for (t of tabs; track t.id) {
+            <button hlmBtn variant="ghost" size="sm" role="tab" [attr.aria-selected]="tab() === t.id"
+                    class="rounded-b-none border-b-2 -mb-px"
+                    [class.border-primary]="tab() === t.id"
+                    [class.text-primary]="tab() === t.id"
+                    [class.border-transparent]="tab() !== t.id"
+                    (click)="tab.set(t.id)" [attr.data-testid]="'v2-detail-tab-' + t.id">{{ t.label }}</button>
           }
-          <div class="mt-2">
-            <app-v2-code-viewer [value]="logsJson()" language="json" [label]="'Logs for ' + site()!.business_name" />
-          </div>
         </div>
+
+        @if (tab() === 'logs') {
+          <div hlmCard data-testid="v2-detail-logs">
+            <div class="flex items-center justify-between">
+              <h3 hlmCardTitle>Recent logs</h3>
+              <span class="text-xs text-muted-foreground tabular-nums">{{ logs().length }} entries</span>
+            </div>
+            @if (logs().length === 0) {
+              <p hlmCardDescription class="mt-1 mb-2">No log entries yet — showing an empty log stream.</p>
+            }
+            <div class="mt-2">
+              <app-v2-code-viewer [value]="logsJson()" language="json" [label]="'Logs for ' + site()!.business_name" />
+            </div>
+          </div>
+        }
+
+        @if (tab() === 'forms') {
+          <div hlmCard data-testid="v2-detail-forms">
+            <div class="flex items-center justify-between">
+              <h3 hlmCardTitle>Form submissions</h3>
+              <span class="text-xs text-muted-foreground tabular-nums">{{ forms().length }}</span>
+            </div>
+            @if (forms().length === 0) {
+              <p hlmCardDescription class="mt-1">No form submissions yet.</p>
+            } @else {
+              <ul class="mt-3 divide-y divide-border/50">
+                @for (f of forms(); track f.id) {
+                  <li class="py-2 text-sm" data-testid="v2-detail-form-row">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="font-medium text-foreground truncate">{{ f.form_name || 'submission' }}</span>
+                      <span class="text-xs text-muted-foreground shrink-0 tabular-nums" [title]="f.created_at">{{ f.created_at | relativeDate }}</span>
+                    </div>
+                    @if (f.email) { <p class="text-xs text-muted-foreground mt-0.5 truncate">{{ f.email }}</p> }
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        }
       }
     }
   `,
@@ -135,6 +173,27 @@ export class V2SiteDetailComponent {
     const s = this.state();
     return s.status === 'error' ? s.message : '';
   });
+
+  // ── Per-site tabs ──────────────────────────────────────────
+  protected readonly tabs = [
+    { id: 'logs' as const, label: 'Logs' },
+    { id: 'forms' as const, label: 'Forms' },
+  ];
+  protected readonly tab = signal<'logs' | 'forms'>('logs');
+
+  /** Form submissions, reactive on the route :id (independent of the meta stream). */
+  private readonly formsRaw = toSignal(
+    this.route.paramMap.pipe(
+      switchMap((pm) =>
+        this.api.listFormSubmissions(pm.get('id') ?? '', 50).pipe(
+          map((r) => r.data ?? []),
+          catchError(() => of([] as FormSubmission[])),
+        ),
+      ),
+    ),
+    { initialValue: [] as FormSubmission[] },
+  );
+  protected readonly forms = computed(() => this.formsRaw());
 
   protected shortDate(iso: string): string {
     if (!iso) return '—';
