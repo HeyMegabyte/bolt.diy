@@ -20,8 +20,10 @@
  * create flow. Honors the global Cmd+K focus mandate via the palette's own
  * autofocus.
  */
-import { ChangeDetectionStrategy, Component, HostListener, inject, signal } from '@angular/core';
-import { Router, RouterModule } from '@angular/router';
+import { ChangeDetectionStrategy, Component, HostListener, computed, inject, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterModule } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map, startWith } from 'rxjs';
 import { HlmButtonDirective } from '../../ui/button';
 import { CommandPaletteComponent } from '../../components/command-palette/command-palette.component';
 import { V2NotifBellComponent } from './sections/notif-bell.component';
@@ -56,11 +58,16 @@ import { V2NotifBellComponent } from './sections/notif-bell.component';
       <div class="flex-1 min-w-0 flex flex-col">
         <!-- Top command bar (persistent) -->
         <header class="h-[56px] shrink-0 border-b border-border flex items-center justify-between px-5 bg-background/80 backdrop-blur sticky top-0 z-10" data-testid="v2-topbar">
-          <div class="flex items-center gap-2 text-sm text-muted-foreground">
-            <span class="text-foreground font-medium">Cockpit</span>
-            <span class="opacity-40">·</span>
-            <span>Spartan UI</span>
-          </div>
+          <nav class="flex items-center gap-2 text-sm text-muted-foreground" aria-label="Breadcrumb" data-testid="v2-breadcrumb">
+            @for (c of crumbs(); track c.label; let last = $last) {
+              @if (!last && c.link) {
+                <a [routerLink]="c.link" class="hover:text-foreground transition-colors">{{ c.label }}</a>
+              } @else {
+                <span class="text-foreground font-medium" aria-current="page">{{ c.label }}</span>
+              }
+              @if (!last) { <span class="opacity-40">/</span> }
+            }
+          </nav>
           <div class="flex items-center gap-2">
             <button hlmBtn variant="outline" size="sm" data-testid="v2-search" (click)="openPalette()">⌘K Search</button>
             <app-v2-notif-bell />
@@ -96,6 +103,28 @@ export class AdminV2ShellComponent {
   ];
 
   protected readonly showPalette = signal(false);
+
+  /** Current URL, reactive on navigation — drives the breadcrumb. */
+  private readonly currentUrl = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => e.urlAfterRedirects),
+      startWith(this.router.url),
+    ),
+    { initialValue: this.router.url },
+  );
+
+  /** Route-aware breadcrumb: Cockpit → Section (→ Site detail for sites/:id). */
+  protected readonly crumbs = computed<{ label: string; link?: string }[]>(() => {
+    const path = this.currentUrl().split('?')[0].split('#')[0];
+    const rest = path.replace(/^\/admin\/v2\/?/, '');
+    const segs = rest.split('/').filter(Boolean);
+    const base = { label: 'Cockpit', link: '/admin/v2' };
+    if (segs.length === 0) return [base, { label: 'Sites' }];
+    if (segs[0] === 'sites') return [base, { label: 'Sites', link: '/admin/v2' }, { label: 'Site detail' }];
+    const navItem = this.nav.find((n) => n.link === `/admin/v2/${segs[0]}`);
+    return [base, { label: navItem?.label ?? segs[0] }];
+  });
 
   /** Global Cmd/Ctrl+K toggles the palette (focus handled by the palette). */
   @HostListener('document:keydown', ['$event'])
