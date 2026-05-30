@@ -100,6 +100,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/cost.component').then((m) => m.V2CostComponent),
       },
       {
+        path: 'integrations',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/integrations.component').then((m) => m.V2IntegrationsComponent),
+      },
+      {
         path: 'settings',
         loadComponent: () =>
           import('./pages/admin-v2/sections/settings.component').then((m) => m.V2SettingsComponent),
