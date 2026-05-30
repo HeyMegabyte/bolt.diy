@@ -63,6 +63,28 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/admin-v2/admin-v2-shell.component').then((m) => m.AdminV2ShellComponent),
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/sites.component').then((m) => m.V2SitesComponent),
+      },
+      {
+        path: 'analytics',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/analytics.component').then((m) => m.V2AnalyticsComponent),
+      },
+      {
+        path: 'domains',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/domains.component').then((m) => m.V2DomainsComponent),
+      },
+      {
+        path: 'settings',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/settings.component').then((m) => m.V2SettingsComponent),
+      },
+    ],
   },
   {
     path: 'admin',
