@@ -12,8 +12,11 @@
  * header; per-site editor sections sit under **SITE**. `Meta/Ctrl+K` opens the
  * command palette; `+ New site` routes to create.
  */
-import { ChangeDetectionStrategy, Component, HostListener, inject, signal } from '@angular/core';
-import { Router, RouterModule } from '@angular/router';
+import { ChangeDetectionStrategy, Component, HostListener, computed, inject, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterModule } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map, startWith } from 'rxjs';
+import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { HlmButtonDirective } from '../../ui/button';
 import { HlmInputDirective } from '../../ui/input';
 import { CommandPaletteComponent } from '../../components/command-palette/command-palette.component';
@@ -26,6 +29,8 @@ interface NavItem {
   link: string;
   exact: boolean;
 }
+
+const EDITOR_BASE = 'https://editor.projectsites.dev';
 
 @Component({
   selector: 'app-admin-v2-shell',
@@ -96,8 +101,24 @@ interface NavItem {
           </div>
         </header>
 
-        <main class="flex-1 p-5" data-testid="v2-outlet">
-          <router-outlet />
+        <main class="flex-1 relative min-h-0" data-testid="v2-outlet">
+          <!-- Routed non-editor sections -->
+          <div class="h-full overflow-auto p-5" [class.hidden]="onEditorRoute()">
+            <router-outlet />
+          </div>
+
+          <!-- Warm-persistent editor iframe: ALWAYS mounted (boots the selected
+               site in the background → warm), shown only on /site/editor, hidden
+               (display:none, stays warm) elsewhere so nav back doesn't re-boot.
+               src changes only when the Project changes. -->
+          @if (editorUrl(); as url) {
+            <iframe
+              [src]="url"
+              [class.hidden]="!onEditorRoute()"
+              class="absolute inset-0 w-full h-full border-0 bg-background"
+              allow="clipboard-read; clipboard-write; microphone"
+              title="Site editor" data-testid="v2-editor-frame"></iframe>
+          }
         </main>
       </div>
     </div>
@@ -105,20 +126,46 @@ interface NavItem {
     @if (showPalette()) {
       <app-command-palette (closed)="showPalette.set(false)" />
     }
-
-    <!-- Pre-warm: hidden throwaway iframe warms editor.projectsites.dev's TLS +
-         static assets so the per-site Editor section loads fast on first open
-         (BoltEmbedService technique). Mounted once with the persistent shell. -->
-    <iframe
-      src="https://editor.projectsites.dev/?embedded=true&prewarm=true"
-      aria-hidden="true" tabindex="-1" title="editor prewarm"
-      class="absolute -left-[9999px] top-0 w-px h-px opacity-0 pointer-events-none"
-      data-testid="v2-editor-prewarm"></iframe>
   `,
 })
 export class AdminV2ShellComponent {
   private readonly router = inject(Router);
+  private readonly sanitizer = inject(DomSanitizer);
   protected readonly ctx = inject(V2SiteContextService);
+
+  /** Current URL, reactive on navigation. */
+  private readonly currentUrl = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => e.urlAfterRedirects),
+      startWith(this.router.url),
+    ),
+    { initialValue: this.router.url },
+  );
+
+  /** True on the per-site Editor route — toggles the shell-owned warm iframe. */
+  protected readonly onEditorRoute = computed(() =>
+    this.currentUrl().split('?')[0].split('#')[0].endsWith('/site/editor'),
+  );
+
+  /**
+   * Editor URL for the selected Project (same embed params as BoltEmbedService).
+   * The iframe stays mounted across nav; this only changes on Project switch.
+   */
+  protected readonly editorUrl = computed<SafeResourceUrl | null>(() => {
+    const site = this.ctx.selectedSite();
+    if (!site) return null;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://projectsites.dev';
+    const params = new URLSearchParams({
+      embedded: 'true',
+      hideHeader: 'true',
+      hideDiff: 'true',
+      hideDeploy: 'true',
+      slug: site.slug,
+      importChatFrom: `${origin}/api/sites/by-slug/${site.slug}/chat`,
+    });
+    return this.sanitizer.bypassSecurityTrustResourceUrl(`${EDITOR_BASE}/?${params.toString()}`);
+  });
 
   /** Per-site editor surfaces (operate on the selected Project). */
   protected readonly siteNav: NavItem[] = [
