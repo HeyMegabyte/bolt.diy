@@ -83,11 +83,12 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
   });
 
   test('every section navigates via SPA without a full reload or app console error', async ({ page }) => {
+    test.setTimeout(120_000); // ~30 sections × click+assert exceeds the 30s default
     const errs = trackErrors(page);
     await page.goto('/admin/v2', { waitUntil: 'domcontentloaded' });
 
     const sections = [
-      'overview', 'inbox', 'analytics', 'media', 'apps', 'social', 'domains', 'billing', 'cost', 'audit', 'integrations', 'mcp', 'docs', 'feature-flags', 'api-tokens', 'trust-center', 'site-dna', 'enterprise', 'settings',
+      'overview', 'inbox', 'analytics', 'media', 'apps', 'social', 'domains', 'billing', 'cost', 'audit', 'integrations', 'mcp', 'docs', 'feature-flags', 'api-tokens', 'trust-center', 'site-dna', 'enterprise', 'swarm', 'stripe-app', 'logs-explorer', 'settings',
       'site-forms', 'site-files', 'site-domains', 'site-build', 'site-snapshots', 'site-branches', 'site-ai-logs', 'site-ai-endpoints', 'site-voice', 'sites',
     ];
     for (const id of sections) {
@@ -141,6 +142,7 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
   });
 
   test('no WCAG A/AA axe violations on the shell + key sections', async ({ page }) => {
+    test.setTimeout(120_000); // axe over multiple sections exceeds the 30s default
     await page.goto('/admin/v2', { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('v2-sidebar')).toBeVisible({ timeout: 15000 });
     const tags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];

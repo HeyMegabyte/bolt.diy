@@ -193,6 +193,39 @@ export const routes: Routes = [
         },
       },
       {
+        path: 'swarm',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/advanced-feature.component').then((m) => m.V2AdvancedFeatureComponent),
+        data: {
+          title: 'Swarm',
+          blurb: 'Multi-agent concurrent builds — fan a site build out to specialist agents (content, SEO, a11y, perf, media) running in parallel, with per-run streaming + history.',
+          flagKey: 'multi_agent_concurrent',
+          legacyPath: 'swarm',
+        },
+      },
+      {
+        path: 'stripe-app',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/advanced-feature.component').then((m) => m.V2AdvancedFeatureComponent),
+        data: {
+          title: 'Stripe App',
+          blurb: 'Status of the ProjectSites Stripe App across your connected merchant accounts — installs, account associations, and a per-org summary.',
+          flagKey: 'stripe_app_status',
+          legacyPath: 'stripe-app-status',
+        },
+      },
+      {
+        path: 'logs-explorer',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/advanced-feature.component').then((m) => m.V2AdvancedFeatureComponent),
+        data: {
+          title: 'Logs Explorer',
+          blurb: 'Aggregate request + AI cost by route over a time window — spot the expensive + error-prone endpoints. Drill into structured logs with correlation IDs.',
+          flagKey: 'log_explorer',
+          legacyPath: 'logs-explorer',
+        },
+      },
+      {
         path: 'overview',
         loadComponent: () =>
           import('./pages/admin-v2/sections/overview.component').then((m) => m.V2OverviewComponent),

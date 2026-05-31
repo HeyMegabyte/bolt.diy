@@ -302,6 +302,9 @@ export class AdminV2ShellComponent {
     { id: 'trust-center', label: 'Trust Center', link: '/admin/v2/trust-center', exact: false },
     { id: 'site-dna', label: 'Site DNA', link: '/admin/v2/site-dna', exact: false },
     { id: 'enterprise', label: 'Enterprise', link: '/admin/v2/enterprise', exact: false },
+    { id: 'swarm', label: 'Swarm', link: '/admin/v2/swarm', exact: false },
+    { id: 'stripe-app', label: 'Stripe App', link: '/admin/v2/stripe-app', exact: false },
+    { id: 'logs-explorer', label: 'Logs Explorer', link: '/admin/v2/logs-explorer', exact: false },
     { id: 'settings', label: 'Settings', link: '/admin/v2/settings', exact: false },
   ];
 
