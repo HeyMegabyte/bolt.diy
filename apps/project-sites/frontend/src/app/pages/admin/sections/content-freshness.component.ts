@@ -28,7 +28,7 @@ import { firstValueFrom } from 'rxjs';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
-import { SelectButtonModule } from 'primeng/selectbutton';
+import { BrnToggleGroupImports } from '@spartan-ng/brain/toggle-group';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { AdminStateService } from '../admin-state.service';
@@ -67,7 +67,7 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
     TableModule,
     ButtonModule,
     TagModule,
-    SelectButtonModule,
+    ...BrnToggleGroupImports,
     ToastModule,
   ],
   // MessageService is the PrimeNG toast bus; provided at the component level so
@@ -113,16 +113,24 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
         </div>
       </header>
 
-      <!-- Status filter — PrimeNG segmented single-select -->
-      <p-selectButton
+      <!-- Status filter — Spartan (brain) toggle-group, single-select segmented -->
+      <div
+        brnToggleGroup
         class="cf-filter"
-        [options]="statusOptions"
-        [(ngModel)]="statusModel"
-        optionLabel="label"
-        optionValue="value"
-        [allowEmpty]="false"
-        (onChange)="onFilterChange($event.value)"
-        aria-label="Filter drafts by status" />
+        [value]="statusFilter()"
+        (valueChange)="onFilterChange($event)"
+        aria-label="Filter drafts by status">
+        @for (opt of statusOptions; track opt.value) {
+          <button
+            brnToggleGroupItem
+            [value]="opt.value"
+            class="cf-toggle"
+            [class.cf-toggle-active]="statusFilter() === opt.value"
+            [attr.data-testid]="'cf-filter-' + opt.value">
+            {{ opt.label }}
+          </button>
+        }
+      </div>
 
       <!-- Error state -->
       @if (error()) {
@@ -239,7 +247,24 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
       padding: .125rem .625rem; border-radius: 9999px; letter-spacing: .04em;
     }
 
-    .cf-filter { display: block; margin-bottom: 1rem; }
+    /* Spartan toggle-group status filter — dark+cyan-native segmented control
+       (replaced PrimeNG p-selectButton; no ::ng-deep needed, these are our
+       own buttons). Light ink on transparent; dark ink on the cyan active. */
+    .cf-filter {
+      display: inline-flex; gap: 4px; margin-bottom: 1rem; padding: 3px;
+      border-radius: 10px; background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(0, 229, 255, 0.12);
+    }
+    .cf-toggle {
+      appearance: none; border: 0; background: transparent; cursor: pointer;
+      color: var(--ps-ink, #f4f4ff); font-size: .72rem; font-weight: 600;
+      padding: 5px 12px; border-radius: 7px; letter-spacing: .01em;
+      transition: background .15s ease, color .15s ease;
+    }
+    .cf-toggle:hover { background: rgba(0, 229, 255, 0.08); }
+    .cf-toggle:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; }
+    .cf-toggle-active, .cf-toggle-active:hover { background: var(--ps-accent, #00e5ff); color: #060610; }
+    @media (prefers-reduced-motion: reduce) { .cf-toggle { transition: none; } }
 
     .cf-error { text-align: center; padding: 1.25rem 1rem; color: #f87171; font-size: .8rem; }
     .cf-empty { display: flex; flex-direction: column; align-items: center; gap: .6rem; padding: 2rem 1rem; color: rgba(244,244,255,.45); font-size: .8rem; }
@@ -259,20 +284,6 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
        Colors come from CockpitPreset (cyan/near-black). These rules only
        compress the rhythm to the cockpit's 13px/compact spec; the unlayered
        cascade ensures they win over PrimeNG's default sizing. */
-    /* a11y (WCAG AA) + cockpit theming: PrimeNG rendered the segmented status
-       filter on a LIGHT slate surface (#f1f5f9), so its labels failed contrast
-       on the dark dashboard. Make it dark+cyan-native: transparent unchecked
-       (light ink) + cyan checked (dark ink), per the text-contrast doctrine. */
-    :host ::ng-deep .cf-filter .p-togglebutton {
-      background: transparent;
-      border-color: rgba(0, 229, 255, 0.18);
-    }
-    :host ::ng-deep .cf-filter .p-togglebutton .p-togglebutton-label { color: var(--ps-ink, #f4f4ff); }
-    :host ::ng-deep .cf-filter .p-togglebutton-checked {
-      background: var(--ps-accent, #00e5ff);
-      border-color: var(--ps-accent, #00e5ff);
-    }
-    :host ::ng-deep .cf-filter .p-togglebutton-checked .p-togglebutton-label { color: #060610; }
 
     /* Cockpit dark surface — PrimeNG's default table theme renders light;
        force transparent/dark so it matches the dark dashboard. */
@@ -320,8 +331,6 @@ export class AdminContentFreshnessComponent implements OnInit {
   total = signal(0);
   page = signal(1);
   statusFilter = signal<StatusFilter>('pending');
-  /** Plain ngModel mirror of `statusFilter` for the two-way p-selectButton bind. */
-  statusModel: StatusFilter = 'pending';
   acting = signal<Set<string>>(new Set());
 
   readonly pending = computed(() => {
@@ -335,9 +344,15 @@ export class AdminContentFreshnessComponent implements OnInit {
     this.load();
   }
 
-  /** SelectButton change → swap the active status filter and reload page 1. */
-  onFilterChange(value: StatusFilter): void {
-    this.statusFilter.set(value);
+  /**
+   * Toggle-group change → swap the active status filter and reload page 1.
+   * Single-select with no empty state: ignore a deselect (undefined) or an
+   * unchanged value so the filter always has exactly one active status.
+   */
+  onFilterChange(value: unknown): void {
+    const next = Array.isArray(value) ? value[0] : value;
+    if (typeof next !== 'string' || next === this.statusFilter()) return;
+    this.statusFilter.set(next as StatusFilter);
     this.page.set(1);
     this.load();
   }

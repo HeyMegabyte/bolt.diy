@@ -92,6 +92,17 @@ test.describe('legacy /admin — interaction sweep (clicks must not crash)', () 
     const auditCrash = await page.locator('[data-testid="section-error-boundary"]').count();
     expect(auditCrash, 'audit mounted without crash').toBe(0);
 
+    // content-freshness — the Spartan toggle-group status filter switches state
+    await page.goto('/admin/content-freshness', { waitUntil: 'load' });
+    await page.waitForTimeout(800);
+    const approved = page.locator('[data-testid="cf-filter-approved"]');
+    if (await approved.isVisible().catch(() => false)) {
+      await approved.click();
+      await page.waitForTimeout(400);
+      await expect(approved, 'cf toggle reflects the active selection').toHaveClass(/cf-toggle-active/);
+      expect(await page.locator('[data-testid="section-error-boundary"]').count(), 'content-freshness toggle did not crash').toBe(0);
+    }
+
     expect(errs, errs.join('\n')).toEqual([]);
   });
 
