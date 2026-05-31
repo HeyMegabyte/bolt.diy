@@ -125,7 +125,12 @@ type SitesState =
                     </td>
                     <td class="px-3 py-2 text-muted-foreground">{{ row.original.plan || '—' }}</td>
                     <td class="px-3 py-2 text-muted-foreground tabular-nums" [title]="shortDate(row.original.created_at)">{{ row.original.created_at | relativeDate }}</td>
-                    <td class="px-3 py-2 text-right">
+                    <td class="px-3 py-2 text-right whitespace-nowrap">
+                      <a [href]="'https://' + row.original.slug + '.projectsites.dev'" target="_blank" rel="noopener noreferrer"
+                         hlmBtn variant="ghost" size="sm" class="hidden sm:inline-flex"
+                         [attr.data-testid]="'v2-site-open-' + row.original.id"
+                         [attr.aria-label]="'Open ' + row.original.business_name + ' live site in a new tab'"
+                         (click)="$event.stopPropagation()">Open ↗</a>
                       <button hlmBtn variant="ghost" size="sm" (click)="openEditor(row.original)"
                               [attr.data-testid]="'v2-site-edit-' + row.original.id">Edit →</button>
                     </td>
