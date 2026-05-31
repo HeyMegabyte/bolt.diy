@@ -2434,10 +2434,18 @@ export class AdminBillingComponent implements OnInit {
     };
     for (const s of sites) {
       this.api
-        .get<{ data: McpConnectionLite[] }>(`/sites/${s.id}/mcp/connections`)
+        .get<{ data: McpConnectionLite[] | { connections?: McpConnectionLite[] } }>(`/sites/${s.id}/mcp/connections`)
         .subscribe({
           next: (r) => {
-            const list = r?.data ?? [];
+            // The worker returns `{ data: { providers, connections } }` — an
+            // object, NOT an array. `?? []` only guards null/undefined, so a
+            // truthy object slipped through and crashed `.some` (taking the
+            // whole Billing section down via the error boundary). Read the
+            // `connections` array; tolerate a bare-array shape too.
+            const d = r?.data as unknown;
+            const list: McpConnectionLite[] = Array.isArray(d)
+              ? d
+              : ((d as { connections?: McpConnectionLite[] })?.connections ?? []);
             if (list.some((c) => c.provider === 'slack')) {
               found = true;
               this.slackConnected.set(true);

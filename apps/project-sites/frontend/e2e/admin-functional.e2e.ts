@@ -133,6 +133,11 @@ test.describe('legacy /admin — functional sweep (every section works)', () => 
       // section painted real content (not a blank outlet)
       const contentLen = await page.evaluate(() => (document.body.textContent ?? '').trim().length);
       expect(contentLen, `${s.label} rendered content`).toBeGreaterThan(120);
+      // section did NOT crash into the error boundary (the boundary swallows
+      // the throw, so an uncaught-pageerror check alone misses it — assert the
+      // fallback isn't shown). Caught the Billing `.some` crash.
+      const crashed = await page.locator('[data-testid="section-error-boundary"]').count();
+      expect(crashed, `${s.label} must not crash into the section error boundary`).toBe(0);
     }
 
     // ---- report the full picture in one place ----
