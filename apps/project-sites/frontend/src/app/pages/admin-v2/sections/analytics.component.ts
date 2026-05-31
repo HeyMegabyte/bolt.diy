@@ -46,6 +46,11 @@ interface Bucket {
     V2DonutComponent,
   ],
   template: `
+    <div class="mb-3">
+      <h2 class="text-lg font-semibold text-foreground">Analytics</h2>
+      <p class="text-sm text-muted-foreground">Site totals across your org</p>
+    </div>
+
     @switch (status()) {
       @case ('loading') {
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3" data-testid="v2-analytics-loading">

@@ -40,6 +40,11 @@ type CostState =
     V2BarComponent,
   ],
   template: `
+    <div class="mb-3">
+      <h2 class="text-lg font-semibold text-foreground">Cost</h2>
+      <p class="text-sm text-muted-foreground">AI build &amp; usage spend forecast</p>
+    </div>
+
     @switch (state().status) {
       @case ('loading') {
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3" data-testid="v2-cost-loading">
