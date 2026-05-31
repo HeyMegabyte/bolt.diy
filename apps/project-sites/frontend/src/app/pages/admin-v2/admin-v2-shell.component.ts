@@ -323,16 +323,21 @@ export class AdminV2ShellComponent {
 
   /** Rows shown in the `?` shortcuts overlay. */
   protected readonly shortcutList = [
-    { label: 'Command palette', keys: '⌘K' },
+    { label: 'Jump to any section', keys: '⌘K' },
     { label: 'This help', keys: '?' },
-    { label: 'Go to Editor', keys: 'g e' },
-    { label: 'Go to Sites', keys: 'g s' },
-    { label: 'Go to Forms', keys: 'g f' },
-    { label: 'Go to Files', keys: 'g i' },
-    { label: 'Go to Domains', keys: 'g d' },
-    { label: 'Go to Build', keys: 'g b' },
-    { label: 'Go to Analytics', keys: 'g a' },
-    { label: 'Go to Cost', keys: 'g c' },
+    { label: 'Overview', keys: 'g o' },
+    { label: 'Sites', keys: 'g s' },
+    { label: 'Editor', keys: 'g e' },
+    { label: 'Forms', keys: 'g f' },
+    { label: 'Files', keys: 'g i' },
+    { label: 'Domains', keys: 'g d' },
+    { label: 'Build', keys: 'g b' },
+    { label: 'Analytics', keys: 'g a' },
+    { label: 'Media', keys: 'g m' },
+    { label: 'Cost', keys: 'g c' },
+    { label: 'Audit', keys: 'g u' },
+    { label: 'Integrations', keys: 'g n' },
+    { label: 'Settings', keys: 'g t' },
   ];
   /** Mobile off-canvas sidebar (md+ is always static/visible). */
   protected readonly sidebarOpen = signal(false);
@@ -378,6 +383,7 @@ export class AdminV2ShellComponent {
     i: '/admin/v2/site/files',
     d: '/admin/v2/site/domains',
     b: '/admin/v2/site/build',
+    o: '/admin/v2/overview',
     a: '/admin/v2/analytics',
     m: '/admin/v2/media',
     c: '/admin/v2/cost',
@@ -388,8 +394,9 @@ export class AdminV2ShellComponent {
 
   /**
    * Keyboard: ⌘/Ctrl+K palette · `?` shortcuts help · `g` then a key jumps to a
-   * section (e=editor, s=sites, f=forms, i=files, d=domains, b=build, a=analytics,
-   * m=media, c=cost, u=audit, n=integrations, t=settings). Ignored while typing.
+   * section (o=overview, e=editor, s=sites, f=forms, i=files, d=domains, b=build,
+   * a=analytics, m=media, c=cost, u=audit, n=integrations, t=settings). ⌘K reaches
+   * every section by search. Ignored while typing.
    */
   @HostListener('document:keydown', ['$event'])
   protected onKeydown(e: KeyboardEvent): void {
