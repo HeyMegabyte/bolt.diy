@@ -144,6 +144,27 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     }
   });
 
+  test('mobile (390px): sidebar collapses to an off-canvas drawer', async ({ page }) => {
+    const errs = trackErrors(page);
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.goto('/admin/v2', { waitUntil: 'domcontentloaded' });
+
+    const toggle = page.getByTestId('v2-menu-toggle');
+    const sidebar = page.getByTestId('v2-sidebar');
+    await expect(toggle).toBeVisible(); // hamburger only on mobile
+    // closed → off-canvas (negative x)
+    await expect.poll(async () => (await sidebar.boundingBox())?.x ?? 0).toBeLessThan(0);
+
+    await toggle.click();
+    await expect(page.getByTestId('v2-sidebar-backdrop')).toBeVisible();
+    await expect.poll(async () => (await sidebar.boundingBox())?.x ?? -999).toBeGreaterThanOrEqual(0);
+
+    // selecting a section closes the drawer
+    await page.getByTestId('v2-nav-analytics').click();
+    await expect(page.getByTestId('v2-sidebar-backdrop')).toBeHidden();
+    expect(errs, errs.join('\n')).toEqual([]);
+  });
+
   test('Sites → Edit selects the Project and opens the editor', async ({ page }) => {
     const errs = trackErrors(page);
     await page.goto('/admin/v2', { waitUntil: 'domcontentloaded' });
