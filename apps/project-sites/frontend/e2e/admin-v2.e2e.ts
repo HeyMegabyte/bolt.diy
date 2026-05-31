@@ -129,7 +129,10 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     await expect(page.getByTestId('v2-sidebar')).toBeVisible();
     const tags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 
-    for (const nav of [null, 'analytics', 'billing', 'audit', 'integrations']) {
+    for (const nav of [
+      null, 'analytics', 'billing', 'audit', 'integrations', 'cost', 'media', 'domains', 'settings',
+      'site-forms', 'site-files', 'site-domains', 'site-build',
+    ]) {
       if (nav) {
         await page.getByTestId(`v2-nav-${nav}`).click();
         await expect(page.getByTestId('v2-sidebar')).toBeVisible();
