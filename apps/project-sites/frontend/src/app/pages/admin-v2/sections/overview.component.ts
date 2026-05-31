@@ -24,6 +24,7 @@ import {
   HlmBadgeDirective,
 } from '../../../ui';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { V2DonutComponent, type DonutSlice } from './donut-chart.component';
 
 interface OverviewData {
   sites: Site[];
@@ -54,6 +55,7 @@ interface QuickLink {
     HlmCardDescriptionDirective,
     HlmBadgeDirective,
     RollingCounterComponent,
+    V2DonutComponent,
   ],
   template: `
     <div class="mb-3">
@@ -89,6 +91,14 @@ interface QuickLink {
             </div>
           }
         </section>
+
+        <!-- Sites-by-status donut -->
+        @if (sitesTotal() > 0) {
+          <div hlmCard class="mt-3" data-testid="v2-overview-donut">
+            <h3 hlmCardTitle>Sites by status</h3>
+            <div class="mt-2"><app-v2-donut [slices]="donutSlices()" title="Sites by status" /></div>
+          </div>
+        }
 
         <!-- Needs attention -->
         @if (errorSites().length > 0) {
@@ -176,6 +186,19 @@ export class V2OverviewComponent {
 
   private readonly sites = computed(() => this.data()?.sites ?? []);
   protected readonly errorSites = computed(() => this.sites().filter((s) => s.status === 'error'));
+  protected readonly sitesTotal = computed(() => this.sites().length);
+
+  /** Sites grouped by status → cockpit-hex donut slices (zero-buckets dropped). */
+  protected readonly donutSlices = computed<DonutSlice[]>(() => {
+    const sites = this.sites();
+    const n = (pred: (s: Site) => boolean) => sites.filter(pred).length;
+    return [
+      { name: 'Published', value: n((s) => s.status === 'published'), color: '#4dffb5' },
+      { name: 'Building', value: n((s) => s.status === 'building' || s.status === 'generating'), color: '#00e5ff' },
+      { name: 'Draft', value: n((s) => s.status === 'draft' || s.status === 'collecting'), color: '#7aa7b3' },
+      { name: 'Error', value: n((s) => s.status === 'error'), color: '#ff4d6d' },
+    ].filter((slice) => slice.value > 0);
+  });
 
   protected readonly stats = computed(() => {
     const d = this.data();
