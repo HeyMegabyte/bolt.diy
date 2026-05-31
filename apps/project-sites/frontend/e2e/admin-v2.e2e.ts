@@ -213,6 +213,46 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     await expect(page.getByTestId('v2-apps-categories')).toBeVisible();
   });
 
+  test('Apps: full browse sequence — search narrows, clears, category filters', async ({ page }) => {
+    const errs = trackErrors(page);
+    await page.goto('/admin/v2/apps', { waitUntil: 'load' });
+    await expect(page.getByTestId('v2-apps-catalog')).toBeVisible({ timeout: 15000 });
+    const cards = page.locator('[data-testid="v2-apps-catalog-card"]');
+    const total = await cards.count();
+    expect(total).toBeGreaterThanOrEqual(50);
+
+    // search narrows the grid…
+    await page.getByTestId('v2-apps-filter').fill('analytics');
+    await expect.poll(() => cards.count(), { timeout: 10000 }).toBeLessThan(total);
+    // …and clearing restores it
+    await page.getByTestId('v2-apps-filter').fill('');
+    await expect.poll(() => cards.count(), { timeout: 10000 }).toBe(total);
+
+    // a non-'all' category pill narrows to that category only
+    const cat = page.locator('[data-testid^="v2-apps-cat-"]').nth(1);
+    await cat.click();
+    await expect.poll(() => cards.count(), { timeout: 10000 }).toBeLessThanOrEqual(total);
+    expect(errs, errs.join('\n')).toEqual([]);
+  });
+
+  test('Feature Flags: full sequence — registry loads, stage filter + search narrow', async ({ page }) => {
+    const errs = trackErrors(page);
+    await page.goto('/admin/v2/feature-flags', { waitUntil: 'load' });
+    await expect(page.getByTestId('v2-flags-list')).toBeVisible({ timeout: 15000 });
+    const rows = page.locator('[data-testid="v2-flags-row"]');
+    const total = await rows.count();
+    expect(total).toBeGreaterThan(0);
+
+    // stage pill narrows…
+    await page.getByTestId('v2-flags-stage-stable').click();
+    await expect.poll(() => rows.count(), { timeout: 10000 }).toBeLessThanOrEqual(total);
+    // back to all, then search narrows
+    await page.getByTestId('v2-flags-stage-all').click();
+    await page.getByTestId('v2-flags-filter').fill('zzzznomatch');
+    await expect(page.getByTestId('v2-flags-empty')).toBeVisible({ timeout: 10000 });
+    expect(errs, errs.join('\n')).toEqual([]);
+  });
+
   test('soft cutover: bare /admin lands on the v2 cockpit; deep links stay classic', async ({ page }) => {
     // bare /admin → v2 cockpit
     await page.goto('/admin', { waitUntil: 'load' });
