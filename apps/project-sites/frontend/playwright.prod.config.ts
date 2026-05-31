@@ -13,7 +13,9 @@ export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.e2e.ts',
   fullyParallel: true,
-  retries: 1,
+  // 2 retries: this targets the LIVE site whose persistent editor iframe adds
+  // first-load network time, so the first attempt can be timing-flaky.
+  retries: 2,
   reporter: [['line']],
   use: {
     baseURL: process.env.PROD_URL || 'https://projectsites.dev',
