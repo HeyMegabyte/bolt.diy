@@ -1,9 +1,9 @@
-import { Component, inject, signal, computed, ElementRef, ViewChild, type AfterViewInit, type OnDestroy, EventEmitter, Output } from '@angular/core';
+import { Component, inject, input, signal, computed, ElementRef, ViewChild, type AfterViewInit, type OnDestroy, EventEmitter, Output } from '@angular/core';
 import { Router } from '@angular/router';
 import { scaleFade, listStagger } from '../../animations/motion';
 import { FocusTrapDirective } from '../../directives/focus-trap.directive';
 
-interface PaletteCommand {
+export interface PaletteCommand {
   id: string;
   label: string;
   icon: string;
@@ -215,15 +215,23 @@ export class CommandPaletteComponent implements AfterViewInit, OnDestroy {
   @Output() closed = new EventEmitter<void>();
   @Output() showShortcuts = new EventEmitter<void>();
 
+  /** Caller-supplied commands appended to the defaults (e.g. the v2 cockpit's
+   * 27 sections), so ⌘K can fuzzy-jump anywhere. Default empty → marketing
+   * palette is unchanged. */
+  readonly extraCommands = input<PaletteCommand[]>([]);
+
   private router = inject(Router);
 
   query = signal('');
   activeIndex = signal(0);
 
+  private readonly all = computed(() => [...COMMANDS, ...this.extraCommands()]);
+
   filtered = computed(() => {
     const q = this.query().toLowerCase().trim();
-    if (!q) return COMMANDS;
-    return COMMANDS.filter(
+    const all = this.all();
+    if (!q) return all;
+    return all.filter(
       cmd => cmd.label.toLowerCase().includes(q) || (cmd.route?.toLowerCase().includes(q) ?? false)
     );
   });

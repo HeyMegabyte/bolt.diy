@@ -20,7 +20,7 @@ import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { HlmButtonDirective } from '../../ui/button';
 import { HlmInputDirective } from '../../ui/input';
 import { HlmCardDirective, HlmCardTitleDirective } from '../../ui/card';
-import { CommandPaletteComponent } from '../../components/command-palette/command-palette.component';
+import { CommandPaletteComponent, type PaletteCommand } from '../../components/command-palette/command-palette.component';
 import { V2NotifBellComponent } from './sections/notif-bell.component';
 import { V2SiteContextService } from './v2-site-context.service';
 
@@ -180,7 +180,7 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
     }
 
     @if (showPalette()) {
-      <app-command-palette (closed)="showPalette.set(false)" />
+      <app-command-palette [extraCommands]="paletteSections" (closed)="showPalette.set(false)" />
     }
 
     @if (showHelp()) {
@@ -311,6 +311,12 @@ export class AdminV2ShellComponent {
     }
     return sites.length;
   }
+
+  /** Every cockpit section as a ⌘K command — site group prefixed to disambiguate. */
+  protected readonly paletteSections: PaletteCommand[] = [
+    ...this.siteNav.map((n) => ({ id: `v2-${n.id}`, label: `Site · ${n.label}`, icon: 'dashboard', route: n.link })),
+    ...this.sysNav.map((n) => ({ id: `v2-${n.id}`, label: n.label, icon: 'dashboard', route: n.link })),
+  ];
 
   protected readonly showPalette = signal(false);
   protected readonly copied = signal(false);
