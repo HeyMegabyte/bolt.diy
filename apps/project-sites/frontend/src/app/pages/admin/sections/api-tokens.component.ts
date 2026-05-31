@@ -370,6 +370,23 @@ const ALL_SCOPES = [
     .at-revoke-warn { font-size: 13px; color: rgba(244,244,255,0.7); margin: 0; }
     @media (prefers-reduced-motion: reduce) { .at-spinner { animation: none; } }
 
+    /* ── a11y (WCAG 2.2 AA contrast) for PrimeNG buttons on the cockpit ────
+       Confirmed failures: the cyan-fill primary button rendered WHITE labels
+       (white on #00e5ff ≈ 1.4:1) and the secondary-outlined button rendered
+       muted slate (#64748b ≈ 4:1). Dark ink on the light cyan fill + ink on
+       the outlined button, per the text-contrast doctrine (light accent →
+       dark text). Scoped to this component. */
+    :host ::ng-deep .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-secondary):not(.p-button-danger),
+    :host ::ng-deep .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-secondary):not(.p-button-danger) .p-button-label,
+    :host ::ng-deep .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-secondary):not(.p-button-danger) .p-button-icon {
+      color: #060610;
+    }
+    :host ::ng-deep .p-button-outlined.p-button-secondary,
+    :host ::ng-deep .p-button-outlined.p-button-secondary .p-button-label,
+    :host ::ng-deep .p-button-outlined.p-button-secondary .p-button-icon {
+      color: var(--ps-ink, #f4f4ff);
+    }
+
     /* ── Cockpit dark surface + density for the PrimeNG table ──────────────
        PrimeNG's default datatable theme renders on a LIGHT surface, which broke
        the dark cockpit here (white table on a black dashboard). Force every

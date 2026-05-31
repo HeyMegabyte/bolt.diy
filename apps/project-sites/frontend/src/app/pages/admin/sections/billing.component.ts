@@ -702,6 +702,7 @@ interface ForecastBar {
               </div>
               <div class="h-1.5 rounded-full overflow-hidden bg-white/8"
                    role="progressbar"
+                   [attr.aria-label]="'Usage ' + fv.percent_of_cap + '% of monthly cap'"
                    [attr.aria-valuenow]="fv.percent_of_cap"
                    aria-valuemin="0"
                    aria-valuemax="100">
