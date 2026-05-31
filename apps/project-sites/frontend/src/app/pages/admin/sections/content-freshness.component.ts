@@ -321,6 +321,10 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
     :host ::ng-deep .cf-grid .p-datatable-tbody > tr { transition: background 180ms var(--ease); }
     :host ::ng-deep .cf-grid .p-datatable-tbody > tr:hover > td { background: rgba(0,229,255,0.04); }
     /* Action buttons are Spartan hlmBtn (size=sm owns its own padding/typography). */
+    .cf-header-actions .pi, .cf-actions-col .pi { font-size: .7rem; }
+    @keyframes cf-spin { to { transform: rotate(360deg); } }
+    .cf-spin { display: inline-block; animation: cf-spin .8s linear infinite; }
+    @media (prefers-reduced-motion: reduce) { .cf-spin { animation: none; } }
   `],
 })
 export class AdminContentFreshnessComponent implements OnInit {
