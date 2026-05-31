@@ -127,6 +127,14 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
             }
           </div>
           <div class="flex items-center gap-2 shrink-0">
+            @if (navCount('building') > 0) {
+              <span class="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[0.7rem] font-medium text-primary tabular-nums"
+                    data-testid="v2-building-chip" role="status" aria-live="polite"
+                    [attr.aria-label]="navCount('building') + ' sites building now'">
+                <span class="h-1.5 w-1.5 rounded-full bg-primary animate-pulse motion-reduce:animate-none"></span>
+                {{ navCount('building') }} building
+              </span>
+            }
             @if (liveUrl(); as url) {
               <button hlmBtn variant="ghost" size="sm" (click)="copyLive(url)" data-testid="v2-copy-url"
                       [attr.aria-label]="'Copy ' + url">{{ copied() ? '✓ Copied' : 'Copy URL' }}</button>
