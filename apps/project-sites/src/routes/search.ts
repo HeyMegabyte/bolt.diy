@@ -981,9 +981,9 @@ search.post('/api/contact-form/:slug', async (c) => {
 
   try {
     const { dbQueryOne } = await import('../services/db.js');
-    const site = await dbQueryOne<{ id: string; business_name: string; contact_email?: string }>(
+    const site = await dbQueryOne<{ id: string; org_id: string; business_name: string; contact_email?: string }>(
       c.env.DB,
-      'SELECT id, business_name, contact_email FROM sites WHERE slug = ? AND deleted_at IS NULL',
+      'SELECT id, org_id, business_name, contact_email FROM sites WHERE slug = ? AND deleted_at IS NULL',
       [slug],
     );
     if (!site) return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
@@ -1027,6 +1027,23 @@ search.post('/api/contact-form/:slug', async (c) => {
           html: htmlBody,
         }),
       });
+    }
+
+    // In-app bell notification to the site owner (Novu backbone) — a contact
+    // submission is a high-value event the owner wants surfaced in the admin.
+    // Additive + guarded + fire-and-forget; never blocks the form response.
+    if (site.org_id) {
+      try {
+        const { notifySiteOwner } = await import('../services/notify.js');
+        const p = notifySiteOwner(c.env, c.env.DB, {
+          orgId: site.org_id,
+          subject: `New message from ${body.name} ✉️`,
+          body: `${body.name} (${body.email}) contacted you via ${site.business_name}.`,
+        });
+        try { c.executionCtx.waitUntil(p); } catch { void p; }
+      } catch {
+        /* notify is best-effort — email already sent above */
+      }
     }
 
     return c.json({ data: { success: true } });
