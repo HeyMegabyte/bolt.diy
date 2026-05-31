@@ -308,6 +308,31 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     expect(errs, errs.join('\n')).toEqual([]);
   });
 
+  test('Sites table: filter narrows, sort toggles, row Edit opens the editor', async ({ page }) => {
+    const errs = trackErrors(page);
+    await page.goto('/admin/v2', { waitUntil: 'load' });
+    await expect(page.getByTestId('v2-site-table')).toBeVisible({ timeout: 15000 });
+    const rows = page.locator('[data-testid="v2-site-row"]');
+    const total = await rows.count();
+    expect(total).toBeGreaterThan(0);
+
+    // sort: clicking the Site header sets aria-sort
+    const siteHeader = page.locator('th', { hasText: 'Site' }).first();
+    await siteHeader.click();
+    await expect.poll(() => siteHeader.getAttribute('aria-sort'), { timeout: 8000 }).not.toBe('none');
+
+    // filter narrows to a no-match empty (deterministic regardless of seed data)
+    await page.getByTestId('v2-sites-filter').fill('zzzznomatch-xyz');
+    await expect.poll(() => rows.count(), { timeout: 8000 }).toBe(0);
+    await page.getByTestId('v2-sites-filter').fill('');
+    await expect.poll(() => rows.count(), { timeout: 8000 }).toBe(total);
+
+    // row Edit → editor (selects the project + navigates)
+    await page.locator('[data-testid^="v2-site-edit-"]').first().click();
+    await expect(page).toHaveURL(/\/admin\/v2\/site\/editor/, { timeout: 15000 });
+    expect(errs, errs.join('\n')).toEqual([]);
+  });
+
   test('Media: dropzone + library resolve (interactive section renders)', async ({ page }) => {
     const errs = trackErrors(page);
     await page.goto('/admin/v2/media', { waitUntil: 'load' });
