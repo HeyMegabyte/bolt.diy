@@ -47,7 +47,7 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
           <span class="ml-2 text-[0.6rem] uppercase tracking-wider text-primary border border-border rounded px-1.5 py-0.5">v2</span>
         </div>
         <nav class="flex flex-col gap-0.5 p-2 text-sm overflow-y-auto" role="navigation">
-          <p class="px-2 pt-1 pb-1 text-[0.6rem] uppercase tracking-wider text-muted-foreground/70">Site</p>
+          <p class="px-2 pt-1 pb-1 text-[0.6rem] uppercase tracking-wider text-muted-foreground">Site</p>
           @for (item of siteNav; track item.id) {
             <a [routerLink]="item.link"
                routerLinkActive="bg-primary/10 text-primary"
@@ -55,7 +55,7 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
                hlmBtn variant="ghost" size="sm" class="justify-start w-full"
                [attr.data-testid]="'v2-nav-' + item.id">{{ item.label }}</a>
           }
-          <p class="px-2 pt-3 pb-1 text-[0.6rem] uppercase tracking-wider text-muted-foreground/70">Sys-admin</p>
+          <p class="px-2 pt-3 pb-1 text-[0.6rem] uppercase tracking-wider text-muted-foreground">Sys-admin</p>
           @for (item of sysNav; track item.id) {
             <a [routerLink]="item.link"
                routerLinkActive="bg-primary/10 text-primary"
