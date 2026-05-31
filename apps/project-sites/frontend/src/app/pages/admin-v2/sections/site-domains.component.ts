@@ -10,6 +10,7 @@
  * @example Routed as `site/domains` under `/admin/v2`.
  */
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { RouterModule } from '@angular/router';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { catchError, map, of, startWith, switchMap } from 'rxjs';
 import { ApiService, type Hostname } from '../../../services/api.service';
@@ -38,6 +39,7 @@ type DomainsState =
     HlmCardTitleDirective,
     HlmCardDescriptionDirective,
     HlmBadgeDirective,
+    RouterModule,
   ],
   template: `
     @if (!ctx.selectedSite()) {
@@ -71,6 +73,8 @@ type DomainsState =
           @if (rows().length === 0) {
             <div hlmCard class="text-center py-8" data-testid="v2-site-domains-empty">
               <p hlmCardDescription>No custom domains — this site serves at its free subdomain.</p>
+              <a routerLink="/admin/v2/domains" hlmBtn variant="primary" size="sm" class="mt-3"
+                 data-testid="v2-site-domains-cta">Connect a domain →</a>
             </div>
           } @else {
             <ul hlmCard class="p-0 divide-y divide-border/50" data-testid="v2-site-domains-list">

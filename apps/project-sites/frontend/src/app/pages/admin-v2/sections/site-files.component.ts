@@ -10,6 +10,7 @@
  * @example Routed as `site/files` under `/admin/v2`.
  */
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { RouterModule } from '@angular/router';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { catchError, map, of, startWith, switchMap } from 'rxjs';
 import { ApiService } from '../../../services/api.service';
@@ -48,6 +49,7 @@ type FilesState =
     HlmCardDescriptionDirective,
     HlmBadgeDirective,
     HlmInputDirective,
+    RouterModule,
   ],
   template: `
     @if (!ctx.selectedSite()) {
@@ -77,7 +79,9 @@ type FilesState =
         @case ('ready') {
           @if (assets().length === 0) {
             <div hlmCard class="text-center py-8" data-testid="v2-site-files-empty">
-              <p hlmCardDescription>No deployed files found for this site.</p>
+              <p hlmCardDescription>No deployed files yet — files appear after the site builds.</p>
+              <a routerLink="/admin/v2/site/editor" hlmBtn variant="primary" size="sm" class="mt-3"
+                 data-testid="v2-site-files-cta">Open editor to build →</a>
             </div>
           } @else {
             <div class="flex items-center justify-between gap-3 mb-3">
