@@ -307,6 +307,11 @@ export class ApiService {
     return this.get(`/mcp/connections`);
   }
 
+  /** Org audit log rows (who did what), newest first */
+  getAuditLogs(limit = 50): Observable<{ data: AuditLogRow[] }> {
+    return this.get(`/audit-logs`, { limit: limit.toString() });
+  }
+
   /** List a site's provisioned voice numbers (note: response key is `numbers`) */
   getVoiceNumbers(siteId: string): Observable<{ numbers: VoiceNumber[] }> {
     return this.get(`/voice/numbers`, { siteId });
@@ -784,6 +789,16 @@ export interface VoiceConversation {
   duration_seconds?: number | null;
   sentiment?: string | null;
   summary?: string | null;
+}
+
+/** An org audit-log row (from `/audit-logs`). */
+export interface AuditLogRow {
+  id: string;
+  action: string;
+  message?: string | null;
+  actor_id?: string | null;
+  target_type?: string | null;
+  created_at: string;
 }
 
 /** An MCP connection (from `/mcp/connections`) — safe columns, no tokens. */

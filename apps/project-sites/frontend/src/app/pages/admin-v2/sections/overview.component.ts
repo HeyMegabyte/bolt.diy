@@ -15,7 +15,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { RouterModule } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, forkJoin, map, of, startWith } from 'rxjs';
-import { ApiService, type Site, type DocsStats, type AppInstance, type FeatureFlag } from '../../../services/api.service';
+import { ApiService, type Site, type DocsStats, type AppInstance, type FeatureFlag, type AuditLogRow } from '../../../services/api.service';
 import {
   HlmButtonDirective,
   HlmCardDirective,
@@ -25,12 +25,14 @@ import {
 } from '../../../ui';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { V2DonutComponent, type DonutSlice } from './donut-chart.component';
+import { RelativeDatePipe } from './relative-date.pipe';
 
 interface OverviewData {
   sites: Site[];
   docs: DocsStats | null;
   apps: AppInstance[];
   flags: FeatureFlag[];
+  activity: AuditLogRow[];
 }
 type OverviewState =
   | { status: 'loading' }
@@ -56,6 +58,7 @@ interface QuickLink {
     HlmBadgeDirective,
     RollingCounterComponent,
     V2DonutComponent,
+    RelativeDatePipe,
   ],
   template: `
     <div class="mb-3">
@@ -120,6 +123,23 @@ interface QuickLink {
           </div>
         }
 
+        <!-- Recent activity -->
+        @if (activity().length > 0) {
+          <div class="mt-4 mb-2 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-foreground">Recent activity</h3>
+            <a routerLink="/admin/v2/audit" class="text-xs text-primary/80 hover:text-primary transition-colors">View all →</a>
+          </div>
+          <ul hlmCard class="p-0 divide-y divide-border/50" data-testid="v2-overview-activity">
+            @for (a of activity(); track a.id) {
+              <li class="flex items-center gap-3 px-3 py-2 text-sm">
+                <span hlmBadge variant="neutral" class="shrink-0">{{ shortAction(a.action) }}</span>
+                <span class="flex-1 min-w-0 truncate text-foreground">{{ a.message || a.action }}</span>
+                <span class="text-xs text-muted-foreground shrink-0 tabular-nums" [title]="a.created_at">{{ a.created_at | relativeDate }}</span>
+              </li>
+            }
+          </ul>
+        }
+
         <!-- Quick nav -->
         <h3 class="mt-4 mb-2 text-sm font-semibold text-foreground">Jump to</h3>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2" data-testid="v2-overview-quicklinks">
@@ -159,12 +179,19 @@ export class V2OverviewComponent {
       ),
       apps: this.api.getAppInstances().pipe(catchError(() => of({ instances: [] as AppInstance[] }))),
       flags: this.api.getFeatureFlags().pipe(catchError(() => of({ flags: [] as FeatureFlag[], count: 0 }))),
+      activity: this.api.getAuditLogs(8).pipe(catchError(() => of({ data: [] as AuditLogRow[] }))),
     }).pipe(
       map(
         (r) =>
           ({
             status: 'ready',
-            data: { sites: r.sites.data ?? [], docs: r.docs, apps: r.apps.instances ?? [], flags: r.flags.flags ?? [] },
+            data: {
+              sites: r.sites.data ?? [],
+              docs: r.docs,
+              apps: r.apps.instances ?? [],
+              flags: r.flags.flags ?? [],
+              activity: r.activity.data ?? [],
+            },
           }) as OverviewState,
       ),
       startWith({ status: 'loading' } as OverviewState),
@@ -187,6 +214,10 @@ export class V2OverviewComponent {
   private readonly sites = computed(() => this.data()?.sites ?? []);
   protected readonly errorSites = computed(() => this.sites().filter((s) => s.status === 'error'));
   protected readonly sitesTotal = computed(() => this.sites().length);
+  protected readonly activity = computed(() => this.data()?.activity ?? []);
+  protected shortAction(action: string): string {
+    return (action || '').split('.')[0] || action;
+  }
 
   /** Sites grouped by status → cockpit-hex donut slices (zero-buckets dropped). */
   protected readonly donutSlices = computed<DonutSlice[]>(() => {
