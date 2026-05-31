@@ -25,6 +25,7 @@ import {
   ValidationModule,
   RenderApiModule,
   ColumnAutoSizeModule,
+  ColumnApiModule,
   RowApiModule,
   CsvExportModule,
 } from 'ag-grid-community';
@@ -43,6 +44,7 @@ ModuleRegistry.registerModules([
   ValidationModule,
   RenderApiModule,
   ColumnAutoSizeModule,
+  ColumnApiModule,
   RowApiModule,
   CsvExportModule,
 ]);
