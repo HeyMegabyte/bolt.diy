@@ -126,6 +126,10 @@ type SitesState =
                     <td class="px-3 py-2 text-muted-foreground">{{ row.original.plan || '—' }}</td>
                     <td class="px-3 py-2 text-muted-foreground tabular-nums" [title]="shortDate(row.original.created_at)">{{ row.original.created_at | relativeDate }}</td>
                     <td class="px-3 py-2 text-right whitespace-nowrap">
+                      <button hlmBtn variant="ghost" size="sm" class="hidden md:inline-flex"
+                              (click)="copyUrl(row.original)"
+                              [attr.data-testid]="'v2-site-copy-' + row.original.id"
+                              [attr.aria-label]="'Copy ' + row.original.business_name + ' URL'">{{ copiedId() === row.original.id ? '✓' : 'Copy' }}</button>
                       <a [href]="'https://' + row.original.slug + '.projectsites.dev'" target="_blank" rel="noopener noreferrer"
                          hlmBtn variant="ghost" size="sm" class="hidden sm:inline-flex"
                          [attr.data-testid]="'v2-site-open-' + row.original.id"
@@ -154,6 +158,21 @@ export class V2SitesComponent {
   protected openEditor(site: Site): void {
     this.ctx.selectSite(site.id);
     void this.router.navigate(['/admin/v2/site/editor']);
+  }
+
+  /** Transient per-row "copied" tick after copying a site's live URL. */
+  protected readonly copiedId = signal<string | null>(null);
+  protected copyUrl(site: Site): void {
+    const url = `https://${site.slug}.projectsites.dev`;
+    navigator.clipboard?.writeText(url).then(
+      () => {
+        this.copiedId.set(site.id);
+        setTimeout(() => this.copiedId.set(null), 1500);
+      },
+      () => {
+        /* clipboard blocked — no-op */
+      },
+    );
   }
 
   protected readonly state = toSignal(
