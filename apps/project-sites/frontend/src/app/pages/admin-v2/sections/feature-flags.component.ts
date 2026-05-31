@@ -79,6 +79,18 @@ type StageFilter = (typeof STAGES)[number];
                  aria-label="Search feature flags by key or description" />
         </div>
 
+        <!-- Runbook completeness summary (SUPREME feature-flags rule: 240-1200 char
+             description + e2e_tests + smoke_steps). Surfaced, not faked. -->
+        <div class="flex items-center gap-3 mb-3 text-xs" data-testid="v2-flags-completeness">
+          <span class="text-muted-foreground">
+            <span class="tabular-nums text-foreground">{{ completeCount() }}</span> / {{ flags().length }} flags have a complete runbook (≥240 chars)
+          </span>
+          <button hlmBtn size="sm" [variant]="incompleteOnly() ? 'primary' : 'ghost'"
+                  (click)="incompleteOnly.set(!incompleteOnly())" data-testid="v2-flags-incomplete-toggle">
+            {{ incompleteOnly() ? 'Showing incomplete' : 'Show incomplete only' }}
+          </button>
+        </div>
+
         @if (filtered().length === 0) {
           <div hlmCard class="text-center py-8" data-testid="v2-flags-empty">
             <p hlmCardDescription>No flags match this filter.</p>
@@ -94,6 +106,9 @@ type StageFilter = (typeof STAGES)[number];
                     <span hlmBadge variant="success" class="shrink-0">on · {{ f.default_rollout_percent }}%</span>
                   } @else {
                     <span hlmBadge variant="neutral" class="shrink-0">off</span>
+                  }
+                  @if (isThin(f)) {
+                    <span hlmBadge variant="warning" class="shrink-0" title="Runbook under 240 chars — incomplete per the feature-flags standard">thin runbook</span>
                   }
                   <span class="flex-1"></span>
                   <span class="text-xs text-muted-foreground truncate max-w-[18ch] shrink-0" [title]="f.owner_email">{{ f.owner_email }}</span>
@@ -133,11 +148,21 @@ export class V2FeatureFlagsComponent {
     return s.status === 'error' ? s.message : '';
   });
 
+  /** Runbook standard: descriptions must be 240-1200 chars per [[feature-flags]]. */
+  private static readonly RUNBOOK_MIN = 240;
+  protected readonly incompleteOnly = signal(false);
+  protected isThin(f: FeatureFlag): boolean {
+    return (f.description ?? '').length < V2FeatureFlagsComponent.RUNBOOK_MIN;
+  }
+  protected readonly completeCount = computed(() => this.flags().filter((f) => !this.isThin(f)).length);
+
   protected readonly filtered = computed(() => {
     const st = this.stage();
     const q = this.filter().trim().toLowerCase();
+    const incompleteOnly = this.incompleteOnly();
     return this.flags()
       .filter((f) => (st === 'all' ? true : f.stage === st))
+      .filter((f) => !incompleteOnly || this.isThin(f))
       .filter((f) => !q || f.key.toLowerCase().includes(q) || (f.description ?? '').toLowerCase().includes(q));
   });
 

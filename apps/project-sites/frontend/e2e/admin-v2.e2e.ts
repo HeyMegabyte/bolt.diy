@@ -248,8 +248,13 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     // stage pill narrows…
     await page.getByTestId('v2-flags-stage-stable').click();
     await expect.poll(() => rows.count(), { timeout: 10000 }).toBeLessThanOrEqual(total);
-    // back to all, then search narrows
+    // runbook-completeness surface is present + the incomplete toggle filters
     await page.getByTestId('v2-flags-stage-all').click();
+    await expect(page.getByTestId('v2-flags-completeness')).toBeVisible();
+    await page.getByTestId('v2-flags-incomplete-toggle').click();
+    await expect.poll(() => rows.count(), { timeout: 10000 }).toBeLessThanOrEqual(total);
+    // then search narrows to empty
+    await page.getByTestId('v2-flags-incomplete-toggle').click();
     await page.getByTestId('v2-flags-filter').fill('zzzznomatch');
     await expect(page.getByTestId('v2-flags-empty')).toBeVisible({ timeout: 10000 });
     expect(errs, errs.join('\n')).toEqual([]);
