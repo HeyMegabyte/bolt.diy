@@ -72,7 +72,13 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   siteDropdownOpen = signal(false);
   siteSearchQuery = signal('');
-  sidebarCollapsed = signal(false);
+  /**
+   * Mobile (`max-md`) drives the sidebar as a fixed overlay drawer
+   * (`-translate-x-full` when collapsed); desktop ignores the flag and always
+   * shows the rail. Default collapsed on mobile so a phone user lands on the
+   * SECTION, not a drawer covering it. SSR-safe (guards `window`).
+   */
+  sidebarCollapsed = signal(typeof window !== 'undefined' && window.innerWidth < 768);
   isEditorRoute = signal(false);
   currentSection = signal('Editor');
 
@@ -125,6 +131,11 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   private updateRouteState(url: string): void {
     this.isEditorRoute.set(url === '/admin' || url.startsWith('/admin/editor'));
+    // Mobile: auto-close the overlay drawer after navigating so the user sees
+    // the section they just picked instead of the nav covering it.
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      this.sidebarCollapsed.set(true);
+    }
     const segment = url.split('?')[0].split('#')[0].split('/').pop() || '';
     const labels: Record<string, string> = {
       '': 'Editor', 'admin': 'Editor', 'editor': 'Editor', 'editor-native': 'Editor',
