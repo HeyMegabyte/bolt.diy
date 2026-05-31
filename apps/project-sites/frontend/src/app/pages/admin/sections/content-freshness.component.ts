@@ -259,6 +259,21 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
        Colors come from CockpitPreset (cyan/near-black). These rules only
        compress the rhythm to the cockpit's 13px/compact spec; the unlayered
        cascade ensures they win over PrimeNG's default sizing. */
+    /* a11y (WCAG AA) + cockpit theming: PrimeNG rendered the segmented status
+       filter on a LIGHT slate surface (#f1f5f9), so its labels failed contrast
+       on the dark dashboard. Make it dark+cyan-native: transparent unchecked
+       (light ink) + cyan checked (dark ink), per the text-contrast doctrine. */
+    :host ::ng-deep .cf-filter .p-togglebutton {
+      background: transparent;
+      border-color: rgba(0, 229, 255, 0.18);
+    }
+    :host ::ng-deep .cf-filter .p-togglebutton .p-togglebutton-label { color: var(--ps-ink, #f4f4ff); }
+    :host ::ng-deep .cf-filter .p-togglebutton-checked {
+      background: var(--ps-accent, #00e5ff);
+      border-color: var(--ps-accent, #00e5ff);
+    }
+    :host ::ng-deep .cf-filter .p-togglebutton-checked .p-togglebutton-label { color: #060610; }
+
     /* Cockpit dark surface — PrimeNG's default table theme renders light;
        force transparent/dark so it matches the dark dashboard. */
     :host ::ng-deep .cf-grid,

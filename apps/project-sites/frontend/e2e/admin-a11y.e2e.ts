@@ -14,6 +14,10 @@ const KEY = process.env.E2E_API_KEY ?? '';
 const SECTIONS = [
   '/admin/snapshots', '/admin/forms', '/admin/analytics', '/admin/audit',
   '/admin/feature-flags', '/admin/api-tokens', '/admin/settings', '/admin/billing',
+  // Expanded to the primary-button-heavy sections to catch the global
+  // white-on-cyan PrimeNG contrast bug wherever it renders.
+  '/admin/voice', '/admin/social', '/admin/domains', '/admin/content-freshness',
+  '/admin/pseo', '/admin/ai-endpoints', '/admin/sites', '/admin/seo', '/admin/docs',
 ];
 
 async function seed(page: Page): Promise<void> {

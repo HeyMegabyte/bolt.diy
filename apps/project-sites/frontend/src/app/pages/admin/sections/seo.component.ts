@@ -76,7 +76,7 @@ import { AdminStateService } from '../admin-state.service';
           SEO Health Check
           <span class="seo-score" data-numeric>{{ passCount }}/{{ seoChecks.length }}</span>
         </h3>
-        <div class="flex flex-col gap-2">
+        <div class="flex flex-col gap-2" role="list" aria-label="SEO health checks">
           @for (check of seoChecks; track check.label; let i = $index) {
             <div class="checklist-row" [class.checklist-row-pass]="check.pass" [class.checklist-row-fail]="!check.pass"
                  tabindex="0" role="listitem" [attr.aria-label]="(check.pass ? 'Pass: ' : 'Needs attention: ') + check.label"

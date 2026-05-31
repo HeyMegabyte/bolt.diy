@@ -102,6 +102,7 @@ interface InlineEdit {
             data-testid="ai-endpoints-filter" />
           <select
             class="input-field"
+            aria-label="Filter by HTTP method"
             [ngModel]="filterMethod()"
             (ngModelChange)="filterMethod.set($event)"
             data-testid="ai-endpoints-filter-method">
@@ -113,6 +114,7 @@ interface InlineEdit {
           @if (!compact()) {
             <select
               class="input-field"
+              aria-label="Filter by language"
               [ngModel]="filterLanguage()"
               (ngModelChange)="filterLanguage.set($event)"
               data-testid="ai-endpoints-filter-language">
@@ -207,6 +209,7 @@ interface InlineEdit {
                   <span class="sparkline-wrap">
                     <span
                       class="sparkline"
+                      role="img"
                       [attr.aria-label]="'response time sparkline for ' + e.endpoint_slug"
                       tabindex="0"
                     >

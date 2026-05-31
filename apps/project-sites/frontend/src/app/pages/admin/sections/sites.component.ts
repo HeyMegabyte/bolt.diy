@@ -93,7 +93,7 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
           @for (s of fallbackSites(); track s.id) {
             <li class="px-4 py-3">
               <a [routerLink]="['/admin/sites', s.id]"
-                 class="text-white font-medium hover:text-[var(--ps-accent)]">
+                 class="text-white font-medium hover:text-[var(--ps-accent)] inline-flex items-center min-h-[24px]">
                 {{ s.name || s.slug }}
               </a>
               <span class="text-[0.75rem] text-white/50 ml-2">{{ s.slug }}.projectsites.dev</span>
@@ -139,11 +139,11 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
                   <td class="px-4 py-3">
                     <div class="flex flex-col">
                       <a [routerLink]="['/admin/sites', r.site_id]"
-                         class="text-white font-medium truncate max-w-[260px] hover:text-[var(--ps-accent)]">
+                         class="text-white font-medium truncate max-w-[260px] hover:text-[var(--ps-accent)] inline-flex items-center min-h-[24px]">
                         {{ r.business_name || r.slug }}
                       </a>
                       <a [href]="'https://' + r.slug + '.projectsites.dev'" target="_blank" rel="noopener"
-                         class="text-[0.7rem] text-white/50 hover:text-[var(--ps-accent)] truncate">
+                         class="text-[0.7rem] text-white/50 hover:text-[var(--ps-accent)] truncate inline-flex items-center min-h-[24px]">
                         {{ r.slug }}.projectsites.dev
                       </a>
                     </div>
