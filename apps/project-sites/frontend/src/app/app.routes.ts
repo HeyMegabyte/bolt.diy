@@ -150,6 +150,39 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/mcp.component').then((m) => m.V2McpComponent),
       },
       {
+        path: 'trust-center',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/advanced-feature.component').then((m) => m.V2AdvancedFeatureComponent),
+        data: {
+          title: 'Trust Center',
+          blurb: 'A public, per-site compliance + security profile (SOC 2 posture, subprocessors, data handling) you can publish at /trust to build buyer confidence.',
+          flagKey: 'trust_center',
+          legacyPath: 'trust-center',
+        },
+      },
+      {
+        path: 'site-dna',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/advanced-feature.component').then((m) => m.V2AdvancedFeatureComponent),
+        data: {
+          title: 'Site DNA',
+          blurb: 'The per-site design taste-graph the AI learns from — component preferences + feedback history that steer every regeneration toward your brand.',
+          flagKey: 'site_dna_taste_graph',
+          legacyPath: 'site-dna',
+        },
+      },
+      {
+        path: 'enterprise',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/advanced-feature.component').then((m) => m.V2AdvancedFeatureComponent),
+        data: {
+          title: 'Enterprise',
+          blurb: 'Agency-tier controls — multi-client workspaces, agency invoicing, and white-label options for managing many orgs under one roof.',
+          flagKey: 'agency_tier',
+          legacyPath: 'enterprise',
+        },
+      },
+      {
         path: 'overview',
         loadComponent: () =>
           import('./pages/admin-v2/sections/overview.component').then((m) => m.V2OverviewComponent),
