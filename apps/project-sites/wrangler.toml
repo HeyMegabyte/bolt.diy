@@ -191,6 +191,10 @@ INTERNAL_CALLBACK_URL = "https://project-sites.manhattan.workers.dev/api/interna
 # they're not sensitive and the dispatch binding below pins this namespace.
 CF_ACCOUNT_ID = "84fa0d1b16ff8086dd958c468ce7fd59"
 WFP_NAMESPACE_NAME = "project-sites-endpoints"
+# Novu workflow trigger identifier for `ps-notify` (the dashboard notification
+# bell backbone). Novu auto-suffixes identifiers on creation, so the real value
+# lives here rather than a hardcoded literal. Non-sensitive (a trigger id).
+NOVU_WORKFLOW_ID = "ps-notify-eiz1pyxe"
 # Route every external LLM call through Cloudflare AI Gateway when "true"
 # (universal cache + fallback + rate-limit + structured logs + cost
 # attribution). Set to "false" to bypass during incident response. Requires

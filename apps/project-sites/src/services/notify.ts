@@ -55,7 +55,11 @@ export async function notifyUser(env: Env, input: NotifyInput): Promise<NotifyRe
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: input.workflowId ?? DEFAULT_WORKFLOW,
+        // Novu auto-suffixes trigger identifiers on creation (e.g.
+        // `ps-notify-eiz1pyxe`), so the real identifier lives in the
+        // `NOVU_WORKFLOW_ID` secret rather than a hardcoded literal. Falls back
+        // to the bare `ps-notify` slug for local/dev where the env is unset.
+        name: input.workflowId ?? env.NOVU_WORKFLOW_ID ?? DEFAULT_WORKFLOW,
         to: { subscriberId: input.subscriberId },
         payload: { subject: input.subject, body: input.body },
       }),

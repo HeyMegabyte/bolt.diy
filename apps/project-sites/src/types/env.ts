@@ -319,6 +319,12 @@ export interface Env {
   NOVU_SECRET_KEY?: string;
   /** Novu public application identifier (client-safe; mirrors the frontend bell). */
   NOVU_APP_ID?: string;
+  /**
+   * Novu workflow trigger identifier for `ps-notify`. Novu auto-suffixes
+   * identifiers on creation (e.g. `ps-notify-eiz1pyxe`), so the real value is
+   * configured here rather than hardcoded. Read by `services/notify.ts`.
+   */
+  NOVU_WORKFLOW_ID?: string;
 
   // ── GitHub (OAuth) ─────────────────────────────────────────
   /** GitHub OAuth App client ID. */
