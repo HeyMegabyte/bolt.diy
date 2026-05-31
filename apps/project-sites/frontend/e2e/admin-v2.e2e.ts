@@ -102,6 +102,27 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     expect(errs, errs.join('\n')).toEqual([]);
   });
 
+  test('key sections render their own content (not just the shell)', async ({ page }) => {
+    const errs = trackErrors(page);
+    await page.goto('/admin/v2', { waitUntil: 'domcontentloaded' });
+
+    // [navTestId, distinctive content testid that proves the section rendered]
+    const checks: [string, string][] = [
+      ['analytics', 'v2-analytics-stats'],
+      ['media', 'v2-media-dropzone'],
+      ['billing', 'v2-billing-plan'],
+      ['cost', 'v2-cost-stats'],
+      ['integrations', 'v2-integrations-cf'],
+      ['audit', 'v2-audit-filter'],
+      ['site-build', 'v2-site-build-card'],
+    ];
+    for (const [nav, content] of checks) {
+      await page.getByTestId(`v2-nav-${nav}`).click();
+      await expect(page.getByTestId(content), `${nav} should render ${content}`).toBeVisible();
+    }
+    expect(errs, errs.join('\n')).toEqual([]);
+  });
+
   test('Sites → Edit selects the Project and opens the editor', async ({ page }) => {
     const errs = trackErrors(page);
     await page.goto('/admin/v2', { waitUntil: 'domcontentloaded' });

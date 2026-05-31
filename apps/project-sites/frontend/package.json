@@ -12,6 +12,7 @@
     "deploy:staging": "npm run build:prod && node scripts/deploy-r2.mjs staging",
     "deploy:production": "npm run build:prod && node scripts/deploy-r2.mjs production",
     "verify:production": "node scripts/verify-deploy.mjs https://projectsites.dev",
+    "test:e2e:prod": "playwright test --config=playwright.prod.config.ts",
     "upload-sourcemaps": "node scripts/upload-sourcemaps.mjs"
   },
   "private": true,
