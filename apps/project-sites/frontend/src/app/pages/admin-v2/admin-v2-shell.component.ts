@@ -41,7 +41,12 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
   template: `
     <div class="flex min-h-screen">
       <!-- Sidebar (persistent) -->
-      <aside class="w-[232px] shrink-0 border-r border-border bg-card/40 flex flex-col" data-testid="v2-sidebar">
+      <aside
+        class="w-[232px] shrink-0 border-r border-border bg-card flex flex-col
+               fixed inset-y-0 left-0 z-40 -translate-x-full transition-transform
+               md:static md:translate-x-0 md:bg-card/40"
+        [class.translate-x-0]="sidebarOpen()"
+        data-testid="v2-sidebar">
         <div class="h-[56px] flex items-center px-4 border-b border-border">
           <span class="text-sm font-semibold tracking-tight">project<span class="text-primary">sites</span>.dev</span>
           <span class="ml-2 text-[0.6rem] uppercase tracking-wider text-primary border border-border rounded px-1.5 py-0.5">v2</span>
@@ -53,6 +58,7 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
                routerLinkActive="bg-primary/10 text-primary"
                [routerLinkActiveOptions]="{ exact: item.exact }"
                hlmBtn variant="ghost" size="sm" class="justify-start w-full"
+               (click)="sidebarOpen.set(false)"
                [attr.data-testid]="'v2-nav-' + item.id">{{ item.label }}</a>
           }
           <p class="px-2 pt-3 pb-1 text-[0.6rem] uppercase tracking-wider text-muted-foreground">Sys-admin</p>
@@ -61,6 +67,7 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
                routerLinkActive="bg-primary/10 text-primary"
                [routerLinkActiveOptions]="{ exact: item.exact }"
                hlmBtn variant="ghost" size="sm" class="justify-start w-full"
+               (click)="sidebarOpen.set(false)"
                [attr.data-testid]="'v2-nav-' + item.id">{{ item.label }}</a>
           }
         </nav>
@@ -71,6 +78,8 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
         <!-- Top command bar (persistent) — Project + URL switchers -->
         <header class="h-[56px] shrink-0 border-b border-border flex items-center justify-between gap-3 px-5 bg-background/80 backdrop-blur sticky top-0 z-10" data-testid="v2-topbar">
           <div class="flex items-center gap-2 min-w-0">
+            <button hlmBtn variant="ghost" size="icon" class="md:hidden shrink-0"
+                    (click)="sidebarOpen.set(true)" aria-label="Open navigation" data-testid="v2-menu-toggle">☰</button>
             <label class="sr-only" for="v2-project">Project</label>
             <select hlmInput id="v2-project" class="h-8 max-w-[220px] text-sm" data-testid="v2-project-select"
                     [value]="ctx.selectedSite()?.id ?? ''" (change)="onProject($event)"
@@ -128,6 +137,11 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
         </main>
       </div>
     </div>
+
+    @if (sidebarOpen()) {
+      <div class="fixed inset-0 z-30 bg-black/60 md:hidden" (click)="sidebarOpen.set(false)"
+           aria-hidden="true" data-testid="v2-sidebar-backdrop"></div>
+    }
 
     @if (showPalette()) {
       <app-command-palette (closed)="showPalette.set(false)" />
@@ -197,6 +211,8 @@ export class AdminV2ShellComponent {
 
   protected readonly showPalette = signal(false);
   protected readonly copied = signal(false);
+  /** Mobile off-canvas sidebar (md+ is always static/visible). */
+  protected readonly sidebarOpen = signal(false);
 
   /** Live URL of the selected Project (custom hostname if set, else free subdomain). */
   protected readonly liveUrl = computed<string | null>(() => {
