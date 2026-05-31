@@ -85,4 +85,30 @@ test.describe('legacy /admin — Angular routing (zero full reloads)', () => {
     expect(reloaded, 'no beforeunload fired during in-admin navigation').toBe(false);
     expect(errs, errs.join('\n')).toEqual([]);
   });
+
+  test('every admin route deep-links + survives a refresh (no blank, no pageerror)', async ({ page }) => {
+    test.setTimeout(120_000);
+    const routes = [
+      '/admin', '/admin/snapshots', '/admin/analytics', '/admin/forms', '/admin/traces',
+      '/admin/apps', '/admin/social', '/admin/voice', '/admin/audit', '/admin/feature-flags',
+      '/admin/docs', '/admin/settings',
+    ];
+    for (const r of routes) {
+      const pageErrs: string[] = [];
+      page.once('pageerror', (e) => pageErrs.push(e.message));
+      // DIRECT load (deep-link), not via in-app nav
+      await page.goto(r, { waitUntil: 'load' });
+      // shell mounts + the routed section paints real content (root not empty)
+      await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 20000 });
+      const mainLen = await page.evaluate(() => {
+        const main = document.querySelector('main, [role="main"], router-outlet')?.parentElement;
+        return (main?.textContent ?? document.body.textContent ?? '').trim().length;
+      });
+      expect(mainLen, `${r} rendered non-empty content on deep-link`).toBeGreaterThan(50);
+      // refresh the deep route — must not blank out
+      await page.reload({ waitUntil: 'load' });
+      await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 20000 });
+      expect(pageErrs, `${r} threw on deep-link/refresh: ${pageErrs.join('; ')}`).toEqual([]);
+    }
+  });
 });
