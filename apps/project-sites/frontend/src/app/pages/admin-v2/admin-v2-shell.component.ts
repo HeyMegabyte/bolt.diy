@@ -125,7 +125,7 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
           </div>
         </header>
 
-        <main class="flex-1 relative min-h-0" data-testid="v2-outlet">
+        <main class="flex-1 relative min-h-0 bg-[radial-gradient(85%_55%_at_50%_-8%,rgba(0,229,255,0.05),transparent_55%)]" data-testid="v2-outlet">
           <!-- Routed non-editor sections -->
           <div class="h-full overflow-auto p-5" [class.hidden]="onEditorRoute()">
             <router-outlet />
