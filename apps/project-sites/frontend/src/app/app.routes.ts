@@ -125,6 +125,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/social.component').then((m) => m.V2SocialComponent),
       },
       {
+        path: 'docs',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/docs.component').then((m) => m.V2DocsComponent),
+      },
+      {
         path: 'analytics',
         loadComponent: () =>
           import('./pages/admin-v2/sections/analytics.component').then((m) => m.V2AnalyticsComponent),

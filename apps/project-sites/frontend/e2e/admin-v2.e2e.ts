@@ -54,7 +54,9 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     const errs = trackErrors(page);
     await page.goto('/admin/v2', { waitUntil: 'domcontentloaded' });
 
-    await expect(page.getByTestId('v2-sidebar')).toBeVisible();
+    // cold lazy-shell bootstrap on prod can exceed the 5s default — give the
+    // first mount a realistic budget; later asserts use the standard timeout.
+    await expect(page.getByTestId('v2-sidebar')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('v2-topbar')).toBeVisible();
     await expect(page.getByTestId('v2-project-select')).toBeVisible();
     // SITE group
@@ -73,7 +75,7 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     await page.goto('/admin/v2', { waitUntil: 'domcontentloaded' });
 
     const sections = [
-      'analytics', 'media', 'apps', 'social', 'domains', 'billing', 'cost', 'audit', 'integrations', 'settings',
+      'analytics', 'media', 'apps', 'social', 'domains', 'billing', 'cost', 'audit', 'integrations', 'docs', 'settings',
       'site-forms', 'site-files', 'site-domains', 'site-build', 'site-snapshots', 'site-ai-logs', 'site-ai-endpoints', 'sites',
     ];
     for (const id of sections) {
@@ -126,7 +128,7 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
 
   test('no WCAG A/AA axe violations on the shell + key sections', async ({ page }) => {
     await page.goto('/admin/v2', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('v2-sidebar')).toBeVisible();
+    await expect(page.getByTestId('v2-sidebar')).toBeVisible({ timeout: 15000 });
     const tags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 
     for (const nav of [
@@ -151,7 +153,7 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
 
     const toggle = page.getByTestId('v2-menu-toggle');
     const sidebar = page.getByTestId('v2-sidebar');
-    await expect(toggle).toBeVisible(); // hamburger only on mobile
+    await expect(toggle).toBeVisible({ timeout: 15000 }); // hamburger only on mobile (cold-bootstrap budget)
     // closed → off-canvas (negative x)
     await expect.poll(async () => (await sidebar.boundingBox())?.x ?? 0).toBeLessThan(0);
 

@@ -262,6 +262,7 @@ export class AdminV2ShellComponent {
     { id: 'cost', label: 'Cost', link: '/admin/v2/cost', exact: false },
     { id: 'audit', label: 'Audit', link: '/admin/v2/audit', exact: false },
     { id: 'integrations', label: 'Integrations', link: '/admin/v2/integrations', exact: false },
+    { id: 'docs', label: 'Docs', link: '/admin/v2/docs', exact: false },
     { id: 'settings', label: 'Settings', link: '/admin/v2/settings', exact: false },
   ];
 

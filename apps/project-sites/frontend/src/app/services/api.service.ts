@@ -287,6 +287,11 @@ export class ApiService {
     return this.get(`/apps/instances`);
   }
 
+  /** Self-documenting API-surface stats (endpoint counts + categories + recent) */
+  getDocsStats(): Observable<{ data: DocsStats }> {
+    return this.get(`/admin/docs/stats`);
+  }
+
   /** List the org's connected social accounts */
   getSocialAccounts(): Observable<{ data: SocialAccount[] }> {
     return this.get(`/social/accounts`);
@@ -727,6 +732,22 @@ export interface Hostname {
   hostname: string;
   status: string;
   is_primary: boolean;
+}
+
+/** Self-documenting API-surface stats from `/admin/docs/stats`. */
+export interface DocsEndpointRef {
+  method: string;
+  path: string;
+  addedAt: string;
+  category?: string;
+}
+export interface DocsStats {
+  public: number;
+  authed: number;
+  rate_limited: number;
+  recent: DocsEndpointRef[];
+  category_counts: Record<string, number>;
+  generated_at: string;
 }
 
 /** A connected social account (org-scoped). */
