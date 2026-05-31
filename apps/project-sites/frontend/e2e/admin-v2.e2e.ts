@@ -308,6 +308,36 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     expect(errs, errs.join('\n')).toEqual([]);
   });
 
+  test('Media: dropzone + library resolve (interactive section renders)', async ({ page }) => {
+    const errs = trackErrors(page);
+    await page.goto('/admin/v2/media', { waitUntil: 'load' });
+    // the Uppy dropzone (native DnD → Uppy) is always present
+    await expect(page.getByTestId('v2-media-dropzone')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('v2-media-input')).toBeAttached();
+    // the library resolves to a real state (grid OR empty), never stuck loading
+    await expect
+      .poll(
+        async () =>
+          (await page.getByTestId('v2-media-grid').count()) + (await page.getByTestId('v2-media-empty').count()),
+        { timeout: 15000 },
+      )
+      .toBeGreaterThanOrEqual(1);
+    expect(errs, errs.join('\n')).toEqual([]);
+  });
+
+  test('per-site: AI Logs resolves real state for the selected project', async ({ page }) => {
+    await page.goto('/admin/v2', { waitUntil: 'load' });
+    await page.waitForFunction(
+      () => {
+        const sel = document.querySelector('[data-testid="v2-project-select"]') as HTMLSelectElement | null;
+        return !!sel && !sel.disabled && sel.options.length > 0;
+      },
+      { timeout: 20000 },
+    );
+    await page.getByTestId('v2-nav-site-ai-logs').click();
+    await expect(page.getByTestId('v2-site-ai-logs-nosite')).toHaveCount(0, { timeout: 15000 });
+  });
+
   test('per-site: Snapshots renders the selected project version history', async ({ page }) => {
     await page.goto('/admin/v2', { waitUntil: 'load' });
     await page.waitForFunction(
