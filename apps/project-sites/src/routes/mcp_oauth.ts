@@ -301,3 +301,30 @@ mcpOauth.post('/api/mcp/:provider/paste', async (c) => {
 
   return c.json({ data: { connected: true } });
 });
+
+/**
+ * `GET /api/mcp/connections` — list the caller org's MCP connections across all
+ * its sites. Returns safe columns ONLY — encrypted access/refresh tokens are
+ * never selected, so a leak here exposes nothing sensitive. Newest first.
+ *
+ * @remarks Powers the v2 admin Integrations/MCP surface. Org-scoped via the
+ * session `orgId` (no `x-org-id` header dependency).
+ * @throws 401 UNAUTHORIZED when org context is missing.
+ */
+mcpOauth.get('/api/mcp/connections', async (c) => {
+  const orgId = c.get('orgId') as string | undefined;
+  if (!orgId) return c.json({ error: { message: 'auth required' } }, 401);
+  const rows = await c.env.DB.prepare(
+    `SELECT id, site_id, provider, display_name, status, scopes_json,
+            token_expires_at, connected_at, updated_at
+       FROM mcp_connections WHERE org_id = ?
+       ORDER BY connected_at DESC`,
+  )
+    .bind(orgId)
+    .all<Record<string, unknown>>();
+  const data = (rows.results ?? []).map((r) => ({
+    ...r,
+    scopes: r['scopes_json'] ? (JSON.parse(r['scopes_json'] as string) as unknown[]) : [],
+  }));
+  return c.json({ data });
+});

@@ -87,7 +87,7 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     await page.goto('/admin/v2', { waitUntil: 'domcontentloaded' });
 
     const sections = [
-      'overview', 'analytics', 'media', 'apps', 'social', 'domains', 'billing', 'cost', 'audit', 'integrations', 'docs', 'feature-flags', 'api-tokens', 'settings',
+      'overview', 'analytics', 'media', 'apps', 'social', 'domains', 'billing', 'cost', 'audit', 'integrations', 'mcp', 'docs', 'feature-flags', 'api-tokens', 'settings',
       'site-forms', 'site-files', 'site-domains', 'site-build', 'site-snapshots', 'site-ai-logs', 'site-ai-endpoints', 'site-voice', 'sites',
     ];
     for (const id of sections) {
@@ -161,9 +161,12 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
   test('mobile (390px): sidebar collapses to an off-canvas drawer', async ({ page }) => {
     const errs = trackErrors(page);
     await page.setViewportSize({ width: 390, height: 800 });
-    // 'load' (not just domcontentloaded) so the lazy shell bundle has executed +
-    // bootstrapped before we interact — under parallel-prod load + incremental
-    // hydration the toggle handler isn't wired at domcontentloaded.
+    // Reduced-motion: the app honors it (per cinematic-ui rules) → the perpetual
+    // pulse/reveal animations go static, so the toggle reads as "stable" and a
+    // NORMAL click (which auto-waits for the handler to be wired) works reliably
+    // even under parallel-prod contention. Force-click skipped that readiness.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    // 'load' so the lazy shell bundle has executed + bootstrapped before we interact.
     await page.goto('/admin/v2', { waitUntil: 'load' });
 
     const toggle = page.getByTestId('v2-menu-toggle');
@@ -174,10 +177,9 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     // closed → off-canvas (negative x)
     await expect.poll(async () => (await sidebar.boundingBox())?.x ?? 0).toBeLessThan(0);
 
-    // force past the actionability/stability checks (the page has a perpetual
-    // pulse animation that can read as "not stable"); behavioral asserts below
-    // stay strict — backdrop shown + sidebar slid fully on-screen.
-    await toggle.click({ force: true });
+    // Normal click — with reduced-motion the target is stable, so this waits for
+    // true actionability (handler wired) instead of racing it. Asserts stay strict.
+    await toggle.click({ timeout: 15000 });
     await expect(page.getByTestId('v2-sidebar-backdrop')).toBeVisible({ timeout: 15000 });
     await expect.poll(async () => (await sidebar.boundingBox())?.x ?? -999, { timeout: 15000 }).toBeGreaterThanOrEqual(0);
 

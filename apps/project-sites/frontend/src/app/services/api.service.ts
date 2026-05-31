@@ -302,6 +302,11 @@ export class ApiService {
     return this.get(`/admin/api-keys`);
   }
 
+  /** List the org's MCP connections across all sites (safe columns; no tokens) */
+  getMcpConnections(): Observable<{ data: McpConnection[] }> {
+    return this.get(`/mcp/connections`);
+  }
+
   /** List a site's provisioned voice numbers (note: response key is `numbers`) */
   getVoiceNumbers(siteId: string): Observable<{ numbers: VoiceNumber[] }> {
     return this.get(`/voice/numbers`, { siteId });
@@ -779,6 +784,19 @@ export interface VoiceConversation {
   duration_seconds?: number | null;
   sentiment?: string | null;
   summary?: string | null;
+}
+
+/** An MCP connection (from `/mcp/connections`) — safe columns, no tokens. */
+export interface McpConnection {
+  id: string;
+  site_id: string;
+  provider: string;
+  display_name?: string | null;
+  status: string;
+  scopes: string[];
+  token_expires_at?: string | null;
+  connected_at: string;
+  updated_at?: string | null;
 }
 
 /** An org API key (from `/admin/api-keys`) — prefix only, secret never returned. */

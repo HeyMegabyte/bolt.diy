@@ -104,7 +104,7 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
             <button hlmBtn variant="ghost" size="icon" class="md:hidden shrink-0"
                     (click)="sidebarOpen.set(true)" aria-label="Open navigation" data-testid="v2-menu-toggle">☰</button>
             <label class="sr-only" for="v2-project">Project</label>
-            <select hlmInput id="v2-project" class="h-8 max-w-[220px] text-sm" data-testid="v2-project-select"
+            <select hlmInput id="v2-project" class="h-8 max-w-[140px] sm:max-w-[220px] text-sm" data-testid="v2-project-select"
                     [value]="ctx.selectedSite()?.id ?? ''" (change)="onProject($event)"
                     [disabled]="ctx.sites().length === 0">
               @if (ctx.sites().length === 0) { <option value="">No sites</option> }
@@ -137,11 +137,13 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
             }
             @if (liveUrl(); as url) {
               <button hlmBtn variant="ghost" size="sm" (click)="copyLive(url)" data-testid="v2-copy-url"
+                      class="hidden sm:inline-flex"
                       [attr.aria-label]="'Copy ' + url">{{ copied() ? '✓ Copied' : 'Copy URL' }}</button>
               <a [href]="url" target="_blank" rel="noopener noreferrer" hlmBtn variant="outline" size="sm"
+                 class="hidden sm:inline-flex"
                  data-testid="v2-open-site" aria-label="Open live site in a new tab">Open ↗</a>
             }
-            <button hlmBtn variant="ghost" size="sm" data-testid="v2-search" (click)="openPalette()">⌘K</button>
+            <button hlmBtn variant="ghost" size="sm" data-testid="v2-search" (click)="openPalette()" class="hidden sm:inline-flex">⌘K</button>
             <app-v2-notif-bell />
             <button hlmBtn variant="primary" size="sm" data-testid="v2-create" (click)="newSite()">+ New site</button>
           </div>
@@ -264,6 +266,7 @@ export class AdminV2ShellComponent {
     { id: 'cost', label: 'Cost', link: '/admin/v2/cost', exact: false },
     { id: 'audit', label: 'Audit', link: '/admin/v2/audit', exact: false },
     { id: 'integrations', label: 'Integrations', link: '/admin/v2/integrations', exact: false },
+    { id: 'mcp', label: 'MCP', link: '/admin/v2/mcp', exact: false },
     { id: 'docs', label: 'Docs', link: '/admin/v2/docs', exact: false },
     { id: 'feature-flags', label: 'Feature Flags', link: '/admin/v2/feature-flags', exact: false },
     { id: 'api-tokens', label: 'API Tokens', link: '/admin/v2/api-tokens', exact: false },
