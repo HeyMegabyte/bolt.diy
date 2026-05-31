@@ -308,6 +308,17 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     expect(errs, errs.join('\n')).toEqual([]);
   });
 
+  test('Overview: command center aggregates real data + surfaces the error site', async ({ page }) => {
+    const errs = trackErrors(page);
+    await page.goto('/admin/v2/overview', { waitUntil: 'load' });
+    await expect(page.getByTestId('v2-overview-stats')).toBeVisible({ timeout: 15000 });
+    // the E2E org has 1 site in 'error' status → the needs-attention strip fires
+    await expect(page.getByTestId('v2-overview-attention')).toBeVisible({ timeout: 15000 });
+    // donut + quick-nav render too
+    await expect(page.getByTestId('v2-overview-quicklinks')).toBeVisible();
+    expect(errs, errs.join('\n')).toEqual([]);
+  });
+
   test('Sites table: filter narrows, sort toggles, row Edit opens the editor', async ({ page }) => {
     const errs = trackErrors(page);
     await page.goto('/admin/v2', { waitUntil: 'load' });
