@@ -29,6 +29,8 @@ interface NavItem {
   label: string;
   link: string;
   exact: boolean;
+  /** When set, renders a live count chip pulled from `navCount(key)`. */
+  count?: 'sites' | 'building';
 }
 
 const EDITOR_BASE = 'https://editor.projectsites.dev';
@@ -68,7 +70,13 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
                [routerLinkActiveOptions]="{ exact: item.exact }"
                hlmBtn variant="ghost" size="sm" class="justify-start w-full border-l-2 border-transparent"
                (click)="sidebarOpen.set(false)"
-               [attr.data-testid]="'v2-nav-' + item.id">{{ item.label }}</a>
+               [attr.data-testid]="'v2-nav-' + item.id">
+              <span class="flex-1 text-left truncate">{{ item.label }}</span>
+              @if (item.count && navCount(item.count) > 0) {
+                <span class="ml-2 shrink-0 rounded px-1.5 py-px text-[0.65rem] font-medium tabular-nums bg-primary/15 text-primary border border-primary/30"
+                      [attr.aria-label]="navCount(item.count) + ' ' + item.label">{{ navCount(item.count) }}</span>
+              }
+            </a>
           }
           <p class="px-2 pt-3 pb-1 text-[0.6rem] uppercase tracking-wider text-muted-foreground">Sys-admin</p>
           @for (item of sysNav; track item.id) {
@@ -77,7 +85,13 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
                [routerLinkActiveOptions]="{ exact: item.exact }"
                hlmBtn variant="ghost" size="sm" class="justify-start w-full border-l-2 border-transparent"
                (click)="sidebarOpen.set(false)"
-               [attr.data-testid]="'v2-nav-' + item.id">{{ item.label }}</a>
+               [attr.data-testid]="'v2-nav-' + item.id">
+              <span class="flex-1 text-left truncate">{{ item.label }}</span>
+              @if (item.count && navCount(item.count) > 0) {
+                <span class="ml-2 shrink-0 rounded px-1.5 py-px text-[0.65rem] font-medium tabular-nums bg-primary/15 text-primary border border-primary/30"
+                      [attr.aria-label]="navCount(item.count) + ' ' + item.label">{{ navCount(item.count) }}</span>
+              }
+            </a>
           }
         </nav>
       </aside>
@@ -218,7 +232,7 @@ export class AdminV2ShellComponent {
 
   /** Per-site editor surfaces (operate on the selected Project). */
   protected readonly siteNav: NavItem[] = [
-    { id: 'sites', label: 'Sites', link: '/admin/v2', exact: true },
+    { id: 'sites', label: 'Sites', link: '/admin/v2', exact: true, count: 'sites' },
     { id: 'site-editor', label: 'Editor', link: '/admin/v2/site/editor', exact: false },
     { id: 'site-forms', label: 'Forms', link: '/admin/v2/site/forms', exact: false },
     { id: 'site-files', label: 'Files', link: '/admin/v2/site/files', exact: false },
@@ -237,6 +251,15 @@ export class AdminV2ShellComponent {
     { id: 'integrations', label: 'Integrations', link: '/admin/v2/integrations', exact: false },
     { id: 'settings', label: 'Settings', link: '/admin/v2/settings', exact: false },
   ];
+
+  /** Live nav chip counts — total sites + how many are mid-build. */
+  protected navCount(key: 'sites' | 'building'): number {
+    const sites = this.ctx.sites();
+    if (key === 'building') {
+      return sites.filter((s) => s.status === 'building' || s.status === 'generating').length;
+    }
+    return sites.length;
+  }
 
   protected readonly showPalette = signal(false);
   protected readonly copied = signal(false);
