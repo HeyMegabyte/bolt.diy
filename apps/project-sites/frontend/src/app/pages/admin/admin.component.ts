@@ -7,6 +7,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { ApiService, type Site } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
+import { NovuInboxService } from '../../services/novu-inbox.service';
 import { AppShellService, type AppLanguage } from '../../services/app-shell.service';
 import { BoltEmbedService } from '../../services/bolt-embed.service';
 import { AdminStateService } from './admin-state.service';
@@ -45,6 +46,7 @@ export class AdminComponent implements OnInit, OnDestroy {
   bolt = inject(BoltEmbedService);
   private toast = inject(ToastService);
   private api = inject(ApiService);
+  private novuInbox = inject(NovuInboxService);
   private titleService = inject(Title);
   private metaService = inject(Meta);
   private translate = inject(TranslateService);
@@ -451,10 +453,13 @@ export class AdminComponent implements OnInit, OnDestroy {
   }
   markAllRead(): void {
     const ids = this.notifications().map((n) => n.id);
+    // Propagate read receipts to Novu for any Novu-sourced items (best-effort).
+    for (const id of ids) if (id.startsWith('novu-')) void this.novuInbox.read(id);
     this.notifications.update((ns) => ns.map((n) => ({ ...n, read: true })));
     try { localStorage.setItem('ps_notif_read', JSON.stringify(ids)); } catch { /* */ }
   }
   openNotification(n: Notification): void {
+    if (n.id.startsWith('novu-')) void this.novuInbox.read(n.id);
     this.notifications.update((ns) => ns.map((m) => m.id === n.id ? { ...m, read: true } : m));
     try {
       const prev = JSON.parse(localStorage.getItem('ps_notif_read') ?? '[]') as string[];
@@ -503,6 +508,26 @@ export class AdminComponent implements OnInit, OnDestroy {
       },
       error: () => { /* no audit available — silent */ },
     });
+    // Merge the Novu Cloud inbox (the doctrine notification backbone) as an
+    // ADDITIVE source — local audit/seed feed stays primary, so the bell never
+    // regresses if Novu is empty/unreachable. Fully guarded inside the service.
+    this.novuInbox.list(20).then((rows) => {
+      if (!rows.length) return;
+      const mapped: Notification[] = rows.map((n) => ({
+        id: n.id,
+        title: n.title,
+        time: this.relativeTime(Date.now() - n.ts),
+        kind: 'info',
+        read: n.read || readIds.includes(n.id),
+        ts: n.ts,
+        href: n.href ?? undefined,
+      }));
+      this.notifications.update((cur) => {
+        const seen = new Set(cur.map((c) => c.id));
+        const fresh = mapped.filter((m) => !seen.has(m.id));
+        return [...fresh, ...cur].sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
+      });
+    }).catch(() => { /* swallow — Novu is additive, never blocks the local feed */ });
   }
   /**
    * Build the "· {site}" suffix for a notification title. When the audit row's
