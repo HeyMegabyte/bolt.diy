@@ -52,6 +52,11 @@ type AuditState =
     RelativeDatePipe,
   ],
   template: `
+    <div class="mb-3">
+      <h2 class="text-lg font-semibold text-foreground">Audit log</h2>
+      <p class="text-sm text-muted-foreground">Who did what across your org</p>
+    </div>
+
     @switch (state().status) {
       @case ('loading') {
         <div class="flex flex-col gap-2" data-testid="v2-audit-loading">

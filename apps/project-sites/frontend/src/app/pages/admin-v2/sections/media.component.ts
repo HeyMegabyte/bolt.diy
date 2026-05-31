@@ -66,6 +66,11 @@ const MAX_BYTES = 25 * 1024 * 1024;
     HlmBadgeDirective,
   ],
   template: `
+    <div class="mb-3">
+      <h2 class="text-lg font-semibold text-foreground">Media</h2>
+      <p class="text-sm text-muted-foreground">Upload &amp; manage your org's media library</p>
+    </div>
+
     <!-- Drop zone (native DnD → Uppy) -->
     <div
       class="rounded-xl border-2 border-dashed transition-colors p-8 text-center cursor-pointer"
