@@ -254,6 +254,7 @@ export class AdminV2ShellComponent {
 
   /** Org-wide / sys-admin surfaces. */
   protected readonly sysNav: NavItem[] = [
+    { id: 'overview', label: 'Overview', link: '/admin/v2/overview', exact: false },
     { id: 'analytics', label: 'Analytics', link: '/admin/v2/analytics', exact: false },
     { id: 'media', label: 'Media', link: '/admin/v2/media', exact: false },
     { id: 'apps', label: 'Apps', link: '/admin/v2/apps', exact: false },

@@ -145,6 +145,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/api-tokens.component').then((m) => m.V2ApiTokensComponent),
       },
       {
+        path: 'overview',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/overview.component').then((m) => m.V2OverviewComponent),
+      },
+      {
         path: 'analytics',
         loadComponent: () =>
           import('./pages/admin-v2/sections/analytics.component').then((m) => m.V2AnalyticsComponent),
