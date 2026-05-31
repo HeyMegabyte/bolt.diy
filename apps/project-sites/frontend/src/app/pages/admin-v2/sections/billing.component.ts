@@ -42,6 +42,11 @@ type BillingState =
     RollingCounterComponent,
   ],
   template: `
+    <div class="mb-3">
+      <h2 class="text-lg font-semibold text-foreground">Billing</h2>
+      <p class="text-sm text-muted-foreground">Plan, usage &amp; subscription</p>
+    </div>
+
     @switch (state().status) {
       @case ('loading') {
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 max-w-3xl" data-testid="v2-billing-loading">

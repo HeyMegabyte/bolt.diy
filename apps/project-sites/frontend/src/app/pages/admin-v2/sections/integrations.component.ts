@@ -40,6 +40,11 @@ type IntegrationsState =
     RelativeDatePipe,
   ],
   template: `
+    <div class="mb-3">
+      <h2 class="text-lg font-semibold text-foreground">Integrations</h2>
+      <p class="text-sm text-muted-foreground">Connected services &amp; provider status</p>
+    </div>
+
     @switch (state().status) {
       @case ('loading') {
         <div hlmCard class="h-32 max-w-lg animate-pulse opacity-60" data-testid="v2-integrations-loading"></div>

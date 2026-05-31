@@ -29,6 +29,11 @@ type Status = 'loading' | 'error' | 'ready';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterModule, HlmButtonDirective, HlmCardDirective, HlmCardTitleDirective, HlmCardDescriptionDirective],
   template: `
+    <div class="mb-3">
+      <h2 class="text-lg font-semibold text-foreground">Settings</h2>
+      <p class="text-sm text-muted-foreground">Account, organization &amp; cockpit info</p>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 max-w-3xl">
       <div hlmCard data-testid="v2-settings-account">
         <h3 hlmCardTitle>Account</h3>
