@@ -105,6 +105,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/site-snapshots.component').then((m) => m.V2SiteSnapshotsComponent),
       },
       {
+        path: 'site/ai-logs',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/site-ai-logs.component').then((m) => m.V2SiteAiLogsComponent),
+      },
+      {
         path: 'analytics',
         loadComponent: () =>
           import('./pages/admin-v2/sections/analytics.component').then((m) => m.V2AnalyticsComponent),

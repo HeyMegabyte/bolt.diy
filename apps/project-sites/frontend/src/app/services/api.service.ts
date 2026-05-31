@@ -272,6 +272,11 @@ export class ApiService {
     return this.get(`/sites/${siteId}/snapshots`);
   }
 
+  /** List a site's AI trace rows (LLM calls + tool runs), newest first */
+  getAiLogs(siteId: string, limit = 200): Observable<{ data: AiLogRow[] }> {
+    return this.get(`/sites/${siteId}/ai-logs`, { limit: limit.toString() });
+  }
+
   /** List hostnames */
   getHostnames(siteId: string): Observable<{ data: Hostname[] }> {
     return this.get(`/sites/${siteId}/hostnames`);
@@ -702,6 +707,25 @@ export interface Hostname {
   hostname: string;
   status: string;
   is_primary: boolean;
+}
+
+/** One AI trace row from `ai_form_logs` (LLM call or tool run on a site). */
+export interface AiLogRow {
+  id: string;
+  submission_id?: string | null;
+  trace_kind?: string | null;
+  endpoint_slug?: string | null;
+  model?: string | null;
+  status?: string | null;
+  latency_ms?: number | null;
+  tokens_input?: number | null;
+  tokens_output?: number | null;
+  credits_debited?: number | null;
+  tool_name?: string | null;
+  tool_status?: string | null;
+  output_preview?: string | null;
+  error_message?: string | null;
+  created_at: string;
 }
 
 /** A frozen version of a site (auto on build, AI-named on edit). */
