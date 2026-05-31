@@ -277,6 +277,11 @@ export class ApiService {
     return this.get(`/sites/${siteId}/ai-logs`, { limit: limit.toString() });
   }
 
+  /** List a site's custom AI endpoints (user-defined AI-backed API routes) */
+  getAiEndpoints(siteId: string): Observable<{ data: AiEndpointRow[] }> {
+    return this.get(`/sites/${siteId}/ai-endpoints`);
+  }
+
   /** List hostnames */
   getHostnames(siteId: string): Observable<{ data: Hostname[] }> {
     return this.get(`/sites/${siteId}/hostnames`);
@@ -707,6 +712,24 @@ export interface Hostname {
   hostname: string;
   status: string;
   is_primary: boolean;
+}
+
+/** A user-defined AI endpoint (custom AI-backed API route) on a site. */
+export interface AiEndpointRow {
+  id: string;
+  endpoint_slug: string;
+  display_name?: string | null;
+  description?: string | null;
+  kind?: string | null;
+  method?: string | null;
+  language?: string | null;
+  worker_language?: string | null;
+  enabled?: number | boolean | null;
+  auth_mode?: string | null;
+  deploy_status?: string | null;
+  deployed_at?: string | null;
+  created_at: string;
+  updated_at?: string | null;
 }
 
 /** One AI trace row from `ai_form_logs` (LLM call or tool run on a site). */
