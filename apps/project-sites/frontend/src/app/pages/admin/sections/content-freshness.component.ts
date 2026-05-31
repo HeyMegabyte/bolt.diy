@@ -259,14 +259,29 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
        Colors come from CockpitPreset (cyan/near-black). These rules only
        compress the rhythm to the cockpit's 13px/compact spec; the unlayered
        cascade ensures they win over PrimeNG's default sizing. */
+    /* Cockpit dark surface — PrimeNG's default table theme renders light;
+       force transparent/dark so it matches the dark dashboard. */
+    :host ::ng-deep .cf-grid,
+    :host ::ng-deep .cf-grid .p-datatable-table,
+    :host ::ng-deep .cf-grid .p-datatable-tbody > tr {
+      background: transparent;
+      color: var(--ps-ink, #f4f4ff);
+    }
     :host ::ng-deep .cf-grid .p-datatable-thead > tr > th {
       font-size: .65rem; text-transform: uppercase; letter-spacing: .06em;
       padding: .5rem .75rem; font-weight: 600;
+      background: rgba(0,229,255,0.04);
+      color: rgba(244,244,255,0.6);
+      border-color: rgba(0,229,255,0.12);
     }
     :host ::ng-deep .cf-grid .p-datatable-tbody > tr > td {
       font-size: .72rem; padding: .45rem .75rem;
+      background: transparent;
+      color: var(--ps-ink, #f4f4ff);
+      border-color: rgba(0,229,255,0.08);
     }
     :host ::ng-deep .cf-grid .p-datatable-tbody > tr { transition: background 180ms var(--ease); }
+    :host ::ng-deep .cf-grid .p-datatable-tbody > tr:hover > td { background: rgba(0,229,255,0.04); }
     :host ::ng-deep .cf-grid .p-button-sm { padding: .2rem .55rem; font-size: .65rem; }
   `],
 })

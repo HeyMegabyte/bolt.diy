@@ -370,12 +370,31 @@ const ALL_SCOPES = [
     .at-revoke-warn { font-size: 13px; color: rgba(244,244,255,0.7); margin: 0; }
     @media (prefers-reduced-motion: reduce) { .at-spinner { animation: none; } }
 
-    /* ── Cockpit density tuning for the PrimeNG table ──────────────────── */
+    /* ── Cockpit dark surface + density for the PrimeNG table ──────────────
+       PrimeNG's default datatable theme renders on a LIGHT surface, which broke
+       the dark cockpit here (white table on a black dashboard). Force every
+       part onto a transparent/dark surface — these unlayered ::ng-deep rules
+       win the cascade over PrimeNG's theme. */
+    :host ::ng-deep .at-grid,
+    :host ::ng-deep .at-grid .p-datatable-table,
+    :host ::ng-deep .at-grid .p-datatable-tbody > tr {
+      background: transparent;
+      color: var(--ps-ink, #f4f4ff);
+    }
     :host ::ng-deep .at-grid .p-datatable-thead > tr > th {
       font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
       padding: 10px 14px; font-weight: 600;
+      background: rgba(0,229,255,0.04);
+      color: rgba(244,244,255,0.6);
+      border-color: rgba(0,229,255,0.12);
     }
-    :host ::ng-deep .at-grid .p-datatable-tbody > tr > td { padding: 10px 14px; font-size: 13px; }
+    :host ::ng-deep .at-grid .p-datatable-tbody > tr > td {
+      padding: 10px 14px; font-size: 13px;
+      background: transparent;
+      color: var(--ps-ink, #f4f4ff);
+      border-color: rgba(0,229,255,0.08);
+    }
+    :host ::ng-deep .at-grid .p-datatable-tbody > tr:hover > td { background: rgba(0,229,255,0.04); }
     :host ::ng-deep .at-scope-tag {
       font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.3px;
     }
