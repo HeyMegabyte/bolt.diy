@@ -64,18 +64,18 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
           <p class="px-2 pt-1 pb-1 text-[0.6rem] uppercase tracking-wider text-muted-foreground">Site</p>
           @for (item of siteNav; track item.id) {
             <a [routerLink]="item.link"
-               routerLinkActive="bg-primary/10 text-primary"
+               routerLinkActive="bg-primary/10 text-primary !border-primary shadow-[inset_0_0_18px_-10px_rgba(0,229,255,0.5)]"
                [routerLinkActiveOptions]="{ exact: item.exact }"
-               hlmBtn variant="ghost" size="sm" class="justify-start w-full"
+               hlmBtn variant="ghost" size="sm" class="justify-start w-full border-l-2 border-transparent"
                (click)="sidebarOpen.set(false)"
                [attr.data-testid]="'v2-nav-' + item.id">{{ item.label }}</a>
           }
           <p class="px-2 pt-3 pb-1 text-[0.6rem] uppercase tracking-wider text-muted-foreground">Sys-admin</p>
           @for (item of sysNav; track item.id) {
             <a [routerLink]="item.link"
-               routerLinkActive="bg-primary/10 text-primary"
+               routerLinkActive="bg-primary/10 text-primary !border-primary shadow-[inset_0_0_18px_-10px_rgba(0,229,255,0.5)]"
                [routerLinkActiveOptions]="{ exact: item.exact }"
-               hlmBtn variant="ghost" size="sm" class="justify-start w-full"
+               hlmBtn variant="ghost" size="sm" class="justify-start w-full border-l-2 border-transparent"
                (click)="sidebarOpen.set(false)"
                [attr.data-testid]="'v2-nav-' + item.id">{{ item.label }}</a>
           }
@@ -85,7 +85,7 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
       <!-- Main column -->
       <div class="flex-1 min-w-0 flex flex-col">
         <!-- Top command bar (persistent) — Project + URL switchers -->
-        <header class="h-[56px] shrink-0 border-b border-border flex items-center justify-between gap-3 px-5 bg-background/80 backdrop-blur sticky top-0 z-10" data-testid="v2-topbar">
+        <header class="h-[56px] shrink-0 border-b border-border flex items-center justify-between gap-3 px-5 bg-background/70 backdrop-blur-md sticky top-0 z-10 shadow-[0_6px_24px_-16px_rgba(0,0,0,0.8)]" data-testid="v2-topbar">
           <div class="flex items-center gap-2 min-w-0">
             <button hlmBtn variant="ghost" size="icon" class="md:hidden shrink-0"
                     (click)="sidebarOpen.set(true)" aria-label="Open navigation" data-testid="v2-menu-toggle">☰</button>
