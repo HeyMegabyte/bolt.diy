@@ -272,6 +272,11 @@ export class ApiService {
     return this.get(`/sites/${siteId}/snapshots`);
   }
 
+  /** List a site's branches (staged edits w/ approvals + preview URLs) */
+  getSiteBranches(siteId: string): Observable<{ branches: SiteBranch[] }> {
+    return this.get(`/sites/${siteId}/branches`);
+  }
+
   /** List a site's AI trace rows (LLM calls + tool runs), newest first */
   getAiLogs(siteId: string, limit = 200): Observable<{ data: AiLogRow[] }> {
     return this.get(`/sites/${siteId}/ai-logs`, { limit: limit.toString() });
@@ -1013,6 +1018,17 @@ export interface AiLogRow {
   tool_status?: string | null;
   output_preview?: string | null;
   error_message?: string | null;
+  created_at: string;
+}
+
+/** A site branch — a staged edit with approvals + a preview URL. */
+export interface SiteBranch {
+  id: string;
+  branch_name: string;
+  status: 'draft' | 'review' | 'merged' | 'closed' | string;
+  preview_url?: string | null;
+  approvals_required: number;
+  approvals_received: number;
   created_at: string;
 }
 

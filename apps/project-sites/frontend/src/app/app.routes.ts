@@ -120,6 +120,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/site-voice.component').then((m) => m.V2SiteVoiceComponent),
       },
       {
+        path: 'site/branches',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/site-branches.component').then((m) => m.V2SiteBranchesComponent),
+      },
+      {
         path: 'apps',
         loadComponent: () =>
           import('./pages/admin-v2/sections/apps.component').then((m) => m.V2AppsComponent),
