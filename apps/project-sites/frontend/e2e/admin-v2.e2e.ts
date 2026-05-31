@@ -13,6 +13,7 @@
  * Run: `E2E_API_KEY=$(get-secret E2E_API_KEY) npx playwright test --config=playwright.prod.config.ts`
  */
 import { test, expect, type Page, type ConsoleMessage } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 const KEY = process.env.E2E_API_KEY ?? '';
 
@@ -121,6 +122,23 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
       await expect(page.getByTestId(content), `${nav} should render ${content}`).toBeVisible();
     }
     expect(errs, errs.join('\n')).toEqual([]);
+  });
+
+  test('no WCAG A/AA axe violations on the shell + key sections', async ({ page }) => {
+    await page.goto('/admin/v2', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('v2-sidebar')).toBeVisible();
+    const tags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
+
+    for (const nav of [null, 'analytics', 'billing', 'audit', 'integrations']) {
+      if (nav) {
+        await page.getByTestId(`v2-nav-${nav}`).click();
+        await expect(page.getByTestId('v2-sidebar')).toBeVisible();
+      }
+      // Exclude the cross-origin editor iframe (axe can't enter it anyway).
+      const res = await new AxeBuilder({ page }).withTags(tags).exclude('iframe').analyze();
+      const ids = res.violations.map((v) => `${v.id}(${v.nodes.length})`);
+      expect(ids, `${nav ?? 'shell'} a11y violations`).toEqual([]);
+    }
   });
 
   test('Sites → Edit selects the Project and opens the editor', async ({ page }) => {
