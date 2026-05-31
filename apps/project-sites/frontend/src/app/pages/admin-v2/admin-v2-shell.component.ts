@@ -13,7 +13,7 @@
  * command palette; `+ New site` routes to create.
  */
 import { ChangeDetectionStrategy, Component, HostListener, computed, inject, signal } from '@angular/core';
-import { NavigationEnd, Router, RouterModule } from '@angular/router';
+import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router, RouterModule } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map, startWith } from 'rxjs';
 import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
@@ -97,7 +97,10 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
       </aside>
 
       <!-- Main column -->
-      <div class="flex-1 min-w-0 flex flex-col">
+      <div class="flex-1 min-w-0 flex flex-col relative">
+        <div class="ps-progress" [class.ps-progress--on]="navigating()" aria-hidden="true">
+          <span class="ps-progress__bar"></span>
+        </div>
         <!-- Top command bar (persistent) — Project + URL switchers -->
         <header class="h-[56px] shrink-0 border-b border-border flex items-center justify-between gap-3 px-5 bg-background/70 backdrop-blur-md sticky top-0 z-10 shadow-[0_6px_24px_-16px_rgba(0,0,0,0.8)]" data-testid="v2-topbar">
           <div class="flex items-center gap-2 min-w-0">
@@ -200,6 +203,15 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
       </div>
     }
   `,
+  styles: [
+    `
+    .ps-progress { position: absolute; top: 0; left: 0; right: 0; height: 2px; overflow: hidden; opacity: 0; transition: opacity 160ms ease; z-index: 20; pointer-events: none; }
+    .ps-progress--on { opacity: 1; }
+    .ps-progress__bar { display: block; height: 100%; width: 40%; border-radius: 9999px; background: linear-gradient(90deg, transparent, #00e5ff, transparent); box-shadow: 0 0 10px rgba(0, 229, 255, 0.6); animation: ps-indeterminate 1s linear infinite; }
+    @keyframes ps-indeterminate { 0% { transform: translateX(-110%); } 100% { transform: translateX(360%); } }
+    @media (prefers-reduced-motion: reduce) { .ps-progress__bar { animation: none; width: 100%; opacity: 0.55; } }
+    `,
+  ],
 })
 export class AdminV2ShellComponent {
   private readonly router = inject(Router);
@@ -214,6 +226,21 @@ export class AdminV2ShellComponent {
       startWith(this.router.url),
     ),
     { initialValue: this.router.url },
+  );
+
+  /** True while a route navigation is in flight — drives the top progress bar. */
+  protected readonly navigating = toSignal(
+    this.router.events.pipe(
+      filter(
+        (e) =>
+          e instanceof NavigationStart ||
+          e instanceof NavigationEnd ||
+          e instanceof NavigationCancel ||
+          e instanceof NavigationError,
+      ),
+      map((e) => e instanceof NavigationStart),
+    ),
+    { initialValue: false },
   );
 
   /** True on the per-site Editor route — toggles the shell-owned warm iframe. */
