@@ -77,7 +77,7 @@ type SitesState =
           <div hlmCard class="max-w-md mx-auto mt-16 text-center" data-testid="v2-empty">
             <h3 hlmCardTitle>No sites yet</h3>
             <p hlmCardDescription class="mt-1">Create your first AI-built website in minutes.</p>
-            <button hlmBtn variant="primary" size="sm" class="mt-3">+ Create site</button>
+            <button hlmBtn variant="primary" size="sm" class="mt-3" (click)="createSite()" data-testid="v2-sites-create">+ Create site</button>
           </div>
         } @else {
           <div class="flex items-center justify-between gap-3 mb-3">
@@ -158,6 +158,11 @@ export class V2SitesComponent {
   protected openEditor(site: Site): void {
     this.ctx.selectSite(site.id);
     void this.router.navigate(['/admin/v2/site/editor']);
+  }
+
+  /** Launch the create-from-search flow (empty-state primary CTA). */
+  protected createSite(): void {
+    void this.router.navigate(['/create']);
   }
 
   /** Transient per-row "copied" tick after copying a site's live URL. */
