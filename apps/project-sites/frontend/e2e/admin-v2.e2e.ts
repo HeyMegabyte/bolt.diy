@@ -75,7 +75,7 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     await page.goto('/admin/v2', { waitUntil: 'domcontentloaded' });
 
     const sections = [
-      'analytics', 'media', 'apps', 'social', 'domains', 'billing', 'cost', 'audit', 'integrations', 'docs', 'settings',
+      'analytics', 'media', 'apps', 'social', 'domains', 'billing', 'cost', 'audit', 'integrations', 'docs', 'feature-flags', 'settings',
       'site-forms', 'site-files', 'site-domains', 'site-build', 'site-snapshots', 'site-ai-logs', 'site-ai-endpoints', 'site-voice', 'sites',
     ];
     for (const id of sections) {

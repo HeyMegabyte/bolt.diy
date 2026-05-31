@@ -292,6 +292,11 @@ export class ApiService {
     return this.get(`/admin/docs/stats`);
   }
 
+  /** The feature-flag registry (key · stage · defaults · owner), org-wide */
+  getFeatureFlags(): Observable<{ flags: FeatureFlag[]; count: number }> {
+    return this.get(`/feature-flags`);
+  }
+
   /** List a site's provisioned voice numbers (note: response key is `numbers`) */
   getVoiceNumbers(siteId: string): Observable<{ numbers: VoiceNumber[] }> {
     return this.get(`/voice/numbers`, { siteId });
@@ -769,6 +774,17 @@ export interface VoiceConversation {
   duration_seconds?: number | null;
   sentiment?: string | null;
   summary?: string | null;
+}
+
+/** A feature-flag registry entry from `/feature-flags`. */
+export interface FeatureFlag {
+  key: string;
+  description: string;
+  default_enabled: boolean;
+  default_rollout_percent: number;
+  stage: 'experimental' | 'beta' | 'stable' | 'deprecated' | 'killswitch' | string;
+  owner_email: string;
+  has_docs?: boolean;
 }
 
 /** Self-documenting API-surface stats from `/admin/docs/stats`. */

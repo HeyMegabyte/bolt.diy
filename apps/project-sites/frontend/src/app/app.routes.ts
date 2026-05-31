@@ -135,6 +135,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/docs.component').then((m) => m.V2DocsComponent),
       },
       {
+        path: 'feature-flags',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/feature-flags.component').then((m) => m.V2FeatureFlagsComponent),
+      },
+      {
         path: 'analytics',
         loadComponent: () =>
           import('./pages/admin-v2/sections/analytics.component').then((m) => m.V2AnalyticsComponent),
