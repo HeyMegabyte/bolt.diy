@@ -120,6 +120,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/apps.component').then((m) => m.V2AppsComponent),
       },
       {
+        path: 'social',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/social.component').then((m) => m.V2SocialComponent),
+      },
+      {
         path: 'analytics',
         loadComponent: () =>
           import('./pages/admin-v2/sections/analytics.component').then((m) => m.V2AnalyticsComponent),

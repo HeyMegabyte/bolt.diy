@@ -287,6 +287,16 @@ export class ApiService {
     return this.get(`/apps/instances`);
   }
 
+  /** List the org's connected social accounts */
+  getSocialAccounts(): Observable<{ data: SocialAccount[] }> {
+    return this.get(`/social/accounts`);
+  }
+
+  /** List the org's scheduled/published social posts, newest first */
+  getSocialPosts(limit = 50): Observable<{ data: SocialPost[] }> {
+    return this.get(`/social/posts`, { limit: limit.toString() });
+  }
+
   /** List hostnames */
   getHostnames(siteId: string): Observable<{ data: Hostname[] }> {
     return this.get(`/sites/${siteId}/hostnames`);
@@ -717,6 +727,33 @@ export interface Hostname {
   hostname: string;
   status: string;
   is_primary: boolean;
+}
+
+/** A connected social account (org-scoped). */
+export interface SocialAccount {
+  id: string;
+  platform: string;
+  handle?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  status?: string | null;
+  last_error?: string | null;
+  token_expires_at?: string | null;
+  created_at: string;
+}
+
+/** A scheduled or published social post (org-scoped). */
+export interface SocialPost {
+  id: string;
+  status?: string | null;
+  scheduled_at?: string | null;
+  published_at?: string | null;
+  content?: string | null;
+  account_ids?: string | null;
+  hashtags?: string | null;
+  link?: string | null;
+  site_id?: string | null;
+  created_at: string;
 }
 
 /** An installed app instance (org-scoped container app on *.app.projectsites.dev). */
