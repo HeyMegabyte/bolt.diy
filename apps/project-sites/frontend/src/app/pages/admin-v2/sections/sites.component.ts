@@ -118,7 +118,10 @@ type SitesState =
                     </td>
                     <td class="px-3 py-2 text-muted-foreground">{{ row.original.slug }}.projectsites.dev</td>
                     <td class="px-3 py-2">
-                      <span hlmBadge [variant]="badgeVariant(row.original.status)">{{ row.original.status }}</span>
+                      <span class="inline-flex items-center gap-1.5">
+                        <span class="h-1.5 w-1.5 rounded-full shrink-0" [class]="dotClass(row.original.status)" aria-hidden="true"></span>
+                        <span hlmBadge [variant]="badgeVariant(row.original.status)">{{ row.original.status }}</span>
+                      </span>
                     </td>
                     <td class="px-3 py-2 text-muted-foreground">{{ row.original.plan || '—' }}</td>
                     <td class="px-3 py-2 text-muted-foreground tabular-nums" [title]="shortDate(row.original.created_at)">{{ row.original.created_at | relativeDate }}</td>
@@ -220,6 +223,21 @@ export class V2SitesComponent {
 
   protected reload(): void {
     location.reload();
+  }
+
+  /** Status dot color (cockpit hex) — pulses while a site is mid-build. */
+  protected dotClass(status: string): string {
+    switch (status) {
+      case 'published':
+        return 'bg-[#4dffb5]';
+      case 'building':
+      case 'generating':
+        return 'bg-primary animate-pulse motion-reduce:animate-none';
+      case 'error':
+        return 'bg-[#ff4d6d]';
+      default:
+        return 'bg-muted-foreground/50';
+    }
   }
 
   protected badgeVariant(status: string): BadgeVariant {
