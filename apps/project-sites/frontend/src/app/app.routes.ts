@@ -235,6 +235,16 @@ export const routes: Routes = [
     ],
   },
   {
+    // Soft cutover (2026-05-31): bare /admin lands on the new Spartan v2 cockpit.
+    // pathMatch:'full' so ONLY the exact /admin redirects — every /admin/<section>
+    // deep link still resolves to the classic admin below (the v2 advanced-feature
+    // landings + /admin/dashboard remain the escape hatch into classic). Instantly
+    // reversible: delete this one route. v2 has full parity per the convergence arc.
+    path: 'admin',
+    pathMatch: 'full',
+    redirectTo: 'admin/v2',
+  },
+  {
     path: 'admin',
     canActivate: [authGuard],
     loadComponent: () =>

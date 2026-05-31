@@ -203,4 +203,15 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     expect(navCount).toBe(1);
     expect(errs, errs.join('\n')).toEqual([]);
   });
+
+  test('soft cutover: bare /admin lands on the v2 cockpit; deep links stay classic', async ({ page }) => {
+    // bare /admin → v2 cockpit
+    await page.goto('/admin', { waitUntil: 'load' });
+    await expect(page).toHaveURL(/\/admin\/v2(\/|$)/, { timeout: 15000 });
+    await expect(page.getByTestId('v2-sidebar')).toBeVisible({ timeout: 15000 });
+
+    // a classic deep link is NOT swallowed by the redirect (escape hatch intact)
+    await page.goto('/admin/dashboard', { waitUntil: 'domcontentloaded' });
+    await expect(page).not.toHaveURL(/\/admin\/v2/);
+  });
 });
