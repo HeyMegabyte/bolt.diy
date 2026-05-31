@@ -19,6 +19,7 @@ import { filter, map, startWith } from 'rxjs';
 import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { HlmButtonDirective } from '../../ui/button';
 import { HlmInputDirective } from '../../ui/input';
+import { HlmCardDirective, HlmCardTitleDirective } from '../../ui/card';
 import { CommandPaletteComponent } from '../../components/command-palette/command-palette.component';
 import { V2NotifBellComponent } from './sections/notif-bell.component';
 import { V2SiteContextService } from './v2-site-context.service';
@@ -36,7 +37,15 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
   selector: 'app-admin-v2-shell',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterModule, HlmButtonDirective, HlmInputDirective, CommandPaletteComponent, V2NotifBellComponent],
+  imports: [
+    RouterModule,
+    HlmButtonDirective,
+    HlmInputDirective,
+    HlmCardDirective,
+    HlmCardTitleDirective,
+    CommandPaletteComponent,
+    V2NotifBellComponent,
+  ],
   host: { 'data-cockpit': 'v2', class: 'block min-h-screen bg-background text-foreground' },
   template: `
     <div class="flex min-h-screen">
@@ -146,6 +155,26 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
     @if (showPalette()) {
       <app-command-palette (closed)="showPalette.set(false)" />
     }
+
+    @if (showHelp()) {
+      <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+           (click)="showHelp.set(false)" data-testid="v2-shortcuts-help">
+        <div hlmCard class="max-w-sm w-full" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between">
+            <h3 hlmCardTitle>Keyboard shortcuts</h3>
+            <button hlmBtn variant="ghost" size="sm" (click)="showHelp.set(false)">Esc</button>
+          </div>
+          <ul class="mt-3 text-sm flex flex-col gap-1.5">
+            @for (s of shortcutList; track s.keys) {
+              <li class="flex items-center justify-between gap-4">
+                <span class="text-muted-foreground">{{ s.label }}</span>
+                <kbd class="font-mono text-[0.7rem] px-1.5 py-0.5 rounded border border-border text-foreground bg-card">{{ s.keys }}</kbd>
+              </li>
+            }
+          </ul>
+        </div>
+      </div>
+    }
   `,
 })
 export class AdminV2ShellComponent {
@@ -211,6 +240,20 @@ export class AdminV2ShellComponent {
 
   protected readonly showPalette = signal(false);
   protected readonly copied = signal(false);
+
+  /** Rows shown in the `?` shortcuts overlay. */
+  protected readonly shortcutList = [
+    { label: 'Command palette', keys: '⌘K' },
+    { label: 'This help', keys: '?' },
+    { label: 'Go to Editor', keys: 'g e' },
+    { label: 'Go to Sites', keys: 'g s' },
+    { label: 'Go to Forms', keys: 'g f' },
+    { label: 'Go to Files', keys: 'g i' },
+    { label: 'Go to Domains', keys: 'g d' },
+    { label: 'Go to Build', keys: 'g b' },
+    { label: 'Go to Analytics', keys: 'g a' },
+    { label: 'Go to Cost', keys: 'g c' },
+  ];
   /** Mobile off-canvas sidebar (md+ is always static/visible). */
   protected readonly sidebarOpen = signal(false);
 
@@ -244,12 +287,63 @@ export class AdminV2ShellComponent {
     if (id) this.ctx.selectUrl(id);
   }
 
-  /** Global Cmd/Ctrl+K toggles the palette (focus handled by the palette). */
+  protected readonly showHelp = signal(false);
+  private readonly gArmed = signal(false);
+
+  /** `g`-then-key navigation map (Linear/GitHub style). */
+  private readonly GMAP: Record<string, string> = {
+    e: '/admin/v2/site/editor',
+    s: '/admin/v2',
+    f: '/admin/v2/site/forms',
+    i: '/admin/v2/site/files',
+    d: '/admin/v2/site/domains',
+    b: '/admin/v2/site/build',
+    a: '/admin/v2/analytics',
+    m: '/admin/v2/media',
+    c: '/admin/v2/cost',
+    u: '/admin/v2/audit',
+    n: '/admin/v2/integrations',
+    t: '/admin/v2/settings',
+  };
+
+  /**
+   * Keyboard: ⌘/Ctrl+K palette · `?` shortcuts help · `g` then a key jumps to a
+   * section (e=editor, s=sites, f=forms, i=files, d=domains, b=build, a=analytics,
+   * m=media, c=cost, u=audit, n=integrations, t=settings). Ignored while typing.
+   */
   @HostListener('document:keydown', ['$event'])
   protected onKeydown(e: KeyboardEvent): void {
     if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
       e.preventDefault();
       this.showPalette.update((v) => !v);
+      return;
+    }
+    const t = e.target as HTMLElement | null;
+    const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+    if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+
+    if (e.key === '?') {
+      e.preventDefault();
+      this.showHelp.update((v) => !v);
+      return;
+    }
+    if (e.key === 'Escape') {
+      this.showHelp.set(false);
+      this.gArmed.set(false);
+      return;
+    }
+    if (e.key === 'g' || e.key === 'G') {
+      this.gArmed.set(true);
+      setTimeout(() => this.gArmed.set(false), 1200);
+      return;
+    }
+    if (this.gArmed()) {
+      this.gArmed.set(false);
+      const dest = this.GMAP[e.key.toLowerCase()];
+      if (dest) {
+        e.preventDefault();
+        void this.router.navigateByUrl(dest);
+      }
     }
   }
 
