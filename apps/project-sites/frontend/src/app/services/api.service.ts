@@ -297,6 +297,11 @@ export class ApiService {
     return this.get(`/feature-flags`);
   }
 
+  /** List the org's API keys (session-scoped; prefixes only, never full secret) */
+  getApiKeys(): Observable<{ data: ApiKey[] }> {
+    return this.get(`/admin/api-keys`);
+  }
+
   /** List a site's provisioned voice numbers (note: response key is `numbers`) */
   getVoiceNumbers(siteId: string): Observable<{ numbers: VoiceNumber[] }> {
     return this.get(`/voice/numbers`, { siteId });
@@ -774,6 +779,19 @@ export interface VoiceConversation {
   duration_seconds?: number | null;
   sentiment?: string | null;
   summary?: string | null;
+}
+
+/** An org API key (from `/admin/api-keys`) — prefix only, secret never returned. */
+export interface ApiKey {
+  id: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  active: boolean;
+  last_used_at?: string | null;
+  expires_at?: string | null;
+  created_at: string;
+  revoked_at?: string | null;
 }
 
 /** A feature-flag registry entry from `/feature-flags`. */

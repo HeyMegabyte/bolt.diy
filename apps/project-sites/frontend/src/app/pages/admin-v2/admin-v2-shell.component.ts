@@ -265,6 +265,7 @@ export class AdminV2ShellComponent {
     { id: 'integrations', label: 'Integrations', link: '/admin/v2/integrations', exact: false },
     { id: 'docs', label: 'Docs', link: '/admin/v2/docs', exact: false },
     { id: 'feature-flags', label: 'Feature Flags', link: '/admin/v2/feature-flags', exact: false },
+    { id: 'api-tokens', label: 'API Tokens', link: '/admin/v2/api-tokens', exact: false },
     { id: 'settings', label: 'Settings', link: '/admin/v2/settings', exact: false },
   ];
 

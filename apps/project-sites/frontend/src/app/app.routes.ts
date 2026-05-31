@@ -140,6 +140,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/feature-flags.component').then((m) => m.V2FeatureFlagsComponent),
       },
       {
+        path: 'api-tokens',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/api-tokens.component').then((m) => m.V2ApiTokensComponent),
+      },
+      {
         path: 'analytics',
         loadComponent: () =>
           import('./pages/admin-v2/sections/analytics.component').then((m) => m.V2AnalyticsComponent),
