@@ -107,6 +107,8 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     await page.getByTestId('v2-nav-site-editor').click();
     const frame = page.getByTestId('v2-editor-frame');
     await expect(frame).toBeVisible();
+    // requirement: the editor IS bolt.diy (embedded editor.projectsites.dev)
+    await expect(frame).toHaveAttribute('src', /editor\.projectsites\.dev/, { timeout: 15000 });
     await frame.evaluate((el: HTMLElement) => (el.dataset.warm = 'persist'));
 
     await page.getByTestId('v2-nav-site-forms').click();

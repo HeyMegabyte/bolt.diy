@@ -529,6 +529,10 @@ export class ApiService {
 
   /** Revert a site to a previous snapshot version */
   revertSnapshot(siteId: string, snapshotId: string): Observable<{ data: { message: string; snapshot_name: string } }> {
+    // FIXME(revert-contract): the worker reads `body.commit_id` (a git SHA) and
+    // 400s on `snapshot_id`. To wire a working Revert in v2, the snapshot list
+    // GET must expose the commit SHA + this must send { commit_id }. Destructive
+    // (git revert of the live site) — gate behind confirm + verify safely.
     return this.post(`/sites/${siteId}/snapshots/revert`, { snapshot_id: snapshotId });
   }
 
