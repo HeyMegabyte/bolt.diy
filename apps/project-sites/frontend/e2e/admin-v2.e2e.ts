@@ -374,6 +374,31 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     await expect(page.getByTestId('v2-site-ai-logs-nosite')).toHaveCount(0, { timeout: 15000 });
   });
 
+  test('per-site: AI Endpoint editor opens a real endpoint → Monaco + Save/Deploy', async ({ page }) => {
+    const errs = trackErrors(page);
+    await page.goto('/admin/v2', { waitUntil: 'load' });
+    await page.waitForFunction(
+      () => {
+        const sel = document.querySelector('[data-testid="v2-project-select"]') as HTMLSelectElement | null;
+        return !!sel && !sel.disabled && sel.options.length > 0;
+      },
+      { timeout: 20000 },
+    );
+    await page.getByTestId('v2-nav-site-ai-endpoints').click();
+    // the seeded site has an endpoint → a card is present; open it
+    const card = page.locator('[data-testid="v2-site-ai-endpoints-card"]').first();
+    await expect(card).toBeVisible({ timeout: 15000 });
+    await card.click();
+    // EDITOR view: Monaco mounts + Save/Deploy/Back present (the real editor, not a list)
+    await expect(page.getByTestId('v2-ep-editor')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByTestId('v2-ep-save')).toBeVisible();
+    await expect(page.getByTestId('v2-ep-deploy')).toBeVisible();
+    await expect(page.getByTestId('v2-ep-back')).toBeVisible();
+    // file-tab strip rendered (the endpoint's files map)
+    await expect(page.locator('[data-testid^="v2-ep-file-"]').first()).toBeVisible();
+    expect(errs, errs.join('\n')).toEqual([]);
+  });
+
   test('per-site: Snapshots renders the selected project version history', async ({ page }) => {
     await page.goto('/admin/v2', { waitUntil: 'load' });
     await page.waitForFunction(
