@@ -367,6 +367,11 @@ export class ApiService {
     return this.get(`/social/posts`, { limit: limit.toString() });
   }
 
+  /** Aggregated social engagement by platform (the social-analytics surface) */
+  getSocialAnalytics(): Observable<{ window_days: number; platform_totals: SocialPlatformTotals[] }> {
+    return this.get(`/social/analytics/aggregate`);
+  }
+
   /** List hostnames */
   getHostnames(siteId: string): Observable<{ data: Hostname[] }> {
     return this.get(`/sites/${siteId}/hostnames`);
@@ -902,6 +907,15 @@ export interface DocsStats {
   recent: DocsEndpointRef[];
   category_counts: Record<string, number>;
   generated_at: string;
+}
+
+/** Per-platform engagement totals (from /social/analytics/aggregate). */
+export interface SocialPlatformTotals {
+  platform: string;
+  posts: number;
+  impressions: number;
+  reach: number;
+  engagement: number;
 }
 
 /** A connected social account (org-scoped). */

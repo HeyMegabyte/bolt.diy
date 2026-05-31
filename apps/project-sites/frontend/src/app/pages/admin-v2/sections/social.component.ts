@@ -13,7 +13,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, forkJoin, map, of, startWith } from 'rxjs';
-import { ApiService, type SocialAccount, type SocialPost } from '../../../services/api.service';
+import { ApiService, type SocialAccount, type SocialPost, type SocialPlatformTotals } from '../../../services/api.service';
 import {
   HlmButtonDirective,
   HlmCardDirective,
@@ -27,7 +27,7 @@ import { RelativeDatePipe } from './relative-date.pipe';
 type SocialState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; accounts: SocialAccount[]; posts: SocialPost[] };
+  | { status: 'ready'; accounts: SocialAccount[]; posts: SocialPost[]; engagement: SocialPlatformTotals[] };
 
 @Component({
   selector: 'app-v2-social',
@@ -81,6 +81,24 @@ type SocialState =
           }
         </div>
 
+        <!-- Engagement by platform (social-analytics) -->
+        @if (engagement().length > 0) {
+          <div hlmCard class="mb-3" data-testid="v2-social-engagement">
+            <h3 hlmCardTitle>Engagement by platform</h3>
+            <ul class="mt-3 flex flex-col gap-2">
+              @for (p of engagement(); track p.platform) {
+                <li class="flex items-center gap-3 text-sm">
+                  <span class="font-medium text-foreground capitalize w-24 truncate">{{ p.platform }}</span>
+                  <span class="text-xs text-muted-foreground tabular-nums">{{ p.posts }} posts</span>
+                  <span class="flex-1"></span>
+                  <span class="text-xs text-muted-foreground tabular-nums">{{ p.impressions }} impr</span>
+                  <span class="text-xs text-primary tabular-nums">{{ p.engagement }} eng</span>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+
         <!-- Recent posts feed -->
         <div class="mb-2 flex items-center justify-between gap-3">
           <h3 class="text-sm font-semibold text-foreground">Recent posts</h3>
@@ -115,8 +133,17 @@ export class V2SocialComponent {
     forkJoin({
       accounts: this.api.getSocialAccounts(),
       posts: this.api.getSocialPosts(50),
+      analytics: this.api.getSocialAnalytics().pipe(catchError(() => of({ window_days: 0, platform_totals: [] as SocialPlatformTotals[] }))),
     }).pipe(
-      map((r) => ({ status: 'ready', accounts: r.accounts.data ?? [], posts: r.posts.data ?? [] }) as SocialState),
+      map(
+        (r) =>
+          ({
+            status: 'ready',
+            accounts: r.accounts.data ?? [],
+            posts: r.posts.data ?? [],
+            engagement: r.analytics.platform_totals ?? [],
+          }) as SocialState,
+      ),
       startWith({ status: 'loading' } as SocialState),
       catchError((e: unknown) =>
         of({ status: 'error', message: (e as { message?: string })?.message ?? 'Network error' } as SocialState),
@@ -132,6 +159,10 @@ export class V2SocialComponent {
   protected readonly posts = computed(() => {
     const s = this.state();
     return s.status === 'ready' ? s.posts : [];
+  });
+  protected readonly engagement = computed(() => {
+    const s = this.state();
+    return s.status === 'ready' ? s.engagement : [];
   });
   protected readonly errMsg = computed(() => {
     const s = this.state();
