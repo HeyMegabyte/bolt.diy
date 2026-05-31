@@ -11,7 +11,8 @@
  *   - hand-rolled `<table>`  → `p-table` (built-in sort + paginator + rows-per-page)
  *   - status `<span>` pill   → `p-tag` (severity-driven, cockpit-tinted)
  *   - filter `<button>` pills→ `p-selectButton` (single-select segmented control)
- *   - action `<button>`s     → `p-button` (severity success/danger, sm, text)
+ *   - action `<button>`s     → Spartan `hlmBtn` (ghost size=sm; approve tinted
+ *                              cyan-green `#4dffb5`, reject tinted `text-destructive`)
  *   - silent error swallow   → `p-toast` + `MessageService` (the prior code had a
  *                              "toast would require ToastService injection" gap —
  *                              now closed with PrimeNG's MessageService).
@@ -26,9 +27,9 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { TableModule } from 'primeng/table';
-import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
 import { BrnToggleGroupImports } from '@spartan-ng/brain/toggle-group';
+import { HlmButtonDirective } from '../../../ui';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { AdminStateService } from '../admin-state.service';
@@ -65,8 +66,8 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
     FormsModule,
     RollingCounterComponent,
     TableModule,
-    ButtonModule,
     TagModule,
+    HlmButtonDirective,
     ...BrnToggleGroupImports,
     ToastModule,
   ],
@@ -95,21 +96,26 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
           </p>
         </div>
         <div class="cf-header-actions">
-          <p-button
-            label="Run scan now"
-            icon="pi pi-sync"
-            severity="secondary"
-            [outlined]="true"
-            size="small"
-            [loading]="triggering()"
-            (onClick)="triggerScan()" />
-          <p-button
-            label="Refresh"
-            icon="pi pi-refresh"
-            [text]="true"
-            size="small"
-            [loading]="loading()"
-            (onClick)="load()" />
+          <button
+            hlmBtn
+            variant="outline"
+            size="sm"
+            type="button"
+            [disabled]="triggering()"
+            (click)="triggerScan()">
+            <i class="pi pi-sync" aria-hidden="true" [class.cf-spin]="triggering()"></i>
+            {{ triggering() ? 'Scanning…' : 'Run scan now' }}
+          </button>
+          <button
+            hlmBtn
+            variant="ghost"
+            size="sm"
+            type="button"
+            [disabled]="loading()"
+            (click)="load()">
+            <i class="pi pi-refresh" aria-hidden="true" [class.cf-spin]="loading()"></i>
+            Refresh
+          </button>
         </div>
       </header>
 
@@ -175,22 +181,28 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
             <td class="cf-cell-date">{{ d.created_at | date:'MMM d' }}</td>
             <td class="cf-actions-col">
               @if (d.status === 'pending') {
-                <p-button
-                  label="Approve"
-                  severity="success"
-                  size="small"
-                  [text]="true"
-                  [loading]="acting().has(d.id)"
-                  (onClick)="approve(d.id)"
-                  [attr.aria-label]="'Approve rewrite for ' + d.section_key" />
-                <p-button
-                  label="Reject"
-                  severity="danger"
-                  size="small"
-                  [text]="true"
-                  [loading]="acting().has(d.id)"
-                  (onClick)="reject(d.id)"
-                  [attr.aria-label]="'Reject rewrite for ' + d.section_key" />
+                <button
+                  hlmBtn
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  class="text-[#4dffb5]"
+                  [disabled]="acting().has(d.id)"
+                  (click)="approve(d.id)"
+                  [attr.aria-label]="'Approve rewrite for ' + d.section_key">
+                  Approve
+                </button>
+                <button
+                  hlmBtn
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  class="text-destructive"
+                  [disabled]="acting().has(d.id)"
+                  (click)="reject(d.id)"
+                  [attr.aria-label]="'Reject rewrite for ' + d.section_key">
+                  Reject
+                </button>
               } @else {
                 <span class="cf-act-done">—</span>
               }
@@ -308,7 +320,7 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
     }
     :host ::ng-deep .cf-grid .p-datatable-tbody > tr { transition: background 180ms var(--ease); }
     :host ::ng-deep .cf-grid .p-datatable-tbody > tr:hover > td { background: rgba(0,229,255,0.04); }
-    :host ::ng-deep .cf-grid .p-button-sm { padding: .2rem .55rem; font-size: .65rem; }
+    /* Action buttons are Spartan hlmBtn (size=sm owns its own padding/typography). */
   `],
 })
 export class AdminContentFreshnessComponent implements OnInit {
