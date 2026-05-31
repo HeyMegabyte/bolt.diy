@@ -246,6 +246,7 @@ export class AdminV2ShellComponent {
     { id: 'site-files', label: 'Files', link: '/admin/v2/site/files', exact: false },
     { id: 'site-domains', label: 'Domains', link: '/admin/v2/site/domains', exact: false },
     { id: 'site-build', label: 'Build', link: '/admin/v2/site/build', exact: false },
+    { id: 'site-snapshots', label: 'Snapshots', link: '/admin/v2/site/snapshots', exact: false },
   ];
 
   /** Org-wide / sys-admin surfaces. */

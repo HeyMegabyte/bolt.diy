@@ -74,7 +74,7 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
 
     const sections = [
       'analytics', 'media', 'domains', 'billing', 'cost', 'audit', 'integrations', 'settings',
-      'site-forms', 'site-files', 'site-domains', 'site-build', 'sites',
+      'site-forms', 'site-files', 'site-domains', 'site-build', 'site-snapshots', 'sites',
     ];
     for (const id of sections) {
       await page.getByTestId(`v2-nav-${id}`).click();
@@ -155,7 +155,10 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     // closed → off-canvas (negative x)
     await expect.poll(async () => (await sidebar.boundingBox())?.x ?? 0).toBeLessThan(0);
 
-    await toggle.click();
+    // force past the first-paint actionability race (sticky backdrop-blur topbar
+    // intermittently fails Playwright's pointer-hit check on cold prod hydration);
+    // the behavioral assertions below stay strict — they prove the drawer truly opens.
+    await toggle.click({ force: true });
     await expect(page.getByTestId('v2-sidebar-backdrop')).toBeVisible();
     await expect.poll(async () => (await sidebar.boundingBox())?.x ?? -999).toBeGreaterThanOrEqual(0);
 

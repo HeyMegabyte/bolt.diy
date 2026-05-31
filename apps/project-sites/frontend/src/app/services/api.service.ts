@@ -267,6 +267,11 @@ export class ApiService {
     return this.get(`/sites/${id}/logs`, { limit: limit.toString() });
   }
 
+  /** List a site's snapshots (version history, newest first) */
+  getSnapshots(siteId: string): Observable<{ data: Snapshot[] }> {
+    return this.get(`/sites/${siteId}/snapshots`);
+  }
+
   /** List hostnames */
   getHostnames(siteId: string): Observable<{ data: Hostname[] }> {
     return this.get(`/sites/${siteId}/hostnames`);
@@ -697,6 +702,18 @@ export interface Hostname {
   hostname: string;
   status: string;
   is_primary: boolean;
+}
+
+/** A frozen version of a site (auto on build, AI-named on edit). */
+export interface Snapshot {
+  id: string;
+  snapshot_name: string;
+  description?: string | null;
+  created_at: string;
+  commit_iso?: string | null;
+  github_branch_name?: string | null;
+  github_pr_number?: number | null;
+  github_pr_html_url?: string | null;
 }
 
 /** Workers-AI-enriched domain suggestion from /api/domains/search-enrich (RDAP-backed). */
