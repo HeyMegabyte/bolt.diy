@@ -262,21 +262,21 @@
       </div>
       <div class="flex items-center gap-2">
         <!-- Cmd-K palette opener -->
-        <button class="top-btn cmdk-btn" (click)="openPalette()" title="Open command palette (⌘K / Ctrl-K)" aria-label="Open command palette">
+        <button class="top-btn cmdk-btn" (click)="openPalette()" [brnTooltip]="'Open command palette (⌘K / Ctrl-K)'" aria-label="Open command palette">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <span class="cmdk-label">Quick find</span>
           <kbd class="cmdk-kbd">⌘K</kbd>
         </button>
 @if (state.selectedSite(); as site) {
           @if (site.status === 'published') {
-            <button class="top-btn" (click)="state.visitSite(site)" title="Preview site" aria-label="Preview site in new tab">
+            <button class="top-btn" (click)="state.visitSite(site)" [brnTooltip]="'Preview site'" aria-label="Preview site in new tab">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
               Preview
             </button>
           }
         }
         @if (isEditorRoute() && state.selectedSite()) {
-          <button class="top-btn text-primary border-primary/20 hover:bg-primary/10" (click)="saveEditor()" [disabled]="bolt.saving()" title="Save & Deploy">
+          <button class="top-btn text-primary border-primary/20 hover:bg-primary/10" (click)="saveEditor()" [disabled]="bolt.saving()" [brnTooltip]="'Save & deploy this site'">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             {{ bolt.saving() ? 'Saving...' : 'Save & Deploy' }}
           </button>
@@ -286,7 +286,7 @@
         <!-- Notifications bell — wrapped in .avatar-wrap to provide the
              positioning context for the absolutely-positioned .notif-pop. -->
         <div class="avatar-wrap">
-        <button class="top-btn relative" (click)="toggleNotifications($event)" title="Notifications" aria-label="Notifications">
+        <button class="top-btn relative" (click)="toggleNotifications($event)" [brnTooltip]="'Notifications'" aria-label="Notifications">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           @if (unreadCount() > 0) {
             <span class="notif-dot" [attr.aria-label]="unreadCount() + ' new'">{{ unreadCount() }}</span>

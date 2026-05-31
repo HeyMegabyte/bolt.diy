@@ -8,6 +8,8 @@ import { ApiService, type Site } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { NovuInboxService } from '../../services/novu-inbox.service';
+import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
+import { provideHlmTooltip } from '../../ui';
 import { AppShellService, type AppLanguage } from '../../services/app-shell.service';
 import { BoltEmbedService } from '../../services/bolt-embed.service';
 import { AdminStateService } from './admin-state.service';
@@ -28,8 +30,8 @@ interface Notification { id: string; title: string; time: string; kind: 'info' |
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective, DomainPickerComponent, GlobalDropZoneComponent, TaskTrayComponent, EditorTabsComponent, AdminMediaComponent, AdminAiEndpointsComponent],
-  providers: [AdminStateService],
+  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective, DomainPickerComponent, GlobalDropZoneComponent, TaskTrayComponent, EditorTabsComponent, AdminMediaComponent, AdminAiEndpointsComponent, ...BrnTooltipImports],
+  providers: [AdminStateService, provideHlmTooltip()],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',
   // Activates the black+cyan compact cockpit token layer (_cockpit.scss) for
