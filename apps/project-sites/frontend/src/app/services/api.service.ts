@@ -277,6 +277,16 @@ export class ApiService {
     return this.get(`/sites/${siteId}/branches`);
   }
 
+  /** Tools the site's own MCP server exposes to AI clients */
+  getSiteMcpTools(siteId: string): Observable<{ tools: SiteMcpTool[] }> {
+    return this.get(`/sites/${siteId}/mcp/tools`);
+  }
+
+  /** Recent calls AI clients made against the site's MCP server */
+  getSiteMcpCalls(siteId: string): Observable<{ calls: SiteMcpCall[] }> {
+    return this.get(`/sites/${siteId}/mcp/calls`);
+  }
+
   /** List a site's AI trace rows (LLM calls + tool runs), newest first */
   getAiLogs(siteId: string, limit = 200): Observable<{ data: AiLogRow[] }> {
     return this.get(`/sites/${siteId}/ai-logs`, { limit: limit.toString() });
@@ -1019,6 +1029,26 @@ export interface AiLogRow {
   output_preview?: string | null;
   error_message?: string | null;
   created_at: string;
+}
+
+/** A tool the site's MCP server exposes to AI clients. */
+export interface SiteMcpTool {
+  id: string;
+  tool_name: string;
+  handler_kind?: string | null;
+  requires_auth?: number | boolean | null;
+  enabled?: number | boolean | null;
+  updated_at?: string | null;
+}
+
+/** A call an AI client made against the site's MCP server. */
+export interface SiteMcpCall {
+  id: string;
+  tool_name: string;
+  called_at: string;
+  agent_client_id?: string | null;
+  result_status?: string | null;
+  latency_ms?: number | null;
 }
 
 /** A site branch — a staged edit with approvals + a preview URL. */

@@ -277,6 +277,7 @@ export class AdminV2ShellComponent {
     { id: 'site-build', label: 'Build', link: '/admin/v2/site/build', exact: false },
     { id: 'site-snapshots', label: 'Snapshots', link: '/admin/v2/site/snapshots', exact: false },
     { id: 'site-branches', label: 'Branches', link: '/admin/v2/site/branches', exact: false },
+    { id: 'site-mcp', label: 'MCP Server', link: '/admin/v2/site/mcp', exact: false },
     { id: 'site-ai-logs', label: 'AI Logs', link: '/admin/v2/site/ai-logs', exact: false },
     { id: 'site-ai-endpoints', label: 'AI Endpoints', link: '/admin/v2/site/ai-endpoints', exact: false },
     { id: 'site-voice', label: 'Voice', link: '/admin/v2/site/voice', exact: false },
