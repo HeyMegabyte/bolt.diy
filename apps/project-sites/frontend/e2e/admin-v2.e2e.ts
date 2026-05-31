@@ -76,7 +76,7 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
 
     const sections = [
       'analytics', 'media', 'apps', 'social', 'domains', 'billing', 'cost', 'audit', 'integrations', 'docs', 'settings',
-      'site-forms', 'site-files', 'site-domains', 'site-build', 'site-snapshots', 'site-ai-logs', 'site-ai-endpoints', 'sites',
+      'site-forms', 'site-files', 'site-domains', 'site-build', 'site-snapshots', 'site-ai-logs', 'site-ai-endpoints', 'site-voice', 'sites',
     ];
     for (const id of sections) {
       await page.getByTestId(`v2-nav-${id}`).click();

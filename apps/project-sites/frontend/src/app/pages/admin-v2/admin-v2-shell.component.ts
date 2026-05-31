@@ -249,6 +249,7 @@ export class AdminV2ShellComponent {
     { id: 'site-snapshots', label: 'Snapshots', link: '/admin/v2/site/snapshots', exact: false },
     { id: 'site-ai-logs', label: 'AI Logs', link: '/admin/v2/site/ai-logs', exact: false },
     { id: 'site-ai-endpoints', label: 'AI Endpoints', link: '/admin/v2/site/ai-endpoints', exact: false },
+    { id: 'site-voice', label: 'Voice', link: '/admin/v2/site/voice', exact: false },
   ];
 
   /** Org-wide / sys-admin surfaces. */

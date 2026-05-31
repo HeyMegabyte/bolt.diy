@@ -292,6 +292,16 @@ export class ApiService {
     return this.get(`/admin/docs/stats`);
   }
 
+  /** List a site's provisioned voice numbers (note: response key is `numbers`) */
+  getVoiceNumbers(siteId: string): Observable<{ numbers: VoiceNumber[] }> {
+    return this.get(`/voice/numbers`, { siteId });
+  }
+
+  /** List a site's recent voice conversations — calls + SMS (key is `items`) */
+  getVoiceConversations(siteId: string): Observable<{ items: VoiceConversation[] }> {
+    return this.get(`/voice/conversations`, { siteId });
+  }
+
   /** List the org's connected social accounts */
   getSocialAccounts(): Observable<{ data: SocialAccount[] }> {
     return this.get(`/social/accounts`);
@@ -732,6 +742,33 @@ export interface Hostname {
   hostname: string;
   status: string;
   is_primary: boolean;
+}
+
+/** A provisioned voice phone number on a site. */
+export interface VoiceNumber {
+  id: string;
+  site_id?: string | null;
+  phone_number: string;
+  friendly_name?: string | null;
+  vanity_display?: string | null;
+  capabilities?: string | null;
+  monthly_cost_cents?: number | null;
+  status?: string | null;
+  created_at: string;
+}
+
+/** A voice conversation row (call or SMS) on a site. */
+export interface VoiceConversation {
+  id: string;
+  kind: 'call' | 'sms' | string;
+  direction?: string | null;
+  from_number?: string | null;
+  to_number?: string | null;
+  status?: string | null;
+  event_at?: string | null;
+  duration_seconds?: number | null;
+  sentiment?: string | null;
+  summary?: string | null;
 }
 
 /** Self-documenting API-surface stats from `/admin/docs/stats`. */
