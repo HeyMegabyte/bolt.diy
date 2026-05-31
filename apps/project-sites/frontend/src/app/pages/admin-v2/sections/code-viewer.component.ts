@@ -20,6 +20,7 @@ import {
   afterNextRender,
   effect,
   input,
+  output,
   viewChild,
   DestroyRef,
   inject,
@@ -35,6 +36,9 @@ export class V2CodeViewerComponent {
   readonly value = input<string>('');
   readonly language = input<string>('plaintext');
   readonly label = input<string>('Code viewer');
+  /** When false the editor is writable + emits valueChange on edit. */
+  readonly readOnly = input<boolean>(true);
+  readonly valueChange = output<string>();
 
   private readonly hostRef = viewChild.required<ElementRef<HTMLDivElement>>('host');
   private readonly destroyRef = inject(DestroyRef);
@@ -82,8 +86,8 @@ export class V2CodeViewerComponent {
         value: this.value(),
         language: this.language(),
         theme: 'ps-cockpit',
-        readOnly: true,
-        domReadOnly: true,
+        readOnly: this.readOnly(),
+        domReadOnly: this.readOnly(),
         automaticLayout: false,
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
@@ -95,6 +99,9 @@ export class V2CodeViewerComponent {
         cursorBlinking: this.reduceMotion() ? 'solid' : 'blink',
         scrollbar: { vertical: 'auto', horizontal: 'auto' },
       });
+      if (!this.readOnly()) {
+        this.editor.onDidChangeModelContent(() => this.valueChange.emit(this.editor.getValue()));
+      }
       this.resizeObs = new ResizeObserver(() => this.editor?.layout());
       this.resizeObs.observe(el);
       this.destroyRef.onDestroy(() => {
