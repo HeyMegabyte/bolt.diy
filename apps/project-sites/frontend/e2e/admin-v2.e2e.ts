@@ -253,6 +253,42 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     expect(errs, errs.join('\n')).toEqual([]);
   });
 
+  test('per-site: AI Endpoints EDITOR mounts for the selected project + create form opens', async ({ page }) => {
+    const errs = trackErrors(page);
+    await page.goto('/admin/v2', { waitUntil: 'load' });
+    // wait for the site context to populate (the org has sites → select enables)
+    await page.waitForFunction(
+      () => {
+        const sel = document.querySelector('[data-testid="v2-project-select"]') as HTMLSelectElement | null;
+        return !!sel && !sel.disabled && sel.options.length > 0;
+      },
+      { timeout: 20000 },
+    );
+    await page.getByTestId('v2-nav-site-ai-endpoints').click();
+    // the EDITOR list view renders (NOT the no-site state) because a project is selected
+    await expect(page.getByTestId('v2-ep-new')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('v2-site-ai-endpoints-nosite')).toHaveCount(0);
+    // create form opens
+    await page.getByTestId('v2-ep-new').click();
+    await expect(page.getByTestId('v2-ep-create')).toBeVisible();
+    await expect(page.getByTestId('v2-ep-new-slug')).toBeVisible();
+    expect(errs, errs.join('\n')).toEqual([]);
+  });
+
+  test('per-site: Snapshots renders the selected project version history', async ({ page }) => {
+    await page.goto('/admin/v2', { waitUntil: 'load' });
+    await page.waitForFunction(
+      () => {
+        const sel = document.querySelector('[data-testid="v2-project-select"]') as HTMLSelectElement | null;
+        return !!sel && !sel.disabled && sel.options.length > 0;
+      },
+      { timeout: 20000 },
+    );
+    await page.getByTestId('v2-nav-site-snapshots').click();
+    // some real state resolves (list OR empty) — never the no-site placeholder
+    await expect(page.getByTestId('v2-site-snapshots-nosite')).toHaveCount(0, { timeout: 15000 });
+  });
+
   test('soft cutover: bare /admin lands on the v2 cockpit; deep links stay classic', async ({ page }) => {
     // bare /admin → v2 cockpit
     await page.goto('/admin', { waitUntil: 'load' });
