@@ -30,6 +30,13 @@ export class AdminStateService {
   private telemetry = inject(TelemetryService);
 
   sites = signal<Site[]>([]);
+  /**
+   * The caller's org id, hydrated once from `/api/auth/me` during {@link loadData}.
+   * Org-scoped sections (e.g. API Tokens, which gates the worker's `/api/v1-tokens`
+   * route on the `x-org-id` header) read this. Empty until the first load resolves —
+   * guard org-scoped calls on a non-empty value.
+   */
+  orgId = signal<string>('');
   selectedSiteId = signal<string | null>(null);
   domainSummary = signal<DomainSummary>({ total: 0, active: 0, pending: 0, failed: 0 });
   subscription = signal<SubscriptionInfo | null>(null);
@@ -66,11 +73,15 @@ export class AdminStateService {
       sites: this.api.listSites(),
       domains: this.api.getDomainSummary(),
       sub: this.api.getSubscription(),
+      // org id powers org-scoped sections (API Tokens). Caught so a /me hiccup
+      // never blocks the whole dashboard load.
+      me: this.api.getMe().pipe(catchError(() => of({ data: { org_id: '' } as { org_id?: string } }))),
     }).subscribe({
       next: (res) => {
         this.sites.set(res.sites.data || []);
         this.domainSummary.set(res.domains.data || { total: 0, active: 0, pending: 0, failed: 0 });
         this.subscription.set(res.sub.data || null);
+        this.orgId.set(res.me?.data?.org_id ?? '');
         this.loading.set(false);
         // Load analytics for selected site
         this.loadAnalytics();

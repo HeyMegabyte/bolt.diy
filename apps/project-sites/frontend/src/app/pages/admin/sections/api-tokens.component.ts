@@ -413,21 +413,32 @@ export class AdminApiTokensComponent {
 
   readonly scopeCount = computed(() => ALL_SCOPES.length);
 
+  /** Reactive org id from the shared admin state (hydrated from /api/auth/me). */
   private get orgId(): string {
-    return (this.adminState as unknown as { orgId?: () => string }).orgId?.() ?? '';
+    return this.adminState.orgId();
   }
 
   constructor() {
+    // Reads `orgId()` synchronously via loadTokens → the effect re-fires once
+    // the shared state hydrates the org id, so the first paint isn't stuck
+    // sending an empty `x-org-id` (which the worker 401s).
     effect(() => {
       this.loadTokens();
     });
   }
 
   private loadTokens(): void {
+    const orgId = this.orgId; // tracked by the effect — re-runs when it hydrates
+    if (!orgId) {
+      // Org id not ready yet; the effect will re-run when it resolves. Avoid
+      // firing a guaranteed-401 request with an empty header.
+      this.loading.set(false);
+      return;
+    }
     this.loading.set(true);
     this.http
       .get<{ data: ApiToken[] }>('/api/v1-tokens', {
-        headers: { 'x-org-id': this.orgId },
+        headers: { 'x-org-id': orgId },
       })
       .subscribe({
         next: (res) => {
