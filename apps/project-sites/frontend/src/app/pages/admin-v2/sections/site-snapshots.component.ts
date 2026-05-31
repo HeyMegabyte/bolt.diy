@@ -81,8 +81,8 @@ type SnapshotsState =
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
                       <span class="font-medium text-foreground truncate">{{ snap.snapshot_name }}</span>
-                      @if (snap.github_pr_number) {
-                        <span hlmBadge variant="info" class="shrink-0">PR #{{ snap.github_pr_number }}</span>
+                      @if (snap.build_version) {
+                        <span hlmBadge variant="info" class="shrink-0 font-mono text-[0.65rem]">{{ snap.build_version }}</span>
                       }
                     </div>
                     @if (snap.description) {
@@ -90,10 +90,6 @@ type SnapshotsState =
                     }
                   </div>
                   <span class="text-xs text-muted-foreground shrink-0 tabular-nums" [title]="snap.created_at">{{ snap.created_at | relativeDate }}</span>
-                  @if (snap.github_pr_html_url) {
-                    <a [href]="snap.github_pr_html_url" target="_blank" rel="noopener noreferrer"
-                       hlmBtn variant="ghost" size="sm" class="shrink-0" aria-label="Open pull request">PR ↗</a>
-                  }
                   <a [href]="frozenUrl(snap)" target="_blank" rel="noopener noreferrer"
                      hlmBtn variant="outline" size="sm" class="shrink-0"
                      [attr.data-testid]="'v2-snapshot-view-' + snap.id"

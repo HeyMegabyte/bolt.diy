@@ -985,12 +985,12 @@ export interface AiLogRow {
 export interface Snapshot {
   id: string;
   snapshot_name: string;
+  /** The build version this snapshot froze (the meaningful identifier the
+   * legacy list showed). The `GET /sites/:id/snapshots` route returns exactly
+   * id · snapshot_name · build_version · description · created_at. */
+  build_version?: string | null;
   description?: string | null;
   created_at: string;
-  commit_iso?: string | null;
-  github_branch_name?: string | null;
-  github_pr_number?: number | null;
-  github_pr_html_url?: string | null;
 }
 
 /** Workers-AI-enriched domain suggestion from /api/domains/search-enrich (RDAP-backed). */
