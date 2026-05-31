@@ -357,6 +357,11 @@ export class ApiService {
     return this.get(`/inbox/tasks`);
   }
 
+  /** AI content-rewrite drafts for stale sections (content freshness) */
+  getContentFreshness(status = 'pending'): Observable<{ drafts: ContentDraft[]; total: number }> {
+    return this.get(`/content/freshness`, { status });
+  }
+
   /** Resolve an inbox task by choosing an option (or free-text choice) */
   resolveInboxTask(id: string, choice: string): Observable<{ ok: boolean }> {
     return this.post(`/inbox/tasks/${id}/resolve`, { choice });
@@ -848,6 +853,18 @@ export interface VoiceConversation {
   duration_seconds?: number | null;
   sentiment?: string | null;
   summary?: string | null;
+}
+
+/** An AI content-rewrite draft for a stale site section (content freshness). */
+export interface ContentDraft {
+  id: string;
+  site_id: string;
+  section_key: string;
+  dwell_seconds_avg?: number | null;
+  idle_days?: number | null;
+  status: string;
+  ai_model?: string | null;
+  created_at: string;
 }
 
 /** A human-in-the-loop task the AI posted (the inbox / task tray). */

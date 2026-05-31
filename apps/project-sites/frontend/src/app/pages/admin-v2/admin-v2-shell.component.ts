@@ -298,6 +298,7 @@ export class AdminV2ShellComponent {
     { id: 'integrations', label: 'Integrations', link: '/admin/v2/integrations', exact: false },
     { id: 'mcp', label: 'MCP', link: '/admin/v2/mcp', exact: false },
     { id: 'docs', label: 'Docs', link: '/admin/v2/docs', exact: false },
+    { id: 'content-freshness', label: 'Content Freshness', link: '/admin/v2/content-freshness', exact: false },
     { id: 'feature-flags', label: 'Feature Flags', link: '/admin/v2/feature-flags', exact: false },
     { id: 'api-tokens', label: 'API Tokens', link: '/admin/v2/api-tokens', exact: false },
     { id: 'trust-center', label: 'Trust Center', link: '/admin/v2/trust-center', exact: false },

@@ -140,6 +140,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/inbox.component').then((m) => m.V2InboxComponent),
       },
       {
+        path: 'content-freshness',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/content-freshness.component').then((m) => m.V2ContentFreshnessComponent),
+      },
+      {
         path: 'social',
         loadComponent: () =>
           import('./pages/admin-v2/sections/social.component').then((m) => m.V2SocialComponent),
