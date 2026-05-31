@@ -95,7 +95,13 @@ const EDITOR_BASE = 'https://editor.projectsites.dev';
             }
           </div>
           <div class="flex items-center gap-2 shrink-0">
-            <button hlmBtn variant="outline" size="sm" data-testid="v2-search" (click)="openPalette()">⌘K</button>
+            @if (liveUrl(); as url) {
+              <button hlmBtn variant="ghost" size="sm" (click)="copyLive(url)" data-testid="v2-copy-url"
+                      [attr.aria-label]="'Copy ' + url">{{ copied() ? '✓ Copied' : 'Copy URL' }}</button>
+              <a [href]="url" target="_blank" rel="noopener noreferrer" hlmBtn variant="outline" size="sm"
+                 data-testid="v2-open-site" aria-label="Open live site in a new tab">Open ↗</a>
+            }
+            <button hlmBtn variant="ghost" size="sm" data-testid="v2-search" (click)="openPalette()">⌘K</button>
             <app-v2-notif-bell />
             <button hlmBtn variant="primary" size="sm" data-testid="v2-create" (click)="newSite()">+ New site</button>
           </div>
@@ -190,6 +196,27 @@ export class AdminV2ShellComponent {
   ];
 
   protected readonly showPalette = signal(false);
+  protected readonly copied = signal(false);
+
+  /** Live URL of the selected Project (custom hostname if set, else free subdomain). */
+  protected readonly liveUrl = computed<string | null>(() => {
+    const site = this.ctx.selectedSite();
+    if (!site) return null;
+    const host = this.ctx.selectedUrl()?.hostname || `${site.slug}.projectsites.dev`;
+    return `https://${host}`;
+  });
+
+  protected copyLive(url: string): void {
+    navigator.clipboard?.writeText(url).then(
+      () => {
+        this.copied.set(true);
+        setTimeout(() => this.copied.set(false), 1500);
+      },
+      () => {
+        /* clipboard blocked — no-op */
+      },
+    );
+  }
 
   protected onProject(e: Event): void {
     const id = (e.target as HTMLSelectElement).value;
