@@ -282,6 +282,32 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     expect(errs, errs.join('\n')).toEqual([]);
   });
 
+  test('per-site: Forms/Files/Build/Domains all resolve real state (never the no-site placeholder)', async ({ page }) => {
+    const errs = trackErrors(page);
+    await page.goto('/admin/v2', { waitUntil: 'load' });
+    await page.waitForFunction(
+      () => {
+        const sel = document.querySelector('[data-testid="v2-project-select"]') as HTMLSelectElement | null;
+        return !!sel && !sel.disabled && sel.options.length > 0;
+      },
+      { timeout: 20000 },
+    );
+    // each per-site section, reached by nav click, must NOT show its no-site state
+    const sections: Array<[string, string]> = [
+      ['site-forms', 'v2-site-forms-nosite'],
+      ['site-files', 'v2-site-files-nosite'],
+      ['site-build', 'v2-site-build-nosite'],
+      ['site-domains', 'v2-site-domains-nosite'],
+    ];
+    for (const [nav, nositeId] of sections) {
+      await page.getByTestId(`v2-nav-${nav}`).click();
+      await expect(page.getByTestId('v2-sidebar')).toBeVisible();
+      // give the per-site stream a beat to resolve, then assert the no-site state is absent
+      await expect.poll(() => page.getByTestId(nositeId).count(), { timeout: 12000 }).toBe(0);
+    }
+    expect(errs, errs.join('\n')).toEqual([]);
+  });
+
   test('per-site: Snapshots renders the selected project version history', async ({ page }) => {
     await page.goto('/admin/v2', { waitUntil: 'load' });
     await page.waitForFunction(
