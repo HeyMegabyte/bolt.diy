@@ -255,6 +255,7 @@ export class AdminV2ShellComponent {
   protected readonly sysNav: NavItem[] = [
     { id: 'analytics', label: 'Analytics', link: '/admin/v2/analytics', exact: false },
     { id: 'media', label: 'Media', link: '/admin/v2/media', exact: false },
+    { id: 'apps', label: 'Apps', link: '/admin/v2/apps', exact: false },
     { id: 'domains', label: 'Domains', link: '/admin/v2/domains', exact: false },
     { id: 'billing', label: 'Billing', link: '/admin/v2/billing', exact: false },
     { id: 'cost', label: 'Cost', link: '/admin/v2/cost', exact: false },

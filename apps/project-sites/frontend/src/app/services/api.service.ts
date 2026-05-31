@@ -282,6 +282,11 @@ export class ApiService {
     return this.get(`/sites/${siteId}/ai-endpoints`);
   }
 
+  /** List the org's installed app instances (note: response key is `instances`) */
+  getAppInstances(): Observable<{ instances: AppInstance[] }> {
+    return this.get(`/apps/instances`);
+  }
+
   /** List hostnames */
   getHostnames(siteId: string): Observable<{ data: Hostname[] }> {
     return this.get(`/sites/${siteId}/hostnames`);
@@ -712,6 +717,18 @@ export interface Hostname {
   hostname: string;
   status: string;
   is_primary: boolean;
+}
+
+/** An installed app instance (org-scoped container app on *.app.projectsites.dev). */
+export interface AppInstance {
+  id: string;
+  app_slug: string;
+  subdomain: string;
+  status: string;
+  last_started_at?: string | null;
+  last_error?: string | null;
+  created_at: string;
+  updated_at?: string | null;
 }
 
 /** A user-defined AI endpoint (custom AI-backed API route) on a site. */

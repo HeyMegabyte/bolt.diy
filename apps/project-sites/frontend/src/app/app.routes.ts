@@ -115,6 +115,11 @@ export const routes: Routes = [
           import('./pages/admin-v2/sections/site-ai-endpoints.component').then((m) => m.V2SiteAiEndpointsComponent),
       },
       {
+        path: 'apps',
+        loadComponent: () =>
+          import('./pages/admin-v2/sections/apps.component').then((m) => m.V2AppsComponent),
+      },
+      {
         path: 'analytics',
         loadComponent: () =>
           import('./pages/admin-v2/sections/analytics.component').then((m) => m.V2AnalyticsComponent),
