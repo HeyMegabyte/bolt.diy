@@ -87,7 +87,7 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     await page.goto('/admin/v2', { waitUntil: 'domcontentloaded' });
 
     const sections = [
-      'overview', 'analytics', 'media', 'apps', 'social', 'domains', 'billing', 'cost', 'audit', 'integrations', 'mcp', 'docs', 'feature-flags', 'api-tokens', 'trust-center', 'site-dna', 'enterprise', 'settings',
+      'overview', 'inbox', 'analytics', 'media', 'apps', 'social', 'domains', 'billing', 'cost', 'audit', 'integrations', 'mcp', 'docs', 'feature-flags', 'api-tokens', 'trust-center', 'site-dna', 'enterprise', 'settings',
       'site-forms', 'site-files', 'site-domains', 'site-build', 'site-snapshots', 'site-ai-logs', 'site-ai-endpoints', 'site-voice', 'sites',
     ];
     for (const id of sections) {
@@ -341,6 +341,19 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     // row Edit → editor (selects the project + navigates)
     await page.locator('[data-testid^="v2-site-edit-"]').first().click();
     await expect(page).toHaveURL(/\/admin\/v2\/site\/editor/, { timeout: 15000 });
+    expect(errs, errs.join('\n')).toEqual([]);
+  });
+
+  test('Inbox (task tray): resolves to a real state (list OR empty)', async ({ page }) => {
+    const errs = trackErrors(page);
+    await page.goto('/admin/v2/inbox', { waitUntil: 'load' });
+    await expect
+      .poll(
+        async () =>
+          (await page.getByTestId('v2-inbox-list').count()) + (await page.getByTestId('v2-inbox-empty').count()),
+        { timeout: 15000 },
+      )
+      .toBeGreaterThanOrEqual(1);
     expect(errs, errs.join('\n')).toEqual([]);
   });
 

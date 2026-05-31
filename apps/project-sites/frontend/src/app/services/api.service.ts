@@ -337,6 +337,16 @@ export class ApiService {
     return this.get(`/audit-logs`, { limit: limit.toString() });
   }
 
+  /** Open human-in-the-loop tasks the AI posted (the task tray / inbox) */
+  getInboxTasks(): Observable<{ tasks: InboxTask[] }> {
+    return this.get(`/inbox/tasks`);
+  }
+
+  /** Resolve an inbox task by choosing an option (or free-text choice) */
+  resolveInboxTask(id: string, choice: string): Observable<{ ok: boolean }> {
+    return this.post(`/inbox/tasks/${id}/resolve`, { choice });
+  }
+
   /** List a site's provisioned voice numbers (note: response key is `numbers`) */
   getVoiceNumbers(siteId: string): Observable<{ numbers: VoiceNumber[] }> {
     return this.get(`/voice/numbers`, { siteId });
@@ -818,6 +828,17 @@ export interface VoiceConversation {
   duration_seconds?: number | null;
   sentiment?: string | null;
   summary?: string | null;
+}
+
+/** A human-in-the-loop task the AI posted (the inbox / task tray). */
+export interface InboxTask {
+  id: string;
+  taskKind: string;
+  prompt: string;
+  options: string[];
+  defaultChoice?: string | null;
+  expiresAt: number;
+  createdAt: number;
 }
 
 /** An org audit-log row (from `/audit-logs`). */
