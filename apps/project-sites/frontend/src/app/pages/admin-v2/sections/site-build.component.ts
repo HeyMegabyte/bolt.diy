@@ -10,6 +10,7 @@
  * @example Routed as `site/build` under `/admin/v2`.
  */
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { RouterModule } from '@angular/router';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { catchError, map, of, startWith, switchMap } from 'rxjs';
 import { ApiService, type WorkflowStatus } from '../../../services/api.service';
@@ -38,6 +39,7 @@ type BuildState =
     HlmCardTitleDirective,
     HlmCardDescriptionDirective,
     HlmBadgeDirective,
+    RouterModule,
   ],
   template: `
     @if (!ctx.selectedSite()) {
@@ -83,6 +85,8 @@ type BuildState =
               </div>
             } @else {
               <p hlmCardDescription class="mt-2">No active build steps.</p>
+              <a routerLink="/admin/v2/site/editor" hlmBtn variant="primary" size="sm" class="mt-3"
+                 data-testid="v2-site-build-cta">Open editor to build →</a>
             }
           </div>
         }
