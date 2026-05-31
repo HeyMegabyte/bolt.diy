@@ -282,6 +282,11 @@ export class ApiService {
     return this.get(`/sites/${siteId}/ai-endpoints`);
   }
 
+  /** The full app catalog (~68 self-hostable apps) — browsable, install-able */
+  getAppCatalog(): Observable<{ apps: CatalogApp[]; count: number }> {
+    return this.get(`/apps/catalog`);
+  }
+
   /** List the org's installed app instances (note: response key is `instances`) */
   getAppInstances(): Observable<{ instances: AppInstance[] }> {
     return this.get(`/apps/instances`);
@@ -879,6 +884,16 @@ export interface SocialPost {
   link?: string | null;
   site_id?: string | null;
   created_at: string;
+}
+
+/** A catalog app (one of ~68 self-hostable apps from /apps/catalog). */
+export interface CatalogApp {
+  id: string;
+  name: string;
+  tagline?: string | null;
+  description?: string | null;
+  category: string;
+  supported?: boolean;
 }
 
 /** An installed app instance (org-scoped container app on *.app.projectsites.dev). */

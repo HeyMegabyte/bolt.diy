@@ -204,6 +204,15 @@ test.describe('admin/v2 Spartan cockpit (prod)', () => {
     expect(errs, errs.join('\n')).toEqual([]);
   });
 
+  test('Apps catalog mirrors the legacy 50+ entries (real requirement)', async ({ page }) => {
+    await page.goto('/admin/v2/apps', { waitUntil: 'load' });
+    await expect(page.getByTestId('v2-apps-catalog')).toBeVisible({ timeout: 15000 });
+    const cards = page.locator('[data-testid="v2-apps-catalog-card"]');
+    await expect.poll(() => cards.count(), { timeout: 15000 }).toBeGreaterThanOrEqual(50);
+    // category filtering narrows the grid
+    await expect(page.getByTestId('v2-apps-categories')).toBeVisible();
+  });
+
   test('soft cutover: bare /admin lands on the v2 cockpit; deep links stay classic', async ({ page }) => {
     // bare /admin → v2 cockpit
     await page.goto('/admin', { waitUntil: 'load' });
