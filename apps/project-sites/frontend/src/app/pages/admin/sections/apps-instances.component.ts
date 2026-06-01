@@ -38,6 +38,27 @@ interface LogLine {
   readonly msg: string;
 }
 
+/**
+ * Map a worker `app_instances` row → the frontend AppInstance shape. The worker
+ * returns `app_slug`/`subdomain`/`last_started_at` (no `app_id`/`hostname`/
+ * `last_activity_at`); hostname is derived from the subdomain. Detail rows carry
+ * a decrypted `env` object → env_keys = its keys.
+ */
+function adaptInstance(row: Record<string, unknown>): AppInstance {
+  const subdomain = String(row['subdomain'] ?? '');
+  const env = row['env'];
+  return {
+    id: String(row['id'] ?? ''),
+    app_id: String(row['app_slug'] ?? row['app_id'] ?? ''),
+    subdomain,
+    hostname: subdomain ? `${subdomain}.app.projectsites.dev` : '',
+    status: (row['status'] as InstanceStatus) ?? 'provisioning',
+    created_at: String(row['created_at'] ?? ''),
+    last_activity_at: (row['last_started_at'] ?? row['last_activity_at'] ?? null) as string | null,
+    env_keys: env && typeof env === 'object' ? Object.keys(env as object) : undefined,
+  };
+}
+
 const STATUS_META: Readonly<Record<InstanceStatus, { label: string; color: string }>> = {
   provisioning: { label: 'Provisioning', color: '#fbbf24' },
   running:      { label: 'Running',      color: '#34d399' },
@@ -329,9 +350,9 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
 
   load(): void {
     this.loading.set(true);
-    this.api.get<{ data: AppInstance[] }>('/apps/instances').subscribe({
+    this.api.get<{ instances: Record<string, unknown>[] }>('/apps/instances').subscribe({
       next: (r) => {
-        this.instances.set(r.data ?? []);
+        this.instances.set((r.instances ?? []).map(adaptInstance));
         this.loading.set(false);
         this.maybeStartPolling();
       },
@@ -768,10 +789,10 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
     if (!id) return;
     this.loading.set(true);
     this.loadFailed.set(false);
-    this.api.get<{ data: AppInstance }>(`/apps/instances/${id}`).subscribe({
+    this.api.get<{ instance: Record<string, unknown> }>(`/apps/instances/${id}`).subscribe({
       next: (r) => {
-        const inst = r.data;
-        this.instance.set(inst ?? null);
+        const inst = r.instance ? adaptInstance(r.instance) : null;
+        this.instance.set(inst);
         this.loading.set(false);
         this.loadFailed.set(false);
         this.maybeStartPolling();
@@ -797,9 +818,9 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
     const id = this.instanceId();
     if (!id) return;
     this.logsLoading.set(true);
-    this.api.get<{ data: LogLine[] }>(`/apps/instances/${id}/logs`).subscribe({
+    this.api.get<{ lines: LogLine[] }>(`/apps/instances/${id}/logs`).subscribe({
       next: (r) => {
-        this.logs.set(r.data ?? []);
+        this.logs.set(r.lines ?? []);
         this.logsLoading.set(false);
         requestAnimationFrame(() => {
           if (this.logsBox?.nativeElement) {
@@ -877,7 +898,7 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
   saveEnv(): void {
     const i = this.instance(); if (!i || this.busy()) return;
     this.busy.set(true);
-    this.api.put(`/apps/instances/${i.id}/env`, { env_overrides: this.envValues }).subscribe({
+    this.api.patch(`/apps/instances/${i.id}/env`, { env_overrides: this.envValues }).subscribe({
       next: () => { this.busy.set(false); this.toast.success('Env saved — restarting container'); this.load(); },
       error: () => this.busy.set(false),
     });

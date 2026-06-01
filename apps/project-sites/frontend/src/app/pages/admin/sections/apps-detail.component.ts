@@ -720,10 +720,10 @@ export class AppDetailComponent implements OnInit {
       subdomain: this.subdomain.trim(),
       env_overrides: {} as Record<string, string>,
     };
-    this.api.post<{ data: { instance_id: string } }>('/apps/instances', payload).subscribe({
+    this.api.post<{ instance_id: string }>('/apps/instances', payload).subscribe({
       next: (r) => {
         this.deploying.set(false);
-        const id = r.data?.instance_id;
+        const id = r.instance_id;
         this.toast.success(`${a.name} provisioning — booting container`);
         if (id) {
           this.router.navigate(['/admin/apps/instances', id]);
