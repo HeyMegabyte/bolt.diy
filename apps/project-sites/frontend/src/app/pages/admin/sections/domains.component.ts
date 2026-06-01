@@ -37,6 +37,7 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { EmptyStateComponent } from '../empty-state.component';
 import { HlmInputDirective } from '../../../ui';
+import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 
 /** Single hostname row returned by `GET /api/sites/:siteId/hostnames`. */
 interface Hostname {
@@ -100,7 +101,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
 @Component({
   selector: 'app-admin-domains',
   standalone: true,
-  imports: [FormsModule, EmptyStateComponent, HlmInputDirective],
+  imports: [FormsModule, EmptyStateComponent, HlmInputDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
@@ -112,7 +113,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
           </p>
         </div>
         @if (state.selectedSite()) {
-          <button class="btn-ghost" (click)="loadHostnames()" [disabled]="loadingHostnames()" title="Reload connected domains">
+          <button class="btn-ghost" (click)="loadHostnames()" [disabled]="loadingHostnames()" [brnTooltip]="'Reload connected domains'">
             {{ loadingHostnames() ? '…' : 'Refresh' }}
           </button>
         }
@@ -141,8 +142,8 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
             <code class="font-mono text-sm text-primary bg-black/30 px-3 py-2 rounded border border-border flex-1 min-w-[260px]" data-testid="backup-domain">
               {{ backupDomain() }}
             </code>
-            <button class="btn-ghost" (click)="copyBackup()" title="Copy to clipboard">Copy</button>
-            <a class="btn-ghost" [href]="'https://' + backupDomain()" target="_blank" rel="noopener noreferrer" title="Open in a new tab">Open ↗</a>
+            <button class="btn-ghost" (click)="copyBackup()" [brnTooltip]="'Copy to clipboard'">Copy</button>
+            <a class="btn-ghost" [href]="'https://' + backupDomain()" target="_blank" rel="noopener noreferrer" [brnTooltip]="'Open in a new tab'">Open ↗</a>
           </div>
         </section>
 
@@ -308,7 +309,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                               (click)="retryHostname(h)"
                               [disabled]="busyHostname() === h.id"
                               [attr.data-testid]="'retry-' + h.hostname"
-                              title="Re-verify SSL and DNS for this hostname"
+                              [brnTooltip]="'Re-verify SSL and DNS for this hostname'"
                             >
                               {{ busyHostname() === h.id ? 'Retrying…' : 'Retry' }}
                             </button>
@@ -320,7 +321,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                               (click)="openTransferModal(h)"
                               [disabled]="busyHostname() === h.id"
                               [attr.data-testid]="'transfer-' + h.hostname"
-                              title="Port this domain to another registrar"
+                              [brnTooltip]="'Port this domain to another registrar'"
                             >
                               Transfer out
                             </button>
@@ -331,7 +332,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                               type="button"
                               (click)="removeHostname(h)"
                               [disabled]="busyHostname() === h.id"
-                              title="Remove this hostname from the site"
+                              [brnTooltip]="'Remove this hostname from the site'"
                             >
                               Remove
                             </button>
@@ -382,7 +383,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                 </p>
                 <div class="bg-black/40 border border-primary/30 rounded p-3 flex items-center justify-between gap-2">
                   <code class="font-mono text-primary text-sm break-all" data-testid="transfer-auth-code">{{ t.authCode }}</code>
-                  <button class="btn-ghost text-[0.72rem]" type="button" (click)="copyText(t.authCode)" title="Copy auth code">Copy</button>
+                  <button class="btn-ghost text-[0.72rem]" type="button" (click)="copyText(t.authCode)" [brnTooltip]="'Copy auth code'">Copy</button>
                 </div>
                 <p class="text-[0.75rem] text-text-secondary m-0">
                   <a class="text-primary hover:underline" [href]="t.instructionsUrl" target="_blank" rel="noopener noreferrer">Read Cloudflare's transfer-out guide ↗</a>
