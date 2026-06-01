@@ -294,8 +294,8 @@ interface LiveResponse {
           </div>
         } @else {
           <!-- Spec still loading — show a small skeleton instead of a flicker. -->
-          <div class="docs-empty">
-            <span class="glow-skel" style="width:240px;height:14px;">loading</span>
+          <div class="docs-empty" aria-busy="true" aria-label="Loading spec…">
+            <span class="glow-skel" aria-hidden="true" style="width:240px;height:14px;"></span>
           </div>
         }
       </div>

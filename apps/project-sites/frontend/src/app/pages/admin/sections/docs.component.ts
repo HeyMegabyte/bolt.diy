@@ -643,9 +643,9 @@ export class DocsSpecService {
       @if (specService.loading() && !specService.spec()) {
         <div class="card docs-loading" aria-busy="true" aria-label="Loading OpenAPI spec" data-testid="docs-loading">
           <div class="docs-skel-block">
-            <span class="glow-skel" style="width:140px;height:14px;">loading</span>
-            <span class="glow-skel" style="width:90px;height:14px;">loading</span>
-            <span class="glow-skel" style="width:200px;height:14px;">loading</span>
+            <span class="glow-skel" aria-hidden="true" style="width:140px;height:14px;"></span>
+            <span class="glow-skel" aria-hidden="true" style="width:90px;height:14px;"></span>
+            <span class="glow-skel" aria-hidden="true" style="width:200px;height:14px;"></span>
           </div>
           <span class="docs-loading-hint">Fetching the latest OpenAPI spec from /admin/docs/openapi.json…</span>
         </div>
