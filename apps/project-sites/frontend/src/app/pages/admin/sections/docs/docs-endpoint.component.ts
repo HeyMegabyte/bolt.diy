@@ -6,6 +6,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { AuthService } from '../../../../services/auth.service';
 import { ToastService } from '../../../../services/toast.service';
+import { HlmInputDirective } from '../../../../ui';
 import {
   DocsSpecService,
   ENDPOINT_META,
@@ -46,7 +47,7 @@ interface LiveResponse {
 @Component({
   selector: 'app-docs-endpoint',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, HlmInputDirective],
   template: `
     <section class="docs-detail card" aria-label="Endpoint detail">
       <div class="prose-docs-wrap">
@@ -132,7 +133,8 @@ interface LiveResponse {
                       }
                     </div>
                     <input
-                      class="input-field docs-param-input"
+                      hlmInput
+                      class="font-mono text-xs"
                       [ngModel]="paramValue(p.name)"
                       (ngModelChange)="setParam(p.name, $event)"
                       [placeholder]="'value for {' + p.name + '}'"
@@ -482,7 +484,7 @@ interface LiveResponse {
       text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;
     }
     .docs-param-desc { font-size: 0.7rem; color: rgba(255,255,255,0.55); font-style: italic; }
-    .docs-param-input { font-size: 0.78rem; font-family: ui-monospace, monospace; }
+    /* .docs-param-input removed — param input now hlmInput + font-mono text-xs (Spartan). */
     @media (max-width: 640px) {
       .docs-param-row { grid-template-columns: 1fr; }
     }
