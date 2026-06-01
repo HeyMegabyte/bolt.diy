@@ -35,6 +35,7 @@ import { RevealOnScrollDirective } from '../../../../animations/reveal-on-scroll
 import { RollingCounterComponent } from '../../../../components/rolling-counter/rolling-counter.component';
 import { SidePanelComponent } from '../../../../components/side-panel/side-panel.component';
 import { EmptyStateComponent } from '../../empty-state.component';
+import { HlmInputDirective } from '../../../../ui';
 
 interface TranscriptTurn {
   speaker: 'caller' | 'agent';
@@ -67,7 +68,7 @@ type DayGroup = { label: string; items: Conversation[] };
   selector: 'app-voice-conversations',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, DatePipe, RevealOnScrollDirective, RollingCounterComponent, SidePanelComponent, EmptyStateComponent],
+  imports: [FormsModule, DatePipe, RevealOnScrollDirective, RollingCounterComponent, SidePanelComponent, EmptyStateComponent, HlmInputDirective],
   template: `
     <section class="space-y-5" psReveal>
       <!-- Stat strip -->
@@ -99,14 +100,14 @@ type DayGroup = { label: string; items: Conversation[] };
         <div class="filter-row">
           <label class="flex-1 min-w-[180px]">
             <span class="sr-only">Search phone or text</span>
-            <input class="input-field w-full"
+            <input hlmInput class="w-full font-mono min-h-[40px]"
                    type="search"
                    [(ngModel)]="searchQ"
                    (ngModelChange)="onFilterChange()"
                    placeholder="Search phone or text"
                    aria-label="Search conversations" />
           </label>
-          <select class="input-field" [(ngModel)]="channelFilter" (ngModelChange)="onFilterChange()" aria-label="Channel">
+          <select hlmInput class="font-mono min-h-[40px]" [(ngModel)]="channelFilter" (ngModelChange)="onFilterChange()" aria-label="Channel">
             <option value="all">All channels</option>
             <option value="call">Calls</option>
             <option value="sms">SMS</option>
@@ -252,16 +253,8 @@ type DayGroup = { label: string; items: Conversation[] };
     .stat-num { font: 700 1.5rem 'Sora', system-ui, sans-serif; color: #fff; letter-spacing: -0.03em; }
 
     .filter-row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
-    .input-field {
-      padding: 0.5rem 0.75rem;
-      border-radius: var(--ps-radius-sm, 8px);
-      background: rgba(0,0,0,0.32);
-      border: 1px solid rgba(255,255,255,0.1);
-      color: var(--ps-ink, #fff);
-      font: 500 0.78rem 'JetBrains Mono', ui-monospace, monospace;
-      min-height: 40px;
-    }
-    .input-field:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
+    /* .input-field removed — search input + channel select now use hlmInput
+       (mono + 40px preserved via font-mono min-h-[40px] Tailwind). */
     .ck { display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; color: rgba(255,255,255,0.78); cursor: pointer; }
 
     .group-label {
@@ -336,7 +329,7 @@ type DayGroup = { label: string; items: Conversation[] };
     .btn-ghost { padding: 0.4rem 0.75rem; border-radius: var(--ps-radius-sm, 8px); background: rgba(255,255,255,0.04); color: #fff; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; min-height: 36px; font-weight: 600; }
     .btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.09); }
     .btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
-    button:focus-visible, .input-field:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
+    button:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
 
     .skel { background: rgba(255,255,255,0.04); border-radius: 6px; position: relative; overflow: hidden; }
     .skel::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); background-size: 200% 100%; animation: shine 1.6s linear infinite; }
