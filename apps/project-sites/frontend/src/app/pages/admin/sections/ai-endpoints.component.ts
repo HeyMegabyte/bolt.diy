@@ -49,6 +49,7 @@ import { IdeComponent } from './ai-endpoints/ide.component';
 import { FullscreenOverlayComponent } from '../../../components/fullscreen-overlay/fullscreen-overlay.component';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
+import { RevealDirective } from '../../../directives/reveal.directive';
 import {
   LANGUAGE_OPTIONS,
   LANGUAGE_STARTERS,
@@ -74,7 +75,7 @@ interface InlineEdit {
 @Component({
   selector: 'app-admin-ai-endpoints',
   standalone: true,
-  imports: [
+  imports: [RevealDirective, 
     CommonModule,
     FormsModule,
     DatePipe,
@@ -149,7 +150,7 @@ interface InlineEdit {
         </div>
       }
 
-      <section class="card p-0 overflow-visible" data-testid="ai-endpoints-list-card">
+      <section class="card p-0 overflow-visible" appReveal data-testid="ai-endpoints-list-card">
         @if (loading()) {
           <div class="p-10 text-center text-text-secondary text-sm">Loading…</div>
         } @else if (endpoints().length === 0) {
