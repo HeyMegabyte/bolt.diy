@@ -12,9 +12,9 @@
  *   - 3× hand-rolled modal/backdrop → Spartan `<app-dialog-shell>` (the mandated
  *                                     one-dialog primitive: blur backdrop + CDK
  *                                     focus-trap + Esc-close + scroll-lock built in)
- *   - `<input type=text>`          → `pInputText` directive
+ *   - `<input type=text>`          → Spartan `hlmInput` directive
  *   - `<input type=datetime-local>`→ `p-datepicker` (showTime, cockpit popup)
- *   - scope `<input type=checkbox>`→ `p-checkbox` (binary, cyan accent)
+ *   - scope `<input type=checkbox>`→ Spartan `hlmCheckbox` directive (cyan accent)
  *   - scope / action `<button>`s    → Spartan `hlmBtn` (variant + size; busy via [disabled]+at-spin)
  *   - scope pill `<span>`          → Spartan `hlmBadge` (variant=info, cockpit-tinted)
  * Toasts continue through the cockpit's existing `ToastService` (the cockpit
@@ -37,10 +37,8 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { TableModule } from 'primeng/table';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
-import { InputTextModule } from 'primeng/inputtext';
-import { CheckboxModule } from 'primeng/checkbox';
 import { DatePickerModule } from 'primeng/datepicker';
-import { HlmBadgeDirective, HlmButtonDirective } from '../../../ui';
+import { HlmBadgeDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective } from '../../../ui';
 import { AdminStateService } from '../admin-state.service';
 import { ToastService } from '../../../services/toast.service';
 
@@ -77,11 +75,11 @@ const ALL_SCOPES = [
     FormsModule,
     TableModule,
     DialogShellComponent,
-    InputTextModule,
-    CheckboxModule,
     DatePickerModule,
     HlmBadgeDirective,
     HlmButtonDirective,
+    HlmInputDirective,
+    HlmCheckboxDirective,
   ],
   template: `
     <div class="api-tokens-root" role="main">
@@ -212,19 +210,20 @@ const ALL_SCOPES = [
       <div class="at-dialog-body">
         <div class="at-field">
           <label class="at-label" for="token-name">Token name *</label>
-          <input id="token-name" pInputText type="text" [(ngModel)]="newName" placeholder="e.g. CI Deploy Bot" autocomplete="off" class="w-full" />
+          <input id="token-name" hlmInput type="text" [(ngModel)]="newName" placeholder="e.g. CI Deploy Bot" autocomplete="off" class="w-full" />
         </div>
 
         <div class="at-field">
           <label class="at-label">Scopes</label>
           <div class="at-scopes-grid">
             @for (scope of availableScopes; track scope.key) {
-              <label class="at-scope-row">
-                <p-checkbox
-                  [binary]="true"
+              <label class="at-scope-row" [attr.for]="'scope-' + scope.key">
+                <input
+                  type="checkbox"
+                  hlmCheckbox
+                  [id]="'scope-' + scope.key"
                   [ngModel]="selectedScopes().has(scope.key)"
-                  (ngModelChange)="toggleScope(scope.key)"
-                  [inputId]="'scope-' + scope.key" />
+                  (ngModelChange)="toggleScope(scope.key)" />
                 <span class="at-scope-info">
                   <span class="at-scope-key">{{ scope.label }}</span>
                   <span class="at-scope-desc">{{ scope.description }}</span>

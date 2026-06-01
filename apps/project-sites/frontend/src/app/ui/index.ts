@@ -9,6 +9,7 @@ export { cn } from './cn';
 export { HlmButtonDirective, buttonVariants, type ButtonVariant, type ButtonSize } from './button';
 export { HlmCardDirective, HlmCardTitleDirective, HlmCardDescriptionDirective } from './card';
 export { HlmInputDirective } from './input';
+export { HlmCheckboxDirective } from './checkbox';
 export { HlmBadgeDirective, badgeVariants, type BadgeVariant } from './badge';
 // Tooltip: only the styling provider is barrel-safe. Import the brain directive
 // `BrnTooltipImports` DIRECTLY from '@spartan-ng/brain/tooltip' in components
