@@ -26,6 +26,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
+import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { HttpClient } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of } from 'rxjs';
@@ -64,7 +65,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
 @Component({
   selector: 'app-admin-site-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, HlmInputDirective, HlmSelectDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="site-detail" data-testid="site-detail">
@@ -110,7 +111,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
           <div class="site-detail__toolbar">
             <label>
               Level
-              <select [ngModel]="logLevel()" (ngModelChange)="logLevel.set($event)">
+              <select hlmSelect class="mt-1" [ngModel]="logLevel()" (ngModelChange)="logLevel.set($event)">
                 <option value="all">all</option>
                 <option value="debug">debug</option>
                 <option value="info">info</option>
@@ -119,6 +120,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
               </select>
             </label>
             <input
+              hlmInput
               type="search"
               placeholder="Search logs"
               [ngModel]="logSearch()"
@@ -185,7 +187,9 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
         <div class="site-detail__panel" role="tabpanel" data-testid="site-sql-panel">
           <textarea
             data-testid="sql-editor"
-            class="sql-editor"
+            hlmInput
+            [multiline]="true"
+            class="font-mono resize-y"
             rows="5"
             [ngModel]="sqlQuery()"
             (ngModelChange)="sqlQuery.set($event)"
@@ -257,6 +261,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
                 @if (pasteKeyOpen() === p.key) {
                   <form class="mcp-paste-key-form" data-testid="mcp-paste-key-form" (submit)="$event.preventDefault(); submitPasteKey(p)">
                     <input
+                      hlmInput
                       type="text"
                       placeholder="API key"
                       [ngModel]="pasteKeyValue()"
@@ -304,7 +309,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
     .rollback-btn { padding: 0.4rem 0.9rem; background: transparent; border: 1px solid var(--ps-accent, #00e5ff); color: var(--ps-accent, #00e5ff); border-radius: 6px; cursor: pointer; }
     .rollback-btn:hover { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent); }
     .confirm-dialog { margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.5); border: 1px solid var(--ps-edge, rgba(255,255,255,0.08)); border-radius: 8px; }
-    .sql-editor { width: 100%; font-family: 'JetBrains Mono', ui-monospace, monospace; background: rgba(0,0,0,0.3); color: inherit; border: 1px solid var(--ps-edge, rgba(255,255,255,0.08)); border-radius: 6px; padding: 0.6rem; resize: vertical; }
+    /* .sql-editor removed — now Spartan hlmInput [multiline] (font-mono resize-y). */
     .sql-toolbar { display: flex; gap: 0.75rem; align-items: center; margin: 0.5rem 0 1rem; }
     .sql-result-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
     .sql-result-table th, .sql-result-table td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--ps-edge, rgba(255,255,255,0.08)); }
