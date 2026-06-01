@@ -213,7 +213,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
                       }
                     </select>
                   </label>
-                  <p class="ff-ctl-hint">experimental → beta (5-25%) → stable (100%). Mutations route through the override endpoint.</p>
+                  <p class="ff-ctl-hint">experimental → beta (5-25%) → stable (100%). Enable / rollout / killswitch persist via the super-admin endpoint; stage is registry-managed (set in code).</p>
                 </div>
               }
             </li>
