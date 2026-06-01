@@ -33,6 +33,7 @@ import { AdminStateService } from '../../admin-state.service';
 import { ApiService } from '../../../../services/api.service';
 import { ToastService } from '../../../../services/toast.service';
 import { RevealOnScrollDirective } from '../../../../animations/reveal-on-scroll.directive';
+import { HlmInputDirective } from '../../../../ui';
 
 interface CallToken {
   token: string;
@@ -71,7 +72,7 @@ type TwilioDeviceCtor = new (token: string, options?: Record<string, unknown>) =
   selector: 'app-voice-test-console',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RevealOnScrollDirective],
+  imports: [FormsModule, RevealOnScrollDirective, HlmInputDirective],
   template: `
     <section class="grid md:grid-cols-2 gap-5" psReveal>
       <!-- Call panel -->
@@ -159,7 +160,7 @@ type TwilioDeviceCtor = new (token: string, options?: Record<string, unknown>) =
 
         <label class="block mb-3">
           <span class="block-label">From number</span>
-          <select class="input-field w-full mt-1" [(ngModel)]="smsFromNumber" aria-label="SMS test number">
+          <select hlmInput class="w-full mt-1" [(ngModel)]="smsFromNumber" aria-label="SMS test number">
             @if (smsNumbers().length === 0) {
               <option value="">Add a number first</option>
             } @else {
@@ -181,7 +182,7 @@ type TwilioDeviceCtor = new (token: string, options?: Record<string, unknown>) =
         </div>
 
         <form class="sms-compose mt-3" (submit)="$event.preventDefault(); sendSms()">
-          <textarea class="input-field w-full"
+          <textarea hlmInput [multiline]="true" class="w-full resize-y min-h-[40px]"
                     rows="3"
                     [(ngModel)]="smsBody"
                     name="sms-body"
@@ -213,16 +214,8 @@ type TwilioDeviceCtor = new (token: string, options?: Record<string, unknown>) =
       padding: 1.2rem;
     }
 
-    .input-field {
-      padding: 0.5rem 0.75rem;
-      border-radius: var(--ps-radius-sm, 8px);
-      background: rgba(0,0,0,0.32);
-      border: 1px solid rgba(255,255,255,0.1);
-      color: var(--ps-ink, #fff);
-      font: 500 0.84rem 'Inter', system-ui, sans-serif;
-      min-height: 40px;
-    }
-    .input-field:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
+    /* .input-field removed — the From-number select + SMS-body textarea now use
+       hlmInput / hlmInput [multiline] (Spartan). */
 
     .btn-call {
       display: inline-flex; align-items: center; gap: 10px;
