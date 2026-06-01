@@ -50,6 +50,7 @@ import { FullscreenOverlayComponent } from '../../../components/fullscreen-overl
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { SkeletonComponent } from '../../../components/states';
 import {
   LANGUAGE_OPTIONS,
   LANGUAGE_STARTERS,
@@ -80,6 +81,7 @@ interface InlineEdit {
     FormsModule,
     DatePipe,
     EmptyStateComponent,
+    SkeletonComponent,
     IdeComponent,
     FullscreenOverlayComponent,
     DialogShellComponent,
@@ -152,7 +154,9 @@ interface InlineEdit {
 
       <section class="card p-0 overflow-visible" appReveal data-testid="ai-endpoints-list-card">
         @if (loading()) {
-          <div class="p-10 text-center text-text-secondary text-sm">Loading…</div>
+          <div class="p-4">
+            <app-skeleton variant="card" [rows]="4" label="Loading AI agents…" />
+          </div>
         } @else if (endpoints().length === 0) {
           <app-empty-state
             icon="⌬"
