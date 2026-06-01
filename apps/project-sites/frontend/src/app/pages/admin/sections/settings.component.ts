@@ -8,6 +8,7 @@ import { ToastService } from '../../../services/toast.service';
 import { MCP_PROVIDERS } from './mcp-providers';
 import { EnvVarsManagerComponent } from '../../../components/env-vars-manager/env-vars-manager.component';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
+import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 
 interface Member { id: string; email: string; name: string | null; role: string; created_at: string; }
 interface Invite { id: string; email: string; role: string; created_at: string; expires_at: string; }
@@ -35,7 +36,7 @@ const PROVIDERS = MCP_PROVIDERS;
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmInputDirective, HlmSelectDirective],
+  imports: [FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmInputDirective, HlmSelectDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -141,7 +142,7 @@ const PROVIDERS = MCP_PROVIDERS;
           <h3 class="m-0 text-base font-semibold text-white mb-3">Team members</h3>
           <!-- 2FA + Invite live in twin card rows so heights match (min-height 64px). -->
           <div class="team-actions-grid mb-4">
-            <div class="team-action-row" title="Require every member of this workspace to enroll a TOTP authenticator before signing in.">
+            <div class="team-action-row" [brnTooltip]="'Require every member of this workspace to enroll a TOTP authenticator before signing in.'">
               <div class="flex flex-col">
                 <span class="text-[0.78rem] font-semibold text-white leading-tight">Require Two-Factor Authentication</span>
                 <span class="text-[0.66rem] text-text-secondary mt-0.5">Every member must enroll a TOTP authenticator before signing in.</span>
@@ -198,7 +199,7 @@ const PROVIDERS = MCP_PROVIDERS;
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
               <h4>Just you on this workspace</h4>
               <p>Invite teammates to collaborate on sites, content, and AI settings.</p>
-              <button class="btn-primary" (click)="inviting.set(true)" title="Open the invite form">+ Invite teammate</button>
+              <button class="btn-primary" (click)="inviting.set(true)" [brnTooltip]="'Open the invite form'">+ Invite teammate</button>
             </div>
           } @else {
             <table class="w-full text-[0.78rem]">
@@ -250,7 +251,7 @@ const PROVIDERS = MCP_PROVIDERS;
               <label class="block">
                 <div class="flex items-center justify-between">
                   <span class="muted-h">System prompt</span>
-                  <button class="btn-ghost text-[0.66rem]" (click)="improveChatField('system')" [disabled]="improvingField() === 'system'" title="Rewrite this system prompt for clarity + concrete behavioral rules">{{ improvingField() === 'system' ? 'Improving…' : '✨ Improve with AI' }}</button>
+                  <button class="btn-ghost text-[0.66rem]" (click)="improveChatField('system')" [disabled]="improvingField() === 'system'" [brnTooltip]="'Rewrite this system prompt for clarity + concrete behavioral rules'">{{ improvingField() === 'system' ? 'Improving…' : '✨ Improve with AI' }}</button>
                 </div>
                 <textarea hlmInput [multiline]="true" class="w-full mt-1 font-mono text-[0.72rem] ai-chat-textarea" rows="10"
                           [placeholder]="chat.system_prompt_default || 'You are the AI concierge for [business]. Concise. Never invent prices.'"
@@ -263,7 +264,7 @@ const PROVIDERS = MCP_PROVIDERS;
               <label class="block">
                 <div class="flex items-center justify-between">
                   <span class="muted-h">Persona (one line)</span>
-                  <button class="btn-ghost text-[0.66rem]" (click)="improveChatField('persona')" [disabled]="improvingField() === 'persona'" title="Rewrite this persona with the brand AI">{{ improvingField() === 'persona' ? 'Improving…' : '✨ Improve with AI' }}</button>
+                  <button class="btn-ghost text-[0.66rem]" (click)="improveChatField('persona')" [disabled]="improvingField() === 'persona'" [brnTooltip]="'Rewrite this persona with the brand AI'">{{ improvingField() === 'persona' ? 'Improving…' : '✨ Improve with AI' }}</button>
                 </div>
                 <input hlmInput type="text" class="w-full mt-1 ai-chat-textarea" placeholder="warm, plainspoken, never pushy" [(ngModel)]="chat.persona" />
                 <p class="text-[0.62rem] text-text-secondary mt-2 leading-relaxed">A one-line voice cue — the AI uses this to set tone on every reply.</p>
