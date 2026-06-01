@@ -35,11 +35,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { TableModule } from 'primeng/table';
+import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { CheckboxModule } from 'primeng/checkbox';
 import { DatePickerModule } from 'primeng/datepicker';
-import { HlmBadgeDirective, HlmButtonDirective } from '../../../ui';
+import { HlmBadgeDirective } from '../../../ui';
 import { AdminStateService } from '../admin-state.service';
 import { ToastService } from '../../../services/toast.service';
 
@@ -75,12 +76,12 @@ const ALL_SCOPES = [
     CommonModule,
     FormsModule,
     TableModule,
+    ButtonModule,
     DialogModule,
     InputTextModule,
     CheckboxModule,
     DatePickerModule,
     HlmBadgeDirective,
-    HlmButtonDirective,
   ],
   template: `
     <div class="api-tokens-root" role="main">
@@ -317,11 +318,8 @@ const ALL_SCOPES = [
         <p class="at-revoke-warn">Any integrations using this token will stop working immediately.</p>
       </div>
       <ng-template #footer>
-        <button hlmBtn variant="ghost" size="sm" type="button" (click)="revokeTarget.set(null)">Cancel</button>
-        <button hlmBtn variant="destructive" size="sm" type="button"
-          [disabled]="revoking()" (click)="revokeToken()">
-          {{ revoking() ? 'Revoking…' : 'Yes, revoke' }}
-        </button>
+        <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="revokeTarget.set(null)" />
+        <p-button label="Yes, revoke" severity="danger" [loading]="revoking()" (onClick)="revokeToken()" />
       </ng-template>
     </p-dialog>
   `,
