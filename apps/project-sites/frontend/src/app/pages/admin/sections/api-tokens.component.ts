@@ -35,7 +35,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { TableModule } from 'primeng/table';
-import { DialogModule } from 'primeng/dialog';
+import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { InputTextModule } from 'primeng/inputtext';
 import { CheckboxModule } from 'primeng/checkbox';
 import { DatePickerModule } from 'primeng/datepicker';
@@ -75,7 +75,7 @@ const ALL_SCOPES = [
     CommonModule,
     FormsModule,
     TableModule,
-    DialogModule,
+    DialogShellComponent,
     InputTextModule,
     CheckboxModule,
     DatePickerModule,
