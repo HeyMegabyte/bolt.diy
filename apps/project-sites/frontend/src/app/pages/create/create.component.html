@@ -202,7 +202,7 @@
             Industry / Category <span class="text-gray-500 font-normal text-[0.75rem]">(optional)</span>
             @if (loadingCategory()) { <span class="field-loading"></span> }
           </label>
-          <select id="create-category" class="input-field w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2" [class.ai-shimmer]="shimmering('category')" [(ngModel)]="businessCategory" (ngModelChange)="markTouched('category'); saveFormDraft()" (focus)="setStep(2)">
+          <select id="create-category" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2" [class.ai-shimmer]="shimmering('category')" [(ngModel)]="businessCategory" (ngModelChange)="markTouched('category'); saveFormDraft()" (focus)="setStep(2)">
             <option value="">Select a category...</option>
             @for (cat of categories; track cat) {
               @if (cat) { <option [value]="cat">{{ cat }}</option> }

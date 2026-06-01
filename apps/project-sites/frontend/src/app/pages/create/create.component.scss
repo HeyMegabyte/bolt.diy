@@ -33,8 +33,9 @@
   }
 }
 
-// Select dropdown chevron (can't do purely in Tailwind)
-select.input-field {
+// Select dropdown chevron (can't do purely in Tailwind). Keyed to the select's
+// id so it no longer depends on the shared .input-field global (decoupled).
+select#create-category {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
