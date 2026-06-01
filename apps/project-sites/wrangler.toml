@@ -243,6 +243,21 @@ name = "social-publish-workflow-production"
 binding = "SOCIAL_PUBLISH_WORKFLOW"
 class_name = "SocialPublishWorkflow"
 
+# Content Freshness cron workflow (#16) — was only at top level (NOT inherited
+# by env.production), so the binding was absent in prod + triggers threw.
+# Mirrored here round 146 so /admin/content-freshness's workflow works in prod.
+[[env.production.workflows]]
+name = "content-freshness-workflow-production"
+binding = "CONTENT_FRESHNESS_WORKFLOW"
+class_name = "ContentFreshnessWorkflow"
+
+# pSEO Matrix Generation workflow (#17) — same top-level-only gap; mirrored so
+# /admin/pseo "Generate matrix" works in prod.
+[[env.production.workflows]]
+name = "pseo-generation-workflow-production"
+binding = "PSEO_GENERATION_WORKFLOW"
+class_name = "PseoGenerationWorkflow"
+
 [env.production.ai]
 binding = "AI"
 
