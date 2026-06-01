@@ -293,7 +293,7 @@ const PLATFORMS: readonly PlatformDef[] = [
   <div class="three-pane">
 
     <!-- ─────────── LEFT: ACCOUNTS ─────────── -->
-    <aside class="pane-accounts" appReveal>
+    <aside class="pane-accounts" appReveal aria-label="Connected accounts">
       <div class="pane-h">Connected accounts</div>
       <div class="acct-list">
         @for (p of platforms; track p.id) {
@@ -705,7 +705,7 @@ const PLATFORMS: readonly PlatformDef[] = [
     </section>
 
     <!-- ─────────── RIGHT: PREVIEWS ─────────── -->
-    <aside class="pane-previews" appReveal>
+    <aside class="pane-previews" appReveal aria-label="Post previews">
       <div class="pane-h">Live preview</div>
       @if (selected().length === 0) {
         <div class="prev-empty">
