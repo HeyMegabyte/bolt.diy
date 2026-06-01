@@ -27,6 +27,7 @@ import { AdminStateService } from '../../admin-state.service';
 import { ApiService } from '../../../../services/api.service';
 import { ToastService } from '../../../../services/toast.service';
 import { RevealOnScrollDirective } from '../../../../animations/reveal-on-scroll.directive';
+import { HlmInputDirective } from '../../../../ui';
 
 interface PurchasedNumber {
   id: string;
@@ -38,7 +39,7 @@ interface PurchasedNumber {
   selector: 'app-voice-share',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RevealOnScrollDirective],
+  imports: [FormsModule, RevealOnScrollDirective, HlmInputDirective],
   template: `
     <section class="space-y-5" psReveal>
       <!-- Unified channel pitch -->
@@ -126,7 +127,7 @@ interface PurchasedNumber {
         @for (s of snippets(); track $index) {
           <label class="block mb-3">
             <span class="block-label">Snippet {{ $index + 1 }}</span>
-            <textarea class="input-field w-full mt-1" rows="4" [(ngModel)]="snippets()[$index]" name="snippet-{{$index}}" aria-label="Marketing snippet"></textarea>
+            <textarea hlmInput [multiline]="true" class="w-full mt-1 resize-y min-h-[40px]" rows="4" [(ngModel)]="snippets()[$index]" name="snippet-{{$index}}" aria-label="Marketing snippet"></textarea>
             <div class="flex justify-end mt-1">
               <button class="btn-ghost text-xs" type="button" (click)="copy(snippets()[$index], 'Snippet copied')">Copy</button>
             </div>
@@ -179,16 +180,8 @@ interface PurchasedNumber {
     }
     .copy-row code { flex: 1; align-self: center; }
 
-    .input-field {
-      padding: 0.55rem 0.75rem;
-      border-radius: var(--ps-radius-sm, 8px);
-      background: rgba(0,0,0,0.32);
-      border: 1px solid rgba(255,255,255,0.1);
-      color: var(--ps-ink, #fff);
-      font: 500 0.78rem 'Inter', system-ui, sans-serif;
-      resize: vertical; min-height: 40px;
-    }
-    .input-field:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
+    /* .input-field removed — the snippet textarea now uses hlmInput [multiline]
+       (resize + min-height preserved via resize-y min-h-[40px] Tailwind). */
 
     .btn-primary, .btn-ghost {
       padding: 0.45rem 0.85rem; border-radius: var(--ps-radius-sm, 8px);
