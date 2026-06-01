@@ -142,6 +142,9 @@ interface BoltMediaAttachMessage {
           </span>
         </div>
         <div class="med-header__actions">
+          <!-- Search / kind-filter / Upload are Library-tab controls; the Studio
+               + Stock tabs have their own actions, so gate these to Library. -->
+          @if (activeTab() === 'library') {
           <label class="med-search">
             <span class="sr-only">Search media</span>
             <svg class="med-search__icon" aria-hidden="true" width="14" height="14"
@@ -185,6 +188,7 @@ interface BoltMediaAttachMessage {
             </svg>
             Upload
           </button>
+          }
           <input
             #fileInput
             type="file"
