@@ -44,6 +44,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HlmInputDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { BoltEmbedService } from '../../../services/bolt-embed.service';
 import { ToastService } from '../../../services/toast.service';
@@ -129,7 +130,7 @@ interface BoltMediaAttachMessage {
   selector: 'app-admin-media',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HlmInputDirective],
   template: `
     <section class="space-y-5" [class.media--compact]="compact()">
       <!-- ───────────────────────────────── Header ──────────────────────────────── -->
@@ -150,7 +151,7 @@ interface BoltMediaAttachMessage {
             </svg>
             <input
               type="search"
-              class="input-field input-field--search"
+              hlmInput class="input-field--search"
               [ngModel]="searchInput()"
               (ngModelChange)="searchInput.set($event)"
               placeholder="Search by name…"
@@ -158,7 +159,7 @@ interface BoltMediaAttachMessage {
             />
           </label>
           <select
-            class="input-field"
+            hlmInput
             [ngModel]="kindFilter()"
             (ngModelChange)="kindFilter.set($event); refreshLibrary()"
             aria-label="Filter by kind"
@@ -350,7 +351,7 @@ interface BoltMediaAttachMessage {
                 <span class="sr-only">Search stock libraries</span>
                 <input
                   type="search"
-                  class="input-field input-field--search"
+                  hlmInput class="input-field--search"
                   [(ngModel)]="stockQuery"
                   (keydown.enter)="runStockSearch()"
                   placeholder="Try “coffee shop interior”, “mountain sunrise”, “team meeting”…"
@@ -433,7 +434,7 @@ interface BoltMediaAttachMessage {
               <label class="studio__label" for="img-prompt">Prompt</label>
               <textarea
                 id="img-prompt"
-                class="input-field input-field--textarea"
+                hlmInput [multiline]="true" class="input-field--textarea"
                 rows="6"
                 [(ngModel)]="imagePrompt"
                 placeholder="A cozy mountain cabin at golden hour, cinematic, 35mm film, shallow depth of field…"
@@ -442,7 +443,7 @@ interface BoltMediaAttachMessage {
               <div class="studio__row">
                 <label class="studio__field">
                   <span class="studio__sublabel">Size</span>
-                  <select class="input-field" [(ngModel)]="imageSize" aria-label="Image size">
+                  <select hlmInput [(ngModel)]="imageSize" aria-label="Image size">
                     <option value="1024x1024">1024×1024 (Square)</option>
                     <option value="1792x1024">1792×1024 (Landscape)</option>
                     <option value="1024x1792">1024×1792 (Portrait)</option>
@@ -450,7 +451,7 @@ interface BoltMediaAttachMessage {
                 </label>
                 <label class="studio__field">
                   <span class="studio__sublabel">Quantity</span>
-                  <select class="input-field" [(ngModel)]="imageCount" aria-label="Number of images">
+                  <select hlmInput [(ngModel)]="imageCount" aria-label="Number of images">
                     <option [ngValue]="1">1</option>
                     <option [ngValue]="2">2</option>
                     <option [ngValue]="3">3</option>
@@ -519,7 +520,7 @@ interface BoltMediaAttachMessage {
               <label class="studio__label" for="vid-prompt">Prompt</label>
               <textarea
                 id="vid-prompt"
-                class="input-field input-field--textarea"
+                hlmInput [multiline]="true" class="input-field--textarea"
                 rows="5"
                 [(ngModel)]="videoPrompt"
                 placeholder="Drone footage flying over a misty redwood forest at dawn, cinematic…"
@@ -597,7 +598,7 @@ interface BoltMediaAttachMessage {
               <input
                 id="pod-title"
                 type="text"
-                class="input-field"
+                hlmInput
                 [(ngModel)]="podcastTitle"
                 placeholder="Episode 12 — The Future of Edge Compute"
                 aria-label="Podcast title"
@@ -609,14 +610,14 @@ interface BoltMediaAttachMessage {
                   <div class="seg-row">
                     <input
                       type="text"
-                      class="input-field seg-row__voice"
+                      hlmInput class="seg-row__voice"
                       [ngModel]="seg.voice"
                       (ngModelChange)="updateSegment(i, 'voice', $event)"
                       [placeholder]="podcastProvider === 'elevenlabs' ? 'Voice ID (e.g. Rachel)' : 'alloy | echo | fable | onyx | nova | shimmer'"
                       [attr.aria-label]="'Segment ' + (i + 1) + ' voice'"
                     />
                     <textarea
-                      class="input-field input-field--textarea seg-row__text"
+                      hlmInput [multiline]="true" class="input-field--textarea seg-row__text"
                       rows="3"
                       [ngModel]="seg.text"
                       (ngModelChange)="updateSegment(i, 'text', $event)"
@@ -692,17 +693,9 @@ interface BoltMediaAttachMessage {
       }
 
       /* ─── Inputs / buttons ─── */
-      .input-field {
-        padding: 0.5rem 0.75rem; min-height: 40px;
-        border-radius: 10px;
-        background: rgba(0,0,0,0.32);
-        border: 1px solid rgba(255,255,255,0.1);
-        color: var(--ps-ink, #fff);
-        font: 500 0.82rem 'JetBrains Mono', ui-monospace, monospace;
-      }
-      .input-field:focus-visible {
-        outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px;
-      }
+      /* .input-field base + focus removed — all 10 controls use hlmInput now.
+         The --search / --textarea modifier classes below are KEPT (icon-padding,
+         Sora font, min-height, resize) and layer on top of hlmInput. */
       .input-field--textarea {
         font-family: 'Sora', system-ui, sans-serif; line-height: 1.5;
         resize: vertical; min-height: 96px;
@@ -1040,7 +1033,8 @@ interface BoltMediaAttachMessage {
       .media--compact .med-title { font-size: 1.15rem; }
       .media--compact .count-chip { padding: 2px 7px; font-size: 0.58rem; }
       .media--compact .med-header__actions { gap: 0.35rem; }
-      .media--compact .input-field { min-height: 34px; padding: 0.35rem 0.55rem; font-size: 0.74rem; }
+      /* compact-density override re-keyed from .input-field → [hlmInput] after Spartan convergence */
+      .media--compact [hlmInput] { min-height: 34px; padding: 0.35rem 0.55rem; font-size: 0.74rem; }
       .media--compact .input-field--search { padding-left: 28px; }
       .media--compact .med-search { min-width: 160px; }
       .media--compact .btn-primary { min-height: 34px; padding: 0.4rem 0.8rem; font-size: 0.74rem; }
