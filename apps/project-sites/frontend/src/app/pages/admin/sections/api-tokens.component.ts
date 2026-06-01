@@ -13,7 +13,7 @@
  *                                     one-dialog primitive: blur backdrop + CDK
  *                                     focus-trap + Esc-close + scroll-lock built in)
  *   - `<input type=text>`          → Spartan `hlmInput` directive
- *   - `<input type=datetime-local>`→ `p-datepicker` (showTime, cockpit popup)
+ *   - `<input type=datetime-local>`→ native `<input hlmInput type=datetime-local>` (Spartan)
  *   - scope `<input type=checkbox>`→ Spartan `hlmCheckbox` directive (cyan accent)
  *   - scope / action `<button>`s    → Spartan `hlmBtn` (variant + size; busy via [disabled]+at-spin)
  *   - scope pill `<span>`          → Spartan `hlmBadge` (variant=info, cockpit-tinted)
@@ -37,7 +37,6 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { TableModule } from 'primeng/table';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
-import { DatePickerModule } from 'primeng/datepicker';
 import { HlmBadgeDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective } from '../../../ui';
 import { AdminStateService } from '../admin-state.service';
 import { ToastService } from '../../../services/toast.service';
@@ -75,7 +74,6 @@ const ALL_SCOPES = [
     FormsModule,
     TableModule,
     DialogShellComponent,
-    DatePickerModule,
     HlmBadgeDirective,
     HlmButtonDirective,
     HlmInputDirective,
@@ -235,15 +233,15 @@ const ALL_SCOPES = [
 
         <div class="at-field">
           <label class="at-label" for="token-expires">Expiry (optional)</label>
-          <p-datepicker
-            inputId="token-expires"
+          <input
+            id="token-expires"
+            hlmInput
+            type="datetime-local"
             [(ngModel)]="newExpiry"
-            [showTime]="true"
-            [showIcon]="true"
-            dateFormat="yy-mm-dd"
+            [min]="nowLocal"
             placeholder="Never expires"
-            appendTo="body"
-            styleClass="w-full" />
+            class="w-full" />
+          <span class="at-field-hint">Leave blank for a token that never expires.</span>
         </div>
       </div>
       <div footer>
@@ -329,6 +327,9 @@ const ALL_SCOPES = [
     .at-dialog-title { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: var(--ps-ink); }
     .at-field { display: flex; flex-direction: column; gap: 7px; }
     .at-label { font-size: 12px; font-weight: 600; color: rgba(244,244,255,0.6); text-transform: uppercase; letter-spacing: 0.4px; }
+    .at-field-hint { font-size: 11px; color: rgba(244,244,255,0.4); }
+    /* Brighten the native datetime-local picker indicator on the dark cockpit. */
+    input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(0.85); cursor: pointer; }
     .at-scopes-grid { display: flex; flex-direction: column; gap: 8px; }
     .at-scope-row { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); transition: background 0.12s; }
     .at-scope-row:hover { background: rgba(0,229,255,0.04); }
@@ -391,8 +392,12 @@ export class AdminApiTokensComponent {
   createModalVisible = false;
   creating = signal(false);
   newName = '';
-  /** p-datepicker binds a Date | null; serialized to ISO on submit. */
-  newExpiry: Date | null = null;
+  /** Native datetime-local binds a `YYYY-MM-DDTHH:mm` string; '' = never expires. */
+  newExpiry = '';
+  /** Lower bound for the expiry picker — now, in the input's local format. */
+  readonly nowLocal = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
   selectedScopes = signal<Set<string>>(new Set(['sites:read']));
 
   createdToken = signal<CreateTokenResponse | null>(null);
@@ -457,7 +462,7 @@ export class AdminApiTokensComponent {
 
   openCreateModal(): void {
     this.newName = '';
-    this.newExpiry = null;
+    this.newExpiry = '';
     this.selectedScopes.set(new Set(['sites:read']));
     this.createModalVisible = true;
   }
@@ -479,7 +484,7 @@ export class AdminApiTokensComponent {
     const body = {
       name: this.newName.trim(),
       scopes: Array.from(this.selectedScopes()),
-      expires_at: this.newExpiry ? this.newExpiry.toISOString() : null,
+      expires_at: this.newExpiry ? new Date(this.newExpiry).toISOString() : null,
     };
 
     this.http
