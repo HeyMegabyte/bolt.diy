@@ -12,6 +12,7 @@ import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { HlmInputDirective } from '../../../ui';
 import {
   APPS_CATALOG,
   type CatalogApp,
@@ -55,7 +56,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
 @Component({
   selector: 'app-admin-app-detail',
   standalone: true,
-  imports: [FormsModule, RouterLink, RevealDirective, RollingCounterComponent],
+  imports: [FormsModule, RouterLink, RevealDirective, RollingCounterComponent, HlmInputDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -183,7 +184,9 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
                 <div class="subdomain-input">
                   <input
                     type="text"
-                    class="input-field flex-1"
+                    hlmInput
+                    [seamless]="true"
+                    class="subdomain-field flex-1"
                     [(ngModel)]="subdomain"
                     (ngModelChange)="onSubdomainChange($event)"
                     placeholder="my-{{ a.id }}"
@@ -450,9 +453,10 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
     .subdomain-input:focus-within {
       border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 50%, transparent);
     }
-    .input-field {
+    /* seamless segment inside .subdomain-input; hlmInput [seamless] owns
+       border/bg/outline — this only carries padding + mono type + color */
+    .subdomain-field {
       padding: 0.55rem 0.7rem;
-      background: transparent; border: none; outline: none;
       color: var(--ps-ink, #fff);
       font-family: 'JetBrains Mono', ui-monospace, monospace;
       font-size: 0.74rem;
