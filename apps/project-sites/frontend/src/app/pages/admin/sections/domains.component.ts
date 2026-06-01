@@ -36,6 +36,7 @@ import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { EmptyStateComponent } from '../empty-state.component';
+import { HlmInputDirective } from '../../../ui';
 
 /** Single hostname row returned by `GET /api/sites/:siteId/hostnames`. */
 interface Hostname {
@@ -99,7 +100,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
 @Component({
   selector: 'app-admin-domains',
   standalone: true,
-  imports: [FormsModule, EmptyStateComponent],
+  imports: [FormsModule, EmptyStateComponent, HlmInputDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
@@ -159,7 +160,8 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
             <label class="text-[0.72rem] uppercase tracking-wider text-text-secondary block">Already own a domain?</label>
             <div class="flex gap-2 flex-wrap">
               <input
-                class="input-field flex-1 min-w-[240px]"
+                hlmInput
+                class="flex-1 min-w-[240px]"
                 type="text"
                 name="customDomain"
                 placeholder="www.example.com"
@@ -181,7 +183,8 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
             <label class="text-[0.72rem] uppercase tracking-wider text-text-secondary block">Search creative domains with AI</label>
             <div class="flex gap-2 flex-wrap">
               <input
-                class="input-field flex-1 min-w-[240px]"
+                hlmInput
+                class="flex-1 min-w-[240px]"
                 type="text"
                 placeholder="e.g. premium barber shop in Newark"
                 [(ngModel)]="aiQuery"
@@ -365,7 +368,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                 </ul>
                 <label class="block">
                   <span class="text-[0.7rem] uppercase tracking-wider text-text-secondary block mb-1">New registrar (optional)</span>
-                  <input class="input-field w-full" type="text" placeholder="e.g. Namecheap" [(ngModel)]="transferNewRegistrar" />
+                  <input hlmInput class="w-full" type="text" placeholder="e.g. Namecheap" [(ngModel)]="transferNewRegistrar" />
                 </label>
                 <div class="flex justify-end gap-2">
                   <button class="btn-ghost" type="button" (click)="closeTransferModal()">Cancel</button>
