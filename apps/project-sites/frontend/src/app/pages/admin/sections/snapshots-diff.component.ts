@@ -62,7 +62,7 @@ interface DiffResponse {
           @if (diff(); as d) {
             <p class="text-[0.85rem] text-white/60 mt-1">
               <span class="text-[var(--ps-accent)]">{{ d.from.name }}</span>
-              <span class="mx-2 text-white/40">→</span>
+              <span class="mx-2 text-white/70">→</span>
               <span class="text-[var(--ps-accent)]">{{ d.to.name }}</span>
             </p>
           }
