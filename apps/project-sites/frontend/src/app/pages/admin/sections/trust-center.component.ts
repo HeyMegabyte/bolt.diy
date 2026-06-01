@@ -123,6 +123,7 @@ interface ProfileEnvelope {
           <h3 class="card-h">Data residency</h3>
           <select
             hlmSelect
+            aria-label="Data residency"
             [ngModel]="dataResidency()"
             (ngModelChange)="dataResidency.set($event)"
           >
@@ -137,6 +138,7 @@ interface ProfileEnvelope {
           <h3 class="card-h">Audit-log access policy</h3>
           <select
             hlmSelect
+            aria-label="Audit-log access policy"
             [ngModel]="auditPolicy()"
             (ngModelChange)="auditPolicy.set($event)"
           >
@@ -150,6 +152,7 @@ interface ProfileEnvelope {
           <h3 class="card-h">AI-outage behavior</h3>
           <select
             hlmSelect
+            aria-label="AI-outage behavior"
             [ngModel]="aiOutage()"
             (ngModelChange)="aiOutage.set($event)"
           >
@@ -189,7 +192,7 @@ interface ProfileEnvelope {
             <div class="row">
               <input hlmInput placeholder="Area (e.g. homepage hero)" [value]="p.area"
                 (input)="patchProv(i, 'area', $any($event.target).value)" />
-              <select hlmSelect [value]="p.origin"
+              <select hlmSelect aria-label="AI provenance origin" [value]="p.origin"
                 (change)="patchProv(i, 'origin', $any($event.target).value)">
                 <option value="ai-generated">AI-generated</option>
                 <option value="ai-assisted">AI-assisted</option>

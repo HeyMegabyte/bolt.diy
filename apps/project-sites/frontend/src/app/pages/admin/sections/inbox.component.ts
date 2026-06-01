@@ -114,7 +114,7 @@ const STATUS_COLORS: Record<string, string> = {
               </button>
             }
           </div>
-          <select hlmSelect [(ngModel)]="selectedChannel">
+          <select hlmSelect aria-label="Filter by channel" [(ngModel)]="selectedChannel">
             <option value="">All channels</option>
             @for (ch of channels; track ch) {
               <option [value]="ch">{{ channelIcon(ch) }} {{ ch }}</option>
