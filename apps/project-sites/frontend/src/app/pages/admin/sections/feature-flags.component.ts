@@ -161,6 +161,33 @@ type StageFilter = 'all' | FlagDefinition['stage'];
                     <pre>{{ resolvedDetail() | json }}</pre>
                   </div>
                 }
+                <div class="ff-detail ff-controls">
+                  <h3>Controls</h3>
+                  <label class="ff-ctl">
+                    <span class="ff-ctl-label">Rollout <strong>{{ flag.default_rollout_percent }}%</strong></span>
+                    <input
+                      type="range" min="0" max="100" step="5"
+                      class="ff-range"
+                      [value]="flag.default_rollout_percent"
+                      (change)="setRollout(flag, $any($event.target).valueAsNumber)"
+                      [attr.aria-label]="'Set rollout percent for ' + flag.key"
+                      [attr.aria-valuetext]="flag.default_rollout_percent + ' percent'" />
+                  </label>
+                  <label class="ff-ctl">
+                    <span class="ff-ctl-label">Promote stage</span>
+                    <select
+                      hlmInput
+                      class="ff-stage-select"
+                      [value]="flag.stage"
+                      (change)="setStage(flag, $any($event.target).value)"
+                      [attr.aria-label]="'Set stage for ' + flag.key">
+                      @for (s of promotableStages; track s) {
+                        <option [value]="s">{{ s }}</option>
+                      }
+                    </select>
+                  </label>
+                  <p class="ff-ctl-hint">experimental → beta (5-25%) → stable (100%). Mutations route through the override endpoint.</p>
+                </div>
               }
             </li>
           }
@@ -227,6 +254,14 @@ type StageFilter = 'all' | FlagDefinition['stage'];
     .ff-refs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .25rem; }
     .ff-refs li { font-size: .8rem; }
     .ff-refs a { color: var(--ps-accent, #00e5ff); word-break: break-all; }
+    .ff-controls { display: flex; flex-direction: column; gap: .75rem; }
+    .ff-ctl { display: flex; flex-direction: column; gap: .35rem; }
+    .ff-ctl-label { font-size: .8rem; color: color-mix(in oklch, currentColor 80%, transparent); }
+    .ff-ctl-label strong { color: var(--ps-accent, #00e5ff); font-family: var(--ps-mono, ui-monospace, monospace); }
+    .ff-range { width: 100%; max-width: 320px; accent-color: var(--ps-accent, #00e5ff); cursor: pointer; }
+    .ff-range:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 4px; border-radius: 4px; }
+    .ff-stage-select { max-width: 240px; text-transform: capitalize; }
+    .ff-ctl-hint { font-size: .72rem; color: color-mix(in oklch, currentColor 50%, transparent); margin: 0; line-height: 1.4; }
     .ff-state { padding: 2rem; text-align: center; border: 1px dashed color-mix(in oklch, currentColor 20%, transparent); border-radius: 14px; }
     .ff-state-error { color: #ff8585; border-color: #ff5555; }
     .ff-state-error button { margin-left: 1rem; background: #ff5555; border: none; color: #fff; padding: .35rem .75rem; border-radius: 6px; cursor: pointer; font: inherit; }
@@ -243,6 +278,8 @@ export class AdminFeatureFlagsComponent implements OnInit {
   private readonly flagSvc = inject(FeatureFlagService);
 
   readonly stages: StageFilter[] = ['all', 'experimental', 'beta', 'stable', 'deprecated', 'killswitch'];
+  /** Stages an operator can promote a flag to from the UI (killswitch has its own button). */
+  readonly promotableStages: FlagDefinition['stage'][] = ['experimental', 'beta', 'stable', 'deprecated'];
   readonly stage = signal<StageFilter>('all');
   readonly search = signal('');
   readonly loading = signal(true);
@@ -306,21 +343,30 @@ export class AdminFeatureFlagsComponent implements OnInit {
     }
   }
 
-  async toggle(flag: FlagDefinition): Promise<void> {
-    const next = !flag.default_enabled;
+  /**
+   * Single mutation path for every flag override (toggle / rollout / stage /
+   * killswitch). Optimistically patches local state, invalidates the client
+   * flag cache so route guards + isOn() consumers re-resolve without a session
+   * reload, and degrades to a non-blocking toast when the worker override route
+   * isn't shipped yet.
+   */
+  private async applyOverride(
+    flag: FlagDefinition,
+    value: Record<string, unknown>,
+    label: string,
+    optimistic: (f: FlagDefinition) => FlagDefinition,
+  ): Promise<void> {
     try {
       await firstValueFrom(
         this.http.post(`/api/admin/feature-flags/${flag.key}/override`, {
           scope: 'global',
           scope_id: '*',
-          value: { enabled: next, rollout_percent: next ? 100 : 0 },
+          value,
         }),
       );
-      this.flags.update((flags) => flags.map((f) => (f.key === flag.key ? { ...f, default_enabled: next, default_rollout_percent: next ? 100 : 0 } : f)));
-      // Invalidate the client flag cache so route guards (featureFlagGuard) +
-      // any isOn() consumers re-fetch the new state without a session reload.
+      this.flags.update((flags) => flags.map((f) => (f.key === flag.key ? optimistic(f) : f)));
       this.flagSvc.invalidate(flag.key);
-      this.toast.success(`${flag.key} ${next ? 'enabled' : 'disabled'} globally`);
+      this.toast.success(`${flag.key}: ${label}`);
     } catch (e) {
       // Admin override endpoint not shipped yet — surface a non-blocking cockpit toast.
       const status = (e as { status?: number }).status ?? 'error';
@@ -328,8 +374,46 @@ export class AdminFeatureFlagsComponent implements OnInit {
     }
   }
 
+  async toggle(flag: FlagDefinition): Promise<void> {
+    const next = !flag.default_enabled;
+    return this.applyOverride(
+      flag,
+      { enabled: next, rollout_percent: next ? 100 : 0 },
+      next ? 'enabled globally' : 'disabled globally',
+      (f) => ({ ...f, default_enabled: next, default_rollout_percent: next ? 100 : 0 }),
+    );
+  }
+
+  /** Set a gradual rollout percentage (0 disables, >0 enables). */
+  async setRollout(flag: FlagDefinition, pct: number): Promise<void> {
+    const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+    return this.applyOverride(
+      flag,
+      { enabled: clamped > 0, rollout_percent: clamped },
+      `rollout → ${clamped}%`,
+      (f) => ({ ...f, default_rollout_percent: clamped, default_enabled: clamped > 0 }),
+    );
+  }
+
+  /** Promote (or demote) a flag's lifecycle stage. */
+  async setStage(flag: FlagDefinition, stage: string): Promise<void> {
+    const next = stage as FlagDefinition['stage'];
+    if (next === flag.stage) return;
+    return this.applyOverride(
+      flag,
+      { stage: next },
+      `stage → ${next}`,
+      (f) => ({ ...f, stage: next }),
+    );
+  }
+
   async killswitch(flag: FlagDefinition): Promise<void> {
-    if (!confirm(`Instant kill ${flag.key} for ALL users?\n\nThis flips the flag off everywhere with no redeploy. Re-enable from this page.`)) return;
-    return this.toggle({ ...flag, default_enabled: true }); // pass true so toggle flips to false
+    if (!confirm(`Instant kill ${flag.key} for ALL users?\n\nThis flips the flag off everywhere + moves it to the killswitch stage with no redeploy. Re-enable from this page.`)) return;
+    return this.applyOverride(
+      flag,
+      { enabled: false, rollout_percent: 0, stage: 'killswitch' },
+      'KILLSWITCH — disabled for all users',
+      (f) => ({ ...f, default_enabled: false, default_rollout_percent: 0, stage: 'killswitch' }),
+    );
   }
 }
