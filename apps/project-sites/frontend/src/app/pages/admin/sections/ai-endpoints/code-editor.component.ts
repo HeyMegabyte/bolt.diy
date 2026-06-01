@@ -28,6 +28,9 @@ import {
   type AfterViewInit,
   type OnDestroy,
 } from '@angular/core';
+// Type-only import (no runtime cost — @codemirror/state is dynamically imported
+// below) so the dynamically-loaded extensions can be cast precisely instead of `any`.
+import type { Extension } from '@codemirror/state';
 
 @Component({
   selector: 'app-ide-code-editor',
@@ -110,10 +113,8 @@ export class IdeCodeEditorComponent implements AfterViewInit, OnDestroy {
           highlightActiveLine(),
           history(),
           keymap.of([...defaultKeymap, ...historyKeymap]),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ...((Array.isArray(langExt) ? langExt : [langExt]) as any),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ...((Array.isArray(themeExt) ? themeExt : [themeExt]) as any),
+          ...((Array.isArray(langExt) ? langExt : [langExt]) as Extension[]),
+          ...((Array.isArray(themeExt) ? themeExt : [themeExt]) as Extension[]),
           EditorView.updateListener.of((u) => {
             if (u.docChanged) {
               const next = u.state.doc.toString();
