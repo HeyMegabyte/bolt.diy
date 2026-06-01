@@ -48,6 +48,7 @@ import { EmptyStateComponent } from '../empty-state.component';
 import { IdeComponent } from './ai-endpoints/ide.component';
 import { FullscreenOverlayComponent } from '../../../components/fullscreen-overlay/fullscreen-overlay.component';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
+import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import {
   LANGUAGE_OPTIONS,
   LANGUAGE_STARTERS,
@@ -81,6 +82,8 @@ interface InlineEdit {
     IdeComponent,
     FullscreenOverlayComponent,
     DialogShellComponent,
+    HlmInputDirective,
+    HlmSelectDirective,
   ],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" [class.agents--compact]="compact()" data-testid="ai-endpoints-page">
@@ -95,13 +98,15 @@ interface InlineEdit {
         </div>
         <div class="flex items-center gap-2 flex-wrap">
           <input
-            class="input-field w-56"
+            hlmInput
+            class="w-56"
             placeholder="Filter agents…"
             [ngModel]="filterText()"
             (ngModelChange)="filterText.set($event)"
             data-testid="ai-endpoints-filter" />
           <select
-            class="input-field"
+            hlmSelect
+            class="w-auto"
             aria-label="Filter by HTTP method"
             [ngModel]="filterMethod()"
             (ngModelChange)="filterMethod.set($event)"
@@ -113,7 +118,8 @@ interface InlineEdit {
           <!-- Language filter hidden in compact mode to clear bar space. -->
           @if (!compact()) {
             <select
-              class="input-field"
+              hlmSelect
+              class="w-auto"
               aria-label="Filter by language"
               [ngModel]="filterLanguage()"
               (ngModelChange)="filterLanguage.set($event)"
@@ -335,7 +341,8 @@ interface InlineEdit {
             <label class="block">
               <span class="muted-h block mb-1">Description (optional)</span>
               <input
-                class="input-field w-full"
+                hlmInput
+                class="w-full"
                 placeholder="What does this agent do?"
                 [(ngModel)]="createDraft().description"
                 maxlength="200" />
@@ -343,7 +350,7 @@ interface InlineEdit {
 
             <label class="block">
               <span class="muted-h block mb-1">Language</span>
-              <select class="input-field w-full" [(ngModel)]="createDraft().language" (ngModelChange)="onCreateLanguageChange($event)" data-testid="ai-endpoint-create-language">
+              <select hlmSelect class="w-full" [(ngModel)]="createDraft().language" (ngModelChange)="onCreateLanguageChange($event)" data-testid="ai-endpoint-create-language">
                 @for (l of langs; track l.id) {
                   <option [value]="l.id">{{ l.label }} — {{ l.hint }}</option>
                 }
@@ -354,7 +361,8 @@ interface InlineEdit {
               <label class="block">
                 <span class="muted-h block mb-1">AI prompt</span>
                 <textarea
-                  class="input-field w-full font-mono text-[0.72rem]"
+                  hlmInput
+                  class="w-full font-mono text-[0.72rem]"
                   rows="6"
                   placeholder="You are the endpoint. Read the request body, return JSON."
                   [(ngModel)]="createDraft().promptBody"
@@ -390,7 +398,8 @@ interface InlineEdit {
               A one-line description is plenty — e.g. "lead-qualifier scores inbound contact-form leads on a 0-100 scale".
             </p>
             <textarea
-              class="input-field w-full font-mono text-[0.74rem]"
+              hlmInput
+              class="w-full font-mono text-[0.74rem]"
               rows="5"
               placeholder="Describe what your agent should do…"
               [(ngModel)]="suggestDescription"
@@ -419,7 +428,7 @@ interface InlineEdit {
             <h3 class="m-0 text-base font-semibold text-white">Test <code class="font-mono text-primary">{{ t.endpoint_slug }}</code></h3>
             <button class="text-text-secondary hover:text-white" (click)="quickTesting.set(null)">×</button>
           </div>
-          <textarea class="input-field w-full font-mono text-[0.72rem]" rows="5" [(ngModel)]="testBody"></textarea>
+          <textarea hlmInput class="w-full font-mono text-[0.72rem]" rows="5" [(ngModel)]="testBody"></textarea>
           <div class="flex justify-end gap-2 mt-2">
             <button class="btn-ghost" (click)="quickTesting.set(null)">Cancel</button>
             <button class="btn-primary" [disabled]="running()" (click)="runQuickTest(t)" data-testid="ai-endpoint-quick-test-run">{{ running() ? 'Running…' : 'Run' }}</button>
@@ -529,8 +538,7 @@ interface InlineEdit {
   styles: [`
     :host { display: block; }
     .card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 1.4rem; }
-    .input-field { padding: 0.5rem 0.7rem; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; font: inherit; font-size: 0.74rem; }
-    .input-field:focus { outline: none; border-color: rgba(0,229,255,0.5); box-shadow: 0 0 0 2px rgba(0,229,255,0.15); }
+    /* .input-field removed — all form controls now use Spartan hlmInput/hlmSelect. */
     .endpoint-list { list-style: none; padding: 0; margin: 0; }
     .endpoint-row {
       padding: 0.9rem 1.1rem;
@@ -852,8 +860,6 @@ interface InlineEdit {
     .agents--compact { padding: 1rem !important; }
     .agents--compact .section-h { font-size: 1rem; }
     .agents--compact header > div > p { font-size: 0.68rem !important; }
-    .agents--compact .input-field { font-size: 0.72rem; padding: 0.35rem 0.55rem; }
-    .agents--compact .input-field.w-56 { width: 12rem; }
     .agents--compact .url-host { font-size: 0.72rem; }
     .agents--compact .url-slug { font-size: 0.78rem; }
     .agents--compact .endpoint-row { padding: 10px 12px; }
