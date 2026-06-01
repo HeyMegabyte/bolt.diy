@@ -23,6 +23,7 @@ import { HttpClient } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { catchError, of } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { HlmTablistDirective } from '../../../ui';
 
 type SectionIndustry = 'nonprofit' | 'restaurant' | 'lawyer' | 'salon' | 'medical' | 'all';
 type SectionSlot = 'hero' | 'services' | 'testimonials' | 'donor-wall' | 'faq' | 'cta' | 'all';
@@ -56,7 +57,7 @@ const SLOT_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-marketplace',
   standalone: true,
-  imports: [CommonModule, RouterLink, RollingCounterComponent],
+  imports: [CommonModule, RouterLink, RollingCounterComponent, HlmTablistDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="mkt-shell">
@@ -83,7 +84,7 @@ const SLOT_COLORS: Record<string, string> = {
   </header>
 
   <!-- ── Industry Filter Tabs ─────────────────────────────────────────── -->
-  <div class="mkt-industry-tabs" role="tablist" aria-label="Filter by industry" appReveal>
+  <div class="mkt-industry-tabs" role="tablist" hlmTablist aria-label="Filter by industry" appReveal>
     <button class="mkt-tab" role="tab"
             [class.mkt-tab--active]="activeIndustry() === 'all'"
             [attr.aria-selected]="activeIndustry() === 'all'"

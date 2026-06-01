@@ -20,7 +20,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HlmInputDirective } from '../../../ui';
+import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
@@ -53,7 +53,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
 @Component({
   selector: 'app-admin-feature-flags',
   standalone: true,
-  imports: [CommonModule, FormsModule, HlmInputDirective],
+  imports: [CommonModule, FormsModule, HlmInputDirective, HlmTablistDirective],
   template: `
     <section class="ff-page">
       <header class="ff-header">
@@ -78,7 +78,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
           (ngModelChange)="search.set($event)"
           aria-label="Search feature flags"
         />
-        <div class="ff-stages" role="tablist" aria-label="Filter by stage">
+        <div class="ff-stages" role="tablist" hlmTablist aria-label="Filter by stage">
           @for (s of stages; track s) {
             <button
               class="ff-stage-chip"

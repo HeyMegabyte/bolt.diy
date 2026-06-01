@@ -16,7 +16,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HlmInputDirective } from '../../../ui';
+import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -166,7 +166,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
 @Component({
   selector: 'app-admin-features-hub',
   standalone: true,
-  imports: [CommonModule, FormsModule, HlmInputDirective],
+  imports: [CommonModule, FormsModule, HlmInputDirective, HlmTablistDirective],
   template: `
     <section class="hub">
       <header class="hub-head">
@@ -190,7 +190,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
         </div>
       </header>
 
-      <nav class="hub-tabs" role="tablist" aria-label="Feature categories" data-testid="hub-tabs">
+      <nav class="hub-tabs" role="tablist" hlmTablist aria-label="Feature categories" data-testid="hub-tabs">
         @for (t of tabs; track t.id) {
           <button
             class="hub-tab"

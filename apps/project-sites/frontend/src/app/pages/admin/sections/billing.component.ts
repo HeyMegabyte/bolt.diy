@@ -6,7 +6,7 @@ import { ApiService, type CostForecastV2 } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { TelemetryService } from '../../../services/telemetry.service';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
-import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
+import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
 interface Bundle { credits: number; usd: number; price_id: string; }
@@ -68,7 +68,7 @@ interface ForecastBar {
 @Component({
   selector: 'app-admin-billing',
   standalone: true,
-  imports: [FormsModule, DatePipe, CurrencyPipe, DecimalPipe, DialogShellComponent, RollingCounterComponent, HlmInputDirective, HlmSelectDirective],
+  imports: [FormsModule, DatePipe, CurrencyPipe, DecimalPipe, DialogShellComponent, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header>
@@ -86,7 +86,7 @@ interface ForecastBar {
       </header>
 
       <!-- ─────────────────── BILLING TABS (BILL-01..BILL-17) ─────────────────── -->
-      <nav class="billing-tabs-nav" role="tablist" aria-label="Billing sections">
+      <nav class="billing-tabs-nav" role="tablist" hlmTablist aria-label="Billing sections">
         @for (tab of billingTabs; track tab.id) {
           <button
             type="button"
