@@ -13,9 +13,8 @@
  *   - filter `<button>` pills→ `p-selectButton` (single-select segmented control)
  *   - action `<button>`s     → Spartan `hlmBtn` (ghost size=sm; approve tinted
  *                              cyan-green `#4dffb5`, reject tinted `text-destructive`)
- *   - silent error swallow   → `p-toast` + `MessageService` (the prior code had a
- *                              "toast would require ToastService injection" gap —
- *                              now closed with PrimeNG's MessageService).
+ *   - silent error swallow   → cockpit `ToastService` (approve/reject/scan now
+ *                              surface success/error via the shared toast layer).
  * Every PrimeNG surface inherits the cockpit cyan/near-black tokens; the
  * `:host ::ng-deep` block only fine-tunes density to the cockpit's 13px/compact
  * rhythm — no color overrides needed (the preset handles those).
@@ -29,8 +28,7 @@ import { firstValueFrom } from 'rxjs';
 import { TableModule } from 'primeng/table';
 import { BrnToggleGroupImports } from '@spartan-ng/brain/toggle-group';
 import { HlmButtonDirective, HlmBadgeDirective, type BadgeVariant } from '../../../ui';
-import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
+import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
@@ -65,16 +63,9 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
     HlmButtonDirective,
     HlmBadgeDirective,
     ...BrnToggleGroupImports,
-    ToastModule,
   ],
-  // MessageService is the PrimeNG toast bus; provided at the component level so
-  // <p-toast> in this template gets a fresh, isolated queue.
-  providers: [MessageService],
   template: `
     <div class="cf-page" data-testid="content-freshness-section">
-
-      <!-- PrimeNG toast layer (cockpit-themed via CockpitPreset). -->
-      <p-toast position="bottom-right" />
 
       <!-- Header -->
       <header class="cf-header">
@@ -326,7 +317,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
 export class AdminContentFreshnessComponent implements OnInit {
   private http = inject(HttpClient);
   private adminState = inject(AdminStateService);
-  private messages = inject(MessageService);
+  private toast = inject(ToastService);
 
   readonly statuses: StatusFilter[] = ['pending', 'approved', 'published', 'rejected'];
   /** Options for the `p-selectButton` filter (label/value pairs). */
@@ -414,9 +405,9 @@ export class AdminContentFreshnessComponent implements OnInit {
       await firstValueFrom(this.http.post(`/api/content/freshness/approve/${draftId}`, {}));
       this.drafts.update((list) => list.filter((d) => d.id !== draftId));
       this.total.update((t) => Math.max(0, t - 1));
-      this.messages.add({ severity: 'success', summary: 'Approved', detail: 'Rewrite queued to publish.' });
+      this.toast.success('Approved — rewrite queued to publish.');
     } catch {
-      this.messages.add({ severity: 'error', summary: 'Approve failed', detail: 'Try again in a moment.' });
+      this.toast.error('Approve failed — try again in a moment.');
     } finally {
       this.acting.update((s) => { const n = new Set(s); n.delete(draftId); return n; });
     }
@@ -428,9 +419,9 @@ export class AdminContentFreshnessComponent implements OnInit {
       await firstValueFrom(this.http.post(`/api/content/freshness/reject/${draftId}`, {}));
       this.drafts.update((list) => list.filter((d) => d.id !== draftId));
       this.total.update((t) => Math.max(0, t - 1));
-      this.messages.add({ severity: 'info', summary: 'Rejected', detail: 'Draft discarded.' });
+      this.toast.info('Rejected — draft discarded.');
     } catch {
-      this.messages.add({ severity: 'error', summary: 'Reject failed', detail: 'Try again in a moment.' });
+      this.toast.error('Reject failed — try again in a moment.');
     } finally {
       this.acting.update((s) => { const n = new Set(s); n.delete(draftId); return n; });
     }
@@ -440,9 +431,9 @@ export class AdminContentFreshnessComponent implements OnInit {
     this.triggering.set(true);
     try {
       await firstValueFrom(this.http.post('/api/content/freshness/trigger', {}));
-      this.messages.add({ severity: 'success', summary: 'Scan started', detail: 'New drafts appear shortly.' });
+      this.toast.success('Scan started — new drafts appear shortly.');
     } catch {
-      this.messages.add({ severity: 'error', summary: 'Scan failed', detail: 'Could not start the scan.' });
+      this.toast.error('Scan failed — could not start the scan.');
     } finally {
       this.triggering.set(false);
     }
