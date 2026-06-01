@@ -18,6 +18,13 @@ const SECTIONS = [
   // white-on-cyan PrimeNG contrast bug wherever it renders.
   '/admin/voice', '/admin/social', '/admin/domains', '/admin/content-freshness',
   '/admin/pseo', '/admin/ai-endpoints', '/admin/sites', '/admin/seo', '/admin/docs',
+  // Coverage expansion (round 117) — safe now that each section is its own test.
+  // (dashboard + mcp excluded: they don't render the standard `.admin-sidebar`
+  // shell at their path — redirect/special-view — so the readiness gate can't
+  // anchor on them; they'd need a bespoke readiness check.)
+  '/admin/features', '/admin/traces', '/admin/media', '/admin/apps',
+  '/admin/inbox', '/admin/marketplace', '/admin/trust', '/admin/enterprise',
+  '/admin/user', '/admin/logs',
 ];
 
 async function seed(page: Page): Promise<void> {
@@ -28,6 +35,11 @@ async function seed(page: Page): Promise<void> {
 
 test.describe('legacy /admin — WCAG 2.2 AA (axe-core)', () => {
   test.skip(!KEY, 'E2E_API_KEY not set');
+  // Per-section tests run in parallel → loading many heavy admin SPA pages + axe
+  // at once occasionally lags shell render past the readiness budget on a random
+  // section (pure contention, not a real failure). Retries let those transient
+  // timeouts self-heal; a genuine axe violation fails every attempt.
+  test.describe.configure({ retries: 2 });
 
   // One test PER section so a slow/redirecting section fails only its own case
   // (named clearly), never the whole gate — and coverage can expand safely.
@@ -38,7 +50,10 @@ test.describe('legacy /admin — WCAG 2.2 AA (axe-core)', () => {
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await seed(page);
       await page.goto(path, { waitUntil: 'load' });
-      await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 25000 });
+      // 45s: under the parallel per-section run, several heavy admin SPA pages +
+      // axe load concurrently, so shell render can lag past a tighter budget
+      // (contention, not a real failure — even stable sections flaked at 25s).
+      await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 45000 });
       await page.waitForTimeout(500);
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
