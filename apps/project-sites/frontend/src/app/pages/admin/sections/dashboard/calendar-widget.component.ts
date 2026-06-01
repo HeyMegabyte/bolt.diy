@@ -34,6 +34,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { RevealDirective } from '../../../../directives/reveal.directive';
+import { HlmInputDirective, HlmSelectDirective } from '../../../../ui';
 import { AuthService } from '../../../../services/auth.service';
 import { ToastService } from '../../../../services/toast.service';
 
@@ -82,7 +83,7 @@ interface BookingDraft {
   selector: 'app-calendar-widget',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RevealDirective],
+  imports: [CommonModule, FormsModule, RevealDirective, HlmInputDirective, HlmSelectDirective],
   template: `
     <section class="cal" appReveal aria-label="Calendar">
       <header class="bar">
@@ -217,6 +218,7 @@ interface BookingDraft {
           <div class="modal-card" (click)="$event.stopPropagation()">
             <div class="m-hd">
               <input
+                hlmInput
                 type="text"
                 [(ngModel)]="form.title"
                 placeholder="Add a title"
@@ -228,16 +230,16 @@ interface BookingDraft {
             </div>
             <div class="m-row">
               <label>Start</label>
-              <input type="datetime-local" [(ngModel)]="form.start" />
+              <input hlmInput type="datetime-local" [(ngModel)]="form.start" />
             </div>
             <div class="m-row">
               <label>End</label>
-              <input type="datetime-local" [(ngModel)]="form.end" />
+              <input hlmInput type="datetime-local" [(ngModel)]="form.end" />
             </div>
             <div class="m-row m-toggle">
               <label><input type="checkbox" [(ngModel)]="form.allDay" /> All day</label>
               <label>Repeat
-                <select [(ngModel)]="form.rrule">
+                <select hlmSelect [(ngModel)]="form.rrule">
                   <option [ngValue]="''">Does not repeat</option>
                   <option value="FREQ=DAILY">Every day</option>
                   <option value="FREQ=WEEKLY">Every week</option>
@@ -248,11 +250,11 @@ interface BookingDraft {
             </div>
             <div class="m-row">
               <label>Location</label>
-              <input type="text" [(ngModel)]="form.location" placeholder="Address or video link" />
+              <input hlmInput type="text" [(ngModel)]="form.location" placeholder="Address or video link" />
             </div>
             <div class="m-row">
               <label>Notes</label>
-              <textarea rows="2" [(ngModel)]="form.description"></textarea>
+              <textarea hlmInput [multiline]="true" rows="2" [(ngModel)]="form.description"></textarea>
             </div>
             <div class="m-act">
               @if (form.id) {
@@ -277,15 +279,15 @@ interface BookingDraft {
             </div>
             <div class="m-row">
               <label>Title</label>
-              <input type="text" [(ngModel)]="bookingDraft.title" />
+              <input hlmInput type="text" [(ngModel)]="bookingDraft.title" />
             </div>
             <div class="m-row">
               <label>Public slug</label>
-              <input type="text" [(ngModel)]="bookingDraft.slug" placeholder="brian-30" />
+              <input hlmInput type="text" [(ngModel)]="bookingDraft.slug" placeholder="brian-30" />
             </div>
             <div class="m-row m-toggle">
               <label>Duration
-                <select [(ngModel)]="bookingDraft.duration_min">
+                <select hlmSelect [(ngModel)]="bookingDraft.duration_min">
                   <option [ngValue]="15">15 min</option>
                   <option [ngValue]="30">30 min</option>
                   <option [ngValue]="45">45 min</option>
@@ -293,7 +295,7 @@ interface BookingDraft {
                 </select>
               </label>
               <label>Buffer
-                <select [(ngModel)]="bookingDraft.buffer_min">
+                <select hlmSelect [(ngModel)]="bookingDraft.buffer_min">
                   <option [ngValue]="0">0 min</option>
                   <option [ngValue]="5">5 min</option>
                   <option [ngValue]="15">15 min</option>
@@ -315,12 +317,12 @@ interface BookingDraft {
               </div>
             </div>
             <div class="m-row m-toggle">
-              <label>Window start <input type="time" [(ngModel)]="bookingDraft.window_start" /></label>
-              <label>Window end   <input type="time" [(ngModel)]="bookingDraft.window_end" /></label>
+              <label>Window start <input hlmInput type="time" [(ngModel)]="bookingDraft.window_start" /></label>
+              <label>Window end   <input hlmInput type="time" [(ngModel)]="bookingDraft.window_end" /></label>
             </div>
             <div class="m-row">
               <label>Time zone</label>
-              <input type="text" [(ngModel)]="bookingDraft.tz" />
+              <input hlmInput type="text" [(ngModel)]="bookingDraft.tz" />
             </div>
             <div class="m-act">
               <div class="grow"></div>
@@ -492,15 +494,8 @@ interface BookingDraft {
         margin-bottom: 10px;
       }
       .m-row > label { font-size: 0.7rem; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.08em; }
-      .m-row input, .m-row textarea, .m-row select {
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(0, 229, 255, 0.18);
-        border-radius: 8px;
-        padding: 8px 10px;
-        color: var(--ps-ink, #f4f4ff);
-        font: inherit;
-        min-height: 32px;
-      }
+      /* .m-row input/textarea/select chrome removed — all controls now Spartan hlmInput/hlmSelect. */
+      .m-row input, .m-row textarea, .m-row select { width: 100%; }
       .m-toggle { flex-direction: row; gap: 14px; align-items: center; }
       .m-toggle label { display: flex; flex-direction: column; gap: 4px; opacity: 1; text-transform: none; letter-spacing: 0; font-size: 0.78rem; }
       .wd-row { display: flex; gap: 4px; flex-wrap: wrap; }
