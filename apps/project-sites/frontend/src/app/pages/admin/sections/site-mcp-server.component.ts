@@ -26,6 +26,7 @@ import { HttpClient } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { HlmInputDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
 
 interface McpToken {
@@ -52,7 +53,7 @@ interface ToolUsage {
 @Component({
   selector: 'app-site-mcp-server',
   standalone: true,
-  imports: [FormsModule, RouterModule, RollingCounterComponent, RevealDirective],
+  imports: [FormsModule, RouterModule, RollingCounterComponent, RevealDirective, HlmInputDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="p-5 flex-1 overflow-y-auto space-y-5 animate-fade-in" data-testid="site-mcp-server">
@@ -202,7 +203,9 @@ interface ToolUsage {
           <div class="space-y-2">
             <label class="text-[0.72rem] text-text-secondary font-medium">Arguments (JSON)</label>
             <textarea
-              class="input w-full font-mono text-xs min-h-[80px] resize-y"
+              hlmInput
+              [multiline]="true"
+              class="w-full font-mono text-xs min-h-[80px] resize-y"
               [(ngModel)]="playgroundArgs"
               placeholder="{}"
               data-testid="playground-args"

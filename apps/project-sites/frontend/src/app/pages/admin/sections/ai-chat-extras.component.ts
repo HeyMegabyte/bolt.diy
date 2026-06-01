@@ -16,6 +16,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { HlmInputDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
@@ -118,7 +119,7 @@ function renderMarkdown(md: string): string {
 @Component({
   selector: 'app-ai-chat-extras',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, HlmInputDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (siteId(); as sid) {
@@ -256,8 +257,9 @@ function renderMarkdown(md: string): string {
           <div class="modal-body">
             <h3>Pick a folder</h3>
             <input
+              hlmInput
               type="text"
-              class="input"
+              class="w-full mb-3"
               placeholder="Filter folders…"
               [(ngModel)]="folderQuery"
               (input)="loadFolders()"
@@ -355,7 +357,7 @@ function renderMarkdown(md: string): string {
       .summary-body p { color: rgba(255,255,255,0.78); font-size: .85rem; line-height: 1.55; }
       .summary-body code { background: rgba(255,255,255,0.06); padding: 0 .25rem; border-radius: 3px; }
       .summary-body pre { background: rgba(0,0,0,0.4); padding: .65rem .85rem; border-radius: 8px; overflow-x: auto; font-size: .75rem; }
-      .input { width: 100%; padding: .55rem .75rem; border-radius: 8px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.1); color: #fff; margin-bottom: .75rem; }
+      /* .input removed — folder filter now Spartan hlmInput (mb-3). */
       .folder-list { list-style: none; padding: 0; margin: 0; max-height: 360px; overflow-y: auto; }
       .folder-list .empty { color: rgba(255,255,255,0.4); text-align: center; padding: 1rem; }
       .folder-row { width: 100%; text-align: left; background: transparent; border: 0; padding: .55rem .65rem; border-radius: 6px; color: #fff; display: flex; justify-content: space-between; cursor: pointer; }
