@@ -201,17 +201,8 @@ type StageFilter = 'all' | FlagDefinition['stage'];
                       [attr.aria-valuetext]="displayRollout(flag) + ' percent'" />
                   </label>
                   <label class="ff-ctl">
-                    <span class="ff-ctl-label">Promote stage</span>
-                    <select
-                      hlmInput
-                      class="ff-stage-select"
-                      [value]="flag.stage"
-                      (change)="setStage(flag, $any($event.target).value)"
-                      [attr.aria-label]="'Set stage for ' + flag.key">
-                      @for (s of promotableStages; track s) {
-                        <option [value]="s">{{ s }}</option>
-                      }
-                    </select>
+                    <span class="ff-ctl-label">Stage</span>
+                    <span class="ff-stage" [attr.data-stage]="flag.stage">{{ flag.stage }}</span>
                   </label>
                   <p class="ff-ctl-hint">experimental → beta (5-25%) → stable (100%). Enable / rollout / killswitch persist via the super-admin endpoint; stage is registry-managed (set in code).</p>
                 </div>
@@ -295,7 +286,6 @@ type StageFilter = 'all' | FlagDefinition['stage'];
     .ff-ctl-label strong { color: var(--ps-accent, #00e5ff); font-family: var(--ps-mono, ui-monospace, monospace); }
     .ff-range { width: 100%; max-width: 320px; accent-color: var(--ps-accent, #00e5ff); cursor: pointer; }
     .ff-range:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 4px; border-radius: 4px; }
-    .ff-stage-select { max-width: 240px; text-transform: capitalize; }
     .ff-ctl-hint { font-size: .72rem; color: color-mix(in oklch, currentColor 50%, transparent); margin: 0; line-height: 1.4; }
     .ff-state { padding: 2rem; text-align: center; border: 1px dashed color-mix(in oklch, currentColor 20%, transparent); border-radius: 14px; }
     .ff-state-error { color: #ff8585; border-color: #ff5555; }
@@ -313,8 +303,6 @@ export class AdminFeatureFlagsComponent implements OnInit {
   private readonly flagSvc = inject(FeatureFlagService);
 
   readonly stages: StageFilter[] = ['all', 'experimental', 'beta', 'stable', 'deprecated', 'killswitch'];
-  /** Stages an operator can promote a flag to from the UI (killswitch has its own button). */
-  readonly promotableStages: FlagDefinition['stage'][] = ['experimental', 'beta', 'stable', 'deprecated'];
   readonly stage = signal<StageFilter>('all');
   readonly search = signal('');
   readonly loading = signal(true);
@@ -449,18 +437,6 @@ export class AdminFeatureFlagsComponent implements OnInit {
       { enabled: clamped > 0, rollout_percent: clamped },
       `rollout → ${clamped}%`,
       (f) => ({ ...f, default_rollout_percent: clamped, default_enabled: clamped > 0 }),
-    );
-  }
-
-  /** Promote (or demote) a flag's lifecycle stage. */
-  async setStage(flag: FlagDefinition, stage: string): Promise<void> {
-    const next = stage as FlagDefinition['stage'];
-    if (next === flag.stage) return;
-    return this.applyOverride(
-      flag,
-      { stage: next },
-      `stage → ${next}`,
-      (f) => ({ ...f, stage: next }),
     );
   }
 
