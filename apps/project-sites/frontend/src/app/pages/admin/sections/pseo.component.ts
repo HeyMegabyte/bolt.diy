@@ -15,6 +15,7 @@ import { firstValueFrom } from 'rxjs';
 import { AdminStateService } from '../admin-state.service';
 import { HlmTablistDirective } from '../../../ui';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { ErrorCardComponent } from '../../../components/states';
 
 interface PseoPage {
   id: string;
@@ -54,7 +55,7 @@ type StatusFilter = 'all' | PseoPage['status'];
 @Component({
   selector: 'app-admin-pseo',
   standalone: true,
-  imports: [CommonModule, RouterLink, RollingCounterComponent, HlmTablistDirective],
+  imports: [CommonModule, RouterLink, RollingCounterComponent, HlmTablistDirective, ErrorCardComponent],
   template: `
     <div class="ps-page" data-testid="pseo-section">
 
@@ -122,7 +123,11 @@ type StatusFilter = 'all' | PseoPage['status'];
       }
 
       @if (error()) {
-        <div class="ps-error" role="alert">{{ error() }}</div>
+        <app-error-card
+          title="Couldn't load the pSEO matrix"
+          [message]="error()!"
+          hint="Select a site, then retry. If it keeps failing, copy the reference for support."
+          (retry)="loadPages()" />
       }
 
       @if (!loading() && !error() && pages().length === 0) {
@@ -244,11 +249,9 @@ type StatusFilter = 'all' | PseoPage['status'];
     .ps-pill:hover { color:var(--ps-accent); border-color:rgba(0,229,255,.3); }
     .ps-pill-active { background:rgba(0,229,255,.12); color:var(--ps-accent); border-color:rgba(0,229,255,.35); }
 
-    .ps-loading, .ps-empty, .ps-error { text-align:center; padding:2.5rem 1rem; color:rgba(244,244,255,.45); font-size:.8rem; }
+    .ps-empty { text-align:center; padding:2.5rem 1rem; color:rgba(244,244,255,.45); font-size:.8rem; display:flex; flex-direction:column; align-items:center; gap:.75rem; }
     .ps-skel { display:flex; flex-direction:column; gap:8px; padding:.5rem 0; }
     .ps-skel-bar { display:block; width:100%; height:34px; border-radius:8px; }
-    .ps-empty { display:flex; flex-direction:column; align-items:center; gap:.75rem; }
-    .ps-error { color:#f87171; }
 
     .ps-table-wrap { border:1px solid rgba(255,255,255,.06); border-radius:12px; overflow:hidden; }
     .ps-table { width:100%; border-collapse:collapse; font-size:.72rem; }
