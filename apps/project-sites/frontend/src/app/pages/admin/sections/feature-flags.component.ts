@@ -12,9 +12,11 @@
  *   - Cards per flag with: name, description, current state badge, stage chip,
  *     owner, default-enabled toggle, default-rollout slider, killswitch button.
  *
- * Mutations route through `POST /api/admin/feature-flags/:key/override` (admin
- * endpoint not shipped yet — UI surfaces "save" but warns when the endpoint
- * 404s). When the admin endpoint lands, the toggle will flip live.
+ * Mutations route through `POST /api/super-admin/feature-flags` (super-admin
+ * guarded) — the worker upserts feature_flags(enabled_globally, rollout_pct,
+ * kill_switch). `stage` is registry/code-managed (no column) so non-killswitch
+ * stage changes are optimistic-only. (Prior wiring hit a non-existent /override
+ * path that 404'd; fixed round 141.)
  */
 
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
@@ -221,7 +223,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
 
       <footer class="ff-footer">
         <p>
-          Flag mutations route through <code>POST /api/admin/feature-flags/:key/override</code>.
+          Flag mutations route through <code>POST /api/super-admin/feature-flags</code> (super-admin only).
           Promotion path: experimental → beta (5-25%) → stable (100%). Killswitch instantly disables for all users.
         </p>
       </footer>
@@ -407,21 +409,25 @@ export class AdminFeatureFlagsComponent implements OnInit {
     label: string,
     optimistic: (f: FlagDefinition) => FlagDefinition,
   ): Promise<void> {
+    // Map the cockpit's intent to the worker's flag-patch contract
+    // (POST /api/super-admin/feature-flags, super-admin guarded — the ONLY flag
+    // mutation route the worker serves; the prior /override path 404'd). The
+    // worker upserts feature_flags(enabled_globally, rollout_pct, kill_switch);
+    // `stage` has no column (registry/code-managed) so a non-killswitch stage
+    // change stays optimistic-only. killswitch → kill_switch=true.
+    const patch: Record<string, unknown> = { key: flag.key };
+    if ('enabled' in value) patch['enabled_globally'] = !!value['enabled'];
+    if ('rollout_percent' in value) patch['rollout_pct'] = value['rollout_percent'];
+    if (value['stage'] === 'killswitch') patch['kill_switch'] = true;
     try {
-      await firstValueFrom(
-        this.http.post(`/api/admin/feature-flags/${flag.key}/override`, {
-          scope: 'global',
-          scope_id: '*',
-          value,
-        }),
-      );
+      await firstValueFrom(this.http.post('/api/super-admin/feature-flags', patch));
       this.flags.update((flags) => flags.map((f) => (f.key === flag.key ? optimistic(f) : f)));
       this.flagSvc.invalidate(flag.key);
       this.toast.success(`${flag.key}: ${label}`);
     } catch (e) {
-      // Admin override endpoint not shipped yet — surface a non-blocking cockpit toast.
       const status = (e as { status?: number }).status ?? 'error';
-      this.toast.warning(`Override not saved — POST /api/admin/feature-flags/${flag.key}/override returned ${status}. Worker route ships next deploy.`, 7000);
+      const hint = status === 403 ? ' — super-admin only' : '';
+      this.toast.warning(`Couldn't update ${flag.key}: POST /api/super-admin/feature-flags → ${status}${hint}.`, 7000);
     }
   }
 
