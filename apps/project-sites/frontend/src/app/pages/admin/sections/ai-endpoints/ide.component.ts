@@ -98,6 +98,23 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
               <button class="icon-btn" (click)="newFolder()" title="New folder" data-testid="ide-new-folder">📁</button>
             </div>
           </div>
+          @if (newPathMode(); as mode) {
+            <div class="new-path-row">
+              <input
+                hlmInput
+                [seamless]="true"
+                class="w-full font-mono text-[0.72rem]"
+                [placeholder]="mode === 'file' ? 'src/util.js' : 'lib/utils'"
+                [ngModel]="newPathDraft()"
+                (ngModelChange)="newPathDraft.set($event)"
+                (keydown.enter)="confirmNewPath()"
+                (keydown.escape)="newPathMode.set(null)"
+                (blur)="newPathMode.set(null)"
+                autofocus
+                [attr.aria-label]="mode === 'file' ? 'New file path' : 'New folder path'"
+                data-testid="ide-new-path-input" />
+            </div>
+          }
           <ul class="tree-list">
             @for (path of paths(); track path) {
               <li
@@ -226,6 +243,7 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
     .ide-body:has(.side-panel) { grid-template-columns: 240px 1fr 320px; }
     .file-tree { background: rgba(255,255,255,0.015); border-right: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; min-width: 0; }
     .tree-head { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.7rem; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .new-path-row { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.04); }
     .tree-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; }
     .tree-item { display: grid; grid-template-columns: 22px 1fr 22px; align-items: center; padding: 0.4rem 0.7rem; cursor: pointer; font-size: 0.72rem; color: rgba(255,255,255,0.8); gap: 6px; }
     .tree-item:hover { background: rgba(0,229,255,0.04); }
@@ -301,6 +319,9 @@ export class IdeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   activePath = signal<string | null>(null);
   tabs = signal<OpenTab[]>([]);
+  /** Inline new-file/-folder entry mode + draft path (replaces prompt()). */
+  newPathMode = signal<'file' | 'folder' | null>(null);
+  newPathDraft = signal('');
   paths = computed(() => Object.keys(this.files).sort());
   activePanel = signal<'tester' | 'logs' | 'bindings' | 'preview' | null>(null);
   loading = signal<boolean>(false);
@@ -367,21 +388,25 @@ export class IdeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  newFile(): void {
-    const name = prompt('New file path (e.g. src/util.js)');
-    if (!name) return;
-    if (this.files[name] !== undefined) return;
-    this.files = { ...this.files, [name]: '' };
-    this.filesChange.emit(this.files);
-    this.openFile(name);
-  }
+  /** Inline new-path entry (replaces raw prompt() — branded, focus-safe). */
+  newFile(): void { this.newPathDraft.set(''); this.newPathMode.set('file'); }
+  newFolder(): void { this.newPathDraft.set(''); this.newPathMode.set('folder'); }
 
-  newFolder(): void {
-    const name = prompt('New folder path (e.g. lib/utils)');
-    if (!name) return;
-    const placeholder = `${name.replace(/\/$/, '')}/.keep`;
-    this.files = { ...this.files, [placeholder]: '' };
-    this.filesChange.emit(this.files);
+  confirmNewPath(): void {
+    const mode = this.newPathMode();
+    const name = this.newPathDraft().trim();
+    this.newPathMode.set(null);
+    if (!mode || !name) return;
+    if (mode === 'file') {
+      if (this.files[name] !== undefined) return;
+      this.files = { ...this.files, [name]: '' };
+      this.filesChange.emit(this.files);
+      this.openFile(name);
+    } else {
+      const placeholder = `${name.replace(/\/$/, '')}/.keep`;
+      this.files = { ...this.files, [placeholder]: '' };
+      this.filesChange.emit(this.files);
+    }
   }
 
   deleteFile(path: string): void {
