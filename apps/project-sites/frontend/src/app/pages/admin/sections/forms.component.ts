@@ -13,6 +13,7 @@ import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { FullscreenOverlayComponent } from '../../../components/fullscreen-overlay/fullscreen-overlay.component';
+import { HlmInputDirective } from '../../../ui';
 import { mcpProvider } from './mcp-providers';
 
 /**
@@ -132,7 +133,7 @@ const POLL_INTERVAL_MS = 10_000;
 @Component({
   selector: 'app-admin-forms',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe, JsonPipe, FullscreenOverlayComponent],
+  imports: [FormsModule, RouterLink, DatePipe, JsonPipe, FullscreenOverlayComponent, HlmInputDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header>
@@ -184,10 +185,10 @@ const POLL_INTERVAL_MS = 10_000;
             </button>
           </div>
           <div class="grid sm:grid-cols-2 gap-2">
-            <input class="input-field" placeholder="form_name (e.g. newsletter, contact)" [(ngModel)]="testInput.form_name" />
-            <input class="input-field" type="email" placeholder="email" [(ngModel)]="testInput.email" />
+            <input hlmInput placeholder="form_name (e.g. newsletter, contact)" [(ngModel)]="testInput.form_name" />
+            <input hlmInput type="email" placeholder="email" [(ngModel)]="testInput.email" />
           </div>
-          <textarea class="input-field w-full mt-2 font-mono text-[0.72rem]" rows="3" placeholder='Other fields as JSON, e.g. { "message": "hi", "name": "Brian" }'
+          <textarea hlmInput class="w-full mt-2 font-mono text-[0.72rem]" rows="3" placeholder='Other fields as JSON, e.g. { "message": "hi", "name": "Brian" }'
                     [(ngModel)]="testInput.fields_json"></textarea>
           <div class="flex justify-between items-center mt-2">
             <div class="flex items-center gap-1.5 flex-wrap">
@@ -347,21 +348,21 @@ const POLL_INTERVAL_MS = 10_000;
 
             <label class="block mb-2">
               <span class="muted-h">form_name</span>
-              <input class="input-field w-full mt-1" placeholder="newsletter, contact, …"
+              <input hlmInput class="w-full mt-1" placeholder="newsletter, contact, …"
                      [(ngModel)]="testInput.form_name"
                      (ngModelChange)="onTestInputEdited()"
                      data-testid="forms-test-form-name" />
             </label>
             <label class="block mb-2">
               <span class="muted-h">email</span>
-              <input class="input-field w-full mt-1" type="email" placeholder="you@example.com"
+              <input hlmInput class="w-full mt-1" type="email" placeholder="you@example.com"
                      [(ngModel)]="testInput.email"
                      (ngModelChange)="onTestInputEdited()"
                      data-testid="forms-test-email" />
             </label>
             <label class="block mb-2">
               <span class="muted-h">fields (JSON)</span>
-              <textarea class="input-field w-full mt-1 font-mono text-[0.7rem]"
+              <textarea hlmInput class="w-full mt-1 font-mono text-[0.7rem]"
                         rows="6"
                         placeholder='{ "message": "hi", "name": "Brian" }'
                         [(ngModel)]="testInput.fields_json"
@@ -392,8 +393,9 @@ const POLL_INTERVAL_MS = 10_000;
                   <button type="button" class="text-[0.6rem] text-text-secondary hover:text-primary px-1.5 py-0.5 rounded" (click)="copyTrace()" title="Copy trace JSON to clipboard">copy</button>
                 </span>
                 <textarea
+                  hlmInput
                   readonly
-                  class="input-field w-full mt-1 font-mono text-[0.68rem]"
+                  class="w-full mt-1 font-mono text-[0.68rem]"
                   rows="10"
                   data-testid="forms-test-result"
                   [value]="testResultPretty()"
@@ -545,9 +547,7 @@ const POLL_INTERVAL_MS = 10_000;
     }
     .card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--ps-radius-lg, 14px); padding: 1.4rem; }
     .section-h { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
-    .input-field { padding: 0.5rem 0.7rem; border-radius: var(--ps-radius-sm, 8px); background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: var(--ps-ink, #fff); font: inherit; }
-    .input-field:focus { outline: none; border-color: rgba(0,229,255,0.5); }
-    .input-field:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
+    /* .input-field removed — all form controls now use Spartan hlmInput. */
     .icon-close {
       display: inline-flex; align-items: center; justify-content: center;
       width: 28px; height: 28px;
