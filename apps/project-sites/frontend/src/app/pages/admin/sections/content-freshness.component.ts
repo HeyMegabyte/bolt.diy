@@ -38,6 +38,7 @@ import { HlmButtonDirective, HlmBadgeDirective, type BadgeVariant } from '../../
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { ErrorCardComponent } from '../../../components/states';
 
 interface FreshnessDraft {
   id: string;
@@ -66,6 +67,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
     CommonModule,
     FormsModule,
     RollingCounterComponent,
+    ErrorCardComponent,
     HlmButtonDirective,
     HlmBadgeDirective,
     ...BrnToggleGroupImports,
@@ -133,7 +135,11 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
 
       <!-- Error state -->
       @if (error()) {
-        <div class="cf-error" role="alert">{{ error() }}</div>
+        <app-error-card
+          title="Couldn't load content freshness"
+          [message]="error()!"
+          hint="The freshness service didn't respond. Retry, or pick a different site."
+          (retry)="load()" />
       }
 
       <!-- Draft table (native + TanStack headless: client-side sort on the
@@ -280,7 +286,6 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
     .cf-toggle-active, .cf-toggle-active:hover { background: var(--ps-accent, #00e5ff); color: #060610; }
     @media (prefers-reduced-motion: reduce) { .cf-toggle { transition: none; } }
 
-    .cf-error { text-align: center; padding: 1.25rem 1rem; color: #f87171; font-size: .8rem; }
     .cf-empty { display: flex; flex-direction: column; align-items: center; gap: .6rem; padding: 2rem 1rem; color: rgba(244,244,255,.62); font-size: .8rem; }
     .cf-skel { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: .25rem 0; }
     .cf-skel-bar { display: block; width: 100%; height: 30px; border-radius: 8px; }
