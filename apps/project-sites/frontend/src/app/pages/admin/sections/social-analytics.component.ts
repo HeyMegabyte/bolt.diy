@@ -18,6 +18,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { SkeletonComponent, ErrorCardComponent } from '../../../components/states';
 import {
   WidgetRendererComponent,
 } from './dashboard/widgets';
@@ -58,7 +59,7 @@ interface AggregateResponse {
   selector: 'app-social-analytics',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterLink, RevealDirective, WidgetRendererComponent],
+  imports: [CommonModule, RouterLink, RevealDirective, WidgetRendererComponent, SkeletonComponent, ErrorCardComponent],
   template: `
     <section class="page" appReveal data-testid="social-analytics-section">
       <header class="page-hd">
@@ -78,9 +79,13 @@ interface AggregateResponse {
       </header>
 
       @if (loading()) {
-        <div class="loading">Loading the receipts.</div>
+        <app-skeleton variant="table" [rows]="6" [columns]="5" label="Loading social analytics" />
       } @else if (error()) {
-        <div class="error">{{ error() }}</div>
+        <app-error-card
+          title="Couldn't load social analytics"
+          [message]="error()"
+          hint="The analytics service didn't respond. Retry, or check your connected accounts."
+          (retry)="reload()" />
       } @else if (data()) {
         <div class="widget">
           <app-widget-renderer name="social-performance" [props]="widgetProps()" />
@@ -138,8 +143,6 @@ interface AggregateResponse {
         background: rgba(0, 229, 255, 0.2);
         border-color: rgba(0, 229, 255, 0.5);
       }
-      .loading, .error { padding: 40px; text-align: center; opacity: 0.7; }
-      .error { color: #f87171; }
       .widget { margin-bottom: 24px; }
       .card {
         padding: 18px 20px;
@@ -177,6 +180,11 @@ export class AdminSocialAnalyticsComponent implements OnInit {
   setDays(d: number): void {
     if (this.days() === d) return;
     this.days.set(d);
+    this.load();
+  }
+
+  /** Public retry entry point for the error-card recovery action. */
+  reload(): void {
     this.load();
   }
 
