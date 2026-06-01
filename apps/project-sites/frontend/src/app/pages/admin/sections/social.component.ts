@@ -2194,7 +2194,12 @@ export class AdminSocialComponent implements OnInit {
   }
   discard(): void {
     if (!this.content().trim() && this.media().length === 0) return this.resetComposer();
-    if (confirm('Discard this post?')) this.resetComposer();
+    // Action-armed toast (cockpit pattern) — non-blocking, consistent with the
+    // rest of admin; replaces the native confirm() z-stack/focus break.
+    this.toast.warning('Discard this post? Your draft will be cleared.', {
+      action: { label: 'Discard', run: () => this.resetComposer() },
+      duration: 7000,
+    });
   }
   private resetComposer(): void {
     this.editingId.set(null);
