@@ -36,6 +36,7 @@ import { ToastService } from '../../../../services/toast.service';
 import { RevealOnScrollDirective } from '../../../../animations/reveal-on-scroll.directive';
 import { RollingCounterComponent } from '../../../../components/rolling-counter/rolling-counter.component';
 import { EmptyStateComponent } from '../../empty-state.component';
+import { HlmInputDirective } from '../../../../ui';
 
 interface PurchasedNumber {
   id: string;
@@ -74,7 +75,7 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
   selector: 'app-voice-numbers',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RevealOnScrollDirective, RollingCounterComponent, EmptyStateComponent],
+  imports: [FormsModule, RevealOnScrollDirective, RollingCounterComponent, EmptyStateComponent, HlmInputDirective],
   template: `
     <section class="space-y-6" psReveal>
       <!-- Your numbers -->
@@ -147,7 +148,7 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
         <div class="search-row">
           <label class="flex-1 min-w-0">
             <span class="sr-only">Search query</span>
-            <input class="input-field w-full"
+            <input hlmInput class="w-full font-mono min-h-[44px]"
                    type="text"
                    [(ngModel)]="query"
                    (ngModelChange)="onQueryChange($event)"
@@ -157,7 +158,7 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
           </label>
           <label class="w-[120px]">
             <span class="sr-only">Area code</span>
-            <input class="input-field w-full"
+            <input hlmInput class="w-full font-mono min-h-[44px]"
                    type="text"
                    inputmode="numeric"
                    maxlength="3"
@@ -258,16 +259,8 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
       padding: 1.2rem;
     }
     .search-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
-    .input-field {
-      padding: 0.55rem 0.75rem;
-      border-radius: var(--ps-radius-sm, 8px);
-      background: rgba(0,0,0,0.32);
-      border: 1px solid rgba(255,255,255,0.10);
-      color: var(--ps-ink, #fff);
-      font: 600 0.85rem 'JetBrains Mono', ui-monospace, monospace;
-      min-height: 44px;
-    }
-    .input-field:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
+    /* .input-field removed — both search/area-code inputs now use hlmInput
+       (mono + 44px tap target preserved via font-mono min-h-[44px] Tailwind). */
 
     .num-row, .result-row {
       display: flex; align-items: center; gap: 0.75rem;
