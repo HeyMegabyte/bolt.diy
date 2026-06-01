@@ -292,9 +292,13 @@ export class AdminComponent implements OnInit, OnDestroy {
    * the primary hostname or the `{slug}.projectsites.dev` default.
    */
   siteFaviconUrl(site: Site): string {
-    const host = (site.primary_hostname || '').trim()
-      || (site.slug ? `${site.slug}.projectsites.dev` : '');
-    if (!host) return '';
+    const host = (site.primary_hostname || '').trim();
+    // Only ask Google's S2 service for a favicon on REAL custom domains.
+    // Generated `*.projectsites.dev` subdomains (and the slug default) aren't
+    // crawled by Google → it 404s, which logs a console error AND falls back to
+    // the monogram anyway. Returning '' renders the monogram tile directly with
+    // no network request, keeping the console clean (console-error gate).
+    if (!host || /\.projectsites\.dev$/i.test(host)) return '';
     return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`;
   }
 
