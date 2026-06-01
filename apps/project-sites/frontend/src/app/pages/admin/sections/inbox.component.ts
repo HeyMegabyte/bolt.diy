@@ -134,7 +134,17 @@ const STATUS_COLORS: Record<string, string> = {
           <!-- Left: conversation list -->
           <aside class="inbox-list" role="list" aria-label="Conversations">
             @if (loading()) {
-              <div class="inbox-loading">Loading…</div>
+              <div class="inbox-skel" aria-busy="true" aria-label="Loading conversations">
+                @for (i of [0,1,2,3,4,5]; track i) {
+                  <div class="inbox-row inbox-row--skel" aria-hidden="true">
+                    <span class="glow-skel inbox-skel-icon"></span>
+                    <span class="inbox-row-body">
+                      <span class="glow-skel inbox-skel-name"></span>
+                      <span class="glow-skel inbox-skel-sub"></span>
+                    </span>
+                  </div>
+                }
+              </div>
             } @else if (filteredConversations().length === 0) {
               <div class="inbox-empty">
                 <p>No {{ selectedStatus() }} conversations.</p>
@@ -308,6 +318,11 @@ const STATUS_COLORS: Record<string, string> = {
       .inbox-3pane { display: grid; grid-template-columns: 280px 1fr 220px; gap: 12px; flex: 1; height: calc(100vh - 220px); min-height: 400px; }
       .inbox-list { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; overflow-y: auto; }
       .inbox-loading,.inbox-empty { padding: 24px; text-align: center; color: rgba(244,244,255,0.4); font-size: 13px; }
+      .inbox-row--skel { cursor: default; }
+      .inbox-row--skel:hover { background: transparent; }
+      .inbox-skel-icon { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; display: inline-block; }
+      .inbox-skel-name { display: block; width: 68%; height: 11px; border-radius: 4px; margin-bottom: 5px; }
+      .inbox-skel-sub { display: block; width: 90%; height: 9px; border-radius: 4px; }
       .inbox-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); cursor: pointer; transition: background .1s; min-height: 36px; }
       .inbox-row:hover,.inbox-row.selected { background: rgba(0,229,255,0.07); }
       .inbox-row.unread .inbox-row-name { font-weight: 600; color: var(--ps-ink); }
