@@ -243,10 +243,13 @@
   <!-- Establish stacking context for the persistent bolt iframe — Turn 7 fix.
        The <iframe class="bolt-frame bolt-frame--visible"> below uses
        position:absolute; top:49px; left:0; right:0; bottom:0; without
-       position:relative on this <main>, the iframe escapes to the document
+       position:relative on this container, the iframe escapes to the document
        root and renders UNDER the left sidebar. Anchoring the absolute frame
-       to <main> keeps it inside the right-panel column. -->
-  <main class="relative flex-1 min-w-0 flex flex-col min-h-screen">
+       to this relative div keeps it inside the right-panel column.
+       NOT a <main> — the app shell (app.component) already provides the single
+       <main id="main-content" role="main"> landmark; a nested <main> here would
+       be a duplicate main landmark (WCAG 1.3.1). -->
+  <div class="relative flex-1 min-w-0 flex flex-col min-h-screen">
     <!-- Top bar — `relative z-50` lifts the user/notif dropdowns above the
          editor's loading veil (which sits inside `<main>` at z-10). Without
          this, `backdrop-blur-lg` creates a stacking context at z:auto and
@@ -470,7 +473,7 @@
         </aside>
       }
     }
-  </main>
+  </div>
 </div>
 
 <app-ai-chat-widget />
