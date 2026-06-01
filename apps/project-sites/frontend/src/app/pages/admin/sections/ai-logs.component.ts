@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
-import { HlmInputDirective } from '../../../ui';
+import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
 import {
   ClientSideRowModelModule,
   ModuleRegistry,
@@ -231,7 +231,7 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
 @Component({
   selector: 'app-admin-ai-logs',
   standalone: true,
-  imports: [AgGridAngular, HlmInputDirective],
+  imports: [AgGridAngular, HlmInputDirective, HlmTablistDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-4">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -266,14 +266,15 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
               <h3 class="m-0 text-base font-semibold text-white">Latency percentiles</h3>
               <p class="text-[0.7rem] text-text-secondary m-0 mt-0.5">p50 / p95 / p99 over {{ chartPeriodLabel() }} · {{ chartBins().length }} bins</p>
             </div>
-            <div class="period-pills" role="tablist" aria-label="Chart period">
+            <div class="period-pills" role="tablist" hlmTablist aria-label="Chart period">
               @for (p of periods; track p.id) {
                 <button
                   type="button"
+                  role="tab"
                   class="period-pill"
                   [class.active]="chartPeriod() === p.id"
                   [attr.data-testid]="'traces-period-' + p.id"
-                  [attr.aria-pressed]="chartPeriod() === p.id"
+                  [attr.aria-selected]="chartPeriod() === p.id"
                   (click)="chartPeriod.set(p.id)">
                   {{ p.label }}
                 </button>
