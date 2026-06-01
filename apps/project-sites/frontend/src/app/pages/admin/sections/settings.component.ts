@@ -1261,9 +1261,16 @@ export class AdminSettingsComponent implements OnInit {
     });
   }
   disconnect(c: Conn): void {
-    if (!confirm(`Disconnect ${c.provider}?`)) return;
     const s = this.state.selectedSite(); if (!s) return;
-    this.api.delete(`/sites/${s.id}/mcp/connections/${c.id}`).subscribe({
+    // Action-armed toast confirmation (cockpit pattern — avoids native confirm()
+    // z-stack/focus break; consistent with mcp/disconnect).
+    this.toast.warning(`Disconnect ${c.provider}? The integration will be removed.`, {
+      action: { label: 'Disconnect', run: () => this.performDisconnect(c, s.id) },
+      duration: 7000,
+    });
+  }
+  private performDisconnect(c: Conn, siteId: string): void {
+    this.api.delete(`/sites/${siteId}/mcp/connections/${c.id}`).subscribe({
       next: () => { this.toast.success('Disconnected'); this.loadConnections(); },
       error: () => { /* api.service already toasted */ },
     });

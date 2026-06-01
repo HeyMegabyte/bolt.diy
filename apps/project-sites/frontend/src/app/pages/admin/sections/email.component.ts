@@ -400,7 +400,7 @@ export class AdminEmailComponent implements OnInit {
     // Action-armed toast confirmation (cockpit pattern — avoids the native
     // confirm() z-stack/focus break, consistent with mcp/disconnect).
     this.toast.warning(`Disconnect ${integration.provider}? The newsletter integration will be removed.`, {
-      action: { label: 'Disconnect', handler: () => this.performDisconnect(site.id, integration.id) },
+      action: { label: 'Disconnect', run: () => this.performDisconnect(site.id, integration.id) },
       duration: 7000,
     });
   }
