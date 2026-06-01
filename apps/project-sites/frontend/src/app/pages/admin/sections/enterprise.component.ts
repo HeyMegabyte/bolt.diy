@@ -22,6 +22,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 
@@ -69,7 +70,7 @@ interface AuditExport {
 @Component({
   selector: 'app-admin-enterprise',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, RollingCounterComponent],
+  imports: [CommonModule, FormsModule, RouterLink, RollingCounterComponent, HlmInputDirective, HlmSelectDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
@@ -139,7 +140,7 @@ interface AuditExport {
           <div class="grid-2">
             <label>
               Plan tier
-              <select class="select" [ngModel]="planTier()" (ngModelChange)="planTier.set($event)">
+              <select hlmSelect [ngModel]="planTier()" (ngModelChange)="planTier.set($event)">
                 <option value="enterprise-small">Enterprise Small ($500/mo)</option>
                 <option value="enterprise-mid">Enterprise Mid ($1,000/mo)</option>
                 <option value="enterprise-large">Enterprise Large ($2,000/mo)</option>
@@ -148,7 +149,7 @@ interface AuditExport {
             <label>
               SLA %
               <input
-                class="input"
+                hlmInput
                 type="number"
                 step="0.01"
                 min="0"
@@ -160,7 +161,7 @@ interface AuditExport {
             <label>
               ACV (cents)
               <input
-                class="input"
+                hlmInput
                 type="number"
                 [ngModel]="annualValueCents()"
                 (ngModelChange)="annualValueCents.set($event)"
@@ -168,7 +169,7 @@ interface AuditExport {
             </label>
             <label>
               Status
-              <select class="select" [ngModel]="status()" (ngModelChange)="status.set($event)">
+              <select hlmSelect [ngModel]="status()" (ngModelChange)="status.set($event)">
                 <option value="pending">Pending</option>
                 <option value="active">Active</option>
                 <option value="churned">Churned</option>
@@ -178,7 +179,7 @@ interface AuditExport {
             <label>
               Dedicated Slack channel
               <input
-                class="input"
+                hlmInput
                 placeholder="#cust-acme"
                 [ngModel]="dedicatedSlack()"
                 (ngModelChange)="dedicatedSlack.set($event)"
@@ -192,7 +193,7 @@ interface AuditExport {
           <label class="block mt-3">
             Custom terms (Markdown)
             <textarea
-              class="textarea"
+              hlmInput [multiline]="true"
               rows="5"
               [ngModel]="customTerms() ?? ''"
               (ngModelChange)="customTerms.set($event)"
@@ -210,7 +211,7 @@ interface AuditExport {
             </label>
             <label>
               Provider
-              <select class="select" [ngModel]="ssoProvider() ?? ''"
+              <select hlmSelect [ngModel]="ssoProvider() ?? ''"
                 (ngModelChange)="ssoProvider.set($event || null)">
                 <option value="">— None —</option>
                 <option value="saml">SAML 2.0</option>
@@ -221,7 +222,7 @@ interface AuditExport {
             <label class="md:col-span-2">
               Metadata URL
               <input
-                class="input"
+                hlmInput
                 placeholder="https://idp.example.com/metadata"
                 [ngModel]="ssoMetadataUrl() ?? ''"
                 (ngModelChange)="ssoMetadataUrl.set($event || null)"
@@ -240,11 +241,11 @@ interface AuditExport {
           <div class="grid-2 mb-3">
             <label>
               Range start
-              <input class="input" type="date" [ngModel]="rangeStart()" (ngModelChange)="rangeStart.set($event)" />
+              <input hlmInput type="date" [ngModel]="rangeStart()" (ngModelChange)="rangeStart.set($event)" />
             </label>
             <label>
               Range end
-              <input class="input" type="date" [ngModel]="rangeEnd()" (ngModelChange)="rangeEnd.set($event)" />
+              <input hlmInput type="date" [ngModel]="rangeEnd()" (ngModelChange)="rangeEnd.set($event)" />
             </label>
           </div>
           <button class="btn-primary text-xs" (click)="enqueueExport()" [disabled]="enqueueing()">
@@ -273,7 +274,7 @@ interface AuditExport {
       .hint { font-size: 0.72rem; color: rgba(244,244,255,.55); margin: 10px 0 0; }
       .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
       label { display: block; font-size: 0.72rem; color: rgba(244,244,255,.7); }
-      .input, .select, .textarea { width: 100%; background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.08); color: var(--ps-ink, #f4f4ff); padding: 8px 10px; border-radius: 8px; font-size: 0.82rem; margin-top: 4px; }
+      /* .input/.select/.textarea removed — all controls now Spartan hlmInput/hlmSelect. */
       .kpi { background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.06); border-radius: 12px; padding: 14px 16px; }
       .kpi-label { font-size: 0.7rem; color: rgba(244,244,255,.55); }
       .kpi-value { font-size: 1.15rem; color: var(--ps-ink, #f4f4ff); font-weight: 600; margin-top: 4px; }
