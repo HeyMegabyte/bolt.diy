@@ -174,10 +174,15 @@ type StageFilter = 'all' | FlagDefinition['stage'];
                     }
                   </div>
                 }
-                @if (resolvedDetail()) {
+                @if (resolvedDetail(); as r) {
                   <div class="ff-detail">
                     <h3>Resolved state for this scope</h3>
-                    <pre>{{ resolvedDetail() | json }}</pre>
+                    <div class="ff-resolved">
+                      <span class="ff-state-badge" [class.ff-state-on]="r.enabled" [class.ff-state-off]="!r.enabled">{{ r.enabled ? 'ON' : 'OFF' }}</span>
+                      <span class="ff-rollout">rollout: {{ r.rollout_percent }}%</span>
+                      <span class="ff-stage" [attr.data-stage]="r.stage">{{ r.stage }}</span>
+                      <span class="ff-resolved-source">resolved via {{ r.source }}</span>
+                    </div>
                   </div>
                 }
                 <div class="ff-detail ff-controls">
@@ -262,6 +267,8 @@ type StageFilter = 'all' | FlagDefinition['stage'];
     .ff-state-off { background: color-mix(in oklch, currentColor 18%, transparent); }
     .ff-rollout { font-family: var(--ps-mono, ui-monospace, monospace); font-size: .85rem; color: color-mix(in oklch, currentColor 65%, transparent); }
     .ff-owner { font-size: .75rem; color: color-mix(in oklch, currentColor 50%, transparent); }
+    .ff-resolved { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+    .ff-resolved-source { font-size: .72rem; color: color-mix(in oklch, currentColor 60%, transparent); font-style: italic; }
     .ff-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: auto; }
     .ff-btn { background: transparent; color: inherit; border: 1px solid color-mix(in oklch, currentColor 22%, transparent); padding: .4rem .75rem; border-radius: 8px; cursor: pointer; font: inherit; font-size: .85rem; }
     .ff-btn:hover { border-color: color-mix(in oklch, currentColor 50%, transparent); }
