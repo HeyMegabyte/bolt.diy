@@ -369,7 +369,7 @@ export class AdminMcpComponent implements OnInit {
       return;
     }
     const meta = this.providers.find((p) => p.id === provider);
-    this.api.post(`/api/mcp/${provider}/paste?site_id=${s.id}`, { api_key: key }).subscribe({
+    this.api.post(`/mcp/${provider}/paste?site_id=${s.id}`, { api_key: key }).subscribe({
       next: () => {
         this.pastedKey = '';
         this.pasteMode.set(null);

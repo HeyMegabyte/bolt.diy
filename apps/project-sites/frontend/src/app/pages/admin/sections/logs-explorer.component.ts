@@ -332,7 +332,7 @@ export class AdminLogsExplorerComponent implements OnInit {
 
   search() {
     this.searching.set(true);
-    this.api.post<SearchResponse>('/api/logs/search', {
+    this.api.post<SearchResponse>('/logs/search', {
       query: this.queryInput,
       range: this.range(),
       limit: 100,
@@ -359,7 +359,7 @@ export class AdminLogsExplorerComponent implements OnInit {
     const cursor = this.nextCursor();
     if (!cursor) return;
     this.searching.set(true);
-    this.api.post<SearchResponse>('/api/logs/search', {
+    this.api.post<SearchResponse>('/logs/search', {
       query: this.queryInput,
       range: this.range(),
       limit: 100,
@@ -379,7 +379,7 @@ export class AdminLogsExplorerComponent implements OnInit {
 
   loadCosts() {
     this.costLoading.set(true);
-    this.api.get<CostResponse>(`/api/logs/cost-by-route?range=${this.range()}`).subscribe({
+    this.api.get<CostResponse>(`/logs/cost-by-route?range=${this.range()}`).subscribe({
       next: (res) => {
         this.costRows.set(res.data.rows);
         this.grandTotal.set(res.data.grand_total_cost);
