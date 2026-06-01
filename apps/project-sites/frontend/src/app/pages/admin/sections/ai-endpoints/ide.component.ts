@@ -35,6 +35,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HlmInputDirective } from '../../../../ui';
+import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { loadMonaco, type MonacoNamespace } from './monaco-loader';
 import {
   LANGUAGE_OPTIONS,
@@ -55,7 +56,7 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
 @Component({
   selector: 'app-ide',
   standalone: true,
-  imports: [CommonModule, FormsModule, HlmInputDirective],
+  imports: [CommonModule, FormsModule, HlmInputDirective, ...BrnTooltipImports],
   template: `
     <div class="ide-shell" data-testid="ai-endpoint-ide">
       <!-- TOOLBAR -->
@@ -66,11 +67,11 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
               <option [value]="l.id">{{ l.label }}</option>
             }
           </select>
-          <button class="btn-mini" (click)="save.emit()" title="Save (⌘S)" data-testid="ide-save">Save</button>
-          <button class="btn-mini btn-deploy" (click)="deployClick.emit()" [disabled]="deployStatus === 'deploying'" title="Deploy to production" data-testid="ide-deploy">
+          <button class="btn-mini" (click)="save.emit()" [brnTooltip]="'Save (⌘S)'" data-testid="ide-save">Save</button>
+          <button class="btn-mini btn-deploy" (click)="deployClick.emit()" [disabled]="deployStatus === 'deploying'" [brnTooltip]="'Deploy to production'" data-testid="ide-deploy">
             {{ deployStatus === 'deploying' ? 'Deploying…' : 'Deploy' }}
           </button>
-          <button class="btn-mini" (click)="format()" title="Format" data-testid="ide-format">Format</button>
+          <button class="btn-mini" (click)="format()" [brnTooltip]="'Format'" data-testid="ide-format">Format</button>
           <input class="input-mini search" placeholder="Find (⌘F)" [(ngModel)]="findQuery" (keydown.enter)="findNext()" data-testid="ide-find" />
         </div>
         <div class="flex items-center gap-2">
@@ -94,8 +95,8 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
           <div class="tree-head">
             <span>Files</span>
             <div class="flex gap-1">
-              <button class="icon-btn" (click)="newFile()" title="New file" data-testid="ide-new-file">＋</button>
-              <button class="icon-btn" (click)="newFolder()" title="New folder" data-testid="ide-new-folder">📁</button>
+              <button class="icon-btn" (click)="newFile()" [brnTooltip]="'New file'" data-testid="ide-new-file">＋</button>
+              <button class="icon-btn" (click)="newFolder()" [brnTooltip]="'New folder'" data-testid="ide-new-folder">📁</button>
             </div>
           </div>
           @if (newPathMode(); as mode) {
@@ -124,7 +125,7 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
                 [attr.data-testid]="'ide-file-' + path">
                 <span class="tree-icon">{{ iconFor(path) }}</span>
                 <span class="tree-name">{{ path }}</span>
-                <button class="tree-del" (click)="deleteFile(path); $event.stopPropagation()" title="Delete" data-testid="ide-delete-file">×</button>
+                <button class="tree-del" (click)="deleteFile(path); $event.stopPropagation()" [brnTooltip]="'Delete'" data-testid="ide-delete-file">×</button>
               </li>
             }
           </ul>
