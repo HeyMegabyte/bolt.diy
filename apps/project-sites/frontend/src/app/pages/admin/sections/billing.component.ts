@@ -6,6 +6,7 @@ import { ApiService, type CostForecastV2 } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { TelemetryService } from '../../../services/telemetry.service';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
+import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
 interface Bundle { credits: number; usd: number; price_id: string; }
@@ -67,7 +68,7 @@ interface ForecastBar {
 @Component({
   selector: 'app-admin-billing',
   standalone: true,
-  imports: [FormsModule, DatePipe, CurrencyPipe, DecimalPipe, DialogShellComponent, RollingCounterComponent],
+  imports: [FormsModule, DatePipe, CurrencyPipe, DecimalPipe, DialogShellComponent, RollingCounterComponent, HlmInputDirective, HlmSelectDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header>
@@ -285,7 +286,7 @@ interface ForecastBar {
                   max="1000"
                   step="5"
                   placeholder="e.g. 25"
-                  class="input-field w-full"
+                  hlmInput class="w-full"
                   data-testid="topup-amount"
                   [ngModel]="topupAmount()"
                   (ngModelChange)="topupAmount.set($event)" />
@@ -543,8 +544,8 @@ interface ForecastBar {
                   <div class="text-[0.78rem] text-white truncate">{{ r.business_name || r.slug }}</div>
                   <div class="text-[0.66rem] text-text-secondary font-mono">{{ formatCredits(r.ai_credits) }} credits used · 30d</div>
                 </div>
-                <input type="number" min="0" step="50" placeholder="no cap"
-                       class="input-field w-28 text-right" [(ngModel)]="capDraft[r.site_id]" />
+                <input hlmInput type="number" min="0" step="50" placeholder="no cap"
+                       class="w-28 text-right" [(ngModel)]="capDraft[r.site_id]" />
                 <button class="btn-ghost" (click)="saveCap(r.site_id)" [disabled]="savingCap() === r.site_id">
                   {{ savingCap() === r.site_id ? '…' : 'Save' }}
                 </button>
@@ -794,7 +795,7 @@ interface ForecastBar {
                 max="100000"
                 step="100"
                 placeholder="e.g. 12,500"
-                class="input-field w-full text-right"
+                hlmInput class="w-full text-right"
                 data-testid="billing-custom-amount-input"
                 [ngModel]="customAmount()"
                 (ngModelChange)="customAmount.set($event)"
@@ -974,7 +975,7 @@ interface ForecastBar {
               <input
                 type="text"
                 placeholder="e.g. Balance low warning"
-                class="input-field w-full"
+                hlmInput class="w-full"
                 maxlength="80"
                 data-testid="billing-spend-alert-name"
                 [attr.aria-invalid]="!!alertNameError()"
@@ -990,7 +991,7 @@ interface ForecastBar {
             <label class="block">
               <div class="muted-h mb-1">Trigger</div>
               <select
-                class="input-field w-full"
+                hlmSelect class="w-full"
                 data-testid="billing-spend-alert-trigger"
                 [ngModel]="alertDraft.alert_kind"
                 (ngModelChange)="alertDraft.alert_kind = $event">
@@ -1007,7 +1008,7 @@ interface ForecastBar {
                 max="100000"
                 step="1"
                 placeholder="10000"
-                class="input-field w-full"
+                hlmInput class="w-full"
                 data-testid="billing-spend-alert-threshold"
                 [attr.aria-invalid]="!!alertThresholdError()"
                 aria-describedby="alert-threshold-error"
@@ -1023,7 +1024,7 @@ interface ForecastBar {
               <input
                 type="email"
                 placeholder="alerts@yourdomain.com"
-                class="input-field w-full"
+                hlmInput class="w-full"
                 [attr.aria-invalid]="!!alertEmailError()"
                 aria-describedby="alert-email-error"
                 [ngModel]="alertDraft.notify_email"
@@ -1110,7 +1111,7 @@ interface ForecastBar {
                       min="0"
                       step="50"
                       placeholder="no cap"
-                      class="input-field w-28 text-right"
+                      hlmInput class="w-28 text-right"
                       [attr.data-testid]="'billing-caps-modal-input-' + s.id"
                       [(ngModel)]="capsModalDraft[s.id]" />
                   </li>
@@ -1277,9 +1278,10 @@ interface ForecastBar {
     .card:hover { transform: translateY(-1px); border-color: color-mix(in oklch, var(--accent) 28%, transparent); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 8px 24px -16px rgba(0,229,255,0.18); }
     .card-light { background: rgba(255,255,255,0.025); border: 1px solid color-mix(in oklch, var(--accent) 16%, transparent); border-radius: 12px; transition: transform 200ms ease, border-color 200ms ease; }
     .card-light:hover { transform: translateY(-1px); border-color: color-mix(in oklch, var(--accent) 30%, transparent); }
-    .input-field { padding: 0.5rem 0.7rem; border-radius: var(--ps-radius-sm, 8px); background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: var(--ps-ink, #fff); font: inherit; }
-    .input-field[aria-invalid="true"] { border-color: oklch(0.78 0.18 25 / 0.75); }
-    .input-field:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
+    /* Inputs use Spartan hlmInput (chrome + focus ring). Keep only the
+       invalid-state border tint for the spend-alert fields (they bind
+       [attr.aria-invalid]); hlmInput's own border is overridden here. */
+    [hlmInput][aria-invalid="true"] { border-color: oklch(0.78 0.18 25 / 0.75) !important; }
     .btn-primary { padding: 0.5rem 1rem; border-radius: var(--ps-radius-sm, 8px); background: linear-gradient(135deg, #00ffc8, #00d4ff); color: var(--ps-bg, #060610); font-weight: 700; border: 1px solid color-mix(in oklch, #00d4ff 40%, transparent); cursor: pointer; font-size: 0.78rem; transition: transform 200ms ease, box-shadow 200ms ease; }
     .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px -10px rgba(0,229,255,0.45); }
     .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
