@@ -63,6 +63,11 @@
   --surface-border: rgba(255,255,255,0.06);
   --text-on-surface: var(--text-primary);
   color-scheme: dark;
+  // Brand-tint every native form control (checkbox / radio / range / progress)
+  // so they render in cockpit cyan instead of the browser default blue. Per-
+  // component `accent-color` declarations still win where a control needs a
+  // bespoke tint; this is the global floor.
+  accent-color: var(--accent);
 
   // ━━━ Motion tokens ━━━
   // Durations
