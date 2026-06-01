@@ -8,7 +8,8 @@
  * This section is the canonical "form-heavy" PrimeNG migration example for the
  * cockpit (see `PRIMENG_MIGRATION.md`). It maps the former hand-rolled
  * patterns onto PrimeNG components, all themed black+cyan via `CockpitPreset`:
- *   - hand-rolled `<table>`        → `p-table` (sort + cockpit density)
+ *   - hand-rolled `<table>`        → native `<table>` + TanStack headless table
+ *                                     (createAngularTable; client-side sort)
  *   - 3× hand-rolled modal/backdrop → Spartan `<app-dialog-shell>` (the mandated
  *                                     one-dialog primitive: blur backdrop + CDK
  *                                     focus-trap + Esc-close + scroll-lock built in)
@@ -23,7 +24,7 @@
  *
  * Surfaces:
  * - Header stats: active tokens, scopes available
- * - Token list table (p-table): name, scopes, last used, expires, revoke action
+ * - Token list table (native + TanStack): name, scopes, last used, expires, revoke action
  * - "New Token" dialog: name + scopes checkboxes + expiry datepicker
  * - Post-create dialog: one-time plaintext token display with copy button
  * - Revoke-confirm dialog
@@ -35,7 +36,13 @@ import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { TableModule } from 'primeng/table';
+import {
+  createAngularTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  type ColumnDef,
+  type SortingState,
+} from '@tanstack/angular-table';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { HlmBadgeDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective } from '../../../ui';
 import { AdminStateService } from '../admin-state.service';
@@ -72,7 +79,6 @@ const ALL_SCOPES = [
     RouterLink,
     CommonModule,
     FormsModule,
-    TableModule,
     DialogShellComponent,
     HlmBadgeDirective,
     HlmButtonDirective,
@@ -127,61 +133,68 @@ const ALL_SCOPES = [
       <!-- Token list (PrimeNG table) -->
       @if (!flagDisabled()) {
         <div class="at-table-wrap" appReveal>
-          <p-table
-            [value]="tokens()"
-            [loading]="loading()"
-            dataKey="id"
-            styleClass="at-grid p-datatable-sm"
-            [tableStyle]="{ 'min-width': '44rem' }"
-            data-testid="api-tokens-table">
-            <ng-template #header>
+          <table class="at-grid" data-testid="api-tokens-table">
+            <thead>
               <tr>
-                <th pSortableColumn="name">Name <p-sortIcon field="name" /></th>
-                <th>Scopes</th>
-                <th pSortableColumn="last_used_at">Last used <p-sortIcon field="last_used_at" /></th>
-                <th pSortableColumn="expires_at">Expires <p-sortIcon field="expires_at" /></th>
-                <th pSortableColumn="created_at">Created <p-sortIcon field="created_at" /></th>
-                <th class="at-actions-col" aria-label="Actions"></th>
+                @for (header of table.getHeaderGroups()[0].headers; track header.id) {
+                  @if (header.column.getCanSort()) {
+                    <th
+                      class="at-sortable"
+                      [class.at-num-col]="header.id === 'scopes'"
+                      role="button"
+                      tabindex="0"
+                      [attr.aria-sort]="ariaSort(header.column.getIsSorted())"
+                      (click)="header.column.toggleSorting()"
+                      (keydown.enter)="header.column.toggleSorting()"
+                      (keydown.space)="header.column.toggleSorting(); $event.preventDefault()">
+                      {{ headerLabel[header.id] }}
+                      <span class="at-sort-ind" aria-hidden="true">{{ sortGlyph(header.column.getIsSorted()) }}</span>
+                    </th>
+                  } @else {
+                    <th [class.at-actions-col]="header.id === 'actions'" [attr.aria-label]="header.id === 'actions' ? 'Actions' : null">{{ headerLabel[header.id] }}</th>
+                  }
+                }
               </tr>
-            </ng-template>
-            <ng-template #body let-token>
-              <tr>
-                <td class="at-name-cell">
-                  <span class="at-token-name">{{ token.name }}</span>
-                  <span class="at-token-id">{{ token.id.slice(0, 8) }}…</span>
-                </td>
-                <td>
-                  <div class="at-scopes-cell">
-                    @for (scope of token.scopes; track scope) {
-                      <span hlmBadge variant="info" class="at-scope-tag">{{ scope }}</span>
-                    }
-                  </div>
-                </td>
-                <td class="at-meta-cell">{{ token.last_used_at ? formatRelative(token.last_used_at) : '—' }}</td>
-                <td class="at-meta-cell">{{ token.expires_at ? formatDate(token.expires_at) : 'Never' }}</td>
-                <td class="at-meta-cell">{{ formatDate(token.created_at) }}</td>
-                <td class="at-actions-col">
-                  <button hlmBtn variant="ghost" size="sm" type="button"
-                    class="text-destructive"
-                    (click)="confirmRevoke(token)"
-                    [attr.aria-label]="'Revoke token ' + token.name">
-                    Revoke
-                  </button>
-                </td>
-              </tr>
-            </ng-template>
-            <ng-template #emptymessage>
-              <tr>
-                <td colspan="6">
-                  <div class="at-empty">
-                    <i class="pi pi-key" style="font-size: 1.8rem; color: var(--ps-accent); opacity: .4"></i>
-                    <p>No API tokens yet.</p>
-                    <button hlmBtn variant="primary" size="sm" type="button" (click)="openCreateModal()">Create your first token</button>
-                  </div>
-                </td>
-              </tr>
-            </ng-template>
-          </p-table>
+            </thead>
+            <tbody>
+              @for (row of table.getRowModel().rows; track row.original.id) {
+                <tr>
+                  <td class="at-name-cell">
+                    <span class="at-token-name">{{ row.original.name }}</span>
+                    <span class="at-token-id">{{ row.original.id.slice(0, 8) }}…</span>
+                  </td>
+                  <td>
+                    <div class="at-scopes-cell">
+                      @for (scope of row.original.scopes; track scope) {
+                        <span hlmBadge variant="info" class="at-scope-tag">{{ scope }}</span>
+                      }
+                    </div>
+                  </td>
+                  <td class="at-meta-cell">{{ row.original.last_used_at ? formatRelative(row.original.last_used_at) : '—' }}</td>
+                  <td class="at-meta-cell">{{ row.original.expires_at ? formatDate(row.original.expires_at) : 'Never' }}</td>
+                  <td class="at-meta-cell">{{ formatDate(row.original.created_at) }}</td>
+                  <td class="at-actions-col">
+                    <button hlmBtn variant="ghost" size="sm" type="button"
+                      class="text-destructive"
+                      (click)="confirmRevoke(row.original)"
+                      [attr.aria-label]="'Revoke token ' + row.original.name">
+                      Revoke
+                    </button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="6">
+                    <div class="at-empty">
+                      <i class="pi pi-key" style="font-size: 1.8rem; color: var(--ps-accent); opacity: .4"></i>
+                      <p>No API tokens yet.</p>
+                      <button hlmBtn variant="primary" size="sm" type="button" (click)="openCreateModal()">Create your first token</button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
       }
 
@@ -349,32 +362,30 @@ const ALL_SCOPES = [
     @keyframes at-spin { to { transform: rotate(360deg); } }
     .at-spin { display: inline-block; animation: at-spin .8s linear infinite; }
 
-    /* ── Cockpit dark surface + density for the PrimeNG table ──────────────
-       PrimeNG's default datatable theme renders on a LIGHT surface, which broke
-       the dark cockpit here (white table on a black dashboard). Force every
-       part onto a transparent/dark surface — these unlayered ::ng-deep rules
-       win the cascade over PrimeNG's theme. */
-    :host ::ng-deep .at-grid,
-    :host ::ng-deep .at-grid .p-datatable-table,
-    :host ::ng-deep .at-grid .p-datatable-tbody > tr {
-      background: transparent;
-      color: var(--ps-ink, #f4f4ff);
-    }
-    :host ::ng-deep .at-grid .p-datatable-thead > tr > th {
+    /* ── Native cockpit table (TanStack headless drives sort; CSS is ours) ──── */
+    .at-grid { width: 100%; min-width: 44rem; border-collapse: collapse; background: transparent; color: var(--ps-ink, #f4f4ff); }
+    .at-grid thead > tr > th {
       font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
-      padding: 10px 14px; font-weight: 600;
+      padding: 10px 14px; font-weight: 600; text-align: left;
       background: rgba(0,229,255,0.04);
       color: rgba(244,244,255,0.6);
-      border-color: rgba(0,229,255,0.12);
+      border-bottom: 1px solid rgba(0,229,255,0.12);
     }
-    :host ::ng-deep .at-grid .p-datatable-tbody > tr > td {
+    .at-grid tbody > tr > td {
       padding: 10px 14px; font-size: 13px;
-      background: transparent;
-      color: var(--ps-ink, #f4f4ff);
-      border-color: rgba(0,229,255,0.08);
+      border-bottom: 1px solid rgba(0,229,255,0.08);
     }
-    :host ::ng-deep .at-grid .p-datatable-tbody > tr:hover > td { background: rgba(0,229,255,0.04); }
-    :host ::ng-deep .at-scope-tag {
+    .at-grid tbody > tr:last-child > td { border-bottom: 0; }
+    .at-grid tbody > tr { transition: background 140ms; }
+    .at-grid tbody > tr:hover > td { background: rgba(0,229,255,0.04); }
+    /* Sortable header affordance. */
+    .at-grid th.at-sortable { cursor: pointer; user-select: none; }
+    .at-grid th.at-sortable:hover { color: var(--ps-accent, #00e5ff); }
+    .at-grid th.at-sortable:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: -2px; }
+    .at-sort-ind { margin-left: 4px; opacity: 0.5; font-size: 10px; }
+    .at-grid th.at-sortable[aria-sort="ascending"] .at-sort-ind,
+    .at-grid th.at-sortable[aria-sort="descending"] .at-sort-ind { opacity: 1; color: var(--ps-accent, #00e5ff); }
+    .at-scope-tag {
       font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.3px;
     }
   `],
@@ -387,6 +398,39 @@ export class AdminApiTokensComponent {
   tokens = signal<ApiToken[]>([]);
   loading = signal(true);
   flagDisabled = signal(false);
+
+  // ── TanStack headless table (client-side sort) ────────────────────────────
+  /** Human header labels keyed by column id (template reads these). */
+  readonly headerLabel: Record<string, string> = {
+    name: 'Name', scopes: 'Scopes', last_used_at: 'Last used',
+    expires_at: 'Expires', created_at: 'Created', actions: '',
+  };
+  private readonly sorting = signal<SortingState>([]);
+  private readonly columns: ColumnDef<ApiToken>[] = [
+    { id: 'name', accessorKey: 'name' },
+    { id: 'scopes', enableSorting: false },
+    { id: 'last_used_at', accessorKey: 'last_used_at' },
+    { id: 'expires_at', accessorKey: 'expires_at' },
+    { id: 'created_at', accessorKey: 'created_at' },
+    { id: 'actions', enableSorting: false },
+  ];
+  readonly table = createAngularTable<ApiToken>(() => ({
+    data: this.tokens(),
+    columns: this.columns,
+    state: { sorting: this.sorting() },
+    onSortingChange: (updater) =>
+      this.sorting.update((prev) => (typeof updater === 'function' ? updater(prev) : updater)),
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  }));
+  /** Map TanStack's `false | 'asc' | 'desc'` to an aria-sort token. */
+  ariaSort(dir: false | 'asc' | 'desc'): 'ascending' | 'descending' | 'none' {
+    return dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none';
+  }
+  /** Sort indicator glyph for the header. */
+  sortGlyph(dir: false | 'asc' | 'desc'): string {
+    return dir === 'asc' ? '↑' : dir === 'desc' ? '↓' : '↕';
+  }
 
   /** Dialog visibility — DialogShell binds these via @if [open]/(closed). */
   createModalVisible = false;
