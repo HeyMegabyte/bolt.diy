@@ -108,7 +108,13 @@ type StageFilter = 'all' | FlagDefinition['stage'];
           @for (flag of filtered(); track flag.key) {
             <li class="ff-card" [attr.data-stage]="flag.stage">
               <header class="ff-card-head">
-                <h2 class="ff-key">{{ flag.key }}</h2>
+                <h2 class="ff-key">
+                  <button type="button" class="ff-key-btn" (click)="copyKey(flag.key)"
+                          [attr.aria-label]="'Copy flag key ' + flag.key" title="Copy key to clipboard">
+                    {{ flag.key }}
+                    <span class="ff-key-copy" aria-hidden="true">⧉</span>
+                  </button>
+                </h2>
                 <span class="ff-stage" [attr.data-stage]="flag.stage">{{ flag.stage }}</span>
               </header>
               <p class="ff-desc">{{ flag.description }}</p>
@@ -227,6 +233,10 @@ type StageFilter = 'all' | FlagDefinition['stage'];
     .ff-card[data-stage="stable"] { border-color: color-mix(in oklch, #4ade80 40%, transparent); }
     .ff-card-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
     .ff-key { font-family: var(--ps-mono, ui-monospace, monospace); font-size: 1rem; margin: 0; word-break: break-all; }
+    .ff-key-btn { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; display: inline-flex; align-items: baseline; gap: .4em; word-break: break-all; text-align: left; border-radius: 4px; }
+    .ff-key-btn:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 3px; }
+    .ff-key-copy { font-size: .8em; opacity: .35; transition: opacity .12s, color .12s; }
+    .ff-key-btn:hover .ff-key-copy, .ff-key-btn:focus-visible .ff-key-copy { opacity: 1; color: var(--ps-accent, #00e5ff); }
     .ff-stage { font-size: .7rem; padding: .25rem .6rem; border-radius: 999px; background: color-mix(in oklch, currentColor 14%, transparent); text-transform: uppercase; letter-spacing: .04em; }
     .ff-stage[data-stage="stable"] { background: color-mix(in oklch, #4ade80 30%, transparent); color: #052e16; }
     .ff-stage[data-stage="beta"] { background: color-mix(in oklch, #fbbf24 35%, transparent); color: #1c1917; }
@@ -303,6 +313,16 @@ export class AdminFeatureFlagsComponent implements OnInit {
       return f.key.toLowerCase().includes(q) || f.description.toLowerCase().includes(q);
     });
   });
+
+  /** Copy a flag key to the clipboard — devs paste it into isFlagOn()/useFeatureFlag(). */
+  async copyKey(key: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(key);
+      this.toast.success(`Copied "${key}"`);
+    } catch {
+      this.toast.error('Copy failed — clipboard unavailable');
+    }
+  }
 
   /** Rollout % to display: the live drag draft for this flag, else its committed value. */
   displayRollout(flag: FlagDefinition): number {
