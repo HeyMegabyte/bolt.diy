@@ -201,7 +201,8 @@ interface InlineEdit {
                 <!-- DESCRIPTION ROW -->
                 @if (editingId() === e.id) {
                   <input
-                    class="description-input"
+                    hlmInput
+                    class="w-full mt-1 text-[0.66rem]"
                     placeholder="Short description (max 200 chars)…"
                     [(ngModel)]="inlineEdit().description"
                     maxlength="200" />
@@ -507,22 +508,22 @@ interface InlineEdit {
               <div class="options-row">
                 <label class="opt">
                   <span>Auth</span>
-                  <select [(ngModel)]="d.auth_mode" (ngModelChange)="markDetailDirty()">
+                  <select hlmSelect class="mt-1" [(ngModel)]="d.auth_mode" (ngModelChange)="markDetailDirty()">
                     <option value="open">Open</option><option value="bearer">Bearer</option>
                     <option value="turnstile">Turnstile</option><option value="hmac">HMAC</option>
                   </select>
                 </label>
                 <label class="opt">
                   <span>Rate / s</span>
-                  <input type="number" min="0" [(ngModel)]="d.rate_limit_per_sec" (ngModelChange)="markDetailDirty()" />
+                  <input hlmInput type="number" min="0" [(ngModel)]="d.rate_limit_per_sec" (ngModelChange)="markDetailDirty()" />
                 </label>
                 <label class="opt">
                   <span>Cache TTL</span>
-                  <input type="number" min="0" [(ngModel)]="d.cache_ttl_seconds" (ngModelChange)="markDetailDirty()" />
+                  <input hlmInput type="number" min="0" [(ngModel)]="d.cache_ttl_seconds" (ngModelChange)="markDetailDirty()" />
                 </label>
                 <label class="opt">
                   <span>Cron</span>
-                  <input placeholder="*/5 * * * *" [(ngModel)]="d.cron_expression" (ngModelChange)="markDetailDirty()" />
+                  <input hlmInput class="font-mono" placeholder="*/5 * * * *" [(ngModel)]="d.cron_expression" (ngModelChange)="markDetailDirty()" />
                 </label>
                 <button class="link-btn" (click)="aiHelper('explain')" data-testid="ide-ai-explain">AI: Explain</button>
                 <button class="link-btn" (click)="aiHelper('suggest')">AI: Suggest</button>
@@ -592,7 +593,7 @@ interface InlineEdit {
     @media (prefers-reduced-motion: reduce) { .status-pill.live::before { animation: none; } }
     .when { font-size: 0.66rem; color: rgba(255,255,255,0.45); }
     .description-text { font-size: 0.66rem; color: rgba(255,255,255,0.55); margin: 0.3rem 0 0; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; max-width: 100%; }
-    .description-input { width: 100%; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); color: #fff; border-radius: 8px; padding: 4px 8px; font-size: 0.66rem; margin-top: 4px; }
+    /* .description-input removed — now Spartan hlmInput (text-[0.66rem]). badge-select + slug-input kept (intentional pill / dashed inline-edit affordances). */
     .meta-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 0.66rem; color: rgba(255,255,255,0.55); flex-wrap: wrap; }
     .lang-pill { padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.65); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; }
     .sparkline-wrap { position: relative; display: inline-flex; align-items: center; }
