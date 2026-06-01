@@ -140,7 +140,6 @@ const ALL_SCOPES = [
                     <th
                       class="at-sortable"
                       [class.at-num-col]="header.id === 'scopes'"
-                      role="button"
                       tabindex="0"
                       [attr.aria-sort]="ariaSort(header.column.getIsSorted())"
                       (click)="header.column.toggleSorting()"

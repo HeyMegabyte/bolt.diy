@@ -146,7 +146,6 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
                 <th
                   class="cf-sortable"
                   [class.cf-num-col]="numCol[header.id]"
-                  role="button"
                   tabindex="0"
                   [attr.aria-sort]="ariaSort(header.column.getIsSorted())"
                   (click)="header.column.toggleSorting()"
