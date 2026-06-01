@@ -7,7 +7,7 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { MCP_PROVIDERS } from './mcp-providers';
 import { EnvVarsManagerComponent } from '../../../components/env-vars-manager/env-vars-manager.component';
-import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
+import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { RevealDirective } from '../../../directives/reveal.directive';
 
@@ -37,7 +37,7 @@ const PROVIDERS = MCP_PROVIDERS;
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [RevealDirective, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmInputDirective, HlmSelectDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -323,7 +323,7 @@ const PROVIDERS = MCP_PROVIDERS;
                 <div class="grid sm:grid-cols-2 gap-1.5">
                   @for (m of connections(); track m.id) {
                     <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-white/[0.04] border border-white/[0.04]" [title]="m.provider + ' — toggle availability for AI Chat'">
-                      <input type="checkbox" [checked]="chatMcps().includes(m.provider)" (change)="toggleChatMcp(m.provider)" />
+                      <input hlmCheckbox type="checkbox" [checked]="chatMcps().includes(m.provider)" (change)="toggleChatMcp(m.provider)" />
                       <span class="badge">{{ m.provider }}</span>
                       <span class="text-[0.66rem] text-text-secondary flex-1 truncate">{{ m.display_name || m.provider }}</span>
                     </label>

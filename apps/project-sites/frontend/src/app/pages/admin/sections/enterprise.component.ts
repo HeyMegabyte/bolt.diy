@@ -22,7 +22,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
-import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
+import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
@@ -71,7 +71,7 @@ interface AuditExport {
 @Component({
   selector: 'app-admin-enterprise',
   standalone: true,
-  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, RollingCounterComponent, HlmInputDirective, HlmSelectDirective],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, RollingCounterComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
@@ -188,7 +188,7 @@ interface AuditExport {
             </label>
             <label>
               Audit-log export enabled
-              <input type="checkbox" [ngModel]="auditEnabled()" (ngModelChange)="auditEnabled.set($event)" />
+              <input hlmCheckbox type="checkbox" [ngModel]="auditEnabled()" (ngModelChange)="auditEnabled.set($event)" />
             </label>
           </div>
           <label class="block mt-3">
@@ -208,7 +208,7 @@ interface AuditExport {
           <div class="grid-2">
             <label>
               SSO enabled
-              <input type="checkbox" [ngModel]="ssoEnabled()" (ngModelChange)="ssoEnabled.set($event)" />
+              <input hlmCheckbox type="checkbox" [ngModel]="ssoEnabled()" (ngModelChange)="ssoEnabled.set($event)" />
             </label>
             <label>
               Provider
