@@ -397,10 +397,18 @@ export class AdminEmailComponent implements OnInit {
     const site = this.state.selectedSite();
     const integration = this.getIntegration(providerId);
     if (!site || !integration) return;
-    if (!confirm(`Disconnect ${integration.provider}?`)) return;
-    this.api.deleteIntegration(site.id, integration.id).subscribe({
+    // Action-armed toast confirmation (cockpit pattern — avoids the native
+    // confirm() z-stack/focus break, consistent with mcp/disconnect).
+    this.toast.warning(`Disconnect ${integration.provider}? The newsletter integration will be removed.`, {
+      action: { label: 'Disconnect', handler: () => this.performDisconnect(site.id, integration.id) },
+      duration: 7000,
+    });
+  }
+
+  private performDisconnect(siteId: string, integrationId: string): void {
+    this.api.deleteIntegration(siteId, integrationId).subscribe({
       next: () => {
-        this.integrations.update(list => list.filter(i => i.id !== integration.id));
+        this.integrations.update(list => list.filter(i => i.id !== integrationId));
         this.toast.success('Integration removed');
       },
     });
