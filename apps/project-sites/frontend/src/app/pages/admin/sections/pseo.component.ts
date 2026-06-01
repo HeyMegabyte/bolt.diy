@@ -114,7 +114,11 @@ type StatusFilter = 'all' | PseoPage['status'];
       </div>
 
       @if (loading()) {
-        <div class="ps-loading" role="status">Loading pages…</div>
+        <div class="ps-skel" role="status" aria-busy="true" aria-label="Loading pages">
+          @for (i of [0,1,2,3,4,5,6]; track i) {
+            <span class="glow-skel ps-skel-bar" aria-hidden="true"></span>
+          }
+        </div>
       }
 
       @if (error()) {
@@ -241,6 +245,8 @@ type StatusFilter = 'all' | PseoPage['status'];
     .ps-pill-active { background:rgba(0,229,255,.12); color:var(--ps-accent); border-color:rgba(0,229,255,.35); }
 
     .ps-loading, .ps-empty, .ps-error { text-align:center; padding:2.5rem 1rem; color:rgba(244,244,255,.45); font-size:.8rem; }
+    .ps-skel { display:flex; flex-direction:column; gap:8px; padding:.5rem 0; }
+    .ps-skel-bar { display:block; width:100%; height:34px; border-radius:8px; }
     .ps-empty { display:flex; flex-direction:column; align-items:center; gap:.75rem; }
     .ps-error { color:#f87171; }
 
