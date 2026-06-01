@@ -141,6 +141,12 @@ html { scroll-behavior: smooth; height: 100%; }
   color: #fff;
 }
 
+// Brand-cyan text caret in every editable field (default is the text colour;
+// cyan keeps the typing cursor on-brand without affecting glyph contrast).
+input, textarea, [contenteditable] {
+  caret-color: var(--accent);
+}
+
 // Focus visible
 *:focus-visible {
   outline: 2px solid #00E5FF;
