@@ -14,6 +14,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EmptyStateComponent } from '../empty-state.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { HlmInputDirective } from '../../../ui';
 import {
   APP_CATEGORIES,
   APPS_CATALOG,
@@ -50,7 +51,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
 @Component({
   selector: 'app-admin-apps',
   standalone: true,
-  imports: [FormsModule, RouterLink, EmptyStateComponent, RevealDirective, RollingCounterComponent],
+  imports: [FormsModule, RouterLink, EmptyStateComponent, RevealDirective, RollingCounterComponent, HlmInputDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -84,8 +85,10 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
           <svg class="search-glyph" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <input
             #searchInput
+            hlmInput
+            [seamless]="true"
             type="search"
-            class="search-input"
+            class="flex-1 search-input"
             placeholder="Search apps by name, tagline, or tag…"
             aria-label="Search apps"
             data-testid="apps-search-input"
@@ -294,14 +297,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       background: color-mix(in oklch, var(--ps-accent, #00E5FF) 4%, rgba(0, 0, 0, 0.32));
     }
     .search-glyph { color: var(--text-secondary, rgba(255,255,255,0.55)); flex-shrink: 0; }
-    .search-input {
-      flex: 1;
-      background: transparent; border: none; outline: none;
-      color: var(--ps-ink, #fff);
-      font-family: inherit; font-size: 0.82rem;
-      padding: 0.7rem 0;
-    }
-    .search-input::placeholder { color: rgba(255,255,255,0.42); }
+    /* .search-input base/placeholder now Spartan hlmInput [seamless]; keep only the native search-cancel reset. */
     .search-input::-webkit-search-cancel-button { -webkit-appearance: none; }
     .search-kbd {
       font-family: 'JetBrains Mono', ui-monospace, monospace;

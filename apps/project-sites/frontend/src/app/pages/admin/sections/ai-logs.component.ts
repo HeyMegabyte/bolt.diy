@@ -12,6 +12,7 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
+import { HlmInputDirective } from '../../../ui';
 import {
   ClientSideRowModelModule,
   ModuleRegistry,
@@ -230,7 +231,7 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
 @Component({
   selector: 'app-admin-ai-logs',
   standalone: true,
-  imports: [AgGridAngular],
+  imports: [AgGridAngular, HlmInputDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-4">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -317,9 +318,11 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
         </svg>
         <input
           #filterInput
+          hlmInput
+          [seamless]="true"
           data-testid="traces-filter"
           type="text"
-          class="filter-input"
+          class="flex-1"
           placeholder="Filter traces — endpoint, tool, model, actor, preview…"
           [value]="filter()"
           (input)="filter.set(asInputValue($event))"
@@ -405,9 +408,7 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
     }
     .filter-shell.is-focused { border-color: rgba(0,229,255,0.55); box-shadow: 0 0 0 3px rgba(0,229,255,0.16); }
     .filter-icon { color: rgba(255,255,255,0.55); flex: 0 0 auto; }
-    .filter-input { flex: 1; min-width: 0; background: transparent; border: 0 !important; outline: 0 !important; color: #fff; font-size: 0.82rem; padding: 2px 0; box-shadow: none !important; }
-    .filter-input:focus, .filter-input:focus-visible { border: 0 !important; outline: 0 !important; box-shadow: none !important; }
-    .filter-input::placeholder { color: rgba(255,255,255,0.4); }
+    /* .filter-input removed — now Spartan hlmInput [seamless] (wrapper owns the pill). */
     .filter-kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.65rem; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.65); }
 
     /* ─── Cell renderer: status pill ─────────────────────────────────── */
