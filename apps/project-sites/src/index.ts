@@ -175,6 +175,55 @@ app.use('*', async (c, next) => {
   await next();
 });
 
+// editor.projectsites.dev → proxy EVERYTHING (incl. /api/*) to the bolt-diy
+// Pages app. MUST run before the /api route mounts + authMiddleware below, else
+// the worker's own projectsites.dev /api routing pre-empts
+// editor.projectsites.dev/api/* and returns the worker's 404 — which crashed
+// the bolt editor's /api/models fetch (undefined.length in react-toastify).
+// Host-gated: non-editor hosts fall straight through, so projectsites.dev
+// routing is completely unaffected. (Was a late fallback after the /api mounts;
+// hoisted round 145.)
+app.use('*', async (c, next) => {
+  const url = new URL(c.req.url);
+  if (url.hostname !== DOMAINS.BOLT_BASE) return next();
+  const pagesRes = await fetch(`https://bolt-diy-8jf.pages.dev${url.pathname}${url.search}`, {
+    method: c.req.method,
+    headers: c.req.raw.headers,
+    body: ['GET', 'HEAD'].includes(c.req.method) ? undefined : c.req.raw.body,
+  });
+  const res = new Response(pagesRes.body, { status: pagesRes.status, headers: pagesRes.headers });
+  // Cross-origin isolation required for SharedArrayBuffer (WebContainers)
+  res.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  res.headers.set('Cross-Origin-Embedder-Policy', 'credentialless');
+  res.headers.set('Origin-Agent-Cluster', '?1');
+  // CORS so the editor can talk to projectsites.dev API
+  res.headers.set('Access-Control-Allow-Origin', `https://${DOMAINS.BOLT_BASE}`);
+  res.headers.set('Access-Control-Allow-Credentials', 'true');
+  // CSP that lets bolt.diy embed the WebContainer preview iframe AND lets
+  // projectsites.dev/admin embed bolt.diy itself (Pages' default frame-src
+  // 'none' + X-Frame-Options: DENY would blank the preview + break the embed).
+  res.headers.delete('X-Frame-Options');
+  res.headers.set(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "img-src 'self' data: https: blob:",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "connect-src 'self' https: wss: blob:",
+      "frame-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io https://*.stackblitz.com https://challenges.cloudflare.com",
+      "child-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io",
+      "worker-src 'self' blob:",
+      "frame-ancestors 'self' https://projectsites.dev https://*.projectsites.dev https://bolt-diy-8jf.pages.dev https://bolt.megabyte.space",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self' https:",
+    ].join('; '),
+  );
+  return res;
+});
+
 // Request ID on every request
 app.use('*', requestIdMiddleware);
 
@@ -742,60 +791,10 @@ app.all('*', async (c) => {
     });
   }
 
-  // editor.projectsites.dev → proxy to Cloudflare Pages (bolt-diy)
-  if (hostname === DOMAINS.BOLT_BASE) {
-    const pagesUrl = `https://bolt-diy-8jf.pages.dev${path}${url.search}`;
-    const pagesRes = await fetch(pagesUrl, {
-      method: c.req.method,
-      headers: c.req.raw.headers,
-      body: ['GET', 'HEAD'].includes(c.req.method) ? undefined : c.req.raw.body,
-    });
-    const res = new Response(pagesRes.body, {
-      status: pagesRes.status,
-      headers: pagesRes.headers,
-    });
-    // Cross-origin isolation required for SharedArrayBuffer (WebContainers)
-    res.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
-    res.headers.set('Cross-Origin-Embedder-Policy', 'credentialless');
-    res.headers.set('Origin-Agent-Cluster', '?1');
-    // CORS so editor can talk to projectsites.dev API
-    res.headers.set('Access-Control-Allow-Origin', `https://${DOMAINS.BOLT_BASE}`);
-    res.headers.set('Access-Control-Allow-Credentials', 'true');
-
-    /*
-     * CSP that lets bolt.diy embed the WebContainer preview iframe
-     * (https://*.local-credentialless.webcontainer-api.io) AND lets
-     * projectsites.dev/admin embed bolt.diy itself.
-     *
-     * Pages would otherwise return a default `frame-src 'none'` +
-     * `x-frame-options: DENY` which blanks the preview pane and breaks
-     * the admin embed. We override here on every proxied response.
-     *
-     * Reference incident 2026-05-24: user reported WebContainer preview
-     * URL (`*.local-credentialless.webcontainer-api.io`) "is not
-     * working" — Pages CSP `frame-src 'none'` was the culprit.
-     */
-    res.headers.delete('X-Frame-Options');
-    res.headers.set(
-      'Content-Security-Policy',
-      [
-        "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-        "img-src 'self' data: https: blob:",
-        "font-src 'self' data: https://fonts.gstatic.com",
-        "connect-src 'self' https: wss: blob:",
-        "frame-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io https://*.stackblitz.com https://challenges.cloudflare.com",
-        "child-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io",
-        "worker-src 'self' blob:",
-        "frame-ancestors 'self' https://projectsites.dev https://*.projectsites.dev https://bolt-diy-8jf.pages.dev https://bolt.megabyte.space",
-        "object-src 'none'",
-        "base-uri 'self'",
-        "form-action 'self' https:",
-      ].join('; '),
-    );
-    return res;
-  }
+  // (editor.projectsites.dev → bolt-diy Pages proxy hoisted to early middleware
+  // near the top of the pipeline — see the `app.use('*', ...)` host-gated proxy,
+  // round 145 — so editor /api/* paths proxy too instead of being pre-empted by
+  // the worker's own /api routing.)
 
   // ─── Apps tab — *.app.projectsites.dev → AppRuntime container DO ──
   // Hostnames of the form `{subdomain}.app.projectsites.dev` resolve to
