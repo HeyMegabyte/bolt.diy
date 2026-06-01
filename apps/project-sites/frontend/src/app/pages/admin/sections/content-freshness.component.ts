@@ -379,14 +379,14 @@ export class AdminContentFreshnessComponent implements OnInit {
     }
   }
 
-  /** Map a draft status to its PrimeNG `p-tag` severity (cockpit-tinted). */
-  statusSeverity(status: FreshnessDraft['status']): TagSeverity {
+  /** Map a draft status to a Spartan `hlmBadge` variant (cockpit-tinted). */
+  statusBadge(status: FreshnessDraft['status']): BadgeVariant {
     switch (status) {
-      case 'pending': return 'warn';
+      case 'pending': return 'warning';
       case 'approved':
       case 'published': return 'success';
       case 'rejected': return 'danger';
-      default: return 'secondary';
+      default: return 'neutral';
     }
   }
 
