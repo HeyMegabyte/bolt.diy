@@ -31,6 +31,7 @@ import { RouterLink } from '@angular/router';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 type DataResidency = 'global' | 'us' | 'eu' | 'apac';
 type AuditLogPolicy = 'on-request' | 'self-serve' | 'realtime-stream';
@@ -76,7 +77,7 @@ interface ProfileEnvelope {
 @Component({
   selector: 'app-admin-trust-center',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, HlmInputDirective, HlmSelectDirective],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, HlmInputDirective, HlmSelectDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
@@ -119,7 +120,7 @@ interface ProfileEnvelope {
       }
 
       @if (!notFound()) {
-        <section class="card">
+        <section class="card" appReveal>
           <h3 class="card-h">Data residency</h3>
           <select
             hlmSelect
@@ -134,7 +135,7 @@ interface ProfileEnvelope {
           </select>
         </section>
 
-        <section class="card">
+        <section class="card" appReveal>
           <h3 class="card-h">Audit-log access policy</h3>
           <select
             hlmSelect
@@ -148,7 +149,7 @@ interface ProfileEnvelope {
           </select>
         </section>
 
-        <section class="card">
+        <section class="card" appReveal>
           <h3 class="card-h">AI-outage behavior</h3>
           <select
             hlmSelect
@@ -162,7 +163,7 @@ interface ProfileEnvelope {
           </select>
         </section>
 
-        <section class="card">
+        <section class="card" appReveal>
           <h3 class="card-h">AI models used ({{ aiModels().length }})</h3>
           <p class="hint">
             Each row appears on the public /trust page with vendor + model
@@ -182,7 +183,7 @@ interface ProfileEnvelope {
           <button class="btn-ghost-sm" (click)="addModel()">+ Add model</button>
         </section>
 
-        <section class="card">
+        <section class="card" appReveal>
           <h3 class="card-h">Content provenance ({{ provenance().length }})</h3>
           <p class="hint">
             Describe which page areas are AI-generated, AI-assisted, or
@@ -206,7 +207,7 @@ interface ProfileEnvelope {
           <button class="btn-ghost-sm" (click)="addProv()">+ Add area</button>
         </section>
 
-        <section class="card">
+        <section class="card" appReveal>
           <h3 class="card-h">Custom disclosures</h3>
           <p class="hint">Markdown. Renders above auto-generated sections on /trust.</p>
           <textarea
