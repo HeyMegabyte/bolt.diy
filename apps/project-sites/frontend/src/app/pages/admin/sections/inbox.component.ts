@@ -182,7 +182,7 @@ const STATUS_COLORS: Record<string, string> = {
           </aside>
 
           <!-- Center: thread -->
-          <main class="inbox-thread" aria-label="Conversation thread">
+          <section class="inbox-thread" aria-label="Conversation thread">
             @if (!selectedConversation()) {
               <div class="inbox-empty-thread">
                 <p>Select a conversation to read the thread.</p>
@@ -235,7 +235,7 @@ const STATUS_COLORS: Record<string, string> = {
                 </div>
               </div>
             }
-          </main>
+          </section>
 
           <!-- Right: controls -->
           <aside class="inbox-controls" aria-label="Conversation controls">

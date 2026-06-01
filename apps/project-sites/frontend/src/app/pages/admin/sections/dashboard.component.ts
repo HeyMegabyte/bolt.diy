@@ -40,7 +40,7 @@ import { AdminStateService } from '../admin-state.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, RouterLink, WidgetRendererComponent, RevealDirective, AdminUpgradesShellComponent],
   template: `
-    <main class="dash" aria-label="Dashboard">
+    <section class="dash" aria-label="Dashboard">
       <!-- 30 admin-dashboard upgrades shell — all features mounted here so
            they render across every /admin/* route via the persistent
            dashboard host. Each feature carries data-upgrade="N" for E2E. -->
@@ -185,7 +185,7 @@ import { AdminStateService } from '../admin-state.service';
           </div>
         }
       </form>
-    </main>
+    </section>
   `,
   styles: [
     `

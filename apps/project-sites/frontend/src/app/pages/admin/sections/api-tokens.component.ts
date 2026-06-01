@@ -85,7 +85,7 @@ const ALL_SCOPES = [
     HlmCheckboxDirective,
   ],
   template: `
-    <div class="api-tokens-root" role="main">
+    <div class="api-tokens-root">
       <!-- Header -->
       <div class="at-header" appReveal>
         <div class="at-title-row">

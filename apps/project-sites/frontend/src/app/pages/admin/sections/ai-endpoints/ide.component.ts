@@ -132,7 +132,7 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
         </aside>
 
         <!-- EDITOR COLUMN -->
-        <main class="editor-col">
+        <div class="editor-col">
           <!-- TABS -->
           <div class="tabs" data-testid="ide-tabs">
             @for (t of tabs(); track t.path) {
@@ -158,7 +158,7 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
               <div class="empty-editor">Pick a file from the tree to start editing.</div>
             }
           </div>
-        </main>
+        </div>
 
         <!-- SIDE PANEL -->
         @if (activePanel()) {
