@@ -1,5 +1,6 @@
 import { Component, HostListener, computed, inject, signal, type OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -275,7 +276,7 @@ interface GhStatus {
             <!-- Timeline line -->
             <div class="absolute left-[11px] top-[10px] bottom-0 w-[2px] bg-gradient-to-b from-primary/30 via-primary/15 to-transparent"></div>
 
-            @for (snap of snapshots(); track snap.id; let first = $first) {
+            @for (snap of snapshots(); track snap.id; let first = $first; let last = $last) {
               <div class="relative pb-5 last:pb-0">
                 <!-- Timeline dot -->
                 <div class="absolute left-[-19px] top-1 w-[14px] h-[14px] rounded-full border-2 flex items-center justify-center"
@@ -383,6 +384,12 @@ interface GhStatus {
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                             Open in editor
                           </button>
+                          @if (!last) {
+                            <button class="snap-more-item" type="button" (click)="compareWithPrevious(snap); moreOpenId.set(null)" [attr.data-testid]="'snapshot-compare-' + snap.id">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/><path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+                              Compare with previous
+                            </button>
+                          }
                           @if (!first) {
                             <button class="snap-more-item" type="button" [disabled]="reverting()" (click)="revertToSnapshot(snap); moreOpenId.set(null)" [attr.data-testid]="'snapshot-revert-' + snap.id">
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
@@ -1246,6 +1253,7 @@ export class AdminSnapshotsComponent implements OnInit {
   private api = inject(ApiService);
   private toast = inject(ToastService);
   private telemetry = inject(TelemetryService);
+  private router = inject(Router);
   private bolt = inject(BoltEmbedService);
 
   snapshots = signal<Snapshot[]>([]);
@@ -1855,6 +1863,25 @@ export class AdminSnapshotsComponent implements OnInit {
     this.telemetry.track('snapshot.open_in_editor', { site_id: site.id, snapshot_id: snap.id });
     this.toast.info(`Loading "${snap.snapshot_name}" in editor…`);
     this.bolt.openSnapshot(snap.id);
+  }
+
+  /**
+   * Open the snapshot diff viewer comparing this snapshot against the next-older
+   * one. Surfaces the (previously orphaned) `/admin/snapshots/diff` viewer —
+   * snapshots() is newest-first, so the older sibling is at index+1. The diff
+   * component reads the active site from AdminStateService (shared) + from/to
+   * from the query string.
+   */
+  compareWithPrevious(snap: Snapshot): void {
+    const list = this.snapshots();
+    const i = list.findIndex((s) => s.id === snap.id);
+    const older = i >= 0 ? list[i + 1] : undefined;
+    if (!older) {
+      this.toast.info('No older snapshot to compare against.');
+      return;
+    }
+    this.telemetry.track('snapshot.compare', { from: older.id, to: snap.id });
+    this.router.navigate(['/admin/snapshots/diff'], { queryParams: { from: older.id, to: snap.id } });
   }
 
   confirmDelete(snap: Snapshot): void {
