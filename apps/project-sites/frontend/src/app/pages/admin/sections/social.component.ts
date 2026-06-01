@@ -776,8 +776,10 @@ const PLATFORMS: readonly PlatformDef[] = [
 
         <label class="ap-dlg-lbl" for="ap-prompt">System prompt</label>
         <textarea
+          hlmInput
+          [multiline]="true"
           id="ap-prompt"
-          class="ap-dlg-ta"
+          class="w-full resize-y"
           rows="8"
           [ngModel]="autoPilotPromptDraft()"
           (ngModelChange)="autoPilotPromptDraft.set($event)"
@@ -792,8 +794,9 @@ const PLATFORMS: readonly PlatformDef[] = [
           <div>
             <label class="ap-dlg-lbl" for="ap-cadence">Cadence</label>
             <select
+              hlmSelect
               id="ap-cadence"
-              class="ap-dlg-input"
+              class="w-full"
               [ngModel]="autoPilotCadenceDraft()"
               (ngModelChange)="autoPilotCadenceDraft.set(+$event)"
               aria-label="Auto-Pilot cadence">
@@ -807,8 +810,9 @@ const PLATFORMS: readonly PlatformDef[] = [
           <div>
             <label class="ap-dlg-lbl" for="ap-preview-net">Preview network</label>
             <select
+              hlmSelect
               id="ap-preview-net"
-              class="ap-dlg-input"
+              class="w-full"
               [ngModel]="autoPilotPreviewNetwork()"
               (ngModelChange)="autoPilotPreviewNetwork.set($event)"
               aria-label="Preview network">
@@ -987,18 +991,7 @@ const PLATFORMS: readonly PlatformDef[] = [
         display: block; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;
         color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); margin-bottom: 6px;
       }
-      .ap-dlg-ta, .ap-dlg-input {
-        width: 100%; box-sizing: border-box;
-        padding: 10px 12px; border-radius: 10px;
-        background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent);
-        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
-        color: var(--ps-ink, #f4f4ff); font-family: inherit; font-size: 0.82rem; line-height: 1.5;
-        resize: vertical;
-      }
-      .ap-dlg-ta:focus-visible, .ap-dlg-input:focus-visible {
-        outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px;
-        border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 50%, transparent);
-      }
+      /* .ap-dlg-ta/.ap-dlg-input removed — now Spartan hlmInput [multiline] / hlmSelect. */
       .ap-dlg-help {
         font-size: 0.7rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent);
         display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
