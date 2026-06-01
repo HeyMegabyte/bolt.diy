@@ -7,7 +7,7 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { MCP_PROVIDERS } from './mcp-providers';
 import { EnvVarsManagerComponent } from '../../../components/env-vars-manager/env-vars-manager.component';
-import { HlmInputDirective } from '../../../ui';
+import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 
 interface Member { id: string; email: string; name: string | null; role: string; created_at: string; }
 interface Invite { id: string; email: string; role: string; created_at: string; expires_at: string; }
@@ -35,7 +35,7 @@ const PROVIDERS = MCP_PROVIDERS;
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmInputDirective],
+  imports: [FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmInputDirective, HlmSelectDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -82,7 +82,7 @@ const PROVIDERS = MCP_PROVIDERS;
           </label>
           <label class="block">
             <span class="muted-h">Timezone</span>
-            <select class="input-field w-full mt-1" [(ngModel)]="settings.timezone">
+            <select hlmSelect class="w-full mt-1" [(ngModel)]="settings.timezone">
               <option value="">Auto-detect</option>
               <option value="America/New_York">America/New_York</option>
               <option value="America/Los_Angeles">America/Los_Angeles</option>
@@ -95,7 +95,7 @@ const PROVIDERS = MCP_PROVIDERS;
           </label>
           <label class="block">
             <span class="muted-h">Default locale</span>
-            <select class="input-field w-full mt-1" [(ngModel)]="settings.default_locale">
+            <select hlmSelect class="w-full mt-1" [(ngModel)]="settings.default_locale">
               <option value="en-US">English (US)</option>
               <option value="en-GB">English (UK)</option>
               <option value="es-ES">Español</option>
@@ -170,7 +170,7 @@ const PROVIDERS = MCP_PROVIDERS;
           @if (inviting()) {
             <div class="card-light p-3 mb-3 grid sm:grid-cols-3 gap-2">
               <input hlmInput type="email" class="input-field" placeholder="teammate@email.com" [(ngModel)]="invite.email" />
-              <select class="input-field" [(ngModel)]="invite.role">
+              <select hlmSelect [(ngModel)]="invite.role">
                 <option value="owner">Owner</option>
                 <option value="editor">Editor</option>
                 <option value="viewer">Viewer</option>
@@ -252,7 +252,7 @@ const PROVIDERS = MCP_PROVIDERS;
                   <span class="muted-h">System prompt</span>
                   <button class="btn-ghost text-[0.66rem]" (click)="improveChatField('system')" [disabled]="improvingField() === 'system'" title="Rewrite this system prompt for clarity + concrete behavioral rules">{{ improvingField() === 'system' ? 'Improving…' : '✨ Improve with AI' }}</button>
                 </div>
-                <textarea class="input-field w-full mt-1 font-mono text-[0.72rem] ai-chat-textarea" rows="10"
+                <textarea hlmInput class="input-field w-full mt-1 font-mono text-[0.72rem] ai-chat-textarea" rows="10"
                           [placeholder]="chat.system_prompt_default || 'You are the AI concierge for [business]. Concise. Never invent prices.'"
                           [(ngModel)]="chat.system_prompt"></textarea>
                 <p class="text-[0.62rem] text-text-secondary mt-1 leading-relaxed">
