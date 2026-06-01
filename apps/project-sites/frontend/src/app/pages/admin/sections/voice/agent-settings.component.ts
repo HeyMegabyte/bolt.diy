@@ -29,7 +29,7 @@ import { AdminStateService } from '../../admin-state.service';
 import { ApiService } from '../../../../services/api.service';
 import { ToastService } from '../../../../services/toast.service';
 import { RevealOnScrollDirective } from '../../../../animations/reveal-on-scroll.directive';
-import { HlmInputDirective } from '../../../../ui';
+import { HlmInputDirective, HlmSelectDirective } from '../../../../ui';
 
 interface AgentSettings {
   voice_system_prompt: string;
@@ -81,7 +81,7 @@ const LLM_OPTIONS = [
   selector: 'app-voice-agent-settings',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RevealOnScrollDirective, HlmInputDirective],
+  imports: [FormsModule, RevealOnScrollDirective, HlmInputDirective, HlmSelectDirective],
   template: `
     <section class="space-y-5" psReveal>
       <!-- Voice + SMS system prompts -->
@@ -140,7 +140,7 @@ const LLM_OPTIONS = [
         <div class="grid md:grid-cols-3 gap-3">
           <label class="block">
             <span class="block-label">Provider</span>
-            <select hlmInput class="w-full mt-1" [(ngModel)]="settings.voice_provider" name="voice-provider" (ngModelChange)="onProviderChange()">
+            <select hlmSelect class="w-full mt-1" [(ngModel)]="settings.voice_provider" name="voice-provider" (ngModelChange)="onProviderChange()">
               @for (o of voiceOptions; track o.provider) {
                 <option [value]="o.provider">{{ o.provider }}</option>
               }
@@ -148,13 +148,13 @@ const LLM_OPTIONS = [
           </label>
           <label class="block">
             <span class="block-label">Voice</span>
-            <select hlmInput class="w-full mt-1" [(ngModel)]="settings.voice_id" name="voice-id">
+            <select hlmSelect class="w-full mt-1" [(ngModel)]="settings.voice_id" name="voice-id">
               @for (v of voicesForProvider(); track v) { <option [value]="v">{{ v }}</option> }
             </select>
           </label>
           <label class="block">
             <span class="block-label">LLM model</span>
-            <select hlmInput class="w-full mt-1" [(ngModel)]="settings.llm_model" name="llm-model">
+            <select hlmSelect class="w-full mt-1" [(ngModel)]="settings.llm_model" name="llm-model">
               @for (m of llmOptions; track m.id) { <option [value]="m.id">{{ m.label }}</option> }
             </select>
           </label>
@@ -174,7 +174,7 @@ const LLM_OPTIONS = [
         <div class="grid md:grid-cols-2 gap-3">
           <label class="block">
             <span class="block-label">Model</span>
-            <select hlmInput class="w-full mt-1" [(ngModel)]="settings.sms_model" name="sms-model">
+            <select hlmSelect class="w-full mt-1" [(ngModel)]="settings.sms_model" name="sms-model">
               @for (m of llmOptions; track m.id) { <option [value]="m.id">{{ m.label }}</option> }
             </select>
           </label>

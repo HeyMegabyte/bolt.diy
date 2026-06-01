@@ -33,7 +33,7 @@ import { AdminStateService } from '../../admin-state.service';
 import { ApiService } from '../../../../services/api.service';
 import { ToastService } from '../../../../services/toast.service';
 import { RevealOnScrollDirective } from '../../../../animations/reveal-on-scroll.directive';
-import { HlmInputDirective } from '../../../../ui';
+import { HlmInputDirective, HlmSelectDirective } from '../../../../ui';
 
 interface CallToken {
   token: string;
@@ -72,7 +72,7 @@ type TwilioDeviceCtor = new (token: string, options?: Record<string, unknown>) =
   selector: 'app-voice-test-console',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RevealOnScrollDirective, HlmInputDirective],
+  imports: [FormsModule, RevealOnScrollDirective, HlmInputDirective, HlmSelectDirective],
   template: `
     <section class="grid md:grid-cols-2 gap-5" psReveal>
       <!-- Call panel -->
@@ -160,7 +160,7 @@ type TwilioDeviceCtor = new (token: string, options?: Record<string, unknown>) =
 
         <label class="block mb-3">
           <span class="block-label">From number</span>
-          <select hlmInput class="w-full mt-1" [(ngModel)]="smsFromNumber" aria-label="SMS test number">
+          <select hlmSelect class="w-full mt-1" [(ngModel)]="smsFromNumber" aria-label="SMS test number">
             @if (smsNumbers().length === 0) {
               <option value="">Add a number first</option>
             } @else {

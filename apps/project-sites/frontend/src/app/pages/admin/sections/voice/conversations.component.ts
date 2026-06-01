@@ -35,7 +35,7 @@ import { RevealOnScrollDirective } from '../../../../animations/reveal-on-scroll
 import { RollingCounterComponent } from '../../../../components/rolling-counter/rolling-counter.component';
 import { SidePanelComponent } from '../../../../components/side-panel/side-panel.component';
 import { EmptyStateComponent } from '../../empty-state.component';
-import { HlmInputDirective } from '../../../../ui';
+import { HlmInputDirective, HlmSelectDirective } from '../../../../ui';
 
 interface TranscriptTurn {
   speaker: 'caller' | 'agent';
@@ -68,7 +68,7 @@ type DayGroup = { label: string; items: Conversation[] };
   selector: 'app-voice-conversations',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, DatePipe, RevealOnScrollDirective, RollingCounterComponent, SidePanelComponent, EmptyStateComponent, HlmInputDirective],
+  imports: [FormsModule, DatePipe, RevealOnScrollDirective, RollingCounterComponent, SidePanelComponent, EmptyStateComponent, HlmInputDirective, HlmSelectDirective],
   template: `
     <section class="space-y-5" psReveal>
       <!-- Stat strip -->
@@ -107,7 +107,7 @@ type DayGroup = { label: string; items: Conversation[] };
                    placeholder="Search phone or text"
                    aria-label="Search conversations" />
           </label>
-          <select hlmInput class="font-mono min-h-[40px]" [(ngModel)]="channelFilter" (ngModelChange)="onFilterChange()" aria-label="Channel">
+          <select hlmSelect class="font-mono min-h-[40px]" [(ngModel)]="channelFilter" (ngModelChange)="onFilterChange()" aria-label="Channel">
             <option value="all">All channels</option>
             <option value="call">Calls</option>
             <option value="sms">SMS</option>

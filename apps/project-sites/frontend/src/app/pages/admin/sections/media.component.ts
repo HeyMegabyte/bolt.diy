@@ -44,7 +44,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HlmInputDirective } from '../../../ui';
+import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { BoltEmbedService } from '../../../services/bolt-embed.service';
 import { ToastService } from '../../../services/toast.service';
@@ -130,7 +130,7 @@ interface BoltMediaAttachMessage {
   selector: 'app-admin-media',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, HlmInputDirective],
+  imports: [CommonModule, FormsModule, HlmInputDirective, HlmSelectDirective],
   template: `
     <section class="space-y-5" [class.media--compact]="compact()">
       <!-- ───────────────────────────────── Header ──────────────────────────────── -->
@@ -159,7 +159,7 @@ interface BoltMediaAttachMessage {
             />
           </label>
           <select
-            hlmInput
+            hlmSelect
             [ngModel]="kindFilter()"
             (ngModelChange)="kindFilter.set($event); refreshLibrary()"
             aria-label="Filter by kind"
@@ -443,7 +443,7 @@ interface BoltMediaAttachMessage {
               <div class="studio__row">
                 <label class="studio__field">
                   <span class="studio__sublabel">Size</span>
-                  <select hlmInput [(ngModel)]="imageSize" aria-label="Image size">
+                  <select hlmSelect [(ngModel)]="imageSize" aria-label="Image size">
                     <option value="1024x1024">1024×1024 (Square)</option>
                     <option value="1792x1024">1792×1024 (Landscape)</option>
                     <option value="1024x1792">1024×1792 (Portrait)</option>
@@ -451,7 +451,7 @@ interface BoltMediaAttachMessage {
                 </label>
                 <label class="studio__field">
                   <span class="studio__sublabel">Quantity</span>
-                  <select hlmInput [(ngModel)]="imageCount" aria-label="Number of images">
+                  <select hlmSelect [(ngModel)]="imageCount" aria-label="Number of images">
                     <option [ngValue]="1">1</option>
                     <option [ngValue]="2">2</option>
                     <option [ngValue]="3">3</option>
