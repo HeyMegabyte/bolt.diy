@@ -567,7 +567,7 @@ interface ForecastBar {
           </div>
           @if (forecast(); as f) {
             <div class="text-right">
-              <div class="text-2xl font-bold text-white">{{ f.next_month_forecast_usd | currency:'USD':'symbol':'1.2-2' }}</div>
+              <div class="text-2xl font-bold text-white"><app-rolling-counter [value]="f.next_month_forecast_usd" prefix="$" [decimals]="2" [duration]="1100" /></div>
               <div class="text-[0.62rem] uppercase tracking-wider text-text-secondary">next 30 days</div>
             </div>
           }
