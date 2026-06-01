@@ -113,14 +113,26 @@ const entries = files.filter((f) => {
   const r = relative(DIST, f);
   return r === 'index.html' || /^(main|polyfills|styles)-/.test(r);
 });
+// r2Size reads back over the network and can transiently mismatch under R2
+// eventual consistency — a single read was false-failing correct uploads
+// ("Deploy incomplete" + exit 1) and triggered needless re-PUT churn. Confirm
+// a mismatch across a few spaced reads before re-PUTting, and again before
+// declaring a genuine failure.
+async function sizeMatches(key, local, tries = 4) {
+  for (let t = 0; t < tries; t++) {
+    if ((await r2Size(key)) === local) return true;
+    if (t < tries - 1) await new Promise((r) => setTimeout(r, 1500));
+  }
+  return false;
+}
 for (const file of entries) {
   const rel = relative(DIST, file);
   const key = `marketing/${rel}`;
   const local = statSync(file).size;
-  if ((await r2Size(key)) !== local) {
+  if (!(await sizeMatches(key, local))) {
     process.stderr.write(`  verify-mismatch, re-PUT ${key}\n`);
     await putWithRetry(key, file, MIME[extname(file)] || 'application/octet-stream');
-    if ((await r2Size(key)) !== local) failed.push(key);
+    if (!(await sizeMatches(key, local))) failed.push(key);
   }
 }
 if (failed.length) {
