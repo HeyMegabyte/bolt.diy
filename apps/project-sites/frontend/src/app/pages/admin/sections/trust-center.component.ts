@@ -28,6 +28,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 
@@ -75,7 +76,7 @@ interface ProfileEnvelope {
 @Component({
   selector: 'app-admin-trust-center',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, HlmInputDirective, HlmSelectDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
@@ -121,7 +122,7 @@ interface ProfileEnvelope {
         <section class="card">
           <h3 class="card-h">Data residency</h3>
           <select
-            class="select"
+            hlmSelect
             [ngModel]="dataResidency()"
             (ngModelChange)="dataResidency.set($event)"
           >
@@ -135,7 +136,7 @@ interface ProfileEnvelope {
         <section class="card">
           <h3 class="card-h">Audit-log access policy</h3>
           <select
-            class="select"
+            hlmSelect
             [ngModel]="auditPolicy()"
             (ngModelChange)="auditPolicy.set($event)"
           >
@@ -148,7 +149,7 @@ interface ProfileEnvelope {
         <section class="card">
           <h3 class="card-h">AI-outage behavior</h3>
           <select
-            class="select"
+            hlmSelect
             [ngModel]="aiOutage()"
             (ngModelChange)="aiOutage.set($event)"
           >
@@ -166,11 +167,11 @@ interface ProfileEnvelope {
           </p>
           @for (m of aiModels(); let i = $index; track i) {
             <div class="row">
-              <input class="input" placeholder="Vendor" [value]="m.vendor"
+              <input hlmInput placeholder="Vendor" [value]="m.vendor"
                 (input)="patchModel(i, 'vendor', $any($event.target).value)" />
-              <input class="input" placeholder="Model" [value]="m.model"
+              <input hlmInput placeholder="Model" [value]="m.model"
                 (input)="patchModel(i, 'model', $any($event.target).value)" />
-              <input class="input" placeholder="Purpose" [value]="m.purpose"
+              <input hlmInput placeholder="Purpose" [value]="m.purpose"
                 (input)="patchModel(i, 'purpose', $any($event.target).value)" />
               <button class="btn-ghost-sm" (click)="removeModel(i)" aria-label="Remove">×</button>
             </div>
@@ -186,15 +187,15 @@ interface ProfileEnvelope {
           </p>
           @for (p of provenance(); let i = $index; track i) {
             <div class="row">
-              <input class="input" placeholder="Area (e.g. homepage hero)" [value]="p.area"
+              <input hlmInput placeholder="Area (e.g. homepage hero)" [value]="p.area"
                 (input)="patchProv(i, 'area', $any($event.target).value)" />
-              <select class="select" [value]="p.origin"
+              <select hlmSelect [value]="p.origin"
                 (change)="patchProv(i, 'origin', $any($event.target).value)">
                 <option value="ai-generated">AI-generated</option>
                 <option value="ai-assisted">AI-assisted</option>
                 <option value="human-authored">Human-authored</option>
               </select>
-              <input class="input" placeholder="Reviewed by (optional)" [value]="p.reviewed_by ?? ''"
+              <input hlmInput placeholder="Reviewed by (optional)" [value]="p.reviewed_by ?? ''"
                 (input)="patchProv(i, 'reviewed_by', $any($event.target).value)" />
               <button class="btn-ghost-sm" (click)="removeProv(i)" aria-label="Remove">×</button>
             </div>
@@ -206,7 +207,7 @@ interface ProfileEnvelope {
           <h3 class="card-h">Custom disclosures</h3>
           <p class="hint">Markdown. Renders above auto-generated sections on /trust.</p>
           <textarea
-            class="textarea"
+            hlmInput [multiline]="true"
             rows="6"
             [ngModel]="customDisclosures() ?? ''"
             (ngModelChange)="customDisclosures.set($event)"
@@ -228,8 +229,7 @@ interface ProfileEnvelope {
       .card-h { font-size: 0.92rem; color: var(--ps-ink, #f4f4ff); margin: 0 0 10px; font-weight: 600; }
       .hint { font-size: 0.72rem; color: rgba(244,244,255,.55); margin: 0 0 10px; }
       .row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items: center; }
-      .input, .select, .textarea { width: 100%; background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.08); color: var(--ps-ink, #f4f4ff); padding: 8px 10px; border-radius: 8px; font-size: 0.82rem; }
-      .input:focus, .select:focus, .textarea:focus { outline: 1px solid var(--ps-accent, #00e5ff); }
+      /* .input/.select/.textarea removed — all controls now Spartan hlmInput/hlmSelect. */
       .badge-pub { font-size: 0.7rem; padding: 4px 10px; border-radius: 999px; background: rgba(0,229,255,.12); border: 1px solid rgba(0,229,255,.35); color: var(--ps-accent, #00e5ff); }
       .empty-card { background: rgba(255,255,255,.02); border: 1px dashed rgba(255,255,255,.08); border-radius: 12px; padding: 16px 18px; }
       .btn-ghost-sm { font-size: 0.72rem; padding: 4px 10px; border-radius: 6px; background: transparent; border: 1px solid rgba(255,255,255,.12); color: rgba(244,244,255,.7); cursor: pointer; }
