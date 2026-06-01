@@ -6,6 +6,7 @@ import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 /** Row shape returned by `GET /admin/api-keys` and rendered in the keys table. */
 interface ApiKeyRow {
@@ -78,7 +79,7 @@ interface NotificationGroup {
 @Component({
   selector: 'app-user-settings',
   standalone: true,
-  imports: [FormsModule, DatePipe, DialogShellComponent, HlmInputDirective, HlmSelectDirective],
+  imports: [RevealDirective, FormsModule, DatePipe, DialogShellComponent, HlmInputDirective, HlmSelectDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <!-- ─────────────────── HEADER ─────────────────── -->
@@ -94,7 +95,7 @@ interface NotificationGroup {
       </header>
 
       <!-- ─────────────────── PROFILE ─────────────────── -->
-      <section class="card">
+      <section class="card" appReveal>
         <div class="flex items-start gap-4 flex-wrap">
           <div class="profile-avatar" [attr.aria-label]="'Avatar for ' + (auth.email() || 'you')">
             <span>{{ initials() }}</span>
@@ -113,7 +114,7 @@ interface NotificationGroup {
       </section>
 
       <!-- ─────────────────── THEME ─────────────────── -->
-      <section class="card">
+      <section class="card" appReveal>
         <div class="kicker">Appearance</div>
         <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-1">Theme</h3>
         <p class="text-[0.7rem] text-text-secondary m-0 mb-3">
@@ -204,7 +205,7 @@ interface NotificationGroup {
       </section>
 
       <!-- ─────────────────── API KEYS ─────────────────── -->
-      <section class="card">
+      <section class="card" appReveal>
         <div class="flex items-start justify-between gap-3 mb-3 flex-wrap">
           <div>
             <div class="kicker">Programmatic access</div>
@@ -336,7 +337,7 @@ interface NotificationGroup {
       </section>
 
       <!-- ─────────────────── SESSIONS ─────────────────── -->
-      <section class="card">
+      <section class="card" appReveal>
         <div class="flex items-start justify-between gap-3 mb-3 flex-wrap">
           <div>
             <div class="kicker">Security</div>
@@ -401,7 +402,7 @@ interface NotificationGroup {
       </section>
 
       <!-- ─────────────────── NOTIFICATIONS ─────────────────── -->
-      <section class="card">
+      <section class="card" appReveal>
         <div class="kicker">Email cadence</div>
         <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-1">Notification preferences</h3>
         <p class="text-[0.7rem] text-text-secondary m-0 mb-3 max-w-prose">

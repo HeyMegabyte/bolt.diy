@@ -25,6 +25,7 @@ import { RollingCounterComponent } from '../../../components/rolling-counter/rol
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 type PlanTier =
   | 'enterprise-small'
@@ -70,7 +71,7 @@ interface AuditExport {
 @Component({
   selector: 'app-admin-enterprise',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, RollingCounterComponent, HlmInputDirective, HlmSelectDirective],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, RollingCounterComponent, HlmInputDirective, HlmSelectDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
@@ -135,7 +136,7 @@ interface AuditExport {
         </section>
 
         <!-- Contract editor -->
-        <section class="card">
+        <section class="card" appReveal>
           <h3 class="card-h">Contract</h3>
           <div class="grid-2">
             <label>
@@ -202,7 +203,7 @@ interface AuditExport {
         </section>
 
         <!-- SSO -->
-        <section class="card">
+        <section class="card" appReveal>
           <h3 class="card-h">SSO (SAML / OIDC / Cloudflare Access)</h3>
           <div class="grid-2">
             <label>
@@ -236,7 +237,7 @@ interface AuditExport {
         </section>
 
         <!-- Audit exports -->
-        <section class="card">
+        <section class="card" appReveal>
           <h3 class="card-h">Audit-log exports</h3>
           <div class="grid-2 mb-3">
             <label>
