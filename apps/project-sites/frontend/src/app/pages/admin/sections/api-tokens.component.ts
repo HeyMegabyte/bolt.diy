@@ -15,7 +15,7 @@
  *   - `<input type=datetime-local>`→ `p-datepicker` (showTime, cockpit popup)
  *   - scope `<input type=checkbox>`→ `p-checkbox` (binary, cyan accent)
  *   - scope / action `<button>`s    → `p-button` (severity + size + loading)
- *   - scope pill `<span>`          → `p-tag` (rounded, cockpit-tinted)
+ *   - scope pill `<span>`          → Spartan `hlmBadge` (variant=info, cockpit-tinted)
  * Toasts continue through the cockpit's existing `ToastService` (the cockpit
  * already renders its own toast layer) — the content-freshness section shows
  * the alternate PrimeNG `MessageService` path; both are documented in the guide.
@@ -40,7 +40,7 @@ import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { CheckboxModule } from 'primeng/checkbox';
 import { DatePickerModule } from 'primeng/datepicker';
-import { TagModule } from 'primeng/tag';
+import { HlmBadgeDirective } from '../../../ui';
 import { AdminStateService } from '../admin-state.service';
 import { ToastService } from '../../../services/toast.service';
 
@@ -81,7 +81,7 @@ const ALL_SCOPES = [
     InputTextModule,
     CheckboxModule,
     DatePickerModule,
-    TagModule,
+    HlmBadgeDirective,
   ],
   template: `
     <div class="api-tokens-root" role="main">
@@ -163,7 +163,7 @@ const ALL_SCOPES = [
                 <td>
                   <div class="at-scopes-cell">
                     @for (scope of token.scopes; track scope) {
-                      <p-tag [value]="scope" severity="info" [rounded]="true" styleClass="at-scope-tag" />
+                      <span hlmBadge variant="info" class="at-scope-tag">{{ scope }}</span>
                     }
                   </div>
                 </td>
