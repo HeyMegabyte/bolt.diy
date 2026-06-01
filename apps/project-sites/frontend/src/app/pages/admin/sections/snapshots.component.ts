@@ -10,6 +10,7 @@ import { BoltEmbedService } from '../../../services/bolt-embed.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { HlmInputDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 /**
  * Quality metrics for a snapshot — sourced from the sibling backend route
@@ -106,7 +107,7 @@ interface GhStatus {
 @Component({
   selector: 'app-admin-snapshots',
   standalone: true,
-  imports: [FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, HlmInputDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, HlmInputDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -231,7 +232,7 @@ interface GhStatus {
       }
 
       <!-- Snapshot Timeline -->
-      <div class="snap-card">
+      <div class="snap-card" appReveal>
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-base font-semibold text-white m-0">Version History</h3>
           <span class="text-[0.72rem] text-text-secondary">

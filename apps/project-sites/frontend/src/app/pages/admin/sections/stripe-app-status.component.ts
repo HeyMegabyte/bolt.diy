@@ -24,6 +24,7 @@ import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 type InstallSource = 'marketplace' | 'direct' | 'referral';
 type InstallStatus = 'installed' | 'uninstalled' | 'paused';
@@ -51,7 +52,7 @@ interface Summary {
 @Component({
   selector: 'app-admin-stripe-app-status',
   standalone: true,
-  imports: [CommonModule, RouterLink, RollingCounterComponent, DatePipe],
+  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, DatePipe],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
@@ -84,7 +85,7 @@ interface Summary {
       }
 
       @if (!notFound() && summary()) {
-        <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-3" appReveal>
           <div class="kpi">
             <div class="kpi-label">Total installs</div>
             <div class="kpi-value"><app-rolling-counter [value]="summary()!.total_installs" /></div>
@@ -103,7 +104,7 @@ interface Summary {
           </div>
         </section>
 
-        <section class="card">
+        <section class="card" appReveal>
           <h3 class="card-h">By source</h3>
           <ul class="source-list">
             @for (s of sourceRows(); track s.source) {
@@ -119,7 +120,7 @@ interface Summary {
           }
         </section>
 
-        <section class="card">
+        <section class="card" appReveal>
           <h3 class="card-h">Recent installs</h3>
           @if (installs().length === 0) {
             <p class="hint">No installs yet.</p>

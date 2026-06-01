@@ -38,6 +38,7 @@ import { ToastService } from '../../../services/toast.service';
 import { EmptyStateComponent } from '../empty-state.component';
 import { HlmInputDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 /** Single hostname row returned by `GET /api/sites/:siteId/hostnames`. */
 interface Hostname {
@@ -101,7 +102,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
 @Component({
   selector: 'app-admin-domains',
   standalone: true,
-  imports: [FormsModule, EmptyStateComponent, HlmInputDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, FormsModule, EmptyStateComponent, HlmInputDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
@@ -128,7 +129,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
       } @else {
 
         <!-- ── 1. Provisioned backup domain ──────────────────────── -->
-        <section class="bg-surface border border-border rounded-lg p-5 space-y-3">
+        <section class="bg-surface border border-border rounded-lg p-5 space-y-3" appReveal>
           <div class="flex items-start justify-between gap-3 flex-wrap">
             <div>
               <h3 class="section-h text-base font-semibold text-white m-0">Provisioned backup domain</h3>
@@ -148,7 +149,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
         </section>
 
         <!-- ── 2. Add a domain ───────────────────────────────────── -->
-        <section class="bg-surface border border-border rounded-lg p-5 space-y-5">
+        <section class="bg-surface border border-border rounded-lg p-5 space-y-5" appReveal>
           <div>
             <h3 class="section-h text-base font-semibold text-white m-0">Add a domain</h3>
             <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
@@ -243,7 +244,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
         </section>
 
         <!-- ── 3. Connected domains ─────────────────────────────── -->
-        <section class="bg-surface border border-border rounded-lg p-5 space-y-4">
+        <section class="bg-surface border border-border rounded-lg p-5 space-y-4" appReveal>
           <div>
             <h3 class="section-h text-base font-semibold text-white m-0">Connected domains</h3>
             <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
