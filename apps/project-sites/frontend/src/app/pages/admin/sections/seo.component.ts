@@ -1,11 +1,12 @@
 import { Component, inject } from '@angular/core';
 import { AdminStateService } from '../admin-state.service';
 import { HlmInputDirective } from '../../../ui';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
 @Component({
   selector: 'app-admin-seo',
   standalone: true,
-  imports: [HlmInputDirective],
+  imports: [HlmInputDirective, RollingCounterComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" data-testid="seo-section">
 
@@ -75,7 +76,7 @@ import { HlmInputDirective } from '../../../ui';
       <div class="seo-card">
         <h3 class="text-base font-semibold text-white m-0 mb-4 flex items-center gap-2">
           SEO Health Check
-          <span class="seo-score" data-numeric>{{ passCount }}/{{ seoChecks.length }}</span>
+          <span class="seo-score" data-numeric><app-rolling-counter [value]="passCount" [duration]="1100" />/{{ seoChecks.length }}</span>
         </h3>
         <div class="flex flex-col gap-2" role="list" aria-label="SEO health checks">
           @for (check of seoChecks; track check.label; let i = $index) {
