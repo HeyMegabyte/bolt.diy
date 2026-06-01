@@ -23,6 +23,7 @@ import { FormsModule } from '@angular/forms';
 import { HlmInputDirective } from '../../../ui';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { ToastService } from '../../../services/toast.service';
 
 interface FlagDefinition {
   key: string;
@@ -237,6 +238,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
 })
 export class AdminFeatureFlagsComponent implements OnInit {
   private readonly http = inject(HttpClient);
+  private readonly toast = inject(ToastService);
 
   readonly stages: StageFilter[] = ['all', 'experimental', 'beta', 'stable', 'deprecated', 'killswitch'];
   readonly stage = signal<StageFilter>('all');
@@ -313,10 +315,11 @@ export class AdminFeatureFlagsComponent implements OnInit {
         }),
       );
       this.flags.update((flags) => flags.map((f) => (f.key === flag.key ? { ...f, default_enabled: next, default_rollout_percent: next ? 100 : 0 } : f)));
+      this.toast.success(`${flag.key} ${next ? 'enabled' : 'disabled'} globally`);
     } catch (e) {
-      // Admin override endpoint not shipped yet — surface non-blocking warning
-      // eslint-disable-next-line no-alert
-      alert(`Override endpoint not available yet: POST /api/admin/feature-flags/${flag.key}/override returns ${(e as { status?: number }).status ?? 'error'}. Worker route lands in next deploy.`);
+      // Admin override endpoint not shipped yet — surface a non-blocking cockpit toast.
+      const status = (e as { status?: number }).status ?? 'error';
+      this.toast.warning(`Override not saved — POST /api/admin/feature-flags/${flag.key}/override returned ${status}. Worker route ships next deploy.`, 7000);
     }
   }
 
