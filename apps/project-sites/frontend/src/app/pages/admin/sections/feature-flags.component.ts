@@ -45,6 +45,10 @@ interface ResolvedFlag {
 interface FlagDocs {
   explanation: string;
   smoke_test: string[];
+  // Playwright spec paths that gate the feature (the operator runbook's
+  // automated-coverage arm, per the feature-flags rule). The worker returns
+  // this for flags whose specs are wired; absent/empty → block hidden.
+  e2e_tests?: string[];
   references?: string[];
 }
 
@@ -150,6 +154,15 @@ type StageFilter = 'all' | FlagDefinition['stage'];
                         </li>
                       }
                     </ol>
+
+                    @if (docs.e2e_tests && docs.e2e_tests.length) {
+                      <h3>Automated coverage</h3>
+                      <ul class="ff-e2e">
+                        @for (spec of docs.e2e_tests; track spec) {
+                          <li><code class="ff-step">{{ spec }}</code></li>
+                        }
+                      </ul>
+                    }
 
                     @if (docs.references && docs.references.length) {
                       <h3>References</h3>
@@ -262,6 +275,8 @@ type StageFilter = 'all' | FlagDefinition['stage'];
     .ff-smoke { padding-left: 1.25rem; margin: 0; display: flex; flex-direction: column; gap: .35rem; }
     .ff-smoke li { line-height: 1.45; font-size: .85rem; }
     .ff-step { font-family: var(--ps-mono, ui-monospace, monospace); font-size: .82rem; background: color-mix(in oklch, currentColor 8%, transparent); padding: .15rem .4rem; border-radius: 4px; word-break: break-word; }
+    .ff-e2e { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .3rem; }
+    .ff-e2e li { font-size: .8rem; }
     .ff-refs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .25rem; }
     .ff-refs li { font-size: .8rem; }
     .ff-refs a { color: var(--ps-accent, #00e5ff); word-break: break-all; }
