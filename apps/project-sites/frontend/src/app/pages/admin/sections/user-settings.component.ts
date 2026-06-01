@@ -5,6 +5,7 @@ import { ApiService, type CloudflareCredentialStatus } from '../../../services/a
 import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
+import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 
 /** Row shape returned by `GET /admin/api-keys` and rendered in the keys table. */
 interface ApiKeyRow {
@@ -77,7 +78,7 @@ interface NotificationGroup {
 @Component({
   selector: 'app-user-settings',
   standalone: true,
-  imports: [FormsModule, DatePipe, DialogShellComponent],
+  imports: [FormsModule, DatePipe, DialogShellComponent, HlmInputDirective, HlmSelectDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <!-- ─────────────────── HEADER ─────────────────── -->
@@ -502,7 +503,7 @@ interface NotificationGroup {
                     placeholder="CI deploy, local dev, prod backup"
                     [ngModel]="newKey.name"
                     (ngModelChange)="newKey.name = $event"
-                    class="input-field w-full"
+                    hlmInput class="w-full"
                     maxlength="40"
                     [attr.aria-invalid]="!!nameError()"
                     aria-describedby="apikey-name-error"
@@ -516,7 +517,7 @@ interface NotificationGroup {
                 <label class="block">
                   <span class="muted-h">Expiration</span>
                   <select
-                    class="input-field w-full mt-1"
+                    hlmSelect class="w-full mt-1"
                     [ngModel]="newKey.expires"
                     (ngModelChange)="newKey.expires = +$event"
                     aria-label="Key expiration"
@@ -598,7 +599,7 @@ interface NotificationGroup {
             <p class="text-[0.74rem] text-text-secondary m-0">Type <code class="font-mono text-red-300">delete</code> below to confirm.</p>
             <input
               type="text"
-              class="input-field w-full"
+              hlmInput class="w-full"
               placeholder="delete"
               [ngModel]="deleteConfirm"
               (ngModelChange)="deleteConfirm = $event"
@@ -643,7 +644,7 @@ interface NotificationGroup {
                 placeholder="you@example.com"
                 [ngModel]="cfDraft.email"
                 (ngModelChange)="cfDraft.email = $event"
-                class="input-field w-full mt-1"
+                hlmInput class="w-full mt-1"
                 autocomplete="email"
                 data-testid="cf-modal-email"
                 autofocus />
@@ -664,7 +665,7 @@ interface NotificationGroup {
                 placeholder="d3a9…"
                 [ngModel]="cfDraft.apiKey"
                 (ngModelChange)="cfDraft.apiKey = $event"
-                class="input-field w-full mt-1 font-mono"
+                hlmInput class="w-full mt-1 font-mono"
                 autocomplete="off"
                 data-testid="cf-modal-key" />
               <span class="text-[0.62rem] text-text-secondary/70 mt-1 block">
@@ -852,15 +853,9 @@ interface NotificationGroup {
     .icon-btn:hover { color: var(--ps-accent, #00E5FF); background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
     .icon-btn:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
 
-    /* ── Form bits ── */
-    .input-field {
-      padding: 0.5rem 0.7rem; border-radius: 8px;
-      background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
-      color: var(--ps-ink, #fff); font: inherit;
-      transition: border-color 160ms ease;
-    }
-    .input-field:focus { outline: none; border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 50%, transparent); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ps-accent, #00E5FF) 18%, transparent); }
-    .input-field[aria-invalid="true"] { border-color: oklch(0.78 0.18 25 / 0.75); }
+    /* ── Form bits — inputs/select use Spartan hlmInput/hlmSelect; keep only
+       the invalid-state tint for the api-key name field ([attr.aria-invalid]). */
+    [hlmInput][aria-invalid="true"] { border-color: oklch(0.78 0.18 25 / 0.75) !important; }
 
     /* ── Theme cards ── */
     .theme-card {
