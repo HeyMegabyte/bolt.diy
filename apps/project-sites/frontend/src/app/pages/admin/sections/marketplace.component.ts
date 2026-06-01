@@ -25,6 +25,7 @@ import { catchError, of } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { HlmTablistDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { EmptyStateComponent } from '../empty-state.component';
 
 type SectionIndustry = 'nonprofit' | 'restaurant' | 'lawyer' | 'salon' | 'medical' | 'all';
 type SectionSlot = 'hero' | 'services' | 'testimonials' | 'donor-wall' | 'faq' | 'cta' | 'all';
@@ -58,7 +59,7 @@ const SLOT_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-marketplace',
   standalone: true,
-  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, HlmTablistDirective],
+  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, HlmTablistDirective, EmptyStateComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="mkt-shell">
@@ -122,9 +123,10 @@ const SLOT_COLORS: Record<string, string> = {
       <div class="mkt-loading__spinner"></div>
     </div>
   } @else if (filteredSections().length === 0) {
-    <div class="mkt-empty" appReveal>
-      <p>No sections for this filter.</p>
-    </div>
+    <app-empty-state
+      icon="▦"
+      title="No sections available"
+      body="Curated bento sections are added per industry — try a different category above, or check back soon." />
   } @else {
     <div class="mkt-grid" appReveal role="list">
       @for (section of filteredSections(); track section.id) {
@@ -253,7 +255,6 @@ const SLOT_COLORS: Record<string, string> = {
     .mkt-loading__spinner { width: 24px; height: 24px; border: 2px solid rgba(255,255,255,.1); border-top-color: var(--ps-accent, #00e5ff); border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     /* Empty */
-    .mkt-empty { text-align: center; padding: 3rem; opacity: 0.5; }
     /* Preview overlay */
     .mkt-preview-overlay { position: fixed; inset: 0; background: rgba(6,6,16,.8); backdrop-filter: blur(8px); z-index: 9999; display: flex; align-items: center; justify-content: center; }
     .mkt-preview-modal { background: #0d0d20; border: 1px solid rgba(0,229,255,.2); border-radius: 12px; padding: 1.5rem; max-width: 480px; width: 90%; position: relative; }
