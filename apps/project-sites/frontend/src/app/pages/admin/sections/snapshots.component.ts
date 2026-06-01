@@ -8,6 +8,7 @@ import { DialogShellComponent } from '../../../components/dialog-shell/dialog-sh
 import { FullscreenOverlayComponent } from '../../../components/fullscreen-overlay/fullscreen-overlay.component';
 import { BoltEmbedService } from '../../../services/bolt-embed.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { HlmInputDirective } from '../../../ui';
 
 /**
  * Quality metrics for a snapshot — sourced from the sibling backend route
@@ -104,7 +105,7 @@ interface GhStatus {
 @Component({
   selector: 'app-admin-snapshots',
   standalone: true,
-  imports: [FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent],
+  imports: [FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, HlmInputDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -197,7 +198,9 @@ interface GhStatus {
                 placeholder="v2, redesign, summer-2026"
                 [ngModel]="newSnapshotName"
                 (ngModelChange)="newSnapshotName = $event"
-                class="input-field w-full"
+                hlmInput
+                [error]="!!nameError()"
+                class="w-full"
                 maxlength="50"
                 [attr.aria-invalid]="!!nameError()"
                 aria-describedby="snap-name-error"
