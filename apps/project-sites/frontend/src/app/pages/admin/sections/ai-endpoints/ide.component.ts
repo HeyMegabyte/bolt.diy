@@ -95,8 +95,8 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
           <div class="tree-head">
             <span>Files</span>
             <div class="flex gap-1">
-              <button class="icon-btn" (click)="newFile()" [brnTooltip]="'New file'" data-testid="ide-new-file">＋</button>
-              <button class="icon-btn" (click)="newFolder()" [brnTooltip]="'New folder'" data-testid="ide-new-folder">📁</button>
+              <button class="icon-btn" (click)="newFile()" [brnTooltip]="'New file'" aria-label="New file" data-testid="ide-new-file">＋</button>
+              <button class="icon-btn" (click)="newFolder()" [brnTooltip]="'New folder'" aria-label="New folder" data-testid="ide-new-folder">📁</button>
             </div>
           </div>
           @if (newPathMode(); as mode) {
@@ -125,7 +125,7 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
                 [attr.data-testid]="'ide-file-' + path">
                 <span class="tree-icon">{{ iconFor(path) }}</span>
                 <span class="tree-name">{{ path }}</span>
-                <button class="tree-del" (click)="deleteFile(path); $event.stopPropagation()" [brnTooltip]="'Delete'" data-testid="ide-delete-file">×</button>
+                <button class="tree-del" (click)="deleteFile(path); $event.stopPropagation()" [brnTooltip]="'Delete'" aria-label="Delete file" data-testid="ide-delete-file">×</button>
               </li>
             }
           </ul>
@@ -138,7 +138,7 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
             @for (t of tabs(); track t.path) {
               <div class="tab" [class.active]="t.path === activePath()" (click)="openFile(t.path)">
                 <span class="tab-name">{{ basename(t.path) }}{{ t.dirty ? ' •' : '' }}</span>
-                <button class="tab-close" (click)="closeTab(t.path); $event.stopPropagation()">×</button>
+                <button class="tab-close" (click)="closeTab(t.path); $event.stopPropagation()" aria-label="Close tab">×</button>
               </div>
             }
           </div>
@@ -165,7 +165,7 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
           <section class="side-panel" data-testid="ide-side-panel">
             <div class="panel-head">
               <strong>{{ activePanel() | titlecase }}</strong>
-              <button class="icon-btn" (click)="activePanel.set(null)">×</button>
+              <button class="icon-btn" (click)="activePanel.set(null)" aria-label="Close panel">×</button>
             </div>
             <div class="panel-body">
               @switch (activePanel()) {
@@ -204,7 +204,7 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
                       </select>
                       <input class="input-mini" placeholder="NAME" [(ngModel)]="b.name" />
                       <input class="input-mini" placeholder="id / value" [(ngModel)]="b.value" />
-                      <button class="icon-btn" (click)="removeBinding(i)">×</button>
+                      <button class="icon-btn" (click)="removeBinding(i)" aria-label="Remove binding">×</button>
                     </div>
                   }
                   <button class="btn-mini mt-2" (click)="addBinding()" data-testid="ide-add-binding">+ Add binding</button>
