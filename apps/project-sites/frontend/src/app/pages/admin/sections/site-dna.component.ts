@@ -28,6 +28,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 
 // ── Data shapes (mirrors site_dna.ts service types) ──────────────────────
 
@@ -65,7 +66,7 @@ interface DnaPrefsResp {
 @Component({
   selector: 'app-admin-site-dna',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, RollingCounterComponent],
+  imports: [CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="dna-shell" appReveal>
@@ -193,7 +194,7 @@ interface DnaPrefsResp {
               <label class="dna-label" for="dna-cid">Component ID</label>
               <input
                 id="dna-cid"
-                class="dna-input"
+                hlmInput
                 type="text"
                 placeholder="hero-section-v2"
                 [(ngModel)]="newComponentId"
@@ -207,7 +208,7 @@ interface DnaPrefsResp {
               <label class="dna-label" for="dna-action">Action</label>
               <select
                 id="dna-action"
-                class="dna-select"
+                hlmSelect
                 [(ngModel)]="newAction"
                 name="action"
                 required
@@ -222,7 +223,8 @@ interface DnaPrefsResp {
               <label class="dna-label" for="dna-context">Context JSON <span class="dna-opt">(optional)</span></label>
               <input
                 id="dna-context"
-                class="dna-input dna-mono"
+                hlmInput
+                class="font-mono"
                 type="text"
                 placeholder='{"component_class":"hero"}'
                 [(ngModel)]="newContext"
@@ -311,9 +313,7 @@ interface DnaPrefsResp {
       .dna-form-row { display: flex; flex-direction: column; gap: 4px; }
       .dna-label { font-size: 11px; color: rgba(244,244,255,0.5); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
       .dna-opt { text-transform: none; letter-spacing: 0; color: rgba(244,244,255,0.3); font-weight: 400; }
-      .dna-input, .dna-select { background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.15); border-radius: 8px; padding: 7px 10px; font-size: 13px; color: var(--ps-ink, #f4f4ff); outline: none; transition: border-color .15s; width: 100%; box-sizing: border-box; }
-      .dna-input:focus, .dna-select:focus { border-color: var(--ps-accent, #00e5ff); }
-      .dna-select option { background: #0c0c1a; }
+      /* .dna-input/.dna-select removed — now Spartan hlmInput/hlmSelect. (.dna-mono kept; shared with the table cell.) */
       .dna-form-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
       .dna-submit-btn { background: var(--ps-accent, #00e5ff); color: #060610; border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity .15s; }
       .dna-submit-btn:disabled { opacity: 0.45; cursor: default; }
