@@ -187,11 +187,11 @@ interface InlineEdit {
                       (keydown.enter)="saveInlineEdit(e)"
                       [attr.data-testid]="'ai-endpoint-slug-input-' + e.endpoint_slug"
                       autofocus />
-                    <button class="btn-ok" (click)="saveInlineEdit(e)" title="Save (Enter)" [attr.data-testid]="'ai-endpoint-slug-save-' + e.endpoint_slug">✓</button>
-                    <button class="btn-cancel" (click)="cancelInlineEdit()" title="Cancel (Esc)">×</button>
+                    <button class="btn-ok" (click)="saveInlineEdit(e)" title="Save (Enter)" aria-label="Save slug" [attr.data-testid]="'ai-endpoint-slug-save-' + e.endpoint_slug">✓</button>
+                    <button class="btn-cancel" (click)="cancelInlineEdit()" title="Cancel (Esc)" aria-label="Cancel edit">×</button>
                   } @else {
                     <a class="url-slug" [href]="endpointUrl(e)" target="_blank" rel="noopener" [attr.data-testid]="'ai-endpoint-url-' + e.endpoint_slug">{{ e.endpoint_slug }}</a>
-                    <button class="icon-edit" (click)="startInlineEdit(e)" title="Edit slug + method" [attr.data-testid]="'ai-endpoint-edit-url-' + e.endpoint_slug">✎</button>
+                    <button class="icon-edit" (click)="startInlineEdit(e)" title="Edit slug + method" aria-label="Edit slug and method" [attr.data-testid]="'ai-endpoint-edit-url-' + e.endpoint_slug">✎</button>
                   }
                   <span class="grow"></span>
                   <span class="status-pill" [class.live]="e.deploy_status === 'live'" [class.error]="e.deploy_status === 'error'">{{ e.deploy_status }}</span>
@@ -429,7 +429,7 @@ interface InlineEdit {
         <section class="card border border-primary/40">
           <div class="flex items-center justify-between mb-2">
             <h3 class="m-0 text-base font-semibold text-white">Test <code class="font-mono text-primary">{{ t.endpoint_slug }}</code></h3>
-            <button class="text-text-secondary hover:text-white" (click)="quickTesting.set(null)">×</button>
+            <button class="text-text-secondary hover:text-white" (click)="quickTesting.set(null)" aria-label="Close tester">×</button>
           </div>
           <textarea hlmInput [multiline]="true" class="w-full font-mono text-[0.72rem]" rows="5" [(ngModel)]="testBody"></textarea>
           <div class="flex justify-end gap-2 mt-2">

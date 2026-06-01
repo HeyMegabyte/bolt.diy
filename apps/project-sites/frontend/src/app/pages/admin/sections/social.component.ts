@@ -668,9 +668,9 @@ const PLATFORMS: readonly PlatformDef[] = [
       @if (tab() === 'calendar') {
         <div class="cal-pane" appReveal>
           <header class="cal-h">
-            <button type="button" class="btn-ghost sm" (click)="calPrev()">‹</button>
+            <button type="button" class="btn-ghost sm" (click)="calPrev()" aria-label="Previous month">‹</button>
             <h3>{{ calLabel() }}</h3>
-            <button type="button" class="btn-ghost sm" (click)="calNext()">›</button>
+            <button type="button" class="btn-ghost sm" (click)="calNext()" aria-label="Next month">›</button>
             <button type="button" class="btn-ghost sm" (click)="calToday()">Today</button>
           </header>
           <div class="cal-grid" role="grid" aria-label="Scheduled posts calendar">
