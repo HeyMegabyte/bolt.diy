@@ -9,6 +9,7 @@ import { FullscreenOverlayComponent } from '../../../components/fullscreen-overl
 import { BoltEmbedService } from '../../../services/bolt-embed.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { HlmInputDirective } from '../../../ui';
+import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 
 /**
  * Quality metrics for a snapshot — sourced from the sibling backend route
@@ -105,7 +106,7 @@ interface GhStatus {
 @Component({
   selector: 'app-admin-snapshots',
   standalone: true,
-  imports: [FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, HlmInputDirective],
+  imports: [FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, HlmInputDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -135,7 +136,7 @@ interface GhStatus {
           type="button"
           (click)="createOpen.set(true)"
           [disabled]="!state.selectedSite()"
-          title="Open the create-snapshot dialog"
+          [brnTooltip]="'Open the create-snapshot dialog'"
           data-testid="snapshot-create-button">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
           <span>Create Snapshot</span>
@@ -144,7 +145,7 @@ interface GhStatus {
         <!-- GitHub link/sync — mirrors the isomorphic-git snapshot tree to GitHub on every build. -->
         @if (!ghStatus()?.connected) {
           <button class="btn-github-link" [disabled]="linkingGh() || !state.selectedSite()" (click)="linkGithub()"
-                  title="Mirror snapshot history to a GitHub repo; every new snapshot will push automatically.">
+                  [brnTooltip]="'Mirror snapshot history to a GitHub repo; every new snapshot will push automatically.'">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
             <span>{{ linkingGh() ? 'Opening GitHub…' : 'Link GitHub' }}</span>
           </button>
@@ -163,14 +164,14 @@ interface GhStatus {
               }
             </a>
             <button class="btn-github-push" [disabled]="pushingGh()" (click)="pushToGithub(true)"
-                    title="Push the latest build to GitHub now">
+                    [brnTooltip]="'Push the latest build to GitHub now'">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                    [class.animate-spin]="pushingGh()">
                 <path d="M12 5v14M19 12l-7 7-7-7"/>
               </svg>
             </button>
             <button class="btn-github-unlink" [disabled]="unlinkingGh()" (click)="unlinkGithub()"
-                    title="Disconnect GitHub backup">
+                    [brnTooltip]="'Disconnect GitHub backup'">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
@@ -262,7 +263,7 @@ interface GhStatus {
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             <h4>No snapshots yet</h4>
             <p>The first snapshot is created automatically when your site is built. You can also create one manually.</p>
-            <button class="btn-create-snap" (click)="createOpen.set(true)" [disabled]="!state.selectedSite()" title="Open the create-snapshot dialog">
+            <button class="btn-create-snap" (click)="createOpen.set(true)" [disabled]="!state.selectedSite()" [brnTooltip]="'Open the create-snapshot dialog'">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
               <span>Create your first snapshot</span>
             </button>
@@ -340,7 +341,7 @@ interface GhStatus {
                         [attr.aria-label]="'Toggle quality metrics for snapshot ' + snap.snapshot_name"
                         (click)="toggleMetrics(snap.id, $event)"
                         [attr.data-testid]="'snapshot-quality-' + snap.id"
-                        title="Show Lighthouse + Core Web Vitals + a11y + SEO scores">
+                        [brnTooltip]="'Show Lighthouse + Core Web Vitals + a11y + SEO scores'">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
                           <path d="M12 2 4 7v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V7l-8-5z"/>
                         </svg>
@@ -358,7 +359,7 @@ interface GhStatus {
                       <button class="btn-snap-view group"
                               type="button"
                               (click)="viewSnapshot(snap)"
-                              title="Open this snapshot in a new tab"
+                              [brnTooltip]="'Open this snapshot in a new tab'"
                               [attr.aria-label]="'Open snapshot ' + snap.snapshot_name + ' in new tab'"
                               [attr.data-testid]="'snapshot-view-' + snap.id">
                         <span class="btn-snap-view-glow" aria-hidden="true"></span>
@@ -456,7 +457,7 @@ interface GhStatus {
                                 (click)="openScreenshot(snap, m)"
                                 [attr.aria-label]="'Open full-resolution screenshot of ' + snap.snapshot_name"
                                 [attr.data-testid]="'snapshot-screenshot-thumb-' + snap.id"
-                                title="Click to view full 1920×1080 screenshot">
+                                [brnTooltip]="'Click to view full 1920×1080 screenshot'">
                                 <img
                                   [src]="screenshotUrl(snap, m)"
                                   [alt]="'Screenshot of ' + snap.snapshot_name + ' captured ' + (m.captured_at || 'recently')"
