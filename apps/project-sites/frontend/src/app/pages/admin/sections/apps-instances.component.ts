@@ -1,6 +1,7 @@
 import {
   Component,
   ElementRef,
+  HostListener,
   ViewChild,
   computed,
   inject,
@@ -11,6 +12,7 @@ import {
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import type { Observable } from 'rxjs';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { EmptyStateComponent } from '../empty-state.component';
@@ -162,13 +164,28 @@ function resolveApp(id: string): CatalogApp | null {
                   Created {{ inst.created_at | date:'short' }}
                 }
               </span>
-              <button class="row-menu"
-                      type="button"
-                      (click)="openMenu(inst, $event)"
-                      [attr.aria-label]="'Actions for ' + nameFor(inst)"
-                      title="Actions">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
-              </button>
+              <span class="row-menu-wrap" (click)="$event.preventDefault(); $event.stopPropagation()">
+                <button class="row-menu"
+                        type="button"
+                        (click)="toggleMenu(inst, $event)"
+                        [attr.aria-label]="'Actions for ' + nameFor(inst)"
+                        [attr.aria-expanded]="menuOpenId() === inst.id"
+                        title="Actions">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+                </button>
+                @if (menuOpenId() === inst.id) {
+                  <div class="row-menu-pop" role="menu">
+                    <button class="row-menu-item" type="button" role="menuitem" (click)="openDetail(inst)">Open detail</button>
+                    @if (inst.status === 'running' || inst.status === 'error') {
+                      <button class="row-menu-item" type="button" role="menuitem" [disabled]="acting() === inst.id" (click)="restartInstance(inst)">Restart</button>
+                    }
+                    @if (inst.status === 'running') {
+                      <button class="row-menu-item" type="button" role="menuitem" [disabled]="acting() === inst.id" (click)="stopInstance(inst)">Stop</button>
+                    }
+                    <button class="row-menu-item row-menu-danger" type="button" role="menuitem" [disabled]="acting() === inst.id" (click)="deleteInstance(inst)">Delete</button>
+                  </div>
+                }
+              </span>
             </a>
           }
         </div>
@@ -329,6 +346,29 @@ function resolveApp(id: string): CatalogApp | null {
     }
     .btn-primary:hover { background: rgba(0,229,255,0.2); transform: translateY(-1px); border-color: rgba(0,229,255,0.55); }
     .btn-primary:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 2px; }
+
+    .row-menu-wrap { position: relative; display: inline-flex; }
+    .row-menu-pop {
+      position: absolute; top: calc(100% + 4px); right: 0; z-index: 30;
+      min-width: 150px; display: flex; flex-direction: column;
+      padding: 4px; border-radius: 10px;
+      background: var(--ps-surface-2, rgba(12,14,24,0.98));
+      border: 1px solid var(--ps-hairline, rgba(255,255,255,0.1));
+      box-shadow: 0 14px 38px -16px rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+    }
+    .row-menu-item {
+      display: flex; align-items: center; gap: 8px;
+      width: 100%; text-align: left;
+      padding: 7px 10px; border: none; background: transparent;
+      color: var(--ps-ink, #f4f4ff); font-size: 0.76rem; border-radius: 6px;
+      cursor: pointer; transition: background 120ms ease;
+    }
+    .row-menu-item:hover:not(:disabled) { background: rgba(0,229,255,0.1); }
+    .row-menu-item:disabled { opacity: 0.5; cursor: progress; }
+    .row-menu-item:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: -2px; }
+    .row-menu-danger { color: #fca5a5; }
+    .row-menu-danger:hover:not(:disabled) { background: rgba(248,113,113,0.12); }
   `],
 })
 export class AppInstancesComponent implements OnInit, OnDestroy {
@@ -385,17 +425,49 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
     this.router.navigate(['/admin/apps']);
   }
 
-  /**
-   * Open the per-row action menu — currently surfaces a toast-driven menu
-   * since the row already navigates on click. Full popover menu lands when
-   * the backend wires restart/stop/logs/env/delete endpoints.
-   */
-  openMenu(inst: AppInstance, ev: MouseEvent): void {
+  /** Which row's action popover is open (one at a time). */
+  readonly menuOpenId = signal<string | null>(null);
+  /** Per-instance in-flight guard for restart/stop/delete. */
+  readonly acting = signal<string | null>(null);
+
+  toggleMenu(inst: AppInstance, ev: MouseEvent): void {
     ev.preventDefault();
     ev.stopPropagation();
-    this.toast.info(`${this.nameFor(inst)} — open the detail page for restart / stop / logs / env / delete.`, {
-      action: { label: 'Open', run: () => { this.router.navigate(['/admin/apps/instances', inst.id]); } },
-      duration: 5000,
+    this.menuOpenId.update((c) => (c === inst.id ? null : inst.id));
+  }
+
+  /** Close the popover on any outside click (the wrap stops inside clicks). */
+  @HostListener('document:click')
+  closeMenu(): void {
+    this.menuOpenId.set(null);
+  }
+
+  openDetail(inst: AppInstance): void {
+    this.menuOpenId.set(null);
+    this.router.navigate(['/admin/apps/instances', inst.id]);
+  }
+
+  restartInstance(inst: AppInstance): void {
+    this.runAction(inst, this.api.post(`/apps/instances/${inst.id}/restart`, {}), `Restarting ${this.nameFor(inst)}…`);
+  }
+
+  stopInstance(inst: AppInstance): void {
+    this.runAction(inst, this.api.post(`/apps/instances/${inst.id}/stop`, {}), `Stopping ${this.nameFor(inst)}…`);
+  }
+
+  deleteInstance(inst: AppInstance): void {
+    if (!window.confirm(`Delete instance "${this.nameFor(inst)}"? This destroys its container and data — this cannot be undone.`)) return;
+    this.runAction(inst, this.api.delete(`/apps/instances/${inst.id}`), `Deleted ${this.nameFor(inst)}`);
+  }
+
+  /** Shared restart/stop/delete runner — guards, closes the menu, reloads, toasts. */
+  private runAction(inst: AppInstance, obs: Observable<unknown>, okMsg: string): void {
+    if (this.acting()) return;
+    this.acting.set(inst.id);
+    this.menuOpenId.set(null);
+    obs.subscribe({
+      next: () => { this.toast.success(okMsg); this.acting.set(null); this.load(); },
+      error: () => { this.acting.set(null); /* ApiService already toasts the failure */ },
     });
   }
 }
