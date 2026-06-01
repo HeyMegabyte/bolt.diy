@@ -13,7 +13,7 @@ import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { FullscreenOverlayComponent } from '../../../components/fullscreen-overlay/fullscreen-overlay.component';
-import { HlmInputDirective } from '../../../ui';
+import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { mcpProvider } from './mcp-providers';
 
@@ -134,7 +134,7 @@ const POLL_INTERVAL_MS = 10_000;
 @Component({
   selector: 'app-admin-forms',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe, JsonPipe, FullscreenOverlayComponent, HlmInputDirective, ...BrnTooltipImports],
+  imports: [FormsModule, RouterLink, DatePipe, JsonPipe, FullscreenOverlayComponent, HlmInputDirective, HlmTablistDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header>
@@ -432,7 +432,7 @@ const POLL_INTERVAL_MS = 10_000;
         <div class="flex items-center justify-between p-4 flex-wrap gap-2">
           <h3 class="section-h m-0 text-base font-semibold text-white">Submissions</h3>
           <div class="flex items-center gap-2">
-            <div class="filter-chips" role="tablist" aria-label="Saved views">
+            <div class="filter-chips" role="tablist" hlmTablist aria-label="Saved views">
               @for (v of views; track v.id) {
                 <button class="filter-chip" [class.active]="activeView() === v.id" (click)="setView(v.id)" role="tab">{{ v.label }} <span class="filter-count">{{ countView(v.id) }}</span></button>
               }

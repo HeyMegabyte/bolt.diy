@@ -26,7 +26,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
+import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { HttpClient } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of } from 'rxjs';
@@ -65,7 +65,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
 @Component({
   selector: 'app-admin-site-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, HlmInputDirective, HlmSelectDirective],
+  imports: [CommonModule, FormsModule, RouterModule, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="site-detail" data-testid="site-detail">
@@ -74,7 +74,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
         <p class="site-detail__subtitle">{{ site()?.slug }}.projectsites.dev</p>
       </header>
 
-      <nav class="site-detail__tabs" role="tablist">
+      <nav class="site-detail__tabs" role="tablist" hlmTablist aria-label="Site detail sections">
         <button
           type="button"
           role="tab"

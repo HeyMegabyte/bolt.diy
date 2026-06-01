@@ -6,7 +6,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { AuthService } from '../../../../services/auth.service';
 import { ToastService } from '../../../../services/toast.service';
-import { HlmInputDirective } from '../../../../ui';
+import { HlmInputDirective, HlmTablistDirective } from '../../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import {
   DocsSpecService,
@@ -48,7 +48,7 @@ interface LiveResponse {
 @Component({
   selector: 'app-docs-endpoint',
   standalone: true,
-  imports: [FormsModule, RouterLink, HlmInputDirective, ...BrnTooltipImports],
+  imports: [FormsModule, RouterLink, HlmInputDirective, HlmTablistDirective, ...BrnTooltipImports],
   template: `
     <section class="docs-detail card" aria-label="Endpoint detail">
       <div class="prose-docs-wrap">
@@ -202,7 +202,7 @@ interface LiveResponse {
 
           <section class="docs-section" id="docs-toc-examples">
             <div class="muted-h docs-section-h">Examples
-              <div class="docs-segmented docs-examples-seg" role="tablist" aria-label="Example flavour">
+              <div class="docs-segmented docs-examples-seg" role="tablist" hlmTablist aria-label="Example flavour">
                 <button class="docs-seg" [class.is-active]="exampleTab() === 'curl'" (click)="exampleTab.set('curl')" role="tab" [attr.aria-selected]="exampleTab() === 'curl'">cURL</button>
                 <button class="docs-seg" [class.is-active]="exampleTab() === 'fetch'" (click)="exampleTab.set('fetch')" role="tab" [attr.aria-selected]="exampleTab() === 'fetch'">JS fetch</button>
                 <button class="docs-seg" [class.is-active]="exampleTab() === 'workers'" (click)="exampleTab.set('workers')" role="tab" [attr.aria-selected]="exampleTab() === 'workers'">Workers</button>
@@ -260,7 +260,7 @@ interface LiveResponse {
                   {{ r.status || 'ERR' }} {{ r.statusText }}
                 </span>
                 <span class="docs-latency"><b>{{ r.elapsedMs }}</b> ms</span>
-                <div class="docs-segmented" role="tablist" aria-label="Response view">
+                <div class="docs-segmented" role="tablist" hlmTablist aria-label="Response view">
                   <button class="docs-seg" [class.is-active]="responseTab() === 'body'" (click)="responseTab.set('body')" role="tab" [attr.aria-selected]="responseTab() === 'body'">Body</button>
                   <button class="docs-seg" [class.is-active]="responseTab() === 'headers'" (click)="responseTab.set('headers')" role="tab" [attr.aria-selected]="responseTab() === 'headers'">Headers</button>
                   <button class="docs-seg" [class.is-active]="responseTab() === 'curl'" (click)="responseTab.set('curl')" role="tab" [attr.aria-selected]="responseTab() === 'curl'">cURL</button>

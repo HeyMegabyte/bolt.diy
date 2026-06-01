@@ -34,7 +34,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { RevealDirective } from '../../../../directives/reveal.directive';
-import { HlmInputDirective, HlmSelectDirective } from '../../../../ui';
+import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../../ui';
 import { AuthService } from '../../../../services/auth.service';
 import { ToastService } from '../../../../services/toast.service';
 
@@ -83,7 +83,7 @@ interface BookingDraft {
   selector: 'app-calendar-widget',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RevealDirective, HlmInputDirective, HlmSelectDirective],
+  imports: [CommonModule, FormsModule, RevealDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
   template: `
     <section class="cal" appReveal aria-label="Calendar">
       <header class="bar">
@@ -94,7 +94,7 @@ interface BookingDraft {
           <h3 class="ttl">{{ headline() }}</h3>
         </div>
         <div class="grow"></div>
-        <div class="views" role="tablist">
+        <div class="views" role="tablist" hlmTablist aria-label="Calendar view">
           @for (v of viewOptions; track v) {
             <button
               type="button"

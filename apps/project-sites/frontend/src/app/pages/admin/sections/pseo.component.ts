@@ -13,6 +13,7 @@ import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { AdminStateService } from '../admin-state.service';
+import { HlmTablistDirective } from '../../../ui';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
 interface PseoPage {
@@ -53,7 +54,7 @@ type StatusFilter = 'all' | PseoPage['status'];
 @Component({
   selector: 'app-admin-pseo',
   standalone: true,
-  imports: [CommonModule, RouterLink, RollingCounterComponent],
+  imports: [CommonModule, RouterLink, RollingCounterComponent, HlmTablistDirective],
   template: `
     <div class="ps-page" data-testid="pseo-section">
 
@@ -99,7 +100,7 @@ type StatusFilter = 'all' | PseoPage['status'];
       }
 
       <!-- Status filter pills -->
-      <div class="ps-pills" role="tablist">
+      <div class="ps-pills" role="tablist" hlmTablist aria-label="Filter pages">
         @for (s of statusFilters; track s) {
           <button
             class="ps-pill"

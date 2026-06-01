@@ -20,7 +20,7 @@ import { HttpClient } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { Subject, takeUntil, interval } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
-import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
+import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 
 interface VisitorIdentity {
   id: string;
@@ -71,7 +71,7 @@ const STATUS_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-inbox',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective],
+  imports: [CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="inbox-shell" appReveal>
@@ -102,7 +102,7 @@ const STATUS_COLORS: Record<string, string> = {
       } @else {
         <!-- Filter toolbar -->
         <div class="inbox-toolbar" appReveal>
-          <div class="inbox-status-pills" role="tablist">
+          <div class="inbox-status-pills" role="tablist" hlmTablist aria-label="Filter by task status">
             @for (s of statuses; track s) {
               <button
                 class="inbox-pill"
