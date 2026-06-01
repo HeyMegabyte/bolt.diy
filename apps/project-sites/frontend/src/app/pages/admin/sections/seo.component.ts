@@ -1,10 +1,11 @@
 import { Component, inject } from '@angular/core';
 import { AdminStateService } from '../admin-state.service';
+import { HlmInputDirective } from '../../../ui';
 
 @Component({
   selector: 'app-admin-seo',
   standalone: true,
-  imports: [],
+  imports: [HlmInputDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" data-testid="seo-section">
 
@@ -28,15 +29,15 @@ import { AdminStateService } from '../admin-state.service';
         <div class="flex flex-col gap-4 opacity-60 pointer-events-none select-none">
           <div>
             <label class="block text-[0.78rem] font-semibold text-text-secondary mb-2">Page Title</label>
-            <input type="text" class="input-field" [placeholder]="siteTitle + ' | ' + siteName" disabled />
+            <input hlmInput type="text" [placeholder]="siteTitle + ' | ' + siteName" disabled />
           </div>
           <div>
             <label class="block text-[0.78rem] font-semibold text-text-secondary mb-2">Meta Description</label>
-            <textarea class="input-field !h-20 resize-none" placeholder="Describe your business in 1-2 sentences for search results..." disabled></textarea>
+            <textarea hlmInput class="!h-20 resize-none" placeholder="Describe your business in 1-2 sentences for search results..." disabled></textarea>
           </div>
           <div>
             <label class="block text-[0.78rem] font-semibold text-text-secondary mb-2">Keywords</label>
-            <input type="text" class="input-field" placeholder="keyword1, keyword2, keyword3" disabled />
+            <input hlmInput type="text" placeholder="keyword1, keyword2, keyword3" disabled />
           </div>
         </div>
       </div>
