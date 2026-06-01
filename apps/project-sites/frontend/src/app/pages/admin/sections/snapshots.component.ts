@@ -1,6 +1,7 @@
 import { Component, HostListener, computed, inject, signal, type OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -1262,6 +1263,7 @@ export class AdminSnapshotsComponent implements OnInit {
   newSnapshotDescription = '';
   creatingSnapshot = signal(false);
   reverting = signal(false);
+  downloading = signal<string | null>(null);
 
   /** Cache of metrics keyed by snapshot id — written by `loadMetricsBatch`
    *  + `captureMetrics` polling. `null` value = "no metrics row yet". */
@@ -1419,16 +1421,63 @@ export class AdminSnapshotsComponent implements OnInit {
   }
 
   /**
-   * Stub download — the bundle-export endpoint is not yet wired server-side.
-   * When `GET /sites/:id/snapshots/:snapId/download` lands, replace the toast
-   * with an `<a href download>` anchor click. Until then we surface a clear
-   * "coming soon" so the user isn't confused by a silent click.
+   * Download the snapshot as a real `.zip` bundle. Fetches the file manifest
+   * (`GET /api/sites/:id/snapshots/:snapId/download` → `{ data: { files:[{key,url}] }}`,
+   * public R2 URLs), lazy-loads jszip (own chunk — never in the initial bundle),
+   * fetches each file, zips, and triggers a single-click download.
    */
-  downloadSnapshot(snap: Snapshot): void {
-    // TODO(api): wire to `/api/sites/:id/snapshots/:snapId/download` once the
-    // worker route ships the zipped bundle (manifest.json + all files).
-    this.telemetry.track('snapshot.download_attempted', { snapshot_id: snap.id });
-    this.toast.info('Download will be available shortly — full snapshot bundle export is on the roadmap.');
+  async downloadSnapshot(snap: Snapshot): Promise<void> {
+    const site = this.state.selectedSite();
+    if (!site || this.downloading()) return;
+    this.downloading.set(snap.id);
+    this.telemetry.track('snapshot.download_started', { snapshot_id: snap.id });
+    this.toast.info(`Preparing "${snap.snapshot_name}" bundle…`);
+    try {
+      const res = await firstValueFrom(
+        this.api.get<{ data?: { files?: { key: string; url: string }[] } }>(
+          `/sites/${site.id}/snapshots/${snap.id}/download`,
+        ),
+      );
+      const files = res?.data?.files ?? [];
+      if (!files.length) {
+        this.toast.info('This snapshot has no files to download.');
+        return;
+      }
+      const { default: JSZip } = await import('jszip');
+      const zip = new JSZip();
+      const results = await Promise.all(
+        files.map(async (f) => {
+          try {
+            const r = await fetch(f.url);
+            if (!r.ok) return false;
+            zip.file(f.key, await r.blob());
+            return true;
+          } catch {
+            return false;
+          }
+        }),
+      );
+      const ok = results.filter(Boolean).length;
+      if (!ok) {
+        this.toast.error('Could not fetch snapshot files — try again.');
+        return;
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objUrl;
+      a.download = `${(snap.snapshot_name || 'snapshot').replace(/[^a-z0-9-_]+/gi, '-')}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objUrl);
+      this.telemetry.track('snapshot.download_completed', { snapshot_id: snap.id, files: ok });
+      this.toast.success(`Downloaded "${snap.snapshot_name}" — ${ok} file${ok === 1 ? '' : 's'}.`);
+    } catch {
+      this.toast.error('Download failed — try again.');
+    } finally {
+      this.downloading.set(null);
+    }
   }
 
   ngOnInit(): void {
