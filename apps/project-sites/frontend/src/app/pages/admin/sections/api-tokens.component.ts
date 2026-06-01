@@ -47,6 +47,7 @@ import { HlmBadgeDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDi
 import { AdminStateService } from '../admin-state.service';
 import { ToastService } from '../../../services/toast.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
 interface ApiToken {
   id: string;
@@ -75,7 +76,7 @@ const ALL_SCOPES = [
 @Component({
   selector: 'app-admin-api-tokens',
   standalone: true,
-  imports: [RevealDirective, 
+  imports: [RevealDirective, RollingCounterComponent,
     RouterLink,
     CommonModule,
     FormsModule,
@@ -108,11 +109,11 @@ const ALL_SCOPES = [
         <!-- Stat chips -->
         <div class="at-stats-row" appReveal>
           <div class="at-stat-chip">
-            <span class="at-stat-value">{{ tokens().length }}</span>
+            <span class="at-stat-value"><app-rolling-counter [value]="tokens().length" [duration]="1100" /></span>
             <span class="at-stat-label">active tokens</span>
           </div>
           <div class="at-stat-chip">
-            <span class="at-stat-value">{{ scopeCount() }}</span>
+            <span class="at-stat-value"><app-rolling-counter [value]="scopeCount()" [duration]="1100" /></span>
             <span class="at-stat-label">scopes available</span>
           </div>
           <div class="at-stat-chip">
