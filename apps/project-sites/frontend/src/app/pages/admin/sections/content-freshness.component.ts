@@ -27,9 +27,8 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { TableModule } from 'primeng/table';
-import { TagModule } from 'primeng/tag';
 import { BrnToggleGroupImports } from '@spartan-ng/brain/toggle-group';
-import { HlmButtonDirective } from '../../../ui';
+import { HlmButtonDirective, HlmBadgeDirective, type BadgeVariant } from '../../../ui';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { AdminStateService } from '../admin-state.service';
@@ -55,9 +54,6 @@ interface DraftsResponse {
 
 type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
 
-/** PrimeNG `p-tag` severity per draft status (drives the tag's color band). */
-type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
-
 @Component({
   selector: 'app-admin-content-freshness',
   standalone: true,
@@ -66,8 +62,8 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
     FormsModule,
     RollingCounterComponent,
     TableModule,
-    TagModule,
     HlmButtonDirective,
+    HlmBadgeDirective,
     ...BrnToggleGroupImports,
     ToastModule,
   ],
@@ -176,7 +172,7 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary';
             <td class="cf-num-col"><span class="cf-num">{{ d.idle_days }}d</span></td>
             <td class="cf-num-col"><span class="cf-num">{{ d.dwell_seconds_avg | number:'1.0-0' }}s</span></td>
             <td>
-              <p-tag [value]="d.status" [severity]="statusSeverity(d.status)" [rounded]="true" />
+              <span hlmBadge [variant]="statusBadge(d.status)">{{ d.status }}</span>
             </td>
             <td class="cf-cell-date">{{ d.created_at | date:'MMM d' }}</td>
             <td class="cf-actions-col">
