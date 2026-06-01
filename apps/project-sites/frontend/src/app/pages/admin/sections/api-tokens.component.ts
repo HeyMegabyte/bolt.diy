@@ -9,8 +9,9 @@
  * cockpit (see `PRIMENG_MIGRATION.md`). It maps the former hand-rolled
  * patterns onto PrimeNG components, all themed black+cyan via `CockpitPreset`:
  *   - hand-rolled `<table>`        → `p-table` (sort + cockpit density)
- *   - 3× hand-rolled modal/backdrop → `p-dialog` (modal, focus-trap, esc-close,
- *                                     z-index, backdrop all handled for free)
+ *   - 3× hand-rolled modal/backdrop → Spartan `<app-dialog-shell>` (the mandated
+ *                                     one-dialog primitive: blur backdrop + CDK
+ *                                     focus-trap + Esc-close + scroll-lock built in)
  *   - `<input type=text>`          → `pInputText` directive
  *   - `<input type=datetime-local>`→ `p-datepicker` (showTime, cockpit popup)
  *   - scope `<input type=checkbox>`→ `p-checkbox` (binary, cyan accent)
@@ -35,7 +36,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { TableModule } from 'primeng/table';
-import { DialogModule } from 'primeng/dialog';
+import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { InputTextModule } from 'primeng/inputtext';
 import { CheckboxModule } from 'primeng/checkbox';
 import { DatePickerModule } from 'primeng/datepicker';
@@ -75,7 +76,7 @@ const ALL_SCOPES = [
     CommonModule,
     FormsModule,
     TableModule,
-    DialogModule,
+    DialogShellComponent,
     InputTextModule,
     CheckboxModule,
     DatePickerModule,
@@ -205,16 +206,9 @@ const ALL_SCOPES = [
       }
     </div>
 
-    <!-- Create Token Dialog (PrimeNG) -->
-    <p-dialog
-      header="New API Token"
-      [(visible)]="createModalVisible"
-      [modal]="true"
-      [style]="{ width: '32rem' }"
-      [draggable]="false"
-      [dismissableMask]="true"
-      (onHide)="closeCreateModal()"
-      styleClass="at-dialog">
+    <!-- Create Token Dialog (Spartan DialogShell) -->
+    @if (createModalVisible) {
+    <app-dialog-shell title="New API Token" (closed)="closeCreateModal()">
       <div class="at-dialog-body">
         <div class="at-field">
           <label class="at-label" for="token-name">Token name *</label>
@@ -253,27 +247,20 @@ const ALL_SCOPES = [
             styleClass="w-full" />
         </div>
       </div>
-      <ng-template #footer>
+      <div footer>
         <button hlmBtn variant="ghost" size="sm" type="button" (click)="closeCreateModal()">Cancel</button>
         <button hlmBtn variant="primary" size="sm" type="button"
           [disabled]="creating() || !newName.trim()" (click)="createToken()">
           <i class="pi pi-key" aria-hidden="true" [class.at-spin]="creating()"></i>
           {{ creating() ? 'Creating…' : 'Create Token' }}
         </button>
-      </ng-template>
-    </p-dialog>
+      </div>
+    </app-dialog-shell>
+    }
 
     <!-- Reveal Dialog (one-time plaintext) -->
-    <p-dialog
-      [(visible)]="revealVisible"
-      [modal]="true"
-      [closable]="false"
-      [style]="{ width: '34rem' }"
-      [draggable]="false"
-      styleClass="at-dialog">
-      <ng-template #header>
-        <span class="at-dialog-title"><i class="pi pi-check-circle" style="color:#4dffb5"></i> Token created</span>
-      </ng-template>
+    @if (createdToken() !== null) {
+    <app-dialog-shell title="Token created" (closed)="clearCreatedToken()">
       <div class="at-dialog-body">
         <div class="at-warning-box" role="alert">
           <i class="pi pi-exclamation-triangle" style="color:#ffd166"></i>
@@ -286,34 +273,27 @@ const ALL_SCOPES = [
           </button>
         </div>
       </div>
-      <ng-template #footer>
+      <div footer>
         <button hlmBtn variant="primary" size="sm" type="button" (click)="clearCreatedToken()">Done — I've saved this token</button>
-      </ng-template>
-    </p-dialog>
+      </div>
+    </app-dialog-shell>
+    }
 
     <!-- Revoke confirm Dialog -->
-    <p-dialog
-      [(visible)]="revokeVisible"
-      [modal]="true"
-      [style]="{ width: '26rem' }"
-      [draggable]="false"
-      [dismissableMask]="true"
-      (onHide)="revokeTarget.set(null)"
-      styleClass="at-dialog">
-      <ng-template #header>
-        <span class="at-dialog-title">Revoke "{{ revokeTarget()?.name }}"?</span>
-      </ng-template>
+    @if (revokeTarget() !== null) {
+    <app-dialog-shell [title]="'Revoke ' + (revokeTarget()?.name ?? '') + '?'" (closed)="revokeTarget.set(null)">
       <div class="at-dialog-body">
         <p class="at-revoke-warn">Any integrations using this token will stop working immediately.</p>
       </div>
-      <ng-template #footer>
+      <div footer>
         <button hlmBtn variant="ghost" size="sm" type="button" (click)="revokeTarget.set(null)">Cancel</button>
         <button hlmBtn variant="destructive" size="sm" type="button"
           [disabled]="revoking()" (click)="revokeToken()">
           {{ revoking() ? 'Revoking…' : 'Yes, revoke' }}
         </button>
-      </ng-template>
-    </p-dialog>
+      </div>
+    </app-dialog-shell>
+    }
   `,
   styles: [`
     .api-tokens-root { padding: 28px 32px; max-width: 960px; }
@@ -345,7 +325,7 @@ const ALL_SCOPES = [
     .at-link { font-size: 12px; color: var(--ps-accent); text-decoration: none; }
     .at-link:hover { text-decoration: underline; }
 
-    /* Dialog body / fields (chrome handled by p-dialog + CockpitPreset). */
+    /* Dialog body / fields (chrome handled by app-dialog-shell). */
     .at-dialog-body { display: flex; flex-direction: column; gap: 18px; }
     .at-dialog-title { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: var(--ps-ink); }
     .at-field { display: flex; flex-direction: column; gap: 7px; }
@@ -408,7 +388,7 @@ export class AdminApiTokensComponent {
   loading = signal(true);
   flagDisabled = signal(false);
 
-  /** p-dialog visibility flags (two-way bound to `[(visible)]`). */
+  /** Dialog visibility — DialogShell binds these via @if [open]/(closed). */
   createModalVisible = false;
   creating = signal(false);
   newName = '';
