@@ -184,7 +184,7 @@ const ALL_SCOPES = [
               } @empty {
                 <tr>
                   <td colspan="6">
-                    <div class="at-empty">
+                    <div class="at-empty" role="status">
                       <i class="pi pi-key" style="font-size: 1.8rem; color: var(--ps-accent); opacity: .4"></i>
                       <p>No API tokens yet.</p>
                       <button hlmBtn variant="primary" size="sm" type="button" (click)="openCreateModal()">Create your first token</button>

@@ -389,7 +389,7 @@ interface ForecastBar {
 
           <div class="card">
             @if (affiliatePayouts().length === 0) {
-              <div class="empty-state-pretty-compact">
+              <div class="empty-state-pretty-compact" role="status">
                 <h4 class="empty-h">No payouts yet</h4>
                 <p class="empty-p">Your referral payouts will appear here when they're processed.</p>
               </div>
@@ -519,7 +519,7 @@ interface ForecastBar {
             }
           </div>
         } @else if (siteCosts().length === 0) {
-          <div class="empty-state-pretty-compact" data-testid="billing-caps-empty">
+          <div class="empty-state-pretty-compact" role="status" data-testid="billing-caps-empty">
             <div class="empty-glyph-sm" aria-hidden="true">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             </div>
@@ -878,7 +878,7 @@ interface ForecastBar {
             }
           </div>
         } @else if (siteCosts().length === 0) {
-          <div class="empty-state-pretty-compact" data-testid="billing-costs-empty">
+          <div class="empty-state-pretty-compact" role="status" data-testid="billing-costs-empty">
             <div class="empty-glyph-sm" aria-hidden="true">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>
             </div>
