@@ -1,5 +1,6 @@
 <!-- ═══════════════════ STICKY NAV ═══════════════════ -->
 <nav
+  aria-label="Primary"
   class="fixed top-0 left-0 right-0 z-[1001] transition-all duration-300"
   [class]="navScrolled() ? 'fixed top-0 left-0 right-0 z-[1001] transition-all duration-300 nav-scrolled' : 'fixed top-0 left-0 right-0 z-[1001] transition-all duration-300'"
 >
@@ -564,7 +565,7 @@
 </section>
 
 <!-- ═══════════════════ FOOTER ═══════════════════ -->
-<footer class="border-t border-white/5 py-16">
+<footer role="contentinfo" class="border-t border-white/5 py-16">
   <div class="max-w-6xl mx-auto px-4">
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
       <!-- Brand -->
