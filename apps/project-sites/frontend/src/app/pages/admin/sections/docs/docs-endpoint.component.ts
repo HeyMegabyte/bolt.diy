@@ -7,6 +7,7 @@ import { map } from 'rxjs';
 import { AuthService } from '../../../../services/auth.service';
 import { ToastService } from '../../../../services/toast.service';
 import { HlmInputDirective } from '../../../../ui';
+import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import {
   DocsSpecService,
   ENDPOINT_META,
@@ -47,7 +48,7 @@ interface LiveResponse {
 @Component({
   selector: 'app-docs-endpoint',
   standalone: true,
-  imports: [FormsModule, RouterLink, HlmInputDirective],
+  imports: [FormsModule, RouterLink, HlmInputDirective, ...BrnTooltipImports],
   template: `
     <section class="docs-detail card" aria-label="Endpoint detail">
       <div class="prose-docs-wrap">
@@ -62,7 +63,7 @@ interface LiveResponse {
                 type="button"
                 class="docs-path-copy"
                 (click)="copyPath(op.path)"
-                title="Copy path"
+                [brnTooltip]="'Copy path'"
                 aria-label="Copy path to clipboard"
                 [attr.data-testid]="'docs-endpoint-' + op.operationId + '-copy-path'"
               >
@@ -102,7 +103,7 @@ interface LiveResponse {
                 class="docs-quick-link"
                 [routerLink]="['/admin/audit']"
                 [queryParams]="{ path: op.path, method: op.method }"
-                title="Open the audit log filtered to recent calls of this endpoint"
+                [brnTooltip]="'Open the audit log filtered to recent calls of this endpoint'"
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 See recent calls in audit log
@@ -164,7 +165,7 @@ interface LiveResponse {
                 ></textarea>
               </div>
               <div class="docs-body-actions">
-                <button class="btn-ghost docs-mini-btn" (click)="validateBody()" title="Run JSON.parse against the editor body">Validate JSON</button>
+                <button class="btn-ghost docs-mini-btn" (click)="validateBody()" [brnTooltip]="'Run JSON.parse against the editor body'">Validate JSON</button>
                 @if (bodyValidation(); as v) {
                   <span class="docs-validation" [class.is-ok]="v.ok" [class.is-bad]="!v.ok">{{ v.message }}</span>
                 }
@@ -209,7 +210,7 @@ interface LiveResponse {
             </div>
             <pre class="docs-code-block" data-testid="docs-example-block"><code>{{ exampleSnippet() }}</code></pre>
             <div class="docs-body-actions">
-              <button class="btn-ghost docs-mini-btn" (click)="copyExample()" title="Copy current example">Copy example</button>
+              <button class="btn-ghost docs-mini-btn" (click)="copyExample()" [brnTooltip]="'Copy current example'">Copy example</button>
             </div>
           </section>
 
@@ -219,7 +220,7 @@ interface LiveResponse {
               [attr.data-testid]="'docs-endpoint-' + op.operationId + '-send'"
               (click)="send()"
               [disabled]="sending()"
-              title="Send request (⌘+Enter)"
+              [brnTooltip]="'Send request (⌘+Enter)'"
             >
               @if (sending()) {
                 <span class="docs-send-spin" aria-hidden="true"></span>
@@ -236,7 +237,7 @@ interface LiveResponse {
               class="docs-action-btn is-secondary"
               [attr.data-testid]="'docs-endpoint-' + op.operationId + '-copy-curl'"
               (click)="copyCurl()"
-              title="Copy the equivalent cURL command"
+              [brnTooltip]="'Copy the equivalent cURL command'"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
