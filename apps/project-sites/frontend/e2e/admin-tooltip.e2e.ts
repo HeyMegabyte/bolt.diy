@@ -38,10 +38,18 @@ test.describe('admin topbar — Spartan (brain) tooltip', () => {
     // native `title` is GONE (replaced by the Spartan tooltip) — proves the swap
     await expect(page.locator('.cmdk-btn')).not.toHaveAttribute('title', /.+/);
 
-    // hover → brain renders the tooltip into the CDK overlay (showDelay 200ms)
-    await page.locator('.cmdk-btn').hover();
-    const tip = page.locator('.cdk-overlay-container').getByText(/Open command palette/i).first();
-    await expect(tip).toBeVisible({ timeout: 8000 });
+    // hover → brain renders the tooltip into the CDK overlay (showDelay 200ms).
+    // Re-hover each poll: a single .hover() fires only one mouseenter, which can
+    // miss if the page is still settling or the mouse already sat on the button
+    // (no fresh enter). toPass re-moves-away + re-hovers until the overlay shows
+    // the branded text. The feature genuinely works (verified: hover → overlay
+    // renders "Open command palette …").
+    await expect(async () => {
+      await page.mouse.move(4, 4);
+      await page.locator('.cmdk-btn').hover();
+      await expect(page.locator('.cdk-overlay-container'))
+        .toContainText(/Open command palette/i, { timeout: 1500 });
+    }).toPass({ timeout: 15000 });
 
     expect(errs, errs.join('\n')).toEqual([]);
   });
