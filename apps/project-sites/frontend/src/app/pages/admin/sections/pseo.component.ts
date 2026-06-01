@@ -9,10 +9,10 @@
 
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { AdminStateService } from '../admin-state.service';
+import { ToastService } from '../../../services/toast.service';
 import { HlmTablistDirective } from '../../../ui';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { ErrorCardComponent } from '../../../components/states';
@@ -55,7 +55,7 @@ type StatusFilter = 'all' | PseoPage['status'];
 @Component({
   selector: 'app-admin-pseo',
   standalone: true,
-  imports: [CommonModule, RouterLink, RollingCounterComponent, HlmTablistDirective, ErrorCardComponent],
+  imports: [CommonModule, RollingCounterComponent, HlmTablistDirective, ErrorCardComponent],
   template: `
     <div class="ps-page" data-testid="pseo-section">
 
@@ -341,6 +341,7 @@ type StatusFilter = 'all' | PseoPage['status'];
 export class AdminPseoComponent implements OnInit {
   private http = inject(HttpClient);
   private adminState = inject(AdminStateService);
+  private toast = inject(ToastService);
 
   readonly statusFilters: StatusFilter[] = ['all', 'draft', 'approved', 'published', 'rejected'];
   readonly limit = 50;
@@ -399,10 +400,11 @@ export class AdminPseoComponent implements OnInit {
     this.generating.set(true);
     try {
       await firstValueFrom(this.http.post(`/api/pseo/${siteId}/generate`, {}));
+      this.toast.success('Matrix generation queued — pages appear in the grid as they build.');
       // Reload after a brief pause to let the workflow kick off
       setTimeout(() => { this.loadStats(); this.loadPages(); }, 2000);
-    } catch {
-      /* silent */
+    } catch (e) {
+      this.toast.error((e as { error?: { error?: string } })?.error?.error ?? 'Could not start matrix generation. Try again.');
     } finally {
       this.generating.set(false);
     }
@@ -415,8 +417,9 @@ export class AdminPseoComponent implements OnInit {
     try {
       await firstValueFrom(this.http.post(`/api/pseo/${siteId}/pages/${p.id}/approve`, {}));
       this.pages.update((list) => list.map((row) => row.id === p.id ? { ...row, status: 'approved' as const } : row));
-    } catch {
-      /* silent */
+      this.toast.success(`Approved ${p.route_slug}`);
+    } catch (e) {
+      this.toast.error((e as { error?: { error?: string } })?.error?.error ?? `Could not approve ${p.route_slug}. Try again.`);
     } finally {
       this.acting.update((s) => { const n = new Set(s); n.delete(p.id); return n; });
     }
@@ -429,9 +432,10 @@ export class AdminPseoComponent implements OnInit {
     try {
       await firstValueFrom(this.http.post(`/api/pseo/${siteId}/pages/${p.id}/publish`, {}));
       this.pages.update((list) => list.map((row) => row.id === p.id ? { ...row, status: 'published' as const } : row));
+      this.toast.success(`Published ${p.route_slug}`);
       this.loadStats();
-    } catch {
-      /* silent */
+    } catch (e) {
+      this.toast.error((e as { error?: { error?: string } })?.error?.error ?? `Could not publish ${p.route_slug}. Try again.`);
     } finally {
       this.acting.update((s) => { const n = new Set(s); n.delete(p.id); return n; });
     }
@@ -444,8 +448,9 @@ export class AdminPseoComponent implements OnInit {
     try {
       await firstValueFrom(this.http.post(`/api/pseo/${siteId}/pages/${p.id}/reject`, {}));
       this.pages.update((list) => list.map((row) => row.id === p.id ? { ...row, status: 'rejected' as const } : row));
-    } catch {
-      /* silent */
+      this.toast.success(`Rejected ${p.route_slug}`);
+    } catch (e) {
+      this.toast.error((e as { error?: { error?: string } })?.error?.error ?? `Could not reject ${p.route_slug}. Try again.`);
     } finally {
       this.acting.update((s) => { const n = new Set(s); n.delete(p.id); return n; });
     }
