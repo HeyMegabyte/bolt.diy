@@ -4,19 +4,19 @@
  * Shows pending AI rewrite drafts for the owner to approve or reject.
  * Counts awaiting badge uses <app-rolling-counter>.
  *
- * ── PrimeNG reference migration ──────────────────────────────────────────
- * This section is the canonical "table-heavy" PrimeNG migration example for
- * the cockpit (see `PRIMENG_MIGRATION.md`). It maps the former hand-rolled
- * patterns onto PrimeNG components, all themed black+cyan via `CockpitPreset`:
+ * ── Spartan reference migration ──────────────────────────────────────────
+ * This section is the canonical "table-heavy" Spartan-UI migration example for
+ * the cockpit (Spartan is the only admin UI kit; PrimeNG was never adopted). It
+ * maps the former hand-rolled patterns onto Spartan + headless primitives:
  *   - hand-rolled `<table>`  → native `<table>` + TanStack headless (client sort)
  *                              + a custom server-side prev/next pager
  *   - status `<span>` pill   → Spartan `hlmBadge` (variant-driven, cockpit-tinted)
- *   - filter `<button>` pills→ `p-selectButton` (single-select segmented control)
+ *   - filter `<button>` pills→ Spartan brain toggle-group (single-select segmented)
  *   - action `<button>`s     → Spartan `hlmBtn` (ghost size=sm; approve tinted
  *                              cyan-green `#4dffb5`, reject tinted `text-destructive`)
  *   - silent error swallow   → cockpit `ToastService` (approve/reject/scan now
  *                              surface success/error via the shared toast layer).
- * Every PrimeNG surface inherits the cockpit cyan/near-black tokens; the
+ * Every surface inherits the cockpit cyan/near-black tokens; the
  * `:host ::ng-deep` block only fine-tunes density to the cockpit's 13px/compact
  * rhythm — no color overrides needed (the preset handles those).
  */
@@ -259,8 +259,8 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
     }
 
     /* Spartan toggle-group status filter — dark+cyan-native segmented control
-       (replaced PrimeNG p-selectButton; no ::ng-deep needed, these are our
-       own buttons). Light ink on transparent; dark ink on the cyan active. */
+       (our own buttons; no ::ng-deep needed). Light ink on transparent; dark
+       ink on the cyan active. */
     .cf-filter {
       display: inline-flex; gap: 4px; margin-bottom: 1rem; padding: 3px;
       border-radius: 10px; background: rgba(255, 255, 255, 0.03);
@@ -331,7 +331,7 @@ export class AdminContentFreshnessComponent implements OnInit {
   private toast = inject(ToastService);
 
   readonly statuses: StatusFilter[] = ['pending', 'approved', 'published', 'rejected'];
-  /** Options for the `p-selectButton` filter (label/value pairs). */
+  /** Options for the toggle-group status filter (label/value pairs). */
   readonly statusOptions = this.statuses.map((s) => ({
     label: s.charAt(0).toUpperCase() + s.slice(1),
     value: s,

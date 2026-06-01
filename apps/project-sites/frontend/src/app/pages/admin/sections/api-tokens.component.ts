@@ -4,10 +4,11 @@
  *
  * Cyan/black compact design per [[cyan-black-compact-progression]].
  *
- * ── PrimeNG reference migration (form-heavy) ─────────────────────────────
- * This section is the canonical "form-heavy" PrimeNG migration example for the
- * cockpit (see `PRIMENG_MIGRATION.md`). It maps the former hand-rolled
- * patterns onto PrimeNG components, all themed black+cyan via `CockpitPreset`:
+ * ── Spartan reference migration (form-heavy) ─────────────────────────────
+ * This section is the canonical "form-heavy" Spartan-UI migration example for
+ * the cockpit. It maps the former hand-rolled patterns onto Spartan helm
+ * directives + headless primitives (Spartan is the only admin UI kit; PrimeNG
+ * was never adopted):
  *   - hand-rolled `<table>`        → native `<table>` + TanStack headless table
  *                                     (createAngularTable; client-side sort)
  *   - 3× hand-rolled modal/backdrop → Spartan `<app-dialog-shell>` (the mandated
@@ -18,9 +19,7 @@
  *   - scope `<input type=checkbox>`→ Spartan `hlmCheckbox` directive (cyan accent)
  *   - scope / action `<button>`s    → Spartan `hlmBtn` (variant + size; busy via [disabled]+at-spin)
  *   - scope pill `<span>`          → Spartan `hlmBadge` (variant=info, cockpit-tinted)
- * Toasts continue through the cockpit's existing `ToastService` (the cockpit
- * already renders its own toast layer) — the content-freshness section shows
- * the alternate PrimeNG `MessageService` path; both are documented in the guide.
+ * Toasts go through the cockpit's `ToastService` (it renders its own toast layer).
  *
  * Surfaces:
  * - Header stats: active tokens, scopes available
@@ -130,7 +129,7 @@ const ALL_SCOPES = [
         </div>
       }
 
-      <!-- Token list (PrimeNG table) -->
+      <!-- Token list (TanStack headless table) -->
       @if (!flagDisabled()) {
         <div class="at-table-wrap" appReveal>
           <table class="at-grid" data-testid="api-tokens-table">
