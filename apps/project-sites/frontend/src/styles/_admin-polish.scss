@@ -11,7 +11,7 @@
 //   .nav-item / .nav-item-active — sidebar nav items
 //   .top-btn / .cmdk-btn         — top-bar buttons
 //   .notif-pop / .user-pop       — popovers
-//   .input-field                 — admin inputs
+//   [hlmInput] / [hlmSelect]     — admin inputs (Spartan)
 //   .btn-accent / .btn-primary   — primary CTAs
 //   .card                        — admin cards
 //   .loading-spinner             — global spinner
@@ -292,21 +292,8 @@ main > div > h2 + p + button.btn-accent {
   }
 }
 
-// ── 7. Inputs + form fields — glass + accent focus ring ───────────
-.input-field {
-  @supports (backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px)) {
-    backdrop-filter: blur(8px) saturate(120%);
-    -webkit-backdrop-filter: blur(8px) saturate(120%);
-  }
-  border-radius: 6px !important;
-}
-.input-field:focus-within,
-.input-field:focus {
-  border-color: var(--ps-accent, #00E5FF) !important;
-  box-shadow:
-    0 0 0 3px var(--ps-accent-soft),
-    0 0 24px -6px var(--ps-accent-glow) !important;
-}
+// ── 7. Inputs + form fields ───────────────────────────────────────
+// .input-field glass/focus-ring removed — controls are Spartan hlmInput/hlmSelect.
 
 // ── 8. Grain texture layer — subtle premium noise ─────────────────
 // Pointer-events: none + z-index 0 + low opacity. Improves perceived
@@ -355,7 +342,7 @@ html[data-theme="system"] body::after { display: none; }
   .card,
   .seo-card,
   .mcp-card,
-  .input-field,
+  [hlmInput],
   .top-btn, .cmdk-btn,
   .nav-item-active {
     border-width: 2px !important;

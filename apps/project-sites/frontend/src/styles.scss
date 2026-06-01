@@ -587,23 +587,8 @@ body::before {
 }
 ::-webkit-scrollbar-thumb:hover { background: rgba(0,229,255,0.35); background-clip: padding-box; }
 
-// Modern input baseline — auto-applies wherever .input-field exists.
-.input-field {
-  background: rgba(255,255,255,0.025);
-  border: 1px solid var(--glow-line);
-  color: var(--glow-text);
-  font: inherit;
-  padding: 0.55rem 0.8rem;
-  border-radius: var(--glow-r-sm);
-  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
-}
-.input-field:hover:not(:disabled):not(:focus) { border-color: var(--glow-line-hi); background: rgba(255,255,255,0.04); }
-.input-field:focus, .input-field:focus-visible {
-  outline: 0 !important;
-  background: rgba(0,229,255,0.04);
-  border-color: rgba(0,229,255,0.55);
-  box-shadow: 0 0 0 4px rgba(0,229,255,0.12), 0 0 24px -6px rgba(0,229,255,0.45);
-}
+// .input-field global baseline removed — every input/select/textarea is now
+// Spartan hlmInput/hlmSelect (composes its own chrome). 0 consumers repo-wide.
 
 // Card upgrades — all `.card`s in admin sections lift smoothly on hover.
 .card {
