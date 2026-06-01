@@ -23,6 +23,7 @@ import {
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
 ModuleRegistry.registerModules([
   ClientSideRowModelModule,
@@ -171,7 +172,7 @@ function actionToFallbackMessage(action: string): string {
 @Component({
   selector: 'app-admin-audit',
   standalone: true,
-  imports: [AgGridAngular],
+  imports: [RollingCounterComponent, AgGridAngular],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-4">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -203,10 +204,10 @@ function actionToFallbackMessage(action: string): string {
             <div class="card"><div class="muted-h">Loading</div><div class="skeleton skeleton-line"></div></div>
           }
         } @else {
-          <div class="card"><div class="muted-h">Events</div><div class="text-2xl font-bold text-white">{{ displayRows().length }}</div></div>
-          <div class="card"><div class="muted-h">Unique actions</div><div class="text-2xl font-bold text-white">{{ uniqueActions() }}</div></div>
-          <div class="card"><div class="muted-h">Last 24h</div><div class="text-2xl font-bold text-white">{{ last24h() }}</div></div>
-          <div class="card"><div class="muted-h">Actors</div><div class="text-2xl font-bold text-white">{{ uniqueActors() }}</div></div>
+          <div class="card"><div class="muted-h">Events</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="displayRows().length" [duration]="1100" /></div></div>
+          <div class="card"><div class="muted-h">Unique actions</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="uniqueActions()" [duration]="1100" /></div></div>
+          <div class="card"><div class="muted-h">Last 24h</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="last24h()" [duration]="1100" /></div></div>
+          <div class="card"><div class="muted-h">Actors</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="uniqueActors()" [duration]="1100" /></div></div>
         }
       </div>
 

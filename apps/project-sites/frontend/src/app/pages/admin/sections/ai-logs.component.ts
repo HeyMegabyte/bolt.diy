@@ -36,6 +36,7 @@ import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
 ModuleRegistry.registerModules([
   ClientSideRowModelModule,
@@ -232,7 +233,7 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
 @Component({
   selector: 'app-admin-ai-logs',
   standalone: true,
-  imports: [RevealDirective, AgGridAngular, HlmInputDirective, HlmTablistDirective],
+  imports: [RollingCounterComponent, RevealDirective, AgGridAngular, HlmInputDirective, HlmTablistDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-4">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -253,10 +254,10 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
 
       <!-- KPI tiles ──────────────────────────────────────────────────── -->
       <div class="grid grid-cols-4 gap-3 text-[0.78rem]">
-        <div class="card" appReveal><div class="muted-h">Calls</div><div class="text-2xl font-bold text-white">{{ formatNumber(rows().length) }}</div></div>
+        <div class="card" appReveal><div class="muted-h">Calls</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="rows().length" [duration]="1100" /></div></div>
         <div class="card" appReveal><div class="muted-h">Avg latency</div><div class="text-2xl font-bold text-white">{{ formatLatencyMs(avgLatency()) }}</div></div>
-        <div class="card" appReveal><div class="muted-h">Errors</div><div class="text-2xl font-bold" [class.text-red-400]="errors() > 0" [class.text-white]="errors() === 0">{{ formatNumber(errors()) }}</div></div>
-        <div class="card" appReveal><div class="muted-h">Credits used</div><div class="text-2xl font-bold text-white">{{ formatNumber(totalCredits()) }}</div></div>
+        <div class="card" appReveal><div class="muted-h">Errors</div><div class="text-2xl font-bold" [class.text-red-400]="errors() > 0" [class.text-white]="errors() === 0"><app-rolling-counter [value]="errors()" [duration]="1100" /></div></div>
+        <div class="card" appReveal><div class="muted-h">Credits used</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="totalCredits()" [duration]="1100" /></div></div>
       </div>
 
       <!-- Latency percentile chart (p50/p95/p99 stacked-area) ────────── -->
