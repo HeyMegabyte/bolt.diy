@@ -26,6 +26,7 @@ import { RollingCounterComponent } from '../../../components/rolling-counter/rol
 import { HlmTablistDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { EmptyStateComponent } from '../empty-state.component';
+import { ErrorCardComponent } from '../../../components/states';
 
 type SectionIndustry = 'nonprofit' | 'restaurant' | 'lawyer' | 'salon' | 'medical' | 'all';
 type SectionSlot = 'hero' | 'services' | 'testimonials' | 'donor-wall' | 'faq' | 'cta' | 'all';
@@ -59,7 +60,7 @@ const SLOT_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-marketplace',
   standalone: true,
-  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, HlmTablistDirective, EmptyStateComponent],
+  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, HlmTablistDirective, EmptyStateComponent, ErrorCardComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="mkt-shell">
@@ -87,14 +88,14 @@ const SLOT_COLORS: Record<string, string> = {
 
   <!-- ── Industry Filter Tabs ─────────────────────────────────────────── -->
   <div class="mkt-industry-tabs" role="tablist" hlmTablist aria-label="Filter by industry" appReveal>
-    <button class="mkt-tab" role="tab"
+    <button class="mkt-tab" type="button" role="tab"
             [class.mkt-tab--active]="activeIndustry() === 'all'"
             [attr.aria-selected]="activeIndustry() === 'all'"
             (click)="setIndustry('all')">
       All
     </button>
     @for (cat of catalog(); track cat.industry) {
-      <button class="mkt-tab" role="tab"
+      <button class="mkt-tab" type="button" role="tab"
               [class.mkt-tab--active]="activeIndustry() === cat.industry"
               [attr.aria-selected]="activeIndustry() === cat.industry"
               (click)="setIndustry(cat.industry)">
@@ -109,8 +110,11 @@ const SLOT_COLORS: Record<string, string> = {
   <div class="mkt-slot-filter" appReveal>
     @for (slot of ['all', 'hero', 'services', 'testimonials', 'donor-wall', 'faq', 'cta']; track slot) {
       <button class="mkt-slot-chip"
+              type="button"
               [class.mkt-slot-chip--active]="activeSlot() === slot"
               [style.--slot-color]="slotColor(slot)"
+              [attr.aria-pressed]="activeSlot() === slot"
+              [attr.aria-label]="'Filter by ' + slot + ' slot'"
               (click)="setSlot(slot)">
         {{ slot }}
       </button>
@@ -122,6 +126,11 @@ const SLOT_COLORS: Record<string, string> = {
     <div class="mkt-loading" aria-label="Loading sections">
       <div class="mkt-loading__spinner"></div>
     </div>
+  } @else if (loadError()) {
+    <app-error-card
+      title="Couldn't load the marketplace"
+      message="The section catalog failed to load."
+      (retry)="reload()" />
   } @else if (filteredSections().length === 0) {
     <app-empty-state
       icon="▦"
@@ -167,12 +176,14 @@ const SLOT_COLORS: Record<string, string> = {
 
           <div class="mkt-card__actions">
             <button class="mkt-card__fork-btn"
+                    type="button"
                     [class.mkt-card__fork-btn--done]="forkedIds().has(section.id)"
                     (click)="fork(section.id)"
                     [attr.aria-label]="'Fork ' + section.name">
               {{ forkedIds().has(section.id) ? '✓ Forked' : 'Fork' }}
             </button>
             <button class="mkt-card__preview-btn"
+                    type="button"
                     (click)="openPreview(section)"
                     [attr.aria-label]="'Preview ' + section.name">
               Preview
@@ -189,7 +200,7 @@ const SLOT_COLORS: Record<string, string> = {
          [attr.aria-label]="'Preview ' + previewSection()!.name"
          (click)="closePreview()">
       <div class="mkt-preview-modal" (click)="$event.stopPropagation()">
-        <button class="mkt-preview-close" (click)="closePreview()" aria-label="Close preview">×</button>
+        <button class="mkt-preview-close" type="button" (click)="closePreview()" aria-label="Close preview">×</button>
         <h2>{{ previewSection()!.name }}</h2>
         <div class="mkt-preview-meta">
           <span>{{ previewSection()!.industry }}</span>
@@ -269,6 +280,7 @@ export class AdminMarketplaceComponent implements OnInit {
   private cdr = inject(ChangeDetectorRef);
 
   readonly loading = signal(false);
+  readonly loadError = signal(false);
   readonly catalog = signal<IndustryCatalog[]>([]);
   readonly sections = signal<SectionSummary[]>([]);
   readonly activeIndustry = signal<SectionIndustry>('all');
@@ -293,9 +305,16 @@ export class AdminMarketplaceComponent implements OnInit {
     this.loadSections();
   }
 
+  /** Retry both feeds after a load failure. */
+  reload() {
+    this.loadError.set(false);
+    this.loadCatalog();
+    this.loadSections();
+  }
+
   loadCatalog() {
     this.http.get<{ catalog: IndustryCatalog[] }>('/api/section-marketplace')
-      .pipe(catchError(() => of({ catalog: [] as IndustryCatalog[] })))
+      .pipe(catchError(() => { this.loadError.set(true); return of({ catalog: [] as IndustryCatalog[] }); }))
       .subscribe((res: { catalog: IndustryCatalog[] }) => {
         this.catalog.set(res.catalog ?? []);
         this.cdr.markForCheck();
@@ -305,7 +324,7 @@ export class AdminMarketplaceComponent implements OnInit {
   loadSections() {
     this.loading.set(true);
     this.http.get<{ sections: SectionSummary[] }>('/api/section-marketplace/sections?limit=200')
-      .pipe(catchError(() => of({ sections: [] as SectionSummary[] })))
+      .pipe(catchError(() => { this.loadError.set(true); return of({ sections: [] as SectionSummary[] }); }))
       .subscribe((res: { sections: SectionSummary[] }) => {
         this.sections.set(res.sections ?? []);
         this.loading.set(false);

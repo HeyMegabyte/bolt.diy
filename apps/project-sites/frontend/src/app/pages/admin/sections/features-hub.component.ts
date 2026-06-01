@@ -220,6 +220,8 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
                   <span class="hub-pill" [class.hub-pill-on]="s.default_enabled" [class.hub-pill-off]="!s.default_enabled" data-testid="hub-flag-pill">
                     {{ s.default_enabled ? 'ON' : 'OFF' }} · {{ s.stage }}
                   </span>
+                } @else if (flagsError()) {
+                  <span class="hub-pill hub-pill-err" title="Couldn't load flag registry">state ?</span>
                 } @else {
                   <span class="hub-pill">loading…</span>
                 }
@@ -291,6 +293,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
     .hub-pill { font-size: .7rem; padding: .2rem .55rem; border-radius: 999px; background: color-mix(in oklch, currentColor 15%, transparent); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
     .hub-pill-on { background: #4ade80; color: #052e16; }
     .hub-pill-off { background: color-mix(in oklch, currentColor 12%, transparent); color: color-mix(in oklch, currentColor 75%, transparent); }
+    .hub-pill-err { background: color-mix(in oklch, #ff5555 30%, transparent); color: #ffd5d5; }
     .hub-why { color: color-mix(in oklch, currentColor 70%, transparent); margin: 0; font-size: .9rem; line-height: 1.45; }
     .hub-endpoints { display: flex; flex-direction: column; gap: .35rem; }
     .hub-endpoint { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; padding: .35rem 0; border-top: 1px dashed color-mix(in oklch, currentColor 12%, transparent); }
@@ -326,6 +329,7 @@ export class AdminFeaturesHubComponent implements OnInit {
   readonly tab = signal<string>('ide');
   readonly search = signal('');
   readonly flags = signal<Record<string, FlagDef>>({});
+  readonly flagsError = signal(false);
   readonly loading = signal<Record<string, boolean>>({});
   readonly result = signal<Record<string, { status: number; body: unknown }>>({});
 
@@ -361,7 +365,8 @@ export class AdminFeaturesHubComponent implements OnInit {
       for (const f of res.flags ?? []) map[f.key] = f;
       this.flags.set(map);
     } catch {
-      // graceful — cards still render with state "loading…"
+      // graceful — cards still render; pills show "state ?" instead of a frozen "loading…"
+      this.flagsError.set(true);
     }
   }
 

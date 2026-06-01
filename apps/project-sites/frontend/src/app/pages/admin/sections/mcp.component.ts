@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
-import { EmptyStateComponent } from '../empty-state.component';
 import { HlmInputDirective } from '../../../ui';
 
 interface Conn { id: string; provider: string; display_name: string; status: string; connected_at: string; metadata?: Record<string, unknown>; }
@@ -36,7 +35,7 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
 @Component({
   selector: 'app-admin-mcp',
   standalone: true,
-  imports: [FormsModule, SlicePipe, EmptyStateComponent, HlmInputDirective],
+  imports: [FormsModule, SlicePipe, HlmInputDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header>
@@ -392,7 +391,7 @@ export class AdminMcpComponent implements OnInit {
     this.toast.warning(
       `Disconnect ${meta?.label ?? c.provider}? The form router will lose this integration.`,
       {
-        action: { label: 'Disconnect', handler: () => this.performDisconnect(c, s.id) },
+        action: { label: 'Disconnect', run: () => this.performDisconnect(c, s.id) },
         duration: 7000,
       },
     );

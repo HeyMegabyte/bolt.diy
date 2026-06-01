@@ -16,6 +16,7 @@ import { ToastService } from '../../../services/toast.service';
 import { EmptyStateComponent } from '../empty-state.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmInputDirective } from '../../../ui';
+import { SkeletonComponent, ErrorCardComponent } from '../../../components/states';
 import { APPS_CATALOG, findApp, type CatalogApp } from './apps-catalog.data';
 
 type InstanceStatus = 'provisioning' | 'running' | 'error' | 'stopped';
@@ -389,7 +390,7 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
 @Component({
   selector: 'app-admin-apps-instance-detail',
   standalone: true,
-  imports: [DatePipe, FormsModule, RouterLink, RevealDirective, HlmInputDirective],
+  imports: [DatePipe, FormsModule, RouterLink, RevealDirective, HlmInputDirective, SkeletonComponent, ErrorCardComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -506,7 +507,12 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
           </aside>
         </div>
       } @else if (loading()) {
-        <div class="card text-text-secondary text-[0.82rem]" aria-busy="true">Loading instance…</div>
+        <app-skeleton variant="card" [rows]="4" label="Loading instance…" />
+      } @else if (loadFailed()) {
+        <app-error-card
+          title="Couldn't load this instance"
+          message="The instance failed to load — it may be a temporary network issue."
+          (retry)="load()" />
       } @else {
         <div class="card notice notice-red" role="alert">
           <strong>Instance not found.</strong>
@@ -736,6 +742,7 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
 
   logs = signal<readonly LogLine[]>([]);
   loading = signal<boolean>(false);
+  loadFailed = signal<boolean>(false);
   logsLoading = signal<boolean>(false);
   busy = signal<boolean>(false);
 
@@ -760,15 +767,17 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
     const id = this.instanceId();
     if (!id) return;
     this.loading.set(true);
+    this.loadFailed.set(false);
     this.api.get<{ data: AppInstance }>(`/apps/instances/${id}`).subscribe({
       next: (r) => {
         const inst = r.data;
-        this.instance.set(inst);
+        this.instance.set(inst ?? null);
         this.loading.set(false);
+        this.loadFailed.set(false);
         this.maybeStartPolling();
         this.refreshLogs();
         // Pre-fill env editor from server-side keys when present.
-        if (inst.env_keys) {
+        if (inst?.env_keys) {
           for (const k of inst.env_keys) {
             if (!(k in this.envValues)) this.envValues[k] = '';
           }
@@ -777,6 +786,9 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
       error: () => {
         this.loading.set(false);
         this.instance.set(null);
+        // Distinguish a network/server failure from a genuine not-found so
+        // the user sees a retry affordance instead of a dead "not found".
+        this.loadFailed.set(true);
       },
     });
   }

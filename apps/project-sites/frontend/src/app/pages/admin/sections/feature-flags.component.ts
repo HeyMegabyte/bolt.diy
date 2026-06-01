@@ -27,6 +27,7 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
 import { FeatureFlagService } from '../../../services/feature-flag.service';
+import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
 
 interface FlagDefinition {
   key: string;
@@ -35,6 +36,9 @@ interface FlagDefinition {
   default_rollout_percent: number;
   stage: 'experimental' | 'beta' | 'stable' | 'deprecated' | 'killswitch';
   owner_email: string;
+  /** Worker-resolved hard kill switch (feature_flags.kill_switch). When true the
+      flag is off for everyone regardless of enabled/rollout. */
+  kill_switch?: boolean;
 }
 
 interface ResolvedFlag {
@@ -59,7 +63,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
 @Component({
   selector: 'app-admin-feature-flags',
   standalone: true,
-  imports: [CommonModule, FormsModule, HlmInputDirective, HlmTablistDirective],
+  imports: [CommonModule, FormsModule, HlmInputDirective, HlmTablistDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent],
   template: `
     <section class="ff-page">
       <header class="ff-header">
@@ -101,18 +105,29 @@ type StageFilter = 'all' | FlagDefinition['stage'];
       </div>
 
       @if (loading()) {
-        <div class="ff-state ff-state-loading">Loading flags from the worker…</div>
+        <app-skeleton variant="card" [rows]="6" label="Loading flags from the worker…" />
       } @else if (error()) {
-        <div class="ff-state ff-state-error">
-          Couldn't load flags: {{ error() }}
-          <button (click)="reload()">Retry</button>
-        </div>
+        <app-error-card
+          title="Couldn't load feature flags"
+          [message]="error()!"
+          hint="The flag registry lives behind GET /api/feature-flags. Retry, or check you're signed in as a super-admin."
+          (retry)="reload()" />
+      } @else if (flags().length === 0) {
+        <app-empty-state
+          icon="⚑"
+          title="No feature flags registered"
+          message="Every new feature ships behind a flag (enabled=false, rollout=0%, stage='experimental'). Flags appear here once seeded in the worker registry." />
       } @else if (filtered().length === 0) {
-        <div class="ff-state ff-state-empty">No flags match the current filter.</div>
+        <app-empty-state
+          icon="⊘"
+          title="No flags match this filter"
+          [message]="emptyFilterHint()"
+          ctaLabel="Clear filters"
+          (ctaClick)="clearFilters()" />
       } @else {
         <ul class="ff-grid">
           @for (flag of filtered(); track flag.key) {
-            <li class="ff-card" [attr.data-stage]="flag.stage">
+            <li class="ff-card" [attr.data-stage]="flag.stage" [class.ff-card-killed]="flag.kill_switch" [class.ff-card-on]="resolvedOn(flag)">
               <header class="ff-card-head">
                 <h2 class="ff-key">
                   <button type="button" class="ff-key-btn" (click)="copyKey(flag.key)"
@@ -125,19 +140,32 @@ type StageFilter = 'all' | FlagDefinition['stage'];
               </header>
               <p class="ff-desc">{{ flag.description }}</p>
               <div class="ff-state-row">
-                <span class="ff-state-badge" [class.ff-state-on]="flag.default_enabled" [class.ff-state-off]="!flag.default_enabled">
-                  {{ flag.default_enabled ? 'ON' : 'OFF' }}
+                <span class="ff-state-badge" [class.ff-state-on]="resolvedOn(flag)" [class.ff-state-off]="!resolvedOn(flag)"
+                      [attr.aria-label]="flag.key + ' is ' + (resolvedOn(flag) ? 'on' : 'off')">
+                  {{ resolvedOn(flag) ? 'ON' : 'OFF' }}
                 </span>
                 <span class="ff-rollout">rollout: {{ flag.default_rollout_percent }}%</span>
+                @if (flag.kill_switch) {
+                  <span class="ff-kill-badge" title="Hard kill switch is active — off for everyone regardless of rollout">⛔ killswitch</span>
+                }
               </div>
               <div class="ff-owner">Owner: {{ flag.owner_email }}</div>
               <div class="ff-actions">
-                <button class="ff-btn ff-btn-primary" (click)="toggle(flag)" [attr.aria-label]="'Toggle ' + flag.key">
+                <button class="ff-btn ff-btn-primary" (click)="toggle(flag)" [disabled]="busy()[flag.key]"
+                        [attr.aria-label]="(flag.default_enabled ? 'Disable ' : 'Enable ') + flag.key + ' globally'">
                   {{ flag.default_enabled ? 'Disable globally' : 'Enable globally' }}
                 </button>
-                <button class="ff-btn" (click)="openDetail(flag)">Inspect</button>
-                @if (flag.stage !== 'killswitch') {
-                  <button class="ff-btn ff-btn-danger" (click)="killswitch(flag)" title="Instant disable for all users — no redeploy">
+                <button class="ff-btn" (click)="openDetail(flag)"
+                        [attr.aria-expanded]="detailKey() === flag.key" [attr.aria-label]="'Inspect ' + flag.key">Inspect</button>
+                @if (flag.kill_switch || flag.stage === 'killswitch') {
+                  <button class="ff-btn ff-btn-restore" (click)="restore(flag)" [disabled]="busy()[flag.key]"
+                          [attr.aria-label]="'Restore ' + flag.key + ' from killswitch'"
+                          title="Lift the kill switch — flag returns to its prior enabled/rollout state">
+                    Restore
+                  </button>
+                } @else {
+                  <button class="ff-btn ff-btn-danger" (click)="killswitch(flag)" [disabled]="busy()[flag.key]"
+                          [attr.aria-label]="'Killswitch ' + flag.key" title="Instant disable for all users — no redeploy">
                     Killswitch
                   </button>
                 }
@@ -242,6 +270,10 @@ type StageFilter = 'all' | FlagDefinition['stage'];
     .ff-card:hover { border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent); }
     .ff-card[data-stage="killswitch"] { border-color: #ff5555; }
     .ff-card[data-stage="stable"] { border-color: color-mix(in oklch, #4ade80 40%, transparent); }
+    /* Resolved-state accents: enabled flags glow cyan-green, killed flags read red + dimmed. */
+    .ff-card-on { border-color: color-mix(in oklch, #4ade80 38%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklch, #4ade80 18%, transparent); }
+    .ff-card-killed { border-color: #ff5555 !important; background: color-mix(in oklch, #ff5555 7%, color-mix(in oklch, var(--ps-bg, #060610) 55%, transparent)); }
+    .ff-card-killed .ff-key, .ff-card-killed .ff-desc { opacity: .7; }
     .ff-card-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
     .ff-key { font-family: var(--ps-mono, ui-monospace, monospace); font-size: 1rem; margin: 0; word-break: break-all; }
     .ff-key-btn { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; display: inline-flex; align-items: baseline; gap: .4em; word-break: break-all; text-align: left; border-radius: 4px; }
@@ -259,14 +291,19 @@ type StageFilter = 'all' | FlagDefinition['stage'];
     .ff-state-on { background: #4ade80; color: #052e16; }
     .ff-state-off { background: color-mix(in oklch, currentColor 18%, transparent); }
     .ff-rollout { font-family: var(--ps-mono, ui-monospace, monospace); font-size: .85rem; color: color-mix(in oklch, currentColor 65%, transparent); }
+    .ff-kill-badge { font-size: .72rem; font-weight: 600; color: #fff; background: #ff5555; padding: .15rem .5rem; border-radius: 6px; letter-spacing: .02em; }
     .ff-owner { font-size: .75rem; color: color-mix(in oklch, currentColor 50%, transparent); }
     .ff-resolved { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
     .ff-resolved-source { font-size: .72rem; color: color-mix(in oklch, currentColor 60%, transparent); font-style: italic; }
     .ff-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: auto; }
     .ff-btn { background: transparent; color: inherit; border: 1px solid color-mix(in oklch, currentColor 22%, transparent); padding: .4rem .75rem; border-radius: 8px; cursor: pointer; font: inherit; font-size: .85rem; }
     .ff-btn:hover { border-color: color-mix(in oklch, currentColor 50%, transparent); }
+    .ff-btn:disabled { opacity: .5; cursor: progress; }
+    .ff-btn:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
     .ff-btn-primary { background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); border-color: var(--ps-accent, #00e5ff); }
     .ff-btn-danger:hover { border-color: #ff5555; color: #ff5555; }
+    .ff-btn-restore { border-color: color-mix(in oklch, #4ade80 50%, transparent); color: #4ade80; }
+    .ff-btn-restore:hover { border-color: #4ade80; background: color-mix(in oklch, #4ade80 12%, transparent); }
     .ff-detail { background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent); border-radius: 8px; padding: .85rem 1rem; margin-top: .5rem; }
     .ff-detail h3 { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; margin: 1rem 0 .5rem; color: var(--ps-accent, #00e5ff); font-weight: 600; }
     .ff-detail h3:first-child { margin-top: 0; }
@@ -287,9 +324,6 @@ type StageFilter = 'all' | FlagDefinition['stage'];
     .ff-range { width: 100%; max-width: 320px; accent-color: var(--ps-accent, #00e5ff); cursor: pointer; }
     .ff-range:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 4px; border-radius: 4px; }
     .ff-ctl-hint { font-size: .72rem; color: color-mix(in oklch, currentColor 50%, transparent); margin: 0; line-height: 1.4; }
-    .ff-state { padding: 2rem; text-align: center; border: 1px dashed color-mix(in oklch, currentColor 20%, transparent); border-radius: 14px; }
-    .ff-state-error { color: #ff8585; border-color: #ff5555; }
-    .ff-state-error button { margin-left: 1rem; background: #ff5555; border: none; color: #fff; padding: .35rem .75rem; border-radius: 6px; cursor: pointer; font: inherit; }
     .ff-footer { margin-top: 2rem; color: color-mix(in oklch, currentColor 55%, transparent); font-size: .85rem; }
     .ff-footer code { font-family: var(--ps-mono, ui-monospace, monospace); }
     @media (prefers-reduced-motion: reduce) {
@@ -313,8 +347,28 @@ export class AdminFeatureFlagsComponent implements OnInit {
   readonly docsDetail = signal<FlagDocs | null>(null);
   /** Live rollout value while the slider is being dragged (commits on release). */
   readonly rolloutDraft = signal<{ key: string; pct: number } | null>(null);
+  /** Per-flag in-flight mutation guard — disables that card's controls during a POST. */
+  readonly busy = signal<Record<string, boolean>>({});
 
   readonly flagCount = computed(() => this.flags().length);
+
+  /** A flag is "on" for the audience only when not kill-switched AND enabled. */
+  resolvedOn(flag: FlagDefinition): boolean {
+    return !flag.kill_switch && flag.default_enabled;
+  }
+
+  readonly emptyFilterHint = computed(() => {
+    const q = this.search().trim();
+    const s = this.stage();
+    if (q && s !== 'all') return `No "${q}" flags in the ${s} stage.`;
+    if (q) return `No flags match "${q}".`;
+    return `No flags in the ${s} stage.`;
+  });
+
+  clearFilters(): void {
+    this.search.set('');
+    this.stage.set('all');
+  }
 
   readonly filtered = computed(() => {
     const q = this.search().trim().toLowerCase();
@@ -385,37 +439,44 @@ export class AdminFeatureFlagsComponent implements OnInit {
   }
 
   /**
-   * Single mutation path for every flag override (toggle / rollout / stage /
-   * killswitch). Optimistically patches local state, invalidates the client
-   * flag cache so route guards + isOn() consumers re-resolve without a session
-   * reload, and degrades to a non-blocking toast when the worker override route
-   * isn't shipped yet.
+   * Single mutation path for every flag override (toggle / rollout / killswitch
+   * / restore). TRUE optimistic UI: patch local state FIRST so the card updates
+   * instantly, fire the POST, and ROLL BACK to the pre-mutation snapshot if the
+   * worker rejects it. Invalidates the client flag cache on success so route
+   * guards + isOn() consumers re-resolve without a session reload.
+   *
+   * Maps the cockpit's intent to the worker's flag-patch contract
+   * (POST /api/super-admin/feature-flags, super-admin guarded — the ONLY flag
+   * mutation route the worker serves; the prior /override path 404'd). The
+   * worker upserts feature_flags(enabled_globally, rollout_pct, kill_switch);
+   * `stage` has no column (registry/code-managed) so it is never sent.
    */
   private async applyOverride(
     flag: FlagDefinition,
-    value: Record<string, unknown>,
+    patch: { enabled_globally?: boolean; rollout_pct?: number; kill_switch?: boolean },
     label: string,
     optimistic: (f: FlagDefinition) => FlagDefinition,
   ): Promise<void> {
-    // Map the cockpit's intent to the worker's flag-patch contract
-    // (POST /api/super-admin/feature-flags, super-admin guarded — the ONLY flag
-    // mutation route the worker serves; the prior /override path 404'd). The
-    // worker upserts feature_flags(enabled_globally, rollout_pct, kill_switch);
-    // `stage` has no column (registry/code-managed) so a non-killswitch stage
-    // change stays optimistic-only. killswitch → kill_switch=true.
-    const patch: Record<string, unknown> = { key: flag.key };
-    if ('enabled' in value) patch['enabled_globally'] = !!value['enabled'];
-    if ('rollout_percent' in value) patch['rollout_pct'] = value['rollout_percent'];
-    if (value['stage'] === 'killswitch') patch['kill_switch'] = true;
+    if (this.busy()[flag.key]) return;
+    const before = this.flags().find((f) => f.key === flag.key);
+    if (!before) return;
+
+    // 1. Optimistic patch — card reflects the new state immediately.
+    this.flags.update((flags) => flags.map((f) => (f.key === flag.key ? optimistic(f) : f)));
+    this.busy.update((b) => ({ ...b, [flag.key]: true }));
+
     try {
-      await firstValueFrom(this.http.post('/api/super-admin/feature-flags', patch));
-      this.flags.update((flags) => flags.map((f) => (f.key === flag.key ? optimistic(f) : f)));
+      await firstValueFrom(this.http.post('/api/super-admin/feature-flags', { key: flag.key, ...patch }));
       this.flagSvc.invalidate(flag.key);
       this.toast.success(`${flag.key}: ${label}`);
     } catch (e) {
+      // 2. Roll back to the captured snapshot — the optimistic patch never landed.
+      this.flags.update((flags) => flags.map((f) => (f.key === flag.key ? before : f)));
       const status = (e as { status?: number }).status ?? 'error';
-      const hint = status === 403 ? ' — super-admin only' : '';
-      this.toast.warning(`Couldn't update ${flag.key}: POST /api/super-admin/feature-flags → ${status}${hint}.`, 7000);
+      const hint = status === 403 ? ' — super-admin only' : status === 401 ? ' — sign in again' : '';
+      this.toast.error(`Couldn't update ${flag.key} (HTTP ${status}${hint}). Reverted.`, 7000);
+    } finally {
+      this.busy.update((b) => ({ ...b, [flag.key]: false }));
     }
   }
 
@@ -423,7 +484,7 @@ export class AdminFeatureFlagsComponent implements OnInit {
     const next = !flag.default_enabled;
     return this.applyOverride(
       flag,
-      { enabled: next, rollout_percent: next ? 100 : 0 },
+      { enabled_globally: next, rollout_pct: next ? 100 : 0 },
       next ? 'enabled globally' : 'disabled globally',
       (f) => ({ ...f, default_enabled: next, default_rollout_percent: next ? 100 : 0 }),
     );
@@ -434,19 +495,29 @@ export class AdminFeatureFlagsComponent implements OnInit {
     const clamped = Math.max(0, Math.min(100, Math.round(pct)));
     return this.applyOverride(
       flag,
-      { enabled: clamped > 0, rollout_percent: clamped },
+      { enabled_globally: clamped > 0, rollout_pct: clamped },
       `rollout → ${clamped}%`,
       (f) => ({ ...f, default_rollout_percent: clamped, default_enabled: clamped > 0 }),
     );
   }
 
   async killswitch(flag: FlagDefinition): Promise<void> {
-    if (!confirm(`Instant kill ${flag.key} for ALL users?\n\nThis flips the flag off everywhere + moves it to the killswitch stage with no redeploy. Re-enable from this page.`)) return;
+    if (!confirm(`Instant kill ${flag.key} for ALL users?\n\nThis flips the hard kill switch off everywhere with no redeploy. Restore it from this page.`)) return;
     return this.applyOverride(
       flag,
-      { enabled: false, rollout_percent: 0, stage: 'killswitch' },
+      { kill_switch: true, enabled_globally: false, rollout_pct: 0 },
       'KILLSWITCH — disabled for all users',
-      (f) => ({ ...f, default_enabled: false, default_rollout_percent: 0, stage: 'killswitch' }),
+      (f) => ({ ...f, default_enabled: false, default_rollout_percent: 0, kill_switch: true, stage: 'killswitch' }),
+    );
+  }
+
+  /** Lift the hard kill switch — flag returns to experimental/off; re-enable as needed. */
+  async restore(flag: FlagDefinition): Promise<void> {
+    return this.applyOverride(
+      flag,
+      { kill_switch: false },
+      'killswitch lifted',
+      (f) => ({ ...f, kill_switch: false, stage: f.stage === 'killswitch' ? 'experimental' : f.stage }),
     );
   }
 }

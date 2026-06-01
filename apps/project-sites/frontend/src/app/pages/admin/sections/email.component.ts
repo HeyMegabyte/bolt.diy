@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal, type OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HlmInputDirective } from '../../../ui';
+import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { AdminStateService } from '../admin-state.service';
 import {
   ApiService,
@@ -33,7 +34,7 @@ const PROVIDERS: ProviderMeta[] = [
 @Component({
   selector: 'app-admin-email',
   standalone: true,
-  imports: [FormsModule, HlmInputDirective],
+  imports: [FormsModule, HlmInputDirective, DialogShellComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4" data-testid="email-section">
       @if (!state.selectedSite()) {
@@ -169,36 +170,35 @@ const PROVIDERS: ProviderMeta[] = [
         }
 
         @if (connectingProvider(); as provider) {
-          <div class="modal-backdrop" (click)="cancelConnect()">
-            <div class="modal-card" (click)="$event.stopPropagation()">
-              <h3 class="text-base font-semibold text-white m-0 mb-1">Connect {{ provider.name }}</h3>
-              <p class="text-[0.78rem] text-text-secondary mb-4">{{ provider.description }}</p>
-              <form (submit)="$event.preventDefault(); submitConnect(provider)" class="flex flex-col gap-3">
-                @if (provider.needsApiKey) {
-                  <label class="form-field">
-                    <span class="form-label">API key</span>
-                    <input hlmInput class="w-full" type="password" autocomplete="off" required [(ngModel)]="apiKey" name="apiKey" placeholder="paste from provider dashboard" />
-                  </label>
-                }
-                @if (provider.needsListId) {
-                  <label class="form-field">
-                    <span class="form-label">List / audience ID</span>
-                    <input hlmInput class="w-full" type="text" required [(ngModel)]="listId" name="listId" placeholder="e.g. abc123" />
-                  </label>
-                }
-                @if (provider.needsWebhookUrl) {
-                  <label class="form-field">
-                    <span class="form-label">Webhook URL</span>
-                    <input hlmInput class="w-full" type="url" required [(ngModel)]="webhookUrl" name="webhookUrl" placeholder="https://example.com/hook" />
-                  </label>
-                }
-                <div class="flex justify-end gap-2 mt-2">
-                  <button type="button" class="btn-ghost text-sm cursor-pointer" (click)="cancelConnect()">Cancel</button>
-                  <button type="submit" class="btn-accent text-sm cursor-pointer" [disabled]="saving()">{{ saving() ? 'Saving...' : 'Connect' }}</button>
-                </div>
-              </form>
-            </div>
-          </div>
+          <app-dialog-shell (closed)="cancelConnect()">
+            <span dialogIcon class="text-2xl" aria-hidden="true">{{ provider.icon }}</span>
+            <span dialogTitle>Connect {{ provider.name }}</span>
+            <form (submit)="$event.preventDefault(); submitConnect(provider)" class="flex flex-col gap-3 p-5 pt-2">
+              <p class="text-[0.78rem] text-text-secondary m-0 mb-1">{{ provider.description }}</p>
+              @if (provider.needsApiKey) {
+                <label class="form-field">
+                  <span class="form-label">API key</span>
+                  <input hlmInput class="w-full" type="password" autocomplete="off" required [(ngModel)]="apiKey" name="apiKey" placeholder="paste from provider dashboard" />
+                </label>
+              }
+              @if (provider.needsListId) {
+                <label class="form-field">
+                  <span class="form-label">List / audience ID</span>
+                  <input hlmInput class="w-full" type="text" required [(ngModel)]="listId" name="listId" placeholder="e.g. abc123" />
+                </label>
+              }
+              @if (provider.needsWebhookUrl) {
+                <label class="form-field">
+                  <span class="form-label">Webhook URL</span>
+                  <input hlmInput class="w-full" type="url" required [(ngModel)]="webhookUrl" name="webhookUrl" placeholder="https://example.com/hook" />
+                </label>
+              }
+              <div class="flex justify-end gap-2 mt-2">
+                <button type="button" class="btn-ghost text-sm cursor-pointer" (click)="cancelConnect()">Cancel</button>
+                <button type="submit" class="btn-accent text-sm cursor-pointer" [disabled]="saving()">{{ saving() ? 'Saving...' : 'Connect' }}</button>
+              </div>
+            </form>
+          </app-dialog-shell>
         }
       }
     </div>
@@ -266,24 +266,6 @@ const PROVIDERS: ProviderMeta[] = [
       letter-spacing: 0.06em;
       color: rgba(255, 255, 255, 0.45);
       margin-bottom: 4px;
-    }
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.65);
-      backdrop-filter: blur(4px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 50;
-      padding: 16px;
-    }
-    .modal-card {
-      width: min(440px, 100%);
-      background: #0a0a1a;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 16px;
-      padding: 20px;
     }
     .form-field { display: flex; flex-direction: column; gap: 4px; }
     .form-label { font-size: 0.72rem; font-weight: 600; color: rgba(255, 255, 255, 0.65); }

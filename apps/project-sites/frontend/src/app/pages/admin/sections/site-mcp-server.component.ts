@@ -26,6 +26,7 @@ import { HttpClient } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { ErrorCardComponent } from '../../../components/states';
 import { HlmInputDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
 
@@ -53,7 +54,7 @@ interface ToolUsage {
 @Component({
   selector: 'app-site-mcp-server',
   standalone: true,
-  imports: [FormsModule, RouterModule, RollingCounterComponent, RevealDirective, HlmInputDirective],
+  imports: [FormsModule, RouterModule, RollingCounterComponent, ErrorCardComponent, RevealDirective, HlmInputDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="p-5 flex-1 overflow-y-auto space-y-5 animate-fade-in" data-testid="site-mcp-server">
@@ -113,7 +114,12 @@ interface ToolUsage {
           </div>
         }
 
-        @if (tokensLoading() && tokens().length === 0) {
+        @if (tokensError() && tokens().length === 0) {
+          <app-error-card
+            title="Couldn't load tokens"
+            [message]="tokensError()!"
+            (retry)="loadTokens()" />
+        } @else if (tokensLoading() && tokens().length === 0) {
           <div class="space-y-1.5">
             @for (i of [0,1]; track i) { <div class="skel h-9 rounded w-full"></div> }
           </div>
@@ -155,7 +161,12 @@ interface ToolUsage {
       <!-- Tool list -->
       <section class="space-y-3" appReveal>
         <h3 class="text-sm font-semibold m-0">Available Tools</h3>
-        @if (toolsLoading() && tools().length === 0) {
+        @if (toolsError() && tools().length === 0) {
+          <app-error-card
+            title="Couldn't load tools"
+            [message]="toolsError()!"
+            (retry)="loadTools()" />
+        } @else if (toolsLoading() && tools().length === 0) {
           <div class="space-y-1.5">
             @for (i of [0,1,2,3]; track i) { <div class="skel h-9 rounded w-full"></div> }
           </div>
@@ -241,6 +252,8 @@ export class SiteMcpServerComponent implements OnInit {
   readonly usage = signal<ToolUsage[]>([]);
   readonly tokensLoading = signal(true);
   readonly toolsLoading = signal(true);
+  readonly tokensError = signal<string | null>(null);
+  readonly toolsError = signal<string | null>(null);
   readonly minting = signal(false);
   readonly revoking = signal<string | null>(null);
   readonly newTokenRaw = signal<string | null>(null);
@@ -284,24 +297,26 @@ export class SiteMcpServerComponent implements OnInit {
       });
   }
 
-  private loadTokens(): void {
+  loadTokens(): void {
     this.tokensLoading.set(true);
+    this.tokensError.set(null);
     this.http
       .get<{ tokens: McpToken[] }>(`/api/sites/${this.siteId}/mcp/tokens`)
-      .pipe(catchError(() => of({ tokens: [] as McpToken[] })))
+      .pipe(catchError(() => { this.tokensError.set('The MCP token service did not respond.'); return of(null); }))
       .subscribe((res) => {
-        this.tokens.set(res.tokens);
+        if (res) this.tokens.set(res.tokens);
         this.tokensLoading.set(false);
       });
   }
 
-  private loadTools(): void {
+  loadTools(): void {
     this.toolsLoading.set(true);
+    this.toolsError.set(null);
     this.http
       .get<{ tools: ToolDef[] }>(`/api/sites/${this.siteId}/mcp/tools`)
-      .pipe(catchError(() => of({ tools: [] as ToolDef[] })))
+      .pipe(catchError(() => { this.toolsError.set('The MCP tool registry did not respond.'); return of(null); }))
       .subscribe((res) => {
-        this.tools.set(res.tools);
+        if (res) this.tools.set(res.tools);
         this.toolsLoading.set(false);
       });
   }
