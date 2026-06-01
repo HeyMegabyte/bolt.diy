@@ -16,6 +16,7 @@ import { FullscreenOverlayComponent } from '../../../components/fullscreen-overl
 import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { mcpProvider } from './mcp-providers';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 /**
  * Compare two dates for same-day equality (local timezone).
@@ -134,7 +135,7 @@ const POLL_INTERVAL_MS = 10_000;
 @Component({
   selector: 'app-admin-forms',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe, JsonPipe, FullscreenOverlayComponent, HlmInputDirective, HlmTablistDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, FormsModule, RouterLink, DatePipe, JsonPipe, FullscreenOverlayComponent, HlmInputDirective, HlmTablistDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header>
@@ -175,7 +176,7 @@ const POLL_INTERVAL_MS = 10_000;
            in-flight test (rare, since the new designer hosts the panel) still
            renders. New entry point is the Prompt Designer overlay. -->
       @if (testOpen()) {
-        <section class="card border border-primary/30">
+        <section class="card border border-primary/30" appReveal>
           <div class="flex items-center justify-between mb-2">
             <div>
               <h3 class="section-h m-0 text-base font-semibold text-white">Test the Form Handling Prompt</h3>
@@ -428,7 +429,7 @@ const POLL_INTERVAL_MS = 10_000;
       </app-fullscreen-overlay>
 
       <!-- Submissions table -->
-      <section class="card p-0 overflow-hidden">
+      <section class="card p-0 overflow-hidden" appReveal>
         <div class="flex items-center justify-between p-4 flex-wrap gap-2">
           <h3 class="section-h m-0 text-base font-semibold text-white">Submissions</h3>
           <div class="flex items-center gap-2">
@@ -502,7 +503,7 @@ const POLL_INTERVAL_MS = 10_000;
       </section>
 
       @if (selected(); as s) {
-        <section class="card border border-primary/40">
+        <section class="card border border-primary/40" appReveal>
           <div class="flex items-center justify-between mb-3">
             <h3 class="section-h m-0 text-base font-semibold text-white">{{ s.form_name }} · {{ s.created_at | date:'medium' }}</h3>
             <button class="icon-close" type="button" (click)="selected.set(null)" aria-label="Close form submission detail" [brnTooltip]="'Close detail panel'">

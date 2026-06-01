@@ -2,11 +2,12 @@ import { Component, inject } from '@angular/core';
 import { AdminStateService } from '../admin-state.service';
 import { HlmInputDirective } from '../../../ui';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 @Component({
   selector: 'app-admin-seo',
   standalone: true,
-  imports: [HlmInputDirective, RollingCounterComponent],
+  imports: [RevealDirective, HlmInputDirective, RollingCounterComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" data-testid="seo-section">
 
@@ -18,7 +19,7 @@ import { RollingCounterComponent } from '../../../components/rolling-counter/rol
       </div>
 
       <!-- Meta Tags -->
-      <div class="seo-card group">
+      <div class="seo-card group" appReveal>
         <div class="flex items-center justify-between mb-5">
           <h3 class="text-base font-semibold text-white m-0 flex items-center gap-2">
             <svg class="seo-card-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -44,7 +45,7 @@ import { RollingCounterComponent } from '../../../components/rolling-counter/rol
       </div>
 
       <!-- Search Preview -->
-      <div class="seo-card group">
+      <div class="seo-card group" appReveal>
         <h3 class="text-base font-semibold text-white m-0 mb-4">Google Search Preview</h3>
         <div class="search-preview bg-white rounded-xl p-4 max-w-[600px]">
           <div class="text-[0.72rem] text-[#202124] mb-0.5 font-sans">{{ siteDomain }}</div>
@@ -58,7 +59,7 @@ import { RollingCounterComponent } from '../../../components/rolling-counter/rol
       </div>
 
       <!-- JSON-LD Preview -->
-      <div class="seo-card group">
+      <div class="seo-card group" appReveal>
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-base font-semibold text-white m-0 flex items-center gap-2">
             <svg class="seo-card-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
@@ -73,7 +74,7 @@ import { RollingCounterComponent } from '../../../components/rolling-counter/rol
       </div>
 
       <!-- SEO Checklist -->
-      <div class="seo-card">
+      <div class="seo-card" appReveal>
         <h3 class="text-base font-semibold text-white m-0 mb-4 flex items-center gap-2">
           SEO Health Check
           <span class="seo-score" data-numeric><app-rolling-counter [value]="passCount" [duration]="1100" />/{{ seoChecks.length }}</span>
