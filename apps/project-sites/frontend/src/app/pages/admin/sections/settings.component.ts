@@ -7,6 +7,7 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { MCP_PROVIDERS } from './mcp-providers';
 import { EnvVarsManagerComponent } from '../../../components/env-vars-manager/env-vars-manager.component';
+import { HlmInputDirective } from '../../../ui';
 
 interface Member { id: string; email: string; name: string | null; role: string; created_at: string; }
 interface Invite { id: string; email: string; role: string; created_at: string; expires_at: string; }
@@ -34,7 +35,7 @@ const PROVIDERS = MCP_PROVIDERS;
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent],
+  imports: [FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmInputDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -69,15 +70,15 @@ const PROVIDERS = MCP_PROVIDERS;
           </div>
           <label class="block">
             <span class="muted-h">Contact email <small class="text-text-secondary/60">(shown on your site)</small></span>
-            <input type="email" class="input-field w-full mt-1" placeholder="hello@yourbiz.com" [(ngModel)]="settings.contact_email" />
+            <input hlmInput type="email" class="input-field w-full mt-1" placeholder="hello@yourbiz.com" [(ngModel)]="settings.contact_email" />
           </label>
           <label class="block">
             <span class="muted-h">Reply email <small class="text-text-secondary/60">(where the AI router sends contact-form messages)</small></span>
-            <input type="email" class="input-field w-full mt-1" placeholder="owner@yourbiz.com" [(ngModel)]="settings.reply_email" />
+            <input hlmInput type="email" class="input-field w-full mt-1" placeholder="owner@yourbiz.com" [(ngModel)]="settings.reply_email" />
           </label>
           <label class="block">
             <span class="muted-h">Brand tone</span>
-            <input type="text" class="input-field w-full mt-1" placeholder="warm · plainspoken · never pushy" [(ngModel)]="settings.brand_tone" />
+            <input hlmInput type="text" class="input-field w-full mt-1" placeholder="warm · plainspoken · never pushy" [(ngModel)]="settings.brand_tone" />
           </label>
           <label class="block">
             <span class="muted-h">Timezone</span>
@@ -107,14 +108,14 @@ const PROVIDERS = MCP_PROVIDERS;
             <span class="muted-h">Brand primary color</span>
             <div class="flex items-center gap-2 mt-1">
               <input type="color" class="h-9 w-12 rounded border-0 bg-transparent cursor-pointer" [(ngModel)]="settings.brand_primary" />
-              <input type="text" class="input-field flex-1 font-mono" placeholder="#00E5FF" [(ngModel)]="settings.brand_primary" />
+              <input hlmInput type="text" class="input-field flex-1 font-mono" placeholder="#00E5FF" [(ngModel)]="settings.brand_primary" />
             </div>
           </label>
           <label class="block">
             <span class="muted-h">Brand accent color</span>
             <div class="flex items-center gap-2 mt-1">
               <input type="color" class="h-9 w-12 rounded border-0 bg-transparent cursor-pointer" [(ngModel)]="settings.brand_accent" />
-              <input type="text" class="input-field flex-1 font-mono" placeholder="#7C3AED" [(ngModel)]="settings.brand_accent" />
+              <input hlmInput type="text" class="input-field flex-1 font-mono" placeholder="#7C3AED" [(ngModel)]="settings.brand_accent" />
             </div>
           </label>
           <!-- Live brand preview -->
@@ -168,7 +169,7 @@ const PROVIDERS = MCP_PROVIDERS;
           </div>
           @if (inviting()) {
             <div class="card-light p-3 mb-3 grid sm:grid-cols-3 gap-2">
-              <input type="email" class="input-field" placeholder="teammate@email.com" [(ngModel)]="invite.email" />
+              <input hlmInput type="email" class="input-field" placeholder="teammate@email.com" [(ngModel)]="invite.email" />
               <select class="input-field" [(ngModel)]="invite.role">
                 <option value="owner">Owner</option>
                 <option value="editor">Editor</option>
@@ -264,7 +265,7 @@ const PROVIDERS = MCP_PROVIDERS;
                   <span class="muted-h">Persona (one line)</span>
                   <button class="btn-ghost text-[0.66rem]" (click)="improveChatField('persona')" [disabled]="improvingField() === 'persona'" title="Rewrite this persona with the brand AI">{{ improvingField() === 'persona' ? 'Improving…' : '✨ Improve with AI' }}</button>
                 </div>
-                <input type="text" class="input-field w-full mt-1 ai-chat-textarea" placeholder="warm, plainspoken, never pushy" [(ngModel)]="chat.persona" />
+                <input hlmInput type="text" class="input-field w-full mt-1 ai-chat-textarea" placeholder="warm, plainspoken, never pushy" [(ngModel)]="chat.persona" />
                 <p class="text-[0.62rem] text-text-secondary mt-2 leading-relaxed">A one-line voice cue — the AI uses this to set tone on every reply.</p>
               </label>
             </div>
@@ -355,7 +356,7 @@ const PROVIDERS = MCP_PROVIDERS;
                 <div class="grid md:grid-cols-2 gap-4">
                   <label class="block">
                     <span class="muted-h">Business name</span>
-                    <input type="text" maxlength="200" required
+                    <input hlmInput type="text" maxlength="200" required
                            class="input-field w-full mt-1"
                            data-testid="business-name"
                            [(ngModel)]="business.business_name"
@@ -367,7 +368,7 @@ const PROVIDERS = MCP_PROVIDERS;
                   </label>
                   <label class="block">
                     <span class="muted-h">Business phone</span>
-                    <input type="text" maxlength="32"
+                    <input hlmInput type="text" maxlength="32"
                            class="input-field w-full mt-1"
                            data-testid="business-phone"
                            [(ngModel)]="business.business_phone"
@@ -379,7 +380,7 @@ const PROVIDERS = MCP_PROVIDERS;
                   </label>
                   <label class="block md:col-span-2">
                     <span class="muted-h">Business address</span>
-                    <input type="text" maxlength="500"
+                    <input hlmInput type="text" maxlength="500"
                            class="input-field w-full mt-1"
                            data-testid="business-address"
                            [(ngModel)]="business.business_address"
@@ -398,7 +399,7 @@ const PROVIDERS = MCP_PROVIDERS;
                 <div class="grid md:grid-cols-1 gap-4">
                   <label class="block">
                     <span class="muted-h">Original / former website</span>
-                    <input type="url"
+                    <input hlmInput type="url"
                            class="input-field w-full mt-1"
                            placeholder="https://example.com"
                            data-testid="business-website"
@@ -411,7 +412,7 @@ const PROVIDERS = MCP_PROVIDERS;
                   </label>
                   <label class="block">
                     <span class="muted-h">Original website prompt</span>
-                    <textarea rows="6" maxlength="4000"
+                    <textarea hlmInput rows="6" maxlength="4000"
                               class="input-field w-full mt-1 font-mono text-[0.72rem]"
                               placeholder="The brief you originally gave us — what you wanted the site to be, who it serves, the vibe, anything off-limits…"
                               data-testid="business-prompt"
@@ -523,7 +524,7 @@ const PROVIDERS = MCP_PROVIDERS;
                   }
                 } @else if (pasteMode() === p.id) {
                   <div class="mt-1 flex gap-2">
-                    <input type="password" class="input-field flex-1 font-mono text-[0.72rem]"
+                    <input hlmInput type="password" class="input-field flex-1 font-mono text-[0.72rem]"
                            [placeholder]="pastePlaceholder(p.id)" [(ngModel)]="pastedKey" />
                     <button class="mcp-btn mcp-btn-solid" (click)="submitPaste(p.id)">Save</button>
                   </div>
@@ -595,8 +596,12 @@ const PROVIDERS = MCP_PROVIDERS;
     .tab:hover { color: #fff; border-color: rgba(0,229,255,0.25); }
     .tab.active { background: rgba(0,229,255,0.12); color: #00E5FF; border-color: rgba(0,229,255,0.35); }
     .badge { font-size: 0.6rem; text-transform: uppercase; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(0,229,255,0.1); color: #00E5FF; }
-    .input-field { padding: 0.5rem 0.7rem; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; font: inherit; }
-    .input-field:focus { outline: none; border-color: rgba(0,229,255,0.45); }
+    /* Inputs + textarea now carry Spartan hlmInput (composes its own Tailwind
+       chrome). Only native <select> still relies on .input-field for styling,
+       so scope the box look to select to avoid double-bordering the hlmInput
+       fields. hlmInput sets bg/border/radius/focus-ring itself. */
+    select.input-field { padding: 0.5rem 0.7rem; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; font: inherit; }
+    select.input-field:focus { outline: none; border-color: rgba(0,229,255,0.45); }
     .btn-primary { padding: 0.5rem 1rem; border-radius: 8px; background: linear-gradient(135deg, #00ffc8, #00d4ff); color: #060610; font-weight: 700; border: 1px solid color-mix(in oklch, #00d4ff 40%, transparent); cursor: pointer; font-size: 0.78rem; transition: transform 200ms ease, box-shadow 200ms ease; }
     .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px -10px rgba(0,229,255,0.45); }
     .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
