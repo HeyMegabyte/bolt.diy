@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal, type OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { HlmInputDirective } from '../../../ui';
 import { AdminStateService } from '../admin-state.service';
 import {
   ApiService,
@@ -32,7 +33,7 @@ const PROVIDERS: ProviderMeta[] = [
 @Component({
   selector: 'app-admin-email',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, HlmInputDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4" data-testid="email-section">
       @if (!state.selectedSite()) {
@@ -176,19 +177,19 @@ const PROVIDERS: ProviderMeta[] = [
                 @if (provider.needsApiKey) {
                   <label class="form-field">
                     <span class="form-label">API key</span>
-                    <input type="password" autocomplete="off" required [(ngModel)]="apiKey" name="apiKey" placeholder="paste from provider dashboard" />
+                    <input hlmInput class="w-full" type="password" autocomplete="off" required [(ngModel)]="apiKey" name="apiKey" placeholder="paste from provider dashboard" />
                   </label>
                 }
                 @if (provider.needsListId) {
                   <label class="form-field">
                     <span class="form-label">List / audience ID</span>
-                    <input type="text" required [(ngModel)]="listId" name="listId" placeholder="e.g. abc123" />
+                    <input hlmInput class="w-full" type="text" required [(ngModel)]="listId" name="listId" placeholder="e.g. abc123" />
                   </label>
                 }
                 @if (provider.needsWebhookUrl) {
                   <label class="form-field">
                     <span class="form-label">Webhook URL</span>
-                    <input type="url" required [(ngModel)]="webhookUrl" name="webhookUrl" placeholder="https://example.com/hook" />
+                    <input hlmInput class="w-full" type="url" required [(ngModel)]="webhookUrl" name="webhookUrl" placeholder="https://example.com/hook" />
                   </label>
                 }
                 <div class="flex justify-end gap-2 mt-2">
