@@ -29,6 +29,7 @@ import { AdminStateService } from '../../admin-state.service';
 import { ApiService } from '../../../../services/api.service';
 import { ToastService } from '../../../../services/toast.service';
 import { RevealOnScrollDirective } from '../../../../animations/reveal-on-scroll.directive';
+import { HlmInputDirective } from '../../../../ui';
 
 interface AgentSettings {
   voice_system_prompt: string;
@@ -80,7 +81,7 @@ const LLM_OPTIONS = [
   selector: 'app-voice-agent-settings',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RevealOnScrollDirective],
+  imports: [FormsModule, RevealOnScrollDirective, HlmInputDirective],
   template: `
     <section class="space-y-5" psReveal>
       <!-- Voice + SMS system prompts -->
@@ -93,7 +94,7 @@ const LLM_OPTIONS = [
 
         <label class="block mb-4">
           <span class="block-label">Voice agent system prompt</span>
-          <textarea class="input-field w-full mt-1" rows="6"
+          <textarea hlmInput [multiline]="true" class="w-full mt-1 resize-y font-mono text-xs" rows="6"
                     [(ngModel)]="settings.voice_system_prompt"
                     name="voice-prompt"
                     aria-label="Voice agent system prompt"></textarea>
@@ -101,7 +102,7 @@ const LLM_OPTIONS = [
 
         <label class="block">
           <span class="block-label">SMS agent system prompt</span>
-          <textarea class="input-field w-full mt-1" rows="5"
+          <textarea hlmInput [multiline]="true" class="w-full mt-1 resize-y font-mono text-xs" rows="5"
                     [(ngModel)]="settings.sms_system_prompt"
                     name="sms-prompt"
                     aria-label="SMS agent system prompt"></textarea>
@@ -139,7 +140,7 @@ const LLM_OPTIONS = [
         <div class="grid md:grid-cols-3 gap-3">
           <label class="block">
             <span class="block-label">Provider</span>
-            <select class="input-field w-full mt-1" [(ngModel)]="settings.voice_provider" name="voice-provider" (ngModelChange)="onProviderChange()">
+            <select hlmInput class="w-full mt-1" [(ngModel)]="settings.voice_provider" name="voice-provider" (ngModelChange)="onProviderChange()">
               @for (o of voiceOptions; track o.provider) {
                 <option [value]="o.provider">{{ o.provider }}</option>
               }
@@ -147,13 +148,13 @@ const LLM_OPTIONS = [
           </label>
           <label class="block">
             <span class="block-label">Voice</span>
-            <select class="input-field w-full mt-1" [(ngModel)]="settings.voice_id" name="voice-id">
+            <select hlmInput class="w-full mt-1" [(ngModel)]="settings.voice_id" name="voice-id">
               @for (v of voicesForProvider(); track v) { <option [value]="v">{{ v }}</option> }
             </select>
           </label>
           <label class="block">
             <span class="block-label">LLM model</span>
-            <select class="input-field w-full mt-1" [(ngModel)]="settings.llm_model" name="llm-model">
+            <select hlmInput class="w-full mt-1" [(ngModel)]="settings.llm_model" name="llm-model">
               @for (m of llmOptions; track m.id) { <option [value]="m.id">{{ m.label }}</option> }
             </select>
           </label>
@@ -173,22 +174,22 @@ const LLM_OPTIONS = [
         <div class="grid md:grid-cols-2 gap-3">
           <label class="block">
             <span class="block-label">Model</span>
-            <select class="input-field w-full mt-1" [(ngModel)]="settings.sms_model" name="sms-model">
+            <select hlmInput class="w-full mt-1" [(ngModel)]="settings.sms_model" name="sms-model">
               @for (m of llmOptions; track m.id) { <option [value]="m.id">{{ m.label }}</option> }
             </select>
           </label>
           <label class="block">
             <span class="block-label">Max reply chars</span>
-            <input class="input-field w-full mt-1" type="number" min="60" max="1600" step="20"
+            <input hlmInput class="w-full mt-1" type="number" min="60" max="1600" step="20"
                    [(ngModel)]="settings.sms_max_chars" name="sms-max" aria-label="Maximum SMS reply length" />
           </label>
           <label class="block md:col-span-2">
             <span class="block-label">Signature (appended to every outbound)</span>
-            <input class="input-field w-full mt-1" type="text" [(ngModel)]="settings.sms_signature" name="sms-sig" />
+            <input hlmInput class="w-full mt-1" type="text" [(ngModel)]="settings.sms_signature" name="sms-sig" />
           </label>
           <label class="block md:col-span-2">
             <span class="block-label">Opt-out text</span>
-            <input class="input-field w-full mt-1" type="text" [(ngModel)]="settings.sms_opt_out_text" name="sms-opt" />
+            <input hlmInput class="w-full mt-1" type="text" [(ngModel)]="settings.sms_opt_out_text" name="sms-opt" />
           </label>
         </div>
       </article>
@@ -228,15 +229,15 @@ const LLM_OPTIONS = [
           <div class="hours-grid">
             <label>
               <span class="block-label">Start</span>
-              <input class="input-field" type="time" [(ngModel)]="settings.business_hours.start" name="h-start" />
+              <input hlmInput type="time" [(ngModel)]="settings.business_hours.start" name="h-start" />
             </label>
             <label>
               <span class="block-label">End</span>
-              <input class="input-field" type="time" [(ngModel)]="settings.business_hours.end" name="h-end" />
+              <input hlmInput type="time" [(ngModel)]="settings.business_hours.end" name="h-end" />
             </label>
             <label>
               <span class="block-label">Timezone</span>
-              <input class="input-field" type="text" [(ngModel)]="settings.business_hours.tz" name="h-tz" placeholder="America/New_York" />
+              <input hlmInput type="text" [(ngModel)]="settings.business_hours.tz" name="h-tz" placeholder="America/New_York" />
             </label>
           </div>
         }
@@ -281,17 +282,9 @@ const LLM_OPTIONS = [
       white-space: pre-wrap;
     }
 
-    .input-field {
-      padding: 0.55rem 0.75rem;
-      border-radius: var(--ps-radius-sm, 8px);
-      background: rgba(0,0,0,0.32);
-      border: 1px solid rgba(255,255,255,0.1);
-      color: var(--ps-ink, #fff);
-      font: 500 0.84rem 'Inter', system-ui, sans-serif;
-      min-height: 40px;
-    }
-    textarea.input-field { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.78rem; line-height: 1.55; resize: vertical; }
-    .input-field:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
+    /* .input-field removed — all 12 controls (2 textareas, 4 selects, 6 inputs)
+       now use hlmInput / hlmInput [multiline]; textarea mono+resize preserved
+       via resize-y font-mono text-xs Tailwind. */
 
     .toggle-row {
       display: flex; align-items: flex-start; gap: 12px;
