@@ -59,6 +59,9 @@ test.describe('homepage — landmark a11y', () => {
   });
 
   test('no serious/critical axe violations on the homepage', async ({ page }) => {
+    // Snap scroll-reveal animations to their final state so axe scans the
+    // settled UI, not a mid-fade frame (which flags transient low contrast).
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
     await page.waitForSelector('main#main-content', { state: 'attached' });
 
@@ -72,6 +75,25 @@ test.describe('homepage — landmark a11y', () => {
 
     // eslint-disable-next-line no-console
     console.warn(`\n=== homepage axe BLOCKING (serious/critical): ${blocking.length} ===\n${blocking.join('\n') || '  ✓ none'}`);
+    expect(blocking, blocking.join('\n')).toEqual([]);
+  });
+
+  test('no serious/critical axe violations on the homepage at mobile (375px)', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/');
+    await page.waitForSelector('main#main-content', { state: 'attached' });
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+      .analyze();
+
+    const blocking = results.violations
+      .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+      .map((v) => `${v.impact} · ${v.id} · ${v.nodes.length}× · ${v.help} → ${v.nodes[0]?.target?.join(' ')}`);
+
+    // eslint-disable-next-line no-console
+    console.warn(`\n=== homepage MOBILE axe BLOCKING (serious/critical): ${blocking.length} ===\n${blocking.join('\n') || '  ✓ none'}`);
     expect(blocking, blocking.join('\n')).toEqual([]);
   });
 });
