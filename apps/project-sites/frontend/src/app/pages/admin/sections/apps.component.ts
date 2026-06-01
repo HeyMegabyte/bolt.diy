@@ -15,6 +15,7 @@ import { EmptyStateComponent } from '../empty-state.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { HlmInputDirective } from '../../../ui';
+import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import {
   APP_CATEGORIES,
   APPS_CATALOG,
@@ -51,7 +52,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
 @Component({
   selector: 'app-admin-apps',
   standalone: true,
-  imports: [FormsModule, RouterLink, EmptyStateComponent, RevealDirective, RollingCounterComponent, HlmInputDirective],
+  imports: [FormsModule, RouterLink, EmptyStateComponent, RevealDirective, RollingCounterComponent, HlmInputDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -72,7 +73,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
           </p>
         </div>
         <div class="flex items-center gap-2">
-          <a class="btn-ghost" routerLink="/admin/apps/instances" title="View deployed app instances">
+          <a class="btn-ghost" routerLink="/admin/apps/instances" [brnTooltip]="'View deployed app instances'">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
             <span>My instances</span>
           </a>

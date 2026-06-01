@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
 import { HlmInputDirective } from '../../../ui';
+import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 
 /**
  * One operation in the OpenAPI document. Flattened from `paths[path][method]`
@@ -591,7 +592,7 @@ export class DocsSpecService {
 @Component({
   selector: 'app-admin-docs',
   standalone: true,
-  imports: [FormsModule, RouterOutlet, RouterLink, RouterLinkActive, HlmInputDirective],
+  imports: [FormsModule, RouterOutlet, RouterLink, RouterLinkActive, HlmInputDirective, ...BrnTooltipImports],
   providers: [DocsSpecService],
   host: { '(window:keydown)': 'onWindowKeydown($event)' },
   template: `
@@ -624,10 +625,10 @@ export class DocsSpecService {
             routerLink="/admin/docs"
             routerLinkActive="is-active"
             [routerLinkActiveOptions]="{ exact: true }"
-            title="API overview"
+            [brnTooltip]="'API overview'"
             data-testid="docs-overview-link"
           >Overview</a>
-          <button class="btn-ghost docs-refresh" (click)="specService.load()" [disabled]="specService.loading()" title="Re-fetch spec">
+          <button class="btn-ghost docs-refresh" (click)="specService.load()" [disabled]="specService.loading()" [brnTooltip]="'Re-fetch spec'">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="23 4 23 10 17 10"/>
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
