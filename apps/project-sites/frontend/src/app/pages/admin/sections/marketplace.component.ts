@@ -24,6 +24,7 @@ import { RouterLink } from '@angular/router';
 import { catchError, of } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { HlmTablistDirective } from '../../../ui';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 type SectionIndustry = 'nonprofit' | 'restaurant' | 'lawyer' | 'salon' | 'medical' | 'all';
 type SectionSlot = 'hero' | 'services' | 'testimonials' | 'donor-wall' | 'faq' | 'cta' | 'all';
@@ -57,7 +58,7 @@ const SLOT_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-marketplace',
   standalone: true,
-  imports: [CommonModule, RouterLink, RollingCounterComponent, HlmTablistDirective],
+  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, HlmTablistDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="mkt-shell">

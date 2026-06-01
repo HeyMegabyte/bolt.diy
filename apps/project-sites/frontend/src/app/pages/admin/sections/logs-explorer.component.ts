@@ -29,6 +29,7 @@ import { HlmInputDirective } from '../../../ui';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 type LogRange = '1h' | '6h' | '24h' | '7d' | '30d';
 
@@ -80,7 +81,7 @@ const LEVEL_COLORS: Record<string, string> = {
   selector: 'app-logs-explorer',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink, RollingCounterComponent, HlmInputDirective],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, RollingCounterComponent, HlmInputDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-5">
 

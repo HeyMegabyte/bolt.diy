@@ -18,6 +18,7 @@ import {
   Component, Input, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef, inject, signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 export interface ComponentStreamEvent {
   type: 'skeleton_live' | 'component_ready' | 'all_components_ready' | 'connected';
@@ -34,7 +35,7 @@ const SKELETON_SLOTS = ['nav', 'hero', 'features', 'social-proof', 'pricing', 't
 @Component({
   selector: 'app-progressive-preview',
   standalone: true,
-  imports: [CommonModule],
+  imports: [RevealDirective, CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="pp-shell" [class.pp-shell--active]="sseConnected()" appReveal>

@@ -21,6 +21,7 @@ import { HttpClient } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 interface CopilotSession {
   id: string;
@@ -45,7 +46,7 @@ const INTENT_ICONS: Record<string, string> = {
 @Component({
   selector: 'app-admin-site-copilot',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, RollingCounterComponent],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="copilot-shell" appReveal>

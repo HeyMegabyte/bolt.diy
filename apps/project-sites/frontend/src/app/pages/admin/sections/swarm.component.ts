@@ -25,6 +25,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 type AgentStatus = 'queued' | 'running' | 'done' | 'error';
 
@@ -72,7 +73,7 @@ const SPECIALIST_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-swarm',
   standalone: true,
-  imports: [CommonModule, RouterLink, RollingCounterComponent],
+  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="swarm-shell" appReveal>

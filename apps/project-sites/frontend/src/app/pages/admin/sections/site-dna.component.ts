@@ -29,6 +29,7 @@ import { HttpClient } from '@angular/common/http';
 import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 // ── Data shapes (mirrors site_dna.ts service types) ──────────────────────
 
@@ -66,7 +67,7 @@ interface DnaPrefsResp {
 @Component({
   selector: 'app-admin-site-dna',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="dna-shell" appReveal>

@@ -21,6 +21,7 @@ import { RouterModule } from '@angular/router';
 import { Subject, takeUntil, interval } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 interface VisitorIdentity {
   id: string;
@@ -71,7 +72,7 @@ const STATUS_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-inbox',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="inbox-shell" appReveal>

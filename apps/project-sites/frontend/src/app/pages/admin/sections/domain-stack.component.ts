@@ -25,6 +25,7 @@ import { RollingCounterComponent } from '../../../components/rolling-counter/rol
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 interface StackTile {
   readonly step: string;
@@ -53,7 +54,7 @@ interface StackAdvanceResponse {
 @Component({
   selector: 'app-domain-stack',
   standalone: true,
-  imports: [CommonModule, RouterLink, RollingCounterComponent],
+  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <!-- Header -->

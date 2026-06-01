@@ -46,6 +46,7 @@ import { DialogShellComponent } from '../../../components/dialog-shell/dialog-sh
 import { HlmBadgeDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective } from '../../../ui';
 import { AdminStateService } from '../admin-state.service';
 import { ToastService } from '../../../services/toast.service';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 interface ApiToken {
   id: string;
@@ -74,7 +75,7 @@ const ALL_SCOPES = [
 @Component({
   selector: 'app-admin-api-tokens',
   standalone: true,
-  imports: [
+  imports: [RevealDirective, 
     RouterLink,
     CommonModule,
     FormsModule,
