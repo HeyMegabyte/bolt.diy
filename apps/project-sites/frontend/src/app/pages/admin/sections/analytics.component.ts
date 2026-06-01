@@ -14,6 +14,7 @@ import {
 } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 type RangeId = AnalyticsRange;
 
@@ -51,7 +52,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
 @Component({
   selector: 'app-admin-analytics',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, RollingCounterComponent, HlmTablistDirective],
+  imports: [RevealDirective, DatePipe, DecimalPipe, RollingCounterComponent, HlmTablistDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -190,7 +191,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
 
       <!-- ─────────────────── KPI TILES ─────────────────── -->
       <div class="grid gap-3 grid-cols-3 max-md:grid-cols-1">
-        <div class="card kpi" data-testid="kpi-pageviews">
+        <div class="card kpi" appReveal data-testid="kpi-pageviews">
           @if (loading() && !envelope()) {
             <div class="skel skel-line w-20 h-3 mb-2"></div>
             <div class="skel skel-line w-28 h-7 mb-2"></div>
@@ -222,7 +223,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
           }
         </div>
 
-        <div class="card kpi" data-testid="kpi-visitors">
+        <div class="card kpi" appReveal data-testid="kpi-visitors">
           @if (loading() && !envelope()) {
             <div class="skel skel-line w-24 h-3 mb-2"></div>
             <div class="skel skel-line w-24 h-7 mb-2"></div>
@@ -248,7 +249,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
           }
         </div>
 
-        <div class="card kpi" data-testid="kpi-requests">
+        <div class="card kpi" appReveal data-testid="kpi-requests">
           @if (loading() && !envelope()) {
             <div class="skel skel-line w-24 h-3 mb-2"></div>
             <div class="skel skel-line w-24 h-7 mb-2"></div>
@@ -264,7 +265,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
       </div>
 
       <!-- ─────────────────── MAIN CHART ─────────────────── -->
-      <section class="card">
+      <section class="card" appReveal>
         <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
           <h3 class="section-h m-0 text-base font-semibold text-white">Page views over time</h3>
           <span class="text-[0.7rem] text-text-secondary">
@@ -312,7 +313,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
 
       <!-- ─────────────────── TOP PAGES + COUNTRIES ─────────────────── -->
       <div class="grid md:grid-cols-2 gap-4">
-        <section class="card">
+        <section class="card" appReveal>
           <div class="kicker">URLs</div>
           <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-3">Top pages</h3>
           @if (loading() && !envelope()) {
@@ -336,7 +337,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
           }
         </section>
 
-        <section class="card">
+        <section class="card" appReveal>
           <div class="kicker">Geo</div>
           <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-3">Top countries</h3>
           @if (loading() && !envelope()) {
@@ -362,7 +363,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
 
       <!-- ─────────────────── REFERRERS ─────────────────── -->
       @if ((envelope()?.top_referrers?.length ?? 0) > 0) {
-        <section class="card">
+        <section class="card" appReveal>
           <div class="kicker">Acquisition</div>
           <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-3">Top referrers</h3>
           @for (r of envelope()!.top_referrers; track r.referrer) {
