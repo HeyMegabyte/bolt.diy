@@ -1299,14 +1299,17 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
       error: (err: unknown) => {
         const code = (err as { status?: number } | null)?.status;
         const l = new Set(this.explainLoading()); l.delete(id); this.explainLoading.set(l);
-        if (code === 404 || code === 501) {
-          this.toast.info('Explanation endpoint not wired yet — coming soon');
-          const next = new Map(this.explainCache());
-          next.set(id, 'AI explanation backend is not deployed yet. This panel will populate automatically once /api/admin/traces/:id/explain ships.');
-          this.explainCache.set(next);
+        // The explain backend (/api/admin/traces/:id/explain) is live; a 404
+        // means the trace row is gone (pruned), not "feature not shipped".
+        const next = new Map(this.explainCache());
+        if (code === 404) {
+          this.toast.error('Trace not found — it may have been pruned.');
+          next.set(id, 'This trace is no longer available.');
         } else {
-          this.toast.error('Could not load explanation');
+          this.toast.error('Could not load explanation. Try again.');
+          next.set(id, 'Explanation failed to load — retry.');
         }
+        this.explainCache.set(next);
       },
     });
   }

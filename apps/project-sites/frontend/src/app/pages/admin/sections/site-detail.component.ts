@@ -600,8 +600,11 @@ export class AdminSiteDetailComponent {
   }
 }
 
+// Fallback catalog shown when the integrations API errors or returns empty.
+// Every provider defaults to 'disconnected' — never fabricate a live connection
+// (a hardcoded 'connected' Mailchimp misrepresented real connection state).
 const DEFAULT_PROVIDERS: IntegrationProvider[] = [
-  { key: 'mailchimp', name: 'Mailchimp', status: 'connected', oauth_supported: true },
+  { key: 'mailchimp', name: 'Mailchimp', status: 'disconnected', oauth_supported: true },
   { key: 'stripe', name: 'Stripe', status: 'disconnected', oauth_supported: true },
   { key: 'hubspot', name: 'HubSpot', status: 'disconnected', oauth_supported: true },
   { key: 'resend', name: 'Resend', status: 'disconnected', oauth_supported: false },

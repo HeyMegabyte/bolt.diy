@@ -218,23 +218,6 @@ interface InlineEdit {
                 <!-- SPARKLINE + ACTIONS -->
                 <div class="meta-row">
                   <span class="lang-pill" [attr.data-testid]="'ai-endpoint-lang-' + e.endpoint_slug">{{ languageLabel(e.language) }}</span>
-                  <span class="sparkline-wrap">
-                    <span
-                      class="sparkline"
-                      role="img"
-                      [attr.aria-label]="'response time sparkline for ' + e.endpoint_slug"
-                      tabindex="0"
-                    >
-                      @for (s of sparkline(e.id); track $index) {
-                        <span class="bar" [style.height.px]="s"></span>
-                      }
-                    </span>
-                    <span class="latency-tip" role="tooltip" aria-hidden="true">
-                      <span class="tip-row"><b>p50</b> {{ p50(e.id) }}ms</span>
-                      <span class="tip-row"><b>p95</b> {{ p95(e.id) }}ms</span>
-                      <span class="tip-row"><b>p99</b> {{ p99(e.id) }}ms</span>
-                    </span>
-                  </span>
                   <div class="actions">
                     <button
                       class="btn-action btn-action-primary"
@@ -1472,24 +1455,10 @@ export class AdminAiEndpointsComponent implements OnInit {
     });
   }
 
-  /* ─────────────── sparkline + percentile placeholders ─────────────── */
-
-  private cache = new Map<string, number[]>();
-  sparkline(id: string): number[] {
-    if (!this.cache.has(id)) {
-      const arr = Array.from({ length: 20 }, () => 3 + Math.floor(Math.random() * 14));
-      this.cache.set(id, arr);
-    }
-    return this.cache.get(id)!;
-  }
-  p50(id: string): number { return Math.floor(50 + this.hash(id) % 80); }
-  p95(id: string): number { return Math.floor(150 + this.hash(id) % 200); }
-  p99(id: string): number { return Math.floor(300 + this.hash(id) % 400); }
-  private hash(id: string): number {
-    let h = 0;
-    for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
-    return Math.abs(h);
-  }
+  // (Removed the per-row sparkline + p50/p95/p99 "latency" display — those were
+  // Math.random()/hash-fabricated values shown as real metrics. The list has no
+  // real per-endpoint latency loaded; honest = show nothing rather than fake it.
+  // Real per-endpoint logs/latency live in the detail view via loadLogs().)
 
   openPalette(): void { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true })); }
 }
