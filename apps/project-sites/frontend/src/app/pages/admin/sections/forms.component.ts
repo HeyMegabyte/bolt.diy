@@ -188,7 +188,7 @@ const POLL_INTERVAL_MS = 10_000;
             <input hlmInput placeholder="form_name (e.g. newsletter, contact)" [(ngModel)]="testInput.form_name" />
             <input hlmInput type="email" placeholder="email" [(ngModel)]="testInput.email" />
           </div>
-          <textarea hlmInput class="w-full mt-2 font-mono text-[0.72rem]" rows="3" placeholder='Other fields as JSON, e.g. { "message": "hi", "name": "Brian" }'
+          <textarea hlmInput [multiline]="true" class="w-full mt-2 font-mono text-[0.72rem]" rows="3" placeholder='Other fields as JSON, e.g. { "message": "hi", "name": "Brian" }'
                     [(ngModel)]="testInput.fields_json"></textarea>
           <div class="flex justify-between items-center mt-2">
             <div class="flex items-center gap-1.5 flex-wrap">
@@ -362,7 +362,7 @@ const POLL_INTERVAL_MS = 10_000;
             </label>
             <label class="block mb-2">
               <span class="muted-h">fields (JSON)</span>
-              <textarea hlmInput class="w-full mt-1 font-mono text-[0.7rem]"
+              <textarea hlmInput [multiline]="true" class="w-full mt-1 font-mono text-[0.7rem]"
                         rows="6"
                         placeholder='{ "message": "hi", "name": "Brian" }'
                         [(ngModel)]="testInput.fields_json"
@@ -394,6 +394,7 @@ const POLL_INTERVAL_MS = 10_000;
                 </span>
                 <textarea
                   hlmInput
+                  [multiline]="true"
                   readonly
                   class="w-full mt-1 font-mono text-[0.68rem]"
                   rows="10"

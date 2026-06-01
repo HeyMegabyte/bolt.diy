@@ -362,6 +362,7 @@ interface InlineEdit {
                 <span class="muted-h block mb-1">AI prompt</span>
                 <textarea
                   hlmInput
+                  [multiline]="true"
                   class="w-full font-mono text-[0.72rem]"
                   rows="6"
                   placeholder="You are the endpoint. Read the request body, return JSON."
@@ -399,6 +400,7 @@ interface InlineEdit {
             </p>
             <textarea
               hlmInput
+              [multiline]="true"
               class="w-full font-mono text-[0.74rem]"
               rows="5"
               placeholder="Describe what your agent should do…"
@@ -428,7 +430,7 @@ interface InlineEdit {
             <h3 class="m-0 text-base font-semibold text-white">Test <code class="font-mono text-primary">{{ t.endpoint_slug }}</code></h3>
             <button class="text-text-secondary hover:text-white" (click)="quickTesting.set(null)">×</button>
           </div>
-          <textarea hlmInput class="w-full font-mono text-[0.72rem]" rows="5" [(ngModel)]="testBody"></textarea>
+          <textarea hlmInput [multiline]="true" class="w-full font-mono text-[0.72rem]" rows="5" [(ngModel)]="testBody"></textarea>
           <div class="flex justify-end gap-2 mt-2">
             <button class="btn-ghost" (click)="quickTesting.set(null)">Cancel</button>
             <button class="btn-primary" [disabled]="running()" (click)="runQuickTest(t)" data-testid="ai-endpoint-quick-test-run">{{ running() ? 'Running…' : 'Run' }}</button>
