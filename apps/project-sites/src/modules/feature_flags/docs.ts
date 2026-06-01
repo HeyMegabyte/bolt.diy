@@ -11,6 +11,11 @@
  *   - `smoke_test` — copy-pasteable curl commands + step-by-step UI flow
  *     to verify the feature works once the flag is enabled. Headers / body
  *     samples included.
+ *   - `e2e_tests` — Playwright spec paths (relative to apps/project-sites/)
+ *     that exercise the feature against the prod URL. Per the SUPREME
+ *     [[feature-flags]] rule, a promoted flag should carry at least one. The
+ *     paths here are the canonical `e2e/_fortress/<slug>/` adversarial +
+ *     happy-path specs.
  *
  * Flags without a docs entry fall back to the short description from
  * registry.ts. Add entries here as new flags ship.
@@ -19,6 +24,8 @@
 export interface FlagDocs {
   explanation: string;
   smoke_test: string[];
+  /** Playwright spec paths (relative to apps/project-sites/) covering this flag. */
+  e2e_tests?: string[];
   references?: string[];
 }
 
@@ -604,7 +611,122 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       "GET /api/competitor-monitor/list/{orgId} → returns alerts: {alert_type, diff_summary, counter_draft_id, status}",
       "POST /api/competitor-monitor/dismiss/{alertId} or ship counter via approval flow",
     ],
-  },};
+  },
+
+  // ── Core always-on surfaces + fortress-backed flags ───────────────────────
+  //   These carry the canonical e2e/_fortress/<slug>/ adversarial+happy-path
+  //   specs (the SUPREME feature-flags rule's e2e_tests runbook column).
+  core_auth: {
+    explanation:
+      "Always-on auth surface: passwordless magic-link (Resend/SendGrid) + Google OAuth + session cookies. isFlagOn always returns true (sentinel). Sessions resolve userId/orgId in the auth middleware without rejecting unauthed requests — route guards decide access. Magic links are single-use, 15-min TTL; OAuth uses PKCE state in oauth_states.",
+    smoke_test: [
+      "Homepage → Sign in → enter email → 'check your inbox' state shows",
+      "POST /api/auth/magic-link {email} → 200 + magic_links row created",
+      "GET /api/auth/magic-link/verify?token=… → sets session cookie → redirects to /admin",
+      "GET /api/auth/me with the cookie → returns {user, org}",
+    ],
+    e2e_tests: ['e2e/_fortress/auth/happy-path.spec.ts', 'e2e/_fortress/auth/adversarial.spec.ts'],
+  },
+  core_site_create: {
+    explanation:
+      "Always-on homepage site-creation funnel: search business → select → sign in → provide details/upload → AI build workflow kicks off. isFlagOn always true (sentinel). Drives the golden path; the create-from-search endpoint seeds a site row + starts the SITE_WORKFLOW.",
+    smoke_test: [
+      "Homepage → search a business name → results render in <1s",
+      "Select a result → sign-in gate → details form",
+      "POST /api/sites/create-from-search → 200 + site row (status=draft) + workflow_jobs row",
+      "Redirect to /waiting → real-time build progress",
+    ],
+    e2e_tests: ['e2e/_fortress/site-create/happy-path.spec.ts', 'e2e/_fortress/site-create/adversarial.spec.ts'],
+  },
+  core_admin_detail: {
+    explanation:
+      "Always-on admin site-detail split-view: left rail = sections nav, right = the selected section (sites, media, forms, editor, etc.). isFlagOn always true (sentinel). The persistent bolt.diy iframe lives in the admin shell so WebContainer cold-boot happens once per session.",
+    smoke_test: [
+      "Open /admin → app-root + sidebar render",
+      "Project-select resolves a site → per-site sections load their real data",
+      "Navigate sections via routerLink → no full reload (SPA sentinel holds)",
+    ],
+    e2e_tests: ['e2e/_fortress/admin-detail/happy-path.spec.ts', 'e2e/_fortress/admin-detail/adversarial.spec.ts'],
+  },
+  core_feature_flags: {
+    explanation:
+      "Always-on feature-flags admin UI at /admin/feature-flags: lists every registry flag with default state + stage, search + stage filter, per-flag detail (resolved state + docs), and override mutations (global/org/tenant). isFlagOn always true (sentinel) — the control plane can't be flagged off.",
+    smoke_test: [
+      "GET /api/feature-flags → returns the full registry with has_docs",
+      "/admin/feature-flags → search 'auth' filters the list; stage pills filter by stage",
+      "Click a flag → GET /api/feature-flags/:key → detail shows resolved state + docs (explanation/smoke_test/e2e_tests)",
+      "POST /api/admin/feature-flags/:key/override → flips state; KV cache invalidates immediately",
+    ],
+    e2e_tests: ['e2e/_fortress/feature-flags/happy-path.spec.ts', 'e2e/_fortress/feature-flags/adversarial.spec.ts'],
+  },
+  public_api_v1: {
+    explanation:
+      "Public REST API v1 — /v1/* with Bearer-token auth (scoped, hashed at rest), 12 endpoints, OpenAPI 3.1 spec. Tokens minted in /admin/api-tokens with per-scope grants (sites/media/forms/analytics read+write). When OFF the routes 404 (never leak existence).",
+    smoke_test: [
+      "Mint a token in /admin/api-tokens → shown once",
+      "curl -H 'Authorization: Bearer <token>' https://projectsites.dev/v1/sites → 200 list",
+      "GET /v1/openapi.json → valid OpenAPI 3.1 doc",
+      "Revoke the token → same call → 401",
+    ],
+    e2e_tests: ['e2e/_fortress/public-api/happy-path.spec.ts', 'e2e/_fortress/public-api/adversarial.spec.ts'],
+  },
+  unified_inbox: {
+    explanation:
+      "Unified Visitor Inbox: forms + chat + voice + email + SMS captures collapse under one visitor identity, assignable to team members, SLA-tracked, with AI-drafted replies. Dedupes via the shared contacts core. When OFF the /api/inbox/* routes 404.",
+    smoke_test: [
+      "Submit a contact form on a published site → a thread appears in /admin → Inbox",
+      "GET /api/inbox/tasks → returns open threads for the org",
+      "Assign a thread + draft an AI reply → status transitions",
+      "POST /api/inbox/tasks/:id/resolve → thread closes",
+    ],
+    e2e_tests: ['e2e/_fortress/inbox/happy-path.spec.ts', 'e2e/_fortress/inbox/adversarial.spec.ts'],
+  },
+  swarm_editor: {
+    explanation:
+      "Multi-Agent Swarm Editor: up to 7 specialist agents co-edit a site via file-partition + SSE streaming + conflict detection. Each agent owns disjoint files; the orchestrator merges. When OFF the swarm routes 404 and the editor stays single-agent.",
+    smoke_test: [
+      "Open the editor → enable swarm mode → 7 agent lanes appear",
+      "POST a multi-file task → agents claim disjoint files (no two edit the same)",
+      "SSE stream shows per-agent progress; conflict detector flags overlaps",
+      "Merge → build → preview reflects all agents' edits",
+    ],
+    e2e_tests: ['e2e/_fortress/swarm-editor/happy-path.spec.ts', 'e2e/_fortress/swarm-editor/adversarial.spec.ts'],
+  },
+  section_marketplace: {
+    explanation:
+      "Vertical Section Marketplace: curated bento sections per industry (nonprofit/restaurant/lawyer/salon/medical), 30 seed entries, creator revenue-share. Admin UI at /admin/marketplace. When OFF the marketplace routes 404.",
+    smoke_test: [
+      "/admin/marketplace → browse seed sections filtered by industry",
+      "GET /api/marketplace/sections?industry=nonprofit → returns curated entries",
+      "Add a section to a site → it renders in the editor",
+      "Creator submission flow → admin review → publish",
+    ],
+    e2e_tests: ['e2e/_fortress/marketplace/happy-path.spec.ts'],
+  },
+  domain_stack_wizard: {
+    explanation:
+      "Custom-domain stack: CF-for-SaaS hostname provisioning, DNS/SSL status, primary-hostname selection per site. The /admin/domains surface manages add/verify/set-primary/remove. When OFF the hostname routes 404.",
+    smoke_test: [
+      "/admin/domains → add a custom hostname → status 'verifying'",
+      "POST /api/sites/:siteId/hostnames → provisions via CF for SaaS",
+      "Set primary → canonical updates; serve the site on the custom host",
+      "Remove → reverts to the *.projectsites.dev default",
+    ],
+    e2e_tests: ['e2e/_fortress/domain-stack/happy-path.spec.ts', 'e2e/_fortress/domain-stack/adversarial.spec.ts'],
+  },
+  log_explorer: {
+    explanation:
+      "Logs Explorer: structured worker/build/AI logs with request/trace/feature correlation IDs, filterable by site + severity. Surfaces what Workers Tracing + Sentry capture. When OFF the explorer route 404s.",
+    smoke_test: [
+      "/admin → Logs Explorer → recent log lines render with correlation IDs",
+      "Filter by site + severity → list narrows",
+      "Click a line → expands to full structured context (no secrets)",
+    ],
+    e2e_tests: ['e2e/_fortress/logs-explorer/happy-path.spec.ts', 'e2e/_fortress/logs-explorer/adversarial.spec.ts'],
+  },
+  // (billing is always-on core, not a registry flag — its fortress specs
+  //  e2e/_fortress/billing/* exist but there's no flag key to attach docs to.)
+};
 
 export function getDocs(key: string): FlagDocs | undefined {
   return FLAG_DOCS[key];
