@@ -78,6 +78,8 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
         <button
           type="button"
           role="tab"
+          id="sd-tab-logs"
+          [attr.aria-controls]="'sd-panel-logs'"
           [attr.aria-selected]="tab() === 'logs'"
           [class.active]="tab() === 'logs'"
           (click)="setTab('logs')"
@@ -85,6 +87,8 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
         <button
           type="button"
           role="tab"
+          id="sd-tab-snapshots"
+          [attr.aria-controls]="'sd-panel-snapshots'"
           [attr.aria-selected]="tab() === 'snapshots'"
           [class.active]="tab() === 'snapshots'"
           (click)="setTab('snapshots')"
@@ -92,6 +96,8 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
         <button
           type="button"
           role="tab"
+          id="sd-tab-sql"
+          [attr.aria-controls]="'sd-panel-sql'"
           [attr.aria-selected]="tab() === 'sql'"
           [class.active]="tab() === 'sql'"
           (click)="setTab('sql')"
@@ -99,6 +105,8 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
         <button
           type="button"
           role="tab"
+          id="sd-tab-integrations"
+          [attr.aria-controls]="'sd-panel-integrations'"
           [attr.aria-selected]="tab() === 'integrations'"
           [class.active]="tab() === 'integrations'"
           (click)="setTab('integrations')"
@@ -107,7 +115,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
 
       <!-- ──────────────────────────────────────── LOGS TAB ──────────────────────────────────────── -->
       @if (tab() === 'logs') {
-        <div class="site-detail__panel" role="tabpanel" data-testid="site-logs-panel">
+        <div class="site-detail__panel" role="tabpanel" id="sd-panel-logs" aria-labelledby="sd-tab-logs" data-testid="site-logs-panel">
           <div class="site-detail__toolbar">
             <label>
               Level
@@ -146,7 +154,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
 
       <!-- ──────────────────────────────────── SNAPSHOTS TAB ──────────────────────────────────── -->
       @if (tab() === 'snapshots') {
-        <div class="site-detail__panel" role="tabpanel" data-testid="site-snapshots-panel">
+        <div class="site-detail__panel" role="tabpanel" id="sd-panel-snapshots" aria-labelledby="sd-tab-snapshots" data-testid="site-snapshots-panel">
           <ul class="snapshot-list" data-testid="site-snapshots-list">
             @for (s of snapshots(); track s.id) {
               <li class="snapshot-row" data-testid="snapshot-row">
@@ -184,7 +192,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
 
       <!-- ──────────────────────────────────────── SQL TAB ──────────────────────────────────────── -->
       @if (tab() === 'sql') {
-        <div class="site-detail__panel" role="tabpanel" data-testid="site-sql-panel">
+        <div class="site-detail__panel" role="tabpanel" id="sd-panel-sql" aria-labelledby="sd-tab-sql" data-testid="site-sql-panel">
           <textarea
             data-testid="sql-editor"
             hlmInput
@@ -238,7 +246,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
 
       <!-- ──────────────────────────────────── INTEGRATIONS TAB ──────────────────────────────────── -->
       @if (tab() === 'integrations') {
-        <div class="site-detail__panel" role="tabpanel" data-testid="site-integrations-panel">
+        <div class="site-detail__panel" role="tabpanel" id="sd-panel-integrations" aria-labelledby="sd-tab-integrations" data-testid="site-integrations-panel">
           <div class="mcp-list" data-testid="mcp-provider-list">
             @for (p of integrations(); track p.key) {
               <article class="mcp-card" [attr.data-testid]="'mcp-provider-card-' + p.key">
