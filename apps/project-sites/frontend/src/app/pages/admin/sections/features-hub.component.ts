@@ -255,7 +255,12 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
       </ul>
 
       @if (visible().length === 0) {
-        <div class="hub-empty" role="status">No features match the current filter.</div>
+        <div class="hub-empty" role="status">
+          <span>No features match{{ search() ? ' “' + search() + '”' : ' the current filter' }}.</span>
+          @if (search()) {
+            <button type="button" class="hub-clear-btn" (click)="search.set('')">Clear search</button>
+          }
+        </div>
       }
     </section>
   `,
@@ -305,7 +310,10 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
     .hub-result-status { font-family: var(--ps-mono, ui-monospace, monospace); font-weight: 600; }
     .hub-result-hint { color: color-mix(in oklch, currentColor 70%, transparent); font-size: .75rem; }
     .hub-result pre { margin: 0; font-family: var(--ps-mono, ui-monospace, monospace); font-size: .75rem; overflow: auto; max-height: 220px; }
-    .hub-empty { padding: 3rem; text-align: center; border: 1px dashed color-mix(in oklch, currentColor 18%, transparent); border-radius: 12px; color: color-mix(in oklch, currentColor 55%, transparent); }
+    .hub-empty { padding: 3rem; text-align: center; border: 1px dashed color-mix(in oklch, currentColor 18%, transparent); border-radius: 12px; color: color-mix(in oklch, currentColor 55%, transparent); display: flex; flex-direction: column; align-items: center; gap: .85rem; }
+    .hub-clear-btn { background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); border: none; border-radius: 8px; padding: .4rem .9rem; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; }
+    .hub-clear-btn:hover { filter: brightness(1.1); }
+    .hub-clear-btn:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 3px; }
   `],
 })
 export class AdminFeaturesHubComponent implements OnInit {
