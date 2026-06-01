@@ -261,8 +261,12 @@
              home-icon + dropdown widget. The current section name stays
              to the right as the third breadcrumb segment. -->
         <app-domain-picker></app-domain-picker>
-        <svg class="opacity-40 flex-shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
-        <span class="text-white font-semibold">{{ currentSection() }}</span>
+        <!-- The section-name breadcrumb is redundant on mobile (every section
+             renders its own visible heading directly below) and the wide domain
+             picker squeezes it into a clipped 2-char wrap at 390px — so the
+             chevron + name hide on small screens; the picker stays for site context. -->
+        <svg class="opacity-40 flex-shrink-0 max-md:hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+        <span class="text-white font-semibold max-md:hidden">{{ currentSection() }}</span>
       </div>
       <div class="flex items-center gap-2">
         <!-- Cmd-K palette opener -->
