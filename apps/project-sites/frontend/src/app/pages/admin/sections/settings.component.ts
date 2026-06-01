@@ -152,9 +152,8 @@ const PROVIDERS = MCP_PROVIDERS;
                 @if (savingSecurity()) {
                   <span class="text-[0.6rem] text-text-secondary">saving…</span>
                 }
-                <input type="checkbox"
+                <input hlmCheckbox type="checkbox"
                        data-testid="team-2fa-toggle"
-                       class="accent-primary w-4 h-4"
                        [checked]="security.require_2fa"
                        (change)="toggleRequire2FA($event)"
                        [disabled]="savingSecurity()" />
@@ -275,8 +274,7 @@ const PROVIDERS = MCP_PROVIDERS;
             <!-- RIGHT COLUMN — Web search checkbox (top) + Knowledge files drop zone (below Persona) -->
             <div class="ai-chat-col">
               <label class="flex items-center gap-2 text-[0.78rem] text-white cursor-pointer self-end">
-                <input type="checkbox"
-                       class="accent-primary w-4 h-4"
+                <input hlmCheckbox type="checkbox"
                        data-testid="ai-chat-enable-web-search"
                        [checked]="allowWebResearch()"
                        (change)="toggleWebResearch($any($event.target).checked)"

@@ -6,7 +6,7 @@ import { ApiService, type CostForecastV2 } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { TelemetryService } from '../../../services/telemetry.service';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
-import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
+import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
 interface Bundle { credits: number; usd: number; price_id: string; }
@@ -68,7 +68,7 @@ interface ForecastBar {
 @Component({
   selector: 'app-admin-billing',
   standalone: true,
-  imports: [FormsModule, DatePipe, CurrencyPipe, DecimalPipe, DialogShellComponent, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
+  imports: [FormsModule, DatePipe, CurrencyPipe, DecimalPipe, DialogShellComponent, RollingCounterComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header>
@@ -1038,7 +1038,7 @@ interface ForecastBar {
             <fieldset class="block">
               <legend class="muted-h mb-1">Channels</legend>
               <label class="flex items-center gap-2 text-[0.78rem] text-text-secondary">
-                <input type="checkbox"
+                <input hlmCheckbox type="checkbox"
                        [ngModel]="alertDraft.notify_via_email"
                        (ngModelChange)="alertDraft.notify_via_email = $event" />
                 <span>Email</span>
@@ -1054,7 +1054,7 @@ interface ForecastBar {
               <label class="flex items-center gap-2 text-[0.78rem] text-text-secondary mt-1"
                      [style.opacity]="slackConnected() ? 1 : 0.55"
                      [attr.title]="slackConnected() ? null : 'Connect Slack in Settings → MCP to enable'">
-                <input type="checkbox"
+                <input hlmCheckbox type="checkbox"
                        data-testid="billing-spend-alert-slack"
                        [disabled]="!slackConnected()"
                        [ngModel]="alertDraft.notify_via_slack"

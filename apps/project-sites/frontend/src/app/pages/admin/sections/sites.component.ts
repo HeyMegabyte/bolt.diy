@@ -18,6 +18,7 @@ import {
   ErrorCardComponent,
   SkeletonComponent,
 } from '../../../components/states';
+import { HlmCheckboxDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 
@@ -50,7 +51,7 @@ type SortKey = 'name' | 'lcp' | 'cls' | 'inp' | 'lh' | 'composite';
 type Tier = 'green' | 'yellow' | 'red' | 'neutral';
 
 @Component({
-  imports: [RouterModule, SkeletonComponent, EmptyStateComponent, ErrorCardComponent],
+  imports: [RouterModule, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, HlmCheckboxDirective],
   selector: 'app-admin-sites',
   standalone: true,
   styles: [`
@@ -68,8 +69,7 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
         </div>
         <div class="flex items-center gap-2">
           <label class="flex items-center gap-2 text-[0.82rem] text-white/80 select-none cursor-pointer">
-            <input type="checkbox" [checked]="triage()" (change)="toggleTriage()"
-                   class="accent-[var(--ps-accent)]" />
+            <input hlmCheckbox type="checkbox" [checked]="triage()" (change)="toggleTriage()" />
             Triage view
           </label>
           <button (click)="reload()"
