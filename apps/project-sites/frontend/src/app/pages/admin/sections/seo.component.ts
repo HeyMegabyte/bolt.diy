@@ -65,9 +65,9 @@ import { RevealDirective } from '../../../directives/reveal.directive';
             <svg class="seo-card-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
             Structured Data (JSON-LD)
           </h3>
-          <span class="seo-pill seo-pill-auto">Auto-generated</span>
+          <span class="seo-pill seo-pill-auto">Example</span>
         </div>
-        <p class="text-[0.72rem] text-text-secondary m-0 mb-3">Your site includes LocalBusiness schema markup, FAQPage schema, and BreadcrumbList for rich search results.</p>
+        <p class="text-[0.72rem] text-text-secondary m-0 mb-3">Every page emits LocalBusiness + WebPage JSON-LD; FAQPage and BreadcrumbList are added where applicable. Representative example for this site:</p>
         <div class="json-ld-block bg-[rgba(6,6,18,0.85)] border border-primary/[0.06] rounded-lg p-4 font-mono text-[0.7rem] text-text-secondary/70 overflow-x-auto leading-relaxed">
           <pre class="m-0 whitespace-pre-wrap">{{ jsonLdPreview }}</pre>
         </div>
@@ -75,18 +75,19 @@ import { RevealDirective } from '../../../directives/reveal.directive';
 
       <!-- SEO Checklist -->
       <div class="seo-card" appReveal>
-        <h3 class="text-base font-semibold text-white m-0 mb-4 flex items-center gap-2">
-          SEO Health Check
-          <span class="seo-score" data-numeric><app-rolling-counter [value]="passCount" [duration]="1100" />/{{ seoChecks.length }}</span>
+        <h3 class="text-base font-semibold text-white m-0 mb-1 flex items-center gap-2">
+          SEO Checklist
+          <span class="seo-score" data-numeric><app-rolling-counter [value]="guaranteedCount" [duration]="1100" /> guaranteed</span>
         </h3>
-        <div class="flex flex-col gap-2" role="list" aria-label="SEO health checks">
+        <p class="text-[0.72rem] text-text-secondary m-0 mb-4">Items the platform guarantees for every generated site, plus content checks worth reviewing yourself.</p>
+        <div class="flex flex-col gap-2" role="list" aria-label="SEO checklist">
           @for (check of seoChecks; track check.label; let i = $index) {
-            <div class="checklist-row" [class.checklist-row-pass]="check.pass" [class.checklist-row-fail]="!check.pass"
-                 tabindex="0" role="listitem" [attr.aria-label]="(check.pass ? 'Pass: ' : 'Needs attention: ') + check.label"
+            <div class="checklist-row" [class.checklist-row-pass]="check.kind === 'guaranteed'" [class.checklist-row-fail]="check.kind === 'review'"
+                 tabindex="0" role="listitem" [attr.aria-label]="(check.kind === 'guaranteed' ? 'Guaranteed: ' : 'Review: ') + check.label"
                  [style.animation-delay.ms]="i * 40">
-              <span class="checklist-icon-wrap" [class.checklist-icon-pass]="check.pass" [class.checklist-icon-fail]="!check.pass">
+              <span class="checklist-icon-wrap" [class.checklist-icon-pass]="check.kind === 'guaranteed'" [class.checklist-icon-fail]="check.kind === 'review'">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  @if (check.pass) {
+                  @if (check.kind === 'guaranteed') {
                     <polyline points="20 6 9 17 4 12"/>
                   } @else {
                     <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -94,6 +95,7 @@ import { RevealDirective } from '../../../directives/reveal.directive';
                 </svg>
               </span>
               <span class="checklist-label">{{ check.label }}</span>
+              <span class="checklist-tag ml-auto">{{ check.kind === 'guaranteed' ? 'Guaranteed' : 'Review' }}</span>
             </div>
           }
         </div>
@@ -271,6 +273,18 @@ import { RevealDirective } from '../../../directives/reveal.directive';
       box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.1);
     }
 
+    .checklist-tag {
+      font-size: 0.58rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.1rem 0.4rem;
+      border-radius: 5px;
+      flex-shrink: 0;
+    }
+    .checklist-row-pass .checklist-tag { background: rgba(34, 197, 94, 0.12); color: rgba(74, 222, 128, 0.95); }
+    .checklist-row-fail .checklist-tag { background: rgba(251, 191, 36, 0.12); color: rgba(251, 191, 36, 0.95); }
+
     .checklist-label {
       font-size: 0.78rem;
       transition: color 200ms var(--ease-cinematic), letter-spacing 280ms var(--ease-cinematic);
@@ -330,20 +344,28 @@ export class AdminSeoComponent {
     }, null, 2);
   }
 
-  get passCount(): number {
-    return this.seoChecks.filter(c => c.pass).length;
+  get guaranteedCount(): number {
+    return this.seoChecks.filter(c => c.kind === 'guaranteed').length;
   }
 
-  seoChecks = [
-    { label: 'Page title is under 60 characters', pass: true },
-    { label: 'Meta description is present', pass: true },
-    { label: 'JSON-LD LocalBusiness schema is valid', pass: true },
-    { label: 'robots.txt allows crawling', pass: true },
-    { label: 'sitemap.xml is generated', pass: true },
-    { label: 'Open Graph meta tags are present', pass: true },
-    { label: 'Canonical URL is set on all pages', pass: true },
-    { label: 'H1 heading is present on all pages', pass: true },
-    { label: 'All images have alt text', pass: false },
-    { label: 'Internal links use descriptive anchor text', pass: false },
+  /**
+   * Honest framing (no fake per-site audit/score): `guaranteed` items are SEO
+   * invariants the platform enforces for EVERY generated site (see the worker
+   * build_validators — title length, meta, JSON-LD, robots, sitemap+lastmod,
+   * OG, canonical, single-H1). `review` items are content-dependent and can't be
+   * asserted per-site without a real audit, so they're surfaced as "review",
+   * not a fabricated pass/fail.
+   */
+  readonly seoChecks: { label: string; kind: 'guaranteed' | 'review' }[] = [
+    { label: 'Page title under 60 characters', kind: 'guaranteed' },
+    { label: 'Meta description present (120–156 chars)', kind: 'guaranteed' },
+    { label: 'LocalBusiness + WebPage JSON-LD emitted', kind: 'guaranteed' },
+    { label: 'robots.txt allows crawling', kind: 'guaranteed' },
+    { label: 'sitemap.xml generated with lastmod', kind: 'guaranteed' },
+    { label: 'Open Graph + Twitter Card tags present', kind: 'guaranteed' },
+    { label: 'Canonical URL on every page', kind: 'guaranteed' },
+    { label: 'Exactly one H1 per page', kind: 'guaranteed' },
+    { label: 'Descriptive image alt text', kind: 'review' },
+    { label: 'Internal links use descriptive anchors', kind: 'review' },
   ];
 }
