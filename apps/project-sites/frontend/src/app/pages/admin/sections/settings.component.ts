@@ -9,6 +9,7 @@ import { MCP_PROVIDERS } from './mcp-providers';
 import { EnvVarsManagerComponent } from '../../../components/env-vars-manager/env-vars-manager.component';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 interface Member { id: string; email: string; name: string | null; role: string; created_at: string; }
 interface Invite { id: string; email: string; role: string; created_at: string; expires_at: string; }
@@ -36,7 +37,7 @@ const PROVIDERS = MCP_PROVIDERS;
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmInputDirective, HlmSelectDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmInputDirective, HlmSelectDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -138,7 +139,7 @@ const PROVIDERS = MCP_PROVIDERS;
 
       <!-- ─────────────────── TEAM ─────────────────── -->
       @else if (tab() === 'team') {
-        <section class="card">
+        <section class="card" appReveal>
           <h3 class="m-0 text-base font-semibold text-white mb-3">Team members</h3>
           <!-- 2FA + Invite live in twin card rows so heights match (min-height 64px). -->
           <div class="team-actions-grid mb-4">
@@ -238,7 +239,7 @@ const PROVIDERS = MCP_PROVIDERS;
 
       <!-- ─────────────────── AI CHAT ─────────────────── -->
       @else if (tab() === 'ai-chat') {
-        <section class="card">
+        <section class="card" appReveal>
           <header class="mb-4">
             <h3 class="m-0 text-base font-semibold text-white mb-1">AI Chat</h3>
             <p class="text-[0.7rem] text-text-secondary m-0">Persona + system prompt + knowledge files for the AI chat widget on your published site.</p>
@@ -343,7 +344,7 @@ const PROVIDERS = MCP_PROVIDERS;
 
       <!-- ─────────────────── BUSINESS ─────────────────── -->
       @else if (tab() === 'business') {
-        <section class="card">
+        <section class="card" appReveal>
           <header class="mb-4">
             <h3 class="m-0 text-base font-semibold text-white mb-1">Business</h3>
             <p class="text-[0.7rem] text-text-secondary m-0">Identity, web, and brand assets used by the AI when it rebuilds or refines this site.</p>
@@ -480,7 +481,7 @@ const PROVIDERS = MCP_PROVIDERS;
 
       <!-- ─────────────────── MCP ─────────────────── -->
       @else if (tab() === 'mcp') {
-        <section class="card">
+        <section class="card" appReveal>
           <h3 class="m-0 text-base font-semibold text-white mb-1">MCP integrations</h3>
           <p class="text-[0.7rem] text-text-secondary m-0 mb-4">
             Connect the tools your AI form router + custom endpoints can call. Tokens are encrypted at rest (AES-GCM).
@@ -548,7 +549,7 @@ const PROVIDERS = MCP_PROVIDERS;
 
       <!-- ─────────────────── AI ENV VARS ─────────────────── -->
       @else if (tab() === 'env-vars') {
-        <section class="card">
+        <section class="card" appReveal>
           <header class="mb-4">
             <h3 class="m-0 text-base font-semibold text-white mb-1">AI environment variables</h3>
             <p class="text-[0.7rem] text-text-secondary m-0">
