@@ -91,6 +91,7 @@ interface ForecastBar {
           <button
             type="button"
             role="tab"
+            [id]="'billing-tab-' + tab.id"
             [attr.aria-selected]="activeTab() === tab.id"
             [attr.aria-controls]="'billing-tab-panel-' + tab.id"
             [attr.data-testid]="'billing-tab-' + tab.id"
@@ -104,7 +105,7 @@ interface ForecastBar {
 
       <!-- ── Tab: Subscription ── -->
       @if (activeTab() === 'subscription') {
-        <div role="tabpanel" id="billing-tab-panel-subscription" class="space-y-4">
+        <div role="tabpanel" id="billing-tab-panel-subscription" aria-labelledby="billing-tab-subscription" class="space-y-4">
 
           <!-- Subscription status panel (BILL-03, BILL-12, BILL-13) -->
           @if (subStatus(); as sub) {
@@ -232,7 +233,7 @@ interface ForecastBar {
 
       <!-- ── Tab: Add-ons ── -->
       @if (activeTab() === 'addons') {
-        <div role="tabpanel" id="billing-tab-panel-addons" class="space-y-4">
+        <div role="tabpanel" id="billing-tab-panel-addons" aria-labelledby="billing-tab-addons" class="space-y-4">
           <h3 class="m-0 text-base font-semibold text-white">Add-ons</h3>
           <p class="text-[0.7rem] text-text-secondary m-0">Expand your plan with recurring monthly add-ons.</p>
 
@@ -263,7 +264,7 @@ interface ForecastBar {
 
       <!-- ── Tab: Wallet ── -->
       @if (activeTab() === 'wallet') {
-        <div role="tabpanel" id="billing-tab-panel-wallet" class="space-y-4">
+        <div role="tabpanel" id="billing-tab-panel-wallet" aria-labelledby="billing-tab-wallet" class="space-y-4">
           <h3 class="m-0 text-base font-semibold text-white">Wallet</h3>
 
           <div class="card">
@@ -308,7 +309,7 @@ interface ForecastBar {
 
       <!-- ── Tab: Usage / Metering ── -->
       @if (activeTab() === 'usage') {
-        <div role="tabpanel" id="billing-tab-panel-usage" class="space-y-4">
+        <div role="tabpanel" id="billing-tab-panel-usage" aria-labelledby="billing-tab-usage" class="space-y-4">
           <h3 class="m-0 text-base font-semibold text-white">Usage &amp; Metering</h3>
           <p class="text-[0.7rem] text-text-secondary m-0">Per-site usage events posted to Stripe Meters. Usage charges appear on your next invoice.</p>
 
@@ -353,7 +354,7 @@ interface ForecastBar {
 
       <!-- ── Tab: Agency / Connect ── -->
       @if (activeTab() === 'agency') {
-        <div role="tabpanel" id="billing-tab-panel-agency" class="space-y-4">
+        <div role="tabpanel" id="billing-tab-panel-agency" aria-labelledby="billing-tab-agency" class="space-y-4">
           <h3 class="m-0 text-base font-semibold text-white">Agency &amp; Stripe Connect</h3>
           <p class="text-[0.7rem] text-text-secondary m-0">Connect your Stripe account to enable payouts to child orgs.</p>
 
@@ -382,7 +383,7 @@ interface ForecastBar {
 
       <!-- ── Tab: Affiliates ── -->
       @if (activeTab() === 'affiliates') {
-        <div role="tabpanel" id="billing-tab-panel-affiliates" class="space-y-4">
+        <div role="tabpanel" id="billing-tab-panel-affiliates" aria-labelledby="billing-tab-affiliates" class="space-y-4">
           <h3 class="m-0 text-base font-semibold text-white">Affiliate Payouts</h3>
           <p class="text-[0.7rem] text-text-secondary m-0">Pending payout splits for your referrals.</p>
 

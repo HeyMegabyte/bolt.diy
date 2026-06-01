@@ -204,6 +204,7 @@ interface BoltMediaAttachMessage {
             type="button"
             role="tab"
             class="med-tab"
+            [id]="'med-tab-' + t.id"
             [class.is-active]="activeTab() === t.id"
             [attr.aria-selected]="activeTab() === t.id"
             [attr.aria-controls]="'med-panel-' + t.id"
@@ -219,7 +220,7 @@ interface BoltMediaAttachMessage {
 
         <!-- ═════ Library ═════ -->
         @case ('library') {
-          <div id="med-panel-library" role="tabpanel">
+          <div id="med-panel-library" role="tabpanel" aria-labelledby="med-tab-library">
             <!-- Multi-select bulk-action bar hidden when embedded in the editor
                  overlay (single-asset workflow only). -->
             @if (selectedIds().size > 0 && !compact()) {
@@ -345,7 +346,7 @@ interface BoltMediaAttachMessage {
 
         <!-- ═════ Stock Search ═════ -->
         @case ('stock') {
-          <div id="med-panel-stock" role="tabpanel" class="space-y-4">
+          <div id="med-panel-stock" role="tabpanel" aria-labelledby="med-tab-stock" class="space-y-4">
             <div class="stock-toolbar">
               <label class="med-search med-search--lg">
                 <span class="sr-only">Search stock libraries</span>
@@ -428,7 +429,7 @@ interface BoltMediaAttachMessage {
 
         <!-- ═════ Image Studio ═════ -->
         @case ('image') {
-          <div id="med-panel-image" role="tabpanel" class="studio">
+          <div id="med-panel-image" role="tabpanel" aria-labelledby="med-tab-image" class="studio">
             <div class="studio__form">
               <span class="studio__chip">DALL·E 3</span>
               <label class="studio__label" for="img-prompt">Prompt</label>
@@ -505,7 +506,7 @@ interface BoltMediaAttachMessage {
 
         <!-- ═════ Video Studio ═════ -->
         @case ('video') {
-          <div id="med-panel-video" role="tabpanel" class="studio">
+          <div id="med-panel-video" role="tabpanel" aria-labelledby="med-tab-video" class="studio">
             <div class="studio__form">
               <div class="studio__chip-row">
                 <button type="button" class="pill"
@@ -582,7 +583,7 @@ interface BoltMediaAttachMessage {
 
         <!-- ═════ Podcast Studio ═════ -->
         @case ('podcast') {
-          <div id="med-panel-podcast" role="tabpanel" class="studio">
+          <div id="med-panel-podcast" role="tabpanel" aria-labelledby="med-tab-podcast" class="studio">
             <div class="studio__form">
               <div class="studio__chip-row">
                 <button type="button" class="pill"
