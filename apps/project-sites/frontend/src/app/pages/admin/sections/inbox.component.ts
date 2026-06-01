@@ -20,6 +20,7 @@ import { HttpClient } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { Subject, takeUntil, interval } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 
 interface VisitorIdentity {
   id: string;
@@ -70,7 +71,7 @@ const STATUS_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-inbox',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, RollingCounterComponent],
+  imports: [CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="inbox-shell" appReveal>
@@ -113,15 +114,16 @@ const STATUS_COLORS: Record<string, string> = {
               </button>
             }
           </div>
-          <select class="inbox-channel-sel" [(ngModel)]="selectedChannel">
+          <select hlmSelect [(ngModel)]="selectedChannel">
             <option value="">All channels</option>
             @for (ch of channels; track ch) {
               <option [value]="ch">{{ channelIcon(ch) }} {{ ch }}</option>
             }
           </select>
           <input
+            hlmInput
             type="search"
-            class="inbox-search"
+            class="flex-1 min-w-[160px]"
             placeholder="Search conversations…"
             [(ngModel)]="searchQuery"
             aria-label="Search conversations" />
@@ -203,7 +205,9 @@ const STATUS_COLORS: Record<string, string> = {
               <!-- Quick reply -->
               <div class="inbox-reply-bar">
                 <textarea
-                  class="inbox-reply-input"
+                  hlmInput
+                  [multiline]="true"
+                  class="w-full resize-none"
                   rows="3"
                   placeholder="Type a reply…"
                   [(ngModel)]="replyBody"
@@ -241,8 +245,9 @@ const STATUS_COLORS: Record<string, string> = {
               <section class="inbox-ctrl-section" appReveal>
                 <h3 class="inbox-ctrl-title">Assign</h3>
                 <input
+                  hlmInput
                   type="text"
-                  class="inbox-ctrl-assign-input"
+                  class="w-full"
                   placeholder="User ID or email…"
                   [(ngModel)]="assignTarget"
                   aria-label="Assign to" />
@@ -299,9 +304,7 @@ const STATUS_COLORS: Record<string, string> = {
       .inbox-status-pills { display: flex; gap: 6px; }
       .inbox-pill { padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(0,229,255,0.2); background: transparent; color: rgba(244,244,255,0.6); font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; }
       .inbox-pill.active,.inbox-pill:hover { border-color: var(--ps-accent); color: var(--ps-accent); }
-      .inbox-channel-sel { background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.15); border-radius: 8px; padding: 4px 10px; color: var(--ps-ink); font-size: 12px; cursor: pointer; }
-      .inbox-search { flex: 1; min-width: 160px; background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.15); border-radius: 8px; padding: 6px 12px; color: var(--ps-ink); font-size: 13px; outline: none; }
-      .inbox-search:focus { border-color: var(--ps-accent); }
+      /* .inbox-channel-sel / .inbox-search removed — now Spartan hlmSelect/hlmInput. */
       .inbox-3pane { display: grid; grid-template-columns: 280px 1fr 220px; gap: 12px; flex: 1; height: calc(100vh - 220px); min-height: 400px; }
       .inbox-list { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; overflow-y: auto; }
       .inbox-loading,.inbox-empty { padding: 24px; text-align: center; color: rgba(244,244,255,0.4); font-size: 13px; }
@@ -335,8 +338,7 @@ const STATUS_COLORS: Record<string, string> = {
       .inbox-msg-body { background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.08); border-radius: 10px; padding: 8px 12px; font-size: 13px; line-height: 1.5; }
       .inbox-msg.outbound .inbox-msg-body { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.18); }
       .inbox-reply-bar { padding: 10px 12px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 8px; }
-      .inbox-reply-input { background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.15); border-radius: 8px; padding: 8px 12px; color: var(--ps-ink); font-size: 13px; resize: none; outline: none; width: 100%; box-sizing: border-box; }
-      .inbox-reply-input:focus { border-color: var(--ps-accent); }
+      /* .inbox-reply-input removed — now Spartan hlmInput [multiline] (resize-none). */
       .inbox-reply-actions { display: flex; justify-content: flex-end; gap: 8px; }
       .inbox-btn-primary { background: var(--ps-accent); color: #060610; border: none; border-radius: 8px; padding: 6px 14px; font-weight: 600; font-size: 13px; cursor: pointer; }
       .inbox-btn-primary:disabled { opacity: 0.5; cursor: default; }
@@ -349,7 +351,7 @@ const STATUS_COLORS: Record<string, string> = {
       .inbox-ctrl-statuses { display: flex; flex-wrap: wrap; gap: 5px; }
       .inbox-ctrl-status-btn { padding: 3px 10px; border-radius: 20px; border: 1px solid rgba(0,229,255,0.15); background: transparent; color: rgba(244,244,255,0.55); font-size: 11px; cursor: pointer; }
       .inbox-ctrl-status-btn.active { border-color: var(--ps-accent); color: var(--ps-accent); }
-      .inbox-ctrl-assign-input { background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.15); border-radius: 8px; padding: 5px 10px; color: var(--ps-ink); font-size: 12px; outline: none; width: 100%; box-sizing: border-box; }
+      /* .inbox-ctrl-assign-input removed — now Spartan hlmInput. */
       .inbox-ctrl-visitor dt { font-size: 10px; color: rgba(244,244,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; margin: 4px 0 1px; }
       .inbox-ctrl-visitor dd { margin: 0; font-size: 12px; }
       .inbox-ctrl-visitor a { color: var(--ps-accent); }
