@@ -34,6 +34,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HlmInputDirective } from '../../../../ui';
 import { loadMonaco, type MonacoNamespace } from './monaco-loader';
 import {
   LANGUAGE_OPTIONS,
@@ -54,7 +55,7 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
 @Component({
   selector: 'app-ide',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HlmInputDirective],
   template: `
     <div class="ide-shell" data-testid="ai-endpoint-ide">
       <!-- TOOLBAR -->
@@ -152,7 +153,7 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
               @switch (activePanel()) {
                 @case ('tester') {
                   <p class="text-[0.7rem] text-text-secondary mb-2">POST to your live endpoint.</p>
-                  <textarea class="input-field font-mono w-full" rows="6" [(ngModel)]="testerBody" placeholder='{ "hello": "world" }' data-testid="ide-tester-body"></textarea>
+                  <textarea hlmInput [multiline]="true" class="font-mono w-full" rows="6" [(ngModel)]="testerBody" placeholder='{ "hello": "world" }' data-testid="ide-tester-body"></textarea>
                   <button class="btn-mini mt-2" (click)="runTester.emit(testerBody)" data-testid="ide-tester-run">Run request</button>
                   @if (testerResponse) {
                     <pre class="response">{{ testerResponse }}</pre>
@@ -266,7 +267,7 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
     .log-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; padding: 4px 0; border-bottom: 1px dashed rgba(255,255,255,0.05); }
     .log-status { color: #f87171; text-transform: uppercase; font-weight: 600; font-size: 0.6rem; }
     .log-status.ok { color: #4ade80; }
-    .input-field { padding: 0.5rem 0.7rem; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; font: inherit; }
+    /* .input-field removed — the tester textarea now uses hlmInput [multiline] (Spartan). */
     .preview-frame { width: 100%; height: 320px; background: #fff; border-radius: 8px; border: 0; }
   `],
 })
