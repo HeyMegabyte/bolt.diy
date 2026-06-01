@@ -138,7 +138,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
 
       <!-- Draft table (native + TanStack headless: client-side sort on the
            fetched page; server-side paging via the pager below). -->
-      <table class="cf-grid" data-testid="cf-table">
+      <table class="cf-grid" data-testid="cf-table" [attr.aria-busy]="loading()">
         <thead>
           <tr>
             @for (header of table.getHeaderGroups()[0].headers; track header.id) {
@@ -197,7 +197,11 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
               <td colspan="6">
                 <div class="cf-empty">
                   @if (loading()) {
-                    <span class="cf-num">Loading…</span>
+                    <div class="cf-skel" aria-busy="true" aria-label="Loading drafts">
+                      @for (i of [0,1,2,3]; track i) {
+                        <span class="glow-skel cf-skel-bar" aria-hidden="true"></span>
+                      }
+                    </div>
                   } @else {
                     <i class="pi pi-check-circle" style="font-size: 1.6rem; opacity: .35"></i>
                     <p>No {{ statusFilter() }} drafts — sections are fresh.</p>
@@ -279,6 +283,8 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
 
     .cf-error { text-align: center; padding: 1.25rem 1rem; color: #f87171; font-size: .8rem; }
     .cf-empty { display: flex; flex-direction: column; align-items: center; gap: .6rem; padding: 2rem 1rem; color: rgba(244,244,255,.45); font-size: .8rem; }
+    .cf-skel { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: .25rem 0; }
+    .cf-skel-bar { display: block; width: 100%; height: 30px; border-radius: 8px; }
 
     .cf-section-key {
       font-family: 'JetBrains Mono', monospace; font-size: .68rem;
