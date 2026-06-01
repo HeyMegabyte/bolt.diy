@@ -24,6 +24,7 @@ import { HlmInputDirective } from '../../../ui';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
+import { FeatureFlagService } from '../../../services/feature-flag.service';
 
 interface FlagDefinition {
   key: string;
@@ -239,6 +240,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
 export class AdminFeatureFlagsComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly toast = inject(ToastService);
+  private readonly flagSvc = inject(FeatureFlagService);
 
   readonly stages: StageFilter[] = ['all', 'experimental', 'beta', 'stable', 'deprecated', 'killswitch'];
   readonly stage = signal<StageFilter>('all');
@@ -315,6 +317,9 @@ export class AdminFeatureFlagsComponent implements OnInit {
         }),
       );
       this.flags.update((flags) => flags.map((f) => (f.key === flag.key ? { ...f, default_enabled: next, default_rollout_percent: next ? 100 : 0 } : f)));
+      // Invalidate the client flag cache so route guards (featureFlagGuard) +
+      // any isOn() consumers re-fetch the new state without a session reload.
+      this.flagSvc.invalidate(flag.key);
       this.toast.success(`${flag.key} ${next ? 'enabled' : 'disabled'} globally`);
     } catch (e) {
       // Admin override endpoint not shipped yet — surface a non-blocking cockpit toast.

@@ -54,7 +54,8 @@ export class FeatureFlagService {
     return obs;
   }
 
-  /** Test-only — invalidate the cache after an admin toggles a flag. */
+  /** Invalidate the cache after an admin toggles a flag (wired in the
+   *  /admin/feature-flags toggle) so guards + isOn() re-fetch fresh state. */
   invalidate(key?: string): void {
     if (key) this.cache.delete(key);
     else this.cache.clear();
