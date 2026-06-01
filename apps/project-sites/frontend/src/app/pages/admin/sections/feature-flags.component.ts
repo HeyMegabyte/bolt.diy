@@ -20,6 +20,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HlmInputDirective } from '../../../ui';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
@@ -50,7 +51,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
 @Component({
   selector: 'app-admin-feature-flags',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HlmInputDirective],
   template: `
     <section class="ff-page">
       <header class="ff-header">
@@ -67,7 +68,8 @@ type StageFilter = 'all' | FlagDefinition['stage'];
 
       <div class="ff-toolbar">
         <input
-          class="ff-search"
+          hlmInput
+          class="flex-1 min-w-[280px]"
           type="search"
           placeholder="Search by key or description…"
           [ngModel]="search()"
@@ -181,8 +183,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
     .ff-refresh:hover { background: color-mix(in oklch, currentColor 10%, transparent); }
     .ff-refresh:disabled { opacity: .5; cursor: not-allowed; }
     .ff-toolbar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
-    .ff-search { flex: 1 1 280px; padding: .65rem .9rem; border-radius: 10px; background: color-mix(in oklch, var(--ps-bg, #060610) 60%, transparent); border: 1px solid color-mix(in oklch, currentColor 18%, transparent); color: inherit; font: inherit; }
-    .ff-search:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+    /* .ff-search removed — now Spartan hlmInput (flex-1 min-w-[280px]). */
     .ff-stages { display: flex; gap: .375rem; flex-wrap: wrap; }
     .ff-stage-chip { background: transparent; color: inherit; border: 1px solid color-mix(in oklch, currentColor 18%, transparent); border-radius: 999px; padding: .375rem .75rem; cursor: pointer; font: inherit; font-size: .875rem; display: inline-flex; align-items: center; gap: .375rem; }
     .ff-stage-chip:hover { border-color: color-mix(in oklch, currentColor 40%, transparent); }

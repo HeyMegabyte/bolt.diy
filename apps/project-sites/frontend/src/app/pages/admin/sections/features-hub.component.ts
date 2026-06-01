@@ -16,6 +16,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HlmInputDirective } from '../../../ui';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -165,7 +166,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
 @Component({
   selector: 'app-admin-features-hub',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HlmInputDirective],
   template: `
     <section class="hub">
       <header class="hub-head">
@@ -179,6 +180,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
         </div>
         <div class="hub-search">
           <input
+            hlmInput
             type="search"
             placeholder="Search features…"
             [ngModel]="search()"

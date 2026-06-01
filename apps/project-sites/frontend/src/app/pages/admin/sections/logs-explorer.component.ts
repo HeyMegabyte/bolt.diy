@@ -25,6 +25,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { HlmInputDirective } from '../../../ui';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -79,7 +80,7 @@ const LEVEL_COLORS: Record<string, string> = {
   selector: 'app-logs-explorer',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink, RollingCounterComponent],
+  imports: [CommonModule, FormsModule, RouterLink, RollingCounterComponent, HlmInputDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-5">
 
@@ -103,7 +104,8 @@ const LEVEL_COLORS: Record<string, string> = {
       <!-- Search bar -->
       <div class="search-bar flex gap-2 items-center">
         <input
-          class="search-input flex-1"
+          hlmInput
+          class="flex-1 font-mono"
           [(ngModel)]="queryInput"
           placeholder="level:error AND route:/api/sites/* AND duration>2s"
           (keydown.enter)="search()"
@@ -206,18 +208,7 @@ const LEVEL_COLORS: Record<string, string> = {
     </div>
   `,
   styles: [`
-    .search-input {
-      background: rgba(255,255,255,.04);
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 8px;
-      padding: 7px 12px;
-      color: #f4f4ff;
-      font-size: .8rem;
-      font-family: 'JetBrains Mono', monospace;
-      outline: none;
-      transition: border-color .15s;
-    }
-    .search-input:focus { border-color: var(--ps-accent,#00e5ff); }
+    /* .search-input removed — now Spartan hlmInput (mono via font-mono). */
     .range-pill {
       padding: 3px 10px;
       border-radius: 20px;
