@@ -274,7 +274,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
         @if (loading() && !envelope()) {
           <div class="skel skel-chart" aria-hidden="true"></div>
         } @else if ((envelope()?.series?.length ?? 0) === 0 || peakDayVisits() === 0) {
-          <div class="empty-state-pretty">
+          <div class="empty-state-pretty" role="status">
             <div class="empty-glyph" aria-hidden="true">
               <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/>

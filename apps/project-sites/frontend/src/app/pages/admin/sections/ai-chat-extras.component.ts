@@ -195,7 +195,7 @@ function renderMarkdown(md: string): string {
               <button type="button" class="btn-delete" (click)="deleteFile(f)">Delete</button>
             </li>
           } @empty {
-            <li class="empty">No knowledge files yet.</li>
+            <li class="empty" role="status">No knowledge files yet.</li>
           }
         </ul>
       </fieldset>
@@ -276,7 +276,7 @@ function renderMarkdown(md: string): string {
                   </button>
                 </li>
               } @empty {
-                <li class="empty">No folders match.</li>
+                <li class="empty" role="status">No folders match.</li>
               }
             </ul>
             <div class="row right">

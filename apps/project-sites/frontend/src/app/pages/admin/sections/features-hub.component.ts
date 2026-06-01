@@ -255,7 +255,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
       </ul>
 
       @if (visible().length === 0) {
-        <div class="hub-empty">No features match the current filter.</div>
+        <div class="hub-empty" role="status">No features match the current filter.</div>
       }
     </section>
   `,
