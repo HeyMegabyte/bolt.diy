@@ -14,7 +14,7 @@
  *   - `<input type=text>`          → `pInputText` directive
  *   - `<input type=datetime-local>`→ `p-datepicker` (showTime, cockpit popup)
  *   - scope `<input type=checkbox>`→ `p-checkbox` (binary, cyan accent)
- *   - scope / action `<button>`s    → `p-button` (severity + size + loading)
+ *   - scope / action `<button>`s    → Spartan `hlmBtn` (variant + size; busy via [disabled]+at-spin)
  *   - scope pill `<span>`          → Spartan `hlmBadge` (variant=info, cockpit-tinted)
  * Toasts continue through the cockpit's existing `ToastService` (the cockpit
  * already renders its own toast layer) — the content-freshness section shows
@@ -35,12 +35,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { TableModule } from 'primeng/table';
-import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { CheckboxModule } from 'primeng/checkbox';
 import { DatePickerModule } from 'primeng/datepicker';
-import { HlmBadgeDirective } from '../../../ui';
+import { HlmBadgeDirective, HlmButtonDirective } from '../../../ui';
 import { AdminStateService } from '../admin-state.service';
 import { ToastService } from '../../../services/toast.service';
 
@@ -76,12 +75,12 @@ const ALL_SCOPES = [
     CommonModule,
     FormsModule,
     TableModule,
-    ButtonModule,
     DialogModule,
     InputTextModule,
     CheckboxModule,
     DatePickerModule,
     HlmBadgeDirective,
+    HlmButtonDirective,
   ],
   template: `
     <div class="api-tokens-root" role="main">
@@ -94,18 +93,12 @@ const ALL_SCOPES = [
             <p class="at-sub">Authenticate programmatic access with scoped Bearer tokens.</p>
           </div>
           <div class="at-header-actions">
-            <p-button
-              [routerLink]="'/admin/docs/api-reference'"
-              label="API Docs"
-              icon="pi pi-book"
-              severity="secondary"
-              [outlined]="true"
-              size="small" />
-            <p-button
-              label="New Token"
-              icon="pi pi-plus"
-              size="small"
-              (onClick)="openCreateModal()" />
+            <a hlmBtn variant="outline" size="sm" [routerLink]="'/admin/docs/api-reference'">
+              <i class="pi pi-book" aria-hidden="true"></i> API Docs
+            </a>
+            <button hlmBtn variant="primary" size="sm" type="button" (click)="openCreateModal()">
+              <i class="pi pi-plus" aria-hidden="true"></i> New Token
+            </button>
           </div>
         </div>
 
@@ -171,13 +164,12 @@ const ALL_SCOPES = [
                 <td class="at-meta-cell">{{ token.expires_at ? formatDate(token.expires_at) : 'Never' }}</td>
                 <td class="at-meta-cell">{{ formatDate(token.created_at) }}</td>
                 <td class="at-actions-col">
-                  <p-button
-                    label="Revoke"
-                    severity="danger"
-                    [text]="true"
-                    size="small"
-                    (onClick)="confirmRevoke(token)"
-                    [attr.aria-label]="'Revoke token ' + token.name" />
+                  <button hlmBtn variant="ghost" size="sm" type="button"
+                    class="text-destructive"
+                    (click)="confirmRevoke(token)"
+                    [attr.aria-label]="'Revoke token ' + token.name">
+                    Revoke
+                  </button>
                 </td>
               </tr>
             </ng-template>
@@ -187,7 +179,7 @@ const ALL_SCOPES = [
                   <div class="at-empty">
                     <i class="pi pi-key" style="font-size: 1.8rem; color: var(--ps-accent); opacity: .4"></i>
                     <p>No API tokens yet.</p>
-                    <p-button label="Create your first token" size="small" (onClick)="openCreateModal()" />
+                    <button hlmBtn variant="primary" size="sm" type="button" (click)="openCreateModal()">Create your first token</button>
                   </div>
                 </td>
               </tr>
@@ -262,12 +254,12 @@ const ALL_SCOPES = [
         </div>
       </div>
       <ng-template #footer>
-        <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="closeCreateModal()" />
-        <p-button
-          label="Create Token"
-          [loading]="creating()"
-          [disabled]="!newName.trim()"
-          (onClick)="createToken()" />
+        <button hlmBtn variant="ghost" size="sm" type="button" (click)="closeCreateModal()">Cancel</button>
+        <button hlmBtn variant="primary" size="sm" type="button"
+          [disabled]="creating() || !newName.trim()" (click)="createToken()">
+          <i class="pi pi-key" aria-hidden="true" [class.at-spin]="creating()"></i>
+          {{ creating() ? 'Creating…' : 'Create Token' }}
+        </button>
       </ng-template>
     </p-dialog>
 
@@ -289,16 +281,13 @@ const ALL_SCOPES = [
         </div>
         <div class="at-token-reveal">
           <code class="at-token-text">{{ createdToken()?.plaintext }}</code>
-          <p-button
-            [label]="copied() ? '✓ Copied' : 'Copy'"
-            severity="secondary"
-            [outlined]="true"
-            size="small"
-            (onClick)="copyToken()" />
+          <button hlmBtn variant="outline" size="sm" type="button" (click)="copyToken()">
+            {{ copied() ? '✓ Copied' : 'Copy' }}
+          </button>
         </div>
       </div>
       <ng-template #footer>
-        <p-button label="Done — I've saved this token" (onClick)="clearCreatedToken()" />
+        <button hlmBtn variant="primary" size="sm" type="button" (click)="clearCreatedToken()">Done — I've saved this token</button>
       </ng-template>
     </p-dialog>
 
@@ -318,8 +307,11 @@ const ALL_SCOPES = [
         <p class="at-revoke-warn">Any integrations using this token will stop working immediately.</p>
       </div>
       <ng-template #footer>
-        <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="revokeTarget.set(null)" />
-        <p-button label="Yes, revoke" severity="danger" [loading]="revoking()" (onClick)="revokeToken()" />
+        <button hlmBtn variant="ghost" size="sm" type="button" (click)="revokeTarget.set(null)">Cancel</button>
+        <button hlmBtn variant="destructive" size="sm" type="button"
+          [disabled]="revoking()" (click)="revokeToken()">
+          {{ revoking() ? 'Revoking…' : 'Yes, revoke' }}
+        </button>
       </ng-template>
     </p-dialog>
   `,
@@ -368,24 +360,14 @@ const ALL_SCOPES = [
     .at-token-reveal { display: flex; align-items: center; gap: 10px; background: rgba(6,6,16,0.8); border: 1px solid rgba(0,229,255,0.15); border-radius: 10px; padding: 12px 16px; }
     .at-token-text { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ps-accent); flex: 1; word-break: break-all; }
     .at-revoke-warn { font-size: 13px; color: rgba(244,244,255,0.7); margin: 0; }
-    @media (prefers-reduced-motion: reduce) { .at-spinner { animation: none; } }
+    @media (prefers-reduced-motion: reduce) { .at-spinner, .at-spin { animation: none; } }
 
-    /* ── a11y (WCAG 2.2 AA contrast) for PrimeNG buttons on the cockpit ────
-       Confirmed failures: the cyan-fill primary button rendered WHITE labels
-       (white on #00e5ff ≈ 1.4:1) and the secondary-outlined button rendered
-       muted slate (#64748b ≈ 4:1). Dark ink on the light cyan fill + ink on
-       the outlined button, per the text-contrast doctrine (light accent →
-       dark text). Scoped to this component. */
-    :host ::ng-deep .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-secondary):not(.p-button-danger),
-    :host ::ng-deep .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-secondary):not(.p-button-danger) .p-button-label,
-    :host ::ng-deep .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-secondary):not(.p-button-danger) .p-button-icon {
-      color: #060610;
-    }
-    :host ::ng-deep .p-button-outlined.p-button-secondary,
-    :host ::ng-deep .p-button-outlined.p-button-secondary .p-button-label,
-    :host ::ng-deep .p-button-outlined.p-button-secondary .p-button-icon {
-      color: var(--ps-ink, #f4f4ff);
-    }
+    /* Buttons are Spartan hlmBtn now — variants carry WCAG-correct ink on the
+       cyan fill / outline natively, so the old ::ng-deep p-button contrast
+       overrides are gone. Icon sizing + busy-spin for pi glyphs inside hlmBtn: */
+    .at-header-actions .pi, .at-actions-col .pi, [hlmBtn] .pi { font-size: .72rem; }
+    @keyframes at-spin { to { transform: rotate(360deg); } }
+    .at-spin { display: inline-block; animation: at-spin .8s linear infinite; }
 
     /* ── Cockpit dark surface + density for the PrimeNG table ──────────────
        PrimeNG's default datatable theme renders on a LIGHT surface, which broke
