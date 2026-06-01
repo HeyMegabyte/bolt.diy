@@ -2,6 +2,7 @@ import { Component, Injectable, computed, inject, signal, type OnInit, type Sign
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
+import { HlmInputDirective } from '../../../ui';
 
 /**
  * One operation in the OpenAPI document. Flattened from `paths[path][method]`
@@ -590,7 +591,7 @@ export class DocsSpecService {
 @Component({
   selector: 'app-admin-docs',
   standalone: true,
-  imports: [FormsModule, RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [FormsModule, RouterOutlet, RouterLink, RouterLinkActive, HlmInputDirective],
   providers: [DocsSpecService],
   host: { '(window:keydown)': 'onWindowKeydown($event)' },
   template: `
@@ -674,7 +675,8 @@ export class DocsSpecService {
             <input
               #railSearch
               type="text"
-              class="input-field docs-search-input"
+              hlmInput
+              class="docs-search-input"
               placeholder="Filter (/ to focus) — path, method, category…"
               [ngModel]="endpointSearchQuery()"
               (ngModelChange)="endpointSearchQuery.set($event)"
@@ -913,11 +915,8 @@ export class DocsSpecService {
       position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
       color: var(--docs-fg-mute); pointer-events: none;
     }
+    /* icon-padding + size only; hlmInput owns base + focus-ring now */
     .docs-search-input { width: 100%; padding-left: 28px !important; padding-right: 44px !important; font-size: 0.78rem; min-height: 32px; }
-    .docs-search-input:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
-      outline-offset: var(--ps-ring-focus-offset, 2px);
-    }
     .docs-kbd-hint {
       position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
       font-family: ui-monospace, monospace; font-size: 0.6rem;
