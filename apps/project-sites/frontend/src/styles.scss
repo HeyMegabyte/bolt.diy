@@ -598,6 +598,11 @@ body::before {
 }
 ::-webkit-scrollbar-thumb:hover { background: rgba(0,229,255,0.35); background-clip: padding-box; }
 
+// Firefox / standards scrollbars (webkit handled above). `scrollbar-color`
+// inherits into every scroll container, so the cockpit dark thumb + transparent
+// track render cross-browser instead of Firefox's default light bars.
+html { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent; }
+
 // .input-field global baseline removed — every input/select/textarea is now
 // Spartan hlmInput/hlmSelect (composes its own chrome). 0 consumers repo-wide.
 
