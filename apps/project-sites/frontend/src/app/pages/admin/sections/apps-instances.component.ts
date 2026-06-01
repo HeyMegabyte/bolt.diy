@@ -15,6 +15,7 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { EmptyStateComponent } from '../empty-state.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { HlmInputDirective } from '../../../ui';
 import { APPS_CATALOG, findApp, type CatalogApp } from './apps-catalog.data';
 
 type InstanceStatus = 'provisioning' | 'running' | 'error' | 'stopped';
@@ -388,7 +389,7 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
 @Component({
   selector: 'app-admin-apps-instance-detail',
   standalone: true,
-  imports: [DatePipe, FormsModule, RouterLink, RevealDirective],
+  imports: [DatePipe, FormsModule, RouterLink, RevealDirective, HlmInputDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -469,7 +470,8 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
                       @if (e.auto) { <span class="env-auto-mini">auto</span> }
                     </span>
                     <input type="text"
-                           class="input-field"
+                           hlmInput
+                           class="font-mono text-xs"
                            [placeholder]="e.auto ? '(auto-resolved)' : (e.default ?? 'set value')"
                            [(ngModel)]="envValues[e.key]"
                            [disabled]="!!e.auto"
@@ -635,19 +637,7 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
     .env-desc {
       font-size: 0.66rem; color: rgba(255,255,255,0.5); line-height: 1.4;
     }
-    .input-field {
-      padding: 0.5rem 0.7rem;
-      background: rgba(0,0,0,0.32);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: var(--ps-radius-sm, 8px);
-      color: var(--ps-ink, #fff);
-      font-family: 'JetBrains Mono', ui-monospace, monospace;
-      font-size: 0.72rem;
-      transition: border-color 140ms ease;
-    }
-    .input-field:focus { outline: none; border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 50%, transparent); }
-    .input-field:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 1px; }
-    .input-field:disabled { opacity: 0.55; cursor: not-allowed; }
+    /* .input-field removed — the lone env-value field now uses hlmInput (Spartan). */
 
     .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
     @media (max-width: 540px) { .meta-grid { grid-template-columns: 1fr; } }
