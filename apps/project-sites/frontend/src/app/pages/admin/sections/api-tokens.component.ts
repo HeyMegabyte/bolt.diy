@@ -314,7 +314,7 @@ const ALL_SCOPES = [
     .at-stats-row { display: flex; gap: 12px; flex-wrap: wrap; }
     .at-stat-chip { background: var(--ps-accent-soft, rgba(0,229,255,0.06)); border: 1px solid var(--ps-accent-line, rgba(0,229,255,0.15)); border-radius: 8px; padding: 8px 14px; display: flex; flex-direction: column; gap: 2px; }
     .at-stat-value { font-size: 20px; font-weight: 700; color: var(--ps-accent); font-variant-numeric: tabular-nums; }
-    .at-stat-label { font-size: 11px; color: rgba(244,244,255,0.45); text-transform: uppercase; letter-spacing: 0.5px; }
+    .at-stat-label { font-size: 11px; color: rgba(244,244,255,0.62); text-transform: uppercase; letter-spacing: 0.5px; }
     .at-openapi-link { font-size: 12px; color: var(--ps-accent); text-decoration: none; display: flex; align-items: center; gap: 4px; }
     .at-flag-banner { background: rgba(255,209,102,0.08); border: 1px solid rgba(255,209,102,0.25); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: rgba(244,244,255,0.8); display: flex; align-items: center; gap: 8px; margin-bottom: 24px; }
     .at-flag-banner a { color: var(--ps-accent); text-decoration: none; }

@@ -46,8 +46,8 @@ const PROVIDERS = MCP_PROVIDERS;
           @if (state.selectedSite(); as site) {
             <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
               Scoped to <strong class="text-white">{{ site.business_name || site.slug }}</strong>
-              <span class="text-text-secondary/60"> · per-project settings. For personal preferences (theme, API keys) see </span>
-              <a routerLink="/admin/user" class="text-primary hover:underline">your user settings</a>.
+              <span class="text-text-secondary"> · per-project settings. For personal preferences (theme, API keys) see </span>
+              <a routerLink="/admin/user" class="text-primary underline">your user settings</a>.
             </p>
           } @else {
             <p class="text-[0.78rem] text-text-secondary m-0 mt-1">Select a project from the top dropdown to edit its settings.</p>
@@ -70,11 +70,11 @@ const PROVIDERS = MCP_PROVIDERS;
             <p class="text-[0.7rem] text-text-secondary m-0">Public-facing details + how the AI router responds.</p>
           </div>
           <label class="block">
-            <span class="muted-h">Contact email <small class="text-text-secondary/60">(shown on your site)</small></span>
+            <span class="muted-h">Contact email <small class="text-text-secondary">(shown on your site)</small></span>
             <input hlmInput type="email" class="w-full mt-1" placeholder="hello@yourbiz.com" [(ngModel)]="settings.contact_email" />
           </label>
           <label class="block">
-            <span class="muted-h">Reply email <small class="text-text-secondary/60">(where the AI router sends contact-form messages)</small></span>
+            <span class="muted-h">Reply email <small class="text-text-secondary">(where the AI router sends contact-form messages)</small></span>
             <input hlmInput type="email" class="w-full mt-1" placeholder="owner@yourbiz.com" [(ngModel)]="settings.reply_email" />
           </label>
           <label class="block">
@@ -149,7 +149,7 @@ const PROVIDERS = MCP_PROVIDERS;
               </div>
               <label class="flex items-center gap-2 text-[0.72rem] cursor-pointer select-none">
                 @if (savingSecurity()) {
-                  <span class="text-[0.6rem] text-text-secondary/60">saving…</span>
+                  <span class="text-[0.6rem] text-text-secondary">saving…</span>
                 }
                 <input type="checkbox"
                        data-testid="team-2fa-toggle"
@@ -281,7 +281,7 @@ const PROVIDERS = MCP_PROVIDERS;
                        (change)="toggleWebResearch($any($event.target).checked)"
                        [disabled]="savingWebResearch()" />
                 <span>Enable web search</span>
-                @if (savingWebResearch()) { <span class="text-[0.6rem] text-text-secondary/60">saving…</span> }
+                @if (savingWebResearch()) { <span class="text-[0.6rem] text-text-secondary">saving…</span> }
               </label>
 
               <div>
@@ -424,7 +424,7 @@ const PROVIDERS = MCP_PROVIDERS;
                               aria-describedby="biz-err-prompt"></textarea>
                     <div class="flex justify-between items-center mt-1">
                       <p id="biz-err-prompt" class="biz-err" aria-live="polite">{{ businessErrors().original_prompt || '' }}</p>
-                      <span class="text-[0.6rem] text-text-secondary/60">{{ (business.original_prompt || '').length }} / 4000</span>
+                      <span class="text-[0.6rem] text-text-secondary">{{ (business.original_prompt || '').length }} / 4000</span>
                     </div>
                   </label>
                 </div>

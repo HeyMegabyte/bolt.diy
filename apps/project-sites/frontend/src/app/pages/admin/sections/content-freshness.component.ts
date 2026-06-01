@@ -281,7 +281,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
     @media (prefers-reduced-motion: reduce) { .cf-toggle { transition: none; } }
 
     .cf-error { text-align: center; padding: 1.25rem 1rem; color: #f87171; font-size: .8rem; }
-    .cf-empty { display: flex; flex-direction: column; align-items: center; gap: .6rem; padding: 2rem 1rem; color: rgba(244,244,255,.45); font-size: .8rem; }
+    .cf-empty { display: flex; flex-direction: column; align-items: center; gap: .6rem; padding: 2rem 1rem; color: rgba(244,244,255,.62); font-size: .8rem; }
     .cf-skel { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: .25rem 0; }
     .cf-skel-bar { display: block; width: 100%; height: 30px; border-radius: 8px; }
 
