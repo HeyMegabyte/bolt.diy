@@ -9,7 +9,7 @@
  * the cockpit (see `PRIMENG_MIGRATION.md`). It maps the former hand-rolled
  * patterns onto PrimeNG components, all themed black+cyan via `CockpitPreset`:
  *   - hand-rolled `<table>`  → `p-table` (built-in sort + paginator + rows-per-page)
- *   - status `<span>` pill   → `p-tag` (severity-driven, cockpit-tinted)
+ *   - status `<span>` pill   → Spartan `hlmBadge` (variant-driven, cockpit-tinted)
  *   - filter `<button>` pills→ `p-selectButton` (single-select segmented control)
  *   - action `<button>`s     → Spartan `hlmBtn` (ghost size=sm; approve tinted
  *                              cyan-green `#4dffb5`, reject tinted `text-destructive`)
