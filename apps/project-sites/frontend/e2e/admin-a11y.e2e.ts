@@ -29,17 +29,17 @@ async function seed(page: Page): Promise<void> {
 test.describe('legacy /admin — WCAG 2.2 AA (axe-core)', () => {
   test.skip(!KEY, 'E2E_API_KEY not set');
 
-  test('no serious/critical axe violations across sections', async ({ page }) => {
-    test.setTimeout(240_000);
-    await seed(page);
-    const blocking: string[] = [];
-    const advisory: string[] = [];
-
-    for (const path of SECTIONS) {
+  // One test PER section so a slow/redirecting section fails only its own case
+  // (named clearly), never the whole gate — and coverage can expand safely.
+  // Reduced-motion settles scroll-reveal animations so axe scans the steady UI
+  // (no networkidle: the admin polls continuously + never idles).
+  for (const path of SECTIONS) {
+    test(`no serious/critical axe violations — ${path}`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await seed(page);
       await page.goto(path, { waitUntil: 'load' });
-      await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 20000 });
-      await page.waitForLoadState('networkidle', { timeout: 12000 }).catch(() => {});
-      await page.waitForTimeout(600);
+      await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 25000 });
+      await page.waitForTimeout(500);
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
         // The embedded bolt editor iframe is a separate origin/app — not ours to fix here.
@@ -49,15 +49,15 @@ test.describe('legacy /admin — WCAG 2.2 AA (axe-core)', () => {
         // third-party limitation we don't author. Excluded like the iframe.
         .exclude('.ag-root')
         .analyze();
-      for (const v of results.violations) {
-        const line = `[${path}] ${v.impact ?? '?'} · ${v.id} · ${v.nodes.length}× · ${v.help}`;
-        if (v.impact === 'critical' || v.impact === 'serious') blocking.push(line + `\n      ${v.nodes[0]?.target?.join(' ') ?? ''}`);
-        else advisory.push(line);
-      }
-    }
-
-    if (advisory.length) console.warn('\n=== axe ADVISORY (moderate/minor) ===\n' + advisory.join('\n'));
-    console.warn(`\n=== axe BLOCKING (serious/critical): ${blocking.length} ===\n${blocking.join('\n') || '  ✓ none'}`);
-    expect(blocking, blocking.join('\n')).toEqual([]);
-  });
+      const advisory = results.violations
+        .filter((v) => v.impact !== 'critical' && v.impact !== 'serious')
+        .map((v) => `${v.impact ?? '?'} · ${v.id} · ${v.nodes.length}×`);
+      const blocking = results.violations
+        .filter((v) => v.impact === 'critical' || v.impact === 'serious')
+        .map((v) => `${v.impact} · ${v.id} · ${v.nodes.length}× · ${v.help}\n      ${v.nodes[0]?.target?.join(' ') ?? ''}`);
+      if (advisory.length) console.warn(`\n[${path}] axe ADVISORY: ${advisory.join(' | ')}`);
+      console.warn(`\n[${path}] axe BLOCKING (serious/critical): ${blocking.length}${blocking.length ? '\n' + blocking.join('\n') : ' ✓'}`);
+      expect(blocking, `${path}\n${blocking.join('\n')}`).toEqual([]);
+    });
+  }
 });
