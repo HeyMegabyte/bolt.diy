@@ -14,6 +14,7 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { FullscreenOverlayComponent } from '../../../components/fullscreen-overlay/fullscreen-overlay.component';
 import { HlmInputDirective } from '../../../ui';
+import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { mcpProvider } from './mcp-providers';
 
 /**
@@ -133,7 +134,7 @@ const POLL_INTERVAL_MS = 10_000;
 @Component({
   selector: 'app-admin-forms',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe, JsonPipe, FullscreenOverlayComponent, HlmInputDirective],
+  imports: [FormsModule, RouterLink, DatePipe, JsonPipe, FullscreenOverlayComponent, HlmInputDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header>
@@ -153,7 +154,7 @@ const POLL_INTERVAL_MS = 10_000;
                     type="button"
                     data-testid="forms-open-prompt-designer"
                     (click)="designerOpen.set(true)"
-                    title="Open the full-screen prompt designer + tester"
+                    [brnTooltip]="'Open the full-screen prompt designer + tester'"
                     aria-label="Open the form-handling prompt designer">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6M9 17h4"/></svg>
               <span>Edit prompt</span>
@@ -180,7 +181,7 @@ const POLL_INTERVAL_MS = 10_000;
               <h3 class="section-h m-0 text-base font-semibold text-white">Test the Form Handling Prompt</h3>
               <p class="m-0 mt-0.5 text-[0.7rem] text-text-secondary">Runs the current prompt against this payload (1 credit).</p>
             </div>
-            <button class="icon-close" type="button" (click)="testOpen.set(false)" aria-label="Close test panel" title="Close test panel">
+            <button class="icon-close" type="button" (click)="testOpen.set(false)" aria-label="Close test panel" [brnTooltip]="'Close test panel'">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
@@ -196,7 +197,7 @@ const POLL_INTERVAL_MS = 10_000;
                 <span class="mcp-chip" [style.background]="m.color + '20'" [style.color]="m.color" [style.border-color]="m.color + '60'" [title]="m.desc">{{ m.label }}</span>
               }
             </div>
-            <button class="btn-primary" (click)="runTest()" [disabled]="testing()" title="Run the prompt now">{{ testing() ? 'Running…' : 'Run' }}</button>
+            <button class="btn-primary" (click)="runTest()" [disabled]="testing()" [brnTooltip]="'Run the prompt now'">{{ testing() ? 'Running…' : 'Run' }}</button>
           </div>
           @if (testResult()) {
             <div class="mt-3 submission-success" data-testid="forms-submission-success">
@@ -227,7 +228,7 @@ const POLL_INTERVAL_MS = 10_000;
           One prompt routes every submission. Edit on the left, run a sample on the right.
         </span>
         <div overlayActions>
-          <button class="btn-primary" [disabled]="saving()" data-testid="forms-designer-save" (click)="save()" title="Save prompt + MCP selection">
+          <button class="btn-primary" [disabled]="saving()" data-testid="forms-designer-save" (click)="save()" [brnTooltip]="'Save prompt + MCP selection'">
             {{ saving() ? 'Saving…' : 'Save' }}
           </button>
         </div>
@@ -248,7 +249,7 @@ const POLL_INTERVAL_MS = 10_000;
                         data-testid="forms-load-example"
                         (click)="loadExamplePrompt()"
                         [disabled]="improving()"
-                        title="Insert a ready-to-edit example prompt (no AI credits used)">
+                        [brnTooltip]="'Insert a ready-to-edit example prompt (no AI credits used)'">
                   Load example
                 </button>
                 <button type="button"
@@ -392,7 +393,7 @@ const POLL_INTERVAL_MS = 10_000;
               <div class="mt-3">
                 <span class="muted-h flex items-center justify-between">
                   <span>Trace</span>
-                  <button type="button" class="text-[0.6rem] text-text-secondary hover:text-primary px-1.5 py-0.5 rounded" (click)="copyTrace()" title="Copy trace JSON to clipboard">copy</button>
+                  <button type="button" class="text-[0.6rem] text-text-secondary hover:text-primary px-1.5 py-0.5 rounded" (click)="copyTrace()" [brnTooltip]="'Copy trace JSON to clipboard'">copy</button>
                 </span>
                 <textarea
                   hlmInput
@@ -462,7 +463,7 @@ const POLL_INTERVAL_MS = 10_000;
                     type="button"
                     data-testid="forms-open-prompt-designer"
                     (click)="designerOpen.set(true)"
-                    title="Open the full-screen prompt designer + tester">
+                    [brnTooltip]="'Open the full-screen prompt designer + tester'">
               <span class="empty-cta-icon" aria-hidden="true">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6M9 17h4"/></svg>
               </span>
@@ -504,7 +505,7 @@ const POLL_INTERVAL_MS = 10_000;
         <section class="card border border-primary/40">
           <div class="flex items-center justify-between mb-3">
             <h3 class="section-h m-0 text-base font-semibold text-white">{{ s.form_name }} · {{ s.created_at | date:'medium' }}</h3>
-            <button class="icon-close" type="button" (click)="selected.set(null)" aria-label="Close form submission detail" title="Close detail panel">
+            <button class="icon-close" type="button" (click)="selected.set(null)" aria-label="Close form submission detail" [brnTooltip]="'Close detail panel'">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
