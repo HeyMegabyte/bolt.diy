@@ -164,14 +164,15 @@ type StageFilter = 'all' | FlagDefinition['stage'];
                 <div class="ff-detail ff-controls">
                   <h3>Controls</h3>
                   <label class="ff-ctl">
-                    <span class="ff-ctl-label">Rollout <strong>{{ flag.default_rollout_percent }}%</strong></span>
+                    <span class="ff-ctl-label">Rollout <strong>{{ displayRollout(flag) }}%</strong></span>
                     <input
                       type="range" min="0" max="100" step="5"
                       class="ff-range"
                       [value]="flag.default_rollout_percent"
-                      (change)="setRollout(flag, $any($event.target).valueAsNumber)"
+                      (input)="rolloutDraft.set({ key: flag.key, pct: $any($event.target).valueAsNumber })"
+                      (change)="setRollout(flag, $any($event.target).valueAsNumber); rolloutDraft.set(null)"
                       [attr.aria-label]="'Set rollout percent for ' + flag.key"
-                      [attr.aria-valuetext]="flag.default_rollout_percent + ' percent'" />
+                      [attr.aria-valuetext]="displayRollout(flag) + ' percent'" />
                   </label>
                   <label class="ff-ctl">
                     <span class="ff-ctl-label">Promote stage</span>
@@ -288,6 +289,8 @@ export class AdminFeatureFlagsComponent implements OnInit {
   readonly detailKey = signal<string | null>(null);
   readonly resolvedDetail = signal<ResolvedFlag | null>(null);
   readonly docsDetail = signal<FlagDocs | null>(null);
+  /** Live rollout value while the slider is being dragged (commits on release). */
+  readonly rolloutDraft = signal<{ key: string; pct: number } | null>(null);
 
   readonly flagCount = computed(() => this.flags().length);
 
@@ -300,6 +303,12 @@ export class AdminFeatureFlagsComponent implements OnInit {
       return f.key.toLowerCase().includes(q) || f.description.toLowerCase().includes(q);
     });
   });
+
+  /** Rollout % to display: the live drag draft for this flag, else its committed value. */
+  displayRollout(flag: FlagDefinition): number {
+    const d = this.rolloutDraft();
+    return d && d.key === flag.key ? d.pct : flag.default_rollout_percent;
+  }
 
   countForStage(s: StageFilter): number {
     if (s === 'all') return this.flags().length;
