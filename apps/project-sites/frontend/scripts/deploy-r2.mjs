@@ -2,7 +2,8 @@
 /**
  * Deploys the Angular production build to Cloudflare R2 — RELIABLY + FAST.
  * Usage: node scripts/deploy-r2.mjs [staging|production]
- * Requires CLOUDFLARE_API_KEY + CLOUDFLARE_EMAIL env vars.
+ * Auth: needs CLOUDFLARE_API_TOKEN (r2 object ops) + CLOUDFLARE_API_KEY +
+ * CLOUDFLARE_EMAIL (REST purge). Auto-pulled from get-secret if not in env.
  *
  * Hardening history:
  *  - per-file PUT with up to 3 retries
@@ -16,12 +17,37 @@
  *    that, plus mid-flight kills, was the original corruption cause; do NOT run
  *    two deploys at once or interrupt this one).
  */
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process';
 import { readdirSync, statSync } from 'fs';
 import { join, extname, relative } from 'path';
 import { promisify } from 'util';
 
 const pexec = promisify(exec);
+
+// Auth bootstrap. `wrangler r2 object put/get` REQUIRES CLOUDFLARE_API_TOKEN in
+// env — it does NOT accept CLOUDFLARE_API_KEY+EMAIL for r2 object ops (those
+// only authenticate the REST purge_cache call below). When the token is unset,
+// every upload silently fails with a non-interactive-env error and the deploy
+// looks "complete" while R2 holds nothing. That was the root cause of a
+// multi-round phantom-corruption deploy thrash (2026-06-01). So: if any of the
+// three creds are missing from env, pull them from the local secret store here
+// — callers can't forget anymore.
+const GET_SECRET = '/Users/Apple/.local/bin/get-secret';
+for (const k of ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_API_KEY', 'CLOUDFLARE_EMAIL']) {
+  if (process.env[k]) continue;
+  try {
+    const v = execSync(`${GET_SECRET} ${k}`, { encoding: 'utf8' }).trim();
+    if (v && !v.startsWith('The file')) process.env[k] = v;
+  } catch {
+    /* secret unavailable — the explicit check below surfaces the gap */
+  }
+}
+if (!process.env.CLOUDFLARE_API_TOKEN) {
+  console.error(
+    '✘ CLOUDFLARE_API_TOKEN not set and not in get-secret — wrangler r2 uploads will fail. Aborting.',
+  );
+  process.exit(1);
+}
 const env = process.argv[2] || 'production';
 const BUCKET = env === 'staging' ? 'project-sites-staging' : 'project-sites-production';
 const DIST = join(import.meta.dirname, '..', 'dist', 'project-sites-frontend', 'browser');
