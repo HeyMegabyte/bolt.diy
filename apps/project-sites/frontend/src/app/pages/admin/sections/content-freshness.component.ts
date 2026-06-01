@@ -8,7 +8,8 @@
  * This section is the canonical "table-heavy" PrimeNG migration example for
  * the cockpit (see `PRIMENG_MIGRATION.md`). It maps the former hand-rolled
  * patterns onto PrimeNG components, all themed black+cyan via `CockpitPreset`:
- *   - hand-rolled `<table>`  → `p-table` (built-in sort + paginator + rows-per-page)
+ *   - hand-rolled `<table>`  → native `<table>` + TanStack headless (client sort)
+ *                              + a custom server-side prev/next pager
  *   - status `<span>` pill   → Spartan `hlmBadge` (variant-driven, cockpit-tinted)
  *   - filter `<button>` pills→ `p-selectButton` (single-select segmented control)
  *   - action `<button>`s     → Spartan `hlmBtn` (ghost size=sm; approve tinted
@@ -25,7 +26,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { TableModule } from 'primeng/table';
+import {
+  createAngularTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  type ColumnDef,
+  type SortingState,
+} from '@tanstack/angular-table';
 import { BrnToggleGroupImports } from '@spartan-ng/brain/toggle-group';
 import { HlmButtonDirective, HlmBadgeDirective, type BadgeVariant } from '../../../ui';
 import { ToastService } from '../../../services/toast.service';
@@ -59,7 +66,6 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
     CommonModule,
     FormsModule,
     RollingCounterComponent,
-    TableModule,
     HlmButtonDirective,
     HlmBadgeDirective,
     ...BrnToggleGroupImports,
@@ -130,83 +136,89 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
         <div class="cf-error" role="alert">{{ error() }}</div>
       }
 
-      <!-- Draft table (PrimeNG) -->
-      <p-table
-        #dt
-        [value]="drafts()"
-        [loading]="loading()"
-        [paginator]="total() > limit"
-        [rows]="limit"
-        [totalRecords]="total()"
-        [lazy]="true"
-        (onLazyLoad)="onLazyLoad($event)"
-        [first]="(page() - 1) * limit"
-        dataKey="id"
-        styleClass="cf-grid p-datatable-sm"
-        [tableStyle]="{ 'min-width': '40rem' }"
-        data-testid="cf-table">
-        <ng-template #header>
+      <!-- Draft table (native + TanStack headless: client-side sort on the
+           fetched page; server-side paging via the pager below). -->
+      <table class="cf-grid" data-testid="cf-table">
+        <thead>
           <tr>
-            <th pSortableColumn="section_key">Section <p-sortIcon field="section_key" /></th>
-            <th pSortableColumn="idle_days" class="cf-num-col">Idle days <p-sortIcon field="idle_days" /></th>
-            <th pSortableColumn="dwell_seconds_avg" class="cf-num-col">Avg dwell <p-sortIcon field="dwell_seconds_avg" /></th>
-            <th pSortableColumn="status">Status <p-sortIcon field="status" /></th>
-            <th pSortableColumn="created_at">Created <p-sortIcon field="created_at" /></th>
-            <th class="cf-actions-col">Actions</th>
-          </tr>
-        </ng-template>
-        <ng-template #body let-d>
-          <tr>
-            <td>
-              <span class="cf-section-key" [attr.title]="d.section_key">{{ d.section_key }}</span>
-            </td>
-            <td class="cf-num-col"><span class="cf-num">{{ d.idle_days }}d</span></td>
-            <td class="cf-num-col"><span class="cf-num">{{ d.dwell_seconds_avg | number:'1.0-0' }}s</span></td>
-            <td>
-              <span hlmBadge [variant]="statusBadge(d.status)">{{ d.status }}</span>
-            </td>
-            <td class="cf-cell-date">{{ d.created_at | date:'MMM d' }}</td>
-            <td class="cf-actions-col">
-              @if (d.status === 'pending') {
-                <button
-                  hlmBtn
-                  variant="ghost"
-                  size="sm"
-                  type="button"
-                  class="text-[#4dffb5]"
-                  [disabled]="acting().has(d.id)"
-                  (click)="approve(d.id)"
-                  [attr.aria-label]="'Approve rewrite for ' + d.section_key">
-                  Approve
-                </button>
-                <button
-                  hlmBtn
-                  variant="ghost"
-                  size="sm"
-                  type="button"
-                  class="text-destructive"
-                  [disabled]="acting().has(d.id)"
-                  (click)="reject(d.id)"
-                  [attr.aria-label]="'Reject rewrite for ' + d.section_key">
-                  Reject
-                </button>
+            @for (header of table.getHeaderGroups()[0].headers; track header.id) {
+              @if (header.column.getCanSort()) {
+                <th
+                  class="cf-sortable"
+                  [class.cf-num-col]="numCol[header.id]"
+                  role="button"
+                  tabindex="0"
+                  [attr.aria-sort]="ariaSort(header.column.getIsSorted())"
+                  (click)="header.column.toggleSorting()"
+                  (keydown.enter)="header.column.toggleSorting()"
+                  (keydown.space)="header.column.toggleSorting(); $event.preventDefault()">
+                  {{ headerLabel[header.id] }}
+                  <span class="cf-sort-ind" aria-hidden="true">{{ sortGlyph(header.column.getIsSorted()) }}</span>
+                </th>
               } @else {
-                <span class="cf-act-done">—</span>
+                <th class="cf-actions-col">{{ headerLabel[header.id] }}</th>
               }
-            </td>
+            }
           </tr>
-        </ng-template>
-        <ng-template #emptymessage>
-          <tr>
-            <td colspan="6">
-              <div class="cf-empty">
-                <i class="pi pi-check-circle" style="font-size: 1.6rem; opacity: .35"></i>
-                <p>No {{ statusFilter() }} drafts — sections are fresh.</p>
-              </div>
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
+        </thead>
+        <tbody>
+          @for (row of table.getRowModel().rows; track row.original.id) {
+            <tr>
+              <td>
+                <span class="cf-section-key" [attr.title]="row.original.section_key">{{ row.original.section_key }}</span>
+              </td>
+              <td class="cf-num-col"><span class="cf-num">{{ row.original.idle_days }}d</span></td>
+              <td class="cf-num-col"><span class="cf-num">{{ row.original.dwell_seconds_avg | number:'1.0-0' }}s</span></td>
+              <td>
+                <span hlmBadge [variant]="statusBadge(row.original.status)">{{ row.original.status }}</span>
+              </td>
+              <td class="cf-cell-date">{{ row.original.created_at | date:'MMM d' }}</td>
+              <td class="cf-actions-col">
+                @if (row.original.status === 'pending') {
+                  <button hlmBtn variant="ghost" size="sm" type="button" class="text-[#4dffb5]"
+                    [disabled]="acting().has(row.original.id)"
+                    (click)="approve(row.original.id)"
+                    [attr.aria-label]="'Approve rewrite for ' + row.original.section_key">
+                    Approve
+                  </button>
+                  <button hlmBtn variant="ghost" size="sm" type="button" class="text-destructive"
+                    [disabled]="acting().has(row.original.id)"
+                    (click)="reject(row.original.id)"
+                    [attr.aria-label]="'Reject rewrite for ' + row.original.section_key">
+                    Reject
+                  </button>
+                } @else {
+                  <span class="cf-act-done">—</span>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6">
+                <div class="cf-empty">
+                  @if (loading()) {
+                    <span class="cf-num">Loading…</span>
+                  } @else {
+                    <i class="pi pi-check-circle" style="font-size: 1.6rem; opacity: .35"></i>
+                    <p>No {{ statusFilter() }} drafts — sections are fresh.</p>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      <!-- Server-side pager (TanStack sort is client-side on the fetched page). -->
+      @if (total() > limit) {
+        <div class="cf-pager">
+          <button hlmBtn variant="outline" size="sm" type="button"
+            [disabled]="page() <= 1 || loading()" (click)="goToPage(page() - 1)">Previous</button>
+          <span class="cf-pager-info">Page {{ page() }} of {{ pageCount() }} · {{ total() }} total</span>
+          <button hlmBtn variant="outline" size="sm" type="button"
+            [disabled]="page() >= pageCount() || loading()" (click)="goToPage(page() + 1)">Next</button>
+        </div>
+      }
 
     </div>
   `,
@@ -279,34 +291,33 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
     .cf-actions-col { text-align: right; white-space: nowrap; }
     .cf-act-done { color: rgba(244,244,255,.25); font-size: .68rem; }
 
-    /* ── Cockpit density tuning for the PrimeNG table ──────────────────────
-       Colors come from CockpitPreset (cyan/near-black). These rules only
-       compress the rhythm to the cockpit's 13px/compact spec; the unlayered
-       cascade ensures they win over PrimeNG's default sizing. */
-
-    /* Cockpit dark surface — PrimeNG's default table theme renders light;
-       force transparent/dark so it matches the dark dashboard. */
-    :host ::ng-deep .cf-grid,
-    :host ::ng-deep .cf-grid .p-datatable-table,
-    :host ::ng-deep .cf-grid .p-datatable-tbody > tr {
-      background: transparent;
-      color: var(--ps-ink, #f4f4ff);
-    }
-    :host ::ng-deep .cf-grid .p-datatable-thead > tr > th {
+    /* ── Native cockpit table (TanStack headless drives sort; CSS is ours) ──── */
+    .cf-grid { width: 100%; min-width: 40rem; border-collapse: collapse; background: transparent; color: var(--ps-ink, #f4f4ff); }
+    .cf-grid thead > tr > th {
       font-size: .65rem; text-transform: uppercase; letter-spacing: .06em;
-      padding: .5rem .75rem; font-weight: 600;
+      padding: .5rem .75rem; font-weight: 600; text-align: left;
       background: rgba(0,229,255,0.04);
       color: rgba(244,244,255,0.6);
-      border-color: rgba(0,229,255,0.12);
+      border-bottom: 1px solid rgba(0,229,255,0.12);
     }
-    :host ::ng-deep .cf-grid .p-datatable-tbody > tr > td {
+    .cf-grid tbody > tr > td {
       font-size: .72rem; padding: .45rem .75rem;
-      background: transparent;
-      color: var(--ps-ink, #f4f4ff);
-      border-color: rgba(0,229,255,0.08);
+      border-bottom: 1px solid rgba(0,229,255,0.08);
     }
-    :host ::ng-deep .cf-grid .p-datatable-tbody > tr { transition: background 180ms var(--ease); }
-    :host ::ng-deep .cf-grid .p-datatable-tbody > tr:hover > td { background: rgba(0,229,255,0.04); }
+    .cf-grid tbody > tr:last-child > td { border-bottom: 0; }
+    .cf-grid tbody > tr { transition: background 180ms var(--ease); }
+    .cf-grid tbody > tr:hover > td { background: rgba(0,229,255,0.04); }
+    .cf-grid th.cf-num-col, .cf-grid td.cf-num-col { text-align: right; }
+    /* Sortable header affordance. */
+    .cf-grid th.cf-sortable { cursor: pointer; user-select: none; }
+    .cf-grid th.cf-sortable:hover { color: var(--ps-accent, #00e5ff); }
+    .cf-grid th.cf-sortable:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: -2px; }
+    .cf-sort-ind { margin-left: 4px; opacity: .5; font-size: .6rem; }
+    .cf-grid th.cf-sortable[aria-sort="ascending"] .cf-sort-ind,
+    .cf-grid th.cf-sortable[aria-sort="descending"] .cf-sort-ind { opacity: 1; color: var(--ps-accent, #00e5ff); }
+    /* Server-side pager. */
+    .cf-pager { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 10px 4px 0; }
+    .cf-pager-info { font-size: .68rem; color: rgba(244,244,255,.5); }
     /* Action buttons are Spartan hlmBtn (size=sm owns its own padding/typography). */
     .cf-header-actions .pi, .cf-actions-col .pi { font-size: .7rem; }
     @keyframes cf-spin { to { transform: rotate(360deg); } }
@@ -336,6 +347,49 @@ export class AdminContentFreshnessComponent implements OnInit {
   statusFilter = signal<StatusFilter>('pending');
   acting = signal<Set<string>>(new Set());
 
+  /** Total server pages (custom pager is server-side; TanStack sort is client-side). */
+  readonly pageCount = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
+
+  // ── TanStack headless table (client-side sort of the fetched page) ────────
+  readonly headerLabel: Record<string, string> = {
+    section_key: 'Section', idle_days: 'Idle days', dwell_seconds_avg: 'Avg dwell',
+    status: 'Status', created_at: 'Created', actions: 'Actions',
+  };
+  /** Right-aligned numeric columns (template adds .cf-num-col). */
+  readonly numCol: Record<string, boolean> = { idle_days: true, dwell_seconds_avg: true };
+  private readonly sorting = signal<SortingState>([]);
+  private readonly columns: ColumnDef<FreshnessDraft>[] = [
+    { id: 'section_key', accessorKey: 'section_key' },
+    { id: 'idle_days', accessorKey: 'idle_days' },
+    { id: 'dwell_seconds_avg', accessorKey: 'dwell_seconds_avg' },
+    { id: 'status', accessorKey: 'status' },
+    { id: 'created_at', accessorKey: 'created_at' },
+    { id: 'actions', enableSorting: false },
+  ];
+  readonly table = createAngularTable<FreshnessDraft>(() => ({
+    data: this.drafts(),
+    columns: this.columns,
+    state: { sorting: this.sorting() },
+    onSortingChange: (updater) =>
+      this.sorting.update((prev) => (typeof updater === 'function' ? updater(prev) : updater)),
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  }));
+  ariaSort(dir: false | 'asc' | 'desc'): 'ascending' | 'descending' | 'none' {
+    return dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none';
+  }
+  sortGlyph(dir: false | 'asc' | 'desc'): string {
+    return dir === 'asc' ? '↑' : dir === 'desc' ? '↓' : '↕';
+  }
+  /** Server-side page navigation (clamped); re-fetches via load(). */
+  goToPage(p: number): void {
+    const next = Math.min(Math.max(1, p), this.pageCount());
+    if (next !== this.page()) {
+      this.page.set(next);
+      this.load();
+    }
+  }
+
   readonly pending = computed(() => {
     if (this.statusFilter() === 'pending') return this.total();
     return 0; // fetched separately only when needed
@@ -358,16 +412,6 @@ export class AdminContentFreshnessComponent implements OnInit {
     this.statusFilter.set(next as StatusFilter);
     this.page.set(1);
     this.load();
-  }
-
-  /** p-table lazy paginator → translate `first` offset into our 1-based page. */
-  onLazyLoad(ev: { first?: number }): void {
-    const first = ev.first ?? 0;
-    const nextPage = Math.floor(first / this.limit) + 1;
-    if (nextPage !== this.page()) {
-      this.page.set(nextPage);
-      this.load();
-    }
   }
 
   /** Map a draft status to a Spartan `hlmBadge` variant (cockpit-tinted). */
