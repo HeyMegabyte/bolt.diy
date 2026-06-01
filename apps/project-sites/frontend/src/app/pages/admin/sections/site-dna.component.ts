@@ -150,7 +150,7 @@ interface DnaPrefsResp {
               {{ loading() ? '…' : '↻' }}
             </button>
           </div>
-          <table class="dna-table" aria-label="Site DNA feedback history">
+          <table class="dna-table" aria-label="Site DNA feedback history" [attr.aria-busy]="loading()">
             <thead>
               <tr>
                 <th>Component</th>
@@ -161,7 +161,14 @@ interface DnaPrefsResp {
             </thead>
             <tbody>
               @if (loading()) {
-                <tr><td colspan="4" class="dna-td-center">Loading…</td></tr>
+                @for (i of [0,1,2,3,4]; track i) {
+                  <tr class="dna-skel-row" aria-hidden="true">
+                    <td><span class="glow-skel dna-skel-bar" style="width:72%"></span></td>
+                    <td><span class="glow-skel dna-skel-bar" style="width:50%"></span></td>
+                    <td><span class="glow-skel dna-skel-bar" style="width:42%"></span></td>
+                    <td><span class="glow-skel dna-skel-bar" style="width:60%"></span></td>
+                  </tr>
+                }
               } @else if (history().length === 0) {
                 <tr>
                   <td colspan="4" class="dna-td-center">
@@ -299,6 +306,7 @@ interface DnaPrefsResp {
       .dna-table tr:last-child td { border-bottom: none; }
       .dna-table tr:hover td { background: rgba(0,229,255,0.04); }
       .dna-td-center { text-align: center; color: rgba(244,244,255,0.35); padding: 24px !important; }
+      .dna-skel-bar { display: inline-block; height: 11px; border-radius: 4px; }
       .dna-mono { font-family: 'JetBrains Mono', monospace; color: rgba(244,244,255,0.7); }
       .dna-ts { color: rgba(244,244,255,0.35); font-size: 11px; }
       .dna-class-chip { background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.15); border-radius: 4px; padding: 1px 6px; font-size: 11px; color: var(--ps-accent, #00e5ff); }
