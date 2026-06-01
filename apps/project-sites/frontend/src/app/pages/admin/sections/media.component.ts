@@ -245,7 +245,7 @@ interface BoltMediaAttachMessage {
                 }
               </div>
             } @else if (filteredAssets().length === 0) {
-              <div class="med-empty">
+              <div class="med-empty" role="status">
                 <div class="med-empty__glyph" aria-hidden="true">✦</div>
                 <h2 class="med-empty__title">No media yet</h2>
                 <p class="med-empty__body">
@@ -385,7 +385,7 @@ interface BoltMediaAttachMessage {
                 }
               </div>
             } @else if (stockResults().length === 0) {
-              <div class="med-empty">
+              <div class="med-empty" role="status">
                 <div class="med-empty__glyph" aria-hidden="true">🔎</div>
                 <h2 class="med-empty__title">No results yet</h2>
                 <p class="med-empty__body">

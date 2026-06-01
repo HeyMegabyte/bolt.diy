@@ -447,7 +447,7 @@ const POLL_INTERVAL_MS = 10_000;
             }
           </div>
         } @else if (submissions().length === 0) {
-          <div class="empty-state" data-testid="forms-empty">
+          <div class="empty-state" role="status" data-testid="forms-empty">
             <svg class="empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M4 4h16v12H5.5L4 18z"/><path d="M8 9h8M8 13h5"/>
             </svg>
