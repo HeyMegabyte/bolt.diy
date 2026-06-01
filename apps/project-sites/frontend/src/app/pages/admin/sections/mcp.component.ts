@@ -5,6 +5,7 @@ import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { EmptyStateComponent } from '../empty-state.component';
+import { HlmInputDirective } from '../../../ui';
 
 interface Conn { id: string; provider: string; display_name: string; status: string; connected_at: string; metadata?: Record<string, unknown>; }
 
@@ -35,7 +36,7 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
 @Component({
   selector: 'app-admin-mcp',
   standalone: true,
-  imports: [FormsModule, SlicePipe, EmptyStateComponent],
+  imports: [FormsModule, SlicePipe, EmptyStateComponent, HlmInputDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header>
@@ -118,7 +119,8 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
                     <div class="flex gap-2 mt-1">
                       <input #pasteInput
                              type="password"
-                             class="input-field flex-1"
+                             hlmInput
+                             class="flex-1 font-mono text-xs"
                              [placeholder]="p.id === 'resend' ? 're_xxxxxxxx' : 'paste API key'"
                              [(ngModel)]="pastedKey"
                              (keydown.enter)="submitPaste(p.id)"
@@ -209,22 +211,7 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
       font-family: 'JetBrains Mono', ui-monospace, monospace;
     }
 
-    .input-field {
-      padding: 0.5rem 0.7rem;
-      border-radius: var(--ps-radius-sm, 8px);
-      background: rgba(0,0,0,0.3);
-      border: 1px solid rgba(255,255,255,0.1);
-      color: var(--ps-ink, #fff);
-      font: inherit;
-      font-family: 'JetBrains Mono', ui-monospace, monospace;
-      font-size: 0.75rem;
-      transition: border-color var(--ps-dur-fast, 140ms) ease, background var(--ps-dur-fast, 140ms) ease;
-    }
-    .input-field:focus { outline: none; border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 50%, transparent); }
-    .input-field:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
-      outline-offset: var(--ps-ring-focus-offset, 2px);
-    }
+    /* .input-field removed — the lone paste field now uses hlmInput (Spartan). */
 
     .btn-primary {
       display: inline-flex; align-items: center; gap: 6px;
