@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import AxeBuilder from '@axe-core/playwright';
 
 /**
  * Landmark + skip-link regression guard for the public homepage (the dashboard's
@@ -55,5 +56,22 @@ test.describe('homepage — landmark a11y', () => {
 
     // Exactly one top-level heading.
     expect(audit.h1Count).toBe(1);
+  });
+
+  test('no serious/critical axe violations on the homepage', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('main#main-content', { state: 'attached' });
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+      .analyze();
+
+    const blocking = results.violations
+      .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+      .map((v) => `${v.impact} · ${v.id} · ${v.nodes.length}× · ${v.help}`);
+
+    // eslint-disable-next-line no-console
+    console.warn(`\n=== homepage axe BLOCKING (serious/critical): ${blocking.length} ===\n${blocking.join('\n') || '  ✓ none'}`);
+    expect(blocking, blocking.join('\n')).toEqual([]);
   });
 });
