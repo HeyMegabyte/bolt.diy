@@ -40,6 +40,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
@@ -225,7 +226,7 @@ const PLATFORMS: readonly PlatformDef[] = [
   selector: 'app-admin-social',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RevealDirective, RollingCounterComponent, DialogShellComponent],
+  imports: [CommonModule, FormsModule, RevealDirective, RollingCounterComponent, DialogShellComponent, HlmInputDirective, HlmSelectDirective],
   template: `
 <div class="social-wrap" [class.is-loading]="loading()">
 
@@ -355,7 +356,9 @@ const PLATFORMS: readonly PlatformDef[] = [
           <!-- Main textarea -->
           <textarea
             #mainTa
-            class="composer-ta"
+            hlmInput
+            [multiline]="true"
+            class="w-full min-h-[90px] resize-y leading-relaxed"
             rows="4"
             [(ngModel)]="content"
             (ngModelChange)="onContentChange($event)"
@@ -394,7 +397,9 @@ const PLATFORMS: readonly PlatformDef[] = [
                   <button type="button" class="override-x" (click)="removeOverride(p.id)" aria-label="Remove override">&times;</button>
                 </div>
                 <textarea
-                  class="composer-ta sm"
+                  hlmInput
+                  [multiline]="true"
+                  class="w-full min-h-[60px] resize-y text-[0.82rem]"
                   rows="3"
                   [ngModel]="perPlatform()[p.id]"
                   (ngModelChange)="setOverride(p.id, $event)"
@@ -455,7 +460,9 @@ const PLATFORMS: readonly PlatformDef[] = [
                   <span class="tag-chip">#{{ t }} <button type="button" (click)="removeHashtag(i)" aria-label="Remove tag">&times;</button></span>
                 }
                 <input
+                  hlmInput
                   id="ps-tags"
+                  class="flex-1"
                   type="text"
                   [(ngModel)]="hashtagDraft"
                   (keydown)="onHashtagKeydown($event)"
@@ -466,8 +473,9 @@ const PLATFORMS: readonly PlatformDef[] = [
             <div class="meta-col">
               <label class="meta-lbl" for="ps-link">Link</label>
               <input
+                hlmInput
                 id="ps-link"
-                class="meta-input"
+                class="w-full"
                 type="url"
                 [(ngModel)]="link"
                 (blur)="fetchOg()"
@@ -488,7 +496,7 @@ const PLATFORMS: readonly PlatformDef[] = [
 
           <!-- AI assist row -->
           <div class="ai-row">
-            <select class="ai-tone" [(ngModel)]="aiTone" aria-label="AI tone">
+            <select hlmSelect [(ngModel)]="aiTone" aria-label="AI tone">
               <option value="punchy">Punchy</option>
               <option value="warm">Warm</option>
               <option value="authoritative">Authoritative</option>
@@ -516,8 +524,8 @@ const PLATFORMS: readonly PlatformDef[] = [
               <button type="button" class="sched-btn" [class.is-on]="!scheduleAt()" (click)="scheduleAt.set(null)">Post now</button>
               <button type="button" class="sched-btn" [class.is-on]="!!scheduleAt()" (click)="openScheduler()">Schedule</button>
               @if (scheduleAt()) {
-                <input class="sched-dt" type="datetime-local" [(ngModel)]="scheduleAt" aria-label="Scheduled time" />
-                <select class="sched-tz" [(ngModel)]="scheduleTz" aria-label="Time zone">
+                <input hlmInput type="datetime-local" [(ngModel)]="scheduleAt" aria-label="Scheduled time" />
+                <select hlmSelect [(ngModel)]="scheduleTz" aria-label="Time zone">
                   <option value="America/Los_Angeles">Los Angeles</option>
                   <option value="America/New_York">New York</option>
                   <option value="America/Chicago">Chicago</option>
@@ -561,7 +569,7 @@ const PLATFORMS: readonly PlatformDef[] = [
             <details>
               <summary>Bulk import from RSS</summary>
               <div class="rss-body">
-                <input type="url" [(ngModel)]="rssUrl" placeholder="https://example.com/feed.xml" aria-label="RSS feed URL" />
+                <input hlmInput class="flex-1" type="url" [(ngModel)]="rssUrl" placeholder="https://example.com/feed.xml" aria-label="RSS feed URL" />
                 <button type="button" class="btn-ghost" (click)="rssPreview()" [disabled]="!rssUrl">Preview</button>
                 @if (rssItems().length > 0) {
                   <ul class="rss-list">
@@ -1176,16 +1184,7 @@ const PLATFORMS: readonly PlatformDef[] = [
       .chip-ct { font-size: 0.62rem; opacity: 0.85; padding-left: 4px; border-left: 1px solid currentColor; margin-left: 2px; }
       .chip-ct.over { color: #ff6b8a; font-weight: 700; }
 
-      .composer-ta {
-        width: 100%; padding: 14px; border-radius: 12px;
-        background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent);
-        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
-        color: var(--ps-ink, #f4f4ff); font-size: 0.9rem; font-family: inherit;
-        resize: vertical; min-height: 90px; line-height: 1.55; outline: none; transition: border-color 0.15s ease;
-        caret-color: var(--ps-accent, #00e5ff);
-      }
-      .composer-ta.sm { min-height: 60px; padding: 10px; font-size: 0.82rem; }
-      .composer-ta:focus-visible { border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 45%, transparent); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent); }
+      /* .composer-ta removed — composer textareas now Spartan hlmInput [multiline] (min-h via Tailwind). */
 
       .mention-pop {
         position: absolute; left: 18px; right: 18px; max-width: 320px; z-index: 50;
@@ -1256,12 +1255,7 @@ const PLATFORMS: readonly PlatformDef[] = [
       .meta-col { display: flex; flex-direction: column; gap: 6px; }
       .meta-lbl { font-size: 0.7rem; font-weight: 600; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 65%, transparent); display: flex; align-items: center; gap: 6px; }
       .meta-aux { margin-left: auto; opacity: 0.65; font-weight: 400; }
-      .meta-input {
-        padding: 10px 12px; border-radius: 9px; background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent);
-        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
-        color: var(--ps-ink, #f4f4ff); font-family: inherit; font-size: 0.82rem; outline: none;
-      }
-      .meta-input:focus-visible { border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 45%, transparent); }
+      /* .meta-input removed — now Spartan hlmInput. */
       .tag-input {
         display: flex; flex-wrap: wrap; gap: 5px; padding: 6px;
         background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent);
@@ -1289,11 +1283,7 @@ const PLATFORMS: readonly PlatformDef[] = [
 
       /* ── AI row ── */
       .ai-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px; border-radius: 10px; background: color-mix(in oklch, var(--ps-accent, #00e5ff) 4%, transparent); }
-      .ai-tone {
-        padding: 6px 10px; border-radius: 7px; background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent);
-        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
-        color: var(--ps-ink, #f4f4ff); font-family: inherit; font-size: 0.74rem; outline: none; cursor: pointer;
-      }
+      /* .ai-tone removed — now Spartan hlmSelect. */
       .btn-ai {
         display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 7px;
         background: linear-gradient(135deg, var(--ps-accent, #00e5ff), var(--ps-accent-secondary, #7c3aed));
@@ -1324,12 +1314,7 @@ const PLATFORMS: readonly PlatformDef[] = [
         color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 70%, transparent);
       }
       .sched-btn.is-on { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 16%, transparent); border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 40%, transparent); color: var(--ps-accent, #00e5ff); }
-      .sched-dt, .sched-tz {
-        padding: 6px 10px; border-radius: 7px;
-        background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent);
-        border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
-        color: var(--ps-ink, #f4f4ff); font-family: inherit; font-size: 0.74rem; outline: none;
-      }
+      /* .sched-dt/.sched-tz removed — now Spartan hlmInput/hlmSelect. */
       .best-times { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-left: auto; }
       .best-h { font-size: 0.66rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
       .best-chip {
