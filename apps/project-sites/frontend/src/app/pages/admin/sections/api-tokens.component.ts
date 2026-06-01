@@ -325,7 +325,7 @@ const ALL_SCOPES = [
     .at-scopes-cell { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
     .at-meta-cell { color: rgba(244,244,255,0.55); font-size: 12px; }
     .at-actions-col { text-align: right; white-space: nowrap; }
-    .at-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 48px 0; color: rgba(244,244,255,0.4); font-size: 14px; }
+    .at-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 48px 0; color: rgba(244,244,255,0.62); font-size: 14px; }
     .at-quickstart { margin-top: 24px; border: 1px solid var(--ps-accent-line, rgba(0,229,255,0.1)); border-radius: 12px; overflow: hidden; }
     .at-qs-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12px; font-weight: 600; color: rgba(244,244,255,0.55); background: rgba(0,229,255,0.03); border-bottom: 1px solid rgba(0,229,255,0.08); text-transform: uppercase; letter-spacing: 0.5px; }
     .at-code { margin: 0; padding: 16px 18px; background: rgba(6,6,16,0.7); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ps-ink); overflow-x: auto; }

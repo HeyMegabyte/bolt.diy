@@ -377,7 +377,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
         </section>
       }
 
-      <p class="text-[0.65rem] text-text-secondary/70 text-center">
+      <p class="text-[0.65rem] text-text-secondary text-center">
         Source: {{ dataLabel() }} · {{ dataTooltip() }} ·
         last refreshed {{ refreshedAt() ? (refreshedAt() | date:'medium') : '—' }}
       </p>
