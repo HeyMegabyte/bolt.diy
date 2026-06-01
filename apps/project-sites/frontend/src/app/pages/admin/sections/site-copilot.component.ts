@@ -97,7 +97,7 @@ const INTENT_ICONS: Record<string, string> = {
 
         <!-- Sessions table -->
         <div class="copilot-table-wrap" appReveal>
-          <table class="copilot-table" aria-label="Recent copilot sessions">
+          <table class="copilot-table" aria-label="Recent copilot sessions" [attr.aria-busy]="loading()">
             <thead>
               <tr>
                 <th>Intent</th>
@@ -109,7 +109,15 @@ const INTENT_ICONS: Record<string, string> = {
             </thead>
             <tbody>
               @if (loading()) {
-                <tr><td colspan="5" class="copilot-td-center">Loading…</td></tr>
+                @for (i of [0,1,2,3,4]; track i) {
+                  <tr class="copilot-skel-row" aria-hidden="true">
+                    <td><span class="glow-skel copilot-skel-bar" style="width:70%"></span></td>
+                    <td><span class="glow-skel copilot-skel-bar" style="width:55%"></span></td>
+                    <td><span class="glow-skel copilot-skel-bar" style="width:38%"></span></td>
+                    <td><span class="glow-skel copilot-skel-bar" style="width:46%"></span></td>
+                    <td><span class="glow-skel copilot-skel-bar" style="width:60%"></span></td>
+                  </tr>
+                }
               } @else if (sessions().length === 0) {
                 <tr><td colspan="5" class="copilot-td-center">No sessions yet. Embed the widget to start.</td></tr>
               } @else {
@@ -168,6 +176,8 @@ const INTENT_ICONS: Record<string, string> = {
       .copilot-table td { padding: 7px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }
       .copilot-table tr:last-child td { border-bottom: none; }
       .copilot-table tr:hover td { background: rgba(0,229,255,0.04); }
+      .copilot-skel-row:hover td { background: transparent; }
+      .copilot-skel-bar { display: inline-block; height: 11px; border-radius: 4px; }
       .copilot-td-center { text-align: center; color: rgba(244,244,255,0.35); padding: 24px !important; }
       .copilot-intent-chip { font-size: 12px; font-weight: 500; }
       .copilot-signals { display: flex; gap: 4px; }
