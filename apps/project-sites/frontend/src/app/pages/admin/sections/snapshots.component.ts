@@ -1893,7 +1893,15 @@ export class AdminSnapshotsComponent implements OnInit {
         this.state.loadData();
       },
       error: (err) => {
-        this.toast.error(err?.error?.error?.message || 'Failed to revert snapshot');
+        // Revert is backend-pending: the worker wants a commit SHA the snapshot
+        // list doesn't yet expose (see api.service revertSnapshot FIXME). Give an
+        // honest, reassuring message instead of a bare failure — and make clear
+        // the live site was NOT touched (this is a destructive op that no-op'd).
+        this.toast.error(
+          err?.error?.error?.message ||
+            'Revert isn’t available yet — it needs a backend update that hasn’t shipped. Your live site was not changed.',
+          7000,
+        );
         this.reverting.set(false);
       },
     });
