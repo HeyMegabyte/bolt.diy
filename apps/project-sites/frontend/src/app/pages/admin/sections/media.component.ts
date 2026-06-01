@@ -44,7 +44,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
+import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { BoltEmbedService } from '../../../services/bolt-embed.service';
 import { ToastService } from '../../../services/toast.service';
@@ -130,7 +130,7 @@ interface BoltMediaAttachMessage {
   selector: 'app-admin-media',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, HlmInputDirective, HlmSelectDirective],
+  imports: [CommonModule, FormsModule, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
   template: `
     <section class="space-y-5" [class.media--compact]="compact()">
       <!-- ───────────────────────────────── Header ──────────────────────────────── -->
@@ -198,7 +198,7 @@ interface BoltMediaAttachMessage {
       </header>
 
       <!-- ───────────────────────────────── Tab strip ───────────────────────────── -->
-      <nav class="med-tabs" role="tablist" aria-label="Media sub-sections">
+      <nav class="med-tabs" role="tablist" hlmTablist aria-label="Media sub-sections">
         @for (t of tabs; track t.id) {
           <button
             type="button"

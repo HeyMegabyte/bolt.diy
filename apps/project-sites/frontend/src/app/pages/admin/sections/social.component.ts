@@ -40,7 +40,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
-import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
+import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
@@ -226,7 +226,7 @@ const PLATFORMS: readonly PlatformDef[] = [
   selector: 'app-admin-social',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RevealDirective, RollingCounterComponent, DialogShellComponent, HlmInputDirective, HlmSelectDirective],
+  imports: [CommonModule, FormsModule, RevealDirective, RollingCounterComponent, DialogShellComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
   template: `
 <div class="social-wrap" [class.is-loading]="loading()">
 
@@ -274,7 +274,7 @@ const PLATFORMS: readonly PlatformDef[] = [
         </button>
       </div>
     </div>
-    <nav class="tab-row" role="tablist" aria-label="Pulse Social tabs">
+    <nav class="tab-row" role="tablist" hlmTablist aria-label="Pulse Social tabs">
       <button class="tab" role="tab" [class.is-active]="tab() === 'compose'" (click)="tab.set('compose')">Compose</button>
       <button class="tab" role="tab" [class.is-active]="tab() === 'drafts'" (click)="loadPosts('draft'); tab.set('drafts')">
         Drafts <span class="tab-count">{{ draftsCount() }}</span>

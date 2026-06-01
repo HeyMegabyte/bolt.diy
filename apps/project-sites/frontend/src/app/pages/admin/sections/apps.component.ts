@@ -14,7 +14,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EmptyStateComponent } from '../empty-state.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
-import { HlmInputDirective } from '../../../ui';
+import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import {
   APP_CATEGORIES,
@@ -52,7 +52,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
 @Component({
   selector: 'app-admin-apps',
   standalone: true,
-  imports: [FormsModule, RouterLink, EmptyStateComponent, RevealDirective, RollingCounterComponent, HlmInputDirective, ...BrnTooltipImports],
+  imports: [FormsModule, RouterLink, EmptyStateComponent, RevealDirective, RollingCounterComponent, HlmInputDirective, HlmTablistDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -102,7 +102,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
         </label>
 
         <!-- Lifecycle pill row (Live vs Coming soon) -->
-        <div class="lifecycle-strip" role="tablist" aria-label="App lifecycle">
+        <div class="lifecycle-strip" role="tablist" hlmTablist aria-label="App lifecycle">
           <button
             type="button"
             role="tab"
@@ -139,7 +139,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
           </button>
         </div>
 
-        <div class="chip-strip" role="tablist" aria-label="App category">
+        <div class="chip-strip" role="tablist" hlmTablist aria-label="App category">
           <button
             type="button"
             role="tab"
