@@ -263,6 +263,8 @@ const POLL_INTERVAL_MS = 10_000;
             </header>
 
             <textarea #promptTextarea
+                      hlmInput
+                      [multiline]="true"
                       class="designer-textarea font-mono"
                       [placeholder]="settings.form_router_prompt_default || 'Describe how form submissions should be routed…'"
                       [(ngModel)]="settings.form_router_prompt"></textarea>
@@ -718,30 +720,16 @@ const POLL_INTERVAL_MS = 10_000;
       color: #00E5FF;
       font-size: 0.7rem;
     }
+    /* layout-only modifier on top of Spartan hlmInput [multiline] (box-chrome +
+       focus now owned by the directive). */
     .designer-textarea {
-      width: 100%;
       flex: 1;
       min-height: 240px;
       max-height: 60vh;
-      padding: 12px 14px;
-      background: rgba(0, 0, 0, 0.32);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: var(--ps-radius-md, 12px);
-      color: #fff;
       font-size: 0.78rem;
       line-height: 1.55;
       font-feature-settings: "calt", "liga";
       resize: vertical;
-      outline: none;
-      transition: border-color var(--ps-dur-fast, 140ms) ease, background var(--ps-dur-fast, 140ms) ease;
-    }
-    .designer-textarea:focus {
-      border-color: rgba(0, 229, 255, 0.35);
-      background: rgba(0, 0, 0, 0.4);
-    }
-    .designer-textarea:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
-      outline-offset: 2px;
     }
     .mcp-check { font-weight: 800; font-size: 0.72rem; line-height: 1; color: var(--brand); }
     .skeleton { background: rgba(255,255,255,0.10); border-radius: 8px; animation: skel-pulse 1.4s ease-in-out infinite; }
