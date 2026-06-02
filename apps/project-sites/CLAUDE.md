@@ -814,6 +814,16 @@ Tables: `mcp_oauth_states` (one-shot state + code_verifier per pending auth),
 9. **`ai_admin_features.ts.bak`** in `src/services/` is a checked-in backup — DO NOT
    reference; the live module is `ai_admin_features.ts`. Leaving the `.bak` next to its
    sibling keeps `git blame` history clean while the rewrite settles.
+10. **Zod-validation drift in `src/routes/features.ts`** (tracked 2026-06-02): the ~33
+    POST handlers in the "50 experimental features" grab-bag read bodies as
+    `(await c.req.json().catch(() => ({}))) as { … }` — a TypeScript `as`-cast with NO
+    runtime validation, which [[zod-everywhere]] + [[contract-first-ai]] forbid at a
+    boundary. Low live-risk today (every endpoint is `requireFlag`-gated on a
+    `default_enabled:false` flag, so they 404 in prod), but each should get a colocated
+    Zod schema + `zValidator` (or `safeParse` + `badRequest`) before its flag is promoted
+    to beta/stable. Do NOT mass-retrofit blind — convert per-feature as each flag is
+    enabled, with a unit test per endpoint. Same `as`-cast pattern exists (smaller) in
+    `media.ts`, `env_vars.ts`, and the un-validated portion of `ai_admin.ts`.
 
 ## Homepage SPA (public/index.html)
 
