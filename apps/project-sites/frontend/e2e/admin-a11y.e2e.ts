@@ -18,15 +18,21 @@ const SECTIONS = [
   // white-on-cyan PrimeNG contrast bug wherever it renders.
   '/admin/voice', '/admin/social', '/admin/domains', '/admin/content-freshness',
   '/admin/pseo', '/admin/ai-endpoints', '/admin/sites', '/admin/seo', '/admin/docs',
-  // Coverage expansion (round 117) — safe now that each section is its own test.
-  // This list now covers EVERY real admin SECTION component. The other /admin/*
-  // routes are intentionally NOT scanned because they aren't standalone sections
-  // (verified round 118): redirect aliases whose targets ARE scanned —
+  // Coverage expansion (round 117; gap re-audited + closed round 32 — see the
+  // two sections appended at the end). This list covers EVERY real admin SECTION
+  // component. The other /admin/* routes are intentionally NOT scanned because
+  // they aren't standalone sections (verified round 118): redirect aliases whose
+  // targets ARE scanned —
   // dashboard→'', mcp→settings/mcp, github→snapshots, ai-chat→settings — and the
   // welcome/editor bolt.diy iframe (separate origin, excluded via .exclude('iframe')).
   '/admin/features', '/admin/traces', '/admin/media', '/admin/apps',
   '/admin/inbox', '/admin/marketplace', '/admin/trust', '/admin/enterprise',
   '/admin/user', '/admin/logs',
+  // Coverage gap closed (round 32): these two routed admin sections had real
+  // components but ZERO e2e coverage. accept-invite renders its no-token error
+  // state ("Missing token in URL" + Go-to-admin); stripe-app-status renders the
+  // Stripe-connection status. Both verified axe-clean live before adding.
+  '/admin/accept-invite', '/admin/stripe-app-status',
 ];
 
 async function seed(page: Page): Promise<void> {
