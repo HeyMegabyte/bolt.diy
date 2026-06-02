@@ -112,7 +112,7 @@ export const ModelSelector = ({
   setModel,
   provider,
   setProvider,
-  modelList,
+  modelList = [],
   providerList,
   modelLoading,
 }: ModelSelectorProps) => {

@@ -323,13 +323,18 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
 
         setIsModelLoading('all');
         fetch('/api/models')
-          .then((response) => response.json())
+          .then((response) => (response.ok ? response.json() : { modelList: [] }))
           .then((data) => {
-            const typedData = data as { modelList: ModelInfo[] };
-            setModelList(typedData.modelList);
+            const typedData = data as { modelList?: ModelInfo[] };
+            // /api/models can 404 (e.g. when the route isn't served on a given
+            // deploy). Never let an undefined modelList reach the render path —
+            // it cascades into `.length`/`.filter`/`.some` crashes across the
+            // model UI (caught by the React Router error boundary).
+            setModelList(Array.isArray(typedData.modelList) ? typedData.modelList : []);
           })
           .catch((error) => {
             console.error('Error fetching model list:', error);
+            setModelList([]);
           })
           .finally(() => {
             setIsModelLoading(undefined);
@@ -348,8 +353,8 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
 
       try {
         const response = await fetch(`/api/models/${encodeURIComponent(providerName)}`);
-        const data = await response.json();
-        providerModels = (data as { modelList: ModelInfo[] }).modelList;
+        const data = response.ok ? await response.json() : { modelList: [] };
+        providerModels = (data as { modelList?: ModelInfo[] }).modelList ?? [];
       } catch (error) {
         console.error('Error loading dynamic models for:', providerName, error);
       }
