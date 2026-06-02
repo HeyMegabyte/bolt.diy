@@ -166,7 +166,7 @@ const INTENT_ICONS: Record<string, string> = {
       .copilot-flag-gate { padding: 20px; background: rgba(0,229,255,0.06); border: 1px solid rgba(0,229,255,0.2); border-radius: 12px; }
       .copilot-flag-link { color: var(--ps-accent); font-weight: 600; }
       .copilot-embed-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(0,229,255,0.12); border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-      .copilot-embed-label { font-size: 11px; color: rgba(244,244,255,0.45); text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0; }
+      .copilot-embed-label { font-size: 11px; color: rgba(244,244,255,0.72); text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0; }
       .copilot-embed-code { flex: 1; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--ps-accent); background: rgba(0,229,255,0.06); padding: 6px 10px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .copilot-copy-btn { background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.2); border-radius: 8px; padding: 5px 12px; color: var(--ps-accent); font-size: 12px; cursor: pointer; flex-shrink: 0; }
       .copilot-stats { display: flex; gap: 20px; flex-wrap: wrap; }
@@ -174,13 +174,13 @@ const INTENT_ICONS: Record<string, string> = {
       .copilot-stat-label { font-size: 11px; color: rgba(244,244,255,0.72); }
       .copilot-table-wrap { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; overflow: hidden; }
       .copilot-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-      .copilot-table th { padding: 8px 12px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(244,244,255,0.4); border-bottom: 1px solid rgba(255,255,255,0.05); }
+      .copilot-table th { padding: 8px 12px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(244,244,255,0.72); border-bottom: 1px solid rgba(255,255,255,0.05); }
       .copilot-table td { padding: 7px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }
       .copilot-table tr:last-child td { border-bottom: none; }
       .copilot-table tr:hover td { background: rgba(0,229,255,0.04); }
       .copilot-skel-row:hover td { background: transparent; }
       .copilot-skel-bar { display: inline-block; height: 11px; border-radius: 4px; }
-      .copilot-td-center { text-align: center; color: rgba(244,244,255,0.35); padding: 24px !important; }
+      .copilot-td-center { text-align: center; color: rgba(244,244,255,0.72); padding: 24px !important; }
       .copilot-intent-chip { font-size: 12px; font-weight: 500; }
       .copilot-signals { display: flex; gap: 4px; }
       .copilot-signals span { background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.2); border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: 700; color: var(--ps-accent); }
