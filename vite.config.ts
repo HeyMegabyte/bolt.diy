@@ -149,6 +149,12 @@ export default defineConfig((config) => {
       },
     },
     test: {
+      // Root vitest runs ONLY the bolt.diy Remix app (app/). The sub-packages
+      // have their own runners — apps/project-sites/* uses Jest, the Angular
+      // frontend uses Karma/Jasmine — and their `describe`/`it` globals are not
+      // vitest's, so scanning them yields "describe is not defined". Each
+      // sub-package is tested via its own `npm test`.
+      include: ['app/**/*.{test,spec}.{ts,tsx}'],
       exclude: [
         '**/node_modules/**',
         '**/dist/**',
@@ -156,6 +162,10 @@ export default defineConfig((config) => {
         '**/.{idea,git,cache,output,temp}/**',
         '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
         '**/tests/preview/**', // Exclude preview tests that require Playwright
+        // Agent worktrees under .claude/worktrees/ are full repo checkouts —
+        // without this, vitest scans 50+ copies (5000+ duplicate/stale specs),
+        // hanging `npm test`. Never run the worktree copies; only the real app/.
+        '**/.claude/**',
       ],
     },
   };
