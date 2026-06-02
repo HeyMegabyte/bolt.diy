@@ -1441,13 +1441,36 @@ export class AdminUserSettingsComponent implements OnInit {
   }
 
   private performRotate(k: ApiKeyRow): void {
-    this.api.post<{ data: ApiKeyCreateResponse }>(`/admin/api-keys/${k.id}/rotate`, {}).subscribe({
+    // No dedicated /rotate worker route exists. Implement rotation via the
+    // existing create + delete endpoints: mint a fresh key with the same name,
+    // scopes, and remaining lifetime, reveal its secret, then revoke the old
+    // one. (The previous /admin/api-keys/:id/rotate call hit the SPA shell and
+    // always failed.)
+    let expiresInDays: number | undefined;
+    if (k.expires_at) {
+      const ms = new Date(k.expires_at).getTime() - Date.now();
+      if (ms > 0) expiresInDays = Math.max(1, Math.ceil(ms / 86_400_000));
+    }
+    this.api.post<{ data: ApiKeyCreateResponse }>(`/admin/api-keys`, {
+      name: k.name,
+      scopes: k.scopes ?? ['read', 'write'],
+      expires_in_days: expiresInDays,
+    }).subscribe({
       next: (r) => {
         const created = r.data;
         this.newSecret.set({ name: created.name, secret: created.secret, expires_at: created.expires_at });
         this.createOpen.set(true);
-        this.toast.success(`${k.name} rotated — copy the new secret`);
-        this.loadApiKeys();
+        // Revoke the old key now that its replacement exists.
+        this.api.delete(`/admin/api-keys/${k.id}`).subscribe({
+          next: () => {
+            this.toast.success(`${k.name} rotated — copy the new secret`);
+            this.loadApiKeys();
+          },
+          error: () => {
+            this.toast.warning(`New key created, but revoking the old "${k.name}" failed — revoke it manually.`);
+            this.loadApiKeys();
+          },
+        });
       },
       error: (err) => {
         const msg = err?.error?.error?.message || 'Could not rotate key — retry, or revoke + recreate manually.';
