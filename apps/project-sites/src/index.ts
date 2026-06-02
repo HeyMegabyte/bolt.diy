@@ -89,6 +89,7 @@ import { swarm } from './routes/swarm.js';
 import { siteDna } from './routes/site_dna.js';
 import { sectionMarketplace } from './routes/section_marketplace.js';
 import { reviewRoutes } from './routes/reviews.js';
+import { emailDeliverabilityRoutes } from './routes/email_deliverability.js';
 import { seoAutopilot } from './routes/seo_autopilot.js';
 import { conversationalEdits } from './routes/conversational_edits.js';
 // ── Marketplace + Creator Economy (IDEAS-50 #39/#40/#41/#42)
@@ -509,6 +510,7 @@ app.route('/', emailMarketing); // /api/marketing/campaigns/:id/{recipients,send
 app.route('/', dataExport); // /api/exports/contacts.csv — owner data portability (flag: data_export)
 app.route('/', donationsEngine); // /api/donations/campaigns{,/:id} — campaign + donor-CRM layer (flag: donations_engine)
 app.route('/', reviewSynthesis); // /api/reviews/:siteId{,/synthesize} — verified review synthesis + JSON-LD (flag: review_synthesis)
+app.route('/', emailDeliverabilityRoutes); // /api/sites/:siteId/deliverability — SPF/DKIM/DMARC score + fixes (flag: email_deliverability_wizard)
 // ── IDEAS-50 wave 3 mounts — must precede `api` so :id/* suffixes + /r/:code + /gallery win
 app.route('/', reputation); // /api/sites/:id/reputation/{review-request,reply-draft,monitor} — #10/#11/#13 (flags: review_requests/review_responder/reputation_monitor)
 app.route('/', affiliateProgram); // /api/affiliate/* + /r/:code attribution redirect — #32 (flag: affiliate_program)
