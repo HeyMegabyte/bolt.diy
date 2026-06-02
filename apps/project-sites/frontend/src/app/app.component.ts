@@ -24,7 +24,13 @@ import { TelemetryService } from './services/telemetry.service';
     <app-network-status-banner />
     @if (showHeader()) { <app-header role="banner" /> }
     <app-bg-orbs />
-    <app-easter-eggs />
+    <!-- Easter eggs (Konami code / holiday hero variants / style-remix) are pure
+         delight — 538 lines with no critical path. Defer off the initial bundle
+         and attach during browser idle (well before any user could trigger a
+         Konami sequence). Trims the eager weight without risking any gated UX. -->
+    @defer (on idle) {
+      <app-easter-eggs />
+    }
     <app-toast />
     @if (showCommandPalette() && !inAdmin()) {
       <app-command-palette
