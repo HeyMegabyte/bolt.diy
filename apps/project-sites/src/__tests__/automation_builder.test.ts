@@ -1,9 +1,30 @@
 import {
   validateRecipe,
   recipeMatchesEvent,
+  createRecipe,
+  listRecipes,
+  deleteRecipe,
   MAX_RECIPE_ACTIONS,
   type AutomationRecipe,
 } from '../services/automation_builder.js';
+import type { Env } from '../types/env.js';
+
+/** Mock D1: .all()→{results} for SELECT; .run()→{meta.changes} for INSERT/UPDATE; captures bind args. */
+function mockEnv(rows: Record<string, unknown>[], changes: number, captured: unknown[][] = []): Env {
+  return {
+    DB: {
+      prepare: (_sql: string) => ({
+        bind: (...args: unknown[]) => ({
+          all: async () => ({ results: rows }),
+          run: async () => {
+            captured.push(args);
+            return { meta: { changes } };
+          },
+        }),
+      }),
+    },
+  } as unknown as Env;
+}
 
 const valid: AutomationRecipe = {
   name: 'Email on new lead',
@@ -65,5 +86,51 @@ describe('recipeMatchesEvent', () => {
     expect(recipeMatchesEvent(filtered, { type: 'form.submitted', payload: { formId: 'contact' } })).toBe(true);
     expect(recipeMatchesEvent(filtered, { type: 'form.submitted', payload: { formId: 'newsletter' } })).toBe(false);
     expect(recipeMatchesEvent(filtered, { type: 'form.submitted', payload: {} })).toBe(false); // missing key
+  });
+});
+
+describe('createRecipe', () => {
+  it('validates then inserts a valid recipe', async () => {
+    const captured: unknown[][] = [];
+    const env = mockEnv([], 1, captured);
+    const res = await createRecipe(env, 'o1', 's1', valid);
+    expect(res.ok).toBe(true);
+    expect(typeof res.id).toBe('string');
+    // bind: [id, site_id, org_id, name, enabled, trigger_type, trigger_filter, actions]
+    expect(captured[0]?.[1]).toBe('s1');
+    expect(captured[0]?.[2]).toBe('o1');
+    expect(captured[0]?.[5]).toBe('form.submitted');
+    expect(JSON.parse(captured[0]?.[7] as string)).toEqual(valid.actions);
+  });
+
+  it('rejects an invalid recipe without inserting', async () => {
+    const captured: unknown[][] = [];
+    const res = await createRecipe(mockEnv([], 1, captured), 'o1', 's1', { ...valid, trigger: { type: 'bad' } });
+    expect(res.ok).toBe(false);
+    expect(res.errors?.length).toBeGreaterThan(0);
+    expect(captured.length).toBe(0); // no INSERT
+  });
+});
+
+describe('listRecipes', () => {
+  it('parses JSON columns back into recipe objects', async () => {
+    const env = mockEnv(
+      [{ id: 'r1', name: 'X', enabled: 1, trigger_type: 'form.submitted', trigger_filter: '{"formId":"contact"}', actions: '[{"type":"send_email"}]' }],
+      0,
+    );
+    const list = await listRecipes(env, 'o1', 's1');
+    expect(list.length).toBe(1);
+    expect(list[0]?.enabled).toBe(true);
+    expect(list[0]?.trigger.filter).toEqual({ formId: 'contact' });
+    expect(list[0]?.actions).toEqual([{ type: 'send_email' }]);
+  });
+});
+
+describe('deleteRecipe', () => {
+  it('reports ok when a row was soft-deleted', async () => {
+    expect(await deleteRecipe(mockEnv([], 1), 'o1', 's1', 'r1')).toEqual({ ok: true });
+  });
+  it('reports not-ok when nothing matched', async () => {
+    expect(await deleteRecipe(mockEnv([], 0), 'o1', 's1', 'missing')).toEqual({ ok: false });
   });
 });

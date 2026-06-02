@@ -14,6 +14,9 @@
  * @packageDocumentation
  */
 
+import type { Env } from '../types/env.js';
+import { dbQuery, dbExecute } from './db.js';
+
 /** Platform events a recipe can trigger on (allowlist — a typo can't mint a phantom trigger). */
 export const TRIGGER_TYPES = [
   'form.submitted',
@@ -92,4 +95,83 @@ export function recipeMatchesEvent(recipe: AutomationRecipe, event: AutomationEv
   const filter = recipe.trigger.filter;
   if (!filter) return true;
   return Object.entries(filter).every(([k, v]) => event.payload[k] === v);
+}
+
+export interface StoredRecipe extends AutomationRecipe {
+  id: string;
+}
+export interface CreateRecipeResult {
+  ok: boolean;
+  id?: string;
+  errors?: string[];
+}
+
+/** Validate then persist a recipe (org+site scoped). Rejects with all validation errors. */
+export async function createRecipe(
+  env: Env,
+  orgId: string,
+  siteId: string,
+  recipe: AutomationRecipe,
+): Promise<CreateRecipeResult> {
+  const v = validateRecipe(recipe);
+  if (!v.ok) return { ok: false, errors: v.errors };
+
+  const id = crypto.randomUUID();
+  const res = await dbExecute(
+    env.DB,
+    `INSERT INTO automation_recipes (id, site_id, org_id, name, enabled, trigger_type, trigger_filter, actions)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      siteId,
+      orgId,
+      recipe.name.trim(),
+      recipe.enabled ? 1 : 0,
+      recipe.trigger.type,
+      recipe.trigger.filter ? JSON.stringify(recipe.trigger.filter) : null,
+      JSON.stringify(recipe.actions),
+    ],
+  );
+  if (res.error) return { ok: false, errors: [res.error] };
+  return { ok: true, id };
+}
+
+/** List a site's recipes (org+site scoped), JSON columns parsed back to objects. */
+export async function listRecipes(env: Env, orgId: string, siteId: string): Promise<StoredRecipe[]> {
+  const { data } = await dbQuery<{
+    id: string;
+    name: string;
+    enabled: number;
+    trigger_type: string;
+    trigger_filter: string | null;
+    actions: string;
+  }>(
+    env.DB,
+    `SELECT id, name, enabled, trigger_type, trigger_filter, actions
+     FROM automation_recipes WHERE org_id = ? AND site_id = ? AND deleted_at IS NULL
+     ORDER BY created_at DESC`,
+    [orgId, siteId],
+  );
+  return data.map((r) => ({
+    id: r.id,
+    name: r.name,
+    enabled: r.enabled === 1,
+    trigger: { type: r.trigger_type, filter: r.trigger_filter ? JSON.parse(r.trigger_filter) : undefined },
+    actions: JSON.parse(r.actions) as AutomationRecipe['actions'],
+  }));
+}
+
+/** Soft-delete a recipe (org+site scoped). `ok:false` when nothing matched. */
+export async function deleteRecipe(
+  env: Env,
+  orgId: string,
+  siteId: string,
+  id: string,
+): Promise<{ ok: boolean }> {
+  const res = await dbExecute(
+    env.DB,
+    "UPDATE automation_recipes SET deleted_at = datetime('now') WHERE id = ? AND org_id = ? AND site_id = ? AND deleted_at IS NULL",
+    [id, orgId, siteId],
+  );
+  return { ok: !res.error && res.changes > 0 };
 }
