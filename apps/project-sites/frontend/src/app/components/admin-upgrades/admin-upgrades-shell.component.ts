@@ -20,6 +20,36 @@ import { HttpClient } from '@angular/common/http';
 import { AdminUpgradesService } from '../../services/admin-upgrades.service';
 import { SparklineComponent, SplitViewDrawerComponent, SavedViewsComponent, PredictedActionsComponent, RowActionsDirective } from './top5.components';
 
+/**
+ * Honest, always-true index of live admin destinations powering the #11
+ * universal search. Every `href` resolves to a real lazy route in
+ * {@link app.routes.ts}. No fabricated rows — this replaced a mock corpus
+ * of invented business/audit entries.
+ */
+const ADMIN_NAV_INDEX: ReadonlyArray<{ id: string; source: string; label: string; href: string }> = [
+  { id: 'n-editor', source: 'section', label: 'Editor', href: '/admin/editor' },
+  { id: 'n-sites', source: 'section', label: 'Sites', href: '/admin/sites' },
+  { id: 'n-snapshots', source: 'section', label: 'Snapshots', href: '/admin/snapshots' },
+  { id: 'n-analytics', source: 'section', label: 'Analytics', href: '/admin/analytics' },
+  { id: 'n-audit', source: 'section', label: 'Audit Log', href: '/admin/audit' },
+  { id: 'n-tokens', source: 'section', label: 'API Tokens', href: '/admin/api-tokens' },
+  { id: 'n-flags', source: 'section', label: 'Feature Flags', href: '/admin/feature-flags' },
+  { id: 'n-freshness', source: 'section', label: 'Content Freshness', href: '/admin/content-freshness' },
+  { id: 'n-pseo', source: 'section', label: 'Programmatic SEO', href: '/admin/pseo' },
+  { id: 'n-seo', source: 'section', label: 'SEO', href: '/admin/seo' },
+  { id: 'n-forms', source: 'section', label: 'Forms', href: '/admin/forms' },
+  { id: 'n-docs', source: 'section', label: 'API Docs', href: '/admin/docs' },
+  { id: 'n-traces', source: 'section', label: 'Traces', href: '/admin/traces' },
+  { id: 'n-endpoints', source: 'section', label: 'AI Endpoints', href: '/admin/ai-endpoints' },
+  { id: 'n-voice', source: 'section', label: 'Voice', href: '/admin/voice' },
+  { id: 'n-media', source: 'section', label: 'Media', href: '/admin/media' },
+  { id: 'n-settings', source: 'section', label: 'Settings', href: '/admin/settings' },
+  { id: 'n-domains', source: 'section', label: 'Domains', href: '/admin/domains' },
+  { id: 'n-apps', source: 'section', label: 'Apps', href: '/admin/apps' },
+  { id: 'n-social', source: 'section', label: 'Social', href: '/admin/social' },
+  { id: 'n-inbox', source: 'section', label: 'Inbox', href: '/admin/inbox' },
+];
+
 @Component({
   selector: 'app-admin-upgrades-shell',
   standalone: true,
@@ -494,17 +524,14 @@ export class AdminUpgradesShellComponent implements OnInit {
       this.searchResults.set([]);
       return;
     }
-    // Mock: in production hit /api/search/universal with Vectorize
+    // Real admin-section nav index — every entry resolves to a live route
+    // (no fabricated data). A future server-backed `/api/search/universal`
+    // (Vectorize over sites/flags/audit) can extend this; until then the
+    // search is an honest section quick-nav, never invented results.
     const lower = q.toLowerCase();
-    const corpus = [
-      { id: 'r1', source: 'site', label: 'Bayonne Bakery', href: '/admin/sites' },
-      { id: 'r2', source: 'flag', label: 'cwv_publish_gate', href: '/admin/feature-flags' },
-      { id: 'r3', source: 'audit', label: 'Site published 12s ago', href: '/admin/audit' },
-      { id: 'r4', source: 'flag', label: 'site_mcp_server', href: '/admin/feature-flags' },
-      { id: 'r5', source: 'doc', label: 'How to wire Stripe Meters', href: '/admin/docs' },
-      { id: 'r6', source: 'feature', label: 'Features Hub', href: '/admin/features' },
-    ];
-    this.searchResults.set(corpus.filter((c) => c.label.toLowerCase().includes(lower) || c.source.toLowerCase().includes(lower)).slice(0, 8));
+    this.searchResults.set(
+      ADMIN_NAV_INDEX.filter((c) => c.label.toLowerCase().includes(lower) || c.source.toLowerCase().includes(lower)).slice(0, 8),
+    );
   }
   onSearchBlur(): void {
     setTimeout(() => this.searchFocused.set(false), 150);
