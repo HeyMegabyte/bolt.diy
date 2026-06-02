@@ -169,7 +169,7 @@ describe('createCheckoutSession', () => {
     });
 
     await expect(createCheckoutSession(mockDb, mockEnv, opts)).rejects.toThrow(
-      'Failed to create Stripe checkout',
+      'Stripe checkout failed',
     );
   });
 });
@@ -248,7 +248,7 @@ describe('createEmbeddedCheckoutSession', () => {
     });
 
     await expect(createEmbeddedCheckoutSession(mockDb, mockEnv, opts)).rejects.toThrow(
-      'Failed to create Stripe embedded checkout',
+      'Stripe embedded checkout failed',
     );
   });
 

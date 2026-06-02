@@ -241,7 +241,7 @@ describe('Billing Service Error Paths', () => {
 
       expect(err).toBeInstanceOf(AppError);
       expect((err as AppError).statusCode).toBe(400);
-      expect((err as AppError).message).toMatch(/Failed to create Stripe checkout/);
+      expect((err as AppError).message).toMatch(/Stripe checkout failed/);
     });
   });
 

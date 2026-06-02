@@ -153,7 +153,15 @@ describe('SITE_BUILDER source regression guards', () => {
     //  2. In finalize-build, fall back to a fresh KV read if kvFinalRecord
     //     is missing or empty — KV is the canonical store written by the
     //     container's HMAC callback.
-    const finalizeBlock = src.match(/finalize-build[\s\S]{0,2500}?return JSON\.stringify/);
+    // Slice the upload-resolution block directly (from the `uploadResult` seed
+    // to the `uploadCount` derive). Anchoring on `finalize-build … return
+    // JSON.stringify` is brittle — the finalize step grew past a fixed char cap
+    // when search-engine-submit + token-burn-meter blocks were added, so the
+    // lazy span could no longer reach the closing `return`. This tight window
+    // (~420 chars) bounds exactly the resolution logic and still bites: if the
+    // KV re-read or the `fresh.uploadResult` assignment is deleted, the two
+    // `.toMatch` assertions fail.
+    const finalizeBlock = src.match(/let uploadResult[\s\S]{0,600}?const uploadCount/);
     expect(finalizeBlock).not.toBeNull();
     expect(finalizeBlock![0]).toMatch(/CACHE_KV\.get\(`build:\$\{jobId\}`\)/);
     expect(finalizeBlock![0]).toMatch(/uploadResult\s*=\s*fresh\.uploadResult/);

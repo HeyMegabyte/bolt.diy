@@ -124,7 +124,7 @@ describe('POST /api/sites/:siteId/ai-endpoints/suggest', () => {
     expect(Object.keys(body.data.files)).toContain('prompt.md');
     // System prompt assertion
     const args = (env.AI.run as jest.Mock).mock.calls[0]!;
-    expect(args[0]).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
+    expect(args[0]).toBe('@cf/meta/llama-3.1-8b-instruct-fp8');
     expect(args[1].messages[0].content).toContain('STRICT JSON');
   });
 

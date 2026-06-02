@@ -48,7 +48,11 @@ function makeKv(): KvStub {
 }
 
 interface PreparedStmt {
-  bind: (...args: unknown[]) => { first: () => Promise<unknown>; all: () => Promise<unknown> };
+  bind: (...args: unknown[]) => {
+    first: () => Promise<unknown>;
+    all: () => Promise<unknown>;
+    run: () => Promise<unknown>;
+  };
 }
 
 function makeDb(traceRow: Record<string, unknown> | null): D1Database {
@@ -58,6 +62,10 @@ function makeDb(traceRow: Record<string, unknown> | null): D1Database {
         bind: () => ({
           first: jest.fn().mockResolvedValue(traceRow),
           all: jest.fn().mockResolvedValue({ results: [], success: true }),
+          // The handler persists the generated explanation to D1 (L1 cache)
+          // via `UPDATE … SET explanation = ?`.bind(…).run() — mock it so the
+          // cold path doesn't throw on a missing `.run`.
+          run: jest.fn().mockResolvedValue({ success: true, meta: {} }),
         }),
       }),
     ),
@@ -127,23 +135,39 @@ describe('POST /api/admin/traces/:traceId/explain', () => {
     };
     const env = makeEnv({ traceRow, aiResponse: '**Failed**\n\nUpstream rate limit.', kv });
     const app = authedApp();
-    const res1 = await app.request(`/api/admin/traces/${TRACE_ID}/explain`, { method: 'POST' }, env);
+    // The success path schedules D1-persist + audit-log via executionCtx.waitUntil,
+    // so a request without an ExecutionContext throws. Provide a no-op stub.
+    const execCtx = {
+      waitUntil: () => undefined,
+      passThroughOnException: () => undefined,
+    } as unknown as ExecutionContext;
+    const res1 = await app.request(
+      `/api/admin/traces/${TRACE_ID}/explain`,
+      { method: 'POST' },
+      env,
+      execCtx,
+    );
     expect(res1.status).toBe(200);
     const body1 = (await res1.json()) as { data: { markdown: string; cached: boolean; model: string } };
     expect(body1.data.markdown).toContain('Failed');
     expect(body1.data.cached).toBe(false);
-    expect(body1.data.model).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
+    expect(body1.data.model).toBe('@cf/meta/llama-3.1-8b-instruct-fp8');
     expect(env.AI.run).toHaveBeenCalledTimes(1);
     // System prompt assertions
     const callArgs = (env.AI.run as jest.Mock).mock.calls[0]!;
-    expect(callArgs[0]).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
+    expect(callArgs[0]).toBe('@cf/meta/llama-3.1-8b-instruct-fp8');
     const messages = callArgs[1].messages as Array<{ role: string; content: string }>;
     expect(messages[0]!.role).toBe('system');
     expect(messages[0]!.content).toContain('SRE assistant');
     expect(messages[1]!.content).toContain(TRACE_ID);
 
     // 2nd call → cache hit, no extra AI invocation
-    const res2 = await app.request(`/api/admin/traces/${TRACE_ID}/explain`, { method: 'POST' }, env);
+    const res2 = await app.request(
+      `/api/admin/traces/${TRACE_ID}/explain`,
+      { method: 'POST' },
+      env,
+      execCtx,
+    );
     expect(res2.status).toBe(200);
     const body2 = (await res2.json()) as { data: { markdown: string; cached: boolean } };
     expect(body2.data.cached).toBe(true);

@@ -170,11 +170,15 @@ describe('GET /api/domains/search', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.length).toBeGreaterThan(0);
-    // Fallback results should be marked unavailable with price 0
+    // When the RDAP availability lookup fails, rows are marked unavailable.
+    // Pricing comes from the STATIC TLD price table (cf_registrar
+    // buildTldPriceMap — no network call), so `price` is a non-negative
+    // estimate in cents, NOT 0. (Pricing no longer depends on the CF API.)
     for (const r of body.data) {
       expect(r).toHaveProperty('domain');
       expect(r.available).toBe(false);
-      expect(r.price).toBe(0);
+      expect(typeof r.price).toBe('number');
+      expect(r.price).toBeGreaterThanOrEqual(0);
     }
   });
 });

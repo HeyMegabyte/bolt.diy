@@ -75,7 +75,7 @@ describe('ai_crypto round-trip (via setEnvVar)', () => {
     mockQueryOne.mockImplementation(async () => {
       const call = mockExecute.mock.calls[0];
       const params = call?.[2] as unknown[];
-      const ciphertext = params?.[6] as string;
+      const ciphertext = params?.[8] as string;
       return { ...storedRow, value_encrypted: ciphertext };
     });
 
