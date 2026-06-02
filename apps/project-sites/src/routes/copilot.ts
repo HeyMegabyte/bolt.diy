@@ -15,16 +15,37 @@
  */
 
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
+import { assertSiteOwned } from '../services/site_ownership.js';
 import { processMultimodalIntent, saveCopilotSession } from '../services/multimodal_intent.js';
 
 const copilotRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 async function guardFlag(env: Env, orgId?: string, siteId?: string): Promise<boolean> {
   return isFlagOn(env, 'multimodal_copilot', { orgId, siteId });
+}
+
+/**
+ * Admin-route guard for `/api/sites/:siteId/copilot/*`. Uses the AUTHENTICATED
+ * org from the session (`c.get('orgId')`) — NEVER a client-supplied `x-org-id`
+ * header (that was a tenant-spoofing bypass) — then verifies the caller's org
+ * owns `siteId` and the flag is on. Returns a 401/404 Response when blocked, or
+ * `null` to proceed.
+ */
+async function adminGuard(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+  siteId: string,
+): Promise<Response | null> {
+  const userId = c.get('userId');
+  if (!userId) return c.json({ error: 'unauthorized' }, 401);
+  const orgId = c.get('orgId');
+  if (!(await assertSiteOwned(c.env, orgId, siteId))) return c.json({ error: 'not_found' }, 404);
+  if (!(await guardFlag(c.env, orgId ?? '', siteId))) return c.json({ error: 'not_found' }, 404);
+  return null;
 }
 
 // ── POST /api/sites/:slug/copilot/intent ──────────────────────────────────────
@@ -119,8 +140,8 @@ copilotRoutes.post('/api/sites/:slug/copilot/intent', async (c) => {
 // ── GET /api/sites/:siteId/copilot/sessions (admin) ───────────────────────────
 copilotRoutes.get('/api/sites/:siteId/copilot/sessions', async (c) => {
   const siteId = c.req.param('siteId');
-  const orgId = c.req.header('x-org-id') ?? '';
-  if (!(await guardFlag(c.env, orgId, siteId))) return c.json({ error: 'not_found' }, 404);
+  const blocked = await adminGuard(c, siteId);
+  if (blocked) return blocked;
 
   const limit = Math.min(parseInt(c.req.query('limit') ?? '50', 10), 200);
 
@@ -154,8 +175,8 @@ copilotRoutes.get('/api/sites/:siteId/copilot/sessions', async (c) => {
 // ── GET /api/sites/:siteId/copilot/config (admin) ─────────────────────────────
 copilotRoutes.get('/api/sites/:siteId/copilot/config', async (c) => {
   const siteId = c.req.param('siteId');
-  const orgId = c.req.header('x-org-id') ?? '';
-  if (!(await guardFlag(c.env, orgId, siteId))) return c.json({ error: 'not_found' }, 404);
+  const blocked = await adminGuard(c, siteId);
+  if (blocked) return blocked;
 
   const row = await c.env.DB.prepare(
     `SELECT value_json FROM flag_overrides
@@ -179,9 +200,9 @@ const CopilotConfigBodySchema = z.object({
 
 copilotRoutes.put('/api/sites/:siteId/copilot/config', zValidator('json', CopilotConfigBodySchema), async (c) => {
   const siteId = c.req.param('siteId');
-  const orgId = c.req.header('x-org-id') ?? '';
-  const userId = (c.get as (key: string) => string | undefined)('userId');
-  if (!(await guardFlag(c.env, orgId, siteId))) return c.json({ error: 'not_found' }, 404);
+  const blocked = await adminGuard(c, siteId);
+  if (blocked) return blocked;
+  const userId = c.get('userId');
 
   const body = c.req.valid('json');
 
