@@ -513,6 +513,7 @@ describe('auditLogSchema', () => {
       org_id: UUID,
       actor_id: UUID,
       action: 'site.created',
+      message: 'Brian created site vitos-mens-salon',
       target_type: 'site',
       target_id: UUID,
       metadata_json: { key: 'value' },
@@ -521,6 +522,7 @@ describe('auditLogSchema', () => {
       created_at: NOW,
     });
     expect(result.action).toBe('site.created');
+    expect(result.message).toBe('Brian created site vitos-mens-salon');
   });
 
   it('accepts null actor_id for system actions', () => {
@@ -529,6 +531,7 @@ describe('auditLogSchema', () => {
       org_id: UUID,
       actor_id: null,
       action: 'webhook.processed',
+      message: null,
       target_type: null,
       target_id: null,
       metadata_json: null,
@@ -537,6 +540,7 @@ describe('auditLogSchema', () => {
       created_at: NOW,
     });
     expect(result.actor_id).toBeNull();
+    expect(result.message).toBeNull();
   });
 
   it('rejects empty action', () => {
@@ -546,6 +550,7 @@ describe('auditLogSchema', () => {
         org_id: UUID,
         actor_id: null,
         action: '',
+        message: 'empty action should be rejected',
         target_type: null,
         target_id: null,
         metadata_json: null,
@@ -563,6 +568,7 @@ describe('auditLogSchema', () => {
         org_id: UUID,
         actor_id: null,
         action: 'a'.repeat(101),
+        message: 'over-long action should be rejected',
         target_type: null,
         target_id: null,
         metadata_json: null,
