@@ -56,6 +56,16 @@ test.describe('legacy /admin — WCAG 2.2 AA (axe-core)', () => {
       // axe load concurrently, so shell render can lag past a tighter budget
       // (contention, not a real failure — even stable sections flaked at 25s).
       await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 45000 });
+      // Settle async section content before scanning: skeleton loaders set
+      // aria-busy="true" while fetching (e.g. inbox.component). Scanning during
+      // that transient loading state caused a rare inbox flake — wait for the
+      // busy markers to clear so axe sees the steady UI. Resolves immediately
+      // for sections that never set aria-busy.
+      await page
+        .locator('[aria-busy="true"]')
+        .first()
+        .waitFor({ state: 'detached', timeout: 10000 })
+        .catch(() => {});
       await page.waitForTimeout(500);
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
