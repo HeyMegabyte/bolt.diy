@@ -8,7 +8,7 @@
 ```bash
 cd packages/shared
 npm install --legacy-peer-deps
-npm test                         # 446 unit tests across 11 suites
+npm test                         # 464 unit tests across 12 suites
 npm run typecheck                # tsc --noEmit
 npm run lint                     # eslint
 npm run check                    # all of the above
@@ -191,10 +191,11 @@ redactObject(obj)           // Deep-redact sensitive keys in objects
 
 ## Testing
 
-11 test suites, 446 tests total:
+12 test suites, 464 tests total:
 - `schemas.test.ts` — Base schema validation
 - `middleware.test.ts` — RBAC + entitlements
 - `utils.test.ts` — Sanitization, errors, OTP
+- `sanitize-security.test.ts` — `sanitizeHtml` XSS regression suite (quoted + UNQUOTED event handlers, nested scripts, dangerous URIs)
 - `crypto-extended.test.ts` — SHA256, HMAC, random generation
 - `edge-cases.test.ts` — Redaction, env validation, slug edge cases
 - `schemas-extended.test.ts` — All domain entity schemas (incl. auditLogSchema `message`)

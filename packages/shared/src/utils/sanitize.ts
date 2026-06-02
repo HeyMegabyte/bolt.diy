@@ -53,15 +53,30 @@
  * ```
  */
 export function sanitizeHtml(input: string): string {
-  return input
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
-    .replace(/javascript\s*:/gi, '')
-    .replace(/data\s*:/gi, '')
-    .replace(/vbscript\s*:/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
-    .replace(/<embed\b[^>]*>/gi, '');
+  // Apply the removal passes repeatedly until the string is stable. A single
+  // pass can REVEAL a new vector by deleting an inner construct — e.g.
+  // `<scr<script>ipt>` collapses to `<script>` only after the inner `<script>`
+  // is removed. Each pass only deletes, so length is monotonically
+  // non-increasing and the loop always terminates.
+  let out = input;
+  let prev: string;
+  do {
+    prev = out;
+    out = out
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+      .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
+      .replace(/<embed\b[^>]*>/gi, '')
+      // Event-handler attributes — quoted ("…" / '…') OR UNQUOTED (onload=alert(1)).
+      // The previous regex required quotes, so `<svg onload=alert(1)>` and
+      // `<img src=x onerror=alert(1)>` slipped through. The leading `\s` anchors
+      // to an attribute boundary so we never match inside text/other attrs.
+      .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+      .replace(/javascript\s*:/gi, '')
+      .replace(/data\s*:/gi, '')
+      .replace(/vbscript\s*:/gi, '');
+  } while (out !== prev);
+  return out;
 }
 
 /**
