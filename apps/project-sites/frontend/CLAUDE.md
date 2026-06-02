@@ -196,8 +196,15 @@ homepage at `/`. Asset paths are CDN-busted via Angular's hashed filenames.
   (The earlier "ag-grid is ALREADY lazy" note was wrong.) ag-grid is imported at
   the **module top level** of TWO lazy admin sections — `audit.component.ts`
   (lines 2-22 + `ModuleRegistry.registerModules` side-effect at :28) and
-  `ai-logs.component.ts` (:14-41) — and esbuild hoists the shared dep into the
-  initial bundle. That one dep is ~181 KB transfer — fixing it closes the budget.
+  `ai-logs.component.ts` (:14-41) — and esbuild hoists the dep into the initial
+  bundle. That one dep is ~181 KB transfer — fixing it closes the budget.
+  **DIAGNOSTIC (round 49):** it is NOT the 2-route sharing — temporarily orphaning
+  the ai-logs route (ag-grid → single importer = audit only) left the bundle still
+  205.08 KB over (vs 205.13 baseline, unchanged). esbuild promotes the large lazy
+  dep to a `main`-imported chunk even from ONE lazy route. So `@defer` AND the
+  shared-single-component approach are BOTH dead ends — the only fixes are
+  removing ag-grid (TanStack) or ejecting from Angular's builder to configure
+  esbuild chunking (huge). Don't re-attempt lazy-load tricks.
   **`@defer` approach FAILED (round 42 — tried + reverted):** converting both
   components to `import type` + async `import('ag-grid-community')` in `ngOnInit`
   + `@defer (when agReady())` on `<ag-grid-angular>` made the bundle WORSE
