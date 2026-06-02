@@ -16,6 +16,9 @@
  * @packageDocumentation
  */
 
+import type { Env } from '../types/env.js';
+import { dbQueryOne, dbExecute } from './db.js';
+
 /** Stored status never includes 'expired' — that is derived from the clock. */
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'revoked' | 'expired';
 export type ApprovalAction = 'approve' | 'reject' | 'revoke';
@@ -81,4 +84,51 @@ export function applyApprovalAction(
     default:
       return { ok: false, error: 'unknown_action' };
   }
+}
+
+export interface ReviewDecisionResult {
+  ok: boolean;
+  status?: string;
+  error?: string;
+}
+
+/**
+ * Persist an approve/reject/revoke decision on a `review_tokens` row.
+ *
+ * Dedup note: `review_tokens` already has a nullable `decision` column +
+ * `used_at` — this uses them (NO new `status` column). State is derived:
+ * `decision IS NULL` → pending; otherwise the stored terminal status. The
+ * `AND decision IS NULL` guard in the UPDATE makes a double-decide race a
+ * no-op (`already_decided`).
+ *
+ * @param nowIso - injected clock (ISO-UTC) for the expiry check.
+ */
+export async function recordReviewDecision(
+  env: Env,
+  reviewId: string,
+  action: ApprovalAction,
+  nowIso: string,
+): Promise<ReviewDecisionResult> {
+  const row = await dbQueryOne<{ decision: string | null; expires_at: string }>(
+    env.DB,
+    'SELECT decision, expires_at FROM review_tokens WHERE id = ?',
+    [reviewId],
+  );
+  if (!row) return { ok: false, error: 'not_found' };
+
+  const link: ApprovalLinkState = {
+    status: (row.decision as ApprovalStatus) ?? 'pending',
+    expiresAt: row.expires_at,
+  };
+  const t = applyApprovalAction(link, action, nowIso);
+  if (!t.ok) return { ok: false, error: t.error };
+
+  const res = await dbExecute(
+    env.DB,
+    "UPDATE review_tokens SET decision = ?, used_at = datetime('now') WHERE id = ? AND decision IS NULL",
+    [t.next, reviewId],
+  );
+  if (res.error) return { ok: false, error: res.error };
+  if (res.changes === 0) return { ok: false, error: 'already_decided' };
+  return { ok: true, status: t.next };
 }

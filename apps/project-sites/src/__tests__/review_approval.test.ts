@@ -1,8 +1,31 @@
 import {
   effectiveApprovalStatus,
   applyApprovalAction,
+  recordReviewDecision,
   type ApprovalLinkState,
 } from '../services/review_approval.js';
+import type { Env } from '../types/env.js';
+
+/** Mock D1: SELECT decision/expires_at via .all()→{results}; UPDATE via .run()→{meta.changes}. */
+function mockEnv(
+  row: { decision: string | null; expires_at: string } | null,
+  updateChanges = 1,
+  updates: unknown[][] = [],
+): Env {
+  return {
+    DB: {
+      prepare: (_sql: string) => ({
+        bind: (...args: unknown[]) => ({
+          all: async () => ({ results: row ? [row] : [] }),
+          run: async () => {
+            updates.push(args);
+            return { meta: { changes: updateChanges } };
+          },
+        }),
+      }),
+    },
+  } as unknown as Env;
+}
 
 const PAST = '2026-01-01T00:00:00.000Z';
 const NOW = '2026-06-01T00:00:00.000Z';
@@ -58,5 +81,39 @@ describe('applyApprovalAction', () => {
   it('refuses to act on a rejected or revoked link', () => {
     expect(applyApprovalAction({ status: 'rejected', expiresAt: null }, 'reject', NOW).ok).toBe(false);
     expect(applyApprovalAction({ status: 'revoked', expiresAt: null }, 'revoke', NOW).ok).toBe(false);
+  });
+});
+
+describe('recordReviewDecision', () => {
+  it('approves a pending, unexpired review and writes decision', async () => {
+    const updates: unknown[][] = [];
+    const env = mockEnv({ decision: null, expires_at: FUTURE }, 1, updates);
+    const res = await recordReviewDecision(env, 'rev1', 'approve', NOW);
+    expect(res).toEqual({ ok: true, status: 'approved' });
+    expect(updates[0]?.[0]).toBe('approved'); // UPDATE binds [next, id]
+    expect(updates[0]?.[1]).toBe('rev1');
+  });
+
+  it('returns not_found for a missing review', async () => {
+    const res = await recordReviewDecision(mockEnv(null), 'rev1', 'approve', NOW);
+    expect(res).toEqual({ ok: false, error: 'not_found' });
+  });
+
+  it('refuses an already-decided review (state machine)', async () => {
+    const res = await recordReviewDecision(mockEnv({ decision: 'approved', expires_at: FUTURE }), 'rev1', 'reject', NOW);
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('approved');
+  });
+
+  it('refuses an expired pending review', async () => {
+    const res = await recordReviewDecision(mockEnv({ decision: null, expires_at: PAST }), 'rev1', 'approve', NOW);
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('expired');
+  });
+
+  it('treats a 0-row UPDATE as a race (already_decided)', async () => {
+    const env = mockEnv({ decision: null, expires_at: FUTURE }, 0);
+    const res = await recordReviewDecision(env, 'rev1', 'approve', NOW);
+    expect(res).toEqual({ ok: false, error: 'already_decided' });
   });
 });
