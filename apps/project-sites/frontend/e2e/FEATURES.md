@@ -136,6 +136,23 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
 
 ---
 
+## Verified-done snapshot (live, this convergence wave)
+
+- **a11y**: `marketing-a11y` + `marketing-responsive` (59) and `admin-a11y` +
+  `admin-reflow` (46) = **105 axe/reflow assertions green** against prod.
+- **Native dialogs**: zero `window.confirm()`/`prompt()` in live shipped frontend
+  (branded `ConfirmService`/`PromptService`), except `voice/numbers.component.ts`
+  (concurrent-session deferred) + dead `ai-chat-extras`.
+- **Render XSS**: `agent-message` uses `marked → DOMPurify → bypass` (safe); other
+  `[innerHTML]` are Angular-sanitized (no bypass).
+- **Flag-gated sections** (site-dna 469 / trust-center 392 / enterprise 446 lines,
+  inbox, stripe-app-status) are **real implementations, not stubs**; their
+  **OFF-state is E2E-tested** (`admin-flag-gated.e2e.ts` — no org fetch + disabled
+  message). **ON-state is built but not live-tested**: these flags are
+  `default_enabled:0` and toggling them on requires a super-admin mutation against
+  prod, which the E2E account can't/shouldn't do. ON-state coverage is therefore
+  gated on a flag-toggle harness (tracked, not faked).
+
 ## Known gaps / blocked (honest — not faked)
 
 - **`/status` + `/changelog` a11y** — these are **worker-served HTML**
