@@ -11,7 +11,6 @@ import { confSchema } from './confidence.js';
 
 const confStr = confSchema(z.string());
 const confNum = confSchema(z.number());
-const confBool = confSchema(z.boolean());
 const confStrNull = confSchema(z.string().nullable());
 const confNumNull = confSchema(z.number().nullable());
 
