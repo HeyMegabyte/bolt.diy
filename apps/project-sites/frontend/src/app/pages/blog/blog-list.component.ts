@@ -52,7 +52,6 @@ import { BlogService, type BlogPost } from '../../services/blog.service';
             <a routerLink="/privacy">Privacy</a> |
             <a routerLink="/terms">Terms</a> |
             <a routerLink="/blog">Blog</a> |
-            <a routerLink="/changelog">Changelog</a> |
             <a routerLink="/status">Status</a>
           </span>
         </div>

@@ -95,7 +95,6 @@ interface BoardColumn {
           </div>
           <div class="cta-row">
             <a class="cta-primary" [href]="suggestMailto" rel="noopener"> Suggest a feature </a>
-            <a class="cta-secondary" routerLink="/changelog">Read the changelog</a>
           </div>
         </header>
 
