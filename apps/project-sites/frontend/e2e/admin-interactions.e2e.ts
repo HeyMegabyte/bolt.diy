@@ -44,8 +44,8 @@ test.describe('legacy /admin — interaction sweep (clicks must not crash)', () 
   test('billing — every tab switches without crashing', async ({ page }) => {
     test.setTimeout(90_000);
     const errs: string[] = [];
-    page.on('console', (m: ConsoleMessage) => { if (m.type() === 'error' && isAppError(m.text())) errs.push(m.text()); });
-    page.on('pageerror', (e) => errs.push(`pageerror: ${e.message}`));
+    page.on('console', (m: ConsoleMessage) => { if (m.type() === 'error' && isAppError(`${m.text()} ${m.location()?.url ?? ''}`)) errs.push(m.text()); });
+    page.on('pageerror', (e) => { if (isAppError(`${e.message} ${e.stack ?? ''}`)) errs.push(`pageerror: ${e.message}`); });
     await seed(page);
     await page.goto('/admin/billing', { waitUntil: 'load' });
     await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 20000 });
@@ -70,8 +70,8 @@ test.describe('legacy /admin — interaction sweep (clicks must not crash)', () 
   test('modal openers + filters across sections do not crash', async ({ page }) => {
     test.setTimeout(180_000);
     const errs: string[] = [];
-    page.on('console', (m: ConsoleMessage) => { if (m.type() === 'error' && isAppError(m.text())) errs.push(m.text()); });
-    page.on('pageerror', (e) => errs.push(`pageerror: ${e.message}`));
+    page.on('console', (m: ConsoleMessage) => { if (m.type() === 'error' && isAppError(`${m.text()} ${m.location()?.url ?? ''}`)) errs.push(m.text()); });
+    page.on('pageerror', (e) => { if (isAppError(`${e.message} ${e.stack ?? ''}`)) errs.push(`pageerror: ${e.message}`); });
     await seed(page);
 
     // forms — filter pills
@@ -109,8 +109,8 @@ test.describe('legacy /admin — interaction sweep (clicks must not crash)', () 
   test('primary actions + tabs across more sections do not crash', async ({ page }) => {
     test.setTimeout(180_000);
     const errs: string[] = [];
-    page.on('console', (m: ConsoleMessage) => { if (m.type() === 'error' && isAppError(m.text())) errs.push(m.text()); });
-    page.on('pageerror', (e) => errs.push(`pageerror: ${e.message}`));
+    page.on('console', (m: ConsoleMessage) => { if (m.type() === 'error' && isAppError(`${m.text()} ${m.location()?.url ?? ''}`)) errs.push(m.text()); });
+    page.on('pageerror', (e) => { if (isAppError(`${e.message} ${e.stack ?? ''}`)) errs.push(`pageerror: ${e.message}`); });
     await seed(page);
 
     // settings — tab strip (General / Team / Billing / API / Active Sites etc.)

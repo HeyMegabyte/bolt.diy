@@ -235,7 +235,7 @@ type StatusFilter = 'all' | PseoPage['status'];
       border-radius:12px; padding:.75rem 1.25rem;
     }
     .ps-stat { display:flex; flex-direction:column; align-items:flex-start; gap:.15rem; }
-    .ps-stat-label { font-size:.62rem; color:rgba(244,244,255,.45); font-weight:600; text-transform:uppercase; letter-spacing:.06em; }
+    .ps-stat-label { font-size:.62rem; color:rgba(244,244,255,.72); font-weight:600; text-transform:uppercase; letter-spacing:.06em; }
     .ps-stat-pub { color:#4ade80; }
     .ps-stat-warn { color:#fbbf24; }
 
