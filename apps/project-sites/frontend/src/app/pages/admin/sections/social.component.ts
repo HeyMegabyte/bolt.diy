@@ -72,6 +72,7 @@ interface PlatformDef {
 }
 
 interface SocialAccount {
+  id?: string;
   platform: PlatformId;
   connected: boolean;
   handle?: string;
@@ -1647,8 +1648,8 @@ export class AdminSocialComponent implements OnInit {
   private loadAccounts(): void {
     const sid = this.siteId();
     if (!sid) return;
-    this.api.get<{ accounts: SocialAccount[] }>(`/social/accounts`, { site_id: sid }).subscribe({
-      next: (r) => this.accounts.set(r.accounts ?? []),
+    this.api.get<{ data: SocialAccount[] }>(`/social/accounts`, { site_id: sid }).subscribe({
+      next: (r) => this.accounts.set(r.data ?? []),
       error: () => {
         // Sibling agent may not have shipped yet — keep platforms list visible
         this.accounts.set(this.platforms.map((p) => ({ platform: p.id, connected: false })));
@@ -1676,7 +1677,14 @@ export class AdminSocialComponent implements OnInit {
   disconnect(pid: PlatformId): void {
     const sid = this.siteId();
     if (!sid) return;
-    this.api.post(`/social/${pid}/disconnect`, { site_id: sid }).subscribe({
+    // The worker disconnects by account UUID (DELETE /social/accounts/:id), not
+    // by platform — resolve the connected account for this platform first.
+    const acct = this.accounts().find((a) => a.platform === pid && a.connected);
+    if (!acct?.id) {
+      this.toast.error(`No connected ${this.defOf(pid)?.label} account to disconnect.`);
+      return;
+    }
+    this.api.delete(`/social/accounts/${acct.id}`).subscribe({
       next: () => {
         this.toast.success(`Disconnected ${this.defOf(pid)?.label}`);
         this.loadAccounts();
@@ -2109,8 +2117,8 @@ export class AdminSocialComponent implements OnInit {
     this.loading.set(true);
     const params: Record<string, string> = { site_id: sid };
     if (filter) params['status'] = filter;
-    this.api.get<{ posts: SocialPost[] }>('/social/posts', params).subscribe({
-      next: (r) => { this.posts.set(r.posts ?? []); this.loading.set(false); },
+    this.api.get<{ data: SocialPost[] }>('/social/posts', params).subscribe({
+      next: (r) => { this.posts.set(r.data ?? []); this.loading.set(false); },
       error: () => { this.loading.set(false); },
     });
   }
@@ -2220,8 +2228,8 @@ export class AdminSocialComponent implements OnInit {
     const cached = this.analyticsCache()[postId];
     if (cached) return cached;
     // Lazily fetch + cache
-    this.api.get<{ rows: AnalyticsRow[] }>(`/social/posts/${postId}/analytics`).subscribe({
-      next: (r) => this.analyticsCache.update((m) => ({ ...m, [postId]: r.rows ?? [] })),
+    this.api.get<{ data: { per_platform: AnalyticsRow[] } }>(`/social/posts/${postId}/analytics`).subscribe({
+      next: (r) => this.analyticsCache.update((m) => ({ ...m, [postId]: r.data?.per_platform ?? [] })),
       error: () => this.analyticsCache.update((m) => ({ ...m, [postId]: [] })),
     });
     return [];
