@@ -36,7 +36,11 @@ async function seed(page: Page): Promise<void> {
 
 /** A section renders a VALID 4-state container — never blank, never a crash. */
 const STATE_SELECTOR =
-  '[data-testid="error-card"], app-error-card, app-skeleton, app-empty-state, [data-testid="cf-table"], .ff-card, table, .ps-table-wrap';
+  // Valid non-blank states: shared 4-state-kit + section-native empty/skeleton
+  // containers. `.ps-empty`/`.ps-skel` are pSEO's own empty/loading states —
+  // once pSEO authenticates (commit 73b3cb5b) it loads cleanly and shows its
+  // empty state instead of the error-card it rendered while broken.
+  '[data-testid="error-card"], app-error-card, app-skeleton, app-empty-state, [data-testid="cf-table"], .ff-card, table, .ps-table-wrap, .ps-empty, .ps-skel';
 
 test.describe('admin — 4-state-kit conversions (campaign regression guard)', () => {
   test.skip(!KEY, 'E2E_API_KEY not set');
