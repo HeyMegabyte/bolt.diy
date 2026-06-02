@@ -1,21 +1,206 @@
 {
-  "nav": { "home": "Inicio", "features": "Características", "pricing": "Precios", "faq": "Preguntas", "admin": "Panel", "signIn": "Iniciar Sesión", "getStarted": "Comenzar", "dashboard": "Panel", "newSite": "Nuevo Sitio", "signOut": "Cerrar Sesión", "signedInAs": "Sesión iniciada como" },
-  "hero": { "title": "Tu Sitio Web, Resuelto. Por Fin.", "subtitle": "La IA construye tu sitio web profesional en 15 minutos. Solo busca tu negocio.", "cta": "Crea Tu Sitio Gratis", "ctaSecondary": "Ver Cómo Funciona", "searchPlaceholder": "Busca tu negocio..." },
-  "social": { "sites": "1,200+", "sitesLabel": "Sitios Creados", "uptime": "99.9%", "uptimeLabel": "Disponibilidad", "build": "<15 min", "buildLabel": "Tiempo de Creación", "edge": "300+", "edgeLabel": "Ubicaciones Edge" },
-  "howItWorks": { "title": "Cómo Funciona", "subtitle": "Tres pasos para un sitio web impresionante", "step1Title": "Busca", "step1Desc": "Encuentra tu negocio o empieza de cero. Nuestra IA obtiene tus datos automáticamente.", "step2Title": "La IA Construye", "step2Desc": "Nuestro motor genera un sitio web hermoso y optimizado para SEO, adaptado a tu marca.", "step3Title": "En Línea", "step3Desc": "Tu sitio está alojado, asegurado con SSL y desplegado en más de 300 ubicaciones edge." },
-  "features": { "title": "Todo lo que Necesitas", "subtitle": "Herramientas integradas para que te enfoques en tu negocio", "ai": "Generación IA", "aiDesc": "Sitios web profesionales creados por IA en minutos, no semanas.", "domain": "Dominio Propio", "domainDesc": "Conecta tu propio dominio o usa un subdominio gratuito.", "seo": "SEO Optimizado", "seoDesc": "Posiciónate mejor con datos estructurados, meta tags y tiempos de carga rápidos.", "analytics": "Analíticas", "analyticsDesc": "Rastrea visitantes, conversiones y rendimiento en tiempo real.", "payments": "Pagos", "paymentsDesc": "Acepta pagos con la integración de Stripe incluida.", "hosting": "Hosting Global", "hostingDesc": "Desplegado en la red edge de Cloudflare para velocidad máxima." },
-  "pricing": { "title": "Precios Simples", "subtitle": "Un plan. Todo incluido.", "price": "$50", "period": "/mes", "wasPrice": "$200/mes", "features": ["Sitio Web Generado por IA", "Dominio Personalizado", "SEO Optimizado", "Panel de Análisis", "Pagos con Stripe", "Hosting 24/7", "Ediciones Ilimitadas", "Certificado SSL"], "cta": "Comenzar Gratis", "badge": "No se requiere tarjeta de crédito" },
-  "faq": { "title": "Preguntas Frecuentes", "subtitle": "¿Tienes preguntas? Tenemos respuestas.", "q1": "¿Cuánto tiempo tarda en construirse mi sitio web?", "a1": "Nuestra IA genera tu sitio web en menos de 15 minutos. Puedes previsualizarlo, hacer ediciones y publicarlo el mismo día.", "q2": "¿Puedo usar mi propio nombre de dominio?", "a2": "Sí. Puedes conectar cualquier dominio que poseas, o usar un subdominio gratuito en projectsites.dev.", "q3": "¿Qué pasa si necesito cambios después del lanzamiento?", "a3": "Tienes ediciones ilimitadas. Usa nuestro editor visual o pide a la IA que haga cambios por ti.", "q4": "¿Hay una prueba gratuita?", "a4": "Sí. Puedes construir y previsualizar tu sitio gratis. Solo pagas cuando estés listo para publicar.", "q5": "¿Qué pasa si cancelo?", "a5": "Tu sitio permanece activo hasta el final de tu período de facturación. Puedes exportar tu contenido en cualquier momento.", "q6": "¿Soportan comercio electrónico?", "a6": "Integramos con Stripe para pagos. Las funciones completas de comercio electrónico incluyendo páginas de productos y checkout están próximamente." },
-  "cta": { "title": "¿Listo para Comenzar?", "subtitle": "Construye tu sitio web profesional en minutos, no meses.", "searchPlaceholder": "Busca tu negocio..." },
-  "footer": { "product": "Producto", "company": "Empresa", "legal": "Legal", "about": "Acerca de", "blog": "Blog", "careers": "Carreras", "privacy": "Política de Privacidad", "terms": "Términos de Servicio", "content": "Política de Contenido", "copyright": "Hecho con IA por Megabyte Labs" },
-  "admin": { "dashboard": "Panel", "pages": "Páginas y Contenido", "design": "Diseño y Tema", "domains": "Dominios", "snapshots": "Instantáneas", "analytics": "Análisis", "seo": "Configuración SEO", "billing": "Facturación y Plan", "audit": "Registro de Auditoría", "settings": "Configuración", "addSite": "Agregar Nuevo Sitio", "selectSite": "Selecciona un sitio...", "editor": "Editor Visual", "email": "Correo", "social": "Redes Sociales", "forms": "Formularios", "integrations": "Integraciones" },
-  "errors": { "notFound": "Página no encontrada. Revisa la URL e intenta de nuevo.", "serverError": "Algo salió mal de nuestro lado. Estamos investigando.", "offline": "Estás sin conexión. Revisa tu conexión e intenta de nuevo.", "sessionExpired": "Tu sesión expiró. Inicia sesión de nuevo.", "forbidden": "No tienes permiso para hacer eso.", "validation": "Algunos datos enviados no son válidos.", "rateLimit": "Demasiadas solicitudes. Espera un momento.", "networkError": "Conexión fallida. Revisa tu red e intenta de nuevo." },
-  "accessibility": { "skipToContent": "Saltar al contenido principal", "mainContent": "Contenido principal", "loading": "Cargando...", "menu": "Menú", "close": "Cerrar", "expand": "Expandir", "collapse": "Contraer" },
-  "common": { "retry": "Intentar de Nuevo", "goHome": "Volver al Inicio", "search": "Buscar", "save": "Guardar", "cancel": "Cancelar", "delete": "Eliminar", "edit": "Editar", "create": "Crear", "back": "Atrás", "next": "Siguiente", "loading": "Cargando...", "noResults": "Sin resultados", "confirm": "Confirmar" },
-  "form": { "required": "Este campo es obligatorio", "email": "Ingresa un correo electrónico válido", "minLength": "Debe tener al menos {{min}} caracteres", "maxLength": "No debe tener más de {{max}} caracteres", "invalidUrl": "Ingresa una URL válida" },
-  "feedback": { "title": "Enviar Comentario", "ratingLabel": "¿Cómo es tu experiencia?", "placeholder": "Cuéntanos más (opcional)...", "submit": "Enviar Comentario", "success": "¡Gracias por tu comentario!", "error": "No se pudo enviar. Intenta de nuevo." },
-  "blog": { "title": "Blog", "subtitle": "Consejos, actualizaciones e ideas para pequeños negocios", "readMore": "Leer Más", "minRead": "min de lectura", "backToBlog": "Volver al Blog" },
-  "changelog": { "title": "Registro de Cambios", "subtitle": "Novedades en ProjectSites" },
-  "status": { "title": "Estado del Sistema", "operational": "Todos los Sistemas Operativos", "degraded": "Rendimiento Degradado", "down": "Interrupción del Servicio" },
-  "auth": { "signIn": "Iniciar Sesión", "signOut": "Cerrar Sesión", "magicLink": "Iniciar sesión con correo", "magicLinkSent": "Revisa tu bandeja de entrada", "googleSignIn": "Continuar con Google", "emailPlaceholder": "tu@ejemplo.com" }
+  "nav": {
+    "home": "Inicio",
+    "features": "Características",
+    "pricing": "Precios",
+    "faq": "Preguntas",
+    "admin": "Panel",
+    "signIn": "Iniciar Sesión",
+    "getStarted": "Comenzar",
+    "dashboard": "Panel",
+    "newSite": "Nuevo Sitio",
+    "signOut": "Cerrar Sesión",
+    "signedInAs": "Sesión iniciada como"
+  },
+  "hero": {
+    "title": "Tu Sitio Web, Resuelto. Por Fin.",
+    "subtitle": "La IA construye tu sitio web profesional en 15 minutos. Solo busca tu negocio.",
+    "cta": "Crea Tu Sitio Gratis",
+    "ctaSecondary": "Ver Cómo Funciona",
+    "searchPlaceholder": "Busca tu negocio..."
+  },
+  "social": {
+    "sites": "1,200+",
+    "sitesLabel": "Sitios Creados",
+    "uptime": "99.9%",
+    "uptimeLabel": "Disponibilidad",
+    "build": "<15 min",
+    "buildLabel": "Tiempo de Creación",
+    "edge": "300+",
+    "edgeLabel": "Ubicaciones Edge"
+  },
+  "howItWorks": {
+    "title": "Cómo Funciona",
+    "subtitle": "Tres pasos para un sitio web impresionante",
+    "step1Title": "Busca",
+    "step1Desc": "Encuentra tu negocio o empieza de cero. Nuestra IA obtiene tus datos automáticamente.",
+    "step2Title": "La IA Construye",
+    "step2Desc": "Nuestro motor genera un sitio web hermoso y optimizado para SEO, adaptado a tu marca.",
+    "step3Title": "En Línea",
+    "step3Desc": "Tu sitio está alojado, asegurado con SSL y desplegado en más de 300 ubicaciones edge."
+  },
+  "features": {
+    "title": "Todo lo que Necesitas",
+    "subtitle": "Herramientas integradas para que te enfoques en tu negocio",
+    "ai": "Generación IA",
+    "aiDesc": "Sitios web profesionales creados por IA en minutos, no semanas.",
+    "domain": "Dominio Propio",
+    "domainDesc": "Conecta tu propio dominio o usa un subdominio gratuito.",
+    "seo": "SEO Optimizado",
+    "seoDesc": "Posiciónate mejor con datos estructurados, meta tags y tiempos de carga rápidos.",
+    "analytics": "Analíticas",
+    "analyticsDesc": "Rastrea visitantes, conversiones y rendimiento en tiempo real.",
+    "payments": "Pagos",
+    "paymentsDesc": "Acepta pagos con la integración de Stripe incluida.",
+    "hosting": "Hosting Global",
+    "hostingDesc": "Desplegado en la red edge de Cloudflare para velocidad máxima."
+  },
+  "pricing": {
+    "title": "Precios Simples",
+    "subtitle": "Un plan. Todo incluido.",
+    "price": "$50",
+    "period": "/mes",
+    "wasPrice": "$200/mes",
+    "features": [
+      "Sitio Web Generado por IA",
+      "Dominio Personalizado",
+      "SEO Optimizado",
+      "Panel de Análisis",
+      "Pagos con Stripe",
+      "Hosting 24/7",
+      "Ediciones Ilimitadas",
+      "Certificado SSL"
+    ],
+    "cta": "Comenzar Gratis",
+    "badge": "No se requiere tarjeta de crédito"
+  },
+  "faq": {
+    "title": "Preguntas Frecuentes",
+    "subtitle": "¿Tienes preguntas? Tenemos respuestas.",
+    "q1": "¿Cuánto tiempo tarda en construirse mi sitio web?",
+    "a1": "Nuestra IA genera tu sitio web en menos de 15 minutos. Puedes previsualizarlo, hacer ediciones y publicarlo el mismo día.",
+    "q2": "¿Puedo usar mi propio nombre de dominio?",
+    "a2": "Sí. Puedes conectar cualquier dominio que poseas, o usar un subdominio gratuito en projectsites.dev.",
+    "q3": "¿Qué pasa si necesito cambios después del lanzamiento?",
+    "a3": "Tienes ediciones ilimitadas. Usa nuestro editor visual o pide a la IA que haga cambios por ti.",
+    "q4": "¿Hay una prueba gratuita?",
+    "a4": "Sí. Puedes construir y previsualizar tu sitio gratis. Solo pagas cuando estés listo para publicar.",
+    "q5": "¿Qué pasa si cancelo?",
+    "a5": "Tu sitio permanece activo hasta el final de tu período de facturación. Puedes exportar tu contenido en cualquier momento.",
+    "q6": "¿Soportan comercio electrónico?",
+    "a6": "Integramos con Stripe para pagos. Las funciones completas de comercio electrónico incluyendo páginas de productos y checkout están próximamente."
+  },
+  "cta": {
+    "title": "¿Listo para Comenzar?",
+    "subtitle": "Construye tu sitio web profesional en minutos, no meses.",
+    "searchPlaceholder": "Busca tu negocio..."
+  },
+  "footer": {
+    "product": "Producto",
+    "company": "Empresa",
+    "legal": "Legal",
+    "about": "Acerca de",
+    "blog": "Blog",
+    "careers": "Carreras",
+    "privacy": "Política de Privacidad",
+    "terms": "Términos de Servicio",
+    "content": "Política de Contenido",
+    "copyright": "Hecho con IA por Megabyte Labs"
+  },
+  "admin": {
+    "dashboard": "Panel",
+    "pages": "Páginas y Contenido",
+    "design": "Diseño y Tema",
+    "domains": "Dominios",
+    "snapshots": "Instantáneas",
+    "analytics": "Análisis",
+    "seo": "Configuración SEO",
+    "billing": "Facturación y Plan",
+    "audit": "Registro de Auditoría",
+    "settings": "Configuración",
+    "addSite": "Agregar Nuevo Sitio",
+    "selectSite": "Selecciona un sitio...",
+    "editor": "Editor Visual",
+    "email": "Correo",
+    "social": "Redes Sociales",
+    "forms": "Formularios",
+    "integrations": "Integraciones",
+    "fab": {
+      "thinking": "Pensando…"
+    }
+  },
+  "errors": {
+    "notFound": "Página no encontrada. Revisa la URL e intenta de nuevo.",
+    "serverError": "Algo salió mal de nuestro lado. Estamos investigando.",
+    "offline": "Estás sin conexión. Revisa tu conexión e intenta de nuevo.",
+    "sessionExpired": "Tu sesión expiró. Inicia sesión de nuevo.",
+    "forbidden": "No tienes permiso para hacer eso.",
+    "validation": "Algunos datos enviados no son válidos.",
+    "rateLimit": "Demasiadas solicitudes. Espera un momento.",
+    "networkError": "Conexión fallida. Revisa tu red e intenta de nuevo."
+  },
+  "accessibility": {
+    "skipToContent": "Saltar al contenido principal",
+    "mainContent": "Contenido principal",
+    "loading": "Cargando...",
+    "menu": "Menú",
+    "close": "Cerrar",
+    "expand": "Expandir",
+    "collapse": "Contraer"
+  },
+  "common": {
+    "retry": "Intentar de Nuevo",
+    "goHome": "Volver al Inicio",
+    "search": "Buscar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "loading": "Cargando...",
+    "noResults": "Sin resultados",
+    "confirm": "Confirmar"
+  },
+  "form": {
+    "required": "Este campo es obligatorio",
+    "email": "Ingresa un correo electrónico válido",
+    "minLength": "Debe tener al menos {{min}} caracteres",
+    "maxLength": "No debe tener más de {{max}} caracteres",
+    "invalidUrl": "Ingresa una URL válida"
+  },
+  "feedback": {
+    "title": "Enviar Comentario",
+    "ratingLabel": "¿Cómo es tu experiencia?",
+    "placeholder": "Cuéntanos más (opcional)...",
+    "submit": "Enviar Comentario",
+    "success": "¡Gracias por tu comentario!",
+    "error": "No se pudo enviar. Intenta de nuevo."
+  },
+  "blog": {
+    "title": "Blog",
+    "subtitle": "Consejos, actualizaciones e ideas para pequeños negocios",
+    "readMore": "Leer Más",
+    "minRead": "min de lectura",
+    "backToBlog": "Volver al Blog"
+  },
+  "changelog": {
+    "title": "Registro de Cambios",
+    "subtitle": "Novedades en ProjectSites"
+  },
+  "status": {
+    "title": "Estado del Sistema",
+    "operational": "Todos los Sistemas Operativos",
+    "degraded": "Rendimiento Degradado",
+    "down": "Interrupción del Servicio"
+  },
+  "auth": {
+    "signIn": "Iniciar Sesión",
+    "signOut": "Cerrar Sesión",
+    "magicLink": "Iniciar sesión con correo",
+    "magicLinkSent": "Revisa tu bandeja de entrada",
+    "googleSignIn": "Continuar con Google",
+    "emailPlaceholder": "tu@ejemplo.com"
+  }
 }

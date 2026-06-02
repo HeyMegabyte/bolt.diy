@@ -18,6 +18,8 @@ import { Router, RouterLink, NavigationEnd } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { HttpClient } from '@angular/common/http';
 import { AdminUpgradesService } from '../../services/admin-upgrades.service';
+import { AuthService } from '../../services/auth.service';
+import { ToastService } from '../../services/toast.service';
 import { SparklineComponent, SplitViewDrawerComponent, SavedViewsComponent, PredictedActionsComponent, RowActionsDirective } from './top5.components';
 
 /**
@@ -186,17 +188,6 @@ const ADMIN_NAV_INDEX: ReadonlyArray<{ id: string; source: string; label: string
       </section>
     }
 
-    <!-- #16 Bulk-actions toolbar (visible when selection > 0) -->
-    @if (selectedRowCount() > 0) {
-      <div class="adm-bulk" data-upgrade="16" role="toolbar" [attr.aria-label]="'admin.bulk.aria' | translate">
-        <span>{{ selectedRowCount() }} {{ 'admin.bulk.selected' | translate }}</span>
-        <button (click)="bulkAction('publish')">{{ 'admin.bulk.publish' | translate }}</button>
-        <button (click)="bulkAction('archive')">{{ 'admin.bulk.archive' | translate }}</button>
-        <button (click)="bulkAction('export')">{{ 'admin.bulk.export' | translate }}</button>
-        <button class="adm-bulk-clear" (click)="clearSelection()">×</button>
-      </div>
-    }
-
     <!-- #18 Floating AI FAB -->
     <button class="adm-fab" data-upgrade="18" (click)="aiFabOpen.set(!aiFabOpen())" [attr.aria-label]="'admin.fab.aria' | translate" [attr.aria-expanded]="aiFabOpen()">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L9.5 8.5 3 9.5l4.75 4.5-1.5 6.5L12 17l5.75 3.5-1.5-6.5L21 9.5l-6.5-1z"/></svg>
@@ -208,10 +199,12 @@ const ADMIN_NAV_INDEX: ReadonlyArray<{ id: string; source: string; label: string
           <button (click)="aiFabOpen.set(false)" [attr.aria-label]="'common.close' | translate">×</button>
         </header>
         <p>{{ 'admin.fab.prompt' | translate }}</p>
-        <textarea [(ngModel)]="aiFabInput" rows="3" [placeholder]="'admin.fab.placeholder' | translate"></textarea>
-        <button class="adm-fab-send" (click)="sendAiPrompt()" [disabled]="!aiFabInput().trim()">{{ 'admin.fab.send' | translate }}</button>
+        <textarea [(ngModel)]="aiFabInput" rows="3" [placeholder]="'admin.fab.placeholder' | translate" [disabled]="aiFabBusy()" (keydown.enter)="$event.preventDefault(); sendAiPrompt()"></textarea>
+        <button class="adm-fab-send" (click)="sendAiPrompt()" [disabled]="!aiFabInput().trim() || aiFabBusy()" data-testid="admin-fab-send">
+          {{ aiFabBusy() ? ('admin.fab.thinking' | translate) : ('admin.fab.send' | translate) }}
+        </button>
         @if (aiFabResponse(); as r) {
-          <pre class="adm-fab-response">{{ r }}</pre>
+          <pre class="adm-fab-response" data-testid="admin-fab-response" aria-live="polite" [attr.aria-busy]="aiFabBusy()">{{ r }}</pre>
         }
       </aside>
     }
@@ -389,9 +382,6 @@ const ADMIN_NAV_INDEX: ReadonlyArray<{ id: string; source: string; label: string
     .adm-rail-list a { display: flex; flex-direction: column; gap: .35rem; padding: .55rem; min-width: 140px; border-radius: 10px; background: color-mix(in oklch, currentColor 6%, transparent); color: inherit; text-decoration: none; }
     .adm-rail-list img { width: 100%; height: 60px; border-radius: 6px; object-fit: cover; }
 
-    .adm-bulk { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); padding: .65rem 1rem; border-radius: 999px; display: flex; align-items: center; gap: .65rem; z-index: 100; box-shadow: 0 12px 40px rgba(0, 0, 0, .35); }
-    .adm-bulk button { background: var(--ps-bg, #060610); color: #fff; border: 0; padding: .35rem .8rem; border-radius: 999px; font: inherit; font-size: .85rem; cursor: pointer; }
-    .adm-bulk-clear { background: transparent !important; color: inherit !important; font-size: 1.2rem !important; padding: 0 .25rem !important; }
 
     .adm-fab { position: fixed; bottom: 1.25rem; right: 1.25rem; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--ps-accent, #00e5ff), #7c3aed); color: #fff; border: 0; cursor: pointer; box-shadow: 0 12px 32px rgba(0, 229, 255, .35), 0 4px 12px rgba(124, 58, 237, .25); z-index: 99; display: flex; align-items: center; justify-content: center; transition: transform .15s cubic-bezier(.4, 0, .2, 1), box-shadow .2s; }
     .adm-fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 18px 42px rgba(0, 229, 255, .45), 0 6px 16px rgba(124, 58, 237, .35); }
@@ -445,6 +435,8 @@ export class AdminUpgradesShellComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
   private readonly host = inject(ElementRef);
+  private readonly auth = inject(AuthService);
+  private readonly toast = inject(ToastService);
 
   readonly languages = [
     { code: 'en', label: 'English', flag: '🇺🇸' },
@@ -468,6 +460,8 @@ export class AdminUpgradesShellComponent implements OnInit {
   readonly aiFabOpen = signal(false);
   readonly aiFabInput = signal('');
   readonly aiFabResponse = signal<string | null>(null);
+  readonly aiFabBusy = signal(false);
+  private aiFabAbort: AbortController | null = null;
   readonly drawer = signal<{ title: string; bodyHtml: string } | null>(null);
   readonly whatsNewOpen = signal(false);
   readonly activityOpen = signal(false);
@@ -480,7 +474,6 @@ export class AdminUpgradesShellComponent implements OnInit {
   readonly shortcutsQuery = signal('');
   readonly chordPending = signal(false);
   readonly compareOpen = signal(false);
-  readonly selectedRowCount = signal(0);
   readonly now = new Date();
 
   readonly allShortcuts = [
@@ -566,35 +559,105 @@ export class AdminUpgradesShellComponent implements OnInit {
     }
   }
 
-  // #19 share this view
+  // #19 share this view — copy a deep link to the clipboard with a real toast
+  // (was a jarring window.alert(); alert() is also blocked in some embedded
+  // contexts). Falls back to an info toast carrying the URL when the Clipboard
+  // API is unavailable (insecure context / permission denied).
   async shareThisView(): Promise<void> {
     const url = `${location.origin}${location.pathname}?share=${btoa(location.pathname + location.search)}`;
+    this.upgrades.trackAction({ label: 'share-view', payload: { url } });
     try {
-      await navigator.clipboard?.writeText(url);
-      this.upgrades.trackAction({ label: 'share-view', payload: { url } });
-      alert(`Link copied: ${url}`);
+      await navigator.clipboard.writeText(url);
+      this.toast.success('Link to this view copied to clipboard');
     } catch {
-      alert(`Share: ${url}`);
+      this.toast.info(`Copy this link to share: ${url}`, { duration: 0 });
     }
   }
 
-  // #18 AI FAB
+  // #18 AI FAB — real dashboard copilot over the live SSE endpoint
+  // (POST /api/dashboard/chat → routes/dashboard.ts). Streams `event: token`
+  // frames into the response panel; was previously a mock echo string.
   async sendAiPrompt(): Promise<void> {
     const prompt = this.aiFabInput().trim();
-    if (!prompt) return;
-    // Mock: in production hit /api/dashboard/chat SSE
-    this.aiFabResponse.set(`Echo for "${prompt}":\n\nThis is the floating AI assistant. Production wires this to the existing /api/dashboard/chat SSE endpoint with route-context injected (current route: ${this.router.url}).`);
-    this.upgrades.trackAction({ label: 'ai-fab-prompt', payload: { prompt } });
-  }
+    if (!prompt || this.aiFabBusy()) return;
 
-  // #16 bulk actions
-  bulkAction(kind: string): void {
-    this.upgrades.trackAction({ label: `bulk-${kind}`, payload: { count: this.selectedRowCount() } });
-    alert(`Bulk ${kind} on ${this.selectedRowCount()} row(s) — wired to per-page bulk handler`);
-    this.clearSelection();
-  }
-  clearSelection(): void {
-    this.selectedRowCount.set(0);
+    this.aiFabAbort?.abort();
+    const ctrl = new AbortController();
+    this.aiFabAbort = ctrl;
+    this.aiFabBusy.set(true);
+    this.aiFabResponse.set('');
+    this.upgrades.trackAction({ label: 'ai-fab-prompt', payload: { prompt } });
+
+    const token = this.auth.getToken();
+    try {
+      const res = await fetch('/api/dashboard/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: prompt }],
+          context: {
+            route: this.router.url ?? '/admin',
+            time_of_day: new Date().toLocaleTimeString(),
+          },
+        }),
+        signal: ctrl.signal,
+      });
+
+      if (!res.ok || !res.body) {
+        const hint =
+          res.status === 401
+            ? 'Sign in to use the AI assistant.'
+            : `AI assistant error (${res.status}). Try again shortly.`;
+        this.aiFabResponse.set(hint);
+        this.toast.error(hint);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let assembled = '';
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const frames = buffer.split('\n\n');
+        buffer = frames.pop() ?? '';
+        for (const frame of frames) {
+          const evtLine = frame.split('\n').find((l) => l.startsWith('event:'));
+          const dataLine = frame.split('\n').find((l) => l.startsWith('data:'));
+          if (!dataLine) continue;
+          const evt = evtLine ? evtLine.slice(6).trim() : 'token';
+          const json = dataLine.slice(5).trim();
+          if (!json) continue;
+          try {
+            const parsed = JSON.parse(json) as { text?: string; message?: string };
+            if (evt === 'token' && parsed.text) {
+              assembled += parsed.text;
+              this.aiFabResponse.set(assembled);
+            } else if (evt === 'error') {
+              this.aiFabResponse.set(parsed.message ?? 'The assistant hit an error.');
+            }
+          } catch {
+            /* ignore a malformed frame */
+          }
+        }
+      }
+      if (!assembled.trim()) {
+        this.aiFabResponse.set('No response — try rephrasing your question.');
+      }
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
+      const msg = 'The AI assistant is offline right now. Try again in a moment.';
+      this.aiFabResponse.set(msg);
+      this.toast.error(msg);
+    } finally {
+      if (this.aiFabAbort === ctrl) this.aiFabAbort = null;
+      this.aiFabBusy.set(false);
+    }
   }
 
   // #17 inline edit demo
@@ -648,9 +711,6 @@ export class AdminUpgradesShellComponent implements OnInit {
   }
   toggleShortcuts(): void {
     this.shortcutsOpen.set(!this.shortcutsOpen());
-  }
-  selectRow(): void {
-    this.selectedRowCount.update((c) => c + 1);
   }
 
   // Round-2 demo wiring
