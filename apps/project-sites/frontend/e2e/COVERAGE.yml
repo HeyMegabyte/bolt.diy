@@ -12,7 +12,7 @@ marketing:
   legal:           { status: covered, specs: [marketing-a11y.e2e.ts, marketing-responsive.e2e.ts] }
   roadmap:         { status: covered, specs: [marketing-a11y.e2e.ts, marketing-responsive.e2e.ts] }
   integrations:    { status: covered, specs: [marketing-a11y.e2e.ts, marketing-responsive.e2e.ts] }
-  contact:         { status: covered, specs: [marketing-a11y.e2e.ts, marketing-responsive.e2e.ts] }
+  contact:         { status: covered, specs: [marketing-a11y.e2e.ts, marketing-responsive.e2e.ts, contact-form.e2e.ts] }
   signin:          { status: covered, specs: [signin.spec.ts, marketing-a11y.e2e.ts, marketing-responsive.e2e.ts] }
   changelog:       { status: blocked, specs: [marketing-a11y.e2e.ts], reason: "worker-served HTML; needs worker deploy (Docker)" }
   status_page:     { status: blocked, specs: [marketing-a11y.e2e.ts], reason: "worker-served HTML; needs worker deploy (Docker)" }

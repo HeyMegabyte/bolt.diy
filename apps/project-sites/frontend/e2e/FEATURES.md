@@ -26,7 +26,7 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
 | Privacy / Terms (legal) | `marketing-a11y.e2e.ts`, `marketing-responsive.e2e.ts` | ✅ |
 | Roadmap | `marketing-a11y.e2e.ts`, `marketing-responsive.e2e.ts` | ✅ |
 | Integrations | `marketing-a11y.e2e.ts`, `marketing-responsive.e2e.ts` | ✅ |
-| Contact | `marketing-a11y.e2e.ts`, `marketing-responsive.e2e.ts` | ✅ |
+| Contact | `marketing-a11y.e2e.ts`, `marketing-responsive.e2e.ts`, `contact-form.e2e.ts` | ✅ |
 | Sign-in (magic-link / Google) | `signin.spec.ts`, `marketing-a11y.e2e.ts`, `marketing-responsive.e2e.ts` | ✅ |
 | Changelog (worker-served) | `marketing-a11y.e2e.ts` (excluded — documented) | ⚠️ worker/Docker-blocked |
 | Status (worker-served) | `marketing-a11y.e2e.ts` (excluded — documented) | ⚠️ worker/Docker-blocked |
