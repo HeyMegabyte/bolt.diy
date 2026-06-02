@@ -50,4 +50,36 @@ test.describe('admin — console hygiene', () => {
       `admin requested Google S2 favicons (should resolve to the monogram tile instead):\n${faviconReqs.join('\n')}`,
     ).toEqual([]);
   });
+
+  test('/admin/feature-flags does NOT fire the super-admin endpoint for non-super-admins (no 401)', async ({
+    page,
+  }) => {
+    test.setTimeout(60000);
+    // The override-merge GET /api/super-admin/feature-flags 401s for non-super
+    // admins; the browser logs that 401 uncatchably. The fix gates the fetch on
+    // the isSuperAdmin() signal (from /api/auth/me), so a non-super-admin must
+    // never trigger the request. The test account is a non-super-admin.
+    const superAdminReqs: string[] = [];
+    const superAdmin401s: number[] = [];
+    page.on('request', (r) => {
+      if (r.url().includes('/api/super-admin/feature-flags')) superAdminReqs.push(r.url());
+    });
+    page.on('response', (r) => {
+      if (r.url().includes('/api/super-admin/feature-flags') && r.status() === 401) {
+        superAdmin401s.push(r.status());
+      }
+    });
+
+    await seed(page);
+    await page.goto('/admin/feature-flags', { waitUntil: 'load' });
+    // Registry still renders from the public GET /api/feature-flags.
+    await expect(page.locator('.ff-card').first()).toBeVisible({ timeout: 30000 });
+    await page.waitForTimeout(2000);
+
+    expect(
+      superAdminReqs,
+      `non-super-admin must not fire the super-admin override endpoint:\n${superAdminReqs.join('\n')}`,
+    ).toEqual([]);
+    expect(superAdmin401s, 'no 401 from the super-admin endpoint may be logged').toEqual([]);
+  });
 });
