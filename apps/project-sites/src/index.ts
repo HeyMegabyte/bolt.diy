@@ -209,12 +209,17 @@ app.use('*', async (c, next) => {
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io",
+      // static.cloudflareinsights.com: CF Web Analytics auto-injects its beacon
+      // at the edge; without it here the editor logs a CSP violation every load.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io https://static.cloudflareinsights.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: https: blob:",
       "font-src 'self' data: https://fonts.gstatic.com",
       "connect-src 'self' https: wss: blob:",
-      "frame-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io https://*.stackblitz.com https://challenges.cloudflare.com",
+      // Bare https://stackblitz.com is required because app/root.tsx sets
+      // WEBCONTAINER_API_IFRAME_URL = "https://stackblitz.com" (no subdomain),
+      // which `*.stackblitz.com` does NOT match → framing was blocked.
+      "frame-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io https://stackblitz.com https://*.stackblitz.com https://challenges.cloudflare.com",
       "child-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io",
       "worker-src 'self' blob:",
       "frame-ancestors 'self' https://projectsites.dev https://*.projectsites.dev https://bolt-diy-8jf.pages.dev https://bolt.megabyte.space",
