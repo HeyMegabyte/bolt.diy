@@ -1,0 +1,99 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { of, throwError } from 'rxjs';
+import { AdminBulkOpsComponent } from './bulk-ops.component';
+import { ApiService } from '../../../services/api.service';
+import { ToastService } from '../../../services/toast.service';
+
+/**
+ * Guards the Bulk Site Ops preview surface: the flag fields only show for
+ * set_flag, Preview posts dryRun:true with the right body, and the returned
+ * plan (eligible + skips) renders. Locks the read-only-preview contract.
+ */
+describe('AdminBulkOpsComponent', () => {
+  let fixture: ComponentFixture<AdminBulkOpsComponent>;
+  let host: HTMLElement;
+  let post: jasmine.Spy;
+
+  const PLAN = {
+    ok: true,
+    dryRun: true,
+    plan: {
+      operation: 'archive',
+      eligible: ['s1', 's2', 's3'],
+      skipped: [{ id: 's4', reason: 'archived' }],
+      cappedAt: null,
+    },
+  };
+
+  beforeEach(async () => {
+    post = jasmine.createSpy('post').and.returnValue(of(PLAN));
+    await TestBed.configureTestingModule({
+      imports: [AdminBulkOpsComponent],
+      providers: [
+        { provide: ApiService, useValue: { post } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error') } },
+      ],
+    }).compileComponents();
+    fixture = TestBed.createComponent(AdminBulkOpsComponent);
+    host = fixture.nativeElement as HTMLElement;
+    fixture.detectChanges();
+  });
+
+  const q = (sel: string): HTMLElement | null => host.querySelector(sel);
+  const all = (sel: string): HTMLElement[] => Array.from(host.querySelectorAll(sel));
+
+  it('creates', () => {
+    expect(fixture.componentInstance).toBeTruthy();
+  });
+
+  it('hides the flag fields unless operation is set_flag', () => {
+    expect(q('[data-testid="bulk-ops-setflag-fields"]')).toBeNull();
+    fixture.componentInstance.operationModel.set('set_flag');
+    fixture.detectChanges();
+    expect(q('[data-testid="bulk-ops-setflag-fields"]')).not.toBeNull();
+  });
+
+  it('previews with dryRun:true and renders the plan (eligible + skips)', () => {
+    (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(post).toHaveBeenCalledTimes(1);
+    const [path, body] = post.calls.mostRecent().args;
+    expect(path).toBe('/sites/bulk');
+    expect((body as { dryRun: boolean }).dryRun).toBe(true);
+    expect((body as { operation: string }).operation).toBe('archive');
+    expect((body as { allSites: boolean }).allSites).toBe(true);
+
+    expect(q('[data-testid="bulk-ops-result"]')).not.toBeNull();
+    expect(all('[data-testid="bulk-ops-skip-row"]').length).toBe(1);
+    expect(fixture.componentInstance.plan()?.eligible.length).toBe(3);
+  });
+
+  it('includes flagKey + enabled in the body for set_flag', () => {
+    fixture.componentInstance.operationModel.set('set_flag');
+    fixture.componentInstance.flagKeyModel.set('review_synthesis');
+    fixture.componentInstance.enabledModel.set(false);
+    fixture.detectChanges();
+
+    (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+    const [, body] = post.calls.mostRecent().args;
+    expect((body as { flagKey: string }).flagKey).toBe('review_synthesis');
+    expect((body as { enabled: boolean }).enabled).toBe(false);
+  });
+
+  it('surfaces a server error message', () => {
+    post.and.returnValue(throwError(() => ({ error: { error: { message: 'No sites to preview' } } })));
+    (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(q('[data-testid="bulk-ops-error"]')?.textContent).toContain('No sites to preview');
+  });
+
+  it('clears a prior plan when the operation changes', () => {
+    (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.plan()).not.toBeNull();
+
+    fixture.componentInstance.onOperationChange('republish');
+    expect(fixture.componentInstance.plan()).toBeNull();
+  });
+});

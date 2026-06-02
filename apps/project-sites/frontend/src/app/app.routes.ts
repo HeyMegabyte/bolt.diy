@@ -171,6 +171,12 @@ export const routes: Routes = [
           import('./pages/admin/sections/audit.component').then((m) => m.AdminAuditComponent),
       },
       {
+        // Bulk Site Ops (#17) — preview a change across all sites (flag: bulk_site_ops).
+        path: 'bulk-ops',
+        loadComponent: () =>
+          import('./pages/admin/sections/bulk-ops.component').then((m) => m.AdminBulkOpsComponent),
+      },
+      {
         // Public API token management — create / list / revoke psk_* tokens.
         // Backend: GET|POST|DELETE /api/v1-tokens; flag-gated: public_api_v1.
         path: 'api-tokens',
