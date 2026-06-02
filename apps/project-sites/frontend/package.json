@@ -10,6 +10,7 @@
     "build:prod": "node scripts/check-alt-text.mjs && rm -rf .angular/cache && ng build --configuration production",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "test:ci": "ng test --watch=false --browsers=ChromeHeadless",
     "deploy:staging": "npm run build:prod && node scripts/deploy-r2.mjs staging",
     "deploy:production": "npm run build:prod && node scripts/deploy-r2.mjs production",
     "verify:production": "node scripts/verify-deploy.mjs https://projectsites.dev",
@@ -83,6 +84,12 @@
     "@typescript-eslint/parser": "^8.59.4",
     "eslint": "^10.4.0",
     "eslint-plugin-perfectionist": "^5.9.0",
+    "jasmine-core": "~5.1.0",
+    "karma": "^6.4.4",
+    "karma-chrome-launcher": "^3.2.0",
+    "karma-coverage": "^2.2.1",
+    "karma-jasmine": "^5.1.0",
+    "karma-jasmine-html-reporter": "^2.1.0",
     "typescript": "~5.9.3"
   }
 }

@@ -11,7 +11,8 @@
 cd apps/project-sites/frontend
 npm install --legacy-peer-deps           # NOT pnpm (electron-builder breaks workspace)
 npm start                                # ng serve at http://localhost:4200
-npm test                                 # Karma + Jasmine (NOT Vitest / Jest)
+npm test                                 # Karma + Jasmine, watch mode (NOT Vitest / Jest)
+npm run test:ci                          # Karma headless one-shot (ChromeHeadless) — 26 tests
 npm run build:prod                       # ng build + alt-text gate
 npm run deploy:staging                   # R2 push (staging slot)
 npm run deploy:production                # R2 push (production slot)
