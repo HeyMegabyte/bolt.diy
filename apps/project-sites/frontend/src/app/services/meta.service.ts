@@ -19,6 +19,7 @@ import { Injectable, inject } from '@angular/core';
 import { Title, Meta } from '@angular/platform-browser';
 import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { filter, map, mergeMap } from 'rxjs';
+import { graph, webPage, breadcrumbList } from '../lib/json-ld';
 
 /** Per-route SEO payload — `url` is computed at apply-time from `BASE_URL`. */
 interface PageMeta {
@@ -155,6 +156,25 @@ export class MetaService {
     if (link) {
       link.href = url;
     }
+
+    // Per-route WebPage + BreadcrumbList (slot 'page') — accurate to THIS page,
+    // replacing the old GLOBAL index.html nodes that wrongly carried the
+    // homepage url + a fixed "Home > Create > Dashboard" funnel on every route.
+    // Homepage = just Home; other routes = Home > <segment>. The page-specific
+    // FAQPage (homepage) lives in a separate 'route' slot so it isn't clobbered.
+    const crumbs: { name: string; url: string }[] = [{ name: 'Home', url: `${BASE_URL}/` }];
+    if (path) {
+      const seg = path.split('/').filter(Boolean).pop() ?? path;
+      const name = seg.replace(/[-_]/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+      crumbs.push({ name, url });
+    }
+    this.setJsonLd(
+      graph([
+        webPage({ url, title: page.title, description: page.description, image: OG_IMAGE }),
+        breadcrumbList(crumbs),
+      ]),
+      'page',
+    );
   }
 
   /**
@@ -180,9 +200,9 @@ export class MetaService {
    * }
    * ```
    */
-  setJsonLd(payload: Record<string, unknown> | null): void {
+  setJsonLd(payload: Record<string, unknown> | null, slot = 'route'): void {
     if (typeof document === 'undefined') return;
-    const tagId = 'route-jsonld';
+    const tagId = `${slot}-jsonld`;
     let el = document.getElementById(tagId) as HTMLScriptElement | null;
     if (payload === null) {
       el?.remove();
@@ -194,7 +214,7 @@ export class MetaService {
       el = document.createElement('script');
       el.id = tagId;
       el.type = 'application/ld+json';
-      el.setAttribute('data-route-jsonld', '');
+      el.setAttribute(`data-jsonld-${slot}`, '');
       document.head.appendChild(el);
     }
     el.textContent = body;

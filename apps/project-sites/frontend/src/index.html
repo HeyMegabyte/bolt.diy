@@ -232,18 +232,10 @@
        longer appears on /privacy, /terms, etc. (Google FAQ-policy + the
        "FAQPage only when real Q&A exists" rule). -->
 
-  <!-- JSON-LD: BreadcrumbList (Google breadcrumb rich snippets) -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://projectsites.dev/" },
-      { "@type": "ListItem", "position": 2, "name": "Create Your Website", "item": "https://projectsites.dev/create" },
-      { "@type": "ListItem", "position": 3, "name": "Dashboard", "item": "https://projectsites.dev/admin" }
-    ]
-  }
-  </script>
+  <!-- JSON-LD: WebPage + BreadcrumbList are injected PER-ROUTE by MetaService
+       (accurate to each page: Home > <segment>, with the page's own url) —
+       NOT a global "Home > Create > Dashboard" funnel that was wrong on every
+       route. See services/meta.service.ts updateMeta(). -->
 
   <!-- JSON-LD: Service (Google, Bing service rich snippets) -->
   <script type="application/ld+json">
