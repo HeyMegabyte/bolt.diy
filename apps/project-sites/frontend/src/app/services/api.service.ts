@@ -765,6 +765,8 @@ export interface UserInfo {
   id: string;
   email: string;
   org_id: string;
+  /** True when the user is a platform super-admin (gates super-admin-only fetches). */
+  is_super_admin?: boolean;
 }
 
 export interface Site {

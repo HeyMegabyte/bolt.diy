@@ -27,6 +27,7 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
+import { AdminStateService } from '../admin-state.service';
 import { FeatureFlagService } from '../../../services/feature-flag.service';
 import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
 
@@ -336,6 +337,7 @@ export class AdminFeatureFlagsComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly toast = inject(ToastService);
   private readonly confirmSvc = inject(ConfirmService);
+  private readonly state = inject(AdminStateService);
   private readonly flagSvc = inject(FeatureFlagService);
 
   readonly stages: StageFilter[] = ['all', 'experimental', 'beta', 'stable', 'deprecated', 'killswitch'];
@@ -415,27 +417,32 @@ export class AdminFeatureFlagsComponent implements OnInit {
       let flags = res.flags ?? [];
       // Merge persisted super-admin overrides (enabled_globally / rollout_pct /
       // kill_switch) onto the registry list so EVERY card shows live state on
-      // first load — not just after Inspect. Best-effort: a non-super-admin
-      // viewer (403) silently keeps the registry defaults. D1 returns 0/1 ints.
-      try {
-        const ov = await firstValueFrom(
-          this.http.get<{
-            flags: { key: string; enabled_globally: number | boolean; rollout_pct: number; kill_switch: number | boolean }[];
-          }>('/api/super-admin/feature-flags'),
-        );
-        const byKey = new Map((ov.flags ?? []).map((o) => [o.key, o] as const));
-        flags = flags.map((f) => {
-          const o = byKey.get(f.key);
-          if (!o) return f;
-          return {
-            ...f,
-            default_enabled: !!o.enabled_globally,
-            default_rollout_percent: Number(o.rollout_pct ?? f.default_rollout_percent),
-            kill_switch: !!o.kill_switch,
-          };
-        });
-      } catch {
-        /* not super-admin or endpoint unavailable — registry defaults stand */
+      // first load. Gated on the super-admin flag (/api/auth/me) so non-super
+      // admins never fire the super-admin-only endpoint — that 401 is logged by
+      // the browser and JS can't suppress it, so gating is the only way to keep
+      // the console clean. Non-super-admins keep the registry defaults (they
+      // can't mutate anyway); per-flag Inspect still shows resolved live state.
+      if (this.state.isSuperAdmin()) {
+        try {
+          const ov = await firstValueFrom(
+            this.http.get<{
+              flags: { key: string; enabled_globally: number | boolean; rollout_pct: number; kill_switch: number | boolean }[];
+            }>('/api/super-admin/feature-flags'),
+          );
+          const byKey = new Map((ov.flags ?? []).map((o) => [o.key, o] as const));
+          flags = flags.map((f) => {
+            const o = byKey.get(f.key);
+            if (!o) return f;
+            return {
+              ...f,
+              default_enabled: !!o.enabled_globally,
+              default_rollout_percent: Number(o.rollout_pct ?? f.default_rollout_percent),
+              kill_switch: !!o.kill_switch,
+            };
+          });
+        } catch {
+          /* endpoint unavailable — registry defaults stand */
+        }
       }
       this.flags.set(flags);
     } catch (e) {

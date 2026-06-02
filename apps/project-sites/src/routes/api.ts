@@ -665,15 +665,27 @@ api.get('/api/auth/me', async (c) => {
   const orgId = c.get('orgId');
   if (!userId) throw unauthorized('Must be authenticated');
 
-  const user = await dbQueryOne<{ email: string; display_name: string | null }>(
+  const user = await dbQueryOne<{
+    email: string;
+    display_name: string | null;
+    is_super_admin: number | null;
+  }>(
     c.env.DB,
-    'SELECT email, display_name FROM users WHERE id = ? AND deleted_at IS NULL',
+    'SELECT email, display_name, is_super_admin FROM users WHERE id = ? AND deleted_at IS NULL',
     [userId],
   );
   if (!user) throw unauthorized('User not found');
 
   return c.json({
-    data: { user_id: userId, org_id: orgId, email: user.email, display_name: user.display_name },
+    data: {
+      user_id: userId,
+      org_id: orgId,
+      email: user.email,
+      display_name: user.display_name,
+      // Lets the client gate super-admin-only fetches (e.g. the feature-flags
+      // override merge) so non-super-admins never trigger a 401 in the console.
+      is_super_admin: !!user.is_super_admin,
+    },
   });
 });
 
