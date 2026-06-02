@@ -92,6 +92,7 @@ import { reviewRoutes } from './routes/reviews.js';
 import { emailDeliverabilityRoutes } from './routes/email_deliverability.js';
 import { bulkSiteOps } from './routes/bulk_site_ops.js';
 import { reviewPublic } from './routes/review_public.js';
+import { automation } from './routes/automation.js';
 import { seoAutopilot } from './routes/seo_autopilot.js';
 import { conversationalEdits } from './routes/conversational_edits.js';
 // ── Marketplace + Creator Economy (IDEAS-50 #39/#40/#41/#42)
@@ -515,6 +516,7 @@ app.route('/', reviewSynthesis); // /api/reviews/:siteId{,/synthesize} — verif
 app.route('/', emailDeliverabilityRoutes); // /api/sites/:siteId/deliverability — SPF/DKIM/DMARC score + fixes (flag: email_deliverability_wizard)
 app.route('/', bulkSiteOps); // POST /api/sites/bulk — plan/preview a bulk op across owned sites (flag: bulk_site_ops)
 app.route('/', reviewPublic); // GET/POST /api/review/:id{,/decision} — public reviewer approve/reject (flag: approval_workflow, scoped to review's org)
+app.route('/', automation); // /api/sites/:siteId/recipes — no-code trigger->action recipe CRUD (flag: automation_builder)
 // ── IDEAS-50 wave 3 mounts — must precede `api` so :id/* suffixes + /r/:code + /gallery win
 app.route('/', reputation); // /api/sites/:id/reputation/{review-request,reply-draft,monitor} — #10/#11/#13 (flags: review_requests/review_responder/reputation_monitor)
 app.route('/', affiliateProgram); // /api/affiliate/* + /r/:code attribution redirect — #32 (flag: affiliate_program)
