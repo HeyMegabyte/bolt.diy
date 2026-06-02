@@ -19,11 +19,13 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { FeatureFlagService } from '../../../services/feature-flag.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 
 type InstallSource = 'marketplace' | 'direct' | 'referral';
@@ -181,14 +183,30 @@ interface Summary {
 export class AdminStripeAppStatusComponent {
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
+  private readonly flags = inject(FeatureFlagService);
 
   readonly summary = signal<Summary | null>(null);
   readonly installs = signal<Install[]>([]);
   readonly loading = signal(false);
-  readonly notFound = signal(false);
+  // Pessimistic: assume stripe_app_status is OFF until the client-side flag
+  // check confirms it's on — shows the disabled card first and prevents the
+  // unconditional /stripe-app/* fetch from firing (which would auto-toast on
+  // the intentional 404 of a disabled feature).
+  readonly notFound = signal(true);
 
   constructor() {
-    this.refresh();
+    // Gate the org-scoped fetch on the actual flag (mirrors inbox/enterprise).
+    // Flag off → keep the disabled card (notFound stays true) and never fire
+    // /stripe-app/* → no spurious 404 → no error toast.
+    this.flags
+      .isOn('stripe_app_status')
+      .pipe(takeUntilDestroyed())
+      .subscribe((on) => {
+        if (on) {
+          this.notFound.set(false);
+          this.refresh();
+        }
+      });
   }
 
   sourceRows(): Array<{ source: string; count: number; pct: number }> {
@@ -204,7 +222,7 @@ export class AdminStripeAppStatusComponent {
   refresh(): void {
     this.loading.set(true);
     this.notFound.set(false);
-    this.api.get<{ data: Summary }>('/api/stripe-app/summary').subscribe({
+    this.api.get<{ data: Summary }>('/stripe-app/summary').subscribe({
       next: (res) => {
         this.summary.set(res.data);
         this.loading.set(false);
@@ -217,7 +235,7 @@ export class AdminStripeAppStatusComponent {
     });
 
     this.api
-      .get<{ data: Install[] }>('/api/stripe-app/installs?limit=100')
+      .get<{ data: Install[] }>('/stripe-app/installs?limit=100')
       .subscribe({
         next: (res) => this.installs.set(res.data ?? []),
         error: () => undefined,

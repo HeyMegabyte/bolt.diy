@@ -84,4 +84,28 @@ test.describe('admin — flag-gated sections do not fetch org data when disabled
     await page.waitForTimeout(2500); // window for any (incorrect) fetch to fire
     expect(orgFetches, `enterprise must NOT fetch org data when enterprise_plan is off:\n${orgFetches.join('\n')}`).toEqual([]);
   });
+
+  test('trust-center (flag off): no /api/trust/* fetch; disabled message shows', async ({ page }) => {
+    test.setTimeout(60000);
+    const orgFetches: string[] = [];
+    page.on('request', (r) => { if (/\/api\/trust\//.test(r.url())) orgFetches.push(r.url()); });
+    await seed(page);
+    await page.goto('/admin/trust', { waitUntil: 'load' });
+    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/Trust Center is disabled/i).first()).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(2500);
+    expect(orgFetches, `trust-center must NOT fetch org data when trust_center is off:\n${orgFetches.join('\n')}`).toEqual([]);
+  });
+
+  test('stripe-app-status (flag off): no /api/stripe-app/* fetch; disabled message shows', async ({ page }) => {
+    test.setTimeout(60000);
+    const orgFetches: string[] = [];
+    page.on('request', (r) => { if (/\/api\/stripe-app\//.test(r.url())) orgFetches.push(r.url()); });
+    await seed(page);
+    await page.goto('/admin/stripe-app-status', { waitUntil: 'load' });
+    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/Stripe App marketplace status is disabled/i).first()).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(2500);
+    expect(orgFetches, `stripe-app-status must NOT fetch org data when stripe_app_status is off:\n${orgFetches.join('\n')}`).toEqual([]);
+  });
 });

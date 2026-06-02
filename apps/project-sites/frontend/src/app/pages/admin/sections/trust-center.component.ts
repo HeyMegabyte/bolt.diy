@@ -25,12 +25,14 @@ import {
   signal,
   computed,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { FeatureFlagService } from '../../../services/feature-flag.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 
 type DataResidency = 'global' | 'us' | 'eu' | 'apac';
@@ -244,12 +246,17 @@ interface ProfileEnvelope {
 export class AdminTrustCenterComponent {
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
+  private readonly flags = inject(FeatureFlagService);
 
   readonly profile = signal<TrustProfile | null>(null);
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly publishing = signal(false);
-  readonly notFound = signal(false);
+  // Pessimistic: assume trust_center is OFF until the client-side flag check
+  // confirms it's on — shows the disabled card first and prevents the
+  // unconditional /trust/* fetch from firing (which would auto-toast on the
+  // intentional 404 of a disabled feature).
+  readonly notFound = signal(true);
 
   // Editable signals so the form binds to mutable state.
   readonly dataResidency = signal<DataResidency>('global');
@@ -264,13 +271,24 @@ export class AdminTrustCenterComponent {
   );
 
   constructor() {
-    this.refresh();
+    // Gate the org-scoped fetch on the actual flag (mirrors inbox/enterprise).
+    // Flag off → keep the disabled card (notFound stays true) and never fire
+    // /trust/* → no spurious 404 → no error toast.
+    this.flags
+      .isOn('trust_center')
+      .pipe(takeUntilDestroyed())
+      .subscribe((on) => {
+        if (on) {
+          this.notFound.set(false);
+          this.refresh();
+        }
+      });
   }
 
   refresh(): void {
     this.loading.set(true);
     this.notFound.set(false);
-    this.api.get<ProfileEnvelope>('/api/trust/profile').subscribe({
+    this.api.get<ProfileEnvelope>('/trust/profile').subscribe({
       next: (res) => {
         this.profile.set(res.data);
         if (res.data) {
@@ -305,7 +323,7 @@ export class AdminTrustCenterComponent {
       content_provenance: this.provenance().filter((p) => p.area),
     };
     this.api
-      .put<{ data: TrustProfile }>('/api/trust/profile', body)
+      .put<{ data: TrustProfile }>('/trust/profile', body)
       .subscribe({
         next: (res) => {
           this.profile.set(res.data);
@@ -322,7 +340,7 @@ export class AdminTrustCenterComponent {
   publish(): void {
     this.publishing.set(true);
     this.api
-      .post<{ data: TrustProfile }>('/api/trust/profile/publish', {})
+      .post<{ data: TrustProfile }>('/trust/profile/publish', {})
       .subscribe({
         next: (res) => {
           this.profile.set(res.data);

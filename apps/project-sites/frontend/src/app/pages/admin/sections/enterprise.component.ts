@@ -356,7 +356,7 @@ export class AdminEnterpriseComponent {
   refresh(): void {
     this.loading.set(true);
     this.notFound.set(false);
-    this.api.get<{ data: Contract | null }>('/api/enterprise/contract').subscribe({
+    this.api.get<{ data: Contract | null }>('/enterprise/contract').subscribe({
       next: (res) => {
         this.contract.set(res.data);
         if (res.data) {
@@ -380,13 +380,13 @@ export class AdminEnterpriseComponent {
       },
     });
 
-    this.api.get<{ data: SlaResponse }>('/api/enterprise/sla').subscribe({
+    this.api.get<{ data: SlaResponse }>('/enterprise/sla').subscribe({
       next: (res) => this.sla.set(res.data),
       error: () => undefined,
     });
 
     this.api
-      .get<{ data: AuditExport[] }>('/api/enterprise/audit-exports')
+      .get<{ data: AuditExport[] }>('/enterprise/audit-exports')
       .subscribe({
         next: (res) => this.exports.set(res.data ?? []),
         error: () => undefined,
@@ -407,7 +407,7 @@ export class AdminEnterpriseComponent {
       sso_provider: this.ssoProvider(),
       sso_metadata_url: this.ssoMetadataUrl(),
     };
-    this.api.put<{ data: Contract }>('/api/enterprise/contract', body).subscribe({
+    this.api.put<{ data: Contract }>('/enterprise/contract', body).subscribe({
       next: (res) => {
         this.contract.set(res.data);
         this.toast.success('Contract saved');
@@ -427,7 +427,7 @@ export class AdminEnterpriseComponent {
     }
     this.enqueueing.set(true);
     this.api
-      .post<{ data: AuditExport }>('/api/enterprise/audit-exports', {
+      .post<{ data: AuditExport }>('/enterprise/audit-exports', {
         range_start: this.rangeStart(),
         range_end: this.rangeEnd(),
       })
