@@ -392,12 +392,15 @@ describe('Clean URL routing for marketing pages', () => {
     expect(hasExtension).toBe(true);
   });
 
-  it('/contact redirects to /#contact-section', () => {
+  it('/contact redirects to /search#contact-section (where the form lives)', () => {
     const path = '/contact';
     const isContact = path === '/contact';
     expect(isContact).toBe(true);
-    const target = 'https://projectsites.dev/#contact-section';
-    expect(target).toContain('#contact-section');
+    // The contact form (#contact-section) is rendered by SearchComponent on
+    // /search, not the homepage — redirecting to /#contact-section landed on a
+    // non-existent anchor, so the target must include /search.
+    const target = 'https://projectsites.dev/search#contact-section';
+    expect(target).toContain('/search#contact-section');
   });
 });
 

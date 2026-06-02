@@ -490,11 +490,11 @@ export const routes: Routes = [
       import('./pages/legal/legal.component').then((m) => m.LegalComponent),
     data: { type: 'content' },
   },
-  {
-    path: 'contact',
-    loadComponent: () =>
-      import('./pages/contact/contact.component').then((m) => m.ContactComponent),
-  },
+  // NOTE: no Angular `/contact` route — the worker 301-redirects `/contact`
+  // to the homepage/search contact section before Angular ever sees it (see
+  // apps/project-sites/src/index.ts). A standalone ContactComponent used to
+  // live here but was unreachable dead code duplicating the `#contact-section`
+  // form on /search; removed 2026-06-02.
   {
     path: 'billing',
     redirectTo: 'admin/billing',

@@ -652,9 +652,11 @@ app.all('*', async (c) => {
     hostname === `www.${DOMAINS.SITES_BASE}` ||
     hostname.startsWith('localhost')
   ) {
-    // /contact redirects to contact section on homepage
+    // /contact redirects to the contact section, which lives on /search
+    // (#contact-section is rendered by SearchComponent, not the homepage —
+    // redirecting to /#contact-section landed on a non-existent anchor).
     if (path === '/contact') {
-      return Response.redirect(`https://${DOMAINS.SITES_BASE}/#contact-section`, 301);
+      return Response.redirect(`https://${DOMAINS.SITES_BASE}/search#contact-section`, 301);
     }
 
     // Angular SPA handles all routes — serve index.html for non-file paths

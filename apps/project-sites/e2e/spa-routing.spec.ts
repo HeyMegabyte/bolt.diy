@@ -32,7 +32,7 @@ test.describe('SPA Routing: Direct URL Navigation', () => {
 
   test('/contact serves a page or redirects appropriately', async ({ page }) => {
     const response = await page.goto('/contact');
-    // Worker redirects /contact to /#contact-section (301)
+    // Worker 301-redirects /contact to /search#contact-section
     // Static file server may serve the page directly
     expect(response?.status()).toBeLessThan(500);
   });
@@ -53,9 +53,9 @@ test.describe('SPA Routing: Footer Links', () => {
   });
 });
 
-test.describe('Homepage Contact Form', () => {
-  test('contact form is visible on homepage when scrolled down', async ({ page }) => {
-    await page.goto('/');
+test.describe('Search Page Contact Form', () => {
+  test('contact form is visible on /search when scrolled down', async ({ page }) => {
+    await page.goto('/search');
 
     const contactSection = page.locator('#contact-section');
     await expect(contactSection).toBeAttached();

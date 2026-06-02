@@ -1,7 +1,7 @@
 /**
  * E2E tests for the contact form flow.
- * The contact form is embedded in the marketing sections on the search screen.
- * /contact redirects to /#contact-section.
+ * The contact form (#contact-section) is rendered by SearchComponent on /search.
+ * The worker 301-redirects /contact -> /search#contact-section.
  */
 
 import { test, expect } from './fixtures.js';
@@ -15,14 +15,14 @@ async function scrollToContact(page: import('@playwright/test').Page) {
 
 test.describe('Contact Form', () => {
   test('contact section exists on the homepage', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/search');
 
     const contactSection = page.locator('#contact-section');
     await expect(contactSection).toBeAttached();
   });
 
   test('contact form fields are present on homepage', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/search');
     await scrollToContact(page);
 
     await expect(page.locator('#contact-name')).toBeAttached();
@@ -32,7 +32,7 @@ test.describe('Contact Form', () => {
   });
 
   test('submit with empty name shows validation error', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/search');
     await scrollToContact(page);
 
     await page.locator('#contact-email').scrollIntoViewIfNeeded();
@@ -47,7 +47,7 @@ test.describe('Contact Form', () => {
   });
 
   test('submit with invalid email shows validation error', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/search');
     await scrollToContact(page);
 
     await page.locator('#contact-name').scrollIntoViewIfNeeded();
@@ -63,7 +63,7 @@ test.describe('Contact Form', () => {
   });
 
   test('submit with short message shows validation error', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/search');
     await scrollToContact(page);
 
     await page.locator('#contact-name').scrollIntoViewIfNeeded();
