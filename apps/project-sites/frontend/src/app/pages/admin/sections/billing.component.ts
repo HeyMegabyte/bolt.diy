@@ -886,7 +886,7 @@ interface ForecastBar {
             <p class="empty-p">Once your sites start serving traffic and AI calls, you'll see the breakdown here.</p>
           </div>
         } @else {
-          <div class="overflow-x-auto">
+          <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Usage table — scroll horizontally">
             <table class="w-full text-[0.78rem]">
               <thead class="text-text-secondary/70 uppercase text-[0.6rem] tracking-wider">
                 <tr class="border-b border-white/[0.06]">

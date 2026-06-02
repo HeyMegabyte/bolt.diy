@@ -68,7 +68,7 @@ import { RevealDirective } from '../../../directives/reveal.directive';
           <span class="seo-pill seo-pill-auto">Example</span>
         </div>
         <p class="text-[0.72rem] text-text-secondary m-0 mb-3">Every page emits LocalBusiness + WebPage JSON-LD; FAQPage and BreadcrumbList are added where applicable. Representative example for this site:</p>
-        <div class="json-ld-block bg-[rgba(6,6,18,0.85)] border border-primary/[0.06] rounded-lg p-4 font-mono text-[0.7rem] text-text-secondary/70 overflow-x-auto leading-relaxed">
+        <div class="json-ld-block bg-[rgba(6,6,18,0.85)] border border-primary/[0.06] rounded-lg p-4 font-mono text-[0.7rem] text-text-secondary/70 overflow-x-auto leading-relaxed" tabindex="0" role="region" aria-label="JSON-LD example — scroll horizontally">
           <pre class="m-0 whitespace-pre-wrap">{{ jsonLdPreview }}</pre>
         </div>
       </div>

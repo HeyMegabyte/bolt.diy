@@ -108,7 +108,7 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
           ctaLabel="Create your first site"
           (ctaClick)="createSite()" />
       } @else {
-        <div class="rounded-xl border border-white/10 bg-white/[0.02] overflow-x-auto">
+        <div class="rounded-xl border border-white/10 bg-white/[0.02] overflow-x-auto" tabindex="0" role="region" aria-label="Sites table — scroll horizontally">
           <table class="w-full text-[0.85rem] text-left">
             <thead class="bg-white/[0.03] text-[0.7rem] uppercase tracking-wider text-white/60">
               <tr>

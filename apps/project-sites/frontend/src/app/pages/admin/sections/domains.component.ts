@@ -265,7 +265,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
               body="Add a domain above or search for an available one with AI."
             />
           } @else {
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Domains table — scroll horizontally">
               <table class="w-full text-[0.82rem]" data-testid="hostnames-table">
                 <thead>
                   <tr class="text-left text-[0.68rem] uppercase tracking-wider text-text-secondary border-b border-border">
