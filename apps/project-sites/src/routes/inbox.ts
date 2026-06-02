@@ -39,7 +39,7 @@ async function guardFlag(env: Env, orgId?: string, siteId?: string): Promise<boo
 
 // ── GET /api/inbox/conversations ──────────────────────────────────────────────
 inboxRoutes.get('/api/inbox/conversations', async (c) => {
-  const orgId = c.req.header('x-org-id') ?? c.req.query('org_id') ?? '';
+  const orgId = c.get('orgId') ?? '';
   if (!(await guardFlag(c.env, orgId))) return c.json({ error: 'not_found' }, 404);
 
   const status = c.req.query('status') ?? 'open';
@@ -61,7 +61,7 @@ inboxRoutes.get('/api/inbox/conversations', async (c) => {
 
 // ── GET /api/inbox/conversations/:id ─────────────────────────────────────────
 inboxRoutes.get('/api/inbox/conversations/:id', async (c) => {
-  const orgId = c.req.header('x-org-id') ?? c.req.query('org_id') ?? '';
+  const orgId = c.get('orgId') ?? '';
   if (!(await guardFlag(c.env, orgId))) return c.json({ error: 'not_found' }, 404);
 
   const convId = c.req.param('id');
@@ -93,7 +93,7 @@ const ReplyBodySchema = z.object({
 });
 
 inboxRoutes.post('/api/inbox/conversations/:id/reply', zValidator('json', ReplyBodySchema), async (c) => {
-  const orgId = c.req.header('x-org-id') ?? '';
+  const orgId = c.get('orgId') ?? '';
   if (!(await guardFlag(c.env, orgId))) return c.json({ error: 'not_found' }, 404);
 
   const convId = c.req.param('id');
@@ -141,7 +141,7 @@ const AssignBodySchema = z.object({
 });
 
 inboxRoutes.post('/api/inbox/conversations/:id/assign', zValidator('json', AssignBodySchema), async (c) => {
-  const orgId = c.req.header('x-org-id') ?? '';
+  const orgId = c.get('orgId') ?? '';
   if (!(await guardFlag(c.env, orgId))) return c.json({ error: 'not_found' }, 404);
 
   const convId = c.req.param('id');
@@ -159,7 +159,7 @@ const ConversationStatusBodySchema = z.object({
 });
 
 inboxRoutes.post('/api/inbox/conversations/:id/status', zValidator('json', ConversationStatusBodySchema), async (c) => {
-  const orgId = c.req.header('x-org-id') ?? '';
+  const orgId = c.get('orgId') ?? '';
   if (!(await guardFlag(c.env, orgId))) return c.json({ error: 'not_found' }, 404);
 
   const convId = c.req.param('id');
@@ -173,7 +173,7 @@ inboxRoutes.post('/api/inbox/conversations/:id/status', zValidator('json', Conve
 
 // ── POST /api/inbox/conversations/:id/draft-with-ai ───────────────────────────
 inboxRoutes.post('/api/inbox/conversations/:id/draft-with-ai', async (c) => {
-  const orgId = c.req.header('x-org-id') ?? '';
+  const orgId = c.get('orgId') ?? '';
   if (!(await guardFlag(c.env, orgId))) return c.json({ error: 'not_found' }, 404);
 
   const convId = c.req.param('id');

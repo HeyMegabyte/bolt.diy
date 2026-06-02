@@ -16,7 +16,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { ApiService } from '../../../services/api.service';
 import { RouterModule } from '@angular/router';
 import { Subject, takeUntil, interval } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
@@ -376,7 +376,7 @@ const STATUS_COLORS: Record<string, string> = {
   `,
 })
 export class AdminInboxComponent implements OnInit, OnDestroy {
-  private http = inject(HttpClient);
+  private api = inject(ApiService);
   private destroy$ = new Subject<void>();
 
   conversations = signal<Conversation[]>([]);
@@ -435,7 +435,7 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
     const params: Record<string, string> = { status: this.selectedStatus(), limit: '50' };
     if (this.selectedChannel) params['channel'] = this.selectedChannel;
 
-    this.http.get<{ conversations: Conversation[]; hasMore: boolean }>('/api/inbox/conversations', { params })
+    this.api.get<{ conversations: Conversation[]; hasMore: boolean }>('/inbox/conversations', params)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res) => {
@@ -455,7 +455,7 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
     const last = this.conversations().at(-1);
     if (!last) return;
     const params: Record<string, string> = { status: this.selectedStatus(), limit: '50', cursor: last.last_message_at };
-    this.http.get<{ conversations: Conversation[]; hasMore: boolean }>('/api/inbox/conversations', { params })
+    this.api.get<{ conversations: Conversation[]; hasMore: boolean }>('/inbox/conversations', params)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res) => {
@@ -473,7 +473,7 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
   }
 
   private loadMessages(convId: string): void {
-    this.http.get<{ conversation: Conversation; messages: Message[] }>(`/api/inbox/conversations/${convId}`)
+    this.api.get<{ conversation: Conversation; messages: Message[] }>(`/inbox/conversations/${convId}`)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res) => this.messages.set(res.messages),
@@ -485,7 +485,7 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
     const id = this.selectedId();
     if (!id) return;
     this.draftLoading.set(true);
-    this.http.post<{ draft: string }>(`/api/inbox/conversations/${id}/draft-with-ai`, {})
+    this.api.post<{ draft: string }>(`/inbox/conversations/${id}/draft-with-ai`, {})
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res) => { this.replyBody = res.draft; this.draftLoading.set(false); },
@@ -497,7 +497,7 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
     const id = this.selectedId();
     if (!id || !this.replyBody.trim()) return;
     this.replySending.set(true);
-    this.http.post<{ message: Message }>(`/api/inbox/conversations/${id}/reply`, { body: this.replyBody })
+    this.api.post<{ message: Message }>(`/inbox/conversations/${id}/reply`, { body: this.replyBody })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res) => {
@@ -512,7 +512,7 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
   setStatus(status: string): void {
     const id = this.selectedId();
     if (!id) return;
-    this.http.post<{ ok: boolean }>(`/api/inbox/conversations/${id}/status`, { status })
+    this.api.post<{ ok: boolean }>(`/inbox/conversations/${id}/status`, { status })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
@@ -527,7 +527,7 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
   assignTo(target: string): void {
     const id = this.selectedId();
     if (!id || !target.trim()) return;
-    this.http.post<{ ok: boolean }>(`/api/inbox/conversations/${id}/assign`, { assigned_to: target.trim() })
+    this.api.post<{ ok: boolean }>(`/inbox/conversations/${id}/assign`, { assigned_to: target.trim() })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
