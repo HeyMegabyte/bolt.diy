@@ -26,6 +26,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
+import { FeatureFlagService } from '../../../services/feature-flag.service';
 import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
@@ -336,6 +337,7 @@ export class AdminSiteDnaComponent implements OnInit, OnDestroy {
   @Input() siteId: string | null = null;
 
   private readonly api = inject(ApiService);
+  private readonly flags = inject(FeatureFlagService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroy$ = new Subject<void>();
 
@@ -364,7 +366,18 @@ export class AdminSiteDnaComponent implements OnInit, OnDestroy {
     // Prefer explicit @Input; fall back to route param.
     const routeId = this.route.snapshot.paramMap.get('id');
     if (!this.siteId && routeId) this.siteId = routeId;
-    this.load();
+    // Gate the authed data fetch on the actual flag (toast-safe public probe).
+    // When the flag is off we show the disabled message and never fire the
+    // org-scoped fetch — which would otherwise surface a spurious "can't reach
+    // the server" error toast on a feature that is intentionally disabled.
+    this.flags
+      .isOn('site_dna_taste_graph')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((on) => {
+        this.flagEnabled.set(on);
+        if (on) this.load();
+        else this.loading.set(false);
+      });
   }
 
   ngOnDestroy(): void {

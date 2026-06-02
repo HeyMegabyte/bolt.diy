@@ -17,8 +17,9 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../../services/api.service';
+import { FeatureFlagService } from '../../../services/feature-flag.service';
 import { RouterModule } from '@angular/router';
-import { Subject, takeUntil, interval } from 'rxjs';
+import { Subject, takeUntil, interval, tap, filter, switchMap, startWith } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
@@ -377,6 +378,7 @@ const STATUS_COLORS: Record<string, string> = {
 })
 export class AdminInboxComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
+  private flags = inject(FeatureFlagService);
   private destroy$ = new Subject<void>();
 
   conversations = signal<Conversation[]>([]);
@@ -418,10 +420,21 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
   unreadCount = computed(() => this.conversations().reduce((s, c) => s + c.unread_count, 0));
 
   ngOnInit(): void {
-    this.loadConversations();
-    // Refresh every 30s
-    interval(30000)
-      .pipe(takeUntil(this.destroy$))
+    // Gate the authed fetch + 30s poll on the actual flag (toast-safe public
+    // probe). When unified_inbox is off we show the disabled state and never
+    // fire the org-scoped fetch — which would otherwise toast "can't reach the
+    // server" on load AND every 30s for an intentionally-disabled feature.
+    this.flags
+      .isOn('unified_inbox')
+      .pipe(
+        tap((on) => {
+          this.flagEnabled.set(on);
+          if (!on) this.loading.set(false);
+        }),
+        filter((on) => on),
+        switchMap(() => interval(30000).pipe(startWith(0))),
+        takeUntil(this.destroy$),
+      )
       .subscribe(() => this.loadConversations());
   }
 
