@@ -297,9 +297,9 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
     }
     .cf-num { font-variant-numeric: tabular-nums; font-size: .72rem; color: rgba(244,244,255,.8); }
     .cf-num-col { text-align: right; }
-    .cf-cell-date { color: rgba(244,244,255,.4); font-size: .68rem; white-space: nowrap; }
+    .cf-cell-date { color: rgba(244,244,255,.72); font-size: .68rem; white-space: nowrap; }
     .cf-actions-col { text-align: right; white-space: nowrap; }
-    .cf-act-done { color: rgba(244,244,255,.25); font-size: .68rem; }
+    .cf-act-done { color: rgba(244,244,255,.72); font-size: .68rem; }
 
     /* ── Native cockpit table (TanStack headless drives sort; CSS is ours) ──── */
     .cf-grid { width: 100%; min-width: 40rem; border-collapse: collapse; background: transparent; color: var(--ps-ink, #f4f4ff); }

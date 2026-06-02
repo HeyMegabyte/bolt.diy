@@ -171,7 +171,7 @@ const INTENT_ICONS: Record<string, string> = {
       .copilot-copy-btn { background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.2); border-radius: 8px; padding: 5px 12px; color: var(--ps-accent); font-size: 12px; cursor: pointer; flex-shrink: 0; }
       .copilot-stats { display: flex; gap: 20px; flex-wrap: wrap; }
       .copilot-stat { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
-      .copilot-stat-label { font-size: 11px; color: rgba(244,244,255,0.4); }
+      .copilot-stat-label { font-size: 11px; color: rgba(244,244,255,0.72); }
       .copilot-table-wrap { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; overflow: hidden; }
       .copilot-table { width: 100%; border-collapse: collapse; font-size: 12px; }
       .copilot-table th { padding: 8px 12px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(244,244,255,0.4); border-bottom: 1px solid rgba(255,255,255,0.05); }
