@@ -4,6 +4,8 @@ import {
   nextRetryDelayMs,
   isDeliverySuccess,
   shouldRetry,
+  validateEndpointInput,
+  maskSecret,
   MAX_DELIVERY_ATTEMPTS,
   BASE_RETRY_DELAY_MS,
   MAX_RETRY_DELAY_MS,
@@ -64,5 +66,35 @@ describe('outbound_webhooks shouldRetry', () => {
   it('stops once the attempt budget is exhausted', () => {
     expect(shouldRetry(MAX_DELIVERY_ATTEMPTS, 500)).toBe(false);
     expect(shouldRetry(MAX_DELIVERY_ATTEMPTS - 1, 500)).toBe(true);
+  });
+});
+
+describe('validateEndpointInput', () => {
+  it('accepts an https url subscribed to allowlisted events', () => {
+    expect(validateEndpointInput('https://hooks.example.com/x', ['site.published'])).toEqual({ ok: true, errors: [] });
+  });
+
+  it('rejects a non-https url', () => {
+    const r = validateEndpointInput('http://hooks.example.com', ['site.published']);
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => e.includes('https'))).toBe(true);
+  });
+
+  it('rejects an invalid url', () => {
+    expect(validateEndpointInput('not a url', ['site.published']).ok).toBe(false);
+  });
+
+  it('requires at least one event and rejects unknown ones', () => {
+    expect(validateEndpointInput('https://x.com', []).ok).toBe(false);
+    const r = validateEndpointInput('https://x.com', ['site.published', 'bogus.event']);
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => e.includes('Unknown event'))).toBe(true);
+  });
+});
+
+describe('maskSecret', () => {
+  it('shows only the last 4 chars', () => {
+    expect(maskSecret('whsec_abcd1234')).toBe('••••1234');
+    expect(maskSecret('xy')).toBe('••••');
   });
 });

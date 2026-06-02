@@ -64,3 +64,54 @@ export function shouldRetry(attempt: number, statusCode: number): boolean {
   if (statusCode === 0 || statusCode === 429 || statusCode >= 500) return true;
   return false; // permanent 4xx
 }
+
+/** Site events a customer endpoint may subscribe to (allowlist). */
+export const WEBHOOK_EVENT_TYPES = [
+  'site.published',
+  'form.submitted',
+  'payment.succeeded',
+  'review.received',
+  'build.failed',
+  'domain.active',
+] as const;
+export type WebhookEventType = (typeof WEBHOOK_EVENT_TYPES)[number];
+
+export interface EndpointValidation {
+  ok: boolean;
+  errors: string[];
+}
+
+/**
+ * Validate a subscription before persisting: the URL must be a valid **https**
+ * URL (no plaintext delivery), and every event must be on the allowlist (a typo
+ * can't subscribe to a phantom event). SSRF hardening (block internal/localhost
+ * hosts) is a noted follow-up for the dispatch slice.
+ */
+export function validateEndpointInput(url: string, eventTypes: string[]): EndpointValidation {
+  const errors: string[] = [];
+
+  let parsed: URL | null = null;
+  try {
+    parsed = new URL(url);
+  } catch {
+    errors.push('Endpoint URL is not a valid URL.');
+  }
+  if (parsed && parsed.protocol !== 'https:') errors.push('Endpoint URL must use https.');
+
+  if (!Array.isArray(eventTypes) || eventTypes.length === 0) {
+    errors.push('Subscribe to at least one event type.');
+  } else {
+    for (const e of eventTypes) {
+      if (!(WEBHOOK_EVENT_TYPES as readonly string[]).includes(e)) {
+        errors.push(`Unknown event "${e}". Allowed: ${WEBHOOK_EVENT_TYPES.join(', ')}.`);
+      }
+    }
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+/** Mask a signing secret for display (show only the last 4 chars). */
+export function maskSecret(secret: string): string {
+  return secret.length <= 4 ? '••••' : `••••${secret.slice(-4)}`;
+}
