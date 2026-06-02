@@ -83,6 +83,7 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
 | Empty / loading / error / success states | `admin-error-states.e2e.ts`, `admin-section-states.e2e.ts`, `states-kit.spec.ts` | ✅ |
 | Network honesty (no fake data) | `admin-network-honesty.e2e.ts` | ✅ |
 | API contract (no dead/SPA-HTML endpoints) | `api-contract.e2e.ts` | ✅ |
+| Marketing internal links (no 4xx/5xx) | `marketing-links.e2e.ts` | ✅ |
 | Admin interactions (clicks/keyboard) | `admin-interactions.e2e.ts`, `admin-functional.e2e.ts` | ✅ |
 | Universal search (real nav, no fabricated rows) | `admin-universal-search.e2e.ts` | ✅ |
 
