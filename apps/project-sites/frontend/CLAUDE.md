@@ -31,7 +31,7 @@ npx tsc --noEmit -p tsconfig.app.json    # Typecheck SPA
 | Forms | Template-driven `FormsModule` | Reactive forms NOT used; signals + custom validators |
 | HTTP | `HttpClient` via `ApiService` | 30s timeout, 401 redirect, toast on error |
 | Tests (unit) | Karma + Jasmine (`ng test`) | No Vitest configured |
-| Tests (e2e) | Playwright `@playwright/test ^1.58` | `e2e/*.spec.ts`, 38+ specs |
+| Tests (e2e) | Playwright `@playwright/test ^1.58` | 79 specs: `*.spec.ts` (dev/PR, CI) + `*.e2e.ts` (prod, manual) — see "Two E2E suites" below |
 | Editor | bolt.diy iframe at `editor.projectsites.dev` | Persistent across admin sub-routes via `BoltEmbedService` |
 | PWA | Angular service worker (`ngsw-config.json`) | Manifest + offline kill-switch |
 | Translations | `@ngx-translate/core` (`en`, `es`) | `assets/i18n/*.json`; `AppShellService` syncs `<html lang>` |
@@ -209,6 +209,34 @@ homepage at `/`. Asset paths are CDN-busted via Angular's hashed filenames.
 
 Heavy libs stay lazy: never add monaco/echarts/ag-grid/jszip/@codemirror to an
 eager `imports:` array — they belong in `@defer` blocks or lazy-routed sections.
+
+### Two E2E suites + a CI wiring gap (tracked 2026-06-02)
+
+There are two Playwright suites in `e2e/`, split by config:
+- **`*.spec.ts` — dev/PR gate.** Run by `playwright.config.ts` (default
+  `testMatch` = `*.spec.ts`) against a local static server (`scripts/e2e_server.cjs`
+  on `:4300`). **This is what CI runs** (`.github/workflows/frontend-e2e.yaml`
+  → `npx playwright test --shard` with no `--config`).
+- **`*.e2e.ts` — prod suite.** Run by `playwright.prod.config.ts`
+  (`testMatch: '**/*.e2e.ts'`, `baseURL` = `PROD_URL` ?? `https://projectsites.dev`)
+  via `npm run test:e2e:prod`. Holds the live a11y/contrast/reflow gates
+  (`marketing-responsive`, `marketing-a11y`, `admin-a11y`, `admin-reflow`,
+  `contact-form`, …).
+
+**Gap:** the `*.e2e.ts` prod suite is **not wired into any CI workflow** — it
+runs only when invoked manually (each convergence round does so + verifies live).
+`frontend-e2e.yaml` runs the dev `*.spec.ts` suite; `test:e2e:prod` /
+`verify:production` are referenced by no workflow. So the frontend a11y/contrast/
+reflow gates are NOT auto-enforced in CI (the WORKER prod suite IS, via
+`project-sites.yaml` post-deploy with rollback).
+
+**Remediation (needs a decision + the `E2E_API_KEY` GitHub secret):** add a
+post-deploy (or scheduled) CI job that runs `npm run test:e2e:prod` with
+`PROD_URL` + `E2E_API_KEY` (admin specs need the session token; the marketing
+subset — `marketing-responsive`/`marketing-a11y`/`contact-form` — needs no
+secret and could gate first). Not PR-triggered: the prod suite tests live prod,
+not the PR diff. Left as a tracked decision rather than a blind workflow add
+(unverifiable without a push + the secret).
 
 ## Common Gotchas
 
