@@ -18,6 +18,10 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbUpdate } from '../services/db.js';
 import { getPseoMatrixStats } from '../services/pseo_matrix.js';
+import { assertSiteOwned } from '../services/site_ownership.js';
+
+/** 404 (never 403/leak) when the :siteId isn't owned by the caller's org. */
+const SITE_NOT_FOUND = { error: { code: 'NOT_FOUND', message: 'Site not found' } } as const;
 
 const pseo = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -28,6 +32,7 @@ pseo.get('/:siteId', async (c) => {
   if (!userId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
 
   const { siteId } = c.req.param();
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(SITE_NOT_FOUND, 404);
   const stats = await getPseoMatrixStats(c.env, siteId);
   return c.json({ siteId, stats });
 });
@@ -72,6 +77,7 @@ pseo.get('/:siteId/pages', async (c) => {
   if (!userId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
 
   const { siteId } = c.req.param();
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(SITE_NOT_FOUND, 404);
   const status = c.req.query('status');
   const page = Math.max(1, parseInt(c.req.query('page') ?? '1', 10));
   const limit = 50;
@@ -125,6 +131,7 @@ pseo.get('/:siteId/pages/:pageId', async (c) => {
   if (!userId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
 
   const { siteId, pageId } = c.req.param();
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(SITE_NOT_FOUND, 404);
 
   const row = await dbQueryOne<{
     id: string;
@@ -163,9 +170,11 @@ pseo.post('/:siteId/pages/:pageId/approve', async (c) => {
   const userId = c.get('userId');
   if (!userId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
 
-  const { pageId } = c.req.param();
+  const { siteId, pageId } = c.req.param();
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(SITE_NOT_FOUND, 404);
 
-  await dbUpdate(c.env.DB, 'pseo_pages', { status: 'approved' }, 'id = ?', [pageId]);
+  // Scope to site_id too — a verified-owned :siteId must not approve a foreign page by guessed id.
+  await dbUpdate(c.env.DB, 'pseo_pages', { status: 'approved' }, 'id = ? AND site_id = ?', [pageId, siteId]);
 
   return c.json({ ok: true, pageId, status: 'approved' });
 });
@@ -177,6 +186,7 @@ pseo.post('/:siteId/pages/:pageId/publish', async (c) => {
   if (!userId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
 
   const { siteId, pageId } = c.req.param();
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(SITE_NOT_FOUND, 404);
 
   const row = await dbQueryOne<{
     id: string;
@@ -235,9 +245,10 @@ pseo.post('/:siteId/pages/:pageId/reject', async (c) => {
   const userId = c.get('userId');
   if (!userId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
 
-  const { pageId } = c.req.param();
+  const { siteId, pageId } = c.req.param();
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(SITE_NOT_FOUND, 404);
 
-  await dbUpdate(c.env.DB, 'pseo_pages', { status: 'rejected' }, 'id = ?', [pageId]);
+  await dbUpdate(c.env.DB, 'pseo_pages', { status: 'rejected' }, 'id = ? AND site_id = ?', [pageId, siteId]);
 
   return c.json({ ok: true, pageId, status: 'rejected' });
 });
