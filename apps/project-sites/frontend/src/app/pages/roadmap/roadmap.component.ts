@@ -190,6 +190,8 @@ interface BoardColumn {
 
       .stats {
         display: inline-flex;
+        flex-wrap: wrap;
+        max-width: 100%;
         gap: 36px;
         padding: 14px 28px;
         border-radius: var(--ps-radius-xl, 22px);

@@ -367,6 +367,9 @@ interface Slide {
     `
       :host {
         display: block;
+        box-sizing: border-box;
+        width: 100%;
+        min-width: 0;
         background: var(--ps-bg, #060610);
         color: var(--ps-ink, #f4f4ff);
       }
@@ -507,12 +510,14 @@ interface Slide {
         padding: 0;
         margin: 0;
         display: grid;
+        grid-template-columns: minmax(0, 1fr);
         gap: 56px;
       }
 
       .slide figure {
         margin: 0;
         display: grid;
+        grid-template-columns: minmax(0, 1fr);
         gap: 20px;
       }
 
@@ -526,7 +531,7 @@ interface Slide {
 
       .slide figcaption {
         display: grid;
-        grid-template-columns: auto 1fr auto;
+        grid-template-columns: auto minmax(0, 1fr) auto;
         gap: 20px;
         align-items: center;
       }
