@@ -227,55 +227,10 @@
   }
   </script>
 
-  <!-- JSON-LD: FAQPage (Google FAQ rich snippets) -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": [
-      {
-        "@type": "Question",
-        "name": "How does the AI build my website?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Search for your business, and our AI researches your brand, services, and style to generate a professional multi-page website in under 5 minutes. No coding required."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "How much does ProjectSites cost?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "You can preview your AI-generated site for free. The all-inclusive plan is $50/month (or $40/month billed annually) and includes hosting, SSL, custom domain, unlimited AI edits, and priority support."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Can I use my own domain name?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes. Paid plans include one free custom domain connection. Simply point your domain to our servers and we handle SSL certificates automatically."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Can I edit my website after it's built?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes. You can make unlimited AI-powered edits through our editor, or manually edit HTML/CSS/JS files directly in the dashboard."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "What if my business isn't on Google?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "No problem. You can enter your business details manually — name, address, and any additional context. The AI will still generate a professional website based on the information you provide."
-        }
-      }
-    ]
-  }
-  </script>
+  <!-- JSON-LD: FAQPage is injected per-route by HomepageComponent (only where
+       the FAQ accordion is actually visible) — NOT globally here, so it no
+       longer appears on /privacy, /terms, etc. (Google FAQ-policy + the
+       "FAQPage only when real Q&A exists" rule). -->
 
   <!-- JSON-LD: BreadcrumbList (Google breadcrumb rich snippets) -->
   <script type="application/ld+json">

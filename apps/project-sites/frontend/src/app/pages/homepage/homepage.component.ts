@@ -26,6 +26,8 @@ import { ApiService, type BusinessResult } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { GeolocationService } from '../../services/geolocation.service';
 import { TelemetryService } from '../../services/telemetry.service';
+import { MetaService } from '../../services/meta.service';
+import { graph, faqPage } from '../../lib/json-ld';
 import { RippleDirective } from '../../animations/ripple.directive';
 import { RevealDirective } from '../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../components/rolling-counter/rolling-counter.component';
@@ -88,6 +90,7 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
   private translate = inject(TranslateService);
   private platformId = inject(PLATFORM_ID);
   private telemetry = inject(TelemetryService);
+  private meta = inject(MetaService);
 
   /** Logged-in state for the nav — switches the homepage menu from
    *  "Sign In / Get Started" (guest) to the account indicator + Dashboard CTA. */
@@ -130,6 +133,7 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
   ngOnInit(): void {
     this.currentLang.set(this.translate.currentLang || this.translate.defaultLang || 'en');
     this.resolveHeroVariant();
+    this.injectFaqJsonLd();
 
     this.searchSubject
       .pipe(
@@ -406,6 +410,28 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
    * Fires `hero.variant_assigned` exactly once per session so we can
    * downstream-attribute hero.cta_clicked / hero.signin_started events.
    */
+  /**
+   * Inject FAQPage JSON-LD scoped to the homepage only (the FAQ accordion is
+   * visible here). Built from the SAME `faq.q1..6`/`faq.a1..6` i18n keys the
+   * accordion renders, so the structured data exactly matches the visible Q&A
+   * (Google FAQ policy). Replaces the old GLOBAL FAQPage block in index.html,
+   * which incorrectly applied to /privacy, /terms, etc.
+   */
+  private injectFaqJsonLd(): void {
+    const keys: string[] = [];
+    for (let i = 1; i <= 6; i++) keys.push(`faq.q${i}`, `faq.a${i}`);
+    this.translate.get(keys).pipe(takeUntil(this.destroy$)).subscribe((t: Record<string, string>) => {
+      const qa: { q: string; a: string }[] = [];
+      for (let i = 1; i <= 6; i++) {
+        const q = t[`faq.q${i}`];
+        const a = t[`faq.a${i}`];
+        // Skip any unresolved keys (translation missing → value === key).
+        if (q && a && q !== `faq.q${i}` && a !== `faq.a${i}`) qa.push({ q, a });
+      }
+      if (qa.length) this.meta.setJsonLd(graph([faqPage(qa)]));
+    });
+  }
+
   private resolveHeroVariant(): void {
     if (!isPlatformBrowser(this.platformId)) return;
 
