@@ -2,6 +2,7 @@ import {
   effectiveApprovalStatus,
   applyApprovalAction,
   recordReviewDecision,
+  getReviewLink,
   type ApprovalLinkState,
 } from '../services/review_approval.js';
 import type { Env } from '../types/env.js';
@@ -115,5 +116,22 @@ describe('recordReviewDecision', () => {
     const env = mockEnv({ decision: null, expires_at: FUTURE }, 0);
     const res = await recordReviewDecision(env, 'rev1', 'approve', NOW);
     expect(res).toEqual({ ok: false, error: 'already_decided' });
+  });
+});
+
+describe('getReviewLink', () => {
+  function rowEnv(row: Record<string, unknown> | null): Env {
+    return {
+      DB: { prepare: () => ({ bind: () => ({ all: async () => ({ results: row ? [row] : [] }) }) }) },
+    } as unknown as Env;
+  }
+
+  it('returns the review row when found', async () => {
+    const row = { id: 'r1', site_id: 's1', agency_org_id: 'o1', decision: null, expires_at: FUTURE };
+    expect(await getReviewLink(rowEnv(row), 'r1')).toEqual(row);
+  });
+
+  it('returns null when not found', async () => {
+    expect(await getReviewLink(rowEnv(null), 'missing')).toBeNull();
   });
 });

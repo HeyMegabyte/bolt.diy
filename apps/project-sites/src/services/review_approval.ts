@@ -86,6 +86,23 @@ export function applyApprovalAction(
   }
 }
 
+export interface ReviewLinkRow {
+  id: string;
+  site_id: string;
+  agency_org_id: string;
+  decision: string | null;
+  expires_at: string;
+}
+
+/** Load a review link by its (unguessable UUID) id — the public bearer credential. */
+export async function getReviewLink(env: Env, id: string): Promise<ReviewLinkRow | null> {
+  return dbQueryOne<ReviewLinkRow>(
+    env.DB,
+    'SELECT id, site_id, agency_org_id, decision, expires_at FROM review_tokens WHERE id = ?',
+    [id],
+  );
+}
+
 export interface ReviewDecisionResult {
   ok: boolean;
   status?: string;
