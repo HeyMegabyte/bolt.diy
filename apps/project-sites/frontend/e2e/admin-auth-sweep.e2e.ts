@@ -46,10 +46,15 @@ test.describe('admin — auth-class regression guard (rounds 101-103)', () => {
   test.skip(!KEY, 'E2E_API_KEY not set');
   test.describe.configure({ retries: 2 });
 
-  // Sections whose /api call fires unconditionally on load → hard assert.
+  // Sections whose /api call fires UNCONDITIONALLY on load → hard-assert the
+  // Bearer header. NOTE: inbox was here, but round 111 (flag-gating) made it
+  // fire its /api/inbox/conversations fetch ONLY when unified_inbox is on — so
+  // with the flag off (test env) there's no request to assert against (that
+  // no-fetch-when-off behavior is now covered by admin-flag-gated.e2e.ts). When
+  // the flag IS on, inbox routes through the same ApiService as content-freshness
+  // (which still represents the Bearer-attachment guarantee here).
   const ON_LOAD: { path: string; match: RegExp; label: string }[] = [
     { path: '/admin/content-freshness', match: /\/api\/content\/freshness/, label: 'content-freshness' },
-    { path: '/admin/inbox', match: /\/api\/inbox\/conversations/, label: 'inbox' },
   ];
 
   for (const s of ON_LOAD) {
