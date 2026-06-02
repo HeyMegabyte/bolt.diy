@@ -283,3 +283,26 @@ test.describe('marketing — /press brand kit downloads (no dead /brand link)', 
     expect((await res.body()).length, 'brand-kit.zip is non-empty').toBeGreaterThan(1000);
   });
 });
+
+test.describe('marketing — exactly one H1 per public route', () => {
+  test.describe.configure({ retries: 2 });
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  // always.md: exactly 1 H1 per page (SEO + a11y page-has-heading-one). axe flags
+  // this as "moderate", so the serious/critical sweeps miss it — /signin shipped
+  // with H1=0 (top heading was <h2>Welcome</h2>) until round 39. This gate guards
+  // every public route. NOTE: the homepage hero h1 hydrates late (behavioral
+  // swap), so we wait for the h1 to appear before counting.
+  for (const path of ROUTES) {
+    test(`exactly one <h1> — ${path}`, async ({ page }) => {
+      test.setTimeout(45000);
+      await page.goto(path, { waitUntil: 'load' });
+      // Wait for at least one h1 to hydrate (homepage swaps its hero h1 ~3s in).
+      await page.waitForFunction(() => document.querySelectorAll('h1').length >= 1, { timeout: 15000 })
+        .catch(() => {});
+      const count = await page.locator('h1').count();
+      const texts = await page.locator('h1').allTextContents();
+      expect(count, `${path} must have exactly one <h1>, found ${count}: ${JSON.stringify(texts)}`).toBe(1);
+    });
+  }
+});
