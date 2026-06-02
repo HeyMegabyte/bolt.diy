@@ -23,7 +23,7 @@ const KEY = process.env.E2E_API_KEY ?? '';
 
 const ROUTES = [
   '/admin/sites', '/admin/feature-flags', '/admin/analytics', '/admin/billing',
-  '/admin/media', '/admin/audit', '/admin/social', '/admin/seo',
+  '/admin/media', '/admin/audit', '/admin/social', '/admin/seo', '/admin/content-freshness',
 ];
 
 async function seed(page: Page): Promise<void> {

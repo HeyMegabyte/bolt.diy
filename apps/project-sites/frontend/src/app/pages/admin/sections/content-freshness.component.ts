@@ -144,6 +144,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
 
       <!-- Draft table (native + TanStack headless: client-side sort on the
            fetched page; server-side paging via the pager below). -->
+      <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Content drafts — scroll horizontally">
       <table class="cf-grid" data-testid="cf-table" [attr.aria-busy]="loading()">
         <thead>
           <tr>
@@ -217,6 +218,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
           }
         </tbody>
       </table>
+      </div>
 
       <!-- Server-side pager (TanStack sort is client-side on the fetched page). -->
       @if (total() > limit) {
@@ -235,6 +237,9 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
     :host {
       --ease: cubic-bezier(0.4, 0, 0.2, 1);
       display: block;
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
     }
 
     .cf-page {
@@ -271,7 +276,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
        (our own buttons; no ::ng-deep needed). Light ink on transparent; dark
        ink on the cyan active. */
     .cf-filter {
-      display: inline-flex; gap: 4px; margin-bottom: 1rem; padding: 3px;
+      display: inline-flex; flex-wrap: wrap; max-width: 100%; gap: 4px; margin-bottom: 1rem; padding: 3px;
       border-radius: 10px; background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(0, 229, 255, 0.12);
     }
