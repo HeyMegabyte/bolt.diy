@@ -81,15 +81,28 @@ interface StackAdvanceResponse {
         </div>
       </header>
 
+      <!-- Feature flag off -->
+      @if (featureDisabled()) {
+        <div class="empty-card">
+          <p class="text-white text-sm font-semibold m-0">Domain Stack Wizard isn’t enabled</p>
+          <p class="text-text-secondary text-sm m-0 mt-1">
+            This feature is gated behind the <code>domain_stack_wizard</code> flag, which is off
+            for this environment. Enable it in
+            <a routerLink="/admin/feature-flags" class="underline">Feature Flags</a>
+            to run the registrar → DNS → SSL → email-auth → GSC setup board.
+          </p>
+        </div>
+      }
+
       <!-- No site selected -->
-      @if (!state.selectedSite()) {
+      @if (!featureDisabled() && !state.selectedSite()) {
         <div class="empty-card">
           <p class="text-text-secondary text-sm">Select a site to start the domain stack wizard.</p>
         </div>
       }
 
       <!-- Hostname missing -->
-      @if (state.selectedSite() && !hostname()) {
+      @if (!featureDisabled() && state.selectedSite() && !hostname()) {
         <div class="empty-card">
           <p class="text-text-secondary text-sm">This site has no primary custom hostname yet.</p>
           <a routerLink="/admin/domains" class="btn-ghost text-xs mt-3">Add Domain →</a>
@@ -135,7 +148,7 @@ interface StackAdvanceResponse {
         }
       }
 
-      @if (hostname() && tiles().length === 0 && !loading()) {
+      @if (!featureDisabled() && hostname() && tiles().length === 0 && !loading()) {
         <div class="empty-card">
           <p class="text-text-secondary text-sm">No stack run yet for <strong class="text-white">{{ hostname() }}</strong>.</p>
           <button class="btn-primary text-xs mt-3" (click)="start()">Start Wizard</button>
@@ -180,6 +193,8 @@ export class AdminDomainStackComponent implements OnDestroy {
   readonly retries = signal<number>(0);
   readonly runId = signal<string | null>(null);
   readonly loading = signal(false);
+  /** True when the worker returns 404 feature_disabled (domain_stack_wizard flag off). */
+  readonly featureDisabled = signal(false);
   readonly advancing = signal(false);
   private pollTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -223,10 +238,13 @@ export class AdminDomainStackComponent implements OnDestroy {
         }
       },
       error: (err) => {
-        // 404 = no run yet; treat as empty
-        if (err?.status === 404) { this.loading.set(false); return; }
-        this.toast.error('Failed to load stack status');
         this.loading.set(false);
+        // Flag off → worker 404s with code 'feature_disabled' → honest disabled
+        // state (distinct from a genuine no-run 404, which stays the empty
+        // "Start Wizard" state).
+        if (err?.error?.error?.code === 'feature_disabled') { this.featureDisabled.set(true); return; }
+        if (err?.status === 404) return; // no run yet → empty state
+        this.toast.error('Failed to load stack status');
       },
     });
   }
