@@ -290,10 +290,10 @@ export class SiteMcpServerComponent implements OnInit {
   private loadSiteSlug(): void {
     if (!this.siteId) return;
     this.http
-      .get<{ site: { slug: string } }>(`/api/sites/${this.siteId}`)
+      .get<{ data: { slug: string } }>(`/api/sites/${this.siteId}`)
       .pipe(catchError(() => of(null)))
       .subscribe((res) => {
-        if (res?.site?.slug) this.siteSlug.set(res.site.slug);
+        if (res?.data?.slug) this.siteSlug.set(res.data.slug);
       });
   }
 

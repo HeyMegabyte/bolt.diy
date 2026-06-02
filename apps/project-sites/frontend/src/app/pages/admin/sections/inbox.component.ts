@@ -89,9 +89,6 @@ const STATUS_COLORS: Record<string, string> = {
           <div class="inbox-stat">
             <app-rolling-counter [value]="unreadCount()" suffix=" unread" />
           </div>
-          <div class="inbox-stat">
-            <app-rolling-counter [value]="avgFirstResponseMs()" suffix="s avg response" [decimals]="1" />
-          </div>
         </div>
       </header>
 
@@ -419,7 +416,6 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
 
   openCount = computed(() => this.conversations().filter((c) => c.status === 'open').length);
   unreadCount = computed(() => this.conversations().reduce((s, c) => s + c.unread_count, 0));
-  avgFirstResponseMs = computed(() => 0); // placeholder — computed from messages in real impl
 
   ngOnInit(): void {
     this.loadConversations();
