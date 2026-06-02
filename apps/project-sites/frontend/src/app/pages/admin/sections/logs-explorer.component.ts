@@ -102,6 +102,18 @@ const LEVEL_COLORS: Record<string, string> = {
         </div>
       </header>
 
+      @if (featureDisabled()) {
+        <div class="empty-card">
+          <p class="text-white text-sm font-semibold m-0">Log Explorer isn’t enabled</p>
+          <p class="text-text-secondary text-sm m-0 mt-1">
+            This feature is gated behind the <code>log_explorer</code> flag, which is off for
+            this environment. Enable it in
+            <a routerLink="/admin/feature-flags" class="underline">Feature Flags</a>
+            to search Worker tail logs and view cost-by-route.
+          </p>
+        </div>
+      } @else {
+
       <!-- Search bar -->
       <div class="search-bar flex gap-2 items-center">
         <input
@@ -206,6 +218,7 @@ const LEVEL_COLORS: Record<string, string> = {
           <p class="text-text-secondary text-sm">No logs found matching your query.</p>
         </div>
       }
+      }
     </div>
   `,
   styles: [`
@@ -302,6 +315,8 @@ export class AdminLogsExplorerComponent implements OnInit {
   readonly costRows = signal<CostRow[]>([]);
   readonly grandTotal = signal(0);
   readonly costLoading = signal(false);
+  /** True when the worker returns 404 feature_disabled (log_explorer flag off). */
+  readonly featureDisabled = signal(false);
 
   ngOnInit() { this.search(); this.loadCosts(); }
 
@@ -345,7 +360,10 @@ export class AdminLogsExplorerComponent implements OnInit {
       },
       error: (err) => {
         if (err?.status === 404) {
-          this.toast.warning('Log explorer is not enabled on this environment.');
+          // log_explorer flag off — surface the honest disabled state, not a
+          // toast-on-load. (ngOnInit auto-runs search(), so a toast here would
+          // fire on every visit while the flag is off.)
+          this.featureDisabled.set(true);
         } else {
           this.toast.error('Failed to search logs');
         }
@@ -385,7 +403,8 @@ export class AdminLogsExplorerComponent implements OnInit {
         this.grandTotal.set(res.data.grand_total_cost);
         this.costLoading.set(false);
       },
-      error: () => {
+      error: (err: { status?: number } | null) => {
+        if (err?.status === 404) this.featureDisabled.set(true);
         this.costLoading.set(false);
       },
     });

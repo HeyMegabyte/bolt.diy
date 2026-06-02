@@ -168,6 +168,30 @@ test.describe('admin — section-states round-1 coverage', () => {
     expect(errors, errors.join('\n')).toEqual([]);
   });
 
+  test('logs-explorer (log_explorer flag): honest disabled-state OR live UI — never a silent blank', async ({ page }) => {
+    test.setTimeout(60000);
+    const errors = trackErrors(page);
+    await seed(page);
+    await page.goto('/admin/logs', { waitUntil: 'load' });
+    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
+
+    // Flag off → worker 404s → the component must show an honest disabled-state
+    // card (with a Feature Flags link). Flag on → the search bar renders. Either
+    // way the page must NOT be a silent blank (the bug this round fixed: loadCosts
+    // swallowed the 404 and left an empty page).
+    await expect(
+      page
+        .getByText(/Log Explorer isn.t enabled/i)
+        .or(page.locator('.search-bar'))
+        .or(page.locator('.empty-card'))
+        .first(),
+    ).toBeVisible({ timeout: 20000 });
+
+    const bodyLen = await page.evaluate(() => (document.body.textContent ?? '').trim().length);
+    expect(bodyLen, 'logs-explorer must render non-empty content').toBeGreaterThan(30);
+    expect(errors, errors.join('\n')).toEqual([]);
+  });
+
   // ── 3. Broad smoke — 12 core admin routes ─────────────────────────────────
   test('smoke — 12 core admin routes: sidebar alive + valid state + no pageerror', async ({ page }) => {
     test.setTimeout(180_000);
