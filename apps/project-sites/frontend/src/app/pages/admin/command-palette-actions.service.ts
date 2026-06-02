@@ -204,7 +204,6 @@ export class CommandPaletteActionsService {
       // ── Help (6) ─────────────────────────────────────────────────
       { id: 'help-shortcuts', title: 'Keyboard shortcuts',     section: 'Help', shortcut: '?', icon: ICONS.help, keywords: ['cheat sheet', 'hotkeys'], run: () => ctx.openShortcuts() },
       { id: 'help-docs',      title: "Open CLAUDE.md docs",    section: 'Help', icon: ICONS.book, keywords: ['readme', 'guide'], run: () => go('/admin/docs#overview') },
-      { id: 'help-changelog', title: "What's new — changelog", section: 'Help', icon: ICONS.book, keywords: ['release notes'], run: () => go('/changelog') },
       { id: 'help-support',   title: 'Chat with support',      section: 'Help', icon: ICONS.help, keywords: ['contact', 'email'], run: () => ctx.openAiChat('I need help with…') },
       { id: 'help-status',    title: 'System status',          section: 'Help', icon: ICONS.bell, keywords: ['uptime', 'incidents'], run: () => go('/status') },
       { id: 'help-email',     title: 'Email support',          section: 'Help', icon: ICONS.help, keywords: ['contact'], run: () => openExt('mailto:hey@megabyte.space?subject=Project%20Sites%20admin') },

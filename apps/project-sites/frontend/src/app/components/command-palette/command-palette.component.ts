@@ -26,7 +26,6 @@ const COMMANDS: PaletteCommand[] = [
   { id: 'billing', label: 'Manage Billing', icon: 'billing', route: '/admin/billing' },
   { id: 'settings', label: 'Open Settings', icon: 'settings', route: '/admin/settings' },
   { id: 'shortcuts', label: 'Show Keyboard Shortcuts', icon: 'keyboard', action: 'showShortcuts' },
-  { id: 'changelog', label: 'View Changelog', icon: 'changelog', route: '/changelog' },
   { id: 'status', label: 'System Status', icon: 'status', route: '/status' },
   { id: 'privacy', label: 'Privacy Policy', icon: 'lock', route: '/privacy' },
   { id: 'terms', label: 'Terms of Service', icon: 'document', route: '/terms' },
