@@ -22,7 +22,7 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
-import { dbQueryOne } from '../services/db.js';
+import { assertSiteOwned } from '../services/site_ownership.js';
 import { extractEditIntent } from '../services/edit_intent_extractor.js';
 import {
   createChangeset,
@@ -45,26 +45,10 @@ function flagDisabled(message = 'Not found') {
   return { error: { code: 'NOT_FOUND', message } } as const;
 }
 
-/**
- * Multi-tenant ownership guard. Returns `true` only when `siteId` exists AND
- * belongs to the caller's `orgId`. Every handler applies this after the flag
- * check and 404s (never 403 — never leak existence) when it's false, closing
- * the cross-tenant read/write gap where a flag-enabled caller could touch
- * another org's changesets by guessing an id. Exported for unit testing.
- */
-export async function assertSiteOwned(
-  env: Env,
-  orgId: string | undefined,
-  siteId: string,
-): Promise<boolean> {
-  if (!orgId) return false;
-  const row = await dbQueryOne<{ org_id: string }>(
-    env.DB,
-    'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
-    [siteId],
-  );
-  return !!row && row.org_id === orgId;
-}
+// Multi-tenant ownership guard — canonical impl in services/site_ownership.ts
+// (single source of truth, shared with swarm.ts + other site-scoped routes).
+// Re-exported so the existing unit test keeps its import path.
+export { assertSiteOwned };
 
 // ─── Extract intent preview (no apply) ─────────────────────────────────
 

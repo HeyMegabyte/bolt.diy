@@ -29,8 +29,13 @@ import {
   SPECIALIST_PARTITION,
   type SwarmSpecialist,
 } from '../services/ide_sandbox.js';
+import { assertSiteOwned } from '../services/site_ownership.js';
 
 const swarm = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+/** 401 when unauthenticated, 404 (never 403/leak) when the site isn't the caller's. */
+const UNAUTH = { error: { code: 'UNAUTHORIZED', message: 'Auth required' } } as const;
+const NOT_FOUND = { error: { code: 'NOT_FOUND', message: 'Not found' } } as const;
 
 // ── POST /api/swarm/:siteId/start ──────────────────────────────────────────
 
@@ -43,6 +48,8 @@ const SwarmStartBodySchema = z.object({
 type SwarmStartInput = z.infer<typeof SwarmStartBodySchema>;
 
 swarm.post('/api/swarm/:siteId/start', zValidator('json', SwarmStartBodySchema), async (c) => {
+  const userId = c.get('userId');
+  if (!userId) return c.json(UNAUTH, 401);
   // Flag gate — 404 when off (per [[feature-flags]] never 403)
   const flagRow = await c.env.DB.prepare(
     "SELECT enabled FROM feature_flags WHERE key = 'swarm_editor' LIMIT 1",
@@ -50,6 +57,7 @@ swarm.post('/api/swarm/:siteId/start', zValidator('json', SwarmStartBodySchema),
   if (!flagRow?.enabled) return c.json({ error: { code: 'NOT_FOUND', message: 'swarm_editor not enabled' } }, 404);
 
   const siteId = c.req.param('siteId');
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(NOT_FOUND, 404);
   const body = c.req.valid('json') as SwarmStartInput;
   const allAgents: SwarmSpecialist[] = ['visual', 'copy', 'seo', 'a11y', 'motion', 'media', 'qa'];
   const prompt = (body.prompt ?? '').trim() || 'Improve the site with all specialists in parallel';
@@ -63,6 +71,8 @@ swarm.post('/api/swarm/:siteId/start', zValidator('json', SwarmStartBodySchema),
 // ── GET /api/swarm/:siteId/stream ─────────────────────────────────────────
 
 swarm.get('/api/swarm/:siteId/stream', async (c) => {
+  const userId = c.get('userId');
+  if (!userId) return c.json(UNAUTH, 401);
   const siteId = c.req.param('siteId');
   const runId = c.req.query('run_id') ?? null;
   const mode = c.req.query('mode') ?? 'swarm'; // 'swarm' | 'progressive'
@@ -73,6 +83,8 @@ swarm.get('/api/swarm/:siteId/stream', async (c) => {
     'SELECT enabled FROM feature_flags WHERE key = ? LIMIT 1',
   ).bind(flagKey).first<{ enabled: number }>().catch(() => null);
   if (!flagRow?.enabled) return c.json({ error: { code: 'NOT_FOUND', message: `${flagKey} not enabled` } }, 404);
+
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(NOT_FOUND, 404);
 
   const stream =
     mode === 'progressive'
@@ -93,12 +105,15 @@ swarm.get('/api/swarm/:siteId/stream', async (c) => {
 // ── GET /api/swarm/:siteId/runs ───────────────────────────────────────────
 
 swarm.get('/api/swarm/:siteId/runs', async (c) => {
+  const userId = c.get('userId');
+  if (!userId) return c.json(UNAUTH, 401);
   const flagRow = await c.env.DB.prepare(
     "SELECT enabled FROM feature_flags WHERE key = 'multi_agent_concurrent' LIMIT 1",
   ).first<{ enabled: number }>().catch(() => null);
   if (!flagRow?.enabled) return c.json({ error: { code: 'NOT_FOUND', message: 'multi_agent_concurrent not enabled' } }, 404);
 
   const siteId = c.req.param('siteId');
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(NOT_FOUND, 404);
   const runs = await listMultiAgentRuns(c.env, siteId);
   return c.json({ runs, specialists: SPECIALIST_PARTITION });
 });
@@ -106,11 +121,14 @@ swarm.get('/api/swarm/:siteId/runs', async (c) => {
 // ── GET /api/swarm/:siteId/run/:runId ─────────────────────────────────────
 
 swarm.get('/api/swarm/:siteId/run/:runId', async (c) => {
+  const userId = c.get('userId');
+  if (!userId) return c.json(UNAUTH, 401);
   const flagRow = await c.env.DB.prepare(
     "SELECT enabled FROM feature_flags WHERE key = 'multi_agent_concurrent' LIMIT 1",
   ).first<{ enabled: number }>().catch(() => null);
   if (!flagRow?.enabled) return c.json({ error: { code: 'NOT_FOUND', message: 'multi_agent_concurrent not enabled' } }, 404);
 
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), c.req.param('siteId')))) return c.json(NOT_FOUND, 404);
   const runId = c.req.param('runId');
   const detail = await getMultiAgentRunDetail(c.env, runId);
   return c.json(detail);
