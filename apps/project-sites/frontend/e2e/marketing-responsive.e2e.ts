@@ -159,3 +159,36 @@ test.describe('marketing — required favicon files serve real images', () => {
     });
   }
 });
+
+test.describe('marketing — 404 soft-not-found is noindex + titled', () => {
+  test.describe.configure({ retries: 2 });
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  // Regression: unknown routes hit the SPA wildcard → NotFoundComponent, served
+  // HTTP 200 (soft-404). It previously kept the homepage <title> and the
+  // index.html `robots: index, follow` — so Google could index junk URLs. The
+  // component now sets a 404 title + `noindex, follow` on mount (restored on
+  // SPA nav-away). Guard both, plus that the 404 actually renders its h1.
+  test('unknown route renders a real 404 with noindex robots + 404 title', async ({ page }) => {
+    test.setTimeout(45000);
+    await page.goto('/this-route-does-not-exist-xyz', { waitUntil: 'load' });
+    await expect(page.locator('app-not-found h1')).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('app-not-found h1')).toHaveText(/doesn.t exist/i);
+    const robots = await page.locator('meta[name="robots"]').first().getAttribute('content');
+    expect(robots ?? '', '404 must be noindex so junk URLs are not indexed').toContain('noindex');
+    expect(await page.title(), '404 sets its own title, not the homepage title').toMatch(/not found|404/i);
+  });
+
+  test('navigating away from 404 restores indexable robots', async ({ page }) => {
+    test.setTimeout(45000);
+    await page.goto('/this-route-does-not-exist-xyz', { waitUntil: 'load' });
+    await expect(page.locator('app-not-found h1')).toBeVisible({ timeout: 30000 });
+    // SPA nav back to a real, indexable route via the 404 page's home link.
+    await page.locator('app-not-found a[href="/"], app-not-found a[routerlink="/"]').first().click();
+    await expect(page.locator('app-not-found')).toHaveCount(0, { timeout: 15000 });
+    await page.waitForTimeout(500);
+    const robots = await page.locator('meta[name="robots"]').first().getAttribute('content');
+    expect(robots ?? '', 'real routes must stay indexable after leaving the 404').toContain('index');
+    expect(robots ?? '').not.toContain('noindex');
+  });
+});

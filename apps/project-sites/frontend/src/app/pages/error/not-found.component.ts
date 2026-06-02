@@ -1,5 +1,6 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { Title, Meta } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-not-found',
@@ -325,9 +326,29 @@ import { Router, RouterLink } from '@angular/router';
     }
   `],
 })
-export class NotFoundComponent {
+export class NotFoundComponent implements OnInit, OnDestroy {
   private router = inject(Router);
+  private title = inject(Title);
+  private meta = inject(Meta);
   searchQuery = signal('');
+
+  // Robots default lives in index.html (index, follow, …). This page is a
+  // soft-404 (the SPA serves HTTP 200 for unknown routes), so without an
+  // override Google can index it. Capture the original, swap to noindex while
+  // mounted, and restore on SPA nav-away so other routes stay indexable.
+  private previousRobots: string | null = null;
+
+  ngOnInit(): void {
+    this.title.setTitle('Page not found (404) · ProjectSites');
+    this.previousRobots = this.meta.getTag('name="robots"')?.content ?? null;
+    this.meta.updateTag({ name: 'robots', content: 'noindex, follow' });
+  }
+
+  ngOnDestroy(): void {
+    if (this.previousRobots !== null) {
+      this.meta.updateTag({ name: 'robots', content: this.previousRobots });
+    }
+  }
 
   onSearchInput(event: Event): void {
     const input = event.target as HTMLInputElement;
