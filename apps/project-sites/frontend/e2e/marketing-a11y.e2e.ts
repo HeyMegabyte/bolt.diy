@@ -30,16 +30,20 @@ const ROUTES = [
   '/blog', '/press', '/privacy', '/terms', '/roadmap', '/integrations',
 ];
 // STILL EXCLUDED (genuinely blocked, NOT faked):
-//   /status    → `link-in-text-block` on the `/health/deep` footer link —
-//                WORKER-SERVED inline HTML (apps/project-sites/src/index.ts:513),
-//                NOT the Angular status.component. Fix needs a worker deploy
-//                (Docker-blocked) AND index.ts is concurrent-session-dirty.
-//   /changelog → WORKER-served plaintext (changelog_public.ts) missing
-//                <title>/lang — same Docker-blocked worker deploy.
+//   /status    → `link-in-text-block` on the `/health/deep` footer link.
+//                FIXED IN SOURCE (apps/project-sites/src/index.ts — footer a
+//                now text-decoration:underline). Awaiting worker deploy
+//                (local wrangler needs Docker; lands via push → Workers Builds).
+//   /changelog → flag-off (public_changelog) returned Hono's bare default 404
+//                (no <title>/lang). FIXED IN SOURCE via a global app.notFound()
+//                serving accessible HTML (apps/project-sites/src/lib/
+//                not_found_page.ts, unit-tested in not_found_page.test.ts).
+//                Awaiting the same worker deploy.
 //   /search    → 18 contrast violations are a TRANSIENT loading-skeleton flash
 //                (0 at 900ms, 18 at ~1000ms, 0 at 1200ms+) — settles clean;
 //                adding it would make the gate flaky. Not a stable defect.
-// Re-add /status + /changelog once the worker can deploy (Docker daemon up).
+// Re-add /status + /changelog to ROUTES once the worker fix is deployed
+// (verify live: both should be axe-clean after Workers Builds picks up the push).
 
 test.describe('marketing — public pages WCAG 2.2 AA (axe-core)', () => {
   test.describe.configure({ retries: 2 });
