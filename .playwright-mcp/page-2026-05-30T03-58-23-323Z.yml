@@ -1,0 +1,54 @@
+- generic [ref=e1]:
+  - generic [ref=e2]: Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - main [ref=e5]:
+      - generic [ref=e7]:
+        - complementary [ref=e8]:
+          - generic [ref=e9]:
+            - generic [ref=e10]: projectsites.dev
+            - generic [ref=e11]: v2
+          - navigation [ref=e12]:
+            - link "Sites" [ref=e13] [cursor=pointer]:
+              - /url: /admin/v2
+            - link "Analytics" [ref=e14] [cursor=pointer]:
+              - /url: /admin/v2/analytics
+            - link "Domains" [ref=e15] [cursor=pointer]:
+              - /url: /admin/v2/domains
+            - link "Settings" [active] [ref=e16] [cursor=pointer]:
+              - /url: /admin/v2/settings
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - generic [ref=e19]:
+              - generic [ref=e20]: Cockpit
+              - generic [ref=e21]: ·
+              - generic [ref=e22]: Spartan UI
+            - generic [ref=e23]:
+              - button "⌘K Search" [ref=e24] [cursor=pointer]
+              - button "+ New site" [ref=e25] [cursor=pointer]
+          - main [ref=e26]:
+            - generic [ref=e116]:
+              - generic [ref=e117]:
+                - heading "Account" [level=3] [ref=e118]
+                - generic [ref=e119]:
+                  - generic [ref=e120]:
+                    - term [ref=e121]: Email
+                    - definition [ref=e122]: e2e@megabyte.space
+                  - generic [ref=e123]:
+                    - term [ref=e124]: Organization
+                    - definition [ref=e125]: —
+              - generic [ref=e126]:
+                - heading "More controls" [level=3] [ref=e127]
+                - paragraph [ref=e128]: Surfaces not yet ported to the Spartan cockpit.
+                - navigation [ref=e129]:
+                  - link "Feature flags" [ref=e130] [cursor=pointer]:
+                    - /url: /admin/feature-flags
+                  - link "Billing" [ref=e131] [cursor=pointer]:
+                    - /url: /admin/billing
+                  - link "Audit log" [ref=e132] [cursor=pointer]:
+                    - /url: /admin/audit
+                  - link "MCP connections" [ref=e133] [cursor=pointer]:
+                    - /url: /admin/mcp
+                  - link "User settings" [ref=e134] [cursor=pointer]:
+                    - /url: /admin/user-settings

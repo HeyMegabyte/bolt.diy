@@ -1,0 +1,41 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]: Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - main [ref=e5]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - generic [ref=e10]: "4"
+          - generic [ref=e11]: "0"
+          - generic [ref=e12]: "4"
+        - heading "This page doesn't exist" [level=1] [ref=e13]
+        - paragraph [ref=e14]: The page you're looking for may have moved or been removed. Try searching or visit one of the links below.
+        - generic [ref=e15]:
+          - img [ref=e16]
+          - textbox "Search for a business or site" [ref=e19]:
+            - /placeholder: Search for a business or site...
+          - button "Submit search" [disabled] [ref=e20]: Search
+        - navigation "Popular pages" [ref=e21]:
+          - heading "Popular pages" [level=2] [ref=e22]
+          - generic [ref=e23]:
+            - link "Home" [ref=e24] [cursor=pointer]:
+              - /url: /
+              - img [ref=e25]
+              - generic [ref=e27]: Home
+            - link "Search" [ref=e28] [cursor=pointer]:
+              - /url: /search
+              - img [ref=e29]
+              - generic [ref=e32]: Search
+            - link "Create" [ref=e33] [cursor=pointer]:
+              - /url: /create
+              - img [ref=e34]
+              - generic [ref=e36]: Create
+            - link "Admin" [ref=e37] [cursor=pointer]:
+              - /url: /admin
+              - img [ref=e38]
+              - generic [ref=e41]: Admin
+        - link "Back to Home" [ref=e42] [cursor=pointer]:
+          - /url: /
+          - img [ref=e43]
+          - text: Back to Home

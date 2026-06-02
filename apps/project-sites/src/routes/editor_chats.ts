@@ -27,7 +27,7 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { unauthorized, notFound, badRequest, forbidden } from '@project-sites/shared';
+import { unauthorized, notFound, badRequest } from '@project-sites/shared';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert, dbExecute } from '../services/db.js';
 import { streamChatResponse, type LlmProvider } from '../services/editor_llm.js';
@@ -101,7 +101,19 @@ interface EditorMessageRow {
   created_at: string;
 }
 
-/** Confirm the caller owns (or co-owns) the site the chat is bound to. */
+/**
+ * Confirm the caller owns (or co-owns, via org membership) the site the chat
+ * is bound to.
+ *
+ * @remarks The query already filters by accessibility (`s.created_by = ?` OR a
+ * membership row), so a null result means the site is missing OR not the
+ * caller's — both throw `notFound()` (404, **never 403**). A 403 here would
+ * confirm the site exists to a caller who can't access it (existence leak).
+ * @param env    - Worker env (D1 binding).
+ * @param siteId - the site the chat is bound to.
+ * @param userId - the authenticated caller.
+ * @throws {AppError} `notFound` (404) when the site is missing or inaccessible.
+ */
 async function ensureSiteAccess(env: Env, siteId: string, userId: string): Promise<void> {
   const row = await dbQueryOne<{ id: string }>(
     env.DB,
@@ -113,15 +125,24 @@ async function ensureSiteAccess(env: Env, siteId: string, userId: string): Promi
        LIMIT 1`,
     [siteId, userId, userId],
   );
-  if (!row) throw forbidden('Site not accessible');
+  if (!row) throw notFound('Site not found');
 }
 
-/** Load a chat row by id + assert it belongs to the calling user. */
-async function loadOwnedChat(
-  env: Env,
-  chatId: string,
-  userId: string,
-): Promise<EditorChatRow> {
+/**
+ * Load a chat row by id + assert it belongs to the calling user.
+ *
+ * @remarks Editor chats are scoped to (site, **user**) by design — even
+ * co-members of the same org cannot read each other's editor threads. A
+ * missing chat AND a chat owned by another user both throw `notFound()` (404,
+ * **never 403**) so a prober cannot tell "this chat id is real but not yours"
+ * from "no such chat".
+ * @param env    - Worker env (D1 binding).
+ * @param chatId - the chat id from the URL path.
+ * @param userId - the authenticated caller.
+ * @returns the owned chat row.
+ * @throws {AppError} `notFound` (404) when the chat is missing or owned by another user.
+ */
+async function loadOwnedChat(env: Env, chatId: string, userId: string): Promise<EditorChatRow> {
   const chat = await dbQueryOne<EditorChatRow>(
     env.DB,
     `SELECT id, site_id, user_id, title, model, provider, created_at, updated_at
@@ -130,8 +151,8 @@ async function loadOwnedChat(
        LIMIT 1`,
     [chatId],
   );
-  if (!chat) throw notFound('Chat not found');
-  if (chat.user_id !== userId) throw forbidden('Chat not accessible');
+  // 404 for both missing AND another-user's chat (never 403 — don't leak existence).
+  if (!chat || chat.user_id !== userId) throw notFound('Chat not found');
   return chat;
 }
 
@@ -254,11 +275,9 @@ editorChats.post('/api/editor-chats/:chatId/messages', async (c) => {
   });
 
   // Bump the parent chat's updated_at so the sidebar resorts.
-  await dbExecute(
-    c.env.DB,
-    `UPDATE editor_chats SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-    [chat.id],
-  );
+  await dbExecute(c.env.DB, `UPDATE editor_chats SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [
+    chat.id,
+  ]);
 
   // If this is the first user message and the chat still has the
   // default title, derive a snappy title from the first 60 chars.

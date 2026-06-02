@@ -1,0 +1,30 @@
+- main [ref=e2]:
+  - generic [ref=e3]: System status
+  - heading "All systems operational" [level=1] [ref=e4]
+  - paragraph [ref=e5]: Live data refreshed every 30 seconds.
+  - generic [ref=e7]: Live
+  - generic [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]: D1 (database)
+        - generic [ref=e12]: Primary relational store
+      - generic [ref=e13]: UP
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]: KV (cache)
+        - generic [ref=e17]: Host resolution + prompt store
+      - generic [ref=e18]: UP
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - generic [ref=e21]: R2 (object storage)
+        - generic [ref=e22]: Static site bucket
+      - generic [ref=e23]: UP
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - generic [ref=e26]: AI (Workers AI)
+        - generic [ref=e27]: LLM inference binding
+      - generic [ref=e28]: UP
+  - generic [ref=e29]:
+    - text: Powered by Cloudflare Workers · auto-refresh every 30s ·
+    - link "/health/deep JSON" [ref=e30] [cursor=pointer]:
+      - /url: /health/deep

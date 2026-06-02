@@ -1,0 +1,54 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]: Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - main [ref=e5]:
+      - generic [ref=e7]:
+        - complementary [ref=e8]:
+          - generic [ref=e9]:
+            - generic [ref=e10]: projectsites.dev
+            - generic [ref=e11]: v2
+          - navigation [ref=e12]:
+            - paragraph [ref=e13]: Site
+            - link "Sites" [ref=e14] [cursor=pointer]:
+              - /url: /admin/v2
+            - link "Editor" [ref=e15] [cursor=pointer]:
+              - /url: /admin/v2/site/editor
+            - link "Forms" [ref=e16] [cursor=pointer]:
+              - /url: /admin/v2/site/forms
+            - link "Files" [ref=e17] [cursor=pointer]:
+              - /url: /admin/v2/site/files
+            - link "Domains" [ref=e18] [cursor=pointer]:
+              - /url: /admin/v2/site/domains
+            - link "Build" [ref=e19] [cursor=pointer]:
+              - /url: /admin/v2/site/build
+            - paragraph [ref=e20]: Sys-admin
+            - link "Analytics" [ref=e21] [cursor=pointer]:
+              - /url: /admin/v2/analytics
+            - link "Media" [ref=e22] [cursor=pointer]:
+              - /url: /admin/v2/media
+            - link "Domains" [ref=e23] [cursor=pointer]:
+              - /url: /admin/v2/domains
+            - link "Billing" [ref=e24] [cursor=pointer]:
+              - /url: /admin/v2/billing
+            - link "Cost" [ref=e25] [cursor=pointer]:
+              - /url: /admin/v2/cost
+            - link "Audit" [ref=e26] [cursor=pointer]:
+              - /url: /admin/v2/audit
+            - link "Integrations" [ref=e27] [cursor=pointer]:
+              - /url: /admin/v2/integrations
+            - link "Settings" [ref=e28] [cursor=pointer]:
+              - /url: /admin/v2/settings
+        - generic [ref=e29]:
+          - generic [ref=e30]:
+            - generic [ref=e31]:
+              - generic [ref=e32]: Project
+              - combobox "Project" [disabled] [ref=e33]:
+                - option "No sites" [selected]
+            - generic [ref=e34]:
+              - button "⌘K" [ref=e35] [cursor=pointer]
+              - button "Notifications" [ref=e38] [cursor=pointer]:
+                - generic [ref=e39]: 🔔
+              - button "+ New site" [ref=e40] [cursor=pointer]
+          - main [ref=e41]

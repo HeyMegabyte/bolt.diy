@@ -1,0 +1,186 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]: Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - main [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - complementary "Sidebar" [ref=e8]:
+            - link "ProjectSites projectsites.dev" [ref=e9] [cursor=pointer]:
+              - /url: /
+              - img "ProjectSites" [ref=e10]
+              - img "projectsites.dev" [ref=e11]
+            - button "Select site" [ref=e13] [cursor=pointer]:
+              - generic [ref=e121]: U
+              - generic [ref=e122]:
+                - generic [ref=e123]: Urban Fitness Co
+                - generic [ref=e124]: Draft
+              - generic [ref=e126]: U
+              - img [ref=e20]
+            - navigation "Admin sections" [ref=e22]:
+              - link "Editor" [ref=e23] [cursor=pointer]:
+                - /url: /admin
+                - img [ref=e24]
+                - generic [ref=e27]: Editor
+              - link "Snapshots" [ref=e28] [cursor=pointer]:
+                - /url: /admin/snapshots
+                - img [ref=e29]
+                - generic [ref=e33]: Snapshots
+              - link "Analytics" [ref=e34] [cursor=pointer]:
+                - /url: /admin/analytics
+                - img [ref=e35]
+                - generic [ref=e36]: Analytics
+              - link "Forms" [ref=e37] [cursor=pointer]:
+                - /url: /admin/forms
+                - img [ref=e38]
+                - generic [ref=e41]: Forms
+              - link "Traces" [ref=e42] [cursor=pointer]:
+                - /url: /admin/traces
+                - img [ref=e43]
+                - generic [ref=e45]: Traces
+              - link "Apps" [ref=e46] [cursor=pointer]:
+                - /url: /admin/apps
+                - img [ref=e47]
+                - generic [ref=e50]: Apps
+              - link "Social" [ref=e51] [cursor=pointer]:
+                - /url: /admin/social
+                - img [ref=e52]
+                - generic [ref=e55]: Social
+              - link "Voice" [ref=e56] [cursor=pointer]:
+                - /url: /admin/voice
+                - img [ref=e57]
+                - generic [ref=e59]: Voice
+              - link "Audit Log" [ref=e61] [cursor=pointer]:
+                - /url: /admin/audit
+                - img [ref=e62]
+                - generic [ref=e65]: Audit Log
+              - link "Feature Flags" [ref=e66] [cursor=pointer]:
+                - /url: /admin/feature-flags
+                - img [ref=e67]
+                - generic [ref=e69]: Feature Flags
+              - link "Docs" [ref=e70] [cursor=pointer]:
+                - /url: /admin/docs
+                - img [ref=e71]
+                - generic [ref=e74]: Docs
+              - link "Settings" [ref=e75] [cursor=pointer]:
+                - /url: /admin/settings
+                - img [ref=e76]
+                - generic [ref=e79]: Settings
+          - generic [ref=e80]:
+            - generic [ref=e81]:
+              - generic [ref=e82]:
+                - generic [ref=e84]:
+                  - button "Go to admin home" [ref=e85] [cursor=pointer]:
+                    - img [ref=e86]
+                  - 'button "Active domain: urban-fitness.projectsites.dev. Click to change." [ref=e127] [cursor=pointer]':
+                    - generic [ref=e90]: urban-fitness.projectsites.dev
+                    - img [ref=e91]
+                - img [ref=e93]
+                - generic [ref=e95]: Sites
+              - generic [ref=e96]:
+                - button "Open command palette" [ref=e97] [cursor=pointer]:
+                  - img [ref=e98]
+                  - generic [ref=e101]: Quick find
+                  - generic [ref=e102]: ⌘K
+                - button "Notifications" [ref=e105] [cursor=pointer]:
+                  - img [ref=e106]
+                  - generic "3 new" [ref=e128]: "3"
+                - button "Account menu for current user" [ref=e111] [cursor=pointer]: "?"
+            - generic [ref=e131]:
+              - generic [ref=e132]:
+                - generic [ref=e133]:
+                  - heading "Sites — Web Vitals heatmap" [level=1] [ref=e134]
+                  - paragraph [ref=e135]: Last 30 days · click any column to sort · triage view ranks worst-first by weighted score
+                - generic [ref=e136]:
+                  - generic [ref=e137] [cursor=pointer]:
+                    - checkbox "Triage view" [ref=e138]
+                    - text: Triage view
+                  - button "Refresh" [ref=e139]
+              - table [ref=e141]:
+                - rowgroup [ref=e142]:
+                  - row "Site LCP CLS INP Lighthouse Score ↑" [ref=e143]:
+                    - columnheader "Site" [ref=e144] [cursor=pointer]
+                    - columnheader "LCP" [ref=e145] [cursor=pointer]
+                    - columnheader "CLS" [ref=e146] [cursor=pointer]
+                    - columnheader "INP" [ref=e147] [cursor=pointer]
+                    - columnheader "Lighthouse" [ref=e148] [cursor=pointer]
+                    - columnheader "Score ↑" [ref=e149] [cursor=pointer]
+                - rowgroup [ref=e150]:
+                  - row "Acme Bakery acme-bakery.projectsites.dev — — — — —" [ref=e151]:
+                    - cell "Acme Bakery acme-bakery.projectsites.dev" [ref=e152]:
+                      - generic [ref=e153]:
+                        - link "Acme Bakery" [ref=e154] [cursor=pointer]:
+                          - /url: /admin/sites/e2e-site-1
+                        - link "acme-bakery.projectsites.dev" [ref=e155] [cursor=pointer]:
+                          - /url: https://acme-bakery.projectsites.dev
+                    - cell "—" [ref=e156]:
+                      - generic [ref=e157]: —
+                    - cell "—" [ref=e158]:
+                      - generic [ref=e159]: —
+                    - cell "—" [ref=e160]:
+                      - generic [ref=e161]: —
+                    - cell "—" [ref=e162]:
+                      - generic [ref=e163]: —
+                    - cell "—" [ref=e164]
+                  - row "Lakeside Dental lakeside-dental.projectsites.dev — — — — —" [ref=e165]:
+                    - cell "Lakeside Dental lakeside-dental.projectsites.dev" [ref=e166]:
+                      - generic [ref=e167]:
+                        - link "Lakeside Dental" [ref=e168] [cursor=pointer]:
+                          - /url: /admin/sites/e2e-site-2
+                        - link "lakeside-dental.projectsites.dev" [ref=e169] [cursor=pointer]:
+                          - /url: https://lakeside-dental.projectsites.dev
+                    - cell "—" [ref=e170]:
+                      - generic [ref=e171]: —
+                    - cell "—" [ref=e172]:
+                      - generic [ref=e173]: —
+                    - cell "—" [ref=e174]:
+                      - generic [ref=e175]: —
+                    - cell "—" [ref=e176]:
+                      - generic [ref=e177]: —
+                    - cell "—" [ref=e178]
+                  - row "Urban Fitness Co urban-fitness.projectsites.dev — — — — —" [ref=e179]:
+                    - cell "Urban Fitness Co urban-fitness.projectsites.dev" [ref=e180]:
+                      - generic [ref=e181]:
+                        - link "Urban Fitness Co" [ref=e182] [cursor=pointer]:
+                          - /url: /admin/sites/e2e-site-3
+                        - link "urban-fitness.projectsites.dev" [ref=e183] [cursor=pointer]:
+                          - /url: https://urban-fitness.projectsites.dev
+                    - cell "—" [ref=e184]:
+                      - generic [ref=e185]: —
+                    - cell "—" [ref=e186]:
+                      - generic [ref=e187]: —
+                    - cell "—" [ref=e188]:
+                      - generic [ref=e189]: —
+                    - cell "—" [ref=e190]:
+                      - generic [ref=e191]: —
+                    - cell "—" [ref=e192]
+                  - row "Green Thumb Landscaping green-thumb.projectsites.dev — — — — —" [ref=e193]:
+                    - cell "Green Thumb Landscaping green-thumb.projectsites.dev" [ref=e194]:
+                      - generic [ref=e195]:
+                        - link "Green Thumb Landscaping" [ref=e196] [cursor=pointer]:
+                          - /url: /admin/sites/e2e-site-4
+                        - link "green-thumb.projectsites.dev" [ref=e197] [cursor=pointer]:
+                          - /url: https://green-thumb.projectsites.dev
+                    - cell "—" [ref=e198]:
+                      - generic [ref=e199]: —
+                    - cell "—" [ref=e200]:
+                      - generic [ref=e201]: —
+                    - cell "—" [ref=e202]:
+                      - generic [ref=e203]: —
+                    - cell "—" [ref=e204]:
+                      - generic [ref=e205]: —
+                    - cell "—" [ref=e206]
+            - iframe [ref=e207]:
+              - generic [ref=f162e2]:
+                - generic [ref=f162e6]: Booting workspace
+                - heading "Application Error" [level=1] [ref=f162e9]
+                - generic [ref=f162e10]: "TypeError: Cannot read properties of undefined (reading 'length') at children (https://editor.projectsites.dev/assets/index-CcrRFU44.js:231:25963) at zt (https://editor.projectsites.dev/assets/react-toastify.esm-0imiRawW.js:7:7063) at xu (https://editor.projectsites.dev/assets/components-CD9afgJu.js:30:16994) at _a (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:3139) at Qd (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:44679) at Vd (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:39686) at ev (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:39614) at zi (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:39468) at Ua (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:35850) at Bd (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:34801)"
+                - generic [ref=f162e12]:
+                  - alert [ref=f162e13]:
+                    - generic [ref=f162e16]: "Failed to import chat: Failed to fetch chat data (404)"
+                  - button [ref=f162e17] [cursor=pointer]
+                  - progressbar "notification timer" [ref=f162e21]
+        - button "Open AI chat" [ref=e116] [cursor=pointer]:
+          - img [ref=e117]
+          - generic [ref=e119]: Ask AI

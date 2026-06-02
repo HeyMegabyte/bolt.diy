@@ -1,0 +1,282 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]: Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - alert [ref=e120] [cursor=pointer]:
+      - img [ref=e122]
+      - generic [ref=e126]: Can't reach the server. Check your connection.
+      - button "Dismiss notification" [ref=e127]:
+        - img [ref=e128]
+    - main [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - complementary "Sidebar" [ref=e8]:
+            - link "ProjectSites projectsites.dev" [ref=e9] [cursor=pointer]:
+              - /url: /
+              - img "ProjectSites" [ref=e10]
+              - img "projectsites.dev" [ref=e11]
+            - button "Select site" [ref=e13] [cursor=pointer]:
+              - generic [ref=e131]: U
+              - generic [ref=e132]:
+                - generic [ref=e133]: Urban Fitness Co
+                - generic [ref=e134]: Draft
+              - generic [ref=e136]: U
+              - img [ref=e20]
+            - navigation "Admin sections" [ref=e22]:
+              - link "Editor" [ref=e23] [cursor=pointer]:
+                - /url: /admin
+                - img [ref=e24]
+                - generic [ref=e27]: Editor
+              - link "Snapshots" [ref=e28] [cursor=pointer]:
+                - /url: /admin/snapshots
+                - img [ref=e29]
+                - generic [ref=e33]: Snapshots
+              - link "Analytics" [ref=e34] [cursor=pointer]:
+                - /url: /admin/analytics
+                - img [ref=e35]
+                - generic [ref=e36]: Analytics
+              - link "Forms" [ref=e37] [cursor=pointer]:
+                - /url: /admin/forms
+                - img [ref=e38]
+                - generic [ref=e41]: Forms
+              - link "Traces" [ref=e42] [cursor=pointer]:
+                - /url: /admin/traces
+                - img [ref=e43]
+                - generic [ref=e45]: Traces
+              - link "Apps" [ref=e46] [cursor=pointer]:
+                - /url: /admin/apps
+                - img [ref=e47]
+                - generic [ref=e50]: Apps
+              - link "Social" [ref=e51] [cursor=pointer]:
+                - /url: /admin/social
+                - img [ref=e52]
+                - generic [ref=e55]: Social
+              - link "Voice" [ref=e56] [cursor=pointer]:
+                - /url: /admin/voice
+                - img [ref=e57]
+                - generic [ref=e59]: Voice
+              - link "Audit Log" [ref=e61] [cursor=pointer]:
+                - /url: /admin/audit
+                - img [ref=e62]
+                - generic [ref=e65]: Audit Log
+              - link "Feature Flags" [ref=e66] [cursor=pointer]:
+                - /url: /admin/feature-flags
+                - img [ref=e67]
+                - generic [ref=e69]: Feature Flags
+              - link "Docs" [ref=e70] [cursor=pointer]:
+                - /url: /admin/docs
+                - img [ref=e71]
+                - generic [ref=e74]: Docs
+              - link "Settings" [ref=e75] [cursor=pointer]:
+                - /url: /admin/settings
+                - img [ref=e76]
+                - generic [ref=e79]: Settings
+          - generic [ref=e80]:
+            - generic [ref=e81]:
+              - generic [ref=e82]:
+                - generic [ref=e84]:
+                  - button "Go to admin home" [ref=e85] [cursor=pointer]:
+                    - img [ref=e86]
+                  - 'button "Active domain: urban-fitness.projectsites.dev. Click to change." [ref=e137] [cursor=pointer]':
+                    - generic [ref=e90]: urban-fitness.projectsites.dev
+                    - img [ref=e91]
+                - img [ref=e93]
+                - generic [ref=e95]: User Settings
+              - generic [ref=e96]:
+                - button "Open command palette" [ref=e97] [cursor=pointer]:
+                  - img [ref=e98]
+                  - generic [ref=e101]: Quick find
+                  - generic [ref=e102]: ⌘K
+                - button "Notifications" [ref=e105] [cursor=pointer]:
+                  - img [ref=e106]
+                  - generic "3 new" [ref=e138]: "3"
+                - button "Account menu for current user" [ref=e111] [cursor=pointer]: "?"
+            - generic [ref=e141]:
+              - generic [ref=e142]:
+                - generic [ref=e143]: You
+                - heading "User settings" [level=2] [ref=e144]
+                - paragraph [ref=e145]:
+                  - text: Preferences scoped to you — not the workspace. Signed in as
+                  - strong [ref=e146]: test@megabyte.space
+                  - text: .
+              - generic [ref=e148]:
+                - generic "Avatar for test@megabyte.space" [ref=e149]:
+                  - generic [ref=e150]: TE
+                - generic [ref=e151]:
+                  - generic [ref=e152]:
+                    - heading "Test" [level=3] [ref=e153]
+                    - generic "Your role on this workspace" [ref=e154]: OWNER
+                  - paragraph [ref=e155]: test@megabyte.space
+                  - paragraph [ref=e156]:
+                    - text: "Account ID:"
+                    - code [ref=e157]: test@m….space
+              - generic [ref=e158]:
+                - generic [ref=e159]: Appearance
+                - heading "Theme" [level=3] [ref=e160]
+                - paragraph [ref=e161]: Applies to your admin dashboard view (persisted per browser). System follows your OS appearance.
+                - generic [ref=e162]:
+                  - button "Use Dark theme" [pressed] [ref=e163] [cursor=pointer]:
+                    - generic [ref=e165]: Dark
+                    - generic [ref=e166]: High-contrast cinematic default
+                  - button "Use Light theme" [ref=e167] [cursor=pointer]:
+                    - generic [ref=e169]: Light
+                    - generic [ref=e170]: Daylight surface for bright rooms
+                  - button "Use System theme" [ref=e171] [cursor=pointer]:
+                    - generic [ref=e173]: System
+                    - generic [ref=e174]: Follows your OS appearance setting
+              - generic [ref=e175]:
+                - generic [ref=e176]:
+                  - generic [ref=e177]:
+                    - generic [ref=e178]: Analytics source
+                    - heading "Cloudflare credentials Connected" [level=3] [ref=e179]:
+                      - text: Cloudflare credentials
+                      - generic "Falling back to platform-bundled credentials." [ref=e180]: Connected
+                    - paragraph [ref=e181]:
+                      - text: Power per-site analytics with your Cloudflare global API key. We aggregate edge traffic across every URL bound to each site —
+                      - strong [ref=e182]: using platform shared credentials
+                      - text: .
+                  - button "Update Cloudflare credentials" [ref=e184] [cursor=pointer]: Connect Cloudflare
+                - paragraph [ref=e185]:
+                  - text: Generate a key at
+                  - link "dash.cloudflare.com/profile/api-tokens" [ref=e186] [cursor=pointer]:
+                    - /url: https://dash.cloudflare.com/profile/api-tokens
+                  - text: → "API Keys" → "Global API Key". This is the same credential pair (
+                  - code [ref=e187]: CLOUDFLARE_API_KEY
+                  - text: +
+                  - code [ref=e188]: CLOUDFLARE_EMAIL
+                  - text: ) Wrangler uses for deploys.
+              - generic [ref=e189]:
+                - generic [ref=e190]:
+                  - generic [ref=e191]:
+                    - generic [ref=e192]: Programmatic access
+                    - heading "API keys Active keys" [level=3] [ref=e193]:
+                      - text: API keys
+                      - generic "Active keys" [ref=e194]: 1 active
+                    - paragraph [ref=e196]:
+                      - text: Send as
+                      - code [ref=e197]: "Authorization: Bearer <key>"
+                      - text: . The secret is shown
+                      - strong [ref=e198]: once
+                      - text: — store it in a password manager.
+                  - button "Generate a new API key" [ref=e199] [cursor=pointer]: + Generate API key
+                - table [ref=e201]:
+                  - rowgroup [ref=e202]:
+                    - row "Name Key Scope Last used Rotated Expires" [ref=e203]:
+                      - columnheader "Name" [ref=e204]
+                      - columnheader "Key" [ref=e205]
+                      - columnheader "Scope" [ref=e206]
+                      - columnheader "Last used" [ref=e207]
+                      - columnheader "Rotated" [ref=e208]
+                      - columnheader "Expires" [ref=e209]
+                      - columnheader [ref=e210]
+                  - rowgroup [ref=e211]:
+                    - row "E2E Test Key psk_•••••••• Reveal key prefix Copy key prefix read · write 6/1/26, 7:50 PM — — Rotate this key Revoke this key" [ref=e212]:
+                      - cell "E2E Test Key" [ref=e213]
+                      - cell "psk_•••••••• Reveal key prefix Copy key prefix" [ref=e214]:
+                        - generic [ref=e215]:
+                          - code [ref=e216]: psk_••••••••
+                          - button "Reveal key prefix" [ref=e217] [cursor=pointer]:
+                            - img [ref=e218]
+                          - button "Copy key prefix" [ref=e221] [cursor=pointer]:
+                            - img [ref=e222]
+                      - cell "read · write" [ref=e225]:
+                        - generic [ref=e226]: read · write
+                      - cell "6/1/26, 7:50 PM" [ref=e227]
+                      - cell "—" [ref=e228]
+                      - cell "—" [ref=e229]
+                      - cell "Rotate this key Revoke this key" [ref=e230]:
+                        - button "Rotate this key" [ref=e231] [cursor=pointer]: Rotate
+                        - button "Revoke this key" [ref=e232] [cursor=pointer]: Revoke
+              - generic [ref=e233]:
+                - generic [ref=e235]:
+                  - generic [ref=e236]: Security
+                  - heading "Active sessions" [level=3] [ref=e237]
+                  - paragraph [ref=e238]: Devices currently signed in to your account. Revoke anything you don't recognize.
+                - list [ref=e239]:
+                  - listitem [ref=e240]:
+                    - img [ref=e242]
+                    - generic [ref=e244]:
+                      - generic [ref=e245]:
+                        - generic [ref=e246]: Desktop
+                        - generic [ref=e247]: This device
+                      - generic [ref=e248]: macOS · This browser
+                      - generic [ref=e249]: Last active 6/1/26, 3:50 PM
+              - generic [ref=e250]:
+                - generic [ref=e251]: Email cadence
+                - heading "Notification preferences" [level=3] [ref=e252]
+                - paragraph [ref=e253]: Choose what lands in your inbox. Security alerts stay on by design — toggling them off only mutes the digest, never critical warnings.
+                - generic [ref=e254]:
+                  - generic [ref=e255]:
+                    - generic [ref=e256]: Product
+                    - list [ref=e257]:
+                      - listitem [ref=e258]:
+                        - generic [ref=e259] [cursor=pointer]:
+                          - generic [ref=e260]: Weekly summary
+                          - generic [ref=e261]: A 5-minute digest of build activity, traffic, and improvements.
+                        - switch "Disable Weekly summary" [checked] [ref=e262] [cursor=pointer]
+                      - listitem [ref=e264]:
+                        - generic [ref=e265] [cursor=pointer]:
+                          - generic [ref=e266]: Changelog
+                          - generic [ref=e267]: New features as they ship — once a week, capped.
+                        - switch "Disable Changelog" [checked] [ref=e268] [cursor=pointer]
+                  - generic [ref=e270]:
+                    - generic [ref=e271]: Security
+                    - list [ref=e272]:
+                      - listitem [ref=e273]:
+                        - generic [ref=e274] [cursor=pointer]:
+                          - generic [ref=e275]: New sign-in alerts
+                          - generic [ref=e276]: Email when a new device or location signs in to your account.
+                        - switch "Disable New sign-in alerts" [checked] [ref=e277] [cursor=pointer]
+                      - listitem [ref=e279]:
+                        - generic [ref=e280] [cursor=pointer]:
+                          - generic [ref=e281]: API key activity
+                          - generic [ref=e282]: Alert when a new key is generated, rotated, or revoked.
+                        - switch "Disable API key activity" [checked] [ref=e283] [cursor=pointer]
+                  - generic [ref=e285]:
+                    - generic [ref=e286]: Billing
+                    - list [ref=e287]:
+                      - listitem [ref=e288]:
+                        - generic [ref=e289] [cursor=pointer]:
+                          - generic [ref=e290]: Invoices + receipts
+                          - generic [ref=e291]: Every successful charge and refund, delivered as PDF.
+                        - switch "Disable Invoices + receipts" [checked] [ref=e292] [cursor=pointer]
+                      - listitem [ref=e294]:
+                        - generic [ref=e295] [cursor=pointer]:
+                          - generic [ref=e296]: Failed payments
+                          - generic [ref=e297]: Immediate alert if a charge fails — prevents site suspension.
+                        - switch "Disable Failed payments" [checked] [ref=e298] [cursor=pointer]
+              - generic [ref=e300]:
+                - generic [ref=e301]: Labs
+                - heading "Experimental features" [level=3] [ref=e302]
+                - paragraph [ref=e303]:
+                  - text: Opt into in-flight work. These flags persist in
+                  - code [ref=e304]: localStorage
+                  - text: and live on this device only — clear them by toggling off.
+                - list [ref=e305]:
+                  - listitem [ref=e306]:
+                    - generic [ref=e307] [cursor=pointer]:
+                      - generic [ref=e308]: Native editor
+                      - generic [ref=e309]:
+                        - text: Replaces the bolt.diy iframe at
+                        - code [ref=e310]: /admin/editor-native
+                        - text: with a pure Angular port. Faster cold load, D1-backed chat. Phase 1 of 6.
+                    - switch "Enable experimental native editor" [ref=e311] [cursor=pointer]
+              - generic [ref=e313]:
+                - generic [ref=e314]: Danger zone
+                - heading "Delete account" [level=3] [ref=e315]
+                - paragraph [ref=e316]: Permanently delete your account, all your sites, snapshots, audit history, and API keys. This cannot be undone — billing continues until the end of the current period.
+                - button "Delete account" [ref=e317] [cursor=pointer]: Delete account…
+            - iframe [ref=e318]:
+              - generic [ref=f202e2]:
+                - generic [ref=f202e6]: Booting workspace
+                - heading "Application Error" [level=1] [ref=f202e9]
+                - generic [ref=f202e10]: "TypeError: Cannot read properties of undefined (reading 'length') at children (https://editor.projectsites.dev/assets/index-CcrRFU44.js:231:25963) at zt (https://editor.projectsites.dev/assets/react-toastify.esm-0imiRawW.js:7:7063) at xu (https://editor.projectsites.dev/assets/components-CD9afgJu.js:30:16994) at _a (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:3139) at Qd (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:44679) at Vd (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:39686) at ev (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:39614) at zi (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:39468) at Ua (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:35850) at Bd (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:34801)"
+                - generic [ref=f202e12]:
+                  - alert [ref=f202e13]:
+                    - generic [ref=f202e16]: "Failed to import chat: Failed to fetch chat data (404)"
+                  - button [ref=f202e17] [cursor=pointer]
+                  - progressbar "notification timer" [ref=f202e21]
+        - button "Open AI chat" [ref=e116] [cursor=pointer]:
+          - img [ref=e117]
+          - generic [ref=e119]: Ask AI

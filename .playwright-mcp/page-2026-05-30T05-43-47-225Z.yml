@@ -1,0 +1,42 @@
+- generic [ref=e1]:
+  - generic [ref=e2]: Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - main [ref=e5]:
+      - generic [ref=e7]:
+        - complementary [ref=e8]:
+          - generic [ref=e9]:
+            - generic [ref=e10]: projectsites.dev
+            - generic [ref=e11]: v2
+          - navigation [ref=e12]:
+            - link "Sites" [ref=e13] [cursor=pointer]:
+              - /url: /admin/v2
+            - link "Analytics" [ref=e14] [cursor=pointer]:
+              - /url: /admin/v2/analytics
+            - link "Media" [ref=e15] [cursor=pointer]:
+              - /url: /admin/v2/media
+            - link "Domains" [active] [ref=e16] [cursor=pointer]:
+              - /url: /admin/v2/domains
+            - link "Settings" [ref=e17] [cursor=pointer]:
+              - /url: /admin/v2/settings
+        - generic [ref=e18]:
+          - generic [ref=e19]:
+            - generic [ref=e20]:
+              - generic [ref=e21]: Cockpit
+              - generic [ref=e22]: ·
+              - generic [ref=e23]: Spartan UI
+            - generic [ref=e24]:
+              - button "⌘K Search" [ref=e25] [cursor=pointer]
+              - button "+ New site" [ref=e26] [cursor=pointer]
+          - main [ref=e27]:
+            - generic [ref=e89]:
+              - generic [ref=e90]:
+                - generic [ref=e91]:
+                  - heading "Domains" [level=2] [ref=e92]
+                  - paragraph [ref=e93]: Custom hostnames + SSL provisioning
+                - button "+ Add domain" [ref=e94] [cursor=pointer]
+              - generic [ref=e95]:
+                - heading "No domains yet" [level=3] [ref=e96]
+                - paragraph [ref=e97]: Connect a custom domain to one of your sites to get started.
+                - button "+ Add domain" [ref=e98] [cursor=pointer]

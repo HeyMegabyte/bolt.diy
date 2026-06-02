@@ -1,22 +1,71 @@
-#!/usr/bin/env sh
-[ -n "$HUSKY_SKIP_HOOKS" ] && exit 0
-. "$(dirname "$0")/_/husky.sh" 2>/dev/null || true
+#!/bin/sh
 
-echo "🔒 pre-commit: detect-secrets scan"
-echo "Skipping secret scan (detect-secrets not installed); install: pip install detect-secrets" 2>/dev/null || true
-
-# Typecheck the Angular SPA only when staged files touch it. This blocks the
-# class of broken commit that shipped non-compiling Spartan migrations
-# (ca59267/1696c2e, 2026-06-01) — a failed Edit silently no-op'd and the commit
-# landed without a typecheck. Scoped + bypassable (HUSKY_SKIP_HOOKS=1).
-FE_TS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^apps/project-sites/frontend/src/.*\.ts$' || true)
-if [ -n "$FE_TS" ]; then
-  echo "🔎 pre-commit: typechecking project-sites frontend (staged .ts changed)"
-  if ! ( cd apps/project-sites/frontend && npx tsc --noEmit -p tsconfig.app.json ); then
-    echo "✘ pre-commit: frontend typecheck FAILED — fix errors or commit with HUSKY_SKIP_HOOKS=1 to bypass."
-    exit 1
-  fi
-  echo "✅ frontend typecheck clean"
+if [ "$LEFTHOOK_VERBOSE" = "1" -o "$LEFTHOOK_VERBOSE" = "true" ]; then
+  set -x
 fi
 
-echo "✅ pre-commit OK"
+if [ "$LEFTHOOK" = "0" ]; then
+  exit 0
+fi
+
+call_lefthook()
+{
+  if test -n "$LEFTHOOK_BIN"
+  then
+    "$LEFTHOOK_BIN" "$@"
+  elif lefthook -h >/dev/null 2>&1
+  then
+    lefthook "$@"
+  elif /Users/Apple/.cache/npm/_npx/5e761d7efa6d0191/node_modules/lefthook-darwin-arm64/bin/lefthook -h >/dev/null 2>&1
+  then
+    /Users/Apple/.cache/npm/_npx/5e761d7efa6d0191/node_modules/lefthook-darwin-arm64/bin/lefthook "$@"
+  else
+    dir="$(git rev-parse --show-toplevel)"
+    osArch=$(uname | tr '[:upper:]' '[:lower:]')
+    cpuArch=$(uname -m | sed 's/aarch64/arm64/;s/x86_64/x64/')
+    if test -f "$dir/node_modules/lefthook-${osArch}-${cpuArch}/bin/lefthook"
+    then
+      "$dir/node_modules/lefthook-${osArch}-${cpuArch}/bin/lefthook" "$@"
+    elif test -f "$dir/node_modules/@evilmartians/lefthook/bin/lefthook-${osArch}-${cpuArch}/lefthook"
+    then
+      "$dir/node_modules/@evilmartians/lefthook/bin/lefthook-${osArch}-${cpuArch}/lefthook" "$@"
+    elif test -f "$dir/node_modules/@evilmartians/lefthook-installer/bin/lefthook"
+    then
+      "$dir/node_modules/@evilmartians/lefthook-installer/bin/lefthook" "$@"
+    elif test -f "$dir/node_modules/lefthook/bin/index.js"
+    then
+      "$dir/node_modules/lefthook/bin/index.js" "$@"
+    elif go tool lefthook -h >/dev/null 2>&1
+    then
+      go tool lefthook "$@"
+    elif bundle exec lefthook -h >/dev/null 2>&1
+    then
+      bundle exec lefthook "$@"
+    elif yarn lefthook -h >/dev/null 2>&1
+    then
+      yarn lefthook "$@"
+    elif pnpm lefthook -h >/dev/null 2>&1
+    then
+      pnpm lefthook "$@"
+    elif swift package lefthook >/dev/null 2>&1
+    then
+      swift package --build-path .build/lefthook --disable-sandbox lefthook "$@"
+    elif command -v mint >/dev/null 2>&1
+    then
+      mint run csjones/lefthook-plugin "$@"
+    elif uv run lefthook -h >/dev/null 2>&1
+    then
+      uv run lefthook "$@"
+    elif mise exec -- lefthook -h >/dev/null 2>&1
+    then
+      mise exec -- lefthook "$@"
+    elif devbox run lefthook -h >/dev/null 2>&1
+    then
+      devbox run lefthook "$@"
+    else
+      echo "Can't find lefthook in PATH"
+    fi
+  fi
+}
+
+call_lefthook run "pre-commit" "$@"

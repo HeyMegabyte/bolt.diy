@@ -1,0 +1,125 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]: Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - main [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - complementary "Sidebar" [ref=e8]:
+            - link "ProjectSites projectsites.dev" [ref=e9] [cursor=pointer]:
+              - /url: /
+              - img "ProjectSites" [ref=e10]
+              - img "projectsites.dev" [ref=e11]
+            - button "Select site" [ref=e13] [cursor=pointer]:
+              - generic [ref=e15]: U
+              - generic [ref=e16]:
+                - generic [ref=e17]: Urban Fitness Co
+                - generic [ref=e18]: Draft
+              - generic [ref=e20]: U
+              - img [ref=e21]
+            - navigation "Admin sections" [ref=e23]:
+              - link "Editor" [ref=e24] [cursor=pointer]:
+                - /url: /admin
+                - img [ref=e25]
+                - generic [ref=e28]: Editor
+              - link "Snapshots" [ref=e29] [cursor=pointer]:
+                - /url: /admin/snapshots
+                - img [ref=e30]
+                - generic [ref=e34]: Snapshots
+              - link "Analytics" [ref=e35] [cursor=pointer]:
+                - /url: /admin/analytics
+                - img [ref=e36]
+                - generic [ref=e37]: Analytics
+              - link "Forms" [ref=e38] [cursor=pointer]:
+                - /url: /admin/forms
+                - img [ref=e39]
+                - generic [ref=e42]: Forms
+              - link "Traces" [ref=e43] [cursor=pointer]:
+                - /url: /admin/traces
+                - img [ref=e44]
+                - generic [ref=e46]: Traces
+              - link "Apps" [ref=e47] [cursor=pointer]:
+                - /url: /admin/apps
+                - img [ref=e48]
+                - generic [ref=e51]: Apps
+              - link "Social" [ref=e52] [cursor=pointer]:
+                - /url: /admin/social
+                - img [ref=e53]
+                - generic [ref=e56]: Social
+              - link "Voice" [ref=e57] [cursor=pointer]:
+                - /url: /admin/voice
+                - img [ref=e58]
+                - generic [ref=e60]: Voice
+              - link "Audit Log" [ref=e62] [cursor=pointer]:
+                - /url: /admin/audit
+                - img [ref=e63]
+                - generic [ref=e66]: Audit Log
+              - link "Feature Flags" [ref=e67] [cursor=pointer]:
+                - /url: /admin/feature-flags
+                - img [ref=e68]
+                - generic [ref=e70]: Feature Flags
+              - link "Docs" [ref=e71] [cursor=pointer]:
+                - /url: /admin/docs
+                - img [ref=e72]
+                - generic [ref=e75]: Docs
+              - link "Settings" [ref=e76] [cursor=pointer]:
+                - /url: /admin/settings
+                - img [ref=e77]
+                - generic [ref=e80]: Settings
+          - generic [ref=e81]:
+            - generic [ref=e82]:
+              - generic [ref=e83]:
+                - generic [ref=e85]:
+                  - button "Go to admin home" [ref=e86] [cursor=pointer]:
+                    - img [ref=e87]
+                  - 'button "Active domain: urban-fitness.projectsites.dev. Click to change." [ref=e90] [cursor=pointer]':
+                    - generic [ref=e91]: urban-fitness.projectsites.dev
+                    - img [ref=e92]
+                - img [ref=e94]
+                - generic [ref=e96]: Inbox
+              - generic [ref=e97]:
+                - button "Open command palette" [ref=e98] [cursor=pointer]:
+                  - img [ref=e99]
+                  - generic [ref=e102]: Quick find
+                  - generic [ref=e103]: ⌘K
+                - button "Notifications" [ref=e106] [cursor=pointer]:
+                  - img [ref=e107]
+                  - generic "3 new" [ref=e110]: "3"
+                - button "Account menu for current user" [ref=e112] [cursor=pointer]: "?"
+            - generic [ref=e115]:
+              - generic [ref=e116]:
+                - generic [ref=e117]:
+                  - text: Unified Inbox
+                  - heading "Visitor Conversations" [level=1] [ref=e118]
+                - generic [ref=e119]:
+                  - generic "0 open" [ref=e121]
+                  - generic "0 unread" [ref=e123]
+                  - generic "0.0s avg response" [ref=e125]
+              - generic [ref=e126]:
+                - tablist "Filter by task status" [ref=e127]:
+                  - tab "Open" [selected] [ref=e128] [cursor=pointer]
+                  - tab "Pending" [ref=e129] [cursor=pointer]
+                  - tab "Resolved" [ref=e130] [cursor=pointer]
+                  - tab "Spam" [ref=e131] [cursor=pointer]
+                  - tab "All" [ref=e132] [cursor=pointer]
+                - combobox "Filter by channel" [ref=e133] [cursor=pointer]:
+                  - option "All channels" [selected]
+                  - option "📋 form"
+                  - option "💬 chat"
+                  - option "📞 voice"
+                  - option "📱 sms"
+                  - option "✉️ email"
+                - searchbox "Search conversations" [ref=e134]
+              - generic [ref=e135]:
+                - list "Conversations" [ref=e136]:
+                  - generic "Loading conversations" [ref=e137]
+                - region "Conversation thread" [ref=e168]:
+                  - paragraph [ref=e170]: Select a conversation to read the thread.
+                - complementary "Conversation controls" [ref=e171]:
+                  - generic [ref=e172]: Select a conversation.
+            - iframe [ref=e173]:
+              
+        - button "Open AI chat" [ref=e175] [cursor=pointer]:
+          - img [ref=e176]
+          - generic [ref=e178]: Ask AI

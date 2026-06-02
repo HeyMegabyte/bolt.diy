@@ -26,14 +26,7 @@ import {
 import { suggestVanityWords, type VanityBusinessProfile } from '../services/vanity_generator.js';
 import { simulateInbound } from '../services/sms_agent.js';
 import * as auditService from '../services/audit.js';
-import {
-  AppError,
-  unauthorized,
-  notFound,
-  forbidden,
-  badRequest,
-  conflict,
-} from '@project-sites/shared';
+import { AppError, unauthorized, notFound, badRequest, conflict } from '@project-sites/shared';
 
 export const voiceRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -53,11 +46,30 @@ function notConfigured(): AppError {
   });
 }
 
+/**
+ * Resolve a site the caller's org owns.
+ *
+ * @remarks Multi-tenant isolation — a missing site AND a foreign-org site both
+ * throw `notFound()` (404). Previously a foreign-org site threw `forbidden()`
+ * (403) while a missing one threw 404, letting a prober distinguish "this site
+ * exists but isn't yours" from "no such site" — an existence oracle. Collapsing
+ * to a single 404 closes it.
+ * @param env    - Worker env (D1 binding).
+ * @param siteId - the site id from the request.
+ * @param orgId  - the caller's org (from the authenticated context).
+ * @returns the owned site row (id + org_id + business name/address).
+ * @throws {AppError} `notFound` (404) when the site is missing or not owned by `orgId`.
+ */
 async function requireSiteMembership(
   env: Env,
   siteId: string,
   orgId: string,
-): Promise<{ id: string; org_id: string; business_name: string | null; business_address: string | null }> {
+): Promise<{
+  id: string;
+  org_id: string;
+  business_name: string | null;
+  business_address: string | null;
+}> {
   const site = await dbQueryOne<{
     id: string;
     org_id: string;
@@ -69,8 +81,8 @@ async function requireSiteMembership(
        FROM sites WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
     [siteId],
   );
-  if (!site) throw notFound('Site not found');
-  if (site.org_id !== orgId) throw forbidden('Site not in your org');
+  // 404 for both missing AND foreign-org (never 403 — don't leak that the site exists).
+  if (!site || site.org_id !== orgId) throw notFound('Site not found');
   return site;
 }
 
@@ -140,7 +152,7 @@ voiceRoutes.get('/api/voice/numbers/search', async (c) => {
  * Calls {@link suggestVanityWords} with the site's business profile.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
- * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ * @throws 404 NOT_FOUND when site isn't in the caller's org (never 403 — don't leak existence).
  * @throws 404 NOT_FOUND when site doesn't exist.
  */
 voiceRoutes.get('/api/voice/vanity-suggestions', async (c) => {
@@ -163,7 +175,10 @@ const purchaseBody = z.object({
   siteId: z.string().min(1),
   phoneNumber: z.string().regex(/^\+\d{8,15}$/, 'Must be E.164'),
   friendlyName: z.string().max(64).optional(),
-  vanityWord: z.string().regex(/^[A-Za-z]{3,7}$/).optional(),
+  vanityWord: z
+    .string()
+    .regex(/^[A-Za-z]{3,7}$/)
+    .optional(),
 });
 
 /**
@@ -176,7 +191,7 @@ const purchaseBody = z.object({
  *
  * @throws 400 BAD_REQUEST when payload missing required fields.
  * @throws 401 UNAUTHORIZED when auth context is missing.
- * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ * @throws 404 NOT_FOUND when site isn't in the caller's org (never 403 — don't leak existence).
  * @throws 404 NOT_FOUND when site doesn't exist.
  * @throws 409 CONFLICT when site already owns 3 numbers.
  * @throws 501 NOT_IMPLEMENTED when Twilio isn't configured on this worker.
@@ -217,9 +232,7 @@ voiceRoutes.post('/api/voice/numbers/purchase', async (c) => {
     org_id: orgId,
     phone_number: purchased.phone_number,
     friendly_name: purchased.friendly_name,
-    vanity_display: body.vanityWord
-      ? formatVanity(purchased.phone_number, body.vanityWord)
-      : null,
+    vanity_display: body.vanityWord ? formatVanity(purchased.phone_number, body.vanityWord) : null,
     twilio_sid: purchased.sid,
     capabilities: JSON.stringify(purchased.capabilities),
     voice_url: voiceUrl,
@@ -249,9 +262,7 @@ voiceRoutes.post('/api/voice/numbers/purchase', async (c) => {
     id,
     site_id: body.siteId,
     phone_number: purchased.phone_number,
-    vanity_display: body.vanityWord
-      ? formatVanity(purchased.phone_number, body.vanityWord)
-      : null,
+    vanity_display: body.vanityWord ? formatVanity(purchased.phone_number, body.vanityWord) : null,
     twilio_sid: purchased.sid,
     capabilities: purchased.capabilities,
     monthly_cost_cents: 100,
@@ -265,7 +276,7 @@ voiceRoutes.post('/api/voice/numbers/purchase', async (c) => {
  * `GET /api/voice/numbers?site_id=` — List phone numbers owned by a site.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
- * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ * @throws 404 NOT_FOUND when site isn't in the caller's org (never 403 — don't leak existence).
  * @throws 404 NOT_FOUND when site doesn't exist.
  */
 voiceRoutes.get('/api/voice/numbers', async (c) => {
@@ -296,22 +307,26 @@ voiceRoutes.get('/api/voice/numbers', async (c) => {
  * Calls {@link releaseNumber} then deletes the row. Audit-logged.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
- * @throws 403 FORBIDDEN when number isn't in the caller's org.
- * @throws 404 NOT_FOUND when number id doesn't exist.
+ * @throws 404 NOT_FOUND when the number is missing OR isn't in the caller's org (never 403 — don't leak existence).
  * @throws 501 NOT_IMPLEMENTED when Twilio isn't configured on this worker.
  */
 voiceRoutes.delete('/api/voice/numbers/:id', async (c) => {
   const { userId, orgId } = requireAuth(c);
   const id = c.req.param('id');
   if (!id) throw badRequest('id required');
-  const row = await dbQueryOne<{ id: string; org_id: string; twilio_sid: string | null; phone_number: string }>(
+  const row = await dbQueryOne<{
+    id: string;
+    org_id: string;
+    twilio_sid: string | null;
+    phone_number: string;
+  }>(
     c.env.DB,
     `SELECT id, org_id, twilio_sid, phone_number FROM voice_numbers
        WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
     [id],
   );
-  if (!row) throw notFound('Number not found');
-  if (row.org_id !== orgId) throw forbidden('Not your number');
+  // 404 for both missing AND foreign-org (never 403 — don't leak that the number exists).
+  if (!row || row.org_id !== orgId) throw notFound('Number not found');
   if (!isTwilioConfigured(c.env)) throw notConfigured();
 
   if (row.twilio_sid) {
@@ -363,7 +378,7 @@ voiceRoutes.delete('/api/voice/numbers/:id', async (c) => {
  * conversations (calls + SMS threads) for a site.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
- * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ * @throws 404 NOT_FOUND when site isn't in the caller's org (never 403 — don't leak existence).
  */
 voiceRoutes.get('/api/voice/conversations', async (c) => {
   const { orgId } = requireAuth(c);
@@ -414,8 +429,7 @@ voiceRoutes.get('/api/voice/conversations', async (c) => {
  * sentiment + intent breakdown.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
- * @throws 403 FORBIDDEN when call isn't in the caller's org.
- * @throws 404 NOT_FOUND when call id doesn't exist.
+ * @throws 404 NOT_FOUND when the call is missing OR isn't in the caller's org (never 403 — don't leak existence).
  */
 voiceRoutes.get('/api/voice/calls/:id', async (c) => {
   const { orgId } = requireAuth(c);
@@ -426,8 +440,8 @@ voiceRoutes.get('/api/voice/calls/:id', async (c) => {
     `SELECT * FROM voice_calls WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
     [id],
   );
-  if (!call) throw notFound('Call not found');
-  if ((call as { org_id?: string }).org_id !== orgId) throw forbidden('Not your call');
+  // 404 for both missing AND foreign-org (never 403 — don't leak that the call exists).
+  if (!call || (call as { org_id?: string }).org_id !== orgId) throw notFound('Call not found');
   const recordings = await dbQuery<Record<string, unknown>>(
     c.env.DB,
     `SELECT id, kind, r2_key, mime, size_bytes, duration_seconds, created_at
@@ -449,8 +463,7 @@ voiceRoutes.get('/api/voice/calls/:id', async (c) => {
  * and `Cache-Control: private, max-age=3600`.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
- * @throws 403 FORBIDDEN when recording isn't in the caller's org.
- * @throws 404 NOT_FOUND when recording id doesn't exist.
+ * @throws 404 NOT_FOUND when the recording is missing OR isn't in the caller's org (never 403 — don't leak existence).
  */
 voiceRoutes.get('/api/voice/recordings/:id/stream', async (c) => {
   const { orgId } = requireAuth(c);
@@ -475,7 +488,8 @@ voiceRoutes.get('/api/voice/recordings/:id/stream', async (c) => {
     `SELECT org_id FROM voice_calls WHERE id = ? LIMIT 1`,
     [rec.call_id],
   );
-  if (!ownCheck || ownCheck.org_id !== orgId) throw forbidden('Not your recording');
+  // 404 (never 403) when the recording's call isn't owned by the caller — don't leak existence.
+  if (!ownCheck || ownCheck.org_id !== orgId) throw notFound('Recording not found');
 
   const range = c.req.header('range');
   let r2Object: R2ObjectBody | null;
@@ -518,7 +532,11 @@ const agentSettingsBody = z.object({
   recording_enabled: z.boolean().optional(),
   video_browse_enabled: z.boolean().optional(),
   mcp_connection_ids: z.array(z.string()).max(20).optional(),
-  escalation_phone: z.string().regex(/^\+\d{8,15}$/).nullable().optional(),
+  escalation_phone: z
+    .string()
+    .regex(/^\+\d{8,15}$/)
+    .nullable()
+    .optional(),
   business_hours_json: z.string().max(2000).nullable().optional(),
   knowledge_base_urls: z.array(z.string().url()).max(20).optional(),
 });
@@ -528,7 +546,7 @@ const agentSettingsBody = z.object({
  * per-site settings (greeting, voice, escalation rules, hours).
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
- * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ * @throws 404 NOT_FOUND when site isn't in the caller's org (never 403 — don't leak existence).
  */
 voiceRoutes.get('/api/voice/agent-settings', async (c) => {
   const { orgId } = requireAuth(c);
@@ -552,7 +570,7 @@ voiceRoutes.get('/api/voice/agent-settings', async (c) => {
  * note: not yet Zod-validated (loose JSON parse). Audit-logged.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
- * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ * @throws 404 NOT_FOUND when site isn't in the caller's org (never 403 — don't leak existence).
  */
 voiceRoutes.put('/api/voice/agent-settings', async (c) => {
   const { userId, orgId } = requireAuth(c);
@@ -618,7 +636,7 @@ const testSmsBody = z.object({
  * sentiment for debugging the persona.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
- * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ * @throws 404 NOT_FOUND when site isn't in the caller's org (never 403 — don't leak existence).
  */
 voiceRoutes.post('/api/voice/test/sms', async (c) => {
   const { orgId } = requireAuth(c);
@@ -652,7 +670,7 @@ voiceRoutes.post('/api/voice/test/sms', async (c) => {
  * directly to the AI voice agent through the Twilio Voice SDK.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
- * @throws 403 FORBIDDEN when site isn't in the caller's org.
+ * @throws 404 NOT_FOUND when site isn't in the caller's org (never 403 — don't leak existence).
  * @throws 501 NOT_IMPLEMENTED when Twilio isn't configured on this worker.
  */
 voiceRoutes.post('/api/voice/test/call-token', async (c) => {

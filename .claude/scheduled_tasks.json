@@ -1,14 +1,15 @@
 {
   "tasks": [
     {
-      "id": "3a3fc586",
-      "cron": "*/20 * * * *",
-      "prompt": "Proceed and ensure the entire new v2 dashboard is complete and fully leverages all the different recommended npm modules. In addition, run the convergence prompt.",
-      "createdAt": 1780111271604,
+      "id": "38ea6f80",
+      "cron": "*/5 * * * *",
+      "prompt": "Mission: redesign, finish, test, polish projectsites.dev/admin into the best admin dashboard in the world. \"Nothing left to do\" = false convergence unless /admin is visually excellent, fully functional, fully tested, consistent with the public site. EXECUTE A REAL ROUND EACH FIRE — do not just report blockers; pick the highest-impact safe slice and ship it.\n\nBRAND: projectsites /admin = CYAN / BLACK (--ps-accent cyan #00E5FF on #060610, the cockpit system). NOT orange — \"orange\" was contamination for bricklabor.com (different repo, matches its own homepage).\n\nALSO address Brian's standing memory concerns (MEMORY.md) each round: dead admin mutation buttons → graceful disabled/coming-soon or wire them; dead admin section components → remove when safe; SPA-only nav (no full reloads, routerLink); legacy PrimeNG→Spartan convergence one primitive per round; cyan/black compact density; ports MIRROR legacy, not summarize.\n\nPer round: inspect /admin UX+code → pick highest-impact visible/functional gap (cross-check MEMORY.md) → Playwright E2E test FIRST → implement → re-run → verify route → commit to main (frontend ships to R2; git worktrees isolate edits so committing to main is safe — only avoid RACING concurrent R2 deploys: commit always, deploy only when no other deploy is mid-flight) → summarize → next. At least one VISIBLE cyan/black UX improvement per round unless exclusively fixing a blocking test.\n\nProduction-grade: a11y (keyboard/focus/ARIA/contrast/semantics), perf (lazy-load, fewer rerenders, less layout shift), reliability (no silent failures), observability (log failures, no secret leaks), security (validate inputs, protect routes, verify destructive actions), strong typing + reusable primitives. CRUD: real validation + success/failure states + safe refresh + useful errors. Worker deploys are Docker-blocked locally → worker-backend fixes wait for push; frontend (/admin SPA) ships to R2.\n\nDone only when every /admin route is polished, every visible feature works or is intentionally flagged, Playwright covers + passes all critical flows, cyan/black brand cohesive, zero TODOs/dead buttons/fake-data leaks/console errors/full reloads/layout bugs/untested critical flows.",
+      "createdAt": 1780434602262,
       "recurring": true,
-      "createdBySessionId": "737d20bc-4f5c-414a-9511-7eb9bbb99d25",
-      "createdByPid": 92798,
-      "createdByProcStart": "Fri May 29 01:14:32 2026"
+      "createdBySessionId": "5cf29b46-f7a8-4ac8-96c4-1e1d569fce63",
+      "createdByPid": 99631,
+      "createdByProcStart": "Mon Jun  1 04:10:16 2026",
+      "lastFiredAt": 1780434887803
     }
   ]
 }

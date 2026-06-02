@@ -1,0 +1,93 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]: Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - main [ref=e5]:
+      - generic [ref=e7]:
+        - complementary [ref=e8]:
+          - generic [ref=e9]:
+            - generic [ref=e10]: projectsites.dev
+            - generic [ref=e11]: v2
+          - navigation [ref=e12]:
+            - link "Sites" [ref=e13] [cursor=pointer]:
+              - /url: /admin/v2
+            - link "Analytics" [ref=e14] [cursor=pointer]:
+              - /url: /admin/v2/analytics
+            - link "Media" [ref=e15] [cursor=pointer]:
+              - /url: /admin/v2/media
+            - link "Domains" [ref=e16] [cursor=pointer]:
+              - /url: /admin/v2/domains
+            - link "Settings" [ref=e17] [cursor=pointer]:
+              - /url: /admin/v2/settings
+        - generic [ref=e18]:
+          - generic [ref=e19]:
+            - generic [ref=e20]:
+              - generic [ref=e21]: Cockpit
+              - generic [ref=e22]: ·
+              - generic [ref=e23]: Spartan UI
+            - generic [ref=e24]:
+              - button "⌘K Search" [ref=e25] [cursor=pointer]
+              - button "+ New site" [ref=e26] [cursor=pointer]
+          - main [ref=e27]:
+            - generic [ref=e28]:
+              - generic [ref=e29]:
+                - textbox "Filter sites by name or domain" [ref=e30]:
+                  - /placeholder: Filter sites…
+                - generic [ref=e31]: 4 of 4
+              - table [ref=e33]:
+                - rowgroup [ref=e34]:
+                  - row "Site ▲ Domain Status Plan Created" [ref=e35]:
+                    - columnheader "Site ▲" [ref=e36] [cursor=pointer]:
+                      - generic [ref=e37]:
+                        - text: Site
+                        - generic [ref=e38]: ▲
+                    - columnheader "Domain" [ref=e39] [cursor=pointer]:
+                      - generic [ref=e40]: Domain
+                    - columnheader "Status" [ref=e41] [cursor=pointer]:
+                      - generic [ref=e42]: Status
+                    - columnheader "Plan" [ref=e43] [cursor=pointer]:
+                      - generic [ref=e44]: Plan
+                    - columnheader "Created" [ref=e45] [cursor=pointer]:
+                      - generic [ref=e46]: Created
+                - rowgroup [ref=e47]:
+                  - row "Acme Bakery acme-bakery.projectsites.dev published free May 29, 2026 Open" [ref=e48]:
+                    - cell "Acme Bakery" [ref=e49]
+                    - cell "acme-bakery.projectsites.dev" [ref=e50]
+                    - cell "published" [ref=e51]:
+                      - generic [ref=e52]: published
+                    - cell "free" [ref=e53]
+                    - cell "May 29, 2026" [ref=e54]
+                    - cell "Open" [ref=e55]:
+                      - link "Open" [ref=e56] [cursor=pointer]:
+                        - /url: /admin/v2/sites/e2e-site-1
+                  - row "Green Thumb Landscaping green-thumb.projectsites.dev published free May 29, 2026 Open" [ref=e57]:
+                    - cell "Green Thumb Landscaping" [ref=e58]
+                    - cell "green-thumb.projectsites.dev" [ref=e59]
+                    - cell "published" [ref=e60]:
+                      - generic [ref=e61]: published
+                    - cell "free" [ref=e62]
+                    - cell "May 29, 2026" [ref=e63]
+                    - cell "Open" [ref=e64]:
+                      - link "Open" [ref=e65] [cursor=pointer]:
+                        - /url: /admin/v2/sites/e2e-site-4
+                  - row "Lakeside Dental lakeside-dental.projectsites.dev building free May 29, 2026 Open" [ref=e66]:
+                    - cell "Lakeside Dental" [ref=e67]
+                    - cell "lakeside-dental.projectsites.dev" [ref=e68]
+                    - cell "building" [ref=e69]:
+                      - generic [ref=e70]: building
+                    - cell "free" [ref=e71]
+                    - cell "May 29, 2026" [ref=e72]
+                    - cell "Open" [ref=e73]:
+                      - link "Open" [ref=e74] [cursor=pointer]:
+                        - /url: /admin/v2/sites/e2e-site-2
+                  - row "Urban Fitness Co urban-fitness.projectsites.dev draft free May 29, 2026 Open" [ref=e75]:
+                    - cell "Urban Fitness Co" [ref=e76]
+                    - cell "urban-fitness.projectsites.dev" [ref=e77]
+                    - cell "draft" [ref=e78]:
+                      - generic [ref=e79]: draft
+                    - cell "free" [ref=e80]
+                    - cell "May 29, 2026" [ref=e81]
+                    - cell "Open" [ref=e82]:
+                      - link "Open" [ref=e83] [cursor=pointer]:
+                        - /url: /admin/v2/sites/e2e-site-3

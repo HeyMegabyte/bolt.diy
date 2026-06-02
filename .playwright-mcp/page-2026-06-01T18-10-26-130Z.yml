@@ -1,0 +1,239 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]: Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - main [ref=e5]:
+      - generic [ref=e6]:
+        - navigation "Primary" [ref=e7]:
+          - generic [ref=e8]:
+            - generic [ref=e9] [cursor=pointer]:
+              - img "ProjectSites" [ref=e10]
+              - img "projectsites.dev" [ref=e11]
+            - generic [ref=e12]:
+              - button "Features" [ref=e13]
+              - button "Pricing" [ref=e14]
+              - button "FAQ" [ref=e15]
+              - button "ES" [ref=e16]
+              - button "Sign In" [ref=e17]
+              - button "Get Started" [ref=e18]
+        - generic [ref=e20]:
+          - generic [ref=e21]: AI-Powered Website Builder
+          - heading "Your Website, Handled. Finally." [level=1] [ref=e23]
+          - paragraph [ref=e24]: AI builds your professional website in 15 minutes. Just search for your business.
+          - generic [ref=e28]:
+            - img [ref=e29]
+            - textbox "Search for your business..." [ref=e32]
+          - generic [ref=e33]:
+            - button "Build My Site Free" [ref=e34]
+            - button "See How It Works" [ref=e35]
+          - generic [ref=e44]: your-business.projectsites.dev
+        - generic [ref=e54]:
+          - generic [ref=e55]:
+            - heading "See the difference" [level=2] [ref=e56]
+            - paragraph [ref=e57]: Drag the slider to compare a generic small-business site with one built by projectsites.dev.
+          - figure [ref=e59]:
+            - img "Built with projectsites.dev"
+            - img "Generic competitor"
+            - generic: Generic competitor
+            - generic: Built with projectsites.dev
+            - slider "Reveal slider — drag to compare before and after" [ref=e60]:
+              - generic [ref=e61]:
+                - img [ref=e62]
+                - img [ref=e64]
+        - generic [ref=e67]:
+          - generic [ref=e68]:
+            - generic [ref=e69]:
+              - generic "2,480+" [ref=e71]: 0+
+              - generic [ref=e72]: Sites Built
+            - generic [ref=e73]:
+              - generic "99.99%" [ref=e75]: 0.00%
+              - generic [ref=e76]: Uptime
+            - generic [ref=e77]:
+              - generic "42s" [ref=e79]: 0s
+              - generic [ref=e80]: Build Time
+            - generic [ref=e81]:
+              - generic "330+" [ref=e83]: 0+
+              - generic [ref=e84]: Edge Locations
+          - generic [ref=e87]:
+            - generic [ref=e88]: Built on
+            - list [ref=e89]:
+              - listitem "Cloudflare" [ref=e90]:
+                - generic [ref=e92]: Cloudflare
+              - listitem "D1" [ref=e93]:
+                - generic [ref=e95]: D1
+              - listitem "R2" [ref=e96]:
+                - generic [ref=e98]: R2
+              - listitem "Workers AI" [ref=e99]:
+                - generic [ref=e101]: Workers AI
+              - listitem "bolt.diy" [ref=e102]:
+                - generic [ref=e104]: bolt.diy
+        - generic [ref=e106]:
+          - generic [ref=e107]:
+            - heading "How It Works" [level=2] [ref=e108]
+            - paragraph [ref=e109]: Three steps to a stunning website
+          - generic [ref=e110]:
+            - generic [ref=e113]:
+              - img [ref=e115]
+              - generic [ref=e118]: "01"
+              - heading "Search" [level=3] [ref=e119]
+              - paragraph [ref=e120]: Find your business or start fresh. Our AI pulls in your details automatically.
+            - generic [ref=e123]:
+              - img [ref=e125]
+              - generic [ref=e128]: "02"
+              - heading "AI Builds" [level=3] [ref=e129]
+              - paragraph [ref=e130]: Our engine generates a gorgeous, SEO-optimized website tailored to your brand.
+            - generic [ref=e133]:
+              - img [ref=e135]
+              - generic [ref=e138]: "03"
+              - heading "Go Live" [level=3] [ref=e139]
+              - paragraph [ref=e140]: Your site is hosted, secured with SSL, and deployed to 300+ edge locations worldwide.
+        - generic [ref=e142]:
+          - generic [ref=e143]:
+            - heading "Everything You Need" [level=2] [ref=e144]
+            - paragraph [ref=e145]: Built-in tools so you can focus on your business
+          - generic [ref=e146]:
+            - generic [ref=e149]:
+              - img [ref=e150]
+              - heading "AI Generation" [level=3] [ref=e154]
+              - paragraph [ref=e155]: Professional websites built by AI in minutes, not weeks.
+            - generic [ref=e158]:
+              - img [ref=e159]
+              - heading "Custom Domain" [level=3] [ref=e162]
+              - paragraph [ref=e163]: Connect your own domain or use a free subdomain.
+            - generic [ref=e166]:
+              - img [ref=e167]
+              - heading "SEO Optimized" [level=3] [ref=e169]
+              - paragraph [ref=e170]: Rank higher with schema markup, meta tags, and fast load times.
+            - generic [ref=e173]:
+              - img [ref=e174]
+              - heading "Analytics" [level=3] [ref=e175]
+              - paragraph [ref=e176]: Track visitors, conversions, and performance in real time.
+            - generic [ref=e179]:
+              - img [ref=e180]
+              - heading "Payments" [level=3] [ref=e182]
+              - paragraph [ref=e183]: Accept payments with built-in Stripe integration.
+            - generic [ref=e186]:
+              - img [ref=e187]
+              - heading "Global Hosting" [level=3] [ref=e192]
+              - paragraph [ref=e193]: Deployed on Cloudflare's edge network for blazing speed.
+        - generic [ref=e195]:
+          - generic [ref=e196]:
+            - heading "Simple Pricing" [level=2] [ref=e197]
+            - paragraph [ref=e198]: One plan. Everything included.
+          - generic [ref=e201]:
+            - generic [ref=e202]:
+              - generic [ref=e203]: $200/mo
+              - generic [ref=e204]:
+                - generic [ref=e205]: $50
+                - generic [ref=e206]: /month
+            - list [ref=e207]:
+              - listitem [ref=e208]:
+                - img [ref=e209]
+                - text: AI-Generated Website
+              - listitem [ref=e211]:
+                - img [ref=e212]
+                - text: Custom Domain
+              - listitem [ref=e214]:
+                - img [ref=e215]
+                - text: SEO Optimized
+              - listitem [ref=e217]:
+                - img [ref=e218]
+                - text: Analytics Dashboard
+              - listitem [ref=e220]:
+                - img [ref=e221]
+                - text: Stripe Payments
+              - listitem [ref=e223]:
+                - img [ref=e224]
+                - text: 24/7 Hosting
+              - listitem [ref=e226]:
+                - img [ref=e227]
+                - text: Unlimited Edits
+              - listitem [ref=e229]:
+                - img [ref=e230]
+                - text: SSL Certificate
+            - button "Start Free" [ref=e232]
+            - paragraph [ref=e233]: No credit card required
+        - generic [ref=e235]:
+          - generic [ref=e236]:
+            - heading "Frequently Asked Questions" [level=2] [ref=e237]
+            - paragraph [ref=e238]: Got questions? We have answers.
+          - generic [ref=e239]:
+            - button "How long does it take to build my website?" [ref=e241]:
+              - generic [ref=e242]: How long does it take to build my website?
+              - img [ref=e243]
+            - button "Can I use my own domain name?" [ref=e245]:
+              - generic [ref=e246]: Can I use my own domain name?
+              - img [ref=e247]
+            - button "What if I need changes after launch?" [ref=e249]:
+              - generic [ref=e250]: What if I need changes after launch?
+              - img [ref=e251]
+            - button "Is there a free trial?" [ref=e253]:
+              - generic [ref=e254]: Is there a free trial?
+              - img [ref=e255]
+            - button "What happens if I cancel?" [ref=e257]:
+              - generic [ref=e258]: What happens if I cancel?
+              - img [ref=e259]
+            - button "Do you support e-commerce?" [ref=e261]:
+              - generic [ref=e262]: Do you support e-commerce?
+              - img [ref=e263]
+        - generic [ref=e265]:
+          - heading "Ready to Get Started?" [level=2] [ref=e266]
+          - paragraph [ref=e267]: Build your professional website in minutes, not months.
+          - generic [ref=e271]:
+            - img [ref=e272]
+            - textbox "Search for your business..." [ref=e275]
+        - contentinfo [ref=e276]:
+          - generic [ref=e277]:
+            - generic [ref=e278]:
+              - generic [ref=e279]:
+                - generic [ref=e280]:
+                  - img "ProjectSites" [ref=e281]
+                  - img "projectsites.dev" [ref=e282]
+                - paragraph [ref=e283]: AI builds your professional website in 15 minutes. Just search for your business.
+                - link "hey@megabyte.space" [ref=e284] [cursor=pointer]:
+                  - /url: mailto:hey@megabyte.space
+                  - img [ref=e285]
+                  - text: hey@megabyte.space
+              - generic [ref=e288]:
+                - heading "Product" [level=4] [ref=e289]
+                - list [ref=e290]:
+                  - listitem [ref=e291]:
+                    - button "Features" [ref=e292]
+                  - listitem [ref=e293]:
+                    - button "Pricing" [ref=e294]
+                  - listitem [ref=e295]:
+                    - button "FAQ" [ref=e296]
+              - generic [ref=e297]:
+                - heading "Company" [level=4] [ref=e298]
+                - list [ref=e299]:
+                  - listitem [ref=e300]:
+                    - link "About" [ref=e301] [cursor=pointer]:
+                      - /url: /search
+                  - listitem [ref=e302]:
+                    - link "Blog" [ref=e303] [cursor=pointer]:
+                      - /url: /blog
+                  - listitem [ref=e304]:
+                    - link "Changelog" [ref=e305] [cursor=pointer]:
+                      - /url: /changelog
+              - generic [ref=e306]:
+                - heading "Legal" [level=4] [ref=e307]
+                - list [ref=e308]:
+                  - listitem [ref=e309]:
+                    - link "Privacy Policy" [ref=e310] [cursor=pointer]:
+                      - /url: /privacy
+                  - listitem [ref=e311]:
+                    - link "Terms of Service" [ref=e312] [cursor=pointer]:
+                      - /url: /terms
+                  - listitem [ref=e313]:
+                    - link "Content Policy" [ref=e314] [cursor=pointer]:
+                      - /url: /content
+            - generic [ref=e315]:
+              - paragraph [ref=e316]: Built with AI by Megabyte Labs
+              - generic [ref=e317]:
+                - link "GitHub" [ref=e318] [cursor=pointer]:
+                  - /url: https://github.com/HeyMegabyte
+                  - img [ref=e319]
+                - link "Twitter" [ref=e321] [cursor=pointer]:
+                  - /url: https://twitter.com/MegabyteLabs
+                  - img [ref=e322]

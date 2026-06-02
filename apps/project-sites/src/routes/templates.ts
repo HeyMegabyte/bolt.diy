@@ -22,7 +22,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert } from '../services/db.js';
 import { requirePro } from '../services/pro.js';
-import { unauthorized, forbidden, notFound } from '@project-sites/shared';
+import { unauthorized, notFound } from '@project-sites/shared';
 
 const templates = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -101,8 +101,7 @@ const installSchema = z.object({
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 401 UNAUTHORIZED when org/user context is missing.
  * @throws 402 PAYMENT_REQUIRED when a paid template is installed without Pro.
- * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
- * @throws 404 NOT_FOUND when the template slug doesn't exist.
+ * @throws 404 NOT_FOUND when the template slug doesn't exist, OR the site is missing/not in the caller's org (never 403 — don't leak existence).
  */
 templates.post(
   '/api/sites/:siteId/install-template',
@@ -118,7 +117,8 @@ templates.post(
       'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL LIMIT 1',
       [siteId],
     );
-    if (!site || site.org_id !== orgId) throw forbidden('Site not accessible');
+    // 404 for both missing AND foreign-org (never 403 — don't leak that the site exists).
+    if (!site || site.org_id !== orgId) throw notFound('Site not found');
     const tpl = await dbQueryOne<{ id: string; price_cents: number }>(
       c.env.DB,
       'SELECT id, price_cents FROM templates WHERE slug = ? AND deleted_at IS NULL LIMIT 1',
@@ -134,7 +134,13 @@ templates.post(
       );
       if (!userRow || userRow.is_pro !== 1) {
         return c.json(
-          { error: { code: 'PRO_REQUIRED', message: 'Paid templates require Pro', upgrade_url: '/admin/billing?plan=pro' } },
+          {
+            error: {
+              code: 'PRO_REQUIRED',
+              message: 'Paid templates require Pro',
+              upgrade_url: '/admin/billing?plan=pro',
+            },
+          },
           402,
         );
       }
@@ -156,7 +162,11 @@ templates.post(
 );
 
 const publishSchema = z.object({
-  slug: z.string().regex(/^[a-z0-9-]+$/).min(3).max(64),
+  slug: z
+    .string()
+    .regex(/^[a-z0-9-]+$/)
+    .min(3)
+    .max(64),
   name: z.string().min(3).max(120),
   description: z.string().max(500),
   category: z.string().min(2).max(40),

@@ -1,0 +1,272 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]: Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - main [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - complementary "Sidebar" [ref=e8]:
+            - link "ProjectSites projectsites.dev" [ref=e9] [cursor=pointer]:
+              - /url: /
+              - img "ProjectSites" [ref=e10]
+              - img "projectsites.dev" [ref=e11]
+            - button "Select site" [ref=e13] [cursor=pointer]:
+              - generic [ref=e143]: U
+              - generic [ref=e144]:
+                - generic [ref=e145]: Urban Fitness Co
+                - generic [ref=e146]: Draft
+              - generic [ref=e148]: U
+              - img [ref=e20]
+            - navigation "Admin sections" [ref=e22]:
+              - link "Editor" [ref=e23] [cursor=pointer]:
+                - /url: /admin
+                - img [ref=e24]
+                - generic [ref=e27]: Editor
+              - link "Snapshots" [ref=e28] [cursor=pointer]:
+                - /url: /admin/snapshots
+                - img [ref=e29]
+                - generic [ref=e33]: Snapshots
+              - link "Analytics" [ref=e34] [cursor=pointer]:
+                - /url: /admin/analytics
+                - img [ref=e35]
+                - generic [ref=e36]: Analytics
+              - link "Forms" [ref=e37] [cursor=pointer]:
+                - /url: /admin/forms
+                - img [ref=e38]
+                - generic [ref=e41]: Forms
+              - link "Traces" [ref=e42] [cursor=pointer]:
+                - /url: /admin/traces
+                - img [ref=e43]
+                - generic [ref=e45]: Traces
+              - link "Apps" [ref=e46] [cursor=pointer]:
+                - /url: /admin/apps
+                - img [ref=e47]
+                - generic [ref=e50]: Apps
+              - link "Social" [ref=e51] [cursor=pointer]:
+                - /url: /admin/social
+                - img [ref=e52]
+                - generic [ref=e55]: Social
+              - link "Voice" [ref=e56] [cursor=pointer]:
+                - /url: /admin/voice
+                - img [ref=e57]
+                - generic [ref=e59]: Voice
+              - link "Audit Log" [ref=e61] [cursor=pointer]:
+                - /url: /admin/audit
+                - img [ref=e62]
+                - generic [ref=e65]: Audit Log
+              - link "Feature Flags" [ref=e66] [cursor=pointer]:
+                - /url: /admin/feature-flags
+                - img [ref=e67]
+                - generic [ref=e69]: Feature Flags
+              - link "Docs" [ref=e70] [cursor=pointer]:
+                - /url: /admin/docs
+                - img [ref=e71]
+                - generic [ref=e74]: Docs
+              - link "Settings" [ref=e75] [cursor=pointer]:
+                - /url: /admin/settings
+                - img [ref=e76]
+                - generic [ref=e79]: Settings
+          - generic [ref=e80]:
+            - generic [ref=e81]:
+              - generic [ref=e82]:
+                - generic [ref=e84]:
+                  - button "Go to admin home" [ref=e85] [cursor=pointer]:
+                    - img [ref=e86]
+                  - 'button "Active domain: urban-fitness.projectsites.dev. Click to change." [ref=e149] [cursor=pointer]':
+                    - generic [ref=e90]: urban-fitness.projectsites.dev
+                    - img [ref=e91]
+                - img [ref=e93]
+                - generic [ref=e95]: Editor
+              - generic [ref=e96]:
+                - button "Open command palette" [ref=e97] [cursor=pointer]:
+                  - img [ref=e98]
+                  - generic [ref=e101]: Quick find
+                  - generic [ref=e102]: ⌘K
+                - button "Save & Deploy" [ref=e150] [cursor=pointer]:
+                  - img [ref=e151]
+                  - text: Save & Deploy
+                - button "Notifications" [ref=e105] [cursor=pointer]:
+                  - img [ref=e106]
+                  - generic "3 new" [ref=e154]: "3"
+                - button "Account menu for current user" [ref=e111] [cursor=pointer]: "?"
+            - region "Dashboard" [ref=e157]:
+              - generic [ref=e158]:
+                - banner [ref=e159]:
+                  - button "production" [ref=e160] [cursor=pointer]
+                  - generic [ref=e161]:
+                    - img [ref=e162]
+                    - searchbox "Universal admin search" [ref=e165]
+                    - generic [ref=e166]: ⌘K
+                  - button "Switch organization" [ref=e167] [cursor=pointer]:
+                    - generic [ref=e168]: Megabyte Labs
+                    - img [ref=e169]
+                  - list "Currently viewing this page" [ref=e171]:
+                    - listitem "You" [ref=e172]: 👤
+                  - combobox "Switch language" [ref=e173] [cursor=pointer]:
+                    - option "🇺🇸 English" [selected]
+                    - option "🇪🇸 Español"
+                    - option "🇧🇷 Português"
+                    - option "🇨🇳 中文"
+                    - option "🇰🇷 한국어"
+                  - button "Notifications" [ref=e174] [cursor=pointer]:
+                    - img [ref=e175]
+                    - generic [ref=e178]: "3"
+                  - button "Share this view" [ref=e179] [cursor=pointer]:
+                    - img [ref=e180]
+                - region "Recently viewed sites" [ref=e186]:
+                  - heading "Recently viewed" [level=2] [ref=e187]
+                  - list [ref=e188]:
+                    - listitem [ref=e189]:
+                      - link "user" [ref=e190] [cursor=pointer]:
+                        - /url: /admin/user
+                        - generic [ref=e191]: user
+                    - listitem [ref=e192]:
+                      - link "settings" [ref=e193] [cursor=pointer]:
+                        - /url: /admin/settings
+                        - generic [ref=e194]: settings
+                    - listitem [ref=e195]:
+                      - link "forms" [ref=e196] [cursor=pointer]:
+                        - /url: /admin/forms
+                        - generic [ref=e197]: forms
+                    - listitem [ref=e198]:
+                      - link "media" [ref=e199] [cursor=pointer]:
+                        - /url: /admin/media
+                        - generic [ref=e200]: media
+                    - listitem [ref=e201]:
+                      - link "seo" [ref=e202] [cursor=pointer]:
+                        - /url: /admin/seo
+                        - generic [ref=e203]: seo
+                    - listitem [ref=e204]:
+                      - link "domains" [ref=e205] [cursor=pointer]:
+                        - /url: /admin/domains
+                        - generic [ref=e206]: domains
+                    - listitem [ref=e207]:
+                      - link "snapshots" [ref=e208] [cursor=pointer]:
+                        - /url: /admin/snapshots
+                        - generic [ref=e209]: snapshots
+                    - listitem [ref=e210]:
+                      - link "audit" [ref=e211] [cursor=pointer]:
+                        - /url: /admin/audit
+                        - generic [ref=e212]: audit
+                - button "Open AI assistant" [ref=e213] [cursor=pointer]:
+                  - img [ref=e214]
+                - button "Compare with last period" [ref=e216] [cursor=pointer]
+                - generic [ref=e217]: j/k or arrows to move · Enter to open · e to edit · x to select
+                - generic [ref=e218]:
+                  - button "Open split-view demo" [ref=e219] [cursor=pointer]
+                  - generic [ref=e220]:
+                    - text: "New sites this week:"
+                    - strong [ref=e221]: "12"
+                  - generic [ref=e222]:
+                    - text: "Lead conversions:"
+                    - strong [ref=e223]: 4.2%
+                  - generic [ref=e224]: Hover this row → quick actions appear (publish / archive / duplicate / share)
+                - generic [ref=e225]:
+                  - generic [ref=e226]: filter:stage=experimental
+                  - generic "Click to edit inline" [ref=e227]: Inline-editable cell
+                  - generic [ref=e228]: Try typing @ to mention @brian
+                  - generic [ref=e229]: $1,234.56 · Jun 1, 2026
+                  - generic "Routes pre-warmed on idle" [ref=e230]: preload:on
+                  - generic "Auto-translate fallback active" [ref=e231]: auto-translate:on
+              - navigation "Newly shipped features" [ref=e232]:
+                - link "Features Hub Every feature in one place — Stack / CWV / GEO / A11y / Editor / Monetize / Observability / Media / Platform / Gaps. Live \"Try it\" buttons." [ref=e233] [cursor=pointer]:
+                  - /url: /admin/features
+                  - generic [ref=e234]: ⚡
+                  - generic [ref=e235]:
+                    - strong [ref=e236]: Features Hub
+                    - generic [ref=e237]: Every feature in one place — Stack / CWV / GEO / A11y / Editor / Monetize / Observability / Media / Platform / Gaps. Live "Try it" buttons.
+                  - generic [ref=e238]: →
+                - link "Feature Flags Toggle, roll out, killswitch 50+ feature flags. Stage filter, per-flag inspect, hash-chain audit trail." [ref=e239] [cursor=pointer]:
+                  - /url: /admin/feature-flags
+                  - generic [ref=e240]: ⚑
+                  - generic [ref=e241]:
+                    - strong [ref=e242]: Feature Flags
+                    - generic [ref=e243]: Toggle, roll out, killswitch 50+ feature flags. Stage filter, per-flag inspect, hash-chain audit trail.
+                  - generic [ref=e244]: →
+              - generic [ref=e245]:
+                - heading "Ask anything about your sites" [level=1] [ref=e246]
+                - paragraph [ref=e247]: Type a question, or click a feature pill. The AI responds with live widgets — metrics, charts, calendars, code — not just text.
+                - list [ref=e248]:
+                  - listitem [ref=e249]:
+                    - button "How is my site doing today?" [ref=e250] [cursor=pointer]
+                  - listitem [ref=e251]:
+                    - button "Show recent form submissions" [ref=e252] [cursor=pointer]
+                  - listitem [ref=e253]:
+                    - button "/snapshot" [ref=e254] [cursor=pointer]
+                  - listitem [ref=e255]:
+                    - button "/analytics 30d" [ref=e256] [cursor=pointer]
+                  - listitem [ref=e257]:
+                    - button "/calendar" [ref=e258] [cursor=pointer]
+                  - listitem [ref=e259]:
+                    - button "/billing" [ref=e260] [cursor=pointer]
+              - navigation "Quick features" [ref=e261]:
+                - button "Sites" [ref=e262] [cursor=pointer]:
+                  - generic [ref=e263]: 🌐
+                  - generic [ref=e264]: Sites
+                - button "Snapshots" [ref=e265] [cursor=pointer]:
+                  - generic [ref=e266]: 📸
+                  - generic [ref=e267]: Snapshots
+                - button "Deploy" [ref=e268] [cursor=pointer]:
+                  - generic [ref=e269]: 🚀
+                  - generic [ref=e270]: Deploy
+                - button "Forms" [ref=e271] [cursor=pointer]:
+                  - generic [ref=e272]: 📥
+                  - generic [ref=e273]: Forms
+                - button "Audit" [ref=e274] [cursor=pointer]:
+                  - generic [ref=e275]: 🛡
+                  - generic [ref=e276]: Audit
+                - button "Analytics" [ref=e277] [cursor=pointer]:
+                  - generic [ref=e278]: 📈
+                  - generic [ref=e279]: Analytics
+                - button "Billing" [ref=e280] [cursor=pointer]:
+                  - generic [ref=e281]: 💳
+                  - generic [ref=e282]: Billing
+                - button "Import" [ref=e283] [cursor=pointer]:
+                  - generic [ref=e284]: ⬇
+                  - generic [ref=e285]: Import
+                - button "Calendar" [ref=e286] [cursor=pointer]:
+                  - generic [ref=e287]: 📅
+                  - generic [ref=e288]: Calendar
+                - button "Schedule" [ref=e289] [cursor=pointer]:
+                  - generic [ref=e290]: ⏱
+                  - generic [ref=e291]: Schedule
+                - button "Apps" [ref=e292] [cursor=pointer]:
+                  - generic [ref=e293]: ▦
+                  - generic [ref=e294]: Apps
+                - button "Social" [ref=e295] [cursor=pointer]:
+                  - generic [ref=e296]: ✦
+                  - generic [ref=e297]: Social
+                - button "Docs" [ref=e298] [cursor=pointer]:
+                  - generic [ref=e299]: 📖
+                  - generic [ref=e300]: Docs
+                - button "Help" [ref=e301] [cursor=pointer]:
+                  - generic [ref=e302]: "?"
+                  - generic [ref=e303]: Help
+                - button "Editor" [ref=e304] [cursor=pointer]:
+                  - generic [ref=e305]: ⌨
+                  - generic [ref=e306]: Editor
+              - search [ref=e307]:
+                - generic [ref=e308]:
+                  - generic [ref=e309]: /
+                  - textbox "Ask the dashboard AI" [ref=e310]:
+                    - /placeholder: Ask anything — try /snapshot or /analytics 7d
+                  - button "Ask" [disabled] [ref=e311]
+            - iframe [ref=e312]:
+              - generic [ref=f207e2]:
+                - generic [ref=f207e6]: Booting workspace
+                - heading "Application Error" [level=1] [ref=f207e9]
+                - generic [ref=f207e10]: "TypeError: Cannot read properties of undefined (reading 'length') at children (https://editor.projectsites.dev/assets/index-CcrRFU44.js:231:25963) at zt (https://editor.projectsites.dev/assets/react-toastify.esm-0imiRawW.js:7:7063) at xu (https://editor.projectsites.dev/assets/components-CD9afgJu.js:30:16994) at _a (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:3139) at Qd (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:44679) at Vd (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:39686) at ev (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:39614) at zi (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:39468) at Ua (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:35850) at Bd (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:34801)"
+            - tablist "Editor view selector" [ref=e117]:
+              - tab "Show bolt code editor (includes preview)" [selected] [ref=e118] [cursor=pointer]:
+                - img [ref=e120]
+                - generic [ref=e123]: Code
+              - tab "Open media library overlay" [ref=e124] [cursor=pointer]:
+                - img [ref=e126]
+                - generic [ref=e130]: Media
+              - tab "Open AI agents overlay" [ref=e131] [cursor=pointer]:
+                - img [ref=e133]
+                - generic [ref=e136]: Agents
+        - button "Open AI chat" [ref=e138] [cursor=pointer]:
+          - img [ref=e139]
+          - generic [ref=e141]: Ask AI

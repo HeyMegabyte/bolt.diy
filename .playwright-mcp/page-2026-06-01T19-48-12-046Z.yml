@@ -1,0 +1,156 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]: Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - main [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - complementary "Sidebar" [ref=e8]:
+            - link "ProjectSites projectsites.dev" [ref=e9] [cursor=pointer]:
+              - /url: /
+              - img "ProjectSites" [ref=e10]
+              - img "projectsites.dev" [ref=e11]
+            - button "Select site" [ref=e13] [cursor=pointer]:
+              - generic [ref=e121]: U
+              - generic [ref=e122]:
+                - generic [ref=e123]: Urban Fitness Co
+                - generic [ref=e124]: Draft
+              - generic [ref=e126]: U
+              - img [ref=e20]
+            - navigation "Admin sections" [ref=e22]:
+              - link "Editor" [ref=e23] [cursor=pointer]:
+                - /url: /admin
+                - img [ref=e24]
+                - generic [ref=e27]: Editor
+              - link "Snapshots" [ref=e28] [cursor=pointer]:
+                - /url: /admin/snapshots
+                - img [ref=e29]
+                - generic [ref=e33]: Snapshots
+              - link "Analytics" [ref=e34] [cursor=pointer]:
+                - /url: /admin/analytics
+                - img [ref=e35]
+                - generic [ref=e36]: Analytics
+              - link "Forms" [ref=e37] [cursor=pointer]:
+                - /url: /admin/forms
+                - img [ref=e38]
+                - generic [ref=e41]: Forms
+              - link "Traces" [ref=e42] [cursor=pointer]:
+                - /url: /admin/traces
+                - img [ref=e43]
+                - generic [ref=e45]: Traces
+              - link "Apps" [ref=e46] [cursor=pointer]:
+                - /url: /admin/apps
+                - img [ref=e47]
+                - generic [ref=e50]: Apps
+              - link "Social" [ref=e51] [cursor=pointer]:
+                - /url: /admin/social
+                - img [ref=e52]
+                - generic [ref=e55]: Social
+              - link "Voice" [ref=e56] [cursor=pointer]:
+                - /url: /admin/voice
+                - img [ref=e57]
+                - generic [ref=e59]: Voice
+              - link "Audit Log" [ref=e61] [cursor=pointer]:
+                - /url: /admin/audit
+                - img [ref=e62]
+                - generic [ref=e65]: Audit Log
+              - link "Feature Flags" [ref=e66] [cursor=pointer]:
+                - /url: /admin/feature-flags
+                - img [ref=e67]
+                - generic [ref=e69]: Feature Flags
+              - link "Docs" [ref=e70] [cursor=pointer]:
+                - /url: /admin/docs
+                - img [ref=e71]
+                - generic [ref=e74]: Docs
+              - link "Settings" [ref=e75] [cursor=pointer]:
+                - /url: /admin/settings
+                - img [ref=e76]
+                - generic [ref=e79]: Settings
+          - generic [ref=e80]:
+            - generic [ref=e81]:
+              - generic [ref=e82]:
+                - generic [ref=e84]:
+                  - button "Go to admin home" [ref=e85] [cursor=pointer]:
+                    - img [ref=e86]
+                  - 'button "Active domain: urban-fitness.projectsites.dev. Click to change." [ref=e127] [cursor=pointer]':
+                    - generic [ref=e90]: urban-fitness.projectsites.dev
+                    - img [ref=e91]
+                - img [ref=e93]
+                - generic [ref=e95]: Audit Log
+              - generic [ref=e96]:
+                - button "Open command palette" [ref=e97] [cursor=pointer]:
+                  - img [ref=e98]
+                  - generic [ref=e101]: Quick find
+                  - generic [ref=e102]: ⌘K
+                - button "Notifications" [ref=e105] [cursor=pointer]:
+                  - img [ref=e106]
+                  - generic "3 new" [ref=e128]: "3"
+                - button "Account menu for current user" [ref=e111] [cursor=pointer]: "?"
+            - generic [ref=e131]:
+              - generic [ref=e132]:
+                - generic [ref=e133]:
+                  - generic [ref=e134]: Forensics
+                  - heading "Audit Log" [level=2] [ref=e135]
+                  - paragraph [ref=e136]: Every privileged action — what happened, who did it, when. Auto-refreshing every 15s · last sync 5s ago.
+                - generic [ref=e137]:
+                  - 'button "Filtered to: megabytespace ×" [ref=e138] [cursor=pointer]':
+                    - text: "Filtered to: megabytespace"
+                    - generic [ref=e139]: ×
+                  - button "Export CSV" [ref=e140] [cursor=pointer]
+              - generic [ref=e141]:
+                - generic [ref=e142]:
+                  - generic [ref=e143]: Events
+                  - generic "0" [ref=e145]
+                - generic [ref=e146]:
+                  - generic [ref=e147]: Unique actions
+                  - generic "0" [ref=e149]
+                - generic [ref=e150]:
+                  - generic [ref=e151]: Last 24h
+                  - generic "0" [ref=e153]
+                - generic [ref=e154]:
+                  - generic [ref=e155]: Actors
+                  - generic "0" [ref=e157]
+              - status [ref=e158]:
+                - img [ref=e159]
+                - heading "No audit events yet" [level=3] [ref=e161]
+                - paragraph [ref=e162]: Privileged actions you take — deploys, hostname changes, billing edits — will appear here within seconds.
+                - button "Refresh now" [ref=e163] [cursor=pointer]
+              - generic [ref=e165]:
+                - generic [ref=e166]: 0 to 0 of 0. Page 0 of 0
+                - grid [ref=e167]:
+                  - rowgroup [ref=e169]:
+                    - row "Action Log statement When Site" [ref=e170]:
+                      - columnheader "Action" [ref=e171]:
+                        - generic [ref=e174] [cursor=pointer]: Action
+                      - columnheader "Log statement" [ref=e175]:
+                        - generic [ref=e178] [cursor=pointer]: Log statement
+                      - columnheader "When" [ref=e179]:
+                        - generic [ref=e182] [cursor=pointer]: When
+                      - columnheader "Site" [ref=e185]:
+                        - generic [ref=e188] [cursor=pointer]: Site
+                      - columnheader [ref=e189]
+                  - rowgroup [ref=e190]
+                  - rowgroup
+                  - rowgroup [ref=e191]
+                  - rowgroup
+                  - generic: No Rows To Show
+                - generic [ref=e192]:
+                  - generic [ref=e193]:
+                    - generic [ref=e194]: "Page Size:"
+                    - combobox "Page Size" [ref=e195]:
+                      - generic [ref=e196]: "50"
+                  - generic [ref=e198]: 0 to 0 of 0
+                  - button "First Page" [disabled] [ref=e199]
+                  - button "Previous Page" [disabled] [ref=e200]
+                  - generic [ref=e201]: Page 0 of 0
+                  - button "Next Page" [disabled] [ref=e202]
+                  - button "Last Page" [disabled] [ref=e203]
+            - iframe [ref=e204]:
+              - generic [ref=f167e2]:
+                - generic [ref=f167e6]: Booting workspace
+                - heading "Application Error" [level=1] [ref=f167e9]
+                - generic [ref=f167e10]: "TypeError: Cannot read properties of undefined (reading 'length') at children (https://editor.projectsites.dev/assets/index-CcrRFU44.js:231:25963) at zt (https://editor.projectsites.dev/assets/react-toastify.esm-0imiRawW.js:7:7063) at xu (https://editor.projectsites.dev/assets/components-CD9afgJu.js:30:16994) at _a (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:3139) at Qd (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:44679) at Vd (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:39686) at ev (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:39614) at zi (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:39468) at Ua (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:35850) at Bd (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:34801)"
+        - button "Open AI chat" [ref=e116] [cursor=pointer]:
+          - img [ref=e117]
+          - generic [ref=e119]: Ask AI

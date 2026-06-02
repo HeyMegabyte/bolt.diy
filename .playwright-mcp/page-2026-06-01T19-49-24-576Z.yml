@@ -1,0 +1,135 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]: Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - main [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - complementary "Sidebar" [ref=e8]:
+            - link "ProjectSites projectsites.dev" [ref=e9] [cursor=pointer]:
+              - /url: /
+              - img "ProjectSites" [ref=e10]
+              - img "projectsites.dev" [ref=e11]
+            - button "Select site" [ref=e13] [cursor=pointer]:
+              - generic [ref=e121]: U
+              - generic [ref=e122]:
+                - generic [ref=e123]: Urban Fitness Co
+                - generic [ref=e124]: Draft
+              - generic [ref=e126]: U
+              - img [ref=e20]
+            - navigation "Admin sections" [ref=e22]:
+              - link "Editor" [ref=e23] [cursor=pointer]:
+                - /url: /admin
+                - img [ref=e24]
+                - generic [ref=e27]: Editor
+              - link "Snapshots" [ref=e28] [cursor=pointer]:
+                - /url: /admin/snapshots
+                - img [ref=e29]
+                - generic [ref=e33]: Snapshots
+              - link "Analytics" [ref=e34] [cursor=pointer]:
+                - /url: /admin/analytics
+                - img [ref=e35]
+                - generic [ref=e36]: Analytics
+              - link "Forms" [ref=e37] [cursor=pointer]:
+                - /url: /admin/forms
+                - img [ref=e38]
+                - generic [ref=e41]: Forms
+              - link "Traces" [ref=e42] [cursor=pointer]:
+                - /url: /admin/traces
+                - img [ref=e43]
+                - generic [ref=e45]: Traces
+              - link "Apps" [ref=e46] [cursor=pointer]:
+                - /url: /admin/apps
+                - img [ref=e47]
+                - generic [ref=e50]: Apps
+              - link "Social" [ref=e51] [cursor=pointer]:
+                - /url: /admin/social
+                - img [ref=e52]
+                - generic [ref=e55]: Social
+              - link "Voice" [ref=e56] [cursor=pointer]:
+                - /url: /admin/voice
+                - img [ref=e57]
+                - generic [ref=e59]: Voice
+              - link "Audit Log" [ref=e61] [cursor=pointer]:
+                - /url: /admin/audit
+                - img [ref=e62]
+                - generic [ref=e65]: Audit Log
+              - link "Feature Flags" [ref=e66] [cursor=pointer]:
+                - /url: /admin/feature-flags
+                - img [ref=e67]
+                - generic [ref=e69]: Feature Flags
+              - link "Docs" [ref=e70] [cursor=pointer]:
+                - /url: /admin/docs
+                - img [ref=e71]
+                - generic [ref=e74]: Docs
+              - link "Settings" [ref=e75] [cursor=pointer]:
+                - /url: /admin/settings
+                - img [ref=e76]
+                - generic [ref=e79]: Settings
+          - generic [ref=e80]:
+            - generic [ref=e81]:
+              - generic [ref=e82]:
+                - generic [ref=e84]:
+                  - button "Go to admin home" [ref=e85] [cursor=pointer]:
+                    - img [ref=e86]
+                  - 'button "Active domain: urban-fitness.projectsites.dev. Click to change." [ref=e127] [cursor=pointer]':
+                    - generic [ref=e90]: urban-fitness.projectsites.dev
+                    - img [ref=e91]
+                - img [ref=e93]
+                - generic [ref=e95]: Media
+              - generic [ref=e96]:
+                - button "Open command palette" [ref=e97] [cursor=pointer]:
+                  - img [ref=e98]
+                  - generic [ref=e101]: Quick find
+                  - generic [ref=e102]: ⌘K
+                - button "Notifications" [ref=e105] [cursor=pointer]:
+                  - img [ref=e106]
+                  - generic "3 new" [ref=e128]: "3"
+                - button "Account menu for current user" [ref=e111] [cursor=pointer]: "?"
+            - generic [ref=e131]:
+              - generic [ref=e132]:
+                - generic [ref=e133]:
+                  - heading "Media" [level=1] [ref=e134]
+                  - generic "0 assets in library" [ref=e135]: 0 assets
+                - button [ref=e136]
+              - tablist "Media sub-sections" [ref=e137]:
+                - tab "Library" [ref=e138] [cursor=pointer]
+                - tab "Stock Search" [ref=e139] [cursor=pointer]
+                - tab "Image Studio" [selected] [ref=e140] [cursor=pointer]
+                - tab "Video Studio" [ref=e141] [cursor=pointer]
+                - tab "Podcast Studio" [ref=e142] [cursor=pointer]
+              - tabpanel "Image Studio" [ref=e143]:
+                - generic [ref=e144]:
+                  - generic [ref=e145]: DALL·E 3
+                  - generic [ref=e146]: Prompt
+                  - textbox "Image prompt" [ref=e147]:
+                    - /placeholder: A cozy mountain cabin at golden hour, cinematic, 35mm film, shallow depth of field…
+                  - generic [ref=e148]:
+                    - generic [ref=e149]:
+                      - generic [ref=e150]: Size
+                      - combobox "Image size" [ref=e151] [cursor=pointer]:
+                        - option "1024×1024 (Square)" [selected]
+                        - option "1792×1024 (Landscape)"
+                        - option "1024×1792 (Portrait)"
+                    - generic [ref=e152]:
+                      - generic [ref=e153]: Quantity
+                      - combobox "Number of images" [ref=e154] [cursor=pointer]:
+                        - option "1" [selected]
+                        - option "2"
+                        - option "3"
+                        - option "4"
+                    - button "Generate" [disabled] [ref=e155]
+            - iframe [ref=e156]:
+              - generic [ref=f187e2]:
+                - generic [ref=f187e6]: Booting workspace
+                - heading "Application Error" [level=1] [ref=f187e9]
+                - generic [ref=f187e10]: "TypeError: Cannot read properties of undefined (reading 'length') at children (https://editor.projectsites.dev/assets/index-CcrRFU44.js:231:25963) at zt (https://editor.projectsites.dev/assets/react-toastify.esm-0imiRawW.js:7:7063) at xu (https://editor.projectsites.dev/assets/components-CD9afgJu.js:30:16994) at _a (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:3139) at Qd (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:44679) at Vd (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:39686) at ev (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:39614) at zi (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:39468) at Ua (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:35850) at Bd (https://editor.projectsites.dev/assets/components-CD9afgJu.js:32:34801)"
+                - generic [ref=f187e12]:
+                  - alert [ref=f187e13]:
+                    - generic [ref=f187e16]: "Failed to import chat: Failed to fetch chat data (404)"
+                  - button [ref=f187e17] [cursor=pointer]
+                  - progressbar "notification timer" [ref=f187e21]
+        - button "Open AI chat" [ref=e116] [cursor=pointer]:
+          - img [ref=e117]
+          - generic [ref=e119]: Ask AI

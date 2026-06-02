@@ -1,0 +1,129 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]: Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - main [ref=e5]:
+      - generic [ref=e7]:
+        - complementary [ref=e8]:
+          - generic [ref=e9]:
+            - generic [ref=e10]: projectsites.dev
+            - generic [ref=e11]: v2
+          - navigation [ref=e12]:
+            - paragraph [ref=e13]: Site
+            - link "Sites" [ref=e14] [cursor=pointer]:
+              - /url: /admin/v2
+            - link "Editor" [ref=e15] [cursor=pointer]:
+              - /url: /admin/v2/site/editor
+            - link "Forms" [ref=e16] [cursor=pointer]:
+              - /url: /admin/v2/site/forms
+            - link "Files" [ref=e17] [cursor=pointer]:
+              - /url: /admin/v2/site/files
+            - link "Domains" [ref=e18] [cursor=pointer]:
+              - /url: /admin/v2/site/domains
+            - link "Build" [ref=e19] [cursor=pointer]:
+              - /url: /admin/v2/site/build
+            - paragraph [ref=e20]: Sys-admin
+            - link "Analytics" [ref=e21] [cursor=pointer]:
+              - /url: /admin/v2/analytics
+            - link "Media" [ref=e22] [cursor=pointer]:
+              - /url: /admin/v2/media
+            - link "Domains" [ref=e23] [cursor=pointer]:
+              - /url: /admin/v2/domains
+            - link "Billing" [ref=e24] [cursor=pointer]:
+              - /url: /admin/v2/billing
+            - link "Cost" [ref=e25] [cursor=pointer]:
+              - /url: /admin/v2/cost
+            - link "Audit" [ref=e26] [cursor=pointer]:
+              - /url: /admin/v2/audit
+            - link "Integrations" [ref=e27] [cursor=pointer]:
+              - /url: /admin/v2/integrations
+            - link "Settings" [ref=e28] [cursor=pointer]:
+              - /url: /admin/v2/settings
+        - generic [ref=e29]:
+          - generic [ref=e30]:
+            - generic [ref=e31]:
+              - generic [ref=e32]: Project
+              - combobox "Project" [ref=e33]:
+                - option "Urban Fitness Co" [selected]
+                - option "Lakeside Dental"
+                - option "Acme Bakery"
+                - option "Green Thumb Landscaping"
+              - generic [ref=e34]: /
+              - generic [ref=e35]: urban-fitness.projectsites.dev
+            - generic [ref=e36]:
+              - button "Copy https://urban-fitness.projectsites.dev" [ref=e37] [cursor=pointer]: Copy URL
+              - link "Open live site in a new tab" [ref=e38] [cursor=pointer]:
+                - /url: https://urban-fitness.projectsites.dev
+                - text: Open ↗
+              - button "⌘K" [ref=e39] [cursor=pointer]
+              - button "Notifications, 1 unread" [ref=e42] [cursor=pointer]:
+                - generic [ref=e43]: 🔔
+                - generic [ref=e44]: "1"
+              - button "+ New site" [ref=e45] [cursor=pointer]
+          - main [ref=e46]:
+            - generic [ref=e48]:
+              - generic [ref=e49]:
+                - textbox "Filter sites by name or domain" [ref=e50]:
+                  - /placeholder: Filter sites…
+                - generic [ref=e51]: 4 of 4
+              - table [ref=e53]:
+                - rowgroup [ref=e54]:
+                  - row "Site ▲ Domain Status Plan Created" [ref=e55]:
+                    - columnheader "Site ▲" [ref=e56] [cursor=pointer]:
+                      - generic [ref=e57]:
+                        - text: Site
+                        - generic [ref=e58]: ▲
+                    - columnheader "Domain" [ref=e59] [cursor=pointer]:
+                      - generic [ref=e60]: Domain
+                    - columnheader "Status" [ref=e61] [cursor=pointer]:
+                      - generic [ref=e62]: Status
+                    - columnheader "Plan" [ref=e63] [cursor=pointer]:
+                      - generic [ref=e64]: Plan
+                    - columnheader "Created" [ref=e65] [cursor=pointer]:
+                      - generic [ref=e66]: Created
+                - rowgroup [ref=e67]:
+                  - row "Acme Bakery acme-bakery.projectsites.dev published free a day ago Edit →" [ref=e68]:
+                    - cell "Acme Bakery" [ref=e69]:
+                      - link "Acme Bakery" [ref=e70] [cursor=pointer]:
+                        - /url: /admin/v2/sites/e2e-site-1
+                    - cell "acme-bakery.projectsites.dev" [ref=e71]
+                    - cell "published" [ref=e72]:
+                      - generic [ref=e73]: published
+                    - cell "free" [ref=e74]
+                    - cell "a day ago" [ref=e75]
+                    - cell "Edit →" [ref=e76]:
+                      - button "Edit →" [ref=e77] [cursor=pointer]
+                  - row "Green Thumb Landscaping green-thumb.projectsites.dev published free a day ago Edit →" [ref=e78]:
+                    - cell "Green Thumb Landscaping" [ref=e79]:
+                      - link "Green Thumb Landscaping" [ref=e80] [cursor=pointer]:
+                        - /url: /admin/v2/sites/e2e-site-4
+                    - cell "green-thumb.projectsites.dev" [ref=e81]
+                    - cell "published" [ref=e82]:
+                      - generic [ref=e83]: published
+                    - cell "free" [ref=e84]
+                    - cell "a day ago" [ref=e85]
+                    - cell "Edit →" [ref=e86]:
+                      - button "Edit →" [ref=e87] [cursor=pointer]
+                  - row "Lakeside Dental lakeside-dental.projectsites.dev error free a day ago Edit →" [ref=e88]:
+                    - cell "Lakeside Dental" [ref=e89]:
+                      - link "Lakeside Dental" [ref=e90] [cursor=pointer]:
+                        - /url: /admin/v2/sites/e2e-site-2
+                    - cell "lakeside-dental.projectsites.dev" [ref=e91]
+                    - cell "error" [ref=e92]:
+                      - generic [ref=e93]: error
+                    - cell "free" [ref=e94]
+                    - cell "a day ago" [ref=e95]
+                    - cell "Edit →" [ref=e96]:
+                      - button "Edit →" [ref=e97] [cursor=pointer]
+                  - row "Urban Fitness Co urban-fitness.projectsites.dev draft free a day ago Edit →" [ref=e98]:
+                    - cell "Urban Fitness Co" [ref=e99]:
+                      - link "Urban Fitness Co" [ref=e100] [cursor=pointer]:
+                        - /url: /admin/v2/sites/e2e-site-3
+                    - cell "urban-fitness.projectsites.dev" [ref=e101]
+                    - cell "draft" [ref=e102]:
+                      - generic [ref=e103]: draft
+                    - cell "free" [ref=e104]
+                    - cell "a day ago" [ref=e105]
+                    - cell "Edit →" [ref=e106]:
+                      - button "Edit →" [ref=e107] [cursor=pointer]
