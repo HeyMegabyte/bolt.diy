@@ -22,18 +22,9 @@ import { test, expect, type Page } from '@playwright/test';
 const KEY = process.env.E2E_API_KEY ?? '';
 
 const ROUTES = [
-  '/admin/sites', '/admin/analytics', '/admin/billing',
+  '/admin/sites', '/admin/feature-flags', '/admin/analytics', '/admin/billing',
   '/admin/media', '/admin/audit', '/admin/social', '/admin/seo',
 ];
-
-// /admin/feature-flags has a residual ~69px horizontal overflow ONLY at the
-// extreme 320px width (the .ff-header/.ff-toolbar region renders ~389px; the
-// flag cards/grid do NOT overflow — confirmed by the culprit list). The grid
-// (minmax→min(360px,100%)) + search (min-w-0 basis-240) responsive fixes
-// landed but a header/toolbar constraint remains unidentified. Real phones
-// (≥360px) reflow fine. Tracked as a focused-layout fixme rather than shipping
-// an overflow-x:clip content-clipping hack.
-const REFLOW_FIXME = ['/admin/feature-flags'];
 
 async function seed(page: Page): Promise<void> {
   await page.addInitScript((k: string) => {
@@ -99,13 +90,6 @@ test.describe('admin — 320px reflow (WCAG 1.4.10) + mobile drawer', () => {
           return found.slice(0, 5);
         });
         expect(culprits, `elements overflow the 320px viewport (real reflow bug):\n${culprits.join('\n')}`).toEqual([]);
-      });
-    }
-    for (const path of REFLOW_FIXME) {
-      // eslint-disable-next-line playwright/no-skipped-test
-      test.fixme(`${path} (residual header/toolbar overflow @320px — focused layout pass)`, () => {
-        // Un-fixme once the .ff-header/.ff-toolbar 389px-at-320px constraint is
-        // identified + reflowed. Cards/grid already reflow; real phones (≥360px) OK.
       });
     }
   });
