@@ -18,6 +18,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -25,6 +26,7 @@ import { RollingCounterComponent } from '../../../components/rolling-counter/rol
 import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { FeatureFlagService } from '../../../services/feature-flag.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 
 type PlanTier =
@@ -294,6 +296,7 @@ interface AuditExport {
 export class AdminEnterpriseComponent {
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
+  private readonly flags = inject(FeatureFlagService);
 
   readonly contract = signal<Contract | null>(null);
   readonly sla = signal<SlaResponse | null>(null);
@@ -301,7 +304,12 @@ export class AdminEnterpriseComponent {
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly enqueueing = signal(false);
-  readonly notFound = signal(false);
+  // Pessimistic: assume the enterprise_plan flag is OFF until the client-side
+  // check confirms it's on. This shows the disabled-state card immediately and
+  // — critically — prevents the unconditional /api/enterprise/* fetch from
+  // firing when the feature is disabled (which surfaced a misleading
+  // "Can't reach the server" toast instead of the disabled message).
+  readonly notFound = signal(true);
 
   // Editable signals
   readonly planTier = signal<PlanTier>('enterprise-small');
@@ -322,7 +330,19 @@ export class AdminEnterpriseComponent {
   readonly slaBreached = (): boolean => this.sla()?.breached === true;
 
   constructor() {
-    this.refresh();
+    // Gate the org-scoped fetch on the actual flag (toast-safe public probe),
+    // mirroring inbox/site-dna. When enterprise_plan is off we keep the
+    // disabled-state card (notFound stays true) and never fire the
+    // /api/enterprise/* requests — so no spurious 404 → no error toast.
+    this.flags
+      .isOn('enterprise_plan')
+      .pipe(takeUntilDestroyed())
+      .subscribe((on) => {
+        if (on) {
+          this.notFound.set(false);
+          this.refresh();
+        }
+      });
   }
 
   planLabel(tier: PlanTier): string {

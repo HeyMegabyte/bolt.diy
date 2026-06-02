@@ -70,4 +70,18 @@ test.describe('admin — flag-gated sections do not fetch org data when disabled
     await page.waitForTimeout(2500);
     expect(orgFetches, `site-dna must NOT fetch org data when the flag is off:\n${orgFetches.join('\n')}`).toEqual([]);
   });
+
+  test('enterprise (flag off): no /api/enterprise/* fetch; disabled message shows', async ({ page }) => {
+    test.setTimeout(60000);
+    const orgFetches: string[] = [];
+    page.on('request', (r) => { if (/\/api\/enterprise\//.test(r.url())) orgFetches.push(r.url()); });
+    await seed(page);
+    await page.goto('/admin/enterprise', { waitUntil: 'load' });
+    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
+    // The disabled-state card must render (proves the enterprise_plan flag
+    // resolved off + the section gated the fetch client-side).
+    await expect(page.getByText(/Enterprise plan is disabled/i).first()).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(2500); // window for any (incorrect) fetch to fire
+    expect(orgFetches, `enterprise must NOT fetch org data when enterprise_plan is off:\n${orgFetches.join('\n')}`).toEqual([]);
+  });
 });
