@@ -13,6 +13,7 @@ import {
   type SiteUrlRow,
 } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { PromptService } from '../../../services/prompt.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 
@@ -649,6 +650,7 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   state = inject(AdminStateService);
   private api = inject(ApiService);
   private toast = inject(ToastService);
+  private promptSvc = inject(PromptService);
   private router = inject(Router);
 
   /** Aggregated CF GraphQL envelope from `GET /api/sites/:id/analytics`. */
@@ -768,7 +770,18 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   async promptAddUrl(): Promise<void> {
     const site = this.state.selectedSite();
     if (!site) return;
-    const hostname = window.prompt('Hostname to bind (e.g. shop.example.com):', '')?.trim().toLowerCase();
+    const entered = await this.promptSvc.prompt({
+      title: 'Bind a hostname',
+      message: 'Track analytics for an additional hostname pointed at this site.',
+      label: 'Hostname',
+      placeholder: 'shop.example.com',
+      confirmLabel: 'Bind hostname',
+      validate: (v) =>
+        /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(v)
+          ? null
+          : 'Enter a valid hostname (e.g. shop.example.com)',
+    });
+    const hostname = entered?.trim().toLowerCase();
     if (!hostname) return;
     try {
       await new Promise<void>((resolve, reject) => {

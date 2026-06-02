@@ -15,6 +15,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { Observable } from 'rxjs';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { EmptyStateComponent } from '../empty-state.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmInputDirective } from '../../../ui';
@@ -374,6 +375,7 @@ function resolveApp(id: string): CatalogApp | null {
 export class AppInstancesComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
   private toast = inject(ToastService);
+  private confirmSvc = inject(ConfirmService);
   private router = inject(Router);
 
   instances = signal<readonly AppInstance[]>([]);
@@ -455,8 +457,13 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
     this.runAction(inst, this.api.post(`/apps/instances/${inst.id}/stop`, {}), `Stopping ${this.nameFor(inst)}…`);
   }
 
-  deleteInstance(inst: AppInstance): void {
-    if (!window.confirm(`Delete instance "${this.nameFor(inst)}"? This destroys its container and data — this cannot be undone.`)) return;
+  async deleteInstance(inst: AppInstance): Promise<void> {
+    const ok = await this.confirmSvc.confirm({
+      title: 'Delete instance',
+      message: `Delete instance "${this.nameFor(inst)}"? This destroys its container and data — this cannot be undone.`,
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
     this.runAction(inst, this.api.delete(`/apps/instances/${inst.id}`), `Deleted ${this.nameFor(inst)}`);
   }
 

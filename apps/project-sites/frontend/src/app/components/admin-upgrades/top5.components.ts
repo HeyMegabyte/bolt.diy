@@ -22,6 +22,7 @@ import { Router, RouterLink, NavigationEnd } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { AdminUpgradesService } from '../../services/admin-upgrades.service';
+import { PromptService } from '../../services/prompt.service';
 
 // Shared flag-resolver — gracefully degrades when API unreachable
 async function flagOn(http: HttpClient, key: string): Promise<boolean> {
@@ -263,6 +264,7 @@ interface SavedView {
 export class SavedViewsComponent implements OnInit {
   private http = inject(HttpClient);
   private router = inject(Router);
+  private promptSvc = inject(PromptService);
   enabled = signal(false);
   views = signal<SavedView[]>([]);
 
@@ -306,8 +308,14 @@ export class SavedViewsComponent implements OnInit {
     }
   }
 
-  saveCurrent(): void {
-    const label = window.prompt('Name this view:', this.suggestLabel());
+  async saveCurrent(): Promise<void> {
+    const label = await this.promptSvc.prompt({
+      title: 'Save this view',
+      label: 'View name',
+      placeholder: 'e.g. Failed CWV sites',
+      initialValue: this.suggestLabel(),
+      confirmLabel: 'Save view',
+    });
     if (!label) return;
     const view: SavedView = {
       id: crypto.randomUUID(),

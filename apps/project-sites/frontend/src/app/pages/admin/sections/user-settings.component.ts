@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService, type CloudflareCredentialStatus } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
@@ -1055,6 +1056,7 @@ export class AdminUserSettingsComponent implements OnInit {
   private api = inject(ApiService);
   private http = inject(HttpClient);
   private toast = inject(ToastService);
+  private confirmSvc = inject(ConfirmService);
 
   // ── Profile derived signals ──
   /** Two-letter initials for the avatar bubble. Falls back to "PS" if no email. */
@@ -1284,8 +1286,13 @@ export class AdminUserSettingsComponent implements OnInit {
     });
   }
 
-  disconnectCf(): void {
-    if (!window.confirm('Remove your stored Cloudflare credentials? Analytics will fall back to platform-bundled defaults.')) return;
+  async disconnectCf(): Promise<void> {
+    const ok = await this.confirmSvc.confirm({
+      title: 'Remove Cloudflare credentials',
+      message: 'Remove your stored Cloudflare credentials? Analytics will fall back to platform-bundled defaults.',
+      confirmLabel: 'Remove',
+    });
+    if (!ok) return;
     this.api.deleteCloudflareCredentials().subscribe({
       next: () => {
         this.toast.info('Cloudflare credentials removed');

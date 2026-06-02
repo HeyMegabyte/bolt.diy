@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { TelemetryService } from '../../../services/telemetry.service';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { FullscreenOverlayComponent } from '../../../components/fullscreen-overlay/fullscreen-overlay.component';
@@ -1253,6 +1254,7 @@ export class AdminSnapshotsComponent implements OnInit {
   state = inject(AdminStateService);
   private api = inject(ApiService);
   private toast = inject(ToastService);
+  private confirmSvc = inject(ConfirmService);
   private telemetry = inject(TelemetryService);
   private router = inject(Router);
   private bolt = inject(BoltEmbedService);
@@ -1546,10 +1548,15 @@ export class AdminSnapshotsComponent implements OnInit {
     });
   }
 
-  unlinkGithub(): void {
+  async unlinkGithub(): Promise<void> {
     const site = this.state.selectedSite();
     if (!site) return;
-    if (!window.confirm('Disconnect GitHub mirror? The existing repo + commits stay; future snapshots will no longer push automatically.')) return;
+    const ok = await this.confirmSvc.confirm({
+      title: 'Disconnect GitHub mirror',
+      message: 'Disconnect the GitHub mirror? The existing repo + commits stay; future snapshots will no longer push automatically.',
+      confirmLabel: 'Disconnect',
+    });
+    if (!ok) return;
     this.unlinkingGh.set(true);
     this.api.post(`/sites/${site.id}/github/disconnect`, {}).subscribe({
       next: () => {
@@ -1933,8 +1940,13 @@ export class AdminSnapshotsComponent implements OnInit {
     this.router.navigate(['/admin/snapshots/diff'], { queryParams: { from: older.id, to: snap.id } });
   }
 
-  confirmDelete(snap: Snapshot): void {
-    if (!window.confirm(`Permanently delete snapshot "${snap.snapshot_name}"? This cannot be undone.`)) return;
+  async confirmDelete(snap: Snapshot): Promise<void> {
+    const ok = await this.confirmSvc.confirm({
+      title: 'Delete snapshot',
+      message: `Permanently delete snapshot "${snap.snapshot_name}"? This cannot be undone.`,
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
     this.deleteSnapshot(snap.id);
   }
 

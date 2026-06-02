@@ -19,6 +19,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, from, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { ApiService } from '../../services/api.service';
+import { ConfirmService } from '../../services/confirm.service';
 import { BoltEmbedService, type BoltFileEntry } from '../../services/bolt-embed.service';
 
 /** Row returned by the AI natural-language search endpoint (#94). */
@@ -190,8 +191,14 @@ export class CommandPaletteActionsService {
       { id: 'act-theme-system', title: 'Theme: System',          section: 'Actions', icon: ICONS.sun, keywords: ['auto', 'appearance'], run: () => setTheme('system') },
       { id: 'act-toggle-side',  title: 'Toggle sidebar',         section: 'Actions', icon: ICONS.arrow, keywords: ['collapse'], run: () => ctx.toggleSidebar() },
       { id: 'act-signout',      title: 'Sign out',               section: 'Actions', icon: ICONS.signOut, keywords: ['logout', 'exit'], run: () => ctx.signOut() },
-      { id: 'act-clear-cache',  title: 'Clear cache + reload (advanced)', section: 'Actions', icon: ICONS.bell, keywords: ['hard reload', 'cookies'], run: () => {
-        if (!window.confirm('Clear local cache + reload?')) return;
+      { id: 'act-clear-cache',  title: 'Clear cache + reload (advanced)', section: 'Actions', icon: ICONS.bell, keywords: ['hard reload', 'cookies'], run: async () => {
+        const ok = await this.confirmSvc.confirm({
+          title: 'Clear local cache',
+          message: 'Clear local cache + reload? Your stored preferences for this admin will be reset.',
+          confirmLabel: 'Clear + reload',
+          danger: false,
+        });
+        if (!ok) return;
         try { Object.keys(localStorage).forEach((k) => { if (k.startsWith('ps_')) localStorage.removeItem(k); }); } catch { /* ignore */ }
         location.reload();
       } },
@@ -247,6 +254,7 @@ export class CommandPaletteActionsService {
   /** Bolt embed service — lazy-resolved so palette tests don't need to
    *  provide a stub when they're only exercising the static action list. */
   private boltSvc = inject(BoltEmbedService);
+  private confirmSvc = inject(ConfirmService);
 
   /**
    * Item 45 — query the embedded bolt.diy iframe for its file list and
