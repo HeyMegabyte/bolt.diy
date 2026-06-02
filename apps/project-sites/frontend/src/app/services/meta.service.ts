@@ -34,51 +34,51 @@ const PAGE_META: Record<string, PageMeta> = {
     description: 'AI-native website builder for real businesses. One prompt, four minutes, a gorgeous live URL with SSL, sitemap, OG cards, and JSON-LD baked in.',
   },
   'create': {
-    title: 'Create Your Website - ProjectSites',
-    description: 'Tell us about your business and our AI builds a professional website in minutes. No coding required.',
+    title: 'Create Your AI Website in Minutes — No Code | ProjectSites',
+    description: 'Tell us about your business and our AI builds a professional, SEO-ready website in minutes — hosted, SSL secured, and live. No coding required.',
   },
   'signin': {
-    title: 'Sign In - ProjectSites',
-    description: 'Sign in to manage your AI-generated website. Magic link, no password needed.',
+    title: 'Sign In — Manage Your AI-Built Website | ProjectSites',
+    description: 'Sign in to manage your AI-generated website — edit content, connect a custom domain, view analytics, and handle billing. Magic link, no password.',
   },
   'waiting': {
-    title: 'Building Your Site - ProjectSites',
-    description: 'Your AI-generated website is being built. Watch the progress in real time.',
+    title: 'Building Your AI Website — Live Progress | ProjectSites',
+    description: 'Your AI-generated website is being built right now — watch each step (research, design, content, deploy) complete live in real time.',
   },
   'admin': {
     title: 'Dashboard - ProjectSites',
     description: 'Manage your websites, domains, files, and billing from one dashboard.',
   },
   'privacy': {
-    title: 'Privacy Policy - ProjectSites',
-    description: 'How ProjectSites collects, uses, and protects your personal information.',
+    title: 'Privacy Policy — Your Data, Rights & Choices | ProjectSites',
+    description: 'How ProjectSites collects, uses, stores, and protects your personal data — plus your rights to access, export, and delete it at any time.',
   },
   'terms': {
-    title: 'Terms of Service - ProjectSites',
-    description: 'Terms and conditions for using the ProjectSites website builder platform.',
+    title: 'Terms of Service — Plans, Usage & Conduct | ProjectSites',
+    description: 'The terms and conditions for using ProjectSites: account rules, acceptable use, billing, intellectual property, and service commitments.',
   },
   'content': {
-    title: 'Content Policy - ProjectSites',
-    description: 'Acceptable use and content guidelines for websites built on ProjectSites.',
+    title: 'Content Policy — Acceptable Use Guidelines | ProjectSites',
+    description: 'Acceptable-use and content guidelines for websites built on ProjectSites — what you can publish, prohibited content, and how we enforce it.',
   },
   'blog': {
-    title: 'Blog - ProjectSites',
-    description: 'Tips, updates, and insights on AI-powered website building for small businesses.',
+    title: 'AI Website Building Blog — Tips & Updates | ProjectSites',
+    description: 'Practical guides on AI-powered website building for small businesses — SEO, design, conversion, and launch tips from the ProjectSites team.',
   },
   'changelog': {
     title: 'Changelog - ProjectSites',
     description: 'See what\'s new in ProjectSites. Feature releases, improvements, and fixes. Subscribe via RSS.',
   },
   'roadmap': {
-    title: 'Roadmap - ProjectSites',
+    title: 'Product Roadmap — Shipped, In Progress & Next | ProjectSites',
     description: 'See what we are building next for ProjectSites. Trello-style public roadmap with shipped, in-progress, and planned features.',
   },
   'integrations': {
-    title: 'Integrations - ProjectSites',
+    title: 'Integrations — Stripe, Square, OpenAI & 30+ | ProjectSites',
     description: 'Connect ProjectSites with Stripe, Square, Twilio, OpenAI, Anthropic, Slack, HubSpot, and 30 more services across nine categories.',
   },
   'press': {
-    title: 'Press kit — ProjectSites',
+    title: 'Press Kit — Brand Assets & Media Contacts | ProjectSites',
     description: 'Brand assets, founder bio, fact sheet, 8-slide cinematic picture walkthrough, press releases, and media contacts for ProjectSites by Megabyte Labs.',
   },
   'status': {

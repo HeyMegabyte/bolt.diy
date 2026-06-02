@@ -912,7 +912,7 @@ export class PressComponent implements OnInit {
         ]),
         webPage({
           url,
-          title: 'Press kit — ProjectSites',
+          title: 'Press Kit — Brand Assets & Media Contacts | ProjectSites',
           description:
             'Brand assets, founder bio, fact sheet, 8-slide cinematic picture walkthrough, press releases, and media contacts for ProjectSites by Megabyte Labs.',
           image: `${BASE_URL}/walkthrough/08-live.jpg`,
