@@ -32,7 +32,7 @@
       </div>
       <h2 class="text-xl font-bold text-light mb-2">Preparing your project...</h2>
       <p class="text-[0.85rem] text-gray-400 mb-2 leading-normal">{{ statusMessage() }}</p>
-      <p class="text-[0.75rem] text-gray-600 mb-4 font-medium tracking-wide">{{ stepProgress() }}</p>
+      <p class="text-[0.75rem] text-gray-400 mb-4 font-medium tracking-wide">{{ stepProgress() }}</p>
 
       <div class="w-full h-1 bg-primary/[0.1] rounded-sm overflow-hidden mb-6">
         <div class="waiting-progress-fill h-full bg-gradient-to-r from-primary to-purple-500 rounded-sm" [style.width.%]="(currentStep() / totalSteps) * 100"></div>
