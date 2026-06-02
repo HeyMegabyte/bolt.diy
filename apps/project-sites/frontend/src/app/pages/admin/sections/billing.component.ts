@@ -19,14 +19,6 @@ interface Alert { id: string; name: string; threshold_credits: number; alert_kin
 interface McpConnectionLite { provider: string; ok?: boolean; }
 
 /**
- * Local-storage key for the offline fallback used when the spend-alert POST
- * endpoint returns 404/501 (worker route not yet shipped). Stored as a
- * per-user array so multiple draft alerts can survive a page reload until
- * the real API lands. Reads happen on `loadAll()` and merge under the live
- * `alerts()` list so the UI feels instant.
- */
-const LOCAL_ALERTS_KEY = 'ps_billing_alerts_local';
-/**
  * Local-storage key for the per-site credit-caps offline fallback used by
  * the "Set credit caps" modal. Holds `{ [siteId]: number | null }` so a
  * draft cap survives a page reload until the per-site PUT settles (or the
@@ -2058,12 +2050,8 @@ export class AdminBillingComponent implements OnInit {
       error: () => { this.loadingCredits.set(false); /* api.service already toasted */ },
     });
     this.api.get<{ data: Alert[] }>('/billing/spend-alerts').subscribe({
-      next: (r) => this.alerts.set(this.mergeWithLocal(r.data ?? [])),
-      error: () => {
-        // If the live endpoint errors, still show any locally-stashed alerts
-        // so the user sees their pending drafts. (api.service already toasted.)
-        this.alerts.set(this.mergeWithLocal([]));
-      },
+      next: (r) => this.alerts.set(r.data ?? []),
+      error: () => { /* api.service already toasted */ },
     });
     // Slack-connection probe: walks the user's sites and asks each one for
     // its mcp connections list. First site that reports a `slack` provider
@@ -2286,15 +2274,9 @@ export class AdminBillingComponent implements OnInit {
   /**
    * Persist the spend alert. Translates the modal's USD threshold input
    * into the credit-based threshold the worker stores (1 credit = $0.04
-   * matches the rate shown in the per-site breakdown header).
-   *
-   * Fallback path: if the worker route is not yet shipped (404/501), the
-   * alert is stashed in localStorage under `ps_billing_alerts_local` so the
-   * user's intent is preserved + visible immediately. A `toast.info`
-   * surfaces the beta state. The list refresh merges local drafts under the
-   * live results so both rails feel like one inbox.
-   * TODO(api): replace the localStorage fallback once the worker ships
-   * `POST /billing/spend-alerts`. See `apps/project-sites/src/routes/api.ts`.
+   * matches the rate shown in the per-site breakdown header). Posts to the
+   * live `POST /api/billing/spend-alerts` worker route; errors surface via
+   * the shared api.service toast.
    */
   saveAlert(): void {
     if (!this.canSaveAlert() || this.savingAlert()) return;
@@ -2322,100 +2304,11 @@ export class AdminBillingComponent implements OnInit {
         this.alertModalOpen.set(false);
         this.loadAll();
       },
-      error: (err: { status?: number } | null) => {
+      error: () => {
         this.savingAlert.set(false);
-        const status = err?.status ?? 0;
-        // 404/501 = worker route not deployed yet -> stash locally so the
-        // user keeps the alert. Any other status (400/401/500) bubbles
-        // through the api.service toast as a real error.
-        if (status === 404 || status === 501) {
-          this.persistLocalAlert(payload);
-          this.toast.info('Alert creation is in beta — saved locally for now');
-          this.telemetry.track('billing.alert_created_local_fallback', {
-            alert_kind: payload.alert_kind,
-            threshold_credits: payload.threshold_credits,
-            via_slack: payload.notify_via_slack,
-            status,
-          });
-          this.alertModalOpen.set(false);
-          // Refresh from local store so the new draft appears in the list
-          // immediately even when the GET endpoint also 404s.
-          this.alerts.set(this.mergeWithLocal(this.alerts()));
-        }
-        /* other statuses: api.service already toasted */
+        /* api.service already toasted the error */
       },
     });
-  }
-
-  /**
-   * Read locally-stashed spend-alert drafts from localStorage. Returns an
-   * empty array on any parse / quota / private-mode failure so the UI never
-   * crashes because of a corrupt cache.
-   */
-  private readLocalAlerts(): Alert[] {
-    try {
-      const raw = localStorage.getItem(LOCAL_ALERTS_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw) as Alert[];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-
-  /**
-   * Append a local-only alert (with a `local-*` id so removal can find it)
-   * and persist back to localStorage. Idempotent on (name, alert_kind,
-   * threshold_credits) so a repeated Save click doesn't double-stack the
-   * same row.
-   */
-  private persistLocalAlert(payload: {
-    name: string;
-    alert_kind: string;
-    threshold_credits: number;
-    notify_email: string;
-    notify_via_email: boolean;
-    notify_via_slack: boolean;
-  }): void {
-    try {
-      const existing = this.readLocalAlerts();
-      const dupe = existing.find(
-        (a) =>
-          a.name === payload.name &&
-          a.alert_kind === payload.alert_kind &&
-          a.threshold_credits === payload.threshold_credits,
-      );
-      if (dupe) return;
-      const next: Alert[] = [
-        ...existing,
-        {
-          id: `local-${Date.now()}`,
-          name: payload.name,
-          alert_kind: payload.alert_kind,
-          threshold_credits: payload.threshold_credits,
-          notify_email: payload.notify_email,
-          enabled: 1,
-          last_triggered_at: null,
-          notify_via_slack: payload.notify_via_slack,
-        },
-      ];
-      localStorage.setItem(LOCAL_ALERTS_KEY, JSON.stringify(next));
-    } catch {
-      /* private mode or quota exceeded -- silently drop */
-    }
-  }
-
-  /**
-   * Merge a server alerts list with any locally-stashed drafts. Server rows
-   * win on (name + threshold) collisions so once the worker route lands,
-   * duplicates self-heal as the user reopens the page.
-   */
-  private mergeWithLocal(serverAlerts: Alert[]): Alert[] {
-    const local = this.readLocalAlerts();
-    if (local.length === 0) return serverAlerts;
-    const seen = new Set(serverAlerts.map((a) => `${a.name}|${a.threshold_credits}`));
-    const onlyLocal = local.filter((a) => !seen.has(`${a.name}|${a.threshold_credits}`));
-    return [...serverAlerts, ...onlyLocal];
   }
 
   /**
@@ -2461,20 +2354,6 @@ export class AdminBillingComponent implements OnInit {
     }
   }
   removeAlert(a: Alert): void {
-    // Local-only drafts (created via the localStorage fallback) live entirely
-    // on the client — strip from cache and refresh the list without hitting
-    // the worker. Server-stored alerts go through the normal DELETE path.
-    if (a.id.startsWith('local-')) {
-      try {
-        const next = this.readLocalAlerts().filter((x) => x.id !== a.id);
-        localStorage.setItem(LOCAL_ALERTS_KEY, JSON.stringify(next));
-      } catch {
-        /* quota / private mode — ignore */
-      }
-      this.alerts.set(this.alerts().filter((x) => x.id !== a.id));
-      this.toast.success('Alert removed');
-      return;
-    }
     this.api.delete(`/billing/spend-alerts/${a.id}`).subscribe({
       next: () => { this.toast.success('Alert removed — no more notifications for this threshold'); this.loadAll(); },
       error: () => { /* api.service already toasted */ },
