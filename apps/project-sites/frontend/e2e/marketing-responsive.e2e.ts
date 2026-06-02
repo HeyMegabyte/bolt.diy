@@ -259,3 +259,27 @@ test.describe('marketing — /waiting build-progress a11y (stateful)', () => {
     expect(culprits, `/waiting overflows @320px:\n${culprits.join('\n')}`).toEqual([]);
   });
 });
+
+test.describe('marketing — /press brand kit downloads (no dead /brand link)', () => {
+  test.describe.configure({ retries: 2 });
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  // Regression: /press promised a "Download brand kit (4 MB)" at routerLink="/brand"
+  // and a text "grab the ZIP at /brand" — but no /brand route OR ZIP existed, so
+  // both links 404'd (app-not-found). Now a real public/brand-kit.zip (logos +
+  // BRAND_GUIDELINES.txt) exists and both links point to it via download href.
+  test('brand kit link resolves to a real downloadable ZIP, no /brand 404', async ({ page }) => {
+    test.setTimeout(45000);
+    await page.goto('/press', { waitUntil: 'load' });
+    await expect(page.locator('.cta-primary')).toBeVisible({ timeout: 30000 });
+    // No link points to the dead /brand route.
+    const deadBrand = await page.locator('a[href="/brand"], a[routerlink="/brand"]').count();
+    expect(deadBrand, 'no link to the non-existent /brand route').toBe(0);
+    // The download CTA points at the real asset.
+    await expect(page.locator('.cta-primary')).toHaveAttribute('href', '/brand-kit.zip');
+    // And the asset actually serves.
+    const res = await page.request.get('https://projectsites.dev/brand-kit.zip', { failOnStatusCode: false });
+    expect(res.status(), 'brand-kit.zip resolves').toBe(200);
+    expect((await res.body()).length, 'brand-kit.zip is non-empty').toBeGreaterThan(1000);
+  });
+});

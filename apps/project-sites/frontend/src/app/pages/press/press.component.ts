@@ -58,7 +58,7 @@ interface Slide {
             partnerships, and investors.
           </p>
           <div class="cta-row">
-            <a class="cta-primary" routerLink="/brand">Download brand kit (4 MB) →</a>
+            <a class="cta-primary" href="/brand-kit.zip" download>Download brand kit (ZIP) →</a>
             <a class="cta-secondary" href="mailto:press@megabyte.space"
               >Email press&#64;megabyte.space</a
             >
@@ -72,8 +72,8 @@ interface Slide {
             <h2 id="walkthrough-h">From search to live site, in 8 frames.</h2>
             <p class="section-sub">
               1920×1080 cinematic renders. Free for editorial use with credit
-              <q>ProjectSites.dev / Megabyte Labs</q>. Right-click → save, or grab the ZIP at
-              <a routerLink="/brand">/brand</a>.
+              <q>ProjectSites.dev / Megabyte Labs</q>. Right-click → save, or grab the
+              <a href="/brand-kit.zip" download>brand kit ZIP</a>.
             </p>
           </header>
 
