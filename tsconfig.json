@@ -44,6 +44,9 @@
     "**/*.test.tsx",
     "**/*.spec.ts",
     "**/*.spec.tsx",
-    "**/e2e/**"
+    "**/e2e/**",
+    "**/tools/templates/**",
+    "apps/**",
+    "packages/**"
   ]
 }

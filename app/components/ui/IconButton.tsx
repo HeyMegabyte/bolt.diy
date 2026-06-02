@@ -11,6 +11,15 @@ interface BaseIconButtonProps {
   title?: string;
   disabled?: boolean;
   onClick?: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
+
+  /** Inline styles (e.g. `display: none` to hide the trigger). */
+  style?: React.CSSProperties;
+
+  /** Tab order; pass -1 to remove a hidden button from keyboard focus. */
+  tabIndex?: number;
+
+  /** Hide from the accessibility tree when the button is visually hidden. */
+  'aria-hidden'?: React.AriaAttributes['aria-hidden'];
 }
 
 type IconButtonWithoutChildrenProps = {
@@ -39,6 +48,9 @@ export const IconButton = memo(
         title,
         onClick,
         children,
+        style,
+        tabIndex,
+        'aria-hidden': ariaHidden,
       }: IconButtonProps,
       ref: ForwardedRef<HTMLButtonElement>,
     ) => {
@@ -54,6 +66,9 @@ export const IconButton = memo(
           )}
           title={title}
           disabled={disabled}
+          style={style}
+          tabIndex={tabIndex}
+          aria-hidden={ariaHidden}
           onClick={(event) => {
             if (disabled) {
               return;
