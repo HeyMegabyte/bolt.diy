@@ -189,20 +189,28 @@ homepage at `/`. Asset paths are CDN-busted via Angular's hashed filenames.
 
 ### Known perf-budget items (tracked 2026-06-02 — `ng build` WARNS, does not fail)
 
-- **Initial bundle 1.81 MB raw / 436 KB transfer — 206 KB over the 1.6 MB
-  `initial` budget** (`angular.json` `budgets`). Audit confirms the heavy libs
-  (monaco, echarts, ag-grid, jszip, @codemirror, the whole admin/editor) are
-  ALREADY lazy (83+ lazy chunks) — the eager weight is Angular framework + RxJS
-  + the always-on app-root chrome (header, toast, command-palette, network-
-  status). Remediation (a dedicated perf wave, NOT a quick fix): (a) the
-  command-palette/shortcuts-overlay are `@if`-conditional but still eagerly
-  imported in `app.component` — moving to `@defer (when …){ @if(…){…} }` (defer
-  loads, inner `@if` keeps toggle/close semantics — a plain `@defer(when)` is a
-  one-way trigger and would break close) trims ~30 KB src; (b) audit the unnamed
-  800 KB / 267 KB / 209 KB vendor chunks via `--stats-json` for any feature dep
-  that escaped lazy loading. Do per-piece with a full E2E re-verify each — the
-  Cmd+K-focus gate (`e2e/cmdk-focus`/admin.spec) makes deferring the palette
-  risky.
+- **Initial bundle 1.81 MB raw / 436 KB transfer — 205 KB over the 1.6 MB
+  `initial` budget** (`angular.json` `budgets`). **ROOT CAUSE PINPOINTED (round 41
+  via `--stats-json`):** the 800 KB initial `chunk-GGAROBNS.js` is **782 KB of
+  `ag-grid-community`, EAGER** — `main` imports it via a static `import-statement`.
+  (The earlier "ag-grid is ALREADY lazy" note was wrong.) ag-grid is imported at
+  the **module top level** of TWO lazy admin sections — `audit.component.ts`
+  (lines 2-22 + `ModuleRegistry.registerModules` side-effect at :28) and
+  `ai-logs.component.ts` (:14-41) — and esbuild hoists the shared dep into the
+  initial bundle. That one dep is ~181 KB transfer — fixing it closes the budget.
+  **Fix (the dedicated wave, do BOTH together or the shared dep stays hoisted):**
+  in each component (1) replace the top-level value imports with `import type`
+  for the erased types; (2) move `ModuleRegistry.registerModules([...])` + the
+  `themeQuartz`/`colorSchemeDarkBlue` theme out of module scope into an async
+  `const ag = await import('ag-grid-community')` in `ngOnInit`, set the theme via
+  a signal; (3) wrap `<ag-grid-angular>` in `@defer (on viewport; when agReady())`
+  with a placeholder, gated on a post-registration `agReady` signal so the grid
+  never renders before its modules register. Re-verify BOTH grids render live
+  (audit + ai-logs need `E2E_API_KEY` auth) + re-measure the initial bundle.
+  Secondary (smaller): (a) command-palette/shortcuts-overlay are `@if`-conditional
+  but eager in `app.component` — `@defer (when …){ @if(…){…} }` trims ~30 KB but
+  risks the SUPREME Cmd+K-focus gate (`e2e/cmdk-focus`, dev-suite, can't gate
+  locally); easter-eggs already deferred (round 40, ~1 KB).
 - **`social.component.ts` styles 30.18 KB > 28 KB** `anyComponentStyle` budget
   (+2.18 KB). The component is 2349 lines; trim redundant CSS or split styles
   when next editing it — not a blind trim.
