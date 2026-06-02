@@ -217,6 +217,69 @@ export async function listWebhookEndpoints(env: Env, orgId: string, siteId: stri
   }));
 }
 
+export interface EndpointForDispatch {
+  id: string;
+  url: string;
+  eventTypes: string[];
+  enabled: boolean;
+}
+export interface PlannedDelivery {
+  endpointId: string;
+  url: string;
+  /** The exact JSON body to POST (the signature covers `timestamp.body`). */
+  body: string;
+  timestamp: string;
+  /** `signedPayloadBase(timestamp, body)` — HMAC this with the endpoint's secret. */
+  signatureBase: string;
+}
+export interface DispatchPlan {
+  deliveries: PlannedDelivery[];
+  skipped: Array<{ endpointId: string; reason: 'disabled' | 'not_subscribed' | 'unsafe_url' }>;
+}
+
+/**
+ * Pure dispatch planner: given an event + the site's endpoints, compute which
+ * deliveries to attempt and which to skip (disabled / not subscribed to this
+ * event / SSRF-unsafe URL). The worker dispatcher then, per delivery, decrypts
+ * the endpoint secret, HMACs `signatureBase`, and POSTs `body` with the
+ * signature header — retrying via `shouldRetry`/`nextRetryDelayMs`.
+ *
+ * Pure (timestamp injected) so the match + skip logic is unit-testable.
+ */
+export function planDeliveries(
+  event: { type: string; payload: unknown },
+  endpoints: EndpointForDispatch[],
+  timestamp: string,
+): DispatchPlan {
+  const body = JSON.stringify({ type: event.type, payload: event.payload, timestamp });
+  const deliveries: PlannedDelivery[] = [];
+  const skipped: DispatchPlan['skipped'] = [];
+
+  for (const e of endpoints) {
+    if (!e.enabled) {
+      skipped.push({ endpointId: e.id, reason: 'disabled' });
+      continue;
+    }
+    if (!e.eventTypes.includes(event.type)) {
+      skipped.push({ endpointId: e.id, reason: 'not_subscribed' });
+      continue;
+    }
+    if (!isSafeWebhookUrl(e.url)) {
+      skipped.push({ endpointId: e.id, reason: 'unsafe_url' });
+      continue;
+    }
+    deliveries.push({
+      endpointId: e.id,
+      url: e.url,
+      body,
+      timestamp,
+      signatureBase: signedPayloadBase(timestamp, body),
+    });
+  }
+
+  return { deliveries, skipped };
+}
+
 /** Soft-delete an endpoint (org+site scoped). `ok:false` when nothing matched. */
 export async function deleteWebhookEndpoint(
   env: Env,

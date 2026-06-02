@@ -7,6 +7,7 @@ import {
   validateEndpointInput,
   maskSecret,
   isSafeWebhookUrl,
+  planDeliveries,
   createWebhookEndpoint,
   listWebhookEndpoints,
   deleteWebhookEndpoint,
@@ -193,5 +194,42 @@ describe('deleteWebhookEndpoint', () => {
   it('reports ok/not-ok by rows changed', async () => {
     expect(await deleteWebhookEndpoint(mockEnv([], 1), 'o1', 's1', 'e1')).toEqual({ ok: true });
     expect(await deleteWebhookEndpoint(mockEnv([], 0), 'o1', 's1', 'missing')).toEqual({ ok: false });
+  });
+});
+
+describe('planDeliveries', () => {
+  const TS = '1700000000';
+  const ev = { type: 'site.published', payload: { siteId: 's1' } };
+  const base = (over: Partial<{ id: string; url: string; eventTypes: string[]; enabled: boolean }> = {}) => ({
+    id: 'e1',
+    url: 'https://hooks.example.com/x',
+    eventTypes: ['site.published'],
+    enabled: true,
+    ...over,
+  });
+
+  it('plans a delivery for an enabled, subscribed, safe endpoint', () => {
+    const plan = planDeliveries(ev, [base()], TS);
+    expect(plan.deliveries.length).toBe(1);
+    const d = plan.deliveries[0]!;
+    expect(d.endpointId).toBe('e1');
+    expect(d.timestamp).toBe(TS);
+    expect(d.signatureBase).toBe(signedPayloadBase(TS, d.body));
+    expect(JSON.parse(d.body)).toEqual({ type: 'site.published', payload: { siteId: 's1' }, timestamp: TS });
+  });
+
+  it('skips disabled / not-subscribed / unsafe-url endpoints with reasons', () => {
+    const plan = planDeliveries(ev, [
+      base({ id: 'off', enabled: false }),
+      base({ id: 'other', eventTypes: ['form.submitted'] }),
+      base({ id: 'ssrf', url: 'https://127.0.0.1/x' }),
+      base({ id: 'ok' }),
+    ], TS);
+    expect(plan.deliveries.map((d) => d.endpointId)).toEqual(['ok']);
+    expect(plan.skipped).toEqual([
+      { endpointId: 'off', reason: 'disabled' },
+      { endpointId: 'other', reason: 'not_subscribed' },
+      { endpointId: 'ssrf', reason: 'unsafe_url' },
+    ]);
   });
 });
