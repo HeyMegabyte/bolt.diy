@@ -8,7 +8,7 @@
 ```bash
 cd packages/shared
 npm install --legacy-peer-deps
-npm test                         # 425 unit tests across 9 suites
+npm test                         # 446 unit tests across 11 suites
 npm run typecheck                # tsc --noEmit
 npm run lint                     # eslint
 npm run check                    # all of the above
@@ -191,7 +191,7 @@ redactObject(obj)           // Deep-redact sensitive keys in objects
 
 ## Testing
 
-9 test suites, 425 tests total:
+11 test suites, 446 tests total:
 - `schemas.test.ts` — Base schema validation
 - `middleware.test.ts` — RBAC + entitlements
 - `utils.test.ts` — Sanitization, errors, OTP
@@ -201,6 +201,8 @@ redactObject(obj)           // Deep-redact sensitive keys in objects
 - `confidence.test.ts` — Confidence-attribute provenance schemas
 - `contact.test.ts` — Contact-form payload schemas
 - `forms.test.ts` — Form-submission + newsletter-integration boundary schemas
+- `voice.test.ts` — Voice/SMS-agent boundary schemas (E.164, vanity, settings)
+- `seed-v3.test.ts` — SmallBizSeedV3 confidence-wrapped seed payload
 
 ## Config Notes
 - Jest config: `jest.config.cjs` (must be `.cjs` for ESM packages)
