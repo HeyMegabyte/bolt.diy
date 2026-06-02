@@ -28,6 +28,7 @@ import type { Env, Variables } from '../types/env.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import { getDefaultFlag } from '../modules/feature_flags/registry.js';
 import { dbQuery } from '../services/db.js';
+import { writeAuditLog } from '../services/audit.js';
 import { planBulkOperation, executeBulkArchive, executeBulkSetFlag } from '../services/bulk_site_ops.js';
 
 const NOT_FOUND = { error: { code: 'NOT_FOUND', message: 'Not found' } } as const;
@@ -88,6 +89,20 @@ bulkSiteOps.post('/api/sites/bulk', async (c) => {
   // Apply. `archive` + `set_flag` have verified executors; `republish` does not yet.
   if (operation === 'archive') {
     const results = await executeBulkArchive(c.env, orgId, plan.eligible);
+    await writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId ?? null,
+      action: 'bulk_site_ops.archive',
+      message: `Bulk-archived ${results.archived.length} site(s) (${results.failed.length} failed)`,
+      target_type: 'sites_bulk',
+      metadata_json: {
+        operation: 'archive',
+        eligible: plan.eligible.length,
+        archived: results.archived,
+        failed: results.failed,
+      },
+      request_id: c.get('requestId'),
+    });
     return c.json({ ok: true, dryRun: false, plan, results });
   }
 
@@ -112,7 +127,22 @@ bulkSiteOps.post('/api/sites/bulk', async (c) => {
         400,
       );
     }
-    const results = await executeBulkSetFlag(c.env, plan.eligible, flagKey, enabled, userId);
+    const results = await executeBulkSetFlag(c.env, plan.eligible, flagKey, enabled, userId ?? null);
+    await writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId ?? null,
+      action: 'bulk_site_ops.set_flag',
+      message: `Bulk set flag '${flagKey}'=${enabled} on ${results.set.length} site(s) (${results.failed.length} failed)`,
+      target_type: 'sites_bulk',
+      metadata_json: {
+        operation: 'set_flag',
+        flagKey,
+        enabled,
+        set: results.set,
+        failed: results.failed,
+      },
+      request_id: c.get('requestId'),
+    });
     return c.json({ ok: true, dryRun: false, plan, results });
   }
 

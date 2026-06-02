@@ -59,8 +59,9 @@ export default defineFeatureManifest({
       'returns the validated plan. dryRun:false applies archive (reversible ' +
       'status-only write, never the soft-delete path) and set_flag (tenant-scoped ' +
       'flag_overrides upsert; flagKey must be a known, non-core registry key). ' +
-      'republish → 400 NOT_IMPLEMENTED for now. Beta after: the republish executor ' +
-      '+ per-op audit-log writes + an Angular admin surface.',
+      'republish → 400 NOT_IMPLEMENTED for now. Each applied op writes an audit ' +
+      'log (bulk_site_ops.archive / .set_flag). Beta after: the republish executor ' +
+      '+ an Angular admin surface.',
   },
 
   risks: [
