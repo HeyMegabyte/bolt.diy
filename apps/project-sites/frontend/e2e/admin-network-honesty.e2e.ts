@@ -44,7 +44,7 @@ test.describe('admin — network + honesty regression guards', () => {
     // Best-effort visit each bug-prone route + let its on-load fetches fire. We
     // do NOT hard-assert each route renders (that's other specs' job + can be
     // cold-boot-flaky) — the ONLY assertion here is "no /api/api/ ever fired".
-    const ROUTES = ['/admin/logs', '/admin/mcp', '/admin/social', '/admin/sites', '/admin/apps/instances'];
+    const ROUTES = ['/admin/logs', '/admin/mcp', '/admin/social', '/admin/sites', '/admin/apps/instances', '/admin/inbox'];
     let anyRendered = false;
     for (const r of ROUTES) {
       try {
