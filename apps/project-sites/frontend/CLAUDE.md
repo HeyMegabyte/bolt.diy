@@ -198,15 +198,25 @@ homepage at `/`. Asset paths are CDN-busted via Angular's hashed filenames.
   (lines 2-22 + `ModuleRegistry.registerModules` side-effect at :28) and
   `ai-logs.component.ts` (:14-41) — and esbuild hoists the shared dep into the
   initial bundle. That one dep is ~181 KB transfer — fixing it closes the budget.
-  **Fix (the dedicated wave, do BOTH together or the shared dep stays hoisted):**
-  in each component (1) replace the top-level value imports with `import type`
-  for the erased types; (2) move `ModuleRegistry.registerModules([...])` + the
-  `themeQuartz`/`colorSchemeDarkBlue` theme out of module scope into an async
-  `const ag = await import('ag-grid-community')` in `ngOnInit`, set the theme via
-  a signal; (3) wrap `<ag-grid-angular>` in `@defer (on viewport; when agReady())`
-  with a placeholder, gated on a post-registration `agReady` signal so the grid
-  never renders before its modules register. Re-verify BOTH grids render live
-  (audit + ai-logs need `E2E_API_KEY` auth) + re-measure the initial bundle.
+  **`@defer` approach FAILED (round 42 — tried + reverted):** converting both
+  components to `import type` + async `import('ag-grid-community')` in `ngOnInit`
+  + `@defer (when agReady())` on `<ag-grid-angular>` made the bundle WORSE
+  (1.81 MB → 2.01 MB; the ag-grid initial chunk grew 800 KB → 1.01 MB). Root
+  cause: ag-grid-angular is shared by TWO lazy routes (audit + ai-logs), so
+  esbuild's chunk-splitter hoists it into the initial bundle REGARDLESS of
+  `@defer`, and the added `await import('ag-grid-community')` just duplicated it
+  (ag-grid via the still-eager ag-grid-angular + a new dynamic chunk). `@defer`
+  on a component shared across multiple lazy routes does NOT de-hoist it.
+  **Correct fix (genuinely big — a real wave, NOT a quick win):** migrate both
+  grids from ag-grid to **TanStack Table** (already a project dep;
+  package-registry mandates "ag-grid Community ONLY for 100k+ row enterprise
+  grids" — these are admin log tables, so ag-grid is over-engineered here).
+  TanStack is headless (~15 KB vs 782 KB) → removes ag-grid entirely → closes
+  the budget AND aligns with doctrine. Cost: reimplement the faux master/detail
+  (full-width rows), dark-cyan theme, CSV export, pagination in TanStack for
+  BOTH `audit.component.ts` + `ai-logs.component.ts`, re-verify both grids live
+  (need `E2E_API_KEY`). Until then the 205 KB overage is a build WARNING (not a
+  failure) — admin-only feature weight that also (wrongly) loads on marketing.
   Secondary (smaller): (a) command-palette/shortcuts-overlay are `@if`-conditional
   but eager in `app.component` — `@defer (when …){ @if(…){…} }` trims ~30 KB but
   risks the SUPREME Cmd+K-focus gate (`e2e/cmdk-focus`, dev-suite, can't gate
