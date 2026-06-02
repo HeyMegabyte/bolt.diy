@@ -16,11 +16,15 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
+import { assertSiteOwned } from '../services/site_ownership.js';
 import {
   synthesizeReviews,
   getLatestSynthesis,
   buildReviewJsonLd,
 } from '../services/review_synthesis.js';
+
+/** 404 (never 403/leak) when the :siteId isn't owned by the caller's org. */
+const NOT_OWNED = { error: { code: 'NOT_FOUND', message: 'Not found' } } as const;
 
 const reviews = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -35,6 +39,7 @@ reviews.post('/:siteId/synthesize', async (c) => {
   if (!(await isFlagOn(c.env, 'review_synthesis', { siteId, orgId: c.get('orgId') }))) {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
   }
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(NOT_OWNED, 404);
 
   const result = await synthesizeReviews(c.env, siteId);
   if (!result.ok) {
@@ -55,6 +60,7 @@ reviews.get('/:siteId', async (c) => {
   if (!(await isFlagOn(c.env, 'review_synthesis', { siteId, orgId: c.get('orgId') }))) {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
   }
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(NOT_OWNED, 404);
 
   const synthesis = await getLatestSynthesis(c.env, siteId);
   if (!synthesis) {
@@ -76,6 +82,7 @@ reviews.get('/:siteId/jsonld', async (c) => {
   if (!(await isFlagOn(c.env, 'review_synthesis', { siteId, orgId: c.get('orgId') }))) {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
   }
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(NOT_OWNED, 404);
 
   const synthesis = await getLatestSynthesis(c.env, siteId);
   if (!synthesis) {
