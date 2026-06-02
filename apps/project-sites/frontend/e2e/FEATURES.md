@@ -52,6 +52,7 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
 | Admin routing (SPA, no full reload) | `admin-routing.e2e.ts`, `admin.spec.ts` | ✅ |
 | Admin shell / sidebar / topbar | `admin.spec.ts`, `production-admin.spec.ts` | ✅ |
 | User menu | `admin-user-menu.spec.ts` | ✅ |
+| User settings · Sessions (toast-clean) | `admin-user-settings.e2e.ts` | ✅ |
 | Cmd+K command palette + focus | `admin.spec.ts`, `full-audit.spec.ts` | ✅ |
 | Cinematic UI (rolling-counter, reveal) | `admin-cinematic-ui.e2e.ts` | ✅ |
 | Spartan controls + tooltip | `admin-spartan-controls.e2e.ts`, `admin-tooltip.e2e.ts` | ✅ |
