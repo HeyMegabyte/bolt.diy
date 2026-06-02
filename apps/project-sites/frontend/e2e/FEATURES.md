@@ -55,6 +55,7 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
 | User settings · Sessions (toast-clean) | `admin-user-settings.e2e.ts` | ✅ |
 | Cmd+K command palette + focus | `admin.spec.ts`, `full-audit.spec.ts` | ✅ |
 | Cinematic UI (rolling-counter, reveal) | `admin-cinematic-ui.e2e.ts` | ✅ |
+| Dashboard upgrades shell — AI FAB (real `/api/dashboard/chat` SSE) + share-toast (de-faked) | `admin-ai-fab.e2e.ts` | ⚠️ shipped + bundle-verified; shell occluded by editor iframe on `/admin` (see Known gaps) |
 | Spartan controls + tooltip | `admin-spartan-controls.e2e.ts`, `admin-tooltip.e2e.ts` | ✅ |
 
 ## Admin sections
@@ -146,3 +147,17 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
   covered by **broad suites** (`full-audit`, `full-coverage`,
   `full-feature-coverage`). A future round can split these into per-section
   dedicated specs for finer-grained failure attribution.
+- **Admin-upgrades-shell occluded on `/admin`** — the 600-line "30 upgrades"
+  shell (`components/admin-upgrades/admin-upgrades-shell.component.ts`, hosted in
+  `pages/admin/sections/dashboard.component.ts`) mounts ONLY on `/admin`, which is
+  an editor route (`pages/admin/admin.component.ts:135` `isEditorRoute`), so the
+  persistent `.bolt-frame--visible` iframe (z-stacking) is composited over the
+  shell's topbar + FAB — they are present in the DOM but not click-reachable for a
+  real user. The AI FAB (now real SSE) + share-toast fixes shipped and are
+  bundle-verified by `admin-ai-fab.e2e.ts`, but exercising them via real clicks
+  needs the shell re-mounted as persistent chrome ABOVE the iframe in
+  `admin.component`, OR excluding `/admin` from `isEditorRoute`. The shell also
+  duplicates real chrome (sidebar nav, `notification-bell.component`,
+  `command-palette`, `ai-chat-widget`) — so "un-bury vs retire the shell" is a
+  product/architecture decision, deferred (entangled with the persistent-iframe
+  host; not changed unilaterally under concurrent sessions).
