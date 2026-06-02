@@ -249,7 +249,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
     </section>
   `,
   styles: [`
-    :host { display: block; min-width: 0; padding: 1.5rem; max-width: 1280px; margin: 0 auto; }
+    :host { display: block; box-sizing: border-box; width: 100%; min-width: 0; padding: 1.5rem; max-width: 1280px; margin: 0 auto; }
     .ff-page { color: var(--ps-ink, #f4f4ff); }
     .ff-header { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
     .ff-header h1 { font-size: clamp(1.5rem, 3vw, 2.25rem); margin: 0 0 .25rem; }
