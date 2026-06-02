@@ -82,6 +82,7 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
 |---|---|---|
 | Dialog (focus-trap + Esc + restore) | `a11y-focus-trap.spec.ts`, `admin-dialog-keyboard.e2e.ts` | ✅ |
 | Branded confirm dialog (ConfirmService — replaces native `confirm()` on all destructive actions; focus-trap + restore, no mutation on cancel) | `admin-confirm-dialog.e2e.ts` | ✅ |
+| Branded input dialog (PromptService — replaces native `prompt()`; inline validation, focus-trap + restore) | `input-dialog.component.spec.ts` (unit: validation/submit) + shared overlay a11y via `admin-confirm-dialog.e2e.ts` | ✅ |
 | Empty / loading / error / success states | `admin-error-states.e2e.ts`, `admin-section-states.e2e.ts`, `states-kit.spec.ts` | ✅ |
 | Network honesty (no fake data) | `admin-network-honesty.e2e.ts` | ✅ |
 | API contract (no dead/SPA-HTML endpoints) | `api-contract.e2e.ts` | ✅ |
