@@ -108,12 +108,14 @@ export function createSecurityHeaders() {
      */
     'Content-Security-Policy': [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // inline scripts for React
-      "style-src 'self' 'unsafe-inline'",                // inline styles
+      // static.cloudflareinsights.com: CF Web Analytics auto-injects its beacon.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com", // inline scripts for React
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",     // inline + Google Fonts CSS
       "img-src 'self' data: https: blob:",
       "font-src 'self' data: https://fonts.gstatic.com",
-      "connect-src 'self' https://api.github.com https://api.netlify.com https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io wss://*.webcontainer-api.io wss://*.local-credentialless.webcontainer-api.io",
-      "frame-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io https://*.stackblitz.com",
+      "connect-src 'self' https://api.github.com https://api.netlify.com https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io wss://*.webcontainer-api.io wss://*.local-credentialless.webcontainer-api.io https://cloudflareinsights.com",
+      // bare stackblitz.com: root.tsx sets WEBCONTAINER_API_IFRAME_URL to it (no subdomain → *.stackblitz.com doesn't match).
+      "frame-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io https://stackblitz.com https://*.stackblitz.com",
       "child-src 'self' blob: https://*.webcontainer-api.io https://*.local-credentialless.webcontainer-api.io",
       "worker-src 'self' blob:",
       "frame-ancestors 'self' https://projectsites.dev https://*.projectsites.dev https://bolt-diy-8jf.pages.dev https://bolt.megabyte.space",
