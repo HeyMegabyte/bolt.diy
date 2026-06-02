@@ -10,6 +10,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { ToastService } from '../../services/toast.service';
+import { ConfirmService } from '../../services/confirm.service';
 import { Dialog, DialogRef } from '@angular/cdk/dialog';
 import { DialogShellComponent } from '../dialog-shell/dialog-shell.component';
 
@@ -393,6 +394,7 @@ const EMPTY_DRAFT: NewVarDraft = {
 export class EnvVarsManagerComponent implements OnInit {
   private api = inject(ApiService);
   private toast = inject(ToastService);
+  private confirmSvc = inject(ConfirmService);
   private dialog = inject(Dialog);
 
   /** Required. One of `org | site | mcp | endpoint | agent`. */
@@ -607,8 +609,13 @@ export class EnvVarsManagerComponent implements OnInit {
   }
 
   /** Delete a var after explicit confirm. Removes the row optimistically. */
-  remove(v: EnvVarDto): void {
-    if (!confirm(`Delete env var ${v.key}? This cannot be undone.`)) return;
+  async remove(v: EnvVarDto): Promise<void> {
+    const ok = await this.confirmSvc.confirm({
+      title: 'Delete env var',
+      message: `Delete env var ${v.key}? This cannot be undone — anything reading it will fall back to its default or fail.`,
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
     this.api.delete<{ deleted: boolean }>(`/env-vars/${v.id}`).subscribe({
       next: () => {
         this.vars.update((rows) => rows.filter((r) => r.id !== v.id));

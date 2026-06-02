@@ -35,6 +35,7 @@ import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { EmptyStateComponent } from '../empty-state.component';
 import { HlmInputDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
@@ -510,6 +511,7 @@ export class AdminDomainsComponent implements OnInit {
   readonly state = inject(AdminStateService);
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
+  private readonly confirmSvc = inject(ConfirmService);
 
   /** ───── Form / input state ───── */
   customDomainInput = signal('');
@@ -775,10 +777,15 @@ export class AdminDomainsComponent implements OnInit {
   }
 
   /** Remove a custom hostname (free subdomains cannot be removed). */
-  removeHostname(h: Hostname): void {
+  async removeHostname(h: Hostname): Promise<void> {
     const site = this.state.selectedSite();
     if (!site) return;
-    if (!confirm(`Remove ${h.hostname} from this site?`)) return;
+    const ok = await this.confirmSvc.confirm({
+      title: 'Remove hostname',
+      message: `Remove ${h.hostname} from this site? Visitors using it will stop reaching the site until it's re-added.`,
+      confirmLabel: 'Remove',
+    });
+    if (!ok) return;
     this.busyHostname.set(h.id);
     this.api.delete(`/sites/${site.id}/hostnames/${h.id}`).subscribe({
       next: () => {

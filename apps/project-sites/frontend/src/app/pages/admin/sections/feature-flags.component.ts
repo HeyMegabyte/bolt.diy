@@ -26,6 +26,7 @@ import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { FeatureFlagService } from '../../../services/feature-flag.service';
 import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
 
@@ -334,6 +335,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
 export class AdminFeatureFlagsComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly toast = inject(ToastService);
+  private readonly confirmSvc = inject(ConfirmService);
   private readonly flagSvc = inject(FeatureFlagService);
 
   readonly stages: StageFilter[] = ['all', 'experimental', 'beta', 'stable', 'deprecated', 'killswitch'];
@@ -527,7 +529,12 @@ export class AdminFeatureFlagsComponent implements OnInit {
   }
 
   async killswitch(flag: FlagDefinition): Promise<void> {
-    if (!confirm(`Instant kill ${flag.key} for ALL users?\n\nThis flips the hard kill switch off everywhere with no redeploy. Restore it from this page.`)) return;
+    const ok = await this.confirmSvc.confirm({
+      title: 'Trigger kill switch',
+      message: `Instant-kill "${flag.key}" for ALL users? This flips the hard kill switch off everywhere with no redeploy. You can restore it from this page.`,
+      confirmLabel: 'Kill for everyone',
+    });
+    if (!ok) return;
     return this.applyOverride(
       flag,
       { kill_switch: true, enabled_globally: false, rollout_pct: 0 },

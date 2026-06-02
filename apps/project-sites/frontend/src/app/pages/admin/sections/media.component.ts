@@ -48,6 +48,7 @@ import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../.
 import { ApiService } from '../../../services/api.service';
 import { BoltEmbedService } from '../../../services/bolt-embed.service';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 
 /** All asset kinds the backend tracks. */
 type MediaKind = 'image' | 'video' | 'audio' | 'document';
@@ -1059,6 +1060,7 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly api = inject(ApiService);
   private readonly bolt = inject(BoltEmbedService);
   private readonly toast = inject(ToastService);
+  private readonly confirmSvc = inject(ConfirmService);
 
   @ViewChild('fileInput') private fileInputRef?: ElementRef<HTMLInputElement>;
 
@@ -1311,8 +1313,13 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.selectedIds.set(new Set());
   }
 
-  deleteOne(asset: MediaAsset): void {
-    if (!confirm(`Delete "${asset.name}"? This cannot be undone.`)) return;
+  async deleteOne(asset: MediaAsset): Promise<void> {
+    const ok = await this.confirmSvc.confirm({
+      title: 'Delete asset',
+      message: `Delete "${asset.name}"? This cannot be undone — any site using it will show a broken reference.`,
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
     this.api.delete<{ ok: boolean }>(`/media/assets/${asset.id}`).subscribe({
       next: () => {
         this.assets.update((rows) => rows.filter((r) => r.id !== asset.id));
@@ -1327,10 +1334,15 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
-  deleteSelected(): void {
+  async deleteSelected(): Promise<void> {
     const ids = Array.from(this.selectedIds());
     if (ids.length === 0) return;
-    if (!confirm(`Delete ${ids.length} ${ids.length === 1 ? 'asset' : 'assets'}?`)) return;
+    const ok = await this.confirmSvc.confirm({
+      title: 'Delete assets',
+      message: `Delete ${ids.length} ${ids.length === 1 ? 'asset' : 'assets'}? This cannot be undone.`,
+      confirmLabel: `Delete ${ids.length}`,
+    });
+    if (!ok) return;
     let done = 0;
     let fail = 0;
     for (const id of ids) {

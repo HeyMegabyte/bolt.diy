@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { MCP_PROVIDERS } from './mcp-providers';
 import { EnvVarsManagerComponent } from '../../../components/env-vars-manager/env-vars-manager.component';
 import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective } from '../../../ui';
@@ -776,6 +777,7 @@ export class AdminSettingsComponent implements OnInit {
   state = inject(AdminStateService);
   private api = inject(ApiService);
   private toast = inject(ToastService);
+  private confirmSvc = inject(ConfirmService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
@@ -1140,12 +1142,17 @@ export class AdminSettingsComponent implements OnInit {
       error: () => { /* api.service already toasted */ },
     });
   }
-  removeMember(m: Member): void {
+  async removeMember(m: Member): Promise<void> {
     if (this.isLastOwner(m)) {
       this.toast.error('Cannot remove the last owner. Promote another member to owner first.');
       return;
     }
-    if (!confirm(`Remove ${m.email}?`)) return;
+    const ok = await this.confirmSvc.confirm({
+      title: 'Remove member',
+      message: `Remove ${m.email} from this organization? They lose access immediately.`,
+      confirmLabel: 'Remove',
+    });
+    if (!ok) return;
     this.api.delete(`/team/members/${m.id}`).subscribe({
       next: () => { this.toast.success('Member removed'); this.loadTeam(); },
       error: () => { /* api.service already toasted */ },

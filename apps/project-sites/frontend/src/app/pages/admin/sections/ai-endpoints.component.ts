@@ -44,6 +44,7 @@ import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { EmptyStateComponent } from '../empty-state.component';
 import { IdeComponent } from './ai-endpoints/ide.component';
 import { FullscreenOverlayComponent } from '../../../components/fullscreen-overlay/fullscreen-overlay.component';
@@ -867,6 +868,7 @@ export class AdminAiEndpointsComponent implements OnInit {
   state = inject(AdminStateService);
   private api = inject(ApiService);
   private toast = inject(ToastService);
+  private confirmSvc = inject(ConfirmService);
 
   /**
    * Compact-mode flag. When `true` the component renders inside the editor
@@ -1445,8 +1447,13 @@ export class AdminAiEndpointsComponent implements OnInit {
     });
   }
 
-  remove(e: EndpointRow): void {
-    if (!confirm(`Delete endpoint "${e.endpoint_slug}"?`)) return;
+  async remove(e: EndpointRow): Promise<void> {
+    const ok = await this.confirmSvc.confirm({
+      title: 'Delete endpoint',
+      message: `Delete endpoint "${e.endpoint_slug}"? This cannot be undone and any callers will start getting 404s.`,
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
     const s = this.state.selectedSite();
     if (!s) return;
     this.api.delete(`/sites/${s.id}/ai-endpoints/${e.id}`).subscribe({

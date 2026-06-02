@@ -27,12 +27,14 @@ import {
   Output,
   ViewChild,
   computed,
+  inject,
   signal,
   type AfterViewInit,
   type OnDestroy,
   type OnInit,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ConfirmService } from '../../../../services/confirm.service';
 import { FormsModule } from '@angular/forms';
 import { HlmInputDirective } from '../../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
@@ -332,6 +334,7 @@ export class IdeComponent implements OnInit, AfterViewInit, OnDestroy {
   testerBody = '{}';
 
   // Monaco internals — kept private; the public API stays files/language.
+  private readonly confirmSvc = inject(ConfirmService);
   private monaco: MonacoNamespace | null = null;
   private editor: MonacoEditor | null = null;
   /** One Monaco model per file path, so per-file undo/redo + scroll position is preserved. */
@@ -410,8 +413,13 @@ export class IdeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  deleteFile(path: string): void {
-    if (!confirm(`Delete ${path}?`)) return;
+  async deleteFile(path: string): Promise<void> {
+    const ok = await this.confirmSvc.confirm({
+      title: 'Delete file',
+      message: `Delete ${path}? Unsaved changes to it will be lost.`,
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
     const next = { ...this.files };
     delete next[path];
     this.files = next;
