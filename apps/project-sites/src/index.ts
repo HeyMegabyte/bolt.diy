@@ -878,17 +878,12 @@ app.all('*', async (c) => {
     });
   }
 
-  // Check for ?chat query param (requires auth gate)
-  if (url.searchParams.has('chat')) {
-    // TODO: Implement chat overlay auth gate
-    return c.json(
-      {
-        message: 'Chat overlay - authentication required',
-        auth_url: `/api/auth/magic-link`,
-      },
-      200,
-    );
-  }
+  // (Removed: a dead `?chat` branch that returned raw JSON
+  // ("Chat overlay - authentication required") to any visitor who appended
+  // `?chat` — an unfinished stub nothing linked to or consumed. Unknown query
+  // params now fall through to normal site serving. A real on-site chat overlay,
+  // if ever built, belongs behind a feature flag as an injected frontend widget,
+  // not a JSON branch on the serving path.)
 
   // Record an anonymous edge pageview (Cloudflare-native, fire-and-forget) so
   // visitor navigations surface in the per-site analytics dashboard. Never
