@@ -16,6 +16,9 @@
  * @packageDocumentation
  */
 
+import type { Env } from '../types/env.js';
+import { dbQueryOne, dbExecute } from './db.js';
+
 /** A seat limit `< 0` means unlimited (e.g. enterprise). */
 export interface SeatUsage {
   activeMembers: number;
@@ -71,4 +74,43 @@ export function canTransferOwnership(actorRole: string, targetIsMember: boolean)
   if (actorRole !== 'owner') return { allowed: false, reason: 'Only the owner can transfer ownership' };
   if (!targetIsMember) return { allowed: false, reason: 'Ownership can only be transferred to an existing team member' };
   return { allowed: true };
+}
+
+export interface TransferResult {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Transfer org ownership: the current owner steps down to `admin` and an
+ * existing member is promoted to `owner` (both valid per the memberships
+ * CHECK constraint). Guards via {@link canTransferOwnership}; all queries are
+ * org-scoped. No-op error if the caller isn't the owner or the target isn't a
+ * member.
+ *
+ * @example
+ * ```ts
+ * const res = await transferOwnership(env, orgId, currentOwnerId, newOwnerId);
+ * if (!res.ok) return badRequest(res.error);
+ * ```
+ */
+export async function transferOwnership(
+  env: Env,
+  orgId: string,
+  actorUserId: string,
+  targetUserId: string,
+): Promise<TransferResult> {
+  if (actorUserId === targetUserId) return { ok: false, error: 'You already own this organization' };
+
+  const sel = 'SELECT role FROM memberships WHERE org_id = ? AND user_id = ? AND deleted_at IS NULL';
+  const actor = await dbQueryOne<{ role: string }>(env.DB, sel, [orgId, actorUserId]);
+  const target = await dbQueryOne<{ role: string }>(env.DB, sel, [orgId, targetUserId]);
+
+  const decision = canTransferOwnership(actor?.role ?? 'none', !!target);
+  if (!decision.allowed) return { ok: false, error: decision.reason };
+
+  const upd = "UPDATE memberships SET role = ?, updated_at = datetime('now') WHERE org_id = ? AND user_id = ? AND deleted_at IS NULL";
+  await dbExecute(env.DB, upd, ['admin', orgId, actorUserId]); // step the old owner down
+  await dbExecute(env.DB, upd, ['owner', orgId, targetUserId]); // promote the new owner
+  return { ok: true };
 }

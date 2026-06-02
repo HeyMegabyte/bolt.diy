@@ -36,6 +36,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { getBalance, topupCredits, CREDIT_BUNDLES, type BundleKey } from '../services/credits.js';
+import { transferOwnership } from '../services/team_seats.js';
 import { allProviders } from '../services/mcp_client.js';
 import { DEFAULT_ROUTER_PROMPT, DEFAULT_CHAT_SYSTEM_PROMPT } from '../services/form_router.js';
 import { DASHBOARD_PERSONA_SYSTEM_PROMPT } from '../prompts/dashboard_persona.js';
@@ -1235,6 +1236,41 @@ aiAdmin.post('/api/team/invites', async (c) => {
   );
 
   return c.json({ data: { id, token } }, 201);
+});
+
+/**
+ * `POST /api/team/transfer-ownership` — Hand org ownership to an existing member.
+ *
+ * @remarks
+ * Body: `{ targetUserId }`. Only the current owner may transfer, and only to an
+ * existing team member; the old owner steps down to `admin`. Org-scoped +
+ * audit-logged. Adopts the {@link transferOwnership} policy (#8).
+ *
+ * @throws 400 BAD_REQUEST when targetUserId is missing or the transfer is not allowed.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
+aiAdmin.post('/api/team/transfer-ownership', async (c) => {
+  const { orgId, userId } = need(c);
+  const { targetUserId } = (await c.req.json().catch(() => ({}))) as { targetUserId?: string };
+  if (!targetUserId) throw new HTTPError(400, 'targetUserId required');
+
+  const res = await transferOwnership(c.env, orgId, userId, targetUserId);
+  if (!res.ok) throw new HTTPError(400, res.error ?? 'Ownership transfer failed');
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId,
+      action: 'team.ownership_transferred',
+      message: `Ownership transferred from '${userId}' to '${targetUserId}'`,
+      target_type: 'membership',
+      target_id: targetUserId,
+      metadata_json: { from: userId, to: targetUserId },
+      request_id: c.get('requestId'),
+    }),
+  );
+
+  return c.json({ ok: true });
 });
 
 /**
