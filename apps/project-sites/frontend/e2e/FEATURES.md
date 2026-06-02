@@ -84,6 +84,7 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
 | Network honesty (no fake data) | `admin-network-honesty.e2e.ts` | ✅ |
 | API contract (no dead/SPA-HTML endpoints) | `api-contract.e2e.ts` | ✅ |
 | Marketing internal links (no 4xx/5xx) | `marketing-links.e2e.ts` | ✅ |
+| JSON-LD accuracy (FAQPage only where visible) | `marketing-jsonld.e2e.ts` | ✅ |
 | Admin interactions (clicks/keyboard) | `admin-interactions.e2e.ts`, `admin-functional.e2e.ts` | ✅ |
 | Universal search (real nav, no fabricated rows) | `admin-universal-search.e2e.ts` | ✅ |
 
