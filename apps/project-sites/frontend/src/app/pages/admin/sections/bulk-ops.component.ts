@@ -23,6 +23,7 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { HlmButtonDirective, HlmInputDirective } from '../../../ui';
 
 type BulkOperation = 'archive' | 'set_flag' | 'republish';
@@ -42,11 +43,34 @@ interface BulkPreviewResponse {
   dryRun: boolean;
   plan: BulkPlan;
 }
+interface BulkApplyRawResults {
+  archived?: string[];
+  set?: string[];
+  failed: BulkSkip[];
+}
+interface BulkApplyResponse {
+  ok: boolean;
+  dryRun: boolean;
+  plan: BulkPlan;
+  results: BulkApplyRawResults;
+}
+interface BulkApplyResult {
+  applied: string[];
+  failed: BulkSkip[];
+}
 
 @Component({
   selector: 'app-admin-bulk-ops',
   standalone: true,
-  imports: [CommonModule, FormsModule, RollingCounterComponent, RevealDirective, HlmButtonDirective, HlmInputDirective],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RollingCounterComponent,
+    RevealDirective,
+    DialogShellComponent,
+    HlmButtonDirective,
+    HlmInputDirective,
+  ],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -135,7 +159,56 @@ interface BulkPreviewResponse {
           } @else {
             <p class="mt-3 text-sm text-text-secondary">No sites skipped — the operation applies cleanly to every site.</p>
           }
+
+          @if (canApply()) {
+            <div class="mt-5 pt-4 border-t border-white/[0.08] flex items-center gap-3">
+              <button hlmBtn data-testid="bulk-ops-apply-btn" (click)="confirmOpen.set(true)">
+                Apply {{ p.operation }} to {{ p.eligible.length }} site(s)
+              </button>
+              <span class="text-[0.72rem] text-text-secondary">Applies immediately. Archive is reversible.</span>
+            </div>
+          }
         </div>
+      }
+
+      @if (applyResults(); as r) {
+        <div data-testid="bulk-ops-apply-result" role="status" class="mt-5 rounded-xl border border-primary/30 bg-primary/[0.06] p-4" appReveal>
+          <div class="flex items-baseline gap-2">
+            <app-rolling-counter [value]="r.applied.length" />
+            <span class="text-text-secondary text-sm">site(s) updated</span>
+            @if (r.failed.length > 0) {
+              <span class="ml-2 text-[0.72rem] text-amber-300/90">{{ r.failed.length }} failed</span>
+            }
+          </div>
+          @if (r.failed.length > 0) {
+            <ul class="mt-3 flex flex-col gap-1.5">
+              @for (f of r.failed; track f.id) {
+                <li data-testid="bulk-ops-apply-fail-row" class="flex items-center justify-between gap-3 text-[0.8rem] rounded-lg bg-white/[0.03] px-3 py-2">
+                  <code class="text-text-secondary truncate">{{ f.id }}</code>
+                  <span class="text-amber-300/90 shrink-0">{{ f.error }}</span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      }
+
+      @if (confirmOpen()) {
+        <app-dialog-shell [title]="'Apply ' + operationModel() + ' to ' + (plan()?.eligible?.length ?? 0) + ' site(s)?'" (closed)="confirmOpen.set(false)">
+          <div>
+            <p class="text-sm text-text-secondary">
+              This applies the operation to every eligible site now.
+              @if (operationModel() === 'archive') { Archived sites can be un-archived later. }
+              @if (operationModel() === 'set_flag') { Sets <code class="text-light">{{ flagKeyModel() }}</code> = {{ enabledModel() }}. }
+            </p>
+          </div>
+          <div footer>
+            <button hlmBtn variant="ghost" size="sm" type="button" (click)="confirmOpen.set(false)">Cancel</button>
+            <button hlmBtn size="sm" type="button" data-testid="bulk-ops-confirm-apply" [disabled]="applying()" (click)="apply()">
+              {{ applying() ? 'Applying…' : 'Yes, apply' }}
+            </button>
+          </div>
+        </app-dialog-shell>
       }
     </section>
   `,
@@ -152,12 +225,28 @@ export class AdminBulkOpsComponent {
   readonly error = signal<string | null>(null);
   readonly plan = signal<BulkPlan | null>(null);
 
+  readonly confirmOpen = signal(false);
+  readonly applying = signal(false);
+  readonly applyResults = signal<BulkApplyResult | null>(null);
+
   readonly isSetFlag = computed(() => this.operationModel() === 'set_flag');
 
+  /** Apply is offered only for a previewed, non-empty plan of an executable op. */
+  readonly canApply = computed(() => {
+    const p = this.plan();
+    if (!p || p.eligible.length === 0) return false;
+    const op = this.operationModel();
+    if (op === 'republish') return false; // no executor yet (backend 400s)
+    if (op === 'set_flag' && this.flagKeyModel().trim().length === 0) return false;
+    return true;
+  });
+
   onOperationChange(_op: BulkOperation): void {
-    // Switching operation invalidates a prior preview to avoid a stale plan.
+    // Switching operation invalidates a prior preview/result to avoid stale state.
     this.plan.set(null);
     this.error.set(null);
+    this.applyResults.set(null);
+    this.confirmOpen.set(false);
   }
 
   preview(): void {
@@ -174,6 +263,7 @@ export class AdminBulkOpsComponent {
     this.api.post<BulkPreviewResponse>('/sites/bulk', body).subscribe({
       next: (res) => {
         this.plan.set(res.plan);
+        this.applyResults.set(null);
         this.loading.set(false);
       },
       error: (err: unknown) => {
@@ -183,6 +273,35 @@ export class AdminBulkOpsComponent {
         this.error.set(msg);
         this.toast.error(msg);
         this.loading.set(false);
+      },
+    });
+  }
+
+  apply(): void {
+    if (this.applying() || !this.canApply()) return;
+    this.applying.set(true);
+
+    const body: Record<string, unknown> = { operation: this.operationModel(), allSites: true, dryRun: false };
+    if (this.operationModel() === 'set_flag') {
+      body['flagKey'] = this.flagKeyModel().trim();
+      body['enabled'] = this.enabledModel();
+    }
+
+    this.api.post<BulkApplyResponse>('/sites/bulk', body).subscribe({
+      next: (res) => {
+        const applied = res.results.archived ?? res.results.set ?? [];
+        this.applyResults.set({ applied, failed: res.results.failed ?? [] });
+        this.toast.success(`Applied to ${applied.length} site(s)`);
+        this.confirmOpen.set(false);
+        this.applying.set(false);
+      },
+      error: (err: unknown) => {
+        const msg =
+          (err as { error?: { error?: { message?: string } } })?.error?.error?.message ??
+          'Could not apply the bulk operation.';
+        this.toast.error(msg);
+        this.confirmOpen.set(false);
+        this.applying.set(false);
       },
     });
   }

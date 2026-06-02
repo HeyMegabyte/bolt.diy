@@ -31,7 +31,7 @@ describe('AdminBulkOpsComponent', () => {
       imports: [AdminBulkOpsComponent],
       providers: [
         { provide: ApiService, useValue: { post } },
-        { provide: ToastService, useValue: { error: jasmine.createSpy('error') } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(AdminBulkOpsComponent);
@@ -95,5 +95,57 @@ describe('AdminBulkOpsComponent', () => {
 
     fixture.componentInstance.onOperationChange('republish');
     expect(fixture.componentInstance.plan()).toBeNull();
+  });
+
+  it('offers Apply after a non-empty preview, but not for republish', () => {
+    (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(q('[data-testid="bulk-ops-apply-btn"]')).not.toBeNull(); // archive plan, eligible>0
+
+    fixture.componentInstance.operationModel.set('republish');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.canApply()).toBe(false);
+  });
+
+  it('applies with dryRun:false after confirm and renders the result', () => {
+    post.and.returnValue(
+      of({ ok: true, dryRun: false, plan: PLAN.plan, results: { archived: ['s1', 's2', 's3'], failed: [] } }),
+    );
+    // open preview first so canApply() is true
+    post.and.returnValue(of(PLAN));
+    (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    (q('[data-testid="bulk-ops-apply-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(q('[data-testid="bulk-ops-confirm-apply"]')).not.toBeNull(); // dialog open
+
+    post.and.returnValue(
+      of({ ok: true, dryRun: false, plan: PLAN.plan, results: { archived: ['s1', 's2', 's3'], failed: [] } }),
+    );
+    (q('[data-testid="bulk-ops-confirm-apply"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const applyCall = post.calls.mostRecent().args;
+    expect((applyCall[1] as { dryRun: boolean }).dryRun).toBe(false);
+    expect(q('[data-testid="bulk-ops-apply-result"]')).not.toBeNull();
+    expect(fixture.componentInstance.applyResults()?.applied.length).toBe(3);
+    expect(fixture.componentInstance.confirmOpen()).toBe(false);
+  });
+
+  it('normalizes set_flag results (results.set) into applied', () => {
+    fixture.componentInstance.operationModel.set('set_flag');
+    fixture.componentInstance.flagKeyModel.set('review_synthesis');
+    post.and.returnValue(of(PLAN));
+    (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    post.and.returnValue(
+      of({ ok: true, dryRun: false, plan: PLAN.plan, results: { set: ['s1', 's2'], failed: [{ id: 's3', error: 'no_match' }] } }),
+    );
+    fixture.componentInstance.apply();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.applyResults()?.applied).toEqual(['s1', 's2']);
+    expect(all('[data-testid="bulk-ops-apply-fail-row"]').length).toBe(1);
   });
 });
