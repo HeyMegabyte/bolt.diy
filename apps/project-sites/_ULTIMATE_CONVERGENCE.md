@@ -110,6 +110,16 @@ Closed: `content.ts` approve · `conversational_edits.ts` (4f7620be) · `swarm.t
 **Lessons (fold forward):** (a) **prioritize routes with NO feature-flag gate** — LIVE (any authed user), worse than dormant; grep `:siteId` handlers lacking BOTH `isFlagOn` AND an ownership check. (b) **mutations must scope by parent `site_id`, not child id alone** — always `WHERE id = ? AND site_id = ?`. (c) **NEVER derive tenant identity from a client-supplied header** (`x-org-id` etc.) — always `c.get('orgId')` from the authed session; a header is attacker-controlled (copilot bug). (d) ownership can live at the route OR service layer — verify the actual query (`WHERE … org_id=?`) before claiming a gap. New site-scoped routes MUST use `assertSiteOwned` (or equivalent) from day one.
 
 ## 7. P1 + P2 progress notes
+
+**📊 BRIAN-PRIORITIZED MODULE STATUS (all 6 now started):**
+- **#12 email_deliverability_wizard** — ✅ FULL-STACK (core+route+flag+manifest + `/admin/deliverability` UI). Only admin flag-flip to promote.
+- **#17 bulk_site_ops** — ✅ FULL-STACK (planner+archive+set_flag executors+audit + `/admin/bulk-ops` preview→confirm→apply UI). Remaining: `republish` executor + promote.
+- **#8 team_seats_rbac** — 🟡 seat-policy core (80b4912e); EXTENDS team infra. Slice 2 = adopt in invite route + transfer-owner route.
+- **#10 outbound_webhooks** — 🟡 delivery-policy core (8187b991). Slice 2 = endpoints/deliveries tables + CRUD + fan-out.
+- **#4 review_approval_links** — 🟡 state-machine core (a643561b); EXTENDS approval_workflow/review_tokens. Slice 2 = ALTER review_tokens ADD status + routes.
+- **#11 automation_builder** — 🟡 recipe-validation + event-match core (81c25121). Slice 2 = recipes table + CRUD + dispatch (reuses #10 signer).
+- Next: drive a core-only module (#8/#10/#4/#11) to full-stack via slice 2, OR #17 republish executor. The visible-surface recipe ([[admin-section-add-recipe]]) makes each module's UI cheap once its routes exist.
+
 - **✅ P1 #12 `email_deliverability_wizard` — FULLY WIRED + DARK-LAUNCHED (407de810 core, f26fd351 wiring).** First Brian-prioritized module shipped end-to-end via the **bottom-up loop strategy** (2 rounds, no dedicated pass needed):
   - Round 1 (407de810): pure injectable-`fetch` core `src/services/email_deliverability.ts` + 6 green unit tests (`src/__tests__/email_deliverability.test.ts`). Score = SPF 35 + DMARC 35 + policy(quarantine|reject) 10 + DKIM 20; DoH to `cloudflare-dns.com`; graceful `score 0` on failure.
   - Round 2 (f26fd351): `GET /api/sites/:siteId/deliverability` (`src/routes/email_deliverability.ts`) — `auth` 401 → `isFlagOn('email_deliverability_wizard')` 404 → **`assertSiteOwned`** 404 → domain from `?domain=` (the actual sending domain) else primary `custom_cname` hostname else 400 → `checkDeliverability(fetch, domain)`. Flag added to `registry.ts` (`experimental`, off). Manifest `libs/features/email_deliverability_wizard/feature.manifest.ts` (registry-entry-only, `unitTests:['__tests__/email_deliverability.test.ts']` — resolves as `src/<path>`). Mounted in `src/index.ts` before the `api` catch-all. **drift 0 · tsc 0 · 6/6 unit.** Ships on push (Docker-gated).
