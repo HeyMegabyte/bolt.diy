@@ -165,7 +165,7 @@ interface TocItem {
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      color: #64748b;
+      color: #94a3b8;
       margin: 0 0 16px;
     }
     .toc-nav {
@@ -398,10 +398,10 @@ interface TocItem {
       flex-wrap: wrap;
       gap: 12px;
       font-size: 0.8rem;
-      color: #64748b;
+      color: #94a3b8;
     }
     .footer-bottom a {
-      color: #64748b;
+      color: #94a3b8;
       text-decoration: none;
       transition: color 0.2s;
     }

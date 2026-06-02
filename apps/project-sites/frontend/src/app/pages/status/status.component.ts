@@ -198,7 +198,7 @@ interface ServiceEntry {
     }
     .service-desc {
       font-size: 0.78rem;
-      color: #64748b;
+      color: #94a3b8;
     }
 
     .service-status {
@@ -254,10 +254,10 @@ interface ServiceEntry {
       flex-wrap: wrap;
       gap: 12px;
       font-size: 0.8rem;
-      color: #64748b;
+      color: #94a3b8;
     }
     .footer-bottom a {
-      color: #64748b;
+      color: #94a3b8;
       text-decoration: none;
       transition: color 0.2s;
     }

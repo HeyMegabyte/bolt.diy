@@ -168,7 +168,7 @@ import { BlogService, type BlogPost } from '../../services/blog.service';
       align-items: center;
       gap: 8px;
       font-size: 0.78rem;
-      color: #64748b;
+      color: #94a3b8;
     }
     .card-dot {
       width: 3px;
@@ -193,10 +193,10 @@ import { BlogService, type BlogPost } from '../../services/blog.service';
       flex-wrap: wrap;
       gap: 12px;
       font-size: 0.8rem;
-      color: #64748b;
+      color: #94a3b8;
     }
     .footer-bottom a {
-      color: #64748b;
+      color: #94a3b8;
       text-decoration: none;
       transition: color 0.2s;
     }
