@@ -43,11 +43,15 @@
   font: 600 0.78rem 'Sora', system-ui, -apple-system, sans-serif;
   letter-spacing: 0.005em;
   cursor: pointer;
+  border: 1px solid transparent;
   border-radius: 8px;
   position: relative;
   transition:
     color 160ms cubic-bezier(0.4, 0, 0.2, 1),
-    background 160ms cubic-bezier(0.4, 0, 0.2, 1);
+    background 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover:not(.is-active) {
     color: var(--ps-ink, #f4f4ff);
@@ -83,6 +87,54 @@
     .et-tab__icon {
       color: var(--ps-accent, #00e5ff);
     }
+  }
+}
+
+// ── Panel-opener tabs (Media · Agents) ──────────────────────────────────────
+// These don't switch the iframe view like Code — they slide in an Angular
+// overlay panel. Style them as a distinct right-aligned button group so the
+// affordance reads as "opens a panel", clearly separate from the Code toggle.
+.et-tab--panel {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.018);
+
+  &:hover:not(.is-active) {
+    color: var(--ps-ink, #f4f4ff);
+    background: color-mix(in oklch, var(--ps-accent, #00e5ff) 9%, transparent);
+    border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 38%, transparent);
+    transform: translateY(-1px);
+    box-shadow:
+      0 4px 14px rgba(0, 0, 0, 0.28),
+      0 0 0 1px color-mix(in oklch, var(--ps-accent, #00e5ff) 16%, transparent);
+  }
+
+  &:active:not(.is-active) {
+    transform: translateY(0);
+  }
+
+  &.is-active {
+    border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 45%, transparent);
+  }
+
+  .et-tab__icon {
+    color: color-mix(in oklch, var(--ps-accent, #00e5ff) 70%, var(--ps-ink, #f4f4ff));
+  }
+}
+
+// First panel tab pushes the Media·Agents cluster to the right edge and draws a
+// hairline divider separating it from the Code view-toggle on the left.
+.et-tab--lead {
+  margin-left: auto;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: -7px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1px;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.1);
   }
 }
 

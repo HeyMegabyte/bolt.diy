@@ -1,7 +1,13 @@
 import { Component, inject, input, signal, computed, ElementRef, ViewChild, type AfterViewInit, type OnDestroy, EventEmitter, Output } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { scaleFade, listStagger } from '../../animations/motion';
 import { FocusTrapDirective } from '../../directives/focus-trap.directive';
+import { FeatureFlagService } from '../../services/feature-flag.service';
+
+/** localStorage key holding the per-command execution tally that drives the
+ *  "Predicted" Cmd+K group: `{ [commandId]: { n: count, last: epochMs } }`. */
+const CMD_FREQ_KEY = 'ps_cmd_freq';
 
 export interface PaletteCommand {
   id: string;
@@ -60,15 +66,39 @@ const COMMANDS: PaletteCommand[] = [
           <kbd class="palette-esc">esc</kbd>
         </div>
         <div class="palette-divider"></div>
-        <ul class="palette-list" role="listbox" aria-label="Commands" [@listStagger]="filtered().length">
-          @for (cmd of filtered(); track cmd.id; let i = $index) {
+        <ul class="palette-list" role="listbox" aria-label="Commands" [@listStagger]="flatItems().length">
+          @if (predicted().length > 0) {
+            <li class="palette-group" role="presentation" data-testid="command-predicted-header">
+              <span class="palette-group-spark" [innerHTML]="getIcon('sparkle')"></span>
+              Predicted
+            </li>
+            @for (cmd of predicted(); track cmd.id; let i = $index) {
+              <li
+                class="palette-item"
+                [class.active]="i === activeIndex()"
+                [attr.aria-selected]="i === activeIndex()"
+                role="option"
+                (click)="execute(cmd)"
+                (mouseenter)="activeIndex.set(i)"
+                [attr.data-testid]="'command-pred-' + cmd.id"
+              >
+                <span class="palette-item-icon" [innerHTML]="getIcon(cmd.icon)"></span>
+                <span class="palette-item-label">{{ cmd.label }}</span>
+                @if (cmd.route) {
+                  <span class="palette-item-hint">{{ cmd.route }}</span>
+                }
+              </li>
+            }
+            <li class="palette-group-sep" role="presentation" aria-hidden="true"></li>
+          }
+          @for (cmd of restList(); track cmd.id; let i = $index) {
             <li
               class="palette-item"
-              [class.active]="i === activeIndex()"
-              [attr.aria-selected]="i === activeIndex()"
+              [class.active]="(i + predicted().length) === activeIndex()"
+              [attr.aria-selected]="(i + predicted().length) === activeIndex()"
               role="option"
               (click)="execute(cmd)"
-              (mouseenter)="activeIndex.set(i)"
+              (mouseenter)="activeIndex.set(i + predicted().length)"
               [attr.data-testid]="'command-' + cmd.id"
             >
               <span class="palette-item-icon" [innerHTML]="getIcon(cmd.icon)"></span>
@@ -78,7 +108,7 @@ const COMMANDS: PaletteCommand[] = [
               }
             </li>
           }
-          @if (filtered().length === 0) {
+          @if (flatItems().length === 0) {
             <li class="palette-empty">No commands found</li>
           }
         </ul>
@@ -189,6 +219,26 @@ const COMMANDS: PaletteCommand[] = [
       color: rgba(255, 255, 255, 0.25); font-size: 0.85rem;
     }
 
+    /* Predicted group */
+    .palette-group {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px 4px;
+      font-size: 0.66rem; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(0, 229, 255, 0.55);
+      user-select: none; pointer-events: none;
+    }
+    .palette-group-spark {
+      display: inline-flex; align-items: center; justify-content: center;
+      color: rgba(0, 229, 255, 0.7);
+    }
+    .palette-group-spark :deep(svg) { width: 13px; height: 13px; }
+    .palette-group-sep {
+      height: 1px; margin: 6px 12px;
+      background: linear-gradient(90deg, transparent, rgba(0, 229, 255, 0.1), transparent);
+      list-style: none; pointer-events: none;
+    }
+
     /* Footer */
     .palette-footer {
       display: flex; align-items: center; justify-content: center; gap: 20px;
@@ -221,6 +271,15 @@ export class CommandPaletteComponent implements AfterViewInit, OnDestroy {
   readonly extraCommands = input<PaletteCommand[]>([]);
 
   private router = inject(Router);
+  private flags = inject(FeatureFlagService);
+
+  /** Gates the Predicted group. Flag `predicted_actions` (default off). */
+  private readonly predictedEnabled = toSignal(this.flags.isOn('predicted_actions'), {
+    initialValue: false,
+  });
+
+  /** Bumped after each execute so the predicted computed re-derives. */
+  private readonly freqVersion = signal(0);
 
   query = signal('');
   activeIndex = signal(0);
@@ -236,6 +295,70 @@ export class CommandPaletteComponent implements AfterViewInit, OnDestroy {
     );
   });
 
+  /**
+   * Up to 3 likely-next commands, ranked by execution frequency × recency.
+   * Empty while searching (typing filters the full list instead) or when the
+   * `predicted_actions` flag is off. The current route is excluded so we never
+   * "predict" where the user already is.
+   */
+  readonly predicted = computed<PaletteCommand[]>(() => {
+    this.freqVersion(); // re-derive after an execute bumps the tally
+    if (this.query().trim() || !this.predictedEnabled()) return [];
+    const freq = this.readFreq();
+    const here = this.router.url;
+    return this.all()
+      .filter(c => c.route !== here)
+      .map(c => ({ c, s: this.score(freq[c.id]) }))
+      .filter(x => x.s > 0)
+      .sort((a, b) => b.s - a.s)
+      .slice(0, 3)
+      .map(x => x.c);
+  });
+
+  /** The remaining commands (predicted entries removed when not searching). */
+  readonly restList = computed<PaletteCommand[]>(() => {
+    if (this.query().trim()) return this.filtered();
+    const pid = new Set(this.predicted().map(c => c.id));
+    return this.all().filter(c => !pid.has(c.id));
+  });
+
+  /** Flat keyboard-nav order: predicted first, then the rest. activeIndex
+   *  indexes into this combined list. */
+  readonly flatItems = computed<PaletteCommand[]>(() => [...this.predicted(), ...this.restList()]);
+
+  /** Read the per-command tally from localStorage (defensive: {} on any error). */
+  private readFreq(): Record<string, { n: number; last: number }> {
+    try {
+      return JSON.parse(localStorage.getItem(CMD_FREQ_KEY) || '{}') as Record<
+        string,
+        { n: number; last: number }
+      >;
+    } catch {
+      return {};
+    }
+  }
+
+  /** Frequency × recency score. Recency decays linearly over ~30 days to a
+   *  0.2 floor so a once-loved-but-stale action still ranks below a fresh one. */
+  private score(entry?: { n: number; last: number }): number {
+    if (!entry || !entry.n) return 0;
+    const ageDays = (Date.now() - (entry.last || 0)) / 86_400_000;
+    const recency = Math.max(0.2, 1 - ageDays / 30);
+    return entry.n * recency;
+  }
+
+  /** Record one execution so future predictions reflect real usage. */
+  private bumpFreq(id: string): void {
+    try {
+      const f = this.readFreq();
+      f[id] = { n: (f[id]?.n ?? 0) + 1, last: Date.now() };
+      localStorage.setItem(CMD_FREQ_KEY, JSON.stringify(f));
+      this.freqVersion.update(v => v + 1);
+    } catch {
+      /* private mode / quota — predictions just won't personalize */
+    }
+  }
+
   /** SVG icons keyed by name */
   private icons: Record<string, string> = {
     home: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
@@ -250,6 +373,7 @@ export class CommandPaletteComponent implements AfterViewInit, OnDestroy {
     status: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>',
     lock: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
     document: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+    sparkle: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg>',
   };
 
   getIcon(name: string): string {
@@ -279,7 +403,7 @@ export class CommandPaletteComponent implements AfterViewInit, OnDestroy {
   }
 
   onKeydown(event: KeyboardEvent): void {
-    const items = this.filtered();
+    const items = this.flatItems();
 
     switch (event.key) {
       case 'ArrowDown':
@@ -304,6 +428,7 @@ export class CommandPaletteComponent implements AfterViewInit, OnDestroy {
   }
 
   execute(cmd: PaletteCommand): void {
+    this.bumpFreq(cmd.id); // feed the Predicted ranking with real usage
     this.closed.emit();
     if (cmd.action === 'showShortcuts') {
       this.showShortcuts.emit();

@@ -22,14 +22,25 @@
       >
         {{ currentLang() === 'en' ? 'ES' : 'EN' }}
       </button>
-      <button class="text-text-secondary hover:text-primary transition-colors text-sm font-medium" (click)="goSignin()">{{ 'nav.signIn' | translate }}</button>
-      <button
-        psRipple
-        class="px-5 py-2 rounded-full bg-primary text-dark font-semibold text-sm hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0"
-        (click)="goGetStarted()"
-      >
-        {{ 'nav.getStarted' | translate }}
-      </button>
+      @if (isAuthed()) {
+        <button
+          psRipple
+          class="px-5 py-2 rounded-full bg-primary text-dark font-semibold text-sm hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0"
+          (click)="goDashboard()"
+        >
+          {{ 'nav.dashboard' | translate }}
+        </button>
+        <app-user-menu />
+      } @else {
+        <button class="text-text-secondary hover:text-primary transition-colors text-sm font-medium" (click)="goSignin()">{{ 'nav.signIn' | translate }}</button>
+        <button
+          psRipple
+          class="px-5 py-2 rounded-full bg-primary text-dark font-semibold text-sm hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0"
+          (click)="goGetStarted()"
+        >
+          {{ 'nav.getStarted' | translate }}
+        </button>
+      }
     </div>
 
     <!-- Mobile hamburger -->
@@ -55,8 +66,18 @@
           {{ currentLang() === 'en' ? 'Español' : 'English' }}
         </button>
         <hr class="border-white/5" />
-        <button class="text-left text-text-secondary hover:text-primary py-2 text-sm" (click)="goSignin()">{{ 'nav.signIn' | translate }}</button>
-        <button psRipple class="w-full py-2.5 rounded-full bg-primary text-dark font-semibold text-sm" (click)="goGetStarted()">{{ 'nav.getStarted' | translate }}</button>
+        @if (isAuthed()) {
+          <div class="flex items-center gap-2 py-1 text-xs text-text-secondary">
+            <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+            {{ 'nav.signedInAs' | translate }} <span class="text-light font-medium truncate">{{ userEmail() }}</span>
+          </div>
+          <button class="text-left text-text-secondary hover:text-primary py-2 text-sm" (click)="goDashboard()">{{ 'nav.dashboard' | translate }}</button>
+          <button class="text-left text-text-secondary hover:text-primary py-2 text-sm" (click)="goNewSite()">{{ 'nav.newSite' | translate }}</button>
+          <button class="text-left text-red-400 hover:text-red-300 py-2 text-sm" (click)="signOut()">{{ 'nav.signOut' | translate }}</button>
+        } @else {
+          <button class="text-left text-text-secondary hover:text-primary py-2 text-sm" (click)="goSignin()">{{ 'nav.signIn' | translate }}</button>
+          <button psRipple class="w-full py-2.5 rounded-full bg-primary text-dark font-semibold text-sm" (click)="goGetStarted()">{{ 'nav.getStarted' | translate }}</button>
+        }
       </div>
     </div>
   }

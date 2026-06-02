@@ -47,6 +47,82 @@ export async function recordVisitorEvent(
   return { id };
 }
 
+/** Static-asset extensions that are NOT page views (skip recording). */
+const NON_PAGE_EXT_RE =
+  /\.(?:css|js|mjs|cjs|json|map|png|jpe?g|gif|svg|webp|avif|ico|bmp|woff2?|ttf|otf|eot|xml|txt|pdf|mp4|webm|mov|wasm|zip|gz|csv)$/i;
+
+/**
+ * True when a request path is a real page navigation (the thing a visitor
+ * "clicks" to), not a static asset fetch. Root, trailing-slash, extensionless,
+ * and `.html` count as pages; everything with an asset extension does not.
+ */
+export function isPageRequest(path: string): boolean {
+  const clean = (path.split('?')[0] || '/').split('#')[0];
+  if (clean === '/' || clean.endsWith('/')) return true;
+  if (clean.endsWith('.html')) return true;
+  return !NON_PAGE_EXT_RE.test(clean);
+}
+
+/** Obvious crawler/bot UAs we don't count as human pageviews. */
+const BOT_UA_RE =
+  /bot|crawl|spider|slurp|bingpreview|facebookexternalhit|embedly|quora|pinterest|vkshare|whatsapp|flipboard|tumblr|redditbot|gptbot|claudebot|claude-|perplexitybot|ccbot|bytespider|google-extended|applebot|headlesschrome|lighthouse|pagespeed/i;
+
+/**
+ * Privacy-preserving anonymous session id: a truncated SHA-256 of
+ * `ip|ua|YYYY-MM-DD`. Stable per visitor per UTC day for unique-session counts,
+ * but stores NO raw PII (the hash is one-way; the IP/UA are never persisted).
+ */
+async function anonSessionId(ip: string, ua: string): Promise<string> {
+  const day = new Date().toISOString().slice(0, 10);
+  const bytes = new TextEncoder().encode(`${ip}|${ua}|${day}`);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)]
+    .slice(0, 12)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/**
+ * Record an anonymous edge pageview for a served site. Called fire-and-forget
+ * from the Worker's site-serving path via `ctx.waitUntil` — Cloudflare-native,
+ * no client beacon, no feature flag, never blocks or breaks serving.
+ *
+ * @remarks Skips non-page asset requests and known bots. All failures are
+ * swallowed: analytics must never take down content delivery.
+ *
+ * @example
+ * ```ts
+ * c.executionCtx.waitUntil(
+ *   recordPageviewFromRequest(c.env, { orgId: site.org_id, siteId: site.site_id }, c.req.raw, path),
+ * );
+ * ```
+ */
+export async function recordPageviewFromRequest(
+  env: Env,
+  ctx: { orgId: string; siteId: string },
+  request: Request,
+  path: string,
+): Promise<void> {
+  try {
+    if (!isPageRequest(path)) return;
+    const ua = request.headers.get('user-agent') ?? '';
+    if (BOT_UA_RE.test(ua)) return;
+    const ip = request.headers.get('cf-connecting-ip') ?? '';
+    const referrer = request.headers.get('referer') ?? undefined;
+    const cf = (request as unknown as { cf?: { country?: string } }).cf;
+    const sessionId = await anonSessionId(ip, ua);
+    await recordVisitorEvent(env, ctx, {
+      sessionId,
+      eventType: 'pageview',
+      path: (path.split('?')[0] || '/').slice(0, 2048),
+      referrer: referrer ? referrer.slice(0, 2048) : undefined,
+      metadata: { country: cf?.country ?? null, ua: ua.slice(0, 256) },
+    });
+  } catch {
+    // Analytics is best-effort; never surface to the visitor.
+  }
+}
+
 /** Scalar COUNT/aggregate, 0 on any error (missing table etc.). */
 async function scalar(env: Env, sql: string, params: unknown[]): Promise<number> {
   const { data, error } = await dbQuery<{ n: number }>(env.DB, sql, params);

@@ -1,5 +1,5 @@
-import { Component, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Component, type OnInit, inject, signal } from '@angular/core';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
@@ -14,11 +14,12 @@ import { emailError } from '../../utils/validators/email';
   templateUrl: './signin.component.html',
   styleUrl: './signin.component.scss',
 })
-export class SigninComponent {
+export class SigninComponent implements OnInit {
   private api = inject(ApiService);
   private auth = inject(AuthService);
   private toast = inject(ToastService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private telemetry = inject(TelemetryService);
 
   panel = signal<'main' | 'email'>('main');
@@ -28,6 +29,36 @@ export class SigninComponent {
   emailError = signal<string | null>(null);
   inlineError = signal<string | null>(null);
   attempted = signal(false);
+
+  /**
+   * Where to land after a successful sign-in. Sourced from the `returnUrl`
+   * query param the {@link authGuard} appends when it bounces an unauthed user
+   * here, falling back to the dashboard. Sanitized to same-origin app paths so
+   * a crafted `?returnUrl=https://evil.com` can't turn the post-login redirect
+   * into an open redirect.
+   */
+  private returnUrl = '/admin';
+
+  /**
+   * Already-signed-in short-circuit. Landing on `/signin` with a live session
+   * used to render the full login form ("it's already signed in" — the user's
+   * exact complaint). Now we bounce straight to `returnUrl` (or the dashboard)
+   * so a signed-in user never sees a login screen they don't need.
+   */
+  ngOnInit(): void {
+    this.returnUrl = this.sanitizeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'));
+    if (this.auth.isLoggedIn()) {
+      this.router.navigateByUrl(this.returnUrl);
+    }
+  }
+
+  /** Only allow same-origin, app-relative paths (`/admin`, `/create`, …). */
+  private sanitizeReturnUrl(raw: string | null): string {
+    if (!raw) return '/admin';
+    // Reject absolute URLs, protocol-relative (`//host`), and non-path values.
+    if (!raw.startsWith('/') || raw.startsWith('//')) return '/admin';
+    return raw;
+  }
 
   showEmailPanel(): void {
     this.panel.set('email');

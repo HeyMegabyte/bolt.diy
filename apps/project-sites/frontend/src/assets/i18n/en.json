@@ -1,5 +1,5 @@
 {
-  "nav": { "home": "Home", "features": "Features", "pricing": "Pricing", "faq": "FAQ", "admin": "Dashboard", "signIn": "Sign In", "getStarted": "Get Started" },
+  "nav": { "home": "Home", "features": "Features", "pricing": "Pricing", "faq": "FAQ", "admin": "Dashboard", "signIn": "Sign In", "getStarted": "Get Started", "dashboard": "Dashboard", "newSite": "New Site", "signOut": "Sign Out", "signedInAs": "Signed in as" },
   "hero": { "title": "Your Website, Handled. Finally.", "subtitle": "AI builds your professional website in 15 minutes. Just search for your business.", "cta": "Build My Site Free", "ctaSecondary": "See How It Works", "searchPlaceholder": "Search for your business..." },
   "social": { "sites": "1,200+", "sitesLabel": "Sites Built", "uptime": "99.9%", "uptimeLabel": "Uptime", "build": "<15 min", "buildLabel": "Build Time", "edge": "300+", "edgeLabel": "Edge Locations" },
   "howItWorks": { "title": "How It Works", "subtitle": "Three steps to a stunning website", "step1Title": "Search", "step1Desc": "Find your business or start fresh. Our AI pulls in your details automatically.", "step2Title": "AI Builds", "step2Desc": "Our engine generates a gorgeous, SEO-optimized website tailored to your brand.", "step3Title": "Go Live", "step3Desc": "Your site is hosted, secured with SSL, and deployed to 300+ edge locations worldwide." },

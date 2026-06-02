@@ -4,7 +4,13 @@
  * sessions / conversions / topPaths / byType), and degrade-to-0 on table error.
  */
 
-import { recordVisitorEvent, getTrafficSummary, FLAG_KEY } from '../service.js';
+import {
+  recordVisitorEvent,
+  getTrafficSummary,
+  recordPageviewFromRequest,
+  isPageRequest,
+  FLAG_KEY,
+} from '../service.js';
 import type { Env } from '../../../../src/types/env.js';
 
 interface Ev {
@@ -156,5 +162,54 @@ describe('visitor_events_core service', () => {
       topPaths: [],
       byType: [],
     });
+  });
+});
+
+describe('edge pageview recording', () => {
+  const HUMAN_UA =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+  function req(ua: string): Request {
+    return new Request('https://megabytelabs.projectsites.dev/', {
+      headers: { 'user-agent': ua, 'cf-connecting-ip': '203.0.113.7', referer: 'https://google.com/' },
+    });
+  }
+
+  it('classifies pages vs assets correctly', () => {
+    expect(isPageRequest('/')).toBe(true);
+    expect(isPageRequest('/about')).toBe(true);
+    expect(isPageRequest('/services/')).toBe(true);
+    expect(isPageRequest('/pricing.html')).toBe(true);
+    expect(isPageRequest('/styles.css')).toBe(false);
+    expect(isPageRequest('/app.js')).toBe(false);
+    expect(isPageRequest('/hero.png?v=2')).toBe(false);
+    expect(isPageRequest('/fonts/inter.woff2')).toBe(false);
+  });
+
+  it('records a pageview for a human page navigation', async () => {
+    const { env, events } = makeEnv();
+    await recordPageviewFromRequest(env, { orgId: 'org1', siteId: 'site1' }, req(HUMAN_UA), '/pricing?ref=x');
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ site_id: 'site1', event_type: 'pageview', path: '/pricing' });
+    expect(events[0].session_id.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('skips static assets', async () => {
+    const { env, events } = makeEnv();
+    await recordPageviewFromRequest(env, { orgId: 'org1', siteId: 'site1' }, req(HUMAN_UA), '/main.css');
+    expect(events).toHaveLength(0);
+  });
+
+  it('skips known bots', async () => {
+    const { env, events } = makeEnv();
+    await recordPageviewFromRequest(env, { orgId: 'org1', siteId: 'site1' }, req('GPTBot/1.0'), '/');
+    expect(events).toHaveLength(0);
+  });
+
+  it('never throws even if the DB write fails', async () => {
+    const env = { DB: { prepare: () => { throw new Error('boom'); } } as unknown as D1Database } as unknown as Env;
+    await expect(
+      recordPageviewFromRequest(env, { orgId: 'o', siteId: 's' }, req(HUMAN_UA), '/'),
+    ).resolves.toBeUndefined();
   });
 });

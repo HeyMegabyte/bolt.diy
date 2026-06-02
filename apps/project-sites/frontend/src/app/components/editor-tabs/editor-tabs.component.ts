@@ -69,6 +69,8 @@ interface TabDef {
           role="tab"
           class="et-tab"
           [class.is-active]="activeTab() === t.id"
+          [class.et-tab--panel]="t.id !== 'code'"
+          [class.et-tab--lead]="t.id === 'media'"
           [attr.aria-selected]="activeTab() === t.id"
           [attr.aria-label]="t.aria"
           [attr.tabindex]="activeTab() === t.id ? 0 : -1"

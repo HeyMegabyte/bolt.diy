@@ -108,6 +108,7 @@ import { tokenBurnMeter } from '../libs/features/token_burn_meter/handlers.js'; 
 import { contactsCore } from '../libs/features/contacts_core/handlers.js'; // shared contacts/CRM core (flag: contacts_core)
 import { siteAnalytics } from '../libs/features/site_analytics/handlers.js'; // owner-facing per-site analytics summary (flag: site_analytics)
 import { visitorEvents } from '../libs/features/visitor_events_core/handlers.js'; // public pageview/event beacon ingest (flag: visitor_events_core)
+import { recordPageviewFromRequest } from '../libs/features/visitor_events_core/service.js'; // edge-recorded per-request pageview (no flag — core site analytics)
 import { emailMarketing } from '../libs/features/email_marketing/handlers.js'; // real campaign send to consented audience (flag: email_marketing)
 import { dataExport } from '../libs/features/data_export/handlers.js'; // owner contacts CSV export (flag: data_export)
 import { donationsEngine } from '../libs/features/donations_engine/handlers.js'; // campaign + donor-CRM layer (flag: donations_engine)
@@ -879,6 +880,18 @@ app.all('*', async (c) => {
       200,
     );
   }
+
+  // Record an anonymous edge pageview (Cloudflare-native, fire-and-forget) so
+  // visitor navigations surface in the per-site analytics dashboard. Never
+  // blocks or fails serving — see recordPageviewFromRequest.
+  c.executionCtx.waitUntil(
+    recordPageviewFromRequest(
+      c.env,
+      { orgId: site.org_id, siteId: site.site_id },
+      c.req.raw,
+      path,
+    ),
+  );
 
   // Serve static site from R2
   return serveSiteFromR2(c.env, site, path);

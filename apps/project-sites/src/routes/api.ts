@@ -108,6 +108,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
+import { getTrafficSummary } from '../../libs/features/visitor_events_core/service.js';
 import {
   createSiteSchema,
   createCheckoutSessionSchema,
@@ -7922,36 +7923,68 @@ api.get('/api/analytics/:siteId', async (c) => {
     }
   }
 
-  // Fallback: return basic data from audit logs + page view estimates
+  // Final source: FIRST-PARTY edge pageviews recorded at serve time into
+  // `visitor_events` (see the Worker site-serving call to
+  // recordPageviewFromRequest). This is the authoritative per-site signal and
+  // needs NO GA4/CF config, so visitor clicks always surface here even before
+  // zone analytics or GA4 are wired. Replaces the old audit-log estimate that
+  // always returned zeros.
   const dayCount = parseInt(period) || 7;
-  const since = new Date(Date.now() - dayCount * 86_400_000).toISOString();
-
-  const logCounts = await dbQuery<{ day: string; cnt: number }>(
-    c.env.DB,
-    `SELECT DATE(created_at) as day, COUNT(*) as cnt FROM audit_logs
-     WHERE target_id = ? AND action LIKE 'site.%' AND created_at >= ?
-     GROUP BY DATE(created_at) ORDER BY day`,
-    [siteId, since],
-  );
-
-  return c.json({
-    data: {
-      period: dayCount,
-      slug: site.slug,
-      ga4_connected: !!(propertyId && serviceAccountJson),
-      ga4_measurement_id: c.env.GA4_MEASUREMENT_ID || null,
-      gtm_container_id: c.env.GTM_CONTAINER_ID || null,
-      stats: {
-        pageViews: 0,
-        uniqueVisitors: 0,
-        avgSessionDuration: '0s',
-        bounceRate: 0,
+  try {
+    const summary = await getTrafficSummary(c.env, siteId, dayCount);
+    const byDay = await dbQuery<{ day: string; views: number }>(
+      c.env.DB,
+      `SELECT DATE(created_at) AS day, COUNT(*) AS views FROM visitor_events
+       WHERE site_id = ? AND event_type = 'pageview' AND created_at >= datetime('now', ?)
+       GROUP BY DATE(created_at) ORDER BY day`,
+      [siteId, `-${dayCount} days`],
+    );
+    return c.json({
+      data: {
+        period: dayCount,
+        slug: site.slug,
+        source: 'first_party_edge',
+        ga4_connected: !!(propertyId && serviceAccountJson),
+        ga4_measurement_id: c.env.GA4_MEASUREMENT_ID || null,
+        gtm_container_id: c.env.GTM_CONTAINER_ID || null,
+        stats: {
+          pageViews: summary.pageviews,
+          uniqueVisitors: summary.uniqueSessions,
+          avgSessionDuration: '—',
+          bounceRate: 0,
+        },
+        chartData: (byDay.data || []).map((r) => ({ date: r.day, views: Number(r.views) })),
+        trafficSources: [],
+        topPages: summary.topPaths.map((p) => ({ path: p.path, views: p.count })),
       },
-      chartData: (logCounts.data || []).map((r) => ({ date: r.day, views: r.cnt })),
-      trafficSources: [],
-      topPages: [],
-    },
-  });
+    });
+  } catch (err) {
+    // Last-ditch: never 500 the dashboard on analytics. Return an empty envelope.
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'api',
+        route: 'GET /api/analytics/:siteId',
+        fallback: 'first_party_edge',
+        error: err instanceof Error ? err.message : String(err),
+        request_id: requestId,
+      }),
+    );
+    return c.json({
+      data: {
+        period: dayCount,
+        slug: site.slug,
+        source: 'empty',
+        ga4_connected: !!(propertyId && serviceAccountJson),
+        ga4_measurement_id: c.env.GA4_MEASUREMENT_ID || null,
+        gtm_container_id: c.env.GTM_CONTAINER_ID || null,
+        stats: { pageViews: 0, uniqueVisitors: 0, avgSessionDuration: '—', bounceRate: 0 },
+        chartData: [],
+        trafficSources: [],
+        topPages: [],
+      },
+    });
+  }
 });
 
 /**

@@ -31,6 +31,7 @@ import { RevealDirective } from '../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../components/rolling-counter/rolling-counter.component';
 import { BeforeAfterSliderComponent } from '../../components/before-after-slider/before-after-slider.component';
 import { TrustStripComponent } from '../../components/trust-strip/trust-strip.component';
+import { UserMenuComponent } from '../../components/user-menu/user-menu.component';
 
 interface SearchItem {
   type: 'business' | 'prebuilt' | 'custom';
@@ -74,6 +75,7 @@ interface SearchItem {
     RollingCounterComponent,
     BeforeAfterSliderComponent,
     TrustStripComponent,
+    UserMenuComponent,
   ],
   templateUrl: './homepage.component.html',
   styleUrl: './homepage.component.scss',
@@ -86,6 +88,15 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
   private translate = inject(TranslateService);
   private platformId = inject(PLATFORM_ID);
   private telemetry = inject(TelemetryService);
+
+  /** Logged-in state for the nav — switches the homepage menu from
+   *  "Sign In / Get Started" (guest) to the account indicator + Dashboard CTA. */
+  readonly isAuthed = this.auth.isLoggedIn;
+
+  /** Active account email — shown in the mobile "signed in as" row. */
+  userEmail(): string {
+    return this.auth.email();
+  }
 
   /**
    * Hero A/B/C variant (Bundle C finish, 2026-05-24).
@@ -365,6 +376,24 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
       const behavior: ScrollBehavior = this.prefersReducedMotion() ? 'auto' : 'smooth';
       window.scrollTo({ top: 0, behavior });
     }
+  }
+
+  /** Logged-in nav: jump to the dashboard (replaces "Sign In" for a session). */
+  goDashboard(): void {
+    this.mobileMenuOpen.set(false);
+    this.router.navigate(['/admin']);
+  }
+
+  /** Logged-in nav: start a new site build. */
+  goNewSite(): void {
+    this.mobileMenuOpen.set(false);
+    this.router.navigate(['/create']);
+  }
+
+  /** Logged-in mobile nav: sign out and stay on the homepage. */
+  signOut(): void {
+    this.mobileMenuOpen.set(false);
+    this.auth.logout();
   }
 
   /**
