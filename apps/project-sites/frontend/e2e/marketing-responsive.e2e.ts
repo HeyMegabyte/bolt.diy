@@ -141,3 +141,21 @@ test.describe('marketing — OG image within budget', () => {
     expect(og ?? '', 'og:image uses the .jpg card').toContain('og-image.jpg');
   });
 });
+
+test.describe('marketing — required favicon files serve real images', () => {
+  test.describe.configure({ retries: 2 });
+
+  // Regression: favicon-16x16.png / favicon-32x32.png (always.md required-file
+  // names + what SEO/favicon tools probe) were absent, so the worker served its
+  // 156-byte JSON catch-all with HTTP 200 + content-type application/json — a
+  // favicon that's actually JSON. Now provided as real PNGs in public/.
+  for (const f of ['favicon-16x16.png', 'favicon-32x32.png', 'favicon.ico']) {
+    test(`/${f} is a real image, not the JSON fallback`, async ({ page }) => {
+      test.setTimeout(20000);
+      const res = await page.request.get(`https://projectsites.dev/${f}`, { failOnStatusCode: false });
+      expect(res.status(), `${f} resolves`).toBe(200);
+      const ct = res.headers()['content-type'] ?? '';
+      expect(ct, `${f} served as an image (not JSON), got: ${ct}`).toMatch(/^image\//);
+    });
+  }
+});
