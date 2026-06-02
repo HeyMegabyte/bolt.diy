@@ -249,7 +249,7 @@ type StatusFilter = 'all' | PseoPage['status'];
     .ps-pill:hover { color:var(--ps-accent); border-color:rgba(0,229,255,.3); }
     .ps-pill-active { background:rgba(0,229,255,.12); color:var(--ps-accent); border-color:rgba(0,229,255,.35); }
 
-    .ps-empty { text-align:center; padding:2.5rem 1rem; color:rgba(244,244,255,.45); font-size:.8rem; display:flex; flex-direction:column; align-items:center; gap:.75rem; }
+    .ps-empty { text-align:center; padding:2.5rem 1rem; color:rgba(244,244,255,.72); font-size:.8rem; display:flex; flex-direction:column; align-items:center; gap:.75rem; }
     .ps-skel { display:flex; flex-direction:column; gap:8px; padding:.5rem 0; }
     .ps-skel-bar { display:block; width:100%; height:34px; border-radius:8px; }
 
@@ -332,7 +332,7 @@ type StatusFilter = 'all' | PseoPage['status'];
     .ps-act-reject:hover:not(:disabled) { background:rgba(248,113,113,.15); }
     .ps-act-reject:disabled { opacity:.4; cursor:not-allowed; }
 
-    .ps-act-done { color:rgba(244,244,255,.25); font-size:.68rem; }
+    .ps-act-done { color:rgba(244,244,255,.72); font-size:.68rem; }
 
     .ps-pagination { display:flex; align-items:center; justify-content:center; gap:.75rem; margin-top:1rem; font-size:.72rem; }
     .ps-page-info { color:rgba(244,244,255,.5); }
