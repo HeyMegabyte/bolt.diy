@@ -569,10 +569,33 @@ export class IntegrationsComponent implements OnInit {
    * Fetch the integration catalog from the public API. Errors surface via
    * the `error` signal rather than thrown so the user sees a recoverable state.
    */
+  /**
+   * Rewrite dead `logo.clearbit.com/{domain}` URLs (Clearbit's free Logo API
+   * was shut down by HubSpot in Dec 2024 → ERR_NAME_NOT_RESOLVED on every load)
+   * to Google's favicon service, which is reliable, key-free, CSP-allowed
+   * (img-src *), and returns a real PNG. `onLogoError` still covers any miss
+   * with a monogram. Non-clearbit URLs pass through untouched.
+   */
+  private reliableLogoUrl(url: string): string {
+    const m = /^https?:\/\/logo\.clearbit\.com\/([^/?#]+)/.exec(url ?? '');
+    return m ? `https://www.google.com/s2/favicons?domain=${m[1]}&sz=128` : url;
+  }
+
   private fetchIntegrations(): void {
     this.http.get<IntegrationsResponse>('/api/public/integrations').subscribe({
       next: (data) => {
-        this.response.set(data);
+        const fix = (it: Integration): Integration => ({ ...it, logo_url: this.reliableLogoUrl(it.logo_url) });
+        // The card grid renders from `by_category` (see orderedGroups), so both
+        // the flat list AND the grouped map must be rewritten.
+        const by_category: Record<string, Integration[]> = {};
+        for (const [cat, items] of Object.entries(data.by_category ?? {})) {
+          by_category[cat] = (items ?? []).map(fix);
+        }
+        this.response.set({
+          ...data,
+          integrations: (data.integrations ?? []).map(fix),
+          by_category,
+        });
         this.loading.set(false);
       },
       error: (err: unknown) => {

@@ -85,3 +85,36 @@ test.describe('marketing — responsive a11y (390 axe + 320 reflow)', () => {
     }
   });
 });
+
+test.describe('marketing — integrations logos resolve (no dead clearbit API)', () => {
+  test.describe.configure({ retries: 2 });
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  // Regression: the integrations grid sourced logos from logo.clearbit.com,
+  // whose free API HubSpot shut down (Dec 2024) → ERR_NAME_NOT_RESOLVED on every
+  // load + broken images. The component now rewrites them to a reliable source
+  // (Google favicons) before render. Guard that no dead clearbit URL returns and
+  // the logos actually load.
+  test('every integration logo loads from a live source — no clearbit, no broken images', async ({ page }) => {
+    test.setTimeout(60000);
+    const failedLogos: string[] = [];
+    page.on('requestfailed', (r) => {
+      if (/logo\.clearbit\.com/.test(r.url())) failedLogos.push(r.url());
+    });
+    await page.goto('/integrations', { waitUntil: 'load' });
+    await expect(page.locator('main, body').first()).toBeVisible({ timeout: 30000 });
+    await page.waitForTimeout(2500);
+    const stats = await page.evaluate(() => {
+      const imgs = Array.from(document.querySelectorAll<HTMLImageElement>('.logo-tile img'));
+      return {
+        total: imgs.length,
+        clearbit: imgs.filter((i) => i.src.includes('clearbit')).length,
+        loaded: imgs.filter((i) => i.complete && i.naturalWidth > 0).length,
+      };
+    });
+    expect(stats.total, 'integration logo tiles render').toBeGreaterThan(10);
+    expect(stats.clearbit, 'no dead clearbit logo URLs in the DOM').toBe(0);
+    expect(failedLogos, `clearbit requests still firing:\n${failedLogos.join('\n')}`).toEqual([]);
+    expect(stats.loaded, 'the large majority of logos load (naturalWidth>0)').toBeGreaterThan(stats.total * 0.8);
+  });
+});
