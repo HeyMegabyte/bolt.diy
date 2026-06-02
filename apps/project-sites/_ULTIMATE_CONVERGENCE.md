@@ -98,3 +98,7 @@ Done only when ALL are verifiably true:
 - **visitor_accounts (#49)** ≠ `membership_paywall` (visitor auth vs operator paywall) — distinct, OK.
 - **staging_slots (#21)** ≠ snapshots (separate environment vs frozen version) — distinct, OK, but reuse snapshot plumbing.
 - Rule: any candidate within one concept of an existing module must declare EXTEND-vs-NEW and justify it here before code.
+- **Ownership guard → `services/site_ownership.ts` `assertSiteOwned(env, orgId, siteId)`** is the SINGLE source of truth. Every site-scoped `:siteId` route uses it (404 on missing/foreign, never 403/leak). Do NOT re-implement inline (conversational_edits + swarm already consolidated onto it).
+
+## 6. Cross-tenant audit queue (P0 — `auth+flag-but-no-org-ownership` pattern)
+Closed: `content.ts` approve (already fixed by swarm, verified) · `conversational_edits.ts` (4f7620be) · `swarm.ts` (e6cc063d — also added missing auth). **Still-suspect (low org-check density vs `:siteId` handlers — verify each, fix with `assertSiteOwned`):** `pseo.ts` (14h/2), `reviews.ts` (9h/3), `comparison_pages.ts` (5h/2), `integration_directory.ts` (5h/2), `site_branches.ts` (12h/4), `site_dna.ts` (9h/5), `copilot.ts` (9h/6). Read each before claiming a gap — some may use a different guard; verify per CONVERGENCE.md §6.
