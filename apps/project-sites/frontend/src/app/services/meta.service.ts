@@ -157,17 +157,88 @@ export class MetaService {
       link.href = url;
     }
 
-    // Per-route WebPage + BreadcrumbList (slot 'page') — accurate to THIS page,
-    // replacing the old GLOBAL index.html nodes that wrongly carried the
-    // homepage url + a fixed "Home > Create > Dashboard" funnel on every route.
-    // Homepage = just Home; other routes = Home > <segment>. The page-specific
-    // FAQPage (homepage) lives in a separate 'route' slot so it isn't clobbered.
+    // Per-route WebPage + BreadcrumbList. The worker (apps/project-sites/src/index.ts)
+    // injects an Org+WebSite+WebPage @graph server-side; historically its WebPage was
+    // hardcoded to the homepage url on EVERY route (wrong on /privacy, /blog, …). We
+    // MUTATE that existing graph in place so the hydrated DOM carries exactly ONE,
+    // route-accurate WebPage + a Home > <segment> BreadcrumbList — no duplicate node.
+    // (The worker now also emits this per-route server-side; the client upsert is then
+    // an idempotent re-confirm. If no server graph is present, we inject our own.)
     const crumbs: { name: string; url: string }[] = [{ name: 'Home', url: `${BASE_URL}/` }];
     if (path) {
       const seg = path.split('/').filter(Boolean).pop() ?? path;
       const name = seg.replace(/[-_]/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
       crumbs.push({ name, url });
     }
+    this.upsertRouteStructuredData(url, page, crumbs);
+  }
+
+  /**
+   * Make the hydrated DOM carry a single, route-accurate WebPage + BreadcrumbList.
+   *
+   * @remarks
+   * Finds the server-injected `application/ld+json` `@graph` block (the one the
+   * worker emits with Organization + WebSite + WebPage) and rewrites its WebPage
+   * node to THIS route's url/title/description, then upserts a BreadcrumbList node
+   * into the same graph. This avoids a duplicate WebPage (one stale homepage one +
+   * one per-route one) that appending a separate block would create. If no such
+   * server graph exists, falls back to injecting our own `'page'` slot block.
+   */
+  private upsertRouteStructuredData(
+    url: string,
+    page: PageMeta,
+    crumbs: { name: string; url: string }[],
+  ): void {
+    if (typeof document === 'undefined') return;
+
+    const breadcrumbNode = {
+      '@type': 'BreadcrumbList',
+      '@id': `${url}#breadcrumb`,
+      itemListElement: crumbs.map((c, i) => ({
+        '@type': 'ListItem',
+        position: i + 1,
+        name: c.name,
+        item: c.url,
+      })),
+    };
+
+    // Locate the server graph that owns a WebPage node — but skip our own managed
+    // blocks (data-jsonld-*) so we never recurse on a block we injected.
+    const scripts = Array.from(
+      document.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]'),
+    ).filter((s) => !Array.from(s.attributes).some((a) => a.name.startsWith('data-jsonld-')));
+
+    for (const s of scripts) {
+      let parsed: { '@graph'?: Array<Record<string, unknown>> } | null = null;
+      try {
+        parsed = JSON.parse(s.textContent || 'null');
+      } catch {
+        continue;
+      }
+      const nodes = parsed && Array.isArray(parsed['@graph']) ? parsed['@graph'] : null;
+      if (!nodes) continue;
+      const webPageNode = nodes.find((n) => n['@type'] === 'WebPage');
+      if (!webPageNode) continue;
+
+      webPageNode['@id'] = `${url}#webpage`;
+      webPageNode['url'] = url;
+      webPageNode['name'] = page.title;
+      webPageNode['description'] = page.description;
+
+      const existingCrumb = nodes.find((n) => n['@type'] === 'BreadcrumbList');
+      if (existingCrumb) {
+        existingCrumb['@id'] = breadcrumbNode['@id'];
+        existingCrumb['itemListElement'] = breadcrumbNode.itemListElement;
+      } else {
+        nodes.push(breadcrumbNode);
+      }
+
+      const next = JSON.stringify(parsed);
+      if (s.textContent !== next) s.textContent = next;
+      return; // handled by the server graph — no separate block needed
+    }
+
+    // No server graph present (e.g. local dev without the worker) — inject our own.
     this.setJsonLd(
       graph([
         webPage({ url, title: page.title, description: page.description, image: OG_IMAGE }),

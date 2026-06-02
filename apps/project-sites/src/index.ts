@@ -715,6 +715,25 @@ app.all('*', async (c) => {
         // #21 Quotable answer block: 40-60 word AI-search-extractable lead paragraph; visually
         //     hidden but available to crawlers + screen readers (sr-only pattern).
         const speculationRules = `<script type="speculationrules">{"prerender":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/admin/*"}},{"not":{"href_matches":"/api/*"}}]},"eagerness":"moderate"}],"prefetch":[{"where":{"href_matches":"/*"},"eagerness":"conservative"}]}</script>`;
+        // Per-route WebPage + BreadcrumbList (was hardcoded to the homepage on
+        // EVERY route — inaccurate on /privacy, /blog, etc.). `path` (url.pathname)
+        // is the requested route; derive an accurate page url + breadcrumb trail
+        // server-side so non-JS crawlers get route-correct structured data. The
+        // Angular client re-confirms the same values post-hydration (idempotent).
+        const cleanPath = path === '/' ? '/' : path.replace(/\/+$/, '');
+        const pageUrl =
+          cleanPath === '/' ? 'https://projectsites.dev/' : `https://projectsites.dev${cleanPath}`;
+        const seg = cleanPath === '/' ? '' : (cleanPath.split('/').filter(Boolean).pop() ?? '');
+        const segName = seg.replace(/[-_]/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+        const pageName = seg
+          ? `${segName} | Project Sites`
+          : 'Project Sites — AI Website Builder on Cloudflare';
+        const crumbItems = seg
+          ? [
+              { name: 'Home', item: 'https://projectsites.dev/' },
+              { name: segName, item: pageUrl },
+            ]
+          : [{ name: 'Home', item: 'https://projectsites.dev/' }];
         const jsonLd = `<script type="application/ld+json">${JSON.stringify({
           '@context': 'https://schema.org',
           '@graph': [
@@ -742,13 +761,27 @@ app.all('*', async (c) => {
             },
             {
               '@type': 'WebPage',
-              '@id': 'https://projectsites.dev/#webpage',
-              url: 'https://projectsites.dev/',
-              name: 'Project Sites — AI Website Builder on Cloudflare',
-              description:
-                'AI-generated websites for small business in under 15 minutes. Multi-model router, axe-core publish gate, Core Web Vitals publish gate, GEO + AI search built-in.',
+              '@id': `${pageUrl}#webpage`,
+              url: pageUrl,
+              name: pageName,
+              ...(seg
+                ? {}
+                : {
+                    description:
+                      'AI-generated websites for small business in under 15 minutes. Multi-model router, axe-core publish gate, Core Web Vitals publish gate, GEO + AI search built-in.',
+                  }),
               isPartOf: { '@id': 'https://projectsites.dev/#site' },
               about: { '@id': 'https://projectsites.dev/#org' },
+            },
+            {
+              '@type': 'BreadcrumbList',
+              '@id': `${pageUrl}#breadcrumb`,
+              itemListElement: crumbItems.map((crumb, i) => ({
+                '@type': 'ListItem',
+                position: i + 1,
+                name: crumb.name,
+                item: crumb.item,
+              })),
             },
           ],
         })}</script>`;
