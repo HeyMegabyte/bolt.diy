@@ -17,6 +17,8 @@ marketing:
   changelog:       { status: blocked, specs: [marketing-a11y.e2e.ts], reason: "worker-served HTML; needs worker deploy (Docker)" }
   status_page:     { status: blocked, specs: [marketing-a11y.e2e.ts], reason: "worker-served HTML; needs worker deploy (Docker)" }
   mobile:          { status: covered, specs: [mobile.spec.ts, marketing-responsive.e2e.ts] }
+  jsonld:          { status: covered, specs: [marketing-jsonld.e2e.ts], note: "FAQPage only where visible; single route-accurate WebPage + BreadcrumbList per route" }
+  internal_links:  { status: covered, specs: [marketing-links.e2e.ts], note: "no 4xx/5xx on internal nav links" }
 
 create_flow:
   wizard:          { status: covered, specs: [create-site.spec.ts, create-page-fixes.spec.ts, create-final-fixes.spec.ts, auto-create.spec.ts] }
@@ -35,6 +37,8 @@ admin_shell:
   command_palette: { status: covered, specs: [admin.spec.ts, full-audit.spec.ts] }
   cinematic_ui:    { status: covered, specs: [admin-cinematic-ui.e2e.ts] }
   spartan_controls:{ status: covered, specs: [admin-spartan-controls.e2e.ts, admin-tooltip.e2e.ts] }
+  upgrades_shell:  { status: covered, specs: [admin-ai-fab.e2e.ts], note: "AI FAB real /api/dashboard/chat SSE + share-toast; bundle-verified (shell occluded by editor iframe on /admin)" }
+  universal_search:{ status: covered, specs: [admin-universal-search.e2e.ts], note: "real admin-nav index, no fabricated rows" }
 
 admin_sections:
   dashboard:       { status: covered, specs: [admin.spec.ts, production-admin.spec.ts] }
@@ -47,14 +51,18 @@ admin_sections:
   feature_flags:   { status: covered, specs: [admin-feature-flags.e2e.ts, admin-flag-gated.e2e.ts] }
   forms:           { status: covered, specs: [forms-header-button.spec.ts, full-feature-coverage.spec.ts] }
   notifications:   { status: covered, specs: [notification-bell.e2e.ts] }
+  user_settings:   { status: covered, specs: [admin-user-settings.e2e.ts], note: "sessions toast-clean; rotate/disconnect via branded confirm" }
   rebuilt_sections:{ status: covered, specs: [admin-rebuilt-sections.e2e.ts] }
   dense_sections:  { status: covered, specs: [full-audit.spec.ts, full-coverage.spec.ts, full-feature-coverage.spec.ts, comprehensive.spec.ts, admin.spec.ts], note: "audit/pseo/seo/mcp/social/voice/media/apps/docs/traces/ai-endpoints/import/content-freshness/settings/domains via broad suites" }
   super_admin:     { status: covered, specs: [production-admin.spec.ts, full-audit.spec.ts] }
 
 components_states:
   dialog:          { status: covered, specs: [a11y-focus-trap.spec.ts, admin-dialog-keyboard.e2e.ts] }
+  confirm_dialog:  { status: covered, specs: [admin-confirm-dialog.e2e.ts], note: "ConfirmService (replaces native confirm()); focus-trap + restore, no mutation on cancel" }
+  input_dialog:    { status: covered, unit_specs: ["src/app/components/input-dialog/input-dialog.component.spec.ts"], note: "PromptService input dialog (replaces native prompt()); Karma unit (ng test) — validation/submit; shared CDK overlay a11y via admin-confirm-dialog.e2e.ts" }
   states:          { status: covered, specs: [admin-error-states.e2e.ts, admin-section-states.e2e.ts, states-kit.spec.ts] }
   network_honesty: { status: covered, specs: [admin-network-honesty.e2e.ts] }
+  api_contract:    { status: covered, specs: [api-contract.e2e.ts], note: "no dead/SPA-HTML endpoints (double-/api guard)" }
   interactions:    { status: covered, specs: [admin-interactions.e2e.ts, admin-functional.e2e.ts] }
 
 production_smoke:
