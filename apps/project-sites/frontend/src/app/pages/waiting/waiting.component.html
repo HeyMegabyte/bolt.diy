@@ -9,7 +9,7 @@
         </svg>
       </div>
       <h2 class="text-xl font-bold text-green-400 mb-2">Your site is live!</h2>
-      <p class="text-[0.85rem] text-gray-500 mb-2">{{ slug }}.projectsites.dev</p>
+      <p class="text-[0.85rem] text-gray-400 mb-2">{{ slug }}.projectsites.dev</p>
 
       <div class="flex gap-3 justify-center my-6 flex-wrap">
         <button class="inline-flex items-center gap-2 text-[0.85rem] py-2.5 px-6 rounded-[10px] font-semibold cursor-pointer transition-all border-none bg-gradient-to-r from-green-400 to-green-500 text-black hover:-translate-y-px hover:shadow-[0_4px_20px_rgba(74,222,128,0.3)]" (click)="viewSite()">
@@ -31,7 +31,7 @@
         <div class="spinner"></div>
       </div>
       <h2 class="text-xl font-bold text-light mb-2">Preparing your project...</h2>
-      <p class="text-[0.85rem] text-gray-500 mb-2 leading-normal">{{ statusMessage() }}</p>
+      <p class="text-[0.85rem] text-gray-400 mb-2 leading-normal">{{ statusMessage() }}</p>
       <p class="text-[0.75rem] text-gray-600 mb-4 font-medium tracking-wide">{{ stepProgress() }}</p>
 
       <div class="w-full h-1 bg-primary/[0.1] rounded-sm overflow-hidden mb-6">

@@ -197,3 +197,65 @@ test.describe('marketing — 404 soft-not-found is noindex + titled', () => {
     expect(robots ?? '').not.toContain('noindex');
   });
 });
+
+test.describe('marketing — /waiting build-progress a11y (stateful)', () => {
+  test.describe.configure({ retries: 2 });
+
+  // /waiting redirects to / without funnel state, so it can't go in the bare
+  // ROUTES sweep — it needs ?id=&slug= query params to render. Its slug + status
+  // text shipped text-gray-500 (#6a7282 = 4.16:1 on the dark bg, below AA);
+  // fixed to text-gray-400 (~7:1) round 33/34. Gate it with state so it can't
+  // regress.
+  const WAITING = '/waiting?id=test-id&slug=test-site';
+
+  test('no serious/critical axe @390px — /waiting', async ({ page }) => {
+    test.setTimeout(45000);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(WAITING, { waitUntil: 'load' });
+    await expect(page).toHaveURL(/\/waiting/, { timeout: 15000 });
+    await page.waitForTimeout(800);
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+      .exclude('iframe')
+      .analyze();
+    const blocking = results.violations
+      .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+      .map((v) => `${v.impact} · ${v.id} · ${v.nodes.length}×`);
+    expect(blocking, `/waiting @390px\n${blocking.join('\n')}`).toEqual([]);
+  });
+
+  test('no element overflows @320px — /waiting', async ({ page }) => {
+    test.setTimeout(45000);
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(WAITING, { waitUntil: 'load' });
+    await expect(page).toHaveURL(/\/waiting/, { timeout: 15000 });
+    await page.addStyleTag({ content: 'html{scrollbar-width:none!important}::-webkit-scrollbar{display:none!important}' });
+    await page.waitForTimeout(1000);
+    const culprits = await page.evaluate(() => {
+      const vw = window.innerWidth;
+      const clipped = (el: Element): boolean => {
+        let n = el.parentElement;
+        while (n && n !== document.body) {
+          const s = getComputedStyle(n);
+          if (['hidden', 'clip', 'auto', 'scroll'].includes(s.overflowX)) return true;
+          if (['fixed', 'sticky'].includes(s.position)) return true;
+          n = n.parentElement;
+        }
+        return false;
+      };
+      const found: string[] = [];
+      for (const el of Array.from(document.body.querySelectorAll<HTMLElement>('*'))) {
+        const s = getComputedStyle(el);
+        if (s.position === 'fixed' || s.position === 'sticky') continue;
+        const r = el.getBoundingClientRect();
+        if (r.right > vw + 4 && r.width > 1 && !clipped(el)) {
+          found.push(`${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ').slice(0, 2).join('.')}`);
+        }
+      }
+      return found.slice(0, 5);
+    });
+    expect(culprits, `/waiting overflows @320px:\n${culprits.join('\n')}`).toEqual([]);
+  });
+});
