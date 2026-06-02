@@ -27,7 +27,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
-import { HttpClient } from '@angular/common/http';
+import { ApiService } from '../../../services/api.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of } from 'rxjs';
 import { catchError, retry, switchMap, timer } from 'rxjs';
@@ -335,7 +335,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
   `],
 })
 export class AdminSiteDetailComponent {
-  private readonly http = inject(HttpClient);
+  private readonly api = inject(ApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -414,8 +414,8 @@ export class AdminSiteDetailComponent {
 
   // ── Site load ────────────────────────────────────────────────────────
   private loadSite(id: string): void {
-    this.http
-      .get<{ site: { id: string; slug: string; name: string } }>(`/api/sites/${id}`)
+    this.api
+      .get<{ site: { id: string; slug: string; name: string } }>(`/sites/${id}`)
       .pipe(
         catchError(() => of({ site: { id, slug: id, name: 'Site' } })),
         takeUntilDestroyed(this.destroyRef),
@@ -429,7 +429,7 @@ export class AdminSiteDetailComponent {
     timer(0, 3000)
       .pipe(
         switchMap(() =>
-          this.http.get<{ logs: LogRow[] }>(`/api/sites/${id}/logs/tail`).pipe(
+          this.api.get<{ logs: LogRow[] }>(`/sites/${id}/logs/tail`).pipe(
             retry({ count: 2, delay: 1000 }),
             catchError(() => of({ logs: [] as LogRow[] })),
           ),
@@ -446,8 +446,8 @@ export class AdminSiteDetailComponent {
 
   // ── Snapshots ────────────────────────────────────────────────────────
   private loadSnapshots(id: string): void {
-    this.http
-      .get<{ snapshots: SnapshotRow[] }>(`/api/sites/${id}/snapshots`)
+    this.api
+      .get<{ snapshots: SnapshotRow[] }>(`/sites/${id}/snapshots`)
       .pipe(
         catchError(() => of({ snapshots: [] as SnapshotRow[] })),
         takeUntilDestroyed(this.destroyRef),
@@ -463,9 +463,9 @@ export class AdminSiteDetailComponent {
     const s = this.pendingRollback();
     if (!s) return;
     const id = this.siteId();
-    this.http
+    this.api
       .post<{ ok: boolean; snapshot_name: string }>(
-        `/api/sites/${id}/snapshots/${s.id}/rollback`,
+        `/sites/${id}/snapshots/${s.id}/rollback`,
         {},
       )
       .pipe(
@@ -493,8 +493,8 @@ export class AdminSiteDetailComponent {
       duration_ms?: number;
       error?: string;
     }
-    this.http
-      .post<SqlExecRes>(`/api/sites/${id}/sql/exec`, { query })
+    this.api
+      .post<SqlExecRes>(`/sites/${id}/sql/exec`, { query })
       .pipe(
         catchError((err) =>
           of<SqlExecRes>({
@@ -526,8 +526,8 @@ export class AdminSiteDetailComponent {
 
   // ── Integrations ─────────────────────────────────────────────────────
   private loadIntegrations(id: string): void {
-    this.http
-      .get<{ providers: IntegrationProvider[] }>(`/api/sites/${id}/integrations`)
+    this.api
+      .get<{ providers: IntegrationProvider[] }>(`/sites/${id}/integrations`)
       .pipe(
         catchError(() => of({ providers: DEFAULT_PROVIDERS })),
         takeUntilDestroyed(this.destroyRef),
@@ -547,8 +547,8 @@ export class AdminSiteDetailComponent {
       return;
     }
     // Probe for 501 immediately so paste-key surfaces without waiting on popup.
-    this.http
-      .get<{ status?: string }>(`/api/mcp/${p.key}/connect`)
+    this.api
+      .get<{ status?: string }>(`/mcp/${p.key}/connect`)
       .pipe(
         catchError((err) => of({ status: err?.status === 501 ? 'oauth_not_configured' : 'ok' })),
         takeUntilDestroyed(this.destroyRef),
@@ -563,8 +563,8 @@ export class AdminSiteDetailComponent {
   submitPasteKey(p: IntegrationProvider): void {
     const apiKey = this.pasteKeyValue();
     if (!apiKey) return;
-    this.http
-      .post(`/api/mcp/${p.key}/paste`, { api_key: apiKey, site_id: this.siteId() })
+    this.api
+      .post(`/mcp/${p.key}/paste`, { api_key: apiKey, site_id: this.siteId() })
       .pipe(
         catchError(() => of({ ok: false })),
         takeUntilDestroyed(this.destroyRef),
@@ -583,8 +583,8 @@ export class AdminSiteDetailComponent {
   confirmDisconnect(): void {
     const p = this.disconnectTarget();
     if (!p) return;
-    this.http
-      .delete(`/api/sites/${this.siteId()}/integrations/${p.key}`)
+    this.api
+      .delete(`/sites/${this.siteId()}/integrations/${p.key}`)
       .pipe(
         catchError(() => of({ ok: true })),
         takeUntilDestroyed(this.destroyRef),
