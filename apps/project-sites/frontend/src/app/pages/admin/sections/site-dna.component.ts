@@ -25,7 +25,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { ApiService } from '../../../services/api.service';
 import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
@@ -335,7 +335,7 @@ export class AdminSiteDnaComponent implements OnInit, OnDestroy {
   // siteId can come from the route param or an explicit @Input for embedding.
   @Input() siteId: string | null = null;
 
-  private readonly http = inject(HttpClient);
+  private readonly api = inject(ApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroy$ = new Subject<void>();
 
@@ -377,8 +377,8 @@ export class AdminSiteDnaComponent implements OnInit, OnDestroy {
     this.loading.set(true);
 
     forkJoin({
-      history: this.http.get<DnaHistoryResp>(`/api/site-dna/${this.siteId}/history?limit=50`),
-      prefs: this.http.get<DnaPrefsResp>(`/api/site-dna/${this.siteId}/preferences?top_k=10`),
+      history: this.api.get<DnaHistoryResp>(`/site-dna/${this.siteId}/history?limit=50`),
+      prefs: this.api.get<DnaPrefsResp>(`/site-dna/${this.siteId}/preferences?top_k=10`),
     })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -414,9 +414,9 @@ export class AdminSiteDnaComponent implements OnInit, OnDestroy {
       }
     }
 
-    this.http
+    this.api
       .post<{ id: string }>(
-        `/api/site-dna/${this.siteId}/feedback`,
+        `/site-dna/${this.siteId}/feedback`,
         { component_id: this.newComponentId, action: this.newAction, ...(context ? { context } : {}) },
       )
       .pipe(takeUntil(this.destroy$))

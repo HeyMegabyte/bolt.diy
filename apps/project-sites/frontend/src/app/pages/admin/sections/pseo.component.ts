@@ -9,7 +9,7 @@
 
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { ApiService } from '../../../services/api.service';
 import { firstValueFrom } from 'rxjs';
 import { AdminStateService } from '../admin-state.service';
 import { ToastService } from '../../../services/toast.service';
@@ -339,7 +339,7 @@ type StatusFilter = 'all' | PseoPage['status'];
   `],
 })
 export class AdminPseoComponent implements OnInit {
-  private http = inject(HttpClient);
+  private api = inject(ApiService);
   private adminState = inject(AdminStateService);
   private toast = inject(ToastService);
 
@@ -368,7 +368,7 @@ export class AdminPseoComponent implements OnInit {
     const siteId = this.selectedSiteId();
     if (!siteId) return;
     try {
-      const resp = await firstValueFrom(this.http.get<{ stats: MatrixStats }>(`/api/pseo/${siteId}`));
+      const resp = await firstValueFrom(this.api.get<{ stats: MatrixStats }>(`/pseo/${siteId}`));
       this.stats.set(resp.stats);
     } catch {
       /* silent — stats are informational */
@@ -383,7 +383,7 @@ export class AdminPseoComponent implements OnInit {
     const statusParam = this.statusFilter() !== 'all' ? `&status=${this.statusFilter()}` : '';
     try {
       const resp = await firstValueFrom(
-        this.http.get<PagesResponse>(`/api/pseo/${siteId}/pages?page=${this.page()}${statusParam}`),
+        this.api.get<PagesResponse>(`/pseo/${siteId}/pages?page=${this.page()}${statusParam}`),
       );
       this.pages.set(resp.pages);
       this.total.set(resp.total);
@@ -399,7 +399,7 @@ export class AdminPseoComponent implements OnInit {
     if (!siteId) return;
     this.generating.set(true);
     try {
-      await firstValueFrom(this.http.post(`/api/pseo/${siteId}/generate`, {}));
+      await firstValueFrom(this.api.post(`/pseo/${siteId}/generate`, {}));
       this.toast.success('Matrix generation queued — pages appear in the grid as they build.');
       // Reload after a brief pause to let the workflow kick off
       setTimeout(() => { this.loadStats(); this.loadPages(); }, 2000);
@@ -415,7 +415,7 @@ export class AdminPseoComponent implements OnInit {
     if (!siteId) return;
     this.acting.update((s) => new Set([...s, p.id]));
     try {
-      await firstValueFrom(this.http.post(`/api/pseo/${siteId}/pages/${p.id}/approve`, {}));
+      await firstValueFrom(this.api.post(`/pseo/${siteId}/pages/${p.id}/approve`, {}));
       this.pages.update((list) => list.map((row) => row.id === p.id ? { ...row, status: 'approved' as const } : row));
       this.toast.success(`Approved ${p.route_slug}`);
     } catch (e) {
@@ -430,7 +430,7 @@ export class AdminPseoComponent implements OnInit {
     if (!siteId) return;
     this.acting.update((s) => new Set([...s, p.id]));
     try {
-      await firstValueFrom(this.http.post(`/api/pseo/${siteId}/pages/${p.id}/publish`, {}));
+      await firstValueFrom(this.api.post(`/pseo/${siteId}/pages/${p.id}/publish`, {}));
       this.pages.update((list) => list.map((row) => row.id === p.id ? { ...row, status: 'published' as const } : row));
       this.toast.success(`Published ${p.route_slug}`);
       this.loadStats();
@@ -446,7 +446,7 @@ export class AdminPseoComponent implements OnInit {
     if (!siteId) return;
     this.acting.update((s) => new Set([...s, p.id]));
     try {
-      await firstValueFrom(this.http.post(`/api/pseo/${siteId}/pages/${p.id}/reject`, {}));
+      await firstValueFrom(this.api.post(`/pseo/${siteId}/pages/${p.id}/reject`, {}));
       this.pages.update((list) => list.map((row) => row.id === p.id ? { ...row, status: 'rejected' as const } : row));
       this.toast.success(`Rejected ${p.route_slug}`);
     } catch (e) {

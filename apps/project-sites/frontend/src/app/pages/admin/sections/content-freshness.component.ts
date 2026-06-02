@@ -24,7 +24,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { ApiService } from '../../../services/api.service';
 import { firstValueFrom } from 'rxjs';
 import {
   createAngularTable,
@@ -336,7 +336,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
   `],
 })
 export class AdminContentFreshnessComponent implements OnInit {
-  private http = inject(HttpClient);
+  private api = inject(ApiService);
   private adminState = inject(AdminStateService);
   private toast = inject(ToastService);
 
@@ -440,8 +440,8 @@ export class AdminContentFreshnessComponent implements OnInit {
     this.error.set(null);
     try {
       const resp = await firstValueFrom(
-        this.http.get<DraftsResponse>(
-          `/api/content/freshness?status=${this.statusFilter()}&page=${this.page()}`,
+        this.api.get<DraftsResponse>(
+          `/content/freshness?status=${this.statusFilter()}&page=${this.page()}`,
         ),
       );
       this.drafts.set(resp.drafts);
@@ -456,7 +456,7 @@ export class AdminContentFreshnessComponent implements OnInit {
   async approve(draftId: string): Promise<void> {
     this.acting.update((s) => new Set([...s, draftId]));
     try {
-      await firstValueFrom(this.http.post(`/api/content/freshness/approve/${draftId}`, {}));
+      await firstValueFrom(this.api.post(`/content/freshness/approve/${draftId}`, {}));
       this.drafts.update((list) => list.filter((d) => d.id !== draftId));
       this.total.update((t) => Math.max(0, t - 1));
       this.toast.success('Approved — rewrite queued to publish.');
@@ -470,7 +470,7 @@ export class AdminContentFreshnessComponent implements OnInit {
   async reject(draftId: string): Promise<void> {
     this.acting.update((s) => new Set([...s, draftId]));
     try {
-      await firstValueFrom(this.http.post(`/api/content/freshness/reject/${draftId}`, {}));
+      await firstValueFrom(this.api.post(`/content/freshness/reject/${draftId}`, {}));
       this.drafts.update((list) => list.filter((d) => d.id !== draftId));
       this.total.update((t) => Math.max(0, t - 1));
       this.toast.info('Rejected — draft discarded.');
@@ -484,7 +484,7 @@ export class AdminContentFreshnessComponent implements OnInit {
   async triggerScan(): Promise<void> {
     this.triggering.set(true);
     try {
-      await firstValueFrom(this.http.post('/api/content/freshness/trigger', {}));
+      await firstValueFrom(this.api.post('/content/freshness/trigger', {}));
       this.toast.success('Scan started — new drafts appear shortly.');
     } catch {
       this.toast.error('Scan failed — could not start the scan.');
