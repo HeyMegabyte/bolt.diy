@@ -1,0 +1,88 @@
+# Frontend feature → spec coverage map (machine-readable mirror of FEATURES.md).
+# Every feature maps to >=1 Playwright spec in this directory.
+# status: covered | blocked | gap
+# Run: npx playwright test --config=playwright.prod.config.ts <spec>
+# Counterpart maps: apps/project-sites/e2e/COVERAGE.yml (worker), e2e/COVERAGE.yml (bolt.diy).
+
+marketing:
+  homepage:        { status: covered, specs: [homepage.spec.ts, journey-homepage.spec.ts, homepage-landmarks.e2e.ts, json-ld-schema.spec.ts, hero-logo-visual.spec.ts, logo-styling.spec.ts] }
+  header_nav:      { status: covered, specs: [header.spec.ts, header-auth-state.spec.ts, forms-header-button.spec.ts] }
+  blog:            { status: covered, specs: [marketing-a11y.e2e.ts, marketing-responsive.e2e.ts] }
+  press:           { status: covered, specs: [press.spec.ts, marketing-a11y.e2e.ts, marketing-responsive.e2e.ts] }
+  legal:           { status: covered, specs: [marketing-a11y.e2e.ts, marketing-responsive.e2e.ts] }
+  roadmap:         { status: covered, specs: [marketing-a11y.e2e.ts, marketing-responsive.e2e.ts] }
+  integrations:    { status: covered, specs: [marketing-a11y.e2e.ts, marketing-responsive.e2e.ts] }
+  contact:         { status: covered, specs: [marketing-a11y.e2e.ts, marketing-responsive.e2e.ts] }
+  signin:          { status: covered, specs: [signin.spec.ts, marketing-a11y.e2e.ts, marketing-responsive.e2e.ts] }
+  changelog:       { status: blocked, specs: [marketing-a11y.e2e.ts], reason: "worker-served HTML; needs worker deploy (Docker)" }
+  status_page:     { status: blocked, specs: [marketing-a11y.e2e.ts], reason: "worker-served HTML; needs worker deploy (Docker)" }
+  mobile:          { status: covered, specs: [mobile.spec.ts, marketing-responsive.e2e.ts] }
+
+create_flow:
+  wizard:          { status: covered, specs: [create-site.spec.ts, create-page-fixes.spec.ts, create-final-fixes.spec.ts, auto-create.spec.ts] }
+  zindex:          { status: covered, specs: [create-zindex-repopulate.spec.ts, dropdown-zindex.spec.ts] }
+  inputs:          { status: covered, specs: [heyo-category.spec.ts, heyo-special-chars.spec.ts, when-doody-calls.spec.ts] }
+  journey:         { status: covered, specs: [journey-create.spec.ts] }
+  waiting:         { status: covered, specs: [waiting.spec.ts, build-pipeline.spec.ts] }
+  headless:        { status: covered, specs: [headless-build.spec.ts, headless-to-editor.spec.ts] }
+  build_cycle:     { status: covered, specs: [build-edit-snapshot-cycle.spec.ts] }
+  image_discovery: { status: covered, specs: [image-discovery.spec.ts, white-house-images.spec.ts] }
+
+admin_shell:
+  routing:         { status: covered, specs: [admin-routing.e2e.ts, admin.spec.ts] }
+  shell:           { status: covered, specs: [admin.spec.ts, production-admin.spec.ts] }
+  user_menu:       { status: covered, specs: [admin-user-menu.spec.ts] }
+  command_palette: { status: covered, specs: [admin.spec.ts, full-audit.spec.ts] }
+  cinematic_ui:    { status: covered, specs: [admin-cinematic-ui.e2e.ts] }
+  spartan_controls:{ status: covered, specs: [admin-spartan-controls.e2e.ts, admin-tooltip.e2e.ts] }
+
+admin_sections:
+  dashboard:       { status: covered, specs: [admin.spec.ts, production-admin.spec.ts] }
+  editor:          { status: covered, specs: [bolt-embed.spec.ts, editor-proxy.e2e.ts, production-editor.spec.ts, production-editor-prompt.spec.ts, production-editor-errors.spec.ts] }
+  files:           { status: covered, specs: [files-deep.spec.ts] }
+  snapshots:       { status: covered, specs: [admin-snapshots.spec.ts, build-edit-snapshot-cycle.spec.ts] }
+  site_detail:     { status: covered, specs: [admin-site-detail-tabs.e2e.ts] }
+  analytics:       { status: covered, specs: [analytics-cf-traffic.spec.ts] }
+  billing:         { status: covered, specs: [stripe-link-inline-checkout.spec.ts, production-admin.spec.ts] }
+  feature_flags:   { status: covered, specs: [admin-feature-flags.e2e.ts, admin-flag-gated.e2e.ts] }
+  forms:           { status: covered, specs: [forms-header-button.spec.ts, full-feature-coverage.spec.ts] }
+  notifications:   { status: covered, specs: [notification-bell.e2e.ts] }
+  rebuilt_sections:{ status: covered, specs: [admin-rebuilt-sections.e2e.ts] }
+  dense_sections:  { status: covered, specs: [full-audit.spec.ts, full-coverage.spec.ts, full-feature-coverage.spec.ts, comprehensive.spec.ts, admin.spec.ts], note: "audit/pseo/seo/mcp/social/voice/media/apps/docs/traces/ai-endpoints/import/content-freshness/settings/domains via broad suites" }
+  super_admin:     { status: covered, specs: [production-admin.spec.ts, full-audit.spec.ts] }
+
+components_states:
+  dialog:          { status: covered, specs: [a11y-focus-trap.spec.ts, admin-dialog-keyboard.e2e.ts] }
+  states:          { status: covered, specs: [admin-error-states.e2e.ts, admin-section-states.e2e.ts, states-kit.spec.ts] }
+  network_honesty: { status: covered, specs: [admin-network-honesty.e2e.ts] }
+  interactions:    { status: covered, specs: [admin-interactions.e2e.ts, admin-functional.e2e.ts] }
+
+production_smoke:
+  build:           { status: covered, specs: [production-build.spec.ts] }
+  end_to_end_flow: { status: covered, specs: [production-flow.spec.ts] }
+  heyo_create:     { status: covered, specs: [production-heyo.spec.ts] }
+
+a11y_responsive:
+  admin_axe:           { status: covered, specs: [admin-a11y.e2e.ts] }
+  admin_axe_mobile:    { status: covered, specs: [admin-a11y-mobile.e2e.ts] }
+  admin_axe_params:    { status: covered, specs: [admin-param-routes-a11y.e2e.ts] }
+  admin_reflow:        { status: covered, specs: [admin-reflow.e2e.ts] }
+  admin_console:       { status: covered, specs: [admin-console-hygiene.e2e.ts] }
+  marketing_axe:       { status: covered, specs: [marketing-a11y.e2e.ts] }
+  marketing_responsive:{ status: covered, specs: [marketing-responsive.e2e.ts] }
+  mobile:              { status: covered, specs: [mobile.spec.ts] }
+
+auth:
+  signin_flow:     { status: covered, specs: [signin.spec.ts, journey-auth-admin.spec.ts] }
+  auth_sweep:      { status: covered, specs: [admin-auth-sweep.e2e.ts] }
+  header_state:    { status: covered, specs: [header-auth-state.spec.ts] }
+
+regression_suites:
+  full_audit:        { status: covered, specs: [full-audit.spec.ts] }
+  full_coverage:     { status: covered, specs: [full-coverage.spec.ts] }
+  full_feature:      { status: covered, specs: [full-feature-coverage.spec.ts] }
+  full_simulation:   { status: covered, specs: [full-user-simulation.spec.ts] }
+  ultimate_chains:   { status: covered, specs: [ultimate-feature-chains.spec.ts] }
+  quality:           { status: covered, specs: [quality-features.spec.ts] }
+  requirements:      { status: covered, specs: [requirements.spec.ts] }
+  comprehensive:     { status: covered, specs: [comprehensive.spec.ts] }

@@ -6,6 +6,7 @@
     "start": "ng serve",
     "build": "ng build",
     "check:alt-text": "node scripts/check-alt-text.mjs",
+    "validate:e2e-inventory": "node scripts/validate-e2e-inventory.mjs",
     "build:prod": "node scripts/check-alt-text.mjs && rm -rf .angular/cache && ng build --configuration production",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
