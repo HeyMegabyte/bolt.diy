@@ -17,7 +17,7 @@ export default defineFeatureManifest({
   slug: 'bulk_site_ops',
   name: 'Bulk Site Ops',
   description:
-    'Plan and apply bulk operations (set_flag, republish, archive) across owned sites. Ownership-filtered, per-op validity, batch-capped at 100. Archive applies reversibly; others are preview-only.',
+    'Plan and apply bulk ops (set_flag, republish, archive) across owned sites. Ownership-filtered, per-op validity, capped at 100. Archive + set_flag apply; republish is preview-only.',
   lifecycle: 'in-development',
   flagKey: 'bulk_site_ops',
   owner: 'brian@megabyte.space',
@@ -56,10 +56,11 @@ export default defineFeatureManifest({
     },
     notes:
       'Experimental. Flag-gated POST returns 404 when off. dryRun (default true) ' +
-      'returns the validated plan. dryRun:false applies the archive operation ' +
-      '(reversible status-only write, never the soft-delete path); set_flag + ' +
-      'republish executors land next + 400 NOT_IMPLEMENTED for now. Beta after: ' +
-      'those executors + audit-log writes + an Angular admin surface.',
+      'returns the validated plan. dryRun:false applies archive (reversible ' +
+      'status-only write, never the soft-delete path) and set_flag (tenant-scoped ' +
+      'flag_overrides upsert; flagKey must be a known, non-core registry key). ' +
+      'republish → 400 NOT_IMPLEMENTED for now. Beta after: the republish executor ' +
+      '+ per-op audit-log writes + an Angular admin surface.',
   },
 
   risks: [

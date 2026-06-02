@@ -156,3 +156,51 @@ export async function executeBulkArchive(env: Env, orgId: string, ids: string[])
 
   return { archived, failed };
 }
+
+export interface BulkSetFlagResult {
+  set: string[];
+  failed: Array<{ id: string; error: string }>;
+}
+
+/**
+ * Set a per-site (tenant-scoped) feature-flag override across eligible sites.
+ *
+ * Writes to `flag_overrides` (scope='tenant') — the SAME table `isFlagOn`
+ * reads — via the canonical upsert (`ON CONFLICT(scope, scope_id, flag_key)
+ * WHERE deleted_at IS NULL`), so re-running just updates the value. NOTE: the
+ * caller MUST validate `flagKey` (known registry key, non-core) and that `ids`
+ * are the org-owned eligible set from the planner — this executor trusts both.
+ *
+ * @example
+ * ```ts
+ * await executeBulkSetFlag(env, plan.eligible, 'review_synthesis', true, userId);
+ * ```
+ */
+export async function executeBulkSetFlag(
+  env: Env,
+  ids: string[],
+  flagKey: string,
+  enabled: boolean,
+  setBy: string | null,
+): Promise<BulkSetFlagResult> {
+  const set: string[] = [];
+  const failed: Array<{ id: string; error: string }> = [];
+  const valueJson = JSON.stringify({ enabled });
+
+  for (const id of ids) {
+    const now = new Date().toISOString();
+    const res = await dbExecute(
+      env.DB,
+      `INSERT INTO flag_overrides (id, scope, scope_id, flag_key, value_json, set_by, set_at, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?)
+       ON CONFLICT(scope, scope_id, flag_key) WHERE deleted_at IS NULL
+       DO UPDATE SET value_json = excluded.value_json, set_by = excluded.set_by,
+                     set_at = excluded.set_at, updated_at = excluded.updated_at`,
+      [crypto.randomUUID(), 'tenant', id, flagKey, valueJson, setBy, now, now, now],
+    );
+    if (res.error) failed.push({ id, error: res.error });
+    else set.push(id);
+  }
+
+  return { set, failed };
+}

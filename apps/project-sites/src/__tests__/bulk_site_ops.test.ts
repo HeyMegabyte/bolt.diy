@@ -1,6 +1,7 @@
 import {
   planBulkOperation,
   executeBulkArchive,
+  executeBulkSetFlag,
   MAX_BULK_SITES,
   type BulkSiteRef,
 } from '../services/bulk_site_ops.js';
@@ -134,5 +135,58 @@ describe('executeBulkArchive', () => {
   it('is a no-op for an empty eligible set', async () => {
     const res = await executeBulkArchive(mockEnv({}), 'org1', []);
     expect(res).toEqual({ archived: [], failed: [] });
+  });
+});
+
+describe('executeBulkSetFlag', () => {
+  /** Capturing D1 mock: records each upsert's bind args; throws for ids in throwScopeIds (3rd bind arg). */
+  function mockFlagEnv(captured: unknown[][], throwScopeIds: string[] = []): Env {
+    return {
+      DB: {
+        prepare: (_sql: string) => ({
+          bind: (...args: unknown[]) => ({
+            run: async () => {
+              captured.push(args);
+              if (throwScopeIds.includes(args[2] as string)) throw new Error('db down');
+              return { meta: { changes: 1 } };
+            },
+          }),
+        }),
+      },
+    } as unknown as Env;
+  }
+
+  it('writes a tenant-scoped {enabled} override per eligible site to flag_overrides', async () => {
+    const captured: unknown[][] = [];
+    const res = await executeBulkSetFlag(mockFlagEnv(captured), ['a', 'b'], 'review_synthesis', true, 'user1');
+    expect(res.set.sort()).toEqual(['a', 'b']);
+    expect(res.failed).toEqual([]);
+    // bind order: id, scope, scope_id, flag_key, value_json, set_by, ...
+    expect(captured[0]?.[1]).toBe('tenant');
+    expect(captured[0]?.[2]).toBe('a');
+    expect(captured[0]?.[3]).toBe('review_synthesis');
+    expect(JSON.parse(captured[0]?.[4] as string)).toEqual({ enabled: true });
+    expect(captured[0]?.[5]).toBe('user1');
+  });
+
+  it('serializes enabled:false correctly', async () => {
+    const captured: unknown[][] = [];
+    await executeBulkSetFlag(mockFlagEnv(captured), ['a'], 'seo_autopilot', false, null);
+    expect(JSON.parse(captured[0]?.[4] as string)).toEqual({ enabled: false });
+    expect(captured[0]?.[5]).toBeNull();
+  });
+
+  it('captures a DB error per id without aborting the rest', async () => {
+    const captured: unknown[][] = [];
+    const res = await executeBulkSetFlag(mockFlagEnv(captured, ['b']), ['a', 'b', 'c'], 'review_synthesis', true, 'u');
+    expect(res.set.sort()).toEqual(['a', 'c']);
+    expect(res.failed.map((f) => f.id)).toEqual(['b']);
+  });
+
+  it('is a no-op for an empty eligible set', async () => {
+    const captured: unknown[][] = [];
+    const res = await executeBulkSetFlag(mockFlagEnv(captured), [], 'review_synthesis', true, 'u');
+    expect(res).toEqual({ set: [], failed: [] });
+    expect(captured.length).toBe(0);
   });
 });

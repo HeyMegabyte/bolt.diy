@@ -26,8 +26,9 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables } from '../types/env.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
+import { getDefaultFlag } from '../modules/feature_flags/registry.js';
 import { dbQuery } from '../services/db.js';
-import { planBulkOperation, executeBulkArchive } from '../services/bulk_site_ops.js';
+import { planBulkOperation, executeBulkArchive, executeBulkSetFlag } from '../services/bulk_site_ops.js';
 
 const NOT_FOUND = { error: { code: 'NOT_FOUND', message: 'Not found' } } as const;
 
@@ -38,6 +39,9 @@ const BodySchema = z
     allSites: z.boolean().optional(),
     /** Default true (preview). Set false to apply the operation to eligible sites. */
     dryRun: z.boolean().optional(),
+    /** set_flag only: which flag + the value to set across eligible sites. */
+    flagKey: z.string().min(1).max(64).optional(),
+    enabled: z.boolean().optional(),
   })
   .strict();
 
@@ -58,7 +62,7 @@ bulkSiteOps.post('/api/sites/bulk', async (c) => {
       400,
     );
   }
-  const { operation, siteIds, allSites, dryRun = true } = parsed.data;
+  const { operation, siteIds, allSites, dryRun = true, flagKey, enabled } = parsed.data;
 
   const owned = (
     await dbQuery<{ id: string; status: string }>(
@@ -81,23 +85,48 @@ bulkSiteOps.post('/api/sites/bulk', async (c) => {
   // Preview: return the validated plan, mutate nothing.
   if (dryRun) return c.json({ ok: true, dryRun: true, plan });
 
-  // Apply: only `archive` has a verified, reversible executor so far.
-  // set_flag/republish executors land in a follow-up slice — fail loudly (never silently no-op).
-  if (operation !== 'archive') {
-    return c.json(
-      {
-        error: {
-          code: 'NOT_IMPLEMENTED',
-          message: `Executor for "${operation}" is not available yet — re-request with dryRun:true to preview, or use operation:"archive"`,
-        },
-        plan,
-      },
-      400,
-    );
+  // Apply. `archive` + `set_flag` have verified executors; `republish` does not yet.
+  if (operation === 'archive') {
+    const results = await executeBulkArchive(c.env, orgId, plan.eligible);
+    return c.json({ ok: true, dryRun: false, plan, results });
   }
 
-  const results = await executeBulkArchive(c.env, orgId, plan.eligible);
-  return c.json({ ok: true, dryRun: false, plan, results });
+  if (operation === 'set_flag') {
+    // Guardrails: a known, non-core flag + an explicit value. Never let a typo
+    // mint a phantom override, and never let a bulk op flip a core_* sentinel.
+    if (!flagKey || !getDefaultFlag(flagKey)) {
+      return c.json(
+        { error: { code: 'BAD_REQUEST', message: 'set_flag requires a known flagKey' }, plan },
+        400,
+      );
+    }
+    if (flagKey.startsWith('core_')) {
+      return c.json(
+        { error: { code: 'BAD_REQUEST', message: 'core_* sentinel flags cannot be bulk-set' }, plan },
+        400,
+      );
+    }
+    if (typeof enabled !== 'boolean') {
+      return c.json(
+        { error: { code: 'BAD_REQUEST', message: 'set_flag requires enabled (boolean)' }, plan },
+        400,
+      );
+    }
+    const results = await executeBulkSetFlag(c.env, plan.eligible, flagKey, enabled, userId);
+    return c.json({ ok: true, dryRun: false, plan, results });
+  }
+
+  // republish executor lands in a follow-up slice — fail loudly (never silently no-op).
+  return c.json(
+    {
+      error: {
+        code: 'NOT_IMPLEMENTED',
+        message: `Executor for "${operation}" is not available yet — re-request with dryRun:true to preview`,
+      },
+      plan,
+    },
+    400,
+  );
 });
 
 export { bulkSiteOps };
