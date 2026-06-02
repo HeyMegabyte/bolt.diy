@@ -16,7 +16,12 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
-const ROUTES = ['/blog', '/press', '/privacy', '/terms', '/roadmap', '/integrations'];
+// '/', '/contact', '/signin' joined once their a11y blocks cleared (see
+// marketing-a11y.e2e.ts header). All verified reflow-clean @320px live.
+const ROUTES = [
+  '/', '/contact', '/signin',
+  '/blog', '/press', '/privacy', '/terms', '/roadmap', '/integrations',
+];
 
 test.describe('marketing — responsive a11y (390 axe + 320 reflow)', () => {
   test.describe.configure({ retries: 2 });
