@@ -1,0 +1,92 @@
+# Worker e2e feature → spec coverage map (machine-readable).
+# Covers every spec in apps/project-sites/e2e/. Companion to FEATURES.md.
+# status: covered | blocked | gap
+# Run a spec: npx playwright test <spec>
+# Counterpart maps: apps/project-sites/frontend/e2e/COVERAGE.yml (Angular SPA),
+#                   e2e/COVERAGE.yml (bolt.diy root app).
+# Validator: npm run validate:e2e-inventory (apps/project-sites).
+
+app_shell:
+  spa_routing:      { status: covered, specs: [spa-routing.spec.ts] }
+  topbar:           { status: covered, specs: [topbar-redesign.spec.ts] }
+  command_palette:  { status: covered, specs: [command-palette.spec.ts] }
+  ui_polish:        { status: covered, specs: [ui-polish.spec.ts] }
+
+marketing_public:
+  homepage:         { status: covered, specs: [homepage.spec.ts] }
+  marketing:        { status: covered, specs: [marketing-sections.spec.ts] }
+  conversion:       { status: covered, specs: [conversion-flow.spec.ts, conversion-ui.spec.ts] }
+  contact:          { status: covered, specs: [contact.spec.ts] }
+  pwa:              { status: covered, specs: [pwa.spec.ts] }
+  security_headers: { status: covered, specs: [security-headers.spec.ts] }
+  health:           { status: covered, specs: [health.spec.ts] }
+  smoke_prod:       { status: covered, specs: [smoke-prod.spec.ts] }
+
+auth:
+  signin:           { status: covered, specs: [auth-and-signin.spec.ts] }
+
+site_lifecycle:
+  golden_path:      { status: covered, specs: [golden-path.spec.ts, vitos-full-flow.spec.ts] }
+  feature_journey:  { status: covered, specs: [feature-journey.spec.ts] }
+  search_places:    { status: covered, specs: [search-and-places.spec.ts] }
+  enrichment:       { status: covered, specs: [business-enrichment.spec.ts] }
+  rebuild_research: { status: covered, specs: [rebuild-and-research.spec.ts] }
+  waiting_terminal: { status: covered, specs: [waiting-and-terminal.spec.ts] }
+
+site_management:
+  site_cards:       { status: covered, specs: [site-card-features.spec.ts] }
+  status_domains:   { status: covered, specs: [site-status-and-domains.spec.ts] }
+  preview_logs:     { status: covered, specs: [site-preview-and-logs.spec.ts] }
+  domains:          { status: covered, specs: [domain-management.spec.ts, domain-management-v2.spec.ts, domain-and-files.spec.ts, domain-modal-interactive.spec.ts] }
+  files:            { status: covered, specs: [files-modal-v2.spec.ts] }
+  logs_delete:      { status: covered, specs: [logs-and-delete.spec.ts, logs-modal-interactive.spec.ts] }
+
+admin_sections:
+  billing:          { status: covered, specs: [admin-and-billing.spec.ts] }
+  docs:             { status: covered, specs: [admin-docs.spec.ts] }
+  modals:           { status: covered, specs: [admin-modals.spec.ts] }
+  upgrades:         { status: covered, specs: [admin-upgrades-30.spec.ts] }
+  audit:            { status: covered, specs: [audit-logs.spec.ts, audit-site-filter.spec.ts] }
+  confidence:       { status: covered, specs: [confidence-ui.spec.ts] }
+
+ai_features:
+  chat_context:     { status: covered, specs: [ai-chat-context.spec.ts] }
+  ai_edit:          { status: covered, specs: [ai-edit.spec.ts] }
+  endpoints_ide:    { status: covered, specs: [ai-endpoints-ide.spec.ts] }
+  traces:           { status: covered, specs: [ai-traces.spec.ts] }
+  workflow:         { status: covered, specs: [ai-workflow.spec.ts] }
+  bolt_chat_ready:  { status: covered, specs: [bolt-chat-ready.spec.ts] }
+  streaming_md:     { status: covered, specs: [streaming-markdown-render.spec.ts] }
+
+editor:
+  inline_editing:   { status: covered, specs: [inline-editing.spec.ts] }
+
+media:
+  library:          { status: covered, specs: [media-library.spec.ts] }
+  stock_search:     { status: covered, specs: [media-stock-search.spec.ts] }
+  image_studio:     { status: covered, specs: [media-image-studio.spec.ts] }
+  video_studio:     { status: covered, specs: [media-video-studio.spec.ts] }
+  podcast_studio:   { status: covered, specs: [media-podcast-studio.spec.ts] }
+  drop_zone:        { status: covered, specs: [media-drop-zone.spec.ts] }
+  send_to_bolt:     { status: covered, specs: [media-send-to-bolt.spec.ts] }
+
+env_vars:
+  manager:          { status: covered, specs: [env-vars-manager.spec.ts] }
+  import_export:    { status: covered, specs: [env-vars-import-export.spec.ts] }
+  mcp_scope:        { status: covered, specs: [env-vars-mcp-scope.spec.ts] }
+
+forms_misc:
+  forms_widget:     { status: covered, specs: [forms-handling-widget.spec.ts] }
+  voice:            { status: covered, specs: [voice.spec.ts] }
+  task_tray:        { status: covered, specs: [task-tray.spec.ts] }
+
+modals_interactions:
+  modals:           { status: covered, specs: [modals-interactive.spec.ts] }
+  details_modal:    { status: covered, specs: [details-modal-flow.spec.ts] }
+
+observability:
+  error_boundary:   { status: covered, specs: [error-boundary.spec.ts] }
+  sentry_crash:     { status: covered, specs: [sentry-crash.spec.ts] }
+
+site_serving:
+  serving:          { status: covered, specs: [site-serving.spec.ts] }
