@@ -1255,7 +1255,7 @@ export class AdminSettingsComponent implements OnInit {
   }
   submitPaste(provider: string): void {
     const s = this.state.selectedSite(); if (!s) return;
-    this.api.post(`/api/mcp/${provider}/paste?site_id=${s.id}`, { api_key: this.pastedKey }).subscribe({
+    this.api.post(`/mcp/${provider}/paste?site_id=${s.id}`, { api_key: this.pastedKey }).subscribe({
       next: () => { this.pastedKey = ''; this.pasteMode.set(null); this.toast.success(`Saved — ${provider} connected`); this.loadConnections(); },
       error: () => { /* api.service already toasted */ },
     });

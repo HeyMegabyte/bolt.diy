@@ -222,7 +222,7 @@ export class AdminDomainStackComponent implements OnDestroy {
     const hn = this.hostname();
     if (!hn) return;
     this.loading.set(true);
-    this.api.get<StackStatusResponse>(`/api/domains/${encodeURIComponent(hn)}/stack-status`).subscribe({
+    this.api.get<StackStatusResponse>(`/domains/${encodeURIComponent(hn)}/stack-status`).subscribe({
       next: (res) => {
         const d = res.data;
         this.tiles.set(d.tiles ?? []);
@@ -263,7 +263,7 @@ export class AdminDomainStackComponent implements OnDestroy {
     this.advancing.set(true);
     const body: Record<string, string> = { site_id: siteId };
     if (this.runId()) body['run_id'] = this.runId()!;
-    this.api.post<StackAdvanceResponse>(`/api/domains/${encodeURIComponent(hn)}/stack`, body).subscribe({
+    this.api.post<StackAdvanceResponse>(`/domains/${encodeURIComponent(hn)}/stack`, body).subscribe({
       next: (res) => {
         this.currentState.set(res.data.state);
         this.advancing.set(false);

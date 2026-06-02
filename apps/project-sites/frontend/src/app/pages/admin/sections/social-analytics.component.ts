@@ -192,7 +192,7 @@ export class AdminSocialAnalyticsComponent implements OnInit {
     this.loading.set(true);
     this.error.set('');
     this.api
-      .get<AggregateResponse>(`/api/social/analytics/aggregate?days=${this.days()}`)
+      .get<AggregateResponse>(`/social/analytics/aggregate?days=${this.days()}`)
       .subscribe({
         next: (res) => {
           this.data.set(res);
