@@ -73,12 +73,11 @@ export function softwareApplication() {
       { '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'USD' },
       { '@type': 'Offer', name: 'Base', price: '50', priceCurrency: 'USD' },
     ],
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: '4.9',
-      ratingCount: '47',
-      bestRating: '5',
-    },
+    // NOTE: no aggregateRating — it must reflect REAL, on-page reviews. There
+    // are none yet, so a hardcoded "4.9/47" was a fabricated authority signal
+    // (banned by thin-source-amplification + a Google structured-data policy
+    // violation: ratings require corresponding visible review content). Add a
+    // real AggregateRating only once genuine reviews exist + render on the page.
   };
 }
 

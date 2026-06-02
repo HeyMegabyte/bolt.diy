@@ -306,3 +306,39 @@ test.describe('marketing — exactly one H1 per public route', () => {
     });
   }
 });
+
+test.describe('marketing — no fabricated AggregateRating in JSON-LD', () => {
+  test.describe.configure({ retries: 2 });
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  // Regression: the homepage SoftwareApplication JSON-LD shipped a hardcoded
+  // AggregateRating (4.9 / 47 reviews) with ZERO real reviews + no on-page
+  // review content — a fabricated authority signal (banned by
+  // thin-source-amplification + a Google structured-data policy violation:
+  // ratings must reflect real, visible reviews). Removed from both sources
+  // (src/index.html static block + lib/json-ld.ts softwareApplication factory).
+  // Guard that no public route re-introduces an AggregateRating until genuine,
+  // on-page reviews exist.
+  for (const path of ['/', '/press', '/blog']) {
+    test(`no AggregateRating JSON-LD — ${path}`, async ({ page }) => {
+      test.setTimeout(30000);
+      await page.goto(path, { waitUntil: 'load' });
+      await page.waitForTimeout(1200);
+      const hasRating = await page.evaluate(() => {
+        let found = false;
+        const walk = (o: unknown): void => {
+          if (!o || typeof o !== 'object') return;
+          if (Array.isArray(o)) { o.forEach(walk); return; }
+          const rec = o as Record<string, unknown>;
+          if (rec['@type'] === 'AggregateRating') found = true;
+          Object.values(rec).forEach(walk);
+        };
+        document.querySelectorAll('script[type="application/ld+json"]').forEach((s) => {
+          try { walk(JSON.parse(s.textContent || '')); } catch { /* ignore */ }
+        });
+        return found;
+      });
+      expect(hasRating, `${path} must not ship a fabricated AggregateRating (no real reviews exist)`).toBe(false);
+    });
+  }
+});
