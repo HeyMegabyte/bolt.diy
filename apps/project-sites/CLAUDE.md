@@ -824,6 +824,14 @@ Tables: `mcp_oauth_states` (one-shot state + code_verifier per pending auth),
     to beta/stable. Do NOT mass-retrofit blind — convert per-feature as each flag is
     enabled, with a unit test per endpoint. Same `as`-cast pattern exists (smaller) in
     `media.ts`, `env_vars.ts`, and the un-validated portion of `ai_admin.ts`.
+    **Verified dormant (re-checked this wave): `features.ts` has 123 flag-gated
+    handlers; cross-referencing the registry's 12 enabled flags (default_enabled:true
+    or stage beta/stable — all core_* sentinels + speculation_rules /
+    structured_data_autopilot / quotable_answer_block / llms_txt / mcp_server /
+    public_api / cli_tool / accessibility_statement) against the features.ts gated
+    set returns ZERO overlap. So every features.ts handler 404s in prod → the gap has
+    no live exposure; the per-feature-on-promotion defer is correct, NOT a hidden live
+    gap. Mass-retrofit remains forbidden.**
 
 ## Homepage SPA (public/index.html)
 
