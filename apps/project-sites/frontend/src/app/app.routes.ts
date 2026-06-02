@@ -177,6 +177,12 @@ export const routes: Routes = [
           import('./pages/admin/sections/bulk-ops.component').then((m) => m.AdminBulkOpsComponent),
       },
       {
+        // Email Deliverability Wizard (#12) — SPF/DKIM/DMARC score (flag: email_deliverability_wizard).
+        path: 'deliverability',
+        loadComponent: () =>
+          import('./pages/admin/sections/deliverability.component').then((m) => m.AdminDeliverabilityComponent),
+      },
+      {
         // Public API token management — create / list / revoke psk_* tokens.
         // Backend: GET|POST|DELETE /api/v1-tokens; flag-gated: public_api_v1.
         path: 'api-tokens',
