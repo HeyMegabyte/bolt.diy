@@ -460,7 +460,7 @@ The generated website should have **minimum 10 unique images** from these source
 ```bash
 cd apps/project-sites
 npm install --legacy-peer-deps   # NOT pnpm (electron-builder breaks it)
-npm test                         # 896 unit tests across 48 suites
+npm test                         # 902 unit tests across 49 suites
 npm run typecheck                # tsc --noEmit
 npm run lint                     # eslint
 npx wrangler dev                 # local dev server (port 8787)
@@ -757,7 +757,7 @@ dbExecute(db, sql, params)       // Raw execute
 
 ## Testing
 ```bash
-npm test                    # 896 unit tests across 48 suites
+npm test                    # 902 unit tests across 49 suites
 npm run test:coverage       # with coverage
 npx playwright test         # E2E tests (needs Chromium)
 ```
