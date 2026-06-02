@@ -81,7 +81,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
       <div class="ff-toolbar">
         <input
           hlmInput
-          class="flex-1 min-w-[280px]"
+          class="flex-1 min-w-0 basis-[240px]"
           type="search"
           placeholder="Search by key or description…"
           [ngModel]="search()"
