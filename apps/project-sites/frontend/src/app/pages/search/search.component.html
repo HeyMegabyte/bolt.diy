@@ -21,7 +21,7 @@
         #searchInput
         id="homepage-search"
         type="text"
-        class="w-full py-[18px] px-5 pl-[52px] text-[1.1rem] font-sans bg-dark-surface border-2 border-white/[0.08] rounded-2xl text-light outline-none transition-all duration-300 relative z-[2] placeholder:text-gray-500 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_4px_rgba(0,229,255,0.12),0_0_40px_rgba(0,229,255,0.15)] focus:bg-[rgba(8,8,32,0.9)]"
+        class="w-full py-[18px] px-5 pl-[52px] text-[1.1rem] font-sans bg-dark-surface border-2 border-white/[0.08] rounded-2xl text-light outline-none transition-all duration-300 relative z-[2] placeholder:text-gray-400 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_4px_rgba(0,229,255,0.12),0_0_40px_rgba(0,229,255,0.15)] focus:bg-[rgba(8,8,32,0.9)]"
         placeholder="Search for your business..."
         [(ngModel)]="query"
         (input)="onSearchInput()"
@@ -60,7 +60,7 @@
                   <span class="inline-block py-px px-1.5 text-[0.6rem] font-bold bg-green-500/[0.15] text-green-500 rounded ml-2 align-middle">PRE-BUILT</span>
                 }
               </div>
-              <div class="text-[0.82rem] text-gray-500 italic mt-0.5 truncate">
+              <div class="text-[0.82rem] text-gray-400 italic mt-0.5 truncate">
                 {{ item.address }}
                 @if (item.distance) {
                   <span class="ml-2 text-[0.75rem] text-text-secondary not-italic">{{ item.distance }}</span>
@@ -73,13 +73,13 @@
     }
   </div>
 
-  <p class="mt-5 text-[0.85rem] text-gray-500 max-w-[540px] animate-fade-in-up" style="animation-delay:0.3s">Search for your business to generate a free preview — no account or credit card required.</p>
+  <p class="mt-5 text-[0.85rem] text-gray-400 max-w-[540px] animate-fade-in-up" style="animation-delay:0.3s">Search for your business to generate a free preview — no account or credit card required.</p>
 
   <div class="flex gap-4 mt-7 flex-wrap justify-center animate-fade-in-up" style="animation-delay:0.4s">
     <button class="bg-primary text-dark font-semibold rounded-xl px-8 py-4 text-[1.05rem] hover:brightness-110 hover:shadow-[0_0_24px_rgba(0,229,255,0.4)] hover:-translate-y-0.5 transition-all duration-300" (click)="startBuildFlow()">Build Your Free Website</button>
     <button class="bg-primary/[0.03] border border-primary/[0.15] text-text-secondary rounded-xl px-6 py-3 text-[0.95rem] font-semibold cursor-pointer transition-all duration-300 hover:border-primary hover:text-primary" (click)="scrollToHow()">How it works <span class="inline-block transition-transform duration-300 group-hover:translate-y-[3px]">↓</span></button>
   </div>
-  <p class="mt-4 text-[0.8rem] text-gray-500 animate-fade-in-up" style="animation-delay:0.5s">Free preview includes a full AI-generated site. Pay only when you're ready to go live.</p>
+  <p class="mt-4 text-[0.8rem] text-gray-400 animate-fade-in-up" style="animation-delay:0.5s">Free preview includes a full AI-generated site. Pay only when you're ready to go live.</p>
 </section>
 
 <!-- ═══════════════════════════════════════════ -->
@@ -108,7 +108,7 @@
   </div>
 
   <div class="text-center mt-9 flex flex-col gap-3 items-center">
-    <p class="text-gray-500 text-[0.85rem] max-w-[540px] leading-relaxed">Most small businesses spend $2,000–$5,000 on a website that takes weeks. With ProjectSites, yours is live in five minutes for $50/mo — with unlimited changes included.</p>
+    <p class="text-gray-400 text-[0.85rem] max-w-[540px] leading-relaxed">Most small businesses spend $2,000–$5,000 on a website that takes weeks. With ProjectSites, yours is live in five minutes for $50/mo — with unlimited changes included.</p>
     <button class="bg-primary text-dark font-semibold rounded-xl px-6 py-3 hover:brightness-110 hover:shadow-[0_0_24px_rgba(0,229,255,0.4)] hover:-translate-y-0.5 transition-all duration-300" (click)="startBuildFlow()">See My Free Preview</button>
   </div>
 </section>
@@ -158,56 +158,56 @@
         <svg class="w-5 h-5 text-primary flex-shrink-0 mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
         <div class="flex flex-col gap-0.5">
           <strong class="text-[0.82rem] font-bold text-light leading-tight">Custom domain</strong>
-          <span class="text-[0.72rem] text-gray-500 leading-snug">Bring your own, or buy through us at registrar cost</span>
+          <span class="text-[0.72rem] text-gray-400 leading-snug">Bring your own, or buy through us at registrar cost</span>
         </div>
       </div>
       <div class="flex items-start gap-3 p-4 rounded-xl bg-primary/[0.04] border border-primary/[0.06] transition-all duration-300 hover:border-primary/[0.18] hover:-translate-y-0.5">
         <svg class="w-5 h-5 text-primary flex-shrink-0 mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
         <div class="flex flex-col gap-0.5">
           <strong class="text-[0.82rem] font-bold text-light leading-tight">Unlimited changes</strong>
-          <span class="text-[0.72rem] text-gray-500 leading-snug">Request updates anytime — we handle the work</span>
+          <span class="text-[0.72rem] text-gray-400 leading-snug">Request updates anytime — we handle the work</span>
         </div>
       </div>
       <div class="flex items-start gap-3 p-4 rounded-xl bg-primary/[0.04] border border-primary/[0.06] transition-all duration-300 hover:border-primary/[0.18] hover:-translate-y-0.5">
         <svg class="w-5 h-5 text-primary flex-shrink-0 mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
         <div class="flex flex-col gap-0.5">
           <strong class="text-[0.82rem] font-bold text-light leading-tight">AI content editor</strong>
-          <span class="text-[0.72rem] text-gray-500 leading-snug">Edit copy, images, and layout with AI assistance</span>
+          <span class="text-[0.72rem] text-gray-400 leading-snug">Edit copy, images, and layout with AI assistance</span>
         </div>
       </div>
       <div class="flex items-start gap-3 p-4 rounded-xl bg-primary/[0.04] border border-primary/[0.06] transition-all duration-300 hover:border-primary/[0.18] hover:-translate-y-0.5">
         <svg class="w-5 h-5 text-primary flex-shrink-0 mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
         <div class="flex flex-col gap-0.5">
           <strong class="text-[0.82rem] font-bold text-light leading-tight">Mobile-responsive</strong>
-          <span class="text-[0.72rem] text-gray-500 leading-snug">Looks great on every screen, every device</span>
+          <span class="text-[0.72rem] text-gray-400 leading-snug">Looks great on every screen, every device</span>
         </div>
       </div>
       <div class="flex items-start gap-3 p-4 rounded-xl bg-primary/[0.04] border border-primary/[0.06] transition-all duration-300 hover:border-primary/[0.18] hover:-translate-y-0.5">
         <svg class="w-5 h-5 text-primary flex-shrink-0 mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         <div class="flex flex-col gap-0.5">
           <strong class="text-[0.82rem] font-bold text-light leading-tight">Legal pages</strong>
-          <span class="text-[0.72rem] text-gray-500 leading-snug">Privacy policy & terms of service auto-generated</span>
+          <span class="text-[0.72rem] text-gray-400 leading-snug">Privacy policy & terms of service auto-generated</span>
         </div>
       </div>
       <div class="flex items-start gap-3 p-4 rounded-xl bg-primary/[0.04] border border-primary/[0.06] transition-all duration-300 hover:border-primary/[0.18] hover:-translate-y-0.5">
         <svg class="w-5 h-5 text-primary flex-shrink-0 mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
         <div class="flex flex-col gap-0.5">
           <strong class="text-[0.82rem] font-bold text-light leading-tight">Analytics dashboard</strong>
-          <span class="text-[0.72rem] text-gray-500 leading-snug">Track visitors, views, and engagement</span>
+          <span class="text-[0.72rem] text-gray-400 leading-snug">Track visitors, views, and engagement</span>
         </div>
       </div>
       <div class="flex items-start gap-3 p-4 rounded-xl bg-primary/[0.04] border border-primary/[0.06] transition-all duration-300 hover:border-primary/[0.18] hover:-translate-y-0.5">
         <svg class="w-5 h-5 text-primary flex-shrink-0 mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <div class="flex flex-col gap-0.5">
           <strong class="text-[0.82rem] font-bold text-light leading-tight">Priority support</strong>
-          <span class="text-[0.72rem] text-gray-500 leading-snug">Real humans, fast responses</span>
+          <span class="text-[0.72rem] text-gray-400 leading-snug">Real humans, fast responses</span>
         </div>
       </div>
       <div class="flex items-start gap-3 p-4 rounded-xl bg-primary/[0.04] border border-primary/[0.06] transition-all duration-300 hover:border-primary/[0.18] hover:-translate-y-0.5">
         <svg class="w-5 h-5 text-primary flex-shrink-0 mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         <div class="flex flex-col gap-0.5">
           <strong class="text-[0.82rem] font-bold text-light leading-tight">No contracts</strong>
-          <span class="text-[0.72rem] text-gray-500 leading-snug">Cancel anytime, no questions asked</span>
+          <span class="text-[0.72rem] text-gray-400 leading-snug">Cancel anytime, no questions asked</span>
         </div>
       </div>
     </div>
@@ -258,7 +258,7 @@
       </ul>
     </div>
     <div class="rounded-2xl p-8 bg-dark-card border border-white/[0.08]">
-      <div class="font-bold text-base text-gray-500 mb-5 pb-3 border-b border-white/[0.08]">DIY Builders (Squarespace, Wix, etc.)</div>
+      <div class="font-bold text-base text-gray-400 mb-5 pb-3 border-b border-white/[0.08]">DIY Builders (Squarespace, Wix, etc.)</div>
       <ul class="list-none p-0 m-0 flex flex-col gap-3.5">
         @for (item of ['You write all content yourself', 'Hours to days learning the builder', 'Every update is your responsibility', 'Domain, SEO plugins cost extra', 'You manage security and performance', 'Requires learning a page builder']; track $index) {
           <li class="flex items-start gap-3 text-[0.9rem] text-text-secondary leading-normal">
@@ -310,11 +310,11 @@
   <p class="text-[clamp(0.95rem,1.5vw,1.1rem)] text-text-secondary text-center max-w-[640px] mx-auto mb-12 leading-relaxed">Start free. Pay only when you're ready to go live.</p>
 
   <div class="flex items-center justify-center gap-3.5 mb-10">
-    <span class="text-[0.9rem] font-medium transition-colors" [class.text-light]="!annualPricing()" [class.font-bold]="!annualPricing()" [class.text-gray-500]="annualPricing()">Monthly</span>
+    <span class="text-[0.9rem] font-medium transition-colors" [class.text-light]="!annualPricing()" [class.font-bold]="!annualPricing()" [class.text-gray-400]="annualPricing()">Monthly</span>
     <div class="pricing-toggle-switch w-12 h-[26px] rounded-[13px] cursor-pointer relative transition-all" [class.annual]="annualPricing()" [style.background]="annualPricing() ? 'rgba(0,229,255,0.1)' : '#111128'" [style.border]="annualPricing() ? '2px solid #00E5FF' : '2px solid rgba(255,255,255,0.08)'" (click)="togglePricing()">
       <div class="pricing-toggle-knob w-[18px] h-[18px] rounded-full absolute top-0.5 left-0.5 transition-all" [class.bg-primary]="annualPricing()" [class.bg-gray-500]="!annualPricing()"></div>
     </div>
-    <span class="text-[0.9rem] font-medium transition-colors" [class.text-light]="annualPricing()" [class.font-bold]="annualPricing()" [class.text-gray-500]="!annualPricing()">Annual <span class="inline-block py-0.5 px-2 text-[0.7rem] font-bold bg-green-500/[0.15] text-green-500 rounded ml-1.5">Save $120</span></span>
+    <span class="text-[0.9rem] font-medium transition-colors" [class.text-light]="annualPricing()" [class.font-bold]="annualPricing()" [class.text-gray-400]="!annualPricing()">Annual <span class="inline-block py-0.5 px-2 text-[0.7rem] font-bold bg-green-500/[0.15] text-green-500 rounded ml-1.5">Save $120</span></span>
   </div>
 
   <div class="grid grid-cols-2 gap-6 max-w-[800px] mx-auto max-sm:grid-cols-1">
@@ -337,9 +337,9 @@
       <div class="inline-block py-1 px-3.5 text-[0.75rem] font-bold uppercase tracking-wide rounded-full mb-4 bg-primary/[0.1] text-primary">All-Inclusive</div>
       <div class="text-5xl font-[900] text-white tracking-tight mb-2">
         @if (annualPricing()) {
-          $40<span class="text-base font-medium text-gray-500">/mo</span>
+          $40<span class="text-base font-medium text-gray-400">/mo</span>
         } @else {
-          $50<span class="text-base font-medium text-gray-500">/mo</span>
+          $50<span class="text-base font-medium text-gray-400">/mo</span>
         }
       </div>
       <p class="text-[0.88rem] text-text-secondary mb-6">
@@ -358,7 +358,7 @@
         }
       </ul>
       <button class="w-full bg-primary text-dark font-semibold rounded-xl px-6 py-3.5 text-base hover:brightness-110 hover:shadow-[0_0_24px_rgba(0,229,255,0.4)] transition-all" (click)="startBuildFlow()">Get Started</button>
-      <div class="flex items-center justify-center gap-2 mt-4 text-[0.78rem] text-gray-500">
+      <div class="flex items-center justify-center gap-2 mt-4 text-[0.78rem] text-gray-400">
         <svg class="w-4 h-4 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         14-day money-back guarantee — cancel anytime
       </div>
@@ -385,19 +385,19 @@
       <form (submit)="$event.preventDefault(); submitContact()" novalidate>
         <div class="mb-5 text-left">
           <label class="block text-[0.85rem] font-semibold text-light mb-1.5" for="contact-name">Name <span class="text-primary">*</span></label>
-          <input type="text" id="contact-name" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)]" placeholder="Your full name" maxlength="200" [(ngModel)]="contactName" name="name" required />
+          <input type="text" id="contact-name" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)]" placeholder="Your full name" maxlength="200" [(ngModel)]="contactName" name="name" required />
         </div>
         <div class="mb-5 text-left">
           <label class="block text-[0.85rem] font-semibold text-light mb-1.5" for="contact-email">Email <span class="text-primary">*</span></label>
-          <input type="email" id="contact-email" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)]" placeholder="you&#64;example.com" maxlength="254" [(ngModel)]="contactEmail" name="email" required />
+          <input type="email" id="contact-email" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)]" placeholder="you&#64;example.com" maxlength="254" [(ngModel)]="contactEmail" name="email" required />
         </div>
         <div class="mb-5 text-left">
-          <label class="block text-[0.85rem] font-semibold text-light mb-1.5" for="contact-phone">Phone <span class="text-gray-500 font-normal">(optional)</span></label>
-          <input type="tel" id="contact-phone" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)]" placeholder="+1 (555) 123-4567" maxlength="20" [(ngModel)]="contactPhone" name="phone" />
+          <label class="block text-[0.85rem] font-semibold text-light mb-1.5" for="contact-phone">Phone <span class="text-gray-400 font-normal">(optional)</span></label>
+          <input type="tel" id="contact-phone" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)]" placeholder="+1 (555) 123-4567" maxlength="20" [(ngModel)]="contactPhone" name="phone" />
         </div>
         <div class="mb-5 text-left">
           <label class="block text-[0.85rem] font-semibold text-light mb-1.5" for="contact-message">Message <span class="text-primary">*</span></label>
-          <textarea id="contact-message" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] min-h-[150px] resize-y" placeholder="How can we help you?" maxlength="5000" [(ngModel)]="contactMessage" name="message" required></textarea>
+          <textarea id="contact-message" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] min-h-[150px] resize-y" placeholder="How can we help you?" maxlength="5000" [(ngModel)]="contactMessage" name="message" required></textarea>
         </div>
         <button class="w-full bg-primary text-dark font-semibold rounded-xl px-6 py-4 text-[1.05rem] hover:brightness-110 hover:shadow-[0_0_24px_rgba(0,229,255,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed" type="submit" [disabled]="contactSubmitting()">
           @if (contactSubmitting()) {
@@ -436,9 +436,9 @@
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
       </a>
     </div>
-    <div class="flex justify-between items-center flex-wrap gap-3 text-[0.8rem] text-gray-500 max-sm:flex-col max-sm:text-center">
-      <span>&copy; 2026 <a class="text-gray-500 hover:text-primary transition-colors" href="https://megabyte.space" target="_blank" rel="noopener noreferrer">Megabyte LLC</a></span>
-      <span><a class="text-gray-500 hover:text-primary transition-colors" routerLink="/privacy">Privacy Policy</a> | <a class="text-gray-500 hover:text-primary transition-colors" routerLink="/terms">Terms of Service</a> | <a class="text-gray-500 hover:text-primary transition-colors" routerLink="/content">Content Policy</a></span>
+    <div class="flex justify-between items-center flex-wrap gap-3 text-[0.8rem] text-gray-400 max-sm:flex-col max-sm:text-center">
+      <span>&copy; 2026 <a class="text-gray-400 hover:text-primary transition-colors" href="https://megabyte.space" target="_blank" rel="noopener noreferrer">Megabyte LLC</a></span>
+      <span><a class="text-gray-400 hover:text-primary transition-colors" routerLink="/privacy">Privacy Policy</a> | <a class="text-gray-400 hover:text-primary transition-colors" routerLink="/terms">Terms of Service</a> | <a class="text-gray-400 hover:text-primary transition-colors" routerLink="/content">Content Policy</a></span>
     </div>
   </div>
 </footer>

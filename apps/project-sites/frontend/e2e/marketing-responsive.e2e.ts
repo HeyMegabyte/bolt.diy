@@ -21,6 +21,11 @@ import AxeBuilder from '@axe-core/playwright';
 const ROUTES = [
   '/', '/contact', '/signin',
   '/blog', '/press', '/privacy', '/terms', '/roadmap', '/integrations',
+  // Coverage gap closed (round 33): these public funnel/legal pages had NO a11y
+  // sweep — /search + /create each shipped a serious color-contrast violation
+  // (text-gray-500 #6a7282 = 4.16:1 on the dark bg) that went uncaught. Fixed to
+  // text-gray-400 (~7:1) and gated here so it can't regress.
+  '/search', '/create', '/content',
 ];
 
 test.describe('marketing — responsive a11y (390 axe + 320 reflow)', () => {

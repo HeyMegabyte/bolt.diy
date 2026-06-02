@@ -18,7 +18,7 @@
           <li class="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
             <button
               type="button"
-              class="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-full border text-[0.75rem] sm:text-[0.78rem] font-semibold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2"
+              class="flex items-center gap-2 min-w-0 px-2.5 sm:px-3 py-1.5 rounded-full border text-[0.75rem] sm:text-[0.78rem] font-semibold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2"
               [class]="currentStep() === step.id
                 ? 'bg-primary/15 border-primary/40 text-primary'
                 : stepComplete(step.id)
@@ -39,7 +39,7 @@
                   {{ step.id }}
                 }
               </span>
-              <span class="truncate">{{ step.label }}</span>
+              <span class="truncate sr-only sm:not-sr-only">{{ step.label }}</span>
             </button>
             @if (!$last) {
               <div class="flex-1 h-px bg-white/[0.06] min-w-[8px]" aria-hidden="true"></div>
@@ -59,9 +59,9 @@
         </div>
         <div class="flex-1 min-w-0">
           <div class="font-bold text-[0.95rem] text-light truncate">{{ biz.name }}</div>
-          <div class="text-[0.8rem] text-gray-500 mt-0.5 truncate">{{ biz.address }}</div>
+          <div class="text-[0.8rem] text-gray-400 mt-0.5 truncate">{{ biz.address }}</div>
         </div>
-        <button class="w-[30px] h-[30px] rounded-lg border border-white/[0.08] bg-white/[0.04] text-gray-500 cursor-pointer flex items-center justify-center flex-shrink-0 transition-all hover:bg-red-500/[0.1] hover:border-red-500/20 hover:text-red-500" (click)="dismissBusiness()" aria-label="Remove">
+        <button class="w-[30px] h-[30px] rounded-lg border border-white/[0.08] bg-white/[0.04] text-gray-400 cursor-pointer flex items-center justify-center flex-shrink-0 transition-all hover:bg-red-500/[0.1] hover:border-red-500/20 hover:text-red-500" (click)="dismissBusiness()" aria-label="Remove">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
@@ -92,7 +92,7 @@
           <input
             id="create-name"
             type="text"
-            class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] relative z-[9999] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2"
+            class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] relative z-[9999] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2"
             [class]="nameError ? 'border-red-500/60 focus:border-red-500' : 'border-white/[0.08] focus:border-primary'"
             [class.ai-shimmer]="shimmering('name')"
             placeholder="e.g. Vito's Mens Salon"
@@ -114,7 +114,7 @@
                   <svg class="text-primary flex-shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                   <div class="flex flex-col gap-0.5 min-w-0">
                     <span class="font-semibold text-light text-[0.88rem]">{{ b.name }}</span>
-                    <span class="text-[0.75rem] text-gray-500 truncate">{{ b.address }}</span>
+                    <span class="text-[0.75rem] text-gray-400 truncate">{{ b.address }}</span>
                   </div>
                 </div>
               }
@@ -129,7 +129,7 @@
           <input
             id="create-address"
             type="text"
-            class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] relative z-[9999] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2"
+            class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] relative z-[9999] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2"
             [class]="addressError ? 'border-red-500/60 focus:border-red-500' : 'border-white/[0.08] focus:border-primary'"
             [class.ai-shimmer]="shimmering('address')"
             placeholder="e.g. 74 N Beverwyck Rd, Lake Hiawatha, NJ 07034"
@@ -158,17 +158,17 @@
         <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
           <div class="mb-5 text-left">
             <label class="block text-[0.85rem] font-semibold text-light mb-1.5" for="create-phone">
-              Phone <span class="text-gray-500 font-normal text-[0.75rem]">(optional)</span>
+              Phone <span class="text-gray-400 font-normal text-[0.75rem]">(optional)</span>
               @if (loadingPhone()) { <span class="field-loading"></span> }
             </label>
-            <input id="create-phone" type="tel" autocomplete="tel" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)]" [class.ai-shimmer]="shimmering('phone')" placeholder="e.g. (973) 555-0142" [(ngModel)]="businessPhone" (input)="markTouched('phone')" (blur)="saveFormDraft()" maxlength="20" />
+            <input id="create-phone" type="tel" autocomplete="tel" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)]" [class.ai-shimmer]="shimmering('phone')" placeholder="e.g. (973) 555-0142" [(ngModel)]="businessPhone" (input)="markTouched('phone')" (blur)="saveFormDraft()" maxlength="20" />
           </div>
           <div class="mb-5 text-left">
             <label class="block text-[0.85rem] font-semibold text-light mb-1.5" for="create-website">
-              Existing Website <span class="text-gray-500 font-normal text-[0.75rem]">(optional)</span>
+              Existing Website <span class="text-gray-400 font-normal text-[0.75rem]">(optional)</span>
               @if (loadingWebsite()) { <span class="field-loading"></span> }
             </label>
-            <input id="create-website" type="url" autocomplete="url" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)]" [class.ai-shimmer]="shimmering('website')" placeholder="e.g. https://megabyte.space" [(ngModel)]="businessWebsite" (input)="markTouched('website')" (blur)="saveFormDraft()" maxlength="500" />
+            <input id="create-website" type="url" autocomplete="url" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)]" [class.ai-shimmer]="shimmering('website')" placeholder="e.g. https://megabyte.space" [(ngModel)]="businessWebsite" (input)="markTouched('website')" (blur)="saveFormDraft()" maxlength="500" />
           </div>
         </div>
       </div>
@@ -188,7 +188,7 @@
             Auto-Populate with AI
           }
         </button>
-        <span class="text-[0.78rem] text-gray-500 leading-snug">Auto-fills phone, website, and generates design recommendations (colors, fonts, sections) based on your business type</span>
+        <span class="text-[0.78rem] text-gray-400 leading-snug">Auto-fills phone, website, and generates design recommendations (colors, fonts, sections) based on your business type</span>
       </div>
 
       <div class="mb-8 ps-section" style="--ps-delay:160ms">
@@ -199,7 +199,7 @@
 
         <div class="mb-5 text-left">
           <label class="block text-[0.85rem] font-semibold text-light mb-1.5" for="create-category">
-            Industry / Category <span class="text-gray-500 font-normal text-[0.75rem]">(optional)</span>
+            Industry / Category <span class="text-gray-400 font-normal text-[0.75rem]">(optional)</span>
             @if (loadingCategory()) { <span class="field-loading"></span> }
           </label>
           <select id="create-category" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2" [class.ai-shimmer]="shimmering('category')" [(ngModel)]="businessCategory" (ngModelChange)="markTouched('category'); saveFormDraft()" (focus)="setStep(2)">
@@ -212,12 +212,12 @@
 
         <div class="mb-5 text-left">
           <label class="block text-[0.85rem] font-semibold text-light mb-1.5" for="create-context">
-            Additional details <span class="text-gray-500 font-normal text-[0.75rem]">(optional but recommended)</span>
+            Additional details <span class="text-gray-400 font-normal text-[0.75rem]">(optional but recommended)</span>
             @if (loadingContext()) { <span class="field-loading"></span> }
           </label>
           <textarea
             id="create-context"
-            class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-500 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2 min-h-[140px] resize-y leading-relaxed"
+            class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2 min-h-[140px] resize-y leading-relaxed"
             [class.ai-shimmer]="shimmering('context')"
             (focus)="setStep(2)"
             (input)="markTouched('context')"
@@ -227,7 +227,7 @@
             maxlength="5000"
             rows="8"
           ></textarea>
-          <span class="block text-[0.72rem] text-gray-500 text-right mt-1">{{ additionalContext.length }} / 5000</span>
+          <span class="block text-[0.72rem] text-gray-400 text-right mt-1">{{ additionalContext.length }} / 5000</span>
         </div>
       </div>
 
@@ -235,7 +235,7 @@
       <div class="mb-8 ps-section" style="--ps-delay:240ms">
         <div class="ps-kicker mb-5 pb-2.5 border-b border-primary/[0.08] flex items-center gap-2">
           <span class="ps-kicker-dot"></span>
-          <span>Brand Assets <span class="text-gray-500 font-normal text-[0.75rem] normal-case tracking-normal">(optional)</span></span>
+          <span>Brand Assets <span class="text-gray-400 font-normal text-[0.75rem] normal-case tracking-normal">(optional)</span></span>
         </div>
 
         <div class="grid grid-cols-2 gap-4 mb-4 max-sm:grid-cols-1">
@@ -243,7 +243,7 @@
             <label for="create-logo" class="flex items-center gap-2 p-4 border-2 border-dashed border-primary/[0.15] rounded-xl bg-primary/[0.03] cursor-pointer transition-all flex-wrap hover:border-primary/30 hover:bg-primary/[0.06]">
               <svg class="text-primary flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
               <span class="text-text-secondary text-[0.85rem]">Logo</span>
-              <span class="block w-full text-[0.75rem] text-gray-500 mt-0.5">PNG, JPG, SVG — max 5 MB</span>
+              <span class="block w-full text-[0.75rem] text-gray-400 mt-0.5">PNG, JPG, SVG — max 5 MB</span>
             </label>
             <input id="create-logo" type="file" accept="image/*" class="upload-input" (change)="onLogoSelected($event); setStep(3)" />
             @if (logoPreview || aiLogoUrl) {
@@ -262,7 +262,7 @@
             <label for="create-favicon" class="flex items-center gap-2 p-4 border-2 border-dashed border-primary/[0.15] rounded-xl bg-primary/[0.03] cursor-pointer transition-all flex-wrap hover:border-primary/30 hover:bg-primary/[0.06]">
               <svg class="text-primary flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/></svg>
               <span class="text-text-secondary text-[0.85rem]">App Icon / Favicon</span>
-              <span class="block w-full text-[0.75rem] text-gray-500 mt-0.5">512x512 PNG — max 2 MB</span>
+              <span class="block w-full text-[0.75rem] text-gray-400 mt-0.5">512x512 PNG — max 2 MB</span>
             </label>
             <input id="create-favicon" type="file" accept="image/png" class="upload-input" (change)="onFaviconSelected($event); setStep(3)" />
             @if (faviconPreview || aiFaviconUrl) {
@@ -282,7 +282,7 @@
           <label for="create-images" class="flex items-center gap-2 p-4 border-2 border-dashed border-primary/[0.15] rounded-xl bg-primary/[0.03] cursor-pointer transition-all flex-wrap hover:border-primary/30 hover:bg-primary/[0.06]">
             <svg class="text-primary flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             <span class="text-text-secondary text-[0.85rem]">Additional images &amp; files</span>
-            <span class="block w-full text-[0.75rem] text-gray-500 mt-0.5">Team photos, product images, etc. — max 10 MB each, up to 20 files</span>
+            <span class="block w-full text-[0.75rem] text-gray-400 mt-0.5">Team photos, product images, etc. — max 10 MB each, up to 20 files</span>
           </label>
           <input id="create-images" type="file" accept="image/*" multiple class="upload-input" (change)="onImagesSelected($event); setStep(3)" />
           @if (imagePreviews.length > 0 || aiImageUrls.length > 0) {
@@ -310,7 +310,7 @@
         @if (discoveringImages()) {
           <p class="text-[0.8rem] text-primary mt-1 flex items-center gap-1.5"><span class="loading-dots"><span></span><span></span><span></span></span> Discovering and inspecting images from the web...</p>
         } @else {
-          <p class="text-[0.8rem] text-gray-500 mt-1 italic">If you don't upload a logo or icon, our AI will generate them based on your brand details.</p>
+          <p class="text-[0.8rem] text-gray-400 mt-1 italic">If you don't upload a logo or icon, our AI will generate them based on your brand details.</p>
         }
 
         @if (brandAssessment) {
@@ -320,9 +320,9 @@
             <div class="flex items-center gap-1.5 font-semibold capitalize text-light">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
               <span>Brand: {{ brandAssessment.brand_maturity }}</span>
-              <span class="ml-auto text-[0.7rem] text-gray-500 font-normal">{{ brandAssessment.website_quality_score }}/100</span>
+              <span class="ml-auto text-[0.7rem] text-gray-400 font-normal">{{ brandAssessment.website_quality_score }}/100</span>
             </div>
-            <p class="mt-1 text-gray-500 leading-snug">{{ brandAssessment.recommendation }}</p>
+            <p class="mt-1 text-gray-400 leading-snug">{{ brandAssessment.recommendation }}</p>
           </div>
         }
       </div>
@@ -348,7 +348,7 @@
         }
       </button>
 
-      <p class="text-center text-[0.82rem] text-gray-500 mt-4">
+      <p class="text-center text-[0.82rem] text-gray-400 mt-4">
         @if (auth.isLoggedIn()) {
           Your site will be ready in about 5 minutes. You can watch the progress in real time.
         } @else {
@@ -363,7 +363,7 @@
 @if (modalImage()) {
   <div class="fixed inset-0 bg-black/85 backdrop-blur-lg z-[10000] flex items-center justify-center animate-[fadeIn_0.2s_ease] p-6" (click)="closeImageModal()">
     <div class="bg-dark-card border border-primary/25 rounded-2xl max-w-[720px] w-full max-h-[90vh] overflow-y-auto relative animate-[fadeInScale_0.25s_cubic-bezier(0.34,1.56,0.64,1)] shadow-[0_24px_64px_rgba(0,0,0,0.6)]" (click)="$event.stopPropagation()">
-      <button class="absolute top-3 right-3 w-9 h-9 rounded-[10px] border border-white/[0.08] bg-white/[0.04] text-gray-500 cursor-pointer flex items-center justify-center z-[2] transition-all hover:bg-red-500/[0.1] hover:border-red-500/20 hover:text-red-500" (click)="closeImageModal()">
+      <button class="absolute top-3 right-3 w-9 h-9 rounded-[10px] border border-white/[0.08] bg-white/[0.04] text-gray-400 cursor-pointer flex items-center justify-center z-[2] transition-all hover:bg-red-500/[0.1] hover:border-red-500/20 hover:text-red-500" (click)="closeImageModal()">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
       <div class="p-5 pb-0 text-[0.85rem] font-semibold text-text-secondary truncate max-w-[calc(100%-50px)]">{{ modalImageName() }}</div>
@@ -378,13 +378,13 @@
           </div>
         } @else {
           <div class="flex gap-2">
-            <input type="text" class="flex-1 py-2.5 px-3.5 text-[0.88rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-500 focus:border-primary" placeholder="Describe how to change this image with AI..." [(ngModel)]="modalAiPrompt" (keydown.enter)="submitImageAiEdit()" />
+            <input type="text" class="flex-1 py-2.5 px-3.5 text-[0.88rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-400 focus:border-primary" placeholder="Describe how to change this image with AI..." [(ngModel)]="modalAiPrompt" (keydown.enter)="submitImageAiEdit()" />
             <button class="bg-primary text-dark font-semibold rounded-xl py-2.5 px-[18px] text-[0.85rem] whitespace-nowrap flex-shrink-0 transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5" (click)="submitImageAiEdit()" [disabled]="!modalAiPrompt.trim()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26z"/></svg>
               Edit
             </button>
           </div>
-          <span class="block text-[0.72rem] text-gray-500 mt-2 text-center">AI will modify this image based on your prompt</span>
+          <span class="block text-[0.72rem] text-gray-400 mt-2 text-center">AI will modify this image based on your prompt</span>
         }
       </div>
     </div>
