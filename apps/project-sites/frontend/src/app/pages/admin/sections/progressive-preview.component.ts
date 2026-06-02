@@ -40,9 +40,9 @@ const SKELETON_SLOTS = ['nav', 'hero', 'features', 'social-proof', 'pricing', 't
   template: `
 <div class="pp-shell" [class.pp-shell--active]="sseConnected()" appReveal>
   <div class="pp-header">
-    <span class="pp-header__label">Live Component Stream</span>
+    <span class="pp-header__label">Component Stream <span class="pp-sim" title="Simulated assembly preview — not a live build stream">simulated</span></span>
     <div class="pp-header__badge" [class.pp-header__badge--live]="sseConnected()">
-      {{ sseConnected() ? '● LIVE' : '○ Offline' }}
+      {{ sseConnected() ? '● Streaming' : '○ Offline' }}
     </div>
   </div>
 
@@ -88,6 +88,7 @@ const SKELETON_SLOTS = ['nav', 'hero', 'features', 'social-proof', 'pricing', 't
     .pp-shell--active { border-color: rgba(0,229,255,.3); }
     .pp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
     .pp-header__label { font-size: 0.7rem; font-weight: 600; opacity: 0.8; }
+    .pp-sim { font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #fbbf24; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.3); padding: 0.05rem 0.35rem; border-radius: 5px; margin-left: 0.35rem; }
     .pp-header__badge { font-size: 0.6rem; font-family: 'JetBrains Mono', monospace; padding: 0.1rem 0.4rem; border-radius: 9999px; background: rgba(255,255,255,.08); }
     .pp-header__badge--live { background: rgba(0,229,255,.15); color: #00e5ff; animation: live-pulse 1.5s ease-in-out infinite; }
     @keyframes live-pulse { 0%,100%{opacity:1} 50%{opacity:.6} }

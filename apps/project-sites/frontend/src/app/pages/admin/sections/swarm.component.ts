@@ -84,8 +84,8 @@ const SPECIALIST_COLORS: Record<string, string> = {
       <span class="swarm-header__sep">/</span>
       <span class="swarm-header__site">{{ siteId() }}</span>
     </div>
-    <h1 class="swarm-header__title">Swarm Editor</h1>
-    <p class="swarm-header__sub">7 specialists co-edit in parallel — each owns a file partition</p>
+    <h1 class="swarm-header__title">Swarm Editor <span class="swarm-demo-badge" title="Runs are simulated — real multi-agent execution is on the roadmap">Simulated preview</span></h1>
+    <p class="swarm-header__sub">Preview of the parallel-specialist editing UX — 7 agents each own a file partition. Runs are simulated for now; live execution is on the roadmap.</p>
 
     <div class="swarm-header__stats">
       <div class="swarm-stat">
@@ -224,6 +224,12 @@ const SPECIALIST_COLORS: Record<string, string> = {
     .swarm-header__meta { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; opacity: 0.6; margin-bottom: 0.75rem; }
     .swarm-header__back { color: var(--ps-accent, #00e5ff); text-decoration: none; }
     .swarm-header__title { font: 700 1.5rem/1.1 'Sora', sans-serif; margin: 0 0 0.25rem; }
+    .swarm-demo-badge {
+      display: inline-block; vertical-align: middle; margin-left: 0.5rem;
+      font: 700 0.58rem/1 'JetBrains Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase; padding: 0.2rem 0.5rem; border-radius: 6px;
+      color: #fbbf24; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.3);
+    }
     .swarm-header__sub { font-size: 0.8rem; opacity: 0.6; margin: 0 0 1rem; }
     .swarm-header__stats { display: flex; gap: 1.5rem; margin-bottom: 1rem; }
     .swarm-stat { display: flex; align-items: baseline; gap: 0.25rem; font-family: 'JetBrains Mono', monospace; }
