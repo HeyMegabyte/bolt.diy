@@ -30,7 +30,9 @@ interface PageMeta {
 /** Path → title/description map. Keys match `app.routes.ts` leaf paths. */
 const PAGE_META: Record<string, PageMeta> = {
   '': {
-    title: 'ProjectSites — We deliver websites in minutes',
+    // 52 chars (50-60 SEO sweet spot) + leads with the primary keyphrase
+    // "AI Website Builder" (was 45 chars, brand-only, missing the keyphrase).
+    title: 'ProjectSites — AI Website Builder, Live in 4 Minutes',
     description: 'AI-native website builder for real businesses. One prompt, four minutes, a gorgeous live URL with SSL, sitemap, OG cards, and JSON-LD baked in.',
   },
   'create': {
