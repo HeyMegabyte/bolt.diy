@@ -17,6 +17,9 @@
  * @packageDocumentation
  */
 
+import type { Env } from '../types/env.js';
+import { dbExecute } from './db.js';
+
 /** Operations a bulk request may apply across the caller's sites. */
 export type BulkOperation = 'set_flag' | 'republish' | 'archive';
 
@@ -115,4 +118,41 @@ export function planBulkOperation(input: BulkPlanInput): BulkPlan {
   }
 
   return { operation: input.operation, eligible, skipped, cappedAt };
+}
+
+export interface BulkExecResult {
+  archived: string[];
+  failed: Array<{ id: string; error: string }>;
+}
+
+/**
+ * Execute a reversible bulk archive over already-planned eligible ids.
+ *
+ * Writes `status='archived'` ONLY — it NEVER sets `deleted_at` (that is the
+ * soft-DELETE path, which would drop the rows out of the product). Scoped by
+ * `org_id` as defense-in-depth even though the planner already filtered to the
+ * caller's owned sites. Idempotent: re-archiving an archived (non-deleted) site
+ * is a harmless no-op.
+ *
+ * @example
+ * ```ts
+ * const { archived, failed } = await executeBulkArchive(env, orgId, plan.eligible);
+ * ```
+ */
+export async function executeBulkArchive(env: Env, orgId: string, ids: string[]): Promise<BulkExecResult> {
+  const archived: string[] = [];
+  const failed: Array<{ id: string; error: string }> = [];
+
+  for (const id of ids) {
+    const res = await dbExecute(
+      env.DB,
+      "UPDATE sites SET status = 'archived', updated_at = datetime('now') WHERE id = ? AND org_id = ? AND deleted_at IS NULL",
+      [id, orgId],
+    );
+    if (res.error) failed.push({ id, error: res.error });
+    else if (res.changes > 0) archived.push(id);
+    else failed.push({ id, error: 'no_match' }); // raced delete / wrong org — planner already excludes these
+  }
+
+  return { archived, failed };
 }

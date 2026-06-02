@@ -1,4 +1,26 @@
-import { planBulkOperation, MAX_BULK_SITES, type BulkSiteRef } from '../services/bulk_site_ops.js';
+import {
+  planBulkOperation,
+  executeBulkArchive,
+  MAX_BULK_SITES,
+  type BulkSiteRef,
+} from '../services/bulk_site_ops.js';
+import type { Env } from '../types/env.js';
+
+/** Minimal D1 mock: maps each site id to the `changes` its UPDATE returns; throwIds error. */
+function mockEnv(changesById: Record<string, number>, throwIds: string[] = []): Env {
+  return {
+    DB: {
+      prepare: (_sql: string) => ({
+        bind: (id: string, _orgId: string) => ({
+          run: async () => {
+            if (throwIds.includes(id)) throw new Error('db down');
+            return { meta: { changes: changesById[id] ?? 0 } };
+          },
+        }),
+      }),
+    },
+  } as unknown as Env;
+}
 
 describe('bulk_site_ops planner', () => {
   const owned: BulkSiteRef[] = [
@@ -83,5 +105,34 @@ describe('bulk_site_ops planner', () => {
     const plan = planBulkOperation({ operation: 'set_flag', requestedSiteIds: [], ownedSites: owned });
     expect(plan.eligible).toEqual([]);
     expect(plan.skipped).toEqual([]);
+  });
+});
+
+describe('executeBulkArchive', () => {
+  it('archives sites whose UPDATE changed a row', async () => {
+    const env = mockEnv({ a: 1, b: 1 });
+    const res = await executeBulkArchive(env, 'org1', ['a', 'b']);
+    expect(res.archived.sort()).toEqual(['a', 'b']);
+    expect(res.failed).toEqual([]);
+  });
+
+  it('reports no_match when the scoped UPDATE matched no row (raced delete / wrong org)', async () => {
+    const env = mockEnv({ a: 1, b: 0 });
+    const res = await executeBulkArchive(env, 'org1', ['a', 'b']);
+    expect(res.archived).toEqual(['a']);
+    expect(res.failed).toEqual([{ id: 'b', error: 'no_match' }]);
+  });
+
+  it('captures a DB error per id without aborting the batch', async () => {
+    const env = mockEnv({ a: 1, c: 1 }, ['b']);
+    const res = await executeBulkArchive(env, 'org1', ['a', 'b', 'c']);
+    expect(res.archived.sort()).toEqual(['a', 'c']);
+    expect(res.failed.length).toBe(1);
+    expect(res.failed[0]?.id).toBe('b');
+  });
+
+  it('is a no-op for an empty eligible set', async () => {
+    const res = await executeBulkArchive(mockEnv({}), 'org1', []);
+    expect(res).toEqual({ archived: [], failed: [] });
   });
 });

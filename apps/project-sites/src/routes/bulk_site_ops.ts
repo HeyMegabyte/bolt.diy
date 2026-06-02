@@ -27,7 +27,7 @@ import { z } from 'zod';
 import type { Env, Variables } from '../types/env.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import { dbQuery } from '../services/db.js';
-import { planBulkOperation } from '../services/bulk_site_ops.js';
+import { planBulkOperation, executeBulkArchive } from '../services/bulk_site_ops.js';
 
 const NOT_FOUND = { error: { code: 'NOT_FOUND', message: 'Not found' } } as const;
 
@@ -36,6 +36,8 @@ const BodySchema = z
     operation: z.enum(['set_flag', 'republish', 'archive']),
     siteIds: z.array(z.string().min(1)).max(1000).optional(),
     allSites: z.boolean().optional(),
+    /** Default true (preview). Set false to apply the operation to eligible sites. */
+    dryRun: z.boolean().optional(),
   })
   .strict();
 
@@ -56,7 +58,7 @@ bulkSiteOps.post('/api/sites/bulk', async (c) => {
       400,
     );
   }
-  const { operation, siteIds, allSites } = parsed.data;
+  const { operation, siteIds, allSites, dryRun = true } = parsed.data;
 
   const owned = (
     await dbQuery<{ id: string; status: string }>(
@@ -75,7 +77,27 @@ bulkSiteOps.post('/api/sites/bulk', async (c) => {
   }
 
   const plan = planBulkOperation({ operation, requestedSiteIds, ownedSites: owned });
-  return c.json({ ok: true, dryRun: true, plan });
+
+  // Preview: return the validated plan, mutate nothing.
+  if (dryRun) return c.json({ ok: true, dryRun: true, plan });
+
+  // Apply: only `archive` has a verified, reversible executor so far.
+  // set_flag/republish executors land in a follow-up slice — fail loudly (never silently no-op).
+  if (operation !== 'archive') {
+    return c.json(
+      {
+        error: {
+          code: 'NOT_IMPLEMENTED',
+          message: `Executor for "${operation}" is not available yet — re-request with dryRun:true to preview, or use operation:"archive"`,
+        },
+        plan,
+      },
+      400,
+    );
+  }
+
+  const results = await executeBulkArchive(c.env, orgId, plan.eligible);
+  return c.json({ ok: true, dryRun: false, plan, results });
 });
 
 export { bulkSiteOps };
