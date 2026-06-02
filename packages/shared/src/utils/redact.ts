@@ -42,10 +42,20 @@ const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 const PHONE_REGEX = /\+?[1-9]\d{6,14}/g;
 
 /**
- * Pattern matching well-known API token prefixes (Stripe, webhooks, Bearer).
+ * Pattern matching well-known API token / secret formats across the providers
+ * this stack actually uses, so they never leak into logs/Sentry/PostHog:
+ *   - Stripe: `sk_test_`/`sk_live_`/`pk_test_`/`pk_live_`/`whsec_`/`rk_` + `Bearer …`
+ *   - OpenAI / Anthropic: `sk-…` and `sk-ant-…` (HYPHEN — the old `_`-only
+ *     pattern missed these entirely)
+ *   - GitHub: `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_…` + `github_pat_…`
+ *   - Google API keys: `AIza…`
+ *   - AWS access keys: `AKIA…`
+ *   - Slack: `xoxb-`/`xoxa-`/`xoxp-`/`xoxr-`/`xoxs-…`
+ *   - JWTs: `eyJ….….…` (three base64url segments)
  * @internal
  */
-const TOKEN_REGEX = /(?:sk_(?:test|live)_|pk_(?:test|live)_|whsec_|rk_|Bearer\s+)[a-zA-Z0-9_-]{6,}/g;
+const TOKEN_REGEX =
+  /(?:sk_(?:test|live)_|pk_(?:test|live)_|whsec_|rk_|Bearer\s+)[a-zA-Z0-9_-]{6,}|sk-(?:ant-)?[a-zA-Z0-9_-]{20,}|gh[pousr]_[a-zA-Z0-9]{20,}|github_pat_[a-zA-Z0-9_]{20,}|AIza[a-zA-Z0-9_-]{20,}|AKIA[A-Z0-9]{16}|xox[baprs]-[a-zA-Z0-9-]{10,}|eyJ[a-zA-Z0-9_-]{8,}\.[a-zA-Z0-9_-]{8,}\.[a-zA-Z0-9_-]{6,}/g;
 
 /**
  * Pattern matching generic `key=value` or `key: value` pairs where the key
