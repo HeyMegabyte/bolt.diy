@@ -6,6 +6,7 @@ import {
   shouldRetry,
   validateEndpointInput,
   maskSecret,
+  isSafeWebhookUrl,
   createWebhookEndpoint,
   listWebhookEndpoints,
   deleteWebhookEndpoint,
@@ -118,6 +119,43 @@ describe('maskSecret', () => {
   it('shows only the last 4 chars', () => {
     expect(maskSecret('whsec_abcd1234')).toBe('••••1234');
     expect(maskSecret('xy')).toBe('••••');
+  });
+});
+
+describe('isSafeWebhookUrl (SSRF guard)', () => {
+  it('allows a public https host', () => {
+    expect(isSafeWebhookUrl('https://hooks.example.com/x')).toBe(true);
+    expect(isSafeWebhookUrl('https://172.15.0.1/x')).toBe(true); // just outside the private 172.16-31 range
+  });
+
+  it('rejects non-https', () => {
+    expect(isSafeWebhookUrl('http://hooks.example.com')).toBe(false);
+  });
+
+  it('rejects localhost + .local + .localhost', () => {
+    expect(isSafeWebhookUrl('https://localhost/x')).toBe(false);
+    expect(isSafeWebhookUrl('https://printer.local/x')).toBe(false);
+    expect(isSafeWebhookUrl('https://api.localhost/x')).toBe(false);
+  });
+
+  it('rejects private + reserved IPv4 literals', () => {
+    for (const h of ['127.0.0.1', '10.1.2.3', '192.168.1.1', '172.16.0.1', '172.31.255.255', '0.0.0.0', '100.64.0.1']) {
+      expect(isSafeWebhookUrl(`https://${h}/x`)).toBe(false);
+    }
+  });
+
+  it('rejects the cloud metadata endpoint', () => {
+    expect(isSafeWebhookUrl('https://169.254.169.254/latest/meta-data')).toBe(false);
+  });
+
+  it('rejects IPv6 loopback / link-local / ULA', () => {
+    expect(isSafeWebhookUrl('https://[::1]/x')).toBe(false);
+    expect(isSafeWebhookUrl('https://[fe80::1]/x')).toBe(false);
+    expect(isSafeWebhookUrl('https://[fd00::1]/x')).toBe(false);
+  });
+
+  it('rejects an invalid url', () => {
+    expect(isSafeWebhookUrl('not a url')).toBe(false);
   });
 });
 

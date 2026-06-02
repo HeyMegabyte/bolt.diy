@@ -120,6 +120,49 @@ export function maskSecret(secret: string): string {
   return secret.length <= 4 ? '••••' : `••••${secret.slice(-4)}`;
 }
 
+/** True when `host` is a private/reserved IPv4 literal (SSRF-blocked). */
+function isPrivateIPv4(host: string): boolean {
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false;
+  const o = m.slice(1).map(Number);
+  if (o.some((n) => n > 255)) return false;
+  const [a, b] = o as [number, number, number, number];
+  if (a === 0 || a === 10 || a === 127) return true; // this-host / private / loopback
+  if (a === 169 && b === 254) return true; // link-local + cloud metadata (169.254.169.254)
+  if (a === 172 && b >= 16 && b <= 31) return true; // private
+  if (a === 192 && b === 168) return true; // private
+  if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
+  return false;
+}
+
+/**
+ * SSRF guard for a webhook destination — call BEFORE fetching a customer URL in
+ * the dispatcher. Requires https and rejects localhost, `.local`/`.localhost`,
+ * IPv6 loopback/link-local/ULA, and private/reserved IPv4 literals (incl. the
+ * cloud metadata endpoint 169.254.169.254).
+ *
+ * Note: this blocks literal-IP + obvious-name SSRF. A hostname that DNS-resolves
+ * to a private IP (DNS rebinding) needs connect-time IP pinning — a deeper
+ * hardening tracked for the dispatcher.
+ */
+export function isSafeWebhookUrl(url: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'https:') return false;
+
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, ''); // strip IPv6 brackets
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return false;
+  if (host === '::1' || host === '0:0:0:0:0:0:0:1') return false; // IPv6 loopback
+  if (host.startsWith('fe80:') || host.startsWith('fc') || host.startsWith('fd')) return false; // link-local / ULA
+  if (isPrivateIPv4(host)) return false;
+
+  return true;
+}
+
 export interface StoredEndpoint {
   id: string;
   url: string;
