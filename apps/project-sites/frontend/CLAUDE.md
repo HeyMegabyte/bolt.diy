@@ -187,6 +187,29 @@ npm run verify:production                # Playwright smoke on https://projectsi
 The worker serves the SPA shell at `/` and `/admin/*` from R2 + the marketing
 homepage at `/`. Asset paths are CDN-busted via Angular's hashed filenames.
 
+### Known perf-budget items (tracked 2026-06-02 — `ng build` WARNS, does not fail)
+
+- **Initial bundle 1.81 MB raw / 436 KB transfer — 206 KB over the 1.6 MB
+  `initial` budget** (`angular.json` `budgets`). Audit confirms the heavy libs
+  (monaco, echarts, ag-grid, jszip, @codemirror, the whole admin/editor) are
+  ALREADY lazy (83+ lazy chunks) — the eager weight is Angular framework + RxJS
+  + the always-on app-root chrome (header, toast, command-palette, network-
+  status). Remediation (a dedicated perf wave, NOT a quick fix): (a) the
+  command-palette/shortcuts-overlay are `@if`-conditional but still eagerly
+  imported in `app.component` — moving to `@defer (when …){ @if(…){…} }` (defer
+  loads, inner `@if` keeps toggle/close semantics — a plain `@defer(when)` is a
+  one-way trigger and would break close) trims ~30 KB src; (b) audit the unnamed
+  800 KB / 267 KB / 209 KB vendor chunks via `--stats-json` for any feature dep
+  that escaped lazy loading. Do per-piece with a full E2E re-verify each — the
+  Cmd+K-focus gate (`e2e/cmdk-focus`/admin.spec) makes deferring the palette
+  risky.
+- **`social.component.ts` styles 30.18 KB > 28 KB** `anyComponentStyle` budget
+  (+2.18 KB). The component is 2349 lines; trim redundant CSS or split styles
+  when next editing it — not a blind trim.
+
+Heavy libs stay lazy: never add monaco/echarts/ag-grid/jszip/@codemirror to an
+eager `imports:` array — they belong in `@defer` blocks or lazy-routed sections.
+
 ## Common Gotchas
 
 1. **`pnpm install` fails** — electron-builder SSH dep breaks the monorepo.
