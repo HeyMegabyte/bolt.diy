@@ -172,7 +172,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
                 >Rollback</button>
               </li>
             } @empty {
-              <p class="muted">No snapshots yet.</p>
+              <li class="muted">No snapshots yet.</li>
             }
           </ul>
 

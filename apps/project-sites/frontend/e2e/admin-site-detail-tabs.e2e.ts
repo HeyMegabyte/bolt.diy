@@ -20,6 +20,7 @@
  *   E2E_API_KEY=psk_test_… npx playwright test --config=playwright.prod.config.ts admin-site-detail-tabs
  */
 import { test, expect, type Page, type ConsoleMessage } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 const KEY = process.env.E2E_API_KEY ?? '';
 
@@ -106,5 +107,45 @@ test.describe('admin — site-detail tabs are console-clean with real data (roun
     }
 
     expect(errors, `site-detail tabs threw console/page errors:\n${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('all four tabs are axe-clean (no serious/critical WCAG 2.2 AA violations)', async ({ page }) => {
+    test.setTimeout(120000);
+    await seed(page);
+    await page.goto('/admin/sites', { waitUntil: 'load' });
+    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
+
+    const siteLink = page.locator('a[href^="/admin/sites/"]').first();
+    await siteLink.waitFor({ state: 'visible', timeout: 15000 }).catch(() => { /* may be empty */ });
+    if ((await siteLink.count()) === 0) {
+      test.skip(true, 'No site rows from the test token — site-detail axe scan needs a real site id.');
+      return;
+    }
+    const id = ((await siteLink.getAttribute('href')) ?? '').match(/\/admin\/sites\/([^/]+)/)?.[1];
+    if (!id) {
+      test.skip(true, 'Could not parse a site id from the site-list href.');
+      return;
+    }
+
+    await page.goto(`/admin/sites/${id}`, { waitUntil: 'load' });
+    await expect(page.locator('[data-testid="site-detail"]').first()).toBeVisible({ timeout: 30000 });
+
+    const blocking: string[] = [];
+    for (const t of TABS) {
+      await page.locator(t.id).click();
+      await expect(page.locator(t.panel).first()).toBeVisible({ timeout: 15000 });
+      await page.waitForTimeout(900);
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .exclude('iframe')   // bolt editor iframe — separate app/origin
+        .exclude('.ag-root') // AG Grid Community virtualization (third-party)
+        .analyze();
+      for (const v of results.violations) {
+        if (v.impact === 'serious' || v.impact === 'critical') {
+          blocking.push(`[${t.label}] ${v.impact} · ${v.id} · ${v.nodes.length}× · ${v.nodes[0]?.target?.join(' ') ?? ''}`);
+        }
+      }
+    }
+    expect(blocking, `site-detail tab axe violations:\n${blocking.join('\n')}`).toEqual([]);
   });
 });
