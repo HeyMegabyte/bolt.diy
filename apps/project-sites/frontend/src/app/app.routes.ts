@@ -527,6 +527,11 @@ export const routes: Routes = [
       import('./pages/changelog/changelog.component').then((m) => m.ChangelogComponent),
   },
   {
+    // Public reviewer page (#4 review_approval_links) — stakeholder approve/reject via shared link.
+    path: 'review/:id',
+    loadComponent: () => import('./pages/review/review.component').then((m) => m.ReviewComponent),
+  },
+  {
     // Public roadmap page — Trello-style 4-column board backed by
     // /api/public/roadmap. Lazy-loaded so the marketing surfaces never pay
     // for the board CSS until the user clicks through.
