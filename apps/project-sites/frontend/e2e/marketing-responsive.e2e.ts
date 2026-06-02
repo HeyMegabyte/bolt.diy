@@ -118,3 +118,26 @@ test.describe('marketing — integrations logos resolve (no dead clearbit API)',
     expect(stats.loaded, 'the large majority of logos load (naturalWidth>0)').toBeGreaterThan(stats.total * 0.8);
   });
 });
+
+test.describe('marketing — OG image within budget', () => {
+  test.describe.configure({ retries: 2 });
+
+  // Regression: the shared OG card (og-image.jpg) must stay 1200×630 AND
+  // <= 100KB per the asset budget (it was a 235KB PNG; re-encoded to a ~95KB
+  // mozjpeg q90). Social cards balloon silently when someone drops in a new PNG.
+  test('og-image.jpg is served, image/jpeg, and <= 100KB', async ({ page }) => {
+    test.setTimeout(30000);
+    const res = await page.request.get('https://projectsites.dev/og-image.jpg', { failOnStatusCode: false });
+    expect(res.status(), 'og-image.jpg resolves').toBe(200);
+    expect(res.headers()['content-type'] ?? '', 'served as JPEG').toContain('image/jpeg');
+    const bytes = (await res.body()).length;
+    expect(bytes, `og-image.jpg is ${Math.round(bytes / 1024)}KB — must be <= 100KB`).toBeLessThanOrEqual(100 * 1024);
+  });
+
+  test('homepage og:image points to the .jpg card', async ({ page }) => {
+    test.setTimeout(30000);
+    await page.goto('/', { waitUntil: 'load' });
+    const og = await page.locator('meta[property="og:image"]').first().getAttribute('content');
+    expect(og ?? '', 'og:image uses the .jpg card').toContain('og-image.jpg');
+  });
+});

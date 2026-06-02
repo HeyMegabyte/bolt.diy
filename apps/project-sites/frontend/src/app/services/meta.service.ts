@@ -92,7 +92,7 @@ const PAGE_META: Record<string, PageMeta> = {
 };
 
 const BASE_URL = 'https://projectsites.dev';
-const OG_IMAGE = 'https://projectsites.dev/og-image.png';
+const OG_IMAGE = 'https://projectsites.dev/og-image.jpg';
 
 @Injectable({ providedIn: 'root' })
 export class MetaService {
