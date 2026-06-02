@@ -23,6 +23,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables } from '../types/env.js';
+import { rateLimitMiddleware } from '../middleware/rate_limit.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import {
   getReviewLink,
@@ -51,7 +52,11 @@ reviewPublic.get('/api/review/:id', async (c) => {
   return c.json({ ok: true, review: { id: row.id, site_id: row.site_id, status, expires_at: row.expires_at } });
 });
 
-reviewPublic.post('/api/review/:id/decision', async (c) => {
+// Public mutation endpoint → rate-limit per IP (10/min) to blunt abuse/brute-force.
+reviewPublic.post(
+  '/api/review/:id/decision',
+  rateLimitMiddleware({ maxRequests: 10, windowSeconds: 60, prefix: 'rl:review-decision' }),
+  async (c) => {
   const { id } = c.req.param();
   const row = await getReviewLink(c.env, id);
   if (!row) return c.json(NOT_FOUND, 404);
