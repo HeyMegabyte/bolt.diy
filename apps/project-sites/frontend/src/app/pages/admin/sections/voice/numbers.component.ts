@@ -458,9 +458,13 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
     ref.close();
     const ok = window.confirm(`Buy ${this.format(c.phone_number)} for $${c.monthly_cost_usd.toFixed(2)}/mo?`);
     if (!ok) return;
-    this.api.post<{ data: PurchasedNumber }>(`/voice/numbers`, {
-      site_id: this.state.selectedSite()?.id,
-      phone_number: c.phone_number,
+    // Worker route is POST /api/voice/numbers/purchase with a camelCase body
+    // ({ siteId, phoneNumber }) per purchaseBody in routes/voice.ts. The old
+    // call hit bare /voice/numbers (no such route → SPA HTML) with snake_case
+    // keys (would 400 even if the path matched) — the Buy button never worked.
+    this.api.post<{ data: PurchasedNumber }>(`/voice/numbers/purchase`, {
+      siteId: this.state.selectedSite()?.id,
+      phoneNumber: c.phone_number,
     }).subscribe({
       next: () => {
         this.toast.success(`${this.format(c.phone_number)} added`);
