@@ -13,6 +13,10 @@
  * @packageDocumentation
  */
 
+import type { Env } from '../types/env.js';
+import { dbQuery, dbExecute } from './db.js';
+import { encrypt } from './ai_crypto.js';
+
 /** Max delivery attempts before a delivery is marked permanently failed. */
 export const MAX_DELIVERY_ATTEMPTS = 6;
 /** First-retry delay; each subsequent attempt doubles up to {@link MAX_RETRY_DELAY_MS}. */
@@ -114,4 +118,73 @@ export function validateEndpointInput(url: string, eventTypes: string[]): Endpoi
 /** Mask a signing secret for display (show only the last 4 chars). */
 export function maskSecret(secret: string): string {
   return secret.length <= 4 ? '••••' : `••••${secret.slice(-4)}`;
+}
+
+export interface StoredEndpoint {
+  id: string;
+  url: string;
+  eventTypes: string[];
+  enabled: boolean;
+}
+export interface CreateEndpointResult {
+  ok: boolean;
+  id?: string;
+  /** Plaintext signing secret — returned ONCE at creation, never stored unencrypted. */
+  secret?: string;
+  errors?: string[];
+}
+
+/** Validate, generate + encrypt a signing secret, and persist a subscription (org+site scoped). */
+export async function createWebhookEndpoint(
+  env: Env,
+  orgId: string,
+  siteId: string,
+  url: string,
+  eventTypes: string[],
+): Promise<CreateEndpointResult> {
+  const v = validateEndpointInput(url, eventTypes);
+  if (!v.ok) return { ok: false, errors: v.errors };
+
+  const secret = `whsec_${crypto.randomUUID().replace(/-/g, '')}${crypto.randomUUID().replace(/-/g, '')}`;
+  const secretEncrypted = await encrypt(env, secret);
+  const id = crypto.randomUUID();
+  const res = await dbExecute(
+    env.DB,
+    `INSERT INTO webhook_endpoints (id, site_id, org_id, url, secret_encrypted, event_types)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, siteId, orgId, url, secretEncrypted, JSON.stringify(eventTypes)],
+  );
+  if (res.error) return { ok: false, errors: [res.error] };
+  return { ok: true, id, secret };
+}
+
+/** List a site's endpoints (org+site scoped) — NEVER includes the secret. */
+export async function listWebhookEndpoints(env: Env, orgId: string, siteId: string): Promise<StoredEndpoint[]> {
+  const { data } = await dbQuery<{ id: string; url: string; event_types: string; enabled: number }>(
+    env.DB,
+    `SELECT id, url, event_types, enabled FROM webhook_endpoints
+     WHERE org_id = ? AND site_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`,
+    [orgId, siteId],
+  );
+  return data.map((r) => ({
+    id: r.id,
+    url: r.url,
+    eventTypes: JSON.parse(r.event_types) as string[],
+    enabled: r.enabled === 1,
+  }));
+}
+
+/** Soft-delete an endpoint (org+site scoped). `ok:false` when nothing matched. */
+export async function deleteWebhookEndpoint(
+  env: Env,
+  orgId: string,
+  siteId: string,
+  id: string,
+): Promise<{ ok: boolean }> {
+  const res = await dbExecute(
+    env.DB,
+    "UPDATE webhook_endpoints SET deleted_at = datetime('now') WHERE id = ? AND org_id = ? AND site_id = ? AND deleted_at IS NULL",
+    [id, orgId, siteId],
+  );
+  return { ok: !res.error && res.changes > 0 };
 }

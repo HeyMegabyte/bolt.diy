@@ -6,10 +6,32 @@ import {
   shouldRetry,
   validateEndpointInput,
   maskSecret,
+  createWebhookEndpoint,
+  listWebhookEndpoints,
+  deleteWebhookEndpoint,
   MAX_DELIVERY_ATTEMPTS,
   BASE_RETRY_DELAY_MS,
   MAX_RETRY_DELAY_MS,
 } from '../services/outbound_webhooks.js';
+import type { Env } from '../types/env.js';
+
+/** Mock env with a valid 32-byte AES key so ai_crypto.encrypt round-trips, + a mock D1. */
+function mockEnv(rows: Record<string, unknown>[], changes: number, captured: unknown[][] = []): Env {
+  return {
+    MCP_ENCRYPTION_KEY: Buffer.from(new Uint8Array(32)).toString('base64'),
+    DB: {
+      prepare: (_sql: string) => ({
+        bind: (...args: unknown[]) => ({
+          all: async () => ({ results: rows }),
+          run: async () => {
+            captured.push(args);
+            return { meta: { changes } };
+          },
+        }),
+      }),
+    },
+  } as unknown as Env;
+}
 
 describe('outbound_webhooks signed payload', () => {
   it('binds the timestamp into the signed material (replay-safety)', () => {
@@ -96,5 +118,42 @@ describe('maskSecret', () => {
   it('shows only the last 4 chars', () => {
     expect(maskSecret('whsec_abcd1234')).toBe('••••1234');
     expect(maskSecret('xy')).toBe('••••');
+  });
+});
+
+describe('createWebhookEndpoint', () => {
+  it('encrypts the secret and inserts; returns the plaintext secret once', async () => {
+    const captured: unknown[][] = [];
+    const res = await createWebhookEndpoint(mockEnv([], 1, captured), 'o1', 's1', 'https://hooks.example.com/x', ['site.published']);
+    expect(res.ok).toBe(true);
+    expect(res.secret).toMatch(/^whsec_/);
+    // bind: [id, site_id, org_id, url, secret_encrypted, event_types]
+    expect(captured[0]?.[2]).toBe('o1');
+    expect(captured[0]?.[3]).toBe('https://hooks.example.com/x');
+    expect(captured[0]?.[4]).not.toBe(res.secret); // stored value is the AES blob, not the plaintext
+    expect(JSON.parse(captured[0]?.[5] as string)).toEqual(['site.published']);
+  });
+
+  it('rejects an invalid subscription without inserting', async () => {
+    const captured: unknown[][] = [];
+    const res = await createWebhookEndpoint(mockEnv([], 1, captured), 'o1', 's1', 'http://insecure', ['site.published']);
+    expect(res.ok).toBe(false);
+    expect(captured.length).toBe(0);
+  });
+});
+
+describe('listWebhookEndpoints', () => {
+  it('parses event_types and never returns a secret', async () => {
+    const env = mockEnv([{ id: 'e1', url: 'https://x.com', event_types: '["form.submitted"]', enabled: 1 }], 0);
+    const list = await listWebhookEndpoints(env, 'o1', 's1');
+    expect(list).toEqual([{ id: 'e1', url: 'https://x.com', eventTypes: ['form.submitted'], enabled: true }]);
+    expect(JSON.stringify(list)).not.toContain('secret');
+  });
+});
+
+describe('deleteWebhookEndpoint', () => {
+  it('reports ok/not-ok by rows changed', async () => {
+    expect(await deleteWebhookEndpoint(mockEnv([], 1), 'o1', 's1', 'e1')).toEqual({ ok: true });
+    expect(await deleteWebhookEndpoint(mockEnv([], 0), 'o1', 's1', 'missing')).toEqual({ ok: false });
   });
 });
