@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal, type OnInit } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { ApiService, type CloudflareCredentialStatus } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
@@ -1052,6 +1053,7 @@ interface NotificationGroup {
 export class AdminUserSettingsComponent implements OnInit {
   auth = inject(AuthService);
   private api = inject(ApiService);
+  private http = inject(HttpClient);
   private toast = inject(ToastService);
 
   // ── Profile derived signals ──
@@ -1474,7 +1476,14 @@ export class AdminUserSettingsComponent implements OnInit {
   // ─────────────────── Sessions ───────────────────
   loadSessions(): void {
     this.loadingSessions.set(true);
-    this.api.get<{ data: SessionRow[] }>('/admin/sessions').subscribe({
+    // Raw HttpClient (NOT ApiService) so a not-yet-wired /api/admin/sessions
+    // endpoint fails SILENTLY → graceful current-device fallback below, instead
+    // of ApiService.handleError firing a spurious "Can't reach the server"
+    // toast on every /admin/user load. Auto-upgrades to the real list the
+    // moment the worker route ships (no further frontend change needed).
+    const token = this.auth.getToken();
+    const headers = token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : new HttpHeaders();
+    this.http.get<{ data: SessionRow[] }>('/api/admin/sessions', { headers }).subscribe({
       next: (r) => {
         this.sessions.set(r.data ?? []);
         this.loadingSessions.set(false);
