@@ -13,8 +13,11 @@ on:
       - 'apps/project-sites/src/**'
       - 'apps/project-sites/libs/**'
       - 'apps/project-sites/frontend/src/app/app.routes.ts'
-      - 'apps/project-sites/e2e/_fortress/**'
+      - 'apps/project-sites/e2e/**'
+      - 'apps/project-sites/frontend/e2e/**'
       - 'apps/project-sites/scripts/validate-feature-*.mjs'
+      - 'apps/project-sites/scripts/validate-e2e-inventory.mjs'
+      - 'apps/project-sites/frontend/scripts/validate-e2e-inventory.mjs'
       - 'apps/project-sites/package.json'
   pull_request:
     branches: [main]
@@ -22,8 +25,11 @@ on:
       - 'apps/project-sites/src/**'
       - 'apps/project-sites/libs/**'
       - 'apps/project-sites/frontend/src/app/app.routes.ts'
-      - 'apps/project-sites/e2e/_fortress/**'
+      - 'apps/project-sites/e2e/**'
+      - 'apps/project-sites/frontend/e2e/**'
       - 'apps/project-sites/scripts/validate-feature-*.mjs'
+      - 'apps/project-sites/scripts/validate-e2e-inventory.mjs'
+      - 'apps/project-sites/frontend/scripts/validate-e2e-inventory.mjs'
       - 'apps/project-sites/package.json'
   # Allow manual trigger at any time
   workflow_dispatch:
@@ -78,6 +84,19 @@ jobs:
         id: drift
         working-directory: apps/project-sites
         run: node scripts/validate-feature-drift.mjs --strict
+
+      # ── Step 2b: Validate e2e inventories (every spec mapped in COVERAGE.yml) ─
+      # Fails on orphan specs / dangling refs so the feature→test inventory
+      # can't silently drift (worker e2e + Angular frontend e2e). Pure Node.
+      - name: Validate worker e2e inventory
+        id: worker_e2e_inventory
+        working-directory: apps/project-sites
+        run: node scripts/validate-e2e-inventory.mjs
+
+      - name: Validate frontend e2e inventory
+        id: frontend_e2e_inventory
+        working-directory: apps/project-sites/frontend
+        run: node scripts/validate-e2e-inventory.mjs
 
       # ── Step 3: Upload drift report as artifact (always, even on failure) ─
       - name: Upload drift report
