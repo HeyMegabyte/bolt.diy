@@ -82,6 +82,10 @@ coverage:
     feature: Chat import/export
     specs:
       - e2e/specs/chat-persistence.spec.ts
+  B13_editor_import_slug:
+    feature: Editor import flow (slug-based) + editor UI cleanup
+    specs:
+      - e2e/specs/editor-import.spec.ts
 
   # ── Product Area 3: Provider & Model Configuration ──
   C01_provider_selection:

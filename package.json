@@ -26,6 +26,7 @@
     "dockerbuild:prod": "docker build -t bolt-ai:production -t bolt-ai:latest --target bolt-ai-production .",
     "dockerbuild": "docker build -t bolt-ai:development -t bolt-ai:latest --target development .",
     "typecheck": "tsc",
+    "validate:e2e-inventory": "node scripts/validate-e2e-inventory.mjs",
     "typegen": "wrangler types",
     "preview": "pnpm run build && pnpm run start",
     "prepare": "husky",

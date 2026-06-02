@@ -37,6 +37,11 @@ jobs:
       - name: Run type check
         run: pnpm run typecheck
 
+      - name: Validate e2e inventory
+        # Pure Node — fails if any e2e/specs/*.spec.ts is missing from
+        # e2e/COVERAGE.yml or any COVERAGE.yml ref has no file.
+        run: node scripts/validate-e2e-inventory.mjs
+
       - name: Cache ESLint
         uses: actions/cache@v4
         with:
