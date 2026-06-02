@@ -383,12 +383,14 @@ const ADMIN_NAV_INDEX: ReadonlyArray<{ id: string; source: string; label: string
     .adm-rail-list img { width: 100%; height: 60px; border-radius: 6px; object-fit: cover; }
 
 
-    /* Bottom-LEFT corner: the ai-chat-widget launcher owns bottom-right, so a
-       right-aligned FAB sat under it and was unclickable. */
-    .adm-fab { position: fixed; bottom: 1.25rem; left: 1.25rem; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--ps-accent, #00e5ff), #7c3aed); color: #fff; border: 0; cursor: pointer; box-shadow: 0 12px 32px rgba(0, 229, 255, .35), 0 4px 12px rgba(124, 58, 237, .25); z-index: 99; display: flex; align-items: center; justify-content: center; transition: transform .15s cubic-bezier(.4, 0, .2, 1), box-shadow .2s; }
+    /* Stacked ABOVE the ai-chat-widget launcher (bottom-right). Bottom-left is
+       covered by the 232px admin sidebar (z-100) and the very-bottom-right by the
+       chat launcher, so the FAB sits one row up at a higher z-index — both AI
+       entry points stay clickable. */
+    .adm-fab { position: fixed; bottom: 4.75rem; right: 1.25rem; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--ps-accent, #00e5ff), #7c3aed); color: #fff; border: 0; cursor: pointer; box-shadow: 0 12px 32px rgba(0, 229, 255, .35), 0 4px 12px rgba(124, 58, 237, .25); z-index: 101; display: flex; align-items: center; justify-content: center; transition: transform .15s cubic-bezier(.4, 0, .2, 1), box-shadow .2s; }
     .adm-fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 18px 42px rgba(0, 229, 255, .45), 0 6px 16px rgba(124, 58, 237, .35); }
     @media (prefers-reduced-motion: reduce) { .adm-fab { transition: none; } .adm-fab:hover { transform: none; } }
-    .adm-fab-panel { position: fixed; bottom: 5.5rem; left: 1.25rem; width: 360px; max-width: calc(100vw - 2.5rem); background: var(--ps-bg, #060610); border: 1px solid color-mix(in oklch, currentColor 16%, transparent); border-radius: 14px; padding: 1rem; z-index: 100; display: flex; flex-direction: column; gap: .65rem; }
+    .adm-fab-panel { position: fixed; bottom: 9rem; right: 1.25rem; width: 360px; max-width: calc(100vw - 2.5rem); background: var(--ps-bg, #060610); border: 1px solid color-mix(in oklch, currentColor 16%, transparent); border-radius: 14px; padding: 1rem; z-index: 102; display: flex; flex-direction: column; gap: .65rem; box-shadow: 0 18px 48px rgba(0, 0, 0, .5); }
     .adm-fab-panel header { display: flex; justify-content: space-between; align-items: center; }
     .adm-fab-panel textarea { background: color-mix(in oklch, currentColor 6%, transparent); border: 1px solid color-mix(in oklch, currentColor 14%, transparent); color: inherit; padding: .55rem; border-radius: 8px; font: inherit; }
     .adm-fab-send { background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); border: 0; padding: .55rem; border-radius: 8px; cursor: pointer; font: inherit; font-weight: 600; }
