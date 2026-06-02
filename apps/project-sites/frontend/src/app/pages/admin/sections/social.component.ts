@@ -2123,45 +2123,77 @@ export class AdminSocialComponent implements OnInit {
     });
   }
 
-  private buildPostPayload(status: PostStatus): Partial<SocialPost> & { site_id: string } {
-    return {
+  /** Selected platforms → their connected account UUIDs (the worker keys posts by account, not platform). */
+  private accountIdsForSelected(): string[] {
+    const sel = new Set(this.selected());
+    return this.accounts()
+      .filter((a) => a.connected && !!a.id && sel.has(a.platform))
+      .map((a) => a.id as string);
+  }
+
+  /** Build the worker `CreatePostSchema` payload (also valid for PATCH = .partial()). */
+  private buildCreatePayload(): Record<string, unknown> {
+    const overrides: Record<string, { content: string }> = {};
+    for (const [plat, txt] of Object.entries(this.perPlatform())) {
+      if (txt && txt.trim()) overrides[plat] = { content: txt };
+    }
+    const ids = this.accountIdsForSelected();
+    const payload: Record<string, unknown> = {
       site_id: this.siteId()!,
       content: this.content(),
-      per_platform_content: { ...this.perPlatform() },
-      platforms: [...this.selected()],
-      media: this.media(),
-      hashtags: this.hashtags(),
-      link: this.link() || undefined,
-      og: this.og() ?? undefined,
-      scheduled_at: this.scheduleAt() ?? undefined,
-      status,
     };
+    if (ids.length) payload['account_ids'] = ids;
+    if (Object.keys(overrides).length) payload['per_platform_overrides'] = overrides;
+    if (this.hashtags().length) payload['hashtags'] = this.hashtags();
+    if (this.link()) payload['link'] = this.link();
+    if (this.scheduleAt()) payload['schedule_at'] = this.scheduleAt();
+    return payload;
   }
 
   saveDraft(): void {
     if (!this.siteId()) { this.toast.error('Pick a site first'); return; }
-    this.saving.set(true);
-    const payload = this.buildPostPayload('draft');
     const id = this.editingId();
+    const payload = this.buildCreatePayload();
+    // POST (new) requires ≥1 account; PATCH (edit) may omit.
+    if (!id && !(payload['account_ids'] as string[] | undefined)?.length) {
+      this.toast.error('Connect an account for the selected platform(s) first.');
+      return;
+    }
+    this.saving.set(true);
     const req = id
-      ? this.api.patch<{ post: SocialPost }>(`/social/posts/${id}`, payload)
-      : this.api.post<{ post: SocialPost }>('/social/posts', payload);
+      ? this.api.patch<{ data: { id: string } }>(`/social/posts/${id}`, payload)
+      : this.api.post<{ data: { id: string } }>('/social/posts', payload);
     req.subscribe({
-      next: () => { this.saving.set(false); this.toast.success('Draft saved'); this.resetComposer(); },
+      next: () => { this.saving.set(false); this.toast.success('Draft saved'); this.resetComposer(); this.loadPosts(); },
       error: () => { this.saving.set(false); this.toast.error('Save failed'); },
     });
   }
 
   publish(): void {
     if (!this.canPublish()) return;
+    const payload = this.buildCreatePayload();
+    if (!(payload['account_ids'] as string[] | undefined)?.length) {
+      this.toast.error('Connect an account for the selected platform(s) first.');
+      return;
+    }
+    const scheduled = !!this.scheduleAt();
     this.saving.set(true);
-    const status: PostStatus = this.scheduleAt() ? 'scheduled' : 'published';
-    const payload = this.buildPostPayload(status);
-    this.api.post<{ post: SocialPost }>('/social/posts', payload).subscribe({
-      next: () => {
-        this.saving.set(false);
-        this.toast.success(status === 'scheduled' ? 'Post scheduled' : 'Posted to ' + this.selected().length + ' platforms');
-        this.resetComposer();
+    // Create the post, then trigger it (worker create doesn't auto-send;
+    // immediate posts call publish-now, scheduled posts keep their schedule_at).
+    this.api.post<{ data: { id: string } }>('/social/posts', payload).subscribe({
+      next: (r) => {
+        const id = r.data?.id;
+        if (id && !scheduled) {
+          this.api.post(`/social/posts/${id}/publish-now`, {}).subscribe({
+            next: () => { this.saving.set(false); this.toast.success(`Posting to ${this.selected().length} platform${this.selected().length === 1 ? '' : 's'}…`); this.resetComposer(); this.loadPosts(); },
+            error: () => { this.saving.set(false); this.toast.error('Created the post but publishing failed — see Drafts.'); this.resetComposer(); this.loadPosts(); },
+          });
+        } else {
+          this.saving.set(false);
+          this.toast.success(scheduled ? 'Post scheduled' : 'Draft created');
+          this.resetComposer();
+          this.loadPosts();
+        }
       },
       error: () => { this.saving.set(false); this.toast.error('Publish failed'); },
     });
