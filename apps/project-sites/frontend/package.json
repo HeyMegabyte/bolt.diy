@@ -62,7 +62,6 @@
     "monaco-editor": "^0.55.0",
     "postcss": "^8.5.10",
     "posthog-js": "^1.376.0",
-    "primeicons": "^7.0.0",
     "qrcode": "^1.5.4",
     "rxjs": "~7.8.0",
     "tailwind-merge": "^3.6.0",

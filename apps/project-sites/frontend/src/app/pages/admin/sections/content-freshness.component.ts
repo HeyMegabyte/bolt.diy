@@ -98,7 +98,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
             type="button"
             [disabled]="triggering()"
             (click)="triggerScan()">
-            <i class="pi pi-sync" aria-hidden="true" [class.cf-spin]="triggering()"></i>
+            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" [class.cf-spin]="triggering()"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
             {{ triggering() ? 'Scanning…' : 'Run scan now' }}
           </button>
           <button
@@ -108,7 +108,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
             type="button"
             [disabled]="loading()"
             (click)="load()">
-            <i class="pi pi-refresh" aria-hidden="true" [class.cf-spin]="loading()"></i>
+            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" [class.cf-spin]="loading()"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
             Refresh
           </button>
         </div>
@@ -209,7 +209,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
                       }
                     </div>
                   } @else {
-                    <i class="pi pi-check-circle" style="font-size: 1.6rem; opacity: .35"></i>
+                    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="font-size: 1.6rem; opacity: .35"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
                     <p>No {{ statusFilter() }} drafts — sections are fresh.</p>
                   }
                 </div>
@@ -334,7 +334,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
     .cf-pager { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 10px 4px 0; }
     .cf-pager-info { font-size: .68rem; color: rgba(244,244,255,.5); }
     /* Action buttons are Spartan hlmBtn (size=sm owns its own padding/typography). */
-    .cf-header-actions .pi, .cf-actions-col .pi { font-size: .7rem; }
+    .cf-header-actions svg, .cf-actions-col svg { font-size: .7rem; }
     @keyframes cf-spin { to { transform: rotate(360deg); } }
     .cf-spin { display: inline-block; animation: cf-spin .8s linear infinite; }
     @media (prefers-reduced-motion: reduce) { .cf-spin { animation: none; } }

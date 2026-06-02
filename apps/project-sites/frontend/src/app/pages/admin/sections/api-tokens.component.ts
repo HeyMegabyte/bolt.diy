@@ -98,10 +98,10 @@ const ALL_SCOPES = [
           </div>
           <div class="at-header-actions">
             <a hlmBtn variant="outline" size="sm" [routerLink]="'/admin/docs/api-reference'">
-              <i class="pi pi-book" aria-hidden="true"></i> API Docs
+              <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> API Docs
             </a>
             <button hlmBtn variant="primary" size="sm" type="button" (click)="openCreateModal()">
-              <i class="pi pi-plus" aria-hidden="true"></i> New Token
+              <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg> New Token
             </button>
           </div>
         </div>
@@ -125,7 +125,7 @@ const ALL_SCOPES = [
       <!-- Feature-disabled banner -->
       @if (flagDisabled()) {
         <div class="at-flag-banner" role="alert">
-          <i class="pi pi-info-circle"></i>
+          <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
           Public API v1 is disabled. Enable the <strong>public_api_v1</strong> feature flag in
           <a routerLink="/admin/feature-flags">Feature Flags</a> to activate.
         </div>
@@ -186,7 +186,7 @@ const ALL_SCOPES = [
                 <tr>
                   <td colspan="6">
                     <div class="at-empty" role="status">
-                      <i class="pi pi-key" style="font-size: 1.8rem; color: var(--ps-accent); opacity: .4"></i>
+                      <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="font-size: 1.8rem; color: var(--ps-accent); opacity: .4"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>
                       <p>No API tokens yet.</p>
                       <button hlmBtn variant="primary" size="sm" type="button" (click)="openCreateModal()">Create your first token</button>
                     </div>
@@ -202,7 +202,7 @@ const ALL_SCOPES = [
       @if (tokens().length > 0) {
         <div class="at-quickstart" appReveal>
           <div class="at-qs-header">
-            <i class="pi pi-code"></i>
+            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg>
             Quick start
           </div>
           <pre class="at-code"><code>curl https://projectsites.dev/v1/sites \
@@ -261,7 +261,7 @@ const ALL_SCOPES = [
         <button hlmBtn variant="ghost" size="sm" type="button" (click)="closeCreateModal()">Cancel</button>
         <button hlmBtn variant="primary" size="sm" type="button"
           [disabled]="creating() || !newName.trim()" (click)="createToken()">
-          <i class="pi pi-key" aria-hidden="true" [class.at-spin]="creating()"></i>
+          <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" [class.at-spin]="creating()"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>
           {{ creating() ? 'Creating…' : 'Create Token' }}
         </button>
       </div>
@@ -273,7 +273,7 @@ const ALL_SCOPES = [
     <app-dialog-shell title="Token created" (closed)="clearCreatedToken()">
       <div class="at-dialog-body">
         <div class="at-warning-box" role="alert">
-          <i class="pi pi-exclamation-triangle" style="color:#ffd166"></i>
+          <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:#ffd166"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
           Store this token securely — it will <strong>not</strong> be shown again.
         </div>
         <div class="at-token-reveal">
@@ -358,7 +358,7 @@ const ALL_SCOPES = [
     /* Buttons are Spartan hlmBtn now — variants carry WCAG-correct ink on the
        cyan fill / outline natively, so the old ::ng-deep p-button contrast
        overrides are gone. Icon sizing + busy-spin for pi glyphs inside hlmBtn: */
-    .at-header-actions .pi, .at-actions-col .pi, [hlmBtn] .pi { font-size: .72rem; }
+    .at-header-actions svg, .at-actions-col svg, [hlmBtn] svg { font-size: .72rem; }
     @keyframes at-spin { to { transform: rotate(360deg); } }
     .at-spin { display: inline-block; animation: at-spin .8s linear infinite; }
 
