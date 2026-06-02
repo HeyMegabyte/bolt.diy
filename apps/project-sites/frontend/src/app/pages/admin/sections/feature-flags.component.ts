@@ -259,7 +259,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
     .ff-refresh:disabled { opacity: .5; cursor: not-allowed; }
     .ff-toolbar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
     /* .ff-search removed — now Spartan hlmInput (flex-1 min-w-[280px]). */
-    .ff-stages { display: flex; gap: .375rem; flex-wrap: wrap; }
+    .ff-stages { display: flex; gap: .375rem; flex-wrap: wrap; min-width: 0; }
     .ff-stage-chip { background: transparent; color: inherit; border: 1px solid color-mix(in oklch, currentColor 18%, transparent); border-radius: 999px; padding: .375rem .75rem; cursor: pointer; font: inherit; font-size: .875rem; display: inline-flex; align-items: center; gap: .375rem; }
     .ff-stage-chip:hover { border-color: color-mix(in oklch, currentColor 40%, transparent); }
     .ff-stage-chip-active { background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); border-color: var(--ps-accent, #00e5ff); }
