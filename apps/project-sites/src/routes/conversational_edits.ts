@@ -22,6 +22,7 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
+import { dbQueryOne } from '../services/db.js';
 import { extractEditIntent } from '../services/edit_intent_extractor.js';
 import {
   createChangeset,
@@ -44,6 +45,27 @@ function flagDisabled(message = 'Not found') {
   return { error: { code: 'NOT_FOUND', message } } as const;
 }
 
+/**
+ * Multi-tenant ownership guard. Returns `true` only when `siteId` exists AND
+ * belongs to the caller's `orgId`. Every handler applies this after the flag
+ * check and 404s (never 403 — never leak existence) when it's false, closing
+ * the cross-tenant read/write gap where a flag-enabled caller could touch
+ * another org's changesets by guessing an id. Exported for unit testing.
+ */
+export async function assertSiteOwned(
+  env: Env,
+  orgId: string | undefined,
+  siteId: string,
+): Promise<boolean> {
+  if (!orgId) return false;
+  const row = await dbQueryOne<{ org_id: string }>(
+    env.DB,
+    'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
+    [siteId],
+  );
+  return !!row && row.org_id === orgId;
+}
+
 // ─── Extract intent preview (no apply) ─────────────────────────────────
 
 conversationalEdits.post('/:siteId/intent', async (c) => {
@@ -53,6 +75,7 @@ conversationalEdits.post('/:siteId/intent', async (c) => {
   const { siteId } = c.req.param();
   const on = await isFlagOn(c.env, FLAG_KEY, { siteId, orgId: c.get('orgId'), userId });
   if (!on) return c.json(flagDisabled(), 404);
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(flagDisabled(), 404);
 
   const body = await c.req.json().catch(() => ({}));
   const parsed = ExtractIntentRequestSchema.safeParse(body);
@@ -91,6 +114,7 @@ conversationalEdits.post('/:siteId/apply', async (c) => {
   const { siteId } = c.req.param();
   const on = await isFlagOn(c.env, FLAG_KEY, { siteId, orgId: c.get('orgId'), userId });
   if (!on) return c.json(flagDisabled(), 404);
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(flagDisabled(), 404);
 
   const body = await c.req.json().catch(() => ({}));
   const parsed = ApplyChangesetRequestSchema.safeParse(body);
@@ -121,6 +145,7 @@ conversationalEdits.post('/:siteId/revert/:changesetId', async (c) => {
   const { siteId, changesetId } = c.req.param();
   const on = await isFlagOn(c.env, FLAG_KEY, { siteId, orgId: c.get('orgId'), userId });
   if (!on) return c.json(flagDisabled(), 404);
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(flagDisabled(), 404);
 
   const body = await c.req.json().catch(() => ({}));
   const parsed = RevertChangesetRequestSchema.safeParse(body);
@@ -155,6 +180,7 @@ conversationalEdits.get('/:siteId/history', async (c) => {
   const { siteId } = c.req.param();
   const on = await isFlagOn(c.env, FLAG_KEY, { siteId, orgId: c.get('orgId'), userId });
   if (!on) return c.json(flagDisabled(), 404);
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.json(flagDisabled(), 404);
 
   const changesets = await getHistory(c.env, siteId);
   return c.json({ changesets, total: changesets.length });
@@ -176,6 +202,8 @@ conversationalEdits.get('/changesets/:changesetId/diff', async (c) => {
     userId,
   });
   if (!on) return c.json(flagDisabled(), 404);
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), diff.changeset.siteId)))
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Changeset not found' } }, 404);
 
   return c.json(diff);
 });
