@@ -18,6 +18,7 @@ import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { mcpProvider } from './mcp-providers';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
 /**
  * Compare two dates for same-day equality (local timezone).
@@ -136,18 +137,19 @@ const POLL_INTERVAL_MS = 10_000;
 @Component({
   selector: 'app-admin-forms',
   standalone: true,
-  imports: [RevealDirective, FormsModule, RouterLink, DatePipe, JsonPipe, FullscreenOverlayComponent, HlmInputDirective, HlmTablistDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, RollingCounterComponent, FormsModule, RouterLink, DatePipe, JsonPipe, FullscreenOverlayComponent, HlmInputDirective, HlmTablistDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
-      <header>
+      <header appReveal>
         <div class="kicker">Inbox &amp; routing</div>
         <div class="flex items-center justify-between gap-4 flex-wrap mt-1">
           <h2 class="section-h text-lg font-bold text-white m-0 flex items-center gap-2">
             Forms
             @if (submissions().length > 0) {
-              <span class="header-pill" [attr.aria-label]="submissions().length + ' submissions in inbox'" title="Submissions in the inbox">
+              <span class="header-pill" [attr.aria-label]="submissions().length + ' submission' + (submissions().length === 1 ? '' : 's') + ' in inbox'" title="Submissions in the inbox">
                 <span class="header-pill-dot" aria-hidden="true"></span>
-                {{ submissions().length }} submission{{ submissions().length === 1 ? '' : 's' }}
+                <app-rolling-counter [value]="submissions().length" [duration]="900" aria-hidden="true" />
+                submission{{ submissions().length === 1 ? '' : 's' }}
               </span>
             }
           </h2>
@@ -489,8 +491,13 @@ const POLL_INTERVAL_MS = 10_000;
             </thead>
             <tbody>
               @for (s of filteredSubmissions(); track s.id) {
-                <tr class="border-b border-white/[0.04] hover:bg-white/[0.03] cursor-pointer transition-colors"
-                    (click)="open(s)">
+                <tr class="submission-row border-b border-white/[0.04] hover:bg-white/[0.03] cursor-pointer transition-colors"
+                    role="button"
+                    tabindex="0"
+                    [attr.aria-label]="'Open submission from ' + (s.form_name) + (s.email ? ' by ' + s.email : '')"
+                    (click)="open(s)"
+                    (keydown.enter)="open(s)"
+                    (keydown.space)="$event.preventDefault(); open(s)">
                   <td class="p-3 text-text-secondary">{{ s.created_at | date:'short' }}</td>
                   <td class="p-3 font-mono text-[0.72rem]">{{ s.form_name }}</td>
                   <td class="p-3">{{ s.email || '—' }}</td>
@@ -710,8 +717,8 @@ const POLL_INTERVAL_MS = 10_000;
     .trace-summary {
       display: flex; flex-wrap: wrap; gap: 6px 14px;
       padding: 8px 10px;
-      background: rgba(0, 229, 255, 0.05);
-      border: 1px solid rgba(0, 229, 255, 0.16);
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 5%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 16%, transparent);
       border-radius: 8px;
     }
     .trace-row {
@@ -720,7 +727,7 @@ const POLL_INTERVAL_MS = 10_000;
     }
     .trace-val {
       font-family: 'JetBrains Mono', ui-monospace, monospace;
-      color: #00E5FF;
+      color: var(--ps-accent, #00E5FF);
       font-size: 0.7rem;
     }
     /* layout-only modifier on top of Spartan hlmInput [multiline] (box-chrome +
@@ -738,8 +745,16 @@ const POLL_INTERVAL_MS = 10_000;
     .skeleton { background: rgba(255,255,255,0.10); border-radius: 8px; animation: skel-pulse 1.4s ease-in-out infinite; }
     .skeleton-row { height: 44px; }
     @keyframes skel-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+    /* Keyboard-openable submission rows — role=button + tabindex on the <tr>.
+       Cyan focus ring (inset so it reads inside the table chrome) satisfies
+       WCAG 2.4.11 focus appearance + 2.4.7 visible focus for keyboard users. */
+    .submission-row:focus-visible {
+      outline: none;
+      box-shadow: inset 0 0 0 2px var(--ps-accent, #00E5FF);
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 7%, transparent);
+    }
     .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2.8rem 1.4rem; gap: 0.6rem; }
-    .empty-icon { color: rgba(0, 229, 255, 0.65); }
+    .empty-icon { color: color-mix(in oklch, var(--ps-accent, #00E5FF) 65%, transparent); }
     .empty-title { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; font-size: 1rem; color: #fff; margin: 0.2rem 0 0; }
     .empty-body { font-size: 0.78rem; color: rgba(255,255,255,0.65); margin: 0 0 0.9rem; max-width: 420px; line-height: 1.5; }
 
