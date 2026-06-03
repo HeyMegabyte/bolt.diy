@@ -78,4 +78,27 @@ describe('AdminSiteDetailComponent (tabs + logs + SQL console)', () => {
     expect(c.sqlError()).toContain('not allowed');
     expect(c.sqlRunning()).toBe(false);
   });
+
+  // ── Rollback must NOT claim a false success on failure (lying-UI guard) ──
+  it('confirmRollback shows the rolled-back version + no error on success', () => {
+    const okPost = jasmine.createSpy('post').and.returnValue(of({ ok: true, snapshot_name: 'v3' }));
+    const { c } = make(okPost);
+    c.pendingRollback.set({ id: 'snap-1', snapshot_name: 'v3' } as never);
+    c.confirmRollback();
+    expect(c.rollbackResult()).toBe('v3');
+    expect(c.rollbackError()).toBeNull();
+    expect(c.pendingRollback()).toBeNull();
+  });
+
+  it('confirmRollback surfaces an error + does NOT claim success when the rollback fails', () => {
+    const failPost = jasmine
+      .createSpy('post')
+      .and.returnValue(throwError(() => ({ error: { error: { message: 'rollback boom' } } })));
+    const { c } = make(failPost);
+    c.pendingRollback.set({ id: 'snap-1', snapshot_name: 'v3' } as never);
+    c.confirmRollback();
+    expect(c.rollbackResult()).withContext('no false success message').toBeNull();
+    expect(c.rollbackError()).toContain('boom');
+    expect(c.pendingRollback()).withContext('dialog closed').toBeNull();
+  });
 });

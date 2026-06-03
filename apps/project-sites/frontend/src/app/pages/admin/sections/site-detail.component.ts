@@ -28,6 +28,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
+import { ToastService } from '../../../services/toast.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of } from 'rxjs';
 import { catchError, retry, switchMap, timer } from 'rxjs';
@@ -187,6 +188,9 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
           @if (rollbackResult()) {
             <p class="rollback-result">Rolled back to {{ rollbackResult() }}</p>
           }
+          @if (rollbackError()) {
+            <p class="rollback-error" role="alert" data-testid="rollback-error">{{ rollbackError() }}</p>
+          }
         </div>
       }
 
@@ -322,6 +326,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
     .sql-result-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
     .sql-result-table th, .sql-result-table td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--ps-edge, rgba(255,255,255,0.08)); }
     .sql-error { color: #ff7e8a; }
+    .rollback-error { margin-top: 0.5rem; color: #ff7e8a; font-size: 0.85rem; }
     .sql-history { margin-top: 1rem; }
     .sql-history ul { list-style: none; padding: 0; margin: 0.5rem 0 0; display: grid; gap: 0.25rem; }
     .sql-history li { padding: 0.25rem 0.5rem; background: rgba(255,255,255,0.03); border-radius: 4px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.8rem; }
@@ -338,6 +343,7 @@ export class AdminSiteDetailComponent {
   private readonly api = inject(ApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toast = inject(ToastService);
 
   readonly siteId = signal<string>('');
   readonly site = signal<{ id: string; slug: string; name: string } | null>(null);
@@ -362,6 +368,7 @@ export class AdminSiteDetailComponent {
   readonly snapshots = signal<SnapshotRow[]>([]);
   readonly pendingRollback = signal<SnapshotRow | null>(null);
   readonly rollbackResult = signal<string | null>(null);
+  readonly rollbackError = signal<string | null>(null);
 
   // ── SQL ──────────────────────────────────────────────────────────────
   readonly sqlQuery = signal('');
@@ -463,18 +470,32 @@ export class AdminSiteDetailComponent {
     const s = this.pendingRollback();
     if (!s) return;
     const id = this.siteId();
+    this.rollbackError.set(null);
     this.api
       .post<{ ok: boolean; snapshot_name: string }>(
         `/sites/${id}/snapshots/${s.id}/rollback`,
         {},
       )
       .pipe(
-        catchError(() => of({ ok: true, snapshot_name: s.snapshot_name })),
+        // Surface the failure — do NOT fabricate a success shape. A faked
+        // { ok: true } here would show "Rolled back to X" while the site was
+        // never rolled back (a destructive-action lying-UI). Return null on
+        // error and branch on it in the subscriber.
+        catchError((err: unknown) => {
+          const msg =
+            (err as { error?: { error?: { message?: string } } })?.error?.error?.message ??
+            (err as { message?: string })?.message ??
+            'Rollback failed — please try again.';
+          this.rollbackError.set(msg);
+          return of(null);
+        }),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((res) => {
-        this.rollbackResult.set(res.snapshot_name);
         this.pendingRollback.set(null);
+        if (!res) return; // failure already surfaced via rollbackError — no false success
+        this.rollbackError.set(null);
+        this.rollbackResult.set(res.snapshot_name);
         this.loadSnapshots(id);
       });
   }
@@ -586,12 +607,18 @@ export class AdminSiteDetailComponent {
     this.api
       .delete(`/sites/${this.siteId()}/integrations/${p.key}`)
       .pipe(
-        catchError(() => of({ ok: true })),
+        // Return null on error (don't fabricate { ok: true }) so a failed
+        // disconnect never optimistically flips the chip to "disconnected".
+        catchError(() => of(null)),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe(() => {
+      .subscribe((res) => {
         this.disconnectTarget.set(null);
-        // Optimistic flip.
+        if (res === null) {
+          this.toast.error(`Could not disconnect ${p.name} — please try again.`);
+          return;
+        }
+        // Optimistic flip only on a confirmed success.
         this.integrations.update((list) =>
           list.map((x) => (x.key === p.key ? { ...x, status: 'disconnected' as const } : x)),
         );
