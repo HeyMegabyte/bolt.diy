@@ -29,7 +29,12 @@ import { isFlagOn } from '../modules/feature_flags/services.js';
 import { getDefaultFlag } from '../modules/feature_flags/registry.js';
 import { dbQuery } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
-import { planBulkOperation, executeBulkArchive, executeBulkSetFlag } from '../services/bulk_site_ops.js';
+import {
+  planBulkOperation,
+  executeBulkArchive,
+  executeBulkSetFlag,
+  executeBulkRepublish,
+} from '../services/bulk_site_ops.js';
 
 const NOT_FOUND = { error: { code: 'NOT_FOUND', message: 'Not found' } } as const;
 
@@ -146,17 +151,25 @@ bulkSiteOps.post('/api/sites/bulk', async (c) => {
     return c.json({ ok: true, dryRun: false, plan, results });
   }
 
-  // republish executor lands in a follow-up slice — fail loudly (never silently no-op).
-  return c.json(
-    {
-      error: {
-        code: 'NOT_IMPLEMENTED',
-        message: `Executor for "${operation}" is not available yet — re-request with dryRun:true to preview`,
-      },
-      plan,
+  // operation === 'republish' (the only remaining op): re-serve each eligible
+  // (already-published) site fresh — status-only re-assert + host-cache bust, NOT
+  // a full AI rebuild (that is the credit-burning /api/sites/:id/reset path).
+  const results = await executeBulkRepublish(c.env, orgId, plan.eligible);
+  await writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: userId ?? null,
+    action: 'bulk_site_ops.republish',
+    message: `Bulk-republished ${results.republished.length} site(s) (${results.failed.length} failed)`,
+    target_type: 'sites_bulk',
+    metadata_json: {
+      operation: 'republish',
+      eligible: plan.eligible.length,
+      republished: results.republished,
+      failed: results.failed,
     },
-    400,
-  );
+    request_id: c.get('requestId'),
+  });
+  return c.json({ ok: true, dryRun: false, plan, results });
 });
 
 export { bulkSiteOps };
