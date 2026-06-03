@@ -38,6 +38,8 @@ export interface BoltEmbedSite {
   readonly id: string;
   readonly slug: string;
   readonly business_name?: string;
+  /** Site lifecycle status — gates the chat/version import (only 'published' has an R2 manifest). */
+  readonly status?: string;
 }
 
 interface PsMessage {
@@ -236,8 +238,15 @@ export class BoltEmbedService {
       hideDiff: 'true',
       hideDeploy: 'true',
       slug: site.slug,
-      importChatFrom: `${window.location.origin}/api/sites/by-slug/${site.slug}/chat`,
     });
+    // Only import prior chat/version for a PUBLISHED site. A not-yet-built site
+    // has no `_manifest.json` in R2, so `/api/sites/by-slug/:slug/chat` 404s —
+    // and because the iframe is persistently mounted, bolt fires that import on
+    // EVERY admin route, polluting the console with a guaranteed 404. A fresh
+    // chat is the correct start for an unpublished site anyway.
+    if (site.status === 'published') {
+      params.set('importChatFrom', `${window.location.origin}/api/sites/by-slug/${site.slug}/chat`);
+    }
     if (opts.file) params.set('file', opts.file);
     if (opts.line && Number.isFinite(opts.line) && opts.line > 0) params.set('line', String(opts.line));
     this.iframeUrl.set(

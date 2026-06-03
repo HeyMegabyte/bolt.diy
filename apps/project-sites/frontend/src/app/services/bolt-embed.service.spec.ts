@@ -86,3 +86,36 @@ describe('BoltEmbedService (postMessage origin security)', () => {
     expect(error).not.toHaveBeenCalled();
   });
 });
+
+describe('BoltEmbedService — importChatFrom gating (publish-aware, no 404 console noise)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function bootSvc(): { bootForSite: (s: unknown) => void; iframeUrl: () => unknown } {
+    TestBed.configureTestingModule({
+      providers: [
+        BoltEmbedService,
+        { provide: DomSanitizer, useValue: { bypassSecurityTrustResourceUrl: (u: string) => u } },
+        { provide: ApiService, useValue: { get: () => of({}), post: () => of({}) } },
+        { provide: ToastService, useValue: { toasts: signal([]), error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: SentryService, useValue: { captureException: () => undefined, addBreadcrumb: () => undefined, captureMessage: () => undefined } },
+      ],
+    });
+    return TestBed.inject(BoltEmbedService) as unknown as { bootForSite: (s: unknown) => void; iframeUrl: () => unknown };
+  }
+
+  it('sets importChatFrom for a PUBLISHED site (warm chat/version import)', () => {
+    const svc = bootSvc();
+    svc.bootForSite({ id: 's1', slug: 'live-site', business_name: 'Live', status: 'published' });
+    const url = String(svc.iframeUrl() ?? '');
+    expect(url).toContain('importChatFrom=');
+    expect(url).toContain('live-site');
+  });
+
+  it('OMITS importChatFrom for an UNPUBLISHED site (no R2 manifest → would 404 on every admin route)', () => {
+    const svc = bootSvc();
+    svc.bootForSite({ id: 's2', slug: 'draft-site', business_name: 'Draft', status: 'draft' });
+    const url = String(svc.iframeUrl() ?? '');
+    expect(url).not.toContain('importChatFrom');
+    expect(url).withContext('still boots the editor for the draft site').toContain('draft-site');
+  });
+});
