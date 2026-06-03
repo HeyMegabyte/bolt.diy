@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AdminPseoComponent } from './pseo.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -108,5 +108,17 @@ describe('AdminPseoComponent (cohesion + a11y, convergence r18)', () => {
     expect(withoutFallbacks).not.toMatch(/#00e5ff/i);
     // Every cyan reference must go through the token.
     expect(src).toMatch(/var\(--ps-accent/);
+  });
+
+  it('surfaces a consistent "Could not load" error (matches sibling voice) when pages fail', async () => {
+    build({ id: 'site-1' });
+    get.and.callFake((url: string) =>
+      url.includes('/pages') ? throwError(() => ({ status: 500 })) : of({ stats: {} }),
+    );
+    await component.loadPages();
+    const msg = (component.error() ?? '').toLowerCase();
+    expect(msg).withContext('an error was surfaced').not.toBe('');
+    expect(msg).toContain('could not load');
+    expect(msg).not.toContain('failed to load');
   });
 });

@@ -447,7 +447,7 @@ export class AdminPseoComponent {
       this.pages.set(resp.pages);
       this.total.set(resp.total);
     } catch {
-      this.error.set('Failed to load pSEO pages.');
+      this.error.set('Could not load your pSEO pages.');
     } finally {
       this.loading.set(false);
     }
