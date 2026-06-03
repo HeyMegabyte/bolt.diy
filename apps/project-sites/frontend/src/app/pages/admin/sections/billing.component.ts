@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService, type CostForecastV2 } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { TelemetryService } from '../../../services/telemetry.service';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
@@ -1432,6 +1433,7 @@ export class AdminBillingComponent implements OnInit {
   state = inject(AdminStateService);
   private api = inject(ApiService);
   private toast = inject(ToastService);
+  private confirmSvc = inject(ConfirmService);
   private telemetry = inject(TelemetryService);
   credits = signal<CreditState | null>(null);
 
@@ -2051,7 +2053,9 @@ export class AdminBillingComponent implements OnInit {
       error: () => { this.loadingCredits.set(false); /* api.service already toasted */ },
     });
     this.api.get<{ data: Alert[] }>('/billing/spend-alerts').subscribe({
-      next: (r) => this.alerts.set(r.data ?? []),
+      // Guard against a non-array payload — `?? []` keeps a truthy `{}`, which
+      // then crashes the @for with "not iterable". Array.isArray is the real fix.
+      next: (r) => this.alerts.set(Array.isArray(r.data) ? r.data : []),
       error: () => { /* api.service already toasted */ },
     });
     // Slack-connection probe: walks the user's sites and asks each one for
@@ -2354,7 +2358,14 @@ export class AdminBillingComponent implements OnInit {
         });
     }
   }
-  removeAlert(a: Alert): void {
+  async removeAlert(a: Alert): Promise<void> {
+    const ok = await this.confirmSvc.confirm({
+      title: 'Remove spend alert',
+      message: `Remove the "${a.name}" alert? You'll stop being notified at ${this.formatCredits(a.threshold_credits)} credits — a spend threshold could be crossed without warning.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (!ok) return;
     this.api.delete(`/billing/spend-alerts/${a.id}`).subscribe({
       next: () => { this.toast.success('Alert removed — no more notifications for this threshold'); this.loadAll(); },
       error: () => { /* api.service already toasted */ },

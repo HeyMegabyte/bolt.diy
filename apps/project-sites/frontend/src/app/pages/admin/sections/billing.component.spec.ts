@@ -6,6 +6,7 @@ import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { TelemetryService } from '../../../services/telemetry.service';
+import { ConfirmService } from '../../../services/confirm.service';
 
 /**
  * Guards the Billing section cyan/black cohesion + a11y convergence pass (round 5):
@@ -23,15 +24,19 @@ import { TelemetryService } from '../../../services/telemetry.service';
  */
 describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
   let fixture: ComponentFixture<AdminBillingComponent>;
+  let confirmSpy: jasmine.Spy;
+  let delSpy: jasmine.Spy;
 
-  function build(): void {
+  function build(confirmResult = true): void {
     // Every GET the component fires resolves to an empty/zeroed envelope so
     // ngOnInit settles synchronously without touching the network.
+    delSpy = jasmine.createSpy('delete').and.returnValue(of({ ok: true }));
+    confirmSpy = jasmine.createSpy('confirm').and.resolveTo(confirmResult);
     const apiStub = {
       get: () => of({ data: {} }),
       post: () => of({ data: {} }),
       put: () => of({ data: {} }),
-      delete: () => of({ ok: true }),
+      delete: delSpy,
       getCostForecast: () =>
         of({
           data: {
@@ -42,6 +47,7 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
             plan_cap_usd: 0,
             percent_of_cap: 0,
             daily: [],
+            breakdown: [], // sparkline path readers do fv.breakdown.length — must be an array
           },
         }),
     };
@@ -61,6 +67,7 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
           },
         },
         { provide: TelemetryService, useValue: { track: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: confirmSpy } },
       ],
     });
     fixture = TestBed.createComponent(AdminBillingComponent);
@@ -127,5 +134,23 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
     const empty = el.querySelector('[data-testid="billing-caps-empty"]');
     expect(empty).toBeTruthy();
     expect(empty!.getAttribute('role')).toBe('status');
+  });
+
+  // ── Destructive action: removing a spend alert is confirmed ───────────────
+  const ALERT = { id: 'al1', name: 'Low balance', threshold_credits: 1000, alert_kind: 'balance_low', notify_email: 'me@x.com', enabled: 1, last_triggered_at: null } as never;
+
+  it('removeAlert deletes the alert after the operator confirms', async () => {
+    build(); // confirm resolves true
+    await fixture.componentInstance.removeAlert(ALERT);
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(delSpy).toHaveBeenCalledWith('/billing/spend-alerts/al1');
+  });
+
+  it('removeAlert does NOT delete when the confirm is cancelled', async () => {
+    build(false); // operator cancels
+    delSpy.calls.reset(); // ignore any delete fired during ngOnInit load
+    await fixture.componentInstance.removeAlert(ALERT);
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(delSpy).not.toHaveBeenCalled();
   });
 });
