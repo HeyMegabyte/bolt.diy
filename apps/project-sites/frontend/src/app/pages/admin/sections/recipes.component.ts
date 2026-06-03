@@ -16,7 +16,7 @@ import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
-import { HlmButtonDirective, HlmInputDirective } from '../../../ui';
+import { HlmButtonDirective, HlmInputDirective, HlmSelectDirective } from '../../../ui';
 
 /** Mirror the worker allowlists (services/automation_builder.ts). */
 const TRIGGERS = ['form.submitted', 'site.published', 'payment.succeeded', 'review.received', 'build.failed', 'domain.active'];
@@ -33,7 +33,7 @@ interface Recipe {
 @Component({
   selector: 'app-admin-recipes',
   standalone: true,
-  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective],
+  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmSelectDirective],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -58,13 +58,13 @@ interface Recipe {
           <div class="flex flex-col gap-3 sm:flex-row">
             <label class="flex flex-col gap-1.5 flex-1">
               <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">When (trigger)</span>
-              <select data-testid="recipes-trigger" class="bg-dark border border-white/[0.12] rounded-lg px-3 py-2 text-light text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" [(ngModel)]="triggerModel">
+              <select hlmSelect data-testid="recipes-trigger" class="w-full" [(ngModel)]="triggerModel">
                 @for (t of triggers; track t) { <option [value]="t">{{ t }}</option> }
               </select>
             </label>
             <label class="flex flex-col gap-1.5 flex-1">
               <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Do (action)</span>
-              <select data-testid="recipes-action" class="bg-dark border border-white/[0.12] rounded-lg px-3 py-2 text-light text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" [(ngModel)]="actionModel">
+              <select hlmSelect data-testid="recipes-action" class="w-full" [(ngModel)]="actionModel">
                 @for (a of actions; track a) { <option [value]="a">{{ a }}</option> }
               </select>
             </label>

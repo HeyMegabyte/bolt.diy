@@ -215,4 +215,13 @@ describe('AdminRecipesComponent', () => {
     c.nameModel.set('   '); // no name → blocked even with valid URL
     expect(c.canSubmit()).toBe(false);
   });
+
+  it('renders the trigger + action selects through Spartan hlmSelect (cohesion, no hand-rolled control)', () => {
+    build({ id: 's1' });
+    expect(all('select[hlmSelect]').length).toBe(2);
+    expect(q('select[data-testid="recipes-trigger"][hlmSelect]')).not.toBeNull();
+    expect(q('select[data-testid="recipes-action"][hlmSelect]')).not.toBeNull();
+    // The hand-rolled control border class is gone (Spartan owns the chrome).
+    expect(q('[data-testid="recipes-trigger"]')?.className ?? '').not.toContain('border-white/[0.12]');
+  });
 });
