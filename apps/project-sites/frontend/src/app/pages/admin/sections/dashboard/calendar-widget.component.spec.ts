@@ -116,4 +116,34 @@ describe('CalendarWidgetComponent (event-editor label association)', () => {
     }
     expect(checked).toBeGreaterThanOrEqual(3);
   });
+
+  it('associates the booking-link Title / Public slug / Time zone with their labels', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [CalendarWidgetComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get: () => of({ data: [] }), post: () => of({}), patch: () => of({}), delete: () => of({}) } },
+        { provide: AuthService, useValue: { getToken: () => 'tok' } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0 } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } },
+        { provide: Router, useValue: { navigate: () => undefined } },
+      ],
+    });
+    const fx = TestBed.createComponent(CalendarWidgetComponent);
+    fx.detectChanges();
+    fx.componentInstance.booking.set(true);
+    fx.detectChanges();
+    const el = fx.nativeElement as HTMLElement;
+    let checked = 0;
+    for (const r of Array.from(el.querySelectorAll('.m-row'))) {
+      const lbl = r.querySelector(':scope > label');
+      const ctrl = r.querySelector('input[type="text"], textarea') as HTMLElement | null;
+      if (lbl && ctrl) {
+        checked++;
+        expect(ctrl.id).withContext(`${lbl.textContent?.trim()} control has an id`).toBeTruthy();
+        expect(el.querySelector(`label[for="${ctrl.id}"]`)).withContext(`${lbl.textContent?.trim()} label[for]`).toBeTruthy();
+      }
+    }
+    expect(checked).toBeGreaterThanOrEqual(3); // Title, Public slug, Time zone
+  });
 });

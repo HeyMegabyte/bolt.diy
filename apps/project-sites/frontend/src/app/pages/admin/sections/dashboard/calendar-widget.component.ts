@@ -278,12 +278,12 @@ interface BookingDraft {
               <button type="button" (click)="closeBooking()" aria-label="Close" class="m-x">×</button>
             </div>
             <div class="m-row">
-              <label>Title</label>
-              <input hlmInput type="text" [(ngModel)]="bookingDraft.title" />
+              <label for="book-title">Title</label>
+              <input id="book-title" hlmInput type="text" [(ngModel)]="bookingDraft.title" />
             </div>
             <div class="m-row">
-              <label>Public slug</label>
-              <input hlmInput type="text" [(ngModel)]="bookingDraft.slug" placeholder="brian-30" />
+              <label for="book-slug">Public slug</label>
+              <input id="book-slug" hlmInput type="text" [(ngModel)]="bookingDraft.slug" placeholder="brian-30" />
             </div>
             <div class="m-row m-toggle">
               <label>Duration
@@ -321,8 +321,8 @@ interface BookingDraft {
               <label>Window end   <input hlmInput type="time" [(ngModel)]="bookingDraft.window_end" /></label>
             </div>
             <div class="m-row">
-              <label>Time zone</label>
-              <input hlmInput type="text" [(ngModel)]="bookingDraft.tz" />
+              <label for="book-tz">Time zone</label>
+              <input id="book-tz" hlmInput type="text" [(ngModel)]="bookingDraft.tz" />
             </div>
             <div class="m-act">
               <div class="grow"></div>
