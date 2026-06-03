@@ -78,8 +78,9 @@ interface DiffResponse {
           Computing diff…
         </div>
       } @else if (error()) {
-        <div class="rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-red-200 text-sm">
-          {{ error() }}
+        <div class="rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-red-200 text-sm flex items-center justify-between gap-3" role="alert" data-testid="snapshots-diff-error">
+          <span>{{ error() }}</span>
+          <button class="btn-ghost text-xs flex-shrink-0" data-testid="snapshots-diff-retry" (click)="load()" [disabled]="loading()">Retry</button>
         </div>
       } @else if (diff()) {
         @let d = diff()!;
@@ -223,7 +224,7 @@ export class AdminSnapshotsDiffComponent implements OnInit {
     });
   }
 
-  private async load(): Promise<void> {
+  async load(): Promise<void> {
     const siteId = this.selectedSiteId();
     const from = this.fromId();
     const to = this.toId();
