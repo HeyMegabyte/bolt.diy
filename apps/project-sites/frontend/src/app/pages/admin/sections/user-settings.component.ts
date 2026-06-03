@@ -608,11 +608,11 @@ interface NotificationGroup {
             <p class="text-[0.82rem] text-white m-0 leading-relaxed">
               This signs you out everywhere, archives every site you own, and schedules <strong>{{ auth.email() || 'your account' }}</strong> for deletion — recoverable for 30 days by emailing support, then permanently purged.
             </p>
-            <p class="text-[0.74rem] text-text-secondary m-0">Type <code class="font-mono text-red-300">delete</code> below to confirm.</p>
+            <p class="text-[0.74rem] text-text-secondary m-0">Type <code class="font-mono text-red-300">delete my account</code> below to confirm.</p>
             <input
               type="text"
               hlmInput class="w-full"
-              placeholder="delete"
+              placeholder="delete my account"
               [ngModel]="deleteConfirm"
               (ngModelChange)="deleteConfirm = $event"
               data-testid="delete-account-confirm-input"
@@ -625,7 +625,7 @@ interface NotificationGroup {
             <button
               class="btn-danger"
               type="button"
-              [disabled]="deleting() || deleteConfirm.trim().toLowerCase() !== 'delete'"
+              [disabled]="deleting() || deleteConfirm.trim().toLowerCase() !== 'delete my account'"
               data-testid="delete-account-confirm"
               (click)="performDelete()">
               {{ deleting() ? 'Deleting…' : 'Delete forever' }}
@@ -1773,7 +1773,7 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
   }
 
   performDelete(): void {
-    if (this.deleteConfirm.trim().toLowerCase() !== 'delete') return;
+    if (this.deleteConfirm.trim().toLowerCase() !== 'delete my account') return;
     this.deleting.set(true);
     this.api.delete('/admin/account').subscribe({
       next: () => {

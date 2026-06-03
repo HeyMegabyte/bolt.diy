@@ -38,27 +38,31 @@ function make(del = jasmine.createSpy('delete').and.returnValue(throwError(() =>
 describe('AdminUserSettingsComponent (destructive delete guard + notifications)', () => {
   afterEach(() => { try { localStorage.clear(); } catch { /* */ } TestBed.resetTestingModule(); });
 
-  it('performDelete is a NO-OP unless the confirm text is exactly "delete"', () => {
+  it('performDelete is a NO-OP unless the confirm text is exactly "delete my account"', () => {
     const { c, http } = make();
     c.deleteConfirm = '';
     c.performDelete();
     c.deleteConfirm = 'del';
     c.performDelete();
-    c.deleteConfirm = 'delete my account';
+    // The bare word "delete" is now insufficient — the deliberate full phrase
+    // is required so a destructive irreversible action can't be typed reflexively.
+    c.deleteConfirm = 'delete';
+    c.performDelete();
+    c.deleteConfirm = 'delete account';
     c.performDelete();
     expect(http.delete).not.toHaveBeenCalled();
   });
 
-  it('fires the delete only with an exact (case-insensitive, trimmed) "delete" confirm', () => {
+  it('fires the delete only with an exact (case-insensitive, trimmed) "delete my account" confirm', () => {
     const { c, http } = make();
-    c.deleteConfirm = '  DELETE  ';
+    c.deleteConfirm = '  DELETE MY ACCOUNT  ';
     c.performDelete();
     expect(http.delete).toHaveBeenCalledWith('/admin/account');
   });
 
   it('on a delete failure, surfaces an error and clears the deleting flag (graceful, no dead-end)', () => {
     const { c, toast } = make();
-    c.deleteConfirm = 'delete';
+    c.deleteConfirm = 'delete my account';
     c.performDelete();
     expect(toast.error).toHaveBeenCalled();
     expect(c.deleting()).toBe(false);
