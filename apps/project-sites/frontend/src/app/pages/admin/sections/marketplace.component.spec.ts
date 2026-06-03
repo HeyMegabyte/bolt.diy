@@ -1,8 +1,24 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { AdminMarketplaceComponent } from './marketplace.component';
+import { FocusTrapDirective } from '../../../directives/focus-trap.directive';
+
+/** Collect CSS from injected <style> tags AND adopted/constructable stylesheets —
+ *  Angular injects component CSS into document.head/adopted sheets, not the host. */
+function collectAllCss(): string {
+  let out = Array.from(document.querySelectorAll('style')).map((s) => s.textContent ?? '').join('\n');
+  for (const sheet of Array.from(document.adoptedStyleSheets ?? [])) {
+    try {
+      out += '\n' + Array.from(sheet.cssRules).map((r) => r.cssText).join('\n');
+    } catch {
+      /* inaccessible sheet — skip */
+    }
+  }
+  return out;
+}
 
 /**
  * Convergence r8 — locks the Section Marketplace's cyan/black cohesion + a11y
@@ -62,8 +78,7 @@ describe('AdminMarketplaceComponent (cohesion r8)', () => {
 
   const q = (sel: string): HTMLElement | null => host.querySelector(sel);
   const all = (sel: string): HTMLElement[] => Array.from(host.querySelectorAll(sel));
-  const css = (): string =>
-    Array.from(host.querySelectorAll('style')).map((s) => s.textContent ?? '').join('\n');
+  const css = (): string => collectAllCss();
 
   it('rolls both header stats through <app-rolling-counter>', () => {
     expect(all('.mkt-header__stats app-rolling-counter').length).toBe(2);
@@ -94,8 +109,10 @@ describe('AdminMarketplaceComponent (cohesion r8)', () => {
     expect(overlay).not.toBeNull();
     expect(overlay?.getAttribute('role')).toBe('dialog');
     expect(overlay?.getAttribute('aria-modal')).toBe('true');
-    // focusTrap is an attribute directive bound truthy on the overlay.
-    expect(overlay?.hasAttribute('ng-reflect-focus-trap') || overlay?.hasAttribute('focusTrap')).toBeTrue();
+    // focusTrap is bound as [focusTrap]="true" (a property, not a DOM attribute, and
+    // ng-reflect-* is dev-only) — assert the directive instance via By.directive.
+    const trapEl = fixture.debugElement.query(By.directive(FocusTrapDirective));
+    expect(trapEl).withContext('the overlay applies FocusTrapDirective').not.toBeNull();
     expect(q('.mkt-preview-modal')?.hasAttribute('appReveal')).toBeTrue();
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
@@ -125,7 +142,9 @@ describe('AdminMarketplaceComponent (cohesion r8)', () => {
 
   it('grows the animated underline UX win on the active slot chip', () => {
     const sheet = css();
-    expect(sheet).toContain('.mkt-slot-chip::after');
-    expect(sheet).toContain('.mkt-slot-chip--active::after');
+    // Emulated encapsulation injects [_ngcontent-xxx] between the class and the
+    // pseudo-element, and CSSOM may serialize the colon as `:after`/`::after`.
+    expect(sheet).toMatch(/\.mkt-slot-chip[^{]*:{1,2}after/);
+    expect(sheet).toMatch(/\.mkt-slot-chip--active[^{]*:{1,2}after/);
   });
 });
