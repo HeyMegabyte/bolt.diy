@@ -75,6 +75,12 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
           }
         </div>
       } @else {
+        @if (loadError()) {
+          <div class="card notice notice-amber" role="alert" data-testid="mcp-load-error">
+            <strong>{{ loadError() }}</strong>
+            <button class="btn-ghost text-xs ml-2" data-testid="mcp-retry" (click)="load()">Retry</button>
+          </div>
+        }
         <div class="grid md:grid-cols-2 gap-4">
           @for (p of providers; track p.id) {
             <article class="card mcp-card" [attr.data-testid]="'mcp-card-' + p.id">
@@ -320,6 +326,8 @@ export class AdminMcpComponent implements OnInit {
   private toast = inject(ToastService);
   providers = PROVIDERS;
   connections = signal<Conn[]>([]);
+  /** Persistent load failure — without it, a failed fetch shows every provider as "not connected" (stale/misleading). */
+  loadError = signal<string | null>(null);
   pasteMode = signal<string | null>(null);
   pastedKey = '';
   loading = signal(false);
@@ -346,13 +354,18 @@ export class AdminMcpComponent implements OnInit {
   load(): void {
     const s = this.state.selectedSite(); if (!s) return;
     this.loading.set(true);
+    this.loadError.set(null);
     this.api.get<{ data: { connections: Conn[] } }>(`/sites/${s.id}/mcp/connections`).subscribe({
       next: (r) => {
         this.connections.set(r.data?.connections ?? []);
+        this.loadError.set(null);
         this.loading.set(false);
       },
       error: () => {
         this.loading.set(false);
+        // Persistent banner — otherwise the provider cards below render every
+        // provider as "not connected", making a failed load look like a clean slate.
+        this.loadError.set('Could not load connection status — shown statuses may be stale.');
         this.toast.error('Could not load MCP connections — retry from the sidebar');
       },
     });
