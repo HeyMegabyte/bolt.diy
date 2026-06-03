@@ -60,6 +60,7 @@ describe('AdminWebhooksComponent', () => {
   it('creates an endpoint and reveals the secret once', () => {
     build({ id: 's1' });
     fixture.componentInstance.urlModel.set('https://hooks.me/x');
+    fixture.detectChanges(); // let the canSubmit()-gated button enable before clicking
     (q('[data-testid="webhooks-create-btn"]') as HTMLButtonElement).click();
     fixture.detectChanges();
 
@@ -113,5 +114,78 @@ describe('AdminWebhooksComponent', () => {
     fixture.componentInstance.load();
     fixture.detectChanges();
     expect(q('[data-testid="webhooks-error"]')).not.toBeNull();
+  });
+
+  // ── Create input validation (security/reliability) ────────────────────────
+  // A webhook endpoint is called server-side, so a junk / http / internal URL
+  // is an SSRF-adjacent footgun. Bad input must be rejected client-side with a
+  // useful toast and NEVER reach the API; a valid https URL submits once.
+  const toastErrSpy = (): jasmine.Spy => TestBed.inject(ToastService).error as jasmine.Spy;
+
+  it('rejects a non-URL string — toasts an error and does NOT POST', () => {
+    build({ id: 's1' });
+    fixture.componentInstance.urlModel.set('notaurl');
+    fixture.componentInstance.create();
+    expect(post).not.toHaveBeenCalled();
+    expect(toastErrSpy()).toHaveBeenCalled();
+  });
+
+  it('rejects a non-https (http://) URL — webhook targets must be https', () => {
+    build({ id: 's1' });
+    fixture.componentInstance.urlModel.set('http://hooks.example.com/x');
+    fixture.componentInstance.create();
+    expect(post).not.toHaveBeenCalled();
+    expect(toastErrSpy()).toHaveBeenCalled();
+  });
+
+  it('rejects a hostname with no dot (e.g. https://localhost — internal target)', () => {
+    build({ id: 's1' });
+    fixture.componentInstance.urlModel.set('https://localhost');
+    fixture.componentInstance.create();
+    expect(post).not.toHaveBeenCalled();
+    expect(toastErrSpy()).toHaveBeenCalled();
+  });
+
+  it('rejects when no events are selected', () => {
+    build({ id: 's1' });
+    fixture.componentInstance.urlModel.set('https://hooks.yourapp.com/projectsites');
+    fixture.componentInstance.selected.set([]);
+    fixture.componentInstance.create();
+    expect(post).not.toHaveBeenCalled();
+    expect(toastErrSpy()).toHaveBeenCalled();
+  });
+
+  it('accepts a well-formed https URL — POSTs exactly once with the trimmed URL', () => {
+    build({ id: 's1' });
+    fixture.componentInstance.urlModel.set('  https://hooks.yourapp.com/projectsites  ');
+    fixture.componentInstance.selected.set(['site.published']);
+    fixture.componentInstance.create();
+    expect(post).toHaveBeenCalledTimes(1);
+    const [url, body] = post.calls.mostRecent().args as [string, { url: string; eventTypes: string[] }];
+    expect(url).toBe('/sites/s1/webhooks');
+    expect(body.url).toBe('https://hooks.yourapp.com/projectsites'); // trimmed
+  });
+
+  it('canSubmit() gates the button — false for a bad URL, true for a valid one', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.selected.set(['site.published']);
+    c.urlModel.set('ftp://x');
+    expect(c.canSubmit()).toBe(false);
+    c.urlModel.set('https://hooks.yourapp.com/x');
+    expect(c.canSubmit()).toBe(true);
+    c.selected.set([]); // valid URL but no events
+    expect(c.canSubmit()).toBe(false);
+  });
+
+  it('urlInvalid() is true only for a non-empty value that is not a valid https URL', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.urlModel.set('');
+    expect(c.urlInvalid()).toBe(false); // empty → incomplete, not "invalid"
+    c.urlModel.set('http://x');
+    expect(c.urlInvalid()).toBe(true);
+    c.urlModel.set('https://hooks.yourapp.com/x');
+    expect(c.urlInvalid()).toBe(false);
   });
 });

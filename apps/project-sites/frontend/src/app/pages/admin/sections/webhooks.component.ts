@@ -65,7 +65,15 @@ interface Delivery {
         <div class="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5 flex flex-col gap-4 mb-6">
           <label class="flex flex-col gap-1.5">
             <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Endpoint URL (https)</span>
-            <input hlmInput data-testid="webhooks-url" placeholder="https://hooks.yourapp.com/projectsites" [(ngModel)]="urlModel" />
+            <input hlmInput data-testid="webhooks-url" type="url" inputmode="url" placeholder="https://hooks.yourapp.com/projectsites"
+              [ngModel]="urlModel()" (ngModelChange)="urlModel.set($event)"
+              [attr.aria-invalid]="urlInvalid()" [attr.aria-describedby]="urlInvalid() ? 'webhooks-url-hint' : null"
+              [class.ring-1]="urlInvalid()" [class.ring-red-500/60]="urlInvalid()" [class.border-red-500/50]="urlInvalid()" />
+            @if (urlInvalid()) {
+              <span id="webhooks-url-hint" data-testid="webhooks-url-hint" class="text-[0.7rem] text-red-300/90">
+                Must be a valid <code class="text-red-200">https://</code> URL with a public hostname.
+              </span>
+            }
           </label>
           <div>
             <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Events</span>
@@ -80,7 +88,7 @@ interface Delivery {
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <button hlmBtn data-testid="webhooks-create-btn" [disabled]="creating()" (click)="create()">
+            <button hlmBtn data-testid="webhooks-create-btn" [disabled]="creating() || !canSubmit()" (click)="create()">
               {{ creating() ? 'Creating…' : 'Add endpoint' }}
             </button>
             <span class="text-[0.72rem] text-text-secondary">{{ selected().length }} event(s) selected</span>
@@ -138,6 +146,14 @@ export class AdminWebhooksComponent {
 
   readonly urlModel = signal('');
   readonly selected = signal<string[]>(['site.published']);
+
+  /** True only when a non-empty value fails https-URL validation (drives the inline hint + red ring). */
+  readonly urlInvalid = computed(() => {
+    const v = this.urlModel().trim();
+    return v.length > 0 && !this.isValidHttpsUrl(v);
+  });
+  /** Gate for the Add-endpoint button: a valid https URL + ≥1 event selected. */
+  readonly canSubmit = computed(() => this.isValidHttpsUrl(this.urlModel().trim()) && this.selected().length > 0);
   readonly endpoints = signal<Endpoint[]>([]);
   readonly deliveries = signal<Delivery[]>([]);
   readonly loading = signal(false);
@@ -161,6 +177,21 @@ export class AdminWebhooksComponent {
 
   toggleEvent(ev: string): void {
     this.selected.update((s) => (s.includes(ev) ? s.filter((x) => x !== ev) : [...s, ev]));
+  }
+
+  /**
+   * A webhook target is called server-side, so we only accept a well-formed
+   * https URL with a dotted public hostname — rejecting http://, junk strings,
+   * and bare internal hosts (localhost, single-label names) before the POST.
+   */
+  private isValidHttpsUrl(raw: string): boolean {
+    if (!raw) return false;
+    try {
+      const u = new URL(raw);
+      return u.protocol === 'https:' && u.hostname.includes('.') && !u.hostname.endsWith('.');
+    } catch {
+      return false;
+    }
   }
 
   private siteId(): string | null {
@@ -192,15 +223,20 @@ export class AdminWebhooksComponent {
   create(): void {
     const id = this.siteId();
     if (!id || this.creating()) return;
-    if (!this.urlModel().trim() || this.selected().length === 0) {
-      this.toast.error('Enter an https URL and pick at least one event.');
+    const url = this.urlModel().trim();
+    if (this.selected().length === 0) {
+      this.toast.error('Pick at least one event for this endpoint.');
+      return;
+    }
+    if (!this.isValidHttpsUrl(url)) {
+      this.toast.error('Enter a valid https:// URL with a public hostname (e.g. https://hooks.yourapp.com/path).');
       return;
     }
     this.creating.set(true);
     this.createdSecret.set(null);
     this.api
       .post<{ ok: boolean; id: string; secret: string }>(`/sites/${id}/webhooks`, {
-        url: this.urlModel().trim(),
+        url,
         eventTypes: this.selected(),
       })
       .subscribe({
