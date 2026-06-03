@@ -28,11 +28,45 @@ import {
   planDeliveries,
   shouldRetry,
 } from './outbound_webhooks';
+import { dbQuery } from './db';
+import type { Env } from '../types/env';
 
 /** A site endpoint plus its at-rest encrypted signing secret (decrypted lazily, only when matched). */
 export interface DispatchEndpoint extends EndpointForDispatch {
   /** AES-GCM blob from `webhook_endpoints.secret_encrypted`. */
   secretEncrypted: string;
+}
+
+/**
+ * Load a site's ENABLED endpoints WITH their at-rest encrypted secrets, for the
+ * dispatch path only. Distinct from `listWebhookEndpoints` (the admin list),
+ * which deliberately NEVER returns secrets — this loader is internal-only
+ * (system-initiated dispatch), so it includes `secret_encrypted` for signing.
+ *
+ * @remarks Per-row JSON parse is guarded: one poisoned `event_types` row can't
+ * crash dispatch for the whole site — a malformed row degrades to no
+ * subscriptions (skipped by `planDeliveries`) rather than throwing.
+ *
+ * @param siteId - the site the event fired for.
+ * @returns enabled, non-deleted endpoints mapped to {@link DispatchEndpoint}.
+ */
+export async function loadDispatchEndpoints(env: Env, siteId: string): Promise<DispatchEndpoint[]> {
+  const { data } = await dbQuery<{ id: string; url: string; event_types: string; secret_encrypted: string }>(
+    env.DB,
+    `SELECT id, url, event_types, secret_encrypted FROM webhook_endpoints
+     WHERE site_id = ? AND enabled = 1 AND deleted_at IS NULL`,
+    [siteId],
+  );
+  return data.map((r) => {
+    let eventTypes: string[] = [];
+    try {
+      const parsed = JSON.parse(r.event_types);
+      if (Array.isArray(parsed)) eventTypes = parsed as string[];
+    } catch {
+      /* malformed row — degrade to no subscriptions rather than crash dispatch */
+    }
+    return { id: r.id, url: r.url, eventTypes, enabled: true, secretEncrypted: r.secret_encrypted };
+  });
 }
 
 /** All side effects the orchestrator needs, injected for testability + Workflow-vs-inline portability. */

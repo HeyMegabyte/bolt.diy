@@ -1,5 +1,20 @@
-import { dispatchEvent, type DispatchDeps, type DispatchEndpoint } from '../services/webhook_dispatch';
+import { dispatchEvent, loadDispatchEndpoints, type DispatchDeps, type DispatchEndpoint } from '../services/webhook_dispatch';
 import { nextRetryDelayMs } from '../services/outbound_webhooks';
+import type { Env } from '../types/env';
+
+/** Minimal D1 mock: captures bind args + returns the given rows from `.all()`. */
+function mockEnv(rows: unknown[]): { env: Env; captured: { boundArgs: unknown[] } } {
+  const captured: { boundArgs: unknown[] } = { boundArgs: [] };
+  const db = {
+    prepare: (_sql: string) => ({
+      bind: (...args: unknown[]) => {
+        captured.boundArgs = args;
+        return { all: async () => ({ results: rows }) };
+      },
+    }),
+  };
+  return { env: { DB: db } as unknown as Env, captured };
+}
 
 /**
  * Guards the outbound-webhook dispatch orchestrator (#10 / reused by #11): the
@@ -105,5 +120,32 @@ describe('dispatchEvent', () => {
     expect(out).toEqual({ delivered: 0, failed: 1, skipped: 0, attempts: 1 });
     expect(fetchFn).not.toHaveBeenCalled();
     expect(record).toHaveBeenCalledWith(expect.objectContaining({ error: 'missing_secret' }));
+  });
+});
+
+describe('loadDispatchEndpoints', () => {
+  it('maps enabled rows to DispatchEndpoint[] with parsed eventTypes + secret', async () => {
+    const { env, captured } = mockEnv([
+      { id: 'e1', url: 'https://a.example.com/h', event_types: '["site.published","form.submitted"]', secret_encrypted: 'enc-a' },
+    ]);
+    const rows = await loadDispatchEndpoints(env, 'site-9');
+
+    expect(rows).toEqual([
+      { id: 'e1', url: 'https://a.example.com/h', eventTypes: ['site.published', 'form.submitted'], enabled: true, secretEncrypted: 'enc-a' },
+    ]);
+    expect(captured.boundArgs).toEqual(['site-9']); // scoped to the site (enabled=1 + deleted_at IS NULL in SQL)
+  });
+
+  it('degrades a malformed event_types row to no subscriptions instead of throwing', async () => {
+    const { env } = mockEnv([
+      { id: 'bad', url: 'https://b.example.com/h', event_types: 'not-json', secret_encrypted: 'enc-b' },
+    ]);
+    const rows = await loadDispatchEndpoints(env, 'site-9');
+    expect(rows).toEqual([{ id: 'bad', url: 'https://b.example.com/h', eventTypes: [], enabled: true, secretEncrypted: 'enc-b' }]);
+  });
+
+  it('returns [] when the site has no endpoints', async () => {
+    const { env } = mockEnv([]);
+    expect(await loadDispatchEndpoints(env, 'site-9')).toEqual([]);
   });
 });
