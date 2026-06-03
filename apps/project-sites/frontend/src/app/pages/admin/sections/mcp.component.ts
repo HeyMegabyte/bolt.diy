@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, type OnInit } from '@angular/core';
+import { Component, computed, effect, inject, signal, type OnInit } from '@angular/core';
 import { SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
@@ -327,7 +327,21 @@ export class AdminMcpComponent implements OnInit {
   /** Count of currently-connected providers — drives the header status pill. */
   connectedCount = computed<number>(() => this.connections().length);
 
-  ngOnInit(): void { this.load(); this.handleCallback(); }
+  private loadedSiteId: string | null = null;
+
+  constructor() {
+    // Load connections when the selected site resolves (may arrive after mount on
+    // deep-link) + reload on site switch. Guarded so we never re-load the same site.
+    effect(() => {
+      const id = this.state.selectedSite()?.id ?? null;
+      if (id && id !== this.loadedSiteId) {
+        this.loadedSiteId = id;
+        this.load();
+      }
+    });
+  }
+
+  ngOnInit(): void { this.handleCallback(); }
 
   load(): void {
     const s = this.state.selectedSite(); if (!s) return;
