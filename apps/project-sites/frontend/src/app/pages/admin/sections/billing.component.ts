@@ -540,6 +540,7 @@ interface ForecastBar {
                   <div class="text-[0.66rem] text-text-secondary font-mono">{{ formatCredits(r.ai_credits) }} credits used · 30d</div>
                 </div>
                 <input hlmInput type="number" min="0" step="50" placeholder="no cap"
+                       [attr.aria-label]="'Monthly spend cap for ' + (r.business_name || r.slug)"
                        class="w-28 text-right" [(ngModel)]="capDraft[r.site_id]" />
                 <button class="btn-ghost" (click)="saveCap(r.site_id)" [disabled]="savingCap() === r.site_id">
                   {{ savingCap() === r.site_id ? '…' : 'Save' }}
@@ -1107,6 +1108,7 @@ interface ForecastBar {
                       step="50"
                       placeholder="no cap"
                       hlmInput class="w-28 text-right"
+                      [attr.aria-label]="'Monthly spend cap for ' + (s.business_name || s.slug)"
                       [attr.data-testid]="'billing-caps-modal-input-' + s.id"
                       [(ngModel)]="capsModalDraft[s.id]" />
                   </li>

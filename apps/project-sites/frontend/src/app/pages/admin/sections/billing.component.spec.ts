@@ -154,3 +154,51 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
     expect(delSpy).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * WCAG 4.1.2 — the per-site spend-cap number inputs (main cost list + caps modal)
+ * had no accessible name, so a screen reader announced "spin button, no cap" with
+ * no idea which site. Now each carries a dynamic aria-label naming its site.
+ */
+describe('AdminBillingComponent (per-site cap input accessible names)', () => {
+  const apiStub = {
+    get: () => of({ data: {} }), post: () => of({ data: {} }), put: () => of({ data: {} }), delete: () => of({ ok: true }),
+    getCostForecast: () => of({ data: { projected_usd: 0, current_period_usd: 0, rolling_daily_avg: 0, days_until_cap_hit: null, plan_cap_usd: 0, percent_of_cap: 0, daily: [], breakdown: [] } }),
+  };
+  function render(sites: { id: string; slug: string; business_name: string | null }[] = []) {
+    TestBed.configureTestingModule({
+      imports: [AdminBillingComponent],
+      providers: [
+        { provide: ApiService, useValue: apiStub },
+        { provide: AdminStateService, useValue: { sites: signal(sites) } },
+        { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
+        { provide: TelemetryService, useValue: { track: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminBillingComponent);
+    fx.detectChanges();
+    return fx;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('the cost-list cap input names its site', () => {
+    const fx = render();
+    fx.componentInstance.siteCosts.set([
+      { site_id: 'a', slug: 'alpha', business_name: 'Alpha Co', ai_calls: 0, ai_credits: 0, estimated_cost_micro_usd: 0, bandwidth_bytes: 0 } as never,
+    ]);
+    fx.detectChanges();
+    const el = fx.nativeElement as HTMLElement;
+    expect(el.querySelector('input[aria-label="Monthly spend cap for Alpha Co"]')).withContext('cost-list cap input').toBeTruthy();
+  });
+
+  it('the caps-modal cap input names its site', () => {
+    const fx = render([{ id: 'b', slug: 'beta', business_name: null }]);
+    fx.componentInstance.capsModalOpen.set(true);
+    fx.detectChanges();
+    const el = fx.nativeElement as HTMLElement;
+    const input = el.querySelector('[data-testid="billing-caps-modal-input-b"]') as HTMLElement | null;
+    expect(input).withContext('modal cap input renders').toBeTruthy();
+    expect(input!.getAttribute('aria-label')).toBe('Monthly spend cap for beta');
+  });
+});
