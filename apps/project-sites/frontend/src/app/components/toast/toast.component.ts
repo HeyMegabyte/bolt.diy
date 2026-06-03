@@ -13,7 +13,7 @@ import { toastSlide } from '../../animations/motion';
           @toastSlide
           class="toast"
           [class]="'toast-' + toast.type"
-          [attr.role]="toast.type === 'error' ? 'alert' : 'status'"
+          [attr.role]="toast.type === 'error' || toast.action ? 'alert' : 'status'"
           data-testid="toast-item"
           [attr.data-toast-type]="toast.type"
           tabindex="0"
@@ -169,6 +169,7 @@ import { toastSlide } from '../../animations/motion';
     }
     .toast-action:hover { background: color-mix(in oklch, currentColor 22%, transparent); }
     .toast-action:active { transform: translateY(1px); }
+    .toast-action:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
 
     .toast-close {
       display: flex; align-items: center; justify-content: center;
