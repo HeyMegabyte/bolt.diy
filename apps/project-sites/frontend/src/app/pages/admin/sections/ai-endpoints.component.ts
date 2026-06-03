@@ -158,6 +158,11 @@ interface InlineEdit {
           <div class="p-4">
             <app-skeleton variant="card" [rows]="4" label="Loading AI agents…" />
           </div>
+        } @else if (loadError()) {
+          <div class="p-4 m-4 rounded-md border border-red-500/30 bg-red-500/5" role="alert" data-testid="ai-endpoints-load-error">
+            <p class="text-red-300 text-sm m-0 mb-2">{{ loadError() }}</p>
+            <button class="btn-ghost text-xs" data-testid="ai-endpoints-retry" (click)="reload()" [disabled]="loading()">Retry</button>
+          </div>
         } @else if (endpoints().length === 0) {
           <app-empty-state
             icon="⌬"
@@ -881,6 +886,8 @@ export class AdminAiEndpointsComponent implements OnInit {
 
   endpoints = signal<EndpointRow[]>([]);
   loading = signal(false);
+  /** Persistent endpoint-list load failure — so a fetch error shows a Retry card, not a fake "build your first agent" empty state (which hides agents the user already created). */
+  loadError = signal<string | null>(null);
   saving = signal(false);
   wfpConfigured = signal(false);
   langs = LANGUAGE_OPTIONS;
@@ -992,8 +999,10 @@ export class AdminAiEndpointsComponent implements OnInit {
     const s = this.state.selectedSite();
     if (!s) return;
     this.loading.set(true);
+    this.loadError.set(null);
     this.api.get<EndpointListResponse>(`/sites/${s.id}/ai-endpoints`).subscribe({
       next: (r) => {
+        this.loadError.set(null);
         this.endpoints.set((r.data ?? []).map((e) => ({
           ...e,
           language: (e.language ?? 'ai-prompt') as IdeLanguage,
@@ -1006,7 +1015,11 @@ export class AdminAiEndpointsComponent implements OnInit {
         this.wfpConfigured.set(!!r.wfp_configured);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      // Silent error → empty list masqueraded as "no agents yet", hiding agents the user built. Record it.
+      error: () => {
+        this.loadError.set('Could not load your AI agents — they are safe, retry.');
+        this.loading.set(false);
+      },
     });
   }
 
