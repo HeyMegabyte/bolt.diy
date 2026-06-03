@@ -24,6 +24,11 @@ const KEY = process.env.E2E_API_KEY ?? '';
 const ROUTES = [
   '/admin/sites', '/admin/feature-flags', '/admin/analytics', '/admin/billing',
   '/admin/media', '/admin/audit', '/admin/social', '/admin/seo', '/admin/content-freshness',
+  // Data-dense / wide-table + form routes most at risk of a 320px overflow
+  // (ai-logs + ai-endpoints render ag-grid; apps/domains/voice/webhooks are
+  // table/list-heavy; user-settings + deliverability are dense forms).
+  '/admin/ai-logs', '/admin/ai-endpoints', '/admin/apps', '/admin/domains',
+  '/admin/voice', '/admin/webhooks', '/admin/user', '/admin/deliverability',
 ];
 
 async function seed(page: Page): Promise<void> {
