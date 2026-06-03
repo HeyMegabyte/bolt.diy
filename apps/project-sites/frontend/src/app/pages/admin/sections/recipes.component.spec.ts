@@ -231,4 +231,12 @@ describe('AdminRecipesComponent', () => {
     expect(boxes.length).toBeGreaterThan(0);
     expect(boxes.every((b) => !b.className.includes('accent-primary'))).toBeTrue();
   });
+
+  it('renders a shimmering skeleton (not bare "Loading…" text) while loading', () => {
+    build({ id: 's1' });
+    fixture.componentInstance.loading.set(true);
+    fixture.detectChanges();
+    expect(q('app-skeleton')).withContext('uses the reusable skeleton primitive').not.toBeNull();
+    expect(host.textContent ?? '').not.toContain('Loading recipes…');
+  });
 });

@@ -17,6 +17,7 @@ import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective } from '../../../ui';
+import { SkeletonComponent } from '../../../components/states';
 
 /** Mirror the worker allowlists (services/automation_builder.ts). */
 const TRIGGERS = ['form.submitted', 'site.published', 'payment.succeeded', 'review.received', 'build.failed', 'domain.active'];
@@ -33,7 +34,7 @@ interface Recipe {
 @Component({
   selector: 'app-admin-recipes',
   standalone: true,
-  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective],
+  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective, SkeletonComponent],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -108,7 +109,7 @@ interface Recipe {
         }
 
         @if (loading()) {
-          <p class="text-text-secondary text-sm">Loading recipes…</p>
+          <app-skeleton variant="table" [rows]="3" />
         } @else if (recipes().length === 0) {
           <p class="text-text-secondary text-sm">No automations yet — add one above.</p>
         } @else {
