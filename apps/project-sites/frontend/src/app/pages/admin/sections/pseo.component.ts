@@ -7,7 +7,7 @@
  * Rolling counter for totals.
  */
 
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../../services/api.service';
 import { firstValueFrom } from 'rxjs';
@@ -338,7 +338,7 @@ type StatusFilter = 'all' | PseoPage['status'];
     .ps-page-info { color:rgba(244,244,255,.5); }
   `],
 })
-export class AdminPseoComponent implements OnInit {
+export class AdminPseoComponent {
   private api = inject(ApiService);
   private adminState = inject(AdminStateService);
   private toast = inject(ToastService);
@@ -359,9 +359,19 @@ export class AdminPseoComponent implements OnInit {
   readonly selectedSiteId = computed(() => this.adminState.selectedSite()?.id ?? null);
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
 
-  ngOnInit(): void {
-    this.loadStats();
-    this.loadPages();
+  private loadedSiteId: string | null = null;
+
+  constructor() {
+    // Site-reactive load — pseo has no poll, so ngOnInit-once left it empty on
+    // deep-link + stale on site switch. Load stats+pages when the site resolves/changes.
+    effect(() => {
+      const id = this.selectedSiteId();
+      if (id && id !== this.loadedSiteId) {
+        this.loadedSiteId = id;
+        this.loadStats();
+        this.loadPages();
+      }
+    });
   }
 
   async loadStats(): Promise<void> {
