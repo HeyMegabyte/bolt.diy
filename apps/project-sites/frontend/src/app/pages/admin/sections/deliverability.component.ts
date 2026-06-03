@@ -191,10 +191,14 @@ export class AdminDeliverabilityComponent {
         this.report.set(res.report);
         this.loading.set(false);
       },
-      error: (err: unknown) => {
-        const msg =
-          (err as { error?: { error?: { message?: string } } })?.error?.error?.message ??
-          'Deliverability check is not available for this site.';
+      error: (err: { status?: number; error?: { error?: { message?: string } } }) => {
+        // Distinguish a genuine feature-gate (404 → "not available", don't leak)
+        // from a transient failure (500/network → honest "try again"). Re-running
+        // is one click on the Check button, so no separate Retry control is needed.
+        const serverMsg = err?.error?.error?.message;
+        const msg = err?.status === 404
+          ? 'Deliverability check is not available for this site.'
+          : (serverMsg ?? 'Deliverability check failed — please try again.');
         this.error.set(msg);
         this.toast.error(msg);
         this.loading.set(false);

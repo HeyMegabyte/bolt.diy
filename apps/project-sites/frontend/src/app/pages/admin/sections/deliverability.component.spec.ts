@@ -82,6 +82,22 @@ describe('AdminDeliverabilityComponent', () => {
     expect(q('[data-testid="deliverability-error"]')).not.toBeNull();
   });
 
+  it('a 404 shows the "not available for this site" feature-gate message', () => {
+    build({ id: 'site1', name: 'Acme', slug: 'acme' });
+    get.and.returnValue(throwError(() => ({ status: 404 })));
+    fixture.componentInstance.check();
+    expect(fixture.componentInstance.error()).toContain('not available for this site');
+  });
+
+  it('a transient failure (no server message) says "try again" — NOT a permanent "not available"', () => {
+    build({ id: 'site1', name: 'Acme', slug: 'acme' });
+    get.and.returnValue(throwError(() => ({ status: 500 })));
+    fixture.componentInstance.check();
+    const e = fixture.componentInstance.error() ?? '';
+    expect(e).withContext('transient errors must invite a retry, not read as a permanent gate').toContain('try again');
+    expect(e).not.toContain('not available for this site');
+  });
+
   it('colors the score by band', () => {
     build({ id: 'site1', name: 'Acme', slug: 'acme' });
     const c = fixture.componentInstance;
