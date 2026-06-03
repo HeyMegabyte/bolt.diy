@@ -40,6 +40,8 @@ import { EmptyStateComponent } from '../empty-state.component';
 import { HlmInputDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { FocusTrapDirective } from '../../../directives/focus-trap.directive';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
 /** Single hostname row returned by `GET /api/sites/:siteId/hostnames`. */
 interface Hostname {
@@ -103,7 +105,15 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
 @Component({
   selector: 'app-admin-domains',
   standalone: true,
-  imports: [RevealDirective, FormsModule, EmptyStateComponent, HlmInputDirective, ...BrnTooltipImports],
+  imports: [
+    RevealDirective,
+    FormsModule,
+    EmptyStateComponent,
+    HlmInputDirective,
+    FocusTrapDirective,
+    RollingCounterComponent,
+    ...BrnTooltipImports,
+  ],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
@@ -138,7 +148,10 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                 Every site ships with a free, always-on subdomain. Use it while a custom domain propagates or as a permanent home.
               </p>
             </div>
-            <span class="px-2 py-0.5 text-[0.65rem] rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider">Active</span>
+            <span class="status-badge" data-status="verified">
+              <span class="status-dot" aria-hidden="true"></span>
+              Active
+            </span>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
             <code class="font-mono text-sm text-primary bg-black/30 px-3 py-2 rounded border border-border flex-1 min-w-[260px]" data-testid="backup-domain">
@@ -213,10 +226,13 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
               } @else {
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="ai-results">
                   @for (card of r.available; track card.name) {
-                    <article class="bg-black/30 border border-emerald-500/30 rounded-md p-3 space-y-2 transition-colors hover:border-emerald-500/60">
+                    <article class="domain-card domain-card--available">
                       <header class="flex items-start justify-between gap-2">
                         <code class="font-mono text-sm text-white break-all">{{ card.name }}</code>
-                        <span class="px-2 py-0.5 text-[0.6rem] rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 uppercase tracking-wider whitespace-nowrap" title="Available for registration">✓ Available</span>
+                        <span class="status-badge" data-status="verified" title="Available for registration">
+                          <span class="status-dot" aria-hidden="true"></span>
+                          Available
+                        </span>
                       </header>
                       <div class="flex items-center justify-between gap-2 text-[0.7rem] text-text-secondary">
                         <span class="px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/30">{{ strategyLabel(card.strategy) }}</span>
@@ -228,10 +244,13 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                     </article>
                   }
                   @for (card of r.unavailable; track card.name) {
-                    <article class="bg-black/20 border border-border rounded-md p-3 space-y-2 opacity-60">
+                    <article class="domain-card domain-card--taken">
                       <header class="flex items-start justify-between gap-2">
                         <code class="font-mono text-sm text-text-secondary break-all line-through">{{ card.name }}</code>
-                        <span class="px-2 py-0.5 text-[0.6rem] rounded-full bg-red-500/10 text-red-300 border border-red-500/30 uppercase tracking-wider whitespace-nowrap" title="Already registered">🔒 Taken</span>
+                        <span class="status-badge" data-status="error" title="Already registered">
+                          <span class="status-dot" aria-hidden="true"></span>
+                          Taken
+                        </span>
                       </header>
                       <div class="flex items-center justify-between gap-2 text-[0.7rem] text-text-secondary">
                         <span class="px-1.5 py-0.5 rounded bg-black/40 border border-border">{{ strategyLabel(card.strategy) }}</span>
@@ -246,11 +265,24 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
 
         <!-- ── 3. Connected domains ─────────────────────────────── -->
         <section class="bg-surface border border-border rounded-lg p-5 space-y-4" appReveal>
-          <div>
-            <h3 class="section-h text-base font-semibold text-white m-0">Connected domains</h3>
-            <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
-              Every domain currently pointing to this site. The primary domain is what visitors see first.
-            </p>
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h3 class="section-h text-base font-semibold text-white m-0">Connected domains</h3>
+              <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
+                Every domain currently pointing to this site. The primary domain is what visitors see first.
+              </p>
+            </div>
+            @if (hostnames().length > 0) {
+              <div class="count-chip" [attr.aria-label]="connectedCount() + ' connected domains, ' + verifiedCount() + ' verified'">
+                <span class="count-chip__num"><app-rolling-counter [value]="connectedCount()" /></span>
+                <span class="count-chip__label">connected</span>
+                @if (verifiedCount() > 0) {
+                  <span class="count-chip__sep" aria-hidden="true">·</span>
+                  <span class="count-chip__num count-chip__num--ok"><app-rolling-counter [value]="verifiedCount()" /></span>
+                  <span class="count-chip__label">live</span>
+                }
+              </div>
+            }
           </div>
 
           @if (loadingHostnames()) {
@@ -330,7 +362,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                           }
                           @if (h.type !== 'free_subdomain') {
                             <button
-                              class="btn-ghost text-[0.72rem] py-1 px-2 text-red-400 hover:text-red-300"
+                              class="btn-ghost btn-danger text-[0.72rem] py-1 px-2"
                               type="button"
                               (click)="removeHostname(h)"
                               [disabled]="busyHostname() === h.id"
@@ -352,11 +384,18 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
 
       <!-- ── Transfer-out modal ─────────────────────────────────── -->
       @if (transferModal(); as t) {
-        <div class="modal-overlay" (click)="closeTransferModal()" data-testid="transfer-modal">
-          <div class="modal-panel max-w-[520px]" (click)="$event.stopPropagation()">
+        <div class="modal-overlay" (click)="closeTransferModal()" (keydown.escape)="closeTransferModal()" data-testid="transfer-modal">
+          <div
+            class="modal-panel max-w-[520px]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="transfer-modal-title"
+            [focusTrap]="true"
+            (click)="$event.stopPropagation()"
+          >
             <header class="modal-head">
-              <h3 class="m-0 text-base font-semibold text-white">Port {{ t.hostname.hostname }} to another registrar</h3>
-              <button class="text-text-secondary hover:text-white" type="button" (click)="closeTransferModal()" aria-label="Close">×</button>
+              <h3 id="transfer-modal-title" class="m-0 text-base font-semibold text-white">Port {{ t.hostname.hostname }} to another registrar</h3>
+              <button class="modal-close" type="button" (click)="closeTransferModal()" aria-label="Close dialog">×</button>
             </header>
             <div class="p-5 space-y-4 text-[0.82rem]">
               @if (!t.authCode) {
@@ -380,7 +419,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                   </button>
                 </div>
               } @else {
-                <p class="text-emerald-300 m-0 text-[0.85rem]">
+                <p class="transfer-success m-0 text-[0.85rem]">
                   Provide this auth code to your new registrar. Unlock confirmed at Cloudflare. Transfer should complete within 5-7 days.
                 </p>
                 <div class="bg-black/40 border border-primary/30 rounded p-3 flex items-center justify-between gap-2">
@@ -416,14 +455,14 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
         z-index: 50;
       }
       .modal-panel {
-        background: #0f0f1a;
-        border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
-        border-radius: 0.5rem;
+        background: var(--ps-surface-2, color-mix(in oklch, var(--ps-bg, #060610) 88%, #fff 4%));
+        border: 1px solid var(--ps-accent-line, var(--border, rgba(0, 229, 255, 0.28)));
+        border-radius: var(--ps-radius-xl, 22px);
         width: 100%;
         max-width: 520px;
         max-height: calc(100vh - 2rem);
         overflow-y: auto;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+        box-shadow: var(--ps-shadow-modal, 0 20px 60px rgba(0, 0, 0, 0.6));
       }
       .modal-head {
         padding: 0.85rem 1.25rem;
@@ -432,6 +471,52 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
         align-items: center;
         justify-content: space-between;
       }
+      .modal-close {
+        appearance: none;
+        background: transparent;
+        border: 0;
+        color: var(--ps-ink, #f4f4ff);
+        opacity: 0.6;
+        font-size: 1.4rem;
+        line-height: 1;
+        padding: 0.2rem 0.45rem;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: opacity 140ms ease, background 140ms ease;
+      }
+      .modal-close:hover { opacity: 1; background: var(--ps-accent-soft, rgba(0, 229, 255, 0.14)); }
+      .modal-close:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff);
+        outline-offset: 2px;
+        opacity: 1;
+      }
+      /* Connected-domains count chip — cyan/black brand stat surface */
+      .count-chip {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.4rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        background: var(--ps-accent-soft, rgba(0, 229, 255, 0.14));
+        border: 1px solid var(--ps-accent-line, rgba(0, 229, 255, 0.28));
+        font-variant-numeric: tabular-nums;
+      }
+      .count-chip__num {
+        font-family: 'Sora', system-ui, sans-serif;
+        font-weight: 800;
+        font-size: 1.05rem;
+        color: var(--ps-accent, #00e5ff);
+        line-height: 1;
+      }
+      .count-chip__num--ok { color: oklch(0.82 0.17 160); }
+      .count-chip__label {
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--ps-ink, #f4f4ff);
+        opacity: 0.7;
+      }
+      .count-chip__sep { color: var(--ps-ink, #f4f4ff); opacity: 0.35; }
       .section-h {
         font-family: 'Sora', system-ui, sans-serif;
         font-weight: 600;
@@ -473,18 +558,26 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
       .btn-primary {
         padding: 0.5rem 1.05rem;
         border-radius: 10px;
-        background: linear-gradient(135deg, #00ffc8, #00d4ff);
-        color: #060610;
+        background: linear-gradient(
+          135deg,
+          color-mix(in oklch, var(--ps-accent, #00e5ff) 88%, #fff 12%),
+          var(--ps-accent, #00e5ff)
+        );
+        color: var(--ps-bg, #060610);
         font-weight: 700;
         border: 0;
         cursor: pointer;
         font-size: 0.78rem;
-        box-shadow: 0 6px 18px -8px rgba(0, 212, 255, 0.55);
+        box-shadow: 0 6px 18px -8px var(--ps-accent-glow, rgba(0, 229, 255, 0.55));
         transition: transform 140ms ease, box-shadow 140ms ease;
       }
       .btn-primary:hover:not(:disabled) {
         transform: translateY(-1px);
-        box-shadow: 0 10px 24px -8px rgba(0, 212, 255, 0.7);
+        box-shadow: 0 10px 24px -8px var(--ps-accent-glow, rgba(0, 229, 255, 0.7));
+      }
+      .btn-primary:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff);
+        outline-offset: 2px;
       }
       .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
       .btn-retry {
@@ -500,6 +593,29 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
       }
       .btn-retry:hover:not(:disabled) { background: color-mix(in oklch, oklch(0.7 0.21 25) 26%, transparent); }
       .btn-retry:disabled { opacity: 0.55; cursor: progress; }
+      .btn-retry:focus-visible { outline: 2px solid oklch(0.84 0.13 25); outline-offset: 2px; }
+      /* Destructive ghost — error-tone OKLCH, brand-token-consistent */
+      .btn-danger { color: oklch(0.78 0.16 25); }
+      .btn-danger:hover:not(:disabled) { color: oklch(0.86 0.14 25); }
+      /* AI domain-search candidate cards — cyan/black surfaces */
+      .domain-card {
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent);
+        border: 1px solid var(--ps-accent-line, rgba(0, 229, 255, 0.28));
+        transition: border-color 140ms ease;
+      }
+      .domain-card--available:hover {
+        border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 55%, transparent);
+      }
+      .domain-card--taken {
+        opacity: 0.6;
+        border-color: var(--border, rgba(255, 255, 255, 0.08));
+      }
+      .transfer-success { color: oklch(0.82 0.17 160); }
       @media (prefers-reduced-motion: reduce) {
         .status-dot, .btn-primary, .btn-retry { animation: none; transition: none; }
       }
@@ -540,6 +656,14 @@ export class AdminDomainsComponent implements OnInit {
     const site = this.state.selectedSite();
     return site ? `${site.slug}.projectsites.dev` : '';
   });
+
+  /** Total connected hostnames — drives the rolling-counter stat chip. */
+  readonly connectedCount = computed<number>(() => this.hostnames().length);
+
+  /** Hostnames whose status maps to the `verified` (live) tone. */
+  readonly verifiedCount = computed<number>(
+    () => this.hostnames().filter((h) => this.statusTone(h.status) === 'verified').length,
+  );
 
   constructor() {
     // Reactively reload hostnames when the selected site changes.
@@ -688,22 +812,6 @@ export class AdminDomainsComponent implements OnInit {
   }
 
   // ─── Connected domains actions ─────────────────────────────
-
-  /** Map a hostname status to a colored badge class. */
-  statusClass(status: string): string {
-    switch (status) {
-      case 'active':
-        return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/40';
-      case 'pending':
-      case 'pending_validation':
-        return 'bg-amber-500/10 text-amber-300 border-amber-500/40';
-      case 'verification_failed':
-      case 'error':
-        return 'bg-red-500/10 text-red-300 border-red-500/40';
-      default:
-        return 'bg-black/40 text-text-secondary border-border';
-    }
-  }
 
   /**
    * Reduce a raw hostname status string to one of four perceptual tones
