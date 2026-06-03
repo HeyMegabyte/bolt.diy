@@ -4,6 +4,7 @@ import { AdminRecipesComponent } from './recipes.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
+import { ConfirmService } from '../../../services/confirm.service';
 
 /**
  * Guards the Automation Builder (#11) admin section: empty state w/o site, list
@@ -16,18 +17,21 @@ describe('AdminRecipesComponent', () => {
   let get: jasmine.Spy;
   let post: jasmine.Spy;
   let del: jasmine.Spy;
+  let confirmSpy: jasmine.Spy;
 
-  function build(site: { id: string } | null): void {
+  function build(site: { id: string } | null, confirmResult = true): void {
     get = jasmine.createSpy('get').and.returnValue(
       of({ ok: true, recipes: [{ id: 'r1', name: 'Lead alert', enabled: true, trigger: { type: 'form.submitted' }, actions: [{ type: 'send_email' }] }] }),
     );
     post = jasmine.createSpy('post').and.returnValue(of({ ok: true, id: 'r2' }));
     del = jasmine.createSpy('delete').and.returnValue(of({ ok: true }));
+    confirmSpy = jasmine.createSpy('confirm').and.resolveTo(confirmResult);
     TestBed.configureTestingModule({
       imports: [AdminRecipesComponent],
       providers: [
         { provide: ApiService, useValue: { get, post, delete: del } },
         { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: ConfirmService, useValue: { confirm: confirmSpy } },
         { provide: AdminStateService, useValue: { selectedSite: () => site } },
       ],
     });
@@ -106,11 +110,19 @@ describe('AdminRecipesComponent', () => {
     expect(post).not.toHaveBeenCalled();
   });
 
-  it('deletes a recipe and reloads', () => {
-    build({ id: 's1' });
-    (q('[data-testid="recipes-delete"]') as HTMLButtonElement).click();
+  it('deletes a recipe after confirmation and reloads', async () => {
+    build({ id: 's1' }); // confirm resolves true
+    await fixture.componentInstance.remove('r1', 'Lead alert');
+    expect(confirmSpy).toHaveBeenCalled(); // destructive action is confirmed first
     expect(del).toHaveBeenCalledWith('/sites/s1/recipes/r1');
     expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('does NOT delete when the confirm is cancelled', async () => {
+    build({ id: 's1' }, false); // operator cancels
+    await fixture.componentInstance.remove('r1', 'Lead alert');
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(del).not.toHaveBeenCalled();
   });
 
   it('surfaces a not-available error', () => {

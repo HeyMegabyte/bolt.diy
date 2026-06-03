@@ -13,6 +13,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmButtonDirective, HlmInputDirective } from '../../../ui';
@@ -118,7 +119,7 @@ interface Recipe {
                   <span class="text-sm text-light block truncate">{{ r.name }}</span>
                   <span class="text-[0.7rem] text-text-secondary">{{ r.trigger.type }} → {{ r.actions[0]?.type }}{{ r.enabled ? '' : ' · disabled' }}</span>
                 </div>
-                <button hlmBtn variant="ghost" size="sm" data-testid="recipes-delete" (click)="remove(r.id)">Delete</button>
+                <button hlmBtn variant="ghost" size="sm" data-testid="recipes-delete" (click)="remove(r.id, r.name)">Delete</button>
               </li>
             }
           </ul>
@@ -130,6 +131,7 @@ interface Recipe {
 export class AdminRecipesComponent {
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
+  private readonly confirmSvc = inject(ConfirmService);
   private readonly state = inject(AdminStateService);
 
   readonly triggers = TRIGGERS;
@@ -309,9 +311,16 @@ export class AdminRecipesComponent {
       });
   }
 
-  remove(recipeId: string): void {
+  async remove(recipeId: string, name?: string): Promise<void> {
     const id = this.siteId();
     if (!id) return;
+    const ok = await this.confirmSvc.confirm({
+      title: 'Delete automation',
+      message: `Delete ${name ? `the automation "${name}"` : 'this automation'}? It stops running immediately and cannot be recovered — you'd have to rebuild it.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     this.api.delete<{ ok: boolean }>(`/sites/${id}/recipes/${recipeId}`).subscribe({
       next: () => {
         this.toast.success('Recipe removed.');
