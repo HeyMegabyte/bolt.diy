@@ -1,0 +1,43 @@
+name: Frontend Unit (Karma)
+
+# Blocking gate for the Angular admin SPA's Karma/Jasmine unit suite. Added after
+# 12 specs were discovered silently failing (authored "AOT-only", never run in CI)
+# — nothing here ran `ng test`, so false-confidence coverage went unnoticed. This
+# job fails the build on any RED spec.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/project-sites/frontend/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/project-sites/frontend/**'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.18.0'
+
+jobs:
+  unit:
+    name: Karma unit suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/project-sites/frontend/package-lock.json
+
+      - name: Install deps
+        working-directory: apps/project-sites/frontend
+        run: npm ci --legacy-peer-deps
+
+      # ubuntu-latest ships Google Chrome; the ChromeHeadlessNoSandbox launcher
+      # (karma.conf.js) adds --no-sandbox so it runs in the CI container.
+      - name: Run Karma unit suite (fails on any RED)
+        working-directory: apps/project-sites/frontend
+        run: npm run test:ci

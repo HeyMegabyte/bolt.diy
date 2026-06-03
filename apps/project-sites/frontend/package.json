@@ -11,7 +11,7 @@
     "build:prod": "node scripts/check-alt-text.mjs && node scripts/check-api-paths.mjs && rm -rf .angular/cache && ng build --configuration production",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "test:ci": "ng test --watch=false --browsers=ChromeHeadless",
+    "test:ci": "ng test --watch=false --browsers=ChromeHeadlessNoSandbox",
     "deploy:staging": "npm run build:prod && node scripts/deploy-r2.mjs staging",
     "deploy:production": "npm run build:prod && node scripts/deploy-r2.mjs production",
     "verify:production": "node scripts/verify-deploy.mjs https://projectsites.dev",
