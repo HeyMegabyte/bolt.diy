@@ -39,7 +39,7 @@ import { OnboardingChecklistComponent } from '../onboarding-checklist.component'
       </div>
     } @else if (!bolt.editorReady()) {
       <div class="ed-veil">
-        <div class="ed-veil-card">
+        <div class="ed-veil-card" role="status" aria-live="polite" aria-busy="true">
           <div class="ed-spinner" aria-hidden="true">
             <div class="ed-orb ed-orb-1"></div>
             <div class="ed-orb ed-orb-2"></div>

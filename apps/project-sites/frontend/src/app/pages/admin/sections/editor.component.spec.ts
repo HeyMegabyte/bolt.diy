@@ -56,6 +56,16 @@ describe('AdminEditorComponent (route shell state machine)', () => {
     expect(host.querySelector('.empty-state-pretty')).withContext('welcome hidden once a site exists').toBeNull();
   });
 
+  it('booting veil announces its status to assistive tech (WCAG 4.1.3 — role=status + aria-live)', () => {
+    build({ id: 's1' }, false);
+    // The orb spinner is aria-hidden, so without a live region a screen-reader
+    // user gets total silence through the 30-60s WebContainer cold-boot AND
+    // every loadingStage change. The veil must be a polite status region.
+    const live = host.querySelector('[role="status"][aria-live="polite"]');
+    expect(live).withContext('the boot veil must be a polite status live-region').not.toBeNull();
+    expect(live!.textContent ?? '').toContain('Booting your AI editor');
+  });
+
   it('shows neither veil nor welcome once the editor is ready (the persistent iframe shows through)', () => {
     build({ id: 's1' }, true);
     expect(host.querySelector('.ed-veil')).toBeNull();
