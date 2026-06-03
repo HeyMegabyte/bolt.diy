@@ -1,5 +1,5 @@
 import { inject } from '@angular/core';
-import { type CanActivateFn, Router } from '@angular/router';
+import { type CanActivateFn, type RouterStateSnapshot, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 
 /**
@@ -21,9 +21,9 @@ import { AuthService } from '../services/auth.service';
  * ```
  *
  * @returns `true` when a non-expired session is present, otherwise a `UrlTree`
- *   pointing at `/signin?returnUrl=<currentUrl>`.
+ *   pointing at `/signin?returnUrl=<requestedUrl>`.
  */
-export const authGuard: CanActivateFn = () => {
+export const authGuard: CanActivateFn = (_route, state: RouterStateSnapshot) => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
@@ -31,7 +31,11 @@ export const authGuard: CanActivateFn = () => {
     return true;
   }
 
+  // Use the TARGET url (state.url) being navigated to — NOT router.url, which is
+  // still the previous/current route mid-navigation. Reading router.url here
+  // captured the wrong page (e.g. '/' instead of '/admin'), bouncing the user to
+  // the homepage after signin instead of back to the route they requested.
   return router.createUrlTree(['/signin'], {
-    queryParams: { returnUrl: router.url },
+    queryParams: { returnUrl: state.url },
   });
 };
