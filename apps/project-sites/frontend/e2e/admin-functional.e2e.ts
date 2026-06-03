@@ -54,6 +54,11 @@ const BENIGN_API = [
   // sessions always carry a userId, so these are E2E-context, not prod bugs.
   /\/api\/content\/freshness/i,
   /\/api\/pseo\//i,
+  // log_explorer is a feature-flagged section: when the flag is off the worker
+  // 404s POST /api/logs/search + GET /api/logs/cost-by-route (never 403 — don't
+  // leak feature existence), and logs-explorer renders an honest flag-aware
+  // disabled state (verified). Same class as the content/pseo gated reads above.
+  /\/api\/logs\/(search|cost-by-route)/i,
 ];
 const isBenignApi = (url: string): boolean => BENIGN_API.some((re) => re.test(url));
 
