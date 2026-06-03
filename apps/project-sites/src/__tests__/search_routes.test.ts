@@ -13,7 +13,7 @@ jest.mock('../services/audit.js', () => ({
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
-import { search } from '../routes/search.js';
+import { search, isProxyableImageUrl } from '../routes/search.js';
 import { dbQuery, dbQueryOne, dbInsert } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
 
@@ -476,5 +476,38 @@ describe('POST /api/sites/create-from-search', () => {
     const body = await res.json();
     expect(body.error.code).toBe('BAD_REQUEST');
     expect(body.error.message).toContain('Missing required field');
+  });
+});
+
+describe('isProxyableImageUrl (image-proxy SSRF guard)', () => {
+  it('allows public http + https image hosts', () => {
+    expect(isProxyableImageUrl('https://images.unsplash.com/photo-1.jpg')).toBe(true);
+    expect(isProxyableImageUrl('http://legacy-cloned-site.com/logo.png')).toBe(true);
+    expect(isProxyableImageUrl('https://172.15.0.1/x.jpg')).toBe(true); // just outside 172.16-31
+  });
+
+  it('rejects non-http(s) schemes', () => {
+    expect(isProxyableImageUrl('file:///etc/passwd')).toBe(false);
+    expect(isProxyableImageUrl('ftp://x/y')).toBe(false);
+    expect(isProxyableImageUrl('not a url')).toBe(false);
+  });
+
+  it('rejects localhost / .local / .localhost', () => {
+    expect(isProxyableImageUrl('http://localhost/x')).toBe(false);
+    expect(isProxyableImageUrl('http://printer.local/x')).toBe(false);
+    expect(isProxyableImageUrl('https://api.localhost/x')).toBe(false);
+  });
+
+  it('rejects private/reserved IPv4 + the cloud metadata endpoint', () => {
+    for (const h of ['127.0.0.1', '10.1.2.3', '192.168.1.1', '172.16.0.1', '172.31.255.255', '0.0.0.0', '100.64.0.1', '169.254.169.254']) {
+      expect(isProxyableImageUrl(`http://${h}/x`)).toBe(false);
+    }
+  });
+
+  it('rejects IPv6 loopback / link-local / ULA / IPv4-mapped', () => {
+    expect(isProxyableImageUrl('http://[::1]/x')).toBe(false);
+    expect(isProxyableImageUrl('http://[fe80::1]/x')).toBe(false);
+    expect(isProxyableImageUrl('http://[fd00::1]/x')).toBe(false);
+    expect(isProxyableImageUrl('http://[::ffff:169.254.169.254]/x')).toBe(false);
   });
 });

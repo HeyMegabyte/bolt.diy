@@ -1104,6 +1104,41 @@ const TRANSPARENT_PIXEL = new Uint8Array([
 ]);
 
 /**
+ * SSRF guard for the image proxy. Allows http|https to a PUBLIC host only —
+ * blocks localhost/.local, private/reserved IPv4, the cloud-metadata endpoint,
+ * IPv6 loopback/link-local/ULA, and IPv4-mapped IPv6 (`::ffff:…`). Mirrors the
+ * host blocks in {@link isSafeWebhookUrl} but permits http (legacy/cloned image
+ * sources are often http) — exported so the SSRF contract is unit-tested.
+ */
+export function isProxyableImageUrl(raw: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, ''); // strip IPv6 brackets
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return false;
+  if (host === '::1' || host === '0:0:0:0:0:0:0:1') return false; // IPv6 loopback
+  if (host.startsWith('fe80:') || host.startsWith('fc') || host.startsWith('fd')) return false; // link-local / ULA
+  if (host.startsWith('::ffff:') || host.startsWith('::')) return false; // IPv4-mapped / unspecified
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    if (
+      a === 10 || a === 127 || a === 0 ||
+      (a === 169 && b === 254) || // link-local + cloud metadata 169.254.169.254
+      (a === 192 && b === 168) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 100 && b >= 64 && b <= 127) // CGNAT
+    ) return false;
+  }
+  return true;
+}
+
+/**
  * Image proxy — fetches external images and serves with CORS headers.
  * All discovered images route through this so the frontend can display them
  * without CORS issues, and we can later download them for site generation.
@@ -1112,6 +1147,14 @@ search.get('/api/image-proxy', async (c) => {
   const imageUrl = c.req.query('url');
   if (!imageUrl) {
     return c.json({ error: { code: 'BAD_REQUEST', message: 'Missing url parameter' } }, 400);
+  }
+  // SSRF guard: never let an unauthenticated caller proxy an internal/private
+  // target (cloud metadata, loopback, RFC1918). Return the placeholder pixel —
+  // never fetch — so the <img> degrades without leaking internal reachability.
+  if (!isProxyableImageUrl(imageUrl)) {
+    return new Response(TRANSPARENT_PIXEL, {
+      headers: { 'Content-Type': 'image/png', 'Access-Control-Allow-Origin': '*', 'X-Proxy-Status': 'blocked' },
+    });
   }
 
   try {
