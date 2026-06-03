@@ -45,6 +45,8 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
+import { RevealDirective } from '../../../directives/reveal.directive';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { ApiService } from '../../../services/api.service';
 import { BoltEmbedService } from '../../../services/bolt-embed.service';
 import { ToastService } from '../../../services/toast.service';
@@ -131,15 +133,24 @@ interface BoltMediaAttachMessage {
   selector: 'app-admin-media',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
+  imports: [
+    CommonModule,
+    FormsModule,
+    HlmInputDirective,
+    HlmSelectDirective,
+    HlmTablistDirective,
+    RevealDirective,
+    RollingCounterComponent,
+  ],
   template: `
-    <section class="space-y-5" [class.media--compact]="compact()">
+    <section class="space-y-5" [class.media--compact]="compact()" appReveal>
       <!-- ───────────────────────────────── Header ──────────────────────────────── -->
       <header class="med-header">
         <div class="med-header__title-row">
           <h1 class="med-title">Media</h1>
-          <span class="count-chip" [attr.aria-label]="assetCountLabel()">
-            {{ assets().length }} {{ assets().length === 1 ? 'asset' : 'assets' }}
+          <span class="count-chip" role="status" [attr.aria-label]="assetCountLabel()">
+            <app-rolling-counter [value]="assets().length" [duration]="900" aria-hidden="true" />
+            <span aria-hidden="true">{{ assets().length === 1 ? 'asset' : 'assets' }}</span>
           </span>
         </div>
         <div class="med-header__actions">
@@ -203,7 +214,19 @@ interface BoltMediaAttachMessage {
       </header>
 
       <!-- ───────────────────────────────── Tab strip ───────────────────────────── -->
-      <nav class="med-tabs" role="tablist" hlmTablist aria-label="Media sub-sections">
+      <!-- Sliding cyan active-tab indicator: a single absolutely-positioned pill
+           translates + resizes to the active tab via CSS custom props, so the
+           highlight glides instead of cutting. prefers-reduced-motion disables
+           the transition (see styles). -->
+      <nav
+        class="med-tabs"
+        role="tablist"
+        hlmTablist
+        aria-label="Media sub-sections"
+        [style.--med-tab-count]="tabs.length"
+        [style.--med-tab-active]="activeTabIndex()"
+      >
+        <span class="med-tab-indicator" aria-hidden="true"></span>
         @for (t of tabs; track t.id) {
           <button
             type="button"
@@ -687,6 +710,7 @@ interface BoltMediaAttachMessage {
         color: var(--ps-ink, #f4f4ff);
       }
       .count-chip {
+        display: inline-flex; align-items: baseline; gap: 0.3em;
         padding: 3px 10px; border-radius: 999px;
         font: 600 0.66rem 'JetBrains Mono', ui-monospace, monospace;
         background: color-mix(in oklch, var(--ps-accent, #00e5ff) 14%, transparent);
@@ -694,6 +718,7 @@ interface BoltMediaAttachMessage {
         border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent);
         letter-spacing: 0.04em; text-transform: uppercase;
       }
+      .count-chip app-rolling-counter { font: inherit; color: inherit; }
       .med-header__actions {
         display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
       }
@@ -718,7 +743,7 @@ interface BoltMediaAttachMessage {
         display: inline-flex; align-items: center; gap: 6px;
         padding: 0.55rem 1rem; min-height: 40px;
         border-radius: var(--ps-radius-xl, 22px);
-        background: var(--ps-accent, #00e5ff); color: #060610;
+        background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610);
         font-weight: 700; font-size: 0.82rem; border: none; cursor: pointer;
         transition: filter 150ms ease, transform 150ms ease;
       }
@@ -746,25 +771,43 @@ interface BoltMediaAttachMessage {
 
       /* ─── Tabs ─── */
       .med-tabs {
+        position: relative;
         display: flex; gap: 0.25rem; padding: 4px;
         background: rgba(255,255,255,0.03); border-radius: 12px;
         border: 1px solid rgba(255,255,255,0.06); width: fit-content;
         max-width: 100%; overflow-x: auto;
       }
+      /* Sliding cyan pill that glides under the active tab. Width = one Nth of
+         the track (minus the 4px padding both ends); X = active index × that
+         width. translate3d keeps it on the compositor. */
+      .med-tab-indicator {
+        position: absolute; top: 4px; bottom: 4px; left: 4px;
+        width: calc((100% - 8px) / var(--med-tab-count, 5));
+        border-radius: 8px;
+        background: var(--ps-accent, #00e5ff);
+        box-shadow: 0 0 14px color-mix(in oklch, var(--ps-accent, #00e5ff) 45%, transparent);
+        transform: translate3d(calc(var(--med-tab-active, 0) * 100%), 0, 0);
+        transition: transform 240ms cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none; z-index: 0;
+      }
       .med-tab {
+        position: relative; z-index: 1;
+        flex: 1 0 auto;
         padding: 0.5rem 0.95rem; min-height: 36px;
         border: none; background: transparent;
         color: rgba(255,255,255,0.7);
         font-weight: 600; font-size: 0.78rem; cursor: pointer;
         border-radius: 8px; white-space: nowrap;
-        transition: background 140ms ease, color 140ms ease;
+        transition: color 200ms ease;
       }
-      .med-tab:hover { color: var(--ps-ink, #fff); background: rgba(255,255,255,0.04); }
-      .med-tab.is-active {
-        color: #060610;
-        background: var(--ps-accent, #00e5ff);
-      }
+      .med-tab:hover:not(.is-active) { color: var(--ps-ink, #fff); }
+      /* Active tab text rides ON the cyan indicator → ink flips to canvas color
+         for ≥7:1 contrast against #00e5ff (cyan luminance is high). */
+      .med-tab.is-active { color: var(--ps-bg, #060610); }
       .med-tab:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+      @media (prefers-reduced-motion: reduce) {
+        .med-tab-indicator { transition: none !important; }
+      }
 
       /* ─── Bulk-action bar ─── */
       .bulk-bar {
@@ -853,7 +896,7 @@ interface BoltMediaAttachMessage {
       .btn-overlay {
         padding: 0.35rem 0.65rem; min-height: 30px;
         border-radius: 8px;
-        background: rgba(255,255,255,0.92); color: #060610;
+        background: rgba(255,255,255,0.92); color: var(--ps-bg, #060610);
         border: none; cursor: pointer;
         font-weight: 700; font-size: 0.7rem;
       }
@@ -1026,7 +1069,21 @@ interface BoltMediaAttachMessage {
       @media (prefers-reduced-motion: reduce) {
         .skel::after, .dot--pulse, .med-card { animation: none !important; transition: none !important; transform: none !important; }
       }
-      button:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+      /* Unified WCAG 2.4.11 focus appearance — cyan ring ≥3:1 on every
+         interactive element, not just buttons (selects, search/text inputs,
+         card-select checkboxes, range slider, textareas). */
+      button:focus-visible,
+      [hlmInput]:focus-visible,
+      [hlmSelect]:focus-visible,
+      select:focus-visible,
+      input:focus-visible,
+      textarea:focus-visible,
+      a:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px;
+      }
+      .med-card__select input:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; border-radius: 4px;
+      }
 
       /* ─── Compact mode (rendered inside the editor overlay) ─── */
       /* When the media library is mounted as a half-screen overlay on top of
@@ -1045,6 +1102,7 @@ interface BoltMediaAttachMessage {
       .media--compact .med-search { min-width: 160px; }
       .media--compact .btn-primary { min-height: 34px; padding: 0.4rem 0.8rem; font-size: 0.74rem; }
       .media--compact .med-tabs { padding: 3px; border-radius: 10px; }
+      .media--compact .med-tab-indicator { top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / var(--med-tab-count, 5)); }
       .media--compact .med-tab { min-height: 32px; padding: 0.35rem 0.7rem; font-size: 0.7rem; }
       .media--compact .med-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
       .media--compact .med-card { border-radius: 14px; }
@@ -1087,6 +1145,12 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // ─── Tab state ────────────────────────────────────────────────────────────
   readonly activeTab = signal<MediaTab>(this.readStoredTab());
+
+  /** Index of the active tab — drives the sliding cyan indicator's transform. */
+  readonly activeTabIndex = computed(() => {
+    const idx = this.tabs.findIndex((t) => t.id === this.activeTab());
+    return idx === -1 ? 0 : idx;
+  });
 
   // ─── Library state ────────────────────────────────────────────────────────
   readonly assets = signal<MediaAsset[]>([]);
