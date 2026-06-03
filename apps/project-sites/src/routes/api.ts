@@ -10373,6 +10373,103 @@ api.delete('/api/admin/cloudflare-credentials', async (c) => {
 // to ad-hoc admin debugging via API key + curl. No-op at runtime.
 void resolveZoneForHostname;
 
+/**
+ * DELETE /api/admin/account — self-service account deletion.
+ *
+ * Backs the admin "Danger zone → Delete account" flow (user-settings
+ * `performDelete()`). Soft-deletes the signed-in user, archives every site in
+ * the caller's org, revokes all the user's sessions, and requests Stripe
+ * subscription cancellation at period end.
+ *
+ * Soft-delete (sets `deleted_at`) is intentional + recoverable — D1 Time Travel
+ * + the platform-wide `deleted_at` convention mean a mistaken deletion is
+ * reversible within the 30-day window via support, matching the UI copy
+ * ("scheduled for deletion", "billing continues until the end of the current
+ * period"). Scoped strictly to the caller's own user + org — never touches
+ * other orgs, sites, or members.
+ *
+ * @auth Required — userId + orgId must resolve.
+ * @returns `{ data: { deleted: true, subscription_canceled: boolean } }`
+ */
+api.delete('/api/admin/account', async (c) => {
+  const requestId = c.get('requestId') ?? crypto.randomUUID();
+  const userId = c.get('userId');
+  const orgId = c.get('orgId');
+  if (!userId) {
+    return c.json(
+      { error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } },
+      401,
+    );
+  }
+  if (!orgId) {
+    return c.json(
+      { error: { code: 'FORBIDDEN', message: 'Org context required', request_id: requestId } },
+      403,
+    );
+  }
+
+  const nowIso = new Date().toISOString();
+
+  // 1. Archive every site in the caller's org (soft-delete — recoverable).
+  await dbExecute(
+    c.env.DB,
+    "UPDATE sites SET deleted_at = ?, status = 'archived', updated_at = ? WHERE org_id = ? AND deleted_at IS NULL",
+    [nowIso, nowIso, orgId],
+  );
+
+  // 2. Revoke every active session for this user → immediate sign-out everywhere.
+  await dbExecute(
+    c.env.DB,
+    'UPDATE sessions SET deleted_at = ? WHERE user_id = ? AND deleted_at IS NULL',
+    [nowIso, userId],
+  );
+
+  // 3. Soft-delete the user record itself.
+  await dbExecute(c.env.DB, 'UPDATE users SET deleted_at = ?, updated_at = ? WHERE id = ?', [
+    nowIso,
+    nowIso,
+    userId,
+  ]);
+
+  // 4. Best-effort: cancel the org subscription at period end. A Stripe failure
+  //    must never block the account deletion (mirrors DELETE /api/sites/:id).
+  let subscriptionCanceled = false;
+  try {
+    const sub = await dbQueryOne<{ stripe_subscription_id: string | null }>(
+      c.env.DB,
+      'SELECT stripe_subscription_id FROM subscriptions WHERE org_id = ? AND deleted_at IS NULL',
+      [orgId],
+    );
+    if (sub?.stripe_subscription_id && c.env.STRIPE_SECRET_KEY) {
+      await fetch(`https://api.stripe.com/v1/subscriptions/${sub.stripe_subscription_id}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${btoa(c.env.STRIPE_SECRET_KEY + ':')}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'cancel_at_period_end=true',
+      });
+      subscriptionCanceled = true;
+    }
+  } catch {
+    // Subscription cancel failure must not block account deletion.
+  }
+
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: userId,
+    action: 'account.deletion_requested',
+    message: subscriptionCanceled
+      ? 'Account deletion requested (sites archived, sessions revoked, subscription cancellation scheduled)'
+      : 'Account deletion requested (sites archived, sessions revoked)',
+    target_type: 'user',
+    target_id: userId,
+    metadata_json: { user_id: userId, org_id: orgId, subscription_canceled: subscriptionCanceled },
+  });
+
+  return c.json({ data: { deleted: true, subscription_canceled: subscriptionCanceled } });
+});
+
 // ─── Editor error stream (item 46) ───────────────────────────────────
 
 /**

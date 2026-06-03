@@ -474,7 +474,7 @@ interface NotificationGroup {
         <div class="kicker text-red-300">Danger zone</div>
         <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-1">Delete account</h3>
         <p class="text-[0.74rem] text-text-secondary m-0 mb-3 max-w-prose leading-relaxed">
-          Permanently delete your account, all your sites, snapshots, audit history, and API keys. This cannot be undone — billing continues until the end of the current period.
+          Archives all your sites, signs you out everywhere, and schedules your account for deletion. Recoverable for 30 days by emailing <a href="mailto:hey@megabyte.space" class="text-accent hover:underline">hey&#64;megabyte.space</a>, then permanently purged. Billing ends with the current period.
         </p>
         <button class="btn-danger"
                 type="button"
@@ -597,7 +597,7 @@ interface NotificationGroup {
 
           <div class="p-5 flex flex-col gap-3">
             <p class="text-[0.82rem] text-white m-0 leading-relaxed">
-              This will permanently delete <strong>{{ auth.email() || 'your account' }}</strong>, every site you own, all snapshots, audit history, and API keys.
+              This signs you out everywhere, archives every site you own, and schedules <strong>{{ auth.email() || 'your account' }}</strong> for deletion — recoverable for 30 days by emailing support, then permanently purged.
             </p>
             <p class="text-[0.74rem] text-text-secondary m-0">Type <code class="font-mono text-red-300">delete</code> below to confirm.</p>
             <input
