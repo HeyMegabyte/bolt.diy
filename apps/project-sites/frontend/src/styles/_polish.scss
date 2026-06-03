@@ -834,13 +834,14 @@ textarea {
 }
 @media (prefers-reduced-motion: reduce) {
   .glow-h-grad { animation: none; background-position: 0% 50%; }
+  // The section-root fade (used across mcp/forms/billing/voice/user-settings/etc.)
+  // is declared `!important`, so the reduced-motion override must be too. Snap to
+  // the final opacity — honor the OS motion preference (WCAG 2.3.3 / motion).
+  .animate-fade-in { animation: none !important; opacity: 1 !important; }
 }
 
-// ── R. Section root reveal — fade-in-up the section root on mount.
-// Sections that already use `.animate-fade-in` get a free upgrade.
-.animate-fade-in {
-  animation: psContentOpacityOnly 200ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
-}
+// (The `.animate-fade-in` opacity-only override is defined once near the top of
+// this file; the earlier duplicate here was removed.)
 
 // ── S. Tabs slider — every [role="tablist"] gets a sliding cyan underline
 // on the selected tab so the active tab pulses subtly. Pure CSS.
