@@ -105,6 +105,7 @@ interface InlineEdit {
             hlmInput
             class="w-56"
             placeholder="Filter agents…"
+            aria-label="Filter agents"
             [ngModel]="filterText()"
             (ngModelChange)="filterText.set($event)"
             data-testid="ai-endpoints-filter" />
@@ -320,7 +321,7 @@ interface InlineEdit {
             <div>
               <span class="muted-h block mb-1">URL</span>
               <div class="url-row">
-                <select class="badge-select" [ngClass]="methodBadgeClass(createDraft().method)" [(ngModel)]="createDraft().method" data-testid="ai-endpoint-create-method">
+                <select class="badge-select" aria-label="HTTP method" [ngClass]="methodBadgeClass(createDraft().method)" [(ngModel)]="createDraft().method" data-testid="ai-endpoint-create-method">
                   <option value="POST">POST</option><option value="GET">GET</option>
                   <option value="PUT">PUT</option><option value="DELETE">DELETE</option><option value="PATCH">PATCH</option>
                 </select>
@@ -328,6 +329,7 @@ interface InlineEdit {
                 <input
                   class="slug-input"
                   placeholder="endpoint-slug"
+                  aria-label="Endpoint slug"
                   [(ngModel)]="createDraft().slug"
                   data-testid="ai-endpoint-create-slug" />
               </div>

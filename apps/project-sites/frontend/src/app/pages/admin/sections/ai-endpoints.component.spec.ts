@@ -97,3 +97,45 @@ describe('AdminAiEndpointsComponent (endpoint-list load-error gating)', () => {
     expect(new Set(classes).size).withContext('all five methods are visually distinct').toBe(5);
   });
 });
+
+/**
+ * WCAG 4.1.2 — the agent filter input + the create-form method select & slug
+ * input (in a bare div under a <span>URL</span> pseudo-label, NOT a <label>
+ * wrapper) lacked accessible names. (Description/Language/AI-prompt ARE inside
+ * <label class="block"> wrappers → already associated, untouched.)
+ */
+describe('AdminAiEndpointsComponent (control accessible names)', () => {
+  function render() {
+    TestBed.configureTestingModule({
+      imports: [AdminAiEndpointsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({}), put: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminAiEndpointsComponent);
+    fx.detectChanges();
+    return fx;
+  }
+  const hasName = (el: HTMLElement, sel: string): boolean => {
+    const c = el.querySelector(sel);
+    return !!c && !!(c.getAttribute('aria-label') || (c.id && el.querySelector(`label[for="${c.id}"]`)));
+  };
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('the agent filter input has an accessible name', () => {
+    const el = render().nativeElement as HTMLElement;
+    expect(hasName(el, '[data-testid="ai-endpoints-filter"]')).toBeTrue();
+  });
+
+  it('the create-form method select + slug input have accessible names', () => {
+    const fx = render();
+    fx.componentInstance.creating.set(true);
+    fx.detectChanges();
+    const el = fx.nativeElement as HTMLElement;
+    expect(hasName(el, '[data-testid="ai-endpoint-create-method"]')).withContext('method').toBeTrue();
+    expect(hasName(el, '[data-testid="ai-endpoint-create-slug"]')).withContext('slug').toBeTrue();
+  });
+});
