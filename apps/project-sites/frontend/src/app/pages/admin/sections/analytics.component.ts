@@ -1030,7 +1030,7 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
         catchError((err: unknown) => {
           const msg = err instanceof TimeoutError
             ? 'Analytics request timed out after 10 s — retry, or check the worker logs.'
-            : 'Analytics endpoint returned an error.';
+            : "Couldn't reach the analytics service — this is usually temporary. Retry below, or check back shortly.";
           this.error.set(msg);
           return of({ data: null as MultiUrlAnalyticsEnvelope | null });
         }),

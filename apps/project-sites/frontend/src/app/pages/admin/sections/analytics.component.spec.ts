@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
 import { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AdminAnalyticsComponent } from './analytics.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -123,5 +123,18 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
       expect(t?.dir).toBe('up');
       expect(t?.label).toBe('new');
     });
+  });
+
+  it('surfaces an actionable, non-redundant error message on failure (not an echo of the banner header)', () => {
+    build(null);
+    getAnalytics.and.returnValue(throwError(() => ({ status: 500 })));
+    selectedSite.set({ id: 'site-x' });
+    fixture.detectChanges();
+    const msg = (fixture.componentInstance.error() ?? '').toLowerCase();
+    expect(msg).withContext('an error was surfaced').not.toBe('');
+    // Must NOT merely echo the banner header "Analytics returned an error."
+    expect(msg).not.toContain('returned an error');
+    // Must guide the operator on what to do next.
+    expect(msg).toMatch(/retry|temporar|unavailable|try again|moment|shortly/);
   });
 });
