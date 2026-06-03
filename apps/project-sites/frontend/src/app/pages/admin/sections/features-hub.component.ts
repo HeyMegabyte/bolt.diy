@@ -17,6 +17,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
+import { RevealDirective } from '../../../directives/reveal.directive';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -166,9 +167,9 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
 @Component({
   selector: 'app-admin-features-hub',
   standalone: true,
-  imports: [CommonModule, FormsModule, HlmInputDirective, HlmTablistDirective],
+  imports: [CommonModule, FormsModule, RevealDirective, HlmInputDirective, HlmTablistDirective],
   template: `
-    <section class="hub">
+    <section class="hub" appReveal>
       <header class="hub-head">
         <div>
           <h1>Features Hub</h1>
