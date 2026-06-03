@@ -569,10 +569,17 @@ const PLATFORMS: readonly PlatformDef[] = [
           <div class="action-row">
             <button type="button" class="btn-ghost" (click)="discard()">Discard</button>
             <button type="button" class="btn-ghost" (click)="saveDraft()" [disabled]="saving()">Save draft</button>
-            <button type="button" class="btn-primary" (click)="publish()" [disabled]="!canPublish() || saving()">
+            <button type="button" class="btn-primary" (click)="publish()" [disabled]="!canPublish() || saving()"
+              [attr.aria-describedby]="publishBlockReason() ? 'publish-hint' : null">
               {{ scheduleAt() ? 'Schedule post' : 'Publish now' }}
             </button>
           </div>
+          @if (publishBlockReason(); as reason) {
+            <p class="publish-hint" id="publish-hint" role="status" aria-live="polite" data-testid="publish-hint">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              {{ reason }}
+            </p>
+          }
 
           <!-- Bulk import (RSS) -->
           <div class="rss-row">
@@ -1348,6 +1355,12 @@ const PLATFORMS: readonly PlatformDef[] = [
       }
 
       .action-row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+      .publish-hint {
+        display: flex; align-items: center; gap: 6px; justify-content: flex-end;
+        margin: 6px 0 0; font-size: 0.7rem;
+        color: color-mix(in oklch, #fbbf24 82%, var(--ps-ink, #f4f4ff) 18%);
+      }
+      .publish-hint svg { flex-shrink: 0; }
       .btn-ghost {
         padding: 8px 14px; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 0.78rem; font-weight: 600;
         background: transparent; border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 12%, transparent);
@@ -2161,6 +2174,24 @@ export class AdminSocialComponent implements OnInit {
       if (def && this.charsFor(pid) > def.charLimit) return false;
     }
     return true;
+  }
+
+  /**
+   * Human reason the Publish button is disabled, or `null` when ready. Surfaced
+   * inline so a greyed-out Publish is explained — not a silent dead-end. Mirrors
+   * the billing custom-amount + domains add-domain validation hints. Order is
+   * UX-prioritised: pick a platform → add content → fix an over-limit platform.
+   */
+  publishBlockReason(): string | null {
+    if (this.selected().length === 0) return 'Select at least one platform to publish.';
+    if (!this.content().trim() && this.media().length === 0) return 'Write a message or attach media first.';
+    for (const pid of this.selected()) {
+      const def = this.defOf(pid);
+      if (def && this.charsFor(pid) > def.charLimit) {
+        return `${def.label} is ${this.charsFor(pid) - def.charLimit} character${this.charsFor(pid) - def.charLimit === 1 ? '' : 's'} over its ${def.charLimit.toLocaleString()} limit.`;
+      }
+    }
+    return null;
   }
 
   /* ── Posts ── */

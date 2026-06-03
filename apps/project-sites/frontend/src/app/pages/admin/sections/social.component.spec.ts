@@ -266,3 +266,65 @@ describe('AdminSocialComponent (RSS URL validation)', () => {
     expect(c.rssUrlInvalid()).toBe(false);
   });
 });
+
+/**
+ * publishBlockReason — the Publish button is disabled when a post isn't ready,
+ * but a greyed-out button with no reason is a silent dead-end. This locks the
+ * inline explanation (mirrors billing custom-amount + domains add-domain):
+ * each disable condition maps to a specific, human reason, and a ready post
+ * yields null + canPublish true. Reason order: platform → content → over-limit.
+ */
+describe('AdminSocialComponent (publish block reason)', () => {
+  function make(): AdminSocialComponent {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ data: {} }), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigateByUrl: () => undefined } },
+        { provide: AdminStateService, useValue: { selectedSite: signal<{ id: string } | null>(null) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSocialComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminSocialComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('no platform selected → explains "select a platform" (+ canPublish false)', () => {
+    const c = make();
+    c.content.set('hello world');
+    c.selected.set([]);
+    expect(c.publishBlockReason()).toContain('platform');
+    expect(c.canPublish()).toBeFalse();
+  });
+
+  it('platform selected but empty content + no media → explains "write a message"', () => {
+    const c = make();
+    c.selected.set(['twitter']);
+    c.content.set('   ');
+    c.media.set([]);
+    expect(c.publishBlockReason()).toContain('message');
+    expect(c.canPublish()).toBeFalse();
+  });
+
+  it('over the platform char limit → names the platform + the overage', () => {
+    const c = make();
+    c.selected.set(['twitter']); // 280-char limit
+    c.content.set('x'.repeat(281));
+    const reason = c.publishBlockReason();
+    expect(reason).toContain('X / Twitter');
+    expect(reason).toContain('over its');
+    expect(reason).toContain('1 character'); // exactly 1 over → singular
+    expect(c.canPublish()).toBeFalse();
+  });
+
+  it('a ready post → reason is null and canPublish is true', () => {
+    const c = make();
+    c.selected.set(['twitter']);
+    c.content.set('a perfectly valid post');
+    expect(c.publishBlockReason()).toBeNull();
+    expect(c.canPublish()).toBeTrue();
+  });
+});
