@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
-import { Router } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { AppInstancesComponent } from './apps-instances.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -97,5 +97,72 @@ describe('AppInstancesComponent (instance lifecycle)', () => {
     expect(c.menuOpenId()).toBe('i7');
     c.toggleMenu(inst('i7'), ev);
     expect(c.menuOpenId()).toBeNull();
+  });
+
+  // ── Instances load-error gating: a failed fetch must NOT masquerade as the
+  // "No app instances yet" empty state (which could prompt re-installing an app
+  // the user already has). It records a retryable loadError instead.
+  it('load() success leaves loadError null + populates instances', () => {
+    const { c, api } = make();
+    api.get.and.returnValue(of({ instances: [inst('a')] }));
+    c.load();
+    expect(c.loadError()).toBeNull();
+    expect(c.instances().length).toBe(1);
+    expect(c.loading()).toBeFalse();
+  });
+
+  it('load() failure sets a retryable loadError (not a fake empty) + clears loading', () => {
+    const { c, api } = make();
+    api.get.and.returnValue(throwError(() => ({ status: 500 })));
+    c.load();
+    expect(c.loadError()).withContext('error recorded, not swallowed into a fake empty').not.toBeNull();
+    expect(c.instances().length).toBe(0);
+    expect(c.loading()).toBeFalse();
+  });
+
+  it('retry after an error clears the prior loadError on success', () => {
+    const { c, api } = make();
+    api.get.and.returnValue(throwError(() => ({ status: 500 })));
+    c.load();
+    expect(c.loadError()).not.toBeNull();
+    api.get.and.returnValue(of({ instances: [] }));
+    c.load();
+    expect(c.loadError()).toBeNull();
+  });
+});
+
+/**
+ * Render: a first-load failure shows the inline Retry card (data-testid
+ * apps-load-error), NOT the "No app instances yet" empty state.
+ */
+describe('AppInstancesComponent (load-error render)', () => {
+  function render(getSpy: jasmine.Spy): import('@angular/core/testing').ComponentFixture<AppInstancesComponent> {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [AppInstancesComponent],
+      providers: [
+        provideRouter([]), // supplies Router + ActivatedRoute + routerLink DI for the full template
+        { provide: ApiService, useValue: { get: getSpy, post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AppInstancesComponent);
+    fx.detectChanges(); // ngOnInit → load()
+    return fx;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('shows the Retry card (not the empty state) when the first load fails', () => {
+    const el: HTMLElement = render(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 })))).nativeElement;
+    expect(el.querySelector('[data-testid="apps-load-error"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="apps-load-retry"]')).toBeTruthy();
+    expect(el.querySelector('app-empty-state')).withContext('no fake empty when the load failed').toBeNull();
+  });
+
+  it('shows the empty state (not the error card) when the load succeeds with zero instances', () => {
+    const el: HTMLElement = render(jasmine.createSpy('get').and.returnValue(of({ instances: [] }))).nativeElement;
+    expect(el.querySelector('[data-testid="apps-load-error"]')).toBeNull();
+    expect(el.querySelector('app-empty-state')).toBeTruthy();
   });
 });

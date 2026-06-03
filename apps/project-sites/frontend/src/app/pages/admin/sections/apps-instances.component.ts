@@ -126,6 +126,11 @@ function resolveApp(id: string): CatalogApp | null {
             </div>
           }
         </div>
+      } @else if (loadError() && instances().length === 0) {
+        <div class="rounded-md border border-red-500/30 bg-red-500/5 p-4" role="alert" data-testid="apps-load-error">
+          <p class="text-red-300 text-sm m-0 mb-2">{{ loadError() }}</p>
+          <button type="button" class="btn-primary" data-testid="apps-load-retry" (click)="load()" [disabled]="loading()">Retry</button>
+        </div>
       } @else if (instances().length === 0) {
         <app-empty-state
           icon="🚀"
@@ -380,6 +385,8 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
 
   instances = signal<readonly AppInstance[]>([]);
   loading = signal<boolean>(false);
+  /** Set when the instances fetch fails — so a load error shows a Retry card, NOT a fake "No app instances yet" empty state (which could prompt re-installing an app the user already has). */
+  loadError = signal<string | null>(null);
   runningCount = computed(() => this.instances().filter((i) => i.status === 'running').length);
 
   private pollHandle?: ReturnType<typeof setInterval>;
@@ -392,15 +399,19 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
 
   load(): void {
     this.loading.set(true);
+    this.loadError.set(null);
     this.api.get<{ instances: Record<string, unknown>[] }>('/apps/instances').subscribe({
       next: (r) => {
         this.instances.set((r.instances ?? []).map(adaptInstance));
+        this.loadError.set(null);
         this.loading.set(false);
         this.maybeStartPolling();
       },
       error: () => {
+        // Record the failure so the list shows a Retry card, not a fake empty.
+        // (ApiService already fired the toast.)
+        this.loadError.set('Could not load your apps — they are safe, retry.');
         this.loading.set(false);
-        // Toast already fired inside ApiService.
         console.warn('[apps] load instances failed');
       },
     });
