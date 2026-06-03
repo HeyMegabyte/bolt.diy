@@ -180,7 +180,7 @@ interface InlineEdit {
                 <!-- URL ROW -->
                 <div class="url-row">
                   @if (editingId() === e.id) {
-                    <select class="badge-select" [ngClass]="methodBadgeClass(inlineEdit().method)" [(ngModel)]="inlineEdit().method" data-testid="ai-endpoint-method-select">
+                    <select class="badge-select" aria-label="HTTP method" [ngClass]="methodBadgeClass(inlineEdit().method)" [(ngModel)]="inlineEdit().method" data-testid="ai-endpoint-method-select">
                       <option value="POST">POST</option>
                       <option value="GET">GET</option>
                       <option value="PUT">PUT</option>
@@ -194,6 +194,7 @@ interface InlineEdit {
                   @if (editingId() === e.id) {
                     <input
                       class="slug-input"
+                      aria-label="Endpoint slug"
                       [(ngModel)]="inlineEdit().slug"
                       (keydown.escape)="cancelInlineEdit()"
                       (keydown.enter)="saveInlineEdit(e)"
@@ -216,6 +217,7 @@ interface InlineEdit {
                     hlmInput
                     class="w-full mt-1 text-[0.66rem]"
                     placeholder="Short description (max 200 chars)…"
+                    aria-label="Endpoint description"
                     [(ngModel)]="inlineEdit().description"
                     maxlength="200" />
                 } @else if (e.description) {

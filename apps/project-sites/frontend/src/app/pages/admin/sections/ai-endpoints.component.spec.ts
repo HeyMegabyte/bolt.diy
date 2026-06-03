@@ -139,3 +139,41 @@ describe('AdminAiEndpointsComponent (control accessible names)', () => {
     expect(hasName(el, '[data-testid="ai-endpoint-create-slug"]')).withContext('slug').toBeTrue();
   });
 });
+
+/**
+ * WCAG 4.1.2 — the inline-edit (✎ on a row) HTTP-method select, slug input, and
+ * description input had no accessible name (placeholder/badge-only, bare .url-row,
+ * no <label>). Added aria-label. The save/cancel/edit ✎ buttons already had names.
+ */
+describe('AdminAiEndpointsComponent (inline-edit accessible names)', () => {
+  const row = { id: 'e1', endpoint_slug: 'lead', method: 'POST', description: 'x', deploy_status: 'live', updated_at: '2026-01-01', language: 'ai-prompt' } as never;
+  function render() {
+    TestBed.configureTestingModule({
+      imports: [AdminAiEndpointsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [row] }), post: () => of({}), put: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminAiEndpointsComponent);
+    fx.detectChanges();
+    fx.componentInstance.endpoints.set([row]);
+    fx.componentInstance.startInlineEdit(row);
+    fx.detectChanges();
+    return fx.nativeElement as HTMLElement;
+  }
+  const hasName = (el: HTMLElement, sel: string): boolean => {
+    const c = el.querySelector(sel);
+    return !!c && !!(c.getAttribute('aria-label') || (c.id && el.querySelector(`label[for="${c.id}"]`)));
+  };
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('inline method select + slug + description inputs have accessible names', () => {
+    const el = render();
+    expect(hasName(el, '[data-testid="ai-endpoint-method-select"]')).withContext('method').toBeTrue();
+    expect(hasName(el, '[data-testid="ai-endpoint-slug-input-lead"]')).withContext('slug').toBeTrue();
+    expect(hasName(el, 'input[placeholder^="Short description"]')).withContext('description').toBeTrue();
+  });
+});
