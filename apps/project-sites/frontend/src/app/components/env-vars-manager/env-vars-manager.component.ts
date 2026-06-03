@@ -143,7 +143,12 @@ const EMPTY_DRAFT: NewVarDraft = {
                 pattern="[A-Za-z_][A-Za-z0-9_]*"
                 aria-required="true"
                 aria-label="Variable key"
+                [attr.aria-invalid]="!!keyError()"
+                [attr.aria-describedby]="keyError() ? 'ev-key-error' : null"
               />
+              @if (keyError(); as err) {
+                <p id="ev-key-error" class="ev-error" role="alert" aria-live="polite" data-testid="ev-key-error">{{ err }}</p>
+              }
             </label>
             <label class="ev-field">
               <span class="ev-muted">Value</span>
@@ -191,7 +196,7 @@ const EMPTY_DRAFT: NewVarDraft = {
           </div>
           <div class="ev-form-actions">
             <button type="button" class="ev-btn-ghost" (click)="cancelAdd()">Cancel</button>
-            <button type="submit" class="ev-btn-primary" [disabled]="saving()">
+            <button type="submit" class="ev-btn-primary" [disabled]="saving() || !keyValid()">
               {{ saving() ? 'Saving…' : 'Save variable' }}
             </button>
           </div>
@@ -274,6 +279,12 @@ const EMPTY_DRAFT: NewVarDraft = {
     .ev-kicker { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); font-weight: 700; }
     .ev-title { margin: 0.25rem 0 0.25rem; font-family: 'Sora', system-ui, sans-serif; font-weight: 600; font-size: 0.95rem; letter-spacing: -0.01em; }
     .ev-sub { margin: 0; font-size: 0.7rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
+    .ev-error {
+      margin: 0.3rem 0 0;
+      font-size: 0.66rem;
+      line-height: 1.35;
+      color: color-mix(in oklch, #ff5c7a 82%, var(--ps-ink, #f4f4ff) 18%);
+    }
     .ev-hint {
       margin: 0.35rem 0 0;
       font-size: 0.68rem;
@@ -558,10 +569,29 @@ export class EnvVarsManagerComponent implements OnInit {
    * Submit the inline add/edit form. POSTs a new var or PATCHes the editing
    * id. Toasts on success/failure and refreshes the list before closing.
    */
+  /** POSIX env-var name: a letter/underscore start, then letters/digits/underscores. */
+  private static readonly KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+  /** The key is a valid env-var identifier (drives the Save-button gate). */
+  keyValid(): boolean {
+    return EnvVarsManagerComponent.KEY_RE.test(this.draft.key.trim());
+  }
+  /** Inline error message for a non-empty but malformed key (null = no error / empty). */
+  keyError(): string | null {
+    const k = this.draft.key.trim();
+    if (k.length === 0) return null; // empty → "required" handles it, not an "invalid" error
+    return EnvVarsManagerComponent.KEY_RE.test(k)
+      ? null
+      : 'Letters, numbers, and underscores only; cannot start with a number (e.g. API_TOKEN).';
+  }
+
   saveDraft(ev: Event): void {
     ev.preventDefault();
     if (!this.draft.key || !this.draft.value) {
       this.toast.error('Key + value required');
+      return;
+    }
+    if (!this.keyValid()) {
+      this.toast.error('Invalid variable key — use letters, numbers, and underscores (e.g. API_TOKEN).');
       return;
     }
     const s = this.buildScope();
@@ -571,7 +601,7 @@ export class EnvVarsManagerComponent implements OnInit {
       mcpProvider: s.mcpProvider,
       endpointId: s.endpointId,
       agentId: s.agentId,
-      key: this.draft.key,
+      key: this.draft.key.trim(),
       value: this.draft.value,
       description: this.draft.description || null,
       isSecret: this.draft.isSecret,
