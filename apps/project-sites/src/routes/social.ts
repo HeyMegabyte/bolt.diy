@@ -19,6 +19,8 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne, dbUpdate } from '../services/db.js';
 import { PLATFORMS, type Platform } from '../services/social_publishers/index.js';
+import { parseRssFeed } from '../services/rss_import.js';
+import { isSafeWebhookUrl } from '../services/outbound_webhooks.js';
 import {
   DEFAULT_AUTO_PILOT_PROMPT,
   generateAutoPilotPostForNetwork,
@@ -589,4 +591,51 @@ socialRoutes.post('/api/social/auto-pilot/run-now', async (c) => {
     [now, next, now, ctx.orgId],
   );
   return c.json({ data: { created, count: created.length } });
+});
+
+/**
+ * `POST /api/social/import-rss` — Import posts from an RSS/Atom feed.
+ *
+ * Preview (`preview: true`): SSRF-guards the feed URL (public https only),
+ * fetches it, and returns up to 10 `{ title, url }` items via the pure
+ * {@link parseRssFeed}. Scheduling the parsed items as drafts is a follow-up;
+ * the preview path is what the composer's "Preview feed" button calls.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 400 BAD_REQUEST for a disallowed/unreachable feed URL.
+ * @throws 501 NOT_IMPLEMENTED for the (deferred) schedule path.
+ */
+const RssImportSchema = z
+  .object({
+    url: z.string().url().max(2048),
+    preview: z.boolean().optional(),
+    site_id: z.string().optional(),
+    platforms: z.array(platformEnum).optional(),
+    stagger_hours: z.number().optional(),
+  })
+  .strict();
+
+socialRoutes.post('/api/social/import-rss', zValidator('json', RssImportSchema), async (c) => {
+  const ctx = requireAuth(c);
+  if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+  const { url, preview } = c.req.valid('json');
+  if (!isSafeWebhookUrl(url)) {
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'Feed URL not allowed — use a public https feed.' } }, 400);
+  }
+  let xml: string;
+  try {
+    const res = await fetch(url, {
+      headers: { accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' },
+    });
+    if (!res.ok) return c.json({ error: { code: 'BAD_REQUEST', message: `Feed returned ${res.status}.` } }, 400);
+    xml = await res.text();
+  } catch {
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'Could not fetch the feed.' } }, 400);
+  }
+  const items = parseRssFeed(xml, 10);
+  if (preview) return c.json({ items });
+  return c.json(
+    { error: { code: 'NOT_IMPLEMENTED', message: 'Scheduling from RSS is coming soon — preview works today.' } },
+    501,
+  );
 });
