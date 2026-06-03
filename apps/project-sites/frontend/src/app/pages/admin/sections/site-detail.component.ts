@@ -219,22 +219,27 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
           }
 
           @if (sqlResult(); as r) {
-            <table class="sql-result-table">
-              <thead>
-                <tr>
-                  @for (col of r.columns; track col) { <th>{{ col }}</th> }
-                </tr>
-              </thead>
-              <tbody>
-                @for (row of r.rows; track $index) {
+            <!-- Arbitrary SELECT results can be far wider than the viewport;
+                 scroll the table inside its own region instead of overflowing
+                 the page (WCAG 1.4.10 — matches the sites/domains/billing tables). -->
+            <div class="sql-result-scroll" tabindex="0" role="region" aria-label="SQL result — scroll horizontally">
+              <table class="sql-result-table">
+                <thead>
                   <tr>
-                    @for (col of r.columns; track col) {
-                      <td data-testid="sql-result-cell">{{ row[col] }}</td>
-                    }
+                    @for (col of r.columns; track col) { <th>{{ col }}</th> }
                   </tr>
-                }
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  @for (row of r.rows; track $index) {
+                    <tr>
+                      @for (col of r.columns; track col) {
+                        <td data-testid="sql-result-cell">{{ row[col] }}</td>
+                      }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
           }
 
           <details class="sql-history" open>
@@ -326,6 +331,8 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
     .confirm-dialog { margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.5); border: 1px solid var(--ps-edge, rgba(255,255,255,0.08)); border-radius: 8px; }
     /* .sql-editor removed — now Spartan hlmInput [multiline] (font-mono resize-y). */
     .sql-toolbar { display: flex; gap: 0.75rem; align-items: center; margin: 0.5rem 0 1rem; }
+    .sql-result-scroll { overflow-x: auto; max-width: 100%; border-radius: 8px; }
+    .sql-result-scroll:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
     .sql-result-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
     .sql-result-table th, .sql-result-table td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--ps-edge, rgba(255,255,255,0.08)); }
     .sql-error { color: #ff7e8a; }
