@@ -260,6 +260,13 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
         <div class="card" appReveal><div class="muted-h">Credits used</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="totalCredits()" [duration]="1100" /></div></div>
       </div>
 
+      @if (loadError() && rows().length === 0 && !loading()) {
+        <div class="card" role="alert" data-testid="ai-logs-load-error">
+          <p class="text-red-300 text-sm m-0 mb-2">{{ loadError() }}</p>
+          <button class="btn-ghost text-xs" data-testid="ai-logs-retry" (click)="reload()">Retry</button>
+        </div>
+      }
+
       <!-- Latency percentile chart (p50/p95/p99 stacked-area) ────────── -->
       @if (rows().length > 0) {
         <section class="card" appReveal>
@@ -667,6 +674,8 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
   /** Raw trace rows from the API. Drives every derived signal below. */
   rows = signal<TraceRow[]>([]);
   loading = signal(false);
+  /** Persistent load failure — shown only when there are no rows (so a failed fetch isn't a blank/empty masquerade); stale data stays visible otherwise. */
+  loadError = signal<string | null>(null);
   filter = signal('');
   searchFocused = signal(false);
   polling = signal(true);
@@ -1202,8 +1211,10 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
     if (!s) return;
     this.loading.set(true);
     this.api.get<{ data: TraceRow[] }>(`/sites/${s.id}/ai-logs`).subscribe({
-      next: (r) => { this.rows.set(r.data ?? []); this.loading.set(false); },
-      error: () => this.loading.set(false),
+      next: (r) => { this.rows.set(r.data ?? []); this.loadError.set(null); this.loading.set(false); },
+      // Silent error → empty grid masquerades as "no traces". Record it; the
+      // banner shows only when there are no rows (stale data stays visible on a poll blip).
+      error: () => { this.loadError.set('Could not load AI traces — retry.'); this.loading.set(false); },
     });
   }
 
