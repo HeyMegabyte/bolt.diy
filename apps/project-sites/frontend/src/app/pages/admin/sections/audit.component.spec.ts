@@ -145,6 +145,23 @@ describe('AdminAuditComponent (master/detail splicing)', () => {
     c.toggleExpand({ ...ROW({ id: 'm1::detail' }), __detail: true } as never);
     expect(c.displayRows().length).toBe(1);
   });
+
+  it('collapsing removes the synthetic detail row again (toggle off)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.rows.set([ROW({ id: 'm1' })] as never);
+    c.toggleExpand(c.rows()[0]);
+    expect(c.displayRows().length).toBe(2);
+    c.toggleExpand(c.rows()[0]);
+    expect(c.displayRows().map((r) => r.id)).toEqual(['m1']);
+  });
+
+  it('two expanded rows interleave correctly — each detail directly after its own master', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.rows.set([ROW({ id: 'm1' }), ROW({ id: 'm2' })] as never);
+    c.toggleExpand(c.rows()[0]);
+    c.toggleExpand(c.rows()[1]);
+    expect(c.displayRows().map((r) => r.id)).toEqual(['m1', 'm1::detail', 'm2', 'm2::detail']);
+  });
 });
 
 describe('AdminAuditComponent (scope chip reactivity)', () => {
