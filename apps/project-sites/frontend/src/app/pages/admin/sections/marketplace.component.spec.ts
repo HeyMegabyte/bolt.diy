@@ -5,6 +5,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { AdminMarketplaceComponent } from './marketplace.component';
 import { FocusTrapDirective } from '../../../directives/focus-trap.directive';
+import { ToastService } from '../../../services/toast.service';
 
 /** Collect CSS from injected <style> tags AND adopted/constructable stylesheets —
  *  Angular injects component CSS into document.head/adopted sheets, not the host. */
@@ -146,5 +147,29 @@ describe('AdminMarketplaceComponent (cohesion r8)', () => {
     // pseudo-element, and CSSOM may serialize the colon as `:after`/`::after`.
     expect(sheet).toMatch(/\.mkt-slot-chip[^{]*:{1,2}after/);
     expect(sheet).toMatch(/\.mkt-slot-chip--active[^{]*:{1,2}after/);
+  });
+
+  // ── Fork reliability: success marks forked, failure must NOT lie ──────────
+  it('fork marks the card "Forked" + bumps the count only on a successful POST', () => {
+    const btn = q('.mkt-card__fork-btn') as HTMLButtonElement; // first card = s1
+    btn.click();
+    httpMock.expectOne('/api/section-marketplace/sections/s1/fork').flush({ id: 's1', fork_count: 13 });
+    fixture.detectChanges();
+    expect(fixture.componentInstance.forkedIds().has('s1')).toBeTrue();
+    expect((q('.mkt-card__fork-btn') as HTMLElement).textContent).toContain('Forked');
+  });
+
+  it('does NOT mark forked + surfaces an error toast when the fork POST fails (no lying UI)', () => {
+    const toast = TestBed.inject(ToastService);
+    const errSpy = spyOn(toast, 'error');
+    const btn = q('.mkt-card__fork-btn') as HTMLButtonElement; // first card = s1
+    btn.click();
+    httpMock
+      .expectOne('/api/section-marketplace/sections/s1/fork')
+      .flush('boom', { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    expect(fixture.componentInstance.forkedIds().has('s1')).toBeFalse();
+    expect((q('.mkt-card__fork-btn') as HTMLElement).textContent).not.toContain('Forked');
+    expect(errSpy).toHaveBeenCalled();
   });
 });

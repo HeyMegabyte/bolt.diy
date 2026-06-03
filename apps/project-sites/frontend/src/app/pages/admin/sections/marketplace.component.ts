@@ -28,6 +28,7 @@ import { RevealDirective } from '../../../directives/reveal.directive';
 import { FocusTrapDirective } from '../../../directives/focus-trap.directive';
 import { EmptyStateComponent } from '../empty-state.component';
 import { ErrorCardComponent } from '../../../components/states';
+import { ToastService } from '../../../services/toast.service';
 
 type SectionIndustry = 'nonprofit' | 'restaurant' | 'lawyer' | 'salon' | 'medical' | 'all';
 type SectionSlot = 'hero' | 'services' | 'testimonials' | 'donor-wall' | 'faq' | 'cta' | 'all';
@@ -308,6 +309,7 @@ const SLOT_COLORS: Record<string, string> = {
 export class AdminMarketplaceComponent implements OnInit {
   private http = inject(HttpClient);
   private cdr = inject(ChangeDetectorRef);
+  private toast = inject(ToastService);
 
   readonly loading = signal(false);
   readonly loadError = signal(false);
@@ -384,9 +386,13 @@ export class AdminMarketplaceComponent implements OnInit {
     this.http.post<{ id: string; fork_count: number }>(`/api/section-marketplace/sections/${id}/fork`, {})
       .pipe(catchError(() => of(null as { id: string; fork_count: number } | null)))
       .subscribe((res: { id: string; fork_count: number } | null) => {
-        this.forkedIds.update((prev: Set<string>) => new Set([...prev, id]));
         if (res) {
+          // Only mark "Forked" + bump the count when the POST actually succeeded —
+          // otherwise the chip would lie (show ✓ Forked while nothing was forked).
+          this.forkedIds.update((prev: Set<string>) => new Set([...prev, id]));
           this.forkCounts.update((prev: Map<string, number>) => new Map([...prev, [id, res.fork_count]]));
+        } else {
+          this.toast.error('Could not fork this section — please try again.');
         }
         this.cdr.markForCheck();
       });
