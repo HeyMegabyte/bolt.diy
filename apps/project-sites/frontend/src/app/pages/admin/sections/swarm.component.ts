@@ -199,6 +199,9 @@ const SPECIALIST_COLORS: Record<string, string> = {
   @if (runHistory().length > 0) {
     <section class="swarm-history" appReveal aria-label="Run history">
       <h2>Recent Runs</h2>
+      <!-- 6 cols (200px-capped prompt + 5) exceed a 320px screen — scroll the
+           table in its own region instead of overflowing the page (WCAG 1.4.10). -->
+      <div class="swarm-history__scroll" tabindex="0" role="region" aria-label="Run history — scroll horizontally">
       <table class="swarm-history__table" role="grid">
         <thead>
           <tr>
@@ -225,6 +228,7 @@ const SPECIALIST_COLORS: Record<string, string> = {
           }
         </tbody>
       </table>
+      </div>
     </section>
   }
 </div>
@@ -321,6 +325,8 @@ const SPECIALIST_COLORS: Record<string, string> = {
     .swarm-preview__connect { margin-top: 0.75rem; background: color-mix(in oklch, var(--ps-accent, #00e5ff) 10%, transparent); border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent); color: var(--ps-accent, #00e5ff); padding: 0.375rem 0.875rem; border-radius: 9999px; font-size: 0.75rem; cursor: pointer; }
     /* History */
     .swarm-history h2 { font-size: 0.875rem; margin: 0 0 0.75rem; }
+    .swarm-history__scroll { overflow-x: auto; max-width: 100%; }
+    .swarm-history__scroll:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
     .swarm-history__table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
     .swarm-history__table th { text-align: left; padding: 0.375rem 0.5rem; border-bottom: 1px solid var(--sw-line); font-size: 0.65rem; text-transform: uppercase; letter-spacing: .05em; opacity: 0.5; }
     .swarm-history__row { cursor: pointer; }
