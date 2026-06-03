@@ -1,0 +1,105 @@
+import { TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { AppsComponent } from './apps.component';
+import { APPS_CATALOG, APP_CATEGORIES, isAppSupported } from './apps-catalog.data';
+
+/**
+ * First spec for the Apps catalog section (convergence r24).
+ * Covers the pure filter/lifecycle/search logic + the new a11y live-region
+ * announcement. The template imports (RouterLink, Spartan tooltip) are stripped
+ * so the constructor runs without a router/animation harness; ActivatedRoute is
+ * stubbed with an empty queryParamMap so ngOnInit's subscribe is inert.
+ */
+function make(category?: string): AppsComponent {
+  const queryParamMap = of(convertToParamMap(category ? { category } : {}));
+  TestBed.configureTestingModule({
+    imports: [AppsComponent],
+    providers: [{ provide: ActivatedRoute, useValue: { queryParamMap } }],
+  });
+  TestBed.overrideComponent(AppsComponent, { set: { template: '<div></div>', imports: [] } });
+  const fixture = TestBed.createComponent(AppsComponent);
+  fixture.detectChanges();
+  return fixture.componentInstance;
+}
+
+describe('AppsComponent (catalog filter + a11y)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('starts with the full catalog and no active filters', () => {
+    const c = make();
+    expect(c.filteredApps().length).toBe(APPS_CATALOG.length);
+    expect(c.activeCategory()).toBeNull();
+    expect(c.lifecycle()).toBe('all');
+  });
+
+  it('live + soon counts partition the catalog exactly', () => {
+    const c = make();
+    expect(c.liveCount + c.soonCount).toBe(c.totalCount);
+  });
+
+  it('lifecycle="live" keeps only supported apps', () => {
+    const c = make();
+    c.setLifecycle('live');
+    const filtered = c.filteredApps();
+    expect(filtered.length).toBe(c.liveCount);
+    expect(filtered.every((a) => isAppSupported(a.id))).toBe(true);
+  });
+
+  it('lifecycle="soon" keeps only unsupported apps', () => {
+    const c = make();
+    c.setLifecycle('soon');
+    expect(c.filteredApps().every((a) => !isAppSupported(a.id))).toBe(true);
+  });
+
+  it('category filter narrows to that category only', () => {
+    const c = make();
+    const cat = APP_CATEGORIES[0].id;
+    c.setCategory(cat);
+    const filtered = c.filteredApps();
+    expect(filtered.length).toBe(c.countByCategory(cat));
+    expect(filtered.every((a) => a.category === cat)).toBe(true);
+  });
+
+  it('search matches by name / tagline / id / tag', () => {
+    const c = make();
+    const sample = APPS_CATALOG[0];
+    c.onSearchChange(sample.name.slice(0, 4));
+    expect(c.filteredApps().some((a) => a.id === sample.id)).toBe(true);
+  });
+
+  it('a no-match search yields an empty grid + quoted empty title', () => {
+    const c = make();
+    c.onSearchChange('zzz-no-such-app-zzz');
+    expect(c.filteredApps().length).toBe(0);
+    expect(c.emptyTitle()).toContain('zzz-no-such-app-zzz');
+  });
+
+  it('resultAnnouncement reflects count + query for the live region (a11y)', () => {
+    const c = make();
+    expect(c.resultAnnouncement()).toBe(`Showing ${APPS_CATALOG.length} apps`);
+    c.onSearchChange('zzz-no-such-app-zzz');
+    expect(c.resultAnnouncement()).toBe('0 apps match "zzz-no-such-app-zzz"');
+  });
+
+  it('clearSearch + resetFilters restore the full catalog', () => {
+    const c = make();
+    c.setCategory(APP_CATEGORIES[0].id);
+    c.onSearchChange('x');
+    c.resetFilters();
+    expect(c.activeCategory()).toBeNull();
+    expect(c.searchQuery()).toBe('');
+    expect(c.filteredApps().length).toBe(APPS_CATALOG.length);
+  });
+
+  it('honours a ?category= deep link from the route', () => {
+    const validCat = APP_CATEGORIES[0].id;
+    const c = make(validCat);
+    expect(c.activeCategory()).toBe(validCat);
+  });
+
+  it('ignores an unknown ?category= deep link', () => {
+    const c = make('not-a-real-category');
+    expect(c.activeCategory()).toBeNull();
+  });
+});

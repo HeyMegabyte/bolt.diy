@@ -168,6 +168,16 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
         </div>
       </div>
 
+      <!-- Live-region result count — announces filter changes to screen readers
+           AND gives sighted users a visible "N matches" cue above the grid. -->
+      <div class="result-bar" appReveal>
+        <span class="result-count" aria-hidden="true">
+          <app-rolling-counter [value]="filteredApps().length" />
+          <span class="result-label">{{ filteredApps().length === 1 ? 'match' : 'matches' }}</span>
+        </span>
+        <span class="sr-only" role="status" aria-live="polite" data-testid="apps-result-status">{{ resultAnnouncement() }}</span>
+      </div>
+
       <!-- ─────────────────── GRID ─────────────────── -->
       @if (filteredApps().length === 0) {
         <app-empty-state
@@ -352,6 +362,26 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       opacity: 1;
     }
 
+    /* ─── Result bar (count + live region) ─── */
+    .result-bar { display: flex; align-items: center; }
+    .result-count {
+      display: inline-flex; align-items: baseline; gap: 5px;
+      font-family: 'Sora', system-ui, sans-serif;
+      font-size: 0.8rem; font-weight: 700;
+      color: var(--ps-accent, #00E5FF);
+    }
+    .result-label {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.62rem; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-secondary, rgba(255,255,255,0.55));
+    }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px;
+      padding: 0; margin: -1px; overflow: hidden;
+      clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+    }
+
     /* ─── Grid ─── */
     .apps-grid {
       display: grid; gap: 1rem;
@@ -528,7 +558,11 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       border: 1px solid rgba(255,255,255,0.06);
       border-radius: 6px;
     }
-    .infra-pill--bare { color: #fbbf24; border-color: rgba(251,191,36,0.22); }
+    .infra-pill--bare {
+      color: var(--ps-accent, #00E5FF);
+      border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 26%, transparent);
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 6%, transparent);
+    }
     .infra-glyph { font-size: 0.78rem; line-height: 1; }
 
     .app-card-foot {
@@ -609,6 +643,18 @@ export class AppsComponent implements AfterViewInit, OnInit {
   emptyTitle = computed<string>(() => {
     const q = this.searchQuery().trim();
     return q ? `Nothing matches "${q}"` : 'No apps in this category';
+  });
+
+  /**
+   * Polite live-region copy announcing the current filtered result count.
+   * Fires on every category / lifecycle / search change so screen-reader
+   * users hear the grid update instead of silently re-rendering cards.
+   */
+  resultAnnouncement = computed<string>(() => {
+    const n = this.filteredApps().length;
+    const q = this.searchQuery().trim();
+    const noun = n === 1 ? 'app' : 'apps';
+    return q ? `${n} ${noun} match "${q}"` : `Showing ${n} ${noun}`;
   });
 
   ngAfterViewInit(): void {
