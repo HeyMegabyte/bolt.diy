@@ -8,7 +8,7 @@
  * (`outbound_webhooks`) — 404 when off → friendly "not available" error.
  */
 
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../../services/api.service';
@@ -145,8 +145,18 @@ export class AdminWebhooksComponent {
   readonly error = signal<string | null>(null);
   readonly createdSecret = signal<string | null>(null);
 
+  private loadedSiteId: string | null = null;
+
   constructor() {
-    if (this.site()) this.load();
+    // Load when the selected site resolves (it may arrive after mount on deep-link)
+    // and reload on site switch — guarded so we never re-load the same site.
+    effect(() => {
+      const id = this.site()?.id ?? null;
+      if (id && id !== this.loadedSiteId) {
+        this.loadedSiteId = id;
+        this.load();
+      }
+    });
   }
 
   toggleEvent(ev: string): void {

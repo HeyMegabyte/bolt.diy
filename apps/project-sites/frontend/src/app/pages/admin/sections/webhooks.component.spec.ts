@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { AdminWebhooksComponent } from './webhooks.component';
 import { ApiService } from '../../../services/api.service';
@@ -82,6 +83,28 @@ describe('AdminWebhooksComponent', () => {
     (q('[data-testid="webhooks-delete"]') as HTMLButtonElement).click();
     expect(del).toHaveBeenCalledWith('/sites/s1/webhooks/e1');
     expect(get.calls.count()).toBeGreaterThan(before); // reloaded after delete
+  });
+
+  it('loads once the selected site resolves after mount (reactive, not just at construct)', () => {
+    const siteSig = signal<{ id: string } | null>(null);
+    const g = jasmine.createSpy('get').and.callFake((p: string) =>
+      p.endsWith('/deliveries') ? of({ ok: true, deliveries: [] }) : of({ ok: true, endpoints: [] }),
+    );
+    TestBed.configureTestingModule({
+      imports: [AdminWebhooksComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: g, post: jasmine.createSpy('post'), delete: jasmine.createSpy('delete') } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('e'), success: jasmine.createSpy('s') } },
+        { provide: AdminStateService, useValue: { selectedSite: siteSig } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminWebhooksComponent);
+    fx.detectChanges();
+    expect(g).not.toHaveBeenCalled(); // no site yet
+
+    siteSig.set({ id: 's9' });
+    fx.detectChanges();
+    expect(g).toHaveBeenCalledWith('/sites/s9/webhooks');
   });
 
   it('surfaces a not-available error', () => {

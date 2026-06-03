@@ -8,7 +8,7 @@
  * 404 when off → friendly "not available" error.
  */
 
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../../services/api.service';
@@ -123,8 +123,17 @@ export class AdminRecipesComponent {
   readonly creating = signal(false);
   readonly error = signal<string | null>(null);
 
+  private loadedSiteId: string | null = null;
+
   constructor() {
-    if (this.site()) this.load();
+    // Load when the selected site resolves (may arrive after mount) + reload on switch.
+    effect(() => {
+      const id = this.site()?.id ?? null;
+      if (id && id !== this.loadedSiteId) {
+        this.loadedSiteId = id;
+        this.load();
+      }
+    });
   }
 
   private siteId(): string | null {
