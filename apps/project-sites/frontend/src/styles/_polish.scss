@@ -130,7 +130,9 @@
   --ps-shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 80px rgba(0, 229, 255, 0.04);
 
   // Focus ring — applied with `outline` on `:focus-visible` for keyboard nav.
-  --ps-ring-focus: 2px solid #00ffc8;
+  // Cyan brand accent (#00E5FF) — matches the shell's nav/button focus rings;
+  // NOT the stray mint-green it had drifted to (off-brand + inconsistent).
+  --ps-ring-focus: 2px solid #00E5FF;
   --ps-ring-focus-offset: 2px;
 
   // Easing curves
