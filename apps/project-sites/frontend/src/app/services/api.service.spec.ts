@@ -84,4 +84,25 @@ describe('ApiService (auth header + 401 redirect + error mapping)', () => {
       TestBed.resetTestingModule();
     }
   });
+
+  it('{ silent: true } SUPPRESSES the error toast (fire-and-forget / forward-compat calls)', () => {
+    const failingGet = jasmine.createSpy('get').and.callFake(() => throwError(() => new HttpErrorResponse({ status: 404, statusText: 'Not Found' })));
+    const { api, toastErr } = make({ url: '/admin', get: failingGet });
+    api.get('/admin/notifications', undefined, { silent: true }).subscribe({ error: () => undefined });
+    expect(toastErr).withContext('a silent call must never nag the user, even on a 404').not.toHaveBeenCalled();
+  });
+
+  it('without { silent } a failing call STILL toasts (silent is strictly opt-in)', () => {
+    const failingGet = jasmine.createSpy('get').and.callFake(() => throwError(() => new HttpErrorResponse({ status: 404, statusText: 'Not Found' })));
+    const { api, toastErr } = make({ url: '/admin', get: failingGet });
+    api.get('/admin/notifications').subscribe({ error: () => undefined });
+    expect(toastErr).toHaveBeenCalled();
+  });
+
+  it('a 401 still clears the session even on a silent call (security preserved, only the toast is muted)', () => {
+    const { api, clear, toastErr } = make({ token: 't', url: '/admin', get: jasmine.createSpy('get').and.callFake(err401) });
+    api.get('/admin/notifications', undefined, { silent: true }).subscribe({ error: () => undefined });
+    expect(clear).withContext('silent suppresses the toast, not the auth/session handling').toHaveBeenCalled();
+    expect(toastErr).not.toHaveBeenCalled();
+  });
 });

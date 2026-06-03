@@ -56,20 +56,24 @@ export class ApiService {
    * Applies a 30s timeout to prevent indefinite hangs.
    * Re-throws the error so callers can implement additional handling.
    */
-  private handleError<T>(): (source: Observable<T>) => Observable<T> {
+  private handleError<T>(silent = false): (source: Observable<T>) => Observable<T> {
     return (source: Observable<T>) =>
       source.pipe(
         timeout(ApiService.REQUEST_TIMEOUT_MS),
         catchError((error: HttpErrorResponse | TimeoutError) => {
           if (error instanceof TimeoutError) {
-            this.toast.error('Request timed out. Please try again.');
+            if (!silent) this.toast.error('Request timed out. Please try again.');
             // Treat timeouts as `http.failure` with a `0` status so the
             // dashboards bucket them next to network drops.
             this.telemetry.track('http.failure', { status: 0, reason: 'timeout' });
             return throwError(() => error);
           }
           const message = this.getErrorMessage(error);
-          this.toast.error(message);
+          // `silent` suppresses the user-facing toast for fire-and-forget /
+          // forward-compatible syncs (e.g. a pref sync to a route that may not
+          // have shipped yet) — telemetry + 401 handling below still run, so we
+          // keep observability + security, we just don't nag the user.
+          if (!silent) this.toast.error(message);
           // Single capture point for every HTTP failure at the boundary.
           // Carry the status + URL (path only, no query) + method so the
           // PostHog/GA4 funnel can spot endpoint-level regressions.
@@ -128,14 +132,22 @@ export class ApiService {
     }
   }
 
-  /** Generic GET — `path` is relative to `/api` (e.g. `/sites/123`). */
-  get<T>(path: string, params?: Record<string, string>): Observable<T> {
-    return this.http.get<T>(`/api${path}`, { headers: this.headers(), params }).pipe(this.handleError());
+  /**
+   * Generic GET — `path` is relative to `/api` (e.g. `/sites/123`).
+   * Pass `{ silent: true }` to suppress the user-facing error toast (telemetry
+   * + 401 handling still run) — for background/forward-compatible reads.
+   */
+  get<T>(path: string, params?: Record<string, string>, opts?: { silent?: boolean }): Observable<T> {
+    return this.http.get<T>(`/api${path}`, { headers: this.headers(), params }).pipe(this.handleError(opts?.silent));
   }
 
-  /** Generic POST — JSON body, bearer header, 30s timeout. */
-  post<T>(path: string, body?: unknown): Observable<T> {
-    return this.http.post<T>(`/api${path}`, body, { headers: this.headers() }).pipe(this.handleError());
+  /**
+   * Generic POST — JSON body, bearer header, 30s timeout.
+   * Pass `{ silent: true }` to suppress the user-facing error toast (telemetry
+   * + 401 handling still run) — for fire-and-forget syncs.
+   */
+  post<T>(path: string, body?: unknown, opts?: { silent?: boolean }): Observable<T> {
+    return this.http.post<T>(`/api${path}`, body, { headers: this.headers() }).pipe(this.handleError(opts?.silent));
   }
 
   /** Generic PUT — JSON body, bearer header, 30s timeout. */

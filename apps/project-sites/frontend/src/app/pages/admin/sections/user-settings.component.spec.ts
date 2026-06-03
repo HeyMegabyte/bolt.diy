@@ -16,10 +16,10 @@ import { HttpClient } from '@angular/common/http';
  */
 function make(del = jasmine.createSpy('delete').and.returnValue(throwError(() => ({ status: 404 })))): {
   c: AdminUserSettingsComponent;
-  http: { delete: jasmine.Spy; post: jasmine.Spy };
+  http: { get: jasmine.Spy; delete: jasmine.Spy; post: jasmine.Spy };
   toast: { error: jasmine.Spy; success: jasmine.Spy };
 } {
-  const http = { get: () => of({}), post: jasmine.createSpy('post').and.returnValue(of({})), put: () => of({}), delete: del };
+  const http = { get: jasmine.createSpy('get').and.returnValue(of({})), post: jasmine.createSpy('post').and.returnValue(of({})), put: () => of({}), delete: del };
   const toast = { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') };
   TestBed.configureTestingModule({
     imports: [AdminUserSettingsComponent],
@@ -172,5 +172,71 @@ describe('AdminUserSettingsComponent (destructive delete guard + notifications)'
     } finally {
       jasmine.clock().uninstall();
     }
+  });
+
+  it('the debounced sync is SILENT (never toasts the user on a forward-compat 404)', () => {
+    jasmine.clock().install();
+    try {
+      const { c, http } = make();
+      const g = c.notificationGroups()[0];
+      c.toggleNotification(g.id, g.prefs[0].id);
+      jasmine.clock().tick(800);
+      const opts = http.post.calls.mostRecent().args[2] as { silent?: boolean } | undefined;
+      expect(opts?.silent).withContext('fire-and-forget sync must pass { silent: true } so a 404 never nags').toBe(true);
+    } finally {
+      jasmine.clock().uninstall();
+    }
+  });
+
+  // ── Cross-device hydrate (GET /admin/notifications on load) ──
+  const hydrate = (c: AdminUserSettingsComponent) =>
+    (c as unknown as { hydrateNotificationPrefs(): void }).hydrateNotificationPrefs();
+
+  it('hydrate applies the server pref map over the groups (cross-device) + refreshes localStorage', () => {
+    const { c, http } = make();
+    const p = c.notificationGroups()[0].prefs[0];
+    const flipped = !p.enabled;
+    http.get.and.returnValue(of({ data: { prefs: { [p.id]: flipped } } }));
+    hydrate(c);
+    expect(c.notificationGroups()[0].prefs[0].enabled).withContext('server value wins on load').toBe(flipped);
+    const stored = JSON.parse(localStorage.getItem('ps_notification_prefs') ?? '{}') as Record<string, boolean>;
+    expect(stored[p.id]).withContext('local cache refreshed to match the server').toBe(flipped);
+  });
+
+  it('hydrate reads the server route SILENTLY (no toast if the route is not live)', () => {
+    const { c, http } = make();
+    hydrate(c);
+    const opts = http.get.calls.mostRecent().args[2] as { silent?: boolean } | undefined;
+    expect(opts?.silent).toBe(true);
+  });
+
+  it('hydrate is a NO-OP when the server returns no prefs (keeps local state)', () => {
+    const { c, http } = make();
+    const before = c.notificationGroups()[0].prefs[0].enabled;
+    http.get.and.returnValue(of({ data: { prefs: {} } }));
+    hydrate(c);
+    expect(c.notificationGroups()[0].prefs[0].enabled).toBe(before);
+  });
+
+  it('hydrate leaves local prefs UNTOUCHED when the route errors (not-yet-deployed / offline)', () => {
+    const { c, http } = make();
+    const before = c.notificationGroups()[0].prefs[0].enabled;
+    http.get.and.returnValue(throwError(() => ({ status: 404 })));
+    hydrate(c);
+    expect(c.notificationGroups()[0].prefs[0].enabled).withContext('a 404 must not wipe the local choices').toBe(before);
+  });
+
+  it('hydrate keeps the LOCAL value for pref ids the server has not seen (forward-compatible)', () => {
+    const { c, http } = make();
+    const all = c.notificationGroups().flatMap((g) => g.prefs);
+    const known = all[0];
+    const unseen = all[1];
+    const unseenBefore = unseen.enabled;
+    // Server only knows about `known` — `unseen` must retain its local value.
+    http.get.and.returnValue(of({ data: { prefs: { [known.id]: !known.enabled } } }));
+    hydrate(c);
+    const after = c.notificationGroups().flatMap((g) => g.prefs);
+    expect(after.find((p) => p.id === known.id)?.enabled).toBe(!known.enabled);
+    expect(after.find((p) => p.id === unseen.id)?.enabled).withContext('a pref the server has not seen stays at its local value').toBe(unseenBefore);
   });
 });

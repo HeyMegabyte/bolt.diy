@@ -1234,6 +1234,7 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
     this.loadApiKeys();
     this.loadSessions();
     this.loadCredStatus();
+    this.hydrateNotificationPrefs();
     // Honor `?focus=cloudflare` deep links from the analytics CTA.
     try {
       const params = new URLSearchParams(window.location.search);
@@ -1708,11 +1709,50 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
     if (this.notifSyncTimer) clearTimeout(this.notifSyncTimer);
     this.notifSyncTimer = setTimeout(() => {
       this.notifSyncTimer = null;
-      this.api.post('/admin/notifications', { prefs: flat }).subscribe({
+      // `silent` — a fire-and-forget forward-compat sync must never toast at the
+      // user (localStorage is the source of truth); the latch below stops retries.
+      this.api.post('/admin/notifications', { prefs: flat }, { silent: true }).subscribe({
         next: () => { /* persisted server-side */ },
         error: () => { this.notifSyncUnavailable = true; },
       });
     }, 700);
+  }
+
+  /**
+   * Hydrate the toggles from the per-user server store so a SECOND device
+   * reflects choices made elsewhere — the cross-device half of the feature.
+   * Server is the source of truth on load: we apply its map over the current
+   * (localStorage-seeded) groups, leaving any pref id the server hasn't seen at
+   * its local/default value (forward-compatible with new prefs), then refresh
+   * the local cache so the instant source of truth matches. Fully defensive +
+   * `silent` — a 404 (route not yet deployed) or any error leaves the
+   * localStorage-seeded state untouched and never toasts.
+   */
+  private hydrateNotificationPrefs(): void {
+    this.api
+      .get<{ data?: { prefs?: Record<string, boolean> } }>('/admin/notifications', undefined, { silent: true })
+      .subscribe({
+        next: (res) => {
+          const server = res?.data?.prefs;
+          if (!server || typeof server !== 'object' || !Object.keys(server).length) return;
+          this.notificationGroups.update((groups) =>
+            groups.map((g) => ({
+              ...g,
+              prefs: g.prefs.map((p) => (p.id in server ? { ...p, enabled: !!server[p.id] } : p)),
+            })),
+          );
+          const flat: Record<string, boolean> = {};
+          for (const g of this.notificationGroups()) for (const p of g.prefs) flat[p.id] = p.enabled;
+          try {
+            localStorage.setItem(AdminUserSettingsComponent.NOTIFICATION_KEY, JSON.stringify(flat));
+          } catch {
+            /* private mode — local cache stays as-is, server remains the truth next load */
+          }
+        },
+        error: () => {
+          /* route not live / offline → keep the localStorage-seeded prefs */
+        },
+      });
   }
 
   ngOnDestroy(): void {
