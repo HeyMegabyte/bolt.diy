@@ -215,7 +215,11 @@ homepage at `/`. Asset paths are CDN-busted via Angular's hashed filenames.
   (ag-grid via the still-eager ag-grid-angular + a new dynamic chunk). `@defer`
   on a component shared across multiple lazy routes does NOT de-hoist it.
   **Correct fix (genuinely big — a real wave, NOT a quick win):** migrate both
-  grids from ag-grid to **TanStack Table** (already a project dep;
+  grids from ag-grid to **TanStack Table**. **Executable blueprint:
+  `apps/project-sites/docs/perf-wave-ag-grid-to-tanstack.md`** (feature inventory,
+  TanStack mapping, step-by-step, live-QA checklist, budget-close verification —
+  read it before starting; do NOT re-derive or re-attempt the documented dead
+  ends). (already a project dep;
   package-registry mandates "ag-grid Community ONLY for 100k+ row enterprise
   grids" — these are admin log tables, so ag-grid is over-engineered here).
   TanStack is headless (~15 KB vs 782 KB) → removes ag-grid entirely → closes
