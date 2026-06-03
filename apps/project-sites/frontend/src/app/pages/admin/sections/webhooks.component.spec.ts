@@ -200,4 +200,11 @@ describe('AdminWebhooksComponent', () => {
     c.urlModel.set('https://hooks.yourapp.com/x');
     expect(c.urlInvalid()).toBe(false);
   });
+
+  it('renders the event checkboxes through Spartan hlmCheckbox (cyan accent + focus ring)', () => {
+    build({ id: 's1' });
+    const boxes = all('input[type=checkbox][hlmCheckbox]');
+    expect(boxes.length).toBeGreaterThan(0);
+    expect(boxes.every((b) => !b.className.includes('accent-primary'))).toBeTrue();
+  });
 });

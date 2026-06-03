@@ -16,7 +16,7 @@ import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
-import { HlmButtonDirective, HlmInputDirective } from '../../../ui';
+import { HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective } from '../../../ui';
 
 /** Mirrors the worker's WEBHOOK_EVENT_TYPES allowlist. */
 const EVENT_TYPES = ['site.published', 'form.submitted', 'payment.succeeded', 'review.received', 'build.failed', 'domain.active'];
@@ -39,7 +39,7 @@ interface Delivery {
 @Component({
   selector: 'app-admin-webhooks',
   standalone: true,
-  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective],
+  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -81,7 +81,7 @@ interface Delivery {
             <div class="flex flex-wrap gap-3 mt-2">
               @for (ev of eventTypes; track ev) {
                 <label class="inline-flex items-center gap-2 cursor-pointer text-sm text-light">
-                  <input type="checkbox" class="accent-primary w-4 h-4" [attr.data-testid]="'webhooks-event-' + ev"
+                  <input type="checkbox" hlmCheckbox [attr.data-testid]="'webhooks-event-' + ev"
                     [checked]="selected().includes(ev)" (change)="toggleEvent(ev)" />
                   <span>{{ ev }}</span>
                 </label>

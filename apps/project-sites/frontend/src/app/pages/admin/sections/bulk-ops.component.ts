@@ -24,7 +24,7 @@ import { ToastService } from '../../../services/toast.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
-import { HlmButtonDirective, HlmInputDirective } from '../../../ui';
+import { HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective } from '../../../ui';
 
 type BulkOperation = 'archive' | 'set_flag' | 'republish';
 
@@ -70,6 +70,7 @@ interface BulkApplyResult {
     DialogShellComponent,
     HlmButtonDirective,
     HlmInputDirective,
+    HlmCheckboxDirective,
   ],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
@@ -109,7 +110,7 @@ interface BulkApplyResult {
               />
             </label>
             <label class="inline-flex items-center gap-2 pb-2 cursor-pointer">
-              <input type="checkbox" data-testid="bulk-ops-enabled" class="accent-primary w-4 h-4" [(ngModel)]="enabledModel" />
+              <input type="checkbox" hlmCheckbox data-testid="bulk-ops-enabled" [(ngModel)]="enabledModel" />
               <span class="text-sm text-light">Enabled</span>
             </label>
           </div>

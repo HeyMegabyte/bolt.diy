@@ -148,4 +148,11 @@ describe('AdminBulkOpsComponent', () => {
     expect(fixture.componentInstance.applyResults()?.applied).toEqual(['s1', 's2']);
     expect(all('[data-testid="bulk-ops-apply-fail-row"]').length).toBe(1);
   });
+
+  it('renders the set-flag enabled checkbox through Spartan hlmCheckbox (cyan accent + focus ring)', () => {
+    fixture.componentInstance.operationModel.set('set_flag');
+    fixture.detectChanges();
+    expect(q('input[data-testid="bulk-ops-enabled"][hlmCheckbox]')).not.toBeNull();
+    expect(q('[data-testid="bulk-ops-enabled"]')?.className ?? '').not.toContain('accent-primary');
+  });
 });

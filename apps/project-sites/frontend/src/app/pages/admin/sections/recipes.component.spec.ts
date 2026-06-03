@@ -224,4 +224,11 @@ describe('AdminRecipesComponent', () => {
     // The hand-rolled control border class is gone (Spartan owns the chrome).
     expect(q('[data-testid="recipes-trigger"]')?.className ?? '').not.toContain('border-white/[0.12]');
   });
+
+  it('renders the enabled checkbox through Spartan hlmCheckbox (cyan accent + focus ring)', () => {
+    build({ id: 's1' });
+    const boxes = all('input[type=checkbox][hlmCheckbox]');
+    expect(boxes.length).toBeGreaterThan(0);
+    expect(boxes.every((b) => !b.className.includes('accent-primary'))).toBeTrue();
+  });
 });

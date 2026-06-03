@@ -16,7 +16,7 @@ import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
-import { HlmButtonDirective, HlmInputDirective, HlmSelectDirective } from '../../../ui';
+import { HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective } from '../../../ui';
 
 /** Mirror the worker allowlists (services/automation_builder.ts). */
 const TRIGGERS = ['form.submitted', 'site.published', 'payment.succeeded', 'review.received', 'build.failed', 'domain.active'];
@@ -33,7 +33,7 @@ interface Recipe {
 @Component({
   selector: 'app-admin-recipes',
   standalone: true,
-  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmSelectDirective],
+  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -97,7 +97,7 @@ interface Recipe {
               {{ creating() ? 'Creating…' : 'Add recipe' }}
             </button>
             <label class="inline-flex items-center gap-2 cursor-pointer text-sm text-light">
-              <input type="checkbox" class="accent-primary w-4 h-4" [(ngModel)]="enabledModel" />
+              <input type="checkbox" hlmCheckbox [(ngModel)]="enabledModel" />
               <span>Enabled</span>
             </label>
           </div>
