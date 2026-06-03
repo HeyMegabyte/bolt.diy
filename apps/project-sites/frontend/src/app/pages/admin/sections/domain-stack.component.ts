@@ -11,13 +11,16 @@
  *
  * Route: `/admin/domains/:id/stack`
  *
- * Design tokens: `--ps-bg`, `--ps-ink`, `--ps-accent`. All numbers use
- * `<app-rolling-counter>`; every section uses `appReveal`.
+ * Design tokens: `--ps-bg`, `--ps-ink`, `--ps-accent`, `--ck-warning` — never
+ * hardcoded hex. All numbers use `<app-rolling-counter>`; every section uses
+ * `appReveal`. A cyan completion meter (`role=progressbar`) + an `aria-live`
+ * region announce setup progress; tiles carry per-step `aria-label`s and
+ * `prefers-reduced-motion`-gated motion (WCAG 2.2 AA).
  *
  * @packageDocumentation
  */
 import {
-  Component, inject, signal, computed, effect, OnDestroy, input,
+  Component, inject, signal, computed, effect, OnDestroy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
@@ -58,7 +61,7 @@ interface StackAdvanceResponse {
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <!-- Header -->
-      <header class="flex items-start justify-between gap-4 flex-wrap">
+      <header class="flex items-start justify-between gap-4 flex-wrap" appReveal>
         <div>
           <div class="kicker">Domain Stack</div>
           <h2 class="section-h text-lg font-bold text-white m-0">
@@ -69,14 +72,16 @@ interface StackAdvanceResponse {
           </p>
         </div>
         <div class="flex items-center gap-3">
-          <a routerLink="/admin/domains" class="btn-ghost text-xs">← Domains</a>
+          <a routerLink="/admin/domains" class="btn-ghost text-xs ds-focus">← Domains</a>
           @if (canAdvance()) {
-            <button class="btn-primary text-xs" (click)="advance()" [disabled]="advancing()">
+            <button class="btn-primary text-xs ds-focus" type="button" (click)="advance()" [disabled]="advancing()"
+                    [attr.aria-label]="advancing() ? 'Advancing domain stack wizard' : 'Advance domain stack wizard'">
               {{ advancing() ? 'Running…' : 'Advance' }}
             </button>
           }
           @if (runId()) {
-            <button class="btn-ghost text-xs" (click)="refresh()" [disabled]="loading()">Refresh</button>
+            <button class="btn-ghost text-xs ds-focus" type="button" (click)="refresh()" [disabled]="loading()"
+                    aria-label="Refresh stack status">Refresh</button>
           }
         </div>
       </header>
@@ -111,15 +116,27 @@ interface StackAdvanceResponse {
 
       <!-- Progress board -->
       @if (hostname() && tiles().length > 0) {
-        <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+        <!-- Completion meter (cyan/black UX win) -->
+        <div class="ds-meter" appReveal role="progressbar"
+             [attr.aria-valuenow]="doneCount()" aria-valuemin="0" [attr.aria-valuemax]="tiles().length"
+             [attr.aria-label]="doneCount() + ' of ' + tiles().length + ' stack steps complete'">
+          <div class="ds-meter-fill" [style.width.%]="completionPct()"></div>
+          <span class="ds-meter-label">
+            <app-rolling-counter [value]="completionPct()" suffix="%" /> configured
+          </span>
+        </div>
+
+        <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3"
+                 role="list" aria-label="Domain stack setup steps">
           @for (tile of tiles(); track tile.step) {
-            <div class="stack-tile" [attr.data-status]="tile.status">
+            <div class="stack-tile" [attr.data-status]="tile.status" role="listitem"
+                 [attr.aria-label]="tile.label + ': ' + statusLabel(tile.status)">
               <!-- Status icon -->
-              <div class="tile-icon">
-                @if (tile.status === 'done') { <span class="text-[--ps-accent]">✓</span> }
-                @if (tile.status === 'in_progress') { <span class="tile-spin">⟳</span> }
+              <div class="tile-icon" aria-hidden="true">
+                @if (tile.status === 'done') { <span class="tile-done">✓</span> }
+                @if (tile.status === 'in_progress') { <span class="tile-spin tile-run">⟳</span> }
                 @if (tile.status === 'pending') { <span class="text-text-secondary">○</span> }
-                @if (tile.status === 'error') { <span class="text-red-400">✗</span> }
+                @if (tile.status === 'error') { <span class="tile-err">✗</span> }
               </div>
               <p class="tile-label">{{ tile.label }}</p>
               @if (tile.error) {
@@ -129,20 +146,23 @@ interface StackAdvanceResponse {
           }
         </section>
 
+        <!-- Live region: announces running step to assistive tech -->
+        <p class="sr-only" role="status" aria-live="polite">{{ liveStatus() }}</p>
+
         <!-- Summary stats -->
-        <div class="flex gap-6 text-xs text-text-secondary">
+        <div class="flex gap-6 text-xs text-text-secondary" appReveal>
           <span>Done: <app-rolling-counter [value]="doneCount()" /></span>
           <span>Pending: <app-rolling-counter [value]="pendingCount()" /></span>
           <span>Retries: <app-rolling-counter [value]="retries()" /></span>
         </div>
 
         @if (currentState() === 'done') {
-          <div class="callout-success text-sm">
+          <div class="callout-success text-sm" role="status">
             Stack complete — domain is fully configured.
           </div>
         }
         @if (currentState() === 'error') {
-          <div class="callout-error text-sm">
+          <div class="callout-error text-sm" role="alert">
             {{ lastError() ?? 'Stack errored — see tile above.' }}
           </div>
         }
@@ -151,12 +171,19 @@ interface StackAdvanceResponse {
       @if (!featureDisabled() && hostname() && tiles().length === 0 && !loading()) {
         <div class="empty-card">
           <p class="text-text-secondary text-sm">No stack run yet for <strong class="text-white">{{ hostname() }}</strong>.</p>
-          <button class="btn-primary text-xs mt-3" (click)="start()">Start Wizard</button>
+          <button class="btn-primary text-xs mt-3 ds-focus" type="button" (click)="start()"
+                  aria-label="Start the domain stack wizard">Start Wizard</button>
         </div>
       }
     </div>
   `,
   styles: [`
+    :host {
+      --ds-accent: var(--ps-accent, #00e5ff);
+      --ds-warn: var(--ck-warning, #ffd166);
+      --ds-err: #f87171;
+      --ds-line: color-mix(in oklch, #ffffff 7%, transparent);
+    }
     .stack-tile {
       display: flex;
       flex-direction: column;
@@ -164,22 +191,69 @@ interface StackAdvanceResponse {
       gap: 6px;
       padding: 10px 8px;
       border-radius: 10px;
-      border: 1px solid rgba(255,255,255,.07);
-      background: rgba(0,229,255,.03);
+      border: 1px solid var(--ds-line);
+      background: color-mix(in oklch, var(--ds-accent) 3%, transparent);
       text-align: center;
-      transition: border-color .2s;
+      transition: border-color .2s, box-shadow .2s;
     }
-    .stack-tile[data-status="done"]        { border-color: rgba(0,229,255,.35); }
-    .stack-tile[data-status="in_progress"] { border-color: rgba(255,200,0,.4); animation: pulse 1.5s infinite; }
-    .stack-tile[data-status="error"]       { border-color: rgba(255,80,80,.4); }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+    .stack-tile[data-status="done"]        { border-color: color-mix(in oklch, var(--ds-accent) 35%, transparent); }
+    .stack-tile[data-status="in_progress"] { border-color: color-mix(in oklch, var(--ds-warn) 45%, transparent); animation: pulse 1.5s infinite; }
+    .stack-tile[data-status="error"]       { border-color: color-mix(in oklch, var(--ds-err) 45%, transparent); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.62} }
     .tile-icon { font-size:1.2rem; line-height:1; }
+    .tile-done { color: var(--ds-accent); }
+    .tile-err  { color: var(--ds-err); }
+    .tile-run  { color: var(--ds-warn); }
     .tile-spin { display:inline-block; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .tile-label { font-size:.65rem; color: var(--ps-ink,#f4f4ff); opacity:.8; margin:0; line-height:1.3; }
-    .tile-error  { font-size:.58rem; color: #f87171; margin:0; word-break:break-word; }
-    .callout-success { background:rgba(0,229,255,.08); border:1px solid rgba(0,229,255,.3); border-radius:8px; padding:10px 14px; color:var(--ps-accent,#00e5ff); }
-    .callout-error   { background:rgba(255,80,80,.08); border:1px solid rgba(255,80,80,.3); border-radius:8px; padding:10px 14px; color:#f87171; }
+    .tile-label { font-size:.65rem; color: var(--ps-ink, #f4f4ff); opacity:.8; margin:0; line-height:1.3; }
+    .tile-error  { font-size:.58rem; color: var(--ds-err); margin:0; word-break:break-word; }
+    .callout-success { background: color-mix(in oklch, var(--ds-accent) 8%, transparent); border:1px solid color-mix(in oklch, var(--ds-accent) 30%, transparent); border-radius:8px; padding:10px 14px; color: var(--ds-accent); }
+    .callout-error   { background: color-mix(in oklch, var(--ds-err) 8%, transparent); border:1px solid color-mix(in oklch, var(--ds-err) 30%, transparent); border-radius:8px; padding:10px 14px; color: var(--ds-err); }
+
+    /* Completion meter — cyan fill on black track */
+    .ds-meter {
+      position: relative;
+      height: 30px;
+      border-radius: 8px;
+      border: 1px solid var(--ds-line);
+      background: color-mix(in oklch, #000 30%, var(--ps-bg, #060610));
+      overflow: hidden;
+    }
+    .ds-meter-fill {
+      position: absolute; inset: 0 auto 0 0;
+      background: linear-gradient(90deg, color-mix(in oklch, var(--ds-accent) 28%, transparent), var(--ds-accent));
+      box-shadow: 0 0 18px color-mix(in oklch, var(--ds-accent) 45%, transparent);
+      transition: width .5s cubic-bezier(.22,1,.36,1);
+    }
+    .ds-meter-label {
+      position: relative; z-index: 1;
+      display: flex; align-items: center; justify-content: center;
+      height: 100%;
+      font-size: .68rem; font-weight: 600;
+      color: var(--ps-ink, #f4f4ff);
+      text-shadow: 0 1px 2px rgba(0,0,0,.6);
+      letter-spacing: .02em;
+    }
+
+    /* Cyan focus ring — WCAG 2.4.11/2.4.7, ≥3:1 */
+    .ds-focus:focus-visible {
+      outline: 2px solid var(--ds-accent);
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
+
+    .sr-only {
+      position: absolute; width: 1px; height: 1px;
+      padding: 0; margin: -1px; overflow: hidden;
+      clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .stack-tile[data-status="in_progress"] { animation: none; }
+      .tile-spin { animation: none; }
+      .ds-meter-fill { transition: none; }
+    }
   `],
 })
 export class AdminDomainStackComponent implements OnDestroy {
@@ -205,10 +279,28 @@ export class AdminDomainStackComponent implements OnDestroy {
 
   readonly doneCount = computed(() => this.tiles().filter((t) => t.status === 'done').length);
   readonly pendingCount = computed(() => this.tiles().filter((t) => t.status === 'pending').length);
+  /** Integer 0-100 completion for the cyan meter + rolling counter. */
+  readonly completionPct = computed(() => {
+    const total = this.tiles().length;
+    return total === 0 ? 0 : Math.round((this.doneCount() / total) * 100);
+  });
+  /** ARIA live-region copy that names the currently-running step. */
+  readonly liveStatus = computed(() => {
+    const running = this.tiles().find((t) => t.status === 'in_progress');
+    if (running) return `Configuring ${running.label}…`;
+    if (this.currentState() === 'done') return 'Domain stack complete.';
+    if (this.currentState() === 'error') return 'Domain stack errored.';
+    return '';
+  });
   readonly canAdvance = computed(() => {
     const s = this.currentState();
     return this.hostname() && s !== 'done' && s !== 'error';
   });
+
+  /** Human-readable status word for per-tile aria-label. */
+  statusLabel(status: StackTile['status']): string {
+    return status === 'in_progress' ? 'in progress' : status;
+  }
 
   constructor() {
     effect(() => {
