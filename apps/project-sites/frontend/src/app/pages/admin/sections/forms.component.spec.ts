@@ -5,6 +5,7 @@ import { AdminFormsComponent } from './forms.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
+import { provideRouter } from '@angular/router';
 
 /**
  * Convergence r17 — cyan/black cohesion + a11y guard for the Forms section.
@@ -65,6 +66,8 @@ describe('AdminFormsComponent (cohesion + a11y, convergence r17)', () => {
           },
         },
         { provide: AdminStateService, useValue: { selectedSite } },
+        // routerLinks in the template need ActivatedRoute (added by a later worktree); provide a no-op router.
+        provideRouter([]),
       ],
     });
     fixture = TestBed.createComponent(AdminFormsComponent);
