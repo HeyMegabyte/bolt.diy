@@ -11,6 +11,7 @@ import { EnvVarsManagerComponent } from '../../../components/env-vars-manager/en
 import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
 interface Member { id: string; email: string; name: string | null; role: string; created_at: string; }
 interface Invite { id: string; email: string; role: string; created_at: string; expires_at: string; }
@@ -38,7 +39,7 @@ const PROVIDERS = MCP_PROVIDERS;
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [RevealDirective, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, RollingCounterComponent, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -58,15 +59,34 @@ const PROVIDERS = MCP_PROVIDERS;
         <!-- Filter-tabs search bar removed — Cmd-K palette is the search entry point now. -->
       </header>
 
-      <nav class="flex gap-2 flex-wrap text-[0.78rem]">
+      <!-- Cyan/black stat strip — animated counts give the section a cockpit
+           pulse + an at-a-glance read of project integration state. Counters
+           roll on first paint per the cinematic-ui mandate; aria-labels carry
+           the meaning for AT users. -->
+      <div class="stat-strip" appReveal role="group" aria-label="Settings overview">
+        <div class="stat-cell">
+          <span class="stat-val" [attr.aria-label]="connections().length + ' connected MCPs'"><app-rolling-counter [value]="connections().length" /></span>
+          <span class="stat-lbl">Connected MCPs</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-val" [attr.aria-label]="providers.length + ' available integrations'"><app-rolling-counter [value]="providers.length" /></span>
+          <span class="stat-lbl">Available integrations</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-val" [attr.aria-label]="members().length + ' team members'"><app-rolling-counter [value]="members().length" /></span>
+          <span class="stat-lbl">Team members</span>
+        </div>
+      </div>
+
+      <nav class="flex gap-2 flex-wrap text-[0.78rem]" role="tablist" aria-label="Settings sections">
         @for (t of tabs; track t.id) {
-          <button class="tab" [class.active]="tab() === t.id" (click)="setTab(t.id)" [title]="t.desc">{{ t.label }}</button>
+          <button class="tab" role="tab" [class.active]="tab() === t.id" [attr.aria-selected]="tab() === t.id" (click)="setTab(t.id)" [title]="t.desc">{{ t.label }}</button>
         }
       </nav>
 
       <!-- ─────────────────── GENERAL ─────────────────── -->
       @if (tab() === 'general') {
-        <section class="card grid md:grid-cols-2 gap-5">
+        <section class="card grid md:grid-cols-2 gap-5" appReveal>
           <div class="md:col-span-2">
             <h3 class="m-0 text-base font-semibold text-white mb-1">General</h3>
             <p class="text-[0.7rem] text-text-secondary m-0">Public-facing details + how the AI router responds.</p>
@@ -578,7 +598,23 @@ const PROVIDERS = MCP_PROVIDERS;
     </div>
   `,
   styles: [`
-    :host { display: block; --accent: #00E5FF; }
+    :host { display: block; --accent: var(--ps-accent, #00E5FF); }
+    /* Cyan/black overview stat strip — cockpit pulse above the tabs. */
+    .stat-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
+    @media (max-width: 640px) { .stat-strip { grid-template-columns: 1fr; } }
+    .stat-cell {
+      display: flex; flex-direction: column; gap: 0.15rem;
+      padding: 0.85rem 1.1rem;
+      border-radius: var(--ps-radius-md, 12px);
+      background: linear-gradient(135deg, color-mix(in oklch, var(--accent) 8%, transparent), transparent);
+      border: 1px solid color-mix(in oklch, var(--accent) 18%, transparent);
+      box-shadow: var(--ps-shadow-card, inset 0 0 0 1px rgba(255,255,255,0.02));
+      transition: border-color 200ms ease, transform 200ms ease;
+    }
+    .stat-cell:hover { border-color: color-mix(in oklch, var(--accent) 34%, transparent); transform: translateY(-1px); }
+    .stat-val { font-family: 'Sora', system-ui, sans-serif; font-weight: 700; font-size: 1.5rem; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+    .stat-lbl { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; }
+    @media (prefers-reduced-motion: reduce) { .stat-cell { transition: none; } .stat-cell:hover { transform: none; } }
     h2, h3 { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
     .card { background: rgba(255,255,255,0.02); border: 1px solid color-mix(in oklch, var(--accent) 14%, transparent); border-radius: 14px; padding: 1.4rem; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02); transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease; }
     .card:hover { transform: translateY(-1px); border-color: color-mix(in oklch, var(--accent) 28%, transparent); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 8px 24px -16px rgba(0,229,255,0.18); }
@@ -599,8 +635,9 @@ const PROVIDERS = MCP_PROVIDERS;
       .btn-primary, .btn-ghost { width: 100%; }
     }
     .tab { padding: 0.4rem 0.95rem; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); cursor: pointer; font-size: 0.74rem; font-weight: 600; transition: all 120ms ease; }
-    .tab:hover { color: #fff; border-color: rgba(0,229,255,0.25); }
-    .tab.active { background: rgba(0,229,255,0.12); color: #00E5FF; border-color: rgba(0,229,255,0.35); }
+    .tab:hover { color: #fff; border-color: color-mix(in oklch, var(--accent) 25%, transparent); }
+    .tab.active { background: color-mix(in oklch, var(--accent) 12%, transparent); color: var(--accent); border-color: color-mix(in oklch, var(--accent) 35%, transparent); }
+    .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .badge { font-size: 0.6rem; text-transform: uppercase; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(0,229,255,0.1); color: #00E5FF; }
     /* All inputs/textareas/selects now carry Spartan hlmInput/hlmSelect — the
        old .input-field / select.input-field rules are gone (fully converged). */
@@ -618,6 +655,9 @@ const PROVIDERS = MCP_PROVIDERS;
       .btn-primary:hover, .btn-ghost:hover { transform: none; box-shadow: none; }
     }
     .muted-h { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; }
+    /* Native color swatches drop their focus ring with border-0 — restore a cyan
+       focus-visible ring so keyboard users can see the active brand-color picker. */
+    input[type="color"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--ps-radius-sm, 8px); }
     .brand-preview { display: flex; align-items: center; gap: 0.85rem; padding: 0.95rem 1.1rem; border-radius: 12px; background: linear-gradient(135deg, color-mix(in oklab, var(--bp-primary) 22%, transparent), color-mix(in oklab, var(--bp-accent) 14%, transparent)); border: 1px solid color-mix(in oklab, var(--bp-primary) 28%, transparent); }
     .bp-bar { display: inline-flex; align-items: center; gap: 6px; padding: 0.32rem 0.7rem; border-radius: 999px; background: rgba(0,0,0,0.3); color: rgba(255,255,255,0.8); font-size: 0.72rem; }
     .bp-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bp-primary); box-shadow: 0 0 8px var(--bp-primary); }
@@ -757,7 +797,8 @@ const PROVIDERS = MCP_PROVIDERS;
       gap: 0.4rem;
       transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
     }
-    .mcp-btn:hover { border-color: rgba(0,229,255,0.32); color: #fff; background: rgba(255,255,255,0.06); }
+    .mcp-btn:hover { border-color: color-mix(in oklch, var(--accent) 32%, transparent); color: #fff; background: rgba(255,255,255,0.06); }
+    .mcp-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .mcp-btn-oauth { color: rgba(255,255,255,0.8); }
     .mcp-btn-oauth svg { opacity: 0.7; }
     .mcp-btn-oauth:hover svg { opacity: 1; color: #00E5FF; }
