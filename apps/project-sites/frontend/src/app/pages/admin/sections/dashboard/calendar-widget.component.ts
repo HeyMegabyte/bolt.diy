@@ -229,12 +229,12 @@ interface BookingDraft {
               <button type="button" (click)="closeEditor()" aria-label="Close" class="m-x">×</button>
             </div>
             <div class="m-row">
-              <label>Start</label>
-              <input hlmInput type="datetime-local" [(ngModel)]="form.start" />
+              <label for="cal-evt-start">Start</label>
+              <input id="cal-evt-start" hlmInput type="datetime-local" [(ngModel)]="form.start" />
             </div>
             <div class="m-row">
-              <label>End</label>
-              <input hlmInput type="datetime-local" [(ngModel)]="form.end" />
+              <label for="cal-evt-end">End</label>
+              <input id="cal-evt-end" hlmInput type="datetime-local" [(ngModel)]="form.end" />
             </div>
             <div class="m-row m-toggle">
               <label><input type="checkbox" [(ngModel)]="form.allDay" /> All day</label>
@@ -249,12 +249,12 @@ interface BookingDraft {
               </label>
             </div>
             <div class="m-row">
-              <label>Location</label>
-              <input hlmInput type="text" [(ngModel)]="form.location" placeholder="Address or video link" />
+              <label for="cal-evt-location">Location</label>
+              <input id="cal-evt-location" hlmInput type="text" [(ngModel)]="form.location" placeholder="Address or video link" />
             </div>
             <div class="m-row">
-              <label>Notes</label>
-              <textarea hlmInput [multiline]="true" rows="2" [(ngModel)]="form.description"></textarea>
+              <label for="cal-evt-notes">Notes</label>
+              <textarea id="cal-evt-notes" hlmInput [multiline]="true" rows="2" [(ngModel)]="form.description"></textarea>
             </div>
             <div class="m-act">
               @if (form.id) {

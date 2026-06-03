@@ -73,3 +73,47 @@ describe('CalendarWidgetComponent (destructive deleteEvent is confirm-guarded)',
     expect(del).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * WCAG 1.3.1 — the event editor's Start/End/Location/Notes fields had VISIBLE
+ * <label> siblings that weren't associated (no for/id), so a screen reader
+ * didn't announce the field's purpose. Associate label[for] ↔ control[id].
+ * (Title already has aria-label; All-day + Repeat use wrapping <label>.)
+ */
+describe('CalendarWidgetComponent (event-editor label association)', () => {
+  function render(): HTMLElement {
+    TestBed.configureTestingModule({
+      imports: [CalendarWidgetComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get: () => of({ data: [] }), post: () => of({}), patch: () => of({}), delete: () => of({}) } },
+        { provide: AuthService, useValue: { getToken: () => 'tok' } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0 } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } },
+        { provide: Router, useValue: { navigate: () => undefined } },
+      ],
+    });
+    const fx = TestBed.createComponent(CalendarWidgetComponent);
+    fx.detectChanges();              // ngOnInit (empty loads)
+    fx.componentInstance.editor.set(true);
+    fx.detectChanges();
+    return fx.nativeElement as HTMLElement;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('associates Start / End / Location / Notes with their visible labels', () => {
+    const el = render();
+    // Every labelled m-row control (Start/End/Location/Notes) must be reachable by a label[for].
+    const rows = Array.from(el.querySelectorAll('.m-row'));
+    let checked = 0;
+    for (const r of rows) {
+      const lbl = r.querySelector(':scope > label');
+      const ctrl = r.querySelector('input[type="datetime-local"], input[type="text"], textarea') as HTMLElement | null;
+      if (lbl && ctrl) {
+        checked++;
+        expect(ctrl.id).withContext(`${lbl.textContent?.trim()} control has an id`).toBeTruthy();
+        expect(el.querySelector(`label[for="${ctrl.id}"]`)).withContext(`${lbl.textContent?.trim()} label[for] points to it`).toBeTruthy();
+      }
+    }
+    expect(checked).toBeGreaterThanOrEqual(3);
+  });
+});
