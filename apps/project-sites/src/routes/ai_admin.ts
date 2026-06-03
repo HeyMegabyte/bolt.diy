@@ -36,7 +36,8 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { getBalance, topupCredits, CREDIT_BUNDLES, type BundleKey } from '../services/credits.js';
-import { transferOwnership } from '../services/team_seats.js';
+import { transferOwnership, canInviteMember, countSeatUsage, resolveSeatLimit } from '../services/team_seats.js';
+import { getOrgEntitlements } from '../services/billing.js';
 import { allProviders } from '../services/mcp_client.js';
 import { DEFAULT_ROUTER_PROMPT, DEFAULT_CHAT_SYSTEM_PROMPT } from '../services/form_router.js';
 import { DASHBOARD_PERSONA_SYSTEM_PROMPT } from '../prompts/dashboard_persona.js';
@@ -1194,6 +1195,14 @@ aiAdmin.post('/api/team/invites', async (c) => {
   const { orgId, userId } = need(c);
   const { email, role } = (await c.req.json()) as { email: string; role: 'owner' | 'editor' | 'viewer' };
   if (!email || !role) throw new HTTPError(400, 'email + role required');
+
+  // Seat-cap enforcement (#8): active members + pending invites both consume a
+  // seat. The limit is resolved from the org's plan entitlements (free=1,
+  // paid=10, -1=unlimited) — not a new table or flag. 409 + reason when full.
+  const seatLimit = resolveSeatLimit(await getOrgEntitlements(c.env.DB, orgId));
+  const decision = canInviteMember(await countSeatUsage(c.env, orgId), seatLimit);
+  if (!decision.allowed) throw new HTTPError(409, decision.reason ?? 'Seat limit reached');
+
   const id = crypto.randomUUID();
   const token = crypto.randomUUID().replace(/-/g, '');
   const tokenHash = Array.from(new Uint8Array(

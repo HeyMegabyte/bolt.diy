@@ -160,6 +160,8 @@ export const entitlementsSchema = z.object({
   maxCustomDomains: z.number().int().min(0).max(10),
   chatEnabled: z.boolean(),
   analyticsEnabled: z.boolean(),
+  /** Team seat cap; `-1` means unlimited. */
+  maxTeamSeats: z.number().int().min(-1),
 });
 
 /**

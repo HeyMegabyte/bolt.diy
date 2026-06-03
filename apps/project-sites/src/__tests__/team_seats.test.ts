@@ -3,8 +3,26 @@ import {
   canInviteMember,
   canTransferOwnership,
   transferOwnership,
+  resolveSeatLimit,
+  countSeatUsage,
 } from '../services/team_seats.js';
 import type { Env } from '../types/env.js';
+
+/** Mock D1 for COUNT(*) queries: route SQL by table substring → { n }. */
+function mockCountEnv(counts: { members: number; invites: number }): Env {
+  return {
+    DB: {
+      prepare: (sql: string) => ({
+        bind: (..._args: unknown[]) => ({
+          all: async () => {
+            const n = sql.includes('team_invites') ? counts.invites : counts.members;
+            return { results: [{ n }] };
+          },
+        }),
+      }),
+    },
+  } as unknown as Env;
+}
 
 /** Mock D1: SELECT role via .first() keyed by user_id (bind arg 1); UPDATE records {role,user} (args 0,2). */
 function mockEnv(roles: Record<string, string | undefined>, updates: Array<{ role: string; user: string }>): Env {
@@ -62,6 +80,45 @@ describe('canInviteMember', () => {
 
   it('always allows under an unlimited plan', () => {
     expect(canInviteMember({ activeMembers: 999, pendingInvites: 0 }, -1).allowed).toBe(true);
+  });
+});
+
+describe('resolveSeatLimit', () => {
+  it('reads maxTeamSeats from entitlements', () => {
+    expect(resolveSeatLimit({ maxTeamSeats: 10 })).toBe(10);
+    expect(resolveSeatLimit({ maxTeamSeats: -1 })).toBe(-1);
+  });
+
+  it('falls back to a solo seat when entitlement is absent', () => {
+    expect(resolveSeatLimit(null)).toBe(1);
+    expect(resolveSeatLimit(undefined)).toBe(1);
+    expect(resolveSeatLimit({})).toBe(1);
+  });
+});
+
+describe('countSeatUsage', () => {
+  it('counts active members + pending invites from D1', async () => {
+    const env = mockCountEnv({ members: 3, invites: 2 });
+    await expect(countSeatUsage(env, 'org1')).resolves.toEqual({ activeMembers: 3, pendingInvites: 2 });
+  });
+});
+
+describe('invite seat-cap enforcement (route policy)', () => {
+  it('blocks a new invite once usage reaches the resolved seat limit', async () => {
+    // free plan resolves to 1 seat; the owner already fills it
+    const env = mockCountEnv({ members: 1, invites: 0 });
+    const limit = resolveSeatLimit({ maxTeamSeats: 1 });
+    const usage = await countSeatUsage(env, 'org1');
+    const decision = canInviteMember(usage, limit);
+    expect(decision.allowed).toBe(false);
+    expect(decision.reason).toContain('Seat limit reached');
+  });
+
+  it('allows an invite when the paid plan has seats free', async () => {
+    const env = mockCountEnv({ members: 3, invites: 1 });
+    const limit = resolveSeatLimit({ maxTeamSeats: 10 });
+    const usage = await countSeatUsage(env, 'org1');
+    expect(canInviteMember(usage, limit).allowed).toBe(true);
   });
 });
 

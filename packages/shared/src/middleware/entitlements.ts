@@ -66,6 +66,7 @@ export function getEntitlements(orgId: string, plan: Plan): Entitlements {
     maxCustomDomains: planEntitlements.maxCustomDomains,
     chatEnabled: planEntitlements.chatEnabled,
     analyticsEnabled: planEntitlements.analyticsEnabled,
+    maxTeamSeats: planEntitlements.maxTeamSeats,
   };
 }
 
