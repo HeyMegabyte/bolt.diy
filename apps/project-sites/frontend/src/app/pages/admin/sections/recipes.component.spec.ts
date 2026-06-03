@@ -52,7 +52,9 @@ describe('AdminRecipesComponent', () => {
 
   it('lists the site recipes', () => {
     build({ id: 's1' });
-    expect(get).toHaveBeenCalledWith('/sites/s1/recipes');
+    // Silent: the component owns its inline "Automations are not available"
+    // error, so the read must not trigger ApiService's generic network toast.
+    expect(get).toHaveBeenCalledWith('/sites/s1/recipes', undefined, { silent: true });
     expect(all('[data-testid="recipes-row"]').length).toBe(1);
   });
 

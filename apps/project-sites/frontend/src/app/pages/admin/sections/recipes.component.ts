@@ -255,7 +255,10 @@ export class AdminRecipesComponent {
     if (!id) return;
     this.loading.set(true);
     this.error.set(null);
-    this.api.get<{ ok: boolean; recipes: Recipe[] }>(`/sites/${id}/recipes`).subscribe({
+    // Silent: this component owns its accurate inline error ("Automations are
+    // not available for this site.") — the generic ApiService network toast
+    // would double-fire over it (the redundant-network-toast class).
+    this.api.get<{ ok: boolean; recipes: Recipe[] }>(`/sites/${id}/recipes`, undefined, { silent: true }).subscribe({
       next: (res) => {
         this.recipes.set(res.recipes ?? []);
         this.loading.set(false);
