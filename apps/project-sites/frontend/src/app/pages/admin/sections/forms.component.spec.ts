@@ -219,3 +219,39 @@ describe('AdminFormsComponent (submissions load-error gating)', () => {
     expect(c.loadError()).toBeNull();
   });
 });
+
+/**
+ * WCAG 4.1.2 — the "test a submission" panel inputs (form_name / email /
+ * fields-JSON) are placeholder-only with no visible <label>, so a screen
+ * reader announced them with no purpose. Add aria-label.
+ */
+describe('AdminFormsComponent (test-panel accessible names)', () => {
+  function render() {
+    TestBed.configureTestingModule({
+      imports: [AdminFormsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), put: () => of({}), post: () => of({ data: {} }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminFormsComponent);
+    fx.detectChanges();
+    fx.componentInstance.testOpen.set(true);
+    fx.detectChanges();
+    return fx.nativeElement as HTMLElement;
+  }
+  const named = (el: HTMLElement, sel: string): boolean => {
+    const c = el.querySelector(sel);
+    return !!c && !!(c.getAttribute('aria-label') || (c.id && el.querySelector(`label[for="${c.id}"]`)));
+  };
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('form_name / email / fields inputs have accessible names', () => {
+    const el = render();
+    expect(named(el, 'input[placeholder^="form_name"]')).withContext('form_name').toBeTrue();
+    expect(named(el, 'input[type="email"]')).withContext('email').toBeTrue();
+    expect(named(el, 'textarea[placeholder^="Other fields"]')).withContext('fields json').toBeTrue();
+  });
+});

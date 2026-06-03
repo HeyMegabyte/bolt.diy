@@ -190,10 +190,11 @@ const POLL_INTERVAL_MS = 10_000;
             </button>
           </div>
           <div class="grid sm:grid-cols-2 gap-2">
-            <input hlmInput placeholder="form_name (e.g. newsletter, contact)" [(ngModel)]="testInput.form_name" />
-            <input hlmInput type="email" placeholder="email" [(ngModel)]="testInput.email" />
+            <input hlmInput placeholder="form_name (e.g. newsletter, contact)" aria-label="Form name" [(ngModel)]="testInput.form_name" />
+            <input hlmInput type="email" placeholder="email" aria-label="Submitter email" [(ngModel)]="testInput.email" />
           </div>
           <textarea hlmInput [multiline]="true" class="w-full mt-2 font-mono text-[0.72rem]" rows="3" placeholder='Other fields as JSON, e.g. { "message": "hi", "name": "Brian" }'
+                    aria-label="Additional fields as JSON"
                     [(ngModel)]="testInput.fields_json"></textarea>
           <div class="flex justify-between items-center mt-2">
             <div class="flex items-center gap-1.5 flex-wrap">
@@ -271,6 +272,7 @@ const POLL_INTERVAL_MS = 10_000;
                       hlmInput
                       [multiline]="true"
                       class="designer-textarea font-mono"
+                      aria-label="Form router prompt"
                       [placeholder]="settings.form_router_prompt_default || 'Describe how form submissions should be routed…'"
                       [(ngModel)]="settings.form_router_prompt"></textarea>
 
@@ -405,6 +407,7 @@ const POLL_INTERVAL_MS = 10_000;
                   readonly
                   class="w-full mt-1 font-mono text-[0.68rem]"
                   rows="10"
+                  aria-label="Test result trace"
                   data-testid="forms-test-result"
                   [value]="testResultPretty()"
                 ></textarea>
