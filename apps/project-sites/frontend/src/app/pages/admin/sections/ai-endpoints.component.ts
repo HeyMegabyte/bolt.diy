@@ -187,7 +187,7 @@ interface InlineEdit {
                       <option value="PATCH">PATCH</option>
                     </select>
                   } @else {
-                    <span class="badge" [class.badge-post]="e.method === 'POST'" [class.badge-get]="e.method === 'GET'">{{ e.method }}</span>
+                    <span class="badge" [ngClass]="methodBadgeClass(e.method)">{{ e.method }}</span>
                   }
                   <span class="url-host">{{ baseUrl() }}/</span>
                   @if (editingId() === e.id) {
@@ -447,7 +447,7 @@ interface InlineEdit {
         <span overlayTitle>
           Web IDE — <code class="overlay-slug">/api/{{ overlayEndpoint()?.endpoint_slug }}</code>
           @if (overlayEndpoint(); as oe) {
-            <span class="overlay-method-badge" [class.badge-get]="oe.method === 'GET'" [class.badge-post]="oe.method === 'POST'">{{ oe.method }}</span>
+            <span class="overlay-method-badge" [ngClass]="methodBadgeClass(oe.method)">{{ oe.method }}</span>
           }
         </span>
         <span overlaySubtitle>
@@ -551,6 +551,12 @@ interface InlineEdit {
     .badge { font-size: 0.6rem; text-transform: uppercase; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: rgba(124,58,237,0.18); color: #c4b5fd; }
     .badge.badge-get { background: rgba(0,229,255,0.16); color: #00E5FF; }
     .badge.badge-post { background: rgba(124,58,237,0.18); color: #c4b5fd; }
+    /* PUT/PATCH/DELETE were indistinguishable (all fell through to purple).
+       Distinct, conventional method colors using the admin's existing semantic
+       palette (amber=update, teal=partial, red=destructive). */
+    .badge.badge-put { background: rgba(251,191,36,0.16); color: #fbbf24; }
+    .badge.badge-patch { background: rgba(45,212,191,0.16); color: #2dd4bf; }
+    .badge.badge-delete { background: rgba(248,113,113,0.16); color: #f87171; }
     .badge-select { font-size: 0.62rem; text-transform: uppercase; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(124,58,237,0.18); color: #c4b5fd; border: 1px solid rgba(124,58,237,0.3); }
     .url-host { color: rgba(255,255,255,0.55); }
     .url-slug { color: #00E5FF; text-decoration: none; margin-left: -8px; }
@@ -809,6 +815,9 @@ interface InlineEdit {
     }
     .overlay-method-badge.badge-get { background: rgba(0,229,255,0.16); color: #00E5FF; }
     .overlay-method-badge.badge-post { background: rgba(124,58,237,0.18); color: #c4b5fd; }
+    .overlay-method-badge.badge-put { background: rgba(251,191,36,0.16); color: #fbbf24; }
+    .overlay-method-badge.badge-patch { background: rgba(45,212,191,0.16); color: #2dd4bf; }
+    .overlay-method-badge.badge-delete { background: rgba(248,113,113,0.16); color: #f87171; }
     .overlay-sep { color: rgba(255,255,255,0.35); margin: 0 6px; }
     .overlay-status { text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.04em; color: #fbbf24; }
     .overlay-status.live { color: #4ade80; }
@@ -930,6 +939,22 @@ export class AdminAiEndpointsComponent implements OnInit {
   testerResponse = signal<string | null>(null);
   /** True when the fullscreen IDE takeover is rendered. */
   overlayOpen = computed(() => this.openId() !== null);
+  /**
+   * Map an HTTP method to its badge modifier class so each method is
+   * colour-distinct at a glance (was: only GET/POST styled → PUT/PATCH/DELETE
+   * all looked like POST). Uses the admin's existing semantic palette.
+   */
+  methodBadgeClass(method: string | null | undefined): string {
+    switch ((method ?? '').toUpperCase()) {
+      case 'GET': return 'badge-get';
+      case 'POST': return 'badge-post';
+      case 'PUT': return 'badge-put';
+      case 'PATCH': return 'badge-patch';
+      case 'DELETE': return 'badge-delete';
+      default: return ''; // BOTH / unknown → base badge styling
+    }
+  }
+
   /** Resolves the currently-open endpoint row (for overlay title/method badge). */
   overlayEndpoint = computed(() => {
     const id = this.openId();

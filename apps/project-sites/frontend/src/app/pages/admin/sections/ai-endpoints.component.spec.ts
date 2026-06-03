@@ -81,4 +81,19 @@ describe('AdminAiEndpointsComponent (endpoint-list load-error gating)', () => {
     c.loadLogs({ id: 'e1' } as never);
     expect(c.logsError()).toBeNull();
   });
+
+  // Each HTTP method gets a DISTINCT badge colour-class (was: only GET/POST,
+  // so PUT/PATCH/DELETE all looked like POST).
+  it('methodBadgeClass maps every method to a distinct class (PUT/PATCH/DELETE no longer alias POST)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    expect(c.methodBadgeClass('GET')).toBe('badge-get');
+    expect(c.methodBadgeClass('POST')).toBe('badge-post');
+    expect(c.methodBadgeClass('PUT')).toBe('badge-put');
+    expect(c.methodBadgeClass('PATCH')).toBe('badge-patch');
+    expect(c.methodBadgeClass('DELETE')).toBe('badge-delete');
+    expect(c.methodBadgeClass('BOTH')).toBe('');
+    expect(c.methodBadgeClass(null)).toBe('');
+    const classes = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => c.methodBadgeClass(m));
+    expect(new Set(classes).size).withContext('all five methods are visually distinct').toBe(5);
+  });
 });
