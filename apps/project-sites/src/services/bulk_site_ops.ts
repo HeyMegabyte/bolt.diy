@@ -18,7 +18,8 @@
  */
 
 import type { Env } from '../types/env.js';
-import { dbExecute } from './db.js';
+import { DOMAINS } from '@project-sites/shared';
+import { dbExecute, dbQueryOne } from './db.js';
 
 /** Operations a bulk request may apply across the caller's sites. */
 export type BulkOperation = 'set_flag' | 'republish' | 'archive';
@@ -203,4 +204,82 @@ export async function executeBulkSetFlag(
   }
 
   return { set, failed };
+}
+
+export interface BulkRepublishResult {
+  republished: string[];
+  failed: Array<{ id: string; error: string }>;
+}
+
+/**
+ * Re-publish each already-planned eligible site in bulk.
+ *
+ * This is the lightweight republish — NOT a full AI rebuild (that is the
+ * credit-burning `/api/sites/:id/reset` workflow path). The planner only marks
+ * a site `republish`-eligible when its status is already `'published'`, so the
+ * correct bulk action is to re-serve the existing R2 artifact fresh: re-assert
+ * `status='published'` + bump `updated_at` (a reversible, status-ONLY write —
+ * it NEVER touches `deleted_at`, idempotent on an already-published site), then
+ * bust the 60s `host:{slug}${SITES_SUFFIX}` KV cache so the live site picks the
+ * republish up immediately.
+ *
+ * Per id, the UPDATE is scoped by `org_id` AND `status='published'` AND
+ * `deleted_at IS NULL` as defense-in-depth even though the planner already
+ * filtered to the caller's owned, published sites: a raced delete / archive /
+ * wrong-org row matches nothing and is reported as `no_match` (never
+ * cross-tenant). A per-id DB error is captured without aborting the batch, and
+ * the cache for a site that did NOT commit is left untouched.
+ *
+ * @example
+ * ```ts
+ * const { republished, failed } = await executeBulkRepublish(env, orgId, plan.eligible);
+ * ```
+ */
+export async function executeBulkRepublish(
+  env: Env,
+  orgId: string,
+  ids: string[],
+): Promise<BulkRepublishResult> {
+  const republished: string[] = [];
+  const failed: Array<{ id: string; error: string }> = [];
+
+  for (const id of ids) {
+    // Resolve the slug under the same org + published + not-deleted scope. A null
+    // row means the site is foreign / archived / deleted — skip as no_match.
+    const row = await dbQueryOne<{ slug: string }>(
+      env.DB,
+      "SELECT slug FROM sites WHERE id = ? AND org_id = ? AND status = 'published' AND deleted_at IS NULL",
+      [id, orgId],
+    );
+    if (!row) {
+      failed.push({ id, error: 'no_match' });
+      continue;
+    }
+
+    let res;
+    try {
+      res = await dbExecute(
+        env.DB,
+        "UPDATE sites SET status = 'published', updated_at = datetime('now') WHERE id = ? AND org_id = ? AND status = 'published' AND deleted_at IS NULL",
+        [id, orgId],
+      );
+    } catch (err) {
+      failed.push({ id, error: err instanceof Error ? err.message : 'db error' });
+      continue;
+    }
+    if (res.error) {
+      failed.push({ id, error: res.error });
+      continue;
+    }
+    if (res.changes === 0) {
+      failed.push({ id, error: 'no_match' }); // raced delete/archive between SELECT and UPDATE
+      continue;
+    }
+
+    // Bust the host cache so the republished site re-serves immediately.
+    await env.CACHE_KV.delete(`host:${row.slug}${DOMAINS.SITES_SUFFIX}`).catch(() => {});
+    republished.push(id);
+  }
+
+  return { republished, failed };
 }

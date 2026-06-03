@@ -2,6 +2,7 @@ import {
   planBulkOperation,
   executeBulkArchive,
   executeBulkSetFlag,
+  executeBulkRepublish,
   MAX_BULK_SITES,
   type BulkSiteRef,
 } from '../services/bulk_site_ops.js';
@@ -188,5 +189,103 @@ describe('executeBulkSetFlag', () => {
     const res = await executeBulkSetFlag(mockFlagEnv(captured), [], 'review_synthesis', true, 'u');
     expect(res).toEqual({ set: [], failed: [] });
     expect(captured.length).toBe(0);
+  });
+});
+
+describe('executeBulkRepublish', () => {
+  /**
+   * D1 + KV mock for republish. The executor (per id):
+   *   1. SELECT slug FROM sites WHERE id=? AND org_id=? AND status='published' AND deleted_at IS NULL
+   *   2. UPDATE sites SET status='published', updated_at=... WHERE id=? AND org_id=? AND status='published' AND deleted_at IS NULL
+   *   3. CACHE_KV.delete(`host:${slug}.projectsites.dev`)  (bust the 60s host cache so the site re-serves)
+   *
+   * `slugById` maps an owned, published site id → its slug. An id missing from the
+   * map models a raced delete / archived / wrong-org row (the scoped SELECT returns null).
+   * `throwIds` makes the UPDATE throw for those ids.
+   */
+  function mockRepublishEnv(
+    slugById: Record<string, string>,
+    deletedKeys: string[],
+    throwIds: string[] = [],
+  ): Env {
+    return {
+      CACHE_KV: {
+        delete: async (key: string) => {
+          deletedKeys.push(key);
+        },
+      },
+      DB: {
+        prepare: (sql: string) => ({
+          bind: (id: string, _orgId: string) => ({
+            // SELECT slug path → single row or null
+            first: async () => {
+              const slug = slugById[id];
+              return slug ? { slug } : null;
+            },
+            all: async () => {
+              const slug = slugById[id];
+              return { results: slug ? [{ slug }] : [] };
+            },
+            // UPDATE path
+            run: async () => {
+              if (throwIds.includes(id)) throw new Error('db down');
+              const matched = sql.trim().toUpperCase().startsWith('UPDATE')
+                ? slugById[id]
+                  ? 1
+                  : 0
+                : 0;
+              return { meta: { changes: matched } };
+            },
+          }),
+        }),
+      },
+    } as unknown as Env;
+  }
+
+  it('republishes each owned, published site and busts its host cache', async () => {
+    const deleted: string[] = [];
+    const res = await executeBulkRepublish(
+      mockRepublishEnv({ a: 'alpha', b: 'beta' }, deleted),
+      'org1',
+      ['a', 'b'],
+    );
+    expect(res.republished.sort()).toEqual(['a', 'b']);
+    expect(res.failed).toEqual([]);
+    // The host KV cache (host:{slug}.projectsites.dev) was busted so the site re-serves immediately.
+    expect(deleted.sort()).toEqual(['host:alpha.projectsites.dev', 'host:beta.projectsites.dev']);
+  });
+
+  it('skips a foreign / missing / raced-delete site as no_match (never cross-tenant)', async () => {
+    const deleted: string[] = [];
+    const res = await executeBulkRepublish(
+      mockRepublishEnv({ a: 'alpha' }, deleted),
+      'org1',
+      ['a', 'someone-elses-or-deleted'],
+    );
+    expect(res.republished).toEqual(['a']);
+    expect(res.failed).toEqual([{ id: 'someone-elses-or-deleted', error: 'no_match' }]);
+    // Only the matched site's cache key was busted.
+    expect(deleted).toEqual(['host:alpha.projectsites.dev']);
+  });
+
+  it('captures a DB error per id without aborting the batch', async () => {
+    const deleted: string[] = [];
+    const res = await executeBulkRepublish(
+      mockRepublishEnv({ a: 'alpha', b: 'beta', c: 'gamma' }, deleted, ['b']),
+      'org1',
+      ['a', 'b', 'c'],
+    );
+    expect(res.republished.sort()).toEqual(['a', 'c']);
+    expect(res.failed.length).toBe(1);
+    expect(res.failed[0]?.id).toBe('b');
+    // The failed site's cache must NOT be busted (its republish did not commit).
+    expect(deleted.sort()).toEqual(['host:alpha.projectsites.dev', 'host:gamma.projectsites.dev']);
+  });
+
+  it('is a no-op for an empty eligible set', async () => {
+    const deleted: string[] = [];
+    const res = await executeBulkRepublish(mockRepublishEnv({}, deleted), 'org1', []);
+    expect(res).toEqual({ republished: [], failed: [] });
+    expect(deleted).toEqual([]);
   });
 });
