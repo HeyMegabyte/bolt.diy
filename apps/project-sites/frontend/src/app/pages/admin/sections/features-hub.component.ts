@@ -276,12 +276,14 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
     </section>
   `,
   styles: [`
-    :host { display: block; padding: 1.25rem 1.5rem 4rem; max-width: 1400px; margin: 0 auto; color: var(--ps-ink, #f4f4ff); }
+    :host { display: block; padding: 1.25rem 1.5rem 4rem; max-width: 1400px; margin: 0 auto; min-width: 0; overflow-x: clip; color: var(--ps-ink, #f4f4ff); }
     .hub-head { display: flex; align-items: start; justify-content: space-between; gap: 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .hub-head > * { min-width: 0; max-width: 100%; }
     .hub-head h1 { margin: 0 0 .25rem; font-size: clamp(1.5rem, 3vw, 2.25rem); }
-    .hub-sub { color: color-mix(in oklch, currentColor 65%, transparent); margin: 0; max-width: 72ch; }
+    .hub-sub { color: color-mix(in oklch, currentColor 65%, transparent); margin: 0; max-width: 72ch; overflow-wrap: anywhere; }
     .hub-sub a { color: var(--ps-accent, #00e5ff); }
-    .hub-search input { padding: .65rem .9rem; border-radius: 10px; background: color-mix(in oklch, var(--ps-bg, #060610) 65%, transparent); border: 1px solid color-mix(in oklch, currentColor 18%, transparent); color: inherit; font: inherit; min-width: 280px; }
+    .hub-search { flex: 1 1 240px; min-width: 0; }
+    .hub-search input { width: 100%; box-sizing: border-box; padding: .65rem .9rem; border-radius: 10px; background: color-mix(in oklch, var(--ps-bg, #060610) 65%, transparent); border: 1px solid color-mix(in oklch, currentColor 18%, transparent); color: inherit; font: inherit; min-width: 0; max-width: 360px; }
     .hub-search input:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
 
     .hub-tabs { display: flex; gap: .375rem; flex-wrap: wrap; margin-bottom: 1.5rem; padding: .25rem; background: color-mix(in oklch, var(--ps-bg, #060610) 60%, transparent); border: 1px solid color-mix(in oklch, currentColor 12%, transparent); border-radius: 12px; }
