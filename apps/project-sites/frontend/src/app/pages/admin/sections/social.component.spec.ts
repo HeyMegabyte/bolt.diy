@@ -134,3 +134,36 @@ describe('AdminSocialComponent (link fallback card)', () => {
     expect(host.querySelector('[data-testid="link-fallback-card"]')).toBeNull();
   });
 });
+
+/**
+ * Guards the RSS "Copy links" action that replaced the 501-dead "Schedule all":
+ * copies the previewed feed items to the clipboard as `Title — URL` lines.
+ */
+describe('AdminSocialComponent (RSS copy links)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('copies previewed feed items to the clipboard and toasts success', async () => {
+    const success = jasmine.createSpy('success');
+    const writeText = jasmine.createSpy('writeText').and.resolveTo(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ data: {} }), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success, warning: jasmine.createSpy('warning') } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigateByUrl: jasmine.createSpy('navigateByUrl') } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const fixture = TestBed.createComponent(AdminSocialComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.rssItems.set([
+      { title: 'A', url: 'https://x.com/a' },
+      { title: 'B', url: 'https://x.com/b' },
+    ]);
+    await fixture.componentInstance.copyRssLinks();
+    expect(writeText).toHaveBeenCalledWith('A — https://x.com/a\nB — https://x.com/b');
+    expect(success).toHaveBeenCalled();
+  });
+});

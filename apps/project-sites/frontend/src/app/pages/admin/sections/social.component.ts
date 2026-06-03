@@ -587,7 +587,10 @@ const PLATFORMS: readonly PlatformDef[] = [
                       <li><strong>{{ it.title }}</strong> · <a [href]="it.url" target="_blank" rel="noopener noreferrer">{{ it.url }}</a></li>
                     }
                   </ul>
-                  <button type="button" class="btn-primary" (click)="rssScheduleAll()">Schedule all (1/day stagger)</button>
+                  <div class="rss-actions">
+                    <button type="button" class="btn-primary" (click)="copyRssLinks()" data-testid="rss-copy-links">Copy {{ rssItems().length }} links</button>
+                    <span class="rss-hint">Paste into the composer — auto-scheduling lands soon.</span>
+                  </div>
                 }
               </div>
             </details>
@@ -1366,6 +1369,8 @@ const PLATFORMS: readonly PlatformDef[] = [
       }
       .rss-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; font-size: 0.74rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 75%, transparent); }
       .rss-list a { color: var(--ps-accent, #00e5ff); }
+      .rss-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+      .rss-hint { font-size: 0.68rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
 
       /* ── Post list ── */
       .list-pane { display: flex; flex-direction: column; gap: 10px; }
@@ -2318,19 +2323,22 @@ export class AdminSocialComponent implements OnInit {
       error: () => this.toast.error('Could not parse feed'),
     });
   }
-  rssScheduleAll(): void {
-    if (this.selected().length === 0) { this.toast.warning('Pick at least one platform first'); return; }
-    const sid = this.siteId();
-    if (!sid) return;
-    this.api.post('/social/import-rss', {
-      site_id: sid,
-      url: this.rssUrl,
-      platforms: this.selected(),
-      stagger_hours: 24,
-    }).subscribe({
-      next: () => { this.toast.success(`Queued ${this.rssItems().length} posts`); this.rssItems.set([]); this.rssUrl = ''; this.loadPosts(); },
-      error: () => this.toast.error('RSS import failed'),
-    });
+  /**
+   * Copy the previewed feed items to the clipboard as `Title — URL` lines, ready
+   * to paste into the composer. A real, working interim while auto-scheduling
+   * (which needs the worker schedule path) is built — replaces a button that
+   * previously 501'd with a misleading "RSS import failed" toast.
+   */
+  async copyRssLinks(): Promise<void> {
+    const items = this.rssItems();
+    if (items.length === 0) return;
+    const text = items.map((it) => `${it.title} — ${it.url}`).join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      this.toast.success(`Copied ${items.length} link${items.length === 1 ? '' : 's'} — paste into your post.`);
+    } catch {
+      this.toast.error('Could not copy — select the links manually.');
+    }
   }
 
   /* ── Calendar ── */
