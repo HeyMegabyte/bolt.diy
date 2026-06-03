@@ -211,8 +211,8 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
  * AG Grid's real `masterDetail: true` + `detailCellRenderer` API is Enterprise.
  * We mimic it cleanly in Community using two Community features:
  *
- * 1. **Synthetic detail rows** — when the user clicks the expand kebab on a
- *    trace row, we insert a sibling `TraceRow` with `_isDetail: true` right
+ * 1. **Synthetic detail rows** — when the user clicks a trace row, we insert
+ *    a sibling `TraceRow` with `_isDetail: true` right
  *    after it in `displayRows()`. The grid still treats it as a normal row.
  * 2. **`isFullWidthRow` + `fullWidthCellRenderer`** — these ARE Community.
  *    We tell the grid that any row with `_isDetail === true` should render
@@ -462,16 +462,6 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
     :host ::ng-deep .latency-cell .lat-fill.bad  { background: linear-gradient(90deg, rgba(239,68,68,0.65), rgba(239,68,68,0.08)); }
     :host ::ng-deep .latency-cell .lat-val { position: relative; z-index: 1; font-variant-numeric: tabular-nums; font-weight: 600; color: rgba(255,255,255,0.92); }
 
-    /* ─── Cell renderer: expand-kebab ────────────────────────────────── */
-    :host ::ng-deep .kebab-btn {
-      width: 26px; height: 26px; border-radius: 6px; border: 1px solid transparent;
-      background: transparent; color: rgba(255,255,255,0.55); cursor: pointer;
-      display: inline-flex; align-items: center; justify-content: center;
-      transition: background 140ms ease, color 140ms ease, border-color 140ms ease, transform 200ms ease;
-    }
-    :host ::ng-deep .kebab-btn:hover { background: rgba(0,229,255,0.12); color: #00E5FF; border-color: rgba(0,229,255,0.30); }
-    :host ::ng-deep .kebab-btn.is-open { background: rgba(0,229,255,0.18); color: #00E5FF; border-color: rgba(0,229,255,0.45); transform: rotate(90deg); }
-    @media (prefers-reduced-motion: reduce) { :host ::ng-deep .kebab-btn { transition: none; } }
 
     /* ─── Detail panel: master/detail expansion (cinematic) ──────────── */
     :host ::ng-deep .detail-card {
