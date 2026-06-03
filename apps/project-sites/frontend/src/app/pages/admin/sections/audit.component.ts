@@ -271,6 +271,7 @@ function actionToFallbackMessage(action: string): string {
     .skeleton { background: rgba(255,255,255,0.10); border-radius: 8px; animation: skel-pulse 1.4s ease-in-out infinite; }
     .skeleton-line { height: 28px; margin-top: 0.45rem; }
     @keyframes skel-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; opacity: 0.7; } }
     .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2.5rem 1.2rem; gap: 0.6rem; }
     .empty-icon { color: rgba(0, 229, 255, 0.65); }
     .empty-title { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; font-size: 1rem; color: #fff; margin: 0.2rem 0 0; }
