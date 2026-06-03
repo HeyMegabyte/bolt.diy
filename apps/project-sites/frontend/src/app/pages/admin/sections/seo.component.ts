@@ -12,10 +12,28 @@ import { RevealDirective } from '../../../directives/reveal.directive';
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" data-testid="seo-section">
 
       <!-- Header -->
-      <div class="seo-header">
+      <div class="seo-header" appReveal>
         <div class="kicker">Discovery</div>
         <h2 class="section-h text-lg font-bold text-white m-0">SEO</h2>
         <p class="text-[0.78rem] text-text-secondary m-0 mt-1">Optimize your site for search engines and social sharing.</p>
+      </div>
+
+      <!-- Coverage summary strip (cyan/black UX win) -->
+      <div class="seo-summary" appReveal role="group" aria-label="SEO coverage summary">
+        <div class="seo-summary-stat" data-numeric>
+          <span class="seo-summary-num seo-summary-pass"><app-rolling-counter [value]="guaranteedCount" [duration]="1100" /></span>
+          <span class="seo-summary-label">Guaranteed</span>
+        </div>
+        <div class="seo-summary-divider" aria-hidden="true"></div>
+        <div class="seo-summary-stat" data-numeric>
+          <span class="seo-summary-num seo-summary-review"><app-rolling-counter [value]="reviewCount" [duration]="1100" /></span>
+          <span class="seo-summary-label">To review</span>
+        </div>
+        <div class="seo-summary-divider" aria-hidden="true"></div>
+        <div class="seo-summary-stat" data-numeric>
+          <span class="seo-summary-num seo-summary-total"><app-rolling-counter [value]="totalCount" [duration]="1100" /></span>
+          <span class="seo-summary-label">Checks</span>
+        </div>
       </div>
 
       <!-- Meta Tags -->
@@ -49,7 +67,7 @@ import { RevealDirective } from '../../../directives/reveal.directive';
         <h3 class="text-base font-semibold text-white m-0 mb-4">Google Search Preview</h3>
         <div class="search-preview bg-white rounded-xl p-4 max-w-[600px]">
           <div class="text-[0.72rem] text-[#202124] mb-0.5 font-sans">{{ siteDomain }}</div>
-          <div class="search-preview-title text-[1.05rem] text-[#1a0dab] font-sans leading-tight mb-1 cursor-pointer">
+          <div class="search-preview-title text-[1.05rem] text-[#1a0dab] font-sans leading-tight mb-1">
             {{ siteTitle }} | {{ siteName }}
           </div>
           <div class="text-[0.82rem] text-[#4d5156] font-sans leading-snug">
@@ -107,7 +125,13 @@ import { RevealDirective } from '../../../directives/reveal.directive';
     :host {
       --ease-cinematic: cubic-bezier(0.4, 0, 0.2, 1);
       --ease-elastic: cubic-bezier(0.34, 1.56, 0.64, 1);
-      --ring-cyan: 0 0 0 2px #000, 0 0 0 4px rgba(0, 229, 255, 0.5);
+      /* Section-local accent driven from the global brand token so the whole
+         section tracks any future --ps-accent change instead of hardcoding cyan. */
+      --seo-accent: var(--ps-accent, #00e5ff);
+      --seo-pass: #4ade80;
+      --seo-review: #fbbf24;
+      --ring-cyan: 0 0 0 2px var(--ps-bg, #060610),
+        0 0 0 4px color-mix(in oklch, var(--seo-accent) 55%, transparent);
     }
 
     .seo-header {
@@ -127,26 +151,77 @@ import { RevealDirective } from '../../../directives/reveal.directive';
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(135deg, rgba(0, 229, 255, 0.05), transparent 55%);
+      background: linear-gradient(135deg, color-mix(in oklch, var(--seo-accent) 5%, transparent), transparent 55%);
       opacity: 0;
       transition: opacity 320ms var(--ease-cinematic);
       pointer-events: none;
     }
-    .seo-card:hover {
-      border-color: rgba(0, 229, 255, 0.22);
+    .seo-card:hover,
+    .seo-card:focus-within {
+      border-color: color-mix(in oklch, var(--seo-accent) 22%, transparent);
       transform: translateY(-2px);
       box-shadow:
-        0 16px 40px -22px rgba(0, 229, 255, 0.28),
-        inset 0 0 0 1px rgba(0, 229, 255, 0.04);
+        0 16px 40px -22px color-mix(in oklch, var(--seo-accent) 28%, transparent),
+        inset 0 0 0 1px color-mix(in oklch, var(--seo-accent) 4%, transparent);
     }
-    .seo-card:hover::before { opacity: 1; }
+    .seo-card:hover::before,
+    .seo-card:focus-within::before { opacity: 1; }
+    .seo-card:focus-visible {
+      outline: none;
+      box-shadow: var(--ring-cyan);
+      border-color: color-mix(in oklch, var(--seo-accent) 40%, transparent);
+    }
 
     .seo-card-icon {
       transition: transform 320ms var(--ease-elastic), color 280ms var(--ease-cinematic);
     }
     .seo-card:hover .seo-card-icon {
       transform: rotate(-8deg) scale(1.1);
-      color: rgba(0, 229, 255, 0.95);
+      color: var(--seo-accent);
+    }
+
+    /* Coverage summary strip — cyan/black UX win */
+    .seo-summary {
+      display: flex;
+      align-items: stretch;
+      gap: 0.25rem;
+      padding: 0.85rem 1.1rem;
+      border-radius: 14px;
+      background:
+        linear-gradient(135deg, color-mix(in oklch, var(--seo-accent) 9%, transparent), transparent 60%),
+        rgba(255, 255, 255, 0.02);
+      border: 1px solid color-mix(in oklch, var(--seo-accent) 14%, transparent);
+    }
+    .seo-summary-stat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.15rem;
+      text-align: center;
+    }
+    .seo-summary-num {
+      font-size: 1.6rem;
+      font-weight: 800;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .seo-summary-pass { color: var(--seo-pass); }
+    .seo-summary-review { color: var(--seo-review); }
+    .seo-summary-total { color: var(--seo-accent); }
+    .seo-summary-label {
+      font-size: 0.6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary, rgba(244, 244, 255, 0.65));
+    }
+    .seo-summary-divider {
+      width: 1px;
+      align-self: center;
+      height: 2.2rem;
+      background: color-mix(in oklch, var(--seo-accent) 18%, transparent);
     }
 
     .seo-pill {
@@ -159,12 +234,12 @@ import { RevealDirective } from '../../../directives/reveal.directive';
       transition: transform 240ms var(--ease-elastic), box-shadow 280ms var(--ease-cinematic);
     }
     .seo-pill-coming {
-      background: rgba(0, 229, 255, 0.1);
-      color: rgba(0, 229, 255, 1);
+      background: color-mix(in oklch, var(--seo-accent) 10%, transparent);
+      color: var(--seo-accent);
     }
     .seo-pill-auto {
-      background: rgba(34, 197, 94, 0.1);
-      color: rgba(74, 222, 128, 1);
+      background: color-mix(in oklch, var(--seo-pass) 12%, transparent);
+      color: var(--seo-pass);
     }
     .seo-card:hover .seo-pill {
       transform: scale(1.06);
@@ -176,8 +251,10 @@ import { RevealDirective } from '../../../directives/reveal.directive';
       font-weight: 700;
       padding: 0.125rem 0.5rem;
       border-radius: 6px;
-      background: linear-gradient(135deg, rgba(0, 229, 255, 0.18), rgba(124, 58, 237, 0.18));
-      color: rgba(0, 229, 255, 1);
+      background: linear-gradient(135deg,
+        color-mix(in oklch, var(--seo-accent) 18%, transparent),
+        color-mix(in oklch, var(--ps-accent-secondary, #7c3aed) 18%, transparent));
+      color: var(--seo-accent);
       letter-spacing: 0.04em;
       font-variant-numeric: tabular-nums;
     }
@@ -189,27 +266,21 @@ import { RevealDirective } from '../../../directives/reveal.directive';
       box-shadow: 0 12px 28px -16px rgba(0, 0, 0, 0.4);
       transform: translateY(-1px);
     }
+    /* Display-only Google-preview title — no link affordance (it isn't clickable). */
     .search-preview-title {
-      position: relative;
       display: inline-block;
-      transition: color 200ms var(--ease-cinematic);
     }
-    .search-preview-title::after {
-      content: '';
-      position: absolute;
-      left: 0; right: 100%;
-      bottom: -1px;
-      height: 1px;
-      background: currentColor;
-      transition: right 360ms var(--ease-cinematic);
-    }
-    .search-preview-title:hover::after { right: 0; }
 
     .json-ld-block {
       transition: border-color 280ms var(--ease-cinematic), background 280ms var(--ease-cinematic);
     }
-    .seo-card:hover .json-ld-block {
-      border-color: rgba(0, 229, 255, 0.18);
+    .json-ld-block:focus-visible {
+      outline: none;
+      box-shadow: var(--ring-cyan);
+    }
+    .seo-card:hover .json-ld-block,
+    .seo-card:focus-within .json-ld-block {
+      border-color: color-mix(in oklch, var(--seo-accent) 18%, transparent);
       background: rgba(6, 6, 18, 0.92);
     }
 
@@ -230,15 +301,15 @@ import { RevealDirective } from '../../../directives/reveal.directive';
       transform: translateX(3px);
     }
     .checklist-row-pass:hover {
-      border-color: rgba(74, 222, 128, 0.22);
+      border-color: color-mix(in oklch, var(--seo-pass) 22%, transparent);
     }
     .checklist-row-fail:hover {
-      border-color: rgba(251, 191, 36, 0.28);
+      border-color: color-mix(in oklch, var(--seo-review) 28%, transparent);
     }
     .checklist-row:focus-visible {
       outline: none;
       box-shadow: var(--ring-cyan);
-      border-color: rgba(0, 229, 255, 0.4);
+      border-color: color-mix(in oklch, var(--seo-accent) 40%, transparent);
     }
     .checklist-row:active {
       transform: translateX(3px) scale(0.99);
@@ -256,21 +327,21 @@ import { RevealDirective } from '../../../directives/reveal.directive';
       flex-shrink: 0;
     }
     .checklist-icon-pass {
-      background: rgba(34, 197, 94, 0.14);
-      color: rgba(74, 222, 128, 1);
+      background: color-mix(in oklch, var(--seo-pass) 14%, transparent);
+      color: var(--seo-pass);
     }
     .checklist-icon-fail {
-      background: rgba(251, 191, 36, 0.14);
-      color: rgba(251, 191, 36, 1);
+      background: color-mix(in oklch, var(--seo-review) 14%, transparent);
+      color: var(--seo-review);
     }
     .checklist-row:hover .checklist-icon-wrap {
       transform: scale(1.12) rotate(-4deg);
     }
     .checklist-row-pass:hover .checklist-icon-wrap {
-      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+      box-shadow: 0 0 0 3px color-mix(in oklch, var(--seo-pass) 10%, transparent);
     }
     .checklist-row-fail:hover .checklist-icon-wrap {
-      box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.1);
+      box-shadow: 0 0 0 3px color-mix(in oklch, var(--seo-review) 10%, transparent);
     }
 
     .checklist-tag {
@@ -282,15 +353,15 @@ import { RevealDirective } from '../../../directives/reveal.directive';
       border-radius: 5px;
       flex-shrink: 0;
     }
-    .checklist-row-pass .checklist-tag { background: rgba(34, 197, 94, 0.12); color: rgba(74, 222, 128, 0.95); }
-    .checklist-row-fail .checklist-tag { background: rgba(251, 191, 36, 0.12); color: rgba(251, 191, 36, 0.95); }
+    .checklist-row-pass .checklist-tag { background: color-mix(in oklch, var(--seo-pass) 12%, transparent); color: var(--seo-pass); }
+    .checklist-row-fail .checklist-tag { background: color-mix(in oklch, var(--seo-review) 12%, transparent); color: var(--seo-review); }
 
     .checklist-label {
       font-size: 0.78rem;
       transition: color 200ms var(--ease-cinematic), letter-spacing 280ms var(--ease-cinematic);
     }
     .checklist-row-pass .checklist-label { color: rgba(255, 255, 255, 0.82); }
-    .checklist-row-fail .checklist-label { color: rgba(251, 191, 36, 0.82); }
+    .checklist-row-fail .checklist-label { color: color-mix(in oklch, var(--seo-review) 82%, transparent); }
     .checklist-row:hover .checklist-label {
       color: #fff;
       letter-spacing: 0.005em;
@@ -307,12 +378,13 @@ import { RevealDirective } from '../../../directives/reveal.directive';
 
     @media (prefers-reduced-motion: reduce) {
       .seo-header, .checklist-row { animation: none; }
-      .seo-card, .seo-card::before, .search-preview, .search-preview-title::after,
+      .seo-card, .seo-card::before, .search-preview,
       .json-ld-block, .checklist-row, .checklist-icon-wrap, .checklist-label,
-      .seo-card-icon, .seo-pill {
+      .seo-card-icon, .seo-pill, .seo-summary {
         transition-duration: 0ms;
       }
-      .seo-card:hover, .checklist-row:hover, .search-preview:hover {
+      .seo-card:hover, .seo-card:focus-within,
+      .checklist-row:hover, .search-preview:hover {
         transform: none;
       }
     }
@@ -346,6 +418,14 @@ export class AdminSeoComponent {
 
   get guaranteedCount(): number {
     return this.seoChecks.filter(c => c.kind === 'guaranteed').length;
+  }
+
+  get reviewCount(): number {
+    return this.seoChecks.filter(c => c.kind === 'review').length;
+  }
+
+  get totalCount(): number {
+    return this.seoChecks.length;
   }
 
   /**
