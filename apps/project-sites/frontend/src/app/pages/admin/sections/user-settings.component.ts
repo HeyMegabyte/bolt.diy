@@ -405,10 +405,19 @@ interface NotificationGroup {
 
       <!-- ─────────────────── NOTIFICATIONS ─────────────────── -->
       <section class="card" appReveal>
-        <div class="kicker">Email cadence</div>
+        <div class="flex items-center justify-between gap-2">
+          <div class="kicker">Email cadence</div>
+          <span class="notif-saved" role="status" aria-live="polite"
+                [class.is-shown]="notifSaved()" data-testid="notif-saved">
+            @if (notifSaved()) {
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+              Saved
+            }
+          </span>
+        </div>
         <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-1">Notification preferences</h3>
         <p class="text-[0.7rem] text-text-secondary m-0 mb-3 max-w-prose">
-          Choose what lands in your inbox. Security alerts stay on by design — toggling them off only mutes the digest, never critical warnings.
+          Choose what lands in your inbox. Security alerts stay on by design — toggling them off only mutes the digest, never critical warnings. Choices save instantly on this device.
         </p>
 
         <div class="space-y-5">
@@ -954,6 +963,14 @@ interface NotificationGroup {
     }
 
     /* ── Notification toggles ── */
+    .notif-saved {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.62rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+      color: var(--ps-accent, #00e5ff); white-space: nowrap;
+      opacity: 0; transform: translateY(-2px); pointer-events: none;
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+    .notif-saved.is-shown { opacity: 1; transform: translateY(0); }
     .notif-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
     .notif-row {
       display: flex; align-items: center; gap: 12px;
@@ -1041,7 +1058,7 @@ interface NotificationGroup {
     .apikey-error { margin: 6px 0 0; font-size: 0.72rem; color: oklch(0.78 0.18 25); line-height: 1.35; }
 
     @media (prefers-reduced-motion: reduce) {
-      .card, .btn-primary, .btn-ghost, .btn-danger, .theme-card, .session-row, .notif-row, .row, .switch, .switch-thumb, .icon-btn { transition: none; }
+      .card, .btn-primary, .btn-ghost, .btn-danger, .theme-card, .session-row, .notif-row, .notif-saved, .row, .switch, .switch-thumb, .icon-btn { transition: none; }
       .card:hover, .btn-primary:hover, .btn-ghost:hover, .btn-danger:hover, .theme-card:hover, .session-row:hover { transform: none; box-shadow: none; }
       .empty-glyph, .skel::after { animation: none; }
       .skel { background: rgba(255,255,255,0.06); }
@@ -1160,9 +1177,12 @@ export class AdminUserSettingsComponent implements OnInit {
   sessions = signal<SessionRow[]>([]);
   loadingSessions = signal(false);
 
-  // ── Notification prefs (local-only until /api/admin/notifications ships) ──
+  // ── Notification prefs (local-first; forward-syncs to /api/admin/notifications) ──
   private static readonly NOTIFICATION_KEY = 'ps_notification_prefs';
   notificationGroups = signal<NotificationGroup[]>(this.loadNotificationPrefs());
+  /** Brief "Saved" confirmation after a toggle — no silent save. */
+  notifSaved = signal(false);
+  private notifSavedTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ── Delete account ──
   deleteOpen = signal(false);
@@ -1649,15 +1669,25 @@ export class AdminUserSettingsComponent implements OnInit {
           : { ...g, prefs: g.prefs.map((p) => (p.id === prefId ? { ...p, enabled: !p.enabled } : p)) },
       ),
     );
+    // Build the full enabled-state map once — used for both local persistence
+    // (the source of truth) and the forward-compatible server sync.
+    const flat: Record<string, boolean> = {};
+    for (const g of this.notificationGroups()) for (const p of g.prefs) flat[p.id] = p.enabled;
     try {
-      const flat: Record<string, boolean> = {};
-      for (const g of this.notificationGroups()) for (const p of g.prefs) flat[p.id] = p.enabled;
       localStorage.setItem(AdminUserSettingsComponent.NOTIFICATION_KEY, JSON.stringify(flat));
     } catch (err) {
       console.warn('[user-settings] notification pref persist failed', err);
     }
-    // Fire-and-forget sync; ignore errors silently (local persistence is the source of truth).
-    this.api.post('/admin/notifications', { group: groupId, pref: prefId }).subscribe({
+    // Visible confirmation that the choice stuck — localStorage always succeeds
+    // outside private mode, so this is honest. role="status"/aria-live announces
+    // it to assistive tech. Auto-hides after a beat.
+    this.notifSaved.set(true);
+    if (this.notifSavedTimer) clearTimeout(this.notifSavedTimer);
+    this.notifSavedTimer = setTimeout(() => this.notifSaved.set(false), 2200);
+    // Forward-compatible sync: POST the FULL pref map so the server route (when
+    // it ships) persists the complete state in one call. Fire-and-forget — local
+    // persistence is the source of truth, so a 404/error stays silent.
+    this.api.post('/admin/notifications', { prefs: flat }).subscribe({
       next: () => { /* ok */ },
       error: () => { /* silent */ },
     });

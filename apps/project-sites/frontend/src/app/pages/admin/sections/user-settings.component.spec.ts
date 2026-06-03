@@ -93,4 +93,24 @@ describe('AdminUserSettingsComponent (destructive delete guard + notifications)'
     expect(after).toBe(!before);
     expect(http.post).toHaveBeenCalled();
   });
+
+  it('toggleNotification surfaces a visible "Saved" confirmation (no silent save)', () => {
+    const { c } = make();
+    const g = c.notificationGroups()[0];
+    expect(c.notifSaved()).toBe(false);
+    c.toggleNotification(g.id, g.prefs[0].id);
+    expect(c.notifSaved()).toBe(true);
+  });
+
+  it('toggleNotification syncs the FULL pref map (forward-compatible), not just {group,pref}', () => {
+    const { c, http } = make();
+    const g = c.notificationGroups()[0];
+    const p = g.prefs[0];
+    const wasEnabled = p.enabled;
+    c.toggleNotification(g.id, p.id);
+    const body = http.post.calls.mostRecent().args[1] as { prefs?: Record<string, boolean> };
+    expect(body.prefs).toEqual(jasmine.any(Object));
+    // The toggled pref's NEW state is present in the synced map.
+    expect(body.prefs?.[p.id]).toBe(!wasEnabled);
+  });
 });
