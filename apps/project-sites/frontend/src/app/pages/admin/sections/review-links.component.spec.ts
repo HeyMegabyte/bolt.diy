@@ -127,6 +127,13 @@ describe('AdminReviewLinksComponent (load-error retryability)', () => {
     expect((fx.nativeElement as HTMLElement).querySelector('[data-testid="review-links-retry"]')).toBeNull();
   });
 
+  it('a load error SUPPRESSES the empty state (no error + "No review links yet" together)', () => {
+    const fx = buildErr(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
+    const el = fx.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="review-links-error"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="review-links-none"]')).withContext('error owns the display — no double empty state').toBeNull();
+  });
+
   it('Retry re-issues the load + clears the error on success', () => {
     const get = jasmine.createSpy('get').and.returnValues(
       throwError(() => ({ status: 500 })),

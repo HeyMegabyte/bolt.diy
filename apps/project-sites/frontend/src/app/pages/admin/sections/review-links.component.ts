@@ -74,10 +74,10 @@ interface ReviewLink {
 
         @if (loading()) {
           <app-skeleton variant="table" [rows]="3" data-testid="review-links-loading" />
-        } @else if (links().length === 0) {
+        } @else if (!error() && links().length === 0) {
           <app-empty-state data-testid="review-links-none" icon="🔗" title="No review links yet"
             body="Create a shareable approval link above so a stakeholder can preview and sign off before publish." />
-        } @else {
+        } @else if (links().length > 0) {
           <ul class="flex flex-col gap-2">
             @for (l of links(); track l.id) {
               <li data-testid="review-links-row" class="flex items-center justify-between gap-3 rounded-lg bg-white/[0.03] px-3 py-2.5">
