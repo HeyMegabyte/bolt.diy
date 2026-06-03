@@ -170,3 +170,119 @@ describe('AdminMediaComponent (library load-error gating)', () => {
     expect(c.libraryError()).toBeNull();
   });
 });
+
+/**
+ * Stock-search state machine: the empty area must distinguish (1) the initial
+ * "haven't searched" prompt, (2) a genuine "no matches" result, and (3) a
+ * FAILED search — which previously fell through to the misleading "No results
+ * yet" state AND failed silently. Locks: searched-flag, error surfacing + toast
+ * (no silent failure / fake-empty masquerade), and the rendered empty-state
+ * branch for each case.
+ */
+describe('AdminMediaComponent (stock search states)', () => {
+  function makeStock(post: jasmine.Spy): { c: AdminMediaComponent; toastErr: jasmine.Spy } {
+    TestBed.resetTestingModule();
+    const toastErr = jasmine.createSpy('error');
+    TestBed.configureTestingModule({
+      imports: [AdminMediaComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, postFormData: () => of({ data: null }), delete: () => of({ ok: true }) } },
+        { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
+        { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: jasmine.createSpy('warning'), error: toastErr, dismiss: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminMediaComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(AdminMediaComponent).componentInstance;
+    return { c, toastErr };
+  }
+  afterEach(() => { try { localStorage.clear(); } catch { /* */ } TestBed.resetTestingModule(); });
+
+  it('starts un-searched (initial empty state, not "no matches")', () => {
+    const { c } = makeStock(jasmine.createSpy('post').and.returnValue(of({ data: [] })));
+    expect(c.stockSearched()).toBeFalse();
+    expect(c.stockError()).toBeNull();
+  });
+
+  it('an empty query is a no-op — no request, stays un-searched', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: [] }));
+    const { c } = makeStock(post);
+    c.stockQuery = '   ';
+    c.runStockSearch();
+    expect(post).not.toHaveBeenCalled();
+    expect(c.stockSearched()).toBeFalse();
+  });
+
+  it('a successful search marks searched + clears any error', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: [{ source: 'unsplash', thumb_url: 'x', kind: 'image' }] }));
+    const { c } = makeStock(post);
+    c.stockQuery = 'mountains';
+    c.runStockSearch();
+    expect(post).toHaveBeenCalled();
+    expect(c.stockSearched()).toBeTrue();
+    expect(c.stockError()).toBeNull();
+    expect(c.stockResults().length).toBe(1);
+    expect(c.stockLastQuery).toBe('mountains');
+  });
+
+  it('a FAILED search surfaces an error + toasts + does NOT masquerade as empty results', () => {
+    const post = jasmine.createSpy('post').and.returnValue(throwError(() => ({ status: 500 })));
+    const { c, toastErr } = makeStock(post);
+    c.stockQuery = 'mountains';
+    c.runStockSearch();
+    expect(c.stockError()).withContext('error is captured, not swallowed').not.toBeNull();
+    expect(c.stockResults().length).toBe(0);
+    expect(c.stockSearched()).toBeTrue();
+    expect(c.stockLoading()).toBeFalse();
+    expect(toastErr).withContext('a failed search must toast, never fail silently').toHaveBeenCalled();
+  });
+
+  function renderStock(post: jasmine.Spy): ComponentFixture<AdminMediaComponent> {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [AdminMediaComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, postFormData: () => of({ data: null }), delete: () => of({ ok: true }) } },
+        { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
+        { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminMediaComponent);
+    fx.componentInstance.setTab('stock');
+    fx.detectChanges();
+    return fx;
+  }
+
+  it('renders the INITIAL empty branch before any search', () => {
+    const fx = renderStock(jasmine.createSpy('post').and.returnValue(of({ data: [] })));
+    const el: HTMLElement = fx.nativeElement;
+    expect(el.querySelector('[data-testid="stock-initial"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="stock-no-matches"]')).toBeNull();
+    expect(el.querySelector('[data-testid="stock-error"]')).toBeNull();
+  });
+
+  it('renders the NO-MATCHES branch (with the query) after a zero-result search', () => {
+    const fx = renderStock(jasmine.createSpy('post').and.returnValue(of({ data: [] })));
+    fx.componentInstance.stockQuery = 'zxqwv';
+    fx.componentInstance.runStockSearch();
+    fx.detectChanges();
+    const el: HTMLElement = fx.nativeElement;
+    const noMatch = el.querySelector('[data-testid="stock-no-matches"]');
+    expect(noMatch).toBeTruthy();
+    expect(noMatch!.textContent).toContain('zxqwv');
+    expect(el.querySelector('[data-testid="stock-initial"]')).toBeNull();
+  });
+
+  it('renders the ERROR branch (with a Retry) after a failed search', () => {
+    const fx = renderStock(jasmine.createSpy('post').and.returnValue(throwError(() => ({ status: 500 }))));
+    fx.componentInstance.stockQuery = 'mountains';
+    fx.componentInstance.runStockSearch();
+    fx.detectChanges();
+    const el: HTMLElement = fx.nativeElement;
+    const errEl = el.querySelector('[data-testid="stock-error"]');
+    expect(errEl).toBeTruthy();
+    expect(errEl!.querySelector('button')?.textContent).toContain('Retry');
+    expect(el.querySelector('[data-testid="stock-no-matches"]')).toBeNull();
+  });
+});

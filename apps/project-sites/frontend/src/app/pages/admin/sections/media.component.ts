@@ -421,8 +421,23 @@ interface BoltMediaAttachMessage {
                   <div class="med-card skel"></div>
                 }
               </div>
+            } @else if (stockError()) {
+              <div class="med-empty" role="alert" data-testid="stock-error">
+                <div class="med-empty__glyph" aria-hidden="true">⚠️</div>
+                <h2 class="med-empty__title">Search failed</h2>
+                <p class="med-empty__body">{{ stockError() }}</p>
+                <button type="button" class="btn-primary" (click)="runStockSearch()" [disabled]="stockLoading() || !stockQuery.trim()">Retry</button>
+              </div>
+            } @else if (stockResults().length === 0 && stockSearched()) {
+              <div class="med-empty" role="status" data-testid="stock-no-matches">
+                <div class="med-empty__glyph" aria-hidden="true">🔍</div>
+                <h2 class="med-empty__title">No matches for “{{ stockLastQuery }}”</h2>
+                <p class="med-empty__body">
+                  Try different keywords, or enable more libraries above.
+                </p>
+              </div>
             } @else if (stockResults().length === 0) {
-              <div class="med-empty" role="status">
+              <div class="med-empty" role="status" data-testid="stock-initial">
                 <div class="med-empty__glyph" aria-hidden="true">🔎</div>
                 <h2 class="med-empty__title">No results yet</h2>
                 <p class="med-empty__body">
@@ -1192,6 +1207,12 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
   stockQuery = '';
   readonly stockLoading = signal(false);
   readonly stockResults = signal<StockCandidate[]>([]);
+  /** True once a search attempt has completed — distinguishes the initial "type a query" empty state from a genuine "no matches" result. */
+  readonly stockSearched = signal(false);
+  /** Set when a stock search FAILS, so the error never masquerades as an empty "no results" state. */
+  readonly stockError = signal<string | null>(null);
+  /** The query the current results/empty-state reflect (for the "No matches for …" message). */
+  stockLastQuery = '';
   readonly savingCandidates = signal<Set<string>>(new Set());
   readonly stockSources = signal<StockSourceOption[]>([
     { id: 'unsplash', label: 'Unsplash', enabled: true },
@@ -1525,6 +1546,8 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
     this.stockLoading.set(true);
+    this.stockError.set(null);
+    this.stockLastQuery = q;
     this.api
       .post<{ data: StockCandidate[] }>('/media/stock/search', {
         query: q,
@@ -1534,10 +1557,17 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
       .subscribe({
         next: (r) => {
           this.stockResults.set(r.data ?? []);
+          this.stockSearched.set(true);
           this.stockLoading.set(false);
         },
         error: () => {
+          // Never let a failure masquerade as an empty "no results" state, and
+          // never fail silently — surface a retryable error + toast.
+          this.stockResults.set([]);
+          this.stockError.set('Stock search failed — check your connection and try again.');
+          this.stockSearched.set(true);
           this.stockLoading.set(false);
+          this.toast.error('Stock search failed. Try again in a moment.');
         },
       });
   }
