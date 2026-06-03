@@ -106,21 +106,52 @@ interface DnaPrefsResp {
           </div>
           <div class="dna-stat">
             <app-rolling-counter [value]="acceptCount()" suffix=" accepted" />
-            <span class="dna-stat-label" style="color:#22c55e">✓</span>
+            <span class="dna-stat-label dna-stat-label--accept"><span class="dna-glyph" aria-hidden="true">✓</span> Accepted</span>
           </div>
           <div class="dna-stat">
             <app-rolling-counter [value]="rejectCount()" suffix=" rejected" />
-            <span class="dna-stat-label" style="color:#ef4444">✕</span>
+            <span class="dna-stat-label dna-stat-label--reject"><span class="dna-glyph" aria-hidden="true">✕</span> Rejected</span>
           </div>
           <div class="dna-stat">
             <app-rolling-counter [value]="editCount()" suffix=" edited" />
-            <span class="dna-stat-label" style="color:#f59e0b">✎</span>
+            <span class="dna-stat-label dna-stat-label--edit"><span class="dna-glyph" aria-hidden="true">✎</span> Edited</span>
           </div>
           <div class="dna-stat">
             <app-rolling-counter [value]="prefCount()" suffix=" classes" />
             <span class="dna-stat-label">Learned</span>
           </div>
         </div>
+
+        <!-- Taste Pulse — segmented distribution of accept/reject/edit signals.
+             Cyan-forward "what the AI has learned to favor" at a glance. -->
+        @if (totalFeedback() > 0) {
+          <div class="dna-pulse" appReveal data-testid="dna-taste-pulse">
+            <div class="dna-pulse-hdr">
+              <span class="dna-section-label">Taste pulse</span>
+              <span class="dna-pulse-ratio" aria-hidden="true">{{ acceptRatio() }}% accept rate</span>
+            </div>
+            <div
+              class="dna-pulse-bar"
+              role="img"
+              [attr.aria-label]="pulseAriaLabel()"
+            >
+              @if (acceptCount() > 0) {
+                <span class="dna-pulse-seg dna-pulse-seg--accept" [style.width]="segPct(acceptCount()) + '%'" title="Accepted"></span>
+              }
+              @if (editCount() > 0) {
+                <span class="dna-pulse-seg dna-pulse-seg--edit" [style.width]="segPct(editCount()) + '%'" title="Edited"></span>
+              }
+              @if (rejectCount() > 0) {
+                <span class="dna-pulse-seg dna-pulse-seg--reject" [style.width]="segPct(rejectCount()) + '%'" title="Rejected"></span>
+              }
+            </div>
+            <div class="dna-pulse-legend" aria-hidden="true">
+              <span class="dna-pulse-key dna-pulse-key--accept">Accept</span>
+              <span class="dna-pulse-key dna-pulse-key--edit">Edit</span>
+              <span class="dna-pulse-key dna-pulse-key--reject">Reject</span>
+            </div>
+          </div>
+        }
 
         <!-- Preferences chart -->
         @if (prefs().length > 0) {
@@ -134,7 +165,7 @@ interface DnaPrefsResp {
                     <div
                       class="dna-pref-bar"
                       [style.width]="barWidth(p.net_score) + '%'"
-                      [style.background]="p.net_score >= 0 ? 'var(--ps-accent)' : '#ef4444'"
+                      [style.background]="p.net_score >= 0 ? 'var(--ps-accent)' : 'var(--dna-reject)'"
                     ></div>
                   </div>
                   <span class="dna-pref-score" [class.positive]="p.net_score >= 0">{{ p.net_score > 0 ? '+' : '' }}{{ p.net_score }}</span>
@@ -264,6 +295,13 @@ interface DnaPrefsResp {
     </section>
 
     <style>
+      /* ── Status tokens (scoped) — color-blind-safe; always paired w/ a glyph + text ── */
+      .dna-shell {
+        --dna-accept: #2ee6a6;
+        --dna-reject: #ff5d6c;
+        --dna-edit: #ffb454;
+      }
+
       /* ── Shell ── */
       .dna-shell { padding: 20px 24px; background: var(--ps-bg, #060610); color: var(--ps-ink, #f4f4ff); display: flex; flex-direction: column; gap: 16px; }
 
@@ -282,7 +320,28 @@ interface DnaPrefsResp {
       /* ── Stats ── */
       .dna-stats { display: flex; gap: 24px; flex-wrap: wrap; }
       .dna-stat { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
-      .dna-stat-label { font-size: 11px; color: rgba(244,244,255,0.4); }
+      .dna-stat-label { font-size: 11px; color: rgba(244,244,255,0.5); display: inline-flex; align-items: center; gap: 4px; }
+      .dna-glyph { font-size: 12px; line-height: 1; }
+      .dna-stat-label--accept { color: var(--dna-accept); }
+      .dna-stat-label--reject { color: var(--dna-reject); }
+      .dna-stat-label--edit   { color: var(--dna-edit); }
+
+      /* ── Taste pulse ── */
+      .dna-pulse { background: rgba(0,229,255,0.04); border: 1px solid rgba(0,229,255,0.14); border-radius: 12px; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+      .dna-pulse-hdr { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+      .dna-pulse-ratio { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ps-accent, #00e5ff); font-weight: 600; }
+      .dna-pulse-bar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; background: rgba(255,255,255,0.05); }
+      .dna-pulse-seg { height: 100%; transition: width .5s cubic-bezier(.4,0,.2,1); }
+      .dna-pulse-seg--accept { background: var(--dna-accept); }
+      .dna-pulse-seg--edit   { background: var(--dna-edit); }
+      .dna-pulse-seg--reject { background: var(--dna-reject); }
+      .dna-pulse-legend { display: flex; gap: 14px; }
+      .dna-pulse-key { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(244,244,255,0.45); display: inline-flex; align-items: center; gap: 5px; }
+      .dna-pulse-key::before { content: ""; width: 8px; height: 8px; border-radius: 2px; }
+      .dna-pulse-key--accept::before { background: var(--dna-accept); }
+      .dna-pulse-key--edit::before   { background: var(--dna-edit); }
+      .dna-pulse-key--reject::before { background: var(--dna-reject); }
+      @media (prefers-reduced-motion: reduce) { .dna-pulse-seg { transition: none; } }
 
       /* ── Section label ── */
       .dna-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: rgba(244,244,255,0.4); font-weight: 600; }
@@ -300,7 +359,8 @@ interface DnaPrefsResp {
       /* ── Table ── */
       .dna-table-wrap { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; overflow: hidden; }
       .dna-table-hdr { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-      .dna-refresh-btn { background: none; border: 1px solid rgba(0,229,255,0.2); border-radius: 6px; padding: 3px 8px; color: var(--ps-accent, #00e5ff); font-size: 14px; cursor: pointer; }
+      .dna-refresh-btn { background: none; border: 1px solid rgba(0,229,255,0.2); border-radius: 6px; min-width: 28px; min-height: 24px; padding: 2px 8px; color: var(--ps-accent, #00e5ff); font-size: 14px; cursor: pointer; transition: background .15s, border-color .15s; }
+      .dna-refresh-btn:hover:not(:disabled) { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.4); }
       .dna-refresh-btn:disabled { opacity: 0.4; cursor: default; }
       .dna-table { width: 100%; border-collapse: collapse; font-size: 12px; }
       .dna-table th { padding: 7px 12px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(244,244,255,0.4); }
@@ -313,9 +373,9 @@ interface DnaPrefsResp {
       .dna-ts { color: rgba(244,244,255,0.35); font-size: 11px; }
       .dna-class-chip { background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.15); border-radius: 4px; padding: 1px 6px; font-size: 11px; color: var(--ps-accent, #00e5ff); }
       .dna-action-chip { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px; }
-      .dna-action-chip.accept { background: rgba(34,197,94,0.12); color: #22c55e; }
-      .dna-action-chip.reject { background: rgba(239,68,68,0.12); color: #ef4444; }
-      .dna-action-chip.edit   { background: rgba(245,158,11,0.12); color: #f59e0b; }
+      .dna-action-chip.accept { background: rgba(46,230,166,0.12); color: var(--dna-accept); }
+      .dna-action-chip.reject { background: rgba(255,93,108,0.12); color: var(--dna-reject); }
+      .dna-action-chip.edit   { background: rgba(255,180,84,0.12); color: var(--dna-edit); }
 
       /* ── Form ── */
       .dna-form-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
@@ -327,8 +387,8 @@ interface DnaPrefsResp {
       .dna-form-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
       .dna-submit-btn { background: var(--ps-accent, #00e5ff); color: #060610; border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity .15s; }
       .dna-submit-btn:disabled { opacity: 0.45; cursor: default; }
-      .dna-error { font-size: 12px; color: #ef4444; }
-      .dna-success { font-size: 12px; color: #22c55e; }
+      .dna-error { font-size: 12px; color: var(--dna-reject); }
+      .dna-success { font-size: 12px; color: var(--dna-accept); }
     </style>
   `,
 })
@@ -361,6 +421,25 @@ export class AdminSiteDnaComponent implements OnInit, OnDestroy {
   readonly rejectCount = computed(() => this.history().filter((r) => r.action === 'reject').length);
   readonly editCount = computed(() => this.history().filter((r) => r.action === 'edit').length);
   readonly prefCount = computed(() => this.prefs().length);
+
+  /** Accept rate as a whole-number percent of all signals. */
+  readonly acceptRatio = computed(() => {
+    const total = this.totalFeedback();
+    return total === 0 ? 0 : Math.round((this.acceptCount() / total) * 100);
+  });
+
+  /** Spoken-friendly summary for the taste-pulse bar (screen readers). */
+  readonly pulseAriaLabel = computed(
+    () =>
+      `Taste pulse: ${this.acceptCount()} accepted, ${this.editCount()} edited, ` +
+      `${this.rejectCount()} rejected out of ${this.totalFeedback()} signals.`,
+  );
+
+  /** Segment width as a percent of total signals (taste-pulse bar). */
+  segPct(count: number): number {
+    const total = this.totalFeedback();
+    return total === 0 ? 0 : (count / total) * 100;
+  }
 
   ngOnInit(): void {
     // Prefer explicit @Input; fall back to route param.
