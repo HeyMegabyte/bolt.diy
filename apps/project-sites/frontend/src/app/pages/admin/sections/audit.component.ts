@@ -211,7 +211,16 @@ function actionToFallbackMessage(action: string): string {
         }
       </div>
 
-      @if (!loading() && displayRows().length === 0) {
+      @if (loadError(); as err) {
+        <div class="empty-state card error-state" role="alert" data-testid="audit-error">
+          <svg class="error-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          </svg>
+          <h3 class="empty-title">Couldn't load audit events</h3>
+          <p class="empty-body">{{ err }}</p>
+          <button class="btn-gradient" type="button" (click)="load()">Retry</button>
+        </div>
+      } @else if (!loading() && displayRows().length === 0) {
         <div class="empty-state card" role="status" data-testid="audit-empty">
           <svg class="empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M3 6h18M3 12h18M3 18h12"/>
@@ -274,6 +283,8 @@ function actionToFallbackMessage(action: string): string {
     @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; opacity: 0.7; } }
     .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2.5rem 1.2rem; gap: 0.6rem; }
     .empty-icon { color: rgba(0, 229, 255, 0.65); }
+    .error-state { border-color: rgba(255, 92, 122, 0.32); }
+    .error-icon { color: rgba(255, 92, 122, 0.8); }
     .empty-title { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; font-size: 1rem; color: #fff; margin: 0.2rem 0 0; }
     .empty-body { font-size: 0.78rem; color: rgba(255,255,255,0.6); margin: 0 0 0.5rem; max-width: 360px; }
     /* ─── Cell renderer: action code pill (JetBrains Mono) ──────────── */
@@ -382,6 +393,10 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
   state = inject(AdminStateService);
   rows = signal<AuditRow[]>([]);
   loading = signal(false);
+  /** Set when /audit-logs fails so we show a distinct error card instead of the
+   *  misleading "No audit events yet" empty state (a security log must never
+   *  imply zero activity when the fetch actually failed). */
+  loadError = signal<string | null>(null);
 
   /** Set of master-row ids currently expanded with their detail panel open. */
   private expandedIds = signal<Set<string>>(new Set<string>());
@@ -651,6 +666,7 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
    */
   load(): void {
     this.loading.set(true);
+    this.loadError.set(null);
     const params: Record<string, string> = { limit: '500' };
     this.api.get<{ data: AuditRow[] }>('/audit-logs', params).subscribe({
       next: (r) => {
@@ -658,7 +674,10 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
         this.loading.set(false);
         this.lastSyncAt.set(Date.now());
       },
-      error: () => this.loading.set(false),
+      error: () => {
+        this.loading.set(false);
+        this.loadError.set('Could not load audit events — check your connection and retry.');
+      },
     });
   }
 

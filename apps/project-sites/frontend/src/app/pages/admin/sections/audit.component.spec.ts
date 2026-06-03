@@ -76,10 +76,22 @@ describe('AdminAuditComponent (load + KPI logic)', () => {
     expect(c.lastSyncAt()).toBeGreaterThan(0);
   });
 
-  it('load() error clears loading without throwing (stale data stays visible)', () => {
+  it('load() error clears loading + sets loadError (security log must not masquerade as empty)', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
     c.load();
     expect(c.loading()).toBe(false);
+    expect(c.loadError()).toBeTruthy(); // distinct error state, NOT the "No audit events yet" empty
+  });
+
+  it('load() success clears a prior loadError (retry recovers)', () => {
+    const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 503 })));
+    const c = make(get);
+    c.load();
+    expect(c.loadError()).toBeTruthy();
+    get.and.returnValue(of({ data: [ROW()] })); // backend recovers
+    c.load();
+    expect(c.loadError()).toBeNull();
+    expect(c.rows().length).toBe(1);
   });
 
   it('uniqueActions counts distinct action codes', () => {
