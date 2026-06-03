@@ -216,6 +216,11 @@ const PROVIDERS = MCP_PROVIDERS;
                     <td class="p-2"><span class="badge">{{ m.role }}</span></td>
                     <td class="p-2 text-text-secondary">{{ m.created_at | date:'short' }}</td>
                     <td class="p-2 text-right">
+                      @if (m.role !== 'owner') {
+                        <button class="text-primary text-[0.72rem] mr-3" data-testid="team-make-owner"
+                                [title]="'Transfer ownership to ' + m.email"
+                                (click)="makeOwner(m)">Make owner</button>
+                      }
                       <button class="text-red-400 text-[0.72rem] disabled:text-text-secondary/40 disabled:cursor-not-allowed"
                               [disabled]="isLastOwner(m)"
                               [title]="isLastOwner(m) ? 'Cannot remove the last owner — promote someone else first.' : 'Remove ' + m.email"
@@ -1140,6 +1145,25 @@ export class AdminSettingsComponent implements OnInit {
     this.api.delete(`/team/invites/${i.id}`).subscribe({
       next: () => { this.toast.success('Invite revoked'); this.loadTeam(); },
       error: () => { /* api.service already toasted */ },
+    });
+  }
+  /** Transfer org ownership to a member (server enforces owner-only via #8 guard). */
+  async makeOwner(m: Member): Promise<void> {
+    if (m.role === 'owner') return;
+    const ok = await this.confirmSvc.confirm({
+      title: 'Transfer ownership',
+      message: `Make ${m.email} the owner of this organization? You'll step down to admin. They can transfer it back.`,
+      confirmLabel: 'Transfer ownership',
+    });
+    if (!ok) return;
+    this.api.post('/team/transfer-ownership', { targetUserId: m.id }).subscribe({
+      next: () => {
+        this.toast.success(`Ownership transferred to ${m.email}`);
+        this.loadTeam();
+      },
+      error: () => {
+        /* api.service already toasts */
+      },
     });
   }
   async removeMember(m: Member): Promise<void> {
