@@ -121,7 +121,14 @@ interface ProfileEnvelope {
         </div>
       }
 
-      @if (!notFound()) {
+      @if (loadError() && !loading()) {
+        <div class="empty-card" data-testid="trust-load-error" role="alert">
+          <p class="text-red-300 text-sm mb-2">{{ loadError() }}</p>
+          <button class="btn-ghost text-xs" data-testid="trust-retry" (click)="refresh()">Retry</button>
+        </div>
+      }
+
+      @if (!notFound() && !loadError()) {
         <section class="card" appReveal>
           <h3 class="card-h">Data residency</h3>
           <select
@@ -250,6 +257,8 @@ export class AdminTrustCenterComponent {
 
   readonly profile = signal<TrustProfile | null>(null);
   readonly loading = signal(false);
+  /** Persistent non-404 load failure — gates the editor so a failed fetch never presents a default-valued, publishable form. */
+  readonly loadError = signal<string | null>(null);
   readonly saving = signal(false);
   readonly publishing = signal(false);
   // Pessimistic: assume trust_center is OFF until the client-side flag check
@@ -288,8 +297,10 @@ export class AdminTrustCenterComponent {
   refresh(): void {
     this.loading.set(true);
     this.notFound.set(false);
+    this.loadError.set(null);
     this.api.get<ProfileEnvelope>('/trust/profile').subscribe({
       next: (res) => {
+        this.loadError.set(null);
         this.profile.set(res.data);
         if (res.data) {
           this.dataResidency.set(res.data.data_residency);
@@ -305,6 +316,9 @@ export class AdminTrustCenterComponent {
         if (err?.status === 404) {
           this.notFound.set(true);
         } else {
+          // Persistent in-panel error gates the editor — a failed load must not
+          // present a default-valued form the operator could publish over real data.
+          this.loadError.set("Couldn't load your Trust Center profile — retry before editing.");
           this.toast.error('Failed to load Trust Center profile');
         }
         this.loading.set(false);
