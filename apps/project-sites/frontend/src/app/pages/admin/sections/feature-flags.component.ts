@@ -31,6 +31,7 @@ import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { FeatureFlagService } from '../../../services/feature-flag.service';
 import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 interface FlagDefinition {
   key: string;
@@ -66,9 +67,9 @@ type StageFilter = 'all' | FlagDefinition['stage'];
 @Component({
   selector: 'app-admin-feature-flags',
   standalone: true,
-  imports: [CommonModule, FormsModule, HlmInputDirective, HlmTablistDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent],
+  imports: [CommonModule, FormsModule, RevealDirective, HlmInputDirective, HlmTablistDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent],
   template: `
-    <section class="ff-page">
+    <section class="ff-page" appReveal>
       <header class="ff-header">
         <div>
           <h1>Feature flags</h1>

@@ -43,7 +43,7 @@ import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { ErrorCardComponent } from '../../../components/states';
-import { RevealOnScrollDirective } from '../../../animations/reveal-on-scroll.directive';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 interface FreshnessDraft {
   id: string;
@@ -73,13 +73,13 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
     FormsModule,
     RollingCounterComponent,
     ErrorCardComponent,
-    RevealOnScrollDirective,
+    RevealDirective,
     HlmButtonDirective,
     HlmBadgeDirective,
     ...BrnToggleGroupImports,
   ],
   template: `
-    <div class="cf-page" data-testid="content-freshness-section">
+    <div class="cf-page" data-testid="content-freshness-section" appReveal>
 
       <!-- Header -->
       <header class="cf-header" psReveal>
