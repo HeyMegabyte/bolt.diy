@@ -1,5 +1,9 @@
 # Ultimate Convergence Prompt — projectsites.dev
 
+> **Superseded for whole-project scope by `_ULTIMATE_COMPLETION.md`** (feature modules + E2E-TDD,
+> whole platform, TDD-first/local/push-gated-prod, done = promoted-live). This doc stays the
+> ADMIN-specifics reference (dedup ledger §5, module status §7, P0→P3 admin ladder).
+>
 > The canonical loop guide. Each loop fire = ONE round. The longer this runs, the better the
 > platform gets: rounds walk a fixed priority ladder (most-important → least-important), and
 > every round must leave the app more correct, more complete, more cohesive, and better tested
