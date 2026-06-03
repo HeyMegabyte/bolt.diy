@@ -109,3 +109,72 @@ describe('AdminStateService (selectedSite + loadData)', () => {
     expect(svc.analyticsPeriod()).toBe('30');
   });
 });
+
+/**
+ * Locks the documented perf invariant: the 30s live-refresh poll PAUSES while
+ * the tab is hidden (so a backgrounded admin never burns the API quota) and
+ * RESUMES when the tab returns. A regression here (dropping the visibilitychange
+ * guard) would silently poll hidden tabs forever — exactly the class of silent
+ * perf regression a test must catch.
+ */
+describe('AdminStateService — visibility-aware live-refresh (hidden tabs do not poll)', () => {
+  let hidden = false;
+  let origHidden: PropertyDescriptor | undefined;
+
+  function buildWithSpy(): { svc: AdminStateService; listSites: jasmine.Spy } {
+    const listSites = jasmine.createSpy('listSites').and.returnValue(of({ data: [site('s1')] }));
+    const api = {
+      listSites,
+      getDomainSummary: () => of({ data: { total: 0, active: 0, pending: 0, failed: 0 } }),
+      getSubscription: () => of({ data: null }),
+      getMe: () => of({ data: { org_id: 'o', is_super_admin: false } }),
+      getAnalytics: () => of({ data: null }),
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        AdminStateService,
+        { provide: ApiService, useValue: api },
+        { provide: AuthService, useValue: { isLoggedIn: () => true } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, toasts: () => [] } },
+        { provide: TelemetryService, useValue: { track: () => undefined } },
+        { provide: Router, useValue: { navigate: () => undefined, url: '/admin' } },
+        { provide: DomSanitizer, useValue: { bypassSecurityTrustResourceUrl: (u: string) => u } },
+        { provide: Dialog, useValue: { open: () => ({ closed: of(undefined) }) } },
+      ],
+    });
+    return { svc: TestBed.inject(AdminStateService), listSites };
+  }
+
+  beforeEach(() => {
+    hidden = false;
+    origHidden = Object.getOwnPropertyDescriptor(Document.prototype, 'hidden');
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+    jasmine.clock().install();
+  });
+
+  afterEach(() => {
+    jasmine.clock().uninstall();
+    try { (TestBed.inject(AdminStateService) as unknown as { stopLiveRefresh(): void }).stopLiveRefresh(); } catch { /* */ }
+    if (origHidden) Object.defineProperty(document, 'hidden', origHidden);
+    else Reflect.deleteProperty(document, 'hidden');
+    TestBed.resetTestingModule();
+  });
+
+  it('does NOT poll while hidden, and resumes polling after the tab returns', () => {
+    const { svc, listSites } = buildWithSpy();
+    svc.loadData(); // success → starts the 30s live-refresh + visibility listener
+    const base = listSites.calls.count(); // 1 (loadData's own fetch)
+
+    // Tab hidden → the visibility handler must stop the timer.
+    hidden = true;
+    document.dispatchEvent(new Event('visibilitychange'));
+    jasmine.clock().tick(31_000);
+    expect(listSites.calls.count()).withContext('no poll fired while the tab was hidden').toBe(base);
+
+    // Tab visible again → resumes; the 30s interval fires another sites fetch.
+    hidden = false;
+    document.dispatchEvent(new Event('visibilitychange'));
+    jasmine.clock().tick(31_000);
+    expect(listSites.calls.count()).withContext('polling resumes after the tab returns').toBeGreaterThan(base);
+  });
+});
