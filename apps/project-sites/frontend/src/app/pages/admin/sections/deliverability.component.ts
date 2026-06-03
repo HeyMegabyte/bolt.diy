@@ -57,7 +57,7 @@ interface DeliverabilityResponse {
       } @else {
         <div class="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5 flex flex-col gap-4">
           <p class="text-sm text-text-secondary">
-            Site: <strong class="text-light">{{ site()?.name || site()?.slug }}</strong>
+            Site: <strong class="text-light">{{ site()?.business_name || site()?.slug }}</strong>
           </p>
           <label class="flex flex-col gap-1.5">
             <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Sending domain (optional — defaults to the site's custom domain)</span>

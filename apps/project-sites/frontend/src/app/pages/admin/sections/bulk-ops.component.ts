@@ -185,7 +185,7 @@ interface BulkApplyResult {
               @for (f of r.failed; track f.id) {
                 <li data-testid="bulk-ops-apply-fail-row" class="flex items-center justify-between gap-3 text-[0.8rem] rounded-lg bg-white/[0.03] px-3 py-2">
                   <code class="text-text-secondary truncate">{{ f.id }}</code>
-                  <span class="text-amber-300/90 shrink-0">{{ f.error }}</span>
+                  <span class="text-amber-300/90 shrink-0">{{ f.reason }}</span>
                 </li>
               }
             </ul>

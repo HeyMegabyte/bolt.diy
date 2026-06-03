@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, type OnInit, type OnDestroy } from '@angular/core';
+import { Component, inject, signal, computed, effect, type OnInit, type OnDestroy } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { timeout, catchError } from 'rxjs/operators';
@@ -667,8 +667,26 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   private refreshTimer?: ReturnType<typeof setInterval>;
   private countdownTimer?: ReturnType<typeof setInterval>;
   private lastSiteId: string | null = null;
+  /** Guards the site-reactive load effect — see constructor + _ULTIMATE_CONVERGENCE.md §7. */
+  private loadedSiteId: string | null = null;
 
   readonly formatCount = formatCount;
+
+  constructor() {
+    // Site-reactive load: when the selected site resolves on a deep-link (it
+    // arrives AFTER mount) or the operator switches sites, fetch immediately
+    // instead of waiting up to REFRESH_INTERVAL_SEC for the next poll tick.
+    // Without this the deep-linked analytics panel sits empty for ~60s.
+    // (Reactivity class-bug — same fix as webhooks/recipes/pseo/mcp/forms.)
+    effect(() => {
+      const id = this.state.selectedSite()?.id ?? null;
+      if (id !== this.loadedSiteId) {
+        this.loadedSiteId = id;
+        this.loadUrls();
+        this.reload();
+      }
+    });
+  }
 
   /**
    * 10-second timeout for the analytics fetch. Tighter than the shared
@@ -880,9 +898,10 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Org-level credential status has no site dependency — load once on mount.
+    // The site-dependent loads (loadUrls + reload) are owned by the constructor
+    // effect so a deep-link populates instantly when selectedSite() resolves.
     this.loadCredStatus();
-    this.loadUrls();
-    this.reload();
     this.refreshTimer = setInterval(() => this.reload(), REFRESH_INTERVAL_SEC * 1000);
     this.countdownTimer = setInterval(() => {
       this.secondsUntilRefresh.update((s) => (s <= 1 ? REFRESH_INTERVAL_SEC : s - 1));
