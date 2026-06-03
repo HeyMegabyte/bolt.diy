@@ -106,7 +106,14 @@ interface AuditExport {
         </div>
       }
 
-      @if (!notFound()) {
+      @if (loadError() && !loading()) {
+        <div class="empty-card" data-testid="enterprise-load-error" role="alert">
+          <p class="text-red-300 text-sm mb-2">{{ loadError() }}</p>
+          <button class="btn-ghost text-xs" data-testid="enterprise-retry" (click)="refresh()">Retry</button>
+        </div>
+      }
+
+      @if (!notFound() && !loadError()) {
         <!-- KPIs -->
         <section class="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div class="kpi">
@@ -302,6 +309,8 @@ export class AdminEnterpriseComponent {
   readonly sla = signal<SlaResponse | null>(null);
   readonly exports = signal<AuditExport[]>([]);
   readonly loading = signal(false);
+  /** Persistent non-404 contract load failure — gates the editor so a failed fetch never presents a default-valued, savable form. */
+  readonly loadError = signal<string | null>(null);
   readonly saving = signal(false);
   readonly enqueueing = signal(false);
   // Pessimistic: assume the enterprise_plan flag is OFF until the client-side
@@ -356,8 +365,10 @@ export class AdminEnterpriseComponent {
   refresh(): void {
     this.loading.set(true);
     this.notFound.set(false);
+    this.loadError.set(null);
     this.api.get<{ data: Contract | null }>('/enterprise/contract').subscribe({
       next: (res) => {
+        this.loadError.set(null);
         this.contract.set(res.data);
         if (res.data) {
           this.planTier.set(res.data.plan_tier);
@@ -374,8 +385,14 @@ export class AdminEnterpriseComponent {
         this.loading.set(false);
       },
       error: (err) => {
-        if (err?.status === 404) this.notFound.set(true);
-        else this.toast.error('Failed to load enterprise contract');
+        if (err?.status === 404) {
+          this.notFound.set(true);
+        } else {
+          // Persistent in-panel error gates the editor — a failed load must not
+          // present a default-valued contract form the operator could save over real data.
+          this.loadError.set("Couldn't load your enterprise contract — retry before editing.");
+          this.toast.error('Failed to load enterprise contract');
+        }
         this.loading.set(false);
       },
     });
