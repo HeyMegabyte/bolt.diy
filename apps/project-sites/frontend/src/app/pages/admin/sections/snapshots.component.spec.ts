@@ -83,3 +83,53 @@ describe('AdminSnapshotsComponent (list load-error gating)', () => {
     expect(c.loadingSnapshots()).toBe(false);
   });
 });
+
+/**
+ * Reverting a snapshot OVERWRITES the live production site — the single most
+ * destructive admin action (more than deleting a backup). Like delete, it MUST
+ * be confirmed first: fire-on-click with no guard would let a future backend
+ * ship turn a single misclick into a live-site rollback. Mirror confirmDelete.
+ */
+describe('AdminSnapshotsComponent (destructive revert is confirm-guarded)', () => {
+  function makeRevert(confirmResult: boolean): {
+    c: AdminSnapshotsComponent;
+    confirm: jasmine.Spy;
+    revert: jasmine.Spy;
+  } {
+    const confirm = jasmine.createSpy('confirm').and.resolveTo(confirmResult);
+    const revert = jasmine.createSpy('revertSnapshot').and.returnValue(of({ ok: true }));
+    TestBed.configureTestingModule({
+      imports: [AdminSnapshotsComponent],
+      providers: [
+        {
+          provide: ApiService,
+          useValue: { get: () => of({ data: [] }), post: () => of({}), delete: () => of({}), revertSnapshot: revert },
+        },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm } },
+        { provide: TelemetryService, useValue: { track: () => undefined, capture: () => undefined } },
+        { provide: BoltEmbedService, useValue: { openSnapshot: () => undefined } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }), loadData: () => undefined } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSnapshotsComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminSnapshotsComponent).componentInstance, confirm, revert };
+  }
+  const snap = { id: 'snap9', snapshot_name: 'v3 launch' } as never;
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('asks for confirmation BEFORE reverting the live site', async () => {
+    const { c, confirm, revert } = makeRevert(true);
+    await c.revertToSnapshot(snap);
+    expect(confirm).toHaveBeenCalled();
+    expect(revert).toHaveBeenCalledWith('s1', 'snap9');
+  });
+
+  it('does NOT revert when the operator cancels the confirm', async () => {
+    const { c, confirm, revert } = makeRevert(false);
+    await c.revertToSnapshot(snap);
+    expect(confirm).toHaveBeenCalled();
+    expect(revert).not.toHaveBeenCalled();
+    expect(c.reverting()).toBe(false);
+  });
+});

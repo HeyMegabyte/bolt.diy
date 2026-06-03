@@ -1990,9 +1990,19 @@ export class AdminSnapshotsComponent implements OnInit {
     });
   }
 
-  revertToSnapshot(snap: Snapshot): void {
+  async revertToSnapshot(snap: Snapshot): Promise<void> {
     const site = this.state.selectedSite();
     if (!site) return;
+    // Reverting OVERWRITES the live production site — the most destructive admin
+    // action there is (more than deleting a backup). Confirm first, mirroring
+    // confirmDelete, so a single misclick can never roll the live site back —
+    // today (no-op) or the moment the backend ships.
+    const ok = await this.confirmSvc.confirm({
+      title: 'Revert live site',
+      message: `Revert this site to snapshot "${snap.snapshot_name}"? This overwrites the current live site with that past version and cannot be undone.`,
+      confirmLabel: 'Revert site',
+    });
+    if (!ok) return;
     this.reverting.set(true);
     this.api.revertSnapshot(site.id, snap.id).subscribe({
       next: () => {
