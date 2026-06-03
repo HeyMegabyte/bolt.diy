@@ -66,8 +66,14 @@ const CHANNEL_ICONS: Record<string, string> = {
   form: '📋', chat: '💬', voice: '📞', sms: '📱', email: '✉️',
 };
 
+// Status accents resolve to design tokens (open/resolved) + locally-scoped
+// semantic vars (pending/spam) defined in the inbox style block — no raw hex
+// leaks into bound styles. Cyan/black brand cohesion per convergence r21.
 const STATUS_COLORS: Record<string, string> = {
-  open: '#00e5ff', pending: '#f59e0b', resolved: '#22c55e', spam: '#ef4444',
+  open: 'var(--ps-accent)',
+  pending: 'var(--inbox-status-pending)',
+  resolved: 'var(--ps-success)',
+  spam: 'var(--inbox-status-spam)',
 };
 
 @Component({
@@ -108,8 +114,12 @@ const STATUS_COLORS: Record<string, string> = {
                 [class.active]="selectedStatus() === s"
                 (click)="selectedStatus.set(s)"
                 [attr.aria-selected]="selectedStatus() === s"
+                [attr.aria-label]="(s | titlecase) + ' — ' + statusCount(s) + ' conversations'"
                 role="tab">
                 {{ s | titlecase }}
+                @if (statusCount(s) > 0) {
+                  <span class="inbox-pill-count" aria-hidden="true">{{ statusCount(s) }}</span>
+                }
               </button>
             }
           </div>
@@ -306,76 +316,109 @@ const STATUS_COLORS: Record<string, string> = {
     </section>
 
     <style>
-      .inbox-shell { padding: 20px 24px; background: var(--ps-bg); color: var(--ps-ink); min-height: 100vh; display: flex; flex-direction: column; gap: 16px; }
+      /* Cyan/black cohesion (convergence r21): all bound styles + chrome read
+         from --ps-* design tokens (_polish.scss / _cockpit.scss). The two
+         status hues without a global token (pending=amber, spam=red) are
+         scoped locally here so STATUS_COLORS never binds a raw hex. ink-mix
+         tints derive from --ps-ink so they track the active theme. */
+      .inbox-shell {
+        --inbox-status-pending: #f59e0b;
+        --inbox-status-spam: #ef4444;
+        --inbox-surface: color-mix(in oklch, var(--ps-ink) 2%, transparent);
+        --inbox-ink-60: color-mix(in oklch, var(--ps-ink) 60%, transparent);
+        --inbox-ink-45: color-mix(in oklch, var(--ps-ink) 45%, transparent);
+        --inbox-ink-35: color-mix(in oklch, var(--ps-ink) 35%, transparent);
+        --inbox-hairline: color-mix(in oklch, var(--ps-ink) 5%, transparent);
+        padding: 20px 24px; background: var(--ps-bg); color: var(--ps-ink); min-height: 100vh; display: flex; flex-direction: column; gap: 16px;
+      }
       .inbox-hdr { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
       .inbox-eyebrow { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--ps-accent); font-weight: 600; }
       .inbox-title { font-size: 22px; font-weight: 700; margin: 4px 0 0; }
       .inbox-stats { display: flex; gap: 20px; flex-wrap: wrap; }
       .inbox-stat { font-size: 13px; color: var(--ps-ink); font-variant-numeric: tabular-nums; }
-      .inbox-flag-gate { padding: 24px; background: rgba(0,229,255,0.06); border: 1px solid rgba(0,229,255,0.2); border-radius: 12px; }
-      .inbox-flag-link { color: var(--ps-accent); font-weight: 600; }
+      .inbox-flag-gate { padding: 24px; background: var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 6%, transparent)); border: 1px solid var(--ps-accent-line, color-mix(in oklch, var(--ps-accent) 20%, transparent)); border-radius: var(--ps-radius-md, 12px); }
+      .inbox-flag-link { color: var(--ps-accent); font-weight: 600; border-radius: var(--ps-radius-sm, 8px); }
       .inbox-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
       .inbox-status-pills { display: flex; gap: 6px; }
-      .inbox-pill { padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(0,229,255,0.2); background: transparent; color: rgba(244,244,255,0.6); font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; }
+      .inbox-pill { display: inline-flex; align-items: center; min-height: 28px; padding: 4px 12px; border-radius: 20px; border: 1px solid var(--ps-accent-line, color-mix(in oklch, var(--ps-accent) 20%, transparent)); background: transparent; color: var(--inbox-ink-60); font-size: 12px; font-weight: 500; cursor: pointer; transition: color var(--ps-dur-fast, 140ms), border-color var(--ps-dur-fast, 140ms); }
       .inbox-pill.active,.inbox-pill:hover { border-color: var(--ps-accent); color: var(--ps-accent); }
+      .inbox-pill-count { margin-left: 6px; font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; padding: 0 5px; border-radius: 8px; background: var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 14%, transparent)); color: var(--ps-accent); }
+      .inbox-pill.active .inbox-pill-count { background: var(--ps-accent); color: var(--ps-bg); }
       /* .inbox-channel-sel / .inbox-search removed — now Spartan hlmSelect/hlmInput. */
       .inbox-3pane { display: grid; grid-template-columns: 280px 1fr 220px; gap: 12px; flex: 1; height: calc(100vh - 220px); min-height: 400px; }
-      .inbox-list { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; overflow-y: auto; }
-      .inbox-loading,.inbox-empty { padding: 24px; text-align: center; color: rgba(244,244,255,0.4); font-size: 13px; }
+      .inbox-list { background: var(--inbox-surface); border: 1px solid var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 10%, transparent)); border-radius: var(--ps-radius-md, 12px); overflow-y: auto; }
+      .inbox-loading,.inbox-empty { padding: 24px; text-align: center; color: var(--inbox-ink-45); font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
       .inbox-row--skel { cursor: default; }
       .inbox-row--skel:hover { background: transparent; }
       .inbox-skel-icon { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; display: inline-block; }
       .inbox-skel-name { display: block; width: 68%; height: 11px; border-radius: 4px; margin-bottom: 5px; }
       .inbox-skel-sub { display: block; width: 90%; height: 9px; border-radius: 4px; }
-      .inbox-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); cursor: pointer; transition: background .1s; min-height: 36px; }
-      .inbox-row:hover,.inbox-row.selected { background: rgba(0,229,255,0.07); }
+      .inbox-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--inbox-hairline); cursor: pointer; transition: background var(--ps-dur-fast, 140ms); min-height: 36px; }
+      .inbox-row:hover,.inbox-row.selected { background: var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 8%, transparent)); }
+      .inbox-row.selected { box-shadow: inset 2px 0 0 var(--ps-accent); }
       .inbox-row.unread .inbox-row-name { font-weight: 600; color: var(--ps-ink); }
       .inbox-row-icon { font-size: 14px; flex-shrink: 0; }
       .inbox-row-body { flex: 1; min-width: 0; }
       .inbox-row-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .inbox-row-sub { font-size: 11px; color: rgba(244,244,255,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .inbox-row-sub { font-size: 11px; color: var(--inbox-ink-45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .inbox-row-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
       .inbox-status-dot { width: 7px; height: 7px; border-radius: 50%; }
-      .inbox-unread-badge { background: var(--ps-accent); color: #060610; font-size: 10px; font-weight: 700; border-radius: 10px; padding: 1px 5px; }
-      .inbox-row-time { font-size: 10px; color: rgba(244,244,255,0.35); }
-      .inbox-load-more { width: 100%; padding: 8px; background: transparent; border: none; border-top: 1px solid rgba(0,229,255,0.1); color: var(--ps-accent); font-size: 12px; cursor: pointer; }
-      .inbox-thread { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
-      .inbox-empty-thread { display: flex; align-items: center; justify-content: center; flex: 1; color: rgba(244,244,255,0.35); font-size: 13px; }
-      .inbox-thread-hdr { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+      .inbox-unread-badge { background: var(--ps-accent); color: var(--ps-bg); font-size: 10px; font-weight: 700; border-radius: 10px; padding: 1px 5px; }
+      .inbox-row-time { font-size: 10px; color: var(--inbox-ink-35); }
+      .inbox-load-more { width: 100%; min-height: 32px; padding: 8px; background: transparent; border: none; border-top: 1px solid var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 10%, transparent)); color: var(--ps-accent); font-size: 12px; cursor: pointer; }
+      .inbox-thread { background: var(--inbox-surface); border: 1px solid var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 10%, transparent)); border-radius: var(--ps-radius-md, 12px); display: flex; flex-direction: column; overflow: hidden; }
+      .inbox-empty-thread { display: flex; align-items: center; justify-content: center; flex: 1; color: var(--inbox-ink-35); font-size: 13px; }
+      .inbox-thread-hdr { padding: 12px 16px; border-bottom: 1px solid var(--inbox-hairline); }
       .inbox-thread-hdr-top { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
-      .inbox-ch-chip { font-size: 11px; background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.2); border-radius: 20px; padding: 2px 8px; }
+      .inbox-ch-chip { font-size: 11px; background: var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 10%, transparent)); border: 1px solid var(--ps-accent-line, color-mix(in oklch, var(--ps-accent) 20%, transparent)); border-radius: 20px; padding: 2px 8px; }
       .inbox-status-chip { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
       .inbox-thread-subject { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
-      .inbox-thread-visitor { font-size: 12px; color: rgba(244,244,255,0.45); margin: 0; }
+      .inbox-thread-visitor { font-size: 12px; color: var(--inbox-ink-45); margin: 0; }
       .inbox-messages { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
       .inbox-msg { max-width: 80%; }
       .inbox-msg.outbound { align-self: flex-end; }
       .inbox-msg-meta { display: flex; gap: 8px; align-items: center; margin-bottom: 3px; }
-      .inbox-msg-author { font-size: 11px; font-weight: 600; color: rgba(244,244,255,0.55); }
-      .inbox-msg-ai-tag { font-size: 10px; background: rgba(124,58,237,0.2); border: 1px solid rgba(124,58,237,0.3); border-radius: 10px; padding: 1px 6px; color: #a78bfa; }
-      .inbox-msg-time { font-size: 10px; color: rgba(244,244,255,0.3); }
-      .inbox-msg-body { background: rgba(255,255,255,0.04); border: 1px solid rgba(0,229,255,0.08); border-radius: 10px; padding: 8px 12px; font-size: 13px; line-height: 1.5; }
-      .inbox-msg.outbound .inbox-msg-body { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.18); }
-      .inbox-reply-bar { padding: 10px 12px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 8px; }
+      .inbox-msg-author { font-size: 11px; font-weight: 600; color: var(--inbox-ink-60); }
+      .inbox-msg-ai-tag { font-size: 10px; background: color-mix(in oklch, var(--ps-accent-secondary, #7c3aed) 20%, transparent); border: 1px solid color-mix(in oklch, var(--ps-accent-secondary, #7c3aed) 32%, transparent); border-radius: 10px; padding: 1px 6px; color: color-mix(in oklch, var(--ps-accent-secondary, #7c3aed) 55%, var(--ps-ink)); }
+      .inbox-msg-time { font-size: 10px; color: var(--inbox-ink-35); }
+      .inbox-msg-body { background: color-mix(in oklch, var(--ps-ink) 4%, transparent); border: 1px solid var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 8%, transparent)); border-radius: 10px; padding: 8px 12px; font-size: 13px; line-height: 1.5; }
+      .inbox-msg.outbound .inbox-msg-body { background: var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 8%, transparent)); border-color: var(--ps-accent-line, color-mix(in oklch, var(--ps-accent) 18%, transparent)); }
+      .inbox-reply-bar { padding: 10px 12px; border-top: 1px solid var(--inbox-hairline); display: flex; flex-direction: column; gap: 8px; }
       /* .inbox-reply-input removed — now Spartan hlmInput [multiline] (resize-none). */
       .inbox-reply-actions { display: flex; justify-content: flex-end; gap: 8px; }
-      .inbox-btn-primary { background: var(--ps-accent); color: #060610; border: none; border-radius: 8px; padding: 6px 14px; font-weight: 600; font-size: 13px; cursor: pointer; }
+      .inbox-btn-primary { background: var(--ps-accent); color: var(--ps-bg); border: none; border-radius: var(--ps-radius-sm, 8px); min-height: 32px; padding: 6px 14px; font-weight: 600; font-size: 13px; cursor: pointer; }
       .inbox-btn-primary:disabled { opacity: 0.5; cursor: default; }
-      .inbox-btn-secondary { background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.2); border-radius: 8px; padding: 6px 14px; color: var(--ps-accent); font-size: 13px; cursor: pointer; }
+      .inbox-btn-secondary { background: var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 8%, transparent)); border: 1px solid var(--ps-accent-line, color-mix(in oklch, var(--ps-accent) 20%, transparent)); border-radius: var(--ps-radius-sm, 8px); min-height: 32px; padding: 6px 14px; color: var(--ps-accent); font-size: 13px; cursor: pointer; }
       .inbox-btn-secondary:disabled { opacity: 0.5; cursor: default; }
-      .inbox-controls { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
-      .inbox-ctrl-empty { padding: 24px 0; text-align: center; color: rgba(244,244,255,0.35); font-size: 12px; }
+      .inbox-controls { background: var(--inbox-surface); border: 1px solid var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 10%, transparent)); border-radius: var(--ps-radius-md, 12px); overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+      .inbox-ctrl-empty { padding: 24px 0; text-align: center; color: var(--inbox-ink-35); font-size: 12px; }
       .inbox-ctrl-section { display: flex; flex-direction: column; gap: 6px; }
-      .inbox-ctrl-title { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: rgba(244,244,255,0.45); font-weight: 600; margin: 0; }
+      .inbox-ctrl-title { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--inbox-ink-45); font-weight: 600; margin: 0; }
       .inbox-ctrl-statuses { display: flex; flex-wrap: wrap; gap: 5px; }
-      .inbox-ctrl-status-btn { padding: 3px 10px; border-radius: 20px; border: 1px solid rgba(0,229,255,0.15); background: transparent; color: rgba(244,244,255,0.55); font-size: 11px; cursor: pointer; }
+      .inbox-ctrl-status-btn { display: inline-flex; align-items: center; min-height: 26px; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 15%, transparent)); background: transparent; color: var(--inbox-ink-60); font-size: 11px; cursor: pointer; }
       .inbox-ctrl-status-btn.active { border-color: var(--ps-accent); color: var(--ps-accent); }
       /* .inbox-ctrl-assign-input removed — now Spartan hlmInput. */
-      .inbox-ctrl-visitor dt { font-size: 10px; color: rgba(244,244,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; margin: 4px 0 1px; }
+      .inbox-ctrl-visitor dt { font-size: 10px; color: var(--inbox-ink-45); text-transform: uppercase; letter-spacing: 0.5px; margin: 4px 0 1px; }
       .inbox-ctrl-visitor dd { margin: 0; font-size: 12px; }
-      .inbox-ctrl-visitor a { color: var(--ps-accent); }
-      .inbox-ctrl-note { font-size: 11px; color: rgba(244,244,255,0.4); margin: 0; }
-      .inbox-sla { background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 8px; }
+      .inbox-ctrl-visitor a { color: var(--ps-accent); border-radius: 3px; }
+      .inbox-ctrl-note { font-size: 11px; color: var(--inbox-ink-45); margin: 0; }
+      .inbox-sla { background: color-mix(in oklch, var(--inbox-status-spam) 8%, transparent); border: 1px solid color-mix(in oklch, var(--inbox-status-spam) 24%, transparent); border-radius: var(--ps-radius-sm, 8px); padding: 8px; }
+      /* WCAG 2.4.11 — every keyboard-reachable control gets a ≥3:1 cyan ring. */
+      .inbox-pill:focus-visible,
+      .inbox-row:focus-visible,
+      .inbox-load-more:focus-visible,
+      .inbox-btn-primary:focus-visible,
+      .inbox-btn-secondary:focus-visible,
+      .inbox-ctrl-status-btn:focus-visible,
+      .inbox-flag-link:focus-visible,
+      .inbox-ctrl-visitor a:focus-visible {
+        outline: var(--ps-ring-focus, 2px solid #00ffc8);
+        outline-offset: var(--ps-ring-focus-offset, 2px);
+      }
+      .inbox-row:focus-visible { outline-offset: -2px; }
+      @media (prefers-reduced-motion: reduce) {
+        .inbox-pill, .inbox-row { transition: none; }
+      }
       @media (max-width: 1100px) { .inbox-3pane { grid-template-columns: 220px 1fr; } .inbox-controls { display: none; } }
       @media (max-width: 720px) { .inbox-3pane { grid-template-columns: 1fr; height: auto; } .inbox-list { height: 40vh; } }
     </style>
@@ -425,6 +468,12 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
 
   openCount = computed(() => this.conversations().filter((c) => c.status === 'open').length);
   unreadCount = computed(() => this.conversations().reduce((s, c) => s + c.unread_count, 0));
+
+  /** Loaded-conversation count for a status pill ('all' = every loaded row). */
+  statusCount(status: string): number {
+    const convs = this.conversations();
+    return status === 'all' ? convs.length : convs.filter((c) => c.status === status).length;
+  }
 
   ngOnInit(): void {
     // Gate the authed fetch + 30s poll on the actual flag (toast-safe public

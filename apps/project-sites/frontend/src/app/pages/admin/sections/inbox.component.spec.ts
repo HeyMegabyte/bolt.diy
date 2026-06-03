@@ -61,4 +61,23 @@ describe('AdminInboxComponent (conversations load error)', () => {
     c.loadConversations();
     expect(c.convError()).toBeNull();
   });
+
+  it('statusCount tallies loaded conversations per pill (r21 cyan/black count badge)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({
+      conversations: [
+        { id: 'c1', status: 'open', unread_count: 1 },
+        { id: 'c2', status: 'open', unread_count: 0 },
+        { id: 'c3', status: 'pending', unread_count: 0 },
+        { id: 'c4', status: 'resolved', unread_count: 0 },
+      ],
+      hasMore: false,
+    })));
+    c.loadConversations();
+    expect(c.statusCount('open')).toBe(2);
+    expect(c.statusCount('pending')).toBe(1);
+    expect(c.statusCount('spam')).toBe(0);
+    expect(c.statusCount('all')).toBe(4);
+    expect(c.openCount()).toBe(2);
+    expect(c.unreadCount()).toBe(1);
+  });
 });
