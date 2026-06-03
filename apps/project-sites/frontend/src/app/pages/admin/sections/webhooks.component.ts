@@ -1,0 +1,195 @@
+/**
+ * @component AdminWebhooksComponent
+ * @description `/admin/webhooks` — Outbound Webhooks (#10) management for the
+ * selected site. List subscribed endpoints, create a new one (subscribe an
+ * https URL to site events; the signing secret is shown ONCE), and delete.
+ *
+ * Cyan/black cockpit. Backend (`/api/sites/:siteId/webhooks`) is flag-gated
+ * (`outbound_webhooks`) — 404 when off → friendly "not available" error.
+ */
+
+import { Component, computed, inject, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ApiService } from '../../../services/api.service';
+import { ToastService } from '../../../services/toast.service';
+import { AdminStateService } from '../admin-state.service';
+import { RevealDirective } from '../../../directives/reveal.directive';
+import { HlmButtonDirective, HlmInputDirective } from '../../../ui';
+
+/** Mirrors the worker's WEBHOOK_EVENT_TYPES allowlist. */
+const EVENT_TYPES = ['site.published', 'form.submitted', 'payment.succeeded', 'review.received', 'build.failed', 'domain.active'];
+
+interface Endpoint {
+  id: string;
+  url: string;
+  eventTypes: string[];
+  enabled: boolean;
+}
+
+@Component({
+  selector: 'app-admin-webhooks',
+  standalone: true,
+  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective],
+  template: `
+    <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
+      <header class="mb-6">
+        <p class="font-mono uppercase tracking-wider text-[0.7rem] text-primary mb-1">Integrations</p>
+        <h2 class="text-2xl font-semibold text-light">Outbound Webhooks</h2>
+        <p class="text-text-secondary text-sm mt-1 max-w-prose">
+          Send signed, retried event notifications to your own endpoints when things happen on your site.
+        </p>
+      </header>
+
+      @if (!site()) {
+        <div data-testid="webhooks-empty" class="rounded-xl border border-white/[0.08] bg-white/[0.02] p-6 text-center">
+          <p class="text-text-secondary text-sm">Select a site from <strong class="text-light">Sites</strong> to manage its webhooks.</p>
+        </div>
+      } @else {
+        @if (createdSecret(); as s) {
+          <div data-testid="webhooks-secret" role="status" class="mb-5 rounded-xl border border-primary/30 bg-primary/[0.06] p-4">
+            <p class="text-sm text-light font-semibold mb-1">Signing secret — copy it now, it won't be shown again</p>
+            <code class="block text-[0.8rem] text-primary break-all">{{ s }}</code>
+          </div>
+        }
+
+        <!-- Create -->
+        <div class="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5 flex flex-col gap-4 mb-6">
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Endpoint URL (https)</span>
+            <input hlmInput data-testid="webhooks-url" placeholder="https://hooks.yourapp.com/projectsites" [(ngModel)]="urlModel" />
+          </label>
+          <div>
+            <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Events</span>
+            <div class="flex flex-wrap gap-3 mt-2">
+              @for (ev of eventTypes; track ev) {
+                <label class="inline-flex items-center gap-2 cursor-pointer text-sm text-light">
+                  <input type="checkbox" class="accent-primary w-4 h-4" [attr.data-testid]="'webhooks-event-' + ev"
+                    [checked]="selected().includes(ev)" (change)="toggleEvent(ev)" />
+                  <span>{{ ev }}</span>
+                </label>
+              }
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <button hlmBtn data-testid="webhooks-create-btn" [disabled]="creating()" (click)="create()">
+              {{ creating() ? 'Creating…' : 'Add endpoint' }}
+            </button>
+            <span class="text-[0.72rem] text-text-secondary">{{ selected().length }} event(s) selected</span>
+          </div>
+        </div>
+
+        @if (error()) {
+          <div data-testid="webhooks-error" role="alert" class="mb-5 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-sm text-red-300">{{ error() }}</div>
+        }
+
+        <!-- List -->
+        @if (loading()) {
+          <p class="text-text-secondary text-sm">Loading endpoints…</p>
+        } @else if (endpoints().length === 0) {
+          <p class="text-text-secondary text-sm">No endpoints yet — add one above.</p>
+        } @else {
+          <ul class="flex flex-col gap-2">
+            @for (e of endpoints(); track e.id) {
+              <li data-testid="webhooks-row" class="flex items-center justify-between gap-3 rounded-lg bg-white/[0.03] px-3 py-2.5">
+                <div class="min-w-0">
+                  <code class="text-[0.82rem] text-light truncate block">{{ e.url }}</code>
+                  <span class="text-[0.7rem] text-text-secondary">{{ e.eventTypes.join(', ') }}</span>
+                </div>
+                <button hlmBtn variant="ghost" size="sm" data-testid="webhooks-delete" (click)="remove(e.id)">Delete</button>
+              </li>
+            }
+          </ul>
+        }
+      }
+    </section>
+  `,
+})
+export class AdminWebhooksComponent {
+  private readonly api = inject(ApiService);
+  private readonly toast = inject(ToastService);
+  private readonly state = inject(AdminStateService);
+
+  readonly eventTypes = EVENT_TYPES;
+  readonly site = computed(() => this.state.selectedSite());
+
+  readonly urlModel = signal('');
+  readonly selected = signal<string[]>(['site.published']);
+  readonly endpoints = signal<Endpoint[]>([]);
+  readonly loading = signal(false);
+  readonly creating = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly createdSecret = signal<string | null>(null);
+
+  constructor() {
+    if (this.site()) this.load();
+  }
+
+  toggleEvent(ev: string): void {
+    this.selected.update((s) => (s.includes(ev) ? s.filter((x) => x !== ev) : [...s, ev]));
+  }
+
+  private siteId(): string | null {
+    return this.site()?.id ?? null;
+  }
+
+  load(): void {
+    const id = this.siteId();
+    if (!id) return;
+    this.loading.set(true);
+    this.error.set(null);
+    this.api.get<{ ok: boolean; endpoints: Endpoint[] }>(`/sites/${id}/webhooks`).subscribe({
+      next: (res) => {
+        this.endpoints.set(res.endpoints ?? []);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.error.set('Webhooks are not available for this site.');
+        this.loading.set(false);
+      },
+    });
+  }
+
+  create(): void {
+    const id = this.siteId();
+    if (!id || this.creating()) return;
+    if (!this.urlModel().trim() || this.selected().length === 0) {
+      this.toast.error('Enter an https URL and pick at least one event.');
+      return;
+    }
+    this.creating.set(true);
+    this.createdSecret.set(null);
+    this.api
+      .post<{ ok: boolean; id: string; secret: string }>(`/sites/${id}/webhooks`, {
+        url: this.urlModel().trim(),
+        eventTypes: this.selected(),
+      })
+      .subscribe({
+        next: (res) => {
+          this.createdSecret.set(res.secret);
+          this.urlModel.set('');
+          this.toast.success('Endpoint added.');
+          this.creating.set(false);
+          this.load();
+        },
+        error: (err: unknown) => {
+          const msg =
+            (err as { error?: { error?: { message?: string } } })?.error?.error?.message ?? 'Could not add the endpoint.';
+          this.toast.error(msg);
+          this.creating.set(false);
+        },
+      });
+  }
+
+  remove(endpointId: string): void {
+    const id = this.siteId();
+    if (!id) return;
+    this.api.delete<{ ok: boolean }>(`/sites/${id}/webhooks/${endpointId}`).subscribe({
+      next: () => {
+        this.toast.success('Endpoint removed.');
+        this.load();
+      },
+      error: () => this.toast.error('Could not remove the endpoint.'),
+    });
+  }
+}

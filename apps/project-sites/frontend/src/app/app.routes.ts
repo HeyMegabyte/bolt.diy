@@ -183,6 +183,12 @@ export const routes: Routes = [
           import('./pages/admin/sections/deliverability.component').then((m) => m.AdminDeliverabilityComponent),
       },
       {
+        // Outbound Webhooks (#10) — subscribe endpoints to site events (flag: outbound_webhooks).
+        path: 'webhooks',
+        loadComponent: () =>
+          import('./pages/admin/sections/webhooks.component').then((m) => m.AdminWebhooksComponent),
+      },
+      {
         // Public API token management — create / list / revoke psk_* tokens.
         // Backend: GET|POST|DELETE /api/v1-tokens; flag-gated: public_api_v1.
         path: 'api-tokens',
