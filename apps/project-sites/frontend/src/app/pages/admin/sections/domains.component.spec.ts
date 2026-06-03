@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AdminDomainsComponent } from './domains.component';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
@@ -138,5 +138,56 @@ describe('AdminDomainsComponent (cyan/black cohesion + a11y)', () => {
     expect(cmp.statusTone('pending_validation')).toBe('pending');
     expect(cmp.statusTone('verification_failed')).toBe('error');
     expect(cmp.statusTone('weird')).toBe('neutral');
+  });
+});
+
+/**
+ * Guards the hostname-load error gating (round): a failed `/hostnames` fetch used
+ * to fall through to the "No connected domains" empty state — a masquerade that
+ * could prompt a re-provision of a domain the user already owns. Now it sets a
+ * persistent hostnamesError card with Retry; success/retry clear it.
+ */
+describe('AdminDomainsComponent (hostname load-error gating)', () => {
+  function makeErroring(get: jasmine.Spy): { c: AdminDomainsComponent; toastErr: jasmine.Spy } {
+    const toastErr = jasmine.createSpy('error');
+    TestBed.configureTestingModule({
+      imports: [AdminDomainsComponent],
+      providers: [
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'vito' }) } },
+        { provide: ApiService, useValue: { get, post: () => of({}), put: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: toastErr, success: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminDomainsComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminDomainsComponent).componentInstance, toastErr };
+  }
+
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('success leaves hostnamesError null and populates the list', () => {
+    const { c } = makeErroring(jasmine.createSpy('get').and.returnValue(of({ data: [{ id: 'h1' }] })));
+    c.loadHostnames();
+    expect(c.hostnamesError()).toBeNull();
+    expect(c.hostnames().length).toBe(1);
+    expect(c.loadingHostnames()).toBe(false);
+  });
+
+  it('a load error sets a persistent hostnamesError (not a fake empty) + toasts', () => {
+    const { c, toastErr } = makeErroring(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
+    c.loadHostnames();
+    expect(c.hostnamesError()).toContain('Could not load');
+    expect(c.hostnames().length).toBe(0);
+    expect(c.loadingHostnames()).toBe(false);
+    expect(toastErr).toHaveBeenCalled();
+  });
+
+  it('retry after an error clears the prior hostnamesError', () => {
+    const get = jasmine.createSpy('get').and.returnValues(throwError(() => ({ status: 500 })), of({ data: [] }));
+    const { c } = makeErroring(get);
+    c.loadHostnames();
+    expect(c.hostnamesError()).not.toBeNull();
+    c.loadHostnames();
+    expect(c.hostnamesError()).toBeNull();
   });
 });

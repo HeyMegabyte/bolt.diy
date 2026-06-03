@@ -291,6 +291,11 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                 <div class="h-12 bg-black/30 border border-border rounded-md animate-pulse"></div>
               }
             </div>
+          } @else if (hostnamesError()) {
+            <div class="rounded-md border border-red-500/30 bg-red-500/5 p-4" role="alert" data-testid="hostnames-load-error">
+              <p class="text-red-300 text-sm m-0 mb-2">{{ hostnamesError() }}</p>
+              <button class="btn-ghost text-xs" data-testid="hostnames-retry" (click)="loadHostnames()" [disabled]="loadingHostnames()">Retry</button>
+            </div>
           } @else if (hostnames().length === 0) {
             <app-empty-state
               icon="🔗"
@@ -636,6 +641,8 @@ export class AdminDomainsComponent implements OnInit {
   /** ───── Async state ───── */
   hostnames = signal<readonly Hostname[]>([]);
   loadingHostnames = signal(false);
+  /** Persistent hostname-load failure — so a fetch error shows a Retry card, not a fake "No connected domains" empty state (which could prompt a re-provision of a domain the user already owns). */
+  hostnamesError = signal<string | null>(null);
   addingCustom = signal(false);
   aiSearching = signal(false);
   aiResults = signal<{ available: readonly DomainCard[]; unavailable: readonly DomainCard[] } | null>(null);
@@ -688,13 +695,17 @@ export class AdminDomainsComponent implements OnInit {
     const site = this.state.selectedSite();
     if (!site) return;
     this.loadingHostnames.set(true);
+    this.hostnamesError.set(null);
     this.api.get<{ data: readonly Hostname[] }>(`/sites/${site.id}/hostnames`).subscribe({
       next: (res) => {
         this.hostnames.set(res.data ?? []);
+        this.hostnamesError.set(null);
         this.loadingHostnames.set(false);
       },
       error: () => {
         this.loadingHostnames.set(false);
+        // Persist the failure so the empty state can't masquerade as "no domains".
+        this.hostnamesError.set('Could not load connected domains — your existing domains are safe. Retry.');
         this.toast.error('Failed to load connected domains');
       },
     });
