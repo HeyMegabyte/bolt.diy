@@ -1,5 +1,6 @@
 /**
- * Route coverage for the multimodal AI Site Copilot router (convergence r42).
+ * Route coverage for the multimodal AI Site Copilot router (convergence r42,
+ * Content-Type-aware body parse fixed r48).
  *
  * Exercises every handler in `routes/copilot.ts` end-to-end through the real
  * Hono app, mocking only the boundaries: the feature-flag gate, the
@@ -173,13 +174,10 @@ describe('POST /api/sites/:slug/copilot/intent', () => {
     expect(mockProcessIntent).not.toHaveBeenCalled();
   });
 
-  // NOTE (route finding, convergence r42): the documented JSON-body fallback
-  // never fires under Hono 4.11 — `c.req.formData()` on a JSON payload returns
-  // an empty FormData instead of throwing, so the `catch` JSON branch is dead
-  // code and `textInput` stays null. A pure JSON `{ text }` body therefore
-  // yields 400, NOT 200. The supported text path is multipart form-data. This
-  // test locks the actual contract (multipart works) while documenting the
-  // JSON-body gap below. Reported, not fixed, per the convergence brief.
+  // The handler branches on Content-Type (convergence r48): JSON bodies parse
+  // via `c.req.json()`, multipart via `c.req.formData()`. Both text paths work.
+  // The three tests below lock each contract (multipart success, JSON success,
+  // JSON regression for the body actually reaching the intent service).
   it('returns 200 with the intent payload on a valid MULTIPART (text-only) request', async () => {
     const env = makeEnv({ DB: makeDb({ first: () => ({ id: 'site-1', org_id: 'org-1' }) }) });
     mockIsFlagOn.mockResolvedValue(true);
@@ -217,14 +215,45 @@ describe('POST /api/sites/:slug/copilot/intent', () => {
     expect(mockSaveSession).toHaveBeenCalledTimes(1);
   });
 
-  it('returns 400 for a JSON-body request — the documented JSON fallback is dead code', async () => {
+  it('returns 200 with the intent payload on a valid JSON (text-only) request', async () => {
     const env = makeEnv({ DB: makeDb({ first: () => ({ id: 'site-1', org_id: 'org-1' }) }) });
     mockIsFlagOn.mockResolvedValue(true);
     mockProcessIntent.mockResolvedValue(intentResult());
 
+    // Content-Type: application/json → handler routes through c.req.json().
     const res = await postJson(makeApp(), env, { text: 'I want to book a haircut' });
-    // Hono 4.11 formData() does not throw on JSON → empty form → textInput null.
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      intent: string;
+      suggested_route: string;
+      latency_ms: number;
+    };
+    expect(json.intent).toBe('book');
+    expect(json.suggested_route).toBe('/book');
+    expect(json.latency_ms).toBe(12);
+
+    // Regression: the JSON text body MUST reach the intent service (this was
+    // dead code before r48 — formData() ate the JSON payload and 400'd).
+    expect(mockProcessIntent).toHaveBeenCalledTimes(1);
+    expect(mockProcessIntent.mock.calls[0][1]).toMatchObject({
+      text: 'I want to book a haircut',
+      orgId: 'org-1',
+      siteId: 'site-1',
+      siteSlug: 'acme',
+    });
+    expect(mockSaveSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 400 for a JSON body with no usable input (empty object)', async () => {
+    // Regression guard: a JSON body that parses but carries no text still 400s,
+    // and the JSON branch must NOT fall through to a spurious success.
+    const env = makeEnv({ DB: makeDb({ first: () => ({ id: 'site-1', org_id: 'org-1' }) }) });
+    mockIsFlagOn.mockResolvedValue(true);
+
+    const res = await postJson(makeApp(), env, { not_text: 'ignored' });
     expect(res.status).toBe(400);
+    const json = (await res.json()) as { error?: string };
+    expect(json.error).toMatch(/text\|audio\|image/);
     expect(mockProcessIntent).not.toHaveBeenCalled();
   });
 

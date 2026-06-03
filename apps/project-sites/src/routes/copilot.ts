@@ -65,31 +65,40 @@ copilotRoutes.post('/api/sites/:slug/copilot/intent', async (c) => {
   if (!site) return c.json({ error: 'not_found' }, 404);
   if (!(await guardFlag(c.env, site.org_id, site.id))) return c.json({ error: 'not_found' }, 404);
 
-  // Parse multipart form data
+  // Parse the body by Content-Type. Hono 4.11's `c.req.formData()` returns an
+  // EMPTY FormData (rather than throwing) on a JSON payload, so a try/catch
+  // fallback to `c.req.json()` is dead code — a pure JSON `{ text }` body would
+  // silently yield an empty form and a spurious 400. Branch on the header
+  // instead: JSON → json(); everything else (multipart/form-data) → formData().
   let textInput: string | null = null;
   let audioBuffer: ArrayBuffer | null = null;
   let imageBuffer: ArrayBuffer | null = null;
 
-  try {
-    const formData = await c.req.formData();
-    const text = formData.get('text');
-    if (text && typeof text === 'string') textInput = text.slice(0, 2000); // cap
+  const contentType = (c.req.header('content-type') ?? '').toLowerCase();
 
-    const audio = formData.get('audio');
-    if (audio && typeof audio === 'object' && 'arrayBuffer' in audio) {
-      audioBuffer = await (audio as Blob).arrayBuffer();
-    }
-
-    const image = formData.get('image');
-    if (image && typeof image === 'object' && 'arrayBuffer' in image) {
-      const blob = image as Blob;
-      if (blob.size > 5 * 1024 * 1024) return c.json({ error: 'image_too_large' }, 413);
-      imageBuffer = await blob.arrayBuffer();
-    }
-  } catch {
-    // Try JSON body fallback (text-only)
+  if (contentType.includes('application/json')) {
+    // JSON body (text-only).
     const json = await c.req.json<{ text?: string }>().catch(() => null);
-    if (json?.text) textInput = json.text.slice(0, 2000);
+    if (json?.text && typeof json.text === 'string') textInput = json.text.slice(0, 2000); // cap
+  } else {
+    // Multipart / form-data: text + optional audio + image.
+    const formData = await c.req.formData().catch(() => null);
+    if (formData) {
+      const text = formData.get('text');
+      if (text && typeof text === 'string') textInput = text.slice(0, 2000); // cap
+
+      const audio = formData.get('audio');
+      if (audio && typeof audio === 'object' && 'arrayBuffer' in audio) {
+        audioBuffer = await (audio as Blob).arrayBuffer();
+      }
+
+      const image = formData.get('image');
+      if (image && typeof image === 'object' && 'arrayBuffer' in image) {
+        const blob = image as Blob;
+        if (blob.size > 5 * 1024 * 1024) return c.json({ error: 'image_too_large' }, 413);
+        imageBuffer = await blob.arrayBuffer();
+      }
+    }
   }
 
   if (!textInput && !audioBuffer && !imageBuffer) {
