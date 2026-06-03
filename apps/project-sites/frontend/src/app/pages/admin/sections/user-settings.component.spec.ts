@@ -83,15 +83,22 @@ describe('AdminUserSettingsComponent (destructive delete guard + notifications)'
     expect(c.deleteOpen()).toBe(false);
   });
 
-  it('toggleNotification flips the target pref and fires a fire-and-forget sync', () => {
-    const { c, http } = make();
-    const g = c.notificationGroups()[0];
-    const p = g.prefs[0];
-    const before = p.enabled;
-    c.toggleNotification(g.id, p.id);
-    const after = c.notificationGroups()[0].prefs[0].enabled;
-    expect(after).toBe(!before);
-    expect(http.post).toHaveBeenCalled();
+  it('toggleNotification flips the target pref and fires a DEBOUNCED fire-and-forget sync', () => {
+    jasmine.clock().install();
+    try {
+      const { c, http } = make();
+      const g = c.notificationGroups()[0];
+      const p = g.prefs[0];
+      const before = p.enabled;
+      c.toggleNotification(g.id, p.id);
+      const after = c.notificationGroups()[0].prefs[0].enabled;
+      expect(after).toBe(!before);
+      expect(http.post).withContext('sync is debounced — nothing on the click tick').not.toHaveBeenCalled();
+      jasmine.clock().tick(800);
+      expect(http.post).toHaveBeenCalled();
+    } finally {
+      jasmine.clock().uninstall();
+    }
   });
 
   it('toggleNotification surfaces a visible "Saved" confirmation (no silent save)', () => {
@@ -102,15 +109,68 @@ describe('AdminUserSettingsComponent (destructive delete guard + notifications)'
     expect(c.notifSaved()).toBe(true);
   });
 
-  it('toggleNotification syncs the FULL pref map (forward-compatible), not just {group,pref}', () => {
-    const { c, http } = make();
-    const g = c.notificationGroups()[0];
-    const p = g.prefs[0];
-    const wasEnabled = p.enabled;
-    c.toggleNotification(g.id, p.id);
-    const body = http.post.calls.mostRecent().args[1] as { prefs?: Record<string, boolean> };
-    expect(body.prefs).toEqual(jasmine.any(Object));
-    // The toggled pref's NEW state is present in the synced map.
-    expect(body.prefs?.[p.id]).toBe(!wasEnabled);
+  it('writes the choice to localStorage SYNCHRONOUSLY (device-local source of truth lands before the debounce)', () => {
+    jasmine.clock().install();
+    try {
+      const { c } = make();
+      const g = c.notificationGroups()[0];
+      const p = g.prefs[0];
+      const wasEnabled = p.enabled;
+      c.toggleNotification(g.id, p.id); // NO tick — the local write must not wait on the debounce
+      const stored = JSON.parse(localStorage.getItem('ps_notification_prefs') ?? '{}') as Record<string, boolean>;
+      expect(stored[p.id]).withContext('localStorage persists on the click, not after the debounced sync').toBe(!wasEnabled);
+    } finally {
+      jasmine.clock().uninstall();
+    }
+  });
+
+  it('coalesces a BURST of toggles into a SINGLE server sync (debounce, not one request per click)', () => {
+    jasmine.clock().install();
+    try {
+      const { c, http } = make();
+      const g = c.notificationGroups()[0];
+      c.toggleNotification(g.id, g.prefs[0].id);
+      c.toggleNotification(g.id, g.prefs[1].id);
+      c.toggleNotification(g.id, g.prefs[0].id);
+      jasmine.clock().tick(800);
+      expect(http.post).withContext('three rapid toggles → one coalesced request').toHaveBeenCalledTimes(1);
+    } finally {
+      jasmine.clock().uninstall();
+    }
+  });
+
+  it('STOPS re-firing the sync after it fails once (no silent guaranteed-404 on every later toggle)', () => {
+    jasmine.clock().install();
+    try {
+      const { c, http } = make();
+      http.post.and.returnValue(throwError(() => ({ status: 404 })));
+      const g = c.notificationGroups()[0];
+      c.toggleNotification(g.id, g.prefs[0].id);
+      jasmine.clock().tick(800); // first sync fires → 404 → latches unavailable
+      expect(http.post).toHaveBeenCalledTimes(1);
+      c.toggleNotification(g.id, g.prefs[1].id);
+      jasmine.clock().tick(800); // must NOT fire again
+      expect(http.post).withContext('a missing/erroring sync route is not hammered on every later toggle').toHaveBeenCalledTimes(1);
+    } finally {
+      jasmine.clock().uninstall();
+    }
+  });
+
+  it('the debounced sync still posts the FULL pref map (forward-compatible), not just {group,pref}', () => {
+    jasmine.clock().install();
+    try {
+      const { c, http } = make();
+      const g = c.notificationGroups()[0];
+      const p = g.prefs[0];
+      const wasEnabled = p.enabled;
+      c.toggleNotification(g.id, p.id);
+      jasmine.clock().tick(800);
+      const body = http.post.calls.mostRecent().args[1] as { prefs?: Record<string, boolean> };
+      expect(body.prefs).toEqual(jasmine.any(Object));
+      // The toggled pref's NEW state is present in the synced map.
+      expect(body.prefs?.[p.id]).toBe(!wasEnabled);
+    } finally {
+      jasmine.clock().uninstall();
+    }
   });
 });

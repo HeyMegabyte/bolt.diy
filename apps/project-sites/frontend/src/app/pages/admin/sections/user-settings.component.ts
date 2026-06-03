@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, type OnInit } from '@angular/core';
+import { Component, computed, inject, signal, type OnDestroy, type OnInit } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
@@ -1068,7 +1068,7 @@ interface NotificationGroup {
     }
   `],
 })
-export class AdminUserSettingsComponent implements OnInit {
+export class AdminUserSettingsComponent implements OnInit, OnDestroy {
   auth = inject(AuthService);
   private api = inject(ApiService);
   private http = inject(HttpClient);
@@ -1183,6 +1183,10 @@ export class AdminUserSettingsComponent implements OnInit {
   /** Brief "Saved" confirmation after a toggle — no silent save. */
   notifSaved = signal(false);
   private notifSavedTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Debounce handle so a burst of toggles coalesces into ONE server sync. */
+  private notifSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Latch: once the sync route errors/404s, stop re-firing it this session. */
+  private notifSyncUnavailable = false;
 
   // ── Delete account ──
   deleteOpen = signal(false);
@@ -1685,12 +1689,35 @@ export class AdminUserSettingsComponent implements OnInit {
     if (this.notifSavedTimer) clearTimeout(this.notifSavedTimer);
     this.notifSavedTimer = setTimeout(() => this.notifSaved.set(false), 2200);
     // Forward-compatible sync: POST the FULL pref map so the server route (when
-    // it ships) persists the complete state in one call. Fire-and-forget — local
-    // persistence is the source of truth, so a 404/error stays silent.
-    this.api.post('/admin/notifications', { prefs: flat }).subscribe({
-      next: () => { /* ok */ },
-      error: () => { /* silent */ },
-    });
+    // it ships) persists the complete state in one call. DEBOUNCED so flipping
+    // several switches in a row coalesces into a single request instead of one
+    // per click, and SUPPRESSED after the first failure so we never keep hammering
+    // a route that isn't there — local persistence is the source of truth.
+    this.scheduleNotificationSync(flat);
+  }
+
+  /**
+   * Debounced, failure-latching forward-sync of the notification pref map.
+   * A burst of toggles re-schedules the timer, so only the final state is sent
+   * once the user stops. The first error (e.g. a 404 because the server route
+   * has not shipped) latches `notifSyncUnavailable` so subsequent toggles skip
+   * the request entirely — no silent, guaranteed-failing call on every click.
+   */
+  private scheduleNotificationSync(flat: Record<string, boolean>): void {
+    if (this.notifSyncUnavailable) return;
+    if (this.notifSyncTimer) clearTimeout(this.notifSyncTimer);
+    this.notifSyncTimer = setTimeout(() => {
+      this.notifSyncTimer = null;
+      this.api.post('/admin/notifications', { prefs: flat }).subscribe({
+        next: () => { /* persisted server-side */ },
+        error: () => { this.notifSyncUnavailable = true; },
+      });
+    }, 700);
+  }
+
+  ngOnDestroy(): void {
+    if (this.notifSavedTimer) clearTimeout(this.notifSavedTimer);
+    if (this.notifSyncTimer) clearTimeout(this.notifSyncTimer);
   }
 
   // ─────────────────── Delete account ───────────────────
