@@ -30,6 +30,7 @@ import {
   HostListener,
   ViewChild,
   computed,
+  effect,
   inject,
   signal,
   type AfterViewInit,
@@ -1496,6 +1497,25 @@ export class AdminSocialComponent implements OnInit {
   private readonly router = inject(Router);
   readonly state = inject(AdminStateService);
 
+  /** Guards the site-reactive load effect — see constructor + _ULTIMATE_CONVERGENCE.md §7. */
+  private loadedSiteId: string | null = null;
+
+  constructor() {
+    // Site-reactive load: accounts + posts are site-scoped. On a deep-link the
+    // selected site resolves AFTER mount, and there is NO data-refresh timer
+    // here (the only setInterval is the per-OAuth popup poll), so an ngOnInit
+    // one-shot would leave the panels empty forever. Fire on site resolve/switch.
+    // (Reactivity class-bug — same fix as analytics/webhooks/recipes/pseo/mcp/forms.)
+    effect(() => {
+      const id = this.state.selectedSite()?.id ?? null;
+      if (id !== this.loadedSiteId) {
+        this.loadedSiteId = id;
+        this.loadAccounts();
+        this.loadPosts();
+      }
+    });
+  }
+
   readonly platforms = PLATFORMS;
   readonly weekDayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -1613,8 +1633,9 @@ export class AdminSocialComponent implements OnInit {
         queueMicrotask(() => this.taRef?.nativeElement?.focus());
       }
     });
-    this.loadAccounts();
-    this.loadPosts();
+    // Site-scoped loads (accounts + posts) are owned by the constructor effect
+    // so a deep-link populates them when selectedSite() resolves. Auto-pilot
+    // config is org-level (no site param) — load it once on mount.
     this.loadAutoPilotConfig();
   }
 
