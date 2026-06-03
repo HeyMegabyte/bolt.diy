@@ -298,3 +298,45 @@ describe('AdminDomainsComponent (add-domain inline hint render)', () => {
     }
   });
 });
+
+/**
+ * WCAG 1.3.1 / 4.1.2 — the add-custom-domain + AI-search inputs had VISIBLE
+ * labels ("Already own a domain?" / "Search creative domains with AI") that
+ * were not programmatically associated (no for/id), so a screen reader didn't
+ * announce the input's purpose. Associate label[for] ↔ input[id].
+ */
+describe('AdminDomainsComponent (input label association)', () => {
+  let fixture: ComponentFixture<AdminDomainsComponent>;
+  function build(): void {
+    TestBed.configureTestingModule({
+      imports: [AdminDomainsComponent],
+      providers: [
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'vito' }) } },
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ data: {} }), put: () => of({ data: {} }), delete: () => of({ data: {} }) } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    fixture = TestBed.createComponent(AdminDomainsComponent);
+    fixture.detectChanges();
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('associates the custom-domain input with its visible label', () => {
+    build();
+    const el: HTMLElement = fixture.nativeElement;
+    const input = el.querySelector('input[name="customDomain"]') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    expect(input.id).withContext('input has an id').toBeTruthy();
+    expect(el.querySelector(`label[for="${input.id}"]`)).withContext('a label[for] points to it').toBeTruthy();
+  });
+
+  it('associates the AI domain-search input with its visible label', () => {
+    build();
+    const el: HTMLElement = fixture.nativeElement;
+    const input = el.querySelector('input[placeholder^="e.g. premium"]') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    expect(input.id).toBeTruthy();
+    expect(el.querySelector(`label[for="${input.id}"]`)).toBeTruthy();
+  });
+});

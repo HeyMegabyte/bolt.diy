@@ -173,10 +173,11 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
 
           <!-- Custom CNAME entry (re-uses existing /hostnames POST) -->
           <form class="space-y-2" (submit)="addCustom($event)">
-            <label class="text-[0.72rem] uppercase tracking-wider text-text-secondary block">Already own a domain?</label>
+            <label for="domains-custom-input" class="text-[0.72rem] uppercase tracking-wider text-text-secondary block">Already own a domain?</label>
             <div class="flex gap-2 flex-wrap">
               <input
                 hlmInput
+                id="domains-custom-input"
                 class="flex-1 min-w-[240px]"
                 type="text"
                 name="customDomain"
@@ -205,10 +206,11 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
 
           <!-- AI domain search -->
           <div class="border-t border-border pt-5 space-y-3">
-            <label class="text-[0.72rem] uppercase tracking-wider text-text-secondary block">Search creative domains with AI</label>
+            <label for="domains-ai-query" class="text-[0.72rem] uppercase tracking-wider text-text-secondary block">Search creative domains with AI</label>
             <div class="flex gap-2 flex-wrap">
               <input
                 hlmInput
+                id="domains-ai-query"
                 class="flex-1 min-w-[240px]"
                 type="text"
                 placeholder="e.g. premium barber shop in Newark"
