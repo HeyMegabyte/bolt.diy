@@ -90,6 +90,20 @@ describe('AdminSitesComponent (sorting + a11y + tiers)', () => {
     expect(c.sortedRows().map((r) => r.site_id)).toEqual(['b', 'c', 'a']);
   });
 
+  // A wall of "—" cells (sites exist but none have reported Web Vitals yet)
+  // reads as broken/loading without a hint. allVitalsEmpty drives a contextual
+  // banner explaining the data fills in after sites get traffic.
+  it('allVitalsEmpty is true only when sites exist AND every metric is null', () => {
+    const c = make();
+    expect(c.allVitalsEmpty()).withContext('no rows → not the empty-data state').toBe(false);
+    c.rows.set([row({ site_id: 'a' }), row({ site_id: 'b' })] as never);
+    expect(c.allVitalsEmpty()).withContext('sites present, all metrics null → true').toBe(true);
+    c.rows.set([row({ site_id: 'a' }), row({ site_id: 'b', composite_score: 88 })] as never);
+    expect(c.allVitalsEmpty()).withContext('one site has a score → not empty').toBe(false);
+    c.rows.set([row({ site_id: 'a', latest: { lcp_ms: 1200 } as never })] as never);
+    expect(c.allVitalsEmpty()).withContext('one site has a metric → not empty').toBe(false);
+  });
+
   it('sortedRows orders by name ascending (case-insensitive)', () => {
     const c = make();
     c.rows.set([

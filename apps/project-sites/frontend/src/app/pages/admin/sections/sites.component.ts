@@ -110,6 +110,12 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
           ctaLabel="Create your first site"
           (ctaClick)="createSite()" />
       } @else {
+        @if (allVitalsEmpty()) {
+          <div class="mb-3 flex items-start gap-2 rounded-lg border border-[var(--ps-accent)]/25 bg-[var(--ps-accent)]/[0.06] px-3.5 py-2.5 text-[0.8rem] text-white/75" role="status" data-testid="sites-no-vitals-hint">
+            <span aria-hidden="true" class="text-[var(--ps-accent)] leading-none mt-0.5">◆</span>
+            <span>No Web Vitals data yet — published sites report Core Web Vitals automatically once they receive real traffic. The heatmap fills in as data arrives.</span>
+          </div>
+        }
         <div class="rounded-xl border border-white/10 bg-white/[0.02] overflow-x-auto" tabindex="0" role="region" aria-label="Sites table — scroll horizontally">
           <table class="w-full text-[0.85rem] text-left">
             <thead class="bg-white/[0.03] text-[0.7rem] uppercase tracking-wider text-white/60">
@@ -201,6 +207,19 @@ export class AdminSitesComponent implements OnInit {
   triage = signal<boolean>(false);
   /** When the heatmap data last loaded — fed to <app-synced-pill> for the live freshness indicator. */
   syncedAt = signal<number | null>(null);
+
+  /**
+   * True when sites exist but NONE has reported any Web Vitals metric yet.
+   * Drives a contextual "data fills in after traffic" hint so a wall of "—"
+   * cells reads as "no data yet" rather than broken / still loading.
+   */
+  readonly allVitalsEmpty = computed<boolean>(() => {
+    const rs = this.rows();
+    return rs.length > 0 && rs.every((r) =>
+      r.composite_score == null &&
+      r.latest.lcp_ms == null && r.latest.cls == null &&
+      r.latest.inp_ms == null && r.latest.lh_perf == null);
+  });
 
   ngOnInit(): void {
     this.reload();
