@@ -344,26 +344,33 @@ describe('dispatchTool — unknown tool and error envelope', () => {
     expect(textOf(r)).toContain('Unknown tool: nope_not_a_tool');
   });
 
-  // NOTE (source behavior, reported): every `case` in dispatchTool does
-  // `return handleX(...)` WITHOUT awaiting, and every handler is `async`. A throw
-  // inside any handler therefore becomes a REJECTED PROMISE that the function
-  // returns, which propagates PAST dispatchTool's try/catch (the catch only ever
-  // catches a synchronous throw in the switch itself — effectively unreachable).
-  // These tests pin that real behavior rather than an isError envelope that the
-  // dead catch never produces for handler failures.
-  it('propagates an async handler DB rejection (un-awaited return bypasses the catch)', async () => {
+  // REGRESSION (convergence r48 — bug found r21): dispatchTool's switch now
+  // `await`s each handler inside the try, so a handler rejection (DB failure,
+  // internal throw) is CAUGHT and mapped to the `{ isError: true }` envelope
+  // rather than escaping as a rejected promise past the (previously dead) catch.
+  it('maps an async handler DB rejection to the isError envelope (does NOT propagate)', async () => {
     mockQuery.mockRejectedValueOnce(new Error('D1 exploded'));
-    await expect(dispatchTool(db, SITE, 'list_pages', {})).rejects.toThrow('D1 exploded');
+    const r = await dispatchTool(db, SITE, 'list_pages', {});
+    expect(r.isError).toBe(true);
+    expect(textOf(r)).toBe('D1 exploded');
   });
 
-  it('propagates a handler-internal throw the same way (e.g. non-string title)', async () => {
+  it('maps a handler-internal throw to the isError envelope (e.g. non-string title)', async () => {
     // create_blog_post computes the default slug via `title.toLowerCase()` before
     // the required-fields guard — a non-string title throws inside the async handler.
-    await expect(
-      dispatchTool(db, SITE, 'create_blog_post', {
-        title: 123 as unknown as string,
-        content: 'b',
-      }),
-    ).rejects.toBeInstanceOf(TypeError);
+    const r = await dispatchTool(db, SITE, 'create_blog_post', {
+      title: 123 as unknown as string,
+      content: 'b',
+    });
+    expect(r.isError).toBe(true);
+    // The thrown TypeError's message is surfaced (Error → err.message branch).
+    expect(textOf(r).length).toBeGreaterThan(0);
+  });
+
+  it('falls back to "internal error" text when a handler rejects with a non-Error', async () => {
+    mockQuery.mockRejectedValueOnce('plain string rejection');
+    const r = await dispatchTool(db, SITE, 'get_analytics_summary', {});
+    expect(r.isError).toBe(true);
+    expect(textOf(r)).toBe('internal error');
   });
 });

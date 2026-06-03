@@ -205,25 +205,28 @@ export async function dispatchTool(
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
   try {
+    // Each handler is async — `await` inside the try so a handler rejection (DB
+    // failure, internal throw) is caught here and mapped to the `{ isError: true }`
+    // envelope instead of escaping as a rejected promise. (convergence r48)
     switch (toolName) {
       case 'list_pages':
-        return handleListPages(db, siteId);
+        return await handleListPages(db, siteId);
       case 'read_page':
-        return handleReadPage(db, siteId, args.slug as string);
+        return await handleReadPage(db, siteId, args.slug as string);
       case 'update_page_section':
-        return handleUpdatePageSection(db, siteId, args);
+        return await handleUpdatePageSection(db, siteId, args);
       case 'create_page':
-        return handleCreatePage(db, siteId, args);
+        return await handleCreatePage(db, siteId, args);
       case 'list_form_submissions':
-        return handleListFormSubmissions(db, siteId, (args.limit as number) ?? 50);
+        return await handleListFormSubmissions(db, siteId, (args.limit as number) ?? 50);
       case 'list_blog_posts':
-        return handleListBlogPosts(db, siteId, (args.limit as number) ?? 20);
+        return await handleListBlogPosts(db, siteId, (args.limit as number) ?? 20);
       case 'create_blog_post':
-        return handleCreateBlogPost(db, siteId, args);
+        return await handleCreateBlogPost(db, siteId, args);
       case 'get_analytics_summary':
-        return handleGetAnalyticsSummary(db, siteId);
+        return await handleGetAnalyticsSummary(db, siteId);
       case 'list_media_assets':
-        return handleListMediaAssets(db, siteId, (args.limit as number) ?? 30);
+        return await handleListMediaAssets(db, siteId, (args.limit as number) ?? 30);
       default:
         return { content: [{ type: 'text', text: `Unknown tool: ${toolName}` }], isError: true };
     }
