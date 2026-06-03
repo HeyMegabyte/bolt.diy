@@ -212,6 +212,12 @@ const STATUS_COLORS: Record<string, string> = {
               </header>
 
               <div class="inbox-messages" role="log" aria-live="polite" aria-label="Messages">
+                @if (messagesError()) {
+                  <div class="inbox-empty" role="alert" data-testid="inbox-msg-error">
+                    <p class="text-red-300">{{ messagesError() }}</p>
+                    <button class="btn-ghost text-xs" data-testid="inbox-msg-retry" (click)="reloadMessages()">Retry</button>
+                  </div>
+                }
                 @for (msg of messages(); track msg.id) {
                   <div class="inbox-msg" [class.outbound]="msg.direction === 'outbound'" [class.ai-drafted]="msg.ai_drafted">
                     <div class="inbox-msg-meta">
@@ -433,6 +439,8 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
   loading = signal(true);
   /** Persistent non-404 conversations-load failure — so a fetch error shows a retry, not a fake "no conversations" empty state. */
   convError = signal<string | null>(null);
+  /** Thread-load failure — so a failed message fetch shows a retry in the thread panel, not a silent blank thread. */
+  messagesError = signal<string | null>(null);
   hasMore = signal(false);
   flagEnabled = signal(true); // assume on until 404 proves otherwise
   selectedId = signal<string | null>(null);
@@ -548,12 +556,20 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
   }
 
   private loadMessages(convId: string): void {
+    this.messagesError.set(null);
     this.api.get<{ conversation: Conversation; messages: Message[] }>(`/inbox/conversations/${convId}`)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (res) => this.messages.set(res.messages),
-        error: () => {},
+        next: (res) => { this.messages.set(res.messages); this.messagesError.set(null); },
+        // Don't leave a silent blank thread — surface a retryable error in-panel.
+        error: () => { this.messages.set([]); this.messagesError.set('Could not load this conversation — retry.'); },
       });
+  }
+
+  /** Retry the thread load for the currently-selected conversation. */
+  reloadMessages(): void {
+    const id = this.selectedId();
+    if (id) this.loadMessages(id);
   }
 
   generateDraft(): void {

@@ -107,3 +107,39 @@ describe('AdminInboxComponent — empty state (real template)', () => {
     expect(host.textContent ?? '').not.toContain('No open conversations.');
   });
 });
+
+/**
+ * Thread-load error gating: opening a conversation whose messages fail to load
+ * must show a retryable in-panel error, NOT a silent blank thread (the toast
+ * fires, but the thread panel itself was previously empty/stale).
+ */
+describe('AdminInboxComponent (thread message-load error)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('selecting a conversation loads its messages + leaves messagesError null', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ conversation: { id: 'c1' }, messages: [{ id: 'm1', body: 'hi', direction: 'inbound', sent_at: 'now' }] })));
+    c.selectConversation({ id: 'c1', status: 'open', unread_count: 0 } as never);
+    expect(c.messages().length).toBe(1);
+    expect(c.messagesError()).toBeNull();
+  });
+
+  it('a failed thread load sets messagesError + empties messages (no silent blank thread)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
+    c.selectConversation({ id: 'c1', status: 'open', unread_count: 0 } as never);
+    expect(c.messagesError()).withContext('the thread failure is surfaced, not blank').not.toBeNull();
+    expect(c.messages().length).toBe(0);
+  });
+
+  it('reloadMessages retries the selected conversation + clears the prior error on success', () => {
+    const get = jasmine.createSpy('get').and.returnValues(
+      throwError(() => ({ status: 500 })),
+      of({ conversation: { id: 'c1' }, messages: [{ id: 'm1', body: 'hi', direction: 'inbound', sent_at: 'now' }] }),
+    );
+    const c = make(get);
+    c.selectConversation({ id: 'c1', status: 'open', unread_count: 0 } as never);
+    expect(c.messagesError()).not.toBeNull();
+    c.reloadMessages();
+    expect(c.messagesError()).toBeNull();
+    expect(c.messages().length).toBe(1);
+  });
+});
