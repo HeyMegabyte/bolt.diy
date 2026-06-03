@@ -3,6 +3,7 @@ import {
   inject,
   signal,
   computed,
+  effect,
   type OnInit,
   type OnDestroy,
 } from '@angular/core';
@@ -1084,10 +1085,24 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
   /**
    * Lifecycle: kick off initial load + auto-poll loop.
    */
+  private loadedSiteId: string | null = null;
+
+  constructor() {
+    // Site-reactive load: submissions self-heal via polling, but settings + MCP
+    // were ngOnInit-once (empty forever on deep-link, stale on site switch). Load
+    // all three when the site resolves/changes; guarded so we never re-load the same site.
+    effect(() => {
+      const id = this.state.selectedSite()?.id ?? null;
+      if (id && id !== this.loadedSiteId) {
+        this.loadedSiteId = id;
+        this.reload();
+        this.loadSettings();
+        this.loadMcp();
+      }
+    });
+  }
+
   ngOnInit(): void {
-    this.reload();
-    this.loadSettings();
-    this.loadMcp();
     this.startPolling();
     this.visibilityHandler = (): void => this.handleVisibility();
     if (typeof document !== 'undefined') {
