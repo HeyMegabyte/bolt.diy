@@ -108,6 +108,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
+import { getMemory, setMemory } from '../services/anthropic_memory.js';
 import { getTrafficSummary } from '../../libs/features/visitor_events_core/service.js';
 import {
   createSiteSchema,
@@ -10367,6 +10368,60 @@ api.delete('/api/admin/cloudflare-credentials', async (c) => {
   }
   await deleteCfCredentials(c.env, orgId);
   return c.json({ data: { deleted: true } });
+});
+
+/**
+ * Notification preferences — per-user, cross-device.
+ *
+ * The admin "Notification preferences" toggles (user-settings
+ * `toggleNotification()`) keep `localStorage` as the instant source of truth and
+ * forward-sync the FULL pref map here (debounced). Persisting server-side via
+ * the per-user {@link ../services/anthropic_memory.ts | memory store}
+ * (`scope_kind='user'`) means a signed-in user sees the same choices on every
+ * device/browser — not just the one that set them. No new table: reuses the
+ * generic user-scoped KV store.
+ *
+ * Disabled state: if the GET 404'd (route absent) the client latched its sync
+ * off; now that it 200s, prefs round-trip. The map is `Record<string, boolean>`
+ * keyed by pref id; security-critical alerts are enforced server-side at send
+ * time regardless of what's stored here.
+ */
+const NOTIFICATION_PREFS_KEY = 'notification_prefs';
+const NotificationPrefsMapSchema = z.record(z.boolean());
+const NotificationPrefsSchema = z.object({ prefs: NotificationPrefsMapSchema });
+
+api.get('/api/admin/notifications', async (c) => {
+  const requestId = c.get('requestId') ?? crypto.randomUUID();
+  const userId = c.get('userId');
+  if (!userId) {
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } }, 401);
+  }
+  const raw = await getMemory(c.env, { kind: 'user', id: userId }, NOTIFICATION_PREFS_KEY);
+  let prefs: Record<string, boolean> = {};
+  if (raw) {
+    try {
+      // Stored value is the bare pref map (POST persists JSON.stringify(prefs)).
+      const parsed = NotificationPrefsMapSchema.safeParse(JSON.parse(raw));
+      if (parsed.success) prefs = parsed.data;
+    } catch {
+      /* corrupt stored JSON → fall back to empty prefs (never throw on read) */
+    }
+  }
+  return c.json({ data: { prefs } });
+});
+
+api.post('/api/admin/notifications', async (c) => {
+  const requestId = c.get('requestId') ?? crypto.randomUUID();
+  const userId = c.get('userId');
+  if (!userId) {
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required', request_id: requestId } }, 401);
+  }
+  const parsed = NotificationPrefsSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'Body must be { prefs: Record<string, boolean> }', request_id: requestId } }, 400);
+  }
+  await setMemory(c.env, { kind: 'user', id: userId }, NOTIFICATION_PREFS_KEY, JSON.stringify(parsed.data.prefs));
+  return c.json({ data: { saved: true, prefs: parsed.data.prefs } });
 });
 
 // Reference `resolveZoneForHostname` so tree-shaking keeps it available
