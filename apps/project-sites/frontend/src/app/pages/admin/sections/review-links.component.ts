@@ -64,7 +64,12 @@ interface ReviewLink {
         </div>
 
         @if (error()) {
-          <div data-testid="review-links-error" role="alert" class="mb-5 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-sm text-red-300">{{ error() }}</div>
+          <div data-testid="review-links-error" role="alert" class="mb-5 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-sm text-red-300 flex items-center justify-between gap-3">
+            <span>{{ error() }}</span>
+            @if (errorRetryable()) {
+              <button hlmBtn variant="ghost" size="sm" data-testid="review-links-retry" (click)="load()">Retry</button>
+            }
+          </div>
         }
 
         @if (loading()) {
@@ -102,6 +107,8 @@ export class AdminReviewLinksComponent {
   readonly loading = signal(false);
   readonly creating = signal(false);
   readonly error = signal<string | null>(null);
+  /** True when the load error is transient (not a 404 feature-gate) → show a Retry. */
+  readonly errorRetryable = signal(false);
   readonly createdUrl = signal<string | null>(null);
 
   private loadedSiteId: string | null = null;
@@ -145,13 +152,21 @@ export class AdminReviewLinksComponent {
     if (!id) return;
     this.loading.set(true);
     this.error.set(null);
+    this.errorRetryable.set(false);
     this.api.get<{ ok: boolean; links: ReviewLink[] }>(`/sites/${id}/review-links`).subscribe({
       next: (res) => {
         this.links.set(res.links ?? []);
         this.loading.set(false);
       },
-      error: () => {
-        this.error.set('Review links are not available for this site.');
+      // Distinguish a genuine feature-gate (404 → retrying won't help) from a
+      // transient failure (500/network → offer a Retry). Never read a transient
+      // error as a permanent "not available for this site".
+      error: (err: { status?: number }) => {
+        const gated = err?.status === 404;
+        this.error.set(gated
+          ? "Review links aren't enabled for this site."
+          : "Couldn't load review links — check your connection and retry.");
+        this.errorRetryable.set(!gated);
         this.loading.set(false);
       },
     });

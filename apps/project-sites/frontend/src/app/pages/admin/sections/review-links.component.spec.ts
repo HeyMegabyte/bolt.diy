@@ -89,3 +89,53 @@ describe('AdminReviewLinksComponent', () => {
     expect(q('app-empty-state')).withContext('uses the reusable empty-state primitive').not.toBeNull();
   });
 });
+
+/**
+ * Load-error honesty: a TRANSIENT failure (500/network) must read as retryable
+ * (with a Retry button), NOT as a permanent "not available for this site"
+ * feature-gate. A genuine 404 IS a feature-gate → no Retry (retrying won't help).
+ */
+describe('AdminReviewLinksComponent (load-error retryability)', () => {
+  function buildErr(getSpy: jasmine.Spy): ComponentFixture<AdminReviewLinksComponent> {
+    TestBed.configureTestingModule({
+      imports: [AdminReviewLinksComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: getSpy, post: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal<{ id: string } | null>({ id: 's1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminReviewLinksComponent);
+    fx.detectChanges();
+    return fx;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('a transient 500 → retryable error + a Retry button (not a fake feature-gate)', () => {
+    const fx = buildErr(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
+    const c = fx.componentInstance;
+    expect(c.errorRetryable()).toBeTrue();
+    expect(c.error()).toContain('retry');
+    expect((fx.nativeElement as HTMLElement).querySelector('[data-testid="review-links-retry"]')).toBeTruthy();
+  });
+
+  it('a 404 → a feature-gate message with NO Retry (retrying cannot help)', () => {
+    const fx = buildErr(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 404 }))));
+    const c = fx.componentInstance;
+    expect(c.errorRetryable()).toBeFalse();
+    expect(c.error()).toContain("aren't enabled");
+    expect((fx.nativeElement as HTMLElement).querySelector('[data-testid="review-links-retry"]')).toBeNull();
+  });
+
+  it('Retry re-issues the load + clears the error on success', () => {
+    const get = jasmine.createSpy('get').and.returnValues(
+      throwError(() => ({ status: 500 })),
+      of({ ok: true, links: [] }),
+    );
+    const fx = buildErr(get);
+    expect(fx.componentInstance.error()).not.toBeNull();
+    fx.componentInstance.load();
+    expect(fx.componentInstance.error()).toBeNull();
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+});
