@@ -98,16 +98,21 @@ interface Delivery {
         </div>
 
         @if (error()) {
-          <div data-testid="webhooks-error" role="alert" class="mb-5 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-sm text-red-300">{{ error() }}</div>
+          <div data-testid="webhooks-error" role="alert" class="mb-5 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-sm text-red-300 flex items-center justify-between gap-3">
+            <span>{{ error() }}</span>
+            @if (errorRetryable()) {
+              <button hlmBtn variant="ghost" size="sm" data-testid="webhooks-retry" (click)="load()">Retry</button>
+            }
+          </div>
         }
 
         <!-- List -->
         @if (loading()) {
           <app-skeleton variant="table" [rows]="3" />
-        } @else if (endpoints().length === 0) {
+        } @else if (!error() && endpoints().length === 0) {
           <app-empty-state icon="↪" title="No webhook endpoints"
             body="Add an endpoint above to receive a signed callback whenever your selected events fire." />
-        } @else {
+        } @else if (endpoints().length > 0) {
           <ul class="flex flex-col gap-2">
             @for (e of endpoints(); track e.id) {
               <li data-testid="webhooks-row" class="flex items-center justify-between gap-3 rounded-lg bg-white/[0.03] px-3 py-2.5">
@@ -163,6 +168,8 @@ export class AdminWebhooksComponent {
   readonly loading = signal(false);
   readonly creating = signal(false);
   readonly error = signal<string | null>(null);
+  /** True when the load error is transient (not a 404 feature-gate) → show a Retry. */
+  readonly errorRetryable = signal(false);
   readonly createdSecret = signal<string | null>(null);
 
   private loadedSiteId: string | null = null;
@@ -207,13 +214,21 @@ export class AdminWebhooksComponent {
     if (!id) return;
     this.loading.set(true);
     this.error.set(null);
+    this.errorRetryable.set(false);
     this.api.get<{ ok: boolean; endpoints: Endpoint[] }>(`/sites/${id}/webhooks`).subscribe({
       next: (res) => {
         this.endpoints.set(res.endpoints ?? []);
         this.loading.set(false);
       },
-      error: () => {
-        this.error.set('Webhooks are not available for this site.');
+      // Distinguish a genuine feature-gate (404 → retrying won't help) from a
+      // transient failure (500/network → offer a Retry). Never read a transient
+      // error as a permanent "not available for this site".
+      error: (err: { status?: number }) => {
+        const gated = err?.status === 404;
+        this.error.set(gated
+          ? 'Webhooks are not enabled for this site.'
+          : "Couldn't load webhooks — check your connection and retry.");
+        this.errorRetryable.set(!gated);
         this.loading.set(false);
       },
     });

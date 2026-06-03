@@ -128,6 +128,35 @@ describe('AdminWebhooksComponent', () => {
     expect(q('[data-testid="webhooks-error"]')).not.toBeNull();
   });
 
+  it('a transient 500 → retryable error + a Retry button (not a permanent feature-gate)', () => {
+    build({ id: 's1' });
+    get.and.returnValue(throwError(() => ({ status: 500 })));
+    fixture.componentInstance.load();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.errorRetryable()).toBeTrue();
+    expect(fixture.componentInstance.error()).toContain('retry');
+    expect(q('[data-testid="webhooks-retry"]')).not.toBeNull();
+  });
+
+  it('a 404 → "not enabled" feature-gate with NO Retry (retrying cannot help)', () => {
+    build({ id: 's1' });
+    get.and.returnValue(throwError(() => ({ status: 404 })));
+    fixture.componentInstance.load();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.errorRetryable()).toBeFalse();
+    expect(fixture.componentInstance.error()).toContain('not enabled');
+    expect(q('[data-testid="webhooks-retry"]')).toBeNull();
+  });
+
+  it('a load error SUPPRESSES the empty state (no error + "No webhook endpoints" shown together)', () => {
+    build({ id: 's1' });
+    get.and.returnValue(throwError(() => ({ status: 500 })));
+    fixture.componentInstance.load();
+    fixture.detectChanges();
+    expect(q('[data-testid="webhooks-error"]')).not.toBeNull();
+    expect(q('app-empty-state')).withContext('the error owns the display — no double "No endpoints"').toBeNull();
+  });
+
   // ── Create input validation (security/reliability) ────────────────────────
   // A webhook endpoint is called server-side, so a junk / http / internal URL
   // is an SSRF-adjacent footgun. Bad input must be rejected client-side with a
