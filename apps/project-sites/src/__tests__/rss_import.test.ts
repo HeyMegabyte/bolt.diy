@@ -1,4 +1,4 @@
-import { parseRssFeed } from '../services/rss_import';
+import { parseRssFeed, buildRssDraftRows } from '../services/rss_import';
 
 /**
  * Guards the pure RSS/Atom feed parser behind Pulse Social's import-from-RSS
@@ -57,5 +57,21 @@ describe('parseRssFeed', () => {
     expect(parseRssFeed('not xml at all')).toEqual([]);
     expect(parseRssFeed('<rss><channel></channel></rss>')).toEqual([]);
     expect(parseRssFeed(undefined as unknown as string)).toEqual([]);
+  });
+});
+
+describe('buildRssDraftRows', () => {
+  it('maps items to draft payloads (content = title + url, link = url)', () => {
+    expect(buildRssDraftRows([
+      { title: 'First', url: 'https://x.com/a' },
+      { title: 'Second', url: 'https://x.com/b' },
+    ])).toEqual([
+      { content: 'First\n\nhttps://x.com/a', link: 'https://x.com/a' },
+      { content: 'Second\n\nhttps://x.com/b', link: 'https://x.com/b' },
+    ]);
+  });
+
+  it('returns [] for no items', () => {
+    expect(buildRssDraftRows([])).toEqual([]);
   });
 });

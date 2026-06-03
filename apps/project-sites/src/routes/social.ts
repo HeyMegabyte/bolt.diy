@@ -19,7 +19,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne, dbUpdate } from '../services/db.js';
 import { PLATFORMS, type Platform } from '../services/social_publishers/index.js';
-import { parseRssFeed } from '../services/rss_import.js';
+import { parseRssFeed, buildRssDraftRows } from '../services/rss_import.js';
 import { parseOgTags } from '../services/og_preview.js';
 import { isSafeWebhookUrl } from '../services/outbound_webhooks.js';
 import {
@@ -635,10 +635,35 @@ socialRoutes.post('/api/social/import-rss', zValidator('json', RssImportSchema),
   }
   const items = parseRssFeed(xml, 10);
   if (preview) return c.json({ items });
-  return c.json(
-    { error: { code: 'NOT_IMPLEMENTED', message: 'Scheduling from RSS is coming soon — preview works today.' } },
-    501,
-  );
+
+  // Non-preview = import the items as draft posts (the operator assigns accounts
+  // + schedule in the composer). account_ids='[]' → editable draft.
+  const drafts = buildRssDraftRows(items);
+  if (drafts.length === 0) {
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'No items found in that feed.' } }, 400);
+  }
+  const siteId = c.req.valid('json').site_id ?? null;
+  let created = 0;
+  for (const d of drafts) {
+    const { error } = await dbInsert(c.env.DB, 'pulse_posts', {
+      id: crypto.randomUUID(),
+      org_id: ctx.orgId,
+      site_id: siteId,
+      created_by: ctx.userId,
+      status: 'draft',
+      scheduled_at: null,
+      content: d.content,
+      per_platform_overrides: null,
+      media_keys: null,
+      account_ids: '[]',
+      hashtags: null,
+      mentions: null,
+      link: d.link,
+      thread_id: null,
+    });
+    if (!error) created += 1;
+  }
+  return c.json({ ok: true, created });
 });
 
 /**

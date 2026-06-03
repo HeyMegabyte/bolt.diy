@@ -70,6 +70,26 @@ function extractLink(block: string): string {
  * parseRssFeed('<rss><channel><item><title>Hi</title><link>https://x.com/a</link></item></channel></rss>')
  * // → [{ title: 'Hi', url: 'https://x.com/a' }]
  */
+/** A draft-post payload derived from a feed item (the composer's account/schedule come later). */
+export interface RssDraftRow {
+  content: string;
+  link: string;
+}
+
+/**
+ * Map parsed feed items to draft-post payloads: `content` = title + url, `link`
+ * = url. The import route inserts these as `pulse_posts` drafts (status='draft',
+ * account_ids='[]') so the operator assigns accounts + schedules them in the
+ * composer. Pure (no I/O) → unit-testable.
+ *
+ * @example
+ * buildRssDraftRows([{ title: 'Hi', url: 'https://x.com/a' }])
+ * // → [{ content: 'Hi\n\nhttps://x.com/a', link: 'https://x.com/a' }]
+ */
+export function buildRssDraftRows(items: RssItem[]): RssDraftRow[] {
+  return items.map((it) => ({ content: `${it.title}\n\n${it.url}`, link: it.url }));
+}
+
 export function parseRssFeed(xml: string, limit = 10): RssItem[] {
   if (typeof xml !== 'string' || xml.length === 0) return [];
   const items: RssItem[] = [];
