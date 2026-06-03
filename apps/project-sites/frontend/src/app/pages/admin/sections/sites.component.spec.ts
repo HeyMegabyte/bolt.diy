@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { Router } from '@angular/router';
 import { AdminSitesComponent } from './sites.component';
 import { ApiService } from '../../../services/api.service';
@@ -118,5 +118,46 @@ describe('AdminSitesComponent (sorting + a11y + tiers)', () => {
     c.sortDir.set('asc');
     expect(c.sortIndicator('lcp')).toBe('↑');
     expect(c.sortIndicator('cls')).toBe('');
+  });
+});
+
+/**
+ * Live freshness pill: the heatmap polls live, so a "Synced HH:MM:SS" indicator
+ * gives the user a trust/freshness signal. It must reflect a REAL successful
+ * load (never show a synced time when the load failed → no false freshness).
+ */
+describe('AdminSitesComponent (live freshness pill)', () => {
+  function makeWith(get: jasmine.Spy): AdminSitesComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminSitesComponent],
+      providers: [
+        { provide: ApiService, useValue: { get } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, show: () => 0 } },
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSitesComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminSitesComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('starts with no synced time (null label before the first load)', () => {
+    const c = make();
+    expect(c.syncedAt()).toBeNull();
+    expect(c.syncedLabel()).toBeNull();
+  });
+
+  it('stamps syncedAt + a formatted label after a successful heatmap load', async () => {
+    const c = makeWith(jasmine.createSpy('get').and.returnValue(of({ data: [], sites: [] })));
+    await c.reload();
+    expect(c.syncedAt()).withContext('a successful load records the sync time').not.toBeNull();
+    expect(c.syncedLabel()).withContext('label is a formatted clock string').toMatch(/\d/);
+  });
+
+  it('does NOT stamp a synced time when the sparklines load fails (no false freshness)', async () => {
+    const c = makeWith(jasmine.createSpy('get').and.returnValue(throwError(() => new Error('boom'))));
+    await c.reload();
+    expect(c.syncedAt()).withContext('a failed load must not look freshly synced').toBeNull();
+    expect(c.syncedLabel()).toBeNull();
   });
 });
