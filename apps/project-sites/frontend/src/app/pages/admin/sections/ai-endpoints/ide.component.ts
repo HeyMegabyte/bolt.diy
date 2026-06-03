@@ -74,7 +74,7 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
             {{ deployStatus === 'deploying' ? 'Deploying…' : 'Deploy' }}
           </button>
           <button class="btn-mini" (click)="format()" [brnTooltip]="'Format'" data-testid="ide-format">Format</button>
-          <input class="input-mini search" placeholder="Find (⌘F)" [(ngModel)]="findQuery" (keydown.enter)="findNext()" data-testid="ide-find" />
+          <input class="input-mini search" placeholder="Find (⌘F)" aria-label="Find in code" [(ngModel)]="findQuery" (keydown.enter)="findNext()" data-testid="ide-find" />
         </div>
         <div class="flex items-center gap-2">
           <button class="btn-mini" (click)="togglePanel('tester')" data-testid="ide-panel-tester">Tester</button>
@@ -201,13 +201,13 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
                   <p class="text-[0.7rem] text-text-secondary mb-2">KV / R2 / D1 / AI / Queue / Vars / Secrets exposed to this endpoint.</p>
                   @for (b of bindings; track b.name; let i = $index) {
                     <div class="binding-row">
-                      <select [(ngModel)]="b.type" class="input-mini">
+                      <select [(ngModel)]="b.type" class="input-mini" aria-label="Binding type">
                         <option value="kv">KV</option><option value="r2">R2</option><option value="d1">D1</option>
                         <option value="ai">AI</option><option value="queue">Queue</option>
                         <option value="var">Var</option><option value="secret">Secret</option>
                       </select>
-                      <input class="input-mini" placeholder="NAME" [(ngModel)]="b.name" />
-                      <input class="input-mini" placeholder="id / value" [(ngModel)]="b.value" />
+                      <input class="input-mini" placeholder="NAME" aria-label="Binding name" [(ngModel)]="b.name" />
+                      <input class="input-mini" placeholder="id / value" aria-label="Binding ID or value" [(ngModel)]="b.value" />
                       <button class="icon-btn" (click)="removeBinding(i)" aria-label="Remove binding">×</button>
                     </div>
                   }
