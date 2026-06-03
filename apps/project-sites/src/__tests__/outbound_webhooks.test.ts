@@ -9,6 +9,8 @@ import {
   isSafeWebhookUrl,
   planDeliveries,
   attemptDelivery,
+  recordDelivery,
+  listDeliveries,
   createWebhookEndpoint,
   listWebhookEndpoints,
   deleteWebhookEndpoint,
@@ -282,5 +284,31 @@ describe('attemptDelivery', () => {
       throw new Error('down');
     }) as unknown as typeof fetch;
     expect(await attemptDelivery(fetchFn, delivery, 'x')).toEqual({ statusCode: 0, ok: false, error: 'network_error' });
+  });
+});
+
+describe('recordDelivery + listDeliveries', () => {
+  it('inserts a delivery row mapping ok->1 and undefined error->null', async () => {
+    const captured: unknown[][] = [];
+    await recordDelivery(mockEnv([], 1, captured), {
+      endpointId: 'e1', siteId: 's1', eventType: 'site.published', statusCode: 200, ok: true, attempt: 1,
+    });
+    // bind: [id, endpoint_id, site_id, event_type, status_code, ok, attempt, error]
+    expect(captured[0]?.[1]).toBe('e1');
+    expect(captured[0]?.[2]).toBe('s1');
+    expect(captured[0]?.[5]).toBe(1); // ok -> 1
+    expect(captured[0]?.[7]).toBeNull(); // no error
+  });
+
+  it('lists deliveries mapping ok 1->true (newest first per the query)', async () => {
+    const env = mockEnv(
+      [{ id: 'd1', endpoint_id: 'e1', event_type: 'site.published', status_code: 503, ok: 0, attempt: 2, error: 'network_error', created_at: '2026-06-02T00:00:00Z' }],
+      0,
+    );
+    const list = await listDeliveries(env, 's1');
+    expect(list.length).toBe(1);
+    expect(list[0]).toEqual({
+      id: 'd1', endpointId: 'e1', eventType: 'site.published', statusCode: 503, ok: false, attempt: 2, error: 'network_error', createdAt: '2026-06-02T00:00:00Z',
+    });
   });
 });

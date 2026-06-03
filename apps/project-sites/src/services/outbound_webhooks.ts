@@ -319,6 +319,76 @@ export async function attemptDelivery(
   }
 }
 
+export interface DeliveryRecord {
+  endpointId: string;
+  siteId: string;
+  eventType: string;
+  statusCode: number;
+  ok: boolean;
+  attempt: number;
+  error?: string;
+}
+
+/** Append a delivery-attempt row to the log (the orchestrator calls this per attempt). */
+export async function recordDelivery(env: Env, rec: DeliveryRecord): Promise<void> {
+  await dbExecute(
+    env.DB,
+    `INSERT INTO webhook_deliveries (id, endpoint_id, site_id, event_type, status_code, ok, attempt, error)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      crypto.randomUUID(),
+      rec.endpointId,
+      rec.siteId,
+      rec.eventType,
+      rec.statusCode,
+      rec.ok ? 1 : 0,
+      rec.attempt,
+      rec.error ?? null,
+    ],
+  );
+}
+
+export interface StoredDelivery {
+  id: string;
+  endpointId: string;
+  eventType: string;
+  statusCode: number;
+  ok: boolean;
+  attempt: number;
+  error: string | null;
+  createdAt: string;
+}
+
+/** Recent delivery attempts for a site (newest first). Caller must own the site. */
+export async function listDeliveries(env: Env, siteId: string, limit = 50): Promise<StoredDelivery[]> {
+  const capped = Math.min(Math.max(1, Math.floor(limit)), 200);
+  const { data } = await dbQuery<{
+    id: string;
+    endpoint_id: string;
+    event_type: string;
+    status_code: number;
+    ok: number;
+    attempt: number;
+    error: string | null;
+    created_at: string;
+  }>(
+    env.DB,
+    `SELECT id, endpoint_id, event_type, status_code, ok, attempt, error, created_at
+     FROM webhook_deliveries WHERE site_id = ? ORDER BY created_at DESC LIMIT ?`,
+    [siteId, capped],
+  );
+  return data.map((r) => ({
+    id: r.id,
+    endpointId: r.endpoint_id,
+    eventType: r.event_type,
+    statusCode: r.status_code,
+    ok: r.ok === 1,
+    attempt: r.attempt,
+    error: r.error,
+    createdAt: r.created_at,
+  }));
+}
+
 /** Soft-delete an endpoint (org+site scoped). `ok:false` when nothing matched. */
 export async function deleteWebhookEndpoint(
   env: Env,
