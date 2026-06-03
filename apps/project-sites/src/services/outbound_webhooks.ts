@@ -280,6 +280,45 @@ export function planDeliveries(
   return { deliveries, skipped };
 }
 
+export interface DeliveryAttemptResult {
+  statusCode: number;
+  ok: boolean;
+  error?: 'unsafe_url' | 'network_error';
+}
+
+/**
+ * Perform ONE delivery attempt for a planned delivery, given the precomputed
+ * HMAC signature (the caller decrypts the endpoint secret + `hmacSha256` over
+ * `delivery.signatureBase`). POSTs the body with Svix/Stripe-style signature +
+ * timestamp headers. Re-checks the SSRF guard at fetch time (defense-in-depth —
+ * an endpoint's URL could have changed since validation).
+ *
+ * `fetch` is injected so the headers + outcome mapping are unit-testable. The
+ * dispatcher wraps this with retry (`shouldRetry`/`nextRetryDelayMs`) via a
+ * Queue/Workflow and records each attempt.
+ */
+export async function attemptDelivery(
+  fetchFn: typeof fetch,
+  delivery: PlannedDelivery,
+  signatureHex: string,
+): Promise<DeliveryAttemptResult> {
+  if (!isSafeWebhookUrl(delivery.url)) return { statusCode: 0, ok: false, error: 'unsafe_url' };
+  try {
+    const res = await fetchFn(delivery.url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'webhook-signature': buildSignatureHeader(delivery.timestamp, signatureHex),
+        'webhook-timestamp': delivery.timestamp,
+      },
+      body: delivery.body,
+    });
+    return { statusCode: res.status, ok: isDeliverySuccess(res.status) };
+  } catch {
+    return { statusCode: 0, ok: false, error: 'network_error' };
+  }
+}
+
 /** Soft-delete an endpoint (org+site scoped). `ok:false` when nothing matched. */
 export async function deleteWebhookEndpoint(
   env: Env,

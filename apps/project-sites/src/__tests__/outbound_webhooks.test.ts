@@ -8,6 +8,7 @@ import {
   maskSecret,
   isSafeWebhookUrl,
   planDeliveries,
+  attemptDelivery,
   createWebhookEndpoint,
   listWebhookEndpoints,
   deleteWebhookEndpoint,
@@ -231,5 +232,55 @@ describe('planDeliveries', () => {
       { endpointId: 'other', reason: 'not_subscribed' },
       { endpointId: 'ssrf', reason: 'unsafe_url' },
     ]);
+  });
+});
+
+describe('attemptDelivery', () => {
+  const delivery = {
+    endpointId: 'e1',
+    url: 'https://hooks.example.com/x',
+    body: '{"type":"site.published"}',
+    timestamp: '1700000000',
+    signatureBase: '1700000000.{"type":"site.published"}',
+  };
+
+  it('POSTs the signed payload and maps a 2xx to ok', async () => {
+    const calls: Array<[string, RequestInit]> = [];
+    const fetchFn = (async (url: string, init: RequestInit) => {
+      calls.push([url, init]);
+      return { status: 200 } as Response;
+    }) as unknown as typeof fetch;
+
+    const res = await attemptDelivery(fetchFn, delivery, 'sigabc');
+    expect(res).toEqual({ statusCode: 200, ok: true });
+    const [url, init] = calls[0]!;
+    expect(url).toBe(delivery.url);
+    expect(init.method).toBe('POST');
+    expect(init.body).toBe(delivery.body);
+    expect((init.headers as Record<string, string>)['webhook-signature']).toBe('t=1700000000,v1=sigabc');
+    expect((init.headers as Record<string, string>)['webhook-timestamp']).toBe('1700000000');
+  });
+
+  it('maps a 5xx to not-ok', async () => {
+    const fetchFn = (async () => ({ status: 503 }) as Response) as unknown as typeof fetch;
+    expect((await attemptDelivery(fetchFn, delivery, 'x')).ok).toBe(false);
+  });
+
+  it('refuses an unsafe url at fetch time without calling fetch', async () => {
+    let called = false;
+    const fetchFn = (async () => {
+      called = true;
+      return { status: 200 } as Response;
+    }) as unknown as typeof fetch;
+    const res = await attemptDelivery(fetchFn, { ...delivery, url: 'https://127.0.0.1/x' }, 'x');
+    expect(res).toEqual({ statusCode: 0, ok: false, error: 'unsafe_url' });
+    expect(called).toBe(false);
+  });
+
+  it('maps a thrown fetch to a network_error', async () => {
+    const fetchFn = (async () => {
+      throw new Error('down');
+    }) as unknown as typeof fetch;
+    expect(await attemptDelivery(fetchFn, delivery, 'x')).toEqual({ statusCode: 0, ok: false, error: 'network_error' });
   });
 });
