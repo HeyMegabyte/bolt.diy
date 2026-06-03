@@ -191,3 +191,110 @@ describe('AdminDomainsComponent (hostname load-error gating)', () => {
     expect(c.hostnamesError()).toBeNull();
   });
 });
+
+/**
+ * Add-custom-domain validation: the "Add domain" button is disabled for an
+ * invalid value, but a greyed-out button with no reason is a silent dead-end.
+ * This locks: (1) `customDomainInvalid` only flags a NON-EMPTY malformed value
+ * (no nagging before the user types); (2) a visible inline hint + `aria-invalid`
+ * explain the disabled state; (3) `addCustom` never fails silently on a bad
+ * value (it toasts) and never POSTs garbage to the worker.
+ */
+describe('AdminDomainsComponent (add-domain validation + feedback)', () => {
+  function make(input = ''): { c: AdminDomainsComponent; post: jasmine.Spy; toastErr: jasmine.Spy } {
+    TestBed.resetTestingModule(); // re-callable within a single test (multiple inputs)
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: { hostname: 'x' } }));
+    const toastErr = jasmine.createSpy('error');
+    TestBed.configureTestingModule({
+      imports: [AdminDomainsComponent],
+      providers: [
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'vito' }) } },
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, put: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: toastErr, success: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminDomainsComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(AdminDomainsComponent).componentInstance;
+    c.customDomainInput.set(input);
+    return { c, post, toastErr };
+  }
+  const submit = (c: AdminDomainsComponent) => c.addCustom(new Event('submit'));
+
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('customDomainInvalid is FALSE for empty input (no nagging before typing)', () => {
+    expect(make('').c.customDomainInvalid()).toBeFalse();
+    expect(make('   ').c.customDomainInvalid()).toBeFalse();
+  });
+
+  it('customDomainInvalid is TRUE for a non-empty malformed value', () => {
+    expect(make('my site').c.customDomainInvalid()).toBeTrue();
+    expect(make('examplecom').c.customDomainInvalid()).toBeTrue();
+    expect(make('http://example.com').c.customDomainInvalid()).toBeTrue();
+  });
+
+  it('customDomainInvalid is FALSE for a valid FQDN', () => {
+    expect(make('www.example.com').c.customDomainInvalid()).toBeFalse();
+    expect(make('shop.acme.co.uk').c.customDomainInvalid()).toBeFalse();
+  });
+
+  it('addCustom on a malformed value TOASTS and does NOT POST (no silent dead-end, no garbage to the worker)', () => {
+    const { c, post, toastErr } = make('not a domain');
+    submit(c);
+    expect(toastErr).toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('addCustom on EMPTY input is a silent no-op (no toast, no POST)', () => {
+    const { c, post, toastErr } = make('');
+    submit(c);
+    expect(toastErr).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('addCustom on a valid domain POSTs the hostname as a custom_cname', () => {
+    const { c, post } = make('www.example.com');
+    submit(c);
+    expect(post).toHaveBeenCalledWith('/sites/s1/hostnames', { hostname: 'www.example.com', type: 'custom_cname' });
+  });
+});
+
+/**
+ * Render: the inline validation hint is visible ONLY for a non-empty malformed
+ * value, the input is marked aria-invalid + described-by the hint, and a valid
+ * value swaps back to the neutral CNAME helper text.
+ */
+describe('AdminDomainsComponent (add-domain inline hint render)', () => {
+  function render(input: string): ComponentFixture<AdminDomainsComponent> {
+    TestBed.configureTestingModule({
+      imports: [AdminDomainsComponent],
+      providers: [
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'vito' }) } },
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({}), put: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => undefined, success: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminDomainsComponent);
+    fx.componentInstance.customDomainInput.set(input);
+    fx.detectChanges();
+    return fx;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('shows the inline hint + marks the input aria-invalid for a malformed value', () => {
+    const el: HTMLElement = render('bad value').nativeElement;
+    expect(el.querySelector('[data-testid="custom-domain-hint"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="custom-domain-input"]')?.getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('hides the hint (neutral helper shown, input not aria-invalid) for empty + valid input', () => {
+    for (const v of ['', 'www.example.com']) {
+      const el: HTMLElement = render(v).nativeElement;
+      expect(el.querySelector('[data-testid="custom-domain-hint"]')).withContext(`hint hidden for "${v}"`).toBeNull();
+      expect(el.querySelector('[data-testid="custom-domain-input"]')?.getAttribute('aria-invalid')).not.toBe('true');
+      TestBed.resetTestingModule();
+    }
+  });
+});

@@ -183,15 +183,24 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                 placeholder="www.example.com"
                 [(ngModel)]="customDomainInput"
                 [disabled]="addingCustom()"
+                [attr.aria-invalid]="customDomainInvalid()"
+                [attr.aria-describedby]="customDomainInvalid() ? 'custom-domain-hint' : null"
                 data-testid="custom-domain-input"
               />
               <button class="btn-primary" type="submit" [disabled]="!isValidDomain(customDomainInput()) || addingCustom()">
                 {{ addingCustom() ? 'Adding…' : 'Add domain' }}
               </button>
             </div>
-            <p class="text-[0.7rem] text-text-secondary m-0">
-              Point a CNAME record to <code class="font-mono text-primary">projectsites.dev</code> first, then add it here.
-            </p>
+            @if (customDomainInvalid()) {
+              <p id="custom-domain-hint" class="text-[0.7rem] text-amber-300/90 m-0 flex items-center gap-1.5" data-testid="custom-domain-hint">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" class="shrink-0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                Enter a full domain like <code class="font-mono">www.example.com</code> — no spaces or <code class="font-mono">http://</code>.
+              </p>
+            } @else {
+              <p class="text-[0.7rem] text-text-secondary m-0">
+                Point a CNAME record to <code class="font-mono text-primary">projectsites.dev</code> first, then add it here.
+              </p>
+            }
           </form>
 
           <!-- AI domain search -->
@@ -638,6 +647,17 @@ export class AdminDomainsComponent implements OnInit {
   customDomainInput = signal('');
   aiQuery = signal('');
 
+  /**
+   * True when the user has typed something that is NOT a valid domain yet.
+   * Drives the inline hint + `aria-invalid` so a disabled "Add domain" button
+   * is explained ("here's why it's greyed out") instead of silently inert.
+   * Empty input is NOT invalid — no nagging before the user has typed.
+   */
+  customDomainInvalid = computed(() => {
+    const v = this.customDomainInput().trim();
+    return v.length > 0 && !this.isValidDomain(v);
+  });
+
   /** ───── Async state ───── */
   hostnames = signal<readonly Hostname[]>([]);
   loadingHostnames = signal(false);
@@ -735,7 +755,17 @@ export class AdminDomainsComponent implements OnInit {
     event.preventDefault();
     const site = this.state.selectedSite();
     const hostname = this.customDomainInput().trim().toLowerCase();
-    if (!site || !this.isValidDomain(hostname)) return;
+    // Never fail silently: a non-empty but malformed domain gets a useful error
+    // (the submit button is disabled in the UI, but Enter / programmatic calls
+    // still route here). Empty input is a no-op — nothing to complain about yet.
+    if (!this.isValidDomain(hostname)) {
+      if (hostname) this.toast.error('Enter a valid domain like www.example.com — no spaces or http://');
+      return;
+    }
+    if (!site) {
+      this.toast.error('Select a site before adding a domain.');
+      return;
+    }
     this.addingCustom.set(true);
     this.api
       .post<{ data: { hostname: string } }>(`/sites/${site.id}/hostnames`, {
