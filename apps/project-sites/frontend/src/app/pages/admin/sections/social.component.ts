@@ -483,12 +483,20 @@ const PLATFORMS: readonly PlatformDef[] = [
                 (blur)="fetchOg()"
                 placeholder="https://…" />
               @if (og(); as o) {
-                <div class="og-card">
+                <div class="og-card" data-testid="og-card">
                   @if (o.image) { <img [src]="o.image" [alt]="o.title" /> }
                   <div class="og-meta">
                     <div class="og-site">{{ o.site_name }}</div>
                     <div class="og-title">{{ o.title }}</div>
                     <div class="og-desc">{{ o.description }}</div>
+                  </div>
+                </div>
+              } @else if (linkHost()) {
+                <div class="og-card og-card--fallback" data-testid="link-fallback-card">
+                  <div class="og-meta">
+                    <div class="og-site">{{ linkHost() }}</div>
+                    <div class="og-title">{{ link() }}</div>
+                    <div class="og-desc">Preview unavailable — the link still posts with your message.</div>
                   </div>
                 </div>
               }
@@ -1270,6 +1278,11 @@ const PLATFORMS: readonly PlatformDef[] = [
         border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
         border-radius: 9px;
       }
+      .og-card--fallback {
+        grid-template-columns: 1fr;
+        border-style: dashed;
+        border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent);
+      }
       .og-card img { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; }
       .og-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
       .og-site { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
@@ -1535,6 +1548,12 @@ export class AdminSocialComponent implements OnInit {
   readonly hashtags = signal<string[]>([]);
   readonly link = signal('');
   readonly og = signal<OgData | null>(null);
+  /** Hostname of the entered link (for the fallback card when OG data is absent). */
+  readonly linkHost = computed(() => {
+    const u = this.link().trim();
+    if (!u) return '';
+    try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; }
+  });
   readonly scheduleAt = signal<string | null>(null);
   readonly scheduleTz = signal('America/Los_Angeles');
   readonly bestTimes = signal<string[]>([]);

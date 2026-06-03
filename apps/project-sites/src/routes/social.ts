@@ -20,6 +20,7 @@ import type { Env, Variables } from '../types/env.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne, dbUpdate } from '../services/db.js';
 import { PLATFORMS, type Platform } from '../services/social_publishers/index.js';
 import { parseRssFeed } from '../services/rss_import.js';
+import { parseOgTags } from '../services/og_preview.js';
 import { isSafeWebhookUrl } from '../services/outbound_webhooks.js';
 import {
   DEFAULT_AUTO_PILOT_PROMPT,
@@ -638,4 +639,34 @@ socialRoutes.post('/api/social/import-rss', zValidator('json', RssImportSchema),
     { error: { code: 'NOT_IMPLEMENTED', message: 'Scheduling from RSS is coming soon — preview works today.' } },
     501,
   );
+});
+
+/**
+ * `POST /api/social/og-preview` — Fetch a URL's Open-Graph card for the composer.
+ *
+ * SSRF-guards the URL (public https only) + fetches + extracts og/twitter/title
+ * meta via the pure {@link parseOgTags}. Returns `{ og }` (fields may be empty —
+ * the composer renders a fallback link card when so). Never leaks fetch errors.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * @throws 400 BAD_REQUEST for a disallowed/unreachable URL.
+ */
+const OgPreviewSchema = z.object({ url: z.string().url().max(2048) }).strict();
+
+socialRoutes.post('/api/social/og-preview', zValidator('json', OgPreviewSchema), async (c) => {
+  const ctx = requireAuth(c);
+  if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
+  const { url } = c.req.valid('json');
+  if (!isSafeWebhookUrl(url)) {
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'URL not allowed — use a public https URL.' } }, 400);
+  }
+  let html: string;
+  try {
+    const res = await fetch(url, { headers: { accept: 'text/html,application/xhtml+xml' } });
+    if (!res.ok) return c.json({ error: { code: 'BAD_REQUEST', message: `URL returned ${res.status}.` } }, 400);
+    html = (await res.text()).slice(0, 512_000); // cap parse work at ~500KB of head/body
+  } catch {
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'Could not fetch the URL.' } }, 400);
+  }
+  return c.json({ og: parseOgTags(html) });
 });

@@ -75,3 +75,62 @@ describe('AdminSocialComponent (site-reactive load)', () => {
     expect(get).toHaveBeenCalledWith('/social/accounts', { site_id: 'site-b' });
   });
 });
+
+/**
+ * Guards the link-preview fallback card: when a link is entered but OG data is
+ * absent (the og-preview route may 404 / return empty), the composer shows a
+ * branded fallback card (hostname + url) instead of silently showing nothing.
+ */
+describe('AdminSocialComponent (link fallback card)', () => {
+  let fixture: ComponentFixture<AdminSocialComponent>;
+  let host: HTMLElement;
+
+  function build(): void {
+    const selectedSite = signal<{ id: string } | null>({ id: 's1' });
+    const get = jasmine.createSpy('get').and.callFake((path: string) =>
+      path === '/social/auto-pilot/config' ? of({ data: null }) : of({ data: [] }),
+    );
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, post: jasmine.createSpy('post').and.returnValue(of({ data: {} })), delete: jasmine.createSpy('delete').and.returnValue(of({})) } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigateByUrl: jasmine.createSpy('navigateByUrl') } },
+        { provide: AdminStateService, useValue: { selectedSite } },
+      ],
+    });
+    fixture = TestBed.createComponent(AdminSocialComponent);
+    host = fixture.nativeElement as HTMLElement;
+    fixture.detectChanges();
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('derives the link hostname (strips www)', () => {
+    build();
+    fixture.componentInstance.link.set('https://www.example.com/some/page');
+    expect(fixture.componentInstance.linkHost()).toBe('example.com');
+    fixture.componentInstance.link.set('not a url');
+    expect(fixture.componentInstance.linkHost()).toBe('');
+  });
+
+  it('renders a fallback card with the hostname when a link is entered and no OG data', () => {
+    build();
+    fixture.componentInstance.link.set('https://blog.acme.io/post');
+    fixture.componentInstance.og.set(null);
+    fixture.detectChanges();
+    const card = host.querySelector('[data-testid="link-fallback-card"]');
+    expect(card).not.toBeNull();
+    expect(card?.textContent).toContain('blog.acme.io');
+    expect(host.querySelector('[data-testid="og-card"]')).toBeNull();
+  });
+
+  it('shows the real OG card (not the fallback) when OG data is present', () => {
+    build();
+    fixture.componentInstance.link.set('https://blog.acme.io/post');
+    fixture.componentInstance.og.set({ title: 'Real Title', description: 'd', site_name: 'Acme', image: '' });
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="og-card"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="link-fallback-card"]')).toBeNull();
+  });
+});
