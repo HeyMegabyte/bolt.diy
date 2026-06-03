@@ -65,9 +65,12 @@ const SPECIALIST_ICONS: Record<string, string> = {
   motion: '✨', media: '🖼️', qa: '🧪',
 };
 
+// Per-specialist accent hues reference section-local CSS vars (declared on :host)
+// so the palette stays tokenized + theme-swappable — never raw inline hex.
 const SPECIALIST_COLORS: Record<string, string> = {
-  visual: '#7c3aed', copy: '#00e5ff', seo: '#10b981', a11y: '#f59e0b',
-  motion: '#ec4899', media: '#3b82f6', qa: '#6366f1',
+  visual: 'var(--sw-violet)', copy: 'var(--ps-accent, #00e5ff)', seo: 'var(--sw-ok)',
+  a11y: 'var(--sw-warn)', motion: 'var(--sw-pink)', media: 'var(--sw-blue)',
+  qa: 'var(--sw-indigo)',
 };
 
 @Component({
@@ -95,7 +98,7 @@ const SPECIALIST_COLORS: Record<string, string> = {
       </div>
       <div class="swarm-stat">
         <span class="swarm-stat__num" [class.swarm-stat__num--conflict]="conflictsDetected() > 0">
-          {{ conflictsDetected() }}
+          <app-rolling-counter [value]="conflictsDetected()" />
         </span>
         <span class="swarm-stat__label">conflicts</span>
       </div>
@@ -203,11 +206,14 @@ const SPECIALIST_COLORS: Record<string, string> = {
         <tbody>
           @for (run of runHistory(); track run.run_id) {
             <tr class="swarm-history__row" (click)="selectRun(run)" tabindex="0"
-                (keydown.enter)="selectRun(run)" (keydown.space)="selectRun(run)">
+                role="button" [attr.aria-pressed]="currentRun()?.run_id === run.run_id"
+                [attr.aria-label]="'Load swarm run ' + run.run_id.slice(0,8) + ' — ' + doneCount(run.agents) + ' of 7 agents complete'"
+                (keydown.enter)="selectRun(run)"
+                (keydown.space)="$event.preventDefault(); selectRun(run)">
               <td><code class="swarm-history__id">{{ run.run_id.slice(0,8) }}</code></td>
               <td class="swarm-history__prompt">{{ run.prompt }}</td>
               <td><span class="swarm-history__status-pill" [attr.data-status]="run.status">{{ run.status }}</span></td>
-              <td>{{ doneCount(run.agents) }}/7</td>
+              <td><span class="swarm-history__count"><app-rolling-counter [value]="doneCount(run.agents)" suffix="/" />7</span></td>
               <td>{{ run.started_at | date:'HH:mm:ss' }}</td>
             </tr>
           }
@@ -218,7 +224,29 @@ const SPECIALIST_COLORS: Record<string, string> = {
 </div>
   `,
   styles: [`
-    :host { display: block; color: var(--ps-ink, #f4f4ff); }
+    :host {
+      display: block; color: var(--ps-ink, #f4f4ff);
+      /* Section-local status palette — cyan/black-anchored, tokenized (no raw inline hex).
+         Status semantics keep their hue but route through one declaration so a theme
+         swap re-skins the whole board. */
+      --sw-ok: #34d3a6;       /* done — teal-green, sits beside cyan */
+      --sw-warn: #f5b544;     /* conflict — amber */
+      --sw-err: #ff5d6c;      /* error — red */
+      --sw-violet: #8b5cf6; --sw-pink: #ec4899; --sw-blue: #3b82f6; --sw-indigo: #6366f1;
+      --sw-card: color-mix(in oklch, var(--ps-ink, #f4f4ff) 4%, transparent);
+      --sw-line: color-mix(in oklch, var(--ps-ink, #f4f4ff) 9%, transparent);
+      --sw-focus: var(--ps-accent, #00e5ff);
+    }
+    /* Cyan keyboard-focus ring on every interactive surface (WCAG 2.2 2.4.11). */
+    .swarm-header__start:focus-visible,
+    .swarm-empty__cta:focus-visible,
+    .swarm-preview__connect:focus-visible,
+    .swarm-header__back:focus-visible,
+    .swarm-history__row:focus-visible {
+      outline: 2px solid var(--sw-focus);
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
     .swarm-shell { padding: 0.75rem; max-width: 1200px; margin: 0 auto; }
     .swarm-header { margin-bottom: 1.5rem; }
     .swarm-header__meta { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; opacity: 0.6; margin-bottom: 0.75rem; }
@@ -228,69 +256,75 @@ const SPECIALIST_COLORS: Record<string, string> = {
       display: inline-block; vertical-align: middle; margin-left: 0.5rem;
       font: 700 0.58rem/1 'JetBrains Mono', monospace; letter-spacing: 0.06em;
       text-transform: uppercase; padding: 0.2rem 0.5rem; border-radius: 6px;
-      color: #fbbf24; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.3);
+      color: var(--sw-warn); background: color-mix(in oklch, var(--sw-warn) 12%, transparent);
+      border: 1px solid color-mix(in oklch, var(--sw-warn) 30%, transparent);
     }
     .swarm-header__sub { font-size: 0.8rem; opacity: 0.6; margin: 0 0 1rem; }
     .swarm-header__stats { display: flex; gap: 1.5rem; margin-bottom: 1rem; }
     .swarm-stat { display: flex; align-items: baseline; gap: 0.25rem; font-family: 'JetBrains Mono', monospace; }
     .swarm-stat__label { font-size: 0.7rem; opacity: 0.6; }
-    .swarm-stat__num--conflict { color: #f59e0b; }
-    .swarm-header__start { background: var(--ps-accent, #00e5ff); color: #060610; border: none; padding: 0.375rem 1rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+    .swarm-stat__num--conflict { color: var(--sw-warn); }
+    .swarm-header__start { background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); border: none; padding: 0.375rem 1rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s, box-shadow 0.2s; }
+    .swarm-header__start:not(:disabled):hover { box-shadow: 0 0 0 4px color-mix(in oklch, var(--ps-accent, #00e5ff) 22%, transparent); }
     .swarm-header__start:disabled { opacity: 0.5; cursor: default; }
     /* Board */
     .swarm-board { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem; margin-bottom: 1.5rem; }
     @media (max-width: 900px) { .swarm-board { grid-template-columns: repeat(4, 1fr); } }
     @media (max-width: 600px) { .swarm-board { grid-template-columns: repeat(2, 1fr); } }
-    .swarm-agent { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 0.625rem; min-height: 100px; display: flex; flex-direction: column; gap: 0.375rem; transition: border-color 0.3s; }
-    .swarm-agent--running { border-color: var(--agent-color, var(--ps-accent, #00e5ff)); animation: agent-pulse 2s ease-in-out infinite; }
-    .swarm-agent--done { border-color: #10b981; }
-    .swarm-agent--error { border-color: #ef4444; }
-    .swarm-agent--conflict { border-color: #f59e0b; }
+    .swarm-agent { background: var(--sw-card); border: 1px solid var(--sw-line); border-radius: 8px; padding: 0.625rem; min-height: 100px; display: flex; flex-direction: column; gap: 0.375rem; transition: border-color 0.3s, box-shadow 0.3s; }
+    .swarm-agent--running { border-color: var(--agent-color, var(--ps-accent, #00e5ff)); box-shadow: 0 0 0 1px color-mix(in oklch, var(--agent-color, var(--ps-accent, #00e5ff)) 35%, transparent); animation: agent-pulse 2s ease-in-out infinite; }
+    .swarm-agent--done { border-color: var(--sw-ok); }
+    .swarm-agent--error { border-color: var(--sw-err); }
+    .swarm-agent--conflict { border-color: var(--sw-warn); }
     @keyframes agent-pulse { 0%,100%{opacity:1} 50%{opacity:.7} }
+    @media (prefers-reduced-motion: reduce) { .swarm-agent--running { animation: none; } }
     .swarm-agent__header { display: flex; align-items: center; gap: 0.375rem; }
     .swarm-agent__icon { font-size: 1rem; }
     .swarm-agent__name { font-size: 0.7rem; font-weight: 600; text-transform: capitalize; }
     .swarm-agent__status-pill { font-size: 0.6rem; padding: 0.1rem 0.4rem; border-radius: 9999px; margin-left: auto;
-      background: rgba(255,255,255,.08); }
-    .swarm-agent__status-pill[data-status=running] { background: rgba(0,229,255,.2); color: #00e5ff; }
-    .swarm-agent__status-pill[data-status=done] { background: rgba(16,185,129,.2); color: #10b981; }
-    .swarm-agent__status-pill[data-status=error] { background: rgba(239,68,68,.2); color: #ef4444; }
+      background: var(--sw-line); }
+    .swarm-agent__status-pill[data-status=running] { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 20%, transparent); color: var(--ps-accent, #00e5ff); }
+    .swarm-agent__status-pill[data-status=done] { background: color-mix(in oklch, var(--sw-ok) 20%, transparent); color: var(--sw-ok); }
+    .swarm-agent__status-pill[data-status=error] { background: color-mix(in oklch, var(--sw-err) 20%, transparent); color: var(--sw-err); }
     .swarm-agent__glob { font: 0.6rem/1.3 'JetBrains Mono', monospace; opacity: 0.5; word-break: break-all; margin: 0; }
     .swarm-agent__preview { font-size: 0.65rem; opacity: 0.7; margin: 0; font-style: italic; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     .swarm-agent__duration { font: 0.65rem 'JetBrains Mono', monospace; color: var(--ps-accent, #00e5ff); }
-    .swarm-agent__conflict-badge { font-size: 0.6rem; background: rgba(245,158,11,.15); color: #f59e0b; padding: 0.1rem 0.4rem; border-radius: 4px; }
+    .swarm-agent__conflict-badge { font-size: 0.6rem; background: color-mix(in oklch, var(--sw-warn) 15%, transparent); color: var(--sw-warn); padding: 0.1rem 0.4rem; border-radius: 4px; }
     /* Empty */
     .swarm-empty { text-align: center; padding: 3rem 1rem; opacity: 0.6; }
-    .swarm-empty__cta { color: var(--ps-accent, #00e5ff); background: none; border: 1px solid; padding: 0.375rem 0.875rem; border-radius: 9999px; cursor: pointer; }
+    .swarm-empty__cta { color: var(--ps-accent, #00e5ff); background: none; border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 40%, transparent); padding: 0.375rem 0.875rem; border-radius: 9999px; cursor: pointer; }
     /* Progressive preview */
-    .swarm-preview { background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 0.75rem; margin-bottom: 1.5rem; }
+    .swarm-preview { background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 2%, transparent); border: 1px solid var(--sw-line); border-radius: 10px; padding: 0.75rem; margin-bottom: 1.5rem; }
     .swarm-preview__title { font-size: 0.875rem; font-weight: 600; margin: 0 0 0.25rem; }
     .swarm-preview__sub { font-size: 0.7rem; opacity: 0.5; margin: 0 0 0.75rem; }
-    .swarm-preview__progress-bar { background: rgba(255,255,255,.08); border-radius: 9999px; height: 4px; margin-bottom: 0.75rem; overflow: hidden; }
-    .swarm-preview__progress-fill { background: var(--ps-accent, #00e5ff); height: 100%; border-radius: 9999px; transition: width 0.4s ease; }
+    .swarm-preview__progress-bar { background: var(--sw-line); border-radius: 9999px; height: 4px; margin-bottom: 0.75rem; overflow: hidden; }
+    .swarm-preview__progress-fill { background: linear-gradient(90deg, color-mix(in oklch, var(--ps-accent, #00e5ff) 70%, var(--ps-ink, #f4f4ff)), var(--ps-accent, #00e5ff)); height: 100%; border-radius: 9999px; transition: width 0.4s ease; box-shadow: 0 0 8px color-mix(in oklch, var(--ps-accent, #00e5ff) 50%, transparent); }
     .swarm-preview__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 0.375rem; }
-    .swarm-preview__slot { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 6px; padding: 0.375rem 0.5rem; display: flex; align-items: center; justify-content: space-between; font-size: 0.65rem; min-height: 28px; transition: all 0.3s; }
-    .swarm-preview__slot--done { border-color: #10b981; background: rgba(16,185,129,.06); }
+    .swarm-preview__slot { background: var(--sw-card); border: 1px solid var(--sw-line); border-radius: 6px; padding: 0.375rem 0.5rem; display: flex; align-items: center; justify-content: space-between; font-size: 0.65rem; min-height: 28px; transition: all 0.3s; }
+    .swarm-preview__slot--done { border-color: var(--sw-ok); background: color-mix(in oklch, var(--sw-ok) 6%, transparent); }
     .swarm-preview__slot--active { border-color: var(--ps-accent, #00e5ff); animation: agent-pulse 1.5s ease-in-out infinite; }
     .swarm-preview__slot-name { opacity: 0.8; }
-    .swarm-preview__slot-tick { color: #10b981; font-size: 0.75rem; }
+    .swarm-preview__slot-tick { color: var(--sw-ok); font-size: 0.75rem; }
     .swarm-preview__slot-spinner { color: var(--ps-accent, #00e5ff); animation: spin 1s linear infinite; display: inline-block; font-size: 0.75rem; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .swarm-preview__slot-skeleton { width: 24px; height: 6px; background: rgba(255,255,255,.08); border-radius: 3px; animation: shimmer 1.5s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) { .swarm-preview__slot--active, .swarm-preview__slot-spinner, .swarm-preview__slot-skeleton { animation: none; } }
+    .swarm-preview__slot-skeleton { width: 24px; height: 6px; background: var(--sw-line); border-radius: 3px; animation: shimmer 1.5s ease-in-out infinite; }
     @keyframes shimmer { 0%,100%{opacity:.4} 50%{opacity:.8} }
-    .swarm-preview__connect { margin-top: 0.75rem; background: rgba(0,229,255,.1); border: 1px solid rgba(0,229,255,.3); color: var(--ps-accent, #00e5ff); padding: 0.375rem 0.875rem; border-radius: 9999px; font-size: 0.75rem; cursor: pointer; }
+    .swarm-preview__connect { margin-top: 0.75rem; background: color-mix(in oklch, var(--ps-accent, #00e5ff) 10%, transparent); border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent); color: var(--ps-accent, #00e5ff); padding: 0.375rem 0.875rem; border-radius: 9999px; font-size: 0.75rem; cursor: pointer; }
     /* History */
     .swarm-history h2 { font-size: 0.875rem; margin: 0 0 0.75rem; }
     .swarm-history__table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
-    .swarm-history__table th { text-align: left; padding: 0.375rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,.1); font-size: 0.65rem; text-transform: uppercase; letter-spacing: .05em; opacity: 0.5; }
+    .swarm-history__table th { text-align: left; padding: 0.375rem 0.5rem; border-bottom: 1px solid var(--sw-line); font-size: 0.65rem; text-transform: uppercase; letter-spacing: .05em; opacity: 0.5; }
     .swarm-history__row { cursor: pointer; }
-    .swarm-history__row:hover td { background: rgba(255,255,255,.03); }
-    .swarm-history__row td { padding: 0.25rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,.05); max-height: 36px; vertical-align: middle; }
+    .swarm-history__row:hover td { background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 3%, transparent); }
+    .swarm-history__row[aria-pressed=true] td { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 10%, transparent); box-shadow: inset 2px 0 0 var(--ps-accent, #00e5ff); }
+    .swarm-history__row td { padding: 0.25rem 0.5rem; border-bottom: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 5%, transparent); max-height: 36px; vertical-align: middle; }
     .swarm-history__id { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; opacity: 0.7; }
     .swarm-history__prompt { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .swarm-history__status-pill { font-size: 0.6rem; padding: 0.1rem 0.4rem; border-radius: 9999px; background: rgba(255,255,255,.08); }
-    .swarm-history__status-pill[data-status=done] { background: rgba(16,185,129,.15); color: #10b981; }
-    .swarm-history__status-pill[data-status=running] { background: rgba(0,229,255,.15); color: #00e5ff; }
+    .swarm-history__count { font-family: 'JetBrains Mono', monospace; }
+    .swarm-history__status-pill { font-size: 0.6rem; padding: 0.1rem 0.4rem; border-radius: 9999px; background: var(--sw-line); }
+    .swarm-history__status-pill[data-status=done] { background: color-mix(in oklch, var(--sw-ok) 15%, transparent); color: var(--sw-ok); }
+    .swarm-history__status-pill[data-status=running] { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 15%, transparent); color: var(--ps-accent, #00e5ff); }
   `],
 })
 export class AdminSwarmComponent implements OnInit, OnDestroy {
