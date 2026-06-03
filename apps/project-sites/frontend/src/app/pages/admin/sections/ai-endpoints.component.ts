@@ -179,7 +179,7 @@ interface InlineEdit {
                 <!-- URL ROW -->
                 <div class="url-row">
                   @if (editingId() === e.id) {
-                    <select class="badge-select" [(ngModel)]="inlineEdit().method" data-testid="ai-endpoint-method-select">
+                    <select class="badge-select" [ngClass]="methodBadgeClass(inlineEdit().method)" [(ngModel)]="inlineEdit().method" data-testid="ai-endpoint-method-select">
                       <option value="POST">POST</option>
                       <option value="GET">GET</option>
                       <option value="PUT">PUT</option>
@@ -320,7 +320,7 @@ interface InlineEdit {
             <div>
               <span class="muted-h block mb-1">URL</span>
               <div class="url-row">
-                <select class="badge-select" [(ngModel)]="createDraft().method" data-testid="ai-endpoint-create-method">
+                <select class="badge-select" [ngClass]="methodBadgeClass(createDraft().method)" [(ngModel)]="createDraft().method" data-testid="ai-endpoint-create-method">
                   <option value="POST">POST</option><option value="GET">GET</option>
                   <option value="PUT">PUT</option><option value="DELETE">DELETE</option><option value="PATCH">PATCH</option>
                 </select>
@@ -549,14 +549,15 @@ interface InlineEdit {
     @media (prefers-reduced-motion: reduce) { .endpoint-row { transition: none; } .endpoint-row:hover { transform: none; } }
     .url-row { display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-feature-settings: "calt", "liga"; font-size: 0.82rem; }
     .badge { font-size: 0.6rem; text-transform: uppercase; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: rgba(124,58,237,0.18); color: #c4b5fd; }
-    .badge.badge-get { background: rgba(0,229,255,0.16); color: #00E5FF; }
-    .badge.badge-post { background: rgba(124,58,237,0.18); color: #c4b5fd; }
-    /* PUT/PATCH/DELETE were indistinguishable (all fell through to purple).
-       Distinct, conventional method colors using the admin's existing semantic
-       palette (amber=update, teal=partial, red=destructive). */
-    .badge.badge-put { background: rgba(251,191,36,0.16); color: #fbbf24; }
-    .badge.badge-patch { background: rgba(45,212,191,0.16); color: #2dd4bf; }
-    .badge.badge-delete { background: rgba(248,113,113,0.16); color: #f87171; }
+    /* Per-method colors, shared across the display badge, the IDE-overlay badge,
+       AND the method-picker <select> so the picker recolors to match the chosen
+       method. Distinct, conventional palette (amber=update, teal=partial,
+       red=destructive) — all WCAG-AA on the dark canvas (6–9.8:1). */
+    .badge.badge-get, .overlay-method-badge.badge-get, .badge-select.badge-get { background: rgba(0,229,255,0.16); color: #00E5FF; border-color: rgba(0,229,255,0.3); }
+    .badge.badge-post, .overlay-method-badge.badge-post, .badge-select.badge-post { background: rgba(124,58,237,0.18); color: #c4b5fd; border-color: rgba(124,58,237,0.3); }
+    .badge.badge-put, .overlay-method-badge.badge-put, .badge-select.badge-put { background: rgba(251,191,36,0.16); color: #fbbf24; border-color: rgba(251,191,36,0.3); }
+    .badge.badge-patch, .overlay-method-badge.badge-patch, .badge-select.badge-patch { background: rgba(45,212,191,0.16); color: #2dd4bf; border-color: rgba(45,212,191,0.3); }
+    .badge.badge-delete, .overlay-method-badge.badge-delete, .badge-select.badge-delete { background: rgba(248,113,113,0.16); color: #f87171; border-color: rgba(248,113,113,0.3); }
     .badge-select { font-size: 0.62rem; text-transform: uppercase; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(124,58,237,0.18); color: #c4b5fd; border: 1px solid rgba(124,58,237,0.3); }
     .url-host { color: rgba(255,255,255,0.55); }
     .url-slug { color: #00E5FF; text-decoration: none; margin-left: -8px; }
@@ -813,11 +814,7 @@ interface InlineEdit {
       letter-spacing: 0.04em;
       vertical-align: middle;
     }
-    .overlay-method-badge.badge-get { background: rgba(0,229,255,0.16); color: #00E5FF; }
-    .overlay-method-badge.badge-post { background: rgba(124,58,237,0.18); color: #c4b5fd; }
-    .overlay-method-badge.badge-put { background: rgba(251,191,36,0.16); color: #fbbf24; }
-    .overlay-method-badge.badge-patch { background: rgba(45,212,191,0.16); color: #2dd4bf; }
-    .overlay-method-badge.badge-delete { background: rgba(248,113,113,0.16); color: #f87171; }
+    /* (method colors consolidated above — display + overlay + picker share them) */
     .overlay-sep { color: rgba(255,255,255,0.35); margin: 0 6px; }
     .overlay-status { text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.04em; color: #fbbf24; }
     .overlay-status.live { color: #4ade80; }
