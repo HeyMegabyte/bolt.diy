@@ -195,6 +195,12 @@ export const routes: Routes = [
           import('./pages/admin/sections/recipes.component').then((m) => m.AdminRecipesComponent),
       },
       {
+        // Review/Approval Links (#4) — shareable preview+approve links (flag: approval_workflow).
+        path: 'review-links',
+        loadComponent: () =>
+          import('./pages/admin/sections/review-links.component').then((m) => m.AdminReviewLinksComponent),
+      },
+      {
         // Public API token management — create / list / revoke psk_* tokens.
         // Backend: GET|POST|DELETE /api/v1-tokens; flag-gated: public_api_v1.
         path: 'api-tokens',

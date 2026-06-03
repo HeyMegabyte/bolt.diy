@@ -4,6 +4,7 @@ import {
   recordReviewDecision,
   getReviewLink,
   createReviewLink,
+  listReviewLinks,
   DEFAULT_REVIEW_TTL_MS,
   type ApprovalLinkState,
 } from '../services/review_approval.js';
@@ -170,5 +171,43 @@ describe('createReviewLink', () => {
     const res = await createReviewLink(env, 'o', 's', { nowMs });
     expect(res.ok).toBe(false);
     expect(res.error).toContain('UNIQUE');
+  });
+});
+
+describe('listReviewLinks', () => {
+  function listEnv(rows: unknown[]): { env: Env; captured: { args: unknown[] } } {
+    const captured = { args: [] as unknown[] };
+    const env = {
+      DB: {
+        prepare: () => ({
+          bind: (...args: unknown[]) => {
+            captured.args = args;
+            return { all: async () => ({ results: rows }) };
+          },
+        }),
+      },
+    } as unknown as Env;
+    return { env, captured };
+  }
+
+  it('maps rows and derives effective status (org+site scoped, injected clock)', async () => {
+    const { env, captured } = listEnv([
+      { id: 'a', decision: null, expires_at: FUTURE, used_at: null }, // pending, not expired
+      { id: 'b', decision: null, expires_at: PAST, used_at: null }, // pending, past expiry → expired
+      { id: 'c', decision: 'approved', expires_at: PAST, used_at: NOW }, // terminal → unchanged
+    ]);
+    const rows = await listReviewLinks(env, 'org-1', 'site-1', NOW);
+
+    expect(rows).toEqual([
+      { id: 'a', status: 'pending', url: '/review/a', expiresAt: FUTURE, usedAt: null },
+      { id: 'b', status: 'expired', url: '/review/b', expiresAt: PAST, usedAt: null },
+      { id: 'c', status: 'approved', url: '/review/c', expiresAt: PAST, usedAt: NOW },
+    ]);
+    expect(captured.args).toEqual(['org-1', 'site-1']);
+  });
+
+  it('returns [] when the site has no links', async () => {
+    const { env } = listEnv([]);
+    expect(await listReviewLinks(env, 'o', 's', NOW)).toEqual([]);
   });
 });

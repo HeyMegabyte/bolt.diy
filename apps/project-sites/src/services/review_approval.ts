@@ -17,7 +17,7 @@
  */
 
 import type { Env } from '../types/env.js';
-import { dbQueryOne, dbExecute } from './db.js';
+import { dbQuery, dbQueryOne, dbExecute } from './db.js';
 
 /** Stored status never includes 'expired' — that is derived from the clock. */
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'revoked' | 'expired';
@@ -143,6 +143,44 @@ export async function createReviewLink(
   );
   if (res.error) return { ok: false, error: res.error };
   return { ok: true, id, url: `/review/${id}`, expiresAt };
+}
+
+export interface ReviewLinkSummary {
+  id: string;
+  /** Effective status at read time (pending links past expiry read as 'expired'). */
+  status: ApprovalStatus;
+  /** Relative reviewer URL (`/review/:id`). */
+  url: string;
+  expiresAt: string;
+  usedAt: string | null;
+}
+
+/**
+ * List a site's review links (org+site scoped) with each link's EFFECTIVE
+ * status derived at read time via {@link effectiveApprovalStatus}. The caller
+ * enforces auth + site ownership before calling.
+ *
+ * @param nowIso - injected clock (ISO-UTC) for the expiry derivation.
+ */
+export async function listReviewLinks(
+  env: Env,
+  orgId: string,
+  siteId: string,
+  nowIso: string = new Date().toISOString(),
+): Promise<ReviewLinkSummary[]> {
+  const { data } = await dbQuery<{ id: string; decision: string | null; expires_at: string; used_at: string | null }>(
+    env.DB,
+    `SELECT id, decision, expires_at, used_at FROM review_tokens
+     WHERE agency_org_id = ? AND site_id = ? ORDER BY expires_at DESC`,
+    [orgId, siteId],
+  );
+  return data.map((r) => ({
+    id: r.id,
+    status: effectiveApprovalStatus({ status: (r.decision as ApprovalStatus) ?? 'pending', expiresAt: r.expires_at }, nowIso),
+    url: `/review/${r.id}`,
+    expiresAt: r.expires_at,
+    usedAt: r.used_at,
+  }));
 }
 
 export interface ReviewLinkRow {
