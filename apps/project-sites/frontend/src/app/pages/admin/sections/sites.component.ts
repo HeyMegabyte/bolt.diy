@@ -112,22 +112,34 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
           <table class="w-full text-[0.85rem] text-left">
             <thead class="bg-white/[0.03] text-[0.7rem] uppercase tracking-wider text-white/60">
               <tr>
-                <th class="px-4 py-3 cursor-pointer hover:text-white" (click)="sortBy('name')">
+                <th scope="col" tabindex="0" class="px-4 py-3 cursor-pointer hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]"
+                    [attr.aria-sort]="ariaSort('name')"
+                    (click)="sortBy('name')" (keydown.enter)="sortBy('name')" (keydown.space)="sortBy('name'); $event.preventDefault()">
                   Site {{ sortIndicator('name') }}
                 </th>
-                <th class="px-4 py-3 cursor-pointer hover:text-white text-center" (click)="sortBy('lcp')">
+                <th scope="col" tabindex="0" class="px-4 py-3 cursor-pointer hover:text-white text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]"
+                    [attr.aria-sort]="ariaSort('lcp')"
+                    (click)="sortBy('lcp')" (keydown.enter)="sortBy('lcp')" (keydown.space)="sortBy('lcp'); $event.preventDefault()">
                   LCP {{ sortIndicator('lcp') }}
                 </th>
-                <th class="px-4 py-3 cursor-pointer hover:text-white text-center" (click)="sortBy('cls')">
+                <th scope="col" tabindex="0" class="px-4 py-3 cursor-pointer hover:text-white text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]"
+                    [attr.aria-sort]="ariaSort('cls')"
+                    (click)="sortBy('cls')" (keydown.enter)="sortBy('cls')" (keydown.space)="sortBy('cls'); $event.preventDefault()">
                   CLS {{ sortIndicator('cls') }}
                 </th>
-                <th class="px-4 py-3 cursor-pointer hover:text-white text-center" (click)="sortBy('inp')">
+                <th scope="col" tabindex="0" class="px-4 py-3 cursor-pointer hover:text-white text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]"
+                    [attr.aria-sort]="ariaSort('inp')"
+                    (click)="sortBy('inp')" (keydown.enter)="sortBy('inp')" (keydown.space)="sortBy('inp'); $event.preventDefault()">
                   INP {{ sortIndicator('inp') }}
                 </th>
-                <th class="px-4 py-3 cursor-pointer hover:text-white text-center" (click)="sortBy('lh')">
+                <th scope="col" tabindex="0" class="px-4 py-3 cursor-pointer hover:text-white text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]"
+                    [attr.aria-sort]="ariaSort('lh')"
+                    (click)="sortBy('lh')" (keydown.enter)="sortBy('lh')" (keydown.space)="sortBy('lh'); $event.preventDefault()">
                   Lighthouse {{ sortIndicator('lh') }}
                 </th>
-                <th class="px-4 py-3 cursor-pointer hover:text-white text-center" (click)="sortBy('composite')">
+                <th scope="col" tabindex="0" class="px-4 py-3 cursor-pointer hover:text-white text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]"
+                    [attr.aria-sort]="ariaSort('composite')"
+                    (click)="sortBy('composite')" (keydown.enter)="sortBy('composite')" (keydown.space)="sortBy('composite'); $event.preventDefault()">
                   Score {{ sortIndicator('composite') }}
                 </th>
               </tr>
@@ -250,6 +262,12 @@ export class AdminSitesComponent implements OnInit {
   sortIndicator(key: SortKey): string {
     if (this.sortKey() !== key) return '';
     return this.sortDir() === 'asc' ? '↑' : '↓';
+  }
+
+  /** WAI-ARIA sort state for the active column header (WCAG 4.1.2). */
+  ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
+    if (this.sortKey() !== key) return 'none';
+    return this.sortDir() === 'asc' ? 'ascending' : 'descending';
   }
 
   sortedRows = computed<SiteSparkline[]>(() => {
