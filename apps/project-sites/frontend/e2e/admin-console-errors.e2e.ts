@@ -24,15 +24,18 @@ import { test, expect, type Page, type ConsoleMessage } from '@playwright/test';
 
 const KEY = process.env.E2E_API_KEY ?? '';
 
+// Full admin route set — "zero console errors" applies to EVERY route, not a
+// sample. Mirrors the scanned set in admin-a11y.e2e.ts.
 const ROUTES = [
   '/admin',
-  '/admin/sites',
-  '/admin/analytics',
-  '/admin/forms',
-  '/admin/billing',
-  '/admin/settings',
-  '/admin/feature-flags',
-  '/admin/domains',
+  '/admin/sites', '/admin/snapshots', '/admin/forms', '/admin/analytics', '/admin/audit',
+  '/admin/feature-flags', '/admin/api-tokens', '/admin/settings', '/admin/billing',
+  '/admin/voice', '/admin/social', '/admin/domains', '/admin/content-freshness',
+  '/admin/pseo', '/admin/ai-endpoints', '/admin/seo', '/admin/docs',
+  '/admin/features', '/admin/traces', '/admin/media', '/admin/apps',
+  '/admin/inbox', '/admin/marketplace', '/admin/trust', '/admin/enterprise',
+  '/admin/user', '/admin/logs', '/admin/bulk-ops', '/admin/deliverability',
+  '/admin/webhooks', '/admin/review-links', '/admin/stripe-app-status',
 ];
 
 /** True when a console error is a known-benign network/editor-iframe artifact (NOT a real JS/CSP/TT defect). */
