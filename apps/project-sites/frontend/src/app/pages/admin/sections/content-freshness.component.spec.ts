@@ -89,4 +89,27 @@ describe('AdminContentFreshnessComponent (aggregate stat strip + cohesion)', () 
     const html = (fixture.nativeElement as HTMLElement).innerHTML;
     expect(html.includes('#4dffb5')).withContext('no inline hex in rendered DOM').toBe(false);
   }));
+
+  // TanStack sort coverage (previously untested) — same createAngularTable
+  // pattern as api-tokens + the one the ag-grid→TanStack perf wave replicates.
+  it('ariaSort + sortGlyph map the TanStack direction exactly', fakeAsync(() => {
+    build(DRAFTS);
+    tick();
+    expect(component.ariaSort('asc')).toBe('ascending');
+    expect(component.ariaSort('desc')).toBe('descending');
+    expect(component.ariaSort(false)).toBe('none');
+    expect(component.sortGlyph('asc')).toBe('↑');
+    expect(component.sortGlyph('desc')).toBe('↓');
+    expect(component.sortGlyph(false)).toBe('↕');
+  }));
+
+  it('the table re-sorts numerically by idle_days when the sorting state flips', fakeAsync(() => {
+    build(DRAFTS); // a: idle_days 100, b: idle_days 200
+    tick();
+    const sorting = (component as unknown as { sorting: { set(v: { id: string; desc: boolean }[]): void } }).sorting;
+    sorting.set([{ id: 'idle_days', desc: false }]);
+    expect(component.table.getRowModel().rows.map((r) => (r.original as { idle_days: number }).idle_days)).toEqual([100, 200]);
+    sorting.set([{ id: 'idle_days', desc: true }]);
+    expect(component.table.getRowModel().rows.map((r) => (r.original as { idle_days: number }).idle_days)).toEqual([200, 100]);
+  }));
 });
