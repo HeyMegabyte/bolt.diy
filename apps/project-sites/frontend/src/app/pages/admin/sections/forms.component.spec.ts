@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AdminFormsComponent } from './forms.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -159,5 +159,63 @@ describe('AdminFormsComponent (cohesion + a11y, convergence r17)', () => {
     expect(put).toHaveBeenCalled();
     component.togglePromptMcp('stripe');
     expect(component.isMcpEnabled('stripe')).toBe(false);
+  });
+});
+
+/**
+ * Guards the submissions load-error gating: a failed `/form-submissions` fetch
+ * toasted but then fell through to the "No submissions yet" empty state — a
+ * masquerade. Now a non-silent reload() sets a persistent loadError + Retry card;
+ * a silent background poll keeps any loaded list and never raises the error.
+ * overrideComponent strips the template so the constructor effect doesn't auto-fire.
+ */
+describe('AdminFormsComponent (submissions load-error gating)', () => {
+  function makeErroring(get: jasmine.Spy): { c: AdminFormsComponent; toastErr: jasmine.Spy } {
+    const toastErr = jasmine.createSpy('error');
+    TestBed.configureTestingModule({
+      imports: [AdminFormsComponent],
+      providers: [
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+        { provide: ApiService, useValue: { get, post: () => of({}), put: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: toastErr, success: () => undefined } },
+        provideRouter([]),
+      ],
+    });
+    TestBed.overrideComponent(AdminFormsComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminFormsComponent).componentInstance, toastErr };
+  }
+
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('success populates submissions and leaves loadError null', () => {
+    const { c } = makeErroring(jasmine.createSpy('get').and.returnValue(of({ data: [{ id: 'm1' }] })));
+    c.reload();
+    expect(c.loadError()).toBeNull();
+    expect(c.submissions().length).toBe(1);
+    expect(c.loading()).toBe(false);
+  });
+
+  it('a non-silent load error sets a persistent loadError (not a fake empty) + toasts', () => {
+    const { c, toastErr } = makeErroring(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
+    c.reload();
+    expect(c.loadError()).toContain('Could not load');
+    expect(c.submissions().length).toBe(0);
+    expect(toastErr).toHaveBeenCalled();
+  });
+
+  it('a SILENT poll failure does not raise loadError or toast', () => {
+    const { c, toastErr } = makeErroring(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
+    c.reload({ silent: true });
+    expect(c.loadError()).toBeNull();
+    expect(toastErr).not.toHaveBeenCalled();
+  });
+
+  it('retry after an error clears the prior loadError', () => {
+    const get = jasmine.createSpy('get').and.returnValues(throwError(() => ({ status: 500 })), of({ data: [] }));
+    const { c } = makeErroring(get);
+    c.reload();
+    expect(c.loadError()).not.toBeNull();
+    c.reload();
+    expect(c.loadError()).toBeNull();
   });
 });

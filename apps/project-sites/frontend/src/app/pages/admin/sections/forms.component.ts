@@ -450,6 +450,15 @@ const POLL_INTERVAL_MS = 10_000;
               <div class="skeleton skeleton-row"></div>
             }
           </div>
+        } @else if (loadError() && submissions().length === 0) {
+          <div class="empty-state" role="alert" data-testid="forms-load-error">
+            <svg class="empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+            <h4 class="empty-title">Couldn't load submissions</h4>
+            <p class="empty-body">{{ loadError() }}</p>
+            <button class="empty-cta" data-testid="forms-retry" (click)="reload()" [disabled]="loading()">
+              <span class="empty-cta-text"><span class="empty-cta-title">Retry</span></span>
+            </button>
+          </div>
         } @else if (submissions().length === 0) {
           <div class="empty-state" role="status" data-testid="forms-empty">
             <svg class="empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -832,6 +841,8 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
 
   submissions = signal<Submission[]>([]);
   loading = signal(false);
+  /** Persistent submissions-load failure — so a fetch error shows a Retry card, not a fake "No submissions yet" empty state. */
+  loadError = signal<string | null>(null);
   views = [
     { id: 'all', label: 'All', test: (_s: Submission) => true },
     { id: 'today', label: 'Today', test: (s: Submission) => sameDay(new Date(s.created_at), new Date()) },
@@ -1318,14 +1329,21 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     const site = this.state.selectedSite();
     if (!site) return;
     if (!opts.silent) this.loading.set(true);
+    if (!opts.silent) this.loadError.set(null);
     this.api.get<{ data: Submission[] }>(`/sites/${site.id}/form-submissions`).subscribe({
       next: (r) => {
         this.submissions.set(r.data ?? []);
+        this.loadError.set(null);
         this.loading.set(false);
       },
       error: () => {
         this.loading.set(false);
-        if (!opts.silent) this.toast.error('Could not load submissions — retry from the sidebar');
+        // Persist the failure so the empty state can't masquerade as "no submissions".
+        // (Silent background polls keep any already-loaded list visible.)
+        if (!opts.silent) {
+          this.loadError.set('Could not load submissions — retry.');
+          this.toast.error('Could not load submissions — retry from the sidebar');
+        }
       },
     });
   }
