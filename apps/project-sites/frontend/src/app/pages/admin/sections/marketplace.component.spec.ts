@@ -85,6 +85,19 @@ describe('AdminMarketplaceComponent (cohesion r8)', () => {
     expect(all('.mkt-header__stats app-rolling-counter').length).toBe(2);
   });
 
+  it('announces the loading state to assistive tech (WCAG 4.1.3 — role=status + aria-live)', () => {
+    // A bare <div aria-label="Loading sections"> is NOT a live region — an SR
+    // user never hears it appear. The loading block must be a polite status.
+    fixture.componentInstance.loading.set(true);
+    fixture.detectChanges();
+    const loading = q('.mkt-loading');
+    expect(loading).withContext('loading block renders when loading()').not.toBeNull();
+    expect(loading!.getAttribute('role')).toBe('status');
+    expect(loading!.getAttribute('aria-live')).toBe('polite');
+    fixture.componentInstance.loading.set(false);
+    fixture.detectChanges();
+  });
+
   it('reveal-animates the header, filters, grid + every card (appReveal)', () => {
     expect(q('.mkt-header')?.hasAttribute('appReveal')).toBeTrue();
     expect(q('.mkt-industry-tabs')?.hasAttribute('appReveal')).toBeTrue();

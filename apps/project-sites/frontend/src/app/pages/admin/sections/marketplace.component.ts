@@ -125,8 +125,8 @@ const SLOT_COLORS: Record<string, string> = {
 
   <!-- ── Section Grid ─────────────────────────────────────────────────── -->
   @if (loading()) {
-    <div class="mkt-loading" aria-label="Loading sections">
-      <div class="mkt-loading__spinner"></div>
+    <div class="mkt-loading" role="status" aria-live="polite" aria-label="Loading sections">
+      <div class="mkt-loading__spinner" aria-hidden="true"></div>
     </div>
   } @else if (loadError()) {
     <app-error-card
