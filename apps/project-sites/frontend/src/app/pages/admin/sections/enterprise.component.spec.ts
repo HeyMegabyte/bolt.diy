@@ -88,6 +88,7 @@ describe('AdminEnterpriseComponent (flag-disabled card links to Feature Flags)',
     f.detectChanges();
     const link = (f.nativeElement as HTMLElement).querySelector('a[href="/admin/feature-flags"]');
     expect(link).withContext('feature-flags route must be a clickable link, not dead plain text').not.toBeNull();
+    expect((link as HTMLElement)?.classList.contains('underline')).withContext('link must be permanently underlined (WCAG 1.4.1 link-in-text-block — not distinguishable by color alone)').toBe(true);
   });
 });
 

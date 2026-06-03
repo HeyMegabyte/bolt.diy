@@ -102,7 +102,7 @@ interface AuditExport {
           <p class="text-text-secondary text-sm">
             Enterprise plan is disabled for your org. Enable
             <code>enterprise_plan</code> in
-            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
+            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
           </p>
         </div>
       }
