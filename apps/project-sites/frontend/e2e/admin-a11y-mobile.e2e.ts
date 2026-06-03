@@ -52,6 +52,10 @@ test.describe('admin — mobile (390px) WCAG 2.2 AA axe', () => {
       // On mobile the sidebar is a drawer; assert the shell (header) is alive.
       await expect(page.locator('.admin-shell, .admin-topbar, header, .admin-sidebar').first())
         .toBeVisible({ timeout: 30000 });
+      // Settle async section fetches + loading skeletons before scanning so axe
+      // doesn't catch transient mid-load violations (the rare billing flake).
+      await page.locator('[aria-busy="true"]').first().waitFor({ state: 'detached', timeout: 10000 }).catch(() => {});
+      await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
       await page.waitForTimeout(1000);
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
