@@ -115,8 +115,9 @@ interface ProfileEnvelope {
       @if (notFound()) {
         <div class="empty-card">
           <p class="text-text-secondary text-sm">
-            Trust Center is disabled for your org. Ask an admin to enable
-            the <code>trust_center</code> feature flag.
+            Trust Center is disabled for your org. Enable
+            <code>trust_center</code> in
+            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
           </p>
         </div>
       }

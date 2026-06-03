@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AdminTrustCenterComponent } from './trust-center.component';
 import { ApiService } from '../../../services/api.service';
@@ -25,6 +26,31 @@ function make(get: jasmine.Spy): { c: AdminTrustCenterComponent; toastErr: jasmi
   TestBed.overrideComponent(AdminTrustCenterComponent, { set: { template: '<div></div>', imports: [] } });
   return { c: TestBed.createComponent(AdminTrustCenterComponent).componentInstance, toastErr };
 }
+
+describe('AdminTrustCenterComponent (flag-disabled card links to Feature Flags)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  // Full-render (NOT the template-stripped make()) — consistency with the sibling
+  // flag-gated sections (enterprise/stripe-app): the disabled card points at
+  // /admin/feature-flags as a clickable routerLink (SPA nav), not dead text or a
+  // vague "ask an admin" (the viewer is already inside /admin).
+  it('the disabled message links /admin/feature-flags via routerLink, not plain text', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminTrustCenterComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ data: {} }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminTrustCenterComponent);
+    f.componentInstance.notFound.set(true);
+    f.detectChanges();
+    const link = (f.nativeElement as HTMLElement).querySelector('a[href="/admin/feature-flags"]');
+    expect(link).withContext('feature-flags route must be a clickable link, not dead plain text').not.toBeNull();
+  });
+});
 
 describe('AdminTrustCenterComponent (load-error gating)', () => {
   afterEach(() => TestBed.resetTestingModule());
