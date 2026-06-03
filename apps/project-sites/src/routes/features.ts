@@ -16,8 +16,11 @@
 
 import { Hono } from 'hono';
 import type { Context, Next } from 'hono';
+import { z } from 'zod';
 import type { Env } from '../types/env';
 import { DOMAINS } from '@project-sites/shared';
+import { assertSiteOwned } from '../services/site_ownership.js';
+import { createReviewLink } from '../services/review_approval.js';
 import * as F from '../services/features.js';
 import * as B from '../services/brilliant.js';
 import * as BB from '../services/big_bets.js';
@@ -38,6 +41,11 @@ features.use('*', async (c, next) => {
   if (!isMarketingRoot) return next();
   return next();
 });
+
+/** Body for POST /api/approval/link — site_id required (org comes from auth). */
+const ApprovalLinkBody = z
+  .object({ site_id: z.string().min(1), ttl_days: z.number().int().min(1).max(90).optional() })
+  .strip();
 
 function requireFlag(flagKey: string) {
   return async (c: Context<{ Bindings: Env }>, next: Next) => {
@@ -398,10 +406,31 @@ features.post('/api/contrast/lift', requireFlag('oklch_contrast_lift'), async (c
 // Section overlay
 features.get('/api/overlay/by-site/:siteId/sections', requireFlag('section_overlay'), (c) => c.json({ sections: F.getSectionMap(c.req.param('siteId')) }));
 
-// Approval workflow
+// Approval workflow — owned, auth + ownership-guarded (NO demo defaults).
+// The agency org is the caller's authed session org (set by the auth
+// middleware), never a client-supplied value; the site must belong to it.
 features.post('/api/approval/link', requireFlag('approval_workflow'), async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { site_id?: string; agency_org_id?: string };
-  return c.json(await F.createReviewLink(c.env, { siteId: body.site_id ?? 'demo-site', agencyOrgId: body.agency_org_id ?? 'demo-agency' }));
+  const orgId = (c as unknown as { get(k: string): string | undefined }).get('orgId');
+  const userId = (c as unknown as { get(k: string): string | undefined }).get('userId');
+  if (!userId || !orgId) {
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
+  }
+  const parsed = ApprovalLinkBody.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) {
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'site_id is required' } }, 400);
+  }
+  const siteId = parsed.data.site_id;
+  // Ownership gate: 404 (never 403) on a foreign/missing site — don't leak.
+  if (!(await assertSiteOwned(c.env, orgId, siteId))) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
+  }
+  const ttlMs = parsed.data.ttl_days ? parsed.data.ttl_days * 86_400_000 : undefined;
+  const res = await createReviewLink(c.env, orgId, siteId, ttlMs ? { ttlMs } : {});
+  if (!res.ok) {
+    return c.json({ error: { code: 'INTERNAL_ERROR', message: res.error ?? 'Could not create review link' } }, 500);
+  }
+  // Preserve the legacy response shape (signed_url/token/expires_at) for existing callers.
+  return c.json({ ok: true, signed_url: `https://projectsites.dev${res.url}`, token: res.id, expires_at: res.expiresAt });
 });
 
 // Stripe Meters

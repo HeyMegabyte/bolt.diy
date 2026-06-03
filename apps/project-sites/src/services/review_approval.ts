@@ -18,6 +18,10 @@
 
 import type { Env } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbExecute } from './db.js';
+import { writeAuditLog } from './audit.js';
+
+/** Max length of a reviewer comment (kept in the append-only audit log). */
+export const MAX_REVIEW_COMMENT_LEN = 2000;
 
 /** Stored status never includes 'expired' — that is derived from the clock. */
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'revoked' | 'expired';
@@ -215,17 +219,25 @@ export interface ReviewDecisionResult {
  * `AND decision IS NULL` guard in the UPDATE makes a double-decide race a
  * no-op (`already_decided`).
  *
+ * On a successful transition we record an append-only `review.{action}` audit
+ * row (org-scoped to the link's `agency_org_id`) carrying the optional reviewer
+ * `comment` in `metadata_json` — comments need NO new column/migration because
+ * they live in the existing `audit_logs` table. Audit writes are best-effort
+ * (`writeAuditLog` never throws) so they never fail the decision.
+ *
  * @param nowIso - injected clock (ISO-UTC) for the expiry check.
+ * @param comment - optional reviewer note recorded alongside the decision.
  */
 export async function recordReviewDecision(
   env: Env,
   reviewId: string,
   action: ApprovalAction,
   nowIso: string,
+  comment?: string,
 ): Promise<ReviewDecisionResult> {
-  const row = await dbQueryOne<{ decision: string | null; expires_at: string }>(
+  const row = await dbQueryOne<{ decision: string | null; expires_at: string; agency_org_id: string }>(
     env.DB,
-    'SELECT decision, expires_at FROM review_tokens WHERE id = ?',
+    'SELECT decision, expires_at, agency_org_id FROM review_tokens WHERE id = ?',
     [reviewId],
   );
   if (!row) return { ok: false, error: 'not_found' };
@@ -244,5 +256,71 @@ export async function recordReviewDecision(
   );
   if (res.error) return { ok: false, error: res.error };
   if (res.changes === 0) return { ok: false, error: 'already_decided' };
+
+  await writeAuditLog(env.DB, {
+    org_id: row.agency_org_id,
+    actor_id: null,
+    action: `review.${action}`,
+    target_type: 'review_token',
+    // reviewId lives in metadata (not target_id) so audit recording never
+    // depends on the id being UUID-shaped.
+    metadata_json: { review_id: reviewId, status: t.next, comment: comment?.trim() || undefined },
+  });
+
   return { ok: true, status: t.next };
+}
+
+export interface ReviewCommentResult {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Record a reviewer comment on a review link WITHOUT transitioning its state.
+ *
+ * A comment is only allowed while the link is effectively `pending` (not
+ * expired, not already decided) — the same guard as a decision. The comment
+ * persists as an append-only `review.comment` row in the existing `audit_logs`
+ * table (org-scoped to the link's `agency_org_id`); there is NO `comment`
+ * column on `review_tokens`, so this needs no migration. The token stays
+ * pending so the reviewer can still approve/reject afterwards.
+ *
+ * @param nowIso - injected clock (ISO-UTC) for the expiry check.
+ */
+export async function recordReviewComment(
+  env: Env,
+  reviewId: string,
+  comment: string,
+  nowIso: string,
+): Promise<ReviewCommentResult> {
+  const text = (comment ?? '').trim();
+  if (!text) return { ok: false, error: 'comment must not be empty' };
+  if (text.length > MAX_REVIEW_COMMENT_LEN) {
+    return { ok: false, error: `comment exceeds ${MAX_REVIEW_COMMENT_LEN} characters` };
+  }
+
+  const row = await dbQueryOne<{ decision: string | null; expires_at: string; agency_org_id: string }>(
+    env.DB,
+    'SELECT decision, expires_at, agency_org_id FROM review_tokens WHERE id = ?',
+    [reviewId],
+  );
+  if (!row) return { ok: false, error: 'not_found' };
+
+  const status = effectiveApprovalStatus(
+    { status: (row.decision as ApprovalStatus) ?? 'pending', expiresAt: row.expires_at },
+    nowIso,
+  );
+  if (status !== 'pending') {
+    return { ok: false, error: `link is ${status}; only a pending link can be commented on` };
+  }
+
+  await writeAuditLog(env.DB, {
+    org_id: row.agency_org_id,
+    actor_id: null,
+    action: 'review.comment',
+    target_type: 'review_token',
+    metadata_json: { review_id: reviewId, comment: text },
+  });
+
+  return { ok: true };
 }

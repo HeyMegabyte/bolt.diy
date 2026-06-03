@@ -341,9 +341,9 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
     explanation:
       "Agency draft → signed-token client review link → publish. Token is HMAC(sha256) signed, 7-day expiry. Client review page is no-login. Approve fires publish; request-changes notifies the agency.",
     smoke_test: [
-      "POST /api/approval/link with body {site_id:'demo-site', agency_org_id:'demo-agency'} → returns {signed_url, token, expires_at}",
-      'GET signed_url → review page renders without login → Approve / Request Changes buttons visible',
-      'Approve → publish event fires + audit row appended',
+      "Authed POST /api/approval/link with body {site_id:'<owned-site>'} (org comes from the session, NOT the body) → returns {ok, signed_url, token, expires_at}. A foreign/missing site_id → 404; no auth → 401.",
+      'GET signed_url → no-login review page → Approve / Reject / Comment buttons visible',
+      'Approve → review.approve audit row appended (with optional comment in metadata); Comment → review.comment audit row, link stays pending',
     ],
   },
   stripe_meters: {

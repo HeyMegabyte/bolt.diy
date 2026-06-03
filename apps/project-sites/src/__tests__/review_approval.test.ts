@@ -2,6 +2,7 @@ import {
   effectiveApprovalStatus,
   applyApprovalAction,
   recordReviewDecision,
+  recordReviewComment,
   getReviewLink,
   createReviewLink,
   listReviewLinks,
@@ -209,5 +210,115 @@ describe('listReviewLinks', () => {
   it('returns [] when the site has no links', async () => {
     const { env } = listEnv([]);
     expect(await listReviewLinks(env, 'o', 's', NOW)).toEqual([]);
+  });
+});
+
+describe('recordReviewComment', () => {
+  /**
+   * Mock D1 that SELECTs the review row via .all() and captures every audit
+   * INSERT (writeAuditLog uses dbInsert → .run()). Comments persist in the
+   * existing append-only audit_logs table — NO new column / migration.
+   */
+  function commentEnv(
+    row: { decision: string | null; expires_at: string; agency_org_id?: string } | null,
+    audits: unknown[][] = [],
+  ): Env {
+    return {
+      DB: {
+        prepare: (sql: string) => ({
+          bind: (...args: unknown[]) => ({
+            all: async () => ({ results: row ? [row] : [] }),
+            run: async () => {
+              if (/INSERT INTO audit_logs/i.test(sql)) audits.push(args);
+              return { meta: { changes: 1 } };
+            },
+          }),
+        }),
+      },
+    } as unknown as Env;
+  }
+
+  // A real UUID org so writeAuditLog's Zod uuid guard accepts the row.
+  const ORG = '550e8400-e29b-41d4-a716-446655440000';
+
+  it('records a comment on a pending, unexpired review (audit row written)', async () => {
+    const audits: unknown[][] = [];
+    const env = commentEnv({ decision: null, expires_at: FUTURE, agency_org_id: ORG }, audits);
+    const res = await recordReviewComment(env, 'rev1', 'Looks great, ship it', NOW);
+    expect(res.ok).toBe(true);
+    // exactly one audit_logs INSERT fired (the comment was recorded)
+    expect(audits.length).toBe(1);
+    // the comment text round-trips inside the metadata_json bind
+    expect(audits[0]?.some((a) => typeof a === 'string' && a.includes('Looks great, ship it'))).toBe(true);
+  });
+
+  it('returns not_found for a missing review', async () => {
+    const res = await recordReviewComment(commentEnv(null), 'rev1', 'hi', NOW);
+    expect(res).toEqual({ ok: false, error: 'not_found' });
+  });
+
+  it('refuses a comment on an expired review', async () => {
+    const res = await recordReviewComment(
+      commentEnv({ decision: null, expires_at: PAST, agency_org_id: ORG }),
+      'rev1',
+      'late note',
+      NOW,
+    );
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('expired');
+  });
+
+  it('refuses a comment on an already-decided review', async () => {
+    const res = await recordReviewComment(
+      commentEnv({ decision: 'approved', expires_at: FUTURE, agency_org_id: ORG }),
+      'rev1',
+      'too late',
+      NOW,
+    );
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('approved');
+  });
+
+  it('rejects an empty comment', async () => {
+    const res = await recordReviewComment(
+      commentEnv({ decision: null, expires_at: FUTURE, agency_org_id: ORG }),
+      'rev1',
+      '   ',
+      NOW,
+    );
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('comment');
+  });
+});
+
+describe('recordReviewDecision — audit on success', () => {
+  const ORG = '550e8400-e29b-41d4-a716-446655440000';
+
+  function decisionEnv(
+    row: { decision: string | null; expires_at: string; agency_org_id?: string },
+    audits: unknown[][] = [],
+  ): Env {
+    return {
+      DB: {
+        prepare: (sql: string) => ({
+          bind: (...args: unknown[]) => ({
+            all: async () => ({ results: [row] }),
+            run: async () => {
+              if (/INSERT INTO audit_logs/i.test(sql)) audits.push(args);
+              return { meta: { changes: /UPDATE review_tokens/i.test(sql) ? 1 : 1 } };
+            },
+          }),
+        }),
+      },
+    } as unknown as Env;
+  }
+
+  it('writes a review.approve audit row carrying the optional comment', async () => {
+    const audits: unknown[][] = [];
+    const env = decisionEnv({ decision: null, expires_at: FUTURE, agency_org_id: ORG }, audits);
+    const res = await recordReviewDecision(env, 'rev1', 'approve', NOW, 'approved with notes');
+    expect(res).toEqual({ ok: true, status: 'approved' });
+    expect(audits.length).toBe(1);
+    expect(audits[0]?.some((a) => typeof a === 'string' && a.includes('approved with notes'))).toBe(true);
   });
 });

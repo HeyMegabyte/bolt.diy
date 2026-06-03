@@ -538,17 +538,10 @@ export function getSectionMap(siteId: string) {
   ];
 }
 
-export async function createReviewLink(env: Env, params: { siteId: string; agencyOrgId: string }) {
-  const id = uuid();
-  const expires = new Date(Date.now() + 7 * 86400_000).toISOString();
-  const tokenSeed = `${id}.${params.siteId}.${params.agencyOrgId}.${expires}`;
-  const tokenHash = await sha256Hex(tokenSeed);
-  await env.DB.prepare('INSERT INTO review_tokens (id, site_id, agency_org_id, token_hash, expires_at) VALUES (?, ?, ?, ?, ?)')
-    .bind(id, params.siteId, params.agencyOrgId, tokenHash, expires)
-    .run()
-    .catch(() => {});
-  return { signed_url: `https://projectsites.dev/review/${id}`, token: id, expires_at: expires };
-}
+// NOTE: the demo `createReviewLink` stub (which used 'demo-site'/'demo-agency'
+// defaults and swallowed insert errors) was removed — the owned, auth +
+// ownership-guarded implementation now lives in services/review_approval.ts
+// and is called from routes/features.ts (#4 convergence, slice 2b).
 
 // ───────────── G — Items 35-38 ─────────────
 

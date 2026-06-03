@@ -28,7 +28,9 @@ import { isFlagOn } from '../modules/feature_flags/services.js';
 import {
   getReviewLink,
   recordReviewDecision,
+  recordReviewComment,
   effectiveApprovalStatus,
+  MAX_REVIEW_COMMENT_LEN,
   type ApprovalStatus,
 } from '../services/review_approval.js';
 
@@ -36,7 +38,17 @@ const NOT_FOUND = { error: { code: 'NOT_FOUND', message: 'Not found' } } as cons
 
 const reviewPublic = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-const DecisionBody = z.object({ action: z.enum(['approve', 'reject', 'revoke']) }).strict();
+/**
+ * `action: 'comment'` records a reviewer note WITHOUT transitioning state
+ * (the link stays pending). `approve|reject|revoke` transition + carry an
+ * optional `comment` recorded alongside the decision in the audit log.
+ */
+const DecisionBody = z
+  .object({
+    action: z.enum(['approve', 'reject', 'revoke', 'comment']),
+    comment: z.string().trim().min(1).max(MAX_REVIEW_COMMENT_LEN).optional(),
+  })
+  .strict();
 
 reviewPublic.get('/api/review/:id', async (c) => {
   const { id } = c.req.param();
@@ -66,10 +78,27 @@ reviewPublic.post(
 
   const parsed = DecisionBody.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) {
-    return c.json({ error: { code: 'BAD_REQUEST', message: 'action must be approve|reject|revoke' } }, 400);
+    return c.json(
+      { error: { code: 'BAD_REQUEST', message: 'action must be approve|reject|revoke|comment' } },
+      400,
+    );
   }
 
-  const res = await recordReviewDecision(c.env, id, parsed.data.action, new Date().toISOString());
+  const nowIso = new Date().toISOString();
+
+  // 'comment' records a note without transitioning the link state.
+  if (parsed.data.action === 'comment') {
+    if (!parsed.data.comment) {
+      return c.json({ error: { code: 'BAD_REQUEST', message: 'comment is required for action=comment' } }, 400);
+    }
+    const cr = await recordReviewComment(c.env, id, parsed.data.comment, nowIso);
+    if (!cr.ok) {
+      return c.json({ error: { code: 'BAD_REQUEST', message: cr.error ?? 'Comment failed' } }, 400);
+    }
+    return c.json({ ok: true, commented: true });
+  }
+
+  const res = await recordReviewDecision(c.env, id, parsed.data.action, nowIso, parsed.data.comment);
   if (!res.ok) {
     return c.json({ error: { code: 'BAD_REQUEST', message: res.error ?? 'Decision failed' } }, 400);
   }
