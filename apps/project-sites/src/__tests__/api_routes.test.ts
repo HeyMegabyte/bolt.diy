@@ -295,6 +295,7 @@ describe('GET /api/auth/me', () => {
       org_id: 'org-456',
       email: 'alice@example.com',
       display_name: 'Alice',
+      is_super_admin: false,
     });
   });
 
