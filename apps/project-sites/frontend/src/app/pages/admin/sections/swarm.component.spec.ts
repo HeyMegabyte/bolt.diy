@@ -14,8 +14,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { AdminSwarmComponent } from './swarm.component';
+import { ToastService } from '../../../services/toast.service';
 
 describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
   let fixture: ComponentFixture<AdminSwarmComponent>;
@@ -96,5 +97,28 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
     };
     c.selectRun(run);
     expect(c.currentRun()?.run_id).toBe('zzz');
+  });
+
+  // ── Reliability: a load FAILURE must not masquerade as the empty state ──
+  it('loadHistory failure shows a distinct error state (not the misleading "start first run" empty)', () => {
+    const http = TestBed.inject(HttpTestingController);
+    fixture.componentInstance.siteId.set('s1');
+    fixture.componentInstance.loadHistory();
+    http.expectOne('/api/swarm/s1/runs').flush('boom', { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    expect(fixture.componentInstance.loadError()).not.toBeNull();
+    const root: HTMLElement = fixture.nativeElement;
+    expect(root.querySelector('[data-testid="swarm-load-error"]')).not.toBeNull();
+    expect(root.querySelector('.swarm-empty')).withContext('no false "no runs" CTA on a load failure').toBeNull();
+  });
+
+  it('startSwarm failure surfaces an error toast + clears running (no silent failure)', () => {
+    const errSpy = spyOn(TestBed.inject(ToastService), 'error');
+    const http = TestBed.inject(HttpTestingController);
+    fixture.componentInstance.siteId.set('s1');
+    fixture.componentInstance.startSwarm();
+    http.expectOne('/api/swarm/s1/start').flush('boom', { status: 500, statusText: 'Server Error' });
+    expect(errSpy).toHaveBeenCalled();
+    expect(fixture.componentInstance.running()).toBeFalse();
   });
 });

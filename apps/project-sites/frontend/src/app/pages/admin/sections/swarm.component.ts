@@ -25,6 +25,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { ToastService } from '../../../services/toast.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 
 type AgentStatus = 'queued' | 'running' | 'done' | 'error';
@@ -147,6 +148,11 @@ const SPECIALIST_COLORS: Record<string, string> = {
           }
         </div>
       }
+    </section>
+  } @else if (loadError()) {
+    <section class="swarm-load-error" data-testid="swarm-load-error" appReveal role="alert">
+      <p>{{ loadError() }}</p>
+      <button class="swarm-empty__cta" (click)="loadHistory()">Retry →</button>
     </section>
   } @else if (!loading()) {
     <section class="swarm-empty" appReveal>
@@ -292,6 +298,8 @@ const SPECIALIST_COLORS: Record<string, string> = {
     .swarm-agent__conflict-badge { font-size: 0.6rem; background: color-mix(in oklch, var(--sw-warn) 15%, transparent); color: var(--sw-warn); padding: 0.1rem 0.4rem; border-radius: 4px; }
     /* Empty */
     .swarm-empty { text-align: center; padding: 3rem 1rem; opacity: 0.6; }
+    .swarm-load-error { text-align: center; padding: 3rem 1rem; }
+    .swarm-load-error p { color: var(--sw-err, #ff5d6c); margin-bottom: 0.75rem; }
     .swarm-empty__cta { color: var(--ps-accent, #00e5ff); background: none; border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 40%, transparent); padding: 0.375rem 0.875rem; border-radius: 9999px; cursor: pointer; }
     /* Progressive preview */
     .swarm-preview { background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 2%, transparent); border: 1px solid var(--sw-line); border-radius: 10px; padding: 0.75rem; margin-bottom: 1.5rem; }
@@ -331,9 +339,11 @@ export class AdminSwarmComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private http = inject(HttpClient);
   private cdr = inject(ChangeDetectorRef);
+  private toast = inject(ToastService);
 
   readonly siteId = signal<string>('');
   readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
   readonly running = signal(false);
   readonly currentRun = signal<SwarmRun | null>(null);
   readonly runHistory = signal<SwarmRun[]>([]);
@@ -375,12 +385,21 @@ export class AdminSwarmComponent implements OnInit, OnDestroy {
   loadHistory() {
     if (!this.siteId()) return;
     this.loading.set(true);
+    this.loadError.set(null);
     this.http.get<{ runs: SwarmRun[] }>(`/api/swarm/${this.siteId()}/runs`)
-      .pipe(catchError(() => of({ runs: [] as SwarmRun[] })))
-      .subscribe((res: { runs: SwarmRun[] }) => {
+      // null sentinel on error so a failed load is NOT mistaken for "no runs
+      // yet" — otherwise a network/server failure renders the empty-state CTA
+      // ("Start first swarm run"), a silent failure.
+      .pipe(catchError(() => of(null)))
+      .subscribe((res: { runs: SwarmRun[] } | null) => {
+        this.loading.set(false);
+        if (!res) {
+          this.loadError.set('Could not load swarm runs — check your connection and retry.');
+          this.cdr.markForCheck();
+          return;
+        }
         this.runHistory.set(res.runs ?? []);
         if (res.runs?.[0]) this.currentRun.set(res.runs[0]);
-        this.loading.set(false);
         this.cdr.markForCheck();
       });
   }
@@ -392,6 +411,7 @@ export class AdminSwarmComponent implements OnInit, OnDestroy {
       prompt: 'Improve all site sections with 7 parallel specialists',
     }).pipe(catchError((_e: unknown) => {
       this.running.set(false);
+      this.toast.error('Could not start a swarm run — please try again.');
       return of(null as SwarmRun | null);
     })).subscribe((run: SwarmRun | null) => {
       if (run) {
