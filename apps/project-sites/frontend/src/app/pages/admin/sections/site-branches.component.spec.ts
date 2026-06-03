@@ -20,7 +20,7 @@ describe('SiteBranchesComponent (cohesion + a11y)', () => {
 
   const SITE_ID = 'site-branches-1';
 
-  function build(): void {
+  function build(loadFails = false): void {
     TestBed.configureTestingModule({
       imports: [SiteBranchesComponent, RouterModule.forRoot([])],
       providers: [
@@ -46,9 +46,10 @@ describe('SiteBranchesComponent (cohesion + a11y)', () => {
     component = fixture.componentInstance;
     httpMock = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
-    // Flush the ngOnInit load
+    // Flush the ngOnInit load (success by default, or an error for the masquerade path)
     const req = httpMock.expectOne(`/api/sites/${SITE_ID}/branches`);
-    req.flush({ branches: [] });
+    if (loadFails) req.flush('err', { status: 500, statusText: 'Server Error' });
+    else req.flush({ branches: [] });
     fixture.detectChanges();
   }
 
@@ -120,5 +121,24 @@ describe('SiteBranchesComponent (cohesion + a11y)', () => {
     const bar: HTMLElement | null = fixture.nativeElement.querySelector('[role="progressbar"]');
     expect(bar?.getAttribute('aria-valuenow')).toBe('1');
     expect(bar?.getAttribute('aria-valuemax')).toBe('2');
+  });
+
+  // ── Load-failure state (no empty-state masquerade) ────────────────────────
+  it('shows a distinct error card (not the empty state) when the branches load fails', () => {
+    build(true);
+    expect(component.loadError()).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="branches-error"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-empty-state')).toBeNull(); // failure ≠ "no branches yet"
+  });
+
+  it('Retry re-fetches branches and clears the error on success', () => {
+    build(true);
+    expect(component.loadError()).toBeTruthy();
+    component.loadBranches(); // Retry
+    const req = httpMock.expectOne(`/api/sites/${SITE_ID}/branches`);
+    req.flush({ branches: [branch()] });
+    fixture.detectChanges();
+    expect(component.loadError()).toBeNull();
+    expect(component.branches().length).toBe(1);
   });
 });

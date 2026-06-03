@@ -146,6 +146,14 @@ interface Branch {
             <span class="glow-skel block w-full h-9 rounded-lg" aria-hidden="true"></span>
           }
         </div>
+      } @else if (loadError(); as err) {
+        <div class="rounded-xl border p-6 text-center flex flex-col items-center gap-2" role="alert" data-testid="branches-error"
+             style="border-color: rgba(255,92,122,0.32); background: rgba(255,92,122,0.04);">
+          <span aria-hidden="true" class="text-2xl" style="color: rgba(255,92,122,0.8);">⚠</span>
+          <h4 class="m-0 font-semibold text-white text-[0.9rem]">Couldn't load branches</h4>
+          <p class="m-0 text-[0.78rem] text-text-secondary max-w-[34ch]">{{ err }}</p>
+          <button hlmBtn size="sm" type="button" (click)="loadBranches()" data-testid="branches-retry">Retry</button>
+        </div>
       } @else if (branches().length === 0) {
         <app-empty-state
           icon="⎇"
@@ -229,6 +237,9 @@ export class SiteBranchesComponent implements OnInit {
 
   readonly branches = signal<Branch[]>([]);
   readonly loading = signal(true);
+  /** Set when the branches fetch fails so we show a distinct error card with a
+   *  Retry instead of the misleading "No branches yet" empty state. */
+  readonly loadError = signal<string | null>(null);
   readonly showCreate = signal(false);
   readonly creating = signal(false);
   readonly actioning = signal<string | null>(null);
@@ -250,12 +261,13 @@ export class SiteBranchesComponent implements OnInit {
     this.loadBranches();
   }
 
-  private loadBranches(): void {
+  loadBranches(): void {
     if (!this.siteId) return;
     this.loading.set(true);
+    this.loadError.set(null);
     this.http
       .get<{ branches: Branch[] }>(`/api/sites/${this.siteId}/branches`)
-      .pipe(catchError(() => of({ branches: [] as Branch[] })))
+      .pipe(catchError(() => { this.loadError.set('Could not load branches — check your connection and retry.'); return of({ branches: [] as Branch[] }); }))
       .subscribe((res) => {
         this.branches.set(res.branches);
         this.loading.set(false);
