@@ -196,8 +196,12 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
             class="hub-tab"
             [class.hub-tab-active]="tab() === t.id"
             (click)="setTab(t.id)"
+            (keydown)="onTabKey($event, t.id)"
             role="tab"
+            [id]="'hub-tab-btn-' + t.id"
             [attr.aria-selected]="tab() === t.id"
+            [attr.aria-controls]="'hub-tabpanel'"
+            [tabindex]="tab() === t.id ? 0 : -1"
             [attr.data-testid]="'hub-tab-' + t.id"
           >
             <span class="hub-tab-icon">{{ t.icon }}</span>
@@ -207,7 +211,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
         }
       </nav>
 
-      <ul class="hub-grid">
+      <ul class="hub-grid" id="hub-tabpanel" role="tabpanel" [attr.aria-label]="tab() + ' features'">
         @for (f of visible(); track f.flag) {
           <li class="hub-card" [attr.data-flag-on]="flagState(f.flag)?.default_enabled" [attr.data-testid]="'hub-card-' + f.flag">
             <header class="hub-card-head">
@@ -373,6 +377,33 @@ export class AdminFeaturesHubComponent implements OnInit {
   setTab(id: string): void {
     this.tab.set(id);
     this.router.navigate([], { relativeTo: this.route, queryParams: { tab: id }, queryParamsHandling: 'merge' });
+  }
+
+  /**
+   * WAI-ARIA Tabs keyboard pattern: Arrow keys move between tabs (roving
+   * tabindex in the template), Home/End jump to the first/last.
+   */
+  nextTabId(currentId: string, key: string): string {
+    const ids = this.tabs.map((t) => t.id);
+    const i = ids.indexOf(currentId);
+    if (i === -1) return currentId;
+    switch (key) {
+      case 'ArrowRight': case 'ArrowDown': return ids[(i + 1) % ids.length];
+      case 'ArrowLeft': case 'ArrowUp': return ids[(i - 1 + ids.length) % ids.length];
+      case 'Home': return ids[0];
+      case 'End': return ids[ids.length - 1];
+      default: return currentId;
+    }
+  }
+
+  onTabKey(event: KeyboardEvent, currentId: string): void {
+    const next = this.nextTabId(currentId, event.key);
+    if (next === currentId) return;
+    event.preventDefault();
+    this.setTab(next);
+    const host = event.currentTarget as HTMLElement | null;
+    const btn = host?.parentElement?.querySelector<HTMLElement>(`[data-testid="hub-tab-${next}"]`);
+    btn?.focus();
   }
 
   async tryIt(feature: Feature, endpointIdx: number): Promise<void> {
