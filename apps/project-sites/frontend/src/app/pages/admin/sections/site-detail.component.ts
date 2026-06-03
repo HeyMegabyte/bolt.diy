@@ -132,6 +132,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
               hlmInput
               type="search"
               placeholder="Search logs"
+              aria-label="Search logs"
               [ngModel]="logSearch()"
               (ngModelChange)="logSearch.set($event)"
             />
@@ -203,6 +204,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
             [multiline]="true"
             class="font-mono resize-y"
             rows="5"
+            aria-label="SQL query"
             [ngModel]="sqlQuery()"
             (ngModelChange)="sqlQuery.set($event)"
             placeholder="SELECT * FROM ..."
@@ -276,6 +278,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
                       hlmInput
                       type="text"
                       placeholder="API key"
+                      aria-label="API key"
                       [ngModel]="pasteKeyValue()"
                       (ngModelChange)="pasteKeyValue.set($event)"
                       name="apiKey"
