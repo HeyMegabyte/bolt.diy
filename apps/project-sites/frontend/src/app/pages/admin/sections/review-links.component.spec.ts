@@ -73,4 +73,12 @@ describe('AdminReviewLinksComponent', () => {
 
     expect(get).toHaveBeenCalledWith('/sites/deep/review-links');
   });
+
+  it('renders a shimmering skeleton (not bare "Loading…" text) while loading', () => {
+    build({ id: 's1' });
+    fixture.componentInstance.loading.set(true);
+    fixture.detectChanges();
+    expect(q('app-skeleton')).withContext('uses the reusable skeleton primitive').not.toBeNull();
+    expect(host.textContent ?? '').not.toContain('Loading review links…');
+  });
 });
