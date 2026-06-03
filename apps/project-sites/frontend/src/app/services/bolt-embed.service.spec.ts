@@ -119,3 +119,40 @@ describe('BoltEmbedService — importChatFrom gating (publish-aware, no 404 cons
     expect(url).withContext('still boots the editor for the draft site').toContain('draft-site');
   });
 });
+
+/**
+ * Veil-dismiss → editorReady. The editor shows a cinematic loading veil until
+ * the iframe signals it's interactive; if that transition regressed, users would
+ * stare at a permanent veil (a broken editor). Locks the dismiss paths AND the
+ * security boundary: an UNTRUSTED origin must never force the veil away.
+ */
+describe('BoltEmbedService (veil dismiss → editorReady)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  const ready = (svc: unknown): boolean => (svc as { editorReady(): boolean }).editorReady();
+  const TRUSTED = 'https://editor.projectsites.dev';
+
+  it('editorReady starts false (veil shown) and PS_APP_RUNNING from the trusted editor dismisses it', () => {
+    const { svc, fire } = setup();
+    expect(ready(svc)).withContext('veil shown until the iframe is interactive').toBeFalse();
+    fire(TRUSTED, { type: 'PS_APP_RUNNING' });
+    expect(ready(svc)).toBeTrue();
+  });
+
+  it('PS_BOLT_CHAT_READY (chat placeholder painted) dismisses the veil', () => {
+    const { svc, fire } = setup();
+    fire(TRUSTED, { type: 'PS_BOLT_CHAT_READY' });
+    expect(ready(svc)).toBeTrue();
+  });
+
+  it('PS_GENERATION_STATUS preview_ready dismisses the veil', () => {
+    const { svc, fire } = setup();
+    fire(TRUSTED, { type: 'PS_GENERATION_STATUS', status: 'preview_ready' });
+    expect(ready(svc)).toBeTrue();
+  });
+
+  it('a veil-dismiss message from an UNTRUSTED origin must NOT force the editor ready (injection guard)', () => {
+    const { svc, fire } = setup();
+    fire('https://evil.example.com', { type: 'PS_APP_RUNNING' });
+    expect(ready(svc)).withContext('an untrusted frame cannot dismiss the veil').toBeFalse();
+  });
+});
