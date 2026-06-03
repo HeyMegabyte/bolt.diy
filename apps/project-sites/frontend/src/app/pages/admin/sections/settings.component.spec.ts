@@ -142,3 +142,48 @@ describe('AdminSettingsComponent (invite email validation)', () => {
     expect(c.inviteEmailInvalid()).toBe(false);
   });
 });
+
+/**
+ * WCAG 4.1.2 — the invite form's email input + role select are placeholder-only
+ * inside a 3-col grid with NO visible label, so a screen reader announced them
+ * with no purpose. They get an aria-label (no visible label exists to associate).
+ */
+describe('AdminSettingsComponent (invite control accessible names)', () => {
+  function render(): ComponentFixture<AdminSettingsComponent> {
+    TestBed.configureTestingModule({
+      imports: [AdminSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: null }), put: () => of({}), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+        { provide: Router, useValue: { navigate: () => undefined } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 's' }), loadData: () => undefined } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSettingsComponent);
+    fx.detectChanges();                       // run ngOnInit first (it may set tab from the route)
+    fx.componentInstance.tab.set('team');     // the invite form lives in the Team tab
+    fx.componentInstance.inviting.set(true);
+    fx.detectChanges();
+    return fx;
+  }
+  const inviteEmail = (el: HTMLElement) => el.querySelector('input[placeholder="teammate@email.com"]') as HTMLInputElement | null;
+  const accName = (c: Element, el: HTMLElement) => c.getAttribute('aria-label') || (c.id && el.querySelector(`label[for="${c.id}"]`));
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('the invite email input has an accessible name', () => {
+    const el = render().nativeElement as HTMLElement;
+    const input = inviteEmail(el)!;
+    expect(input).withContext('invite form rendered in Team tab').toBeTruthy();
+    expect(accName(input, el)).withContext('email input has aria-label or associated label').toBeTruthy();
+  });
+
+  it('the invite role select has an accessible name', () => {
+    const el = render().nativeElement as HTMLElement;
+    const grid = inviteEmail(el)!.closest('.grid')!;
+    const select = grid.querySelector('select') as HTMLSelectElement;
+    expect(select).withContext('role select in the invite grid').toBeTruthy();
+    expect(accName(select, el)).withContext('role select has aria-label or associated label').toBeTruthy();
+  });
+});

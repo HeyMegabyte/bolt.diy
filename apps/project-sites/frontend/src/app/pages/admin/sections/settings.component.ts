@@ -191,9 +191,9 @@ const PROVIDERS = MCP_PROVIDERS;
           </div>
           @if (inviting()) {
             <div class="card-light p-3 mb-3 grid sm:grid-cols-3 gap-2">
-              <input hlmInput type="email" placeholder="teammate@email.com" [(ngModel)]="invite.email"
+              <input hlmInput type="email" placeholder="teammate@email.com" aria-label="Teammate email" [(ngModel)]="invite.email"
                 [attr.aria-invalid]="inviteEmailInvalid() || null" [attr.aria-describedby]="inviteEmailInvalid() ? 'invite-email-hint' : null" />
-              <select hlmSelect [(ngModel)]="invite.role">
+              <select hlmSelect aria-label="Invite role" [(ngModel)]="invite.role">
                 <option value="owner">Owner</option>
                 <option value="editor">Editor</option>
                 <option value="viewer">Viewer</option>
