@@ -78,7 +78,11 @@ export function validateRecipe(recipe: AutomationRecipe): RecipeValidation {
     for (const a of recipe.actions) {
       if (!(ACTION_TYPES as readonly string[]).includes(a?.type)) {
         errors.push(`Unknown action "${a?.type}". Allowed: ${ACTION_TYPES.join(', ')}.`);
+        continue;
       }
+      // Deeper config contract per action type (e.g. send_email needs `to`).
+      const cfg = validateActionConfig(a);
+      if (!cfg.ok) errors.push(...cfg.errors);
     }
   }
 

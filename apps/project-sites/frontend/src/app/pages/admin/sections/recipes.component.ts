@@ -68,6 +68,17 @@ interface Recipe {
               </select>
             </label>
           </div>
+          <!-- Per-action config -->
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">{{ primaryLabel() }}</span>
+            <input hlmInput data-testid="recipes-cfg-primary" [placeholder]="primaryPlaceholder()" [(ngModel)]="cfgPrimary" />
+          </label>
+          @if (showSecondary()) {
+            <label class="flex flex-col gap-1.5">
+              <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Subject (optional)</span>
+              <input hlmInput data-testid="recipes-cfg-secondary" placeholder="New lead from your site" [(ngModel)]="cfgSecondary" />
+            </label>
+          }
           <div class="flex items-center gap-3">
             <button hlmBtn data-testid="recipes-create-btn" [disabled]="creating()" (click)="create()">
               {{ creating() ? 'Creating…' : 'Add recipe' }}
@@ -118,6 +129,36 @@ export class AdminRecipesComponent {
   readonly actionModel = signal<string>(ACTIONS[0] ?? 'send_email');
   readonly enabledModel = signal(true);
 
+  /** Per-action config inputs — `cfgPrimary` is the main field, `cfgSecondary` the optional one. */
+  readonly cfgPrimary = signal('');
+  readonly cfgSecondary = signal('');
+
+  /** Label/placeholder/required-ness of the primary config field for the selected action. */
+  readonly primaryLabel = computed(() => {
+    switch (this.actionModel()) {
+      case 'send_email': return 'Recipient email';
+      case 'webhook': return 'Endpoint URL (https)';
+      case 'add_tag': return 'Tag';
+      case 'notify': return 'Message (optional)';
+      case 'create_task': return 'Task title';
+      default: return 'Value';
+    }
+  });
+  readonly primaryPlaceholder = computed(() => {
+    switch (this.actionModel()) {
+      case 'send_email': return 'owner@example.com';
+      case 'webhook': return 'https://hooks.yourapp.com/projectsites';
+      case 'add_tag': return 'vip';
+      case 'notify': return 'New lead from your site';
+      case 'create_task': return 'Follow up with the lead';
+      default: return '';
+    }
+  });
+  /** notify's message is optional; every other action requires its primary field. */
+  readonly primaryRequired = computed(() => this.actionModel() !== 'notify');
+  /** Only send_email has a secondary (subject) field today. */
+  readonly showSecondary = computed(() => this.actionModel() === 'send_email');
+
   readonly recipes = signal<Recipe[]>([]);
   readonly loading = signal(false);
   readonly creating = signal(false);
@@ -138,6 +179,20 @@ export class AdminRecipesComponent {
 
   private siteId(): string | null {
     return this.site()?.id ?? null;
+  }
+
+  /** Build the action's config payload from the inputs (mirrors the worker ACTION_CONFIG_SCHEMAS). */
+  private buildActionConfig(): Record<string, string> {
+    const p = this.cfgPrimary().trim();
+    const s = this.cfgSecondary().trim();
+    switch (this.actionModel()) {
+      case 'send_email': return { to: p, ...(s ? { subject: s } : {}) };
+      case 'webhook': return { url: p };
+      case 'add_tag': return { tag: p };
+      case 'notify': return p ? { message: p } : {};
+      case 'create_task': return { title: p };
+      default: return {};
+    }
   }
 
   load(): void {
@@ -164,17 +219,23 @@ export class AdminRecipesComponent {
       this.toast.error('Give the recipe a name.');
       return;
     }
+    if (this.primaryRequired() && !this.cfgPrimary().trim()) {
+      this.toast.error(`${this.primaryLabel()} is required for "${this.actionModel()}".`);
+      return;
+    }
     this.creating.set(true);
     this.api
       .post<{ ok: boolean; id: string }>(`/sites/${id}/recipes`, {
         name: this.nameModel().trim(),
         enabled: this.enabledModel(),
         trigger: { type: this.triggerModel() },
-        actions: [{ type: this.actionModel() }],
+        actions: [{ type: this.actionModel(), config: this.buildActionConfig() }],
       })
       .subscribe({
         next: () => {
           this.nameModel.set('');
+          this.cfgPrimary.set('');
+          this.cfgSecondary.set('');
           this.toast.success('Recipe added.');
           this.creating.set(false);
           this.load();

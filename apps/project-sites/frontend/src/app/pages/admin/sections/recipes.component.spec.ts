@@ -52,26 +52,54 @@ describe('AdminRecipesComponent', () => {
     expect(all('[data-testid="recipes-row"]').length).toBe(1);
   });
 
-  it('creates a recipe with name + trigger + action + enabled', () => {
+  it('creates a recipe with name + trigger + action + config + enabled', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.nameModel.set('Email on new lead');
+    c.triggerModel.set('form.submitted');
+    c.actionModel.set('send_email');
+    c.cfgPrimary.set('owner@example.com');
+    c.cfgSecondary.set('New lead');
+    c.enabledModel.set(true);
+    (q('[data-testid="recipes-create-btn"]') as HTMLButtonElement).click();
+
+    expect(post).toHaveBeenCalledWith('/sites/s1/recipes', {
+      name: 'Email on new lead',
+      enabled: true,
+      trigger: { type: 'form.submitted' },
+      actions: [{ type: 'send_email', config: { to: 'owner@example.com', subject: 'New lead' } }],
+    });
+  });
+
+  it('omits an empty optional config (notify message)', () => {
     build({ id: 's1' });
     const c = fixture.componentInstance;
     c.nameModel.set('Notify on publish');
     c.triggerModel.set('site.published');
-    c.actionModel.set('notify');
-    c.enabledModel.set(true);
+    c.actionModel.set('notify'); // message optional → empty config
     (q('[data-testid="recipes-create-btn"]') as HTMLButtonElement).click();
 
     expect(post).toHaveBeenCalledWith('/sites/s1/recipes', {
       name: 'Notify on publish',
       enabled: true,
       trigger: { type: 'site.published' },
-      actions: [{ type: 'notify' }],
+      actions: [{ type: 'notify', config: {} }],
     });
   });
 
   it('blocks a create with no name', () => {
     build({ id: 's1' });
     fixture.componentInstance.nameModel.set('   ');
+    (q('[data-testid="recipes-create-btn"]') as HTMLButtonElement).click();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('blocks a create when a required config field is empty', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.nameModel.set('Email on lead');
+    c.actionModel.set('send_email'); // requires a recipient
+    c.cfgPrimary.set('');
     (q('[data-testid="recipes-create-btn"]') as HTMLButtonElement).click();
     expect(post).not.toHaveBeenCalled();
   });
