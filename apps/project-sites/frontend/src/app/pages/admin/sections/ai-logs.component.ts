@@ -267,6 +267,22 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
         </div>
       }
 
+      @if (gridLoadingSkeleton()) {
+        <div class="card" data-testid="ai-logs-skeleton" aria-busy="true" aria-label="Loading AI traces">
+          <div class="sk-line sk-line--head"></div>
+          @for (n of [1,2,3,4,5]; track n) { <div class="sk-line"></div> }
+        </div>
+      } @else if (gridEmpty()) {
+        <div class="card text-center py-10" data-testid="ai-logs-empty">
+          <div class="empty-glyph" aria-hidden="true">◇</div>
+          <p class="text-white text-sm font-semibold m-0 mt-3">No AI traces yet</p>
+          <p class="text-text-secondary text-[0.78rem] m-0 mt-1 max-w-sm mx-auto">
+            Every AI invocation this site makes — prompts, outputs, tool calls — will appear here in real time.
+          </p>
+          <button class="btn-ghost text-xs mt-4" data-testid="ai-logs-empty-refresh" (click)="reload()">Refresh</button>
+        </div>
+      }
+
       <!-- Latency percentile chart (p50/p95/p99 stacked-area) ────────── -->
       @if (rows().length > 0) {
         <section class="card" appReveal>
@@ -321,6 +337,7 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
         </section>
       }
 
+      @if (rows().length > 0) {
       <!-- Quick-filter search box (focus on '/') ───────────────────────── -->
       <label class="filter-shell" [class.is-focused]="searchFocused()">
         <svg class="filter-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
@@ -365,6 +382,7 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
           (rowClicked)="onRowClicked($event)">
         </ag-grid-angular>
       </div>
+      }
     </div>
   `,
   styles: [`
@@ -372,6 +390,13 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
     .card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 1.2rem; }
     .section-h { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
     .muted-h { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; margin-bottom: 0.3rem; }
+
+    /* ─── Loading skeleton + empty state ─────────────────────────────── */
+    .sk-line { height: 14px; border-radius: 6px; margin: 10px 0; background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(0,229,255,0.10) 50%, rgba(255,255,255,0.04) 75%); background-size: 200% 100%; animation: skShimmer 1.4s ease-in-out infinite; }
+    .sk-line--head { width: 38%; height: 18px; margin-bottom: 18px; }
+    @keyframes skShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .empty-glyph { font-size: 2.4rem; line-height: 1; color: var(--ps-accent, #00e5ff); opacity: 0.7; text-shadow: 0 0 18px rgba(0,229,255,0.35); }
+    @media (prefers-reduced-motion: reduce) { .sk-line { animation: none; } }
 
     /* ─── Live pill ──────────────────────────────────────────────────── */
     .live-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: rgba(16,185,129,0.10); border: 1px solid rgba(16,185,129,0.28); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; color: #10b981; }
@@ -709,6 +734,10 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
   });
   errors = computed<number>(() => this.rows().filter((r) => r.status === 'error').length);
   totalCredits = computed<number>(() => this.rows().reduce((a, r) => a + (r.credits_debited ?? 0), 0));
+  /** Initial fetch with nothing yet on screen → show a skeleton, not the bare ag-grid "No Rows" overlay. */
+  gridLoadingSkeleton = computed<boolean>(() => this.loading() && this.rows().length === 0);
+  /** Genuine "no traces yet" (not loading, no error) → a friendly empty state, not ag-grid's generic overlay. */
+  gridEmpty = computed<boolean>(() => !this.loading() && !this.loadError() && this.rows().length === 0);
 
   // ─── Filtered rows + synthetic detail injection ────────────────────
   /**

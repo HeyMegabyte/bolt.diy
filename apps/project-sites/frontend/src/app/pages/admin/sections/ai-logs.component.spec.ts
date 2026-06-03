@@ -55,3 +55,41 @@ describe('AdminAiLogsComponent (traces load-error)', () => {
     expect(c.loadError()).toBeNull();
   });
 });
+
+describe('AdminAiLogsComponent (grid state — skeleton vs empty vs data)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('shows the skeleton only while loading with no rows yet', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.loading.set(true);
+    c.rows.set([]);
+    expect(c.gridLoadingSkeleton()).toBe(true);
+    expect(c.gridEmpty()).toBe(false);
+  });
+
+  it('shows the friendly empty state when idle, error-free, and zero rows', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.loading.set(false);
+    c.loadError.set(null);
+    c.rows.set([]);
+    expect(c.gridEmpty()).toBe(true);
+    expect(c.gridLoadingSkeleton()).toBe(false);
+  });
+
+  it('suppresses the empty state on a load error (the error card owns that case)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.loading.set(false);
+    c.loadError.set('boom');
+    c.rows.set([]);
+    expect(c.gridEmpty()).toBe(false);
+    expect(c.gridLoadingSkeleton()).toBe(false);
+  });
+
+  it('hides both skeleton and empty state once rows arrive', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [{ id: 't1' }] })));
+    c.reload();
+    expect(c.gridLoadingSkeleton()).toBe(false);
+    expect(c.gridEmpty()).toBe(false);
+    expect(c.rows().length).toBe(1);
+  });
+});
