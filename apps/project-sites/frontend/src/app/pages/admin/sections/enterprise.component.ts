@@ -472,7 +472,7 @@ export class AdminEnterpriseComponent {
     this.loading.set(true);
     this.notFound.set(false);
     this.loadError.set(null);
-    this.api.get<{ data: Contract | null }>('/enterprise/contract').subscribe({
+    this.api.get<{ data: Contract | null }>('/enterprise/contract', undefined, { silent: true }).subscribe({
       next: (res) => {
         this.loadError.set(null);
         this.contract.set(res.data);

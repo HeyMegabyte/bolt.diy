@@ -233,7 +233,7 @@ export class AdminStripeAppStatusComponent {
     this.loading.set(true);
     this.notFound.set(false);
     this.loadError.set(null);
-    this.api.get<{ data: Summary }>('/stripe-app/summary').subscribe({
+    this.api.get<{ data: Summary }>('/stripe-app/summary', undefined, { silent: true }).subscribe({
       next: (res) => {
         this.loadError.set(null);
         this.summary.set(res.data);

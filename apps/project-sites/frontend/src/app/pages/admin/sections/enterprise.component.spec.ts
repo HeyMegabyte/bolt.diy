@@ -138,3 +138,21 @@ describe('AdminEnterpriseComponent (SLA headroom gauge)', () => {
     expect(c.gaugeMarkerPct()).toBeLessThanOrEqual(100);
   });
 });
+
+describe('AdminEnterpriseComponent (silent contract read — no double-toast)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  it('reads /enterprise/contract silently (component owns the non-404 toast)', () => {
+    const get = jasmine.createSpy('get').and.callFake((p: string) => p.includes('/enterprise/contract') ? of({ data: null }) : of({ data: [] }));
+    TestBed.configureTestingModule({
+      imports: [AdminEnterpriseComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, post: () => of({ data: {} }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(true) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminEnterpriseComponent, { set: { template: '<div></div>', imports: [] } });
+    TestBed.createComponent(AdminEnterpriseComponent);
+    expect(get).toHaveBeenCalledWith('/enterprise/contract', undefined, { silent: true });
+  });
+});

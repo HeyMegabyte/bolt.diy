@@ -91,3 +91,21 @@ describe('AdminStripeAppStatusComponent (flag-disabled card links to Feature Fla
     expect(link).withContext('feature-flags route must be a clickable link, not dead plain text').not.toBeNull();
   });
 });
+
+describe('AdminStripeAppStatusComponent (silent summary read — no double-toast)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  it('reads /stripe-app/summary silently (component owns the non-404 toast)', () => {
+    const get = jasmine.createSpy('get').and.callFake((p: string) => p.includes('/stripe-app/summary') ? of({ data: { total_installs: 0, active_installs: 0, uninstalled: 0, paused: 0, last_event_at: null, by_source: {} } }) : of({ data: [] }));
+    TestBed.configureTestingModule({
+      imports: [AdminStripeAppStatusComponent],
+      providers: [
+        { provide: ApiService, useValue: { get } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(true) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminStripeAppStatusComponent, { set: { template: '<div></div>', imports: [] } });
+    TestBed.createComponent(AdminStripeAppStatusComponent);
+    expect(get).toHaveBeenCalledWith('/stripe-app/summary', undefined, { silent: true });
+  });
+});

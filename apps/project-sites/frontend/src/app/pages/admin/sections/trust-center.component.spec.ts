@@ -93,3 +93,21 @@ describe('AdminTrustCenterComponent (load-error gating)', () => {
     expect(c.loadError()).toBeNull();
   });
 });
+
+describe('AdminTrustCenterComponent (silent profile read — no double-toast)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  it('reads /trust/profile silently (component owns the non-404 toast)', () => {
+    const get = jasmine.createSpy('get').and.callFake((p: string) => p.includes('/trust/profile') ? of({ data: null }) : of({ data: [] }));
+    TestBed.configureTestingModule({
+      imports: [AdminTrustCenterComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, post: () => of({ data: {} }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(true) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminTrustCenterComponent, { set: { template: '<div></div>', imports: [] } });
+    TestBed.createComponent(AdminTrustCenterComponent);
+    expect(get).toHaveBeenCalledWith('/trust/profile', undefined, { silent: true });
+  });
+});

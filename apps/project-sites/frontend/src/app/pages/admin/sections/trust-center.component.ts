@@ -299,7 +299,7 @@ export class AdminTrustCenterComponent {
     this.loading.set(true);
     this.notFound.set(false);
     this.loadError.set(null);
-    this.api.get<ProfileEnvelope>('/trust/profile').subscribe({
+    this.api.get<ProfileEnvelope>('/trust/profile', undefined, { silent: true }).subscribe({
       next: (res) => {
         this.loadError.set(null);
         this.profile.set(res.data);
