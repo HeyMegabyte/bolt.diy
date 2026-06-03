@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
 import { of, throwError } from 'rxjs';
+import { provideRouter } from '@angular/router';
 import { AdminDomainStackComponent } from './domain-stack.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -58,6 +59,7 @@ describe('AdminDomainStackComponent (r13 cohesion + a11y)', () => {
         { provide: ApiService, useValue: { get: getSpy, post: jasmine.createSpy('post').and.returnValue(of({ data: {} })) } },
         { provide: ToastService, useValue: { error: toastError, success: jasmine.createSpy('success') } },
         { provide: AdminStateService, useValue: { selectedSite } },
+        provideRouter([]), // RouterLink in the component needs ActivatedRoute
       ],
     });
     fixture = TestBed.createComponent(AdminDomainStackComponent);
