@@ -1,8 +1,23 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { AdminDocsComponent, type OpenApiSpec } from './docs.component';
 import { ApiService } from '../../../services/api.service';
+
+/** Collect CSS from BOTH injected <style> tags and constructable/adopted
+ *  stylesheets — Angular may use either depending on view-encapsulation mode,
+ *  so scoping to the host element (or only <style> tags) misses the component CSS. */
+function collectAllCss(): string {
+  let css = Array.from(document.querySelectorAll('style')).map((s) => s.textContent ?? '').join('\n');
+  for (const sheet of Array.from(document.adoptedStyleSheets ?? [])) {
+    try {
+      css += '\n' + Array.from(sheet.cssRules).map((r) => r.cssText).join('\n');
+    } catch {
+      /* cross-origin / inaccessible sheet — skip */
+    }
+  }
+  return css;
+}
 
 /**
  * Convergence r7 — locks the docs shell's cyan/black cohesion + a11y contract:
@@ -34,7 +49,9 @@ describe('AdminDocsComponent (cohesion r7)', () => {
     );
     TestBed.configureTestingModule({
       imports: [AdminDocsComponent],
-      providers: [provideRouter([]), { provide: ApiService, useValue: { get } }],
+      // A catch-all route so navigateByUrl('/admin/docs') resolves and the
+      // Overview tab's routerLinkActive (exact) can activate.
+      providers: [provideRouter([{ path: '**', children: [] }]), { provide: ApiService, useValue: { get } }],
     });
     fixture = TestBed.createComponent(AdminDocsComponent);
     host = fixture.nativeElement as HTMLElement;
@@ -56,10 +73,12 @@ describe('AdminDocsComponent (cohesion r7)', () => {
     expect(q('.docs-explorer')?.hasAttribute('appReveal')).toBeTrue();
   });
 
-  it('marks the Overview tab with aria-current="page" when active', () => {
+  it('marks the Overview tab with aria-current="page" when active', async () => {
+    // Activate the route so routerLinkActive (exact) + ariaCurrentWhenActive fire.
+    await TestBed.inject(Router).navigateByUrl('/admin/docs');
+    fixture.detectChanges();
     const tab = q('[data-testid="docs-overview-link"]') as HTMLAnchorElement | null;
     expect(tab).not.toBeNull();
-    // RouterLink resolves `/admin/docs` as the active default route in the test harness.
     expect(tab?.getAttribute('aria-current')).toBe('page');
   });
 
@@ -68,10 +87,7 @@ describe('AdminDocsComponent (cohesion r7)', () => {
   });
 
   it('keeps the docs accent bound to the --ps-accent brand token (no raw cyan literal)', () => {
-    const styles = host.querySelectorAll('style');
-    const css = Array.from(styles)
-      .map((s) => s.textContent ?? '')
-      .join('\n');
+    const css = collectAllCss();
     expect(css).toContain('--docs-primary: var(--ps-accent');
     // The title gradient + glyph must not hard-code the cyan hex.
     expect(css).not.toContain('#00E5FF 65%');
