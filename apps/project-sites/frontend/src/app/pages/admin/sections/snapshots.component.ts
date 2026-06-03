@@ -168,6 +168,7 @@ interface GhStatus {
               }
             </a>
             <button class="btn-github-push" [disabled]="pushingGh()" (click)="pushToGithub(true)"
+                    aria-label="Push the latest build to GitHub now"
                     [brnTooltip]="'Push the latest build to GitHub now'">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                    [class.animate-spin]="pushingGh()">
@@ -175,6 +176,7 @@ interface GhStatus {
               </svg>
             </button>
             <button class="btn-github-unlink" [disabled]="unlinkingGh()" (click)="unlinkGithub()"
+                    aria-label="Disconnect GitHub backup"
                     [brnTooltip]="'Disconnect GitHub backup'">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
