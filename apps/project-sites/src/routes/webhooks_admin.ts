@@ -25,6 +25,7 @@ import {
   createWebhookEndpoint,
   listWebhookEndpoints,
   deleteWebhookEndpoint,
+  listDeliveries,
 } from '../services/outbound_webhooks.js';
 
 const NOT_FOUND = { error: { code: 'NOT_FOUND', message: 'Not found' } } as const;
@@ -52,6 +53,12 @@ webhooksAdmin.get('/api/sites/:siteId/webhooks', async (c) => {
   const g = await gate(c);
   if (g instanceof Response) return g;
   return c.json({ ok: true, endpoints: await listWebhookEndpoints(c.env, g.orgId, c.req.param('siteId')) });
+});
+
+webhooksAdmin.get('/api/sites/:siteId/webhooks/deliveries', async (c) => {
+  const g = await gate(c);
+  if (g instanceof Response) return g;
+  return c.json({ ok: true, deliveries: await listDeliveries(c.env, c.req.param('siteId')) });
 });
 
 webhooksAdmin.post('/api/sites/:siteId/webhooks', async (c) => {

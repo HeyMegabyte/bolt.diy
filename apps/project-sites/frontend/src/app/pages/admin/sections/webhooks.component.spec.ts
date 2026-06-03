@@ -18,8 +18,10 @@ describe('AdminWebhooksComponent', () => {
   let del: jasmine.Spy;
 
   function build(site: { id: string } | null): void {
-    get = jasmine.createSpy('get').and.returnValue(
-      of({ ok: true, endpoints: [{ id: 'e1', url: 'https://x.com/h', eventTypes: ['site.published'], enabled: true }] }),
+    get = jasmine.createSpy('get').and.callFake((path: string) =>
+      path.endsWith('/deliveries')
+        ? of({ ok: true, deliveries: [{ id: 'd1', eventType: 'site.published', statusCode: 200, ok: true, attempt: 1, createdAt: '2026-06-02T00:00:00Z' }] })
+        : of({ ok: true, endpoints: [{ id: 'e1', url: 'https://x.com/h', eventTypes: ['site.published'], enabled: true }] }),
     );
     post = jasmine.createSpy('post').and.returnValue(of({ ok: true, id: 'e2', secret: 'whsec_topsecret' }));
     del = jasmine.createSpy('delete').and.returnValue(of({ ok: true }));
@@ -46,10 +48,12 @@ describe('AdminWebhooksComponent', () => {
     expect(q('[data-testid="webhooks-create-btn"]')).toBeNull();
   });
 
-  it('lists the site endpoints', () => {
+  it('lists the site endpoints + recent deliveries', () => {
     build({ id: 's1' });
     expect(get).toHaveBeenCalledWith('/sites/s1/webhooks');
+    expect(get).toHaveBeenCalledWith('/sites/s1/webhooks/deliveries');
     expect(all('[data-testid="webhooks-row"]').length).toBe(1);
+    expect(all('[data-testid="webhooks-delivery-row"]').length).toBe(1);
   });
 
   it('creates an endpoint and reveals the secret once', () => {
@@ -74,9 +78,10 @@ describe('AdminWebhooksComponent', () => {
 
   it('deletes an endpoint and reloads', () => {
     build({ id: 's1' });
+    const before = get.calls.count();
     (q('[data-testid="webhooks-delete"]') as HTMLButtonElement).click();
     expect(del).toHaveBeenCalledWith('/sites/s1/webhooks/e1');
-    expect(get).toHaveBeenCalledTimes(2); // initial load + reload after delete
+    expect(get.calls.count()).toBeGreaterThan(before); // reloaded after delete
   });
 
   it('surfaces a not-available error', () => {

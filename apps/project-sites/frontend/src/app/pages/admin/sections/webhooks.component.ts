@@ -26,6 +26,14 @@ interface Endpoint {
   eventTypes: string[];
   enabled: boolean;
 }
+interface Delivery {
+  id: string;
+  eventType: string;
+  statusCode: number;
+  ok: boolean;
+  attempt: number;
+  createdAt: string;
+}
 
 @Component({
   selector: 'app-admin-webhooks',
@@ -101,6 +109,21 @@ interface Endpoint {
             }
           </ul>
         }
+
+        <!-- Recent deliveries -->
+        @if (deliveries().length > 0) {
+          <div class="mt-7">
+            <p class="text-[0.72rem] uppercase tracking-wide text-text-secondary mb-2">Recent deliveries</p>
+            <ul class="flex flex-col gap-1.5">
+              @for (d of deliveries(); track d.id) {
+                <li data-testid="webhooks-delivery-row" class="flex items-center justify-between gap-3 text-[0.8rem] rounded-lg bg-white/[0.03] px-3 py-2">
+                  <span class="text-text-secondary truncate">{{ d.eventType }} <span class="text-light/60">· attempt {{ d.attempt }}</span></span>
+                  <span [class]="d.ok ? 'text-primary' : 'text-amber-300/90'" class="shrink-0 tabular-nums">{{ d.statusCode || '—' }} {{ d.ok ? 'OK' : 'fail' }}</span>
+                </li>
+              }
+            </ul>
+          </div>
+        }
       }
     </section>
   `,
@@ -116,6 +139,7 @@ export class AdminWebhooksComponent {
   readonly urlModel = signal('');
   readonly selected = signal<string[]>(['site.published']);
   readonly endpoints = signal<Endpoint[]>([]);
+  readonly deliveries = signal<Delivery[]>([]);
   readonly loading = signal(false);
   readonly creating = signal(false);
   readonly error = signal<string | null>(null);
@@ -147,6 +171,11 @@ export class AdminWebhooksComponent {
         this.error.set('Webhooks are not available for this site.');
         this.loading.set(false);
       },
+    });
+    // Delivery history (best-effort — empty until the dispatcher runs).
+    this.api.get<{ ok: boolean; deliveries: Delivery[] }>(`/sites/${id}/webhooks/deliveries`).subscribe({
+      next: (res) => this.deliveries.set(res.deliveries ?? []),
+      error: () => this.deliveries.set([]),
     });
   }
 

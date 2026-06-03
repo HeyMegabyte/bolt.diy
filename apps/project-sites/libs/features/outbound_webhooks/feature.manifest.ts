@@ -27,6 +27,7 @@ export default defineFeatureManifest({
   routes: [],
   apiRoutes: [
     'GET /api/sites/:siteId/webhooks',
+    'GET /api/sites/:siteId/webhooks/deliveries',
     'POST /api/sites/:siteId/webhooks',
     'DELETE /api/sites/:siteId/webhooks/:id',
   ],
