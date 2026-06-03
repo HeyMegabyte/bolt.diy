@@ -4,6 +4,8 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { ApiService } from '../../../services/api.service';
 import { HlmInputDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 /**
  * One operation in the OpenAPI document. Flattened from `paths[path][method]`
@@ -592,12 +594,12 @@ export class DocsSpecService {
 @Component({
   selector: 'app-admin-docs',
   standalone: true,
-  imports: [FormsModule, RouterOutlet, RouterLink, RouterLinkActive, HlmInputDirective, ...BrnTooltipImports],
+  imports: [FormsModule, RouterOutlet, RouterLink, RouterLinkActive, HlmInputDirective, RollingCounterComponent, RevealDirective, ...BrnTooltipImports],
   providers: [DocsSpecService],
   host: { '(window:keydown)': 'onWindowKeydown($event)' },
   template: `
     <div class="docs-root p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4">
-      <header class="docs-header">
+      <header class="docs-header" appReveal>
         <div class="docs-title-wrap">
           <div class="docs-kicker">Developer reference</div>
           <h2 class="docs-title">
@@ -611,7 +613,7 @@ export class DocsSpecService {
             @if (specService.spec(); as s) {
               <span class="docs-version-chip" title="OpenAPI version" [attr.aria-label]="'OpenAPI version ' + s.info.version">v{{ s.info.version }}</span>
               <span class="docs-count-chip" [attr.aria-label]="specService.operations().length + ' endpoints'">
-                {{ specService.operations().length }} endpoints
+                <app-rolling-counter [value]="specService.operations().length" [duration]="900" />&nbsp;endpoints
               </span>
             }
           </h2>
@@ -624,10 +626,11 @@ export class DocsSpecService {
             class="docs-tab"
             routerLink="/admin/docs"
             routerLinkActive="is-active"
+            ariaCurrentWhenActive="page"
             [routerLinkActiveOptions]="{ exact: true }"
             [brnTooltip]="'API overview'"
             data-testid="docs-overview-link"
-          >Overview</a>
+          ><span class="docs-tab-label">Overview</span><span class="docs-tab-underline" aria-hidden="true"></span></a>
           <button class="btn-ghost docs-refresh" (click)="specService.load()" [disabled]="specService.loading()" [brnTooltip]="'Re-fetch spec'">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="23 4 23 10 17 10"/>
@@ -666,7 +669,7 @@ export class DocsSpecService {
         </div>
       }
 
-      <div class="docs-explorer">
+      <div class="docs-explorer" appReveal [revealDelay]="60">
         <!-- ─── Left rail nav: search + grouped endpoint list ─── -->
         <aside class="docs-rail card" aria-label="Endpoint list">
           <div class="docs-search">
@@ -723,6 +726,7 @@ export class DocsSpecService {
                       class="endpoint-row"
                       [routerLink]="['/admin/docs', op.operationId]"
                       routerLinkActive="is-active"
+                      ariaCurrentWhenActive="page"
                       [attr.data-testid]="'docs-nav-endpoint-' + op.operationId"
                       [title]="op.method + ' ' + op.path + (op.summary ? '\n' + op.summary : '')"
                     >
@@ -768,7 +772,7 @@ export class DocsSpecService {
       --r3: calc(var(--rhythm) * 3);
       --r4: calc(var(--rhythm) * 4);
       --r5: calc(var(--rhythm) * 5);
-      --docs-primary: #00E5FF;
+      --docs-primary: var(--ps-accent, #00E5FF);
       --docs-violet: #c084fc;
       --docs-amber: #fbbf24;
       --docs-red: #f87171;
@@ -816,7 +820,7 @@ export class DocsSpecService {
       box-shadow: 0 0 18px -6px rgba(0,229,255,0.45);
     }
     .docs-title-text {
-      background: linear-gradient(90deg, #fff, #00E5FF 65%, #7C3AED);
+      background: linear-gradient(90deg, #fff, var(--ps-accent, #00E5FF) 65%, var(--ps-accent-secondary, #7C3AED));
       -webkit-background-clip: text; background-clip: text; color: transparent;
       text-wrap: balance;
     }
@@ -851,6 +855,19 @@ export class DocsSpecService {
       color: #fff; border-color: rgba(0,229,255,0.45);
       box-shadow: 0 0 0 1px rgba(0,229,255,0.12) inset, 0 6px 18px -10px rgba(0,229,255,0.55);
     }
+    /* Center-out cyan underline — sweeps to full width when the tab activates. */
+    .docs-tab-label { position: relative; z-index: 1; }
+    .docs-tab-underline {
+      position: absolute; left: 50%; bottom: 5px;
+      height: 2px; width: 0; transform: translateX(-50%);
+      border-radius: 2px;
+      background: linear-gradient(90deg, transparent, var(--docs-primary), transparent);
+      box-shadow: 0 0 8px rgba(0,229,255,0.6);
+      transition: width 260ms cubic-bezier(0.16,1,0.3,1);
+      pointer-events: none;
+    }
+    .docs-tab:hover .docs-tab-underline { width: 40%; }
+    .docs-tab.is-active .docs-tab-underline { width: calc(100% - 1.4rem); }
     .docs-refresh { padding: 0.5rem 0.9rem; font-size: 0.74rem; min-height: 28px; }
     .docs-refresh:focus-visible {
       outline: var(--ps-ring-focus, 2px solid #00ffc8);
@@ -1109,7 +1126,7 @@ export class DocsSpecService {
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .docs-tab, .endpoint-row, .docs-chevron, .docs-group-head, .docs-verb-chip {
+      .docs-tab, .endpoint-row, .docs-chevron, .docs-group-head, .docs-verb-chip, .docs-tab-underline {
         transition: none !important; animation: none !important;
       }
     }
