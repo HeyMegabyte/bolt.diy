@@ -146,6 +146,11 @@ import { AdminStateService } from '../admin-state.service';
             placeholder="Ask anything — try /snapshot or /analytics 7d"
             autocomplete="off"
             aria-label="Ask the dashboard AI"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-controls="dash-palette"
+            [attr.aria-expanded]="palette()"
+            [attr.aria-activedescendant]="palette() ? 'dash-palette-opt-' + paletteIdx() : null"
             (input)="onInput()"
             (keydown)="onKey($event)"
           />
@@ -160,13 +165,15 @@ import { AdminStateService } from '../admin-state.service';
         </div>
 
         @if (palette()) {
-          <div class="palette" role="listbox" aria-label="Slash commands">
+          <div class="palette" id="dash-palette" role="listbox" aria-label="Slash commands">
             @for (m of matches(); track m.id; let i = $index) {
               <button
                 type="button"
                 role="option"
                 class="p-row"
+                [id]="'dash-palette-opt-' + i"
                 [class.on]="i === paletteIdx()"
+                [attr.aria-selected]="i === paletteIdx()"
                 (mousedown)="$event.preventDefault(); pickPalette(m)"
                 (mouseenter)="paletteIdx.set(i)"
               >
@@ -182,6 +189,12 @@ import { AdminStateService } from '../admin-state.service';
                 </span>
               </button>
             }
+            <div class="p-hint" aria-hidden="true">
+              <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+              <span><kbd>↵</kbd> run</span>
+              <span><kbd>tab</kbd> complete</span>
+              <span><kbd>esc</kbd> close</span>
+            </div>
           </div>
         }
       </form>
@@ -526,6 +539,26 @@ import { AdminStateService } from '../admin-state.service';
       .p-d {
         font-size: 0.76rem;
         opacity: 0.65;
+      }
+      .p-hint {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        padding: 8px 10px 4px;
+        margin-top: 4px;
+        border-top: 1px solid rgba(0, 229, 255, 0.12);
+        font-size: 0.64rem;
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 50%, transparent);
+      }
+      .p-hint kbd {
+        font-family: inherit;
+        font-size: 0.62rem;
+        padding: 1px 5px;
+        margin-right: 3px;
+        border-radius: 5px;
+        background: rgba(0, 229, 255, 0.1);
+        border: 1px solid rgba(0, 229, 255, 0.25);
+        color: var(--ps-accent, #00e5ff);
       }
 
       @media (max-width: 720px) {
