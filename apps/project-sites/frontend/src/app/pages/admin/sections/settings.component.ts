@@ -191,7 +191,8 @@ const PROVIDERS = MCP_PROVIDERS;
           </div>
           @if (inviting()) {
             <div class="card-light p-3 mb-3 grid sm:grid-cols-3 gap-2">
-              <input hlmInput type="email" placeholder="teammate@email.com" [(ngModel)]="invite.email" />
+              <input hlmInput type="email" placeholder="teammate@email.com" [(ngModel)]="invite.email"
+                [attr.aria-invalid]="inviteEmailInvalid() || null" [attr.aria-describedby]="inviteEmailInvalid() ? 'invite-email-hint' : null" />
               <select hlmSelect [(ngModel)]="invite.role">
                 <option value="owner">Owner</option>
                 <option value="editor">Editor</option>
@@ -199,8 +200,11 @@ const PROVIDERS = MCP_PROVIDERS;
               </select>
               <div class="flex gap-2 justify-end">
                 <button class="btn-ghost" (click)="inviting.set(false)">Cancel</button>
-                <button class="btn-primary" (click)="sendInvite()">Send invite</button>
+                <button class="btn-primary" (click)="sendInvite()" [disabled]="inviteEmailInvalid()">Send invite</button>
               </div>
+              @if (inviteEmailInvalid()) {
+                <span id="invite-email-hint" role="alert" class="sm:col-span-3 text-xs text-red-400">Enter a valid email address.</span>
+              }
             </div>
           }
           @if (loadingTeam() && members().length === 0 && invites().length === 0) {
@@ -1176,7 +1180,23 @@ export class AdminSettingsComponent implements OnInit {
       error: () => { this.loadingTeam.set(false); /* api.service already toasted */ },
     });
   }
+  /** Mirrors the SSOT email validator — guards the invite before it round-trips. */
+  private isValidEmail(raw: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw.trim());
+  }
+
+  /** True when the invite field holds a non-empty value that isn't a valid email — drives the inline hint + button gate. */
+  inviteEmailInvalid(): boolean {
+    return this.invite.email.trim() !== '' && !this.isValidEmail(this.invite.email);
+  }
+
   sendInvite(): void {
+    // Validate before the POST — a typo'd address otherwise round-trips to a
+    // generic server error (the CRUD "real validation + useful errors" bar).
+    if (!this.isValidEmail(this.invite.email)) {
+      this.toast.error('Enter a valid email address to invite.');
+      return;
+    }
     this.api.post('/team/invites', this.invite).subscribe({
       next: () => { this.toast.success(`Saved — invited ${this.invite.email}`); this.invite = { email: '', role: 'editor' }; this.inviting.set(false); this.loadTeam(); },
       error: () => { /* api.service already toasted */ },

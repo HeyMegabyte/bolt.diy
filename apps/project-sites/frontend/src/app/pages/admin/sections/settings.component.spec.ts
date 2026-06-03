@@ -80,3 +80,65 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(fixture.componentInstance.tab()).toBe('mcp');
   });
 });
+
+/**
+ * sendInvite emails a real team invite to invite.email. It had no client
+ * validation → a typo POSTs /team/invites and round-trips to a generic server
+ * error. Now it validates the address first (useful inline error, no wasted
+ * POST) — the CRUD "real validation + useful errors" bar.
+ */
+describe('AdminSettingsComponent (invite email validation)', () => {
+  let post: jasmine.Spy;
+  let error: jasmine.Spy;
+  function build(): AdminSettingsComponent {
+    post = jasmine.createSpy('post').and.returnValue(of({}));
+    error = jasmine.createSpy('error');
+    TestBed.configureTestingModule({
+      imports: [AdminSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: null }), put: () => of({}), post, delete: () => of({}) } },
+        { provide: ToastService, useValue: { error, success: () => 0, info: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+        { provide: Router, useValue: { navigate: () => undefined } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 's' }), loadData: () => undefined } },
+      ],
+    });
+    return TestBed.createComponent(AdminSettingsComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('rejects a malformed invite email — no POST, useful error', () => {
+    const c = build();
+    c.invite = { email: 'notanemail', role: 'editor' };
+    c.sendInvite();
+    expect(post).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalled();
+  });
+
+  it('rejects an empty invite email', () => {
+    const c = build();
+    c.invite = { email: '   ', role: 'editor' };
+    c.sendInvite();
+    expect(post).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalled();
+  });
+
+  it('accepts a well-formed email — POSTs once to /team/invites', () => {
+    const c = build();
+    c.invite = { email: 'mate@example.com', role: 'editor' };
+    c.sendInvite();
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post.calls.mostRecent().args[0]).toBe('/team/invites');
+  });
+
+  it('inviteEmailInvalid() is true only for a non-empty malformed value', () => {
+    const c = build();
+    c.invite = { email: '', role: 'editor' };
+    expect(c.inviteEmailInvalid()).toBe(false); // empty = incomplete, not "invalid"
+    c.invite = { email: 'nope', role: 'editor' };
+    expect(c.inviteEmailInvalid()).toBe(true);
+    c.invite = { email: 'ok@x.io', role: 'editor' };
+    expect(c.inviteEmailInvalid()).toBe(false);
+  });
+});
