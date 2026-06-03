@@ -14,6 +14,7 @@
  * @packageDocumentation
  */
 
+import { z } from 'zod';
 import type { Env } from '../types/env.js';
 import { dbQuery, dbExecute } from './db.js';
 
@@ -82,6 +83,50 @@ export function validateRecipe(recipe: AutomationRecipe): RecipeValidation {
   }
 
   return { ok: errors.length === 0, errors };
+}
+
+/**
+ * Per-action-type config contract (Zod). A recipe action's `config` carries the
+ * data its effect needs — the recipient for `send_email`, the URL for `webhook`,
+ * etc. `validateRecipe` (above) only checks the action TYPE; this is the deeper
+ * config contract that `buildRunAction` (the executor) + the recipe-builder UI
+ * config inputs consume.
+ *
+ * @remarks NOT yet wired into `validateRecipe` — the current recipe-builder UI
+ * does not collect config, so enforcing it would reject config-less recipes. It
+ * is wired in alongside the UI config-input slice. Used standalone today to
+ * validate config when present.
+ */
+export const ACTION_CONFIG_SCHEMAS = {
+  send_email: z
+    .object({ to: z.string().email(), subject: z.string().min(1).max(200).optional(), body: z.string().max(5000).optional() })
+    .strict(),
+  webhook: z.object({ url: z.string().url().max(2048) }).strict(),
+  add_tag: z.object({ tag: z.string().min(1).max(64) }).strict(),
+  notify: z.object({ message: z.string().min(1).max(500).optional() }).strict(),
+  create_task: z.object({ title: z.string().min(1).max(200), assignee: z.string().min(1).max(120).optional() }).strict(),
+} as const;
+
+/**
+ * Validate ONE action's config against its type's schema. Returns all issues,
+ * prefixed `actionType.field`. An unknown action type fails (the allowlist guard
+ * also lives in {@link validateRecipe}).
+ *
+ * @example
+ * validateActionConfig({ type: 'send_email', config: { to: 'x@y.com' } }) // → { ok: true, errors: [] }
+ * validateActionConfig({ type: 'webhook', config: {} })                   // → { ok: false, errors: ['webhook.url: …'] }
+ */
+export function validateActionConfig(action: RecipeAction): RecipeValidation {
+  const schema = ACTION_CONFIG_SCHEMAS[action.type as keyof typeof ACTION_CONFIG_SCHEMAS];
+  if (!schema) {
+    return { ok: false, errors: [`Unknown action "${action.type}". Allowed: ${ACTION_TYPES.join(', ')}.`] };
+  }
+  const parsed = schema.safeParse(action.config ?? {});
+  if (parsed.success) return { ok: true, errors: [] };
+  return {
+    ok: false,
+    errors: parsed.error.issues.map((i) => `${action.type}.${i.path.join('.') || 'config'}: ${i.message}`),
+  };
 }
 
 /**

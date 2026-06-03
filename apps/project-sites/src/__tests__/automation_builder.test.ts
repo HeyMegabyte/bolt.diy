@@ -1,5 +1,6 @@
 import {
   validateRecipe,
+  validateActionConfig,
   recipeMatchesEvent,
   createRecipe,
   listRecipes,
@@ -132,5 +133,33 @@ describe('deleteRecipe', () => {
   });
   it('reports not-ok when nothing matched', async () => {
     expect(await deleteRecipe(mockEnv([], 0), 'o1', 's1', 'missing')).toEqual({ ok: false });
+  });
+});
+
+describe('validateActionConfig', () => {
+  it('accepts valid config per action type', () => {
+    expect(validateActionConfig({ type: 'send_email', config: { to: 'a@b.com' } }).ok).toBe(true);
+    expect(validateActionConfig({ type: 'webhook', config: { url: 'https://x.com/h' } }).ok).toBe(true);
+    expect(validateActionConfig({ type: 'add_tag', config: { tag: 'vip' } }).ok).toBe(true);
+    expect(validateActionConfig({ type: 'notify', config: {} }).ok).toBe(true); // message optional
+    expect(validateActionConfig({ type: 'create_task', config: { title: 'Call lead' } }).ok).toBe(true);
+  });
+
+  it('rejects missing required config with a field-prefixed message', () => {
+    const r = validateActionConfig({ type: 'webhook', config: {} });
+    expect(r.ok).toBe(false);
+    expect(r.errors[0]).toContain('webhook.url');
+  });
+
+  it('rejects a bad email + a non-https-shaped url', () => {
+    expect(validateActionConfig({ type: 'send_email', config: { to: 'not-an-email' } }).ok).toBe(false);
+    expect(validateActionConfig({ type: 'webhook', config: { url: 'not a url' } }).ok).toBe(false);
+  });
+
+  it('rejects unknown keys (strict) and unknown action types', () => {
+    expect(validateActionConfig({ type: 'add_tag', config: { tag: 'x', extra: 1 } }).ok).toBe(false);
+    const u = validateActionConfig({ type: 'launch_missiles', config: {} });
+    expect(u.ok).toBe(false);
+    expect(u.errors[0]).toContain('Unknown action');
   });
 });
