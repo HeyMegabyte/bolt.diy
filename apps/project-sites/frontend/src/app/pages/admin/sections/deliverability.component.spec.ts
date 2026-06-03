@@ -89,4 +89,35 @@ describe('AdminDeliverabilityComponent', () => {
     expect(c.scoreClass(50)).toBe('text-amber-300');
     expect(c.scoreClass(10)).toBe('text-red-400');
   });
+
+  it('renders the cyan score meter as an aria progressbar filled to the score', () => {
+    build({ id: 'site1', name: 'Acme', slug: 'acme' });
+    (q('[data-testid="deliverability-check-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const bar = q('[role="progressbar"]');
+    expect(bar).not.toBeNull();
+    expect(bar?.getAttribute('aria-valuenow')).toBe('70');
+    const fill = q('[data-testid="deliverability-meter"]') as HTMLElement;
+    expect(fill).not.toBeNull();
+    expect(fill.style.width).toBe('70%');
+  });
+
+  it('conveys record status with a symbol + text, not color alone (WCAG 1.4.1)', () => {
+    build({ id: 'site1', name: 'Acme', slug: 'acme' });
+    (q('[data-testid="deliverability-check-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    // SPF present → ✓ Configured; DKIM absent → ! Not found
+    expect(q('[data-testid="deliverability-spf"]')?.textContent).toContain('✓');
+    expect(q('[data-testid="deliverability-dkim"]')?.textContent).toContain('!');
+    expect(q('[data-testid="deliverability-dkim"]')?.textContent).toContain('Not found');
+  });
+
+  it('associates the domain label with its input for screen readers', () => {
+    build({ id: 'site1', name: 'Acme', slug: 'acme' });
+    const input = q('[data-testid="deliverability-domain"]') as HTMLInputElement;
+    expect(input.id).toBe('deliverability-domain');
+    expect(q('label[for="deliverability-domain"]')).not.toBeNull();
+  });
 });

@@ -59,12 +59,28 @@ interface DeliverabilityResponse {
           <p class="text-sm text-text-secondary">
             Site: <strong class="text-light">{{ site()?.business_name || site()?.slug }}</strong>
           </p>
-          <label class="flex flex-col gap-1.5">
+          <label class="flex flex-col gap-1.5" for="deliverability-domain">
             <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Sending domain (optional — defaults to the site's custom domain)</span>
-            <input hlmInput data-testid="deliverability-domain" placeholder="e.g. mail.example.com" [(ngModel)]="domainModel" />
+            <input
+              hlmInput
+              id="deliverability-domain"
+              data-testid="deliverability-domain"
+              placeholder="e.g. mail.example.com"
+              autocomplete="off"
+              spellcheck="false"
+              class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-dark"
+              [(ngModel)]="domainModel"
+            />
           </label>
           <div class="flex items-center gap-3">
-            <button hlmBtn data-testid="deliverability-check-btn" [disabled]="loading()" (click)="check()">
+            <button
+              hlmBtn
+              data-testid="deliverability-check-btn"
+              class="min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-dark"
+              [disabled]="loading()"
+              [attr.aria-busy]="loading()"
+              (click)="check()"
+            >
               {{ loading() ? 'Checking DNS…' : 'Check deliverability' }}
             </button>
             <span class="text-[0.72rem] text-text-secondary">Live DNS lookup — read-only.</span>
@@ -80,23 +96,49 @@ interface DeliverabilityResponse {
 
       @if (report(); as r) {
         <div data-testid="deliverability-result" class="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.02] p-5" appReveal>
-          <div class="flex items-baseline gap-2">
+          <div
+            class="flex items-baseline gap-2"
+            role="img"
+            [attr.aria-label]="'Deliverability score ' + r.score + ' out of 100 for ' + r.domain"
+          >
             <app-rolling-counter data-testid="deliverability-score" [value]="r.score" [class]="scoreClass(r.score)" />
             <span class="text-text-secondary text-sm">/ 100 deliverability for <strong class="text-light">{{ r.domain }}</strong></span>
+          </div>
+
+          <!-- Cyan score meter: visualizes 0-100 as a filled cyan rail. -->
+          <div
+            class="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/[0.06]"
+            role="progressbar"
+            aria-label="Deliverability score meter"
+            [attr.aria-valuenow]="r.score"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            <div
+              data-testid="deliverability-meter"
+              class="h-full rounded-full bg-primary transition-[width] duration-700 ease-out motion-reduce:transition-none"
+              [style.width.%]="r.score"
+            ></div>
           </div>
 
           <div class="mt-4 grid gap-2">
             <div data-testid="deliverability-spf" class="flex items-center justify-between gap-3 text-sm rounded-lg bg-white/[0.03] px-3 py-2">
               <span class="text-light">SPF</span>
-              <span [class]="r.spf.present ? 'text-primary' : 'text-amber-300/90'">{{ r.spf.present ? 'Configured' : 'Missing' }}</span>
+              <span class="inline-flex items-center gap-1.5" [class]="r.spf.present ? 'text-primary' : 'text-amber-300'">
+                <span aria-hidden="true">{{ r.spf.present ? '✓' : '!' }}</span>{{ r.spf.present ? 'Configured' : 'Missing' }}
+              </span>
             </div>
             <div data-testid="deliverability-dmarc" class="flex items-center justify-between gap-3 text-sm rounded-lg bg-white/[0.03] px-3 py-2">
               <span class="text-light">DMARC <span class="text-text-secondary text-[0.72rem]">{{ r.dmarc.policy ? '(p=' + r.dmarc.policy + ')' : '' }}</span></span>
-              <span [class]="r.dmarc.present ? 'text-primary' : 'text-amber-300/90'">{{ r.dmarc.present ? 'Configured' : 'Missing' }}</span>
+              <span class="inline-flex items-center gap-1.5" [class]="r.dmarc.present ? 'text-primary' : 'text-amber-300'">
+                <span aria-hidden="true">{{ r.dmarc.present ? '✓' : '!' }}</span>{{ r.dmarc.present ? 'Configured' : 'Missing' }}
+              </span>
             </div>
             <div data-testid="deliverability-dkim" class="flex items-center justify-between gap-3 text-sm rounded-lg bg-white/[0.03] px-3 py-2">
               <span class="text-light">DKIM</span>
-              <span [class]="r.dkim.present ? 'text-primary' : 'text-amber-300/90'">{{ r.dkim.present ? 'Configured' : 'Not found' }}</span>
+              <span class="inline-flex items-center gap-1.5" [class]="r.dkim.present ? 'text-primary' : 'text-amber-300'">
+                <span aria-hidden="true">{{ r.dkim.present ? '✓' : '!' }}</span>{{ r.dkim.present ? 'Configured' : 'Not found' }}
+              </span>
             </div>
           </div>
 
