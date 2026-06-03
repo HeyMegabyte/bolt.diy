@@ -119,6 +119,7 @@ const LEVEL_COLORS: Record<string, string> = {
         <input
           hlmInput
           class="flex-1 font-mono"
+          aria-label="Log search query"
           [(ngModel)]="queryInput"
           placeholder="level:error AND route:/api/sites/* AND duration>2s"
           (keydown.enter)="search()"
