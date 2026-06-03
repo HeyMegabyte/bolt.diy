@@ -141,23 +141,20 @@ describe('AdminSitesComponent (live freshness pill)', () => {
   }
   afterEach(() => TestBed.resetTestingModule());
 
-  it('starts with no synced time (null label before the first load)', () => {
+  it('starts with no synced time before the first load', () => {
     const c = make();
     expect(c.syncedAt()).toBeNull();
-    expect(c.syncedLabel()).toBeNull();
   });
 
-  it('stamps syncedAt + a formatted label after a successful heatmap load', async () => {
+  it('stamps syncedAt after a successful heatmap load (feeds <app-synced-pill>)', async () => {
     const c = makeWith(jasmine.createSpy('get').and.returnValue(of({ data: [], sites: [] })));
     await c.reload();
     expect(c.syncedAt()).withContext('a successful load records the sync time').not.toBeNull();
-    expect(c.syncedLabel()).withContext('label is a formatted clock string').toMatch(/\d/);
   });
 
   it('does NOT stamp a synced time when the sparklines load fails (no false freshness)', async () => {
     const c = makeWith(jasmine.createSpy('get').and.returnValue(throwError(() => new Error('boom'))));
     await c.reload();
     expect(c.syncedAt()).withContext('a failed load must not look freshly synced').toBeNull();
-    expect(c.syncedLabel()).toBeNull();
   });
 });

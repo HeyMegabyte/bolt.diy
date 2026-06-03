@@ -102,13 +102,22 @@ describe('AppInstancesComponent (instance lifecycle)', () => {
   // ── Instances load-error gating: a failed fetch must NOT masquerade as the
   // "No app instances yet" empty state (which could prompt re-installing an app
   // the user already has). It records a retryable loadError instead.
-  it('load() success leaves loadError null + populates instances', () => {
+  it('load() success leaves loadError null + populates instances + stamps syncedAt', () => {
     const { c, api } = make();
     api.get.and.returnValue(of({ instances: [inst('a')] }));
+    expect(c.syncedAt()).toBeNull();
     c.load();
     expect(c.loadError()).toBeNull();
     expect(c.instances().length).toBe(1);
     expect(c.loading()).toBeFalse();
+    expect(c.syncedAt()).withContext('a successful load feeds the live freshness pill').not.toBeNull();
+  });
+
+  it('load() failure leaves syncedAt null (no false freshness)', () => {
+    const { c, api } = make();
+    api.get.and.returnValue(throwError(() => ({ status: 500 })));
+    c.load();
+    expect(c.syncedAt()).toBeNull();
   });
 
   it('load() failure sets a retryable loadError (not a fake empty) + clears loading', () => {

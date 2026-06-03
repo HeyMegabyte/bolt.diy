@@ -19,6 +19,7 @@ import {
   SkeletonComponent,
 } from '../../../components/states';
 import { HlmCheckboxDirective } from '../../../ui';
+import { SyncedPillComponent } from '../../../components/synced-pill/synced-pill.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 
@@ -51,23 +52,12 @@ type SortKey = 'name' | 'lcp' | 'cls' | 'inp' | 'lh' | 'composite';
 type Tier = 'green' | 'yellow' | 'red' | 'neutral';
 
 @Component({
-  imports: [RouterModule, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, HlmCheckboxDirective],
+  imports: [RouterModule, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, HlmCheckboxDirective, SyncedPillComponent],
   selector: 'app-admin-sites',
   standalone: true,
   styles: [`
     :host ::ng-deep .spark { display: inline-block; vertical-align: middle; margin-left: 6px; }
     :host ::ng-deep .cell-val { display: inline-block; vertical-align: middle; min-width: 48px; }
-    .sync-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; white-space: nowrap;
-      color: color-mix(in oklch, var(--ps-accent, #00E5FF) 72%, var(--ps-ink, #f4f4ff) 28%); }
-    .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ps-accent, #00E5FF);
-      box-shadow: 0 0 6px color-mix(in oklch, var(--ps-accent, #00E5FF) 60%, transparent);
-      animation: sitesSyncPulse 1.8s ease-out infinite; }
-    @keyframes sitesSyncPulse {
-      0% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--ps-accent, #00E5FF) 55%, transparent); }
-      70% { box-shadow: 0 0 0 5px transparent; }
-      100% { box-shadow: 0 0 0 0 transparent; }
-    }
-    @media (prefers-reduced-motion: reduce) { .sync-dot { animation: none; } }
   `],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-5">
@@ -83,13 +73,7 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
             <input hlmCheckbox type="checkbox" [checked]="triage()" (change)="toggleTriage()" />
             Triage view
           </label>
-          @if (syncedLabel(); as t) {
-            <span class="sync-pill" data-testid="sites-synced"
-                  [attr.title]="'Sites heatmap polls live — last synced at ' + t">
-              <span class="sync-dot" aria-hidden="true"></span>
-              Synced {{ t }}
-            </span>
-          }
+          <app-synced-pill [at]="syncedAt()" data-testid="sites-synced" />
           <button (click)="reload()"
                   class="text-[0.78rem] text-white/80 border border-white/15 hover:border-white/30 px-3 py-1.5 rounded-md">
             Refresh
@@ -215,13 +199,8 @@ export class AdminSitesComponent implements OnInit {
   sortKey = signal<SortKey>('composite');
   sortDir = signal<'asc' | 'desc'>('asc');
   triage = signal<boolean>(false);
-  /** When the heatmap data last loaded — drives the live "Synced HH:MM:SS" freshness pill. */
+  /** When the heatmap data last loaded — fed to <app-synced-pill> for the live freshness indicator. */
   syncedAt = signal<number | null>(null);
-  /** Formatted clock time of the last successful heatmap load, or null before the first. */
-  readonly syncedLabel = computed(() => {
-    const t = this.syncedAt();
-    return t ? new Date(t).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : null;
-  });
 
   ngOnInit(): void {
     this.reload();

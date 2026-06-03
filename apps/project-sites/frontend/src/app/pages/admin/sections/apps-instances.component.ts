@@ -20,6 +20,7 @@ import { EmptyStateComponent } from '../empty-state.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmInputDirective } from '../../../ui';
 import { SkeletonComponent, ErrorCardComponent } from '../../../components/states';
+import { SyncedPillComponent } from '../../../components/synced-pill/synced-pill.component';
 import { APPS_CATALOG, findApp, type CatalogApp } from './apps-catalog.data';
 
 type InstanceStatus = 'provisioning' | 'running' | 'error' | 'stopped';
@@ -86,7 +87,7 @@ function resolveApp(id: string): CatalogApp | null {
 @Component({
   selector: 'app-admin-apps-instances',
   standalone: true,
-  imports: [DatePipe, RouterLink, EmptyStateComponent, RevealDirective],
+  imports: [DatePipe, RouterLink, EmptyStateComponent, RevealDirective, SyncedPillComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -107,10 +108,13 @@ function resolveApp(id: string): CatalogApp | null {
             Self-hosted services deployed for this org. Restart, stop, or destroy from the ⋯ menu.
           </p>
         </div>
-        <a class="btn-primary" routerLink="/admin/apps">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-          <span>Deploy new app</span>
-        </a>
+        <div class="flex items-center gap-3">
+          <app-synced-pill [at]="syncedAt()" />
+          <a class="btn-primary" routerLink="/admin/apps">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Deploy new app</span>
+          </a>
+        </div>
       </header>
 
       @if (loading() && instances().length === 0) {
@@ -387,6 +391,8 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
   loading = signal<boolean>(false);
   /** Set when the instances fetch fails — so a load error shows a Retry card, NOT a fake "No app instances yet" empty state (which could prompt re-installing an app the user already has). */
   loadError = signal<string | null>(null);
+  /** Epoch ms of the last successful instances load — feeds <app-synced-pill> (this list polls while apps provision). */
+  syncedAt = signal<number | null>(null);
   runningCount = computed(() => this.instances().filter((i) => i.status === 'running').length);
 
   private pollHandle?: ReturnType<typeof setInterval>;
@@ -404,6 +410,7 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
       next: (r) => {
         this.instances.set((r.instances ?? []).map(adaptInstance));
         this.loadError.set(null);
+        this.syncedAt.set(Date.now());
         this.loading.set(false);
         this.maybeStartPolling();
       },
