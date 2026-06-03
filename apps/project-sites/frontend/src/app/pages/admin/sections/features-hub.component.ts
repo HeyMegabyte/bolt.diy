@@ -212,7 +212,10 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
         }
       </nav>
 
-      <ul class="hub-grid" id="hub-tabpanel" role="tabpanel" [attr.aria-label]="tab() + ' features'">
+      <!-- tabpanel role lives on the wrapper, NOT the <ul> — putting role=tabpanel on
+           the list strips its implicit list role and orphans the <li> (serious axe). -->
+      <div id="hub-tabpanel" role="tabpanel" [attr.aria-label]="tab() + ' features'">
+      <ul class="hub-grid">
         @for (f of visible(); track f.flag) {
           <li class="hub-card" [attr.data-flag-on]="flagState(f.flag)?.default_enabled" [attr.data-testid]="'hub-card-' + f.flag">
             <header class="hub-card-head">
@@ -269,6 +272,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
           }
         </div>
       }
+      </div>
     </section>
   `,
   styles: [`
