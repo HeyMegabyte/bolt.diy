@@ -166,4 +166,27 @@ describe('AdminSocialComponent (RSS copy links)', () => {
     expect(writeText).toHaveBeenCalledWith('A — https://x.com/a\nB — https://x.com/b');
     expect(success).toHaveBeenCalled();
   });
+
+  it('imports previewed items as drafts via POST and refreshes', () => {
+    const success = jasmine.createSpy('success');
+    const post = jasmine.createSpy('post').and.returnValue(of({ ok: true, created: 2 }));
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success, warning: jasmine.createSpy('warning') } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigateByUrl: jasmine.createSpy('navigateByUrl') } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const fixture = TestBed.createComponent(AdminSocialComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.rssUrl = 'https://blog.com/feed.xml';
+    fixture.componentInstance.rssItems.set([{ title: 'A', url: 'https://x.com/a' }, { title: 'B', url: 'https://x.com/b' }]);
+    fixture.componentInstance.importRssDrafts();
+    expect(post).toHaveBeenCalledWith('/social/import-rss', { url: 'https://blog.com/feed.xml', site_id: 's1' });
+    expect(success).toHaveBeenCalled();
+    expect(fixture.componentInstance.rssItems().length).toBe(0); // cleared after import
+  });
 });

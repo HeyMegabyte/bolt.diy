@@ -588,8 +588,11 @@ const PLATFORMS: readonly PlatformDef[] = [
                     }
                   </ul>
                   <div class="rss-actions">
-                    <button type="button" class="btn-primary" (click)="copyRssLinks()" data-testid="rss-copy-links">Copy {{ rssItems().length }} links</button>
-                    <span class="rss-hint">Paste into the composer — auto-scheduling lands soon.</span>
+                    <button type="button" class="btn-primary" (click)="importRssDrafts()" [disabled]="importingRss()" data-testid="rss-import-drafts">
+                      {{ importingRss() ? 'Importing…' : 'Import ' + rssItems().length + ' as drafts' }}
+                    </button>
+                    <button type="button" class="btn-ghost" (click)="copyRssLinks()" data-testid="rss-copy-links">Copy links</button>
+                    <span class="rss-hint">Drafts land in your Drafts tab — assign accounts + schedule there.</span>
                   </div>
                 }
               </div>
@@ -1601,6 +1604,7 @@ export class AdminSocialComponent implements OnInit {
   /* RSS */
   rssUrl = '';
   readonly rssItems = signal<{ title: string; url: string }[]>([]);
+  readonly importingRss = signal(false);
 
   /* Calendar */
   readonly calCursor = signal(new Date());
@@ -2339,6 +2343,26 @@ export class AdminSocialComponent implements OnInit {
     } catch {
       this.toast.error('Could not copy — select the links manually.');
     }
+  }
+
+  /** Import the previewed feed items as draft posts (assign accounts + schedule in the composer). */
+  importRssDrafts(): void {
+    if (this.rssItems().length === 0 || this.importingRss()) return;
+    this.importingRss.set(true);
+    this.api.post<{ ok: boolean; created: number }>('/social/import-rss', { url: this.rssUrl, site_id: this.siteId() ?? undefined }).subscribe({
+      next: (r) => {
+        this.importingRss.set(false);
+        this.toast.success(`Imported ${r.created} draft${r.created === 1 ? '' : 's'} — find them in Drafts.`);
+        this.rssItems.set([]);
+        this.rssUrl = '';
+        this.loadPosts();
+      },
+      error: (err: unknown) => {
+        this.importingRss.set(false);
+        const msg = (err as { error?: { error?: { message?: string } } })?.error?.error?.message ?? 'Could not import the feed.';
+        this.toast.error(msg);
+      },
+    });
   }
 
   /* ── Calendar ── */
