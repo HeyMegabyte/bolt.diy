@@ -836,7 +836,7 @@ interface InlineEdit {
     .overlay-action:hover:not(:disabled) { background: rgba(255,255,255,0.09); color: #fff; border-color: rgba(255,255,255,0.20); }
     .overlay-action:disabled { opacity: 0.45; cursor: not-allowed; }
     .overlay-action-primary {
-      background: linear-gradient(135deg, #00ffc8, #00d4ff);
+      background: var(--ps-grad-primary);
       color: #060610;
       border-color: transparent;
     }
@@ -848,7 +848,7 @@ interface InlineEdit {
     @media (prefers-reduced-motion: reduce) { .overlay-action { transition: none; } }
     .btn-primary {
       padding: 0.5rem 1rem; border-radius: 8px;
-      background: linear-gradient(135deg, #00ffc8, #00d4ff);
+      background: var(--ps-grad-primary);
       color: #060610; font-weight: 700;
       border: 1px solid transparent;
       cursor: pointer; font-size: 0.74rem;

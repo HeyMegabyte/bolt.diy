@@ -645,7 +645,7 @@ const PROVIDERS = MCP_PROVIDERS;
     .badge { font-size: 0.6rem; text-transform: uppercase; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(0,229,255,0.1); color: #00E5FF; }
     /* All inputs/textareas/selects now carry Spartan hlmInput/hlmSelect — the
        old .input-field / select.input-field rules are gone (fully converged). */
-    .btn-primary { padding: 0.5rem 1rem; border-radius: 8px; background: linear-gradient(135deg, #00ffc8, #00d4ff); color: #060610; font-weight: 700; border: 1px solid color-mix(in oklch, #00d4ff 40%, transparent); cursor: pointer; font-size: 0.78rem; transition: transform 200ms ease, box-shadow 200ms ease; }
+    .btn-primary { padding: 0.5rem 1rem; border-radius: 8px; background: var(--ps-grad-primary); color: #060610; font-weight: 700; border: 1px solid color-mix(in oklch, #00d4ff 40%, transparent); cursor: pointer; font-size: 0.78rem; transition: transform 200ms ease, box-shadow 200ms ease; }
     .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px -10px rgba(0,229,255,0.45); }
     .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
     .btn-oauth { display: inline-flex; align-items: center; gap: 0.4rem; background: linear-gradient(135deg, #00E5FF, #7C3AED); color: #060610; }

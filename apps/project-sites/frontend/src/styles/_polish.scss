@@ -135,6 +135,11 @@
   --ps-ring-focus: 2px solid #00E5FF;
   --ps-ring-focus-offset: 2px;
 
+  // Primary CTA gradient — ONE source of truth for every admin primary/gradient
+  // button (.btn-primary / .btn-gradient across sections). Cyan brand, never the
+  // stray mint-green (#00ffc8) the inline gradients had drifted to.
+  --ps-grad-primary: linear-gradient(135deg, #00E5FF, #00d4ff);
+
   // Easing curves
   --ps-ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ps-ease-out: cubic-bezier(0, 0, 0.2, 1);

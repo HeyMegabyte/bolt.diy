@@ -585,11 +585,11 @@ const POLL_INTERVAL_MS = 10_000;
     }
     .icon-close:hover { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.16); }
     .icon-close:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
-    .btn-primary { padding: 0.5rem 1rem; border-radius: var(--ps-radius-sm, 10px); background: linear-gradient(135deg, #00ffc8, #00d4ff); color: var(--ps-bg, #060610); font-weight: 700; border: 0; cursor: pointer; font-size: 0.74rem; box-shadow: 0 6px 18px -8px rgba(0, 212, 255, 0.55); transition: transform 140ms ease, box-shadow 140ms ease; }
+    .btn-primary { padding: 0.5rem 1rem; border-radius: var(--ps-radius-sm, 10px); background: var(--ps-grad-primary); color: var(--ps-bg, #060610); font-weight: 700; border: 0; cursor: pointer; font-size: 0.74rem; box-shadow: 0 6px 18px -8px rgba(0, 212, 255, 0.55); transition: transform 140ms ease, box-shadow 140ms ease; }
     .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px -8px rgba(0, 212, 255, 0.7); }
     .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
     .btn-primary:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
-    .btn-gradient { padding: 0.55rem 1.1rem; border-radius: var(--ps-radius-sm, 10px); background: linear-gradient(135deg, #00ffc8, #00d4ff); color: var(--ps-bg, #060610); font-weight: 700; border: 0; cursor: pointer; font-size: 0.78rem; box-shadow: 0 8px 22px -10px rgba(0, 212, 255, 0.7); transition: transform 140ms ease, box-shadow 140ms ease; }
+    .btn-gradient { padding: 0.55rem 1.1rem; border-radius: var(--ps-radius-sm, 10px); background: var(--ps-grad-primary); color: var(--ps-bg, #060610); font-weight: 700; border: 0; cursor: pointer; font-size: 0.78rem; box-shadow: 0 8px 22px -10px rgba(0, 212, 255, 0.7); transition: transform 140ms ease, box-shadow 140ms ease; }
     .btn-gradient:hover { transform: translateY(-1px); }
     .btn-gradient:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
     /* Quiet header CTA — small, ghost-style, no loud gradient. Sits next to
@@ -813,7 +813,7 @@ const POLL_INTERVAL_MS = 10_000;
       display: inline-flex; align-items: center; justify-content: center;
       width: 36px; height: 36px; flex-shrink: 0;
       border-radius: 10px;
-      background: linear-gradient(135deg, #00ffc8, #00d4ff);
+      background: var(--ps-grad-primary);
       color: #060610;
     }
     .empty-cta-text { display: flex; flex-direction: column; gap: 2px; }

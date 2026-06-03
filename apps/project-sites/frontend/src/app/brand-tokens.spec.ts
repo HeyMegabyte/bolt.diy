@@ -20,4 +20,15 @@ describe('brand tokens (cyan/black cohesion)', () => {
     expect(ring).withContext('focus ring must be cyan #00E5FF').toContain('#00e5ff');
     expect(ring).withContext('focus ring must NOT be the stray mint green #00ffc8').not.toContain('#00ffc8');
   });
+
+  it('--ps-grad-primary is a cyan gradient (one source of truth for primary CTA buttons), never mint green', () => {
+    const grad = getComputedStyle(document.documentElement)
+      .getPropertyValue('--ps-grad-primary')
+      .trim()
+      .toLowerCase();
+    expect(grad).withContext('the primary-gradient token must be defined').not.toBe('');
+    expect(grad).withContext('primary gradient must be a linear-gradient').toContain('linear-gradient');
+    expect(grad).withContext('primary gradient must start from cyan #00E5FF').toContain('#00e5ff');
+    expect(grad).withContext('primary gradient must NOT be the stray mint green #00ffc8').not.toContain('#00ffc8');
+  });
 });
