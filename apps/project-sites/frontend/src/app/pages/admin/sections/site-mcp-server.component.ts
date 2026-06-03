@@ -212,8 +212,9 @@ interface ToolUsage {
             <button class="btn-ghost text-xs" (click)="playgroundTool.set(null)">Close</button>
           </div>
           <div class="space-y-2">
-            <label class="text-[0.72rem] text-text-secondary font-medium">Arguments (JSON)</label>
+            <label for="mcp-pg-args" class="text-[0.72rem] text-text-secondary font-medium">Arguments (JSON)</label>
             <textarea
+              id="mcp-pg-args"
               hlmInput
               [multiline]="true"
               class="w-full font-mono text-xs min-h-[80px] resize-y"

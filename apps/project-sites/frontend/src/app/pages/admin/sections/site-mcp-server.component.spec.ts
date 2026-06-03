@@ -1,0 +1,100 @@
+import { TestBed } from '@angular/core/testing';
+import { of, throwError } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
+import { SiteMcpServerComponent } from './site-mcp-server.component';
+import { ToastService } from '../../../services/toast.service';
+
+/**
+ * First coverage for the per-site MCP server (security-critical token CRUD — untested):
+ *  - loadTokens/loadTools error gating (sets *Error, not a silent empty)
+ *  - mintToken reveals the raw token once + reloads
+ *  - revokeToken optimistically drops the row + clears the in-flight marker
+ *  - runPlayground rejects invalid JSON args before firing a request (input validation)
+ *  - totalCallsToday sums only today's usage
+ * overrideComponent strips the template so ngOnInit doesn't auto-fire; methods driven directly.
+ */
+function make(over: { get?: jasmine.Spy; post?: jasmine.Spy; del?: jasmine.Spy } = {}): {
+  c: SiteMcpServerComponent;
+  http: { get: jasmine.Spy; post: jasmine.Spy; delete: jasmine.Spy };
+  toast: { error: jasmine.Spy; success: jasmine.Spy };
+} {
+  const http = {
+    get: over.get ?? jasmine.createSpy('get').and.returnValue(of({ tokens: [], tools: [], usage: [] })),
+    post: over.post ?? jasmine.createSpy('post').and.returnValue(of({ id: 't1', token: 'mcp_raw_secret' })),
+    delete: over.del ?? jasmine.createSpy('delete').and.returnValue(of({})),
+  };
+  const toast = { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') };
+  TestBed.configureTestingModule({
+    imports: [SiteMcpServerComponent],
+    providers: [
+      { provide: HttpClient, useValue: http },
+      { provide: ToastService, useValue: toast },
+      { provide: ActivatedRoute, useValue: { snapshot: { params: { id: 's1' } }, parent: { snapshot: { params: { id: 's1' } } } } },
+    ],
+  });
+  TestBed.overrideComponent(SiteMcpServerComponent, { set: { template: '<div></div>', imports: [] } });
+  return { c: TestBed.createComponent(SiteMcpServerComponent).componentInstance, http, toast };
+}
+
+describe('SiteMcpServerComponent (MCP token CRUD + playground)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('loadTokens success populates tokens and clears error', () => {
+    const c = make({ get: jasmine.createSpy('get').and.returnValue(of({ tokens: [{ id: 'a' }] })) }).c;
+    c.loadTokens();
+    expect(c.tokens().length).toBe(1);
+    expect(c.tokensError()).toBeNull();
+    expect(c.tokensLoading()).toBe(false);
+  });
+
+  it('loadTokens failure sets tokensError (not a silent empty list)', () => {
+    const c = make({ get: jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))) }).c;
+    c.loadTokens();
+    expect(c.tokensError()).toContain('did not respond');
+    expect(c.tokensLoading()).toBe(false);
+  });
+
+  it('loadTools failure sets toolsError', () => {
+    const c = make({ get: jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))) }).c;
+    c.loadTools();
+    expect(c.toolsError()).toContain('did not respond');
+    expect(c.toolsLoading()).toBe(false);
+  });
+
+  it('mintToken reveals the raw token once and clears the minting flag', () => {
+    const c = make().c;
+    c.mintToken();
+    expect(c.newTokenRaw()).toBe('mcp_raw_secret');
+    expect(c.minting()).toBe(false);
+  });
+
+  it('revokeToken optimistically removes the row and clears the in-flight marker', () => {
+    const c = make().c;
+    c.tokens.set([{ id: 'keep' } as never, { id: 'gone' } as never]);
+    c.revokeToken('gone');
+    expect(c.tokens().map((t) => t.id)).toEqual(['keep']);
+    expect(c.revoking()).toBeNull();
+  });
+
+  it('runPlayground rejects invalid JSON arguments before firing a request', () => {
+    const { c, http, toast } = make();
+    c.openPlayground({ name: 'echo' } as never);
+    c.playgroundArgs = '{ not json';
+    c.runPlayground();
+    expect(toast.error).toHaveBeenCalledWith('Invalid JSON arguments');
+    expect(http.post).not.toHaveBeenCalled();
+    expect(c.playgroundRunning()).toBe(false);
+  });
+
+  it('totalCallsToday sums only today’s usage rows', () => {
+    const c = make().c;
+    const today = new Date().toISOString().slice(0, 10);
+    c.usage.set([
+      { day: today, call_count: 3 } as never,
+      { day: today, call_count: 4 } as never,
+      { day: '2000-01-01', call_count: 99 } as never,
+    ]);
+    expect(c.totalCallsToday()).toBe(7);
+  });
+});
