@@ -129,3 +129,38 @@ describe('AdminApiTokensComponent (token CRUD)', () => {
     expect(c.showTableSkeleton()).toBe(false);
   });
 });
+
+/**
+ * TanStack sort coverage (previously untested) — this is the same
+ * createAngularTable pattern the ag-grid→TanStack perf wave will replicate on
+ * audit/ai-logs, so locking it here hardens that pattern too: the a11y/glyph
+ * mappers are exact, and the table genuinely re-sorts its rows when the sorting
+ * state changes.
+ */
+describe('AdminApiTokensComponent (TanStack table sort)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('ariaSort maps the TanStack direction → an aria-sort token', () => {
+    const { c } = make();
+    expect(c.ariaSort('asc')).toBe('ascending');
+    expect(c.ariaSort('desc')).toBe('descending');
+    expect(c.ariaSort(false)).toBe('none');
+  });
+
+  it('sortGlyph maps the direction → its header indicator', () => {
+    const { c } = make();
+    expect(c.sortGlyph('asc')).toBe('↑');
+    expect(c.sortGlyph('desc')).toBe('↓');
+    expect(c.sortGlyph(false)).toBe('↕');
+  });
+
+  it('the table re-sorts its rows when the sorting state changes (asc + desc)', () => {
+    const { c } = make();
+    c.tokens.set([{ id: '2', name: 'Bravo' }, { id: '1', name: 'Alpha' }] as never);
+    const sorting = (c as unknown as { sorting: { set(v: { id: string; desc: boolean }[]): void } }).sorting;
+    sorting.set([{ id: 'name', desc: false }]);
+    expect(c.table.getRowModel().rows.map((r) => (r.original as { name: string }).name)).toEqual(['Alpha', 'Bravo']);
+    sorting.set([{ id: 'name', desc: true }]);
+    expect(c.table.getRowModel().rows.map((r) => (r.original as { name: string }).name)).toEqual(['Bravo', 'Alpha']);
+  });
+});
