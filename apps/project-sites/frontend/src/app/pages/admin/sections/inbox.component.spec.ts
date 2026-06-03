@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AdminInboxComponent } from './inbox.component';
 import { ApiService } from '../../../services/api.service';
@@ -79,5 +80,30 @@ describe('AdminInboxComponent (conversations load error)', () => {
     expect(c.statusCount('all')).toBe(4);
     expect(c.openCount()).toBe(2);
     expect(c.unreadCount()).toBe(1);
+  });
+});
+
+describe('AdminInboxComponent — empty state (real template)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('renders the rich app-empty-state (not bare text) when there are no conversations', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminInboxComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ conversations: [], hasMore: false }), post: () => of({}), patch: () => of({}) } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(true) } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminInboxComponent);
+    const c = fx.componentInstance;
+    c.flagEnabled.set(true);
+    c.convError.set(null);
+    c.conversations.set([]);
+    c.loading.set(false);
+    fx.detectChanges();
+    const host = fx.nativeElement as HTMLElement;
+    expect(host.querySelector('app-empty-state')).withContext('uses the reusable empty-state primitive').not.toBeNull();
+    expect(host.textContent ?? '').not.toContain('No open conversations.');
   });
 });

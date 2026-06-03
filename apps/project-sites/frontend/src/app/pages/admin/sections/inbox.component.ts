@@ -23,6 +23,7 @@ import { Subject, takeUntil, interval, tap, filter, switchMap, startWith } from 
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { EmptyStateComponent } from '../../../components/states';
 
 interface VisitorIdentity {
   id: string;
@@ -79,7 +80,7 @@ const STATUS_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-inbox',
   standalone: true,
-  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, EmptyStateComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="inbox-shell" appReveal>
@@ -160,9 +161,8 @@ const STATUS_COLORS: Record<string, string> = {
                 <button class="btn-ghost text-xs" data-testid="inbox-conv-retry" (click)="loadConversations()">Retry</button>
               </div>
             } @else if (filteredConversations().length === 0) {
-              <div class="inbox-empty">
-                <p>No {{ selectedStatus() }} conversations.</p>
-              </div>
+              <app-empty-state icon="💬" [title]="'No ' + selectedStatus() + ' conversations'"
+                body="Messages from your site's contact form and chat widget land here." />
             } @else {
               @for (conv of filteredConversations(); track conv.id) {
                 <div
