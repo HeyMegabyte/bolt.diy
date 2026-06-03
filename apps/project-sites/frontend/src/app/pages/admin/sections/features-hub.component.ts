@@ -276,7 +276,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
     </section>
   `,
   styles: [`
-    :host { display: block; padding: 1.25rem 1.5rem 4rem; max-width: 1400px; margin: 0 auto; min-width: 0; overflow-x: clip; color: var(--ps-ink, #f4f4ff); }
+    :host { display: block; padding: 1.25rem 1.5rem 4rem; max-width: min(1400px, 100%); margin: 0 auto; min-width: 0; overflow-x: clip; color: var(--ps-ink, #f4f4ff); }
     .hub-head { display: flex; align-items: start; justify-content: space-between; gap: 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
     .hub-head > * { min-width: 0; max-width: 100%; }
     .hub-head h1 { margin: 0 0 .25rem; font-size: clamp(1.5rem, 3vw, 2.25rem); }
