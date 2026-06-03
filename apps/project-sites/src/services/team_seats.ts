@@ -33,6 +33,47 @@ export interface SeatAvailability {
   full: boolean;
 }
 
+/**
+ * Resolve the seat cap from plan entitlements. The route fetches entitlements
+ * via `getOrgEntitlements(env.DB, orgId)` (which reads the org's plan from the
+ * `subscriptions` table) and passes the result here. Falls back to a single
+ * solo seat when the entitlement is absent — no new table or flag is added.
+ *
+ * @example
+ * ```ts
+ * const limit = resolveSeatLimit(await getOrgEntitlements(env.DB, orgId)); // 1 | 10 | -1
+ * ```
+ */
+export function resolveSeatLimit(entitlements: { maxTeamSeats?: number } | null | undefined): number {
+  const limit = entitlements?.maxTeamSeats;
+  return typeof limit === 'number' ? limit : 1;
+}
+
+/**
+ * Count the seats an org currently consumes: active (non-deleted) members plus
+ * outstanding (un-accepted, non-deleted) invites. Org-scoped. Used by the
+ * invite route to feed {@link canInviteMember}.
+ *
+ * @example
+ * ```ts
+ * const usage = await countSeatUsage(env, orgId);
+ * if (!canInviteMember(usage, limit).allowed) throw new HTTPError(409, ...);
+ * ```
+ */
+export async function countSeatUsage(env: Env, orgId: string): Promise<SeatUsage> {
+  const members = await dbQueryOne<{ n: number }>(
+    env.DB,
+    'SELECT COUNT(*) AS n FROM memberships WHERE org_id = ? AND deleted_at IS NULL',
+    [orgId],
+  );
+  const invites = await dbQueryOne<{ n: number }>(
+    env.DB,
+    'SELECT COUNT(*) AS n FROM team_invites WHERE org_id = ? AND accepted_at IS NULL AND deleted_at IS NULL',
+    [orgId],
+  );
+  return { activeMembers: members?.n ?? 0, pendingInvites: invites?.n ?? 0 };
+}
+
 /** Active members + outstanding invites both consume a seat. */
 export function evaluateSeats(usage: SeatUsage, seatLimit: number): SeatAvailability {
   const used = Math.max(0, usage.activeMembers) + Math.max(0, usage.pendingInvites);

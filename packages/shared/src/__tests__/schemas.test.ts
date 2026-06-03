@@ -394,6 +394,7 @@ describe('entitlementsSchema', () => {
       maxCustomDomains: 0,
       chatEnabled: true,
       analyticsEnabled: false,
+      maxTeamSeats: 1,
     });
     expect(result.topBarHidden).toBe(false);
   });
@@ -406,9 +407,11 @@ describe('entitlementsSchema', () => {
       maxCustomDomains: 10,
       chatEnabled: true,
       analyticsEnabled: true,
+      maxTeamSeats: 10,
     });
     expect(result.topBarHidden).toBe(true);
     expect(result.maxCustomDomains).toBe(10);
+    expect(result.maxTeamSeats).toBe(10);
   });
 });
 
