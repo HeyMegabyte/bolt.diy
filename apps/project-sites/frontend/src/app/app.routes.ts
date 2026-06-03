@@ -293,7 +293,10 @@ export const routes: Routes = [
         ],
       },
       // ai-chat moved into Settings as a tab — keep redirect for old links.
-      { path: 'ai-chat', redirectTo: 'settings#ai-chat', pathMatch: 'full' },
+      // Static redirectTo can't carry a #fragment (it lands on /admin/settings General,
+      // not the AI Chat tab). Settings reads the fragment to open its 'ai-chat' tab, so
+      // use a functional redirect that preserves it (same fix as /admin/mcp).
+      { path: 'ai-chat', redirectTo: () => inject(Router).parseUrl('/admin/settings#ai-chat'), pathMatch: 'full' },
       {
         path: 'traces',
         loadComponent: () =>
