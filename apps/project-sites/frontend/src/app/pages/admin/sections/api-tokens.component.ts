@@ -133,6 +133,12 @@ const ALL_SCOPES = [
 
       <!-- Token list (TanStack headless table) -->
       @if (!flagDisabled()) {
+        @if (showTableSkeleton()) {
+          <div class="at-table-wrap" aria-busy="true" aria-label="Loading API tokens" data-testid="api-tokens-skeleton">
+            <div class="at-sk-line at-sk-head"></div>
+            @for (n of [1,2,3,4]; track n) { <div class="at-sk-line"></div> }
+          </div>
+        } @else {
         <div class="at-table-wrap" appReveal>
           <table class="at-grid" data-testid="api-tokens-table">
             <thead>
@@ -196,6 +202,7 @@ const ALL_SCOPES = [
             </tbody>
           </table>
         </div>
+        }
       }
 
       <!-- Quick-start code snippet -->
@@ -321,6 +328,10 @@ const ALL_SCOPES = [
     .at-flag-banner { background: rgba(255,209,102,0.08); border: 1px solid rgba(255,209,102,0.25); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: rgba(244,244,255,0.8); display: flex; align-items: center; gap: 8px; margin-bottom: 24px; }
     .at-flag-banner a { color: var(--ps-accent); text-decoration: none; }
     .at-table-wrap { border: 1px solid var(--ps-accent-line, rgba(0,229,255,0.1)); border-radius: 12px; overflow: hidden; background: rgba(255,255,255,0.02); }
+    .at-sk-line { height: 16px; border-radius: 6px; margin: 14px 16px; background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(0,229,255,0.10) 50%, rgba(255,255,255,0.04) 75%); background-size: 200% 100%; animation: at-shimmer 1.4s ease-in-out infinite; }
+    .at-sk-head { width: 32%; height: 20px; margin-top: 18px; }
+    @keyframes at-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    @media (prefers-reduced-motion: reduce) { .at-sk-line { animation: none; } }
     .at-name-cell { display: table-cell; }
     .at-token-name { display: block; font-weight: 600; color: var(--ps-ink); font-size: 13px; }
     .at-token-id { display: block; font-size: 11px; color: rgba(244,244,255,0.35); font-family: 'JetBrains Mono', monospace; margin-top: 1px; }
@@ -458,6 +469,8 @@ export class AdminApiTokensComponent {
   readonly availableScopes = ALL_SCOPES;
 
   readonly scopeCount = computed(() => ALL_SCOPES.length);
+  /** While the first fetch is in flight with nothing yet, show a skeleton — never the "no tokens yet" empty state (a false-empty flash on a security surface). */
+  readonly showTableSkeleton = computed(() => this.loading() && this.tokens().length === 0);
 
   /** Reactive org id from the shared admin state (hydrated from /api/auth/me). */
   private get orgId(): string {

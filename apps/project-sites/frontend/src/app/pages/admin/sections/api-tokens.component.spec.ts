@@ -114,4 +114,18 @@ describe('AdminApiTokensComponent (token CRUD)', () => {
     expect(c.revokeTarget()).toBeNull();
     expect(show).toHaveBeenCalledWith('Token "old-key" revoked', 'success');
   });
+
+  it('showTableSkeleton is true only while the first fetch is in flight with no tokens (no false-empty flash)', () => {
+    const { c } = make();
+    c.loading.set(true);
+    c.tokens.set([]);
+    expect(c.showTableSkeleton()).toBe(true);
+    // Once tokens arrive, the skeleton yields to the table.
+    c.tokens.set([{ id: 'a', name: 'CI' } as never]);
+    expect(c.showTableSkeleton()).toBe(false);
+    // A loaded-but-empty result shows the real empty state, not the skeleton.
+    c.tokens.set([]);
+    c.loading.set(false);
+    expect(c.showTableSkeleton()).toBe(false);
+  });
 });
