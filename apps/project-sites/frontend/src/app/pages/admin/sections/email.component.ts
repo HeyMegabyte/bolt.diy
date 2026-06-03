@@ -120,6 +120,13 @@ const PROVIDERS: ProviderMeta[] = [
               <div class="flex items-center justify-center py-12 text-text-secondary text-sm">
                 <div class="loading-spinner mr-3"></div> Loading submissions...
               </div>
+            } @else if (submissionsError()) {
+              <div class="flex flex-col items-center justify-center py-16 px-5 text-center gap-3" role="alert" data-testid="email-submissions-error">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" class="text-red-400/70"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                <h3 class="text-white text-sm font-semibold m-0">Couldn't load submissions</h3>
+                <p class="text-[0.78rem] text-text-secondary m-0">{{ submissionsError() }}</p>
+                <button class="btn-ghost text-xs" data-testid="email-submissions-retry" (click)="refreshSubmissions()" [disabled]="loadingSubmissions()">Retry</button>
+              </div>
             } @else if (submissions().length === 0) {
               <div class="flex flex-col items-center justify-center py-16 px-5 text-center text-text-secondary gap-2">
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" class="opacity-40"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
@@ -297,6 +304,8 @@ export class AdminEmailComponent implements OnInit {
   integrations = signal<NewsletterIntegration[]>([]);
   submissions = signal<FormSubmission[]>([]);
   loadingSubmissions = signal(false);
+  /** Persistent submissions-load failure — so a fetch error shows a Retry card, not a fake "No submissions yet". */
+  submissionsError = signal<string | null>(null);
   selectedId = signal<string | null>(null);
   connectingProvider = signal<ProviderMeta | null>(null);
   saving = signal(false);
@@ -409,15 +418,21 @@ export class AdminEmailComponent implements OnInit {
     const site = this.state.selectedSite();
     if (!site) return;
     this.loadingSubmissions.set(true);
+    this.submissionsError.set(null);
     this.api.listFormSubmissions(site.id).subscribe({
       next: (res) => {
         this.submissions.set(res.data || []);
+        this.submissionsError.set(null);
         this.loadingSubmissions.set(false);
         if (!this.selectedId() && res.data?.length) {
           this.selectedId.set(res.data[0].id);
         }
       },
-      error: () => { this.loadingSubmissions.set(false); },
+      // Silent error → empty list masquerades as "No submissions yet". Record it.
+      error: () => {
+        this.submissionsError.set('Could not load submissions — retry.');
+        this.loadingSubmissions.set(false);
+      },
     });
   }
 
