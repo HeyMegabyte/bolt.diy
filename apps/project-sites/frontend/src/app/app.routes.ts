@@ -1,4 +1,5 @@
-import { type Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { type Routes, Router } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
 import { featureFlagGuard } from './services/feature-flag.service';
 
@@ -335,7 +336,10 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/admin/sections/media.component').then((m) => m.AdminMediaComponent),
       },
-      { path: 'mcp', redirectTo: 'settings/mcp', pathMatch: 'full' },
+      // /admin/mcp → the MCP tab inside Settings. `settings` is a flat route (no
+      // children), so the old `redirectTo: 'settings/mcp'` 404'd; settings reads the
+      // `#mcp` fragment to open the MCP tab, so redirect there with the fragment.
+      { path: 'mcp', redirectTo: () => inject(Router).parseUrl('/admin/settings#mcp'), pathMatch: 'full' },
       { path: 'github', redirectTo: 'snapshots', pathMatch: 'full' },
       {
         path: 'settings',
