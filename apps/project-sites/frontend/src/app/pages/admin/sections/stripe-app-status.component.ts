@@ -86,6 +86,13 @@ interface Summary {
         </div>
       }
 
+      @if (loadError() && !loading()) {
+        <div class="empty-card" data-testid="stripe-app-load-error" role="alert">
+          <p class="text-red-300 text-sm mb-2">{{ loadError() }}</p>
+          <button class="btn-ghost text-xs" data-testid="stripe-app-retry" (click)="refresh()">Retry</button>
+        </div>
+      }
+
       @if (!notFound() && summary()) {
         <section class="grid grid-cols-2 md:grid-cols-4 gap-3" appReveal>
           <div class="kpi">
@@ -188,6 +195,8 @@ export class AdminStripeAppStatusComponent {
   readonly summary = signal<Summary | null>(null);
   readonly installs = signal<Install[]>([]);
   readonly loading = signal(false);
+  /** Persistent non-404 load failure — so a failed fetch shows a retry, not a blank panel. */
+  readonly loadError = signal<string | null>(null);
   // Pessimistic: assume stripe_app_status is OFF until the client-side flag
   // check confirms it's on — shows the disabled card first and prevents the
   // unconditional /stripe-app/* fetch from firing (which would auto-toast on
@@ -222,14 +231,21 @@ export class AdminStripeAppStatusComponent {
   refresh(): void {
     this.loading.set(true);
     this.notFound.set(false);
+    this.loadError.set(null);
     this.api.get<{ data: Summary }>('/stripe-app/summary').subscribe({
       next: (res) => {
+        this.loadError.set(null);
         this.summary.set(res.data);
         this.loading.set(false);
       },
       error: (err) => {
-        if (err?.status === 404) this.notFound.set(true);
-        else this.toast.error('Failed to load Stripe App summary');
+        if (err?.status === 404) {
+          this.notFound.set(true);
+        } else {
+          // Persistent in-panel error + retry so a failed fetch isn't a blank panel.
+          this.loadError.set("Couldn't load Stripe App status — retry.");
+          this.toast.error('Failed to load Stripe App summary');
+        }
         this.loading.set(false);
       },
     });
