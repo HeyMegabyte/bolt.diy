@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { AdminFeatureFlagsComponent } from './feature-flags.component';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
@@ -24,7 +25,7 @@ function flag(over: Partial<Flag> = {}): Flag {
   return { key: 'k', description: '', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', kill_switch: false, owner_email: 'brian@megabyte.space', ...over };
 }
 
-function make(get: jasmine.Spy): AdminFeatureFlagsComponent {
+function make(get: jasmine.Spy, opts: { disabled?: string } = {}): AdminFeatureFlagsComponent {
   const http = { get, post: () => of({}), patch: () => of({}) };
   TestBed.configureTestingModule({
     imports: [AdminFeatureFlagsComponent],
@@ -34,6 +35,10 @@ function make(get: jasmine.Spy): AdminFeatureFlagsComponent {
       { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
       { provide: AdminStateService, useValue: { selectedSite: signal(null), isSuperAdmin: () => false } },
       { provide: FeatureFlagService, useValue: { invalidate: () => undefined, isOn: () => of(false) } },
+      {
+        provide: ActivatedRoute,
+        useValue: { snapshot: { queryParamMap: { get: (k: string) => (k === 'disabled' ? opts.disabled ?? null : null) } } },
+      },
     ],
   });
   TestBed.overrideComponent(AdminFeatureFlagsComponent, { set: { template: '<div></div>', imports: [] } });
@@ -105,5 +110,32 @@ describe('AdminFeatureFlagsComponent (flag control surface)', () => {
     await c.reload();
     expect(c.error()).not.toBeNull();
     expect(c.loading()).toBe(false);
+  });
+
+  // ── ?disabled=<key> handoff from featureFlagGuard ─────────────────────────
+  const flagsGet = () =>
+    jasmine.createSpy('get').and.callFake((url: string) =>
+      url.includes('/auth/me') ? of({ is_super_admin: false }) : of({ flags: [], count: 0 }));
+
+  it('ngOnInit surfaces ?disabled=<key> as a banner + pre-filters the search to that flag', async () => {
+    const c = make(flagsGet(), { disabled: 'native_editor' });
+    await c.ngOnInit();
+    expect(c.blockedFeature()).toBe('native_editor'); // explains the guard bounce
+    expect(c.search()).toBe('native_editor'); // list jumps straight to that flag
+  });
+
+  it('shows no blocked banner when ?disabled is absent', async () => {
+    const c = make(flagsGet());
+    await c.ngOnInit();
+    expect(c.blockedFeature()).toBeNull();
+    expect(c.search()).toBe('');
+  });
+
+  it('dismissBlockedBanner() clears the banner', async () => {
+    const c = make(flagsGet(), { disabled: 'voice_agent' });
+    await c.ngOnInit();
+    expect(c.blockedFeature()).toBe('voice_agent');
+    c.dismissBlockedBanner();
+    expect(c.blockedFeature()).toBeNull();
   });
 });

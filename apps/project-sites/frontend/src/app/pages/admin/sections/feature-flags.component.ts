@@ -24,6 +24,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
 import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
@@ -79,6 +80,16 @@ type StageFilter = 'all' | FlagDefinition['stage'];
         </div>
         <button class="ff-refresh" (click)="reload()" [disabled]="loading()">↻ Refresh</button>
       </header>
+
+      @if (blockedFeature(); as key) {
+        <div class="ff-blocked" role="status" data-testid="ff-blocked-banner">
+          <span class="ff-blocked-icon" aria-hidden="true">🔒</span>
+          <span class="ff-blocked-text">
+            The <code>{{ key }}</code> feature is currently <strong>disabled</strong>, so that page isn't available yet. Enable it below to access it.
+          </span>
+          <button type="button" class="ff-blocked-dismiss" (click)="dismissBlockedBanner()" aria-label="Dismiss">✕</button>
+        </div>
+      }
 
       <div class="ff-toolbar">
         <input
@@ -259,6 +270,15 @@ type StageFilter = 'all' | FlagDefinition['stage'];
     .ff-refresh { background: transparent; border: 1px solid color-mix(in oklch, currentColor 30%, transparent); color: inherit; padding: .5rem 1rem; border-radius: 8px; cursor: pointer; font: inherit; }
     .ff-refresh:hover { background: color-mix(in oklch, currentColor 10%, transparent); }
     .ff-refresh:disabled { opacity: .5; cursor: not-allowed; }
+    .ff-blocked { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.25rem; padding: 0.7rem 0.9rem; border-radius: 12px;
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 35%, transparent);
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 8%, transparent); }
+    .ff-blocked-icon { font-size: 1rem; line-height: 1; }
+    .ff-blocked-text { flex: 1; font-size: 0.78rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 88%, transparent); }
+    .ff-blocked-text code { font-family: 'JetBrains Mono', monospace; color: var(--ps-accent, #00E5FF); font-size: 0.74rem; }
+    .ff-blocked-dismiss { background: none; border: 0; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); cursor: pointer; font-size: 0.85rem; padding: 0.2rem 0.35rem; border-radius: 6px; min-height: 24px; min-width: 24px; }
+    .ff-blocked-dismiss:hover { color: var(--ps-ink, #f4f4ff); }
+    .ff-blocked-dismiss:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 1px; }
     .ff-toolbar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
     /* .ff-search removed — now Spartan hlmInput (flex-1 min-w-[280px]). */
     .ff-stages { display: flex; gap: .375rem; flex-wrap: wrap; min-width: 0; }
@@ -339,6 +359,11 @@ export class AdminFeatureFlagsComponent implements OnInit {
   private readonly confirmSvc = inject(ConfirmService);
   private readonly state = inject(AdminStateService);
   private readonly flagSvc = inject(FeatureFlagService);
+  private readonly route = inject(ActivatedRoute);
+
+  /** Set from `?disabled=<key>` when featureFlagGuard bounced the user here, so
+   *  we explain WHICH feature was off + point them at the exact flag to enable. */
+  readonly blockedFeature = signal<string | null>(null);
 
   readonly stages: StageFilter[] = ['all', 'experimental', 'beta', 'stable', 'deprecated', 'killswitch'];
   readonly stage = signal<StageFilter>('all');
@@ -406,7 +431,19 @@ export class AdminFeatureFlagsComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    // featureFlagGuard redirects here with ?disabled=<key> when a flag-gated
+    // route is off — surface which feature + pre-filter the list to that flag.
+    const blocked = this.route.snapshot.queryParamMap.get('disabled');
+    if (blocked) {
+      this.blockedFeature.set(blocked);
+      this.search.set(blocked);
+    }
     await this.reload();
+  }
+
+  /** Dismiss the "feature disabled" banner. */
+  dismissBlockedBanner(): void {
+    this.blockedFeature.set(null);
   }
 
   async reload(): Promise<void> {
