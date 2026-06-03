@@ -16,7 +16,7 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
-import { SkeletonComponent } from '../../../components/states';
+import { SkeletonComponent, EmptyStateComponent } from '../../../components/states';
 import { HlmButtonDirective } from '../../../ui';
 
 interface ReviewLink {
@@ -30,7 +30,7 @@ interface ReviewLink {
 @Component({
   selector: 'app-admin-review-links',
   standalone: true,
-  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, SkeletonComponent],
+  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, SkeletonComponent, EmptyStateComponent],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -70,7 +70,8 @@ interface ReviewLink {
         @if (loading()) {
           <app-skeleton variant="table" [rows]="3" data-testid="review-links-loading" />
         } @else if (links().length === 0) {
-          <p data-testid="review-links-none" class="text-text-secondary text-sm">No review links yet — create one above.</p>
+          <app-empty-state data-testid="review-links-none" icon="🔗" title="No review links yet"
+            body="Create a shareable approval link above so a stakeholder can preview and sign off before publish." />
         } @else {
           <ul class="flex flex-col gap-2">
             @for (l of links(); track l.id) {

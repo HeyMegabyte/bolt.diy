@@ -215,4 +215,11 @@ describe('AdminWebhooksComponent', () => {
     expect(q('app-skeleton')).withContext('uses the reusable skeleton primitive').not.toBeNull();
     expect(host.textContent ?? '').not.toContain('Loading endpoints…');
   });
+
+  it('renders the rich app-empty-state (not bare text) when there are no endpoints', () => {
+    build({ id: 's1' });
+    fixture.componentInstance.endpoints.set([]);
+    fixture.detectChanges();
+    expect(q('app-empty-state')).withContext('uses the reusable empty-state primitive').not.toBeNull();
+  });
 });

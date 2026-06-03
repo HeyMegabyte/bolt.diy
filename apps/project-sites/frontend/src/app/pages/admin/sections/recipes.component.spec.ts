@@ -239,4 +239,11 @@ describe('AdminRecipesComponent', () => {
     expect(q('app-skeleton')).withContext('uses the reusable skeleton primitive').not.toBeNull();
     expect(host.textContent ?? '').not.toContain('Loading recipes…');
   });
+
+  it('renders the rich app-empty-state (not bare text) when there are no automations', () => {
+    build({ id: 's1' });
+    fixture.componentInstance.recipes.set([]);
+    fixture.detectChanges();
+    expect(q('app-empty-state')).withContext('uses the reusable empty-state primitive').not.toBeNull();
+  });
 });

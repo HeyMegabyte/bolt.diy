@@ -17,7 +17,7 @@ import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective } from '../../../ui';
-import { SkeletonComponent } from '../../../components/states';
+import { SkeletonComponent, EmptyStateComponent } from '../../../components/states';
 
 /** Mirror the worker allowlists (services/automation_builder.ts). */
 const TRIGGERS = ['form.submitted', 'site.published', 'payment.succeeded', 'review.received', 'build.failed', 'domain.active'];
@@ -34,7 +34,7 @@ interface Recipe {
 @Component({
   selector: 'app-admin-recipes',
   standalone: true,
-  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective, SkeletonComponent],
+  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -111,7 +111,8 @@ interface Recipe {
         @if (loading()) {
           <app-skeleton variant="table" [rows]="3" />
         } @else if (recipes().length === 0) {
-          <p class="text-text-secondary text-sm">No automations yet — add one above.</p>
+          <app-empty-state icon="⚡" title="No automations yet"
+            body="Create a recipe above to auto-run an action whenever a site event fires." />
         } @else {
           <ul class="flex flex-col gap-2">
             @for (r of recipes(); track r.id) {
