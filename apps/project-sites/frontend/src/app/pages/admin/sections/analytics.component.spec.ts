@@ -77,4 +77,51 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
 
     expect(getAnalytics.calls.mostRecent().args[0]).toBe('site-b');
   });
+
+  describe('pvTrend (period-over-period delta chip)', () => {
+    function series(views: number[]): { series: { date: string; page_views: number; unique_visitors: number }[] } {
+      return { series: views.map((v, i) => ({ date: `2026-06-0${i + 1}`, page_views: v, unique_visitors: v })) };
+    }
+
+    it('returns null until ≥4 days of data exist', () => {
+      build({ id: 's' });
+      const c = fixture.componentInstance;
+      c.envelope.set(series([10, 20, 30]) as never);
+      expect(c.pvTrend()).toBeNull();
+    });
+
+    it('reports an up trend when the recent half outweighs the older half', () => {
+      build({ id: 's' });
+      const c = fixture.componentInstance;
+      c.envelope.set(series([10, 10, 30, 30]) as never); // older 20 → recent 60 = +200%
+      const t = c.pvTrend();
+      expect(t?.dir).toBe('up');
+      expect(t?.label).toBe('200%');
+    });
+
+    it('reports a down trend (muted, never red) when traffic falls', () => {
+      build({ id: 's' });
+      const c = fixture.componentInstance;
+      c.envelope.set(series([40, 40, 10, 10]) as never); // older 80 → recent 20 = -75%
+      const t = c.pvTrend();
+      expect(t?.dir).toBe('down');
+      expect(t?.label).toBe('75%');
+    });
+
+    it('reports flat when the halves are within ±1%', () => {
+      build({ id: 's' });
+      const c = fixture.componentInstance;
+      c.envelope.set(series([50, 50, 50, 50]) as never);
+      expect(c.pvTrend()?.dir).toBe('flat');
+    });
+
+    it('reads as "new" when the earlier half had zero views', () => {
+      build({ id: 's' });
+      const c = fixture.componentInstance;
+      c.envelope.set(series([0, 0, 12, 18]) as never);
+      const t = c.pvTrend();
+      expect(t?.dir).toBe('up');
+      expect(t?.label).toBe('new');
+    });
+  });
 });

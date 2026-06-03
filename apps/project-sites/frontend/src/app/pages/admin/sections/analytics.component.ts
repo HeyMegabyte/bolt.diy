@@ -214,11 +214,24 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
                 </defs>
               </svg>
             </div>
-            <div class="text-[0.68rem] text-text-secondary mt-1">
+            <div class="text-[0.68rem] text-text-secondary mt-1 flex items-center gap-2 flex-wrap">
+              @if (pvTrend(); as t) {
+                <span class="trend-chip"
+                      [attr.data-dir]="t.dir"
+                      [attr.aria-label]="t.aria"
+                      [title]="t.title">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    @if (t.dir === 'up') { <path d="M6 15l6-6 6 6"/> }
+                    @else if (t.dir === 'down') { <path d="M6 9l6 6 6-6"/> }
+                    @else { <path d="M5 12h14"/> }
+                  </svg>
+                  {{ t.label }}
+                </span>
+              }
               @if ((envelope()?.total_requests ?? 0) > 0) {
-                of {{ formatCount(envelope()?.total_requests ?? 0) }} requests
+                <span>of {{ formatCount(envelope()?.total_requests ?? 0) }} requests</span>
               } @else {
-                In the selected period
+                <span>In the selected period</span>
               }
             </div>
           }
@@ -419,17 +432,17 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
     .host-link:hover .ext-glyph { transform: translate(1px, -1px); }
 
     .card {
-      background: var(--ps-surface-1, rgba(13,13,40,0.62));
+      background: var(--ps-surface-glass, rgba(13,13,40,0.62));
       border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 14%, transparent);
       border-radius: var(--ps-radius-xl, 14px);
       padding: 1.4rem;
-      box-shadow: var(--ps-shadow-card, inset 0 0 0 1px rgba(255,255,255,0.02));
+      box-shadow: var(--ps-shadow-card, inset 0 0 0 1px color-mix(in oklch, var(--ps-ink, #f4f4ff) 2%, transparent));
       transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
     }
     .card:hover {
       transform: translateY(-1px);
       border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 28%, transparent);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 8px 24px -16px color-mix(in oklch, var(--ps-accent, #00E5FF) 28%, transparent);
+      box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--ps-ink, #f4f4ff) 4%, transparent), 0 8px 24px -16px color-mix(in oklch, var(--ps-accent, #00E5FF) 28%, transparent);
     }
 
     .kpi { padding: 1.1rem; position: relative; overflow: hidden; }
@@ -439,6 +452,33 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
 
     .muted-h { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; }
     .tabular { font-variant-numeric: tabular-nums; }
+
+    /* Period-over-period trend chip — neon-cyan up, dimmed down, neutral flat.
+       Up reads as the brand accent (the win we want to celebrate); down stays
+       muted so a dip never shouts in off-brand red on the cyan/black cockpit. */
+    .trend-chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 1px 7px 1px 5px; border-radius: 999px;
+      font-size: 0.64rem; font-weight: 700; line-height: 1.4;
+      font-variant-numeric: tabular-nums;
+      border: 1px solid transparent;
+    }
+    .trend-chip svg { flex-shrink: 0; }
+    .trend-chip[data-dir="up"] {
+      color: var(--ps-accent, #00E5FF);
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 14%, transparent);
+      border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 32%, transparent);
+    }
+    .trend-chip[data-dir="down"] {
+      color: rgba(255,255,255,0.62);
+      background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 5%, transparent);
+      border-color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 12%, transparent);
+    }
+    .trend-chip[data-dir="flat"] {
+      color: rgba(255,255,255,0.5);
+      background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 4%, transparent);
+      border-color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent);
+    }
 
     .btn-ghost {
       display: inline-flex; align-items: center; gap: 6px;
@@ -560,7 +600,8 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
     .url-text { line-height: 1; }
     .primary-dot {
       width: 5px; height: 5px; border-radius: 50%;
-      background: #34d399; box-shadow: 0 0 5px rgba(52, 211, 153, 0.6);
+      background: var(--ps-success, #4dffb5);
+      box-shadow: 0 0 5px color-mix(in oklch, var(--ps-success, #4dffb5) 60%, transparent);
     }
     .url-toggle {
       width: 18px; height: 18px;
@@ -857,6 +898,36 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
       this.toast.error('Could not copy — copy this URL manually: ' + url);
     }
   }
+
+  /**
+   * Period-over-period page-view trend. Splits the day series in half and
+   * compares the recent half against the older half — a quick "is traffic
+   * rising or falling?" read the bare KPI number can't give. Returns null
+   * until there are ≥4 days of data (a 2v2 split is the minimum that means
+   * anything). `aria` is the screen-reader sentence; `title` is the hover.
+   */
+  pvTrend = computed<{ dir: 'up' | 'down' | 'flat'; label: string; aria: string; title: string } | null>(() => {
+    const series = this.envelope()?.series ?? [];
+    if (series.length < 4) return null;
+    const mid = Math.floor(series.length / 2);
+    const older = series.slice(0, mid).reduce((s, d) => s + (d.page_views || 0), 0);
+    const recent = series.slice(mid).reduce((s, d) => s + (d.page_views || 0), 0);
+    if (older === 0 && recent === 0) return null;
+    if (older === 0) {
+      return { dir: 'up', label: 'new', aria: 'Page views up from zero in the recent period', title: 'No views in the earlier half of this range' };
+    }
+    const pct = ((recent - older) / older) * 100;
+    const rounded = Math.round(Math.abs(pct));
+    const dir = pct > 1 ? 'up' : pct < -1 ? 'down' : 'flat';
+    const label = dir === 'flat' ? 'flat' : `${rounded}%`;
+    const word = dir === 'up' ? 'up' : dir === 'down' ? 'down' : 'flat';
+    return {
+      dir,
+      label,
+      aria: `Page views ${word}${dir === 'flat' ? '' : ' ' + rounded + ' percent'} versus the earlier half of this range`,
+      title: `Recent half vs earlier half of the selected range (${dir === 'flat' ? 'no significant change' : word + ' ' + rounded + '%'})`,
+    };
+  });
 
   maxPage = computed(() => Math.max(1, ...(this.envelope()?.top_pages ?? []).map((p) => p.views)));
   maxReferrer = computed(() => Math.max(1, ...(this.envelope()?.top_referrers ?? []).map((r) => r.views)));
