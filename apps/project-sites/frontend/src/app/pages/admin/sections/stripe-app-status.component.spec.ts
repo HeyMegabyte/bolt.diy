@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AdminStripeAppStatusComponent } from './stripe-app-status.component';
 import { ApiService } from '../../../services/api.service';
@@ -64,5 +65,29 @@ describe('AdminStripeAppStatusComponent (load-error gating)', () => {
     expect(c.loadError()).not.toBeNull();
     c.refresh();
     expect(c.loadError()).toBeNull();
+  });
+});
+
+describe('AdminStripeAppStatusComponent (flag-disabled card links to Feature Flags)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  // Full-render (NOT the template-stripped make()) — the disabled card tells the
+  // operator to enable a flag "in /admin/feature-flags"; that route MUST be a
+  // clickable routerLink (SPA nav), not dead plain text.
+  it('the disabled message links /admin/feature-flags via routerLink, not plain text', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminStripeAppStatusComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: [] }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminStripeAppStatusComponent);
+    f.componentInstance.notFound.set(true);
+    f.detectChanges();
+    const link = (f.nativeElement as HTMLElement).querySelector('a[href="/admin/feature-flags"]');
+    expect(link).withContext('feature-flags route must be a clickable link, not dead plain text').not.toBeNull();
   });
 });
