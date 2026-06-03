@@ -197,12 +197,16 @@ const PROVIDERS: ProviderMeta[] = [
               @if (provider.needsWebhookUrl) {
                 <label class="form-field">
                   <span class="form-label">Webhook URL</span>
-                  <input hlmInput class="w-full" type="url" required [(ngModel)]="webhookUrl" name="webhookUrl" placeholder="https://example.com/hook" />
+                  <input hlmInput class="w-full" type="url" required [(ngModel)]="webhookUrl" name="webhookUrl" placeholder="https://example.com/hook"
+                    [attr.aria-invalid]="webhookUrlInvalid() || null" [attr.aria-describedby]="webhookUrlInvalid() ? 'email-webhook-hint' : null" />
+                  @if (webhookUrlInvalid()) {
+                    <span id="email-webhook-hint" role="alert" class="text-xs text-red-400 mt-1">Must be a valid https:// URL with a public host.</span>
+                  }
                 </label>
               }
               <div class="flex justify-end gap-2 mt-2">
                 <button type="button" class="btn-ghost text-sm cursor-pointer" (click)="cancelConnect()">Cancel</button>
-                <button type="submit" class="btn-accent text-sm cursor-pointer" [disabled]="saving()">{{ saving() ? 'Saving...' : 'Connect' }}</button>
+                <button type="submit" class="btn-accent text-sm cursor-pointer" [disabled]="saving() || webhookUrlInvalid()">{{ saving() ? 'Saving...' : 'Connect' }}</button>
               </div>
             </form>
           </app-dialog-shell>
@@ -352,9 +356,30 @@ export class AdminEmailComponent implements OnInit {
     this.connectingProvider.set(null);
   }
 
+  /** https + public-host guard for the worker-called webhook URL (SSRF-adjacent UX layer; the worker's isSafeWebhookUrl is the real boundary). */
+  private isValidHttpsUrl(raw: string): boolean {
+    try {
+      const u = new URL(raw.trim());
+      return u.protocol === 'https:' && u.hostname.includes('.') && !u.hostname.endsWith('.');
+    } catch {
+      return false;
+    }
+  }
+
+  /** True when the shown webhook field holds a value that isn't a valid public https URL. Drives the inline hint + button gate. */
+  webhookUrlInvalid(): boolean {
+    return !!this.connectingProvider()?.needsWebhookUrl && this.webhookUrl.trim() !== '' && !this.isValidHttpsUrl(this.webhookUrl);
+  }
+
   submitConnect(provider: ProviderMeta): void {
     const site = this.state.selectedSite();
     if (!site) return;
+    // The worker calls webhook_url server-side — reject non-https / internal
+    // hosts BEFORE the POST (matches the webhooks/recipes/social-RSS sweep).
+    if (provider.needsWebhookUrl && !this.isValidHttpsUrl(this.webhookUrl)) {
+      this.toast.error('Enter a valid https:// webhook URL (public host).');
+      return;
+    }
     this.saving.set(true);
     this.api.createIntegration(site.id, {
       provider: provider.id,
