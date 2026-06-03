@@ -24,6 +24,7 @@ import {
 } from '@angular/core';
 import { AdminStateService } from '../admin-state.service';
 import { RevealOnScrollDirective } from '../../../animations/reveal-on-scroll.directive';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { VoiceNumbersComponent } from './voice/numbers.component';
 import { VoiceConversationsComponent } from './voice/conversations.component';
 import { VoiceTestConsoleComponent } from './voice/test-console.component';
@@ -54,6 +55,7 @@ const TABS: readonly TabSpec[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     RevealOnScrollDirective,
+    RollingCounterComponent,
     VoiceNumbersComponent,
     VoiceConversationsComponent,
     VoiceTestConsoleComponent,
@@ -69,7 +71,7 @@ const TABS: readonly TabSpec[] = [
         <h2 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-3 flex-wrap">
           Voice
           @if (state.selectedSite()) {
-            <span class="header-pill">
+            <span class="header-pill" data-testid="voice-live-pill">
               <span class="header-pill-dot" aria-hidden="true"></span>
               Live for <strong class="ml-1">{{ state.selectedSite()!.business_name }}</strong>
             </span>
@@ -80,6 +82,14 @@ const TABS: readonly TabSpec[] = [
           listen to recordings, tune the system prompt — without ever rewriting your agent.
         </p>
       </header>
+
+      <!-- Surface stat strip (cyan/black) -->
+      <div class="stat-strip" psReveal data-testid="voice-stat-strip">
+        <span class="stat-strip-num">
+          <app-rolling-counter [value]="tabsCount()" [duration]="900" />
+        </span>
+        <span class="stat-strip-label">control surfaces — numbers, calls, agent, MCPs &amp; more, one persona</span>
+      </div>
 
       <!-- No-site guard -->
       @if (!state.selectedSite()) {
@@ -129,15 +139,41 @@ const TABS: readonly TabSpec[] = [
     .kicker { font: 700 0.62rem/1 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ps-accent, #00E5FF); opacity: 0.85; }
     .section-h { font-family: 'Sora', system-ui, sans-serif; letter-spacing: -0.02em; }
 
+    /* Cyan/black brand pill — replaces off-brand green. Neon-clamped ink keeps
+       contrast safely above WCAG AA on the dark canvas (text-contrast rule). */
     .header-pill {
       display: inline-flex; align-items: center; gap: 6px;
       padding: 3px 10px; border-radius: 999px;
-      background: rgba(52, 211, 153, 0.10);
-      border: 1px solid rgba(52, 211, 153, 0.32);
-      color: #6ee7b7;
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 12%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 36%, transparent);
+      color: oklch(from var(--ps-accent, #00E5FF) max(l, 0.82) max(c, 0.18) h);
       font: 600 0.65rem 'Sora', system-ui, sans-serif; letter-spacing: 0.02em;
     }
-    .header-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: #34d399; box-shadow: 0 0 6px rgba(52, 211, 153, 0.7); }
+    .header-pill strong { color: oklch(from var(--ps-accent, #00E5FF) max(l, 0.88) max(c, 0.16) h); }
+    .header-pill-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--ps-accent, #00E5FF);
+      box-shadow: 0 0 6px color-mix(in oklch, var(--ps-accent, #00E5FF) 70%, transparent);
+      animation: pillpulse 2.4s ease-in-out infinite;
+    }
+    @keyframes pillpulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    @media (prefers-reduced-motion: reduce) { .header-pill-dot { animation: none; } }
+
+    /* Cyan/black surface-count stat strip */
+    .stat-strip {
+      display: flex; align-items: baseline; gap: 0.55rem; flex-wrap: wrap;
+      padding: 0.7rem 1rem; border-radius: var(--ps-radius-lg, 14px);
+      background: linear-gradient(135deg,
+        color-mix(in oklch, var(--ps-accent, #00E5FF) 8%, transparent),
+        var(--ps-surface-1, rgba(13,13,40,0.62)));
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 22%, rgba(255,255,255,0.06));
+    }
+    .stat-strip-num {
+      font: 800 1.5rem/1 'Sora', system-ui, sans-serif; font-variant-numeric: tabular-nums;
+      color: oklch(from var(--ps-accent, #00E5FF) max(l, 0.8) max(c, 0.2) h);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    }
+    .stat-strip-label { font-size: 0.78rem; color: var(--ps-ink, #f4f4ff); opacity: 0.78; }
 
     .notice {
       border-radius: var(--ps-radius-sm, 8px);
@@ -186,8 +222,8 @@ const TABS: readonly TabSpec[] = [
 export class VoiceComponent implements OnInit {
   readonly state = inject(AdminStateService);
   readonly tabs = TABS;
-  // Surface so the rolling-counter import isn't tree-shaken even when no
-  // numeric stats render in the shell (sub-components consume it).
+  /** Count of voice control surfaces — rendered in the cyan stat strip via
+   *  `<app-rolling-counter>` (every numeric stat animates per the brand mandate). */
   readonly tabsCount = computed(() => TABS.length);
 
   activeTab = signal<VoiceTab>('numbers');
