@@ -42,6 +42,64 @@ interface Branch {
   standalone: true,
   imports: [FormsModule, RouterModule, RollingCounterComponent, RevealDirective, EmptyStateComponent, HlmInputDirective, HlmButtonDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: [
+    `
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+      /* Cyan approval-progress track — fills toward merge-ready */
+      .branch-approvals-track {
+        position: relative;
+        display: inline-block;
+        width: 64px;
+        height: 5px;
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent);
+        overflow: hidden;
+      }
+      .branch-approvals-fill {
+        position: absolute;
+        inset: 0 auto 0 0;
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 55%, transparent);
+        transition: width 360ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .branch-approvals-fill.is-complete {
+        background: var(--ps-accent, #00e5ff);
+        box-shadow: 0 0 8px color-mix(in oklch, var(--ps-accent, #00e5ff) 60%, transparent);
+      }
+      /* Live "In Review" stat pulses a cyan halo to draw the eye */
+      .branch-stat--live :is(app-rolling-counter) {
+        color: var(--ps-accent, #00e5ff);
+        animation: branchStatPulse 2.4s ease-in-out infinite;
+      }
+      @keyframes branchStatPulse {
+        0%,
+        100% {
+          text-shadow: 0 0 0 transparent;
+        }
+        50% {
+          text-shadow: 0 0 10px color-mix(in oklch, var(--ps-accent, #00e5ff) 55%, transparent);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .branch-approvals-fill {
+          transition: none;
+        }
+        .branch-stat--live :is(app-rolling-counter) {
+          animation: none;
+        }
+      }
+    `,
+  ],
   template: `
     <section class="p-5 max-w-5xl" data-testid="site-branches">
       <header class="flex items-start justify-between gap-4 flex-wrap mb-4" appReveal>
@@ -55,9 +113,9 @@ interface Branch {
       </header>
 
       <!-- Stats -->
-      <div class="flex gap-6 mb-4 rounded-xl border border-white/6 bg-white/2 px-5 py-3" appReveal>
+      <div class="flex gap-6 mb-4 rounded-xl border-l-2 border-accent/40 border-y border-r border-white/6 bg-white/2 px-5 py-3" appReveal role="group" aria-label="Branch statistics">
         @for (s of stats(); track s.label) {
-          <div class="flex flex-col">
+          <div class="flex flex-col" [class.branch-stat--live]="s.label === 'In Review' && s.value > 0">
             <app-rolling-counter [value]="s.value" [duration]="900" />
             <span class="text-[0.6rem] uppercase tracking-wide text-text-secondary font-semibold">{{ s.label }}</span>
           </div>
@@ -96,8 +154,9 @@ interface Branch {
           [ctaLabel]="siteId ? 'Create branch' : ''"
           (ctaClick)="showCreate.set(true)" />
       } @else {
-        <div class="rounded-xl border border-white/6 overflow-hidden" role="region" aria-label="Branches">
+        <div class="rounded-xl border border-white/6 overflow-hidden" role="region" aria-label="Branches" appReveal>
           <table class="w-full text-[0.8rem] text-left">
+            <caption class="sr-only">Site preview branches with status, approval progress, and lifecycle actions</caption>
             <thead>
               <tr class="bg-white/3 text-text-secondary text-[0.62rem] uppercase tracking-wide">
                 <th class="px-3 py-2 font-semibold">Branch</th>
@@ -118,21 +177,31 @@ interface Branch {
                       }
                     </div>
                   </td>
-                  <td class="px-3 py-2"><span [class]="statusClass(b.status)">{{ b.status }}</span></td>
-                  <td class="px-3 py-2 text-text-secondary tabular-nums">{{ b.approvals_received }} / {{ b.approvals_required }}</td>
+                  <td class="px-3 py-2"><span [class]="'status-pill ' + statusPill(b.status)">{{ b.status }}</span></td>
+                  <td class="px-3 py-2">
+                    <div class="flex items-center gap-2">
+                      <span class="branch-approvals-track" role="progressbar"
+                            [attr.aria-valuenow]="b.approvals_received" aria-valuemin="0" [attr.aria-valuemax]="b.approvals_required"
+                            [attr.aria-label]="b.approvals_received + ' of ' + b.approvals_required + ' approvals received'">
+                        <span class="branch-approvals-fill" [class.is-complete]="canMerge(b)"
+                              [style.width.%]="approvalPct(b)"></span>
+                      </span>
+                      <span class="text-text-secondary tabular-nums text-[0.7rem]">{{ b.approvals_received }} / {{ b.approvals_required }}</span>
+                    </div>
+                  </td>
                   <td class="px-3 py-2 text-text-secondary">{{ formatDate(b.created_at) }}</td>
                   <td class="px-3 py-2">
                     <div class="flex gap-1.5 justify-end items-center">
                       @if (actioning() === b.id) {
-                        <span class="text-text-secondary text-[0.68rem]">…</span>
+                        <span class="text-text-secondary text-[0.68rem]" role="status" aria-live="polite" [attr.aria-label]="'Working on ' + b.branch_name">…</span>
                       } @else {
                         @if (b.status === 'draft') {
-                          <button hlmBtn variant="ghost" size="sm" type="button" (click)="requestReview(b.id)">Request review</button>
+                          <button hlmBtn variant="ghost" size="sm" type="button" (click)="requestReview(b.id)" [attr.aria-label]="'Request review for ' + b.branch_name">Request review</button>
                         }
                         @if (b.status === 'review') {
-                          <button hlmBtn variant="ghost" size="sm" type="button" (click)="approve(b.id)">Approve</button>
+                          <button hlmBtn variant="ghost" size="sm" type="button" (click)="approve(b.id)" [attr.aria-label]="'Approve ' + b.branch_name">Approve</button>
                           @if (canMerge(b)) {
-                            <button hlmBtn variant="primary" size="sm" type="button" (click)="mergeBranch(b)">Merge</button>
+                            <button hlmBtn variant="primary" size="sm" type="button" (click)="mergeBranch(b)" [attr.aria-label]="'Merge ' + b.branch_name + ' to production'">Merge</button>
                           }
                         }
                         @if (b.status === 'draft' || b.status === 'review') {
@@ -275,14 +344,22 @@ export class SiteBranchesComponent implements OnInit {
     this.branches.update((bs) => bs.map((b) => (b.id === updated.id ? updated : b)));
   }
 
-  statusClass(status: string): string {
-    const base = 'inline-block px-1.5 py-0.5 rounded text-[0.65rem] font-semibold uppercase tracking-wide';
-    return {
-      draft: `${base} bg-white/5 text-text-secondary`,
-      review: `${base} bg-amber-500/15 text-amber-400`,
-      merged: `${base} bg-green-500/15 text-green-400`,
-      closed: `${base} bg-red-500/10 text-red-400`,
-    }[status] ?? base;
+  /** Map branch lifecycle status → shared global `.status-pill` modifier (cyan-first). */
+  statusPill(status: string): string {
+    return (
+      {
+        draft: 'is-idle',
+        review: 'is-info', // cyan — active in the review loop
+        merged: 'is-healthy',
+        closed: 'is-degraded',
+      }[status] ?? 'is-idle'
+    );
+  }
+
+  /** Approval completion as a 0-100 percentage for the cyan progress track. */
+  approvalPct(b: Branch): number {
+    if (b.approvals_required <= 0) return 100;
+    return Math.min(100, Math.round((b.approvals_received / b.approvals_required) * 100));
   }
 
   formatDate(iso: string): string {
