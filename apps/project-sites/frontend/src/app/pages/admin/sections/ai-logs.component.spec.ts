@@ -93,3 +93,65 @@ describe('AdminAiLogsComponent (grid state — skeleton vs empty vs data)', () =
     expect(c.rows().length).toBe(1);
   });
 });
+
+/**
+ * Master/detail contract for the traces grid — the faux-expansion behaviour
+ * (synthetic full-width detail rows spliced into displayRows()) + the text
+ * filter. This is the EXACT behaviour the ag-grid→TanStack perf wave must
+ * preserve, so locking it here is the migration's regression safety net.
+ * Pure signal logic — no ag-grid, no prod data.
+ */
+describe('AdminAiLogsComponent (master/detail + filter contract)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  const mk = (id: string, model = 'gpt'): unknown => ({
+    id, model, trace_kind: 'chat', endpoint_slug: null, tool_name: null,
+    output_preview: null, error_message: null, actor_email: null, status: 'ok', created_at: 'now',
+  });
+  // fetchDetail (called on expand) hits api.get — keep it harmless.
+  const mkComp = () => make(jasmine.createSpy('get').and.returnValue(of({ data: {} })));
+
+  it('displayRows is just the master rows when nothing is expanded', () => {
+    const c = mkComp();
+    c.rows.set([mk('a'), mk('b')] as never);
+    expect(c.displayRows().map((r) => r.id)).toEqual(['a', 'b']);
+    expect(c.displayRows().some((r) => r._isDetail)).toBeFalse();
+  });
+
+  it('expanding a row splices a synthetic _isDetail row directly after its master', () => {
+    const c = mkComp();
+    c.rows.set([mk('a'), mk('b')] as never);
+    c.toggleExpand({ id: 'a' } as never);
+    expect(c.displayRows().map((r) => r.id)).toEqual(['a', 'a::detail', 'b']);
+    const master = c.displayRows().find((r) => r.id === 'a');
+    expect(master?._expanded).toBeTrue();
+    const detail = c.displayRows().find((r) => r.id === 'a::detail');
+    expect(detail?._isDetail).toBeTrue();
+    expect(detail?._parentId).toBe('a');
+  });
+
+  it('collapsing removes the detail row again (toggle off)', () => {
+    const c = mkComp();
+    c.rows.set([mk('a'), mk('b')] as never);
+    c.toggleExpand({ id: 'a' } as never);
+    c.toggleExpand({ id: 'a' } as never);
+    expect(c.displayRows().map((r) => r.id)).toEqual(['a', 'b']);
+  });
+
+  it('two expanded rows each get their own detail row after their master', () => {
+    const c = mkComp();
+    c.rows.set([mk('a'), mk('b')] as never);
+    c.toggleExpand({ id: 'a' } as never);
+    c.toggleExpand({ id: 'b' } as never);
+    expect(c.displayRows().map((r) => r.id)).toEqual(['a', 'a::detail', 'b', 'b::detail']);
+  });
+
+  it('the text filter narrows the base rows (and the detail follows its master)', () => {
+    const c = mkComp();
+    c.rows.set([mk('a', 'claude'), mk('b', 'gpt')] as never);
+    c.filter.set('claude');
+    expect(c.displayRows().map((r) => r.id)).toEqual(['a']);
+    c.toggleExpand({ id: 'a' } as never);
+    expect(c.displayRows().map((r) => r.id)).toEqual(['a', 'a::detail']);
+  });
+});
