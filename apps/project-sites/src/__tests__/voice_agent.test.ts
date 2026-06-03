@@ -289,14 +289,13 @@ describe('runTurn — tool surface', () => {
 
 // ─── runTurn — tool-call dispatch ─────────────────────────────────
 
-// NOTE on TOOL_CALL parsing: the source regex `/TOOL_CALL:\s*(\{[\s\S]+?\})/m`
-// is NON-GREEDY, so it stops at the FIRST `}`. A directive whose `args` object
-// contains any keys (e.g. `{"name":"x","args":{"q":"y"}}`) is truncated to
-// invalid JSON and silently NOT dispatched (the parse throws into the
-// swallowing `catch`). Only an args-less directive (`{"name":"x"}`) — where
-// `call.args ?? {}` supplies empty args — actually round-trips. These tests
-// exercise the real behavior; the nested-args truncation is reported as a bug,
-// not patched here.
+// NOTE on TOOL_CALL parsing (convergence r48 — bug fixed): the source now uses
+// a balanced-brace scan (`extractToolCall`) instead of the non-greedy regex
+// `/TOOL_CALL:\s*(\{[\s\S]+?\})/m`, which stopped at the FIRST `}`. A directive
+// whose `args` object contains keys (e.g. `{"name":"x","args":{"q":"y"}}`) — or
+// nested objects inside args — now round-trips with its args intact instead of
+// being silently dropped. Braces inside JSON string values no longer close the
+// object early. These tests exercise both args-less and args-bearing directives.
 describe('runTurn — tool-call dispatch', () => {
   it('handles escalate_to_human (args-less) and maps the signal to human_handoff', async () => {
     mockCallLLM.mockResolvedValue({
@@ -375,16 +374,54 @@ describe('runTurn — tool-call dispatch', () => {
     expect(res.toolCalls[0].args).toEqual({});
   });
 
-  it('does NOT dispatch when nested-args truncation yields invalid JSON (regex limitation)', async () => {
+  it('dispatches an args-bearing directive with its args intact (balanced-brace parse)', async () => {
+    mockExecuteTool.mockResolvedValue({ ok: true, booked: 'tue-3pm' });
     mockCallLLM.mockResolvedValue({
       output: 'Sure. TOOL_CALL: {"name":"book_appt","args":{"when":"tue"}}',
       model_used: 'gpt-4o-mini',
     });
     const env = baseEnv();
     const res = await runTurn(env, baseOpts());
-    // truncated to invalid JSON → parse throws → swallowed → no dispatch
-    expect(res.toolCalls).toHaveLength(0);
-    expect(mockExecuteTool).not.toHaveBeenCalled();
+    // balanced-brace scan captures the full object → args dispatched, not dropped
+    expect(res.toolCalls).toHaveLength(1);
+    expect(res.toolCalls[0].args).toEqual({ when: 'tue' });
+    expect(mockExecuteTool).toHaveBeenCalledWith(env, 'site-1', {
+      name: 'book_appt',
+      arguments: { when: 'tue' },
+    });
+    expect(res.toolCalls[0].result).toMatchObject({ booked: 'tue-3pm' });
+    // the full TOOL_CALL slice is stripped from the spoken text
+    expect(res.text).toBe('Sure.');
+    expect(res.text).not.toContain('TOOL_CALL');
+  });
+
+  it('captures a deeply-nested args object without truncating at an inner brace', async () => {
+    mockExecuteTool.mockResolvedValue({ ok: true });
+    mockCallLLM.mockResolvedValue({
+      output:
+        'TOOL_CALL: {"name":"book_appt","args":{"slot":{"day":"tue","time":"3pm"},"party":2}}',
+      model_used: 'gpt-4o-mini',
+    });
+    const env = baseEnv();
+    const res = await runTurn(env, baseOpts());
+    expect(res.toolCalls).toHaveLength(1);
+    expect(res.toolCalls[0].args).toEqual({ slot: { day: 'tue', time: '3pm' }, party: 2 });
+    expect(mockExecuteTool).toHaveBeenCalledWith(env, 'site-1', {
+      name: 'book_appt',
+      arguments: { slot: { day: 'tue', time: '3pm' }, party: 2 },
+    });
+  });
+
+  it('ignores braces inside string values so a "}" in a value never closes early', async () => {
+    mockExecuteTool.mockResolvedValue({ ok: true });
+    mockCallLLM.mockResolvedValue({
+      output: 'TOOL_CALL: {"name":"book_appt","args":{"note":"use code {SAVE}"}}',
+      model_used: 'gpt-4o-mini',
+    });
+    const env = baseEnv();
+    const res = await runTurn(env, baseOpts());
+    expect(res.toolCalls).toHaveLength(1);
+    expect(res.toolCalls[0].args).toEqual({ note: 'use code {SAVE}' });
   });
 
   it('leaves text untouched when the TOOL_CALL JSON is malformed', async () => {

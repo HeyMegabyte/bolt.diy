@@ -214,10 +214,10 @@ export async function runTurn(env: Env, opts: RunTurnOpts): Promise<RunTurnResul
 
   // ── Tool-call dispatch (one round only — voice latency budget) ──
   const toolCalls: RunTurnResult['toolCalls'] = [];
-  const toolMatch = /TOOL_CALL:\s*(\{[\s\S]+?\})/m.exec(text);
+  const toolMatch = extractToolCall(text);
   if (toolMatch) {
     try {
-      const call = JSON.parse(toolMatch[1]) as { name: string; args?: Record<string, unknown> };
+      const call = JSON.parse(toolMatch.json) as { name: string; args?: Record<string, unknown> };
       const args = call.args ?? {};
       let result: unknown = null;
 
@@ -239,7 +239,7 @@ export async function runTurn(env: Env, opts: RunTurnOpts): Promise<RunTurnResul
       }
       toolCalls.push({ name: call.name, args, result });
       // Strip the TOOL_CALL: block from the spoken text so we don't read JSON aloud.
-      text = text.replace(toolMatch[0], '').trim();
+      text = text.replace(toolMatch.full, '').trim();
     } catch {
       /* malformed — leave text untouched */
     }
@@ -274,6 +274,59 @@ export async function runTurn(env: Env, opts: RunTurnOpts): Promise<RunTurnResul
     model_used: modelUsed,
     latency_ms: latency,
   };
+}
+
+// ─── TOOL_CALL extraction ────────────────────────────────────────
+
+/**
+ * Extract the first `TOOL_CALL: { … }` directive from LLM output.
+ *
+ * Uses a balanced-brace scan (string/escape aware) starting at the `{`
+ * that follows `TOOL_CALL:`, so a directive whose `args` object contains
+ * nested `{}` — e.g. `TOOL_CALL: {"name":"x","args":{"a":1}}` — is captured
+ * in full instead of being truncated at the first `}` (the bug a non-greedy
+ * `/\{[\s\S]+?\}/` regex caused, which silently dropped every args-bearing
+ * call). Braces inside JSON string literals are ignored so a `}` in a value
+ * never closes the object early.
+ *
+ * @returns `{ json, full }` — the matched JSON object text plus the full
+ *   `TOOL_CALL: …` slice to strip from spoken text — or `null` when no
+ *   directive or no balanced object is present.
+ */
+function extractToolCall(text: string): { json: string; full: string } | null {
+  const marker = /TOOL_CALL:\s*/m.exec(text);
+  if (!marker) return null;
+
+  const objStart = marker.index + marker[0].length;
+  if (text[objStart] !== '{') return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = objStart; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+    } else if (ch === '{') {
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        return {
+          json: text.slice(objStart, i + 1),
+          full: text.slice(marker.index, i + 1),
+        };
+      }
+    }
+  }
+  // Unbalanced — no matching close brace.
+  return null;
 }
 
 // ─── Signal detection ────────────────────────────────────────────
