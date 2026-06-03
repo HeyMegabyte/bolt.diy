@@ -215,7 +215,10 @@ export class AdminWebhooksComponent {
     this.loading.set(true);
     this.error.set(null);
     this.errorRetryable.set(false);
-    this.api.get<{ ok: boolean; endpoints: Endpoint[] }>(`/sites/${id}/webhooks`).subscribe({
+    // Silent: this component owns an accurate inline error (the gated vs
+    // transient/retryable banner below) — the generic ApiService toast would
+    // double-fire over it (the redundant-network-toast class).
+    this.api.get<{ ok: boolean; endpoints: Endpoint[] }>(`/sites/${id}/webhooks`, undefined, { silent: true }).subscribe({
       next: (res) => {
         this.endpoints.set(res.endpoints ?? []);
         this.loading.set(false);
@@ -232,8 +235,10 @@ export class AdminWebhooksComponent {
         this.loading.set(false);
       },
     });
-    // Delivery history (best-effort — empty until the dispatcher runs).
-    this.api.get<{ ok: boolean; deliveries: Delivery[] }>(`/sites/${id}/webhooks/deliveries`).subscribe({
+    // Delivery history (best-effort — empty until the dispatcher runs). Silent:
+    // a secondary best-effort read that intentionally empties on failure must
+    // not toast (the main load's inline error already signals connectivity).
+    this.api.get<{ ok: boolean; deliveries: Delivery[] }>(`/sites/${id}/webhooks/deliveries`, undefined, { silent: true }).subscribe({
       next: (res) => this.deliveries.set(res.deliveries ?? []),
       error: () => this.deliveries.set([]),
     });

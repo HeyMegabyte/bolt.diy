@@ -55,8 +55,8 @@ describe('AdminWebhooksComponent', () => {
 
   it('lists the site endpoints + recent deliveries', () => {
     build({ id: 's1' });
-    expect(get).toHaveBeenCalledWith('/sites/s1/webhooks');
-    expect(get).toHaveBeenCalledWith('/sites/s1/webhooks/deliveries');
+    expect(get).toHaveBeenCalledWith('/sites/s1/webhooks', undefined, { silent: true });
+    expect(get).toHaveBeenCalledWith('/sites/s1/webhooks/deliveries', undefined, { silent: true });
     expect(all('[data-testid="webhooks-row"]').length).toBe(1);
     expect(all('[data-testid="webhooks-delivery-row"]').length).toBe(1);
   });
@@ -117,7 +117,7 @@ describe('AdminWebhooksComponent', () => {
 
     siteSig.set({ id: 's9' });
     fx.detectChanges();
-    expect(g).toHaveBeenCalledWith('/sites/s9/webhooks');
+    expect(g).toHaveBeenCalledWith('/sites/s9/webhooks', undefined, { silent: true });
   });
 
   it('surfaces a not-available error', () => {
