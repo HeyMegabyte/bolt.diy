@@ -262,6 +262,15 @@ interface GhStatus {
               </div>
             }
           </div>
+        } @else if (snapshotsError()) {
+          <div class="empty-state" role="alert" data-testid="snapshots-load-error">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:#fca5a5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+            <h4>Couldn't load snapshots</h4>
+            <p>{{ snapshotsError() }}</p>
+            <button class="btn-create-snap" data-testid="snapshots-retry" (click)="retryLoadSnapshots()" [disabled]="loadingSnapshots()">
+              <span>Retry</span>
+            </button>
+          </div>
         } @else if (snapshots().length === 0) {
           <div class="empty-state">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -1261,6 +1270,8 @@ export class AdminSnapshotsComponent implements OnInit {
 
   snapshots = signal<Snapshot[]>([]);
   loadingSnapshots = signal(false);
+  /** Persistent snapshot-list load failure — so a fetch error shows a Retry card, not a fake "No snapshots yet". */
+  snapshotsError = signal<string | null>(null);
   newSnapshotName = '';
   newSnapshotDescription = '';
   creatingSnapshot = signal(false);
@@ -1573,17 +1584,30 @@ export class AdminSnapshotsComponent implements OnInit {
 
   private loadSnapshots(siteId: string): void {
     this.loadingSnapshots.set(true);
+    this.snapshotsError.set(null);
     this.api.get<{ data: Snapshot[] }>(`/sites/${siteId}/snapshots`).subscribe({
       next: (res) => {
         const list = res.data || [];
         this.snapshots.set(list);
+        this.snapshotsError.set(null);
         this.loadingSnapshots.set(false);
         // Fire-and-forget batch metrics fetch so quality chips appear on the
         // existing rows ASAP without blocking the snapshot list render.
         if (list.length > 0) this.loadMetricsBatch(siteId);
       },
-      error: () => { this.loadingSnapshots.set(false); },
+      // Silent error → empty list masqueraded as "No snapshots yet". Record it so the
+      // operator sees a retry, not a fake empty (and can't think their snapshots are gone).
+      error: () => {
+        this.snapshotsError.set('Could not load snapshots — your snapshots are safe, retry.');
+        this.loadingSnapshots.set(false);
+      },
     });
+  }
+
+  /** Public retry entry point for the snapshot-list error card. */
+  retryLoadSnapshots(): void {
+    const site = this.state.selectedSite();
+    if (site) this.loadSnapshots(site.id);
   }
 
   /**
