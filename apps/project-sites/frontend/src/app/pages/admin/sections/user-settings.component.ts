@@ -483,7 +483,7 @@ interface NotificationGroup {
         <div class="kicker text-red-300">Danger zone</div>
         <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-1">Delete account</h3>
         <p class="text-[0.74rem] text-text-secondary m-0 mb-3 max-w-prose leading-relaxed">
-          Archives all your sites, signs you out everywhere, and schedules your account for deletion. Recoverable for 30 days by emailing <a href="mailto:hey@megabyte.space" class="text-accent hover:underline">hey&#64;megabyte.space</a>, then permanently purged. Billing ends with the current period.
+          Archives all your sites, signs you out everywhere, and schedules your account for deletion. Recoverable for 30 days by emailing <a href="mailto:hey@megabyte.space" class="text-accent underline">hey&#64;megabyte.space</a>, then permanently purged. Billing ends with the current period.
         </p>
         <button class="btn-danger"
                 type="button"

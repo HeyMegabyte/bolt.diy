@@ -443,7 +443,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                   <button class="btn-ghost text-[0.72rem]" type="button" (click)="copyText(t.authCode)" [brnTooltip]="'Copy auth code'">Copy</button>
                 </div>
                 <p class="text-[0.75rem] text-text-secondary m-0">
-                  <a class="text-primary hover:underline" [href]="t.instructionsUrl" target="_blank" rel="noopener noreferrer">Read Cloudflare's transfer-out guide ↗</a>
+                  <a class="text-primary underline" [href]="t.instructionsUrl" target="_blank" rel="noopener noreferrer">Read Cloudflare's transfer-out guide ↗</a>
                 </p>
                 <div class="flex justify-end">
                   <button class="btn-primary" type="button" (click)="closeTransferModal()">Done</button>

@@ -324,7 +324,7 @@ const POLL_INTERVAL_MS = 10_000;
 
             <p class="text-[0.7rem] text-text-secondary mt-3 mb-0">
               Fallback reply email is controlled in
-              <a routerLink="/admin/settings" fragment="general" class="text-primary hover:underline">Settings → General</a>.
+              <a routerLink="/admin/settings" fragment="general" class="text-primary underline">Settings → General</a>.
             </p>
           </section>
 
