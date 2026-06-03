@@ -841,9 +841,19 @@ export class CalendarWidgetComponent implements OnInit {
     });
   }
   deleteEvent(): void {
-    if (!this.form.id) return;
+    const id = this.form.id;
+    if (!id) return;
+    // Destructive (no undo) — confirm via the action-armed toast pattern (the
+    // cockpit confirm used across admin) before the DELETE. Capture the id now
+    // so it stays stable if the form changes before the operator confirms.
+    this.toast.warning('Delete this event? This can’t be undone.', {
+      action: { label: 'Delete', run: () => this.performDeleteEvent(id) },
+      duration: 7000,
+    });
+  }
+  private performDeleteEvent(id: string): void {
     this.http
-      .delete(`/api/calendar/events/${this.form.id}`, { headers: this.headers() })
+      .delete(`/api/calendar/events/${id}`, { headers: this.headers() })
       .subscribe({
         next: () => {
           this.toast.success('Event deleted');
