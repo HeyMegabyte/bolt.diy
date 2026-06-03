@@ -95,6 +95,9 @@ Done only when ALL are verifiably true:
 
 ---
 
+## 4b. Dead-control reachability lesson (P0 — verify the error handler, not just the route)
+- **"Worker route missing" ≠ "scary dead button."** Before treating a frontend→missing-route call as a P0 dead control, READ its error handler + check button reachability: (a) silent handlers (`error: () => this.x.set(null)`) just leave a feature non-functional — no scary toast (e.g. social `fetchOg`); (b) gated buttons can be unreachable in the degraded state (sessions revoke is `@if(!s.current)` + `@if(length>1)`, and the GET falls back to ONE synthetic current row → neither renders). Both are lower-priority than a button that fires a misleading toast on click. The genuine P0 = a control that, on click, error-toasts against a 404 (e.g. social `import-rss` "Could not parse feed"). Fix order: wire-it > honest-message > graceful-disable. Reference: f050805d wired `import-rss` preview (`parseRssFeed` + SSRF route); corrected `dead-admin-mutation-actions` memory's false leads (og-preview/sessions). See [[dead-admin-mutation-actions]].
+
 ## 5. Dedup ledger (extend as new near-dups are spotted — "make 14 not pop up")
 - **backup_restore → DROP.** Snapshots (+ changeset_service + site_branches) already provide versioning/restore.
 - **fundraising_campaigns (#45)** → EXTEND `donations_engine`, don't fork a second payments path.
