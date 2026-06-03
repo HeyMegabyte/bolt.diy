@@ -29,6 +29,12 @@ const ROUTES = [
   // table/list-heavy; user-settings + deliverability are dense forms).
   '/admin/ai-logs', '/admin/ai-endpoints', '/admin/apps', '/admin/domains',
   '/admin/voice', '/admin/webhooks', '/admin/user', '/admin/deliverability',
+  // Completed to the full admin set — a fixed-width element can overflow @320px
+  // on any route, not only the dense ones. Mirrors the desktop scanned set.
+  '/admin/snapshots', '/admin/forms', '/admin/api-tokens', '/admin/settings',
+  '/admin/pseo', '/admin/docs', '/admin/features', '/admin/traces',
+  '/admin/inbox', '/admin/marketplace', '/admin/trust', '/admin/enterprise',
+  '/admin/logs', '/admin/bulk-ops', '/admin/review-links', '/admin/stripe-app-status',
 ];
 
 async function seed(page: Page): Promise<void> {

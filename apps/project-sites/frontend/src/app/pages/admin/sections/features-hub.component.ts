@@ -293,7 +293,9 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
     .hub-tab-count { background: color-mix(in oklch, currentColor 18%, transparent); padding: .05rem .45rem; border-radius: 999px; font-size: .72rem; font-family: var(--ps-mono, ui-monospace, monospace); }
     .hub-tab-active .hub-tab-count { background: color-mix(in oklch, currentColor 22%, transparent); }
 
-    .hub-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 1rem; }
+    /* min(420px,100%) so columns shrink to the viewport below 420px instead of
+       forcing a ≥420px track that overflows a 320px screen (WCAG 1.4.10 reflow). */
+    .hub-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(420px, 100%), 1fr)); gap: 1rem; }
     .hub-card { background: color-mix(in oklch, var(--ps-bg, #060610) 55%, transparent); border: 1px solid color-mix(in oklch, currentColor 14%, transparent); border-radius: 14px; padding: 1.1rem 1.15rem 1.2rem; display: flex; flex-direction: column; gap: .85rem; }
     .hub-card[data-flag-on="true"] { border-color: color-mix(in oklch, #4ade80 35%, transparent); }
     .hub-card-head { display: flex; align-items: start; justify-content: space-between; gap: .75rem; }
