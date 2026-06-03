@@ -24,6 +24,7 @@ import { TaskTrayComponent } from '../../components/task-tray/task-tray.componen
 import { EditorTabsComponent, type EditorTab } from '../../components/editor-tabs/editor-tabs.component';
 import { AdminMediaComponent } from './sections/media.component';
 import { AdminAiEndpointsComponent } from './sections/ai-endpoints.component';
+import { adminSectionLabel } from './admin-section-labels';
 
 interface Notification { id: string; title: string; time: string; kind: 'info' | 'warn' | 'ok'; read: boolean; ts?: number; href?: string; }
 
@@ -139,21 +140,7 @@ export class AdminComponent implements OnInit, OnDestroy {
       this.sidebarCollapsed.set(true);
     }
     const segment = url.split('?')[0].split('#')[0].split('/').pop() || '';
-    const labels: Record<string, string> = {
-      '': 'Editor', 'admin': 'Editor', 'editor': 'Editor', 'editor-native': 'Editor',
-      'snapshots': 'Snapshots', 'analytics': 'Analytics',
-      'forms': 'Forms', 'traces': 'AI Traces', 'ai-logs': 'AI Traces',
-      'ai-endpoints': 'AI Agents', 'domains': 'Domains', 'docs': 'Docs',
-      'user': 'User Settings', 'apps': 'Apps', 'instances': 'App Instances',
-      'billing': 'Billing', 'audit': 'Audit Log', 'settings': 'Settings',
-      'voice': 'Voice', 'media': 'Media',
-      'feature-flags': 'Feature Flags', 'features': 'Features', 'social': 'Social',
-      'pseo': 'pSEO', 'content-freshness': 'Content Freshness', 'logs': 'Logs',
-      'mcp': 'MCP', 'seo': 'SEO', 'inbox': 'Inbox', 'marketplace': 'Marketplace',
-      'import': 'Import', 'sites': 'Sites', 'welcome': 'Welcome', 'email': 'Email',
-      'swarm': 'Swarm', 'copilot': 'Copilot', 'dna': 'Site DNA', 'branches': 'Branches',
-    };
-    const section = labels[segment] || 'Editor';
+    const section = adminSectionLabel(segment);
     this.currentSection.set(section);
     // Per-route meta swap — only the title + description change; the shell
     // (sidebar + topbar) is never touched. Keeps each tab a distinct, share-
