@@ -18,9 +18,18 @@ import AxeBuilder from '@axe-core/playwright';
 
 const KEY = process.env.E2E_API_KEY ?? '';
 
+// Full admin route set @390px — mobile target-size (24px) / reflow violations
+// can affect simple routes too, not just the data-dense ones. Mirrors the
+// desktop scanned set (admin-a11y.e2e.ts); excludes accept-invite (no sidebar).
 const ROUTES = [
   '/admin/sites', '/admin/feature-flags', '/admin/analytics', '/admin/billing',
   '/admin/media', '/admin/audit', '/admin/social', '/admin/seo',
+  '/admin/snapshots', '/admin/forms', '/admin/api-tokens', '/admin/settings',
+  '/admin/voice', '/admin/domains', '/admin/content-freshness', '/admin/pseo',
+  '/admin/ai-endpoints', '/admin/docs', '/admin/features', '/admin/traces',
+  '/admin/apps', '/admin/inbox', '/admin/marketplace', '/admin/trust',
+  '/admin/enterprise', '/admin/user', '/admin/logs', '/admin/bulk-ops',
+  '/admin/deliverability', '/admin/webhooks', '/admin/review-links', '/admin/stripe-app-status',
 ];
 
 async function seed(page: Page): Promise<void> {
