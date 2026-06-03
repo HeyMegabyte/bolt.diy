@@ -25,6 +25,7 @@ import { RouterModule, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { ErrorCardComponent } from '../../../components/states';
 import { HlmInputDirective } from '../../../ui';
@@ -247,6 +248,7 @@ export class SiteMcpServerComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly http = inject(HttpClient);
   private readonly toast = inject(ToastService);
+  private readonly confirmSvc = inject(ConfirmService);
 
   readonly tokens = signal<McpToken[]>([]);
   readonly tools = signal<ToolDef[]>([]);
@@ -350,7 +352,14 @@ export class SiteMcpServerComponent implements OnInit {
     );
   }
 
-  revokeToken(tokenId: string): void {
+  async revokeToken(tokenId: string): Promise<void> {
+    const ok = await this.confirmSvc.confirm({
+      title: 'Revoke MCP token',
+      message: 'Revoke this MCP access token? Any MCP client or integration using it stops working immediately and cannot be restored — you would issue a new token.',
+      confirmLabel: 'Revoke',
+      danger: true,
+    });
+    if (!ok) return;
     this.revoking.set(tokenId);
     this.http
       .delete(`/api/sites/${this.siteId}/mcp/tokens/${tokenId}`)

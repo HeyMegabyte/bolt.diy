@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { SiteMcpServerComponent } from './site-mcp-server.component';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 
 /**
  * First coverage for the per-site MCP server (security-critical token CRUD — untested):
@@ -14,10 +15,11 @@ import { ToastService } from '../../../services/toast.service';
  *  - totalCallsToday sums only today's usage
  * overrideComponent strips the template so ngOnInit doesn't auto-fire; methods driven directly.
  */
-function make(over: { get?: jasmine.Spy; post?: jasmine.Spy; del?: jasmine.Spy } = {}): {
+function make(over: { get?: jasmine.Spy; post?: jasmine.Spy; del?: jasmine.Spy; confirmResult?: boolean } = {}): {
   c: SiteMcpServerComponent;
   http: { get: jasmine.Spy; post: jasmine.Spy; delete: jasmine.Spy };
   toast: { error: jasmine.Spy; success: jasmine.Spy };
+  confirmSpy: jasmine.Spy;
 } {
   const http = {
     get: over.get ?? jasmine.createSpy('get').and.returnValue(of({ tokens: [], tools: [], usage: [] })),
@@ -25,16 +27,18 @@ function make(over: { get?: jasmine.Spy; post?: jasmine.Spy; del?: jasmine.Spy }
     delete: over.del ?? jasmine.createSpy('delete').and.returnValue(of({})),
   };
   const toast = { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') };
+  const confirmSpy = jasmine.createSpy('confirm').and.resolveTo(over.confirmResult ?? true);
   TestBed.configureTestingModule({
     imports: [SiteMcpServerComponent],
     providers: [
       { provide: HttpClient, useValue: http },
       { provide: ToastService, useValue: toast },
+      { provide: ConfirmService, useValue: { confirm: confirmSpy } },
       { provide: ActivatedRoute, useValue: { snapshot: { params: { id: 's1' } }, parent: { snapshot: { params: { id: 's1' } } } } },
     ],
   });
   TestBed.overrideComponent(SiteMcpServerComponent, { set: { template: '<div></div>', imports: [] } });
-  return { c: TestBed.createComponent(SiteMcpServerComponent).componentInstance, http, toast };
+  return { c: TestBed.createComponent(SiteMcpServerComponent).componentInstance, http, toast, confirmSpy };
 }
 
 describe('SiteMcpServerComponent (MCP token CRUD + playground)', () => {
@@ -69,12 +73,22 @@ describe('SiteMcpServerComponent (MCP token CRUD + playground)', () => {
     expect(c.minting()).toBe(false);
   });
 
-  it('revokeToken optimistically removes the row and clears the in-flight marker', () => {
-    const c = make().c;
+  it('revokeToken (after confirm) optimistically removes the row and clears the in-flight marker', async () => {
+    const { c, confirmSpy } = make();
     c.tokens.set([{ id: 'keep' } as never, { id: 'gone' } as never]);
-    c.revokeToken('gone');
+    await c.revokeToken('gone');
+    expect(confirmSpy).toHaveBeenCalled(); // destructive token revoke is confirmed first
     expect(c.tokens().map((t) => t.id)).toEqual(['keep']);
     expect(c.revoking()).toBeNull();
+  });
+
+  it('revokeToken does NOT delete when the confirm is cancelled', async () => {
+    const { c, http, confirmSpy } = make({ confirmResult: false });
+    c.tokens.set([{ id: 'keep' } as never, { id: 'gone' } as never]);
+    await c.revokeToken('gone');
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(http.delete).not.toHaveBeenCalled();
+    expect(c.tokens().map((t) => t.id)).toEqual(['keep', 'gone']); // nothing removed
   });
 
   it('runPlayground rejects invalid JSON arguments before firing a request', () => {
