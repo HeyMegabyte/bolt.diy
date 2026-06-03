@@ -158,6 +158,15 @@ describe('isSafeWebhookUrl (SSRF guard)', () => {
     expect(isSafeWebhookUrl('https://[fd00::1]/x')).toBe(false);
   });
 
+  it('rejects IPv4-mapped IPv6 (SSRF bypass of the dotted-quad checks)', () => {
+    // [::ffff:127.0.0.1] normalizes to ::ffff:7f00:1 → would reach loopback;
+    // [::ffff:169.254.169.254] → cloud metadata. Both must be rejected.
+    expect(isSafeWebhookUrl('https://[::ffff:127.0.0.1]/x')).toBe(false);
+    expect(isSafeWebhookUrl('https://[::ffff:10.0.0.1]/x')).toBe(false);
+    expect(isSafeWebhookUrl('https://[::ffff:169.254.169.254]/latest/meta-data')).toBe(false);
+    expect(isSafeWebhookUrl('https://[::]/x')).toBe(false); // unspecified address
+  });
+
   it('rejects an invalid url', () => {
     expect(isSafeWebhookUrl('not a url')).toBe(false);
   });

@@ -158,6 +158,10 @@ export function isSafeWebhookUrl(url: string): boolean {
   if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return false;
   if (host === '::1' || host === '0:0:0:0:0:0:0:1') return false; // IPv6 loopback
   if (host.startsWith('fe80:') || host.startsWith('fc') || host.startsWith('fd')) return false; // link-local / ULA
+  // IPv4-mapped / IPv4-compatible IPv6 (e.g. [::ffff:127.0.0.1] → host '::ffff:7f00:1')
+  // sails past the dotted-quad isPrivateIPv4 check, so [::ffff:169.254.169.254] would
+  // reach cloud metadata. No legitimate public webhook target is one of these — reject.
+  if (host.startsWith('::ffff:') || host.startsWith('::')) return false;
   if (isPrivateIPv4(host)) return false;
 
   return true;
