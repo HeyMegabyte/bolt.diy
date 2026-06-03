@@ -3,6 +3,8 @@ import {
   applyApprovalAction,
   recordReviewDecision,
   getReviewLink,
+  createReviewLink,
+  DEFAULT_REVIEW_TTL_MS,
   type ApprovalLinkState,
 } from '../services/review_approval.js';
 import type { Env } from '../types/env.js';
@@ -133,5 +135,40 @@ describe('getReviewLink', () => {
 
   it('returns null when not found', async () => {
     expect(await getReviewLink(rowEnv(null), 'missing')).toBeNull();
+  });
+});
+
+describe('createReviewLink', () => {
+  const nowMs = Date.parse(NOW);
+
+  it('inserts an org+site-scoped token and returns the link (default 7d ttl, injected clock)', async () => {
+    const inserts: unknown[][] = [];
+    const env = mockEnv(null, 1, inserts);
+    const res = await createReviewLink(env, 'org-1', 'site-1', { nowMs });
+
+    const expectedExpiry = new Date(nowMs + DEFAULT_REVIEW_TTL_MS).toISOString();
+    expect(res.ok).toBe(true);
+    expect(res.expiresAt).toBe(expectedExpiry);
+    expect(res.url).toBe(`/review/${res.id}`);
+    // INSERT binds [id, site_id, agency_org_id, token_hash, expires_at] — org/site scoped.
+    expect(inserts[0]?.[1]).toBe('site-1');
+    expect(inserts[0]?.[2]).toBe('org-1');
+    expect(inserts[0]?.[4]).toBe(expectedExpiry);
+    expect(typeof inserts[0]?.[0]).toBe('string'); // id (bearer)
+    expect((inserts[0]?.[3] as string).length).toBe(64); // sha-256 hex token_hash
+  });
+
+  it('respects a custom ttlMs', async () => {
+    const res = await createReviewLink(mockEnv(null, 1), 'o', 's', { nowMs, ttlMs: 3_600_000 });
+    expect(res.expiresAt).toBe(new Date(nowMs + 3_600_000).toISOString());
+  });
+
+  it('returns ok:false with the error when the insert fails', async () => {
+    const env = {
+      DB: { prepare: () => ({ bind: () => ({ run: async () => { throw new Error('UNIQUE constraint'); } }) }) },
+    } as unknown as Env;
+    const res = await createReviewLink(env, 'o', 's', { nowMs });
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('UNIQUE');
   });
 });

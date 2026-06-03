@@ -86,6 +86,65 @@ export function applyApprovalAction(
   }
 }
 
+/** SHA-256 hex of a string (Web Crypto — available in Workers + the Jest runtime). */
+async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/** Default review-link lifetime: 7 days. */
+export const DEFAULT_REVIEW_TTL_MS = 7 * 86_400_000;
+
+export interface CreateReviewLinkResult {
+  ok: boolean;
+  /** Unguessable UUID — the public bearer credential in `/review/:id`. */
+  id?: string;
+  /** Relative reviewer URL (`/review/:id`). */
+  url?: string;
+  /** ISO-8601 UTC expiry. */
+  expiresAt?: string;
+  error?: string;
+}
+
+/**
+ * Create a shareable review link for a site — the REAL, owned replacement for
+ * the demo `createReviewLink` stub in services/features.ts (which used
+ * 'demo-site'/'demo-agency' defaults and swallowed insert errors with
+ * `.catch(() => {})`). The CALLER enforces auth + site ownership
+ * (`assertSiteOwned`) before calling; this persists the token row and returns
+ * the link. The id is the bearer credential (id-as-bearer MVP — token_hash
+ * verification is a follow-up). Clock + ttl are injected for testability.
+ *
+ * @param orgId - the owning org (stored as `agency_org_id`).
+ * @param siteId - the site the link previews.
+ * @param opts.ttlMs - link lifetime (default {@link DEFAULT_REVIEW_TTL_MS}).
+ * @param opts.nowMs - injected clock (default `Date.now()`).
+ *
+ * @example
+ * const link = await createReviewLink(env, orgId, siteId); // { ok, id, url: '/review/…', expiresAt }
+ */
+export async function createReviewLink(
+  env: Env,
+  orgId: string,
+  siteId: string,
+  opts: { ttlMs?: number; nowMs?: number } = {},
+): Promise<CreateReviewLinkResult> {
+  const ttlMs = opts.ttlMs ?? DEFAULT_REVIEW_TTL_MS;
+  const nowMs = opts.nowMs ?? Date.now();
+  const id = crypto.randomUUID();
+  const expiresAt = new Date(nowMs + ttlMs).toISOString();
+  const tokenHash = await sha256Hex(`${id}.${siteId}.${orgId}.${expiresAt}`);
+  const res = await dbExecute(
+    env.DB,
+    'INSERT INTO review_tokens (id, site_id, agency_org_id, token_hash, expires_at) VALUES (?, ?, ?, ?, ?)',
+    [id, siteId, orgId, tokenHash, expiresAt],
+  );
+  if (res.error) return { ok: false, error: res.error };
+  return { ok: true, id, url: `/review/${id}`, expiresAt };
+}
+
 export interface ReviewLinkRow {
   id: string;
   site_id: string;
