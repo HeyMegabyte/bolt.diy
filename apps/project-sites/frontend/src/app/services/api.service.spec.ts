@@ -105,4 +105,23 @@ describe('ApiService (auth header + 401 redirect + error mapping)', () => {
     expect(clear).withContext('silent suppresses the toast, not the auth/session handling').toHaveBeenCalled();
     expect(toastErr).not.toHaveBeenCalled();
   });
+
+  // The analytics reads own their own accurate inline error UX (a cred-aware
+  // "Connect Cloudflare" banner + an inline "couldn't reach the analytics
+  // service" message + Retry). The generic network-blame toast ("Can't reach
+  // the server. Check your connection.") firing ON TOP of that is a misleading,
+  // redundant double-signal — so these reads must be silent at the API layer.
+  it('getMultiUrlAnalytics is silent — no redundant network-blame toast (component owns error UX)', () => {
+    const failingGet = jasmine.createSpy('get').and.callFake(() => throwError(() => new HttpErrorResponse({ status: 0, statusText: 'Unknown Error' })));
+    const { api, toastErr } = make({ url: '/admin/analytics', get: failingGet });
+    api.getMultiUrlAnalytics('site-1', '7d', []).subscribe({ error: () => undefined, next: () => undefined });
+    expect(toastErr).withContext('analytics owns its inline error banner; the global toast must not double-fire').not.toHaveBeenCalled();
+  });
+
+  it('listSiteUrls is silent — a failed URL list never nags (the cred/empty state explains it inline)', () => {
+    const failingGet = jasmine.createSpy('get').and.callFake(() => throwError(() => new HttpErrorResponse({ status: 0, statusText: 'Unknown Error' })));
+    const { api, toastErr } = make({ url: '/admin/analytics', get: failingGet });
+    api.listSiteUrls('site-1').subscribe({ error: () => undefined, next: () => undefined });
+    expect(toastErr).not.toHaveBeenCalled();
+  });
 });

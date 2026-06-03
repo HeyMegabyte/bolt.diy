@@ -617,12 +617,17 @@ export class ApiService {
   ): Observable<{ data: MultiUrlAnalyticsEnvelope }> {
     const params: Record<string, string> = { range };
     if (excludeHostnames.length > 0) params['exclude'] = excludeHostnames.join(',');
-    return this.get(`/sites/${siteId}/analytics`, params);
+    // Silent: the analytics component owns an accurate inline error banner +
+    // a cred-aware "Connect Cloudflare" panel + Retry. The generic network-blame
+    // toast firing on top would be a misleading, redundant double-signal.
+    return this.get(`/sites/${siteId}/analytics`, params, { silent: true });
   }
 
   /** List the URLs (primary + alternates) bound to a site. */
   listSiteUrls(siteId: string): Observable<{ data: SiteUrlRow[] }> {
-    return this.get(`/sites/${siteId}/urls`);
+    // Silent: a failed URL list is explained inline by the analytics empty/cred
+    // state; no generic toast needed (the component catchErrors to an empty list).
+    return this.get(`/sites/${siteId}/urls`, undefined, { silent: true });
   }
 
   /** Bind an alternate URL to a site. Returns 409 on duplicate hostname. */
