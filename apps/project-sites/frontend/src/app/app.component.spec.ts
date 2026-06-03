@@ -62,12 +62,15 @@ describe('AppComponent (shell a11y + chrome contract)', () => {
     expect(firstAnchor).toBe(skip);
   });
 
-  it('exposes the single <main id="main-content" role="main"> landmark', () => {
+  it('exposes the single <main id="main-content" role="main" tabindex="-1"> landmark', () => {
     const mains = host.querySelectorAll('main');
     expect(mains.length).toBe(1);
     const main = mains[0];
     expect(main.id).toBe('main-content');
     expect(main.getAttribute('role')).toBe('main');
+    // tabindex=-1 so the skip-link can MOVE focus here (a <main> isn't natively
+    // focusable) — without it the skip link only scrolls, focus falls to body.
+    expect(main.getAttribute('tabindex')).toBe('-1');
   });
 
   it('treats homepage + admin/billing/editor as headerless (their own chrome)', () => {

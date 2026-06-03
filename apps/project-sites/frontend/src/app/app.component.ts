@@ -41,7 +41,10 @@ import { TelemetryService } from './services/telemetry.service';
     @if (showShortcuts()) {
       <app-shortcuts-overlay (closed)="showShortcuts.set(false)" />
     }
-    <main id="main-content" role="main" class="app" [class.no-pad]="!showHeader()">
+    <!-- tabindex="-1" lets the skip-link MOVE focus here (a <main> isn't natively
+         focusable) so the next Tab resumes inside the content, not from the top
+         — completes WCAG 2.4.1 Bypass Blocks. -->
+    <main id="main-content" role="main" tabindex="-1" class="app" [class.no-pad]="!showHeader()">
       <router-outlet />
     </main>
   `,
@@ -54,6 +57,9 @@ import { TelemetryService } from './services/telemetry.service';
     .app.no-pad {
       padding-top: 0;
     }
+    /* The skip-link target receives focus programmatically (never via Tab — it's
+       tabindex=-1), so the region outline would just be visual noise. */
+    #main-content:focus { outline: none; }
   `],
 })
 export class AppComponent implements OnInit, OnDestroy {
