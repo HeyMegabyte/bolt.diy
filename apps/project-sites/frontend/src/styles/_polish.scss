@@ -173,6 +173,11 @@
   --ps-accent-soft:  color-mix(in oklch, var(--ps-accent, #00E5FF) 14%, transparent);
   --ps-accent-line:  color-mix(in oklch, var(--ps-accent, #00E5FF) 28%, transparent);
   --ps-accent-secondary: #7C3AED;
+  // Positive/affirmative accent (approve, success). Mint-cyan so it reads as a
+  // sibling of the brand cyan, never an off-brand green. Cockpit re-maps this
+  // to --ck-success; this :root value is the global fallback for surfaces that
+  // aren't under [data-cockpit]. WCAG: ≥4.5:1 on #060610.
+  --ps-success: #4dffb5;
   // Elevation surfaces derived in OKLCH space so they remain hue-true
   // across dark + light themes. ink-mix percentages stay below 18% so
   // contrast against --ps-ink never flips.

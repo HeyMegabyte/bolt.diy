@@ -13,12 +13,16 @@
  *   - status `<span>` pill   → Spartan `hlmBadge` (variant-driven, cockpit-tinted)
  *   - filter `<button>` pills→ Spartan brain toggle-group (single-select segmented)
  *   - action `<button>`s     → Spartan `hlmBtn` (ghost size=sm; approve tinted
- *                              cyan-green `#4dffb5`, reject tinted `text-destructive`)
+ *                              the `--ps-success` token, reject `text-destructive`)
  *   - silent error swallow   → cockpit `ToastService` (approve/reject/scan now
  *                              surface success/error via the shared toast layer).
- * Every surface inherits the cockpit cyan/near-black tokens; the
- * `:host ::ng-deep` block only fine-tunes density to the cockpit's 13px/compact
- * rhythm — no color overrides needed (the preset handles those).
+ * Every surface inherits the cockpit cyan/near-black tokens; section CSS
+ * references `--ps-*` design tokens only — zero hard-coded brand hex.
+ *
+ * Convergence r14: added a `psReveal` header + a cyan/black aggregate stat
+ * strip (`<app-rolling-counter>` for awaiting / avg-idle / avg-dwell across the
+ * fetched page), tokenized the lone approve-button hex, and hardened a11y
+ * (status-region for live counts, descriptive scroll-region label).
  */
 
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
@@ -39,6 +43,7 @@ import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { ErrorCardComponent } from '../../../components/states';
+import { RevealOnScrollDirective } from '../../../animations/reveal-on-scroll.directive';
 
 interface FreshnessDraft {
   id: string;
@@ -68,6 +73,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
     FormsModule,
     RollingCounterComponent,
     ErrorCardComponent,
+    RevealOnScrollDirective,
     HlmButtonDirective,
     HlmBadgeDirective,
     ...BrnToggleGroupImports,
@@ -76,7 +82,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
     <div class="cf-page" data-testid="content-freshness-section">
 
       <!-- Header -->
-      <header class="cf-header">
+      <header class="cf-header" psReveal>
         <div>
           <span class="cf-eyebrow">Content Quality</span>
           <h1 class="cf-h1">Content Freshness</h1>
@@ -113,6 +119,27 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
           </button>
         </div>
       </header>
+
+      <!-- Aggregate stat strip — cyan/black cockpit cards; every figure rolls
+           via <app-rolling-counter>. aria-live so a screen reader hears the
+           page totals refresh after a filter change / scan. -->
+      @if (drafts().length > 0) {
+        <div class="cf-stats" psReveal role="status" aria-live="polite"
+             [attr.aria-label]="statTotal() + ' drafts shown, average ' + statAvgIdle() + ' idle days, average ' + statAvgDwell() + ' seconds dwell'">
+          <div class="cf-stat">
+            <span class="cf-stat-num"><app-rolling-counter [value]="statTotal()" /></span>
+            <span class="cf-stat-label">{{ statusFilter() }} shown</span>
+          </div>
+          <div class="cf-stat">
+            <span class="cf-stat-num"><app-rolling-counter [value]="statAvgIdle()" suffix="d" /></span>
+            <span class="cf-stat-label">avg idle</span>
+          </div>
+          <div class="cf-stat">
+            <span class="cf-stat-num"><app-rolling-counter [value]="statAvgDwell()" suffix="s" /></span>
+            <span class="cf-stat-label">avg dwell</span>
+          </div>
+        </div>
+      }
 
       <!-- Status filter — Spartan (brain) toggle-group, single-select segmented -->
       <div
@@ -181,7 +208,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
               <td class="cf-cell-date">{{ row.original.created_at | date:'MMM d' }}</td>
               <td class="cf-actions-col">
                 @if (row.original.status === 'pending') {
-                  <button hlmBtn variant="ghost" size="sm" type="button" class="text-[#4dffb5]"
+                  <button hlmBtn variant="ghost" size="sm" type="button" class="cf-approve"
                     [disabled]="acting().has(row.original.id)"
                     (click)="approve(row.original.id)"
                     [attr.aria-label]="'Approve rewrite for ' + row.original.section_key">
@@ -271,6 +298,33 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
       color: var(--ps-accent); font-weight: 700; font-size: .62rem;
       padding: .125rem .625rem; border-radius: 9999px; letter-spacing: .04em;
     }
+
+    /* Aggregate stat strip — cyan/black cockpit cards. Tabular figures roll in
+       via <app-rolling-counter>; a left cyan rail keys it to the brand accent. */
+    .cf-stats {
+      display: flex; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem;
+    }
+    .cf-stat {
+      flex: 1 1 7rem; min-width: 7rem;
+      display: flex; flex-direction: column; gap: .15rem;
+      padding: .55rem .75rem .55rem .9rem;
+      background: var(--ps-accent-soft, rgba(0,229,255,.08));
+      border: 1px solid var(--ps-accent-line, rgba(0,229,255,.22));
+      border-left: 2px solid var(--ps-accent, #00e5ff);
+      border-radius: 10px;
+    }
+    .cf-stat-num {
+      font-size: 1.15rem; font-weight: 700; line-height: 1;
+      font-variant-numeric: tabular-nums; color: var(--ps-accent, #00e5ff);
+    }
+    .cf-stat-label {
+      font-size: .6rem; text-transform: uppercase; letter-spacing: .07em;
+      color: rgba(244,244,255,.62);
+    }
+
+    /* Approve action — affirmative mint-cyan via the global --ps-success token
+       (cockpit re-maps it to --ck-success). No hard-coded hex in this section. */
+    .cf-approve { color: var(--ps-success, #4dffb5); }
 
     /* Spartan toggle-group status filter — dark+cyan-native segmented control
        (our own buttons; no ::ng-deep needed). Light ink on transparent; dark
@@ -409,6 +463,22 @@ export class AdminContentFreshnessComponent implements OnInit {
     if (this.statusFilter() === 'pending') return this.total();
     return 0; // fetched separately only when needed
   });
+
+  // ── Aggregate stat strip (computed over the fetched page) ─────────────────
+  /** Drafts shown for the active filter (server total, not just this page). */
+  readonly statTotal = computed(() => this.total());
+  /** Mean idle-days across the fetched page, rounded for the rolling counter. */
+  readonly statAvgIdle = computed(() => this.meanOf((d) => d.idle_days));
+  /** Mean avg-dwell-seconds across the fetched page, rounded. */
+  readonly statAvgDwell = computed(() => this.meanOf((d) => d.dwell_seconds_avg));
+
+  /** Rounded arithmetic mean of a numeric draft field over the fetched page. */
+  private meanOf(pick: (d: FreshnessDraft) => number): number {
+    const rows = this.drafts();
+    if (rows.length === 0) return 0;
+    const sum = rows.reduce((acc, d) => acc + (pick(d) || 0), 0);
+    return Math.round(sum / rows.length);
+  }
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
 
