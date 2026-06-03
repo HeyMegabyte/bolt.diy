@@ -61,6 +61,7 @@ describe('AdminRecipesComponent', () => {
     c.cfgPrimary.set('owner@example.com');
     c.cfgSecondary.set('New lead');
     c.enabledModel.set(true);
+    fixture.detectChanges(); // let the canSubmit()-gated button enable
     (q('[data-testid="recipes-create-btn"]') as HTMLButtonElement).click();
 
     expect(post).toHaveBeenCalledWith('/sites/s1/recipes', {
@@ -77,6 +78,7 @@ describe('AdminRecipesComponent', () => {
     c.nameModel.set('Notify on publish');
     c.triggerModel.set('site.published');
     c.actionModel.set('notify'); // message optional → empty config
+    fixture.detectChanges(); // let the canSubmit()-gated button enable
     (q('[data-testid="recipes-create-btn"]') as HTMLButtonElement).click();
 
     expect(post).toHaveBeenCalledWith('/sites/s1/recipes', {
@@ -117,5 +119,88 @@ describe('AdminRecipesComponent', () => {
     fixture.componentInstance.load();
     fixture.detectChanges();
     expect(q('[data-testid="recipes-error"]')).not.toBeNull();
+  });
+
+  // ── Action-typed config validation (security/reliability) ─────────────────
+  // The webhook action's URL is called server-side when the recipe fires
+  // (SSRF-adjacent); the send_email recipient is delivered to. Both must be
+  // validated client-side before the POST, with a useful toast — never a junk
+  // value silently saved into an automation that no-ops or calls the wrong host.
+  const toastErrSpy = (): jasmine.Spy => TestBed.inject(ToastService).error as jasmine.Spy;
+
+  it('blocks a webhook recipe whose URL is not https — toasts + no POST', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.nameModel.set('Ping my server');
+    c.actionModel.set('webhook');
+    c.cfgPrimary.set('http://hooks.example.com/x'); // non-https
+    c.create();
+    expect(post).not.toHaveBeenCalled();
+    expect(toastErrSpy()).toHaveBeenCalled();
+  });
+
+  it('blocks a webhook recipe whose URL is junk / internal host', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.nameModel.set('Ping');
+    c.actionModel.set('webhook');
+    c.cfgPrimary.set('https://localhost'); // no-dot internal host
+    c.create();
+    expect(post).not.toHaveBeenCalled();
+    expect(toastErrSpy()).toHaveBeenCalled();
+  });
+
+  it('blocks a send_email recipe whose recipient is not a valid email', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.nameModel.set('Email me');
+    c.actionModel.set('send_email');
+    c.cfgPrimary.set('notanemail');
+    c.create();
+    expect(post).not.toHaveBeenCalled();
+    expect(toastErrSpy()).toHaveBeenCalled();
+  });
+
+  it('accepts a webhook recipe with a valid https URL — POSTs once', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.nameModel.set('Ping my server');
+    c.actionModel.set('webhook');
+    c.cfgPrimary.set('https://hooks.yourapp.com/projectsites');
+    c.create();
+    expect(post).toHaveBeenCalledTimes(1);
+    const [, body] = post.calls.mostRecent().args as [string, { actions: { type: string; config: { url: string } }[] }];
+    expect(body.actions[0].type).toBe('webhook');
+    expect(body.actions[0].config.url).toBe('https://hooks.yourapp.com/projectsites');
+  });
+
+  it('configInvalid() reflects the selected action type (URL vs email)', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.actionModel.set('webhook');
+    c.cfgPrimary.set('http://x');
+    expect(c.configInvalid()).toBe(true);
+    c.cfgPrimary.set('https://hooks.app.com/x');
+    expect(c.configInvalid()).toBe(false);
+    c.actionModel.set('send_email');
+    c.cfgPrimary.set('bad');
+    expect(c.configInvalid()).toBe(true);
+    c.cfgPrimary.set('owner@example.com');
+    expect(c.configInvalid()).toBe(false);
+    c.cfgPrimary.set(''); // empty → incomplete, not "invalid"
+    expect(c.configInvalid()).toBe(false);
+  });
+
+  it('canSubmit() gates the button per action type', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.nameModel.set('R');
+    c.actionModel.set('webhook');
+    c.cfgPrimary.set('ftp://x');
+    expect(c.canSubmit()).toBe(false);
+    c.cfgPrimary.set('https://hooks.app.com/x');
+    expect(c.canSubmit()).toBe(true);
+    c.nameModel.set('   '); // no name → blocked even with valid URL
+    expect(c.canSubmit()).toBe(false);
   });
 });

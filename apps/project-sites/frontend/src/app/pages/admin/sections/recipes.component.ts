@@ -71,7 +71,19 @@ interface Recipe {
           <!-- Per-action config -->
           <label class="flex flex-col gap-1.5">
             <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">{{ primaryLabel() }}</span>
-            <input hlmInput data-testid="recipes-cfg-primary" [placeholder]="primaryPlaceholder()" [(ngModel)]="cfgPrimary" />
+            <input hlmInput data-testid="recipes-cfg-primary" [placeholder]="primaryPlaceholder()" [(ngModel)]="cfgPrimary"
+              [attr.type]="actionModel() === 'send_email' ? 'email' : actionModel() === 'webhook' ? 'url' : 'text'"
+              [attr.aria-invalid]="configInvalid()" [attr.aria-describedby]="configInvalid() ? 'recipes-cfg-hint' : null"
+              [class.ring-1]="configInvalid()" [class.ring-red-500/60]="configInvalid()" [class.border-red-500/50]="configInvalid()" />
+            @if (configInvalid()) {
+              <span id="recipes-cfg-hint" data-testid="recipes-cfg-hint" class="text-[0.7rem] text-red-300/90">
+                @if (actionModel() === 'webhook') {
+                  Must be a valid <code class="text-red-200">https://</code> URL with a public hostname.
+                } @else {
+                  Must be a valid email address.
+                }
+              </span>
+            }
           </label>
           @if (showSecondary()) {
             <label class="flex flex-col gap-1.5">
@@ -80,7 +92,7 @@ interface Recipe {
             </label>
           }
           <div class="flex items-center gap-3">
-            <button hlmBtn data-testid="recipes-create-btn" [disabled]="creating()" (click)="create()">
+            <button hlmBtn data-testid="recipes-create-btn" [disabled]="creating() || !canSubmit()" (click)="create()">
               {{ creating() ? 'Creating…' : 'Add recipe' }}
             </button>
             <label class="inline-flex items-center gap-2 cursor-pointer text-sm text-light">
@@ -159,6 +171,29 @@ export class AdminRecipesComponent {
   /** Only send_email has a secondary (subject) field today. */
   readonly showSecondary = computed(() => this.actionModel() === 'send_email');
 
+  /**
+   * True only when a non-empty primary value fails the SELECTED action's type
+   * check — webhook needs a valid https URL (it is called server-side when the
+   * recipe fires → SSRF-adjacent), send_email needs a valid recipient address.
+   * Drives the inline red hint + ring.
+   */
+  readonly configInvalid = computed(() => {
+    const v = this.cfgPrimary().trim();
+    if (v.length === 0) return false; // incomplete, not invalid
+    if (this.actionModel() === 'webhook') return !this.isValidHttpsUrl(v);
+    if (this.actionModel() === 'send_email') return !this.isValidEmail(v);
+    return false;
+  });
+  /** Gate for the Add-recipe button: name present + the action's typed config is valid. */
+  readonly canSubmit = computed(() => {
+    if (!this.nameModel().trim()) return false;
+    const v = this.cfgPrimary().trim();
+    if (this.actionModel() === 'webhook') return this.isValidHttpsUrl(v);
+    if (this.actionModel() === 'send_email') return this.isValidEmail(v);
+    if (this.primaryRequired()) return v.length > 0;
+    return true; // notify with an optional (possibly empty) message
+  });
+
   readonly recipes = signal<Recipe[]>([]);
   readonly loading = signal(false);
   readonly creating = signal(false);
@@ -179,6 +214,22 @@ export class AdminRecipesComponent {
 
   private siteId(): string | null {
     return this.site()?.id ?? null;
+  }
+
+  /** A webhook target is called server-side, so require https + a dotted public hostname. */
+  private isValidHttpsUrl(raw: string): boolean {
+    if (!raw) return false;
+    try {
+      const u = new URL(raw);
+      return u.protocol === 'https:' && u.hostname.includes('.') && !u.hostname.endsWith('.');
+    } catch {
+      return false;
+    }
+  }
+
+  /** Minimal RFC-pragmatic email shape — blocks junk before the automation silently no-ops server-side. */
+  private isValidEmail(raw: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw.trim());
   }
 
   /** Build the action's config payload from the inputs (mirrors the worker ACTION_CONFIG_SCHEMAS). */
@@ -219,8 +270,17 @@ export class AdminRecipesComponent {
       this.toast.error('Give the recipe a name.');
       return;
     }
-    if (this.primaryRequired() && !this.cfgPrimary().trim()) {
+    const primary = this.cfgPrimary().trim();
+    if (this.primaryRequired() && !primary) {
       this.toast.error(`${this.primaryLabel()} is required for "${this.actionModel()}".`);
+      return;
+    }
+    if (this.actionModel() === 'webhook' && !this.isValidHttpsUrl(primary)) {
+      this.toast.error('The webhook action needs a valid https:// URL with a public hostname.');
+      return;
+    }
+    if (this.actionModel() === 'send_email' && !this.isValidEmail(primary)) {
+      this.toast.error('Enter a valid recipient email for the send-email action.');
       return;
     }
     this.creating.set(true);
