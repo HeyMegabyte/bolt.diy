@@ -1,0 +1,101 @@
+import { TestBed } from '@angular/core/testing';
+import { of, throwError } from 'rxjs';
+import { Router } from '@angular/router';
+import { AppInstancesComponent } from './apps-instances.component';
+import { ApiService } from '../../../services/api.service';
+import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
+
+/**
+ * First coverage for the App Instances lifecycle list (untested). Security-relevant:
+ *  - deleteInstance is CONFIRM-GATED — no DELETE fires when the user cancels the confirm
+ *  - restart/stop POST to the right per-instance endpoint
+ *  - runAction guards against a double-fire (one action in flight at a time) and on
+ *    success toasts + reloads + clears the acting flag
+ *  - toggleMenu opens/closes one row popover at a time
+ * overrideComponent strips the template so ngOnInit's load + polling don't auto-fire.
+ */
+function make(over: { post?: jasmine.Spy; del?: jasmine.Spy; confirm?: () => Promise<boolean> } = {}): {
+  c: AppInstancesComponent;
+  api: { get: jasmine.Spy; post: jasmine.Spy; delete: jasmine.Spy };
+  toast: { success: jasmine.Spy; error: jasmine.Spy };
+} {
+  const api = {
+    get: jasmine.createSpy('get').and.returnValue(of({ instances: [] })),
+    post: over.post ?? jasmine.createSpy('post').and.returnValue(of({})),
+    delete: over.del ?? jasmine.createSpy('delete').and.returnValue(of({})),
+  };
+  const toast = { success: jasmine.createSpy('success'), error: jasmine.createSpy('error') };
+  TestBed.configureTestingModule({
+    imports: [AppInstancesComponent],
+    providers: [
+      { provide: ApiService, useValue: api },
+      { provide: ToastService, useValue: toast },
+      { provide: ConfirmService, useValue: { confirm: over.confirm ?? (() => Promise.resolve(true)) } },
+      { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+    ],
+  });
+  TestBed.overrideComponent(AppInstancesComponent, { set: { template: '<div></div>', imports: [] } });
+  return { c: TestBed.createComponent(AppInstancesComponent).componentInstance, api, toast };
+}
+
+const inst = (id = 'i1') => ({ id, app_id: 'medusa', hostname: 'x.projectsites.dev', status: 'running' } as never);
+
+describe('AppInstancesComponent (instance lifecycle)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('deleteInstance does NOT fire a DELETE when the confirm is cancelled', async () => {
+    const { c, api } = make({ confirm: () => Promise.resolve(false) });
+    await c.deleteInstance(inst());
+    expect(api.delete).not.toHaveBeenCalled();
+  });
+
+  it('deleteInstance fires a DELETE only after the confirm is accepted', async () => {
+    const { c, api, toast } = make({ confirm: () => Promise.resolve(true) });
+    await c.deleteInstance(inst('i9'));
+    expect(api.delete).toHaveBeenCalledWith('/apps/instances/i9');
+    expect(toast.success).toHaveBeenCalled();
+    expect(c.acting()).toBeNull();
+  });
+
+  it('restartInstance POSTs to the restart endpoint and reloads on success', () => {
+    const { c, api } = make();
+    c.restartInstance(inst('i3'));
+    expect(api.post).toHaveBeenCalledWith('/apps/instances/i3/restart', {});
+    expect(api.get).toHaveBeenCalled(); // reload after success
+    expect(c.acting()).toBeNull();
+  });
+
+  it('stopInstance POSTs to the stop endpoint', () => {
+    const { c, api } = make();
+    c.stopInstance(inst('i4'));
+    expect(api.post).toHaveBeenCalledWith('/apps/instances/i4/stop', {});
+  });
+
+  it('a second action is blocked while one is in flight (no double-run)', () => {
+    // runAction guards on acting(): with one already in flight, the observable is
+    // never subscribed → no success toast, no reload, acting unchanged.
+    const { c, api, toast } = make();
+    api.get.calls.reset();
+    c.acting.set('busy');
+    c.restartInstance(inst('i5'));
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(api.get).not.toHaveBeenCalled(); // no reload triggered
+    expect(c.acting()).toBe('busy'); // guard left it untouched
+  });
+
+  it('an action failure clears the acting flag (recoverable)', () => {
+    const { c } = make({ post: jasmine.createSpy('post').and.returnValue(throwError(() => ({ status: 500 }))) });
+    c.restartInstance(inst('i6'));
+    expect(c.acting()).toBeNull();
+  });
+
+  it('toggleMenu opens then closes the same row popover', () => {
+    const { c } = make();
+    const ev = { preventDefault() {}, stopPropagation() {} } as MouseEvent;
+    c.toggleMenu(inst('i7'), ev);
+    expect(c.menuOpenId()).toBe('i7');
+    c.toggleMenu(inst('i7'), ev);
+    expect(c.menuOpenId()).toBeNull();
+  });
+});
