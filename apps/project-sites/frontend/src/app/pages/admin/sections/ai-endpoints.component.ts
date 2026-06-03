@@ -487,6 +487,7 @@ interface InlineEdit {
                 [deployStatus]="d.deploy_status"
                 [bindings]="d.bindings"
                 [logs]="logs()"
+                [logsError]="logsError()"
                 [liveUrl]="overlayEndpoint() ? endpointUrl(overlayEndpoint()!) : null"
                 [testerResponse]="testerResponse()"
                 [method]="overlayEndpoint()?.method ?? 'POST'"
@@ -924,6 +925,8 @@ export class AdminAiEndpointsComponent implements OnInit {
   detail = signal<EndpointDetail | null>(null);
   detailDirty = signal(false);
   logs = signal<{ id: string; status: string; latency_ms: number; created_at: string }[]>([]);
+  /** Set when the per-endpoint logs fetch fails, so the IDE Logs panel shows an error instead of a fake "No invocations yet". */
+  logsError = signal<string | null>(null);
   testerResponse = signal<string | null>(null);
   /** True when the fullscreen IDE takeover is rendered. */
   overlayOpen = computed(() => this.openId() !== null);
@@ -1163,9 +1166,11 @@ export class AdminAiEndpointsComponent implements OnInit {
   loadLogs(e: EndpointRow): void {
     const s = this.state.selectedSite();
     if (!s) return;
+    this.logsError.set(null);
     this.api.get<{ data: { id: string; status: string; latency_ms: number; created_at: string }[] }>(`/sites/${s.id}/ai-endpoints/${e.id}/logs`).subscribe({
-      next: (r) => this.logs.set(r.data ?? []),
-      error: () => this.logs.set([]),
+      next: (r) => { this.logs.set(r.data ?? []); this.logsError.set(null); },
+      // Don't let a failed fetch read as "No invocations yet" — surface it in the panel.
+      error: () => { this.logs.set([]); this.logsError.set('Could not load recent invocations — retry.'); },
     });
   }
 

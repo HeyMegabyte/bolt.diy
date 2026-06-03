@@ -181,7 +181,9 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
                 }
                 @case ('logs') {
                   <p class="text-[0.7rem] text-text-secondary mb-2">Last 20 invocations.</p>
-                  @if (logs.length === 0) {
+                  @if (logsError) {
+                    <p class="text-[0.7rem] text-red-300" role="alert" data-testid="ide-logs-error">{{ logsError }}</p>
+                  } @else if (logs.length === 0) {
                     <p class="text-[0.7rem] text-text-secondary">No invocations yet.</p>
                   } @else {
                     <ul class="logs">
@@ -298,6 +300,8 @@ export class IdeComponent implements OnInit, AfterViewInit, OnDestroy {
   @Input() deployStatus: DeployStatus = 'idle';
   @Input() bindings: EndpointBinding[] = [];
   @Input() logs: { id: string; status: string; latency_ms: number; created_at: string }[] = [];
+  /** Set when the per-endpoint logs fetch fails — so the Logs panel shows an error, not a fake "No invocations yet". */
+  @Input() logsError: string | null = null;
   @Input() liveUrl: string | null = null;
   @Input() testerResponse: string | null = null;
   /**

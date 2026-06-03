@@ -56,4 +56,29 @@ describe('AdminAiEndpointsComponent (endpoint-list load-error gating)', () => {
     c.reload();
     expect(c.loadError()).toBeNull();
   });
+
+  // ── Per-endpoint logs load: a failed fetch must surface an error in the IDE
+  // Logs panel, not read as a fake "No invocations yet".
+  it('loadLogs success populates logs + leaves logsError null', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [{ id: 'l1', status: 'success', latency_ms: 12, created_at: 'now' }] })));
+    c.loadLogs({ id: 'e1' } as never);
+    expect(c.logs().length).toBe(1);
+    expect(c.logsError()).toBeNull();
+  });
+
+  it('loadLogs failure sets logsError + empties logs (no fake "No invocations yet")', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
+    c.loadLogs({ id: 'e1' } as never);
+    expect(c.logsError()).withContext('the failure is surfaced, not read as empty logs').not.toBeNull();
+    expect(c.logs().length).toBe(0);
+  });
+
+  it('a successful loadLogs after a failure clears the prior logsError', () => {
+    const get = jasmine.createSpy('get').and.returnValues(throwError(() => ({ status: 500 })), of({ data: [] }));
+    const c = make(get);
+    c.loadLogs({ id: 'e1' } as never);
+    expect(c.logsError()).not.toBeNull();
+    c.loadLogs({ id: 'e1' } as never);
+    expect(c.logsError()).toBeNull();
+  });
 });
