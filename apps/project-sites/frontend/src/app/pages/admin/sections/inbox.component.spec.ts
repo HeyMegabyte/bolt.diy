@@ -1,0 +1,64 @@
+import { TestBed } from '@angular/core/testing';
+import { of, throwError } from 'rxjs';
+import { AdminInboxComponent } from './inbox.component';
+import { ApiService } from '../../../services/api.service';
+import { FeatureFlagService } from '../../../services/feature-flag.service';
+
+/**
+ * Guards the Inbox conversations-load error gating: a non-404 load failure used
+ * to be SILENT (no toast) and fall through to the "No conversations" empty state
+ * (a fetch error masquerading as an empty inbox). Now it sets a persistent,
+ * retryable convError. 404 = flag-off (disabled banner, no error). The flag/poll
+ * wiring lives in ngOnInit, so createComponent (no detectChanges) lets us drive
+ * loadConversations() directly.
+ */
+function make(get: jasmine.Spy): AdminInboxComponent {
+  TestBed.configureTestingModule({
+    imports: [AdminInboxComponent],
+    providers: [
+      { provide: ApiService, useValue: { get, post: () => of({}), patch: () => of({}) } },
+      { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+    ],
+  });
+  TestBed.overrideComponent(AdminInboxComponent, { set: { template: '<div></div>', imports: [] } });
+  return TestBed.createComponent(AdminInboxComponent).componentInstance;
+}
+
+describe('AdminInboxComponent (conversations load error)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('success populates conversations and clears convError', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ conversations: [{ id: 'c1', status: 'open', unread_count: 0 }], hasMore: false })));
+    c.loadConversations();
+    expect(c.convError()).toBeNull();
+    expect(c.conversations().length).toBe(1);
+    expect(c.flagEnabled()).toBe(true);
+    expect(c.loading()).toBe(false);
+  });
+
+  it('a non-404 error sets a persistent convError (not a silent empty inbox)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
+    c.loadConversations();
+    expect(c.convError()).toContain("Couldn't load");
+    expect(c.loading()).toBe(false);
+  });
+
+  it('a 404 sets flag-disabled without a convError', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 404 }))));
+    c.loadConversations();
+    expect(c.flagEnabled()).toBe(false);
+    expect(c.convError()).toBeNull();
+  });
+
+  it('retry after an error clears the prior convError', () => {
+    const get = jasmine.createSpy('get').and.returnValues(
+      throwError(() => ({ status: 500 })),
+      of({ conversations: [], hasMore: false }),
+    );
+    const c = make(get);
+    c.loadConversations();
+    expect(c.convError()).not.toBeNull();
+    c.loadConversations();
+    expect(c.convError()).toBeNull();
+  });
+});

@@ -144,6 +144,11 @@ const STATUS_COLORS: Record<string, string> = {
                   </div>
                 }
               </div>
+            } @else if (convError()) {
+              <div class="inbox-empty" data-testid="inbox-conv-error" role="alert">
+                <p class="text-red-300">{{ convError() }}</p>
+                <button class="btn-ghost text-xs" data-testid="inbox-conv-retry" (click)="loadConversations()">Retry</button>
+              </div>
             } @else if (filteredConversations().length === 0) {
               <div class="inbox-empty">
                 <p>No {{ selectedStatus() }} conversations.</p>
@@ -383,6 +388,8 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
 
   conversations = signal<Conversation[]>([]);
   loading = signal(true);
+  /** Persistent non-404 conversations-load failure — so a fetch error shows a retry, not a fake "no conversations" empty state. */
+  convError = signal<string | null>(null);
   hasMore = signal(false);
   flagEnabled = signal(true); // assume on until 404 proves otherwise
   selectedId = signal<string | null>(null);
@@ -443,8 +450,9 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  private loadConversations(append = false): void {
+  loadConversations(append = false): void {
     this.loading.set(true);
+    this.convError.set(null);
     const params: Record<string, string> = { status: this.selectedStatus(), limit: '50' };
     if (this.selectedChannel) params['channel'] = this.selectedChannel;
 
@@ -455,10 +463,15 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
           this.conversations.set(append ? [...this.conversations(), ...res.conversations] : res.conversations);
           this.hasMore.set(res.hasMore);
           this.flagEnabled.set(true);
+          this.convError.set(null);
           this.loading.set(false);
         },
         error: (err) => {
+          // 404 = flag off (handled by the disabled banner). A non-404 error must
+          // NOT fall through to the "No conversations" empty state — surface a
+          // retryable in-panel error so a failed load never looks like an empty inbox.
           if (err.status === 404) this.flagEnabled.set(false);
+          else this.convError.set("Couldn't load conversations — retry.");
           this.loading.set(false);
         },
       });
