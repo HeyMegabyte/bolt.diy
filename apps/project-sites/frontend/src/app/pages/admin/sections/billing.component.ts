@@ -8,6 +8,7 @@ import { TelemetryService } from '../../../services/telemetry.service';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 interface Bundle { credits: number; usd: number; price_id: string; }
 interface CreditState { balance: number; bundles: Record<string, Bundle>; ledger: { delta: number; reason: string; stripe_session_id: string | null; created_at: string }[]; }
@@ -60,10 +61,10 @@ interface ForecastBar {
 @Component({
   selector: 'app-admin-billing',
   standalone: true,
-  imports: [FormsModule, DatePipe, CurrencyPipe, DecimalPipe, DialogShellComponent, RollingCounterComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
+  imports: [FormsModule, DatePipe, CurrencyPipe, DecimalPipe, DialogShellComponent, RollingCounterComponent, RevealDirective, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
-      <header>
+      <header appReveal>
         <div class="kicker">Plan &amp; usage</div>
         <h2 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-2">
           Billing
@@ -156,15 +157,15 @@ interface ForecastBar {
                 <div class="grid sm:grid-cols-3 gap-2 text-[0.78rem]">
                   <div class="rounded-lg border border-white/8 bg-black/20 px-3 py-2">
                     <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary">Sites</div>
-                    <div class="text-white font-bold" data-testid="entitlement-sites">{{ ent.sites }}</div>
+                    <div class="text-white font-bold" data-testid="entitlement-sites"><app-rolling-counter [value]="ent.sites" [duration]="800" /></div>
                   </div>
                   <div class="rounded-lg border border-white/8 bg-black/20 px-3 py-2">
                     <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary">Storage (GB)</div>
-                    <div class="text-white font-bold" data-testid="entitlement-storage_gb">{{ ent.storage_gb }}</div>
+                    <div class="text-white font-bold" data-testid="entitlement-storage_gb"><app-rolling-counter [value]="ent.storage_gb" [duration]="800" /></div>
                   </div>
                   <div class="rounded-lg border border-white/8 bg-black/20 px-3 py-2">
                     <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary">Seats</div>
-                    <div class="text-white font-bold" data-testid="entitlement-seats">{{ ent.seats }}</div>
+                    <div class="text-white font-bold" data-testid="entitlement-seats"><app-rolling-counter [value]="ent.seats" [duration]="800" /></div>
                   </div>
                 </div>
               </div>
@@ -264,7 +265,7 @@ interface ForecastBar {
               <div>
                 <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary font-bold">Balance</div>
                 <div class="text-3xl font-bold text-white tabular-nums" data-testid="wallet-balance">
-                  {{ walletBalance() | currency:'USD':'symbol':'1.2-2' }}
+                  <app-rolling-counter [value]="walletBalance()" prefix="$" [decimals]="2" [duration]="900" />
                 </div>
               </div>
               <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-cyan-300" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H5a2 2 0 0 0-2 2v2h20V5a2 2 0 0 0-2-2h-2"/><circle cx="16" cy="14" r="1"/></svg>
@@ -404,7 +405,7 @@ interface ForecastBar {
       }
 
       <!-- ─────────────────── PLAN TIERS ─────────────────── -->
-      <section class="card" id="plan">
+      <section class="card" id="plan" appReveal>
         <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
           <div>
             <h3 class="m-0 text-base font-semibold text-white">Plan</h3>
@@ -482,7 +483,7 @@ interface ForecastBar {
       <!-- id="caps" anchor so other admin surfaces can deep-link to this
            section via #caps. Bulk modal handles cross-site editing; inline
            rows handle single-site adjustments. -->
-      <section class="card" id="caps">
+      <section class="card" id="caps" appReveal [revealDelay]="60">
         <div class="flex items-start justify-between gap-3 mb-1 flex-wrap">
           <div>
             <h3 class="m-0 text-base font-semibold text-white">Per-project AI credit caps</h3>
@@ -549,7 +550,7 @@ interface ForecastBar {
       </section>
 
       <!-- ─────────────────── 30-DAY COST FORECAST (#95) ─────────────────── -->
-      <section class="card border border-violet-500/40" data-testid="forecast-card">
+      <section class="card border border-violet-500/40" data-testid="forecast-card" appReveal [revealDelay]="120">
         <div class="flex items-center justify-between mb-3">
           <div>
             <h3 class="m-0 text-base font-semibold text-white">30-day forecast</h3>
@@ -622,7 +623,7 @@ interface ForecastBar {
       </section>
 
       <!-- ─── 30-DAY ROLLING FORECAST v2 (Bundle B finish, 2026-05-24) ─── -->
-      <section class="card border border-cyan-500/40" data-testid="forecast-v2-card">
+      <section class="card border border-cyan-500/40" data-testid="forecast-v2-card" appReveal [revealDelay]="180">
         <div class="flex items-start justify-between mb-3 gap-3 flex-wrap">
           <div class="min-w-0">
             <h3 class="m-0 text-base font-semibold text-white flex items-center gap-2">
@@ -722,7 +723,7 @@ interface ForecastBar {
       </section>
 
       <!-- ─────────────────── AI CREDITS ─────────────────── -->
-      <section class="card border border-primary/30">
+      <section class="card border border-primary/30" appReveal [revealDelay]="240">
         <div class="flex items-center justify-between mb-3">
           <h3 class="m-0 text-base font-semibold text-white">AI Credits</h3>
           <span class="text-[0.7rem] text-text-secondary">1 credit ≈ 1 AI call</span>
@@ -731,7 +732,7 @@ interface ForecastBar {
           <div class="skeleton h-10 w-32 mb-1"></div>
           <div class="skeleton h-3 w-24 mb-4"></div>
         } @else {
-          <div class="text-4xl font-bold text-white mb-1">{{ formatCredits(credits()?.balance ?? 0) }}</div>
+          <div class="text-4xl font-bold text-white mb-1"><app-rolling-counter [value]="credits()?.balance ?? 0" [duration]="1100" /></div>
           <div class="text-[0.78rem] text-text-secondary mb-4">credits remaining</div>
         }
 
@@ -854,7 +855,7 @@ interface ForecastBar {
       </section>
 
       <!-- ─────────────────── PER-SITE COST BREAKDOWN ─────────────────── -->
-      <section class="card">
+      <section class="card" appReveal [revealDelay]="300">
         <h3 class="m-0 text-base font-semibold text-white mb-1">Per-site cost breakdown</h3>
         <p class="text-[0.7rem] text-text-secondary m-0 mb-3">Rolling 30-day window. AI credits convert to estimated USD at $0.04/credit.</p>
         @if (loadingCosts() && siteCosts().length === 0) {
@@ -911,7 +912,7 @@ interface ForecastBar {
       </section>
 
       <!-- ─────────────────── SPEND ALERTS ─────────────────── -->
-      <section class="card">
+      <section class="card" appReveal [revealDelay]="360">
         <div class="flex items-center justify-between mb-3">
           <h3 class="m-0 text-base font-semibold text-white">Spend alerts</h3>
           <button
@@ -1158,7 +1159,7 @@ interface ForecastBar {
       border-bottom-color: var(--ps-accent, #00E5FF);
       background: rgba(0,229,255,0.06);
     }
-    .billing-tab-btn:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 2px; }
+    .billing-tab-btn:focus-visible { outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: 2px; }
 
     /* ─────── Subscription status badge ─────── */
     .subscription-status-badge {
@@ -1275,13 +1276,13 @@ interface ForecastBar {
        invalid-state border tint for the spend-alert fields (they bind
        [attr.aria-invalid]); hlmInput's own border is overridden here. */
     [hlmInput][aria-invalid="true"] { border-color: oklch(0.78 0.18 25 / 0.75) !important; }
-    .btn-primary { padding: 0.5rem 1rem; border-radius: var(--ps-radius-sm, 8px); background: linear-gradient(135deg, #00ffc8, #00d4ff); color: var(--ps-bg, #060610); font-weight: 700; border: 1px solid color-mix(in oklch, #00d4ff 40%, transparent); cursor: pointer; font-size: 0.78rem; transition: transform 200ms ease, box-shadow 200ms ease; }
+    .btn-primary { padding: 0.5rem 1rem; border-radius: var(--ps-radius-sm, 8px); background: linear-gradient(135deg, var(--ps-accent, #00E5FF), color-mix(in oklch, var(--ps-accent, #00E5FF) 70%, #50AAE3)); color: var(--ps-bg, #060610); font-weight: 700; border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 40%, transparent); cursor: pointer; font-size: 0.78rem; transition: transform 200ms ease, box-shadow 200ms ease; }
     .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px -10px rgba(0,229,255,0.45); }
     .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
-    .btn-primary:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
+    .btn-primary:focus-visible { outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: var(--ps-ring-focus-offset, 2px); }
     .btn-ghost { padding: 0.45rem 0.95rem; border-radius: var(--ps-radius-sm, 8px); background: transparent; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 0.74rem; transition: transform 200ms ease, border-color 200ms ease; }
     .btn-ghost:hover { transform: translateY(-1px); border-color: color-mix(in oklch, var(--accent) 30%, transparent); }
-    .btn-ghost:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
+    .btn-ghost:focus-visible { outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: var(--ps-ring-focus-offset, 2px); }
     .tier-active { border-color: rgba(0,229,255,0.55); background: rgba(0,229,255,0.06); box-shadow: 0 0 0 3px rgba(0,229,255,0.08); }
 
     /* ─────── Plan-card-button (whole card clickable) ─────── */
@@ -1307,7 +1308,7 @@ interface ForecastBar {
       box-shadow: var(--ps-shadow-md, 0 6px 18px -8px rgba(0,0,0,0.42)), 0 12px 32px -16px rgba(0,229,255,0.35);
     }
     .plan-card-button:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: var(--ps-ring-focus-offset, 2px);
     }
     .plan-card-button:disabled { opacity: 0.7; cursor: progress; }
@@ -1327,8 +1328,8 @@ interface ForecastBar {
       margin-top: 0.85rem;
       padding: 0.45rem 0.75rem;
       border-radius: 8px;
-      background: linear-gradient(135deg, rgba(0,255,200,0.18), rgba(0,212,255,0.18));
-      color: #00E5FF;
+      background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(80,170,227,0.18));
+      color: var(--ps-accent, #00E5FF);
       border: 1px solid rgba(0,229,255,0.4);
       font-size: 0.74rem;
       font-weight: 700;
@@ -1376,7 +1377,7 @@ interface ForecastBar {
       box-shadow: 0 8px 24px -10px rgba(0,229,255,0.35);
     }
     .tier-card:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: var(--ps-ring-focus-offset, 2px);
     }
     .tier-card:disabled { opacity: 0.7; cursor: progress; }
@@ -1385,11 +1386,11 @@ interface ForecastBar {
     .custom-buy-btn {
       padding: 0.45rem 0.85rem;
       border-radius: 8px;
-      background: linear-gradient(135deg, #00ffc8, #00d4ff);
-      color: #060610;
+      background: linear-gradient(135deg, var(--ps-accent, #00E5FF), color-mix(in oklch, var(--ps-accent, #00E5FF) 70%, #50AAE3));
+      color: var(--ps-bg, #060610);
       font-weight: 700;
       font-size: 0.74rem;
-      border: 1px solid color-mix(in oklch, #00d4ff 40%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 40%, transparent);
       cursor: pointer;
       transition: transform 200ms ease, box-shadow 200ms ease, opacity 200ms ease;
       position: relative;
@@ -1399,7 +1400,7 @@ interface ForecastBar {
     .custom-buy-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px -10px rgba(0,229,255,0.45); }
     .custom-buy-btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .custom-buy-btn:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: var(--ps-ring-focus-offset, 2px);
     }
 
