@@ -272,6 +272,15 @@ interface BoltMediaAttachMessage {
                   <div class="med-card skel"></div>
                 }
               </div>
+            } @else if (libraryError() && assets().length === 0) {
+              <div class="med-empty" role="alert" data-testid="media-load-error">
+                <div class="med-empty__glyph" aria-hidden="true">⚠</div>
+                <h2 class="med-empty__title">Couldn't load your library</h2>
+                <p class="med-empty__body">{{ libraryError() }}</p>
+                <div class="med-empty__actions">
+                  <button type="button" class="btn-primary" data-testid="media-retry" (click)="refreshLibrary()" [disabled]="loadingLibrary()">Retry</button>
+                </div>
+              </div>
             } @else if (filteredAssets().length === 0) {
               <div class="med-empty" role="status">
                 <div class="med-empty__glyph" aria-hidden="true">✦</div>
@@ -1155,6 +1164,8 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
   // ─── Library state ────────────────────────────────────────────────────────
   readonly assets = signal<MediaAsset[]>([]);
   readonly loadingLibrary = signal(true);
+  /** Persistent library-load failure — so a fetch error shows a Retry card, not a fake "No media yet" empty state (which could prompt a re-upload of assets that are safe). */
+  readonly libraryError = signal<string | null>(null);
   readonly kindFilter = signal<'all' | MediaKind>('all');
   /** Raw input value — debounced into `searchTerm` via the effect below. */
   readonly searchInput = signal('');
@@ -1307,14 +1318,18 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.kindFilter() !== 'all') params['kind'] = this.kindFilter();
     if (this.searchTerm().trim()) params['q'] = this.searchTerm().trim();
 
+    this.libraryError.set(null);
     this.api.get<{ data: MediaAsset[] }>('/media/assets', params).subscribe({
       next: (r) => {
         this.assets.set(r.data ?? []);
+        this.libraryError.set(null);
         this.loadingLibrary.set(false);
         if (this.hasInFlightJobs()) this.startPolling();
         else this.stopPolling();
       },
+      // Silent error → empty grid masqueraded as "No media yet", risking a re-upload of safe assets. Record it.
       error: () => {
+        this.libraryError.set('Could not load your media library — your assets are safe, retry.');
         this.loadingLibrary.set(false);
       },
     });

@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AdminMediaComponent } from './media.component';
 import { ApiService } from '../../../services/api.service';
 import { BoltEmbedService } from '../../../services/bolt-embed.service';
@@ -49,7 +49,12 @@ describe('AdminMediaComponent (cyan/black cohesion + a11y)', () => {
     fixture.detectChanges();
   }
 
-  afterEach(() => TestBed.resetTestingModule());
+  afterEach(() => {
+    // The tab tests persist activeTab to localStorage; clear it so the default-tab
+    // assertion is order-independent (Karma runs in random order).
+    try { localStorage.clear(); } catch { /* private mode */ }
+    TestBed.resetTestingModule();
+  });
 
   it('renders the asset count through <app-rolling-counter> (numeric stat mandate)', () => {
     build();
@@ -107,5 +112,61 @@ describe('AdminMediaComponent (cyan/black cohesion + a11y)', () => {
     const active = el.querySelectorAll('[role="tab"].is-active');
     expect(active.length).toBe(1);
     expect(active[0].id).toBe('med-tab-stock');
+  });
+});
+
+/**
+ * Guards the media-library load-error gating: a failed `/media/assets` fetch used
+ * to be fully silent (error: () => loadingLibrary.set(false)) → the empty grid fell
+ * through to the "No media yet" empty state, risking a re-upload of assets that are
+ * safe. Now refreshLibrary() sets a persistent libraryError + Retry card; the empty
+ * state is suppressed while the error stands. overrideComponent strips the template
+ * so lifecycle hooks don't auto-fire; refreshLibrary() is driven directly.
+ */
+describe('AdminMediaComponent (library load-error gating)', () => {
+  function makeErroring(get: jasmine.Spy): AdminMediaComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminMediaComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0, dismiss: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
+      ],
+    });
+    TestBed.overrideComponent(AdminMediaComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminMediaComponent).componentInstance;
+  }
+
+  afterEach(() => {
+    // The tab tests persist activeTab to localStorage; clear it so the default-tab
+    // assertion is order-independent (Karma runs in random order).
+    try { localStorage.clear(); } catch { /* private mode */ }
+    TestBed.resetTestingModule();
+  });
+
+  it('success populates assets and leaves libraryError null', () => {
+    const c = makeErroring(jasmine.createSpy('get').and.returnValue(of({ data: [{ id: 'a1', status: 'ready' }] })));
+    c.refreshLibrary();
+    expect(c.libraryError()).toBeNull();
+    expect(c.assets().length).toBe(1);
+    expect(c.loadingLibrary()).toBe(false);
+  });
+
+  it('a load error sets a persistent libraryError (not a fake "No media yet")', () => {
+    const c = makeErroring(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
+    c.refreshLibrary();
+    expect(c.libraryError()).toContain('Could not load');
+    expect(c.assets().length).toBe(0);
+    expect(c.loadingLibrary()).toBe(false);
+  });
+
+  it('retry after an error clears the prior libraryError', () => {
+    const get = jasmine.createSpy('get').and.returnValues(throwError(() => ({ status: 500 })), of({ data: [] }));
+    const c = makeErroring(get);
+    c.refreshLibrary();
+    expect(c.libraryError()).not.toBeNull();
+    c.refreshLibrary();
+    expect(c.libraryError()).toBeNull();
   });
 });
