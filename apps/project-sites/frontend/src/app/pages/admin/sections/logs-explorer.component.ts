@@ -213,8 +213,25 @@ const LEVEL_COLORS: Record<string, string> = {
         </section>
       }
 
-      @if (rows().length === 0 && !searching() && searched()) {
-        <div class="empty-card">
+      <!-- Loading skeleton while searching with no prior rows (no blank gap). -->
+      @if (searching() && rows().length === 0) {
+        <div class="log-table" data-testid="logs-loading" aria-busy="true" aria-label="Searching logs">
+          @for (i of [1,2,3,4,5,6]; track i) {
+            <div class="log-row"><span class="log-skel"></span></div>
+          }
+        </div>
+      }
+
+      <!-- Persistent error (a failed fetch must NOT look like an empty result). -->
+      @if (searchError() && !searching()) {
+        <div class="empty-card" data-testid="logs-error" role="alert">
+          <p class="text-red-300 text-sm mb-2">{{ searchError() }}</p>
+          <button class="btn-ghost text-xs" data-testid="logs-retry" (click)="search()">Retry</button>
+        </div>
+      }
+
+      @if (rows().length === 0 && !searching() && searched() && !searchError()) {
+        <div class="empty-card" data-testid="logs-empty">
           <p class="text-text-secondary text-sm">No logs found matching your query.</p>
         </div>
       }
@@ -285,6 +302,17 @@ const LEVEL_COLORS: Record<string, string> = {
     }
     .log-row:hover { background: rgba(255,255,255,.03); }
     .log-error { background: rgba(255,80,80,.04); }
+    .log-skel {
+      display: block; height: 10px; width: 100%; border-radius: 5px;
+      background: linear-gradient(90deg,
+        color-mix(in oklch, var(--ps-accent, #00e5ff) 6%, transparent) 25%,
+        color-mix(in oklch, var(--ps-accent, #00e5ff) 16%, transparent) 50%,
+        color-mix(in oklch, var(--ps-accent, #00e5ff) 6%, transparent) 75%);
+      background-size: 200% 100%;
+      animation: log-shimmer 1.2s ease-in-out infinite;
+    }
+    @keyframes log-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    @media (prefers-reduced-motion: reduce) { .log-skel { animation: none; } }
     .col-ts, .col-level, .col-method, .col-route, .col-status, .col-dur { white-space: nowrap; }
     .cost-row { min-height: 28px; }
     .cost-bar-bg { background: rgba(255,255,255,.05); }
@@ -312,6 +340,8 @@ export class AdminLogsExplorerComponent implements OnInit {
   readonly nextCursor = signal<string | null>(null);
   readonly searching = signal(false);
   readonly searched = signal(false);
+  /** Persistent search-failure message (non-404). Distinguishes a fetch error from a genuine empty result. */
+  readonly searchError = signal<string | null>(null);
   readonly costRows = signal<CostRow[]>([]);
   readonly grandTotal = signal(0);
   readonly costLoading = signal(false);
@@ -347,6 +377,7 @@ export class AdminLogsExplorerComponent implements OnInit {
 
   search() {
     this.searching.set(true);
+    this.searchError.set(null);
     this.api.post<SearchResponse>('/logs/search', {
       query: this.queryInput,
       range: this.range(),
@@ -355,6 +386,7 @@ export class AdminLogsExplorerComponent implements OnInit {
       next: (res) => {
         this.rows.set(res.data.items);
         this.nextCursor.set(res.data.next_cursor);
+        this.searchError.set(null);
         this.searching.set(false);
         this.searched.set(true);
       },
@@ -365,6 +397,9 @@ export class AdminLogsExplorerComponent implements OnInit {
           // fire on every visit while the flag is off.)
           this.featureDisabled.set(true);
         } else {
+          // Persistent in-panel error (+ toast) so a failed fetch never
+          // masquerades as the "No logs found" empty state.
+          this.searchError.set("Couldn't load logs — check your query or retry.");
           this.toast.error('Failed to search logs');
         }
         this.searching.set(false);
