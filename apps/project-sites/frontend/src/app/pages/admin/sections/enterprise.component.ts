@@ -108,14 +108,14 @@ interface AuditExport {
 
       @if (loadError() && !loading()) {
         <div class="empty-card" data-testid="enterprise-load-error" role="alert">
-          <p class="text-red-300 text-sm mb-2">{{ loadError() }}</p>
+          <p class="err-text text-sm mb-2">{{ loadError() }}</p>
           <button class="btn-ghost text-xs" data-testid="enterprise-retry" (click)="refresh()">Retry</button>
         </div>
       }
 
       @if (!notFound() && !loadError()) {
         <!-- KPIs -->
-        <section class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-3" appReveal>
           <div class="kpi">
             <div class="kpi-label">Plan tier</div>
             <div class="kpi-value">{{ planLabel(planTier()) }}</div>
@@ -127,7 +127,7 @@ interface AuditExport {
             </div>
           </div>
           <div class="kpi">
-            <div class="kpi-label">SLA</div>
+            <div class="kpi-label">SLA target</div>
             <div class="kpi-value">
               <app-rolling-counter [value]="slaPct()" [decimals]="2" suffix="%" />
             </div>
@@ -135,14 +135,47 @@ interface AuditExport {
           <div class="kpi" [class.kpi-bad]="slaBreached()">
             <div class="kpi-label">Rolling uptime (90d)</div>
             <div class="kpi-value">
-              @if (sla()?.rolling_uptime_pct !== null && sla()?.rolling_uptime_pct !== undefined) {
-                <app-rolling-counter [value]="sla()!.rolling_uptime_pct!" [decimals]="2" suffix="%" />
+              @if (rollingUptime() !== null) {
+                <app-rolling-counter [value]="rollingUptime()!" [decimals]="2" suffix="%" />
               } @else {
                 <span class="text-text-secondary">—</span>
               }
             </div>
           </div>
         </section>
+
+        <!-- SLA headroom gauge — cyan when met, amber within margin, red when breached -->
+        @if (rollingUptime() !== null) {
+          <section
+            class="sla-gauge"
+            [class.is-breached]="slaBreached()"
+            [class.is-tight]="!slaBreached() && slaHeadroom() < 0.05"
+            appReveal
+            role="meter"
+            aria-label="Rolling 90-day uptime against the contract SLA target"
+            [attr.aria-valuenow]="rollingUptime()"
+            [attr.aria-valuemin]="slaFloor()"
+            aria-valuemax="100"
+            [attr.aria-valuetext]="gaugeAriaText()"
+          >
+            <div class="sla-gauge__head">
+              <span class="sla-gauge__title">Uptime vs SLA</span>
+              <span class="sla-gauge__verdict">
+                {{ slaBreached() ? 'SLA breached' : 'Within SLA' }} ·
+                {{ slaHeadroom() >= 0 ? '+' : '' }}{{ slaHeadroom().toFixed(2) }}% headroom
+              </span>
+            </div>
+            <div class="sla-gauge__track" aria-hidden="true">
+              <div class="sla-gauge__fill" [style.width.%]="gaugeFillPct()"></div>
+              <div class="sla-gauge__marker" [style.left.%]="gaugeMarkerPct()"></div>
+            </div>
+            <div class="sla-gauge__scale" aria-hidden="true">
+              <span>{{ slaFloor().toFixed(1) }}%</span>
+              <span class="sla-gauge__marker-label">SLA {{ slaPct().toFixed(2) }}%</span>
+              <span>100%</span>
+            </div>
+          </section>
+        }
 
         <!-- Contract editor -->
         <section class="card" appReveal>
@@ -263,11 +296,11 @@ interface AuditExport {
           </button>
 
           @if (exports().length > 0) {
-            <ul class="export-list mt-4">
+            <ul class="export-list mt-4" aria-label="Recent audit-log exports">
               @for (e of exports(); track e.id) {
                 <li>
                   <span class="font-mono text-[0.7rem]">{{ e.range_start }} → {{ e.range_end }}</span>
-                  <span class="status status-{{ e.status }}">{{ e.status }}</span>
+                  <span class="status status-{{ e.status }}" [attr.aria-label]="'Status: ' + e.status">{{ e.status }}</span>
                   <span class="text-text-secondary text-[0.7rem]">{{ e.created_at | date:'short' }}</span>
                 </li>
               }
@@ -279,24 +312,51 @@ interface AuditExport {
   `,
   styles: [
     `
-      .card { background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.06); border-radius: 14px; padding: 16px 18px; }
+      :host {
+        /* Section-local semantic tokens derived from the cyan/black brand palette.
+           --ent-warn / --ent-danger keep amber+red status semantics WCAG-AA legible
+           on the dark canvas without hardcoding raw hex. */
+        --ent-warn: #ffc24d;
+        --ent-danger: #ff8585;
+      }
+      .card { background: var(--ps-elev-1, rgba(255,255,255,.02)); border: 1px solid var(--ps-hairline, rgba(255,255,255,.06)); border-radius: 14px; padding: 16px 18px; }
       .card-h { font-size: 0.92rem; color: var(--ps-ink, #f4f4ff); margin: 0 0 10px; font-weight: 600; }
-      .hint { font-size: 0.72rem; color: rgba(244,244,255,.55); margin: 10px 0 0; }
+      .hint { font-size: 0.72rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); margin: 10px 0 0; }
+      .err-text { color: var(--ent-danger); }
       .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      label { display: block; font-size: 0.72rem; color: rgba(244,244,255,.7); }
+      label { display: block; font-size: 0.72rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 70%, transparent); }
       /* .input/.select/.textarea removed — all controls now Spartan hlmInput/hlmSelect. */
-      .kpi { background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.06); border-radius: 12px; padding: 14px 16px; }
-      .kpi-label { font-size: 0.7rem; color: rgba(244,244,255,.55); }
+      .kpi { background: var(--ps-elev-1, rgba(255,255,255,.02)); border: 1px solid var(--ps-hairline, rgba(255,255,255,.06)); border-radius: 12px; padding: 14px 16px; }
+      .kpi-label { font-size: 0.7rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
       .kpi-value { font-size: 1.15rem; color: var(--ps-ink, #f4f4ff); font-weight: 600; margin-top: 4px; }
-      .kpi-bad { border-color: rgba(255,80,80,.4); }
-      .empty-card { background: rgba(255,255,255,.02); border: 1px dashed rgba(255,255,255,.08); border-radius: 12px; padding: 16px 18px; }
+      .kpi-bad { border-color: color-mix(in oklch, var(--ent-danger) 45%, transparent); }
+      .empty-card { background: var(--ps-elev-1, rgba(255,255,255,.02)); border: 1px dashed var(--ps-hairline-hi, rgba(255,255,255,.08)); border-radius: 12px; padding: 16px 18px; }
       .export-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
-      .export-list li { display: flex; gap: 12px; align-items: center; padding: 6px 0; border-top: 1px solid rgba(255,255,255,.04); }
+      .export-list li { display: flex; gap: 12px; align-items: center; padding: 6px 0; border-top: 1px solid var(--ps-hairline, rgba(255,255,255,.04)); }
       .status { font-size: 0.68rem; padding: 2px 8px; border-radius: 999px; }
-      .status-pending { background: rgba(255,200,0,.12); color: #ffc800; }
-      .status-ready   { background: rgba(0,229,255,.12); color: var(--ps-accent, #00e5ff); }
-      .status-failed  { background: rgba(255,80,80,.12); color: #f87171; }
-      .status-expired { background: rgba(255,255,255,.06); color: rgba(244,244,255,.5); }
+      .status-pending { background: color-mix(in oklch, var(--ent-warn) 14%, transparent); color: var(--ent-warn); }
+      .status-ready   { background: var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent, #00e5ff) 14%, transparent)); color: var(--ps-accent, #00e5ff); }
+      .status-failed  { background: color-mix(in oklch, var(--ent-danger) 14%, transparent); color: var(--ent-danger); }
+      .status-expired { background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 6%, transparent); color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 50%, transparent); }
+
+      /* SLA headroom gauge — the cyan UX win. A linear track with the accent fill
+         showing rolling uptime, plus a marker at the SLA target line. */
+      .sla-gauge { background: var(--ps-elev-1, rgba(255,255,255,.02)); border: 1px solid var(--ps-accent-line, color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent)); border-radius: 14px; padding: 16px 18px; }
+      .sla-gauge.is-tight { border-color: color-mix(in oklch, var(--ent-warn) 40%, transparent); }
+      .sla-gauge.is-breached { border-color: color-mix(in oklch, var(--ent-danger) 45%, transparent); }
+      .sla-gauge__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+      .sla-gauge__title { font-size: 0.82rem; font-weight: 600; color: var(--ps-ink, #f4f4ff); }
+      .sla-gauge__verdict { font-size: 0.72rem; font-variant-numeric: tabular-nums; color: var(--ps-accent, #00e5ff); }
+      .is-tight .sla-gauge__verdict { color: var(--ent-warn); }
+      .is-breached .sla-gauge__verdict { color: var(--ent-danger); }
+      .sla-gauge__track { position: relative; height: 10px; border-radius: 999px; background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 8%, transparent); overflow: visible; }
+      .sla-gauge__fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, color-mix(in oklch, var(--ps-accent, #00e5ff) 55%, transparent), var(--ps-accent, #00e5ff)); transition: width .6s cubic-bezier(.22,1,.36,1); }
+      .is-tight .sla-gauge__fill { background: linear-gradient(90deg, color-mix(in oklch, var(--ent-warn) 55%, transparent), var(--ent-warn)); }
+      .is-breached .sla-gauge__fill { background: linear-gradient(90deg, color-mix(in oklch, var(--ent-danger) 55%, transparent), var(--ent-danger)); }
+      .sla-gauge__marker { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ps-ink, #f4f4ff); border-radius: 2px; box-shadow: 0 0 0 1px color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent); }
+      .sla-gauge__scale { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 0.66rem; font-variant-numeric: tabular-nums; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
+      .sla-gauge__marker-label { color: var(--ps-accent, #00e5ff); }
+      @media (prefers-reduced-motion: reduce) { .sla-gauge__fill { transition: none; } }
     `,
   ],
 })
@@ -337,6 +397,51 @@ export class AdminEnterpriseComponent {
   readonly annualValueDollars = (): number =>
     Math.round(this.annualValueCents() / 100);
   readonly slaBreached = (): boolean => this.sla()?.breached === true;
+
+  /** Rolling 90-day uptime %, or null when no SLA snapshot has loaded yet. */
+  readonly rollingUptime = (): number | null => {
+    const v = this.sla()?.rolling_uptime_pct;
+    return v === null || v === undefined ? null : v;
+  };
+
+  /** Headroom = measured uptime minus the contract SLA target (negative = breach). */
+  readonly slaHeadroom = (): number => {
+    const up = this.rollingUptime();
+    return up === null ? 0 : up - this.slaPct();
+  };
+
+  /**
+   * Gauge floor — the left edge of the track. We zoom into the high-uptime band
+   * (SLA targets sit at 99-99.99%) so a 0.1% swing is visually legible: the
+   * floor is the lower of the SLA target and the measured uptime, minus a 1%
+   * margin, clamped to [90, 99.9].
+   */
+  readonly slaFloor = (): number => {
+    const up = this.rollingUptime();
+    const lowest = up === null ? this.slaPct() : Math.min(this.slaPct(), up);
+    return Math.min(99.9, Math.max(90, lowest - 1));
+  };
+
+  private gaugePct(value: number): number {
+    const floor = this.slaFloor();
+    const span = 100 - floor;
+    if (span <= 0) return 100;
+    return Math.max(0, Math.min(100, ((value - floor) / span) * 100));
+  }
+
+  readonly gaugeFillPct = (): number => {
+    const up = this.rollingUptime();
+    return up === null ? 0 : this.gaugePct(up);
+  };
+
+  readonly gaugeMarkerPct = (): number => this.gaugePct(this.slaPct());
+
+  readonly gaugeAriaText = (): string => {
+    const up = this.rollingUptime();
+    if (up === null) return 'No uptime data yet';
+    const verb = this.slaBreached() ? 'below' : 'meeting';
+    return `${up.toFixed(2)}% rolling uptime, ${verb} the ${this.slaPct().toFixed(2)}% SLA target`;
+  };
 
   constructor() {
     // Gate the org-scoped fetch on the actual flag (toast-safe public probe),

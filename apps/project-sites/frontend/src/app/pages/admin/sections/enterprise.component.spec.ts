@@ -65,3 +65,51 @@ describe('AdminEnterpriseComponent (contract load-error gating)', () => {
     expect(c.loadError()).toBeNull();
   });
 });
+
+describe('AdminEnterpriseComponent (SLA headroom gauge)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function gaugeComponent(): AdminEnterpriseComponent {
+    return make(jasmine.createSpy('cg').and.returnValue(of({ data: null }))).c;
+  }
+
+  it('rollingUptime is null until an SLA snapshot loads', () => {
+    const c = gaugeComponent();
+    expect(c.rollingUptime()).toBeNull();
+    expect(c.gaugeFillPct()).toBe(0);
+    expect(c.gaugeAriaText()).toContain('No uptime data');
+    expect(c.slaHeadroom()).toBe(0);
+  });
+
+  it('positive headroom keeps the marker left of the fill (within SLA)', () => {
+    const c = gaugeComponent();
+    c.slaPct.set(99.9);
+    c.sla.set({ contract_sla_pct: 99.9, rolling_uptime_pct: 99.98, breached: false, snapshots: [] });
+    expect(c.slaHeadroom()).toBeCloseTo(0.08, 2);
+    expect(c.slaBreached()).toBe(false);
+    expect(c.gaugeFillPct()).toBeGreaterThan(c.gaugeMarkerPct());
+    expect(c.gaugeAriaText()).toContain('meeting');
+  });
+
+  it('a breach pushes the fill below the SLA marker + flags breached', () => {
+    const c = gaugeComponent();
+    c.slaPct.set(99.9);
+    c.sla.set({ contract_sla_pct: 99.9, rolling_uptime_pct: 99.4, breached: true, snapshots: [] });
+    expect(c.slaHeadroom()).toBeLessThan(0);
+    expect(c.slaBreached()).toBe(true);
+    expect(c.gaugeFillPct()).toBeLessThan(c.gaugeMarkerPct());
+    expect(c.gaugeAriaText()).toContain('below');
+  });
+
+  it('gauge floor zooms into the high-uptime band and clamps to [90, 99.9]', () => {
+    const c = gaugeComponent();
+    c.slaPct.set(99.99);
+    c.sla.set({ contract_sla_pct: 99.99, rolling_uptime_pct: 99.99, breached: false, snapshots: [] });
+    expect(c.slaFloor()).toBeLessThanOrEqual(99.9);
+    expect(c.slaFloor()).toBeGreaterThanOrEqual(90);
+    expect(c.gaugeFillPct()).toBeGreaterThanOrEqual(0);
+    expect(c.gaugeFillPct()).toBeLessThanOrEqual(100);
+    expect(c.gaugeMarkerPct()).toBeGreaterThanOrEqual(0);
+    expect(c.gaugeMarkerPct()).toBeLessThanOrEqual(100);
+  });
+});
