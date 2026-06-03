@@ -190,3 +190,79 @@ describe('AdminSocialComponent (RSS copy links)', () => {
     expect(fixture.componentInstance.rssItems().length).toBe(0); // cleared after import
   });
 });
+
+/**
+ * Guards RSS feed-URL validation. The feed URL is fetched server-side
+ * (SSRF-adjacent), so a non-https / junk / internal-host value must be rejected
+ * client-side with a useful toast and NEVER reach /social/import-rss — both on
+ * preview and on import.
+ */
+describe('AdminSocialComponent (RSS URL validation)', () => {
+  let fixture: ComponentFixture<AdminSocialComponent>;
+  let post: jasmine.Spy;
+  let error: jasmine.Spy;
+
+  function build(): void {
+    post = jasmine.createSpy('post').and.returnValue(of({ items: [], ok: true, created: 0 }));
+    error = jasmine.createSpy('error');
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, delete: () => of({}) } },
+        { provide: ToastService, useValue: { error, success: jasmine.createSpy('success'), warning: jasmine.createSpy('warning') } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigateByUrl: jasmine.createSpy('navigateByUrl') } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    fixture = TestBed.createComponent(AdminSocialComponent);
+    fixture.detectChanges();
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('rssPreview rejects a non-https feed URL — toasts + no POST', () => {
+    build();
+    fixture.componentInstance.rssUrl = 'http://evil.example.com/feed.xml';
+    fixture.componentInstance.rssPreview();
+    expect(post).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalled();
+  });
+
+  it('rssPreview rejects a junk / internal-host URL', () => {
+    build();
+    fixture.componentInstance.rssUrl = 'https://localhost';
+    fixture.componentInstance.rssPreview();
+    expect(post).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalled();
+  });
+
+  it('rssPreview accepts a valid https feed URL — POSTs a preview request', () => {
+    build();
+    fixture.componentInstance.rssUrl = 'https://example.com/feed.xml';
+    fixture.componentInstance.rssPreview();
+    expect(post).toHaveBeenCalledWith('/social/import-rss', { url: 'https://example.com/feed.xml', preview: true });
+  });
+
+  it('importRssDrafts rejects a bad URL even with previewed items', () => {
+    build();
+    fixture.componentInstance.rssUrl = 'notaurl';
+    fixture.componentInstance.rssItems.set([{ title: 'A', url: 'https://x.com/a' }]);
+    fixture.componentInstance.importRssDrafts();
+    expect(post).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalled();
+  });
+
+  it('rssUrlValid() / rssUrlInvalid() reflect the typed value', () => {
+    build();
+    const c = fixture.componentInstance;
+    c.rssUrl = '';
+    expect(c.rssUrlValid()).toBe(false);
+    expect(c.rssUrlInvalid()).toBe(false); // empty → incomplete, not invalid
+    c.rssUrl = 'http://x';
+    expect(c.rssUrlValid()).toBe(false);
+    expect(c.rssUrlInvalid()).toBe(true);
+    c.rssUrl = 'https://example.com/feed.xml';
+    expect(c.rssUrlValid()).toBe(true);
+    expect(c.rssUrlInvalid()).toBe(false);
+  });
+});

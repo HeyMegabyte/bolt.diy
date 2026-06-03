@@ -579,8 +579,12 @@ const PLATFORMS: readonly PlatformDef[] = [
             <details>
               <summary>Bulk import from RSS</summary>
               <div class="rss-body">
-                <input hlmInput class="flex-1" type="url" [(ngModel)]="rssUrl" placeholder="https://example.com/feed.xml" aria-label="RSS feed URL" />
-                <button type="button" class="btn-ghost" (click)="rssPreview()" [disabled]="!rssUrl">Preview</button>
+                <input hlmInput class="flex-1" type="url" [(ngModel)]="rssUrl" placeholder="https://example.com/feed.xml" aria-label="RSS feed URL"
+                  [attr.aria-invalid]="rssUrlInvalid()" [attr.aria-describedby]="rssUrlInvalid() ? 'rss-url-hint' : null" />
+                <button type="button" class="btn-ghost" (click)="rssPreview()" [disabled]="!rssUrlValid()">Preview</button>
+                @if (rssUrlInvalid()) {
+                  <span id="rss-url-hint" data-testid="rss-url-hint" class="rss-hint">Must be a valid https:// feed URL.</span>
+                }
                 @if (rssItems().length > 0) {
                   <ul class="rss-list">
                     @for (it of rssItems(); track it.url) {
@@ -2317,10 +2321,38 @@ export class AdminSocialComponent implements OnInit {
   }
 
   /* ── RSS ── */
+  /**
+   * The RSS feed URL is fetched server-side (SSRF-adjacent), so accept only a
+   * well-formed https URL with a dotted public hostname — rejecting http://,
+   * junk, and bare internal hosts before the import call.
+   */
+  private isValidHttpsUrl(raw: string): boolean {
+    if (!raw) return false;
+    try {
+      const u = new URL(raw);
+      return u.protocol === 'https:' && u.hostname.includes('.') && !u.hostname.endsWith('.');
+    } catch {
+      return false;
+    }
+  }
+  /** Button gate: the typed RSS URL is a valid https feed URL. */
+  rssUrlValid(): boolean {
+    return this.isValidHttpsUrl(this.rssUrl.trim());
+  }
+  /** Inline-hint gate: a non-empty value that fails validation. */
+  rssUrlInvalid(): boolean {
+    const v = this.rssUrl.trim();
+    return v.length > 0 && !this.isValidHttpsUrl(v);
+  }
+
   rssPreview(): void {
-    if (!this.rssUrl) return;
+    const url = this.rssUrl.trim();
+    if (!this.isValidHttpsUrl(url)) {
+      this.toast.error('Enter a valid https:// feed URL (e.g. https://example.com/feed.xml).');
+      return;
+    }
     this.api.post<{ items: { title: string; url: string }[] }>('/social/import-rss', {
-      url: this.rssUrl,
+      url,
       preview: true,
     }).subscribe({
       next: (r) => this.rssItems.set((r.items ?? []).slice(0, 10)),
@@ -2348,8 +2380,13 @@ export class AdminSocialComponent implements OnInit {
   /** Import the previewed feed items as draft posts (assign accounts + schedule in the composer). */
   importRssDrafts(): void {
     if (this.rssItems().length === 0 || this.importingRss()) return;
+    const url = this.rssUrl.trim();
+    if (!this.isValidHttpsUrl(url)) {
+      this.toast.error('Enter a valid https:// feed URL before importing.');
+      return;
+    }
     this.importingRss.set(true);
-    this.api.post<{ ok: boolean; created: number }>('/social/import-rss', { url: this.rssUrl, site_id: this.siteId() ?? undefined }).subscribe({
+    this.api.post<{ ok: boolean; created: number }>('/social/import-rss', { url, site_id: this.siteId() ?? undefined }).subscribe({
       next: (r) => {
         this.importingRss.set(false);
         this.toast.success(`Imported ${r.created} draft${r.created === 1 ? '' : 's'} — find them in Drafts.`);
