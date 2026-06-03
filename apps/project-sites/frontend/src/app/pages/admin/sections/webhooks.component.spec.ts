@@ -4,6 +4,7 @@ import { of, throwError } from 'rxjs';
 import { AdminWebhooksComponent } from './webhooks.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 
 /**
@@ -17,8 +18,9 @@ describe('AdminWebhooksComponent', () => {
   let get: jasmine.Spy;
   let post: jasmine.Spy;
   let del: jasmine.Spy;
+  let confirmSpy: jasmine.Spy;
 
-  function build(site: { id: string } | null): void {
+  function build(site: { id: string } | null, confirmResult = true): void {
     get = jasmine.createSpy('get').and.callFake((path: string) =>
       path.endsWith('/deliveries')
         ? of({ ok: true, deliveries: [{ id: 'd1', eventType: 'site.published', statusCode: 200, ok: true, attempt: 1, createdAt: '2026-06-02T00:00:00Z' }] })
@@ -26,11 +28,13 @@ describe('AdminWebhooksComponent', () => {
     );
     post = jasmine.createSpy('post').and.returnValue(of({ ok: true, id: 'e2', secret: 'whsec_topsecret' }));
     del = jasmine.createSpy('delete').and.returnValue(of({ ok: true }));
+    confirmSpy = jasmine.createSpy('confirm').and.resolveTo(confirmResult);
     TestBed.configureTestingModule({
       imports: [AdminWebhooksComponent],
       providers: [
         { provide: ApiService, useValue: { get, post, delete: del } },
         { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: ConfirmService, useValue: { confirm: confirmSpy } },
         { provide: AdminStateService, useValue: { selectedSite: () => site } },
       ],
     });
@@ -78,12 +82,20 @@ describe('AdminWebhooksComponent', () => {
     expect(c.selected()).not.toContain('site.published');
   });
 
-  it('deletes an endpoint and reloads', () => {
-    build({ id: 's1' });
+  it('deletes an endpoint after confirmation and reloads', async () => {
+    build({ id: 's1' }); // confirm resolves true
     const before = get.calls.count();
-    (q('[data-testid="webhooks-delete"]') as HTMLButtonElement).click();
+    await fixture.componentInstance.remove('e1', 'https://x.com/h');
+    expect(confirmSpy).toHaveBeenCalled(); // destructive action is confirmed first
     expect(del).toHaveBeenCalledWith('/sites/s1/webhooks/e1');
     expect(get.calls.count()).toBeGreaterThan(before); // reloaded after delete
+  });
+
+  it('does NOT delete when the confirm is cancelled', async () => {
+    build({ id: 's1' }, false); // confirm resolves false (operator cancels)
+    await fixture.componentInstance.remove('e1', 'https://x.com/h');
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(del).not.toHaveBeenCalled();
   });
 
   it('loads once the selected site resolves after mount (reactive, not just at construct)', () => {

@@ -13,6 +13,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmButtonDirective, HlmInputDirective } from '../../../ui';
@@ -112,7 +113,7 @@ interface Delivery {
                   <code class="text-[0.82rem] text-light truncate block">{{ e.url }}</code>
                   <span class="text-[0.7rem] text-text-secondary">{{ e.eventTypes.join(', ') }}</span>
                 </div>
-                <button hlmBtn variant="ghost" size="sm" data-testid="webhooks-delete" (click)="remove(e.id)">Delete</button>
+                <button hlmBtn variant="ghost" size="sm" data-testid="webhooks-delete" (click)="remove(e.id, e.url)">Delete</button>
               </li>
             }
           </ul>
@@ -139,6 +140,7 @@ interface Delivery {
 export class AdminWebhooksComponent {
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
+  private readonly confirmSvc = inject(ConfirmService);
   private readonly state = inject(AdminStateService);
 
   readonly eventTypes = EVENT_TYPES;
@@ -256,9 +258,16 @@ export class AdminWebhooksComponent {
       });
   }
 
-  remove(endpointId: string): void {
+  async remove(endpointId: string, url?: string): Promise<void> {
     const id = this.siteId();
     if (!id) return;
+    const ok = await this.confirmSvc.confirm({
+      title: 'Remove endpoint',
+      message: `Remove ${url ? `the endpoint ${url}` : 'this webhook endpoint'}? Its signing secret is discarded — re-adding it issues a new secret you'll need to redistribute to the consumer.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (!ok) return;
     this.api.delete<{ ok: boolean }>(`/sites/${id}/webhooks/${endpointId}`).subscribe({
       next: () => {
         this.toast.success('Endpoint removed.');
