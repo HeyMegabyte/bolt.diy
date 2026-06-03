@@ -155,4 +155,9 @@ describe('AdminBulkOpsComponent', () => {
     expect(q('input[data-testid="bulk-ops-enabled"][hlmCheckbox]')).not.toBeNull();
     expect(q('[data-testid="bulk-ops-enabled"]')?.className ?? '').not.toContain('accent-primary');
   });
+
+  it('renders the operation select through Spartan hlmSelect (not hand-rolled classes)', () => {
+    expect(q('select[data-testid="bulk-ops-operation"][hlmSelect]')).withContext('converged to the Spartan select primitive').not.toBeNull();
+    expect(q('[data-testid="bulk-ops-operation"]')?.className ?? '').not.toContain('bg-dark');
+  });
 });

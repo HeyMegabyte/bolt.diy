@@ -24,7 +24,7 @@ import { ToastService } from '../../../services/toast.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
-import { HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective } from '../../../ui';
+import { HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective, HlmSelectDirective } from '../../../ui';
 
 type BulkOperation = 'archive' | 'set_flag' | 'republish';
 
@@ -71,6 +71,7 @@ interface BulkApplyResult {
     HlmButtonDirective,
     HlmInputDirective,
     HlmCheckboxDirective,
+    HlmSelectDirective,
   ],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
@@ -87,8 +88,8 @@ interface BulkApplyResult {
         <label class="flex flex-col gap-1.5">
           <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Operation</span>
           <select
+            hlmSelect
             data-testid="bulk-ops-operation"
-            class="bg-dark border border-white/[0.12] rounded-lg px-3 py-2 text-text text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             [(ngModel)]="operationModel"
             (ngModelChange)="onOperationChange($event)"
           >
