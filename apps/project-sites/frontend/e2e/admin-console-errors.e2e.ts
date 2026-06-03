@@ -36,6 +36,9 @@ const ROUTES = [
   '/admin/inbox', '/admin/marketplace', '/admin/trust', '/admin/enterprise',
   '/admin/user', '/admin/logs', '/admin/bulk-ops', '/admin/deliverability',
   '/admin/webhooks', '/admin/review-links', '/admin/stripe-app-status',
+  // /admin/recipes is a live loadComponent section (ai-logs + mcp are redirects
+  // to traces/settings, already covered) — was the one uncovered data section.
+  '/admin/recipes',
 ];
 
 /** True when a console error is a known-benign network/editor-iframe artifact (NOT a real JS/CSP/TT defect). */
