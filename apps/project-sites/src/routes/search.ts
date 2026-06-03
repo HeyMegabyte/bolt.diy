@@ -1158,16 +1158,29 @@ search.get('/api/image-proxy', async (c) => {
   }
 
   try {
-    const res = await fetch(imageUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; ProjectSites/1.0; +https://projectsites.dev)',
-        Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-        Referer: imageUrl,
-      },
-      redirect: 'follow',
-    });
+    // Follow up to 3 redirects MANUALLY, re-running the SSRF guard on every hop —
+    // otherwise a public URL could 302 to an internal target and bypass the
+    // initial check. Legit CDN signed-URL redirects (public→public) still work.
+    let current = imageUrl;
+    let res: Response | null = null;
+    for (let hop = 0; hop < 4; hop++) {
+      res = await fetch(current, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; ProjectSites/1.0; +https://projectsites.dev)',
+          Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+          Referer: current,
+        },
+        redirect: 'manual',
+      });
+      if (res.status < 300 || res.status >= 400) break; // not a redirect → done
+      const loc = res.headers.get('location');
+      if (!loc) break;
+      const next = new URL(loc, current).toString();
+      if (!isProxyableImageUrl(next)) { res = null; break; } // redirect to a blocked host → refuse
+      current = next;
+    }
 
-    if (!res.ok) {
+    if (!res || !res.ok) {
       // Return 1x1 transparent PNG instead of 502 so the img element doesn't break
       return new Response(TRANSPARENT_PIXEL, {
         headers: {
