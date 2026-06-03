@@ -120,6 +120,11 @@ const INTENT_ICONS: Record<string, string> = {
                     <td><span class="glow-skel copilot-skel-bar" style="width:60%"></span></td>
                   </tr>
                 }
+              } @else if (loadError()) {
+                <tr><td colspan="5" class="copilot-td-center" role="alert" data-testid="copilot-load-error">
+                  <span class="text-red-300">{{ loadError() }}</span>
+                  <button class="btn-ghost text-xs ml-3" data-testid="copilot-retry" (click)="loadSessions()" [disabled]="loading()">Retry</button>
+                </td></tr>
               } @else if (sessions().length === 0) {
                 <tr><td colspan="5" class="copilot-td-center">No sessions yet. Embed the widget to start.</td></tr>
               } @else {
@@ -203,6 +208,8 @@ export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
   enabled = signal(false);
   flagEnabled = signal(true);
   loading = signal(true);
+  /** Persistent non-404 sessions-load failure — so a real error shows a Retry card, not a fake "No sessions yet". (404 stays the honest flag-disabled state.) */
+  loadError = signal<string | null>(null);
   copied = signal(false);
 
   totalSessions = computed(() => this.sessions().length);
@@ -227,8 +234,9 @@ export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
       });
   }
 
-  private loadSessions(): void {
+  loadSessions(): void {
     this.loading.set(true);
+    this.loadError.set(null);
     this.http.get<{ sessions: CopilotSession[]; distribution: IntentDistRow[] }>(
       `/api/sites/${this.siteId}/copilot/sessions`,
     )
@@ -238,10 +246,13 @@ export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
           this.sessions.set(r.sessions);
           this.distribution.set(r.distribution);
           this.flagEnabled.set(true);
+          this.loadError.set(null);
           this.loading.set(false);
         },
         error: (e) => {
+          // 404 = honest flag-disabled state; any other error must NOT masquerade as "no sessions".
           if (e.status === 404) this.flagEnabled.set(false);
+          else this.loadError.set('Could not load copilot sessions — retry.');
           this.loading.set(false);
         },
       });
