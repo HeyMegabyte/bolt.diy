@@ -69,4 +69,57 @@ describe('AdminLogsExplorerComponent (search state)', () => {
     c.search(); // succeeds
     expect(c.searchError()).toBeNull();
   });
+
+  // ngOnInit auto-runs search() on every visit; the component owns its OWN error
+  // UX (404 → silent flag-disabled banner; non-404 → inline searchError + its own
+  // toast). So the read must be {silent:true} — otherwise ApiService's generic
+  // "Can't reach the server / not found" toast double-fires over that on the
+  // flag-off auto-load (the analytics redundant-network-toast sibling class).
+  it('search() calls the API silently (component owns the error UX — no generic toast)', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: { items: [], next_cursor: null, total_returned: 0 } }));
+    const { c } = make(post);
+    c.search();
+    expect(post).toHaveBeenCalledWith('/logs/search', jasmine.any(Object), { silent: true });
+  });
+});
+
+describe('AdminLogsExplorerComponent (cost load)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeCost(get: jasmine.Spy): { c: AdminLogsExplorerComponent; toastErr: jasmine.Spy } {
+    const toastErr = jasmine.createSpy('error');
+    TestBed.configureTestingModule({
+      imports: [AdminLogsExplorerComponent],
+      providers: [
+        { provide: ApiService, useValue: { post: () => of({ data: { items: [], next_cursor: null, total_returned: 0 } }), get } },
+        { provide: ToastService, useValue: { error: toastErr, success: jasmine.createSpy('success') } },
+        { provide: AdminStateService, useValue: { selectedSite: signal(null) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminLogsExplorerComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminLogsExplorerComponent).componentInstance, toastErr };
+  }
+
+  it('loadCosts() calls the API silently (component owns the error UX)', () => {
+    const get = jasmine.createSpy('get').and.returnValue(of({ data: { rows: [], grand_total_cost: 0 } }));
+    const { c } = makeCost(get);
+    c.loadCosts();
+    expect(get).toHaveBeenCalledWith(jasmine.stringMatching('/logs/cost-by-route'), undefined, { silent: true });
+  });
+
+  it('a 404 cost load surfaces the flag-disabled banner without a toast', () => {
+    const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 404 })));
+    const { c, toastErr } = makeCost(get);
+    c.loadCosts();
+    expect(c.featureDisabled()).toBe(true);
+    expect(toastErr).not.toHaveBeenCalled();
+  });
+
+  it('a non-404 cost load failure toasts an accurate message (no silent failure now that the read is silent)', () => {
+    const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 })));
+    const { c, toastErr } = makeCost(get);
+    c.loadCosts();
+    expect(c.featureDisabled()).toBe(false);
+    expect(toastErr).toHaveBeenCalled();
+  });
 });

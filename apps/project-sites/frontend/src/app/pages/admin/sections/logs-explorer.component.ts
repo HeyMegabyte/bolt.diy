@@ -383,7 +383,7 @@ export class AdminLogsExplorerComponent implements OnInit {
       query: this.queryInput,
       range: this.range(),
       limit: 100,
-    }).subscribe({
+    }, { silent: true }).subscribe({
       next: (res) => {
         this.rows.set(res.data.items);
         this.nextCursor.set(res.data.next_cursor);
@@ -418,7 +418,7 @@ export class AdminLogsExplorerComponent implements OnInit {
       range: this.range(),
       limit: 100,
       cursor,
-    }).subscribe({
+    }, { silent: true }).subscribe({
       next: (res) => {
         this.rows.update((prev) => [...prev, ...res.data.items]);
         this.nextCursor.set(res.data.next_cursor);
@@ -433,14 +433,18 @@ export class AdminLogsExplorerComponent implements OnInit {
 
   loadCosts() {
     this.costLoading.set(true);
-    this.api.get<CostResponse>(`/logs/cost-by-route?range=${this.range()}`).subscribe({
+    this.api.get<CostResponse>(`/logs/cost-by-route?range=${this.range()}`, undefined, { silent: true }).subscribe({
       next: (res) => {
         this.costRows.set(res.data.rows);
         this.grandTotal.set(res.data.grand_total_cost);
         this.costLoading.set(false);
       },
       error: (err: { status?: number } | null) => {
+        // 404 = flag off → honest disabled banner (no toast). Non-404 → an
+        // accurate component toast (the read is {silent:true}, so without this
+        // a cost-load failure would be silent).
         if (err?.status === 404) this.featureDisabled.set(true);
+        else this.toast.error('Failed to load cost data');
         this.costLoading.set(false);
       },
     });
