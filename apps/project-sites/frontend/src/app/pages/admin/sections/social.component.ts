@@ -1750,7 +1750,14 @@ export class AdminSocialComponent implements OnInit {
       this.toast.error(`No connected ${this.defOf(pid)?.label} account to disconnect.`);
       return;
     }
-    this.api.delete(`/social/accounts/${acct.id}`).subscribe({
+    // Destructive — re-OAuth required to restore. Confirm via the action-armed toast.
+    this.toast.warning(`Disconnect ${this.defOf(pid)?.label}? You’ll need to reconnect via OAuth to use it again.`, {
+      action: { label: 'Disconnect', run: () => this.performDisconnect(pid, acct.id as string) },
+      duration: 7000,
+    });
+  }
+  private performDisconnect(pid: PlatformId, acctId: string): void {
+    this.api.delete(`/social/accounts/${acctId}`).subscribe({
       next: () => {
         this.toast.success(`Disconnected ${this.defOf(pid)?.label}`);
         this.loadAccounts();
@@ -2302,6 +2309,14 @@ export class AdminSocialComponent implements OnInit {
     this.tab.set('compose');
   }
   deletePost(post: SocialPost): void {
+    // Destructive (deletes a draft / cancels a user-scheduled queued post) with no
+    // undo — confirm first via the file's action-armed toast pattern.
+    this.toast.warning('Delete this post? This can’t be undone.', {
+      action: { label: 'Delete', run: () => this.performDeletePost(post) },
+      duration: 7000,
+    });
+  }
+  private performDeletePost(post: SocialPost): void {
     this.api.delete(`/social/posts/${post.id}`).subscribe({
       next: () => { this.toast.success('Deleted'); this.loadPosts(); },
       error: () => this.toast.error('Delete failed'),

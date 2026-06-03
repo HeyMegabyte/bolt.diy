@@ -328,3 +328,58 @@ describe('AdminSocialComponent (publish block reason)', () => {
     expect(c.canPublish()).toBeTrue();
   });
 });
+
+/**
+ * Destructive actions MUST be confirmed before they fire (standing-MEMORY: "verify
+ * destructive actions"). deletePost (deletes a draft / cancels a user-SCHEDULED
+ * queued post) and disconnect (drops a connected social account → re-OAuth to
+ * restore) were firing api.delete IMMEDIATELY on click — one misclick, no undo.
+ * They now use the file's existing action-armed toast.warning pattern (the same
+ * cockpit confirm used by Discard-draft + sibling email/mcp/apps-instances):
+ * the delete only runs when the operator clicks the toast's action.
+ */
+describe('AdminSocialComponent (destructive actions are confirm-guarded)', () => {
+  let del: jasmine.Spy;
+  let warning: jasmine.Spy;
+  let lastAction: { label: string; run: () => void } | undefined;
+
+  function build(): AdminSocialComponent {
+    del = jasmine.createSpy('delete').and.returnValue(of({}));
+    lastAction = undefined;
+    warning = jasmine.createSpy('warning').and.callFake((_m: string, opts?: { action?: { label: string; run: () => void } }) => {
+      lastAction = opts?.action;
+      return 1;
+    });
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ data: {} }), delete: del } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigateByUrl: () => undefined } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    return TestBed.createComponent(AdminSocialComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('deletePost asks for confirmation first — no immediate api.delete', () => {
+    const c = build();
+    c.deletePost({ id: 'p1' } as never);
+    expect(warning).toHaveBeenCalled();
+    expect(del).not.toHaveBeenCalled();
+    lastAction?.run();
+    expect(del).toHaveBeenCalledWith('/social/posts/p1');
+  });
+
+  it('disconnect asks for confirmation first — no immediate account deletion', () => {
+    const c = build();
+    c.accounts.set([{ platform: 'twitter', connected: true, id: 'acct-1' }] as never);
+    c.disconnect('twitter' as never);
+    expect(warning).toHaveBeenCalled();
+    expect(del).not.toHaveBeenCalled();
+    lastAction?.run();
+    expect(del).toHaveBeenCalledWith('/social/accounts/acct-1');
+  });
+});
