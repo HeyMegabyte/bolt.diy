@@ -83,3 +83,34 @@ describe('AdminSnapshotsDiffComponent (diff load + guards)', () => {
     expect(c.diff()).not.toBeNull();
   });
 });
+
+/**
+ * The "Computing diff…" loading state was a bare <div> — visible text but no
+ * live region, so screen-reader users got no announcement while the diff
+ * computed. This full-render block (template NOT stripped) locks the announced
+ * + cyan-spinner loading card.
+ */
+describe('AdminSnapshotsDiffComponent (loading state is announced)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('renders the loading card with role=status + aria-busy (announced to AT)', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminSnapshotsDiffComponent],
+      providers: [
+        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
+        { provide: ApiService, useValue: { get: () => of({ added: [], removed: [], modified: [] }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSnapshotsDiffComponent);
+    fx.detectChanges();
+    fx.componentInstance.loading.set(true);
+    fx.detectChanges();
+    const card = (fx.nativeElement as HTMLElement).querySelector('[data-testid="snapshots-diff-loading"]');
+    expect(card).withContext('announced loading card').not.toBeNull();
+    expect(card?.getAttribute('role')).toBe('status');
+    expect(card?.getAttribute('aria-busy')).toBe('true');
+    expect(card?.textContent).toContain('Computing diff');
+  });
+});

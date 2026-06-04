@@ -74,7 +74,9 @@ interface DiffResponse {
       </header>
 
       @if (loading()) {
-        <div class="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/60">
+        <div class="rounded-xl border border-[var(--ps-accent)]/15 bg-[var(--ps-accent)]/[0.04] p-8 text-center text-white/70 flex items-center justify-center gap-2"
+             role="status" aria-live="polite" aria-busy="true" data-testid="snapshots-diff-loading">
+          <span class="inline-block animate-spin text-[var(--ps-accent)]" aria-hidden="true">⟳</span>
           Computing diff…
         </div>
       } @else if (error()) {
