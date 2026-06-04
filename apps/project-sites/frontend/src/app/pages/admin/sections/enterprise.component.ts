@@ -15,6 +15,7 @@
  */
 import {
   Component,
+  computed,
   inject,
   signal,
 } from '@angular/core';
@@ -95,7 +96,9 @@ interface AuditExport {
                plan is flag-disabled (notFound) or the load failed, there's no form to
                save — a visible Save here would POST to a gated/404 route (dead button). -->
           @if (!notFound() && !loadError()) {
-            <button class="btn-primary text-xs" data-testid="enterprise-save" (click)="saveContract()" [disabled]="saving()">
+            <button class="btn-primary text-xs" data-testid="enterprise-save" (click)="saveContract()"
+                    [disabled]="saving() || ssoUrlInvalid()"
+                    [attr.title]="ssoUrlInvalid() ? 'Fix the SSO metadata URL before saving' : null">
               {{ saving() ? 'Saving…' : 'Save contract' }}
             </button>
           }
@@ -277,7 +280,17 @@ interface AuditExport {
                 placeholder="https://idp.example.com/metadata"
                 [ngModel]="ssoMetadataUrl() ?? ''"
                 (ngModelChange)="ssoMetadataUrl.set($event || null)"
+                [attr.aria-invalid]="ssoUrlInvalid() || null"
+                [attr.aria-describedby]="ssoUrlInvalid() ? 'enterprise-sso-url-hint' : null"
+                [class.ring-1]="ssoUrlInvalid()"
+                [class.ring-red-500/60]="ssoUrlInvalid()"
+                [class.border-red-500/50]="ssoUrlInvalid()"
               />
+              @if (ssoUrlInvalid()) {
+                <span id="enterprise-sso-url-hint" data-testid="enterprise-sso-url-hint" class="text-[0.7rem] text-red-300/90 mt-1">
+                  SSO needs a valid <code class="text-red-200">https://</code> metadata URL with a public hostname.
+                </span>
+              }
             </label>
           </div>
           <p class="hint">
@@ -523,9 +536,34 @@ export class AdminEnterpriseComponent {
       });
   }
 
+  /** An SSO metadata URL is fetched server-side by the IdP handshake — require a valid public https endpoint. */
+  private isValidHttpsUrl(raw: string): boolean {
+    try {
+      const u = new URL(raw);
+      return u.protocol === 'https:' && u.hostname.includes('.') && !u.hostname.endsWith('.');
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * SSO config is invalid when enabled with a bad metadata URL: SAML/OIDC REQUIRE
+   * a valid https URL (the handshake fetches it); other providers treat it as
+   * optional but still reject a malformed value. SSO off → no constraint.
+   */
+  readonly ssoUrlInvalid = computed(() => {
+    if (!this.ssoEnabled()) return false;
+    const url = (this.ssoMetadataUrl() ?? '').trim();
+    const provider = this.ssoProvider();
+    if (provider === 'saml' || provider === 'oidc') return !this.isValidHttpsUrl(url);
+    return url.length > 0 && !this.isValidHttpsUrl(url);
+  });
+
   saveContract(): void {
     // Defense-in-depth: never PUT when there's no editor (plan disabled / load failed).
     if (this.notFound() || this.loadError()) return;
+    // Block a broken-SSO save (the metadata URL is fetched by the IdP handshake).
+    if (this.ssoUrlInvalid()) return;
     this.saving.set(true);
     const body = {
       plan_tier: this.planTier(),

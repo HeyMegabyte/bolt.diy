@@ -106,6 +106,111 @@ describe('AdminEnterpriseComponent (mutations are {silent} — no generic double
   });
 });
 
+/**
+ * SSO metadata URL validation: the IdP handshake FETCHES sso_metadata_url
+ * server-side, so saving an SSO contract with an empty/malformed URL produces a
+ * silently-broken SSO config. saveContract must validate (require a valid https
+ * URL when SSO+SAML/OIDC; reject a malformed value otherwise) before the PUT —
+ * mirroring the webhook/recipe URL guard. (server-fetched-url-validation class.)
+ */
+describe('AdminEnterpriseComponent (SSO metadata URL validation)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeMut(): { c: AdminEnterpriseComponent; put: jasmine.Spy } {
+    const put = jasmine.createSpy('put').and.returnValue(of({ data: {} }));
+    TestBed.configureTestingModule({
+      imports: [AdminEnterpriseComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), put, post: () => of({ data: {} }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminEnterpriseComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(AdminEnterpriseComponent).componentInstance;
+    c.notFound.set(false);
+    c.loadError.set(null);
+    return { c, put };
+  }
+
+  it('is valid (not invalid) when SSO is disabled — the URL is ignored', () => {
+    const { c } = makeMut();
+    c.ssoEnabled.set(false);
+    c.ssoMetadataUrl.set(''); // empty, but SSO off → no constraint
+    expect(c.ssoUrlInvalid()).toBe(false);
+  });
+
+  it('requires a valid https metadata URL for SAML/OIDC SSO', () => {
+    const { c } = makeMut();
+    c.ssoEnabled.set(true);
+    c.ssoProvider.set('saml');
+    c.ssoMetadataUrl.set(''); // missing
+    expect(c.ssoUrlInvalid()).withContext('SAML SSO needs a metadata URL').toBe(true);
+    c.ssoMetadataUrl.set('http://idp.example.com/meta'); // not https
+    expect(c.ssoUrlInvalid()).withContext('must be https').toBe(true);
+    c.ssoMetadataUrl.set('https://localhost/meta'); // no public dotted host
+    expect(c.ssoUrlInvalid()).withContext('needs a public hostname').toBe(true);
+    c.ssoMetadataUrl.set('https://idp.example.com/metadata'); // valid
+    expect(c.ssoUrlInvalid()).withContext('a valid https URL clears it').toBe(false);
+  });
+
+  it('treats the metadata URL as optional for cloudflare-access, but validates a present value', () => {
+    const { c } = makeMut();
+    c.ssoEnabled.set(true);
+    c.ssoProvider.set('cloudflare-access');
+    c.ssoMetadataUrl.set(''); // optional → fine
+    expect(c.ssoUrlInvalid()).toBe(false);
+    c.ssoMetadataUrl.set('not-a-url'); // present but malformed → invalid
+    expect(c.ssoUrlInvalid()).toBe(true);
+  });
+
+  it('saveContract does NOT PUT when the SSO metadata URL is invalid (no broken-SSO save)', () => {
+    const { c, put } = makeMut();
+    c.ssoEnabled.set(true);
+    c.ssoProvider.set('oidc');
+    c.ssoMetadataUrl.set(''); // invalid
+    c.saveContract();
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it('saveContract PUTs once the SSO metadata URL is valid', () => {
+    const { c, put } = makeMut();
+    c.ssoEnabled.set(true);
+    c.ssoProvider.set('oidc');
+    c.ssoMetadataUrl.set('https://idp.example.com/.well-known/openid-configuration');
+    c.saveContract();
+    expect(put).toHaveBeenCalled();
+  });
+});
+
+describe('AdminEnterpriseComponent (SSO URL invalid → inline hint + Save disabled, real template)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('shows a red metadata-URL hint and disables Save when SSO is on with no URL', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminEnterpriseComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), put: () => of({ data: {} }), post: () => of({ data: {} }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminEnterpriseComponent);
+    const c = f.componentInstance;
+    c.notFound.set(false);
+    c.loadError.set(null);
+    c.ssoEnabled.set(true);
+    c.ssoProvider.set('saml');
+    c.ssoMetadataUrl.set('');
+    f.detectChanges();
+    const host = f.nativeElement as HTMLElement;
+    expect(host.querySelector('[data-testid="enterprise-sso-url-hint"]')).withContext('inline guidance shows').not.toBeNull();
+    expect((host.querySelector('[data-testid="enterprise-save"]') as HTMLButtonElement).disabled)
+      .withContext('Save is blocked until the SSO URL is valid').toBe(true);
+  });
+});
+
 describe('AdminEnterpriseComponent (flag-disabled card links to Feature Flags)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
