@@ -143,4 +143,35 @@ describe('AdminSiteDetailComponent (cinematic entrance — matches sibling secti
     expect(txt).withContext('subtitle must not be a bare orphaned TLD').not.toBe('.projectsites.dev');
     expect(txt).withContext('falls back to the URL slug so the host is meaningful').toContain('site-1');
   });
+
+  // The h1 must identify WHICH site you're viewing. A site whose record has an
+  // empty name used to render the generic literal "Site" (indistinguishable from
+  // a failed load) — now it falls back to the slug, which is meaningful context.
+  function renderWithSite(site: unknown): HTMLElement {
+    TestBed.resetTestingModule();
+    const api = { get: jasmine.createSpy('get').and.returnValue(of({ site })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
+    TestBed.configureTestingModule({
+      imports: [AdminSiteDetailComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: api },
+        { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 'e2e-site-1' }), queryParamMap: of({ get: () => null }) } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminSiteDetailComponent);
+    f.detectChanges();
+    return f.nativeElement as HTMLElement;
+  }
+
+  it('h1 shows the site business name when present', () => {
+    const el = renderWithSite({ id: 'e2e-site-1', slug: 'urban-fitness', name: 'Urban Fitness Co' });
+    expect(el.querySelector('.site-detail__title')?.textContent?.trim()).toBe('Urban Fitness Co');
+  });
+
+  it('h1 falls back to the slug (not the generic "Site") when the name is empty', () => {
+    const el = renderWithSite({ id: 'e2e-site-1', slug: 'urban-fitness', name: '' });
+    const h1 = el.querySelector('.site-detail__title')?.textContent?.trim();
+    expect(h1).withContext('a nameless site shows its slug, not an uninformative "Site"').toBe('urban-fitness');
+    expect(h1).not.toBe('Site');
+  });
 });

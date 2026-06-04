@@ -71,7 +71,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
   template: `
     <section class="site-detail animate-fade-in" data-testid="site-detail">
       <header class="site-detail__head">
-        <h1 class="site-detail__title">{{ site()?.name || 'Site' }}</h1>
+        <h1 class="site-detail__title">{{ site()?.name || site()?.slug || siteId() || 'Site' }}</h1>
         @if (site()?.slug; as slug) {
           <p class="site-detail__subtitle">{{ slug }}.projectsites.dev</p>
         } @else {
@@ -440,7 +440,10 @@ export class AdminSiteDetailComponent {
     this.api
       .get<{ site: { id: string; slug: string; name: string } }>(`/sites/${id}`)
       .pipe(
-        catchError(() => of({ site: { id, slug: id, name: 'Site' } })),
+        // On failure, fall back to a slug-only record (slug = the URL id) — never
+        // inject a misleading "Site" name literal (the h1 + subtitle derive a
+        // meaningful host from the slug/id instead of a generic word).
+        catchError(() => of({ site: { id, slug: id, name: '' } })),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((res) => this.site.set(res.site ?? null));
