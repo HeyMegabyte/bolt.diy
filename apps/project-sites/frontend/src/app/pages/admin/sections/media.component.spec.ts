@@ -344,3 +344,34 @@ describe('AdminMediaComponent (mutations are {silent} — no double-toast/flood)
     expect(c.allFilteredSelected()).toBeFalse();
   });
 });
+
+describe('AdminMediaComponent (library-cap honesty)', () => {
+  function render(n: number): { host: HTMLElement; fx: import('@angular/core/testing').ComponentFixture<AdminMediaComponent> } {
+    TestBed.configureTestingModule({
+      imports: [AdminMediaComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ ok: true }), postFormData: () => of({ data: null }), delete: () => of({ ok: true }) } },
+        { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
+        { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminMediaComponent);
+    fx.detectChanges();
+    fx.componentInstance.loadingLibrary.set(false);
+    fx.componentInstance.assets.set(Array.from({ length: n }, (_, i) => ({ id: 'a' + i, name: 'x', kind: 'image', source: 'upload' } as never)));
+    fx.detectChanges();
+    return { host: fx.nativeElement as HTMLElement, fx };
+  }
+  afterEach(() => { try { localStorage.clear(); } catch { /* */ } TestBed.resetTestingModule(); });
+
+  it('shows the "latest 60" note when the library hits the server cap', () => {
+    const { host } = render(60);
+    expect(host.querySelector('[data-testid="media-cap-note"]')?.textContent).withContext('user must know older assets exist').toContain('latest 60');
+  });
+
+  it('does NOT show the cap note below the cap', () => {
+    const { host } = render(10);
+    expect(host.querySelector('[data-testid="media-cap-note"]')).toBeNull();
+  });
+});

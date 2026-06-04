@@ -152,6 +152,10 @@ interface BoltMediaAttachMessage {
             <app-rolling-counter [value]="assets().length" [duration]="900" aria-hidden="true" />
             <span aria-hidden="true">{{ assets().length === 1 ? 'asset' : 'assets' }}</span>
           </span>
+          @if (assets().length >= mediaCap) {
+            <span class="med-cap-note" data-testid="media-cap-note"
+                  title="Showing the {{ mediaCap }} most recent assets. Narrow with the filter or search to find older ones.">latest {{ mediaCap }}</span>
+          }
         </div>
         <div class="med-header__actions">
           <!-- Search / kind-filter / Upload are Library-tab controls; the Studio
@@ -738,6 +742,7 @@ interface BoltMediaAttachMessage {
         margin: 0; letter-spacing: -0.02em;
         color: var(--ps-ink, #f4f4ff);
       }
+      .med-cap-note { font-size: 0.66rem; color: #ffc800; align-self: center; }
       .count-chip {
         display: inline-flex; align-items: baseline; gap: 0.3em;
         padding: 3px 10px; border-radius: 999px;
@@ -1183,6 +1188,10 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // ─── Library state ────────────────────────────────────────────────────────
   readonly assets = signal<MediaAsset[]>([]);
+  /** The library GET caps at the 60 most-recent assets (no pagination). Surface
+   *  a "latest 60" note when full so the operator knows older assets exist
+   *  (reachable via the kind filter / search) — no silent truncation. */
+  readonly mediaCap = 60;
   readonly loadingLibrary = signal(true);
   /** Persistent library-load failure — so a fetch error shows a Retry card, not a fake "No media yet" empty state (which could prompt a re-upload of assets that are safe). */
   readonly libraryError = signal<string | null>(null);
