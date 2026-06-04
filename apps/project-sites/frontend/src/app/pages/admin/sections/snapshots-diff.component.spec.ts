@@ -63,7 +63,7 @@ describe('AdminSnapshotsDiffComponent (diff load + guards)', () => {
     expect(c.loading()).toBe(false);
   });
 
-  it('a fetch failure sets the error message and toasts; Retry then recovers', async () => {
+  it('a fetch failure sets the inline error banner ONLY (read is {silent}, no toast on top); Retry then recovers', async () => {
     const get = jasmine.createSpy('get').and.returnValues(
       throwError(() => new Error('boom')),
       of({ added: [], removed: [], modified: [] }),
@@ -72,7 +72,10 @@ describe('AdminSnapshotsDiffComponent (diff load + guards)', () => {
     c.fromId.set('a'); c.toId.set('b');
     await c.load();
     expect(c.error()).toContain('Could not load diff');
-    expect(toast.error).toHaveBeenCalled();
+    // banner is the UX; the read is {silent} so the generic toast can't fire and
+    // the component no longer toasts on top of its own banner.
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(get.calls.first().args[2]).toEqual({ silent: true });
     expect(c.loading()).toBe(false);
     // Retry path (the button added this round)
     await c.load();

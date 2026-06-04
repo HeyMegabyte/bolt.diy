@@ -243,14 +243,15 @@ export class AdminSnapshotsDiffComponent implements OnInit {
     try {
       const path = `/sites/${siteId}/snapshots/diff`;
       const res = await firstValueFrom(
-        this.api.get<DiffResponse>(path, { from, to }),
+        this.api.get<DiffResponse>(path, { from, to }, { silent: true }),
       );
       this.diff.set(res);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn('snapshot-diff load failed', { error: msg });
+      // inline error banner (snapshots-diff-error) is the UX — no toast on top,
+      // and the read is {silent} so the generic ApiService toast doesn't fire.
       this.error.set(`Could not load diff — ${msg}`);
-      this.toast.error('Snapshot diff failed to load');
     } finally {
       this.loading.set(false);
     }

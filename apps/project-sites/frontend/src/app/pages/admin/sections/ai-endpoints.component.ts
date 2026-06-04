@@ -1029,7 +1029,7 @@ export class AdminAiEndpointsComponent implements OnInit {
     if (!s) return;
     this.loading.set(true);
     this.loadError.set(null);
-    this.api.get<EndpointListResponse>(`/sites/${s.id}/ai-endpoints`).subscribe({
+    this.api.get<EndpointListResponse>(`/sites/${s.id}/ai-endpoints`, undefined, { silent: true }).subscribe({
       next: (r) => {
         this.loadError.set(null);
         this.endpoints.set((r.data ?? []).map((e) => ({

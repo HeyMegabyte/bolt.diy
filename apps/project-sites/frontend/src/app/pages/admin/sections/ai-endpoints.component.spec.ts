@@ -40,12 +40,17 @@ describe('AdminAiEndpointsComponent (endpoint-list load-error gating)', () => {
     expect(c.loading()).toBe(false);
   });
 
-  it('a load error sets a persistent loadError (not a fake empty state)', () => {
-    const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
+  it('a load error sets a persistent loadError (not a fake empty state) + reads {silent} so no toast double-fires', () => {
+    const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 })));
+    const c = make(get);
     c.reload();
     expect(c.loadError()).toContain('Could not load');
     expect(c.endpoints().length).toBe(0);
     expect(c.loading()).toBe(false);
+    // the loadError banner is the UX; the list read is {silent} so ApiService's
+    // generic toast can't fire over it.
+    const call = get.calls.allArgs().find((a) => /\/ai-endpoints$/.test(String(a[0])));
+    expect(call?.[2]).toEqual({ silent: true });
   });
 
   it('retry after an error clears the prior loadError', () => {
