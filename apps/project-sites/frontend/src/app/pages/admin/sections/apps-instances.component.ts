@@ -184,15 +184,15 @@ function resolveApp(id: string): CatalogApp | null {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
                 </button>
                 @if (menuOpenId() === inst.id) {
-                  <div class="row-menu-pop" role="menu">
-                    <button class="row-menu-item" type="button" role="menuitem" (click)="openDetail(inst)">Open detail</button>
+                  <div class="row-menu-pop">
+                    <button class="row-menu-item" type="button"(click)="openDetail(inst)">Open detail</button>
                     @if (inst.status === 'running' || inst.status === 'error') {
-                      <button class="row-menu-item" type="button" role="menuitem" [disabled]="acting() === inst.id" (click)="restartInstance(inst)">Restart</button>
+                      <button class="row-menu-item" type="button"[disabled]="acting() === inst.id" (click)="restartInstance(inst)">Restart</button>
                     }
                     @if (inst.status === 'running') {
-                      <button class="row-menu-item" type="button" role="menuitem" [disabled]="acting() === inst.id" (click)="stopInstance(inst)">Stop</button>
+                      <button class="row-menu-item" type="button"[disabled]="acting() === inst.id" (click)="stopInstance(inst)">Stop</button>
                     }
-                    <button class="row-menu-item row-menu-danger" type="button" role="menuitem" [disabled]="acting() === inst.id" (click)="deleteInstance(inst)">Delete</button>
+                    <button class="row-menu-item row-menu-danger" type="button" [disabled]="acting() === inst.id" (click)="deleteInstance(inst)">Delete</button>
                   </div>
                 }
               </span>
