@@ -1633,7 +1633,10 @@ export class AdminBillingComponent implements OnInit {
   onboardStripeConnect(): void {
     if (this.onboardingConnect()) return;
     this.onboardingConnect.set(true);
-    this.api.post<{ onboarding_url: string }>('/agency/stripe-connect/onboard', {}).subscribe({
+    // {silent}: ApiService's generic toast maps a 403 to "You don't have
+    // permission" — unhelpful on an UPSELL surface. Surface the server's
+    // specific message (or a clear upgrade hint) instead.
+    this.api.post<{ onboarding_url: string }>('/agency/stripe-connect/onboard', {}, { silent: true }).subscribe({
       next: (r) => {
         this.onboardingConnect.set(false);
         const url = (r as unknown as { data?: { onboarding_url: string } }).data?.onboarding_url ?? (r as { onboarding_url?: string }).onboarding_url;
@@ -1643,7 +1646,12 @@ export class AdminBillingComponent implements OnInit {
           if (!win) window.location.href = url;
         }
       },
-      error: () => { this.onboardingConnect.set(false); },
+      error: (err: { error?: { error?: { message?: string } } }) => {
+        this.onboardingConnect.set(false);
+        const msg = err?.error?.error?.message
+          ?? 'Stripe Connect onboarding needs the Agency-tier add-on — upgrade to enable direct payouts.';
+        this.toast.error(msg);
+      },
     });
   }
 

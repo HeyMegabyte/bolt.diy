@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AdminBillingComponent } from './billing.component';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
@@ -217,5 +217,51 @@ describe('AdminBillingComponent (per-site cap input accessible names)', () => {
     const input = el.querySelector('[data-testid="billing-caps-modal-input-b"]') as HTMLElement | null;
     expect(input).withContext('modal cap input renders').toBeTruthy();
     expect(input!.getAttribute('aria-label')).toBe('Monthly spend cap for beta');
+  });
+});
+
+/**
+ * Stripe Connect onboarding is an UPSELL surface (shown on Free with "Requires
+ * the Agency-tier add-on"). A failed onboard used to fall through to ApiService's
+ * generic getErrorMessage → a 403 became "You don't have permission to do that."
+ * — unhelpful + non-actionable. Now the POST is {silent} and the handler surfaces
+ * the server's specific message (or a clear upgrade hint).
+ */
+describe('AdminBillingComponent (Stripe Connect onboard — useful error, not generic 403)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function setup(postSpy: jasmine.Spy, toastErr: jasmine.Spy): AdminBillingComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminBillingComponent],
+      providers: [
+        { provide: ApiService, useValue: {
+          get: () => of({ data: {} }), post: postSpy, put: () => of({ data: {} }), delete: () => of({ ok: true }),
+          getCostForecast: () => of({ data: { projected_usd: 0, current_period_usd: 0, rolling_daily_avg: 0, days_until_cap_hit: null, plan_cap_usd: 0, percent_of_cap: 0, daily: [], breakdown: [] } }),
+        } },
+        { provide: AdminStateService, useValue: { sites: signal([]) } },
+        { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: toastErr, dismiss: () => undefined } },
+        { provide: TelemetryService, useValue: { track: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    return TestBed.createComponent(AdminBillingComponent).componentInstance;
+  }
+
+  it('posts {silent} + surfaces the server message on failure (not the generic 403 toast)', () => {
+    const toastErr = jasmine.createSpy('error');
+    const post = jasmine.createSpy('post').and.returnValue(throwError(() => ({ error: { error: { message: 'Requires the Agency-tier add-on.' } } })));
+    const c = setup(post, toastErr);
+    c.onboardStripeConnect();
+    expect(post).toHaveBeenCalledWith('/agency/stripe-connect/onboard', {}, { silent: true });
+    expect(toastErr).toHaveBeenCalledWith('Requires the Agency-tier add-on.');
+    expect(c.onboardingConnect()).toBe(false);
+  });
+
+  it('falls back to an actionable upgrade hint when the server gives no message', () => {
+    const toastErr = jasmine.createSpy('error');
+    const post = jasmine.createSpy('post').and.returnValue(throwError(() => ({ status: 403 })));
+    const c = setup(post, toastErr);
+    c.onboardStripeConnect();
+    expect(toastErr.calls.mostRecent().args[0]).withContext('actionable, names the add-on').toContain('Agency');
   });
 });
