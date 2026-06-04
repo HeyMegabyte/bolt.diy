@@ -290,6 +290,17 @@ interface BoltMediaAttachMessage {
                   <button type="button" class="btn-primary" data-testid="media-retry" (click)="refreshLibrary()" [disabled]="loadingLibrary()">Retry</button>
                 </div>
               </div>
+            } @else if (filteredAssets().length === 0 && hasLibraryFilters()) {
+              <div class="med-empty" role="status" data-testid="media-filtered-empty">
+                <div class="med-empty__glyph" aria-hidden="true">🔍</div>
+                <h2 class="med-empty__title">No media matches your filters</h2>
+                <p class="med-empty__body">
+                  Your library has assets, but none match the current kind or search filter.
+                </p>
+                <div class="med-empty__actions">
+                  <button type="button" class="btn-ghost" data-testid="media-clear-filters" (click)="clearLibraryFilters()">Clear filters</button>
+                </div>
+              </div>
             } @else if (filteredAssets().length === 0) {
               <div class="med-empty" role="status">
                 <div class="med-empty__glyph" aria-hidden="true">✦</div>
@@ -1368,6 +1379,23 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
         this.loadingLibrary.set(false);
       },
     });
+  }
+
+  /**
+   * True when a kind filter or search term is narrowing the library. Drives the
+   * empty state's branch: a filtered-to-zero result offers "Clear filters"
+   * instead of mislabelling it as an empty library + prompting a re-upload.
+   */
+  hasLibraryFilters(): boolean {
+    return this.searchTerm().trim().length > 0 || this.kindFilter() !== 'all';
+  }
+
+  /** Reset the library kind + search filters and re-fetch the full latest set. */
+  clearLibraryFilters(): void {
+    this.kindFilter.set('all');
+    this.searchInput.set('');
+    this.searchTerm.set('');
+    this.refreshLibrary();
   }
 
   openFilePicker(): void {

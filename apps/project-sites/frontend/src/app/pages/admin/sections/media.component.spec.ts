@@ -384,3 +384,60 @@ describe('AdminMediaComponent (library-cap honesty)', () => {
     expect(host.querySelector('[data-testid="media-cap-note"]')).toBeNull();
   });
 });
+
+/**
+ * The library empty state mislabelled a FILTERED-to-zero result as an empty
+ * library ("No media yet" + Upload), with no escape — even when the user has
+ * media that a kind/search filter just hid. Distinguish filter-active from a
+ * genuinely empty library + offer a "Clear filters" escape.
+ */
+describe('AdminMediaComponent (filtered-empty escape)', () => {
+  function build(): AdminMediaComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminMediaComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ ok: true }), postFormData: () => of({ data: null }), delete: () => of({ ok: true }) } },
+        { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
+        { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+      ],
+    });
+    return TestBed.createComponent(AdminMediaComponent).componentInstance;
+  }
+  afterEach(() => { try { localStorage.clear(); } catch { /* */ } TestBed.resetTestingModule(); });
+
+  it('hasLibraryFilters tracks the kind + search filter state', () => {
+    const c = build();
+    expect(c.hasLibraryFilters()).toBeFalse();
+    c.kindFilter.set('image');
+    expect(c.hasLibraryFilters()).toBeTrue();
+    c.kindFilter.set('all');
+    c.searchTerm.set('logo');
+    expect(c.hasLibraryFilters()).toBeTrue();
+  });
+
+  it('clearLibraryFilters resets kind + search so the library re-broadens', () => {
+    const c = build();
+    c.kindFilter.set('video');
+    c.searchInput.set('promo');
+    c.searchTerm.set('promo');
+    c.clearLibraryFilters();
+    expect(c.kindFilter()).toBe('all');
+    expect(c.searchInput()).toBe('');
+    expect(c.searchTerm()).toBe('');
+    expect(c.hasLibraryFilters()).toBeFalse();
+  });
+
+  it('renders a "Clear filters" escape (not "No media yet") when a filter hides all assets', () => {
+    const fx = (() => { build(); return TestBed.createComponent(AdminMediaComponent); })();
+    fx.detectChanges();
+    fx.componentInstance.loadingLibrary.set(false);
+    // Has media, but a search term hides all of it → filtered-empty, NOT empty library.
+    fx.componentInstance.assets.set([{ id: 'a1', name: 'sunset.png', kind: 'image', source: 'upload' } as never]);
+    fx.componentInstance.searchTerm.set('zzz-no-match');
+    fx.detectChanges();
+    const host = fx.nativeElement as HTMLElement;
+    expect(host.querySelector('[data-testid="media-filtered-empty"]')).withContext('filter-active empty state').not.toBeNull();
+    expect(host.querySelector('[data-testid="media-clear-filters"]')).withContext('Clear filters escape').not.toBeNull();
+  });
+});
