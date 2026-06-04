@@ -76,6 +76,13 @@ describe('AdminAuditComponent (load + KPI logic)', () => {
     expect(c.lastSyncAt()).toBeGreaterThan(0);
   });
 
+  it('onGridDestroyed nulls the grid api — unmount-safety (the grid is @if-gated out when empty, so the filter/export handlers must not call a destroyed grid)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    (c as unknown as { gridApi?: unknown }).gridApi = { exportDataAsCsv: () => undefined };
+    c.onGridDestroyed();
+    expect((c as unknown as { gridApi?: unknown }).gridApi).withContext('stale destroyed-grid api cleared').toBeUndefined();
+  });
+
   it('load() error clears loading + sets loadError (security log must not masquerade as empty)', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
     c.load();

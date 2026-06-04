@@ -231,7 +231,11 @@ function actionToFallbackMessage(action: string): string {
         </div>
       }
 
-      <!-- Full-bleed grid — no card padding so AG-Grid claims maximum real estate. -->
+      <!-- Grid renders ONLY with rows — when empty (or errored) the card above is
+           the sole empty state, never a redundant ag-grid "No Rows To Show"
+           overlay beneath it. gridPreDestroyed nulls the api so the guarded
+           filter/export handlers stay safe while the grid is unmounted. -->
+      @if (displayRows().length > 0) {
       <div class="grid-frame">
         <ag-grid-angular
           data-testid="audit-grid"
@@ -249,9 +253,11 @@ function actionToFallbackMessage(action: string): string {
           [fullWidthCellRenderer]="fullWidthCellRenderer"
           [animateRows]="true"
           [enableCellTextSelection]="true"
-          (gridReady)="onGridReady($event)">
+          (gridReady)="onGridReady($event)"
+          (gridPreDestroyed)="onGridDestroyed()">
         </ag-grid-angular>
       </div>
+      }
     </div>
   `,
   styles: [`
@@ -706,6 +712,13 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
     this.scopeSlug.set(null);
     this.scopeName.set('');
     this.applyScopeFilter(null);
+  }
+
+  /** The grid is @if-gated on rows>0, so it unmounts when empty. Null the api on
+   *  teardown — exportCsv (?.) + the filter/refresh handlers all guard on it, so
+   *  none call a destroyed grid while it's unmounted. */
+  onGridDestroyed(): void {
+    this.gridApi = undefined;
   }
 
   onGridReady(ev: GridReadyEvent<AuditRow>): void {
