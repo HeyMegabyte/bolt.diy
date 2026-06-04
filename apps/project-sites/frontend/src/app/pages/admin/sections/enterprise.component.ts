@@ -537,7 +537,7 @@ export class AdminEnterpriseComponent {
       sso_provider: this.ssoProvider(),
       sso_metadata_url: this.ssoMetadataUrl(),
     };
-    this.api.put<{ data: Contract }>('/enterprise/contract', body).subscribe({
+    this.api.put<{ data: Contract }>('/enterprise/contract', body, { silent: true }).subscribe({
       next: (res) => {
         this.contract.set(res.data);
         this.toast.success('Contract saved');
@@ -557,10 +557,11 @@ export class AdminEnterpriseComponent {
     }
     this.enqueueing.set(true);
     this.api
-      .post<{ data: AuditExport }>('/enterprise/audit-exports', {
-        range_start: this.rangeStart(),
-        range_end: this.rangeEnd(),
-      })
+      .post<{ data: AuditExport }>(
+        '/enterprise/audit-exports',
+        { range_start: this.rangeStart(), range_end: this.rangeEnd() },
+        { silent: true },
+      )
       .subscribe({
         next: (res) => {
           this.exports.update((rows) => [res.data, ...rows]);

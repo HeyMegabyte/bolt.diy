@@ -312,7 +312,7 @@ export class AdminWebhooksComponent {
       danger: true,
     });
     if (!ok) return;
-    this.api.delete<{ ok: boolean }>(`/sites/${id}/webhooks/${endpointId}`).subscribe({
+    this.api.delete<{ ok: boolean }>(`/sites/${id}/webhooks/${endpointId}`, { silent: true }).subscribe({
       next: () => {
         this.toast.success('Endpoint removed.');
         this.load();

@@ -355,7 +355,9 @@ export class AdminDomainStackComponent implements OnDestroy {
     this.advancing.set(true);
     const body: Record<string, string> = { site_id: siteId };
     if (this.runId()) body['run_id'] = this.runId()!;
-    this.api.post<StackAdvanceResponse>(`/domains/${encodeURIComponent(hn)}/stack`, body).subscribe({
+    // {silent}: the error callback below shows its own toast — suppress the
+    // generic ApiService one so a failure shows ONE message, not two.
+    this.api.post<StackAdvanceResponse>(`/domains/${encodeURIComponent(hn)}/stack`, body, { silent: true }).subscribe({
       next: (res) => {
         this.currentState.set(res.data.state);
         this.advancing.set(false);

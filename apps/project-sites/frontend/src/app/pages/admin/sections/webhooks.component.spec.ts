@@ -104,7 +104,7 @@ describe('AdminWebhooksComponent', () => {
     const before = get.calls.count();
     await fixture.componentInstance.remove('e1', 'https://x.com/h');
     expect(confirmSpy).toHaveBeenCalled(); // destructive action is confirmed first
-    expect(del).toHaveBeenCalledWith('/sites/s1/webhooks/e1');
+    expect(del).toHaveBeenCalledWith('/sites/s1/webhooks/e1', { silent: true }); // {silent}: own error toast, no generic double-toast
     expect(get.calls.count()).toBeGreaterThan(before); // reloaded after delete
   });
 

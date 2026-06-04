@@ -332,7 +332,7 @@ export class AdminRecipesComponent {
       danger: true,
     });
     if (!ok) return;
-    this.api.delete<{ ok: boolean }>(`/sites/${id}/recipes/${recipeId}`).subscribe({
+    this.api.delete<{ ok: boolean }>(`/sites/${id}/recipes/${recipeId}`, { silent: true }).subscribe({
       next: () => {
         this.toast.success('Recipe removed.');
         this.load();

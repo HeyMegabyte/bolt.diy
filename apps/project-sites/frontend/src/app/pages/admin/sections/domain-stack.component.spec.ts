@@ -109,4 +109,13 @@ describe('AdminDomainStackComponent (r13 cohesion + a11y)', () => {
     expect(component.featureDisabled()).toBeTrue();
     expect(toastError).not.toHaveBeenCalled();
   });
+
+  it('advance() posts {silent:true} so a failure shows ONLY its own toast (no generic double-toast)', () => {
+    build({ id: 's1', primary_hostname: 'acme.dev' });
+    const post = (TestBed.inject(ApiService) as unknown as { post: jasmine.Spy }).post;
+    component.advance();
+    const args = post.calls.mostRecent().args;
+    expect(args[0]).toBe('/domains/acme.dev/stack');
+    expect(args[2]).toEqual({ silent: true });
+  });
 });

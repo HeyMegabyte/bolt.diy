@@ -116,7 +116,7 @@ describe('AdminRecipesComponent', () => {
     build({ id: 's1' }); // confirm resolves true
     await fixture.componentInstance.remove('r1', 'Lead alert');
     expect(confirmSpy).toHaveBeenCalled(); // destructive action is confirmed first
-    expect(del).toHaveBeenCalledWith('/sites/s1/recipes/r1');
+    expect(del).toHaveBeenCalledWith('/sites/s1/recipes/r1', { silent: true }); // {silent}: own error toast, no generic double-toast
     expect(get).toHaveBeenCalledTimes(2);
   });
 

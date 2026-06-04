@@ -67,6 +67,45 @@ describe('AdminEnterpriseComponent (contract load-error gating)', () => {
   });
 });
 
+describe('AdminEnterpriseComponent (mutations are {silent} — no generic double-toast)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeMut(): { c: AdminEnterpriseComponent; put: jasmine.Spy; post: jasmine.Spy } {
+    const put = jasmine.createSpy('put').and.returnValue(of({ data: {} }));
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: { id: 'x', range_start: '', range_end: '', status: 'queued' } }));
+    TestBed.configureTestingModule({
+      imports: [AdminEnterpriseComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), put, post } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminEnterpriseComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminEnterpriseComponent).componentInstance, put, post };
+  }
+
+  it('saveContract PUTs {silent:true} (its own error toast is the sole failure surface)', () => {
+    const { c, put } = makeMut();
+    c.notFound.set(false); // editable state (flag enabled, loaded) so saveContract proceeds
+    c.loadError.set(null);
+    c.saveContract();
+    expect(put).toHaveBeenCalled();
+    expect(put.calls.mostRecent().args[0]).toBe('/enterprise/contract');
+    expect(put.calls.mostRecent().args[2]).toEqual({ silent: true });
+  });
+
+  it('enqueueExport POSTs {silent:true}', () => {
+    const { c, post } = makeMut();
+    c.rangeStart.set('2026-01-01');
+    c.rangeEnd.set('2026-02-01');
+    c.enqueueExport();
+    expect(post).toHaveBeenCalled();
+    expect(post.calls.mostRecent().args[0]).toBe('/enterprise/audit-exports');
+    expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
+  });
+});
+
 describe('AdminEnterpriseComponent (flag-disabled card links to Feature Flags)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
