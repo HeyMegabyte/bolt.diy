@@ -21,20 +21,21 @@ const CMDS: SlashCommand[] = [
   { id: 'settings', label: 'Settings', description: 'Open settings', glyph: 'gear' },
 ];
 
+const chatStub = () => ({
+  messages: signal([]),
+  streaming: signal(false),
+  lastPill: signal(null),
+  setPill: jasmine.createSpy('setPill'),
+  submit: jasmine.createSpy('submit').and.resolveTo(undefined),
+});
+let chat: ReturnType<typeof chatStub>;
+
 function make(): AdminDashboardComponent {
+  chat = chatStub();
   TestBed.configureTestingModule({
     imports: [AdminDashboardComponent],
     providers: [
-      {
-        provide: DashboardChatService,
-        useValue: {
-          messages: signal([]),
-          streaming: signal(false),
-          lastPill: signal(null),
-          setPill: jasmine.createSpy('setPill'),
-          submit: jasmine.createSpy('submit').and.resolveTo(undefined),
-        },
-      },
+      { provide: DashboardChatService, useValue: chat },
       {
         provide: SlashCommandRegistryService,
         useValue: {
@@ -97,5 +98,25 @@ describe('AdminDashboardComponent (command palette)', () => {
     c.onInput();
     c.onKey({ key: 'Escape', preventDefault: () => {} } as unknown as KeyboardEvent);
     expect(c.palette()).toBe(false);
+  });
+
+  // The dock submit button is [disabled] while streaming; the quick-example
+  // buttons + feature pills mirror that with [disabled]="chat.streaming()" + a
+  // method guard so a click landing mid-stream (focus race / programmatic) is a
+  // clean no-op, never a second concurrent stream. Guards the affordance contract.
+  it('quick() and pillClick() no-op while a chat is streaming', () => {
+    const c = make();
+    chat.streaming.set(true);
+    c.quick('Make my hero punchier');
+    c.pillClick(CMDS[0]);
+    expect(chat.submit).not.toHaveBeenCalled();
+    expect(chat.setPill).not.toHaveBeenCalled();
+  });
+
+  it('quick() submits when not streaming (guard only blocks mid-stream)', () => {
+    const c = make();
+    chat.streaming.set(false);
+    c.quick('Make my hero punchier');
+    expect(chat.submit).toHaveBeenCalledWith('Make my hero punchier');
   });
 });

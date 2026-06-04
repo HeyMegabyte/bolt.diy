@@ -78,7 +78,7 @@ import { AdminStateService } from '../admin-state.service';
           <ul class="examples">
             @for (ex of examples; track ex) {
               <li>
-                <button type="button" (click)="quick(ex)">{{ ex }}</button>
+                <button type="button" (click)="quick(ex)" [disabled]="chat.streaming()">{{ ex }}</button>
               </li>
             }
           </ul>
@@ -126,6 +126,7 @@ import { AdminStateService } from '../admin-state.service';
             class="pill"
             [class.on]="chat.lastPill() === cmd.id"
             [attr.title]="cmd.description"
+            [disabled]="chat.streaming()"
             (click)="pillClick(cmd)"
           >
             <span class="g" aria-hidden="true">{{ glyph(cmd.glyph) }}</span>
@@ -291,9 +292,13 @@ import { AdminStateService } from '../admin-state.service';
           background 200ms ease,
           transform 200ms ease;
       }
-      .examples button:hover {
+      .examples button:hover:not([disabled]) {
         background: rgba(0, 229, 255, 0.12);
         transform: translateY(-1px);
+      }
+      .examples button[disabled] {
+        opacity: 0.45;
+        cursor: not-allowed;
       }
 
       /* Thread */
@@ -408,9 +413,13 @@ import { AdminStateService } from '../admin-state.service';
           border-color 180ms ease,
           transform 180ms ease;
       }
-      .pill:hover {
+      .pill:hover:not([disabled]) {
         border-color: rgba(0, 229, 255, 0.4);
         transform: translateY(-1px);
+      }
+      .pill[disabled] {
+        opacity: 0.45;
+        cursor: not-allowed;
       }
       .pill.on {
         border-color: rgba(0, 229, 255, 0.55);
@@ -673,6 +682,7 @@ export class AdminDashboardComponent {
   }
 
   quick(prompt: string): void {
+    if (this.chat.streaming()) return; // controls are disabled mid-stream; guard the no-op
     this.draft = prompt;
     const parsed = this.registry.parse(prompt);
     if (parsed) {
@@ -688,6 +698,7 @@ export class AdminDashboardComponent {
   }
 
   pillClick(cmd: SlashCommand): void {
+    if (this.chat.streaming()) return; // controls are disabled mid-stream; guard the no-op
     this.chat.setPill(cmd.id);
     this.runCommand(cmd, '');
   }
