@@ -270,4 +270,19 @@ describe('AdminEnterpriseComponent (Save button hidden in the gated state — fu
     expect((f.nativeElement as HTMLElement).querySelector('[data-testid="enterprise-save"]'))
       .withContext('Save is available when the editor renders').not.toBeNull();
   });
+
+  it('constrains the ACV (cents) number input to non-negative integers (min=0, step=1)', () => {
+    const f = render();
+    f.componentInstance.notFound.set(false);
+    f.componentInstance.loadError.set(null);
+    f.detectChanges();
+    const numbers = Array.from(
+      (f.nativeElement as HTMLElement).querySelectorAll('input[type="number"]'),
+    ) as HTMLInputElement[];
+    // The SLA % input carries max=100; the ACV (cents) input is the other one.
+    const acv = numbers.find((n) => n.getAttribute('max') !== '100');
+    expect(acv).withContext('ACV cents input rendered').toBeTruthy();
+    expect(acv!.getAttribute('min')).withContext('no negative contract value').toBe('0');
+    expect(acv!.getAttribute('step')).withContext('cents are whole numbers').toBe('1');
+  });
 });

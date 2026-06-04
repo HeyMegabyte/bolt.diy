@@ -212,6 +212,8 @@ interface AuditExport {
               <input
                 hlmInput
                 type="number"
+                min="0"
+                step="1"
                 [ngModel]="annualValueCents()"
                 (ngModelChange)="annualValueCents.set($event)"
               />
