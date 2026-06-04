@@ -35,6 +35,7 @@ import { RevealOnScrollDirective } from '../../../../animations/reveal-on-scroll
 import { RollingCounterComponent } from '../../../../components/rolling-counter/rolling-counter.component';
 import { SidePanelComponent } from '../../../../components/side-panel/side-panel.component';
 import { EmptyStateComponent } from '../../empty-state.component';
+import { ErrorCardComponent } from '../../../../components/states';
 import { HlmInputDirective, HlmSelectDirective } from '../../../../ui';
 
 interface TranscriptTurn {
@@ -68,7 +69,7 @@ type DayGroup = { label: string; items: Conversation[] };
   selector: 'app-voice-conversations',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, DatePipe, RevealOnScrollDirective, RollingCounterComponent, SidePanelComponent, EmptyStateComponent, HlmInputDirective, HlmSelectDirective],
+  imports: [FormsModule, DatePipe, RevealOnScrollDirective, RollingCounterComponent, SidePanelComponent, EmptyStateComponent, ErrorCardComponent, HlmInputDirective, HlmSelectDirective],
   template: `
     <section class="space-y-5" psReveal>
       <!-- Stat strip -->
@@ -125,6 +126,12 @@ type DayGroup = { label: string; items: Conversation[] };
         <div class="space-y-2" aria-busy="true">
           @for (i of [0,1,2,3,4]; track i) { <div class="skel h-14 rounded-md"></div> }
         </div>
+      } @else if (loadError() && conversations().length === 0) {
+        <app-error-card
+          title="Couldn't load conversations"
+          [message]="loadError()!"
+          (retry)="refresh()"
+          data-testid="conversations-error" />
       } @else if (filtered().length === 0) {
         <app-empty-state
           icon="💬"
@@ -348,6 +355,8 @@ export class VoiceConversationsComponent implements OnDestroy {
 
   conversations = signal<Conversation[]>([]);
   loading = signal(true);
+  /** Set when the feed fetch fails so a load error shows a Retry card — never a fake "No conversations yet" (which hides real calls behind a silent failure). */
+  loadError = signal<string | null>(null);
   detail = signal<Conversation | null>(null);
 
   searchQ = '';
@@ -437,9 +446,12 @@ export class VoiceConversationsComponent implements OnDestroy {
     const site = this.state.selectedSite();
     if (!site) return;
     this.loading.set(true);
+    this.loadError.set(null);
     this.api.get<{ data: Conversation[] }>(`/voice/conversations?siteId=${site.id}`, undefined, { silent: true }).subscribe({
-      next: (r) => { this.conversations.set(r.data ?? []); this.loading.set(false); },
-      error: () => { this.loading.set(false); this.conversations.set([]); },
+      next: (r) => { this.conversations.set(r.data ?? []); this.loadError.set(null); this.loading.set(false); },
+      // Keep any already-loaded calls on a transient poll blip; surface a Retry
+      // card (not a fake "No conversations yet") when there's nothing to show.
+      error: () => { this.loading.set(false); this.loadError.set('The conversation feed did not respond.'); },
     });
   }
 
