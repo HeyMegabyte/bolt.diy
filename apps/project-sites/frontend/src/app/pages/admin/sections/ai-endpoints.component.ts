@@ -51,6 +51,7 @@ import { DialogShellComponent } from '../../../components/dialog-shell/dialog-sh
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { SkeletonComponent } from '../../../components/states';
+import { CharCountComponent } from '../../../components/char-count/char-count.component';
 import {
   LANGUAGE_OPTIONS,
   LANGUAGE_STARTERS,
@@ -87,6 +88,7 @@ interface InlineEdit {
     DialogShellComponent,
     HlmInputDirective,
     HlmSelectDirective,
+    CharCountComponent,
   ],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" [class.agents--compact]="compact()" data-testid="ai-endpoints-page">
@@ -345,12 +347,7 @@ interface InlineEdit {
                 [(ngModel)]="createDraft().description"
                 maxlength="200"
                 data-testid="ai-endpoint-create-description" />
-              <div
-                class="char-count"
-                [class.near]="(createDraft().description?.length ?? 0) >= 180"
-                data-testid="ai-endpoint-desc-count"
-                aria-hidden="true"
-              >{{ createDraft().description?.length ?? 0 }}/200</div>
+              <app-char-count [value]="createDraft().description" [max]="200" />
             </label>
 
             <label class="block">
@@ -609,9 +606,8 @@ interface InlineEdit {
     .meta-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 0.66rem; color: rgba(255,255,255,0.55); flex-wrap: wrap; }
     .lang-pill { padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.65); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; }
     /* (.sparkline / .latency-tip styles removed with the fabricated per-row
-       latency display — see createEndpoint() history. No template uses them.) */
-    .char-count { font-size: 0.62rem; color: rgba(255,255,255,0.4); text-align: right; margin-top: 3px; transition: color 140ms ease; }
-    .char-count.near { color: oklch(0.82 0.16 75); }
+       latency display — see createEndpoint() history. No template uses them.
+       The Description counter now uses the reusable <app-char-count>.) */
     .actions { display: flex; gap: 8px; margin-left: auto; align-items: center; }
     .link-btn { background: transparent; border: 0; color: rgba(255,255,255,0.6); font-size: 0.66rem; cursor: pointer; padding: 0; }
     .link-btn:hover { color: #00E5FF; }

@@ -12,6 +12,7 @@ import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective } from '../
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { CharCountComponent } from '../../../components/char-count/char-count.component';
 
 interface Member { id: string; email: string; name: string | null; role: string; created_at: string; }
 interface Invite { id: string; email: string; role: string; created_at: string; expires_at: string; }
@@ -39,7 +40,7 @@ const PROVIDERS = MCP_PROVIDERS;
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [RevealDirective, RollingCounterComponent, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, RollingCounterComponent, CharCountComponent, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -451,9 +452,9 @@ const PROVIDERS = MCP_PROVIDERS;
                               name="original_prompt"
                               [attr.aria-invalid]="businessErrors().original_prompt ? 'true' : null"
                               aria-describedby="biz-err-prompt"></textarea>
-                    <div class="flex justify-between items-center mt-1">
-                      <p id="biz-err-prompt" class="biz-err" aria-live="polite">{{ businessErrors().original_prompt || '' }}</p>
-                      <span class="text-[0.6rem] text-text-secondary">{{ (business.original_prompt || '').length }} / 4000</span>
+                    <div class="flex justify-between items-center gap-3 mt-1">
+                      <p id="biz-err-prompt" class="biz-err m-0" aria-live="polite">{{ businessErrors().original_prompt || '' }}</p>
+                      <app-char-count class="shrink-0" [value]="business.original_prompt" [max]="4000" />
                     </div>
                   </label>
                 </div>
