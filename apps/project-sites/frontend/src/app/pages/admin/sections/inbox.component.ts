@@ -115,7 +115,7 @@ const STATUS_COLORS: Record<string, string> = {
               <button
                 class="inbox-pill"
                 [class.active]="selectedStatus() === s"
-                (click)="selectedStatus.set(s)"
+                (click)="selectStatus(s)"
                 [attr.aria-selected]="selectedStatus() === s"
                 [attr.aria-label]="(s | titlecase) + ' — ' + statusCount(s) + ' conversations'"
                 role="tab">
@@ -163,8 +163,12 @@ const STATUS_COLORS: Record<string, string> = {
                 <button class="btn-ghost text-xs" data-testid="inbox-conv-retry" (click)="loadConversations()">Retry</button>
               </div>
             } @else if (filteredConversations().length === 0) {
-              <app-empty-state icon="💬" [title]="'No ' + selectedStatus() + ' conversations'"
-                body="Messages from your site's contact form and chat widget land here." />
+              <app-empty-state icon="💬"
+                [title]="selectedStatus() === 'all' ? 'No conversations yet' : 'No ' + selectedStatus() + ' conversations'"
+                message="Messages from your site's contact form and chat widget land here."
+                [ctaLabel]="selectedStatus() !== 'all' ? 'Show all conversations' : ''"
+                (ctaClick)="selectStatus('all')"
+                data-testid="inbox-empty" />
             } @else {
               @for (conv of filteredConversations(); track conv.id) {
                 <div
@@ -507,6 +511,17 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  /**
+   * Switch the status filter. Status is a SERVER-side param (not client-filtered
+   * in filteredConversations), so it must refetch — otherwise the pill highlights
+   * but the list never changes (a dead filter).
+   */
+  selectStatus(status: string): void {
+    if (this.selectedStatus() === status) return;
+    this.selectedStatus.set(status);
+    this.loadConversations();
   }
 
   loadConversations(append = false): void {

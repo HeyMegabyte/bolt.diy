@@ -51,6 +51,24 @@ describe('AdminInboxComponent (conversations load error)', () => {
     expect(c.convError()).toBeNull();
   });
 
+  it('selectStatus refetches with the new status (server-side filter — not a dead pill)', () => {
+    const get = jasmine.createSpy('get').and.returnValue(of({ conversations: [], hasMore: false }));
+    const c = make(get);
+    get.calls.reset();
+    c.selectStatus('resolved');
+    expect(c.selectedStatus()).toBe('resolved');
+    expect((get.calls.mostRecent().args[1] as { status?: string }).status)
+      .withContext('a fresh fetch fired with the new status').toBe('resolved');
+  });
+
+  it('selectStatus is a no-op when the status is unchanged (no redundant refetch)', () => {
+    const get = jasmine.createSpy('get').and.returnValue(of({ conversations: [], hasMore: false }));
+    const c = make(get); // default selectedStatus is 'open'
+    get.calls.reset();
+    c.selectStatus('open');
+    expect(get).not.toHaveBeenCalled();
+  });
+
   it('retry after an error clears the prior convError', () => {
     const get = jasmine.createSpy('get').and.returnValues(
       throwError(() => ({ status: 500 })),
