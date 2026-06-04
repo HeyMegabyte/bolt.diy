@@ -15,6 +15,7 @@ import { RollingCounterComponent } from '../../../components/rolling-counter/rol
 import { HlmInputDirective } from '../../../ui';
 import {
   APPS_CATALOG,
+  isAppSupported,
   type CatalogApp,
   type InfraDep,
 } from './apps-catalog.data';
@@ -179,6 +180,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
             <article class="card deploy-card" appReveal>
               <h3 class="card-h">Deploy</h3>
 
+              @if (supported()) {
               <label class="form-field">
                 <span class="form-label">Subdomain</span>
                 <div class="subdomain-input">
@@ -252,6 +254,17 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
                 <span class="form-help form-help--muted">
                   Fix the form to unlock deploy.
                 </span>
+              }
+              } @else {
+                <div class="soon-panel" data-testid="apps-deploy-soon" role="status">
+                  <span class="soon-badge">Coming soon</span>
+                  <p class="soon-title">{{ a.name }} isn't deployable yet</p>
+                  <p class="soon-body">
+                    This app is in the catalog as a preview. Its one-click runtime
+                    container ships in a future drop — we'll light up Deploy here the
+                    moment it's ready.
+                  </p>
+                </div>
               }
             </article>
           </aside>
@@ -431,6 +444,25 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       position: sticky; top: 1rem;
       display: flex; flex-direction: column; gap: 1.1rem;
     }
+
+    /* Soon (catalog-placeholder) apps: no deploy form, an honest coming-soon note. */
+    .soon-panel {
+      display: flex; flex-direction: column; gap: 0.5rem;
+      padding: 1.1rem 1rem;
+      border: 1px dashed color-mix(in oklch, var(--ps-accent, #00E5FF) 32%, transparent);
+      border-radius: 12px;
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 5%, transparent);
+    }
+    .soon-badge {
+      align-self: flex-start;
+      font-size: 0.6rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 999px;
+      color: var(--ps-accent, #00E5FF);
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 14%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 30%, transparent);
+    }
+    .soon-title { margin: 0; font-size: 0.86rem; font-weight: 600; color: #fff; }
+    .soon-body { margin: 0; font-size: 0.74rem; line-height: 1.5; color: rgba(255,255,255,0.6); }
 
     .form-field { display: flex; flex-direction: column; gap: 6px; }
     .form-label {
@@ -661,6 +693,12 @@ export class AppDetailComponent implements OnInit {
     return v.length >= 3 && v.length <= 40 && /^[a-z0-9-]+$/.test(v) && !v.startsWith('-') && !v.endsWith('-');
   });
 
+  /** Live (deployable today) vs Soon (catalog placeholder — no runtime container yet). */
+  readonly supported = computed<boolean>(() => {
+    const a = this.app();
+    return !!a && isAppSupported(a.id);
+  });
+
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
     this.appId.set(id);
@@ -713,7 +751,8 @@ export class AppDetailComponent implements OnInit {
    * surface via the standard toast pipeline.
    */
   deploy(a: CatalogApp): void {
-    if (!this.canDeploy() || this.deploying()) return;
+    // Soon apps have no runtime container yet — never POST a doomed deploy.
+    if (!isAppSupported(a.id) || !this.canDeploy() || this.deploying()) return;
     this.deploying.set(true);
     const payload = {
       app_id: a.id,

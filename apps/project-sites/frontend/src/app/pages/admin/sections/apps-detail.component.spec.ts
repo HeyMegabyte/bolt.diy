@@ -14,7 +14,10 @@ import { AdminStateService } from '../admin-state.service';
  *  - deploy() is guarded (invalid subdomain → no POST) and on success navigates to the instance
  * overrideComponent strips the template; validation is driven via the public onSubdomainChange.
  */
-function make(post = jasmine.createSpy('post').and.returnValue(of({ instance_id: 'inst-1' }))): {
+function make(
+  post = jasmine.createSpy('post').and.returnValue(of({ instance_id: 'inst-1' })),
+  appId = '',
+): {
   c: AppDetailComponent;
   nav: jasmine.Spy;
   post: jasmine.Spy;
@@ -25,7 +28,7 @@ function make(post = jasmine.createSpy('post').and.returnValue(of({ instance_id:
   TestBed.configureTestingModule({
     imports: [AppDetailComponent],
     providers: [
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => '' } } } },
+      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => appId } } } },
       { provide: Router, useValue: { navigate: nav } },
       { provide: ApiService, useValue: { post } },
       { provide: ToastService, useValue: toast },
@@ -77,7 +80,7 @@ describe('AppDetailComponent (subdomain validation + deploy guard)', () => {
     const { c, post, nav, toast } = make();
     c.onSubdomainChange('my-cool-app');
     c.subdomain = 'my-cool-app';
-    c.deploy({ id: 'medusa', name: 'Medusa' } as never);
+    c.deploy({ id: 'umami', name: 'Umami' } as never); // supported (Live) app
     expect(post).toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalled();
     expect(nav).toHaveBeenCalledWith(['/admin/apps/instances', 'inst-1']);
@@ -88,7 +91,27 @@ describe('AppDetailComponent (subdomain validation + deploy guard)', () => {
     const { c } = make(jasmine.createSpy('post').and.returnValue(throwError(() => ({ status: 500 }))));
     c.onSubdomainChange('my-cool-app');
     c.subdomain = 'my-cool-app';
-    c.deploy({ id: 'medusa', name: 'Medusa' } as never);
+    c.deploy({ id: 'umami', name: 'Umami' } as never);
     expect(c.deploying()).toBe(false);
+  });
+
+  // A "Soon" (catalog-placeholder) app must NOT be deployable — its runtime
+  // container ships in a future drop, so a POST would be a doomed dead action.
+  it('deploy() is a no-op for an unsupported (Soon) app even with a valid subdomain', () => {
+    const { c, post } = make();
+    c.onSubdomainChange('valid-subdomain');
+    c.subdomain = 'valid-subdomain';
+    c.deploy({ id: 'matomo', name: 'Matomo' } as never); // not in SUPPORTED_APP_SLUGS
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('supported() reflects the loaded catalog app (Live=true, Soon=false)', () => {
+    const live = make(undefined, 'umami').c;
+    live.ngOnInit();
+    expect(live.supported()).toBeTrue();
+    TestBed.resetTestingModule();
+    const soon = make(undefined, 'matomo').c;
+    soon.ngOnInit();
+    expect(soon.supported()).toBeFalse();
   });
 });
