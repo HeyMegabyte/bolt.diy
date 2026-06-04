@@ -8,7 +8,7 @@
     "check:alt-text": "node scripts/check-alt-text.mjs",
     "check:api-paths": "node scripts/check-api-paths.mjs",
     "validate:e2e-inventory": "node scripts/validate-e2e-inventory.mjs",
-    "build:prod": "node scripts/check-alt-text.mjs && node scripts/check-api-paths.mjs && rm -rf .angular/cache && ng build --configuration production",
+    "build:prod": "node scripts/check-alt-text.mjs && node scripts/check-api-paths.mjs && node scripts/check-brand-colors.mjs && rm -rf .angular/cache && ng build --configuration production",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:ci": "ng test --watch=false --browsers=ChromeHeadlessNoSandbox",
@@ -17,7 +17,8 @@
     "verify:production": "node scripts/verify-deploy.mjs https://projectsites.dev",
     "test:e2e:prod": "playwright test --config=playwright.prod.config.ts",
     "ship:production": "npm run deploy:production && npm run verify:production && npm run test:e2e:prod",
-    "upload-sourcemaps": "node scripts/upload-sourcemaps.mjs"
+    "upload-sourcemaps": "node scripts/upload-sourcemaps.mjs",
+    "check:brand": "node scripts/check-brand-colors.mjs"
   },
   "private": true,
   "dependencies": {
