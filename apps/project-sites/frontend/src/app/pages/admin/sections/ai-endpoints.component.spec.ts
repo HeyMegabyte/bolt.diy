@@ -221,3 +221,14 @@ describe('AdminAiEndpointsComponent — mutations pass {silent:true} (no generic
     expect(del).toHaveBeenCalledWith('/sites/s1/ai-endpoints/e9', { silent: true });
   });
 });
+
+describe('AdminAiEndpointsComponent (⋯ popover Esc dismiss)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  it('Esc closes the open ⋯ popover (keyboard dismiss)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.moreOpenId.set('ep-1');
+    expect(c.moreOpenId()).toBe('ep-1');
+    c.onEscapeCloseMore();
+    expect(c.moreOpenId()).toBeNull();
+  });
+});

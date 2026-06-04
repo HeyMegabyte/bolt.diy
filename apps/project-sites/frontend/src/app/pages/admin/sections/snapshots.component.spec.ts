@@ -185,3 +185,14 @@ describe('AdminSnapshotsComponent — mutations pass {silent:true} (no generic d
     expect(del).toHaveBeenCalledWith('/sites/s1/snapshots/snap9', { silent: true });
   });
 });
+
+describe('AdminSnapshotsComponent (⋯ popover Esc dismiss)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  it('Esc closes the open ⋯ popover (keyboard dismiss)', () => {
+    const c = make(of({ data: [] }));
+    c.moreOpenId.set('snap-1');
+    expect(c.moreOpenId()).toBe('snap-1');
+    c.onEscapeCloseMore();
+    expect(c.moreOpenId()).toBeNull();
+  });
+});

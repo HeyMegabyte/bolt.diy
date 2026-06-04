@@ -462,6 +462,12 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
     this.menuOpenId.set(null);
   }
 
+  /** Esc closes the open ⋯ row popover (keyboard dismiss). */
+  @HostListener('document:keydown.escape')
+  onEscapeCloseMenu(): void {
+    if (this.menuOpenId() !== null) this.menuOpenId.set(null);
+  }
+
   openDetail(inst: AppInstance): void {
     this.menuOpenId.set(null);
     this.router.navigate(['/admin/apps/instances', inst.id]);

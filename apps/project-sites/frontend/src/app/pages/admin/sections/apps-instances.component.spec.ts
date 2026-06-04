@@ -175,3 +175,14 @@ describe('AppInstancesComponent (load-error render)', () => {
     expect(el.querySelector('app-empty-state')).toBeTruthy();
   });
 });
+
+describe('AppInstancesComponent (⋯ row-menu Esc dismiss)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  it('Esc closes the open row menu (keyboard dismiss)', () => {
+    const { c } = make();
+    c.menuOpenId.set('inst-1');
+    expect(c.menuOpenId()).toBe('inst-1');
+    c.onEscapeCloseMenu();
+    expect(c.menuOpenId()).toBeNull();
+  });
+});

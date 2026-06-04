@@ -1517,6 +1517,12 @@ export class AdminSnapshotsComponent implements OnInit {
     this.moreOpenId.set(null);
   }
 
+  /** Esc closes the open ⋯ popover (keyboard dismiss — it already closes on outside click). */
+  @HostListener('document:keydown.escape')
+  onEscapeCloseMore(): void {
+    if (this.moreOpenId() !== null) this.moreOpenId.set(null);
+  }
+
   private loadGhStatus(siteId: string): void {
     this.api.get<{ data: GhStatus }>(`/sites/${siteId}/github/status`).subscribe({
       next: (r) => this.ghStatus.set(r.data),

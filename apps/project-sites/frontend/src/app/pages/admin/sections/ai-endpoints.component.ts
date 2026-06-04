@@ -1164,6 +1164,12 @@ export class AdminAiEndpointsComponent implements OnInit {
     this.moreOpenId.set(null);
   }
 
+  /** Esc closes the open ⋯ popover (keyboard dismiss — it already closes on outside click). */
+  @HostListener('document:keydown.escape')
+  onEscapeCloseMore(): void {
+    if (this.moreOpenId() !== null) this.moreOpenId.set(null);
+  }
+
   loadDetail(e: EndpointRow): void {
     const s = this.state.selectedSite();
     if (!s) return;
