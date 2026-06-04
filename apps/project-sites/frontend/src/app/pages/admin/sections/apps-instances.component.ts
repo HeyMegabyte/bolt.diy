@@ -854,6 +854,7 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private api = inject(ApiService);
   private toast = inject(ToastService);
+  private confirmSvc = inject(ConfirmService);
 
   @ViewChild('logsBox') private logsBox?: ElementRef<HTMLPreElement>;
 
@@ -978,12 +979,20 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  destroy(): void {
+  async destroy(): Promise<void> {
     const i = this.instance(); if (!i || this.busy()) return;
-    this.toast.warning(`Destroy ${this.catalogApp()?.name ?? i.app_id}? All data + the subdomain will be released.`, {
-      action: { label: 'Destroy', run: () => { this.performDestroy(i.id); } },
-      duration: 7000,
+    // Modal confirm (not an auto-dismissing toast) — destroying releases the
+    // container, all data, AND the subdomain irreversibly. Matches the list
+    // view's deleteInstance + the one-dialog-primitive rule (focus-trapped,
+    // deliberate, can't be missed).
+    const ok = await this.confirmSvc.confirm({
+      title: 'Destroy instance',
+      message: `Destroy "${this.catalogApp()?.name ?? i.app_id}"? Its container, all data, and the subdomain are released — this cannot be undone.`,
+      confirmLabel: 'Destroy',
+      danger: true,
     });
+    if (!ok) return;
+    this.performDestroy(i.id);
   }
 
   private performDestroy(id: string): void {

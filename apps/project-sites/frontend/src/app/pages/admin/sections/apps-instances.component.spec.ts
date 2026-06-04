@@ -189,3 +189,43 @@ describe('AppInstancesComponent (⋯ row-menu Esc dismiss)', () => {
     expect(c.menuOpenId()).toBeNull();
   });
 });
+
+/**
+ * Detail-view destroy() is a MODAL confirm (not the old auto-dismissing toast):
+ * destroying releases the container + all data + the subdomain irreversibly, so
+ * it must go through ConfirmService (focus-trapped, deliberate, can't be missed)
+ * — matching the list view's deleteInstance + the one-dialog-primitive rule.
+ */
+import { ActivatedRoute } from '@angular/router';
+import { AppInstanceDetailComponent } from './apps-instances.component';
+describe('AppInstanceDetailComponent (destroy is modal-confirm-gated)', () => {
+  function makeDetail(confirm: () => Promise<boolean>): { c: AppInstanceDetailComponent; del: jasmine.Spy } {
+    const del = jasmine.createSpy('delete').and.returnValue(of({}));
+    TestBed.configureTestingModule({
+      imports: [AppInstanceDetailComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ instance: null }), post: () => of({}), delete: del } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'i1' } }, paramMap: of({ get: () => 'i1' }) } },
+        provideRouter([]),
+      ],
+    });
+    const c = TestBed.createComponent(AppInstanceDetailComponent).componentInstance; // no detectChanges → skip ngOnInit
+    c.instance.set({ id: 'i1', app_id: 'medusa' } as never);
+    return { c, del };
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('does NOT DELETE when the confirm is cancelled', async () => {
+    const { c, del } = makeDetail(() => Promise.resolve(false));
+    await c.destroy();
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it('DELETEs the instance only after the modal confirm is accepted', async () => {
+    const { c, del } = makeDetail(() => Promise.resolve(true));
+    await c.destroy();
+    expect(del).toHaveBeenCalledWith('/apps/instances/i1');
+  });
+});
