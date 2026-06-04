@@ -88,6 +88,31 @@ describe('AdminBulkOpsComponent', () => {
     expect(q('[data-testid="bulk-ops-error"]')?.textContent).toContain('No sites to preview');
   });
 
+  it('blocks Preview for set_flag with an empty/whitespace flag key (no doomed POST) + shows a cyan hint', () => {
+    fixture.componentInstance.operationModel.set('set_flag');
+    fixture.componentInstance.flagKeyModel.set('   '); // whitespace only
+    fixture.detectChanges();
+    expect(fixture.componentInstance.canPreview()).withContext('guard blocks an empty-key preview').toBe(false);
+    expect((q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).disabled).toBe(true);
+    expect(q('[data-testid="bulk-ops-flagkey-hint"]')).withContext('cyan guidance hint shows').not.toBeNull();
+    (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+    expect(post).withContext('no POST fires for an invalid set_flag preview').not.toHaveBeenCalled();
+  });
+
+  it('enables Preview once a flag key is entered (hint clears)', () => {
+    fixture.componentInstance.operationModel.set('set_flag');
+    fixture.componentInstance.flagKeyModel.set('review_synthesis');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.canPreview()).toBe(true);
+    expect((q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).disabled).toBe(false);
+    expect(q('[data-testid="bulk-ops-flagkey-hint"]')).toBeNull();
+  });
+
+  it('archive needs no flag key — Preview stays enabled, no hint', () => {
+    expect(fixture.componentInstance.canPreview()).toBe(true); // default op = archive
+    expect(q('[data-testid="bulk-ops-flagkey-hint"]')).toBeNull();
+  });
+
   it('clears a prior plan when the operation changes', () => {
     (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
     fixture.detectChanges();

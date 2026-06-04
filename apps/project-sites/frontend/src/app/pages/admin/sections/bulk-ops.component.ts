@@ -117,16 +117,20 @@ interface BulkApplyResult {
           </div>
         }
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
           <button
             hlmBtn
             data-testid="bulk-ops-preview-btn"
-            [disabled]="loading()"
+            [disabled]="!canPreview()"
             (click)="preview()"
           >
             {{ loading() ? 'Previewing…' : 'Preview impact' }}
           </button>
-          <span class="text-[0.72rem] text-text-secondary">Read-only — nothing is changed.</span>
+          @if (isSetFlag() && !flagKeyModel().trim()) {
+            <span data-testid="bulk-ops-flagkey-hint" class="text-[0.72rem] text-[#00E5FF]">Enter a flag key to preview.</span>
+          } @else {
+            <span class="text-[0.72rem] text-text-secondary">Read-only — nothing is changed.</span>
+          }
         </div>
       </div>
 
@@ -233,6 +237,13 @@ export class AdminBulkOpsComponent {
 
   readonly isSetFlag = computed(() => this.operationModel() === 'set_flag');
 
+  /** Preview is blocked while loading, and for set_flag until a non-empty flag key is entered (no doomed POST). */
+  readonly canPreview = computed(() => {
+    if (this.loading()) return false;
+    if (this.isSetFlag() && this.flagKeyModel().trim().length === 0) return false;
+    return true;
+  });
+
   /** Apply is offered only for a previewed, non-empty plan of an executable op. */
   readonly canApply = computed(() => {
     const p = this.plan();
@@ -252,7 +263,7 @@ export class AdminBulkOpsComponent {
   }
 
   preview(): void {
-    if (this.loading()) return;
+    if (!this.canPreview()) return; // guards loading + empty set_flag key
     this.loading.set(true);
     this.error.set(null);
 
