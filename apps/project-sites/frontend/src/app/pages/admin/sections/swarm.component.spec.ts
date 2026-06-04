@@ -121,4 +121,32 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
     expect(errSpy).toHaveBeenCalled();
     expect(fixture.componentInstance.running()).toBeFalse();
   });
+
+  // r54 — idle preview must not look "stuck loading". The component-stream
+  // skeletons shimmer ONLY while a run is active or the SSE stream is connected;
+  // at rest they are static placeholders (and never animate for reduced-motion).
+  it('idle preview does NOT enter the streaming state (skeletons stay static, no "stuck loading")', () => {
+    const root: HTMLElement = fixture.nativeElement;
+    const preview = root.querySelector('.swarm-preview');
+    expect(preview).withContext('preview panel renders').not.toBeNull();
+    expect(fixture.componentInstance.running()).withContext('no run at rest').toBeFalse();
+    expect(fixture.componentInstance.sseConnected()).withContext('no stream at rest').toBeFalse();
+    expect(preview?.classList.contains('swarm-preview--streaming'))
+      .withContext('idle preview is NOT in the streaming state').toBeFalse();
+    // The shimmer is scoped to the streaming state AND gated behind
+    // prefers-reduced-motion: no-preference — never idle, never for reduced motion.
+    const styles = (AdminSwarmComponent as { ɵcmp?: { styles?: string[] } }).ɵcmp?.styles?.join('\n') ?? '';
+    // (view-encapsulation injects [_ngcontent] attrs between classes, so assert
+    //  the streaming scope-class prefix + the motion gate rather than the full selector)
+    expect(styles).withContext('shimmer scoped to streaming state').toContain('.swarm-preview--streaming');
+    expect(styles).withContext('shimmer gated to motion-OK users').toContain('prefers-reduced-motion: no-preference');
+  });
+
+  it('flips the preview into the streaming state once a run is active', () => {
+    fixture.componentInstance.running.set(true);
+    fixture.detectChanges();
+    const preview = (fixture.nativeElement as HTMLElement).querySelector('.swarm-preview');
+    expect(preview?.classList.contains('swarm-preview--streaming'))
+      .withContext('active run flips the preview into the streaming state').toBeTrue();
+  });
 });

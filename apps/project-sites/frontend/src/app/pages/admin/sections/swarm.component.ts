@@ -162,7 +162,7 @@ const SPECIALIST_COLORS: Record<string, string> = {
   }
 
   <!-- ── Progressive Preview Panel (#6) ───────────────────────────────── -->
-  <section class="swarm-preview" appReveal aria-label="Progressive component preview">
+  <section class="swarm-preview" [class.swarm-preview--streaming]="isStreaming()" appReveal aria-label="Progressive component preview">
     <h2 class="swarm-preview__title">Live Component Stream</h2>
     <p class="swarm-preview__sub">Components stream in via SSE as specialists complete them</p>
 
@@ -320,7 +320,9 @@ const SPECIALIST_COLORS: Record<string, string> = {
     .swarm-preview__slot-spinner { color: var(--ps-accent, #00e5ff); animation: spin 1s linear infinite; display: inline-block; font-size: 0.75rem; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) { .swarm-preview__slot--active, .swarm-preview__slot-spinner, .swarm-preview__slot-skeleton { animation: none; } }
-    .swarm-preview__slot-skeleton { width: 24px; height: 6px; background: var(--sw-line); border-radius: 3px; animation: shimmer 1.5s ease-in-out infinite; }
+    .swarm-preview__slot-skeleton { width: 24px; height: 6px; background: var(--sw-line); border-radius: 3px; opacity: .45; }
+    /* Shimmer ONLY while a run/stream is active — an idle panel must not read as "stuck loading". Reduced-motion users never get it. */
+    @media (prefers-reduced-motion: no-preference) { .swarm-preview--streaming .swarm-preview__slot-skeleton { animation: shimmer 1.5s ease-in-out infinite; } }
     @keyframes shimmer { 0%,100%{opacity:.4} 50%{opacity:.8} }
     .swarm-preview__connect { margin-top: 0.75rem; background: color-mix(in oklch, var(--ps-accent, #00e5ff) 10%, transparent); border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent); color: var(--ps-accent, #00e5ff); padding: 0.375rem 0.875rem; border-radius: 9999px; font-size: 0.75rem; cursor: pointer; }
     /* History */
@@ -356,6 +358,9 @@ export class AdminSwarmComponent implements OnInit, OnDestroy {
   readonly sseConnected = signal(false);
   readonly componentsReady = signal<string[]>([]);
   readonly activeComponent = signal<string | null>(null);
+  /** True while a run is live OR the SSE stream is connected — gates the
+   *  preview skeleton shimmer so an idle panel never reads as "stuck loading". */
+  readonly isStreaming = computed(() => this.running() || this.sseConnected());
 
   readonly skeletonSlots = ['nav', 'hero', 'features', 'social-proof', 'pricing', 'testimonials', 'faq', 'cta', 'footer'];
 
