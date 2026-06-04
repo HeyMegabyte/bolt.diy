@@ -1211,7 +1211,14 @@ export class AdminSettingsComponent implements OnInit {
       error: () => { /* api.service already toasted */ },
     });
   }
-  revokeInvite(i: Invite): void {
+  async revokeInvite(i: Invite): Promise<void> {
+    const ok = await this.confirmSvc.confirm({
+      title: 'Revoke invite',
+      message: `Revoke the invite for ${i.email}? Their invite link stops working immediately — you can re-invite them later.`,
+      confirmLabel: 'Revoke invite',
+      danger: true,
+    });
+    if (!ok) return;
     this.api.delete(`/team/invites/${i.id}`).subscribe({
       next: () => { this.toast.success('Invite revoked'); this.loadTeam(); },
       error: () => { /* api.service already toasted */ },

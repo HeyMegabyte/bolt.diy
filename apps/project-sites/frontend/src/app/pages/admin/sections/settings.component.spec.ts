@@ -102,6 +102,22 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     }
   });
 
+  it('revokeInvite confirms (danger) before deleting the invite; cancel → no DELETE', async () => {
+    build({ id: 's', slug: 'demo' });
+    const c = fixture.componentInstance;
+    const api = TestBed.inject(ApiService) as unknown as { delete: jasmine.Spy };
+    const confirm = TestBed.inject(ConfirmService) as unknown as { confirm: jasmine.Spy };
+    // confirm resolves false by default → cancelled
+    await c.revokeInvite({ id: 'inv1', email: 'x@y.com' } as never);
+    expect(confirm.confirm).withContext('a destructive revoke must confirm first').toHaveBeenCalled();
+    expect((confirm.confirm.calls.mostRecent().args[0] as { danger?: boolean }).danger).withContext('red destructive modal').toBeTrue();
+    expect(api.delete).withContext('no DELETE when cancelled').not.toHaveBeenCalled();
+    // confirmed → deletes the invite
+    confirm.confirm.and.resolveTo(true);
+    await c.revokeInvite({ id: 'inv1', email: 'x@y.com' } as never);
+    expect(api.delete).toHaveBeenCalledWith('/team/invites/inv1');
+  });
+
   it('navigates within the SPA (fragment route) when switching tabs — no full reload', () => {
     build({ id: 's', slug: 'demo' });
     const router = TestBed.inject(Router) as unknown as { navigate: jasmine.Spy };
