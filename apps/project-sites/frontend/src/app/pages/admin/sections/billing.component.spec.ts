@@ -153,6 +153,18 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
     expect(confirmSpy).toHaveBeenCalled();
     expect(delSpy).not.toHaveBeenCalled();
   });
+
+  it('Subscription card shows the plan label (never a bare "—") for a free user', () => {
+    build();
+    const c = fixture.componentInstance;
+    c.plan.set('free');
+    c.subStatus.set(null); // free user → no subscription row
+    fixture.detectChanges();
+    const planEl = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="subscription-plan"]');
+    expect(planEl?.textContent?.trim())
+      .withContext('a free user must see "Free", not an uninformative em-dash')
+      .toBe('Free');
+  });
 });
 
 /**

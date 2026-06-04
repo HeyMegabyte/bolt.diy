@@ -135,7 +135,7 @@ interface ForecastBar {
             <div class="grid sm:grid-cols-2 gap-3 text-[0.78rem]">
               <div class="rounded-lg border border-white/8 bg-black/20 px-3 py-2">
                 <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary font-bold">Plan</div>
-                <div class="text-white font-bold" data-testid="subscription-plan">{{ subStatus()?.plan ?? '—' }}</div>
+                <div class="text-white font-bold" data-testid="subscription-plan">{{ subStatus()?.plan ?? planLabel() }}</div>
               </div>
               <div class="rounded-lg border border-white/8 bg-black/20 px-3 py-2">
                 <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary font-bold">Period ends</div>
