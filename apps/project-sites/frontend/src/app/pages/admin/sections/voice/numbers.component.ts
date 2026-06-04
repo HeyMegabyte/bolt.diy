@@ -29,7 +29,7 @@ import {
   type OnInit,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Dialog } from '@angular/cdk/dialog';
+import { ConfirmService } from '../../../../services/confirm.service';
 import { AdminStateService } from '../../admin-state.service';
 import { ApiService } from '../../../../services/api.service';
 import { ToastService } from '../../../../services/toast.service';
@@ -350,7 +350,7 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
   readonly state = inject(AdminStateService);
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
-  private readonly dialog = inject(Dialog);
+  private readonly confirmSvc = inject(ConfirmService);
 
   readonly MAX = MAX_NUMBERS;
 
@@ -449,14 +449,14 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
       this.cappedNotice.set(true);
       return;
     }
-    const { DialogShellComponent } = await import('../../../../components/dialog-shell/dialog-shell.component');
-    const ref = this.dialog.open(DialogShellComponent, { panelClass: 'cdk-overlay-transparent' });
-    // Auto-close + handle via a wrapper toast for now — the dialog-shell ng-content body
-    // can't host arbitrary buy logic inline, so we fall back to a confirm-like flow.
-    ref.closed.subscribe(() => { /* user closed without choosing */ });
-    // Show a confirmation toast with action so this works without a custom dialog body.
-    ref.close();
-    const ok = window.confirm(`Buy ${this.format(c.phone_number)} for $${c.monthly_cost_usd.toFixed(2)}/mo?`);
+    // Provisioning a number starts a recurring monthly charge — verify via the
+    // branded cyan confirm modal (not a native window.confirm).
+    const ok = await this.confirmSvc.confirm({
+      title: 'Buy this number?',
+      message: `Buy ${this.format(c.phone_number)} for $${c.monthly_cost_usd.toFixed(2)}/mo? This provisions the number and starts the recurring monthly charge.`,
+      confirmLabel: 'Buy number',
+      danger: true,
+    });
     if (!ok) return;
     // Worker route is POST /api/voice/numbers/purchase with a camelCase body
     // ({ siteId, phoneNumber }) per purchaseBody in routes/voice.ts. The old
@@ -476,8 +476,13 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
     });
   }
 
-  release(n: PurchasedNumber): void {
-    const ok = window.confirm(`Release ${this.format(n.phone_number)}? Inbound calls + texts will stop immediately.`);
+  async release(n: PurchasedNumber): Promise<void> {
+    const ok = await this.confirmSvc.confirm({
+      title: 'Release number',
+      message: `Release ${this.format(n.phone_number)}? Inbound calls + texts stop immediately and the number is given up — you may not be able to get it back.`,
+      confirmLabel: 'Release',
+      danger: true,
+    });
     if (!ok) return;
     this.api.delete<void>(`/voice/numbers/${n.id}`).subscribe({
       next: () => { this.toast.success('Number released'); this.loadNumbers(); },
