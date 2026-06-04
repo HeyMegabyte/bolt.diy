@@ -15,6 +15,7 @@ import {
 import { ToastService } from '../../../services/toast.service';
 import { PromptService } from '../../../services/prompt.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 
 type RangeId = AnalyticsRange;
@@ -53,7 +54,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
 @Component({
   selector: 'app-admin-analytics',
   standalone: true,
-  imports: [RevealDirective, DatePipe, DecimalPipe, RollingCounterComponent, HlmTablistDirective],
+  imports: [RevealDirective, DatePipe, DecimalPipe, RollingCounterComponent, MiniEmptyComponent, HlmTablistDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -341,12 +342,9 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
               }
             </div>
           } @else if ((envelope()?.top_pages?.length ?? 0) === 0) {
-            <div class="mini-empty" role="status">
-              <span class="mini-empty-glyph" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-              </span>
-              <p class="mini-empty-tx m-0">No visits recorded yet.</p>
-            </div>
+            <app-mini-empty text="No visits recorded yet.">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+            </app-mini-empty>
           } @else {
             @for (r of envelope()!.top_pages; track r.path) {
               <div class="bar-row">
@@ -370,12 +368,9 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
               }
             </div>
           } @else if ((envelope()?.top_countries?.length ?? 0) === 0) {
-            <div class="mini-empty" role="status">
-              <span class="mini-empty-glyph" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-              </span>
-              <p class="mini-empty-tx m-0">No geo data yet.</p>
-            </div>
+            <app-mini-empty text="No geo data yet.">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </app-mini-empty>
           } @else {
             <div class="grid grid-cols-2 gap-x-3 gap-y-1.5">
               @for (r of envelope()!.top_countries; track r.country) {
@@ -640,16 +635,6 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
       display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
       padding: 2.4rem 1.2rem; text-align: center;
     }
-    /* Compact cyan empty for sub-panels (top-pages / top-countries) — calmer
-       than the full .empty-state-pretty, but cohesive with the cockpit accent. */
-    .mini-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 0; text-align: center; }
-    .mini-empty-glyph {
-      width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%;
-      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 8%, transparent);
-      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 22%, transparent);
-      color: var(--ps-accent, #00E5FF);
-    }
-    .mini-empty-tx { color: rgba(244,244,255,0.6); font-size: 0.8rem; }
     .empty-glyph {
       width: 80px; height: 80px;
       display: flex; align-items: center; justify-content: center;

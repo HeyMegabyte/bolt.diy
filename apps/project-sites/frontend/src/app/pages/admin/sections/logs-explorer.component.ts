@@ -25,6 +25,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
 import { HlmInputDirective } from '../../../ui';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
@@ -81,7 +82,7 @@ const LEVEL_COLORS: Record<string, string> = {
   selector: 'app-logs-explorer',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, RollingCounterComponent, HlmInputDirective],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, RollingCounterComponent, MiniEmptyComponent, HlmInputDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-5">
 
@@ -234,10 +235,14 @@ const LEVEL_COLORS: Record<string, string> = {
       @if (rows().length === 0 && !searching() && searched() && !searchError()) {
         <div class="empty-card" data-testid="logs-empty">
           @if (hasActiveFilters()) {
-            <p class="text-text-secondary text-sm m-0 mb-2">No logs match your filters.</p>
+            <app-mini-empty text="No logs match your filters.">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/></svg>
+            </app-mini-empty>
             <button class="btn-ghost text-xs" data-testid="logs-clear-filters" (click)="clearSearch()">Clear filters</button>
           } @else {
-            <p class="text-text-secondary text-sm m-0">No logs in the selected time range — try a wider range above.</p>
+            <app-mini-empty text="No logs in the selected time range — try a wider range above.">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </app-mini-empty>
           }
         </div>
       }
