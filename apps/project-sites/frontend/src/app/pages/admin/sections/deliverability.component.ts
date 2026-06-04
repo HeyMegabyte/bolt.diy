@@ -70,14 +70,21 @@ interface DeliverabilityResponse {
               spellcheck="false"
               class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-dark"
               [(ngModel)]="domainModel"
+              [attr.aria-invalid]="domainInvalid() ? 'true' : null"
+              [attr.aria-describedby]="domainInvalid() ? 'deliverability-domain-hint' : null"
             />
+            @if (domainInvalid()) {
+              <span id="deliverability-domain-hint" data-testid="deliverability-domain-hint" class="text-[0.7rem] text-red-300/90">
+                Enter a bare domain like <code class="text-red-200">mail.example.com</code> — no <code class="text-red-200">https://</code>, paths, or spaces.
+              </span>
+            }
           </label>
           <div class="flex items-center gap-3">
             <button
               hlmBtn
               data-testid="deliverability-check-btn"
               class="min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-dark"
-              [disabled]="loading()"
+              [disabled]="loading() || domainInvalid()"
               [attr.aria-busy]="loading()"
               (click)="check()"
             >
@@ -171,6 +178,18 @@ export class AdminDeliverabilityComponent {
   readonly error = signal<string | null>(null);
   readonly report = signal<DeliverabilityReport | null>(null);
 
+  /** The domain override is OPTIONAL (empty → the site's own domain). When the
+   *  operator DOES type something, validate the bare-hostname format client-side
+   *  so junk (https://…, paths, spaces, single-label) gets instant feedback
+   *  instead of a DNS-lookup round-trip → server error. */
+  private isValidDomain(raw: string): boolean {
+    return /^[a-z0-9][a-z0-9-]*\.[a-z0-9-]+(\.[a-z0-9-]+)*$/i.test(raw);
+  }
+  readonly domainInvalid = computed(() => {
+    const d = this.domainModel().trim();
+    return d.length > 0 && !this.isValidDomain(d);
+  });
+
   scoreClass(score: number): string {
     if (score >= 80) return 'text-primary';
     if (score >= 40) return 'text-amber-300';
@@ -180,6 +199,10 @@ export class AdminDeliverabilityComponent {
   check(): void {
     const s = this.site();
     if (!s || this.loading()) return;
+    if (this.domainInvalid()) {
+      this.error.set('Enter a bare domain like mail.example.com — no https://, paths, or spaces.');
+      return;
+    }
     this.loading.set(true);
     this.error.set(null);
 

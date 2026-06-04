@@ -148,4 +148,33 @@ describe('AdminDeliverabilityComponent', () => {
     expect(input.id).toBe('deliverability-domain');
     expect(q('label[for="deliverability-domain"]')).not.toBeNull();
   });
+
+  // Client-side validation on the OPTIONAL domain override: junk gets instant
+  // feedback instead of a DNS-lookup round-trip → server error.
+  it('a malformed domain blocks the check (no GET) + shows the inline hint + gates the button', () => {
+    build({ id: 'site1', name: 'Acme', slug: 'acme' });
+    for (const bad of ['https://example.com', 'example com', 'localhost', 'example']) {
+      get.calls.reset();
+      fixture.componentInstance.domainModel.set(bad);
+      fixture.detectChanges();
+      expect(fixture.componentInstance.domainInvalid()).withContext(`invalid: ${bad}`).toBeTrue();
+      expect((q('[data-testid="deliverability-check-btn"]') as HTMLButtonElement).disabled).withContext(`button gated: ${bad}`).toBeTrue();
+      expect(q('[data-testid="deliverability-domain-hint"]')).withContext(`hint shown: ${bad}`).not.toBeNull();
+      fixture.componentInstance.check();
+      expect(get).withContext(`no DNS round-trip for junk: ${bad}`).not.toHaveBeenCalled();
+    }
+  });
+
+  it('a valid bare domain (or empty) passes — domainInvalid false, GET fires', () => {
+    build({ id: 'site1', name: 'Acme', slug: 'acme' });
+    fixture.componentInstance.domainModel.set('mail.acme.com');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.domainInvalid()).toBeFalse();
+    expect((q('[data-testid="deliverability-check-btn"]') as HTMLButtonElement).disabled).toBeFalse();
+    fixture.componentInstance.check();
+    expect(get).toHaveBeenCalled();
+    // empty is valid too (uses the site's own domain)
+    fixture.componentInstance.domainModel.set('');
+    expect(fixture.componentInstance.domainInvalid()).toBeFalse();
+  });
 });
