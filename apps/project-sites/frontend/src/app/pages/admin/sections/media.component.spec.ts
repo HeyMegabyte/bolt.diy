@@ -326,4 +326,21 @@ describe('AdminMediaComponent (mutations are {silent} — no double-toast/flood)
     expect(del.calls.allArgs().every((a) => a[1] && (a[1] as { silent?: boolean }).silent === true)).toBeTrue();
     expect(del).toHaveBeenCalledTimes(2);
   });
+
+  it('selectAll selects every filtered asset; allFilteredSelected reflects it', () => {
+    const c = build(true);
+    c.assets.set([{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }] as never);
+    expect(c.filteredAssets().length).toBe(3);
+    expect(c.allFilteredSelected()).withContext('nothing selected yet').toBeFalse();
+    c.selectAll();
+    expect(c.selectedIds().size).toBe(3);
+    expect([...c.selectedIds()].sort()).toEqual(['a1', 'a2', 'a3']);
+    expect(c.allFilteredSelected()).withContext('all now selected → hide the affordance').toBeTrue();
+  });
+
+  it('allFilteredSelected is false on an empty library (no no-op select-all)', () => {
+    const c = build(true);
+    c.assets.set([] as never);
+    expect(c.allFilteredSelected()).toBeFalse();
+  });
 });

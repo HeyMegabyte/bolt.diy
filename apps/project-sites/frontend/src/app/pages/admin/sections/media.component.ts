@@ -260,6 +260,11 @@ interface BoltMediaAttachMessage {
                 <button type="button" class="btn-danger" (click)="deleteSelected()">
                   Delete {{ selectedIds().size }}
                 </button>
+                @if (!allFilteredSelected()) {
+                  <button type="button" class="btn-ghost btn-ghost--quiet" data-testid="media-select-all" (click)="selectAll()">
+                    Select all {{ filteredAssets().length }}
+                  </button>
+                }
                 <button type="button" class="btn-ghost btn-ghost--quiet" (click)="clearSelection()">
                   Clear
                 </button>
@@ -1413,6 +1418,20 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   clearSelection(): void {
     this.selectedIds.set(new Set());
+  }
+
+  /** True when every currently-filtered asset is already selected (hides the
+   *  "Select all" affordance so it never offers a no-op). */
+  readonly allFilteredSelected = computed(() => {
+    const rows = this.filteredAssets();
+    const sel = this.selectedIds();
+    return rows.length > 0 && rows.every((a) => sel.has(a.id));
+  });
+
+  /** Select every asset in the current filter — turns "delete a whole library"
+   *  from one-click-per-card into a single action (pairs with Clear). */
+  selectAll(): void {
+    this.selectedIds.set(new Set(this.filteredAssets().map((a) => a.id)));
   }
 
   async deleteOne(asset: MediaAsset): Promise<void> {
