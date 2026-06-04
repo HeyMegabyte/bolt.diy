@@ -139,6 +139,19 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
     expect(empty!.getAttribute('role')).toBe('status');
   });
 
+  it('the affiliate-payouts empty renders the cyan glyph (cohesion with the other billing empties)', () => {
+    build();
+    const cmp = fixture.componentInstance;
+    cmp.affiliatePayouts.set([]);
+    cmp.setTab('affiliates');
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const empty = el.querySelector('#billing-tab-panel-affiliates [role="status"]');
+    expect(empty).withContext('affiliate payouts empty-state present').toBeTruthy();
+    expect(empty!.querySelector('.empty-glyph-sm'))
+      .withContext('cyan glyph matches the sibling billing empties (caps/costs/alerts/projects)').toBeTruthy();
+  });
+
   // ── Destructive action: removing a spend alert is confirmed ───────────────
   const ALERT = { id: 'al1', name: 'Low balance', threshold_credits: 1000, alert_kind: 'balance_low', notify_email: 'me@x.com', enabled: 1, last_triggered_at: null } as never;
 

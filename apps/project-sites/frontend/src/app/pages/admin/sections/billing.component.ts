@@ -391,6 +391,9 @@ interface ForecastBar {
           <div class="card">
             @if (affiliatePayouts().length === 0) {
               <div class="empty-state-pretty-compact" role="status">
+                <div class="empty-glyph-sm" aria-hidden="true">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.6 9.4a2.6 2 0 0 0-2.6-1.4c-1.4 0-2.6.7-2.6 1.8 0 2.4 5.2 1.2 5.2 3.6 0 1.1-1.2 1.8-2.6 1.8a2.6 2 0 0 1-2.6-1.4"/><path d="M12 6.4v1.6M12 16v1.6"/></svg>
+                </div>
                 <h4 class="empty-h">No payouts yet</h4>
                 <p class="empty-p">Your referral payouts will appear here when they're processed.</p>
               </div>
