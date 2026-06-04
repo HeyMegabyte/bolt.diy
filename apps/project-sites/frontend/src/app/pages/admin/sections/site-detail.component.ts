@@ -572,9 +572,13 @@ export class AdminSiteDetailComponent {
     const id = this.siteId();
     this.rollbackError.set(null);
     this.api
+      // {silent}: the catchError below sets the inline rollback-error panel
+      // (the contextual failure surface) — suppress the generic ApiService toast
+      // so a failed rollback shows ONE message, not two.
       .post<{ ok: boolean; snapshot_name: string }>(
         `/sites/${id}/snapshots/${s.id}/rollback`,
         {},
+        { silent: true },
       )
       .pipe(
         // Surface the failure — do NOT fabricate a success shape. A faked

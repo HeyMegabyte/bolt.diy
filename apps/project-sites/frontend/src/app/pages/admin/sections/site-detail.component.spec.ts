@@ -124,6 +124,9 @@ describe('AdminSiteDetailComponent (tabs + logs + SQL console)', () => {
     expect(c.rollbackResult()).toBe('v3');
     expect(c.rollbackError()).toBeNull();
     expect(c.pendingRollback()).toBeNull();
+    // {silent}: the inline rollback-error panel is the sole failure surface — no
+    // generic ApiService double-toast over it.
+    expect(okPost.calls.mostRecent().args[2]).toEqual({ silent: true });
   });
 
   it('confirmRollback surfaces an error + does NOT claim success when the rollback fails', () => {
@@ -304,7 +307,7 @@ describe('AdminSiteDetailComponent (snapshot rollback — confirm-gated, most de
     const { c, post, confirm } = build(true);
     await c.onRollbackClick(SNAP);
     expect(confirm).toHaveBeenCalled();
-    expect(post).toHaveBeenCalledWith('/sites/s1/snapshots/snap-9/rollback', {});
+    expect(post).toHaveBeenCalledWith('/sites/s1/snapshots/snap-9/rollback', {}, { silent: true });
     expect(c.rollbackResult()).toBe('v3');
   });
 });
