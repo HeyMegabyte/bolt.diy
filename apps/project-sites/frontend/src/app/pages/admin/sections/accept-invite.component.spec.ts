@@ -1,5 +1,5 @@
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AdminAcceptInviteComponent } from './accept-invite.component';
 import { ApiService } from '../../../services/api.service';
@@ -125,5 +125,48 @@ describe('AdminAcceptInviteComponent (state region is an announced live region)'
     const sec = host.querySelector('section.card')!;
     expect(sec.getAttribute('role')).toBe('status');
     expect(sec.getAttribute('aria-live')).toBe('polite');
+  });
+});
+
+/**
+ * Cockpit cyan/black polish: each state frames its glyph in an accent-tinted halo
+ * (not a bare floating char), and the verifying state shows a cyan spinner so the
+ * recipient sees progress instead of static text. Decorative glyphs are
+ * aria-hidden (the live-region heading carries the meaning).
+ */
+import { ActivatedRoute as AR3, Router as R3 } from '@angular/router';
+describe('AdminAcceptInviteComponent (cyan/black glyph-halo polish)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  function render(token: string | null, post: jasmine.Spy): HTMLElement {
+    TestBed.configureTestingModule({
+      imports: [AdminAcceptInviteComponent],
+      providers: [
+        { provide: AR3, useValue: { snapshot: { queryParamMap: { get: () => token } } } },
+        { provide: R3, useValue: { navigateByUrl: () => 0 } },
+        { provide: ApiService, useValue: { post } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0 } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminAcceptInviteComponent);
+    fx.detectChanges();
+    return fx.nativeElement as HTMLElement;
+  }
+
+  it('verifying → a cyan spinner glyph (visible progress, not just static text)', () => {
+    const host = render('tok', jasmine.createSpy('post').and.returnValue(new Subject())); // pending → stays verifying
+    const glyph = host.querySelector('[data-testid="invite-glyph"]');
+    expect(glyph).withContext('glyph halo present').toBeTruthy();
+    expect(glyph!.getAttribute('aria-hidden')).withContext('decorative — heading carries meaning').toBe('true');
+    expect(host.querySelector('.invite-spinner')).withContext('cyan spinner while verifying').toBeTruthy();
+  });
+
+  it('success frames the ✓ in an emerald halo (not a bare floating char)', () => {
+    const ok = render('tok', jasmine.createSpy('post').and.returnValue(of({ data: { joined: true, role: 'member' } })));
+    expect(ok.querySelector('.invite-glyph--success')).withContext('success halo').toBeTruthy();
+  });
+
+  it('error frames the ⚠ in an amber halo', () => {
+    const err = render(null, jasmine.createSpy('post')); // missing token → error
+    expect(err.querySelector('.invite-glyph--warn')).withContext('error halo').toBeTruthy();
   });
 });
