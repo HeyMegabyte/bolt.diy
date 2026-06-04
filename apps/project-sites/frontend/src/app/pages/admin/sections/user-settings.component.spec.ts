@@ -57,14 +57,20 @@ describe('AdminUserSettingsComponent (destructive delete guard + notifications)'
     const { c, http } = make();
     c.deleteConfirm = '  DELETE MY ACCOUNT  ';
     c.performDelete();
-    expect(http.delete).toHaveBeenCalledWith('/admin/account');
+    // Passed `{ silent: true }` so the generic ApiService toast is suppressed —
+    // performDelete owns the user-facing message, so this avoids a double-toast.
+    expect(http.delete).toHaveBeenCalledWith('/admin/account', { silent: true });
   });
 
-  it('on a delete failure, surfaces an error and clears the deleting flag (graceful, no dead-end)', () => {
-    const { c, toast } = make();
+  it('on a delete failure, surfaces ONE specific error (silent api call → no generic double-toast) + clears deleting', () => {
+    const { c, http, toast } = make();
     c.deleteConfirm = 'delete my account';
     c.performDelete();
-    expect(toast.error).toHaveBeenCalled();
+    // The destructive call is silenced at the ApiService layer…
+    expect(http.delete).toHaveBeenCalledWith('/admin/account', { silent: true });
+    // …and the component surfaces its own single, actionable message.
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast.error.calls.mostRecent().args[0]).toContain('hey@megabyte.space');
     expect(c.deleting()).toBe(false);
   });
 

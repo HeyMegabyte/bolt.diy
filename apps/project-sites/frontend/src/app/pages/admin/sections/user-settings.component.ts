@@ -1775,7 +1775,10 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
   performDelete(): void {
     if (this.deleteConfirm.trim().toLowerCase() !== 'delete my account') return;
     this.deleting.set(true);
-    this.api.delete('/admin/account').subscribe({
+    // silent — performDelete surfaces its own specific, actionable error below
+    // (with a manual-removal fallback), so the generic ApiService toast would be
+    // a confusing second toast on this destructive action.
+    this.api.delete('/admin/account', { silent: true }).subscribe({
       next: () => {
         this.deleting.set(false);
         this.toast.success('Account scheduled for deletion');

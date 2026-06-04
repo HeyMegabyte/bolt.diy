@@ -160,9 +160,13 @@ export class ApiService {
     return this.http.patch<T>(`/api${path}`, body, { headers: this.headers() }).pipe(this.handleError());
   }
 
-  /** Generic DELETE — bearer header, 30s timeout. */
-  delete<T>(path: string): Observable<T> {
-    return this.http.delete<T>(`/api${path}`, { headers: this.headers() }).pipe(this.handleError());
+  /**
+   * Generic DELETE — bearer header, 30s timeout. Pass `{ silent: true }` to
+   * suppress the generic error toast (telemetry + 401-redirect still run) when
+   * the caller surfaces its OWN specific error message — avoids a double-toast.
+   */
+  delete<T>(path: string, opts?: { silent?: boolean }): Observable<T> {
+    return this.http.delete<T>(`/api${path}`, { headers: this.headers() }).pipe(this.handleError(opts?.silent));
   }
 
   /**
