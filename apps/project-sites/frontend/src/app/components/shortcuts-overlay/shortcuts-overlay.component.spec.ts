@@ -19,17 +19,18 @@ describe('ShortcutsOverlayComponent (cheat-sheet lists only implemented chords)'
     return (fx.nativeElement as HTMLElement).textContent ?? '';
   }
 
-  it('shows the real chords (AI Chat / Billing / Voice)', () => {
+  it('shows the real chords (AI Chat / Billing / Voice / Domains / User)', () => {
     const t = text();
     expect(t).toContain('Open AI Chat');
     expect(t).toContain('Go to Billing');
     expect(t).toContain('Go to Voice');
     expect(t).toContain('Go to AI Traces'); // G L, real
+    expect(t).toContain('Go to Domains'); // G D, now wired
+    expect(t).toContain('Go to User settings'); // G U, now wired
   });
 
-  it('does NOT advertise the dead Docs / User-settings g-chords', () => {
+  it('does NOT advertise the dead Docs g-chord (G D maps to Domains, not Docs)', () => {
     const t = text();
     expect(t).not.toContain('Go to Docs');
-    expect(t).not.toContain('Go to User settings');
   });
 });

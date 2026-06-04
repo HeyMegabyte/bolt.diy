@@ -586,7 +586,7 @@ export class AdminComponent implements OnInit, OnDestroy {
     if (!inField && !ev.metaKey && !ev.ctrlKey) {
       if (ev.key === 'g') { this.gPressedAt = Date.now(); return; }
       if (Date.now() - this.gPressedAt < 900) {
-        const map: Record<string, string> = { e: '/admin', s: '/admin/snapshots', a: '/admin/analytics', f: '/admin/forms', l: '/admin/traces', c: '/admin/ai-chat', b: '/admin/billing', v: '/admin/voice' };
+        const map: Record<string, string> = { e: '/admin', s: '/admin/snapshots', a: '/admin/analytics', f: '/admin/forms', l: '/admin/traces', c: '/admin/ai-chat', b: '/admin/billing', v: '/admin/voice', d: '/admin/domains', u: '/admin/user' };
         const path = map[ev.key.toLowerCase()];
         if (path) { ev.preventDefault(); this.router.navigateByUrl(path); this.gPressedAt = 0; }
       }

@@ -37,7 +37,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       // These mirror the actual g-chord handler in admin.component.ts (the ONLY
       // implemented chords) — keep in sync so the cheat-sheet never advertises a
       // dead shortcut. Map: e→Editor s→Snapshots a→Analytics f→Forms l→Traces
-      // c→AI Chat b→Billing v→Voice.
+      // c→AI Chat b→Billing v→Voice d→Domains u→User.
       { keys: ['G', 'E'], description: 'Go to Editor' },
       { keys: ['G', 'S'], description: 'Go to Snapshots' },
       { keys: ['G', 'A'], description: 'Go to Analytics' },
@@ -46,6 +46,8 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: ['G', 'C'], description: 'Open AI Chat' },
       { keys: ['G', 'B'], description: 'Go to Billing' },
       { keys: ['G', 'V'], description: 'Go to Voice' },
+      { keys: ['G', 'D'], description: 'Go to Domains' },
+      { keys: ['G', 'U'], description: 'Go to User settings' },
     ],
   },
   {

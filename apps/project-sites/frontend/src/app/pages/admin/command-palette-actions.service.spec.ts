@@ -105,9 +105,9 @@ describe('CommandPaletteActionsService (every sidebar section is quick-navigable
 describe('CommandPaletteActionsService (advertised chords are all implemented)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
-  // The ONLY g-chords wired in admin.component.ts: e s a f l c b v →
-  // editor/snapshots/analytics/forms/traces/ai-chat/billing/voice.
-  const IMPLEMENTED = new Set(['G E', 'G S', 'G A', 'G F', 'G L', 'G C', 'G B', 'G V']);
+  // The g-chords wired in admin.component.ts: e s a f l c b v d u →
+  // editor/snapshots/analytics/forms/traces/ai-chat/billing/voice/domains/user.
+  const IMPLEMENTED = new Set(['G E', 'G S', 'G A', 'G F', 'G L', 'G C', 'G B', 'G V', 'G D', 'G U']);
 
   it('no Navigation command advertises a g-chord the handler does not implement (no dead shortcut chips)', () => {
     const { actions } = build();

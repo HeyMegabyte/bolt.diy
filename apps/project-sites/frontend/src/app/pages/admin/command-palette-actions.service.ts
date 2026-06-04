@@ -153,10 +153,10 @@ export class CommandPaletteActionsService {
       { id: 'nav-voice',      title: 'Go to Voice',         section: 'Navigation', shortcut: 'G V', icon: ICONS.bell,    keywords: ['phone', 'call', 'sms', 'twilio', 'hotline', 'voicemail'], href: navHref('/admin/voice'), run: () => go('/admin/voice') },
       { id: 'nav-billing',    title: 'Go to Billing & Plan', section: 'Navigation', shortcut: 'G B', icon: ICONS.dollar, keywords: ['credits', 'stripe', 'plan', 'invoice'], href: navHref('/admin/billing'), run: () => go('/admin/billing') },
       { id: 'nav-audit',      title: 'Go to Audit Log',     section: 'Navigation', icon: ICONS.shield,  keywords: ['who', 'what', 'when', 'log'], href: navHref('/admin/audit'), run: () => go('/admin/audit') },
-      { id: 'nav-domains',    title: 'Go to Domains',       section: 'Navigation', icon: ICONS.globe,   keywords: ['hostname', 'dns', 'custom'], href: navHref('/admin/domains'), run: () => go('/admin/domains') },
+      { id: 'nav-domains',    title: 'Go to Domains',       section: 'Navigation', shortcut: 'G D', icon: ICONS.globe,   keywords: ['hostname', 'dns', 'custom'], href: navHref('/admin/domains'), run: () => go('/admin/domains') },
       { id: 'nav-docs',       title: 'Go to API Docs',      section: 'Navigation', icon: ICONS.book,    keywords: ['openapi', 'reference', 'tryit'], href: navHref('/admin/docs'), run: () => go('/admin/docs') },
       { id: 'nav-settings',   title: 'Go to Settings',      section: 'Navigation', icon: ICONS.cog,     keywords: ['org', 'team', 'mcp'], href: navHref('/admin/settings'), run: () => go('/admin/settings') },
-      { id: 'nav-user',       title: 'Go to User Settings', section: 'Navigation', icon: ICONS.user,    keywords: ['profile', 'api key', 'theme'], href: navHref('/admin/user'), run: () => go('/admin/user') },
+      { id: 'nav-user',       title: 'Go to User Settings', section: 'Navigation', shortcut: 'G U', icon: ICONS.user,    keywords: ['profile', 'api key', 'theme'], href: navHref('/admin/user'), run: () => go('/admin/user') },
       // Remaining sidebar sections — quick-nav completeness (no G-chord to avoid
       // colliding with the global shortcut handler; search/click discoverable).
       { id: 'nav-apps',         title: 'Go to Apps',          section: 'Navigation', icon: ICONS.layers,   keywords: ['marketplace', 'install', 'self-host', 'container', 'medusa'], href: navHref('/admin/apps'), run: () => go('/admin/apps') },
