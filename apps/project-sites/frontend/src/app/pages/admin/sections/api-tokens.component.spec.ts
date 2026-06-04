@@ -164,3 +164,30 @@ describe('AdminApiTokensComponent (TanStack table sort)', () => {
     expect(c.table.getRowModel().rows.map((r) => (r.original as { name: string }).name)).toEqual(['Bravo', 'Alpha']);
   });
 });
+
+/**
+ * WCAG 1.4.1: the flag-disabled banner's "Feature Flags" link is an in-text-block
+ * link → must be underlined by default (color-only fails axe link-in-text-block,
+ * serious). It lives in @if (flagDisabled()), so force that state + real render.
+ */
+import { provideRouter } from '@angular/router';
+describe('AdminApiTokensComponent (flag-disabled banner link is underlined)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  it('the in-text Feature Flags link carries the underline affordance', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminApiTokensComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get: () => throwError(() => ({ status: 404 })), post: () => of({}) } },
+        { provide: ToastService, useValue: { show: () => 0 } },
+        { provide: AdminStateService, useValue: { orgId: signal('org1') } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminApiTokensComponent);
+    fx.componentInstance.flagDisabled.set(true); // force the flag-disabled banner to render
+    fx.detectChanges();
+    const link = (fx.nativeElement as HTMLElement).querySelector('.at-flag-banner a[routerLink="/admin/feature-flags"]');
+    expect(link).not.toBeNull();
+    expect(link!.className).withContext('in-text link needs a default underline').toContain('underline');
+  });
+});

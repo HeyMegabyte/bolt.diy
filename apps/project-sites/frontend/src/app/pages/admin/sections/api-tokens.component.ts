@@ -127,7 +127,7 @@ const ALL_SCOPES = [
         <div class="at-flag-banner" role="alert">
           <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
           Public API v1 is disabled. Enable the <strong>public_api_v1</strong> feature flag in
-          <a routerLink="/admin/feature-flags">Feature Flags</a> to activate.
+          <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a> to activate.
         </div>
       }
 

@@ -175,7 +175,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
           <h1>Features Hub</h1>
           <p class="hub-sub">
             {{ enabledCount() }} / {{ totalCount() }} features enabled in this environment.
-            Every endpoint below is gated by <a routerLink="/admin/feature-flags">a feature flag</a>.
+            Every endpoint below is gated by <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">a feature flag</a>.
             Off = 404 (doesn't leak feature existence). On = handler runs.
           </p>
         </div>

@@ -97,3 +97,28 @@ describe('AdminFeaturesHubComponent (filter + tabs + try-it)', () => {
     expect(c.result()[key]?.status).toBe(404);
   });
 });
+
+/**
+ * WCAG 1.4.1 (use of color): the "a feature flag" link in the hub subtitle is an
+ * in-text-block link, so it MUST carry a non-color distinguisher (underline) by
+ * default — color alone fails axe link-in-text-block (serious). Real-template render.
+ */
+import { provideRouter } from '@angular/router';
+describe('AdminFeaturesHubComponent (in-text feature-flags link is underlined)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  it('the subtitle feature-flags link has the underline affordance (not color-only)', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminFeaturesHubComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get: () => of({ flags: [] }), post: () => of({}) } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminFeaturesHubComponent);
+    fx.detectChanges();
+    const link = (fx.nativeElement as HTMLElement).querySelector('a[routerLink="/admin/feature-flags"]');
+    expect(link).not.toBeNull();
+    expect(link!.className).withContext('in-text link needs a default underline, not color-only').toContain('underline');
+  });
+});
