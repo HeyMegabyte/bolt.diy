@@ -25,6 +25,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -57,7 +58,7 @@ interface StackAdvanceResponse {
 @Component({
   selector: 'app-domain-stack',
   standalone: true,
-  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent],
+  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, MiniEmptyComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <!-- Header -->
@@ -181,7 +182,9 @@ interface StackAdvanceResponse {
 
       @if (!featureDisabled() && hostname() && tiles().length === 0 && !loading()) {
         <div class="empty-card">
-          <p class="text-text-secondary text-sm">No stack run yet for <strong class="text-white">{{ hostname() }}</strong>.</p>
+          <app-mini-empty [text]="'No stack run yet for ' + hostname()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+          </app-mini-empty>
           <button class="btn-primary text-xs mt-3 ds-focus" type="button" (click)="start()"
                   aria-label="Start the domain stack wizard">Start Wizard</button>
         </div>

@@ -27,6 +27,7 @@ import { catchError, of } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
 import { ErrorCardComponent } from '../../../components/states';
 import { HlmInputDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
@@ -55,7 +56,7 @@ interface ToolUsage {
 @Component({
   selector: 'app-site-mcp-server',
   standalone: true,
-  imports: [FormsModule, RouterModule, RollingCounterComponent, ErrorCardComponent, RevealDirective, HlmInputDirective],
+  imports: [FormsModule, RouterModule, RollingCounterComponent, ErrorCardComponent, RevealDirective, MiniEmptyComponent, HlmInputDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="p-5 flex-1 overflow-y-auto space-y-5 animate-fade-in" data-testid="site-mcp-server">
@@ -138,7 +139,9 @@ interface ToolUsage {
             @for (i of [0,1]; track i) { <div class="skel h-9 rounded w-full"></div> }
           </div>
         } @else if (tokens().length === 0) {
-          <div class="card p-4 text-center text-text-secondary text-xs">No tokens yet.</div>
+          <app-mini-empty text="No tokens yet.">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3"/></svg>
+          </app-mini-empty>
         } @else {
           <div class="card overflow-hidden">
             <table class="w-full text-xs" data-testid="tokens-table">

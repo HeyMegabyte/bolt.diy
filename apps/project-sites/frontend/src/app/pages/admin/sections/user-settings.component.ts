@@ -9,6 +9,7 @@ import { ConfirmService } from '../../../services/confirm.service';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
 
 /** Row shape returned by `GET /admin/api-keys` and rendered in the keys table. */
 interface ApiKeyRow {
@@ -81,7 +82,7 @@ interface NotificationGroup {
 @Component({
   selector: 'app-user-settings',
   standalone: true,
-  imports: [RevealDirective, FormsModule, DatePipe, DialogShellComponent, HlmInputDirective, HlmSelectDirective],
+  imports: [RevealDirective, FormsModule, DatePipe, DialogShellComponent, MiniEmptyComponent, HlmInputDirective, HlmSelectDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <!-- ─────────────────── HEADER ─────────────────── -->
@@ -371,7 +372,9 @@ interface NotificationGroup {
             }
           </div>
         } @else if (sessions().length === 0) {
-          <p class="text-[0.78rem] text-text-secondary m-0">No active sessions found. You should at least see this one — try refreshing.</p>
+          <app-mini-empty text="No active sessions found. You should at least see this one — try refreshing.">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+          </app-mini-empty>
         } @else {
           <ul class="session-list" role="list">
             @for (s of sessions(); track s.id) {

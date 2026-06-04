@@ -103,6 +103,16 @@ describe('AdminDomainStackComponent (r13 cohesion + a11y)', () => {
     expect(el.querySelector('.sr-only[aria-live="polite"]')).toBeTruthy();
   });
 
+  it('shows the cyan mini-empty + Start Wizard when no stack run exists yet', () => {
+    build({ id: 's1', primary_hostname: 'acme.dev' }, statusResp([]));
+    const el: HTMLElement = fixture.nativeElement;
+    const mini = el.querySelector('.mini-empty[role="status"]');
+    expect(mini).withContext('cyan mini-empty for the no-run state (not bare gray text)').toBeTruthy();
+    expect(mini!.textContent).toContain('No stack run yet for acme.dev');
+    expect(el.querySelector('[aria-label="Start the domain stack wizard"]'))
+      .withContext('Start Wizard stays a sibling action below the mini-empty').toBeTruthy();
+  });
+
   it('flips to feature-disabled state on a feature_disabled 404 (no toast)', () => {
     build({ id: 's1', primary_hostname: 'acme.dev' },
       throwError(() => ({ status: 404, error: { error: { code: 'feature_disabled' } } })));

@@ -42,6 +42,7 @@ import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { FocusTrapDirective } from '../../../directives/focus-trap.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
 
 /** Single hostname row returned by `GET /api/sites/:siteId/hostnames`. */
 interface Hostname {
@@ -112,6 +113,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
     HlmInputDirective,
     FocusTrapDirective,
     RollingCounterComponent,
+    MiniEmptyComponent,
     ...BrnTooltipImports,
   ],
   template: `
@@ -233,7 +235,9 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
             } @else if (aiResults()) {
               @let r = aiResults()!;
               @if (r.available.length === 0 && r.unavailable.length === 0) {
-                <p class="text-[0.78rem] text-text-secondary">No suggestions yet. Try a more descriptive query.</p>
+                <app-mini-empty text="No suggestions yet. Try a more descriptive query.">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                </app-mini-empty>
               } @else {
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="ai-results">
                   @for (card of r.available; track card.name) {
