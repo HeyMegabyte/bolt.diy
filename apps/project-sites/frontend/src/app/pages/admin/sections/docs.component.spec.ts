@@ -1,8 +1,35 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
-import { AdminDocsComponent, renderMarkdown, type OpenApiSpec } from './docs.component';
+import { AdminDocsComponent, renderMarkdown, highlightJson, type OpenApiSpec } from './docs.component';
 import { ApiService } from '../../../services/api.service';
+
+/**
+ * highlightJson renders LIVE API response bodies (untrusted — a response can echo
+ * arbitrary strings: a site's business_name, user input, etc.) into [innerHTML]
+ * on the docs-endpoint "Body" tab. It is safe ONLY because it HTML-escapes the
+ * full source BEFORE wrapping tokens in <span>s. This guard locks that order so a
+ * future refactor can't reintroduce a tokenize-then-escape (or no-escape) XSS.
+ */
+describe('highlightJson — escapes HTML before tokenizing (XSS guard for untrusted response bodies)', () => {
+  it('escapes < > & in a string value so a body cannot inject markup', () => {
+    const html = highlightJson('{"x": "<script>alert(1)</script>"}');
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;script&gt;');
+  });
+
+  it('neutralizes a </code> + <img onerror> breakout attempt in a value', () => {
+    const html = highlightJson('{"x": "</code><img src=x onerror=alert(1)>"}');
+    expect(html).not.toContain('<img');
+    expect(html).toContain('&lt;img');
+  });
+
+  it('still applies syntax token spans to the escaped JSON (highlighting intact)', () => {
+    const html = highlightJson('{"key": 42}');
+    expect(html).toContain('tk-key');
+    expect(html).toContain('tk-num');
+  });
+});
 
 /**
  * renderMarkdown is a third custom markdown→HTML renderer (used by the live
