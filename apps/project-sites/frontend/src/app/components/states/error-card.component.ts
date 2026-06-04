@@ -106,7 +106,10 @@ import {
         font-size: 0.68rem;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 45%, transparent);
+        /* 45% failed WCAG AA contrast (small text needs 4.5:1) once the reference
+           block actually renders — lift to 78% so it stays a secondary label
+           while clearing the threshold. */
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 78%, transparent);
       }
       .ec-cid-val {
         font-family: 'JetBrains Mono', ui-monospace, monospace;
