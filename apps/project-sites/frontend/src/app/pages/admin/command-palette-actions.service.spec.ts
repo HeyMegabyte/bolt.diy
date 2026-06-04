@@ -76,3 +76,28 @@ describe('CommandPaletteActionsService (Cmd+K command set)', () => {
     expect(withSites).toBeGreaterThan(noSites);
   });
 });
+
+describe('CommandPaletteActionsService (every sidebar section is quick-navigable)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  // The sidebar's routerLink targets — Cmd+K must be able to reach each one.
+  const SIDEBAR_ROUTES = [
+    '/admin/editor', '/admin/snapshots', '/admin/analytics', '/admin/forms', '/admin/traces',
+    '/admin/voice', '/admin/billing', '/admin/audit', '/admin/settings', '/admin/user', '/admin/docs',
+    '/admin/apps', '/admin/social', '/admin/bulk-ops', '/admin/deliverability', '/admin/webhooks',
+    '/admin/recipes', '/admin/review-links', '/admin/feature-flags', '/admin/marketplace',
+    '/admin/logs', '/admin/enterprise', '/admin/trust', '/admin/stripe-app-status',
+  ];
+
+  it('has a Navigation command that navigates to every sidebar route', () => {
+    const { actions, go } = build();
+    const nav = actions.filter((a) => a.section === 'Navigation');
+    for (const route of SIDEBAR_ROUTES) {
+      const cmd = nav.find((a) => a.href?.endsWith(route));
+      expect(cmd).withContext(`missing Cmd+K Navigation command for ${route}`).toBeTruthy();
+      go.calls.reset();
+      cmd!.run();
+      expect(go).withContext(`${cmd!.id} should navigate to ${route}`).toHaveBeenCalledWith(route);
+    }
+  });
+});

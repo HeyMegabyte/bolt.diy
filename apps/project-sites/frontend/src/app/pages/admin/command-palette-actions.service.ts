@@ -143,7 +143,7 @@ export class CommandPaletteActionsService {
     const navHref = (p: string) => `${window.location.origin}${p}`;
 
     const list: PaletteAction[] = [
-      // ── Navigation (18) ──────────────────────────────────────────
+      // ── Navigation (26 — every sidebar section is quick-navigable) ───────────────────────────────────────────
       { id: 'nav-editor',     title: 'Go to Editor',        section: 'Navigation', shortcut: 'G E', icon: ICONS.edit,    keywords: ['home', 'dashboard', 'code', 'edit'], href: navHref('/admin/editor'),    run: () => go('/admin/editor') },
       { id: 'nav-snapshots',  title: 'Go to Snapshots',     section: 'Navigation', shortcut: 'G S', icon: ICONS.layers,  keywords: ['versions', 'history', 'backup', 'restore', 'rollback', 'snap'], href: navHref('/admin/snapshots'), run: () => go('/admin/snapshots') },
       { id: 'nav-analytics',  title: 'Go to Analytics',     section: 'Navigation', shortcut: 'G A', icon: ICONS.chart,   keywords: ['visits', 'traffic', 'metrics', 'ga4', 'posthog'], href: navHref('/admin/analytics'), run: () => go('/admin/analytics') },
@@ -157,6 +157,21 @@ export class CommandPaletteActionsService {
       { id: 'nav-docs',       title: 'Go to API Docs',      section: 'Navigation', shortcut: 'G ?', icon: ICONS.book,    keywords: ['openapi', 'reference', 'tryit'], href: navHref('/admin/docs'), run: () => go('/admin/docs') },
       { id: 'nav-settings',   title: 'Go to Settings',      section: 'Navigation', shortcut: 'G ,', icon: ICONS.cog,     keywords: ['org', 'team', 'mcp'], href: navHref('/admin/settings'), run: () => go('/admin/settings') },
       { id: 'nav-user',       title: 'Go to User Settings', section: 'Navigation', shortcut: 'G U', icon: ICONS.user,    keywords: ['profile', 'api key', 'theme'], href: navHref('/admin/user'), run: () => go('/admin/user') },
+      // Remaining sidebar sections — quick-nav completeness (no G-chord to avoid
+      // colliding with the global shortcut handler; search/click discoverable).
+      { id: 'nav-apps',         title: 'Go to Apps',          section: 'Navigation', icon: ICONS.layers,   keywords: ['marketplace', 'install', 'self-host', 'container', 'medusa'], href: navHref('/admin/apps'), run: () => go('/admin/apps') },
+      { id: 'nav-social',       title: 'Go to Social',        section: 'Navigation', icon: ICONS.globe,    keywords: ['posts', 'schedule', 'twitter', 'linkedin', 'bluesky', 'auto-pilot'], href: navHref('/admin/social'), run: () => go('/admin/social') },
+      { id: 'nav-bulk-ops',     title: 'Go to Bulk Ops',      section: 'Navigation', icon: ICONS.copy,     keywords: ['batch', 'archive', 'set flag', 'all sites'], href: navHref('/admin/bulk-ops'), run: () => go('/admin/bulk-ops') },
+      { id: 'nav-deliverability', title: 'Go to Deliverability', section: 'Navigation', icon: ICONS.shield, keywords: ['spf', 'dkim', 'dmarc', 'email', 'spam', 'inbox placement'], href: navHref('/admin/deliverability'), run: () => go('/admin/deliverability') },
+      { id: 'nav-webhooks',     title: 'Go to Webhooks',      section: 'Navigation', icon: ICONS.zap,      keywords: ['events', 'callbacks', 'endpoints', 'deliveries'], href: navHref('/admin/webhooks'), run: () => go('/admin/webhooks') },
+      { id: 'nav-automations',  title: 'Go to Automations',   section: 'Navigation', icon: ICONS.zap,      keywords: ['recipes', 'triggers', 'workflows', 'rules'], href: navHref('/admin/recipes'), run: () => go('/admin/recipes') },
+      { id: 'nav-review-links', title: 'Go to Review Links',  section: 'Navigation', icon: ICONS.ext,      keywords: ['approval', 'client', 'preview', 'share', 'stakeholder'], href: navHref('/admin/review-links'), run: () => go('/admin/review-links') },
+      { id: 'nav-flags',        title: 'Go to Feature Flags', section: 'Navigation', icon: ICONS.cog,      keywords: ['flags', 'rollout', 'toggle', 'experimental', 'killswitch'], href: navHref('/admin/feature-flags'), run: () => go('/admin/feature-flags') },
+      { id: 'nav-marketplace',  title: 'Go to Marketplace',   section: 'Navigation', icon: ICONS.layers,   keywords: ['sections', 'bento', 'fork', 'templates', 'catalog'], href: navHref('/admin/marketplace'), run: () => go('/admin/marketplace') },
+      { id: 'nav-logs',         title: 'Go to Log Explorer',  section: 'Navigation', icon: ICONS.book,     keywords: ['logs', 'correlation', 'request id', 'search', 'structured'], href: navHref('/admin/logs'), run: () => go('/admin/logs') },
+      { id: 'nav-enterprise',   title: 'Go to Enterprise',    section: 'Navigation', icon: ICONS.shield,   keywords: ['contract', 'sla', 'sso', 'audit export'], href: navHref('/admin/enterprise'), run: () => go('/admin/enterprise') },
+      { id: 'nav-trust',        title: 'Go to Trust Center',  section: 'Navigation', icon: ICONS.shield,   keywords: ['compliance', 'soc2', 'privacy', 'security', 'status'], href: navHref('/admin/trust'), run: () => go('/admin/trust') },
+      { id: 'nav-stripe-app',   title: 'Go to Stripe Status', section: 'Navigation', icon: ICONS.dollar,   keywords: ['stripe app', 'installs', 'marketplace', 'lifecycle'], href: navHref('/admin/stripe-app-status'), run: () => go('/admin/stripe-app-status') },
 
       // ── Settings tabs (5) ────────────────────────────────────────
       { id: 'set-general', title: 'Settings: General',     section: 'Settings', icon: ICONS.cog, keywords: ['org', 'contact', 'tone'],       run: () => go('/admin/settings#general') },
