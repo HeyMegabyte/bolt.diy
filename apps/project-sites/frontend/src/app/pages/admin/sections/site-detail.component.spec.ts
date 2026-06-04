@@ -263,3 +263,48 @@ describe('AdminSiteDetailComponent (integration disconnect — confirm-gated via
     expect(c.integrations()[0].status).withContext('no lying optimistic flip on failure').toBe('connected');
   });
 });
+
+/**
+ * Snapshot rollback OVERWRITES the live production site — the single most
+ * destructive admin action. It used a bespoke inline confirm <div> (custom-modal
+ * drift; and it lost its styling when the shared .confirm-dialog CSS was removed).
+ * Now onRollbackClick gates through the shared ConfirmService (branded danger
+ * dialog) before confirmRollback() fires the POST. The existing confirmRollback()
+ * specs above still pass (they call it directly — the POST path is unchanged).
+ */
+describe('AdminSiteDetailComponent (snapshot rollback — confirm-gated, most destructive)', () => {
+  function build(confirmResult: boolean): { c: AdminSiteDetailComponent; post: jasmine.Spy; confirm: jasmine.Spy } {
+    const post = jasmine.createSpy('post').and.returnValue(of({ ok: true, snapshot_name: 'v3' }));
+    const confirm = jasmine.createSpy('confirm').and.resolveTo(confirmResult);
+    TestBed.configureTestingModule({
+      imports: [AdminSiteDetailComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ site: { id: 's1', slug: 's', name: 'S' } }), post, delete: () => of({}) } },
+        { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 's1' }), queryParamMap: of({ get: () => null }) } },
+        { provide: ConfirmService, useValue: { confirm } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSiteDetailComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminSiteDetailComponent).componentInstance, post, confirm };
+  }
+  const SNAP = { id: 'snap-9', snapshot_name: 'launch-v3' } as never;
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('does NOT roll back when the confirm is cancelled (no POST, no pending state left dangling)', async () => {
+    const { c, post, confirm } = build(false);
+    await c.onRollbackClick(SNAP);
+    expect(confirm).toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+    expect(c.pendingRollback()).toBeNull();
+  });
+
+  it('rolls back via ConfirmService — POST fires to the rollback endpoint on confirm', async () => {
+    const { c, post, confirm } = build(true);
+    await c.onRollbackClick(SNAP);
+    expect(confirm).toHaveBeenCalled();
+    expect(post).toHaveBeenCalledWith('/sites/s1/snapshots/snap-9/rollback', {});
+    expect(c.rollbackResult()).toBe('v3');
+  });
+});

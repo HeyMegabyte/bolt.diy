@@ -185,14 +185,6 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
             }
           </ul>
 
-          @if (pendingRollback()) {
-            <div class="confirm-dialog" role="dialog" aria-modal="true">
-              <p>Roll back to <strong>{{ pendingRollback()?.snapshot_name }}</strong>?</p>
-              <button type="button" (click)="confirmRollback()">Confirm rollback</button>
-              <button type="button" (click)="pendingRollback.set(null)">Cancel</button>
-            </div>
-          }
-
           @if (rollbackResult()) {
             <p class="rollback-result">Rolled back to {{ rollbackResult() }}</p>
           }
@@ -483,8 +475,23 @@ export class AdminSiteDetailComponent {
       .subscribe((res) => this.snapshots.set(res.snapshots ?? []));
   }
 
-  onRollbackClick(s: SnapshotRow): void {
+  /** Rolling back OVERWRITES the live production site — the single most
+   *  destructive admin action. Gate it behind the shared ConfirmService
+   *  (branded danger dialog: focus-trap + Esc + focus-restore), replacing the
+   *  bespoke inline confirm <div>. confirmRollback() does the actual POST. */
+  async onRollbackClick(s: SnapshotRow): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: `Roll back to ${s.snapshot_name}?`,
+      message: `This OVERWRITES the live production site with the "${s.snapshot_name}" snapshot — the current version is replaced immediately. You can only undo it by rolling back again.`,
+      confirmLabel: 'Roll back live site',
+      danger: true,
+    });
+    if (!ok) {
+      this.pendingRollback.set(null);
+      return;
+    }
     this.pendingRollback.set(s);
+    this.confirmRollback();
   }
 
   confirmRollback(): void {
