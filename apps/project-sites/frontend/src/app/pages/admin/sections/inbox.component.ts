@@ -90,14 +90,16 @@ const STATUS_COLORS: Record<string, string> = {
           <span class="inbox-eyebrow">Unified Inbox</span>
           <h1 class="inbox-title">Visitor Conversations</h1>
         </div>
-        <div class="inbox-stats" appReveal>
-          <div class="inbox-stat">
-            <app-rolling-counter [value]="openCount()" suffix=" open" />
+        @if (flagEnabled()) {
+          <div class="inbox-stats" data-testid="inbox-stats" appReveal>
+            <div class="inbox-stat">
+              <app-rolling-counter [value]="openCount()" suffix=" open" />
+            </div>
+            <div class="inbox-stat">
+              <app-rolling-counter [value]="unreadCount()" suffix=" unread" />
+            </div>
           </div>
-          <div class="inbox-stat">
-            <app-rolling-counter [value]="unreadCount()" suffix=" unread" />
-          </div>
-        </div>
+        }
       </header>
 
       @if (!flagEnabled()) {

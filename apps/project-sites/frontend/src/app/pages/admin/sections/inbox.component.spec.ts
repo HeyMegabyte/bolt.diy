@@ -109,6 +109,43 @@ describe('AdminInboxComponent — empty state (real template)', () => {
 });
 
 /**
+ * Header stats must NOT render when the feature is flag-disabled. Previously the
+ * "N open / N unread" rolling counters were OUTSIDE the flagEnabled() gate, so a
+ * disabled inbox showed a lying "0 open / 0 unread" (implying it loaded + is
+ * empty, when it's actually OFF). The stats now live behind @if (flagEnabled()).
+ */
+describe('AdminInboxComponent — stats hidden while flag-disabled (real template)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function render(flagOn: boolean): HTMLElement {
+    TestBed.configureTestingModule({
+      imports: [AdminInboxComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ conversations: [], hasMore: false }), post: () => of({}), patch: () => of({}) } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(flagOn) } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminInboxComponent);
+    fx.componentInstance.flagEnabled.set(flagOn);
+    fx.componentInstance.loading.set(false);
+    fx.detectChanges();
+    return fx.nativeElement as HTMLElement;
+  }
+
+  it('hides the open/unread stats when the inbox is flag-disabled (no lying "0 open")', () => {
+    const host = render(false);
+    expect(host.querySelector('[data-testid="inbox-stats"]')).withContext('no fake counts for a disabled feature').toBeNull();
+    expect(host.querySelector('.inbox-flag-gate')).withContext('flag-disabled card shown instead').not.toBeNull();
+  });
+
+  it('shows the stats when the inbox is enabled', () => {
+    const host = render(true);
+    expect(host.querySelector('[data-testid="inbox-stats"]')).not.toBeNull();
+  });
+});
+
+/**
  * Thread-load error gating: opening a conversation whose messages fail to load
  * must show a retryable in-panel error, NOT a silent blank thread (the toast
  * fires, but the thread panel itself was previously empty/stale).
