@@ -129,6 +129,15 @@ describe('AppInstancesComponent (instance lifecycle)', () => {
     expect(c.loading()).toBeFalse();
   });
 
+  // The inline loadError <app-error-card> (+ Retry) is the accurate, persistent
+  // failure UX, so the read must be {silent:true} — otherwise ApiService's
+  // generic "Can't reach the server" toast double-fires on top of the card.
+  it('load() reads {silent:true} so the inline error card is the sole feedback (no generic toast)', () => {
+    const { c, api } = make();
+    c.load();
+    expect(api.get).toHaveBeenCalledWith('/apps/instances', undefined, { silent: true });
+  });
+
   it('retry after an error clears the prior loadError on success', () => {
     const { c, api } = make();
     api.get.and.returnValue(throwError(() => ({ status: 500 })));

@@ -118,7 +118,7 @@ function resolveApp(id: string): CatalogApp | null {
       </header>
 
       @if (loading() && instances().length === 0) {
-        <div class="space-y-2" aria-busy="true" aria-label="Loading instances">
+        <div class="space-y-2" role="status" aria-live="polite" aria-busy="true" aria-label="Loading instances">
           @for (i of [0,1,2]; track i) {
             <div class="instance-row skel-row">
               <div class="skel skel-glyph"></div>
@@ -406,7 +406,10 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
   load(): void {
     this.loading.set(true);
     this.loadError.set(null);
-    this.api.get<{ instances: Record<string, unknown>[] }>('/apps/instances').subscribe({
+    // {silent}: the inline <app-error-card> + Retry is the accurate, persistent
+    // failure UX. Without {silent} ApiService's generic "Can't reach the server"
+    // toast double-fires on top of that card.
+    this.api.get<{ instances: Record<string, unknown>[] }>('/apps/instances', undefined, { silent: true }).subscribe({
       next: (r) => {
         this.instances.set((r.instances ?? []).map(adaptInstance));
         this.loadError.set(null);
@@ -416,7 +419,6 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
       },
       error: () => {
         // Record the failure so the list shows a Retry card, not a fake empty.
-        // (ApiService already fired the toast.)
         this.loadError.set('Your running apps are safe — nothing was lost.');
         this.loading.set(false);
         console.warn('[apps] load instances failed');
