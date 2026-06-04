@@ -195,12 +195,17 @@ describe('AdminFormsComponent (submissions load-error gating)', () => {
     expect(c.loading()).toBe(false);
   });
 
-  it('a non-silent load error sets a persistent loadError (not a fake empty) + toasts', () => {
-    const { c, toastErr } = makeErroring(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
+  it('a non-silent load error sets a persistent loadError banner ONLY — no toast (the read is {silent}, own toast dropped)', () => {
+    const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 })));
+    const { c, toastErr } = makeErroring(get);
     c.reload();
     expect(c.loadError()).toContain('Could not load');
     expect(c.submissions().length).toBe(0);
-    expect(toastErr).toHaveBeenCalled();
+    // the inline banner is the persistent UX; no transient toast on top, and the
+    // read is {silent} so the generic ApiService toast can't fire either.
+    expect(toastErr).not.toHaveBeenCalled();
+    const call = get.calls.allArgs().find((a) => String(a[0]).includes('/form-submissions'));
+    expect(call?.[2]).toEqual({ silent: true });
   });
 
   it('a SILENT poll failure does not raise loadError or toast', () => {

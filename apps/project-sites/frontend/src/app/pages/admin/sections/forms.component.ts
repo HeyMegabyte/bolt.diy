@@ -1333,7 +1333,7 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     if (!site) return;
     if (!opts.silent) this.loading.set(true);
     if (!opts.silent) this.loadError.set(null);
-    this.api.get<{ data: Submission[] }>(`/sites/${site.id}/form-submissions`).subscribe({
+    this.api.get<{ data: Submission[] }>(`/sites/${site.id}/form-submissions`, undefined, { silent: true }).subscribe({
       next: (r) => {
         this.submissions.set(r.data ?? []);
         this.loadError.set(null);
@@ -1343,9 +1343,11 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
         this.loading.set(false);
         // Persist the failure so the empty state can't masquerade as "no submissions".
         // (Silent background polls keep any already-loaded list visible.)
+        // Read is {silent} so the generic ApiService toast never fires (even on a
+        // background poll); the inline loadError banner is the user-facing feedback
+        // on a non-silent (user-initiated) load — no transient toast on top of it.
         if (!opts.silent) {
           this.loadError.set('Could not load submissions — retry.');
-          this.toast.error('Could not load submissions — retry from the sidebar');
         }
       },
     });
