@@ -50,7 +50,7 @@
               id="signin-email"
               type="email"
               autocomplete="email"
-              class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2"
+              class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] focus-visible:outline-offset-2"
               [class]="emailError() ? 'border-red-500/60 focus:border-red-500' : 'border-white/[0.08] focus:border-primary'"
               placeholder="you@example.com"
               [(ngModel)]="email"
@@ -62,7 +62,7 @@
             <p id="signin-email-error" class="text-red-400 text-xs mt-1.5 min-h-[1rem]" aria-live="polite" role="alert">{{ emailError() || '' }}</p>
           </div>
           <button
-            class="w-full bg-primary text-dark font-semibold rounded-xl px-6 py-3.5 text-base hover:brightness-110 hover:shadow-[0_0_24px_rgba(0,229,255,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2"
+            class="w-full bg-primary text-dark font-semibold rounded-xl px-6 py-3.5 text-base hover:brightness-110 hover:shadow-[0_0_24px_rgba(0,229,255,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] focus-visible:outline-offset-2"
             [disabled]="sending()"
             (click)="sendMagicLink()"
           >
@@ -89,7 +89,7 @@
             </div>
           </div>
         }
-        <button class="inline-flex items-center gap-1.5 text-[0.85rem] text-gray-400 cursor-pointer mt-5 bg-transparent border-none font-sans transition-all hover:text-primary hover:gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2 rounded" (click)="backToMain()">
+        <button class="inline-flex items-center gap-1.5 text-[0.85rem] text-gray-400 cursor-pointer mt-5 bg-transparent border-none font-sans transition-all hover:text-primary hover:gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] focus-visible:outline-offset-2 rounded" (click)="backToMain()">
           <svg class="transition-transform hover:-translate-x-[3px]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="m15 18-6-6 6-6" />
           </svg>

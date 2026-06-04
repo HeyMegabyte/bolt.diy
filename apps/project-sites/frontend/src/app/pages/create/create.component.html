@@ -18,7 +18,7 @@
           <li class="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
             <button
               type="button"
-              class="flex items-center gap-2 min-w-0 px-2.5 sm:px-3 py-1.5 rounded-full border text-[0.75rem] sm:text-[0.78rem] font-semibold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2"
+              class="flex items-center gap-2 min-w-0 px-2.5 sm:px-3 py-1.5 rounded-full border text-[0.75rem] sm:text-[0.78rem] font-semibold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] focus-visible:outline-offset-2"
               [class]="currentStep() === step.id
                 ? 'bg-primary/15 border-primary/40 text-primary'
                 : stepComplete(step.id)
@@ -92,7 +92,7 @@
           <input
             id="create-name"
             type="text"
-            class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] relative z-[9999] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2"
+            class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] relative z-[9999] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] focus-visible:outline-offset-2"
             [class]="nameError ? 'border-red-500/60 focus:border-red-500' : 'border-white/[0.08] focus:border-primary'"
             [class.ai-shimmer]="shimmering('name')"
             placeholder="e.g. Vito's Mens Salon"
@@ -129,7 +129,7 @@
           <input
             id="create-address"
             type="text"
-            class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] relative z-[9999] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2"
+            class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] relative z-[9999] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] focus-visible:outline-offset-2"
             [class]="addressError ? 'border-red-500/60 focus:border-red-500' : 'border-white/[0.08] focus:border-primary'"
             [class.ai-shimmer]="shimmering('address')"
             placeholder="e.g. 74 N Beverwyck Rd, Lake Hiawatha, NJ 07034"
@@ -202,7 +202,7 @@
             Industry / Category <span class="text-gray-400 font-normal text-[0.75rem]">(optional)</span>
             @if (loadingCategory()) { <span class="field-loading"></span> }
           </label>
-          <select id="create-category" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2" [class.ai-shimmer]="shimmering('category')" [(ngModel)]="businessCategory" (ngModelChange)="markTouched('category'); saveFormDraft()" (focus)="setStep(2)">
+          <select id="create-category" class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] focus-visible:outline-offset-2" [class.ai-shimmer]="shimmering('category')" [(ngModel)]="businessCategory" (ngModelChange)="markTouched('category'); saveFormDraft()" (focus)="setStep(2)">
             <option value="">Select a category...</option>
             @for (cat of categories; track cat) {
               @if (cat) { <option [value]="cat">{{ cat }}</option> }
@@ -217,7 +217,7 @@
           </label>
           <textarea
             id="create-context"
-            class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00ffc8] focus-visible:outline-offset-2 min-h-[140px] resize-y leading-relaxed"
+            class="w-full py-3 px-4 text-[0.95rem] font-sans bg-dark-surface border border-white/[0.08] rounded-xl text-light outline-none transition-all placeholder:text-gray-400 hover:border-primary/[0.15] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,229,255,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] focus-visible:outline-offset-2 min-h-[140px] resize-y leading-relaxed"
             [class.ai-shimmer]="shimmering('context')"
             (focus)="setStep(2)"
             (input)="markTouched('context')"
