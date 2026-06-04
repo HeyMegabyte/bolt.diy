@@ -36,6 +36,7 @@ import { ToastService } from '../../../../services/toast.service';
 import { RevealOnScrollDirective } from '../../../../animations/reveal-on-scroll.directive';
 import { RollingCounterComponent } from '../../../../components/rolling-counter/rolling-counter.component';
 import { EmptyStateComponent } from '../../empty-state.component';
+import { ErrorCardComponent } from '../../../../components/states';
 import { HlmInputDirective } from '../../../../ui';
 
 interface PurchasedNumber {
@@ -75,7 +76,7 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
   selector: 'app-voice-numbers',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RevealOnScrollDirective, RollingCounterComponent, EmptyStateComponent, HlmInputDirective],
+  imports: [FormsModule, RevealOnScrollDirective, RollingCounterComponent, EmptyStateComponent, ErrorCardComponent, HlmInputDirective],
   template: `
     <section class="space-y-6" psReveal>
       <!-- Your numbers -->
@@ -104,6 +105,12 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
             <div class="skel h-12 rounded-md"></div>
             <div class="skel h-12 rounded-md"></div>
           </div>
+        } @else if (loadError() && numbers().length === 0) {
+          <app-error-card
+            title="Couldn't load your numbers"
+            [message]="loadError()!"
+            (retry)="loadNumbers()"
+            data-testid="numbers-error" />
         } @else if (numbers().length === 0) {
           <app-empty-state
             icon="📞"
@@ -356,6 +363,8 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
 
   numbers = signal<PurchasedNumber[]>([]);
   loading = signal(true);
+  /** Set when the numbers fetch fails so a Retry card shows — never a fake "No numbers yet" + a misleading $0.00 spend. */
+  loadError = signal<string | null>(null);
   query = '';
   areaCode = '';
   searching = signal(false);
@@ -393,9 +402,12 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
     const site = this.state.selectedSite();
     if (!site) return;
     this.loading.set(true);
+    this.loadError.set(null);
     this.api.get<{ data: PurchasedNumber[] }>(`/voice/numbers?siteId=${site.id}`, undefined, { silent: true }).subscribe({
-      next: (r) => { this.numbers.set(r.data ?? []); this.loading.set(false); },
-      error: () => { this.loading.set(false); this.numbers.set([]); },
+      next: (r) => { this.numbers.set(r.data ?? []); this.loadError.set(null); this.loading.set(false); },
+      // Keep already-loaded numbers on a transient failure; surface a Retry card
+      // (not a fake "No numbers" + $0.00 spend) when there's nothing to show.
+      error: () => { this.loading.set(false); this.loadError.set('The numbers service did not respond.'); },
     });
   }
 

@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { VoiceNumbersComponent } from './numbers.component';
 import { ApiService } from '../../../../services/api.service';
 import { ToastService } from '../../../../services/toast.service';
@@ -67,5 +67,24 @@ describe('VoiceNumbersComponent (purchase + release confirmation)', () => {
     const no = make(false);
     await no.c.release({ id: 'n1', phone_number: '+18558522267' } as never);
     expect(no.api.delete).not.toHaveBeenCalled();
+  });
+
+  it('loadNumbers failure sets loadError (not a fake empty + $0.00 spend)', () => {
+    const { c, api } = make();
+    api.get.and.returnValue(throwError(() => ({ status: 500 })));
+    c.loadNumbers();
+    expect(c.loadError()).toContain('did not respond');
+    expect(c.loading()).toBeFalse();
+  });
+
+  it('a transient load failure PRESERVES already-loaded numbers (no wipe → no false $0 spend)', () => {
+    const { c, api } = make();
+    api.get.and.returnValue(of({ data: [{ id: 'n1', monthly_cost_usd: 1.15 }, { id: 'n2', monthly_cost_usd: 2 }] }));
+    c.loadNumbers();
+    expect(c.numbers().length).toBe(2);
+    api.get.and.returnValue(throwError(() => ({ status: 503 })));
+    c.loadNumbers();
+    expect(c.numbers().length).withContext('numbers survive a transient failure').toBe(2);
+    expect(c.loadError()).toBeTruthy();
   });
 });
