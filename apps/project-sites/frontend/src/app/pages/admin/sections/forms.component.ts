@@ -445,6 +445,10 @@ const POLL_INTERVAL_MS = 10_000;
               }
             </div>
             <span class="text-[0.7rem] text-text-secondary">{{ filteredSubmissions().length }} / {{ submissions().length }}</span>
+            @if (submissions().length >= submissionCap) {
+              <span class="text-[0.66rem] text-amber-300/90" data-testid="forms-cap-note"
+                    title="The inbox shows the {{ submissionCap }} most recent submissions. Older ones are still stored.">· latest {{ submissionCap }}</span>
+            }
           </div>
         </div>
         @if (loading() && submissions().length === 0) {
@@ -843,6 +847,10 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
   private toast = inject(ToastService);
 
   submissions = signal<Submission[]>([]);
+  /** The worker caps GET /form-submissions at the 200 most-recent rows. When the
+   *  inbox hits this, surface a "latest 200" note so the operator knows older
+   *  submissions exist (still stored) rather than silently assuming they see all. */
+  readonly submissionCap = 200;
   loading = signal(false);
   /** Persistent submissions-load failure — so a fetch error shows a Retry card, not a fake "No submissions yet" empty state. */
   loadError = signal<string | null>(null);

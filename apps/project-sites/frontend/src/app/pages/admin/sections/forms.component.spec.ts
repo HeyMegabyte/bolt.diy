@@ -260,3 +260,38 @@ describe('AdminFormsComponent (test-panel accessible names)', () => {
     expect(named(el, 'textarea[placeholder^="Other fields"]')).withContext('fields json').toBeTrue();
   });
 });
+
+describe('AdminFormsComponent (submission-cap honesty)', () => {
+  let fixture: ComponentFixture<AdminFormsComponent>;
+  function render(n: number): HTMLElement {
+    const selectedSite = signal<{ id: string } | null>({ id: 's1' });
+    const get = jasmine.createSpy('get').and.callFake((url: string) =>
+      url.includes('/form-submissions') ? of({ data: [] }) : of({ data: {} }));
+    TestBed.configureTestingModule({
+      imports: [AdminFormsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, post: () => of({ data: {} }), put: () => of({ data: {} }), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0, info: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite } },
+        provideRouter([]),
+      ],
+    });
+    fixture = TestBed.createComponent(AdminFormsComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.loading.set(false);
+    fixture.componentInstance.submissions.set(Array.from({ length: n }, (_, i) => ({ id: 'x' + i, status: 'new', fields: {}, created_at: '' } as never)));
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  }
+  afterEach(() => { try { localStorage.clear(); } catch { /* */ } TestBed.resetTestingModule(); });
+
+  it('shows the "latest 200" note when the inbox hits the server cap (silent-truncation honesty)', () => {
+    const host = render(200);
+    expect(host.querySelector('[data-testid="forms-cap-note"]')?.textContent).withContext('user must know older submissions exist').toContain('latest 200');
+  });
+
+  it('does NOT show the cap note below the cap', () => {
+    const host = render(12);
+    expect(host.querySelector('[data-testid="forms-cap-note"]')).toBeNull();
+  });
+});
