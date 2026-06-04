@@ -50,7 +50,9 @@ describe('AdminReviewLinksComponent', () => {
 
   it('lists the site review links with their status', () => {
     build({ id: 's1' });
-    expect(get).toHaveBeenCalledWith('/sites/s1/review-links');
+    // {silent:true} — the component owns the inline error banner + Retry, so the
+    // generic ApiService "Can't reach the server" toast must NOT also fire (no double-toast).
+    expect(get).toHaveBeenCalledWith('/sites/s1/review-links', undefined, { silent: true });
     expect(all('[data-testid="review-links-row"]').length).toBe(1);
     expect(q('[data-testid="review-links-status"]')?.textContent?.trim()).toBe('pending');
   });
@@ -60,7 +62,7 @@ describe('AdminReviewLinksComponent', () => {
     (q('[data-testid="review-links-create-btn"]') as HTMLButtonElement).click();
     fixture.detectChanges();
 
-    expect(post).toHaveBeenCalledWith('/sites/s1/review-links', {});
+    expect(post).toHaveBeenCalledWith('/sites/s1/review-links', {}, { silent: true });
     expect(q('[data-testid="review-links-created"]')?.textContent).toContain('/review/r2');
   });
 
@@ -71,7 +73,7 @@ describe('AdminReviewLinksComponent', () => {
     selectedSite.set({ id: 'deep' });
     fixture.detectChanges();
 
-    expect(get).toHaveBeenCalledWith('/sites/deep/review-links');
+    expect(get).toHaveBeenCalledWith('/sites/deep/review-links', undefined, { silent: true });
   });
 
   it('renders a shimmering skeleton (not bare "Loading…" text) while loading', () => {

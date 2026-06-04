@@ -153,7 +153,7 @@ export class AdminReviewLinksComponent {
     this.loading.set(true);
     this.error.set(null);
     this.errorRetryable.set(false);
-    this.api.get<{ ok: boolean; links: ReviewLink[] }>(`/sites/${id}/review-links`).subscribe({
+    this.api.get<{ ok: boolean; links: ReviewLink[] }>(`/sites/${id}/review-links`, undefined, { silent: true }).subscribe({
       next: (res) => {
         this.links.set(res.links ?? []);
         this.loading.set(false);
@@ -177,7 +177,7 @@ export class AdminReviewLinksComponent {
     if (!id || this.creating()) return;
     this.creating.set(true);
     this.createdUrl.set(null);
-    this.api.post<{ ok: boolean; id: string; url: string; expiresAt: string }>(`/sites/${id}/review-links`, {}).subscribe({
+    this.api.post<{ ok: boolean; id: string; url: string; expiresAt: string }>(`/sites/${id}/review-links`, {}, { silent: true }).subscribe({
       next: (res) => {
         this.createdUrl.set(this.absolute(res.url));
         this.toast.success('Review link created.');
