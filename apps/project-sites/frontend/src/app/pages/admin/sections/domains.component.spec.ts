@@ -85,6 +85,17 @@ describe('AdminDomainsComponent (cyan/black cohesion + a11y)', () => {
     expect(el.querySelectorAll('[appReveal]').length).toBeGreaterThanOrEqual(3);
   });
 
+  it('announces the hostnames loading skeleton to assistive tech (role=status + aria-busy)', () => {
+    build({ id: 's1', slug: 'vito' }, [row()]);
+    fixture.componentInstance.loadingHostnames.set(true);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const loading = el.querySelector('[data-testid="hostnames-loading"]');
+    expect(loading).withContext('cyan loading skeleton').not.toBeNull();
+    expect(loading?.getAttribute('role')).toBe('status');
+    expect(loading?.getAttribute('aria-busy')).toBe('true');
+  });
+
   it('derives connectedCount + verifiedCount from the hostname list', () => {
     build({ id: 's1', slug: 'vito' }, [
       row({ id: 'a', status: 'active' }),
@@ -173,13 +184,17 @@ describe('AdminDomainsComponent (hostname load-error gating)', () => {
     expect(c.loadingHostnames()).toBe(false);
   });
 
-  it('a load error sets a persistent hostnamesError (not a fake empty) + toasts', () => {
-    const { c, toastErr } = makeErroring(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
+  it('a load error sets a persistent hostnamesError banner WITHOUT a toast (banner+Retry is the UX)', () => {
+    const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 })));
+    const { c, toastErr } = makeErroring(get);
     c.loadHostnames();
     expect(c.hostnamesError()).toContain('Could not load');
     expect(c.hostnames().length).toBe(0);
     expect(c.loadingHostnames()).toBe(false);
-    expect(toastErr).toHaveBeenCalled();
+    // The inline banner + Retry is the sole feedback — no own toast, and the GET
+    // is {silent} so ApiService's generic toast can't double-fire over it.
+    expect(toastErr).not.toHaveBeenCalled();
+    expect(get.calls.mostRecent().args[2]).toEqual({ silent: true });
   });
 
   it('retry after an error clears the prior hostnamesError', () => {

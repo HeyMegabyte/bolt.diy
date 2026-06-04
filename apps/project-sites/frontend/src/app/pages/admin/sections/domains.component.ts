@@ -297,9 +297,9 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
           </div>
 
           @if (loadingHostnames()) {
-            <div class="space-y-2" data-testid="hostnames-loading">
+            <div class="space-y-2" data-testid="hostnames-loading" role="status" aria-busy="true" aria-label="Loading connected domains">
               @for (i of [0,1,2]; track i) {
-                <div class="h-12 bg-black/30 border border-border rounded-md animate-pulse"></div>
+                <div class="h-12 bg-[var(--ps-accent)]/[0.04] border border-[var(--ps-accent)]/15 rounded-md animate-pulse"></div>
               }
             </div>
           } @else if (hostnamesError()) {
@@ -718,7 +718,11 @@ export class AdminDomainsComponent implements OnInit {
     if (!site) return;
     this.loadingHostnames.set(true);
     this.hostnamesError.set(null);
-    this.api.get<{ data: readonly Hostname[] }>(`/sites/${site.id}/hostnames`).subscribe({
+    // {silent}: this read owns its error UX — a persistent hostnamesError banner
+    // with Retry. Without {silent} the generic ApiService toast double-fired over
+    // it (and the own toast below made it a TRIPLE). The banner+Retry is the sole
+    // feedback now (matches the sites/deliverability/snapshots-diff convergence).
+    this.api.get<{ data: readonly Hostname[] }>(`/sites/${site.id}/hostnames`, undefined, { silent: true }).subscribe({
       next: (res) => {
         this.hostnames.set(res.data ?? []);
         this.hostnamesError.set(null);
@@ -728,7 +732,6 @@ export class AdminDomainsComponent implements OnInit {
         this.loadingHostnames.set(false);
         // Persist the failure so the empty state can't masquerade as "no domains".
         this.hostnamesError.set('Could not load connected domains — your existing domains are safe. Retry.');
-        this.toast.error('Failed to load connected domains');
       },
     });
   }
