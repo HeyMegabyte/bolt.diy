@@ -1546,7 +1546,7 @@ export class AdminSnapshotsComponent implements OnInit {
     const status = this.ghStatus();
     if (!site || !status?.connected) return;
     this.pushingGh.set(true);
-    this.api.post<{ data: { commit_sha: string; html_url: string } }>(`/sites/${site.id}/github/backup`, {}).subscribe({
+    this.api.post<{ data: { commit_sha: string; html_url: string } }>(`/sites/${site.id}/github/backup`, {}, { silent: true }).subscribe({
       next: () => {
         this.pushingGh.set(false);
         if (manual) this.toast.success('Mirrored to GitHub');
@@ -1571,7 +1571,7 @@ export class AdminSnapshotsComponent implements OnInit {
     });
     if (!ok) return;
     this.unlinkingGh.set(true);
-    this.api.post(`/sites/${site.id}/github/disconnect`, {}).subscribe({
+    this.api.post(`/sites/${site.id}/github/disconnect`, {}, { silent: true }).subscribe({
       next: () => {
         this.unlinkingGh.set(false);
         this.ghStatus.set({ connected: false });
@@ -1684,7 +1684,7 @@ export class AdminSnapshotsComponent implements OnInit {
     if (this.capturingIds().has(snap.id)) return;
     const capturing = new Set(this.capturingIds()); capturing.add(snap.id);
     this.capturingIds.set(capturing);
-    this.api.post(`/sites/${site.id}/snapshots/${snap.id}/capture`, {}).subscribe({
+    this.api.post(`/sites/${site.id}/snapshots/${snap.id}/capture`, {}, { silent: true }).subscribe({
       next: () => {
         this.toast.info('Quality scan started — polling for results.');
         this.startCapturePoll(site.id, snap.id);
@@ -1979,7 +1979,7 @@ export class AdminSnapshotsComponent implements OnInit {
   deleteSnapshot(snapshotId: string): void {
     const site = this.state.selectedSite();
     if (!site) return;
-    this.api.delete(`/sites/${site.id}/snapshots/${snapshotId}`).subscribe({
+    this.api.delete(`/sites/${site.id}/snapshots/${snapshotId}`, { silent: true }).subscribe({
       next: () => {
         this.toast.success('Snapshot deleted');
         this.telemetry.track('snapshot.deleted', {

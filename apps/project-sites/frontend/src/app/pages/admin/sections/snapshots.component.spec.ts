@@ -133,3 +133,55 @@ describe('AdminSnapshotsComponent (destructive revert is confirm-guarded)', () =
     expect(c.reverting()).toBe(false);
   });
 });
+
+/**
+ * Double-toast guard: each snapshots mutation surfaces its OWN specific
+ * toast.error in the error branch, so the ApiService call must be {silent:true}
+ * — else the generic "Can't reach the server" toast double-fires on failure.
+ */
+describe('AdminSnapshotsComponent — mutations pass {silent:true} (no generic double-toast)', () => {
+  let post: jasmine.Spy, del: jasmine.Spy;
+  function buildSpies(): AdminSnapshotsComponent {
+    post = jasmine.createSpy('post').and.returnValue(of({ data: { commit_sha: 'abc', html_url: 'h' } }));
+    del = jasmine.createSpy('delete').and.returnValue(of({}));
+    TestBed.configureTestingModule({
+      imports: [AdminSnapshotsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, delete: del } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: TelemetryService, useValue: { track: () => undefined, capture: () => undefined } },
+        { provide: BoltEmbedService, useValue: { openSnapshot: () => undefined } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSnapshotsComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminSnapshotsComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('pushToGithub → backup POST is {silent}', () => {
+    const c = buildSpies();
+    c.ghStatus.set({ connected: true } as never); // pushToGithub guards on a connected repo
+    c.pushToGithub(true);
+    expect(post).toHaveBeenCalledWith('/sites/s1/github/backup', {}, { silent: true });
+  });
+
+  it('unlinkGithub → disconnect POST is {silent} (after confirm)', async () => {
+    const c = buildSpies();
+    await c.unlinkGithub();
+    expect(post).toHaveBeenCalledWith('/sites/s1/github/disconnect', {}, { silent: true });
+  });
+
+  it('captureMetrics → capture POST is {silent}', () => {
+    const c = buildSpies();
+    c.captureMetrics({ id: 'snap9' } as never);
+    expect(post).toHaveBeenCalledWith('/sites/s1/snapshots/snap9/capture', {}, { silent: true });
+  });
+
+  it('deleteSnapshot → DELETE is {silent}', () => {
+    const c = buildSpies();
+    c.deleteSnapshot('snap9');
+    expect(del).toHaveBeenCalledWith('/sites/s1/snapshots/snap9', { silent: true });
+  });
+});
