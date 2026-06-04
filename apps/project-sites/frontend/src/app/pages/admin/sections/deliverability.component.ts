@@ -186,7 +186,7 @@ export class AdminDeliverabilityComponent {
     const domain = this.domainModel().trim();
     const params = domain ? { domain } : undefined;
 
-    this.api.get<DeliverabilityResponse>(`/sites/${s.id}/deliverability`, params).subscribe({
+    this.api.get<DeliverabilityResponse>(`/sites/${s.id}/deliverability`, params, { silent: true }).subscribe({
       next: (res) => {
         this.report.set(res.report);
         this.loading.set(false);
@@ -199,8 +199,10 @@ export class AdminDeliverabilityComponent {
         const msg = err?.status === 404
           ? 'Deliverability check is not available for this site.'
           : (serverMsg ?? 'Deliverability check failed — please try again.');
+        // Inline error banner (in the result panel where the user just clicked
+        // "Check") is the UX — no transient toast on top, and the read is {silent}
+        // so the generic ApiService toast doesn't fire either (was triple feedback).
         this.error.set(msg);
-        this.toast.error(msg);
         this.loading.set(false);
       },
     });

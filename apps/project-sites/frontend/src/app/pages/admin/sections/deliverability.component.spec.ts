@@ -98,6 +98,18 @@ describe('AdminDeliverabilityComponent', () => {
     expect(e).not.toContain('not available for this site');
   });
 
+  it('check() reads {silent:true} + on failure shows the inline banner ONLY (no own/generic double-toast)', () => {
+    build({ id: 'site1', name: 'Acme', slug: 'acme' });
+    const toastErr = TestBed.inject(ToastService).error as jasmine.Spy;
+    get.and.returnValue(throwError(() => ({ status: 500 })));
+    fixture.componentInstance.check();
+    // silent so ApiService's generic toast can't fire…
+    expect(get.calls.mostRecent().args[2]).toEqual({ silent: true });
+    // …and the component no longer toasts on top of its own inline error banner.
+    expect(fixture.componentInstance.error()).toBeTruthy();
+    expect(toastErr).not.toHaveBeenCalled();
+  });
+
   it('colors the score by band', () => {
     build({ id: 'site1', name: 'Acme', slug: 'acme' });
     const c = fixture.componentInstance;
