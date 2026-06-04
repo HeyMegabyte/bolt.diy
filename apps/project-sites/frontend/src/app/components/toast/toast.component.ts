@@ -7,7 +7,11 @@ import { toastSlide } from '../../animations/motion';
   standalone: true,
   animations: [toastSlide],
   template: `
-    <div class="toast-container" aria-live="polite" aria-atomic="false">
+    <!-- No aria-live on the container: each toast is its own live region via
+         [role] (alert=assertive for errors/confirms, status=polite otherwise),
+         the canonical APG toast pattern. A polite container here would re-announce
+         every toast politely AND downgrade the assertive errors — so it's dropped. -->
+    <div class="toast-container">
       @for (toast of toastService.toasts(); track toast.id) {
         <div
           @toastSlide

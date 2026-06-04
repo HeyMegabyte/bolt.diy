@@ -51,4 +51,15 @@ describe('ToastComponent (actionable-toast a11y announcement)', () => {
     fixture.detectChanges();
     expect(item()?.getAttribute('role')).toBe('alert');
   });
+
+  it('the container is NOT itself a live region — per-toast role is authoritative (no polite wrapper masking assertive errors)', () => {
+    toast.error('boom');
+    fixture.detectChanges();
+    const container = (fixture.nativeElement as HTMLElement).querySelector('.toast-container');
+    expect(container).withContext('container renders').toBeTruthy();
+    expect(container?.getAttribute('aria-live'))
+      .withContext('no redundant polite container that double-announces + downgrades errors')
+      .toBeNull();
+    expect(item()?.getAttribute('role')).withContext('error stays assertive via its own region').toBe('alert');
+  });
 });
