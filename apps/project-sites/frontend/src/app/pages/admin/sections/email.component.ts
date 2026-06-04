@@ -60,6 +60,12 @@ const PROVIDERS: ProviderMeta[] = [
         </header>
 
         @if (tab() === 'integrations') {
+          @if (integrationsError()) {
+            <div class="mb-4 rounded-md border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2 text-[0.78rem] text-amber-300" role="alert" data-testid="email-integrations-error">
+              Couldn't load your connection states — the badges below may be out of date.
+              <button class="btn-ghost text-xs ml-2" type="button" (click)="refreshIntegrations()" data-testid="email-integrations-retry">Retry</button>
+            </div>
+          }
           <section class="grid grid-cols-3 gap-3 mb-7 max-lg:grid-cols-2 max-md:grid-cols-1">
             @for (provider of providers; track provider.id) {
               <article class="provider-card" [class.connected]="isConnected(provider.id)">
@@ -306,6 +312,8 @@ export class AdminEmailComponent implements OnInit {
 
   tab = signal<'integrations' | 'submissions'>('integrations');
   integrations = signal<NewsletterIntegration[]>([]);
+  /** Set when the integrations load fails so connected providers don't silently appear "Not connected". */
+  integrationsError = signal<boolean>(false);
   submissions = signal<FormSubmission[]>([]);
   loadingSubmissions = signal(false);
   /** Persistent submissions-load failure — so a fetch error shows a Retry card, not a fake "No submissions yet". */
@@ -433,9 +441,12 @@ export class AdminEmailComponent implements OnInit {
   refreshIntegrations(): void {
     const site = this.state.selectedSite();
     if (!site) return;
-    this.api.listIntegrations(site.id).subscribe({
-      next: (res) => this.integrations.set(res.data || []),
-      error: () => {},
+    this.integrationsError.set(false);
+    this.api.listIntegrations(site.id, { silent: true }).subscribe({
+      next: (res) => { this.integrations.set(res.data || []); this.integrationsError.set(false); },
+      // {silent} → the inline banner above the cards is the signal (not a generic
+      // toast), so connected providers don't silently appear "Not connected".
+      error: () => this.integrationsError.set(true),
     });
   }
 

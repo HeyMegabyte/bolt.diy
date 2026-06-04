@@ -678,8 +678,8 @@ export class ApiService {
   }
 
   /** List newsletter integrations for a site */
-  listIntegrations(siteId: string): Observable<{ data: NewsletterIntegration[] }> {
-    return this.get(`/sites/${siteId}/integrations`);
+  listIntegrations(siteId: string, opts?: { silent?: boolean }): Observable<{ data: NewsletterIntegration[] }> {
+    return this.get(`/sites/${siteId}/integrations`, undefined, opts);
   }
 
   /** Connect a newsletter integration to a site */

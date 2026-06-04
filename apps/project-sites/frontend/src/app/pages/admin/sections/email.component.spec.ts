@@ -13,11 +13,11 @@ import { AdminStateService } from '../admin-state.service';
  * persistent submissionsError + Retry card; success/retry clear it. overrideComponent
  * strips the template; refreshSubmissions() is driven directly.
  */
-function make(list: jasmine.Spy): AdminEmailComponent {
+function make(list: jasmine.Spy, listIntegrations?: jasmine.Spy): AdminEmailComponent {
   TestBed.configureTestingModule({
     imports: [AdminEmailComponent],
     providers: [
-      { provide: ApiService, useValue: { listFormSubmissions: list, get: () => of({ data: [] }), post: () => of({}) } },
+      { provide: ApiService, useValue: { listFormSubmissions: list, listIntegrations: listIntegrations ?? (() => of({ data: [] })), get: () => of({ data: [] }), post: () => of({}) } },
       { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
       { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }), formatRelativeTime: () => 'now' } },
     ],
@@ -52,6 +52,18 @@ describe('AdminEmailComponent (submissions load-error gating)', () => {
     expect(c.submissionsError()).not.toBeNull();
     c.refreshSubmissions();
     expect(c.submissionsError()).toBeNull();
+  });
+
+  it('an integrations-load failure sets integrationsError so providers do not silently appear "Not connected"', () => {
+    const okList = jasmine.createSpy('list').and.returnValue(of({ data: [] }));
+    const failInteg = jasmine.createSpy('li').and.returnValue(throwError(() => ({ status: 500 })));
+    const c = make(okList, failInteg);
+    c.refreshIntegrations();
+    expect(c.integrationsError()).toBeTrue();
+    // on a later success the warning clears
+    failInteg.and.returnValue(of({ data: [] }));
+    c.refreshIntegrations();
+    expect(c.integrationsError()).toBeFalse();
   });
 });
 
