@@ -1982,6 +1982,7 @@ export class AdminSnapshotsComponent implements OnInit {
       title: 'Delete snapshot',
       message: `Permanently delete snapshot "${snap.snapshot_name}"? This cannot be undone.`,
       confirmLabel: 'Delete',
+      danger: true,
     });
     if (!ok) return;
     this.deleteSnapshot(snap.id);
@@ -2014,6 +2015,7 @@ export class AdminSnapshotsComponent implements OnInit {
       title: 'Revert live site',
       message: `Revert this site to snapshot "${snap.snapshot_name}"? This overwrites the current live site with that past version and cannot be undone.`,
       confirmLabel: 'Revert site',
+      danger: true,
     });
     if (!ok) return;
     this.reverting.set(true);

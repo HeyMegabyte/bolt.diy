@@ -486,6 +486,7 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
       title: 'Delete instance',
       message: `Delete instance "${this.nameFor(inst)}"? This destroys its container and data — this cannot be undone.`,
       confirmLabel: 'Delete',
+      danger: true,
     });
     if (!ok) return;
     this.runAction(inst, this.api.delete(`/apps/instances/${inst.id}`), `Deleted ${this.nameFor(inst)}`);

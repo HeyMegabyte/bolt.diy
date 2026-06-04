@@ -1445,6 +1445,7 @@ export class AdminAiEndpointsComponent implements OnInit {
       title: 'Delete endpoint',
       message: `Delete endpoint "${e.endpoint_slug}"? This cannot be undone and any callers will start getting 404s.`,
       confirmLabel: 'Delete',
+      danger: true,
     });
     if (!ok) return;
     const s = this.state.selectedSite();

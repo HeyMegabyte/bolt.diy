@@ -297,16 +297,18 @@ describe('AdminMediaComponent (mutations are {silent} — no double-toast/flood)
   let del: jasmine.Spy;
   let postFormData: jasmine.Spy;
 
+  let confirmSpy: jasmine.Spy;
   function build(confirmResult = true): AdminMediaComponent {
     del = jasmine.createSpy('delete').and.returnValue(of({ ok: true }));
     postFormData = jasmine.createSpy('postFormData').and.returnValue(of({ data: null }));
+    confirmSpy = jasmine.createSpy('confirm').and.resolveTo(confirmResult);
     TestBed.configureTestingModule({
       imports: [AdminMediaComponent],
       providers: [
         { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ ok: true }), postFormData, delete: del } },
         { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
         { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
-        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(confirmResult) } },
+        { provide: ConfirmService, useValue: { confirm: confirmSpy } },
       ],
     });
     return TestBed.createComponent(AdminMediaComponent).componentInstance;
@@ -317,6 +319,13 @@ describe('AdminMediaComponent (mutations are {silent} — no double-toast/flood)
     const c = build(true);
     await c.deleteOne({ id: 'a1', name: 'pic.png' } as never);
     expect(del).toHaveBeenCalledWith('/media/assets/a1', { silent: true });
+  });
+
+  it('deleteOne confirms with danger:true (irreversible asset delete → red modal)', async () => {
+    const c = build(true);
+    await c.deleteOne({ id: 'a1', name: 'pic.png' } as never);
+    expect(confirmSpy).toHaveBeenCalled();
+    expect((confirmSpy.calls.mostRecent().args[0] as { danger?: boolean }).danger).toBeTrue();
   });
 
   it('bulk deleteSelected DELETEs {silent:true} per asset (no toast flood)', async () => {

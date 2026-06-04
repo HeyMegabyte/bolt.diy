@@ -1448,6 +1448,7 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
       title: 'Delete asset',
       message: `Delete "${asset.name}"? This cannot be undone — any site using it will show a broken reference.`,
       confirmLabel: 'Delete',
+      danger: true,
     });
     if (!ok) return;
     this.api.delete<{ ok: boolean }>(`/media/assets/${asset.id}`, { silent: true }).subscribe({
@@ -1471,6 +1472,7 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
       title: 'Delete assets',
       message: `Delete ${ids.length} ${ids.length === 1 ? 'asset' : 'assets'}? This cannot be undone.`,
       confirmLabel: `Delete ${ids.length}`,
+      danger: true,
     });
     if (!ok) return;
     let done = 0;
