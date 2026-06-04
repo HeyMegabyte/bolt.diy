@@ -99,15 +99,21 @@ interface ProfileEnvelope {
           <button class="btn-ghost text-xs" (click)="refresh()" [disabled]="loading()">
             {{ loading() ? 'Loading…' : 'Refresh' }}
           </button>
-          <button class="btn-primary text-xs" (click)="save()" [disabled]="saving()">
-            {{ saving() ? 'Saving…' : 'Save' }}
-          </button>
-          @if (profile()?.published) {
-            <span class="badge-pub" title="Profile is live on public /trust">Live</span>
-          } @else {
-            <button class="btn-primary text-xs" (click)="publish()" [disabled]="publishing()">
-              {{ publishing() ? 'Publishing…' : 'Publish' }}
+          <!-- Save / Publish only when the editor is actually shown. When Trust
+               Center is flag-disabled (notFound) or the load failed there's no
+               profile to save/publish — a visible Save/Publish here would POST to
+               a gated/404 route (dead buttons). Refresh stays (re-check). -->
+          @if (!notFound() && !loadError()) {
+            <button class="btn-primary text-xs" (click)="save()" [disabled]="saving()">
+              {{ saving() ? 'Saving…' : 'Save' }}
             </button>
+            @if (profile()?.published) {
+              <span class="badge-pub" title="Profile is live on public /trust">Live</span>
+            } @else {
+              <button class="btn-primary text-xs" (click)="publish()" [disabled]="publishing()">
+                {{ publishing() ? 'Publishing…' : 'Publish' }}
+              </button>
+            }
           }
         </div>
       </header>
@@ -328,6 +334,8 @@ export class AdminTrustCenterComponent {
   }
 
   save(): void {
+    // Flag-disabled / load-failed → no editor, the /trust/profile PUT would 404.
+    if (this.notFound() || this.loadError()) return;
     this.saving.set(true);
     const body = {
       data_residency: this.dataResidency(),
@@ -353,6 +361,7 @@ export class AdminTrustCenterComponent {
   }
 
   publish(): void {
+    if (this.notFound() || this.loadError()) return;
     this.publishing.set(true);
     this.api
       .post<{ data: TrustProfile }>('/trust/profile/publish', {})

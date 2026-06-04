@@ -112,3 +112,80 @@ describe('AdminTrustCenterComponent (silent profile read — no double-toast)', 
     expect(get).toHaveBeenCalledWith('/trust/profile', undefined, { silent: true });
   });
 });
+
+/**
+ * Save/Publish must NOT be dead buttons when trust_center is flag-disabled.
+ * They sat in the header unconditionally — but when notFound (flag off) only the
+ * gate notice renders (no profile editor), so a click PUT /trust/profile (404).
+ * Now they're gated to the editor-rendered state + the handlers no-op defensively.
+ */
+describe('AdminTrustCenterComponent (Save/Publish gated when disabled)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function setup(): { c: AdminTrustCenterComponent; put: jasmine.Spy } {
+    const put = jasmine.createSpy('put').and.returnValue(of({ data: {} }));
+    TestBed.configureTestingModule({
+      imports: [AdminTrustCenterComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: {} }), post: () => of({ data: {} }), put } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminTrustCenterComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminTrustCenterComponent).componentInstance, put };
+  }
+
+  it('save() no-ops when the feature is disabled (notFound) — no PUT to a gated route', () => {
+    const { c, put } = setup();
+    c.notFound.set(true);
+    c.save();
+    expect(put).not.toHaveBeenCalled();
+    expect(c.saving()).toBe(false);
+  });
+
+  it('publish() no-ops when notFound, and save() no-ops on a persistent load error', () => {
+    const { c, put } = setup();
+    c.notFound.set(true);
+    c.publish();
+    expect(put).not.toHaveBeenCalled();
+    c.notFound.set(false);
+    c.loadError.set('boom');
+    c.save();
+    expect(put).not.toHaveBeenCalled();
+  });
+});
+
+describe('AdminTrustCenterComponent (Save/Publish hidden in the gated render)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  function render(): import('@angular/core/testing').ComponentFixture<AdminTrustCenterComponent> {
+    TestBed.configureTestingModule({
+      imports: [AdminTrustCenterComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: {} }), post: () => of({ data: {} }), put: () => of({ data: {} }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+      ],
+    });
+    return TestBed.createComponent(AdminTrustCenterComponent);
+  }
+
+  it('does NOT render Save/Publish when disabled (notFound) — only Refresh/Admin', () => {
+    const f = render();
+    f.componentInstance.notFound.set(true);
+    f.detectChanges();
+    const text = (f.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).withContext('no dead Save').not.toContain('Save');
+    expect(text).withContext('no dead Publish').not.toContain('Publish');
+  });
+
+  it('renders Save when the editor is shown', () => {
+    const f = render();
+    f.componentInstance.notFound.set(false);
+    f.componentInstance.loadError.set(null);
+    f.detectChanges();
+    expect((f.nativeElement as HTMLElement).textContent ?? '').toContain('Save');
+  });
+});
