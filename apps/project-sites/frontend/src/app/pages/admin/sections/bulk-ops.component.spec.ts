@@ -160,4 +160,34 @@ describe('AdminBulkOpsComponent', () => {
     expect(q('select[data-testid="bulk-ops-operation"][hlmSelect]')).withContext('converged to the Spartan select primitive').not.toBeNull();
     expect(q('[data-testid="bulk-ops-operation"]')?.className ?? '').not.toContain('bg-dark');
   });
+
+  // ── Reliability: no double-toast, no stale plan ──────────────────────────
+  it('preview posts {silent:true} so a failure shows ONLY the section error (no generic ApiService double-toast)', () => {
+    (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+    expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
+  });
+
+  it('apply posts {silent:true} (its own toast.error is the sole failure surface)', () => {
+    post.and.returnValue(of(PLAN));
+    (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    post.and.returnValue(of({ ok: true, dryRun: false, plan: PLAN.plan, results: { archived: ['s1', 's2', 's3'], failed: [] } }));
+    fixture.componentInstance.apply();
+    expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
+  });
+
+  it('clears the now-stale plan after a successful apply (Apply button cannot re-fire on changed sites)', () => {
+    post.and.returnValue(of(PLAN));
+    (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.plan()).not.toBeNull();
+
+    post.and.returnValue(of({ ok: true, dryRun: false, plan: PLAN.plan, results: { archived: ['s1', 's2', 's3'], failed: [] } }));
+    fixture.componentInstance.apply();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.plan()).withContext('preview is stale once the sites changed').toBeNull();
+    expect(q('[data-testid="bulk-ops-apply-btn"]')).withContext('Apply control gone after success').toBeNull();
+    expect(q('[data-testid="bulk-ops-apply-result"]')).withContext('outcome card still shown').not.toBeNull();
+  });
 });

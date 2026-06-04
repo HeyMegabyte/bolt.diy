@@ -262,7 +262,9 @@ export class AdminBulkOpsComponent {
       body['enabled'] = this.enabledModel();
     }
 
-    this.api.post<BulkPreviewResponse>('/sites/bulk', body).subscribe({
+    // {silent}: this surface renders its own inline error + toast; suppress the
+    // generic ApiService toast so a failure shows ONE message, not two.
+    this.api.post<BulkPreviewResponse>('/sites/bulk', body, { silent: true }).subscribe({
       next: (res) => {
         this.plan.set(res.plan);
         this.applyResults.set(null);
@@ -289,11 +291,15 @@ export class AdminBulkOpsComponent {
       body['enabled'] = this.enabledModel();
     }
 
-    this.api.post<BulkApplyResponse>('/sites/bulk', body).subscribe({
+    this.api.post<BulkApplyResponse>('/sites/bulk', body, { silent: true }).subscribe({
       next: (res) => {
         const applied = res.results.archived ?? res.results.set ?? [];
         this.applyResults.set({ applied, failed: res.results.failed ?? [] });
         this.toast.success(`Applied to ${applied.length} site(s)`);
+        // The sites just changed — the preview is now stale, so drop it (and with
+        // it the Apply button) to prevent a re-apply against the old plan. The
+        // result card below stays to show the outcome.
+        this.plan.set(null);
         this.confirmOpen.set(false);
         this.applying.set(false);
       },
