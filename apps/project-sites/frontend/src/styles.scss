@@ -682,7 +682,16 @@ html { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparen
 // Skeleton loader (replaces plain text "Loading…")
 .glow-skel {
   display: inline-block;
-  background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.12) 35%, rgba(255,255,255,0.04) 70%);
+  // Faint cyan shimmer (tokenized off --ps-accent) so loading skeletons read as
+  // part of the cyan/black cockpit, not a generic gray pulse. Low alpha keeps it
+  // subtle — it's a placeholder, not a focal point. Shared across every section's
+  // skeleton (site-dna, content-freshness, inbox, site-copilot, …) in one place.
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--ps-accent, #00e5ff) 4%, transparent) 0%,
+    color-mix(in oklab, var(--ps-accent, #00e5ff) 14%, transparent) 35%,
+    color-mix(in oklab, var(--ps-accent, #00e5ff) 4%, transparent) 70%
+  );
   background-size: 200% 100%;
   animation: psSkeleton 1.6s linear infinite;
   border-radius: 6px;

@@ -478,9 +478,13 @@ export class AdminSiteDnaComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.loadError.set(null);
 
+    // {silent}: this load owns its error UX — 404 → silent flag-gate, non-404 →
+    // inline loadError banner with Retry. Without {silent} ApiService's generic
+    // toast double-fired over the banner (and wrongly toasted 'not found' on the
+    // intended-silent 404 flag-off).
     forkJoin({
-      history: this.api.get<DnaHistoryResp>(`/site-dna/${this.siteId}/history?limit=50`),
-      prefs: this.api.get<DnaPrefsResp>(`/site-dna/${this.siteId}/preferences?top_k=10`),
+      history: this.api.get<DnaHistoryResp>(`/site-dna/${this.siteId}/history?limit=50`, undefined, { silent: true }),
+      prefs: this.api.get<DnaPrefsResp>(`/site-dna/${this.siteId}/preferences?top_k=10`, undefined, { silent: true }),
     })
       .pipe(takeUntil(this.destroy$))
       .subscribe({

@@ -103,6 +103,20 @@ describe('AdminSiteDnaComponent (taste pulse + a11y)', () => {
     expect(component.loadError()).toBeNull();
   });
 
+  // load() owns its error UX: 404 → silent flag-gate, non-404 → inline loadError
+  // banner with Retry. So both forkJoin reads must be {silent:true} — else the
+  // generic ApiService toast double-fires over the banner (and wrongly toasts
+  // 'not found' on the intended-silent 404 flag-off).
+  it('reads both DNA endpoints {silent:true} so the component owns the error UX', () => {
+    build(true); // flagOn → load() runs via detectChanges
+    expect(apiGet).toHaveBeenCalled();
+    const allSilent = apiGet.calls.all().every((c) => {
+      const opts = c.args[2] as { silent?: boolean } | undefined;
+      return opts?.silent === true;
+    });
+    expect(allSilent).withContext('both history + prefs GETs are {silent}').toBeTrue();
+  });
+
   function row(action: 'accept' | 'reject' | 'edit') {
     return {
       id: `r-${Math.random()}`,
