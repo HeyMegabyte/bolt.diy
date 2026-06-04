@@ -330,3 +330,18 @@ describe('AdminSiteDetailComponent (SQL starter queries)', () => {
     }
   });
 });
+
+describe('AdminSiteDetailComponent (SQL result Copy JSON)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('copySqlResult writes the rows as JSON to the clipboard + flips the copied flag', async () => {
+    const writeText = jasmine.createSpy('writeText').and.resolveTo(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const { c } = make();
+    const rows = [{ id: 1, name: 'a' }, { id: 2, name: 'b' }];
+    c.copySqlResult({ columns: ['id', 'name'], rows, duration_ms: 3 });
+    expect(writeText).toHaveBeenCalledWith(JSON.stringify(rows, null, 2));
+    await Promise.resolve();
+    expect(c.sqlCopied()).toBeTrue();
+  });
+});

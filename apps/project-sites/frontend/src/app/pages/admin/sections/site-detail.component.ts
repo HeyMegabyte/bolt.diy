@@ -227,6 +227,14 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
           }
 
           @if (sqlResult(); as r) {
+            <div class="sql-result-meta">
+              <span class="sql-result-count">{{ r.rows.length }} {{ r.rows.length === 1 ? 'row' : 'rows' }} · {{ r.duration_ms }}ms</span>
+              @if (r.rows.length > 0) {
+                <button type="button" class="sql-result-copy" data-testid="sql-result-copy" (click)="copySqlResult(r)">
+                  {{ sqlCopied() ? '✓ Copied' : 'Copy JSON' }}
+                </button>
+              }
+            </div>
             <!-- Arbitrary SELECT results can be far wider than the viewport;
                  scroll the table inside its own region instead of overflowing
                  the page (WCAG 1.4.10 — matches the sites/domains/billing tables). -->
@@ -342,6 +350,16 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
     }
     .sql-starter-chip:hover { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 18%, transparent); border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 50%, transparent); }
     .sql-starter-chip:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+    .sql-result-meta { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; }
+    .sql-result-count { font-size: 0.72rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); font-variant-numeric: tabular-nums; }
+    .sql-result-copy {
+      margin-left: auto; font-size: 0.7rem; font-weight: 500; padding: 0.2rem 0.55rem; border-radius: 6px; cursor: pointer;
+      color: var(--ps-accent, #00e5ff);
+      background: color-mix(in oklch, var(--ps-accent, #00e5ff) 9%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent);
+    }
+    .sql-result-copy:hover { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 18%, transparent); }
+    .sql-result-copy:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
     .sql-result-scroll { overflow-x: auto; max-width: 100%; border-radius: 8px; }
     .sql-result-scroll:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
     .sql-result-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -413,6 +431,17 @@ export class AdminSiteDetailComponent {
   useSqlStarter(query: string): void {
     this.sqlQuery.set(query);
     this.runSql();
+  }
+
+  /** Brief "✓ Copied" affordance on the SQL-result Copy button. */
+  readonly sqlCopied = signal(false);
+  /** Copy the query result rows to the clipboard as JSON (formula-injection-safe
+   *  — JSON quotes every value, so pasting into a sheet never executes). */
+  copySqlResult(r: SqlResult): void {
+    void navigator.clipboard.writeText(JSON.stringify(r.rows, null, 2)).then(
+      () => { this.sqlCopied.set(true); setTimeout(() => this.sqlCopied.set(false), 1500); },
+      () => undefined,
+    );
   }
   readonly sqlResult = signal<SqlResult | null>(null);
   readonly sqlError = signal<string | null>(null);
