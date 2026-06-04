@@ -91,9 +91,14 @@ interface AuditExport {
         <div class="flex items-center gap-3">
           <a routerLink="/admin" class="btn-ghost text-xs">← Admin</a>
           <button class="btn-ghost text-xs" (click)="refresh()" [disabled]="loading()">Refresh</button>
-          <button class="btn-primary text-xs" (click)="saveContract()" [disabled]="saving()">
-            {{ saving() ? 'Saving…' : 'Save contract' }}
-          </button>
+          <!-- Only offer Save when the contract editor is actually rendered. When the
+               plan is flag-disabled (notFound) or the load failed, there's no form to
+               save — a visible Save here would POST to a gated/404 route (dead button). -->
+          @if (!notFound() && !loadError()) {
+            <button class="btn-primary text-xs" data-testid="enterprise-save" (click)="saveContract()" [disabled]="saving()">
+              {{ saving() ? 'Saving…' : 'Save contract' }}
+            </button>
+          }
         </div>
       </header>
 
@@ -517,6 +522,8 @@ export class AdminEnterpriseComponent {
   }
 
   saveContract(): void {
+    // Defense-in-depth: never PUT when there's no editor (plan disabled / load failed).
+    if (this.notFound() || this.loadError()) return;
     this.saving.set(true);
     const body = {
       plan_tier: this.planTier(),

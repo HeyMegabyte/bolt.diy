@@ -157,3 +157,78 @@ describe('AdminEnterpriseComponent (silent contract read — no double-toast)', 
     expect(get).toHaveBeenCalledWith('/enterprise/contract', undefined, { silent: true });
   });
 });
+
+/**
+ * "Save contract" must NOT be a dead button when the plan is flag-disabled. The
+ * button used to sit in the header unconditionally — but when enterprise_plan is
+ * off (notFound) only the gate notice renders (no contract form), so clicking
+ * Save POSTed to a gated/404 route. Now it's gated to the editor-rendered state
+ * + saveContract() no-ops defensively.
+ */
+describe('AdminEnterpriseComponent (Save contract gated when plan disabled)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function setup(): { c: AdminEnterpriseComponent; put: jasmine.Spy } {
+    const put = jasmine.createSpy('put').and.returnValue(of({ data: {} }));
+    TestBed.configureTestingModule({
+      imports: [AdminEnterpriseComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: {} }), post: () => of({ data: {} }), put } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminEnterpriseComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminEnterpriseComponent).componentInstance, put };
+  }
+
+  it('saveContract is a no-op when the plan is disabled (notFound) — no PUT to a gated route', () => {
+    const { c, put } = setup();
+    c.notFound.set(true);
+    c.saveContract();
+    expect(put).not.toHaveBeenCalled();
+    expect(c.saving()).toBe(false);
+  });
+
+  it('saveContract is a no-op on a persistent contract load error', () => {
+    const { c, put } = setup();
+    c.loadError.set('Could not load the contract.');
+    c.saveContract();
+    expect(put).not.toHaveBeenCalled();
+  });
+});
+
+describe('AdminEnterpriseComponent (Save button hidden in the gated state — full render)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function render(): import('@angular/core/testing').ComponentFixture<AdminEnterpriseComponent> {
+    TestBed.configureTestingModule({
+      imports: [AdminEnterpriseComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: {} }), post: () => of({ data: {} }), put: () => of({ data: {} }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+      ],
+    });
+    return TestBed.createComponent(AdminEnterpriseComponent);
+  }
+
+  it('does NOT render the Save contract button when the plan is disabled (notFound)', () => {
+    const f = render();
+    f.componentInstance.notFound.set(true);
+    f.detectChanges();
+    expect((f.nativeElement as HTMLElement).querySelector('[data-testid="enterprise-save"]'))
+      .withContext('no dead Save button when there is no contract form to save').toBeNull();
+  });
+
+  it('renders the Save contract button when the contract editor is shown', () => {
+    const f = render();
+    f.componentInstance.notFound.set(false);
+    f.componentInstance.loadError.set(null);
+    f.detectChanges();
+    expect((f.nativeElement as HTMLElement).querySelector('[data-testid="enterprise-save"]'))
+      .withContext('Save is available when the editor renders').not.toBeNull();
+  });
+});
