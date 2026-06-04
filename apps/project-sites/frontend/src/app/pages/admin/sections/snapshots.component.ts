@@ -391,7 +391,7 @@ interface GhStatus {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
                       </button>
                       @if (moreOpenId() === snap.id) {
-                        <div class="snap-more-pop" role="menu" (click)="$event.stopPropagation()">
+                        <div class="snap-more-pop" (click)="$event.stopPropagation()">
                           <!-- Item 41: rebase the editor's WebContainer to this snapshot. -->
                           <button class="snap-more-item" type="button" (click)="openInEditor(snap); moreOpenId.set(null)" [attr.data-testid]="'snapshot-open-editor-' + snap.id">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>

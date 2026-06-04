@@ -253,7 +253,7 @@ interface InlineEdit {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
                       </button>
                       @if (moreOpenId() === e.id) {
-                        <div class="more-pop" role="menu" (click)="$event.stopPropagation()">
+                        <div class="more-pop" (click)="$event.stopPropagation()">
                           <button class="more-item" type="button" (click)="copyCurl(e); moreOpenId.set(null)" [attr.data-testid]="'ai-endpoint-curl-' + e.endpoint_slug">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
                             Copy cURL
