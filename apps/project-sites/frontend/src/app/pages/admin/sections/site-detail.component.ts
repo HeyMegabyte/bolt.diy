@@ -29,6 +29,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of } from 'rxjs';
 import { catchError, retry, switchMap, timer } from 'rxjs';
@@ -303,13 +304,6 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
             }
           </div>
 
-          @if (disconnectTarget()) {
-            <div class="confirm-dialog" role="dialog" aria-modal="true">
-              <p>Disconnect {{ disconnectTarget()?.name }}?</p>
-              <button type="button" (click)="confirmDisconnect()">Confirm</button>
-              <button type="button" (click)="disconnectTarget.set(null)">Cancel</button>
-            </div>
-          }
         </div>
       }
     </section>
@@ -336,7 +330,6 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
     .ai-name { color: var(--ps-accent, #00e5ff); font-size: 0.85rem; }
     .rollback-btn { padding: 0.4rem 0.9rem; background: transparent; border: 1px solid var(--ps-accent, #00e5ff); color: var(--ps-accent, #00e5ff); border-radius: 6px; cursor: pointer; }
     .rollback-btn:hover { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent); }
-    .confirm-dialog { margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.5); border: 1px solid var(--ps-edge, rgba(255,255,255,0.08)); border-radius: 8px; }
     /* .sql-editor removed — now Spartan hlmInput [multiline] (font-mono resize-y). */
     .sql-toolbar { display: flex; gap: 0.75rem; align-items: center; margin: 0.5rem 0 1rem; }
     .sql-result-scroll { overflow-x: auto; max-width: 100%; border-radius: 8px; }
@@ -369,6 +362,7 @@ export class AdminSiteDetailComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly toast = inject(ToastService);
+  private readonly confirm = inject(ConfirmService);
 
   readonly siteId = signal<string>('');
   readonly site = signal<{ id: string; slug: string; name: string } | null>(null);
@@ -406,7 +400,6 @@ export class AdminSiteDetailComponent {
   readonly integrations = signal<IntegrationProvider[]>([]);
   readonly pasteKeyOpen = signal<string | null>(null);
   readonly pasteKeyValue = signal('');
-  readonly disconnectTarget = signal<IntegrationProvider | null>(null);
 
   constructor() {
     // Capture siteId once route param is available.
@@ -640,15 +633,22 @@ export class AdminSiteDetailComponent {
       });
   }
 
-  onDisconnect(p: IntegrationProvider): void {
-    this.disconnectTarget.set(p);
-  }
-
-  confirmDisconnect(): void {
-    const p = this.disconnectTarget();
-    if (!p) return;
+  /** Disconnecting an integration is destructive (re-OAuth needed to restore) —
+   *  it must be confirmed. Uses the shared ConfirmService (branded CDK dialog:
+   *  focus-trap + Esc + focus-restore + cyan tokens) per the one-dialog-primitive
+   *  rule, replacing a bespoke inline confirm <div>. */
+  async onDisconnect(p: IntegrationProvider): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: `Disconnect ${p.name}?`,
+      message: `${p.name} will be removed from this site. You'll need to reconnect it via OAuth to restore the integration.`,
+      confirmLabel: 'Disconnect',
+      danger: true,
+    });
+    if (!ok) return;
     this.api
-      .delete(`/sites/${this.siteId()}/integrations/${p.key}`)
+      // {silent} — the catchError below shows the specific 'Could not disconnect'
+      // toast, so the generic ApiService toast must not also fire (no double-toast).
+      .delete(`/sites/${this.siteId()}/integrations/${p.key}`, { silent: true })
       .pipe(
         // Return null on error (don't fabricate { ok: true }) so a failed
         // disconnect never optimistically flips the chip to "disconnected".
@@ -656,7 +656,6 @@ export class AdminSiteDetailComponent {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((res) => {
-        this.disconnectTarget.set(null);
         if (res === null) {
           this.toast.error(`Could not disconnect ${p.name} — please try again.`);
           return;

@@ -3,6 +3,8 @@ import { of, throwError } from 'rxjs';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { AdminSiteDetailComponent } from './site-detail.component';
 import { ApiService } from '../../../services/api.service';
+import { ConfirmService } from '../../../services/confirm.service';
+import { ToastService } from '../../../services/toast.service';
 
 /**
  * First coverage for the Site Detail tabs surface (untested):
@@ -207,5 +209,57 @@ describe('AdminSiteDetailComponent (cinematic entrance — matches sibling secti
     const h1 = el.querySelector('.site-detail__title')?.textContent?.trim();
     expect(h1).withContext('a nameless site shows its slug, not an uninformative "Site"').toBe('urban-fitness');
     expect(h1).not.toBe('Site');
+  });
+});
+
+/**
+ * Disconnecting an integration is destructive (re-OAuth needed to restore). It
+ * used a bespoke inline confirm <div> (custom modal — drift per the
+ * one-dialog-primitive rule, no focus-trap/Esc/accessible-name). Now it routes
+ * through the shared ConfirmService (branded CDK dialog) and the DELETE is
+ * {silent} so a failure shows ONLY the specific 'Could not disconnect' toast.
+ */
+describe('AdminSiteDetailComponent (integration disconnect — confirm-gated via ConfirmService)', () => {
+  function build(confirmResult: boolean, del = jasmine.createSpy('delete').and.returnValue(of({ ok: true }))): {
+    c: AdminSiteDetailComponent; del: jasmine.Spy; confirm: jasmine.Spy; toastErr: jasmine.Spy;
+  } {
+    const confirm = jasmine.createSpy('confirm').and.resolveTo(confirmResult);
+    const toastErr = jasmine.createSpy('error');
+    TestBed.configureTestingModule({
+      imports: [AdminSiteDetailComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ site: { id: 's1', slug: 's', name: 'S' } }), post: () => of({}), delete: del } },
+        { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 's1' }), queryParamMap: of({ get: () => null }) } },
+        { provide: ConfirmService, useValue: { confirm } },
+        { provide: ToastService, useValue: { error: toastErr, success: () => 0, info: () => 0, warning: () => 0 } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSiteDetailComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminSiteDetailComponent).componentInstance, del, confirm, toastErr };
+  }
+  const PROV = { key: 'mailchimp', name: 'Mailchimp', status: 'connected' } as never;
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('does NOT disconnect when the confirm is cancelled (no DELETE)', async () => {
+    const { c, del, confirm } = build(false);
+    await c.onDisconnect(PROV);
+    expect(confirm).toHaveBeenCalled();
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it('disconnects via the shared ConfirmService — DELETE is {silent} (no generic double-toast)', async () => {
+    const { c, del, confirm } = build(true);
+    await c.onDisconnect(PROV);
+    expect(confirm).toHaveBeenCalled();
+    expect(del).toHaveBeenCalledWith('/sites/s1/integrations/mailchimp', { silent: true });
+  });
+
+  it('a failed disconnect surfaces the specific error + does NOT optimistically flip the chip', async () => {
+    const { c, toastErr } = build(true, jasmine.createSpy('delete').and.returnValue(throwError(() => ({ status: 500 }))));
+    c.integrations.set([{ key: 'mailchimp', name: 'Mailchimp', status: 'connected' } as never]);
+    await c.onDisconnect(PROV);
+    expect(toastErr).toHaveBeenCalled();
+    expect(c.integrations()[0].status).withContext('no lying optimistic flip on failure').toBe('connected');
   });
 });
