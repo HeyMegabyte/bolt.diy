@@ -283,15 +283,25 @@ describe('AdminUserSettingsComponent (API-key rotate/revoke are modal-confirm-ga
     expect(del).not.toHaveBeenCalled();
   });
 
-  it('revokeKey DELETEs only after the modal confirm is accepted', async () => {
+  it('revokeKey DELETEs {silent} after the modal confirm (its own toast is the sole message)', async () => {
     const { c, del } = makeKeys(() => Promise.resolve(true));
     await c.revokeKey({ id: 'k1', name: 'CI key' });
-    expect(del).toHaveBeenCalledWith('/admin/api-keys/k1');
+    // {silent}: performRevoke owns 'Could not revoke …' on failure — without it
+    // ApiService's generic toast double-fires.
+    expect(del).toHaveBeenCalledWith('/admin/api-keys/k1', { silent: true });
   });
 
   it('rotateKey does NOT mint a new key when the confirm is cancelled', async () => {
     const { c, post } = makeKeys(() => Promise.resolve(false));
     await c.rotateKey({ id: 'k1', name: 'CI key', scopes: [], created_at: '' } as never);
     expect(post).not.toHaveBeenCalled();
+  });
+
+  it('rotateKey revokes the OLD key {silent} (its own warning is the sole message)', async () => {
+    const { c, del } = makeKeys(() => Promise.resolve(true));
+    await c.rotateKey({ id: 'k1', name: 'CI key', scopes: [], created_at: '' } as never);
+    // The inner revoke-old-key DELETE surfaces its own toast.warning on failure;
+    // {silent} stops the generic error toast double-firing over it.
+    expect(del).toHaveBeenCalledWith('/admin/api-keys/k1', { silent: true });
   });
 });

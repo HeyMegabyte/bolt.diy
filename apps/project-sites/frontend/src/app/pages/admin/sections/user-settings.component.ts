@@ -1496,8 +1496,10 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
         const created = r.data;
         this.newSecret.set({ name: created.name, secret: created.secret, expires_at: created.expires_at });
         this.createOpen.set(true);
-        // Revoke the old key now that its replacement exists.
-        this.api.delete(`/admin/api-keys/${k.id}`).subscribe({
+        // Revoke the old key now that its replacement exists. {silent}: the error
+        // branch owns its own warning — without it the generic error toast
+        // double-fires over the reassuring "revoke it manually" guidance.
+        this.api.delete(`/admin/api-keys/${k.id}`, { silent: true }).subscribe({
           next: () => {
             this.toast.success(`${k.name} rotated — copy the new secret`);
             this.loadApiKeys();
@@ -1529,7 +1531,9 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
   }
 
   private performRevoke(k: { id: string; name: string }): void {
-    this.api.delete(`/admin/api-keys/${k.id}`).subscribe({
+    // {silent}: the error branch owns its own 'Could not revoke …' message — so
+    // ApiService's generic toast doesn't double-fire over it.
+    this.api.delete(`/admin/api-keys/${k.id}`, { silent: true }).subscribe({
       next: () => { this.toast.success(`${k.name} revoked`); this.loadApiKeys(); },
       error: () => this.toast.error(`Could not revoke ${k.name} — retry shortly.`),
     });
