@@ -157,6 +157,16 @@ describe('AdminInboxComponent — stats hidden while flag-disabled (real templat
     expect(host.querySelector('.inbox-flag-gate')).withContext('flag-disabled card shown instead').not.toBeNull();
   });
 
+  it('the flag-gate Feature-Flags link is an inline, UNDERLINED, working RouterLink (cohesion with enterprise/trust/stripe gates)', () => {
+    const host = render(false);
+    const link = host.querySelector('.inbox-flag-gate a[routerLink="/admin/feature-flags"]') as HTMLAnchorElement;
+    expect(link).withContext('flag-gate links to Feature Flags').not.toBeNull();
+    // In-text link affordance must match the sibling flag-gate cards (underline,
+    // not the old color-only standalone CTA) + be a real SPA link (renders href).
+    expect(link.className).toContain('underline');
+    expect(link.getAttribute('href')).toBe('/admin/feature-flags');
+  });
+
   it('shows the stats when the inbox is enabled', () => {
     const host = render(true);
     expect(host.querySelector('[data-testid="inbox-stats"]')).not.toBeNull();

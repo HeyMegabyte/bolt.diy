@@ -104,8 +104,10 @@ const STATUS_COLORS: Record<string, string> = {
 
       @if (!flagEnabled()) {
         <div class="inbox-flag-gate" appReveal>
-          <p>The Unified Inbox is behind the <code>unified_inbox</code> feature flag.</p>
-          <a routerLink="/admin/feature-flags" class="inbox-flag-link">Enable in Feature Flags →</a>
+          <p class="m-0">
+            The Unified Inbox is behind the <code>unified_inbox</code> feature flag. Enable it in
+            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
+          </p>
         </div>
       } @else {
         <!-- Filter toolbar -->
@@ -349,7 +351,6 @@ const STATUS_COLORS: Record<string, string> = {
       .inbox-stats { display: flex; gap: 20px; flex-wrap: wrap; }
       .inbox-stat { font-size: 13px; color: var(--ps-ink); font-variant-numeric: tabular-nums; }
       .inbox-flag-gate { padding: 24px; background: var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 6%, transparent)); border: 1px solid var(--ps-accent-line, color-mix(in oklch, var(--ps-accent) 20%, transparent)); border-radius: var(--ps-radius-md, 12px); }
-      .inbox-flag-link { color: var(--ps-accent); font-weight: 600; border-radius: var(--ps-radius-sm, 8px); }
       .inbox-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
       .inbox-status-pills { display: flex; gap: 6px; }
       .inbox-pill { display: inline-flex; align-items: center; min-height: 28px; padding: 4px 12px; border-radius: 20px; border: 1px solid var(--ps-accent-line, color-mix(in oklch, var(--ps-accent) 20%, transparent)); background: transparent; color: var(--inbox-ink-60); font-size: 12px; font-weight: 500; cursor: pointer; transition: color var(--ps-dur-fast, 140ms), border-color var(--ps-dur-fast, 140ms); }
@@ -422,7 +423,6 @@ const STATUS_COLORS: Record<string, string> = {
       .inbox-btn-primary:focus-visible,
       .inbox-btn-secondary:focus-visible,
       .inbox-ctrl-status-btn:focus-visible,
-      .inbox-flag-link:focus-visible,
       .inbox-ctrl-visitor a:focus-visible {
         outline: var(--ps-ring-focus, 2px solid #00E5FF);
         outline-offset: var(--ps-ring-focus-offset, 2px);
