@@ -81,6 +81,32 @@ describe('AdminLogsExplorerComponent (search state)', () => {
     c.search();
     expect(post).toHaveBeenCalledWith('/logs/search', jasmine.any(Object), { silent: true });
   });
+
+  // The filtered-empty state must not be a dead-end: when a query/level filter
+  // narrows results to zero, offer a one-click "Clear filters" escape. When no
+  // filter is active (empty is purely the time range), DON'T mislabel it as a
+  // filter problem — hasActiveFilters drives that branch.
+  it('hasActiveFilters tracks query/level filter state for the empty-state CTA', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: { items: [], next_cursor: null, total_returned: 0 } }));
+    const { c } = make(post);
+    expect(c.hasActiveFilters()).toBe(false); // default range, no query/level
+    c.queryInput = 'level:error';
+    expect(c.hasActiveFilters()).toBe(true); // query narrows results
+    c.queryInput = '   ';
+    c.activeLevel.set('warn');
+    expect(c.hasActiveFilters()).toBe(true); // level chip narrows results
+  });
+
+  it('clearSearch resets query + level so the filtered-empty CTA can broaden results', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: { items: [], next_cursor: null, total_returned: 0 } }));
+    const { c } = make(post);
+    c.queryInput = 'level:error AND route:/api/*';
+    c.activeLevel.set('error');
+    c.clearSearch();
+    expect(c.queryInput).toBe('');
+    expect(c.activeLevel()).toBeNull();
+    expect(c.hasActiveFilters()).toBe(false);
+  });
 });
 
 describe('AdminLogsExplorerComponent (cost load)', () => {

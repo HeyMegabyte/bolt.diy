@@ -233,7 +233,12 @@ const LEVEL_COLORS: Record<string, string> = {
 
       @if (rows().length === 0 && !searching() && searched() && !searchError()) {
         <div class="empty-card" data-testid="logs-empty">
-          <p class="text-text-secondary text-sm">No logs found matching your query.</p>
+          @if (hasActiveFilters()) {
+            <p class="text-text-secondary text-sm m-0 mb-2">No logs match your filters.</p>
+            <button class="btn-ghost text-xs" data-testid="logs-clear-filters" (click)="clearSearch()">Clear filters</button>
+          } @else {
+            <p class="text-text-secondary text-sm m-0">No logs in the selected time range — try a wider range above.</p>
+          }
         </div>
       }
       }
@@ -374,6 +379,16 @@ export class AdminLogsExplorerComponent implements OnInit {
     this.nextCursor.set(null);
     this.searched.set(false);
     this.search();
+  }
+
+  /**
+   * True when a query string or level chip is narrowing results — drives the
+   * filtered-empty state's "Clear filters" CTA so a zero-result query is never a
+   * dead-end. When false, an empty result is purely the time range (clearing
+   * filters wouldn't help) so the empty state says so instead of mislabelling it.
+   */
+  hasActiveFilters(): boolean {
+    return this.queryInput.trim().length > 0 || this.activeLevel() !== null;
   }
 
   search() {
