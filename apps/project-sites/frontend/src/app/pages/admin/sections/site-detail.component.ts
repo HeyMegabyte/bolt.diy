@@ -216,7 +216,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
             }
           </div>
           <div class="sql-toolbar">
-            <button type="button" (click)="runSql()">Run</button>
+            <button type="button" (click)="runSql()" [disabled]="sqlRunning() || !sqlQuery().trim()">{{ sqlRunning() ? 'Running…' : 'Run' }}</button>
             @if (sqlRunning()) { <span class="muted">running…</span> }
             <span class="sql-readonly-pill" data-testid="sql-readonly-pill"
                   title="This console runs SELECT / EXPLAIN / WITH queries only — writes are rejected.">Read-only</span>
@@ -613,6 +613,7 @@ export class AdminSiteDetailComponent {
     /^\s*(?:--[^\n]*\r?\n\s*)*(DROP|DELETE|UPDATE|INSERT|ALTER|CREATE|TRUNCATE|REPLACE|ATTACH|DETACH|VACUUM|REINDEX)\b/i;
 
   runSql(): void {
+    if (this.sqlRunning()) return; // guard: no concurrent /sql/exec pile-up while one is in flight
     const query = this.sqlQuery().trim();
     if (!query) return;
     const write = AdminSiteDetailComponent.WRITE_LEAD.exec(query);

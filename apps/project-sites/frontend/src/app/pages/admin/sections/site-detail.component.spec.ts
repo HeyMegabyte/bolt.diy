@@ -73,6 +73,20 @@ describe('AdminSiteDetailComponent (tabs + logs + SQL console)', () => {
     expect(c.sqlRunning()).toBe(false);
   });
 
+  // The Run button had no [disabled] + runSql had no in-flight guard, so a slow
+  // query let repeated clicks pile up concurrent /sql/exec POSTs (wasteful +
+  // flickering results). sqlRunning() now guards re-entry.
+  it('runSql fires only ONE POST while a query is in flight (no pile-up)', () => {
+    const inflight = new Subject<unknown>(); // never completes → stays running
+    const post = jasmine.createSpy('post').and.returnValue(inflight.asObservable());
+    const { c } = make(post);
+    c.sqlQuery.set('SELECT * FROM sites');
+    c.runSql();
+    c.runSql(); // second click while the first is still running
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(c.sqlRunning()).toBeTrue();
+  });
+
   it('runSql surfaces a query error without throwing (server read-only/validation errors)', () => {
     // Uses a SELECT (passes the client read-only guard) that the SERVER rejects,
     // so this still covers the server-error surface path.
