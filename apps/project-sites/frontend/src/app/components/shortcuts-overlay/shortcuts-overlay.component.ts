@@ -34,13 +34,18 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: ['Cmd/Ctrl', 'K'], description: 'Open command palette (everything is searchable)' },
       { keys: ['/'], description: 'Focus sidebar search' },
       { keys: ['?'], description: 'Show this cheat-sheet' },
+      // These mirror the actual g-chord handler in admin.component.ts (the ONLY
+      // implemented chords) — keep in sync so the cheat-sheet never advertises a
+      // dead shortcut. Map: e→Editor s→Snapshots a→Analytics f→Forms l→Traces
+      // c→AI Chat b→Billing v→Voice.
       { keys: ['G', 'E'], description: 'Go to Editor' },
       { keys: ['G', 'S'], description: 'Go to Snapshots' },
       { keys: ['G', 'A'], description: 'Go to Analytics' },
       { keys: ['G', 'F'], description: 'Go to Forms' },
       { keys: ['G', 'L'], description: 'Go to AI Traces' },
-      { keys: ['G', 'D'], description: 'Go to Docs' },
-      { keys: ['G', 'U'], description: 'Go to User settings' },
+      { keys: ['G', 'C'], description: 'Open AI Chat' },
+      { keys: ['G', 'B'], description: 'Go to Billing' },
+      { keys: ['G', 'V'], description: 'Go to Voice' },
     ],
   },
   {
@@ -110,7 +115,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
                     <div class="shortcut-row">
                       <span class="shortcut-desc">{{ s.description }}</span>
                       <span class="shortcut-keys">
-                        @for (key of s.keys; track key; let last = $last) {
+                        @for (key of s.keys; track $index; let last = $last) {
                           <kbd class="shortcut-key">{{ key }}</kbd>
                           @if (!last) { <span class="shortcut-plus">+</span> }
                         }

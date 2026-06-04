@@ -101,3 +101,25 @@ describe('CommandPaletteActionsService (every sidebar section is quick-navigable
     }
   });
 });
+
+describe('CommandPaletteActionsService (advertised chords are all implemented)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  // The ONLY g-chords wired in admin.component.ts: e s a f l c b v →
+  // editor/snapshots/analytics/forms/traces/ai-chat/billing/voice.
+  const IMPLEMENTED = new Set(['G E', 'G S', 'G A', 'G F', 'G L', 'G C', 'G B', 'G V']);
+
+  it('no Navigation command advertises a g-chord the handler does not implement (no dead shortcut chips)', () => {
+    const { actions } = build();
+    for (const a of actions.filter((x) => x.section === 'Navigation' && x.shortcut)) {
+      expect(IMPLEMENTED.has(a.shortcut!)).withContext(`${a.id} advertises unimplemented chord "${a.shortcut}"`).toBeTrue();
+    }
+  });
+
+  it('AI Traces uses the real G L chord (not the old mislabelled G T)', () => {
+    const { actions } = build();
+    expect(actions.find((a) => a.id === 'nav-traces')?.shortcut).toBe('G L');
+    // audit no longer falsely claims G L (that chord goes to Traces)
+    expect(actions.find((a) => a.id === 'nav-audit')?.shortcut).toBeFalsy();
+  });
+});
