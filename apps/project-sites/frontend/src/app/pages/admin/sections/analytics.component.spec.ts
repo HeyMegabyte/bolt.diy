@@ -158,3 +158,52 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
       .withContext('body renders on the happy path').not.toBeNull();
   });
 });
+
+/**
+ * CSV export — formula-injection guard (CWE-1236). top_referrers / top_pages /
+ * hostnames are attacker-controllable (a crafted Referer header lands in
+ * analytics); a cell starting with = + - @ executes as a formula when the owner
+ * opens the export in Excel/Sheets. csvCell() must prefix such values with a
+ * literal apostrophe (text), AND still RFC-4180-quote comma/quote/newline.
+ */
+describe('AdminAnalyticsComponent (CSV export is formula-injection-safe)', () => {
+  let c: AdminAnalyticsComponent;
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [AdminAnalyticsComponent],
+      providers: [
+        { provide: ApiService, useValue: { getMultiUrlAnalytics: () => of({ data: null }), listSiteUrls: () => of({ data: [] }), getCloudflareCredentialStatus: () => of({ data: null }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: PromptService, useValue: { prompt: () => Promise.resolve(null) } },
+        { provide: Router, useValue: { navigateByUrl: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal(null) } },
+      ],
+    });
+    c = TestBed.createComponent(AdminAnalyticsComponent).componentInstance;
+  });
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('prefixes formula-trigger cells (= + - @) with an apostrophe', () => {
+    // starts with = AND contains " → apostrophe-prefixed THEN RFC-4180 quoted
+    expect(c.csvCell('=HYPERLINK("http://evil")')).toBe(`"'=HYPERLINK(""http://evil"")"`);
+    // no embedded quote/comma → just the apostrophe prefix
+    expect(c.csvCell('+1+1')).toBe(`'+1+1`);
+    expect(c.csvCell('-2-2')).toBe(`'-2-2`);
+    expect(c.csvCell('@cmd')).toBe(`'@cmd`);
+    expect(c.csvCell('\t=danger')).toBe(`'\t=danger`);
+  });
+
+  it('leaves a normal value untouched', () => {
+    expect(c.csvCell('/pricing')).toBe('/pricing');
+    expect(c.csvCell('google.com')).toBe('google.com');
+  });
+
+  it('RFC-4180-quotes embedded comma / quote / newline', () => {
+    expect(c.csvCell('a,b')).toBe('"a,b"');
+    expect(c.csvCell('he said "hi"')).toBe('"he said ""hi"""');
+  });
+
+  it('combines both: a formula cell that also has a comma is prefixed THEN quoted', () => {
+    expect(c.csvCell('=A1,B1')).toBe(`"'=A1,B1"`);
+  });
+});

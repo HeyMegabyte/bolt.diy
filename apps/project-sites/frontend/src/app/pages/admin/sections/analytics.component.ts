@@ -877,17 +877,30 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     lines.push(`summary,unique_visitors,${env.uniques}`);
     lines.push(`summary,total_requests,${env.total_requests}`);
     for (const r of env.series || []) lines.push(`by_day,${r.date},${r.page_views}`);
-    for (const r of env.top_pages || []) lines.push(`top_page,${csv(r.path)},${r.views}`);
-    for (const r of env.top_countries || []) lines.push(`country,${r.country},${r.views}`);
-    for (const r of env.top_referrers || []) lines.push(`referrer,${csv(r.referrer)},${r.views}`);
-    for (const u of env.urls_included || []) lines.push(`url_included,${csv(u.hostname)},${u.resolved_zone ? 'resolved' : 'unresolved'}`);
+    for (const r of env.top_pages || []) lines.push(`top_page,${this.csvCell(r.path)},${r.views}`);
+    for (const r of env.top_countries || []) lines.push(`country,${this.csvCell(r.country)},${r.views}`);
+    for (const r of env.top_referrers || []) lines.push(`referrer,${this.csvCell(r.referrer)},${r.views}`);
+    for (const u of env.urls_included || []) lines.push(`url_included,${this.csvCell(u.hostname)},${u.resolved_zone ? 'resolved' : 'unresolved'}`);
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `projectsites-analytics-${this.range()}-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    function csv(s: string): string { return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }
+  }
+
+  /**
+   * Escape one CSV cell. Two layers:
+   *  1. Formula-injection guard (CWE-1236): top_referrers / top_pages / hostnames
+   *     are attacker-controllable (a crafted `Referer` header lands in analytics),
+   *     so a value starting with = + - @ (or a leading tab/CR) is prefixed with a
+   *     literal apostrophe — Excel/Sheets then treat it as text, not a formula.
+   *  2. RFC 4180 quoting for embedded comma / quote / newline.
+   */
+  csvCell(s: string): string {
+    const str = String(s ?? '');
+    const guarded = /^[=+\-@\t\r]/.test(str) ? `'${str}` : str;
+    return /[",\n]/.test(guarded) ? `"${guarded.replace(/"/g, '""')}"` : guarded;
   }
 
   async copyShareLink(): Promise<void> {
