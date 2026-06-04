@@ -441,3 +441,44 @@ describe('AdminMediaComponent (filtered-empty escape)', () => {
     expect(host.querySelector('[data-testid="media-clear-filters"]')).withContext('Clear filters escape').not.toBeNull();
   });
 });
+
+/**
+ * Empty-state glyph cohesion: the media empty states shipped a bare grey emoji/char
+ * glyph (✦ / 🔍 / ⚠ at opacity 0.6) — off-brand vs the cockpit cyan-glyph-halo
+ * standard (analytics / audit / traces). The glyph is now a monochrome SVG inside a
+ * cyan halo disc (the load-error variant amber). Locks that the "No media yet" empty
+ * renders an <svg> glyph (not a raw emoji text node) so the cyan treatment can't
+ * silently regress to a grey character.
+ */
+describe('AdminMediaComponent (empty-state cyan glyph cohesion)', () => {
+  function render(): HTMLElement {
+    TestBed.configureTestingModule({
+      imports: [AdminMediaComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ ok: true }), postFormData: () => of({ data: null }), delete: () => of({ ok: true }) } },
+        { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
+        { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminMediaComponent);
+    fx.detectChanges();
+    fx.componentInstance.loadingLibrary.set(false);
+    fx.componentInstance.assets.set([]);
+    fx.detectChanges();
+    return fx.nativeElement as HTMLElement;
+  }
+  afterEach(() => { try { localStorage.clear(); } catch { /* */ } TestBed.resetTestingModule(); });
+
+  it('renders the "No media yet" empty glyph as a cyan SVG (cockpit cohesion, not a grey emoji)', () => {
+    const host = render();
+    // The clean empty-library state ("No media yet") is the only .med-empty on screen.
+    const noMedia = Array.from(host.querySelectorAll('.med-empty'))
+      .find((e) => e.textContent?.includes('No media yet'));
+    expect(noMedia).withContext('the empty-library state renders').toBeTruthy();
+    const glyph = noMedia!.querySelector('.med-empty__glyph');
+    expect(glyph).toBeTruthy();
+    // Cockpit standard: a monochrome SVG in a cyan halo disc — NOT a bare emoji char node.
+    expect(glyph!.querySelector('svg')).withContext('cyan-glyph SVG, not a grey emoji char').toBeTruthy();
+  });
+});

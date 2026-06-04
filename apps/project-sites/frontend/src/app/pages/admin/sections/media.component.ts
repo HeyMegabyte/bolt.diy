@@ -282,8 +282,10 @@ interface BoltMediaAttachMessage {
                 }
               </div>
             } @else if (libraryError() && assets().length === 0) {
-              <div class="med-empty" role="alert" data-testid="media-load-error">
-                <div class="med-empty__glyph" aria-hidden="true">⚠</div>
+              <div class="med-empty med-empty--warn" role="alert" data-testid="media-load-error">
+                <div class="med-empty__glyph" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </div>
                 <h2 class="med-empty__title">Couldn't load your library</h2>
                 <p class="med-empty__body">{{ libraryError() }}</p>
                 <div class="med-empty__actions">
@@ -292,7 +294,9 @@ interface BoltMediaAttachMessage {
               </div>
             } @else if (filteredAssets().length === 0 && hasLibraryFilters()) {
               <div class="med-empty" role="status" data-testid="media-filtered-empty">
-                <div class="med-empty__glyph" aria-hidden="true">🔍</div>
+                <div class="med-empty__glyph" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                </div>
                 <h2 class="med-empty__title">No media matches your filters</h2>
                 <p class="med-empty__body">
                   Your library has assets, but none match the current kind or search filter.
@@ -303,7 +307,9 @@ interface BoltMediaAttachMessage {
               </div>
             } @else if (filteredAssets().length === 0) {
               <div class="med-empty" role="status">
-                <div class="med-empty__glyph" aria-hidden="true">✦</div>
+                <div class="med-empty__glyph" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+                </div>
                 <h2 class="med-empty__title">No media yet</h2>
                 <p class="med-empty__body">
                   Upload from your computer or browse stock sources to fill the library.
@@ -980,7 +986,17 @@ interface BoltMediaAttachMessage {
         border-radius: var(--ps-radius-xl, 22px);
         background: rgba(255,255,255,0.015);
       }
-      .med-empty__glyph { font-size: 2rem; opacity: 0.6; }
+      .med-empty__glyph {
+        width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%;
+        color: var(--ps-accent, #00e5ff);
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 9%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 24%, transparent);
+      }
+      .med-empty--warn .med-empty__glyph {
+        color: #fcd34d;
+        background: rgba(245, 158, 11, 0.1);
+        border-color: rgba(245, 158, 11, 0.32);
+      }
       .med-empty__title {
         font: 700 1.05rem 'Sora', system-ui, sans-serif; margin: 0;
         color: var(--ps-ink, #f4f4ff);
