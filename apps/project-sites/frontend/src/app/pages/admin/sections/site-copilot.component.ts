@@ -58,6 +58,7 @@ const INTENT_ICONS: Record<string, string> = {
           <p class="copilot-sub">Visitor uploads photo + voice + text → AI extracts intent + autofills forms.</p>
         </div>
         <div class="copilot-toggle-wrap" appReveal
+             [class.copilot-toggle-wrap--locked]="!flagEnabled()"
              [attr.title]="!flagEnabled() ? 'Enable the multimodal_copilot feature flag first' : null">
           <label class="copilot-toggle" [attr.aria-label]="enabled() ? 'Copilot enabled' : 'Copilot disabled'">
             <input hlmCheckbox type="checkbox" [checked]="enabled()" [disabled]="!flagEnabled()" (change)="toggleEnabled($event)" />
@@ -162,6 +163,9 @@ const INTENT_ICONS: Record<string, string> = {
       .copilot-title { font-size: 20px; font-weight: 700; margin: 4px 0 4px; }
       .copilot-sub { font-size: 13px; color: rgba(244,244,255,0.5); margin: 0; }
       .copilot-toggle-wrap { display: flex; align-items: center; gap: 8px; }
+      /* Flag-off: the per-site toggle is moot — lock it deterministically
+         (independent of the checkbox directive's disabled handling) + cursor-help. */
+      .copilot-toggle-wrap--locked { opacity: 0.45; pointer-events: none; cursor: not-allowed; }
       .copilot-toggle { position: relative; display: inline-flex; cursor: pointer; }
       .copilot-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
       .copilot-toggle-track { width: 40px; height: 22px; background: rgba(255,255,255,0.1); border-radius: 11px; transition: background .2s; }
