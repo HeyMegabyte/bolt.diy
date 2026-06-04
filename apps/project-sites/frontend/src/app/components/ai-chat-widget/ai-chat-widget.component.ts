@@ -128,7 +128,10 @@ const SLASH_COMMANDS: SlashCommand[] = [
       </div>
 
       <!-- Body wrapped in a panel-body proxy so panel scroll-area owns overflow. -->
-      <div class="cw-feed" #feedEl data-testid="aichat-panel" aria-live="polite">
+      <!-- role=log = chat-log semantics; aria-busy holds the SR announcement while
+           the reply is pending so the empty typing-dots indicator (rendered inside
+           this live region) isn't announced — only the complete assistant message is. -->
+      <div class="cw-feed" #feedEl data-testid="aichat-panel" role="log" aria-live="polite" aria-label="AI chat conversation" [attr.aria-busy]="busy()">
         @if (chat.messages().length === 0 && pendingTools().length === 0) {
           <div class="cw-empty">
             <p class="cw-empty-title">Begin.</p>
