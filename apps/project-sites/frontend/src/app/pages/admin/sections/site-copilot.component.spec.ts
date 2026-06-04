@@ -59,3 +59,45 @@ describe('AdminSiteCopilotComponent (sessions load-error gating)', () => {
     expect(c.loadError()).toBeNull();
   });
 });
+
+/**
+ * toggleEnabled must NOT be a moot mutation when multimodal_copilot is flag-off.
+ * The enable toggle sits in the header (always rendered), but when the flag is
+ * off (flagEnabled=false → gate notice shown) the per-site config route 404s, so
+ * a toggle there is contradictory + dead. The template disables it; the handler
+ * also no-ops + reverts the native checkbox defensively.
+ */
+function makeToggle(put: jasmine.Spy): AdminSiteCopilotComponent {
+  TestBed.configureTestingModule({
+    imports: [AdminSiteCopilotComponent],
+    providers: [{ provide: HttpClient, useValue: { get: () => of({ sessions: [], distribution: [] }), put } }],
+  });
+  TestBed.overrideComponent(AdminSiteCopilotComponent, { set: { template: '<div></div>', imports: [] } });
+  const c = TestBed.createComponent(AdminSiteCopilotComponent).componentInstance;
+  c.siteId = 's1';
+  return c;
+}
+
+describe('AdminSiteCopilotComponent (enable toggle gated by the feature flag)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('toggleEnabled is a no-op when the flag is off — no PUT to a gated route + reverts the checkbox', () => {
+    const put = jasmine.createSpy('put').and.returnValue(of({ ok: true }));
+    const c = makeToggle(put);
+    c.flagEnabled.set(false);
+    c.enabled.set(false);
+    const input = { checked: true } as HTMLInputElement; // user just flipped it on
+    c.toggleEnabled({ target: input } as unknown as Event);
+    expect(put).withContext('no PUT when the feature is flag-disabled').not.toHaveBeenCalled();
+    expect(input.checked).withContext('native checkbox reverts to the real state').toBe(false);
+  });
+
+  it('toggleEnabled PUTs the config when the flag is on', () => {
+    const put = jasmine.createSpy('put').and.returnValue(of({ ok: true }));
+    const c = makeToggle(put);
+    c.flagEnabled.set(true);
+    c.toggleEnabled({ target: { checked: true } as HTMLInputElement } as unknown as Event);
+    expect(put).toHaveBeenCalledWith('/api/sites/s1/copilot/config', { enabled: true });
+    expect(c.enabled()).toBe(true);
+  });
+});

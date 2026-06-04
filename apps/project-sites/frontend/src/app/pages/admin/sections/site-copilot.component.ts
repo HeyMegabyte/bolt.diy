@@ -57,9 +57,10 @@ const INTENT_ICONS: Record<string, string> = {
           <h2 class="copilot-title">Multimodal AI Copilot</h2>
           <p class="copilot-sub">Visitor uploads photo + voice + text → AI extracts intent + autofills forms.</p>
         </div>
-        <div class="copilot-toggle-wrap" appReveal>
+        <div class="copilot-toggle-wrap" appReveal
+             [attr.title]="!flagEnabled() ? 'Enable the multimodal_copilot feature flag first' : null">
           <label class="copilot-toggle" [attr.aria-label]="enabled() ? 'Copilot enabled' : 'Copilot disabled'">
-            <input hlmCheckbox type="checkbox" [checked]="enabled()" (change)="toggleEnabled($event)" />
+            <input hlmCheckbox type="checkbox" [checked]="enabled()" [disabled]="!flagEnabled()" (change)="toggleEnabled($event)" />
             <span class="copilot-toggle-track"></span>
           </label>
           <span class="copilot-toggle-label">{{ enabled() ? 'Enabled' : 'Disabled' }}</span>
@@ -259,7 +260,11 @@ export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
   }
 
   toggleEnabled(event: Event): void {
-    const enabled = (event.target as HTMLInputElement).checked;
+    const input = event.target as HTMLInputElement;
+    // Flag-gated off — the per-site toggle is moot (config route 404s). Revert the
+    // native checkbox to the real state + no PUT (the gate notice is the truth).
+    if (!this.flagEnabled()) { input.checked = this.enabled(); return; }
+    const enabled = input.checked;
     this.http.put<{ ok: boolean }>(`/api/sites/${this.siteId}/copilot/config`, { enabled })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
