@@ -847,7 +847,7 @@ export class DocsSpecService {
     }
     .docs-tab:hover { background: rgba(0,229,255,0.06); border-color: var(--docs-line-hi); color: #fff; }
     .docs-tab:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: var(--ps-ring-focus-offset, 2px);
     }
     .docs-tab.is-active {
@@ -870,7 +870,7 @@ export class DocsSpecService {
     .docs-tab.is-active .docs-tab-underline { width: calc(100% - 1.4rem); }
     .docs-refresh { padding: 0.5rem 0.9rem; font-size: 0.74rem; min-height: 28px; }
     .docs-refresh:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: var(--ps-ring-focus-offset, 2px);
     }
 
@@ -1048,7 +1048,7 @@ export class DocsSpecService {
     }
     .btn-ghost-mini:hover { background: rgba(0,229,255,0.08); color: #fff; }
     .btn-ghost-mini:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: var(--ps-ring-focus-offset, 2px);
     }
     /* Fallback local .btn-ghost used by the docs-error retry button — the
@@ -1067,7 +1067,7 @@ export class DocsSpecService {
     }
     .btn-ghost:hover { background: rgba(0,229,255,0.08); border-color: var(--docs-line-hi); color: #fff; }
     .btn-ghost:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: var(--ps-ring-focus-offset, 2px);
     }
 
@@ -1082,7 +1082,7 @@ export class DocsSpecService {
     }
     .docs-verb-chip:hover { opacity: 0.85; }
     .docs-verb-chip:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: var(--ps-ring-focus-offset, 2px);
     }
     .docs-verb-chip.is-active {

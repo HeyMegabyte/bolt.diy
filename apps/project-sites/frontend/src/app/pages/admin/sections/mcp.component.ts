@@ -233,7 +233,7 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
     .btn-primary:hover:not(:disabled) { background: rgba(0,229,255,0.2); transform: translateY(-1px); border-color: rgba(0,229,255,0.55); }
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: var(--ps-ring-focus-offset, 2px);
     }
 
@@ -250,7 +250,7 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
     }
     .btn-ghost:hover { background: rgba(255,255,255,0.08); color: #fff; }
     .btn-ghost:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: var(--ps-ring-focus-offset, 2px);
     }
 

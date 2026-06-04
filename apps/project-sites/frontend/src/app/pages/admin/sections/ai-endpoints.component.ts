@@ -681,13 +681,13 @@ interface InlineEdit {
       transition: background 140ms ease, color 140ms ease, border-color 140ms ease, transform 140ms ease;
     }
     .btn-action:hover { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.20); }
-    .btn-action:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
+    .btn-action:focus-visible { outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: var(--ps-ring-focus-offset, 2px); }
     .btn-action-primary {
-      background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.16));
+      background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(0,212,255,0.10));
       border-color: rgba(0,229,255,0.40);
       color: #00E5FF;
     }
-    .btn-action-primary:hover { background: linear-gradient(135deg, rgba(0,229,255,0.30), rgba(124,58,237,0.22)); color: #fff; border-color: rgba(0,229,255,0.65); }
+    .btn-action-primary:hover { background: linear-gradient(135deg, rgba(0,229,255,0.30), rgba(0,212,255,0.16)); color: #fff; border-color: rgba(0,229,255,0.65); }
     @media (prefers-reduced-motion: reduce) { .btn-action { transition: none; } }
 
     /* More dropdown — kebab + popover (mirrors Snapshots' .btn-snap-more). */
@@ -703,7 +703,7 @@ interface InlineEdit {
       transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
     }
     .btn-more:hover { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.18); }
-    .btn-more:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
+    .btn-more:focus-visible { outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: var(--ps-ring-focus-offset, 2px); }
     .more-pop {
       position: absolute;
       top: calc(100% + 6px);
@@ -745,7 +745,7 @@ interface InlineEdit {
       transition: background 140ms ease, color 140ms ease;
     }
     .more-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
-    .more-item:focus-visible { outline: 2px solid #00ffc8; outline-offset: -2px; }
+    .more-item:focus-visible { outline: 2px solid #00E5FF; outline-offset: -2px; }
     .more-sep { height: 1px; background: rgba(255,255,255,0.06); margin: 4px 2px; }
     .more-item-danger { color: oklch(0.78 0.18 25); }
     .more-item-danger:hover { background: rgba(248,113,113,0.12); color: oklch(0.86 0.16 25); }
@@ -772,7 +772,7 @@ interface InlineEdit {
       transition: transform 160ms ease, background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
     }
     .split-btn .plus, .split-btn .sparkle { font-size: 1.1rem; }
-    .split-btn:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
+    .split-btn:focus-visible { outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: var(--ps-ring-focus-offset, 2px); }
     .split-btn-primary {
       border: 1px dashed rgba(0,229,255,0.4);
       background: transparent;
@@ -844,7 +844,7 @@ interface InlineEdit {
       filter: brightness(1.05);
       box-shadow: 0 8px 22px -12px rgba(0,212,255,0.55);
     }
-    .overlay-action:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: var(--ps-ring-focus-offset, 2px); }
+    .overlay-action:focus-visible { outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: var(--ps-ring-focus-offset, 2px); }
     @media (prefers-reduced-motion: reduce) { .overlay-action { transition: none; } }
     .btn-primary {
       padding: 0.5rem 1rem; border-radius: 8px;

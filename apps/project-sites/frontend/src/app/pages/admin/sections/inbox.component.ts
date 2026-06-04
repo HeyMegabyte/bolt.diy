@@ -420,7 +420,7 @@ const STATUS_COLORS: Record<string, string> = {
       .inbox-ctrl-status-btn:focus-visible,
       .inbox-flag-link:focus-visible,
       .inbox-ctrl-visitor a:focus-visible {
-        outline: var(--ps-ring-focus, 2px solid #00ffc8);
+        outline: var(--ps-ring-focus, 2px solid #00E5FF);
         outline-offset: var(--ps-ring-focus-offset, 2px);
       }
       .inbox-row:focus-visible { outline-offset: -2px; }

@@ -347,7 +347,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       box-shadow: inset 2px 0 0 0 var(--ps-accent, #00E5FF), 0 4px 16px -8px color-mix(in oklch, var(--ps-accent, #00E5FF) 50%, transparent);
     }
     .chip:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: 2px;
     }
     .chip-glyph { font-size: 0.86rem; line-height: 1; }
@@ -411,7 +411,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
                   0 0 0 1px color-mix(in oklch, var(--ps-accent, #00E5FF) 14%, transparent);
     }
     .app-card:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: 3px;
     }
     @media (prefers-reduced-motion: reduce) {
@@ -600,7 +600,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
     }
     .btn-ghost:hover { background: rgba(255, 255, 255, 0.08); color: #fff; border-color: rgba(255,255,255,0.16); }
-    .btn-ghost:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 2px; }
+    .btn-ghost:focus-visible { outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: 2px; }
   `],
 })
 export class AppsComponent implements AfterViewInit, OnInit {

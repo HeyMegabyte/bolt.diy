@@ -743,7 +743,7 @@ interface GhStatus {
       filter: brightness(1.05);
     }
     .btn-create-snap--primary:focus-visible {
-      outline: 2px solid #00ffc8;
+      outline: 2px solid #00E5FF;
       outline-offset: 3px;
     }
     @media (prefers-reduced-motion: reduce) {
@@ -855,7 +855,7 @@ interface GhStatus {
     }
     .btn-snap-more:hover { background: rgba(255, 255, 255, 0.08); color: #fff; border-color: rgba(255, 255, 255, 0.18); }
     .btn-snap-more:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: var(--ps-ring-focus-offset, 2px);
     }
     .snap-more-pop {
@@ -890,7 +890,7 @@ interface GhStatus {
     }
     .snap-more-item:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
     .snap-more-item:focus-visible {
-      outline: 2px solid #00ffc8;
+      outline: 2px solid #00E5FF;
       outline-offset: -2px;
     }
     .snap-more-item:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -942,7 +942,7 @@ interface GhStatus {
       transform: translateY(-1px);
     }
     .snap-quality-chip:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: 2px;
     }
     .snap-quality-chip--open {
@@ -1015,7 +1015,7 @@ interface GhStatus {
       transform: translateY(-1px);
     }
     .snap-metrics-screenshot:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: 2px;
     }
     .snap-metrics-screenshot-zoom {
@@ -1205,7 +1205,7 @@ interface GhStatus {
     }
     .snap-metrics-capture:disabled { opacity: 0.6; cursor: not-allowed; }
     .snap-metrics-capture:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: 2px;
     }
     .snap-metrics-error {

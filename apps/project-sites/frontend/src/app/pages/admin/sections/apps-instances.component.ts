@@ -243,7 +243,7 @@ function resolveApp(id: string): CatalogApp | null {
       transform: translateY(-1px);
     }
     .instance-row:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 2px;
+      outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: 2px;
     }
     @media (prefers-reduced-motion: reduce) {
       .instance-row { transition: none; }
@@ -318,7 +318,7 @@ function resolveApp(id: string): CatalogApp | null {
       transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
     }
     .row-menu:hover { background: rgba(255,255,255,0.06); color: #fff; border-color: rgba(255,255,255,0.1); }
-    .row-menu:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 2px; }
+    .row-menu:focus-visible { outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: 2px; }
 
     /* Skeleton loaders */
     .skel-row {
@@ -355,7 +355,7 @@ function resolveApp(id: string): CatalogApp | null {
       transition: background 140ms ease, transform 140ms ease, border-color 140ms ease;
     }
     .btn-primary:hover { background: rgba(0,229,255,0.2); transform: translateY(-1px); border-color: rgba(0,229,255,0.55); }
-    .btn-primary:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 2px; }
+    .btn-primary:focus-visible { outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: 2px; }
 
     .row-menu-wrap { position: relative; display: inline-flex; }
     .row-menu-pop {
@@ -664,7 +664,7 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
       border-radius: 6px;
     }
     .back-link:hover { color: var(--ps-accent, #00E5FF); background: rgba(255,255,255,0.04); }
-    .back-link:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 2px; }
+    .back-link:focus-visible { outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: 2px; }
 
     .detail-head {
       display: flex; flex-direction: column; gap: 1rem;
@@ -831,7 +831,7 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
     .btn-danger-ghost:hover:not(:disabled) { background: rgba(248,113,113,0.14); color: #fecaca; border-color: rgba(248,113,113,0.5); }
     .btn-danger-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary:focus-visible, .btn-ghost:focus-visible, .btn-tiny:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 2px;
+      outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: 2px;
     }
     .btn-danger-ghost:focus-visible { outline: 2px solid #fca5a5; outline-offset: 2px; }
 

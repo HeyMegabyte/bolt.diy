@@ -288,7 +288,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       border-radius: 6px; transition: color 140ms ease, background 140ms ease;
     }
     .back-link:hover { color: var(--ps-accent, #00E5FF); background: rgba(255,255,255,0.04); }
-    .back-link:focus-visible { outline: var(--ps-ring-focus, 2px solid #00ffc8); outline-offset: 2px; }
+    .back-link:focus-visible { outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: 2px; }
 
     .detail-head { padding: 0; }
     .head-main {
