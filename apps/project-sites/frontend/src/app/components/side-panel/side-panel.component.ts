@@ -29,6 +29,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   HostListener,
+  effect,
   inject,
   input,
   output,
@@ -221,6 +222,32 @@ export class SidePanelComponent implements AfterViewInit, OnDestroy {
   private readonly focusTrapFactory = inject(ConfigurableFocusTrapFactory);
   private focusTrap?: ConfigurableFocusTrap;
 
+  /** Element focused before the panel opened — restored on close (WCAG 2.4.3). */
+  private previouslyFocused: HTMLElement | null = null;
+
+  constructor() {
+    // Capture the trigger on open (before the focus trap moves focus into the
+    // panel) and restore it on close — keyboard focus returns to where it was.
+    effect(() => {
+      if (this.open()) {
+        if (!this.previouslyFocused && typeof document !== 'undefined') {
+          this.previouslyFocused = document.activeElement as HTMLElement | null;
+        }
+      } else {
+        this.restoreFocus();
+      }
+    });
+  }
+
+  /** Return focus to the element that opened the panel (WCAG 2.4.3). */
+  private restoreFocus(): void {
+    const el = this.previouslyFocused;
+    this.previouslyFocused = null;
+    if (el && typeof el.focus === 'function') {
+      try { el.focus({ preventScroll: true }); } catch { /* detached/unfocusable — ignore */ }
+    }
+  }
+
   /** Controls panel visibility. */
   readonly open = input<boolean>(false);
   /** Closing the panel emits this. Parent binds `(closed)="setOpen(false)"`. */
@@ -251,6 +278,7 @@ export class SidePanelComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.focusTrap?.destroy();
+    this.restoreFocus();
   }
 
   onBackdropClick(_event: MouseEvent): void {

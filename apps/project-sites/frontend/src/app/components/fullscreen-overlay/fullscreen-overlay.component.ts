@@ -188,6 +188,9 @@ export class FullscreenOverlayComponent implements OnDestroy {
    */
   private teleportedRoot: HTMLElement | null = null;
 
+  /** Element focused before the overlay opened — restored on close (WCAG 2.4.3). */
+  private previouslyFocused: HTMLElement | null = null;
+
   readonly open = input<boolean>(false);
   readonly closed = output<void>();
   readonly ariaLabel = input<string>('Fullscreen overlay');
@@ -203,18 +206,34 @@ export class FullscreenOverlayComponent implements OnDestroy {
     effect(() => {
       const isOpen = this.open();
       if (isOpen) {
+        // Capture the trigger BEFORE the focus trap moves focus into the overlay
+        // (the trap focuses async via afterNextRender), so we can restore it on close.
+        if (!this.previouslyFocused && typeof document !== 'undefined') {
+          this.previouslyFocused = document.activeElement as HTMLElement | null;
+        }
         // Wait for Angular to actually render `.fo-root` into the host
         // subtree before we move it.
         afterNextRender({ read: () => this.teleportToBody() }, { injector: this.injector });
       } else {
         this.cleanupTeleport();
+        this.restoreFocus();
       }
     });
+  }
+
+  /** Return focus to the element that opened the overlay (WCAG 2.4.3). */
+  private restoreFocus(): void {
+    const el = this.previouslyFocused;
+    this.previouslyFocused = null;
+    if (el && typeof el.focus === 'function') {
+      try { el.focus({ preventScroll: true }); } catch { /* detached/unfocusable — ignore */ }
+    }
   }
 
   ngOnDestroy(): void {
     this.cleanupTeleport();
     this.focusTrap?.destroy();
+    this.restoreFocus();
   }
 
   close(): void {
