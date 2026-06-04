@@ -83,6 +83,14 @@ describe('AdminAuditComponent (load + KPI logic)', () => {
     expect(c.loadError()).toBeTruthy(); // distinct error state, NOT the "No audit events yet" empty
   });
 
+  it('load() reads {silent:true} — the loadError banner is the UX, so the generic ApiService toast must not double-fire', () => {
+    const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 })));
+    const c = make(get);
+    c.load();
+    expect(c.loadError()).toBeTruthy();
+    expect(get).toHaveBeenCalledWith('/audit-logs', jasmine.any(Object), { silent: true });
+  });
+
   it('load() success clears a prior loadError (retry recovers)', () => {
     const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 503 })));
     const c = make(get);

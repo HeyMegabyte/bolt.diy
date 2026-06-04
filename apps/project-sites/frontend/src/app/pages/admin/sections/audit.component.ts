@@ -668,7 +668,7 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.loadError.set(null);
     const params: Record<string, string> = { limit: '500' };
-    this.api.get<{ data: AuditRow[] }>('/audit-logs', params).subscribe({
+    this.api.get<{ data: AuditRow[] }>('/audit-logs', params, { silent: true }).subscribe({
       next: (r) => {
         this.rows.set(r.data ?? []);
         this.loading.set(false);
