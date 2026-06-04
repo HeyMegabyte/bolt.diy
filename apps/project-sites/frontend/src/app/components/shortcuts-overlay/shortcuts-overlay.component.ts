@@ -55,13 +55,9 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     items: [
       { keys: ['Cmd/Ctrl', 'S'], description: 'Save & deploy (Editor / IDE)' },
       { keys: ['Cmd/Ctrl', 'Enter'], description: 'Submit current form · Send Try-It request' },
-      { keys: ['Cmd/Ctrl', 'Shift', 'P'], description: 'Re-run last command palette action' },
       { keys: ['Escape'], description: 'Close palette / dialog / popover (restores focus)' },
       { keys: ['Cmd/Ctrl', '.'], description: 'Toggle theme (dark / light / system)' },
       { keys: ['Cmd/Ctrl', 'B'], description: 'Toggle sidebar' },
-      { keys: ['1'], description: 'AI Traces: All filter' },
-      { keys: ['2'], description: 'AI Traces: Today filter' },
-      { keys: ['3'], description: 'AI Traces: Errors filter' },
     ],
   },
   {

@@ -33,4 +33,16 @@ describe('ShortcutsOverlayComponent (cheat-sheet lists only implemented chords)'
     const t = text();
     expect(t).not.toContain('Go to Docs');
   });
+
+  it('does NOT advertise unimplemented Action shortcuts (Cmd+Shift+P, 1/2/3 traces filters)', () => {
+    const t = text();
+    expect(t).not.toContain('Re-run last command palette action'); // Cmd+Shift+P — never wired
+    expect(t).not.toContain('AI Traces: All filter');               // 1/2/3 — no such filter UI exists
+    expect(t).not.toContain('AI Traces: Today filter');
+    expect(t).not.toContain('AI Traces: Errors filter');
+    // real Action shortcuts remain
+    expect(t).toContain('Save & deploy');
+    expect(t).toContain('Toggle theme');
+    expect(t).toContain('Toggle sidebar');
+  });
 });
