@@ -185,7 +185,7 @@ describe('AdminSocialComponent (RSS copy links)', () => {
     fixture.componentInstance.rssUrl = 'https://blog.com/feed.xml';
     fixture.componentInstance.rssItems.set([{ title: 'A', url: 'https://x.com/a' }, { title: 'B', url: 'https://x.com/b' }]);
     fixture.componentInstance.importRssDrafts();
-    expect(post).toHaveBeenCalledWith('/social/import-rss', { url: 'https://blog.com/feed.xml', site_id: 's1' });
+    expect(post).toHaveBeenCalledWith('/social/import-rss', { url: 'https://blog.com/feed.xml', site_id: 's1' }, { silent: true });
     expect(success).toHaveBeenCalled();
     expect(fixture.componentInstance.rssItems().length).toBe(0); // cleared after import
   });
@@ -240,7 +240,7 @@ describe('AdminSocialComponent (RSS URL validation)', () => {
     build();
     fixture.componentInstance.rssUrl = 'https://example.com/feed.xml';
     fixture.componentInstance.rssPreview();
-    expect(post).toHaveBeenCalledWith('/social/import-rss', { url: 'https://example.com/feed.xml', preview: true });
+    expect(post).toHaveBeenCalledWith('/social/import-rss', { url: 'https://example.com/feed.xml', preview: true }, { silent: true });
   });
 
   it('importRssDrafts rejects a bad URL even with previewed items', () => {
@@ -364,22 +364,42 @@ describe('AdminSocialComponent (destructive actions are confirm-guarded)', () =>
   }
   afterEach(() => TestBed.resetTestingModule());
 
-  it('deletePost asks for confirmation first — no immediate api.delete', () => {
+  it('deletePost asks for confirmation first — no immediate api.delete; the delete is {silent} (no double-toast)', () => {
     const c = build();
     c.deletePost({ id: 'p1' } as never);
     expect(warning).toHaveBeenCalled();
     expect(del).not.toHaveBeenCalled();
     lastAction?.run();
-    expect(del).toHaveBeenCalledWith('/social/posts/p1');
+    // {silent:true} so a failure shows ONLY the component's specific 'Delete failed'
+    // toast, not ALSO the generic ApiService one.
+    expect(del).toHaveBeenCalledWith('/social/posts/p1', { silent: true });
   });
 
-  it('disconnect asks for confirmation first — no immediate account deletion', () => {
+  it('disconnect asks for confirmation first — no immediate account deletion; the delete is {silent} (no double-toast)', () => {
     const c = build();
     c.accounts.set([{ platform: 'twitter', connected: true, id: 'acct-1' }] as never);
     c.disconnect('twitter' as never);
     expect(warning).toHaveBeenCalled();
     expect(del).not.toHaveBeenCalled();
     lastAction?.run();
-    expect(del).toHaveBeenCalledWith('/social/accounts/acct-1');
+    expect(del).toHaveBeenCalledWith('/social/accounts/acct-1', { silent: true });
+  });
+
+  it('publishNow passes {silent:true} so a failure shows only the section-specific toast (no generic double-toast)', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: {} }));
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0, info: () => 0 } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigateByUrl: () => undefined } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const c = TestBed.createComponent(AdminSocialComponent).componentInstance;
+    c.publishNow({ id: 'p9' } as never);
+    expect(post).toHaveBeenCalledWith('/social/posts/p9/publish-now', {}, { silent: true });
   });
 });

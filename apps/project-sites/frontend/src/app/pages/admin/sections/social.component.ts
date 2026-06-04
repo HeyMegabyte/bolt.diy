@@ -1757,7 +1757,7 @@ export class AdminSocialComponent implements OnInit {
     });
   }
   private performDisconnect(pid: PlatformId, acctId: string): void {
-    this.api.delete(`/social/accounts/${acctId}`).subscribe({
+    this.api.delete(`/social/accounts/${acctId}`, { silent: true }).subscribe({
       next: () => {
         this.toast.success(`Disconnected ${this.defOf(pid)?.label}`);
         this.loadAccounts();
@@ -2090,7 +2090,7 @@ export class AdminSocialComponent implements OnInit {
   fetchOg(): void {
     const u = this.link().trim();
     if (!u) { this.og.set(null); return; }
-    this.api.post<{ og: OgData }>('/social/og-preview', { url: u }).subscribe({
+    this.api.post<{ og: OgData }>('/social/og-preview', { url: u }, { silent: true }).subscribe({
       next: (r) => this.og.set(r.og),
       error: () => this.og.set(null),
     });
@@ -2252,8 +2252,8 @@ export class AdminSocialComponent implements OnInit {
     }
     this.saving.set(true);
     const req = id
-      ? this.api.patch<{ data: { id: string } }>(`/social/posts/${id}`, payload)
-      : this.api.post<{ data: { id: string } }>('/social/posts', payload);
+      ? this.api.patch<{ data: { id: string } }>(`/social/posts/${id}`, payload, { silent: true })
+      : this.api.post<{ data: { id: string } }>('/social/posts', payload, { silent: true });
     req.subscribe({
       next: () => { this.saving.set(false); this.toast.success('Draft saved'); this.resetComposer(); this.loadPosts(); },
       error: () => { this.saving.set(false); this.toast.error('Save failed'); },
@@ -2271,11 +2271,11 @@ export class AdminSocialComponent implements OnInit {
     this.saving.set(true);
     // Create the post, then trigger it (worker create doesn't auto-send;
     // immediate posts call publish-now, scheduled posts keep their schedule_at).
-    this.api.post<{ data: { id: string } }>('/social/posts', payload).subscribe({
+    this.api.post<{ data: { id: string } }>('/social/posts', payload, { silent: true }).subscribe({
       next: (r) => {
         const id = r.data?.id;
         if (id && !scheduled) {
-          this.api.post(`/social/posts/${id}/publish-now`, {}).subscribe({
+          this.api.post(`/social/posts/${id}/publish-now`, {}, { silent: true }).subscribe({
             next: () => { this.saving.set(false); this.toast.success(`Posting to ${this.selected().length} platform${this.selected().length === 1 ? '' : 's'}…`); this.resetComposer(); this.loadPosts(); },
             error: () => { this.saving.set(false); this.toast.error('Created the post but publishing failed — see Drafts.'); this.resetComposer(); this.loadPosts(); },
           });
@@ -2291,7 +2291,7 @@ export class AdminSocialComponent implements OnInit {
   }
 
   publishNow(post: SocialPost): void {
-    this.api.post(`/social/posts/${post.id}/publish-now`, {}).subscribe({
+    this.api.post(`/social/posts/${post.id}/publish-now`, {}, { silent: true }).subscribe({
       next: () => { this.toast.success('Publishing…'); this.loadPosts(); },
       error: () => this.toast.error('Publish failed'),
     });
@@ -2317,7 +2317,7 @@ export class AdminSocialComponent implements OnInit {
     });
   }
   private performDeletePost(post: SocialPost): void {
-    this.api.delete(`/social/posts/${post.id}`).subscribe({
+    this.api.delete(`/social/posts/${post.id}`, { silent: true }).subscribe({
       next: () => { this.toast.success('Deleted'); this.loadPosts(); },
       error: () => this.toast.error('Delete failed'),
     });
@@ -2400,7 +2400,7 @@ export class AdminSocialComponent implements OnInit {
     this.api.post<{ items: { title: string; url: string }[] }>('/social/import-rss', {
       url,
       preview: true,
-    }).subscribe({
+    }, { silent: true }).subscribe({
       next: (r) => this.rssItems.set((r.items ?? []).slice(0, 10)),
       error: () => this.toast.error('Could not parse feed'),
     });
@@ -2432,7 +2432,7 @@ export class AdminSocialComponent implements OnInit {
       return;
     }
     this.importingRss.set(true);
-    this.api.post<{ ok: boolean; created: number }>('/social/import-rss', { url, site_id: this.siteId() ?? undefined }).subscribe({
+    this.api.post<{ ok: boolean; created: number }>('/social/import-rss', { url, site_id: this.siteId() ?? undefined }, { silent: true }).subscribe({
       next: (r) => {
         this.importingRss.set(false);
         this.toast.success(`Imported ${r.created} draft${r.created === 1 ? '' : 's'} — find them in Drafts.`);
@@ -2482,7 +2482,7 @@ export class AdminSocialComponent implements OnInit {
     const nextDay = new Date(iso + 'T00:00:00');
     nextDay.setHours(old.getHours(), old.getMinutes(), 0, 0);
     const newAt = nextDay.toISOString();
-    this.api.patch(`/social/posts/${id}`, { scheduled_at: newAt }).subscribe({
+    this.api.patch(`/social/posts/${id}`, { scheduled_at: newAt }, { silent: true }).subscribe({
       next: () => { this.toast.success('Rescheduled'); this.loadPosts(); },
       error: () => this.toast.error('Reschedule failed'),
     });

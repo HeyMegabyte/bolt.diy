@@ -150,14 +150,16 @@ export class ApiService {
     return this.http.post<T>(`/api${path}`, body, { headers: this.headers() }).pipe(this.handleError(opts?.silent));
   }
 
-  /** Generic PUT — JSON body, bearer header, 30s timeout. */
-  put<T>(path: string, body?: unknown): Observable<T> {
-    return this.http.put<T>(`/api${path}`, body, { headers: this.headers() }).pipe(this.handleError());
+  /** Generic PUT — JSON body, bearer header, 30s timeout. `{ silent: true }`
+   *  suppresses the generic error toast (telemetry + 401-redirect still run). */
+  put<T>(path: string, body?: unknown, opts?: { silent?: boolean }): Observable<T> {
+    return this.http.put<T>(`/api${path}`, body, { headers: this.headers() }).pipe(this.handleError(opts?.silent));
   }
 
-  /** Generic PATCH — JSON body, bearer header, 30s timeout. */
-  patch<T>(path: string, body?: unknown): Observable<T> {
-    return this.http.patch<T>(`/api${path}`, body, { headers: this.headers() }).pipe(this.handleError());
+  /** Generic PATCH — JSON body, bearer header, 30s timeout. `{ silent: true }`
+   *  suppresses the generic error toast (telemetry + 401-redirect still run). */
+  patch<T>(path: string, body?: unknown, opts?: { silent?: boolean }): Observable<T> {
+    return this.http.patch<T>(`/api${path}`, body, { headers: this.headers() }).pipe(this.handleError(opts?.silent));
   }
 
   /**
