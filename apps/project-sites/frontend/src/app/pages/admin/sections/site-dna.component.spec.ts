@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AdminSiteDnaComponent } from './site-dna.component';
 import { ApiService } from '../../../services/api.service';
 import { FeatureFlagService } from '../../../services/feature-flag.service';
@@ -85,6 +85,22 @@ describe('AdminSiteDnaComponent (taste pulse + a11y)', () => {
     expect(label).toContain('2 edited');
     expect(label).toContain('1 rejected');
     expect(label).toContain('out of 4 signals');
+  });
+
+  it('a non-404 load failure sets loadError (not a fake "No feedback yet")', () => {
+    build(true);
+    apiGet.and.returnValue(throwError(() => ({ status: 500 })));
+    component.load();
+    expect(component.loadError()).toBeTruthy();
+    expect(component.flagEnabled()).toBe(true); // not 404 → the feature stays enabled
+  });
+
+  it('a 404 load failure flips the flag-gate off without a loadError', () => {
+    build(true);
+    apiGet.and.returnValue(throwError(() => ({ status: 404 })));
+    component.load();
+    expect(component.flagEnabled()).toBe(false);
+    expect(component.loadError()).toBeNull();
   });
 
   function row(action: 'accept' | 'reject' | 'edit') {

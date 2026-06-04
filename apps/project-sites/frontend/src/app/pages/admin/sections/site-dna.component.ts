@@ -202,6 +202,13 @@ interface DnaPrefsResp {
                     <td><span class="glow-skel dna-skel-bar" style="width:60%"></span></td>
                   </tr>
                 }
+              } @else if (loadError() && history().length === 0) {
+                <tr>
+                  <td colspan="4" class="dna-td-center" role="alert" data-testid="dna-load-error">
+                    <span class="dna-error">{{ loadError() }}</span>
+                    <button class="dna-refresh-btn ml-2" type="button" (click)="load()">Retry</button>
+                  </td>
+                </tr>
               } @else if (history().length === 0) {
                 <tr>
                   <td colspan="4" class="dna-td-center">
@@ -406,6 +413,8 @@ export class AdminSiteDnaComponent implements OnInit, OnDestroy {
   readonly history = signal<DnaFeedbackRow[]>([]);
   readonly prefs = signal<DnaPrefRow[]>([]);
   readonly flagEnabled = signal(true); // assume on unless API 404s
+  /** Set on a non-404 load failure so the table shows a Retry row, not a fake "No feedback yet". */
+  readonly loadError = signal<string | null>(null);
 
   // ── Form state ──────────────────────────────────────────────────────────
   newComponentId = '';
@@ -467,6 +476,7 @@ export class AdminSiteDnaComponent implements OnInit, OnDestroy {
   load(): void {
     if (!this.siteId) return;
     this.loading.set(true);
+    this.loadError.set(null);
 
     forkJoin({
       history: this.api.get<DnaHistoryResp>(`/site-dna/${this.siteId}/history?limit=50`),
@@ -478,11 +488,14 @@ export class AdminSiteDnaComponent implements OnInit, OnDestroy {
           this.flagEnabled.set(true);
           this.history.set(history.history ?? []);
           this.prefs.set(prefs.preferences ?? []);
+          this.loadError.set(null);
           this.loading.set(false);
         },
         error: (err) => {
-          // 404 means flag is off; other errors are surfaced via loading state.
+          // 404 means the flag is off (show the disabled message). Any other
+          // error gets a real Retry row — not a fake "No feedback yet".
           if (err?.status === 404) this.flagEnabled.set(false);
+          else this.loadError.set('Could not load feedback history — retry.');
           this.loading.set(false);
         },
       });
