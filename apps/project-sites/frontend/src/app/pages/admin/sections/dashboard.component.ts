@@ -83,7 +83,13 @@ import { AdminStateService } from '../admin-state.service';
           </ul>
         </section>
       } @else {
-        <section class="thread" #thread>
+        <!-- role=log + aria-live so a streamed AI reply is ANNOUNCED to screen
+             readers (mirrors the inbox message list). aria-busy holds the
+             announcement until the stream finishes → SR hears the complete reply,
+             not each token. -->
+        <section class="thread" #thread role="log" aria-live="polite"
+                 aria-label="Conversation with the dashboard AI"
+                 [attr.aria-busy]="chat.streaming()">
           @for (msg of chat.messages(); track msg.id) {
             <article
               class="msg"
