@@ -45,10 +45,9 @@ import { AdminStateService } from '../admin-state.service';
            they render across every /admin/* route via the persistent
            dashboard host. Each feature carries data-upgrade="N" for E2E. -->
       <app-admin-upgrades-shell></app-admin-upgrades-shell>
-      <!-- New: Features Hub + Feature Flags discovery banner. Sidebar entries
-           for these two surfaces aren't compiling into the bundle yet
-           (Angular templateUrl cache issue, under investigation), so we
-           render a prominent entry point on the dashboard itself. -->
+      <!-- Features Hub + Feature Flags discovery banner. Both also have sidebar
+           nav entries (added 2026-06-04); this banner is an intentional, more
+           prominent dashboard entry point to the two highest-value meta surfaces. -->
       <section class="features-banner" role="navigation" aria-label="Newly shipped features">
         <a class="features-banner-card" routerLink="/admin/features">
           <span class="features-banner-icon" aria-hidden="true">⚡</span>

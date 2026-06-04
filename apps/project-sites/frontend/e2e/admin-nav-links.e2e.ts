@@ -24,6 +24,9 @@ const NAV_LINKS: ReadonlyArray<{ label: RegExp; path: string }> = [
   { label: /^Enterprise$/, path: '/admin/enterprise' },
   { label: /^Trust Center$/, path: '/admin/trust' },
   { label: /^Stripe App$/, path: '/admin/stripe-app-status' },
+  // Features Hub was reachable only via the dashboard banner (sidebar entry
+  // added 2026-06-04) — a prominent surface should be in the nav, not banner-only.
+  { label: /^Features Hub$/, path: '/admin/features' },
 ];
 
 test.describe('admin left-nav surfaces every top-level section', () => {
