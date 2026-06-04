@@ -46,6 +46,14 @@ describe('AdminAiLogsComponent (traces load-error)', () => {
     expect(c.loading()).toBe(false);
   });
 
+  it('reload() reads {silent:true} — the loadError banner is the UX, not a generic toast', () => {
+    const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 })));
+    const c = make(get);
+    c.reload();
+    expect(c.loadError()).toContain('Could not load');
+    expect(get.calls.mostRecent().args[2]).toEqual({ silent: true });
+  });
+
   it('retry after an error clears the prior loadError', () => {
     const get = jasmine.createSpy('get').and.returnValues(throwError(() => ({ status: 500 })), of({ data: [] }));
     const c = make(get);

@@ -1229,7 +1229,7 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
     const s = this.state.selectedSite();
     if (!s) return;
     this.loading.set(true);
-    this.api.get<{ data: TraceRow[] }>(`/sites/${s.id}/ai-logs`).subscribe({
+    this.api.get<{ data: TraceRow[] }>(`/sites/${s.id}/ai-logs`, undefined, { silent: true }).subscribe({
       next: (r) => { this.rows.set(r.data ?? []); this.loadError.set(null); this.loading.set(false); },
       // Silent error → empty grid masquerades as "no traces". Record it; the
       // banner shows only when there are no rows (stale data stays visible on a poll blip).
