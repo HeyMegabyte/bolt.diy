@@ -86,6 +86,18 @@ export class AdminComponent implements OnInit, OnDestroy {
   currentSection = signal('Editor');
 
   /**
+   * SPA route announcer text. SR users get NO signal that the section changed on
+   * client-side navigation (document-title changes are unreliably announced); a
+   * visually-hidden aria-live region bound to this announces "<Section> section"
+   * on every nav. Derived from the existing currentSection so it stays in lockstep
+   * with the visible breadcrumb + title without a second source of truth.
+   */
+  readonly routeAnnouncement = computed(() => {
+    const s = this.currentSection();
+    return s ? `${s} section` : '';
+  });
+
+  /**
    * Active editor tab — bound to the slim tab strip rendered above the bolt
    * editor when the user is on `/admin/editor`. Initialised from
    * `localStorage['editor.tab']` so a hard reload restores the last view.

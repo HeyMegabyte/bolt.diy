@@ -83,4 +83,26 @@ test.describe('admin left-nav surfaces every top-level section', () => {
     );
     expect(fatal, `unexpected console errors:\n${fatal.join('\n')}`).toHaveLength(0);
   });
+
+  // SPA route announcer (WCAG 4.1.3): a visually-hidden aria-live region must
+  // announce the section name on client-side nav, so screen-reader users know
+  // the content changed (document-title changes alone are unreliably announced).
+  test('the aria-live route announcer updates as the section changes', async ({ page }) => {
+    await page.goto('/admin');
+    const announcer = page.locator('[data-testid="admin-route-announcer"]');
+    // sr-only → not "visible", but attached with live text.
+    await expect(announcer).toBeAttached({ timeout: 15_000 });
+    expect(announcer).toHaveAttribute('aria-live', 'polite');
+
+    const nav = page.locator('nav[aria-label="Admin sections"]');
+    await nav.getByRole('link', { name: /^Marketplace$/ }).first().click();
+    await expect(page).toHaveURL(/\/admin\/marketplace$/);
+    await expect(announcer).toContainText(/section/i, { timeout: 10_000 });
+    const firstText = (await announcer.textContent())?.trim();
+
+    await nav.getByRole('link', { name: /^Enterprise$/ }).first().click();
+    await expect(page).toHaveURL(/\/admin\/enterprise$/);
+    // The announcement must CHANGE when the section changes (not stay stale).
+    await expect.poll(async () => (await announcer.textContent())?.trim(), { timeout: 10_000 }).not.toBe(firstText);
+  });
 });

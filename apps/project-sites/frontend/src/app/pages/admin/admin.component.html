@@ -25,6 +25,11 @@
 } @else {
 
 <div class="flex min-h-screen bg-dark-surface animate-fade-in" (click)="closeDropdowns()">
+  <!-- SPA route announcer (WCAG 4.1.3): SR users get no signal that the section
+       changed on client-side nav. Always-rendered + visually hidden (NOT the
+       max-md:hidden breadcrumb, which display:none hides from aria-live on
+       mobile). Polite so it never interrupts. -->
+  <span class="sr-only" role="status" aria-live="polite" data-testid="admin-route-announcer">{{ routeAnnouncement() }}</span>
   <!-- Mobile hamburger -->
   <button
     aria-label="Open navigation menu"
