@@ -211,8 +211,8 @@ export class VoiceMcpsComponent {
     if (!site) return;
     this.loading.set(true);
     Promise.all([
-      this.api.get<{ data: McpConnection[] }>(`/mcp/connections?siteId=${site.id}`).toPromise().catch(() => ({ data: [] })),
-      this.api.get<{ data: { voice: string[]; sms: string[] } }>(`/voice/mcp-attachments?siteId=${site.id}`).toPromise().catch(() => ({ data: { voice: [], sms: [] } })),
+      this.api.get<{ data: McpConnection[] }>(`/mcp/connections?siteId=${site.id}`, undefined, { silent: true }).toPromise().catch(() => ({ data: [] })),
+      this.api.get<{ data: { voice: string[]; sms: string[] } }>(`/voice/mcp-attachments?siteId=${site.id}`, undefined, { silent: true }).toPromise().catch(() => ({ data: { voice: [], sms: [] } })),
     ]).then(([conns, atts]) => {
       this.connections.set(conns?.data ?? []);
       const v = new Set(atts?.data?.voice ?? []);

@@ -247,7 +247,7 @@ export class VoiceShareComponent {
   private loadNumbers(): void {
     const site = this.state.selectedSite();
     if (!site) return;
-    this.api.get<{ data: PurchasedNumber[] }>(`/voice/numbers?siteId=${site.id}`).subscribe({
+    this.api.get<{ data: PurchasedNumber[] }>(`/voice/numbers?siteId=${site.id}`, undefined, { silent: true }).subscribe({
       next: (r) => {
         this.numbers.set(r.data ?? []);
         queueMicrotask(() => this.renderQr());

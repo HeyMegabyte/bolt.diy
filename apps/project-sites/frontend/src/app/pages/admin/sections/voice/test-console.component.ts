@@ -324,7 +324,7 @@ export class VoiceTestConsoleComponent implements OnDestroy {
   private loadNumbers(): void {
     const site = this.state.selectedSite();
     if (!site) return;
-    this.api.get<{ data: { phone_number: string; capabilities?: { voice?: boolean; sms?: boolean } }[] }>(`/voice/numbers?siteId=${site.id}`).subscribe({
+    this.api.get<{ data: { phone_number: string; capabilities?: { voice?: boolean; sms?: boolean } }[] }>(`/voice/numbers?siteId=${site.id}`, undefined, { silent: true }).subscribe({
       next: (r) => {
         const nums = r.data ?? [];
         const voiceNum = nums.find((n) => n.capabilities?.voice !== false)?.phone_number ?? null;

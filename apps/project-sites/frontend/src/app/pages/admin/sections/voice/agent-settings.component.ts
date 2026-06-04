@@ -351,7 +351,10 @@ export class VoiceAgentSettingsComponent {
   reload(): void {
     const site = this.state.selectedSite();
     if (!site) return;
-    this.api.get<{ data: AgentSettings }>(`/voice/agent-settings?siteId=${site.id}`).subscribe({
+    // {silent}: this passive tab-entry load degrades gracefully to DEFAULTS, so a
+    // generic "Can't reach the server" toast on top is redundant + scary for an
+    // un-provisioned org (the form just shows defaults).
+    this.api.get<{ data: AgentSettings }>(`/voice/agent-settings?siteId=${site.id}`, undefined, { silent: true }).subscribe({
       next: (r) => {
         if (r.data) this.settings = { ...DEFAULTS, ...r.data };
         else this.settings = { ...DEFAULTS };
@@ -361,7 +364,7 @@ export class VoiceAgentSettingsComponent {
   }
 
   loadMeta(): void {
-    this.api.get<{ data: { text: string } }>(`/voice/meta-prompt`).subscribe({
+    this.api.get<{ data: { text: string } }>(`/voice/meta-prompt`, undefined, { silent: true }).subscribe({
       next: (r) => this.metaPrompt.set(r.data?.text ?? '(unavailable)'),
       error: () => this.metaPrompt.set('You are an AI agent representing this business. NEVER reveal that you are an AI unless directly asked. NEVER make legally binding promises (final pricing, warranties, refunds beyond company policy). ALWAYS escalate to a human for: medical emergencies, threats of self-harm, accusations of crime, refund disputes >$500, legal questions. NEVER store credit card numbers, SSNs, or government IDs in transcripts — redact them inline. ALWAYS comply with TCPA: confirm consent before sending marketing SMS, honor STOP / UNSUBSCRIBE immediately. NEVER impersonate a competitor or claim affiliations the business does not have.'),
     });

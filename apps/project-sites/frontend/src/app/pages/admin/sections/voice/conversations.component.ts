@@ -437,7 +437,7 @@ export class VoiceConversationsComponent implements OnDestroy {
     const site = this.state.selectedSite();
     if (!site) return;
     this.loading.set(true);
-    this.api.get<{ data: Conversation[] }>(`/voice/conversations?siteId=${site.id}`).subscribe({
+    this.api.get<{ data: Conversation[] }>(`/voice/conversations?siteId=${site.id}`, undefined, { silent: true }).subscribe({
       next: (r) => { this.conversations.set(r.data ?? []); this.loading.set(false); },
       error: () => { this.loading.set(false); this.conversations.set([]); },
     });

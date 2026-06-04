@@ -393,7 +393,7 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
     const site = this.state.selectedSite();
     if (!site) return;
     this.loading.set(true);
-    this.api.get<{ data: PurchasedNumber[] }>(`/voice/numbers?siteId=${site.id}`).subscribe({
+    this.api.get<{ data: PurchasedNumber[] }>(`/voice/numbers?siteId=${site.id}`, undefined, { silent: true }).subscribe({
       next: (r) => { this.numbers.set(r.data ?? []); this.loading.set(false); },
       error: () => { this.loading.set(false); this.numbers.set([]); },
     });
