@@ -1009,9 +1009,14 @@ export class WMarkdownComponent {
  * Tiny safe markdown — escapes HTML then maps a handful of markers.
  * Good enough for assistant prose; not a general-purpose renderer.
  */
-function miniMarkdown(src: string): string {
+export function miniMarkdown(src: string): string {
   const esc = (s: string): string =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  // Only http(s)/mailto/tel + relative (/ ./ #) URLs may become anchors. Rejects
+  // javascript:/data:/vbscript: etc. — without this an AI/tool-emitted
+  // `[x](javascript:alert(1))` would render a live XSS anchor (the body is
+  // untrusted per contract-first-ai). Mirrors agent-message's DOMPurify scheme guard.
+  const safeHref = (url: string): boolean => /^(?:https?:|mailto:|tel:|\/|\.\/|#)/i.test(url.trim());
   const safe = esc(src);
   return safe
     .replace(/^### (.*)$/gm, '<h3>$1</h3>')
@@ -1020,9 +1025,10 @@ function miniMarkdown(src: string): string {
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(
-      /\[([^\]]+)\]\(([^)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text: string, url: string) =>
+      safeHref(url)
+        ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`
+        : text, // unsafe scheme → drop the link, keep the visible text
     )
     .replace(/\n{2,}/g, '</p><p>')
     .replace(/^(?!<h\d|<p)/, '<p>')
