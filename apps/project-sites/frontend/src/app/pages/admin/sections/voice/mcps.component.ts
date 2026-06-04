@@ -34,6 +34,7 @@ import { ApiService } from '../../../../services/api.service';
 import { ToastService } from '../../../../services/toast.service';
 import { RevealOnScrollDirective } from '../../../../animations/reveal-on-scroll.directive';
 import { EmptyStateComponent } from '../../empty-state.component';
+import { ErrorCardComponent } from '../../../../components/states';
 
 interface McpConnection {
   id: string;
@@ -60,7 +61,7 @@ const PROVIDER_META: Readonly<Record<string, { label: string; color: string }>> 
   selector: 'app-voice-mcps',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, RevealOnScrollDirective, EmptyStateComponent],
+  imports: [FormsModule, RouterLink, RevealOnScrollDirective, EmptyStateComponent, ErrorCardComponent],
   template: `
     <section class="space-y-5" psReveal>
       <article class="card" psReveal>
@@ -80,6 +81,12 @@ const PROVIDER_META: Readonly<Record<string, { label: string; color: string }>> 
           <div class="space-y-2" aria-busy="true">
             @for (i of [0,1,2]; track i) { <div class="skel h-16 rounded-md"></div> }
           </div>
+        } @else if (loadError() && connections().length === 0) {
+          <app-error-card
+            title="Couldn't load connections"
+            [message]="loadError()!"
+            (retry)="reload()"
+            data-testid="mcps-error" />
         } @else if (connections().length === 0) {
           <app-empty-state
             icon="🔌"
@@ -189,6 +196,8 @@ export class VoiceMcpsComponent {
   connections = signal<McpConnection[]>([]);
   loading = signal(true);
   saving = signal(false);
+  /** Set when the connections fetch fails so a Retry card shows — never a fake "No connections yet". */
+  loadError = signal<string | null>(null);
   voiceAttached = signal<Set<string>>(new Set());
   smsAttached = signal<Set<string>>(new Set());
   private originalKey = signal<string>('');
@@ -210,11 +219,21 @@ export class VoiceMcpsComponent {
     const site = this.state.selectedSite();
     if (!site) return;
     this.loading.set(true);
+    this.loadError.set(null);
     Promise.all([
-      this.api.get<{ data: McpConnection[] }>(`/mcp/connections?siteId=${site.id}`, undefined, { silent: true }).toPromise().catch(() => ({ data: [] })),
+      this.api.get<{ data: McpConnection[] }>(`/mcp/connections?siteId=${site.id}`, undefined, { silent: true }).toPromise()
+        .then((r) => ({ ok: true as const, data: r?.data ?? [] }))
+        .catch(() => ({ ok: false as const, data: [] as McpConnection[] })),
+      // Attachments are secondary/best-effort — empty-on-fail is fine here.
       this.api.get<{ data: { voice: string[]; sms: string[] } }>(`/voice/mcp-attachments?siteId=${site.id}`, undefined, { silent: true }).toPromise().catch(() => ({ data: { voice: [], sms: [] } })),
     ]).then(([conns, atts]) => {
-      this.connections.set(conns?.data ?? []);
+      if (conns.ok) {
+        this.connections.set(conns.data);
+      } else if (this.connections().length === 0) {
+        // Surface a Retry card instead of a fake "No connections yet"; keep any
+        // already-loaded rows on a transient blip.
+        this.loadError.set('The MCP connections service did not respond.');
+      }
       const v = new Set(atts?.data?.voice ?? []);
       const s = new Set(atts?.data?.sms ?? []);
       this.voiceAttached.set(v);
@@ -239,12 +258,13 @@ export class VoiceMcpsComponent {
       site_id: site.id,
       voice: [...this.voiceAttached()],
       sms: [...this.smsAttached()],
-    }).subscribe({
+    }, { silent: true }).subscribe({
       next: () => {
         this.originalKey.set(this.currentKey());
         this.toast.success('Attachments saved');
         this.saving.set(false);
       },
+      // {silent} above so this is the ONLY toast on failure (no generic double-fire).
       error: () => { this.toast.error('Save failed'); this.saving.set(false); },
     });
   }
