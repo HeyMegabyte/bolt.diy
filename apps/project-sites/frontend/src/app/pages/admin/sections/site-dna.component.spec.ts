@@ -46,6 +46,18 @@ describe('AdminSiteDnaComponent (taste pulse + a11y)', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="dna-taste-pulse"]')).toBeNull();
   });
 
+  it('the flag-gate Feature-Flags link is an inline, UNDERLINED, working RouterLink (cohesion with the sibling flag-gate cards)', () => {
+    build(false);
+    const link = fixture.nativeElement.querySelector(
+      '[data-testid="dna-flag-gate"] a[routerLink="/admin/feature-flags"]',
+    ) as HTMLAnchorElement;
+    expect(link).withContext('flag-gate links to Feature Flags').toBeTruthy();
+    // In-text affordance matches the standard (underline, not the old color-only
+    // standalone CTA) + is a real SPA link (renders href).
+    expect(link.className).toContain('underline');
+    expect(link.getAttribute('href')).toBe('/admin/feature-flags');
+  });
+
   it('computes accept ratio as a whole-number percent of all signals', () => {
     build(true);
     component.history.set([

@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { AdminSiteCopilotComponent } from './site-copilot.component';
@@ -118,5 +119,35 @@ describe('AdminSiteCopilotComponent (enable toggle gated by the feature flag)', 
     c.toggleEnabled({ target: { checked: true } as HTMLInputElement } as unknown as Event);
     expect(toggleToastErr).withContext('failed mutation must not fail silently').toHaveBeenCalled();
     expect(c.enabled()).withContext('signal unchanged on failure → [checked] binding reverts the checkbox').toBe(false);
+  });
+});
+
+/**
+ * Flag-gate cohesion (real template): the multimodal_copilot disabled card must
+ * point at Feature Flags with the SAME inline, underlined RouterLink the sibling
+ * flag-gate cards use (enterprise/trust/stripe/inbox/site-dna) — not a color-only
+ * standalone CTA. Guards WCAG 1.4.1 (link affordance beyond color) + SPA nav.
+ */
+describe('AdminSiteCopilotComponent — flag-gate link cohesion (real template)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('renders an inline, UNDERLINED, working Feature-Flags RouterLink when the flag is off', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminSiteCopilotComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get: () => of({ sessions: [], distribution: [] }), put: () => of({ ok: true }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSiteCopilotComponent);
+    fx.componentInstance.flagEnabled.set(false);
+    fx.detectChanges();
+    const link = (fx.nativeElement as HTMLElement).querySelector(
+      '.copilot-flag-gate a[routerLink="/admin/feature-flags"]',
+    ) as HTMLAnchorElement;
+    expect(link).withContext('flag-gate links to Feature Flags').toBeTruthy();
+    expect(link.className).toContain('underline');
+    expect(link.getAttribute('href')).toBe('/admin/feature-flags');
   });
 });

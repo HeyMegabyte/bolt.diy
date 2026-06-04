@@ -71,8 +71,7 @@ const INTENT_ICONS: Record<string, string> = {
 
       @if (!flagEnabled()) {
         <div class="copilot-flag-gate" appReveal>
-          <p>The Multimodal Copilot is behind the <code>multimodal_copilot</code> feature flag.</p>
-          <a routerLink="/admin/feature-flags" class="copilot-flag-link">Enable in Feature Flags →</a>
+          <p class="m-0">The Multimodal Copilot is behind the <code>multimodal_copilot</code> feature flag. Enable it in <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.</p>
         </div>
       } @else {
         <!-- Widget embed snippet -->
@@ -175,7 +174,6 @@ const INTENT_ICONS: Record<string, string> = {
       .copilot-toggle input:checked ~ .copilot-toggle-track::after { left: 21px; }
       .copilot-toggle-label { font-size: 13px; color: rgba(244,244,255,0.7); }
       .copilot-flag-gate { padding: 20px; background: rgba(0,229,255,0.06); border: 1px solid rgba(0,229,255,0.2); border-radius: 12px; }
-      .copilot-flag-link { color: var(--ps-accent); font-weight: 600; }
       .copilot-embed-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(0,229,255,0.12); border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
       .copilot-embed-label { font-size: 11px; color: rgba(244,244,255,0.72); text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0; }
       .copilot-embed-code { flex: 1; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--ps-accent); background: rgba(0,229,255,0.06); padding: 6px 10px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
