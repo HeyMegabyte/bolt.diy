@@ -131,15 +131,15 @@ const PROVIDERS = MCP_PROVIDERS;
           <label class="block">
             <span class="muted-h">Brand primary color</span>
             <div class="flex items-center gap-2 mt-1">
-              <input type="color" class="h-9 w-12 rounded border-0 bg-transparent cursor-pointer" [(ngModel)]="settings.brand_primary" />
-              <input hlmInput type="text" class="flex-1 font-mono" placeholder="#00E5FF" [(ngModel)]="settings.brand_primary" />
+              <input type="color" aria-label="Brand primary color swatch" class="ps-swatch h-9 w-12 cursor-pointer" [(ngModel)]="settings.brand_primary" />
+              <input hlmInput type="text" aria-label="Brand primary color hex value" class="flex-1 font-mono" placeholder="#00E5FF" [(ngModel)]="settings.brand_primary" />
             </div>
           </label>
           <label class="block">
             <span class="muted-h">Brand accent color</span>
             <div class="flex items-center gap-2 mt-1">
-              <input type="color" class="h-9 w-12 rounded border-0 bg-transparent cursor-pointer" [(ngModel)]="settings.brand_accent" />
-              <input hlmInput type="text" class="flex-1 font-mono" placeholder="#7C3AED" [(ngModel)]="settings.brand_accent" />
+              <input type="color" aria-label="Brand accent color swatch" class="ps-swatch h-9 w-12 cursor-pointer" [(ngModel)]="settings.brand_accent" />
+              <input hlmInput type="text" aria-label="Brand accent color hex value" class="flex-1 font-mono" placeholder="#7C3AED" [(ngModel)]="settings.brand_accent" />
             </div>
           </label>
           <!-- Live brand preview -->
@@ -660,8 +660,14 @@ const PROVIDERS = MCP_PROVIDERS;
       .btn-primary:hover, .btn-ghost:hover { transform: none; box-shadow: none; }
     }
     .muted-h { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; }
-    /* Native color swatches drop their focus ring with border-0 — restore a cyan
-       focus-visible ring so keyboard users can see the active brand-color picker. */
+    /* Cockpit-native color swatch: frame the native picker with a subtle border +
+       rounded corners so it reads as part of the cyan/black system instead of a
+       bare OS default, and keep a cyan focus-visible ring for keyboard users. */
+    .ps-swatch { border: 1px solid rgba(255,255,255,0.16); border-radius: var(--ps-radius-sm, 8px); background: transparent; padding: 2px; transition: border-color 0.15s ease; }
+    .ps-swatch:hover { border-color: color-mix(in oklab, var(--accent) 55%, transparent); }
+    .ps-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+    .ps-swatch::-webkit-color-swatch { border: none; border-radius: 5px; }
+    .ps-swatch::-moz-color-swatch { border: none; border-radius: 5px; }
     input[type="color"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--ps-radius-sm, 8px); }
     .brand-preview { display: flex; align-items: center; gap: 0.85rem; padding: 0.95rem 1.1rem; border-radius: 12px; background: linear-gradient(135deg, color-mix(in oklab, var(--bp-primary) 22%, transparent), color-mix(in oklab, var(--bp-accent) 14%, transparent)); border: 1px solid color-mix(in oklab, var(--bp-primary) 28%, transparent); }
     .bp-bar { display: inline-flex; align-items: center; gap: 6px; padding: 0.32rem 0.7rem; border-radius: 999px; background: rgba(0,0,0,0.3); color: rgba(255,255,255,0.8); font-size: 0.72rem; }

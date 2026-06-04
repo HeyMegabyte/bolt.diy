@@ -79,6 +79,33 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(router.navigate).toHaveBeenCalledWith([], { fragment: 'mcp', replaceUrl: true });
     expect(fixture.componentInstance.tab()).toBe('mcp');
   });
+
+  /**
+   * a11y form-label sweep: the brand-color rows nest TWO controls (the native
+   * color swatch + the hex text field) inside ONE <label>. HTML associates a
+   * label with only its first control, so the hex inputs were unnamed for AT.
+   * Every brand-color control must carry its own accessible name.
+   */
+  it('gives every brand-color control a distinct accessible name', () => {
+    build({ id: 's', slug: 'demo' });
+    const el = fixture.nativeElement as HTMLElement;
+    const colorInputs = Array.from(el.querySelectorAll('input[type="color"]')) as HTMLInputElement[];
+    const hexInputs = Array.from(
+      el.querySelectorAll('input.font-mono[type="text"]'),
+    ) as HTMLInputElement[];
+    expect(colorInputs.length).toBe(2);
+    expect(hexInputs.length).toBeGreaterThanOrEqual(2);
+    for (const inp of [...colorInputs, ...hexInputs.slice(0, 2)]) {
+      const name = inp.getAttribute('aria-label');
+      expect(name && name.trim().length > 0)
+        .withContext(`accessible name on ${inp.getAttribute('placeholder') ?? inp.type}`)
+        .toBeTrue();
+    }
+    // The swatch + hex field for one color must NOT share an identical name.
+    expect(colorInputs[0].getAttribute('aria-label')).not.toBe(
+      hexInputs[0].getAttribute('aria-label'),
+    );
+  });
 });
 
 /**
