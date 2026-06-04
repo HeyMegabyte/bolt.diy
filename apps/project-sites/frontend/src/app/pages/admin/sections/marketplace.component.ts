@@ -19,7 +19,7 @@ import {
   Component, OnInit, inject, signal, computed, ChangeDetectionStrategy, ChangeDetectorRef, HostListener,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { catchError, of } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
@@ -132,6 +132,7 @@ const SLOT_COLORS: Record<string, string> = {
     <app-error-card
       title="Couldn't load the marketplace"
       message="The section catalog failed to load."
+      [correlationId]="loadErrorRef()"
       (retry)="reload()" />
   } @else if (filteredSections().length === 0) {
     <app-empty-state
@@ -313,6 +314,8 @@ export class AdminMarketplaceComponent implements OnInit {
 
   readonly loading = signal(false);
   readonly loadError = signal(false);
+  /** Worker request_id from a failed feed → shown as the support reference on the error card. */
+  readonly loadErrorRef = signal('');
   readonly catalog = signal<IndustryCatalog[]>([]);
   readonly sections = signal<SectionSummary[]>([]);
   readonly activeIndustry = signal<SectionIndustry>('all');
@@ -340,13 +343,27 @@ export class AdminMarketplaceComponent implements OnInit {
   /** Retry both feeds after a load failure. */
   reload() {
     this.loadError.set(false);
+    this.loadErrorRef.set('');
     this.loadCatalog();
     this.loadSections();
   }
 
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }),
+   *  falling back to the X-Request-ID response header. Empty when neither exists. */
+  private refOf(err: unknown): string {
+    const e = err as HttpErrorResponse;
+    const fromBody = (e?.error as { error?: { request_id?: string } } | undefined)?.error?.request_id;
+    return fromBody || e?.headers?.get?.('X-Request-ID') || '';
+  }
+
   loadCatalog() {
     this.http.get<{ catalog: IndustryCatalog[] }>('/api/section-marketplace')
-      .pipe(catchError(() => { this.loadError.set(true); return of({ catalog: [] as IndustryCatalog[] }); }))
+      .pipe(catchError((err: HttpErrorResponse) => {
+        this.loadError.set(true);
+        const ref = this.refOf(err);
+        if (ref) this.loadErrorRef.set(ref);
+        return of({ catalog: [] as IndustryCatalog[] });
+      }))
       .subscribe((res: { catalog: IndustryCatalog[] }) => {
         this.catalog.set(res.catalog ?? []);
         this.cdr.markForCheck();
@@ -356,7 +373,12 @@ export class AdminMarketplaceComponent implements OnInit {
   loadSections() {
     this.loading.set(true);
     this.http.get<{ sections: SectionSummary[] }>('/api/section-marketplace/sections?limit=200')
-      .pipe(catchError(() => { this.loadError.set(true); return of({ sections: [] as SectionSummary[] }); }))
+      .pipe(catchError((err: HttpErrorResponse) => {
+        this.loadError.set(true);
+        const ref = this.refOf(err);
+        if (ref) this.loadErrorRef.set(ref);
+        return of({ sections: [] as SectionSummary[] });
+      }))
       .subscribe((res: { sections: SectionSummary[] }) => {
         this.sections.set(res.sections ?? []);
         this.loading.set(false);

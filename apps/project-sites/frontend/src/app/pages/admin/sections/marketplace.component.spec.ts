@@ -186,3 +186,60 @@ describe('AdminMarketplaceComponent (cohesion r8)', () => {
     expect(errSpy).toHaveBeenCalled();
   });
 });
+
+/**
+ * Error-state correlation id: when the catalog feed fails, the error card must
+ * surface the worker's request_id (envelope `{ error: { request_id } }`) so the
+ * operator can copy a real reference for support — the error-card hint promises
+ * "copy the reference below" only when a reference is actually present.
+ */
+describe('AdminMarketplaceComponent (error-state correlation id)', () => {
+  let fixture: ComponentFixture<AdminMarketplaceComponent>;
+  let host: HTMLElement;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [AdminMarketplaceComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+    fixture = TestBed.createComponent(AdminMarketplaceComponent);
+    host = fixture.nativeElement as HTMLElement;
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+  });
+  afterEach(() => { httpMock.verify(); TestBed.resetTestingModule(); });
+  const q = (sel: string): HTMLElement | null => host.querySelector(sel);
+
+  it('captures request_id from a failed catalog feed + renders it as the support reference', () => {
+    httpMock.expectOne('/api/section-marketplace').flush(
+      { error: { code: 'INTERNAL_ERROR', message: 'boom', request_id: 'req_mkt_42' } },
+      { status: 500, statusText: 'Server Error' },
+    );
+    httpMock.expectOne('/api/section-marketplace/sections?limit=200').flush(
+      { error: { code: 'INTERNAL_ERROR', message: 'boom', request_id: 'req_mkt_42' } },
+      { status: 500, statusText: 'Server Error' },
+    );
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.loadError()).toBeTrue();
+    expect(fixture.componentInstance.loadErrorRef()).toBe('req_mkt_42');
+    expect(q('[data-testid="error-card"]')).withContext('error card shown').not.toBeNull();
+    expect(q('[data-testid="error-correlation"]')?.textContent?.trim()).toBe('req_mkt_42');
+  });
+
+  it('reload() clears the prior correlation id before retrying', () => {
+    httpMock.expectOne('/api/section-marketplace').flush(
+      { error: { request_id: 'req_old' } }, { status: 500, statusText: 'err' });
+    httpMock.expectOne('/api/section-marketplace/sections?limit=200').flush(
+      { error: { request_id: 'req_old' } }, { status: 500, statusText: 'err' });
+    fixture.detectChanges();
+    expect(fixture.componentInstance.loadErrorRef()).toBe('req_old');
+
+    fixture.componentInstance.reload();
+    expect(fixture.componentInstance.loadErrorRef()).withContext('stale ref cleared on retry').toBe('');
+    // satisfy the retry's two outstanding requests so httpMock.verify() passes
+    httpMock.expectOne('/api/section-marketplace').flush({ catalog: [] });
+    httpMock.expectOne('/api/section-marketplace/sections?limit=200').flush({ sections: [] });
+  });
+});
