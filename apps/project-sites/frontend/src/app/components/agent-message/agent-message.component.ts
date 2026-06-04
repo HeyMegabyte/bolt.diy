@@ -47,6 +47,7 @@ import { ChangeDetectionStrategy, Component, computed, ElementRef, EventEmitter,
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
+import { hardenExternalLinks } from './harden-links';
 
 /** A resolved citation surfaced to the popover when a marker is clicked. */
 export interface AgentCitation {
@@ -529,7 +530,11 @@ export class AgentMessageComponent {
       ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|ftp):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
     });
 
-    const withCaret = this.streaming() ? `${cleaned}<span class="am-caret" aria-hidden="true"></span>` : cleaned;
+    // Open external cited links in a new tab (don't navigate the admin SPA away
+    // + lose the chat) with a reverse-tabnabbing guard. Static attrs on the
+    // already-sanitized string — no injection vector.
+    const hardened = hardenExternalLinks(cleaned);
+    const withCaret = this.streaming() ? `${hardened}<span class="am-caret" aria-hidden="true"></span>` : hardened;
     return this.sanitizer.bypassSecurityTrustHtml(withCaret);
   });
 
