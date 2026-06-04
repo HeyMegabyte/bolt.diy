@@ -285,3 +285,33 @@ describe('AdminAuditComponent (cohesion + a11y source contract)', () => {
     }
   });
 });
+
+/**
+ * CSV export — formula-injection guard (CWE-1236). The audit log holds
+ * user/system strings (actor email, action, target, before/after JSON) that may
+ * begin with = + - @; those execute as formulas in Excel/Sheets. exportCsv()
+ * passes ag-grid a processCellCallback that apostrophe-prefixes such cells.
+ */
+describe('AdminAuditComponent (CSV export is formula-injection-safe)', () => {
+  it('csvFormulaGuard prefixes formula-trigger cells, leaves normal values', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    expect(c.csvFormulaGuard('=cmd|calc')).toBe(`'=cmd|calc`);
+    expect(c.csvFormulaGuard('+1')).toBe(`'+1`);
+    expect(c.csvFormulaGuard('-2')).toBe(`'-2`);
+    expect(c.csvFormulaGuard('@SUM')).toBe(`'@SUM`);
+    expect(c.csvFormulaGuard('\t=x')).toBe(`'\t=x`);
+    expect(c.csvFormulaGuard('admin@megabyte.space')).toBe('admin@megabyte.space'); // @ not leading
+    expect(c.csvFormulaGuard('site.created')).toBe('site.created');
+    expect(c.csvFormulaGuard(null)).toBe('');
+  });
+
+  it('exportCsv wires the formula guard into ag-grid processCellCallback', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    let opts: { processCellCallback?: (p: { value: unknown }) => string } = {};
+    (c as unknown as { gridApi?: unknown }).gridApi = { exportDataAsCsv: (o: typeof opts) => { opts = o; } };
+    c.exportCsv();
+    expect(typeof opts.processCellCallback).toBe('function');
+    expect(opts.processCellCallback!({ value: '=HYPERLINK("x")' })).toBe(`'=HYPERLINK("x")`);
+    expect(opts.processCellCallback!({ value: 'normal' })).toBe('normal');
+  });
+});

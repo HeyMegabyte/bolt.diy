@@ -875,7 +875,23 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
   }
 
   exportCsv(): void {
-    this.gridApi?.exportDataAsCsv({ fileName: `audit-log-${new Date().toISOString().slice(0, 10)}.csv` });
+    this.gridApi?.exportDataAsCsv({
+      fileName: `audit-log-${new Date().toISOString().slice(0, 10)}.csv`,
+      // Guard CSV formula injection (CWE-1236): audit rows carry user/system
+      // strings (actor email, action, target, before/after JSON) that may begin
+      // with = + - @ — those execute as formulas when the file is opened in
+      // Excel/Sheets. Prefix a literal apostrophe so they're treated as text.
+      // (ag-grid handles its own RFC-4180 quoting, so only the formula guard
+      // is needed here — mirrors analytics.csvCell's layer 1.)
+      processCellCallback: (p) => this.csvFormulaGuard(p.value),
+    });
+  }
+
+  /** Apostrophe-prefix a cell whose value begins with a spreadsheet formula
+   *  trigger (= + - @ or a leading tab/CR) so Excel/Sheets render it as text. */
+  csvFormulaGuard(value: unknown): string {
+    const s = value == null ? '' : String(value);
+    return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
   }
 
   /**
