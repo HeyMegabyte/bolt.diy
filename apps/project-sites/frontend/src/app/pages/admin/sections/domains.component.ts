@@ -797,7 +797,7 @@ export class AdminDomainsComponent implements OnInit {
     const query = this.aiQuery().trim();
     this.aiSearching.set(true);
     this.aiResults.set(null);
-    this.api.post<AiSearchResponse>(`/sites/${site.id}/domains/ai-search`, { query }).subscribe({
+    this.api.post<AiSearchResponse>(`/sites/${site.id}/domains/ai-search`, { query }, { silent: true }).subscribe({
       next: (res) => {
         this.aiResults.set({
           available: res.data?.available ?? [],
@@ -914,7 +914,7 @@ export class AdminDomainsComponent implements OnInit {
     const site = this.state.selectedSite();
     if (!site || h.is_primary === 1) return;
     this.busyHostname.set(h.id);
-    this.api.put(`/sites/${site.id}/hostnames/${h.id}/primary`).subscribe({
+    this.api.put(`/sites/${site.id}/hostnames/${h.id}/primary`, undefined, { silent: true }).subscribe({
       next: () => {
         this.busyHostname.set(null);
         this.toast.success(`${h.hostname} is now primary`);
@@ -938,7 +938,7 @@ export class AdminDomainsComponent implements OnInit {
     });
     if (!ok) return;
     this.busyHostname.set(h.id);
-    this.api.delete(`/sites/${site.id}/hostnames/${h.id}`).subscribe({
+    this.api.delete(`/sites/${site.id}/hostnames/${h.id}`, { silent: true }).subscribe({
       next: () => {
         this.busyHostname.set(null);
         this.toast.success(`Removed ${h.hostname}`);

@@ -340,3 +340,49 @@ describe('AdminDomainsComponent (input label association)', () => {
     expect(el.querySelector(`label[for="${input.id}"]`)).toBeTruthy();
   });
 });
+
+/**
+ * Double-toast guard: each Domains mutation surfaces its OWN specific toast.error
+ * in the error branch, so the ApiService call must be {silent:true} — else the
+ * generic "Can't reach the server" toast double-fires on failure.
+ */
+describe('AdminDomainsComponent — mutations pass {silent:true} (no generic double-toast)', () => {
+  let put: jasmine.Spy, del: jasmine.Spy, post: jasmine.Spy;
+
+  function buildSpies(): AdminDomainsComponent {
+    put = jasmine.createSpy('put').and.returnValue(of({ data: {} }));
+    del = jasmine.createSpy('delete').and.returnValue(of({ data: {} }));
+    post = jasmine.createSpy('post').and.returnValue(of({ data: { results: [] } }));
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [AdminDomainsComponent],
+      providers: [
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'vito' }) } },
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, put, delete: del } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    return TestBed.createComponent(AdminDomainsComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('makePrimary → put is {silent}', () => {
+    const c = buildSpies();
+    c.makePrimary({ id: 'h9', is_primary: 0 } as never);
+    expect(put).toHaveBeenCalledWith('/sites/s1/hostnames/h9/primary', undefined, { silent: true });
+  });
+
+  it('removeHostname → delete is {silent} (after confirm)', async () => {
+    const c = buildSpies();
+    await c.removeHostname({ id: 'h9', hostname: 'x.com' } as never);
+    expect(del).toHaveBeenCalledWith('/sites/s1/hostnames/h9', { silent: true });
+  });
+
+  it('runAiSearch → ai-search post is {silent}', () => {
+    const c = buildSpies();
+    c.aiQuery.set('coffee shop');
+    c.runAiSearch();
+    expect(post).toHaveBeenCalledWith('/sites/s1/domains/ai-search', { query: 'coffee shop' }, { silent: true });
+  });
+});
