@@ -1076,7 +1076,7 @@ const PLATFORMS: readonly PlatformDef[] = [
         font-size: 0.72rem; color: color-mix(in oklch, var(--ps-accent, #00e5ff) 70%, var(--ps-ink, #f4f4ff) 30%);
       }
       .ap-dlg-preview__empty {
-        font-size: 0.78rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 45%, transparent); font-style: italic;
+        font-size: 0.78rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 65%, transparent); font-style: italic;
       }
       .ap-dlg-footer {
         display: flex; justify-content: flex-end; gap: 8px;
@@ -1159,7 +1159,7 @@ const PLATFORMS: readonly PlatformDef[] = [
       .acct-meta { min-width: 0; grid-column: 2; }
       .acct-label { font-size: 0.76rem; font-weight: 600; color: var(--ps-ink, #f4f4ff); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .acct-handle { font-size: 0.66rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
-      .acct-handle.dim { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 35%, transparent); }
+      .acct-handle.dim { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 65%, transparent); }
       .acct-pill {
         grid-row: 1; grid-column: 3; font-size: 0.56rem; font-weight: 700; text-transform: uppercase;
         padding: 2px 7px; border-radius: 999px;

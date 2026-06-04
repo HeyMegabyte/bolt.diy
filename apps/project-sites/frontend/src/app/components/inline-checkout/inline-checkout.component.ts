@@ -173,7 +173,7 @@ interface PaymentIntentResponse {
         display: flex;
         align-items: center;
         gap: 10px;
-        color: color-mix(in oklch, var(--ps-ink) 45%, transparent);
+        color: color-mix(in oklch, var(--ps-ink) 65%, transparent);
         font-size: 0.75rem;
         text-transform: uppercase;
         letter-spacing: 0.08em;

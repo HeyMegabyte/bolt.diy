@@ -333,7 +333,7 @@ const LOW_BALANCE_CENTS = 500;
         font-size: 0.86rem;
       }
       .dp-search input::placeholder {
-        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 45%, transparent);
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 65%, transparent);
       }
       .dp-spinner {
         width: 12px;
@@ -483,7 +483,7 @@ const LOW_BALANCE_CENTS = 500;
         background: rgba(245, 158, 11, 0.12);
       }
       .dp-pill--mute {
-        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 45%, transparent);
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 65%, transparent);
         background: rgba(255, 255, 255, 0.04);
       }
       .dp-row-actions {
@@ -697,7 +697,7 @@ const LOW_BALANCE_CENTS = 500;
         flex-wrap: wrap;
       }
       .dp-foot-sub {
-        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 45%, transparent);
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 65%, transparent);
       }
       .dp-copy {
         padding: 2px 8px;
