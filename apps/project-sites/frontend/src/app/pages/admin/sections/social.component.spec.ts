@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { AdminSocialComponent } from './social.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -471,5 +471,120 @@ describe('AdminSocialComponent (publishNow double-submit guard)', () => {
     expect(post).withContext('distinct posts are not blocked by each other').toHaveBeenCalledTimes(2);
     expect(c.isPublishing('a')).toBeTrue();
     expect(c.isPublishing('b')).toBeTrue();
+  });
+});
+
+/**
+ * Paste-key connect. Bluesky / Mastodon / Telegram / Discord have no OAuth
+ * redirect — the worker's GET /connect returns a paste_key SPEC (raw JSON), so
+ * blindly window.open'ing it just showed JSON in a popup (fundamentally broken).
+ * connect() now branches on the static `pasteKey` flag → opens an in-app form;
+ * submit POSTs the worker's per-platform PasteSchema body to /social/:p/paste.
+ * OAuth platforms (twitter/linkedin/…) keep the untouched window.open flow.
+ */
+describe('AdminSocialComponent (paste-key connect)', () => {
+  let post: jasmine.Spy;
+  let windowOpen: jasmine.Spy;
+
+  function make(): AdminSocialComponent {
+    TestBed.resetTestingModule();
+    post = jasmine.createSpy('post').and.returnValue(of({ data: {} }));
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0, info: () => 0 } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigateByUrl: () => undefined } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSocialComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminSocialComponent).componentInstance;
+  }
+
+  beforeEach(() => { windowOpen = spyOn(window, 'open').and.returnValue(null); });
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('connect(paste-key platform) opens the in-app form and does NOT window.open a JSON popup', () => {
+    const c = make();
+    c.connect('bluesky' as never);
+    expect(c.pasteOpen()).toBe('bluesky' as never);
+    expect(windowOpen).not.toHaveBeenCalled();
+  });
+
+  it('connect(OAuth platform) keeps the untouched popup flow — does NOT open the paste form', () => {
+    const c = make();
+    c.connect('twitter' as never);
+    expect(c.pasteOpen()).toBeNull();
+    expect(windowOpen).toHaveBeenCalled();
+  });
+
+  it('openPaste resets fields + error; closePaste clears the open platform', () => {
+    const c = make();
+    c.pasteF.identifier = 'stale';
+    c.pasteError.set('old error');
+    c.openPaste('mastodon' as never);
+    expect(c.pasteOpen()).toBe('mastodon' as never);
+    expect(c.pasteF.identifier).toBe('');
+    expect(c.pasteError()).toBeNull();
+    c.closePaste();
+    expect(c.pasteOpen()).toBeNull();
+  });
+
+  it('submitPasteConnect POSTs the worker bluesky PasteSchema body {silent}', () => {
+    const c = make();
+    c.openPaste('bluesky' as never);
+    c.pasteF.identifier = 'me.bsky.social';
+    c.pasteF.app_password = 'abcd-efgh-ijkl-mnop';
+    c.submitPasteConnect();
+    expect(post).toHaveBeenCalledWith('/social/bluesky/paste', { kind: 'bluesky', identifier: 'me.bsky.social', app_password: 'abcd-efgh-ijkl-mnop' }, { silent: true });
+    expect(c.pasteOpen()).withContext('dialog closes on success').toBeNull();
+  });
+
+  it('submitPasteConnect POSTs the mastodon body (instance_url + access_token)', () => {
+    const c = make();
+    c.openPaste('mastodon' as never);
+    c.pasteF.instance_url = 'https://mastodon.social';
+    c.pasteF.access_token = 'a-twenty-plus-char-access-token';
+    c.submitPasteConnect();
+    expect(post).toHaveBeenCalledWith('/social/mastodon/paste', { kind: 'mastodon', instance_url: 'https://mastodon.social', access_token: 'a-twenty-plus-char-access-token' }, { silent: true });
+  });
+
+  it('submitPasteConnect omits an empty optional display_name (telegram)', () => {
+    const c = make();
+    c.openPaste('telegram' as never);
+    c.pasteF.chat_id = '@mychannel';
+    c.submitPasteConnect();
+    expect(post).toHaveBeenCalledWith('/social/telegram/paste', { kind: 'telegram', chat_id: '@mychannel' }, { silent: true });
+  });
+
+  it('submitPasteConnect includes display_name when provided (discord)', () => {
+    const c = make();
+    c.openPaste('discord' as never);
+    c.pasteF.channel_id = '123456789012345678';
+    c.pasteF.display_name = 'My Server';
+    c.submitPasteConnect();
+    expect(post).toHaveBeenCalledWith('/social/discord/paste', { kind: 'discord', channel_id: '123456789012345678', display_name: 'My Server' }, { silent: true });
+  });
+
+  it('submitPasteConnect with missing required fields does NOT POST — shows an inline error', () => {
+    const c = make();
+    c.openPaste('bluesky' as never);
+    c.pasteF.identifier = ''; // missing
+    c.submitPasteConnect();
+    expect(post).not.toHaveBeenCalled();
+    expect(c.pasteError()).toBeTruthy();
+  });
+
+  it('a paste-connect failure surfaces the inline error and keeps the dialog open (recoverable)', () => {
+    const c = make();
+    post.and.returnValue(throwError(() => ({ error: { error: { message: 'Invalid app password' } } })));
+    c.openPaste('bluesky' as never);
+    c.pasteF.identifier = 'me.bsky.social';
+    c.pasteF.app_password = 'abcd-efgh-ijkl-mnop';
+    c.submitPasteConnect();
+    expect(c.pasteError()).toBe('Invalid app password');
+    expect(c.pasteOpen()).withContext('stays open so the user can fix + retry').toBe('bluesky' as never);
   });
 });

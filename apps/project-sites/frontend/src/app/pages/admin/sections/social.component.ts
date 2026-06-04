@@ -70,6 +70,9 @@ interface PlatformDef {
   charLimit: number;
   color: string;
   glyph: string; // inline SVG path data
+  /** Connects via a pasted token/app-password (no OAuth popup). The worker's
+   *  GET /connect returns a paste_key spec + POST /paste accepts the creds. */
+  pasteKey?: boolean;
 }
 
 interface SocialAccount {
@@ -174,6 +177,7 @@ const PLATFORMS: readonly PlatformDef[] = [
     id: 'bluesky',
     label: 'Bluesky',
     charLimit: 300,
+    pasteKey: true,
     color: '#1185fe',
     glyph:
       'M5.95 4.13C8.65 6.18 11.55 10.34 12 12.55c.45-2.21 3.35-6.37 6.05-8.42 1.95-1.47 5.1-2.61 5.1.99 0 .72-.41 6.04-.65 6.9-.83 3-3.88 3.77-6.6 3.3 4.74.81 5.95 3.5 3.35 6.18-4.95 5.1-7.11-1.27-7.66-2.9-.1-.3-.15-.44-.15-.32 0-.12-.05.02-.15.32-.55 1.63-2.71 8-7.66 2.9-2.6-2.68-1.39-5.37 3.35-6.18-2.72.47-5.77-.3-6.6-3.3C.14 11.16-.27 5.84-.27 5.12c0-3.6 3.15-2.46 5.1-.99h1.12Z',
@@ -190,6 +194,7 @@ const PLATFORMS: readonly PlatformDef[] = [
     id: 'mastodon',
     label: 'Mastodon',
     charLimit: 500,
+    pasteKey: true,
     color: '#6364ff',
     glyph:
       'M23.27 5.36C22.91 2.7 20.58.6 17.81.19 17.35.12 15.58 0 11.49 0h-.03c-4.1 0-4.97.13-5.42.2C3.34.6.88 2.49.29 5.18.0 6.5 0 7.97 0 9.32.07 11.25.08 13.18.26 15.1.38 16.38.59 17.65.89 18.9c.55 2.3 2.83 4.21 5.07 5 2.39.82 4.97.96 7.43.4.27-.06.54-.13.81-.21.59-.19 1.29-.4 1.8-.78.01 0 .02-.01.03-.03v-1.92s-.01-.02-.02-.02-.02 0-.02 0c-2.05.49-4.16.74-6.27.74-3.63 0-4.6-1.72-4.88-2.44-.22-.62-.36-1.27-.42-1.92 0-.01 0-.02.01-.02s.02 0 .02 0c2.02.49 4.09.74 6.16.74.5 0 1-.01 1.49-.03 2.09-.06 4.28-.16 6.33-.56.05-.01.1-.03.15-.04 3.24-.62 6.32-2.57 6.63-7.5.01-.19.04-2.04.04-2.24.01-.69-.21-4.88-.27-5.21ZM19.58 15.4h-2.86V8.42c0-1.47-.62-2.22-1.85-2.22-1.36 0-2.05.88-2.05 2.62v3.79H10c0-3.6-.01-3.95 0-4.97 0-.99-.7-2.61-1.97-2.61-1.36 0-1.85.95-1.85 2.31v6.06H3.32C3.31 12.07 3.3 8.45 3.31 7.62c0-1.55.79-2.79 1.92-3.6.81-.58 1.78-.88 2.78-.83 2.17.04 3.5 1.59 3.92 2.43 0 .01.02.01.02 0 .42-.83 1.74-2.39 3.92-2.43 1.0-.04 1.97.25 2.78.83 1.13.81 1.92 2.05 1.92 3.6.01.83.01 4.41 0 7.78Z',
@@ -198,6 +203,7 @@ const PLATFORMS: readonly PlatformDef[] = [
     id: 'discord',
     label: 'Discord',
     charLimit: 2000,
+    pasteKey: true,
     color: '#5865f2',
     glyph:
       'M20.32 4.37A19.79 19.79 0 0 0 15.43 2.9a.07.07 0 0 0-.08.04c-.21.37-.44.86-.6 1.24a18.27 18.27 0 0 0-5.5 0c-.16-.39-.4-.87-.62-1.24A.08.08 0 0 0 8.55 2.9a19.74 19.74 0 0 0-4.89 1.47.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 6 3.03.08.08 0 0 0 .09-.03c.46-.63.87-1.3 1.23-2.01a.08.08 0 0 0-.04-.11 13.13 13.13 0 0 1-1.87-.89.08.08 0 0 1 0-.13c.13-.1.25-.2.37-.3a.07.07 0 0 1 .08-.01c3.93 1.79 8.18 1.79 12.06 0a.07.07 0 0 1 .08.01c.12.1.24.2.37.3a.08.08 0 0 1 0 .13c-.6.35-1.22.65-1.87.89a.08.08 0 0 0-.04.11c.36.71.77 1.38 1.23 2.01a.08.08 0 0 0 .09.03 19.85 19.85 0 0 0 6-3.03.08.08 0 0 0 .03-.06c.5-5.18-.83-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.09-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.33-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.16-1.09-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.33-.95 2.42-2.16 2.42Z',
@@ -214,6 +220,7 @@ const PLATFORMS: readonly PlatformDef[] = [
     id: 'telegram',
     label: 'Telegram',
     charLimit: 4096,
+    pasteKey: true,
     color: '#229ed9',
     glyph:
       'M12 0a12 12 0 1 0 12 12A12 12 0 0 0 12 0Zm5.94 8.2-1.98 9.35c-.15.66-.54.82-1.1.51l-3.04-2.24-1.47 1.42c-.16.16-.3.3-.62.3l.22-3.13 5.71-5.16c.25-.22-.05-.34-.39-.13L8.21 13.6 4.96 12.6c-.71-.22-.72-.71.15-1.05l12.7-4.9c.59-.22 1.1.14.9 1.55Z',
@@ -900,6 +907,79 @@ const PLATFORMS: readonly PlatformDef[] = [
       </div>
     </app-dialog-shell>
   }
+
+  <!-- ═══════════════════════ PASTE-KEY CONNECT DIALOG ═══════════════════════ -->
+  @if (pasteOpen(); as pid) {
+    <app-dialog-shell (closed)="closePaste()">
+      <span dialogTitle>Connect {{ defOf(pid)?.label || pid }}</span>
+      <span dialogBadge class="ap-dlg-badge">Paste key</span>
+
+      <div class="ap-dlg-body">
+        @switch (pid) {
+          @case ('bluesky') {
+            <p class="ap-dlg-blurb">Create an app password at Settings → App Passwords, then paste it below.</p>
+            <div>
+              <label class="ap-dlg-lbl" for="paste-bsky-id">Handle or email</label>
+              <input hlmInput id="paste-bsky-id" class="w-full" type="text" [(ngModel)]="pasteF.identifier" placeholder="you.bsky.social" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </div>
+            <div>
+              <label class="ap-dlg-lbl" for="paste-bsky-pw">App password</label>
+              <input hlmInput id="paste-bsky-pw" class="w-full" type="password" [(ngModel)]="pasteF.app_password" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off" />
+            </div>
+          }
+          @case ('mastodon') {
+            <p class="ap-dlg-blurb">Create an application in your instance’s Preferences → Development, then paste its access token.</p>
+            <div>
+              <label class="ap-dlg-lbl" for="paste-masto-url">Instance URL</label>
+              <input hlmInput id="paste-masto-url" class="w-full" type="url" [(ngModel)]="pasteF.instance_url" placeholder="https://mastodon.social" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </div>
+            <div>
+              <label class="ap-dlg-lbl" for="paste-masto-tok">Access token</label>
+              <input hlmInput id="paste-masto-tok" class="w-full" type="password" [(ngModel)]="pasteF.access_token" placeholder="Your application access token" autocomplete="off" />
+            </div>
+          }
+          @case ('telegram') {
+            <p class="ap-dlg-blurb">Add your bot to the channel as an admin, then paste the channel’s chat ID.</p>
+            <div>
+              <label class="ap-dlg-lbl" for="paste-tg-chat">Chat ID</label>
+              <input hlmInput id="paste-tg-chat" class="w-full" type="text" [(ngModel)]="pasteF.chat_id" placeholder="@yourchannel or -100123456789" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </div>
+            <div>
+              <label class="ap-dlg-lbl" for="paste-tg-name">Display name <span class="paste-opt">(optional)</span></label>
+              <input hlmInput id="paste-tg-name" class="w-full" type="text" [(ngModel)]="pasteF.display_name" placeholder="My Channel" autocomplete="off" />
+            </div>
+          }
+          @case ('discord') {
+            <p class="ap-dlg-blurb">Enable the channel webhook for your server, then paste the channel ID.</p>
+            <div>
+              <label class="ap-dlg-lbl" for="paste-dc-chan">Channel ID</label>
+              <input hlmInput id="paste-dc-chan" class="w-full" type="text" [(ngModel)]="pasteF.channel_id" placeholder="123456789012345678" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </div>
+            <div>
+              <label class="ap-dlg-lbl" for="paste-dc-name">Display name <span class="paste-opt">(optional)</span></label>
+              <input hlmInput id="paste-dc-name" class="w-full" type="text" [(ngModel)]="pasteF.display_name" placeholder="My Server" autocomplete="off" />
+            </div>
+          }
+        }
+
+        @if (pasteError(); as pe) {
+          <div class="paste-err" role="alert">{{ pe }}</div>
+        }
+      </div>
+
+      <div dialogFooter class="ap-dlg-footer">
+        <button type="button" class="ap-dlg-btn ghost" (click)="closePaste()">Cancel</button>
+        <button
+          type="button"
+          class="ap-dlg-btn primary"
+          (click)="submitPasteConnect()"
+          [disabled]="pasteSubmitting()"
+          data-testid="social-paste-submit">
+          {{ pasteSubmitting() ? 'Connecting…' : 'Connect' }}
+        </button>
+      </div>
+    </app-dialog-shell>
+  }
 </div>
 `,
   styles: [
@@ -1020,6 +1100,13 @@ const PLATFORMS: readonly PlatformDef[] = [
         color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); margin-bottom: 6px;
       }
       /* .ap-dlg-ta/.ap-dlg-input removed — now Spartan hlmInput [multiline] / hlmSelect. */
+      .paste-opt { font-weight: 500; text-transform: none; letter-spacing: 0; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 40%, transparent); }
+      .paste-err {
+        font-size: 0.78rem; line-height: 1.4; padding: 8px 11px; border-radius: 8px;
+        background: color-mix(in oklch, #ff5c7a 14%, transparent);
+        border: 1px solid color-mix(in oklch, #ff5c7a 38%, transparent);
+        color: color-mix(in oklch, #ff5c7a 78%, var(--ps-ink, #f4f4ff));
+      }
       .ap-dlg-help {
         font-size: 0.7rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent);
         display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
@@ -1733,6 +1820,10 @@ export class AdminSocialComponent implements OnInit {
   connect(pid: PlatformId): void {
     const sid = this.siteId();
     if (!sid) { this.toast.error('Pick a site first'); return; }
+    // Paste-key platforms (no OAuth dance) — the worker's GET /connect returns a
+    // paste_key spec (JSON), so opening a popup at it just shows raw JSON. Open
+    // the paste-key form instead. OAuth platforms keep the popup flow below.
+    if (this.defOf(pid)?.pasteKey) { this.openPaste(pid); return; }
     const url = `/api/social/${pid}/connect?site_id=${encodeURIComponent(sid)}`;
     const popup = window.open(url, 'social-oauth', 'width=620,height=720,popup=yes');
     if (!popup) {
@@ -1745,6 +1836,60 @@ export class AdminSocialComponent implements OnInit {
         this.loadAccounts();
       }
     }, 600);
+  }
+
+  // ── Paste-key connect (Bluesky / Mastodon / Telegram / Discord) ──────────
+  readonly pasteOpen = signal<PlatformId | null>(null);
+  readonly pasteSubmitting = signal(false);
+  readonly pasteError = signal<string | null>(null);
+  /** Per-platform form fields (only the relevant ones are shown/sent). */
+  pasteF: { identifier: string; app_password: string; instance_url: string; access_token: string; chat_id: string; channel_id: string; display_name: string } =
+    { identifier: '', app_password: '', instance_url: '', access_token: '', chat_id: '', channel_id: '', display_name: '' };
+
+  openPaste(pid: PlatformId): void {
+    this.pasteF = { identifier: '', app_password: '', instance_url: '', access_token: '', chat_id: '', channel_id: '', display_name: '' };
+    this.pasteError.set(null);
+    this.pasteOpen.set(pid);
+  }
+  closePaste(): void { this.pasteOpen.set(null); }
+
+  /** Build the worker's per-platform paste body ({@link PasteSchema}); null if invalid/unsupported. */
+  private pasteBody(pid: PlatformId): Record<string, unknown> | null {
+    const f = this.pasteF;
+    switch (pid) {
+      case 'bluesky':
+        return f.identifier.trim() && f.app_password.trim() ? { kind: 'bluesky', identifier: f.identifier.trim(), app_password: f.app_password.trim() } : null;
+      case 'mastodon':
+        return /^https?:\/\/[^\s]+$/i.test(f.instance_url.trim()) && f.access_token.trim().length >= 20 ? { kind: 'mastodon', instance_url: f.instance_url.trim(), access_token: f.access_token.trim() } : null;
+      case 'telegram':
+        return f.chat_id.trim() ? { kind: 'telegram', chat_id: f.chat_id.trim(), ...(f.display_name.trim() ? { display_name: f.display_name.trim() } : {}) } : null;
+      case 'discord':
+        return f.channel_id.trim().length >= 5 ? { kind: 'discord', channel_id: f.channel_id.trim(), ...(f.display_name.trim() ? { display_name: f.display_name.trim() } : {}) } : null;
+      default:
+        return null;
+    }
+  }
+
+  submitPasteConnect(): void {
+    const pid = this.pasteOpen();
+    if (!pid || this.pasteSubmitting()) return;
+    const body = this.pasteBody(pid);
+    if (!body) { this.pasteError.set('Fill in the required fields above.'); return; }
+    this.pasteSubmitting.set(true);
+    this.pasteError.set(null);
+    // {silent}: this inline form surfaces its own error in the dialog.
+    this.api.post(`/social/${pid}/paste`, body, { silent: true }).subscribe({
+      next: () => {
+        this.pasteSubmitting.set(false);
+        this.toast.success(`Connected ${this.defOf(pid)?.label}`);
+        this.closePaste();
+        this.loadAccounts();
+      },
+      error: (err: { error?: { error?: { message?: string } } }) => {
+        this.pasteSubmitting.set(false);
+        this.pasteError.set(err?.error?.error?.message ?? `Couldn't connect ${this.defOf(pid)?.label} — check the values and retry.`);
+      },
+    });
   }
 
   disconnect(pid: PlatformId): void {
