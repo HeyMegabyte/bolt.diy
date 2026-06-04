@@ -1652,14 +1652,22 @@ export class AdminBillingComponent implements OnInit {
     type SubResp = { status?: string; plan?: string; current_period_end?: string; last_webhook?: string; cancel_at?: string; };
     this.api.get<{ data?: SubResp }>('/billing/subscription').subscribe({
       next: (r) => {
-        const d: SubResp = r.data ?? (r as SubResp);
-        this.subStatus.set({
-          status: d.status ?? 'none',
-          plan: d.plan ?? '—',
-          current_period_end: d.current_period_end,
-          last_webhook: d.last_webhook,
-          cancel_at: d.cancel_at,
-        });
+        const d = r.data ?? null;
+        // A real subscription must carry a status or plan. No row / empty object
+        // (free user) → leave subStatus null so the card falls back to planLabel()
+        // ('Free') instead of fabricating an uninformative '—' plan.
+        const hasSub = !!(d && (d.status || d.plan));
+        this.subStatus.set(
+          hasSub
+            ? {
+                status: d!.status ?? 'none',
+                plan: d!.plan ?? '—',
+                current_period_end: d!.current_period_end,
+                last_webhook: d!.last_webhook,
+                cancel_at: d!.cancel_at,
+              }
+            : null,
+        );
       },
       error: () => {},
     });

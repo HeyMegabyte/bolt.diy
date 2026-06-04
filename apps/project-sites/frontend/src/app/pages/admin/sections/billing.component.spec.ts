@@ -154,11 +154,13 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
     expect(delSpy).not.toHaveBeenCalled();
   });
 
-  it('Subscription card shows the plan label (never a bare "—") for a free user', () => {
-    build();
+  it('an empty/absent subscription does not fabricate a {plan:"—"} — subStatus stays null + card shows "Free"', () => {
+    // build()'s stub returns `{ data: {} }` for /billing/subscription (no real sub).
+    build(); // ngOnInit → loadTabData
     const c = fixture.componentInstance;
-    c.plan.set('free');
-    c.subStatus.set(null); // free user → no subscription row
+    expect(c.subStatus())
+      .withContext('an empty/null subscription must leave subStatus null, not {plan:"—"}')
+      .toBeNull();
     fixture.detectChanges();
     const planEl = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="subscription-plan"]');
     expect(planEl?.textContent?.trim())
