@@ -126,6 +126,7 @@ type StatusFilter = 'all' | PseoPage['status'];
           </button>
         }
       </div>
+      <span class="sr-only" role="status" aria-live="polite" data-testid="pseo-result-status">{{ resultAnnouncement() }}</span>
 
       @if (loading()) {
         <div class="ps-skel" role="status" aria-busy="true" aria-label="Loading pages">
@@ -405,6 +406,19 @@ export class AdminPseoComponent {
 
   readonly selectedSiteId = computed(() => this.adminState.selectedSite()?.id ?? null);
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
+
+  /**
+   * SR-only announcement of the loaded page count + active status filter — the
+   * status pills re-fetch server-side, and without this a screen-reader user
+   * gets only "selected" (no sense of how many pages the filter returned).
+   * Mirrors apps.resultAnnouncement / feature-flags.filterAnnouncement.
+   */
+  readonly resultAnnouncement = computed<string>(() => {
+    const n = this.pages().length;
+    const noun = n === 1 ? 'page' : 'pages';
+    const s = this.statusFilter();
+    return s === 'all' ? `Showing ${n} ${noun}` : `${n} ${noun} · ${s}`;
+  });
 
   /** Share of the matrix that is live (published / total) — drives the cyan coverage meter. */
   readonly publishPct = computed(() => {

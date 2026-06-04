@@ -153,6 +153,17 @@ describe('AdminPseoComponent (mutations are {silent} — no double-toast)', () =
     expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
   });
 
+  it('resultAnnouncement(): announces the loaded page count + active status for screen readers', () => {
+    const c = make();
+    c.pages.set([{ id: 'p1' }, { id: 'p2' }] as never);
+    c.statusFilter.set('all');
+    expect(c.resultAnnouncement()).toBe('Showing 2 pages');
+    c.statusFilter.set('draft');
+    expect(c.resultAnnouncement()).toBe('2 pages · draft');
+    c.pages.set([{ id: 'p1' }] as never);
+    expect(c.resultAnnouncement()).withContext('singular noun for one page').toBe('1 page · draft');
+  });
+
   it('approvePage / publishPage / rejectPage all POST {silent:true}', async () => {
     const c = make();
     await c.approvePage({ id: 'p1', route_slug: 'r' } as never);
