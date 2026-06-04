@@ -477,13 +477,14 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
     this.api.post<{ data: PurchasedNumber }>(`/voice/numbers/purchase`, {
       siteId: this.state.selectedSite()?.id,
       phoneNumber: c.phone_number,
-    }).subscribe({
+    }, { silent: true }).subscribe({
       next: () => {
         this.toast.success(`${this.format(c.phone_number)} added`);
         this.searchResults.set([]);
         this.query = '';
         this.loadNumbers();
       },
+      // {silent}: the specific message below is the sole failure surface (no generic double-toast).
       error: () => this.toast.error('Purchase failed — check Twilio funds + permissions'),
     });
   }
@@ -496,8 +497,9 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
       danger: true,
     });
     if (!ok) return;
-    this.api.delete<void>(`/voice/numbers/${n.id}`).subscribe({
+    this.api.delete<void>(`/voice/numbers/${n.id}`, { silent: true }).subscribe({
       next: () => { this.toast.success('Number released'); this.loadNumbers(); },
+      // {silent}: the specific message below is the sole failure surface (no generic double-toast).
       error: () => this.toast.error('Failed to release number'),
     });
   }

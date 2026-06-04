@@ -377,8 +377,9 @@ export class VoiceAgentSettingsComponent {
     this.api.put<{ data: AgentSettings }>(`/voice/agent-settings`, {
       site_id: site.id,
       ...this.settings,
-    }).subscribe({
+    }, { silent: true }).subscribe({
       next: () => { this.toast.success('Voice settings saved'); this.saving.set(false); },
+      // {silent}: the specific 'Save failed' below is the sole failure surface (no generic double-toast).
       error: () => { this.toast.error('Save failed'); this.saving.set(false); },
     });
   }

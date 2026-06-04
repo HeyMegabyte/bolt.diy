@@ -46,7 +46,7 @@ describe('VoiceNumbersComponent (purchase + release confirmation)', () => {
     await c.confirmBuy({ phone_number: '+18558522267', monthly_cost_usd: 1.15 } as never);
     expect(confirmSpy).toHaveBeenCalled();
     expect((confirmSpy.calls.mostRecent().args[0] as { danger?: boolean }).danger).toBeTrue();
-    expect(api.post).toHaveBeenCalledWith('/voice/numbers/purchase', { siteId: 's1', phoneNumber: '+18558522267' });
+    expect(api.post).toHaveBeenCalledWith('/voice/numbers/purchase', { siteId: 's1', phoneNumber: '+18558522267' }, { silent: true });
   });
 
   it('confirmBuy does NOT POST when the buy confirm is cancelled', async () => {
@@ -61,7 +61,7 @@ describe('VoiceNumbersComponent (purchase + release confirmation)', () => {
     await ok.c.release({ id: 'n1', phone_number: '+18558522267' } as never);
     expect(ok.confirmSpy).toHaveBeenCalled();
     expect((ok.confirmSpy.calls.mostRecent().args[0] as { danger?: boolean }).danger).toBeTrue();
-    expect(ok.api.delete).toHaveBeenCalledWith('/voice/numbers/n1');
+    expect(ok.api.delete).toHaveBeenCalledWith('/voice/numbers/n1', { silent: true });
 
     TestBed.resetTestingModule();
     const no = make(false);

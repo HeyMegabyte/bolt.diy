@@ -45,3 +45,29 @@ describe('VoiceAgentSettingsComponent (passive loads are {silent})', () => {
     expect(get).toHaveBeenCalledWith('/voice/meta-prompt', undefined, { silent: true });
   });
 });
+
+/**
+ * save() PUT must be {silent} too: the handler owns a specific 'Save failed'
+ * toast, so a non-silent PUT double-fired ApiService's generic toast over it.
+ */
+describe('VoiceAgentSettingsComponent (save PUT is {silent} — no double-toast)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('save() PUTs /voice/agent-settings with {silent:true}', () => {
+    const put = jasmine.createSpy('put').and.returnValue(of({ data: {} }));
+    TestBed.configureTestingModule({
+      imports: [VoiceAgentSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: {} }), put } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    TestBed.overrideComponent(VoiceAgentSettingsComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(VoiceAgentSettingsComponent).componentInstance;
+    c.save();
+    expect(put).toHaveBeenCalled();
+    expect(put.calls.mostRecent().args[0]).toBe('/voice/agent-settings');
+    expect(put.calls.mostRecent().args[2]).withContext('mutation silenced so the own toast is sole').toEqual({ silent: true });
+  });
+});
