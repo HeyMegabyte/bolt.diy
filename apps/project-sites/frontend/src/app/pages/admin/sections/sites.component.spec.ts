@@ -171,4 +171,20 @@ describe('AdminSitesComponent (live freshness pill)', () => {
     await c.reload();
     expect(c.syncedAt()).withContext('a failed load must not look freshly synced').toBeNull();
   });
+
+  it('reads both heatmap gets with {silent:true} — the inline error card (not a toast) is the failure UX', async () => {
+    const get = jasmine.createSpy('get').and.returnValue(of({ data: [], sites: [] }));
+    const c = makeWith(get);
+    await c.reload();
+    // both silenced so ApiService's generic toast never fires over (or instead of)
+    // the inline error card — no double/triple feedback on a heatmap failure.
+    expect(get).toHaveBeenCalledWith('/sites', undefined, { silent: true });
+    expect(get).toHaveBeenCalledWith('/sites/sparklines', { days: '30' }, { silent: true });
+  });
+
+  it('a hard load failure (no fallback list) sets the inline error() card', async () => {
+    const c = makeWith(jasmine.createSpy('get').and.returnValue(throwError(() => new Error('boom'))));
+    await c.reload();
+    expect(c.error()).toContain('Could not load sites');
+  });
 });

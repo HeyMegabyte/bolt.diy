@@ -231,14 +231,14 @@ export class AdminSitesComponent implements OnInit {
     // Always load the raw sites list so we can router-link to /admin/sites/:id
     // even when the sparklines endpoint hasn't been populated yet.
     this.api
-      .get<{ sites?: Array<{ id: string; slug: string; name: string }> }>('/sites')
+      .get<{ sites?: Array<{ id: string; slug: string; name: string }> }>('/sites', undefined, { silent: true })
       .subscribe({
         error: () => this.fallbackSites.set([]),
         next: (res) => this.fallbackSites.set(res.sites ?? []),
       });
     try {
       const res = await firstValueFrom(
-        this.api.get<{ data: SiteSparkline[] }>('/sites/sparklines', { days: '30' }),
+        this.api.get<{ data: SiteSparkline[] }>('/sites/sparklines', { days: '30' }, { silent: true }),
       );
       this.rows.set(res.data ?? []);
       this.syncedAt.set(Date.now());
@@ -252,7 +252,9 @@ export class AdminSitesComponent implements OnInit {
         // Surface a copy-able reference for support hand-off.
         const ref = (err as { request_id?: string })?.request_id;
         this.errorRef.set(ref ?? `sites-heatmap-${Date.now().toString(36)}`);
-        this.toast.error('Sites heatmap failed to load');
+        // The inline error card (with the copy-able ref) is the persistent UX —
+        // no transient toast on top, and both gets are {silent} so the generic
+        // ApiService toast doesn't fire either (was triple feedback on a hard fail).
       }
     } finally {
       this.loading.set(false);
