@@ -189,9 +189,9 @@ function actionToFallbackMessage(action: string): string {
               type="button"
               data-testid="audit-scope-chip"
               class="scope-chip"
-              [title]="'Showing audit rows for ' + scopeName() + '. Click × to view every row in the org.'"
+              [title]="'Audit events span every site in the ' + scopeName() + ' org — no per-site filter is applied. × hides this label.'"
               (click)="clearScope()">
-              Filtered to: {{ scopeName() }} <span class="x">×</span>
+              Org: {{ scopeName() }} <span class="x">×</span>
             </button>
           }
           <button class="btn-ghost" (click)="exportCsv()">Export CSV</button>

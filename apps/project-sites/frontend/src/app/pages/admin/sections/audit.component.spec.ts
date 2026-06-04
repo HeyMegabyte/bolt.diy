@@ -258,6 +258,10 @@ describe('AdminAuditComponent (cohesion + a11y source contract)', () => {
     expect(t).toContain('data-testid="audit-scope-chip"');
     expect(t).toContain('data-testid="audit-empty"');
     expect((t.match(/<button/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    // The scope chip is an org-context label, NOT an applied filter (the audit
+    // API loads all org sites) — it must not claim "Filtered to:".
+    expect(t).not.toContain('Filtered to:');
+    expect(t).toContain('Org: {{ scopeName() }}');
   });
 
   it('brand colour is the cyan token family — never orange', () => {
