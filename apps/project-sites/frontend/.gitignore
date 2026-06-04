@@ -40,3 +40,8 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Ad-hoc visual-QA / scratch screenshots (root-level _s*.png) — never commit
+# loose binary capture artifacts (a stray `git add -A` would otherwise commit them).
+/_s*.png
+/shot_*.png
