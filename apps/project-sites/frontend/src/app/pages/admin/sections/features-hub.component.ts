@@ -19,7 +19,7 @@ import { FormsModule } from '@angular/forms';
 import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
 interface FlagDef {
@@ -167,11 +167,12 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
 @Component({
   selector: 'app-admin-features-hub',
   standalone: true,
-  imports: [CommonModule, FormsModule, RevealDirective, HlmInputDirective, HlmTablistDirective],
+  imports: [CommonModule, FormsModule, RouterLink, RevealDirective, HlmInputDirective, HlmTablistDirective],
   template: `
     <section class="hub" appReveal>
       <header class="hub-head">
         <div>
+          <p class="hub-kicker">Platform · Live</p>
           <h1>Features Hub</h1>
           <p class="hub-sub">
             {{ enabledCount() }} / {{ totalCount() }} features enabled in this environment.
@@ -279,6 +280,10 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
     :host { display: block; padding: 1.25rem 1.5rem 4rem; max-width: min(1400px, 100%); margin: 0 auto; min-width: 0; overflow-x: clip; color: var(--ps-ink, #f4f4ff); }
     .hub-head { display: flex; align-items: start; justify-content: space-between; gap: 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
     .hub-head > * { min-width: 0; max-width: 100%; }
+    /* Cockpit kicker eyebrow — matches the cyan mono eyebrow every other
+       admin section header carries (voice/settings/…), so this newly-nav'd
+       surface reads as part of the cyan/black cockpit. */
+    .hub-kicker { margin: 0 0 .25rem; font: 700 0.62rem/1 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ps-accent, #00e5ff); opacity: 0.85; }
     .hub-head h1 { margin: 0 0 .25rem; font-size: clamp(1.5rem, 3vw, 2.25rem); }
     .hub-sub { color: color-mix(in oklch, currentColor 65%, transparent); margin: 0; max-width: 72ch; overflow-wrap: anywhere; }
     .hub-sub a { color: var(--ps-accent, #00e5ff); }

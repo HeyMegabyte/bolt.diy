@@ -121,4 +121,23 @@ describe('AdminFeaturesHubComponent (in-text feature-flags link is underlined)',
     expect(link).not.toBeNull();
     expect(link!.className).withContext('in-text link needs a default underline, not color-only').toContain('underline');
   });
+
+  it('the feature-flags link is a WORKING RouterLink (renders href → SPA nav, not a dead attribute)', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminFeaturesHubComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get: () => of({ flags: [] }), post: () => of({}) } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminFeaturesHubComponent);
+    fx.detectChanges();
+    const link = (fx.nativeElement as HTMLElement).querySelector(
+      'a[routerLink="/admin/feature-flags"]',
+    ) as HTMLAnchorElement;
+    // RouterLink on an <a> renders an href. Without the directive in the
+    // component imports the attribute is INERT (no href) → a dead link.
+    expect(link.getAttribute('href')).toBe('/admin/feature-flags');
+  });
 });
