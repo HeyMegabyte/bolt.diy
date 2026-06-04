@@ -307,7 +307,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
                       (ngModelChange)="pasteKeyValue.set($event)"
                       name="apiKey"
                     />
-                    <button type="submit">Save key</button>
+                    <button type="submit" [disabled]="pasteKeySaving()">{{ pasteKeySaving() ? 'Saving…' : 'Save key' }}</button>
                   </form>
                 }
               </article>
@@ -696,18 +696,30 @@ export class AdminSiteDetailComponent {
       });
   }
 
+  readonly pasteKeySaving = signal(false);
   submitPasteKey(p: IntegrationProvider): void {
-    const apiKey = this.pasteKeyValue();
-    if (!apiKey) return;
+    const apiKey = this.pasteKeyValue().trim();
+    if (!apiKey || this.pasteKeySaving()) return;
+    this.pasteKeySaving.set(true);
     this.api
-      .post(`/mcp/${p.key}/paste`, { api_key: apiKey, site_id: this.siteId() })
+      // {silent} — surface the specific failure below, not the generic toast.
+      // catchError returns null (not a fake { ok }) so failure is distinguishable.
+      .post(`/mcp/${p.key}/paste`, { api_key: apiKey, site_id: this.siteId() }, { silent: true })
       .pipe(
-        catchError(() => of({ ok: false })),
+        catchError(() => of(null)),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe(() => {
+      .subscribe((res) => {
+        this.pasteKeySaving.set(false);
+        if (res === null) {
+          // Failure: keep the form open + the typed key so the operator can fix
+          // + retry — never silently close on a rejected/bad key.
+          this.toast.error(`Couldn't save the ${p.name} key — check it and try again.`);
+          return;
+        }
         this.pasteKeyOpen.set(null);
         this.pasteKeyValue.set('');
+        this.toast.success(`Connected ${p.name}`);
         this.loadIntegrations(this.siteId());
       });
   }

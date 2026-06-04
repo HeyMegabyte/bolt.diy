@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { AdminSiteDetailComponent } from './site-detail.component';
 import { ApiService } from '../../../services/api.service';
@@ -362,5 +362,58 @@ describe('AdminSiteDetailComponent (SQL result row cap — perf)', () => {
     const { c } = make();
     const r = { columns: ['id'], rows: [{ id: 1 }, { id: 2 }], duration_ms: 1 };
     expect(c.cappedRows(r).length).toBe(2);
+  });
+});
+
+describe('AdminSiteDetailComponent (paste-key save — no silent failure)', () => {
+  function build(post: jasmine.Spy): { c: AdminSiteDetailComponent; toastErr: jasmine.Spy; toastOk: jasmine.Spy } {
+    const toastErr = jasmine.createSpy('error');
+    const toastOk = jasmine.createSpy('success');
+    TestBed.configureTestingModule({
+      imports: [AdminSiteDetailComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ site: { id: 's1', slug: 's', name: 'S' }, providers: [] }), post, delete: () => of({}) } },
+        { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 's1' }), queryParamMap: of({ get: () => null }) } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: ToastService, useValue: { error: toastErr, success: toastOk, info: () => 0, warning: () => 0 } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSiteDetailComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminSiteDetailComponent).componentInstance, toastErr, toastOk };
+  }
+  const PROV = { key: 'mailchimp', name: 'Mailchimp', status: 'disconnected' } as never;
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('on a FAILED key save: keeps the form open, keeps the typed key, toasts a specific error (no silent close)', () => {
+    const { c, toastErr } = build(jasmine.createSpy('post').and.returnValue(throwError(() => ({ status: 400 }))));
+    c.pasteKeyOpen.set('mailchimp');
+    c.pasteKeyValue.set('bad-key');
+    c.submitPasteKey(PROV);
+    expect(toastErr).toHaveBeenCalled();
+    expect(c.pasteKeyOpen()).withContext('form stays open so the user can fix + retry').toBe('mailchimp');
+    expect(c.pasteKeyValue()).withContext('typed key preserved').toBe('bad-key');
+    expect(c.pasteKeySaving()).toBeFalse();
+  });
+
+  it('on a SUCCESSFUL save: closes the form, clears the key, toasts success', () => {
+    const { c, toastOk } = build(jasmine.createSpy('post').and.returnValue(of({ ok: true })));
+    c.pasteKeyOpen.set('mailchimp');
+    c.pasteKeyValue.set('good-key');
+    c.submitPasteKey(PROV);
+    expect(toastOk).toHaveBeenCalledWith('Connected Mailchimp');
+    expect(c.pasteKeyOpen()).toBeNull();
+    expect(c.pasteKeyValue()).toBe('');
+  });
+
+  it('posts {silent:true} (its own toasts are the sole feedback) + guards double-submit', () => {
+    const gate = new Subject<unknown>();
+    const post = jasmine.createSpy('post').and.returnValue(gate);
+    const { c } = build(post);
+    c.pasteKeyValue.set('k');
+    c.submitPasteKey(PROV);
+    expect(post).toHaveBeenCalledWith('/mcp/mailchimp/paste', { api_key: 'k', site_id: 's1' }, { silent: true });
+    c.submitPasteKey(PROV); // second click while in-flight
+    expect(post).withContext('double-submit guarded').toHaveBeenCalledTimes(1);
   });
 });
