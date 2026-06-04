@@ -113,3 +113,41 @@ describe('AdminContentFreshnessComponent (aggregate stat strip + cohesion)', () 
     expect(component.table.getRowModel().rows.map((r) => (r.original as { idle_days: number }).idle_days)).toEqual([200, 100]);
   }));
 });
+
+/**
+ * Double-toast guard: approve/reject/triggerScan use firstValueFrom(api.post) +
+ * a catch that shows their OWN toast.error, so each post must pass {silent:true}
+ * (else the generic ApiService toast double-fires on failure).
+ */
+describe('AdminContentFreshnessComponent (mutations are {silent})', () => {
+  let post: jasmine.Spy;
+  function make(): AdminContentFreshnessComponent {
+    post = jasmine.createSpy('post').and.returnValue(of({}));
+    TestBed.configureTestingModule({
+      imports: [AdminContentFreshnessComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ drafts: [], total: 0 }), post } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: () => ({ id: 's' }) } },
+      ],
+    });
+    return TestBed.createComponent(AdminContentFreshnessComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('approve() POSTs {silent:true}', async () => {
+    const c = make();
+    await c.approve('d1');
+    expect(post.calls.mostRecent().args[0]).toBe('/content/freshness/approve/d1');
+    expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
+  });
+
+  it('reject() + triggerScan() POST {silent:true}', async () => {
+    const c = make();
+    await c.reject('d1');
+    expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
+    await c.triggerScan();
+    expect(post.calls.mostRecent().args[0]).toBe('/content/freshness/trigger');
+    expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
+  });
+});

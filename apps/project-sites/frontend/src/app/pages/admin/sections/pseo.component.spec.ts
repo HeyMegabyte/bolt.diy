@@ -122,3 +122,42 @@ describe('AdminPseoComponent (cohesion + a11y, convergence r18)', () => {
     expect(msg).not.toContain('failed to load');
   });
 });
+
+/**
+ * Double-toast guard: generate/approve/publish/reject use firstValueFrom(api.post)
+ * + a catch that shows their OWN toast.error, so each post must pass {silent:true}
+ * or a failure fires the generic ApiService toast on top of the specific one.
+ */
+describe('AdminPseoComponent (mutations are {silent} — no double-toast)', () => {
+  let post: jasmine.Spy;
+  function make(): AdminPseoComponent {
+    post = jasmine.createSpy('post').and.returnValue(of({}));
+    TestBed.configureTestingModule({
+      imports: [AdminPseoComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ pages: [], total: 0 }), post } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0, info: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    return TestBed.createComponent(AdminPseoComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('generate() POSTs {silent:true}', async () => {
+    const c = make();
+    await c.generate();
+    expect(post.calls.mostRecent().args[0]).toBe('/pseo/s1/generate');
+    expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
+  });
+
+  it('approvePage / publishPage / rejectPage all POST {silent:true}', async () => {
+    const c = make();
+    await c.approvePage({ id: 'p1', route_slug: 'r' } as never);
+    expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
+    await c.publishPage({ id: 'p1', route_slug: 'r' } as never);
+    expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
+    await c.rejectPage({ id: 'p1', route_slug: 'r' } as never);
+    expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
+  });
+});

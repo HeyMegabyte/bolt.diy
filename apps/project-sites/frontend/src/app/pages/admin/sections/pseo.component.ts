@@ -458,7 +458,7 @@ export class AdminPseoComponent {
     if (!siteId) return;
     this.generating.set(true);
     try {
-      await firstValueFrom(this.api.post(`/pseo/${siteId}/generate`, {}));
+      await firstValueFrom(this.api.post(`/pseo/${siteId}/generate`, {}, { silent: true }));
       this.toast.success('Matrix generation queued — pages appear in the grid as they build.');
       // Reload after a brief pause to let the workflow kick off
       setTimeout(() => { this.loadStats(); this.loadPages(); }, 2000);
@@ -474,7 +474,7 @@ export class AdminPseoComponent {
     if (!siteId) return;
     this.acting.update((s) => new Set([...s, p.id]));
     try {
-      await firstValueFrom(this.api.post(`/pseo/${siteId}/pages/${p.id}/approve`, {}));
+      await firstValueFrom(this.api.post(`/pseo/${siteId}/pages/${p.id}/approve`, {}, { silent: true }));
       this.pages.update((list) => list.map((row) => row.id === p.id ? { ...row, status: 'approved' as const } : row));
       this.toast.success(`Approved ${p.route_slug}`);
     } catch (e) {
@@ -489,7 +489,7 @@ export class AdminPseoComponent {
     if (!siteId) return;
     this.acting.update((s) => new Set([...s, p.id]));
     try {
-      await firstValueFrom(this.api.post(`/pseo/${siteId}/pages/${p.id}/publish`, {}));
+      await firstValueFrom(this.api.post(`/pseo/${siteId}/pages/${p.id}/publish`, {}, { silent: true }));
       this.pages.update((list) => list.map((row) => row.id === p.id ? { ...row, status: 'published' as const } : row));
       this.toast.success(`Published ${p.route_slug}`);
       this.loadStats();
@@ -505,7 +505,7 @@ export class AdminPseoComponent {
     if (!siteId) return;
     this.acting.update((s) => new Set([...s, p.id]));
     try {
-      await firstValueFrom(this.api.post(`/pseo/${siteId}/pages/${p.id}/reject`, {}));
+      await firstValueFrom(this.api.post(`/pseo/${siteId}/pages/${p.id}/reject`, {}, { silent: true }));
       this.pages.update((list) => list.map((row) => row.id === p.id ? { ...row, status: 'rejected' as const } : row));
       this.toast.success(`Rejected ${p.route_slug}`);
     } catch (e) {

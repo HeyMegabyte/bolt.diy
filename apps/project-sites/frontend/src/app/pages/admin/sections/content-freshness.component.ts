@@ -531,7 +531,7 @@ export class AdminContentFreshnessComponent implements OnInit {
   async approve(draftId: string): Promise<void> {
     this.acting.update((s) => new Set([...s, draftId]));
     try {
-      await firstValueFrom(this.api.post(`/content/freshness/approve/${draftId}`, {}));
+      await firstValueFrom(this.api.post(`/content/freshness/approve/${draftId}`, {}, { silent: true }));
       this.drafts.update((list) => list.filter((d) => d.id !== draftId));
       this.total.update((t) => Math.max(0, t - 1));
       this.toast.success('Approved — rewrite queued to publish.');
@@ -545,7 +545,7 @@ export class AdminContentFreshnessComponent implements OnInit {
   async reject(draftId: string): Promise<void> {
     this.acting.update((s) => new Set([...s, draftId]));
     try {
-      await firstValueFrom(this.api.post(`/content/freshness/reject/${draftId}`, {}));
+      await firstValueFrom(this.api.post(`/content/freshness/reject/${draftId}`, {}, { silent: true }));
       this.drafts.update((list) => list.filter((d) => d.id !== draftId));
       this.total.update((t) => Math.max(0, t - 1));
       this.toast.info('Rejected — draft discarded.');
@@ -559,7 +559,7 @@ export class AdminContentFreshnessComponent implements OnInit {
   async triggerScan(): Promise<void> {
     this.triggering.set(true);
     try {
-      await firstValueFrom(this.api.post('/content/freshness/trigger', {}));
+      await firstValueFrom(this.api.post('/content/freshness/trigger', {}, { silent: true }));
       this.toast.success('Scan started — new drafts appear shortly.');
     } catch {
       this.toast.error('Scan failed — could not start the scan.');
