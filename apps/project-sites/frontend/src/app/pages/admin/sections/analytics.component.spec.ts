@@ -137,4 +137,24 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
     // Must guide the operator on what to do next.
     expect(msg).toMatch(/retry|temporar|unavailable|try again|moment|shortly/);
   });
+
+  // A FAILED load must not also paint "0 views / no traffic yet" — that reads as
+  // a definitive empty-data claim over an error (lying-UI). On error the body
+  // (KPI tiles + chart + lists) is gated; only the error banner + Retry show.
+  it('on error, the KPI tiles + chart body are NOT rendered (no lying "0"/"no traffic" over a failed load)', () => {
+    build({ id: 'site-x' });
+    fixture.componentInstance.error.set('Analytics service is unavailable.');
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="kpi-pageviews"]')).withContext('KPI tiles hidden on error').toBeNull();
+    expect(el.textContent).withContext('error banner still shows').toContain('Analytics returned an error');
+  });
+
+  it('with a site + no error, the KPI tiles render', () => {
+    build({ id: 'site-x' });
+    fixture.componentInstance.error.set(null);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="kpi-pageviews"]'))
+      .withContext('body renders on the happy path').not.toBeNull();
+  });
 });

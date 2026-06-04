@@ -190,6 +190,10 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
         </div>
       }
 
+      <!-- Body renders ONLY with a site selected + no load error. On error the
+           banner above is the whole truth — never also paint "0 views / no
+           traffic yet" (a definitive empty-data claim) over a FAILED load. -->
+      @if (state.selectedSite() && !error()) {
       <!-- ─────────────────── KPI TILES ─────────────────── -->
       <div class="grid gap-3 grid-cols-3 max-md:grid-cols-1">
         <div class="card kpi" appReveal data-testid="kpi-pageviews">
@@ -396,6 +400,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
         Source: {{ dataLabel() }} · {{ dataTooltip() }} ·
         last refreshed {{ refreshedAt() ? (refreshedAt() | date:'medium') : '—' }}
       </p>
+      }
     </div>
   `,
   styles: [`
