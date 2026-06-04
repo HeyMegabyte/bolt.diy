@@ -63,3 +63,42 @@ describe('DialogShellComponent (modal close contract)', () => {
     expect(fired()).toBe(0);
   });
 });
+
+const focusTrapProvider = {
+  provide: ConfigurableFocusTrapFactory,
+  useValue: { create: () => ({ focusInitialElementWhenReady: () => undefined, destroy: () => undefined }) },
+};
+
+describe('DialogShellComponent (a11y: accessible name)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('labels the role="dialog" by its title (aria-labelledby ↔ <h2> id) — no nameless dialog', () => {
+    TestBed.configureTestingModule({ imports: [DialogShellComponent], providers: [focusTrapProvider] });
+    const fx = TestBed.createComponent(DialogShellComponent); // real template
+    fx.detectChanges();
+    const root = (fx.nativeElement as HTMLElement).querySelector('[role="dialog"]');
+    const h2 = (fx.nativeElement as HTMLElement).querySelector('h2');
+    expect(root?.getAttribute('aria-modal')).toBe('true');
+    expect(h2?.id).withContext('title carries a unique id').toBeTruthy();
+    expect(root?.getAttribute('aria-labelledby'))
+      .withContext('the dialog is named by its title element')
+      .toBe(h2!.id);
+  });
+});
+
+describe('DialogShellComponent (a11y: focus restore)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('restores focus to the trigger element on destroy (WCAG 2.4.3)', () => {
+    const trigger = document.createElement('button');
+    document.body.appendChild(trigger);
+    trigger.focus(); // real focus so the constructor captures it as previouslyFocused
+    TestBed.configureTestingModule({ imports: [DialogShellComponent], providers: [focusTrapProvider] });
+    TestBed.overrideComponent(DialogShellComponent, { set: { template: '<div></div>' } });
+    const fx = TestBed.createComponent(DialogShellComponent); // ctor captures `trigger`
+    const focusSpy = spyOn(trigger, 'focus').and.callThrough(); // spy AFTER capture
+    fx.destroy(); // ngOnDestroy → restore focus to the trigger
+    expect(focusSpy).toHaveBeenCalled();
+    trigger.remove();
+  });
+});

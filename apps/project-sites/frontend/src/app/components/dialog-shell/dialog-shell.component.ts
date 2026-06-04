@@ -7,7 +7,7 @@ import { A11yModule, ConfigurableFocusTrapFactory, type ConfigurableFocusTrap } 
   standalone: true,
   imports: [A11yModule],
   template: `
-    <div class="ps-dialog-root fixed inset-0 z-[2000] flex items-center justify-center p-4" role="dialog" aria-modal="true" (click)="onBackdropClick($event)">
+    <div class="ps-dialog-root fixed inset-0 z-[2000] flex items-center justify-center p-4" role="dialog" aria-modal="true" [attr.aria-labelledby]="titleId" (click)="onBackdropClick($event)">
       <!-- Backdrop: deeper blur + saturate for cinematic dim. -->
       <div class="ps-dialog-backdrop absolute inset-0" aria-hidden="true"></div>
 
@@ -18,7 +18,7 @@ import { A11yModule, ConfigurableFocusTrapFactory, type ConfigurableFocusTrap } 
         <div class="ps-dialog-head flex items-center justify-between flex-shrink-0">
           <div class="flex items-center gap-3 min-w-0">
             <ng-content select="[dialogIcon]"></ng-content>
-            <h2 class="text-lg font-bold text-white m-0 truncate" style="font-family:'Sora',system-ui,sans-serif;letter-spacing:-0.02em;text-wrap:balance;">
+            <h2 [id]="titleId" class="text-lg font-bold text-white m-0 truncate" style="font-family:'Sora',system-ui,sans-serif;letter-spacing:-0.02em;text-wrap:balance;">
               <ng-content select="[dialogTitle]"></ng-content>
             </h2>
             <ng-content select="[dialogBadge]"></ng-content>
@@ -138,6 +138,17 @@ export class DialogShellComponent implements AfterViewInit, OnDestroy {
   private focusTrapFactory = inject(ConfigurableFocusTrapFactory);
   private focusTrap?: ConfigurableFocusTrap;
 
+  /** Unique id linking the dialog's <h2> title to aria-labelledby (WCAG 4.1.2 —
+   *  a role="dialog" must have an accessible name). */
+  private static seq = 0;
+  protected readonly titleId = `ps-dialog-title-${DialogShellComponent.seq++}`;
+
+  /** The element focused before the dialog opened — captured at construction
+   *  (before the focus trap steals focus) so it can be restored on close
+   *  (WCAG 2.4.3 — focus returns to the trigger). */
+  private readonly previouslyFocused: HTMLElement | null =
+    typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null;
+
   maxWidth = '640px';
   closed = output<void>();
 
@@ -156,6 +167,10 @@ export class DialogShellComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.focusTrap?.destroy();
+    // Return focus to the element that opened the dialog (the trap doesn't auto-restore).
+    if (this.previouslyFocused && typeof this.previouslyFocused.focus === 'function') {
+      try { this.previouslyFocused.focus({ preventScroll: true }); } catch { /* detached/unfocusable — ignore */ }
+    }
   }
 
   close(): void {
