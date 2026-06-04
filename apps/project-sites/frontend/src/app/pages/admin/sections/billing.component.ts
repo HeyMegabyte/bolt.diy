@@ -266,7 +266,14 @@ interface ForecastBar {
               <div>
                 <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary font-bold">Balance</div>
                 <div class="text-3xl font-bold text-white tabular-nums" data-testid="wallet-balance">
-                  <app-rolling-counter [value]="walletBalance()" prefix="$" [decimals]="2" [duration]="900" />
+                  @if (walletBalanceCents() !== null) {
+                    <app-rolling-counter [value]="walletBalance()" prefix="$" [decimals]="2" [duration]="900" />
+                  } @else {
+                    <span class="text-text-secondary">—</span>
+                    @if (walletError()) {
+                      <button class="btn-ghost text-xs ml-2 align-middle" type="button" (click)="loadWallet()" data-testid="wallet-retry">Retry</button>
+                    }
+                  }
                 </div>
               </div>
               <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-cyan-300" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H5a2 2 0 0 0-2 2v2h20V5a2 2 0 0 0-2-2h-2"/><circle cx="16" cy="14" r="1"/></svg>
@@ -1511,8 +1518,11 @@ export class AdminBillingComponent implements OnInit {
 
   // ── Wallet tab ──
 
-  walletBalanceCents = signal<number>(0);
-  walletBalance = computed<number>(() => this.walletBalanceCents() / 100);
+  // null = not-yet-loaded or load-failed → render "—", NEVER a fake "$0.00"
+  // (a money figure that lies on a transient blip is worse than an honest dash).
+  walletBalanceCents = signal<number | null>(null);
+  walletError = signal<boolean>(false);
+  walletBalance = computed<number>(() => (this.walletBalanceCents() ?? 0) / 100);
 
   topupAmount = signal<number | null>(null);
   toppingUp = signal(false);
@@ -1594,6 +1604,19 @@ export class AdminBillingComponent implements OnInit {
         if (url) { const win = window.open(url, '_blank', 'noopener,noreferrer'); if (!win) window.location.href = url; }
       },
       error: () => { this.purchasingAddon.set(null); },
+    });
+  }
+
+  /** Load (or retry) the wallet balance. {silent} — a failed load shows an inline "—" + Retry, not a fake $0.00. */
+  loadWallet(): void {
+    this.walletError.set(false);
+    this.api.get<{ data?: { balance_cents?: number } }>('/wallet', undefined, { silent: true }).subscribe({
+      next: (r) => {
+        const d = r.data ?? (r as { balance_cents?: number });
+        this.walletBalanceCents.set(d.balance_cents ?? 0);
+        this.walletError.set(false);
+      },
+      error: () => { this.walletBalanceCents.set(null); this.walletError.set(true); },
     });
   }
 
@@ -1688,13 +1711,7 @@ export class AdminBillingComponent implements OnInit {
     });
 
     // Wallet balance (BILL-16)
-    this.api.get<{ data?: { balance_cents?: number } }>('/wallet').subscribe({
-      next: (r) => {
-        const d = r.data ?? (r as { balance_cents?: number });
-        this.walletBalanceCents.set(d.balance_cents ?? 0);
-      },
-      error: () => {},
-    });
+    this.loadWallet();
 
     // Upcoming invoice (BILL-09)
     this.api.get<{

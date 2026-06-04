@@ -27,13 +27,16 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
   let confirmSpy: jasmine.Spy;
   let delSpy: jasmine.Spy;
 
-  function build(confirmResult = true): void {
+  function build(confirmResult = true, failWallet = false): void {
     // Every GET the component fires resolves to an empty/zeroed envelope so
     // ngOnInit settles synchronously without touching the network.
     delSpy = jasmine.createSpy('delete').and.returnValue(of({ ok: true }));
     confirmSpy = jasmine.createSpy('confirm').and.resolveTo(confirmResult);
     const apiStub = {
-      get: () => of({ data: {} }),
+      get: (p?: string) =>
+        failWallet && typeof p === 'string' && p.includes('/wallet')
+          ? throwError(() => ({ status: 500 }))
+          : of({ data: {} }),
       post: () => of({ data: {} }),
       put: () => of({ data: {} }),
       delete: delSpy,
@@ -169,6 +172,20 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
     expect(root.querySelector('[data-testid="subscription-period-end"]')?.textContent?.trim())
       .withContext('a free user has no billing cycle → "No renewal", not a bare em-dash')
       .toBe('No renewal');
+  });
+
+  it('a wallet-load failure shows "—" (null), never a fake $0.00 balance', () => {
+    build(true, /* failWallet */ true);
+    const c = fixture.componentInstance;
+    expect(c.walletBalanceCents()).withContext('null, not 0 → renders "—"').toBeNull();
+    expect(c.walletError()).toBeTrue();
+  });
+
+  it('a successful wallet load sets a real balance + clears the error', () => {
+    build(); // empty {data:{}} → balance_cents ?? 0
+    const c = fixture.componentInstance;
+    expect(c.walletBalanceCents()).withContext('loaded (0 from empty envelope), not null').toBe(0);
+    expect(c.walletError()).toBeFalse();
   });
 });
 
