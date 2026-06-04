@@ -5,11 +5,15 @@
  * (`<label> · ProjectSites`) + meta description in {@link AdminComponent}.
  *
  * Every routed admin section MUST have an entry here — a missing entry falls
- * back to 'Editor', leaving a stale/incorrect document title (WCAG 2.4.2 Page
- * Titled). Keep this in sync with the admin child routes in `app.routes.ts`.
+ * back to 'Dashboard' (the `/admin` home), leaving a stale/incorrect document
+ * title (WCAG 2.4.2 Page Titled). Keep this in sync with the admin child routes
+ * in `app.routes.ts`.
  */
 export const ADMIN_SECTION_LABELS: Readonly<Record<string, string>> = {
-  '': 'Editor', admin: 'Editor', editor: 'Editor', 'editor-native': 'Editor',
+  // `/admin` (path:'') now renders the AI Dashboard, NOT the editor — the editor
+  // moved to `/admin/editor`. Label the index route 'Dashboard' so the breadcrumb
+  // + document title match what's on screen (WCAG 2.4.2). editor* stay 'Editor'.
+  '': 'Dashboard', admin: 'Dashboard', editor: 'Editor', 'editor-native': 'Editor',
   snapshots: 'Snapshots', analytics: 'Analytics',
   forms: 'Forms', traces: 'AI Traces', 'ai-logs': 'AI Traces',
   'ai-endpoints': 'AI Agents', domains: 'Domains', docs: 'Docs',
@@ -31,8 +35,8 @@ export const ADMIN_SECTION_LABELS: Readonly<Record<string, string>> = {
 
 /**
  * Resolve the human label for a route's last path segment.
- * Falls back to 'Editor' (the shell default) for unknown segments.
+ * Falls back to 'Dashboard' (the `/admin` home) for unknown segments.
  */
 export function adminSectionLabel(segment: string): string {
-  return ADMIN_SECTION_LABELS[segment] ?? 'Editor';
+  return ADMIN_SECTION_LABELS[segment] ?? 'Dashboard';
 }

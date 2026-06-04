@@ -23,11 +23,18 @@ describe('adminSectionLabel (per-route title map)', () => {
     expect(adminSectionLabel('snapshots')).toBe('Snapshots');
     expect(adminSectionLabel('sites')).toBe('Sites');
     expect(adminSectionLabel('feature-flags')).toBe('Feature Flags');
-    expect(adminSectionLabel('')).toBe('Editor');
   });
 
-  it('falls back to Editor only for genuinely-unknown segments', () => {
-    expect(adminSectionLabel('totally-unknown-xyz')).toBe('Editor');
+  it('labels the /admin index route "Dashboard" (it renders the AI dashboard, not the editor)', () => {
+    expect(adminSectionLabel('')).toBe('Dashboard');
+    expect(adminSectionLabel('admin')).toBe('Dashboard');
+    // the editor moved to /admin/editor — those segments stay "Editor"
+    expect(adminSectionLabel('editor')).toBe('Editor');
+    expect(adminSectionLabel('editor-native')).toBe('Editor');
+  });
+
+  it('falls back to Dashboard (the home) for genuinely-unknown segments', () => {
+    expect(adminSectionLabel('totally-unknown-xyz')).toBe('Dashboard');
   });
 
   it('every label is non-empty (so the title is never "  · ProjectSites")', () => {
