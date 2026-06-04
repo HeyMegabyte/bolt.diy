@@ -714,7 +714,7 @@ interface GhStatus {
     .btn-github-unlink:hover:not(:disabled) { background: rgba(248,113,113,0.16); color: #f87171; }
     .btn-github-push:disabled, .btn-github-unlink:disabled { opacity: 0.45; cursor: not-allowed; }
 
-    .btn-create-snap { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.85rem; border-radius: 8px; background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(124,58,237,0.18)); color: #00E5FF; border: 1px solid rgba(0,229,255,0.4); font-size: 0.74rem; font-weight: 600; cursor: pointer; transition: all 160ms ease; pointer-events: auto; }
+    .btn-create-snap { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.85rem; border-radius: 8px; background: linear-gradient(135deg, rgba(0,229,255,0.18), rgba(0,212,255,0.10)); color: #00E5FF; border: 1px solid rgba(0,229,255,0.4); font-size: 0.74rem; font-weight: 600; cursor: pointer; transition: all 160ms ease; pointer-events: auto; }
     .btn-create-snap:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px -8px rgba(0,229,255,0.4); }
     .btn-create-snap:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -730,7 +730,10 @@ interface GhStatus {
       padding: 0.4rem 0.75rem;
       border-radius: 8px;
       color: #06121A;
-      background: linear-gradient(135deg, #00E5FF 0%, #7C3AED 100%);
+      /* Cockpit is cyan/black — use the tokenized cyan primary gradient, never
+         the cyan→purple it had drifted to (the brand-tokens guard only caught
+         the mint-green drift, so this purple slipped through). */
+      background: var(--ps-grad-primary, linear-gradient(135deg, #00E5FF, #00d4ff));
       border: 1px solid rgba(0, 229, 255, 0.55);
       box-shadow: 0 6px 18px -8px rgba(0, 229, 255, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
     }
