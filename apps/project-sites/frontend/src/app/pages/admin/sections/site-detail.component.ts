@@ -208,6 +208,13 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
             (ngModelChange)="sqlQuery.set($event)"
             placeholder="SELECT * FROM ..."
           ></textarea>
+          <div class="sql-starters" role="group" aria-label="Starter queries">
+            <span class="sql-starters-label">Starters</span>
+            @for (st of sqlStarters; track st.label) {
+              <button type="button" class="sql-starter-chip" [attr.data-testid]="'sql-starter-' + st.label"
+                      [title]="st.query" (click)="useSqlStarter(st.query)">{{ st.label }}</button>
+            }
+          </div>
           <div class="sql-toolbar">
             <button type="button" (click)="runSql()">Run</button>
             @if (sqlRunning()) { <span class="muted">running…</span> }
@@ -324,6 +331,17 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
     .rollback-btn:hover { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent); }
     /* .sql-editor removed — now Spartan hlmInput [multiline] (font-mono resize-y). */
     .sql-toolbar { display: flex; gap: 0.75rem; align-items: center; margin: 0.5rem 0 1rem; }
+    .sql-starters { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.5rem; }
+    .sql-starters-label { font-size: 0.66rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 50%, transparent); }
+    .sql-starter-chip {
+      font-size: 0.72rem; font-weight: 500; padding: 0.22rem 0.6rem; border-radius: 999px; cursor: pointer;
+      color: var(--ps-accent, #00e5ff);
+      background: color-mix(in oklch, var(--ps-accent, #00e5ff) 9%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent);
+      transition: background 140ms ease, border-color 140ms ease;
+    }
+    .sql-starter-chip:hover { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 18%, transparent); border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 50%, transparent); }
+    .sql-starter-chip:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
     .sql-result-scroll { overflow-x: auto; max-width: 100%; border-radius: 8px; }
     .sql-result-scroll:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
     .sql-result-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -383,6 +401,19 @@ export class AdminSiteDetailComponent {
 
   // ── SQL ──────────────────────────────────────────────────────────────
   readonly sqlQuery = signal('');
+  /** One-click starter queries — universal, read-only, pass both the client +
+   *  server guards. Gives an empty console a guided first action (what tables
+   *  exist?) instead of a blank `SELECT * FROM …` placeholder. */
+  readonly sqlStarters: ReadonlyArray<{ label: string; query: string }> = [
+    { label: 'List tables', query: "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name" },
+    { label: 'List indexes', query: "SELECT name, tbl_name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%' ORDER BY tbl_name, name" },
+    { label: 'SQLite version', query: 'SELECT sqlite_version() AS version' },
+  ];
+  /** Fill the editor with a starter and run it (all starters are read-only). */
+  useSqlStarter(query: string): void {
+    this.sqlQuery.set(query);
+    this.runSql();
+  }
   readonly sqlResult = signal<SqlResult | null>(null);
   readonly sqlError = signal<string | null>(null);
   readonly sqlRunning = signal(false);

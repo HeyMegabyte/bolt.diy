@@ -308,3 +308,25 @@ describe('AdminSiteDetailComponent (snapshot rollback — confirm-gated, most de
     expect(c.rollbackResult()).toBe('v3');
   });
 });
+
+describe('AdminSiteDetailComponent (SQL starter queries)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('useSqlStarter fills the editor + runs the query (read-only POST to /sql/exec)', () => {
+    const { c, post } = make();
+    c.useSqlStarter("SELECT name FROM sqlite_master WHERE type='table'");
+    expect(c.sqlQuery()).toContain('sqlite_master');
+    expect(post).toHaveBeenCalledWith('/sites/site-1/sql/exec', { query: "SELECT name FROM sqlite_master WHERE type='table'" });
+  });
+
+  it('every starter query is read-only (passes the WRITE_LEAD client guard → fires a POST, no sqlError)', () => {
+    const { c, post } = make();
+    for (const st of c.sqlStarters) {
+      post.calls.reset();
+      c.sqlError.set('stale');
+      c.useSqlStarter(st.query);
+      expect(post).withContext(`${st.label} should be read-only + run`).toHaveBeenCalled();
+      expect(c.sqlError()).withContext(`${st.label} must not trip the read-only guard`).toBeNull();
+    }
+  });
+});
