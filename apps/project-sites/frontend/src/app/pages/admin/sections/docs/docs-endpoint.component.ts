@@ -203,12 +203,12 @@ interface LiveResponse {
           <section class="docs-section" id="docs-toc-examples">
             <div class="muted-h docs-section-h">Examples
               <div class="docs-segmented docs-examples-seg" role="tablist" hlmTablist aria-label="Example flavour">
-                <button class="docs-seg" [class.is-active]="exampleTab() === 'curl'" (click)="exampleTab.set('curl')" role="tab" [attr.aria-selected]="exampleTab() === 'curl'">cURL</button>
-                <button class="docs-seg" [class.is-active]="exampleTab() === 'fetch'" (click)="exampleTab.set('fetch')" role="tab" [attr.aria-selected]="exampleTab() === 'fetch'">JS fetch</button>
-                <button class="docs-seg" [class.is-active]="exampleTab() === 'workers'" (click)="exampleTab.set('workers')" role="tab" [attr.aria-selected]="exampleTab() === 'workers'">Workers</button>
+                <button class="docs-seg" id="docs-ex-tab-curl" [attr.aria-controls]="'docs-ex-panel'" [class.is-active]="exampleTab() === 'curl'" (click)="exampleTab.set('curl')" role="tab" [attr.aria-selected]="exampleTab() === 'curl'">cURL</button>
+                <button class="docs-seg" id="docs-ex-tab-fetch" [attr.aria-controls]="'docs-ex-panel'" [class.is-active]="exampleTab() === 'fetch'" (click)="exampleTab.set('fetch')" role="tab" [attr.aria-selected]="exampleTab() === 'fetch'">JS fetch</button>
+                <button class="docs-seg" id="docs-ex-tab-workers" [attr.aria-controls]="'docs-ex-panel'" [class.is-active]="exampleTab() === 'workers'" (click)="exampleTab.set('workers')" role="tab" [attr.aria-selected]="exampleTab() === 'workers'">Workers</button>
               </div>
             </div>
-            <pre class="docs-code-block" data-testid="docs-example-block"><code>{{ exampleSnippet() }}</code></pre>
+            <pre class="docs-code-block" role="tabpanel" id="docs-ex-panel" [attr.aria-labelledby]="'docs-ex-tab-' + exampleTab()" data-testid="docs-example-block"><code>{{ exampleSnippet() }}</code></pre>
             <div class="docs-body-actions">
               <button class="btn-ghost docs-mini-btn" (click)="copyExample()" [brnTooltip]="'Copy current example'">Copy example</button>
             </div>
@@ -261,9 +261,9 @@ interface LiveResponse {
                 </span>
                 <span class="docs-latency"><b>{{ r.elapsedMs }}</b> ms</span>
                 <div class="docs-segmented" role="tablist" hlmTablist aria-label="Response view">
-                  <button class="docs-seg" [class.is-active]="responseTab() === 'body'" (click)="responseTab.set('body')" role="tab" [attr.aria-selected]="responseTab() === 'body'">Body</button>
-                  <button class="docs-seg" [class.is-active]="responseTab() === 'headers'" (click)="responseTab.set('headers')" role="tab" [attr.aria-selected]="responseTab() === 'headers'">Headers</button>
-                  <button class="docs-seg" [class.is-active]="responseTab() === 'curl'" (click)="responseTab.set('curl')" role="tab" [attr.aria-selected]="responseTab() === 'curl'">cURL</button>
+                  <button class="docs-seg" id="docs-resp-tab-body" [attr.aria-controls]="'docs-resp-panel'" [class.is-active]="responseTab() === 'body'" (click)="responseTab.set('body')" role="tab" [attr.aria-selected]="responseTab() === 'body'">Body</button>
+                  <button class="docs-seg" id="docs-resp-tab-headers" [attr.aria-controls]="'docs-resp-panel'" [class.is-active]="responseTab() === 'headers'" (click)="responseTab.set('headers')" role="tab" [attr.aria-selected]="responseTab() === 'headers'">Headers</button>
+                  <button class="docs-seg" id="docs-resp-tab-curl" [attr.aria-controls]="'docs-resp-panel'" [class.is-active]="responseTab() === 'curl'" (click)="responseTab.set('curl')" role="tab" [attr.aria-selected]="responseTab() === 'curl'">cURL</button>
                 </div>
                 <button class="btn-ghost docs-mini-btn docs-resp-copy" (click)="copyResponse()" title="Copy current view">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -272,13 +272,13 @@ interface LiveResponse {
                 </button>
               </div>
               @if (responseTab() === 'body') {
-                <pre class="docs-code-block" data-testid="response-body"><code [innerHTML]="prettyBodyHtml()"></code></pre>
+                <pre class="docs-code-block" role="tabpanel" id="docs-resp-panel" [attr.aria-labelledby]="'docs-resp-tab-' + responseTab()" data-testid="response-body"><code [innerHTML]="prettyBodyHtml()"></code></pre>
               }
               @if (responseTab() === 'headers') {
-                <pre class="docs-code-block docs-code-muted">{{ headerLines(r) }}</pre>
+                <pre class="docs-code-block docs-code-muted" role="tabpanel" id="docs-resp-panel" [attr.aria-labelledby]="'docs-resp-tab-' + responseTab()">{{ headerLines(r) }}</pre>
               }
               @if (responseTab() === 'curl') {
-                <pre class="docs-code-block">{{ curlSnippet() }}</pre>
+                <pre class="docs-code-block" role="tabpanel" id="docs-resp-panel" [attr.aria-labelledby]="'docs-resp-tab-' + responseTab()">{{ curlSnippet() }}</pre>
               }
             </section>
           }
