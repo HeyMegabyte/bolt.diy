@@ -162,16 +162,19 @@ describe('AppInstancesComponent (load-error render)', () => {
   }
   afterEach(() => TestBed.resetTestingModule());
 
-  it('shows the Retry card (not the empty state) when the first load fails', () => {
+  // The list error state uses the SHARED app-error-card primitive (cohesion with
+  // every other admin section) — not a bespoke red box. role=alert + Retry come
+  // from the primitive.
+  it('shows the shared error-card (not the empty state) when the first load fails', () => {
     const el: HTMLElement = render(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 })))).nativeElement;
-    expect(el.querySelector('[data-testid="apps-load-error"]')).toBeTruthy();
-    expect(el.querySelector('[data-testid="apps-load-retry"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="error-card"]')).withContext('uses the shared error-card primitive').toBeTruthy();
+    expect(el.querySelector('[data-testid="error-retry"]')).toBeTruthy();
     expect(el.querySelector('app-empty-state')).withContext('no fake empty when the load failed').toBeNull();
   });
 
   it('shows the empty state (not the error card) when the load succeeds with zero instances', () => {
     const el: HTMLElement = render(jasmine.createSpy('get').and.returnValue(of({ instances: [] }))).nativeElement;
-    expect(el.querySelector('[data-testid="apps-load-error"]')).toBeNull();
+    expect(el.querySelector('[data-testid="error-card"]')).toBeNull();
     expect(el.querySelector('app-empty-state')).toBeTruthy();
   });
 });

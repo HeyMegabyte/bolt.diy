@@ -87,7 +87,7 @@ function resolveApp(id: string): CatalogApp | null {
 @Component({
   selector: 'app-admin-apps-instances',
   standalone: true,
-  imports: [DatePipe, RouterLink, EmptyStateComponent, RevealDirective, SyncedPillComponent],
+  imports: [DatePipe, RouterLink, EmptyStateComponent, RevealDirective, SyncedPillComponent, ErrorCardComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -131,10 +131,10 @@ function resolveApp(id: string): CatalogApp | null {
           }
         </div>
       } @else if (loadError() && instances().length === 0) {
-        <div class="rounded-md border border-red-500/30 bg-red-500/5 p-4" role="alert" data-testid="apps-load-error">
-          <p class="text-red-300 text-sm m-0 mb-2">{{ loadError() }}</p>
-          <button type="button" class="btn-primary" data-testid="apps-load-retry" (click)="load()" [disabled]="loading()">Retry</button>
-        </div>
+        <app-error-card
+          title="Couldn't load your apps"
+          [message]="loadError()!"
+          (retry)="load()" />
       } @else if (instances().length === 0) {
         <app-empty-state
           icon="🚀"
@@ -417,7 +417,7 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
       error: () => {
         // Record the failure so the list shows a Retry card, not a fake empty.
         // (ApiService already fired the toast.)
-        this.loadError.set('Could not load your apps — they are safe, retry.');
+        this.loadError.set('Your running apps are safe — nothing was lost.');
         this.loading.set(false);
         console.warn('[apps] load instances failed');
       },
