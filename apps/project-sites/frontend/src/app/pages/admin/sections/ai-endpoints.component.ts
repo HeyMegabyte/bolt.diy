@@ -1099,7 +1099,7 @@ export class AdminAiEndpointsComponent implements OnInit {
       endpoint_slug: slugCheck.slug,
       method: v.method,
       description: v.description,
-    }).subscribe({
+    }, { silent: true }).subscribe({
       next: () => this.toast.success('Saved'),
       error: (err: { error?: { error?: { message?: string }; message?: string } }) => {
         this.endpoints.set(prev);
@@ -1259,6 +1259,7 @@ export class AdminAiEndpointsComponent implements OnInit {
     this.api.post<{ data: { ok: boolean; runtime_pending: boolean; deploy_status: DeployStatus; deploy_error: string | null; deployed_at: string | null } }>(
       `/sites/${s.id}/ai-endpoints/${d.id}/deploy`,
       { files: d.files, language: d.language },
+      { silent: true },
     ).subscribe({
       next: (r) => {
         const after = this.detail();
@@ -1280,7 +1281,7 @@ export class AdminAiEndpointsComponent implements OnInit {
     const s = this.state.selectedSite();
     const d = this.detail();
     if (!s || !d) return;
-    this.api.post<{ data: { stub?: boolean; message?: string } }>(`/sites/${s.id}/ai-endpoints/${d.id}/ai-helper`, { intent, files: d.files })
+    this.api.post<{ data: { stub?: boolean; message?: string } }>(`/sites/${s.id}/ai-endpoints/${d.id}/ai-helper`, { intent, files: d.files }, { silent: true })
       .subscribe({
         next: (r) => this.toast.success(r.data.message ?? `${intent} requested`),
         error: () => this.toast.error('AI helper unavailable'),
@@ -1399,7 +1400,7 @@ export class AdminAiEndpointsComponent implements OnInit {
       files: v.language === 'ai-prompt' ? { 'prompt.md': v.promptBody || (LANGUAGE_STARTERS['ai-prompt']['prompt.md'] ?? '') } : v.files,
     };
     if (v.language === 'ai-prompt') payload['prompt_template'] = v.promptBody;
-    this.api.post(`/sites/${s.id}/ai-endpoints`, payload).subscribe({
+    this.api.post(`/sites/${s.id}/ai-endpoints`, payload, { silent: true }).subscribe({
       next: () => {
         this.toast.success('Endpoint created');
         this.saving.set(false);
@@ -1485,7 +1486,7 @@ export class AdminAiEndpointsComponent implements OnInit {
   duplicate(e: EndpointRow): void {
     const s = this.state.selectedSite();
     if (!s) return;
-    this.api.post(`/sites/${s.id}/ai-endpoints/${e.id}/duplicate`, {}).subscribe({
+    this.api.post(`/sites/${s.id}/ai-endpoints/${e.id}/duplicate`, {}, { silent: true }).subscribe({
       next: () => { this.toast.success('Duplicated'); this.reload(); },
       error: (err) => this.toast.error(err?.error?.error?.message || 'Duplicate failed'),
     });
@@ -1500,7 +1501,7 @@ export class AdminAiEndpointsComponent implements OnInit {
     if (!ok) return;
     const s = this.state.selectedSite();
     if (!s) return;
-    this.api.delete(`/sites/${s.id}/ai-endpoints/${e.id}`).subscribe({
+    this.api.delete(`/sites/${s.id}/ai-endpoints/${e.id}`, { silent: true }).subscribe({
       next: () => { this.toast.success('Deleted'); this.reload(); },
       error: (err) => this.toast.error(err?.error?.error?.message || 'Delete failed'),
     });

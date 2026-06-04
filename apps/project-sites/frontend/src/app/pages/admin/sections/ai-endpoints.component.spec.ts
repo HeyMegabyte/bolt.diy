@@ -177,3 +177,42 @@ describe('AdminAiEndpointsComponent (inline-edit accessible names)', () => {
     expect(hasName(el, 'input[placeholder^="Short description"]')).withContext('description').toBeTrue();
   });
 });
+
+/**
+ * Double-toast guard: each ai-endpoints mutation surfaces its OWN specific
+ * toast.error, so the api call must be {silent:true} — else ApiService's generic
+ * toast double-fires on failure. (saveInlineEdit/deploy/aiHelper/createEndpoint
+ * are covered by the build + the typed-aware grep; duplicate+remove lock the
+ * post + delete silent contracts with minimal state setup.)
+ */
+describe('AdminAiEndpointsComponent — mutations pass {silent:true} (no generic double-toast)', () => {
+  let post: jasmine.Spy, del: jasmine.Spy;
+  function buildSpies(): AdminAiEndpointsComponent {
+    post = jasmine.createSpy('post').and.returnValue(of({ data: {} }));
+    del = jasmine.createSpy('delete').and.returnValue(of({}));
+    TestBed.configureTestingModule({
+      imports: [AdminAiEndpointsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, put: () => of({}), delete: del } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminAiEndpointsComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminAiEndpointsComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('duplicate → duplicate POST is {silent}', () => {
+    const c = buildSpies();
+    c.duplicate({ id: 'e9' } as never);
+    expect(post).toHaveBeenCalledWith('/sites/s1/ai-endpoints/e9/duplicate', {}, { silent: true });
+  });
+
+  it('remove → DELETE is {silent} (after confirm)', async () => {
+    const c = buildSpies();
+    await c.remove({ id: 'e9' } as never);
+    expect(del).toHaveBeenCalledWith('/sites/s1/ai-endpoints/e9', { silent: true });
+  });
+});
