@@ -172,4 +172,13 @@ describe('AdminPseoComponent (mutations are {silent} — no double-toast)', () =
     await c.rejectPage({ id: 'p2', route_slug: 'r2' } as never);
     expect(get).toHaveBeenCalledWith('/pseo/s1');
   });
+
+  it('showAllPages resets a status filter back to "all" and reloads (empty-state first action)', () => {
+    const c = make();
+    c.statusFilter.set('rejected');
+    c.showAllPages();
+    expect(c.statusFilter()).toBe('all');
+    // loadPages re-fetches the matrix page (a /pseo/s1/pages… GET fires)
+    expect(get.calls.allArgs().some((a) => String(a[0]).includes('/pseo/s1/pages'))).toBeTrue();
+  });
 });

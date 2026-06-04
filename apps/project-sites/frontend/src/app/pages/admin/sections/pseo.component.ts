@@ -144,9 +144,14 @@ type StatusFilter = 'all' | PseoPage['status'];
       }
 
       @if (!loading() && !error() && pages().length === 0) {
-        <div class="ps-empty">
+        <div class="ps-empty" data-testid="pseo-empty">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-          <p>No pages yet. Select a site and click "Generate matrix" to build the grid.</p>
+          @if (statusFilter() !== 'all') {
+            <p>No <strong>{{ statusFilter() }}</strong> pages in the matrix.</p>
+            <button class="ps-btn-outline" (click)="showAllPages()" data-testid="pseo-show-all">Show all pages</button>
+          } @else {
+            <p>No pages yet. Select a site and click "Generate matrix" to build the grid.</p>
+          }
         </div>
       }
 
@@ -516,6 +521,9 @@ export class AdminPseoComponent {
       this.acting.update((s) => { const n = new Set(s); n.delete(p.id); return n; });
     }
   }
+
+  /** Empty-state first action when a status filter hid every row — back to 'all'. */
+  showAllPages(): void { this.statusFilter.set('all'); this.loadPages(); }
 
   prevPage(): void { if (this.page() > 1) { this.page.update((p) => p - 1); this.loadPages(); } }
   nextPage(): void { if (this.page() < this.totalPages()) { this.page.update((p) => p + 1); this.loadPages(); } }
