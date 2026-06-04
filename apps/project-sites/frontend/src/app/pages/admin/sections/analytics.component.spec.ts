@@ -207,3 +207,52 @@ describe('AdminAnalyticsComponent (CSV export is formula-injection-safe)', () =>
     expect(c.csvCell('=A1,B1')).toBe(`"'=A1,B1"`);
   });
 });
+
+/**
+ * Cyan/black cohesion: the Top-pages + Top-countries sub-panels used a bare gray
+ * <p>No … yet</p> next to the polished bar rows. They now render a compact cyan
+ * mini-empty (role=status + accent glyph) consistent with the cockpit empty-state
+ * language. Sub-panel body renders under `selectedSite() && !error()` with a
+ * truthy-but-empty envelope.
+ */
+describe('AdminAnalyticsComponent (top-pages/countries cyan mini-empty cohesion)', () => {
+  let fixture: ComponentFixture<AdminAnalyticsComponent>;
+
+  function build(): void {
+    const selectedSite = signal<{ id: string } | null>({ id: 's' });
+    TestBed.configureTestingModule({
+      imports: [AdminAnalyticsComponent],
+      providers: [
+        {
+          provide: ApiService,
+          useValue: {
+            getMultiUrlAnalytics: () => of({ data: null }),
+            listSiteUrls: () => of({ data: [] }),
+            getCloudflareCredentialStatus: () => of({ data: null }),
+            addSiteUrl: () => of({}),
+          },
+        },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: PromptService, useValue: { prompt: () => Promise.resolve(null) } },
+        { provide: Router, useValue: { navigateByUrl: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite } },
+      ],
+    });
+    fixture = TestBed.createComponent(AdminAnalyticsComponent);
+    fixture.detectChanges();
+  }
+
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('renders a cyan mini-empty (role=status + glyph) for both Top-pages and Top-countries when empty', () => {
+    build();
+    const c = fixture.componentInstance;
+    c.envelope.set({ series: [], top_pages: [], top_countries: [], pageviews: 0, uniques: 0 } as never);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelectorAll('.mini-empty[role="status"]').length)
+      .withContext('both sub-panels use the cyan mini-empty (not bare gray text)').toBe(2);
+    expect(host.querySelectorAll('.mini-empty .mini-empty-glyph').length)
+      .withContext('each mini-empty has a cyan accent glyph').toBe(2);
+  });
+});
