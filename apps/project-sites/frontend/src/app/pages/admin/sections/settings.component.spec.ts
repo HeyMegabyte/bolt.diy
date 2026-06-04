@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { AdminSettingsComponent } from './settings.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -212,5 +212,48 @@ describe('AdminSettingsComponent (invite control accessible names)', () => {
     const select = grid.querySelector('select') as HTMLSelectElement;
     expect(select).withContext('role select in the invite grid').toBeTruthy();
     expect(accName(select, el)).withContext('role select has aria-label or associated label').toBeTruthy();
+  });
+});
+
+/**
+ * submitPaste() POSTs an MCP paste-key (connects an integration). It had no
+ * in-flight guard + the Save button had no [disabled], so rapid clicks fired
+ * duplicate connect POSTs during the request window. pasteSaving() now guards
+ * the handler + disables the button.
+ */
+describe('AdminSettingsComponent (paste-key connect is double-submit-safe)', () => {
+  function build(post: jasmine.Spy): AdminSettingsComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: null }), put: () => of({}), post, delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+        { provide: Router, useValue: { navigate: () => undefined } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'demo' }), loadData: () => undefined } },
+      ],
+    });
+    const c = TestBed.createComponent(AdminSettingsComponent).componentInstance;
+    c.pastedKey = 'sk-test-123';
+    return c;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('fires only ONE POST while the first paste-connect is in flight', () => {
+    const inflight = new Subject<unknown>(); // never completes → request stays pending
+    const post = jasmine.createSpy('post').and.returnValue(inflight.asObservable());
+    const c = build(post);
+    c.submitPaste('stripe');
+    c.submitPaste('stripe'); // second rapid click while the first is pending
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(c.pasteSaving()).withContext('in-flight flag set').toBeTrue();
+  });
+
+  it('clears the in-flight flag after the POST resolves (re-submittable)', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({}));
+    const c = build(post);
+    c.submitPaste('stripe');
+    expect(c.pasteSaving()).toBeFalse(); // synchronous of({}) completed
   });
 });

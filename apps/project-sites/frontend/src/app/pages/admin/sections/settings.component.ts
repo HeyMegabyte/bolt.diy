@@ -557,7 +557,7 @@ const PROVIDERS = MCP_PROVIDERS;
                   <div class="mt-1 flex gap-2">
                     <input hlmInput type="password" class="flex-1 font-mono text-[0.72rem]"
                            [placeholder]="pastePlaceholder(p.id)" [(ngModel)]="pastedKey" />
-                    <button class="mcp-btn mcp-btn-solid" (click)="submitPaste(p.id)">Save</button>
+                    <button class="mcp-btn mcp-btn-solid" (click)="submitPaste(p.id)" [disabled]="pasteSaving()">{{ pasteSaving() ? 'Saving…' : 'Save' }}</button>
                   </div>
                 } @else if (p.oauth_supported) {
                   <button class="mcp-btn mcp-btn-oauth mt-1 self-start" (click)="connectOauth(p.id)">
@@ -1074,6 +1074,8 @@ export class AdminSettingsComponent implements OnInit {
   connections = signal<Conn[]>([]);
   pasteMode = signal<string | null>(null);
   pastedKey = '';
+  /** In-flight guard for the paste-key connect POST (prevents double-submit). */
+  readonly pasteSaving = signal(false);
   /** Tracks which connected MCPs have the custom-env-vars panel expanded. */
   mcpEnvVarsOpen = signal<Set<string>>(new Set());
 
@@ -1354,9 +1356,11 @@ export class AdminSettingsComponent implements OnInit {
   }
   submitPaste(provider: string): void {
     const s = this.state.selectedSite(); if (!s) return;
+    if (this.pasteSaving()) return; // guard: no duplicate connect POST while one is in flight
+    this.pasteSaving.set(true);
     this.api.post(`/mcp/${provider}/paste?site_id=${s.id}`, { api_key: this.pastedKey }).subscribe({
-      next: () => { this.pastedKey = ''; this.pasteMode.set(null); this.toast.success(`Saved — ${provider} connected`); this.loadConnections(); },
-      error: () => { /* api.service already toasted */ },
+      next: () => { this.pastedKey = ''; this.pasteMode.set(null); this.pasteSaving.set(false); this.toast.success(`Saved — ${provider} connected`); this.loadConnections(); },
+      error: () => { this.pasteSaving.set(false); /* api.service already toasted */ },
     });
   }
   disconnect(c: Conn): void {
