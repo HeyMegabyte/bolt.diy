@@ -261,7 +261,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
       border-color: rgba(255, 255, 255, 0.16);
     }
     .cw-launcher:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: 2px;
     }
     .cw-launcher-label {

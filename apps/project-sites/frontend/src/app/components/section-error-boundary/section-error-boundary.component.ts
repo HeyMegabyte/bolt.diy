@@ -194,11 +194,11 @@ import { SectionErrorBus, type SectionError } from './section-error-bus';
         font-family: inherit;
       }
       .boundary-btn:focus-visible {
-        outline: 2px solid #00ffc8;
+        outline: 2px solid #00E5FF;
         outline-offset: 2px;
       }
       .boundary-btn.primary {
-        background: linear-gradient(135deg, #00ffc8, #00d4ff);
+        background: linear-gradient(135deg, #00E5FF, #00d4ff);
         color: #060610;
         box-shadow: 0 6px 18px color-mix(in oklch, oklch(0.7 0.2 195) 30%, transparent);
       }

@@ -792,7 +792,7 @@ const POLL_INTERVAL_MS = 10_000;
     .empty-cta {
       display: inline-flex; align-items: center; gap: 14px;
       min-height: 44px; padding: 12px 18px;
-      background: linear-gradient(135deg, rgba(0, 255, 200, 0.16), rgba(0, 212, 255, 0.16));
+      background: linear-gradient(135deg, rgba(0, 229, 255, 0.16), rgba(0, 212, 255, 0.16));
       border: 1px solid rgba(0, 229, 255, 0.42);
       border-radius: var(--ps-radius-lg, 16px);
       color: #e6fcff;

@@ -155,7 +155,7 @@ import { A11yModule, ConfigurableFocusTrapFactory, type ConfigurableFocusTrap } 
       border-color: rgba(255, 255, 255, 0.18);
     }
     .fo-close:focus-visible {
-      outline: var(--ps-ring-focus, 2px solid #00ffc8);
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: var(--ps-ring-focus-offset, 2px);
     }
 

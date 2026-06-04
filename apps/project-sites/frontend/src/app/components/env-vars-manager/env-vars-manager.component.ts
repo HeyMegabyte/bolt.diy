@@ -305,7 +305,7 @@ const EMPTY_DRAFT: NewVarDraft = {
       transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
     }
     .ev-btn-primary {
-      background: linear-gradient(135deg, #00ffc8, var(--ps-accent, #00d4ff));
+      background: linear-gradient(135deg, #00E5FF, var(--ps-accent, #00d4ff));
       color: var(--ps-bg, #060610);
       border: 1px solid color-mix(in oklch, var(--ps-accent, #00d4ff) 40%, transparent);
     }
@@ -794,7 +794,7 @@ export class EnvVarsManagerComponent implements OnInit {
     .iev-primary {
       padding: 0.45rem 0.95rem;
       border-radius: 8px;
-      background: linear-gradient(135deg, #00ffc8, var(--ps-accent, #00d4ff));
+      background: linear-gradient(135deg, #00E5FF, var(--ps-accent, #00d4ff));
       color: var(--ps-bg, #060610);
       border: 1px solid color-mix(in oklch, var(--ps-accent, #00d4ff) 40%, transparent);
       cursor: pointer;
