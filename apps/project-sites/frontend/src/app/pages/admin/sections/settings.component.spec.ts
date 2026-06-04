@@ -72,6 +72,19 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(selected.length).toBe(1);
   });
 
+  it('associates the active panel with its tab (APG: role=tabpanel + aria-labelledby ↔ tab id + aria-controls)', () => {
+    build({ id: 's', slug: 'demo' }); // default tab = general
+    const el = fixture.nativeElement as HTMLElement;
+    const panel = el.querySelector('[role="tabpanel"]');
+    expect(panel).withContext('active panel exposes role=tabpanel').toBeTruthy();
+    expect(panel!.id).toBe('settings-panel');
+    expect(panel!.getAttribute('aria-labelledby')).withContext('panel labelled by the active tab').toBe('settings-tab-general');
+    const labelTab = el.querySelector('#settings-tab-general');
+    expect(labelTab).withContext('aria-labelledby resolves to a real tab').toBeTruthy();
+    expect(labelTab!.getAttribute('role')).toBe('tab');
+    expect(labelTab!.getAttribute('aria-controls')).withContext('tab points back at its panel').toBe('settings-panel');
+  });
+
   it('the settings tablist is keyboard-navigable — ArrowRight moves focus to the next tab (hlmTablist APG roving)', () => {
     build({ id: 's', slug: 'demo' });
     const host = fixture.nativeElement as HTMLElement;

@@ -81,13 +81,13 @@ const PROVIDERS = MCP_PROVIDERS;
 
       <nav class="flex gap-2 flex-wrap text-[0.78rem]" role="tablist" hlmTablist aria-label="Settings sections">
         @for (t of tabs; track t.id) {
-          <button class="tab" role="tab" [class.active]="tab() === t.id" [attr.aria-selected]="tab() === t.id" (click)="setTab(t.id)" [title]="t.desc">{{ t.label }}</button>
+          <button class="tab" role="tab" [id]="'settings-tab-' + t.id" [attr.aria-controls]="'settings-panel'" [class.active]="tab() === t.id" [attr.aria-selected]="tab() === t.id" (click)="setTab(t.id)" [title]="t.desc">{{ t.label }}</button>
         }
       </nav>
 
       <!-- ─────────────────── GENERAL ─────────────────── -->
       @if (tab() === 'general') {
-        <section class="card grid md:grid-cols-2 gap-5" appReveal>
+        <section class="card grid md:grid-cols-2 gap-5" appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()">
           <div class="md:col-span-2">
             <h3 class="m-0 text-base font-semibold text-white mb-1">General</h3>
             <p class="text-[0.7rem] text-text-secondary m-0">Public-facing details + how the AI router responds.</p>
@@ -161,7 +161,7 @@ const PROVIDERS = MCP_PROVIDERS;
 
       <!-- ─────────────────── TEAM ─────────────────── -->
       @else if (tab() === 'team') {
-        <section class="card" appReveal>
+        <section class="card" appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()">
           <h3 class="m-0 text-base font-semibold text-white mb-3">Team members</h3>
           <!-- 2FA + Invite live in twin card rows so heights match (min-height 64px). -->
           <div class="team-actions-grid mb-4">
@@ -269,7 +269,7 @@ const PROVIDERS = MCP_PROVIDERS;
 
       <!-- ─────────────────── AI CHAT ─────────────────── -->
       @else if (tab() === 'ai-chat') {
-        <section class="card" appReveal>
+        <section class="card" appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()">
           <header class="mb-4">
             <h3 class="m-0 text-base font-semibold text-white mb-1">AI Chat</h3>
             <p class="text-[0.7rem] text-text-secondary m-0">Persona + system prompt + knowledge files for the AI chat widget on your published site.</p>
@@ -373,7 +373,7 @@ const PROVIDERS = MCP_PROVIDERS;
 
       <!-- ─────────────────── BUSINESS ─────────────────── -->
       @else if (tab() === 'business') {
-        <section class="card" appReveal>
+        <section class="card" appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()">
           <header class="mb-4">
             <h3 class="m-0 text-base font-semibold text-white mb-1">Business</h3>
             <p class="text-[0.7rem] text-text-secondary m-0">Identity, web, and brand assets used by the AI when it rebuilds or refines this site.</p>
@@ -510,7 +510,7 @@ const PROVIDERS = MCP_PROVIDERS;
 
       <!-- ─────────────────── MCP ─────────────────── -->
       @else if (tab() === 'mcp') {
-        <section class="card" appReveal>
+        <section class="card" appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()">
           <h3 class="m-0 text-base font-semibold text-white mb-1">MCP integrations</h3>
           <p class="text-[0.7rem] text-text-secondary m-0 mb-4">
             Connect the tools your AI form router + custom endpoints can call. Tokens are encrypted at rest (AES-GCM).
@@ -578,7 +578,7 @@ const PROVIDERS = MCP_PROVIDERS;
 
       <!-- ─────────────────── AI ENV VARS ─────────────────── -->
       @else if (tab() === 'env-vars') {
-        <section class="card" appReveal>
+        <section class="card" appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()">
           <header class="mb-4">
             <h3 class="m-0 text-base font-semibold text-white mb-1">AI environment variables</h3>
             <p class="text-[0.7rem] text-text-secondary m-0">
