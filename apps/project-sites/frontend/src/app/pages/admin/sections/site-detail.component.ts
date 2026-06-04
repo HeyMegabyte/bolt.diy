@@ -69,7 +69,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
   imports: [CommonModule, FormsModule, RouterModule, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="site-detail" data-testid="site-detail">
+    <section class="site-detail animate-fade-in" data-testid="site-detail">
       <header class="site-detail__head">
         <h1 class="site-detail__title">{{ site()?.name ?? 'Site' }}</h1>
         <p class="site-detail__subtitle">{{ site()?.slug }}.projectsites.dev</p>

@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, provideRouter } from '@angular/router';
 import { AdminSiteDetailComponent } from './site-detail.component';
 import { ApiService } from '../../../services/api.service';
 
@@ -100,5 +100,26 @@ describe('AdminSiteDetailComponent (tabs + logs + SQL console)', () => {
     expect(c.rollbackResult()).withContext('no false success message').toBeNull();
     expect(c.rollbackError()).toContain('boom');
     expect(c.pendingRollback()).withContext('dialog closed').toBeNull();
+  });
+});
+
+describe('AdminSiteDetailComponent (cinematic entrance — matches sibling sections)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('the root section animates in on first paint (animate-fade-in), like every other admin section', () => {
+    const api = { get: jasmine.createSpy('get').and.returnValue(of({ site: { id: 'site-1', slug: 's', name: 'S' }, columns: [], rows: [], logs: [], snapshots: [] })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
+    TestBed.configureTestingModule({
+      imports: [AdminSiteDetailComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: api },
+        { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 'site-1' }), queryParamMap: of({ get: () => null }) } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminSiteDetailComponent);
+    f.detectChanges();
+    const root = (f.nativeElement as HTMLElement).querySelector('.site-detail');
+    expect(root).withContext('site-detail root renders').not.toBeNull();
+    expect(root!.classList.contains('animate-fade-in')).withContext('root must animate in (opacity-only, reduced-motion-safe) like sibling sections').toBe(true);
   });
 });
