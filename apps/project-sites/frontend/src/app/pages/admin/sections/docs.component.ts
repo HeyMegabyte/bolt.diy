@@ -467,8 +467,14 @@ export function renderMarkdown(md: string): string {
       .replace(/`([^`]+)`/g, '<code>$1</code>')
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label: string, href: string) =>
-        `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`);
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label: string, href: string) => {
+        const url = href.trim();
+        // Scheme-allowlist: block javascript:/data:/vbscript: (DOM-XSS) — render
+        // the label as plain text instead. Escape " so a crafted href can't break
+        // out of the attribute (escapeHtml above only neutralizes & < >).
+        if (!/^(?:https?:|mailto:|tel:|#|\/)/i.test(url)) return label;
+        return `<a href="${url.replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+      });
   }
 }
 

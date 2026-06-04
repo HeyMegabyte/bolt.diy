@@ -1,8 +1,40 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
-import { AdminDocsComponent, type OpenApiSpec } from './docs.component';
+import { AdminDocsComponent, renderMarkdown, type OpenApiSpec } from './docs.component';
 import { ApiService } from '../../../services/api.service';
+
+/**
+ * renderMarkdown is a third custom markdown→HTML renderer (used by the live
+ * docs-overview + endpoint descriptions fetched from /admin/docs/openapi.json).
+ * Its link rule inserted the href RAW → a javascript:/data: URL became a
+ * clickable DOM-XSS, and a " in the href broke out of the attribute (escapeHtml
+ * only neutralizes & < >). Hardened to scheme-allowlist + quote-escape, matching
+ * the agent-message + miniMarkdown renderers.
+ */
+describe('renderMarkdown — link XSS hardening', () => {
+  it('neutralizes a javascript: link (no executable href; label kept as text)', () => {
+    const html = renderMarkdown('[click](javascript:alert(1))');
+    expect(html).not.toContain('href="javascript:');
+    expect(html).toContain('click');
+  });
+
+  it('neutralizes a data: link', () => {
+    expect(renderMarkdown('[x](data:text/html,hi)')).not.toContain('href="data:');
+  });
+
+  it('keeps safe https / mailto / relative links', () => {
+    expect(renderMarkdown('[site](https://example.com)')).toContain('href="https://example.com"');
+    expect(renderMarkdown('[mail](mailto:a@b.com)')).toContain('href="mailto:a@b.com"');
+    expect(renderMarkdown('[rel](/admin/sites)')).toContain('href="/admin/sites"');
+  });
+
+  it('escapes a double-quote in the href so it cannot break out of the attribute', () => {
+    const html = renderMarkdown('[x](https://e.com" onmouseover="alert(1))');
+    expect(html).not.toContain('onmouseover="alert(1)"');
+    expect(html).toContain('&quot;');
+  });
+});
 
 /** Collect CSS from BOTH injected <style> tags and constructable/adopted
  *  stylesheets — Angular may use either depending on view-encapsulation mode,
