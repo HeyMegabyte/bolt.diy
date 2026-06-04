@@ -1,4 +1,4 @@
-import { Component, type OnInit, signal, inject, type OnDestroy } from '@angular/core';
+import { Component, type OnInit, signal, inject, type OnDestroy, HostListener, ViewChild, ElementRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
@@ -21,6 +21,7 @@ interface Notification {
   template: `
     <div class="notification-wrapper">
       <button
+        #bellBtn
         class="bell-btn"
         [class.has-unread]="unreadCount() > 0"
         (click)="toggleDropdown()"
@@ -271,6 +272,17 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
   private pollSub?: Subscription;
 
   isOpen = signal(false);
+  @ViewChild('bellBtn') private bellBtn?: ElementRef<HTMLButtonElement>;
+
+  /** Esc closes the open dropdown + returns focus to the bell (keyboard users
+   *  must be able to dismiss it — it previously only closed on click). */
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.isOpen()) {
+      this.isOpen.set(false);
+      this.bellBtn?.nativeElement.focus();
+    }
+  }
   notifications = signal<Notification[]>([]);
   unreadCount = signal(0);
 

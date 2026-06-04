@@ -14,7 +14,7 @@ import { AuthService } from '../../services/auth.service';
 describe('NotificationBellComponent (a11y: keyboard-operable notification list)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
-  function render(): HTMLElement {
+  function render(): import('@angular/core/testing').ComponentFixture<NotificationBellComponent> {
     TestBed.configureTestingModule({
       imports: [NotificationBellComponent],
       providers: [
@@ -30,11 +30,11 @@ describe('NotificationBellComponent (a11y: keyboard-operable notification list)'
     ]);
     fx.componentInstance.isOpen.set(true);
     fx.detectChanges();
-    return fx.nativeElement as HTMLElement;
+    return fx;
   }
 
   it('drops the broken menu role + renders items as keyboard-operable <button>s', () => {
-    const el = render();
+    const el = render().nativeElement as HTMLElement;
     expect(el.querySelector('[role="menu"]')).withContext('no incomplete (arrow-nav-less) menu pattern').toBeNull();
     expect(el.querySelector('[role="menuitem"]')).withContext('no orphan menuitems').toBeNull();
     const item = el.querySelector('.notification-item');
@@ -42,5 +42,12 @@ describe('NotificationBellComponent (a11y: keyboard-operable notification list)'
     expect(item?.tagName.toLowerCase())
       .withContext('items are real <button>s — Tab-focusable + Enter/Space-activatable')
       .toBe('button');
+  });
+
+  it('Escape closes the open dropdown — keyboard users can dismiss it (was click-only)', () => {
+    const fx = render();
+    expect(fx.componentInstance.isOpen()).withContext('opens for the test').toBeTrue();
+    fx.componentInstance.onEscape();
+    expect(fx.componentInstance.isOpen()).withContext('Esc closes the dropdown').toBeFalse();
   });
 });
