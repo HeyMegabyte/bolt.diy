@@ -21,12 +21,14 @@ import {
   ChangeDetectionStrategy, ChangeDetectorRef,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { ToastService } from '../../../services/toast.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { HlmInputDirective } from '../../../ui';
 
 type AgentStatus = 'queued' | 'running' | 'done' | 'error';
 
@@ -77,7 +79,7 @@ const SPECIALIST_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-swarm',
   standalone: true,
-  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, RollingCounterComponent, HlmInputDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="swarm-shell" appReveal>
@@ -109,10 +111,22 @@ const SPECIALIST_COLORS: Record<string, string> = {
       </div>
     </div>
 
-    <button class="swarm-header__start" (click)="startSwarm()"
-            [disabled]="running()" aria-label="Start new swarm run">
-      {{ running() ? '⚡ Running…' : '▶ Start Swarm' }}
-    </button>
+    <div class="swarm-header__launch">
+      <input
+        hlmInput
+        class="swarm-header__directive"
+        [(ngModel)]="swarmPrompt"
+        [disabled]="running()"
+        maxlength="280"
+        [placeholder]="DEFAULT_DIRECTIVE"
+        aria-label="Swarm directive (optional — defaults to a full-site improvement pass)"
+        (keydown.enter)="startSwarm()"
+        data-testid="swarm-directive" />
+      <button class="swarm-header__start" (click)="startSwarm()"
+              [disabled]="running()" aria-label="Start new swarm run">
+        {{ running() ? '⚡ Running…' : '▶ Start Swarm' }}
+      </button>
+    </div>
   </header>
 
   <!-- ── 7-Column Agent Board ──────────────────────────────────────────── -->
@@ -277,6 +291,9 @@ const SPECIALIST_COLORS: Record<string, string> = {
     .swarm-header__start { background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); border: none; padding: 0.375rem 1rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s, box-shadow 0.2s; }
     .swarm-header__start:not(:disabled):hover { box-shadow: 0 0 0 4px color-mix(in oklch, var(--ps-accent, #00e5ff) 22%, transparent); }
     .swarm-header__start:disabled { opacity: 0.5; cursor: default; }
+    .swarm-header__launch { display: flex; align-items: center; gap: 0.5rem; flex: 1 1 280px; min-width: 0; justify-content: flex-end; }
+    .swarm-header__directive { flex: 1 1 auto; min-width: 0; max-width: 360px; height: 34px; font-size: 0.78rem; }
+    @media (max-width: 640px) { .swarm-header__launch { flex-basis: 100%; } .swarm-header__directive { max-width: none; } }
     /* Board */
     .swarm-board { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem; margin-bottom: 1.5rem; }
     @media (max-width: 900px) { .swarm-board { grid-template-columns: repeat(4, 1fr); } }
@@ -415,11 +432,15 @@ export class AdminSwarmComponent implements OnInit, OnDestroy {
       });
   }
 
+  /** Default directive when the operator leaves the field blank. */
+  readonly DEFAULT_DIRECTIVE = 'Improve all site sections with 7 parallel specialists';
+  swarmPrompt = '';
+
   startSwarm() {
     if (this.running()) return;
     this.running.set(true);
     this.http.post<SwarmRun>(`/api/swarm/${this.siteId()}/start`, {
-      prompt: 'Improve all site sections with 7 parallel specialists',
+      prompt: this.swarmPrompt.trim() || this.DEFAULT_DIRECTIVE,
     }).pipe(catchError((_e: unknown) => {
       this.running.set(false);
       this.toast.error('Could not start a swarm run — please try again.');

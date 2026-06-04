@@ -122,6 +122,26 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
     expect(fixture.componentInstance.running()).toBeFalse();
   });
 
+  it('startSwarm posts the DEFAULT directive when the field is blank', () => {
+    const http = TestBed.inject(HttpTestingController);
+    fixture.componentInstance.siteId.set('s1');
+    fixture.componentInstance.swarmPrompt = '   ';
+    fixture.componentInstance.startSwarm();
+    const req = http.expectOne('/api/swarm/s1/start');
+    expect(req.request.body.prompt).toBe(fixture.componentInstance.DEFAULT_DIRECTIVE);
+    req.flush({ run_id: 'r1', agents: [] });
+  });
+
+  it('startSwarm posts the operator-typed directive when provided (steerable)', () => {
+    const http = TestBed.inject(HttpTestingController);
+    fixture.componentInstance.siteId.set('s1');
+    fixture.componentInstance.swarmPrompt = '  Focus on mobile conversion + faster LCP  ';
+    fixture.componentInstance.startSwarm();
+    const req = http.expectOne('/api/swarm/s1/start');
+    expect(req.request.body.prompt).toBe('Focus on mobile conversion + faster LCP');
+    req.flush({ run_id: 'r1', agents: [] });
+  });
+
   // r54 — idle preview must not look "stuck loading". The component-stream
   // skeletons shimmer ONLY while a run is active or the SSE stream is connected;
   // at rest they are static placeholders (and never animate for reduced-motion).
