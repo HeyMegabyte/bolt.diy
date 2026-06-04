@@ -57,6 +57,35 @@ describe('ErrorCardComponent', () => {
     expect(q('[data-testid="error-copy"]')).not.toBeNull();
   });
 
+  // The default hint must not promise a reference that isn't shown. When NO
+  // correlationId is set, the reference block is hidden — so the hint must not
+  // say "copy the reference below" (a false promise, seen live on marketplace /
+  // apps-instances / site-mcp error states). It only makes that promise when a
+  // reference actually renders.
+  it('default hint does NOT promise a reference when no correlationId is shown', () => {
+    fixture.componentRef.setInput('title', 'Error');
+    fixture.detectChanges();
+    const hint = q('.ec-hint')?.textContent?.trim() ?? '';
+    expect(hint).withContext('no false promise of a missing reference').not.toContain('reference below');
+    expect(hint).toContain('support'); // still points to recovery
+    expect(q('[data-testid="error-correlation"]')).toBeNull(); // confirm no reference is rendered
+  });
+
+  it('default hint promises the reference once a correlationId IS shown', () => {
+    fixture.componentRef.setInput('title', 'Error');
+    fixture.componentRef.setInput('correlationId', 'req_xyz789');
+    fixture.detectChanges();
+    expect(q('.ec-hint')?.textContent?.trim() ?? '').toContain('reference below');
+    expect(q('[data-testid="error-correlation"]')?.textContent?.trim()).toBe('req_xyz789');
+  });
+
+  it('an explicit hint override is respected verbatim (regardless of correlationId)', () => {
+    fixture.componentRef.setInput('title', 'Error');
+    fixture.componentRef.setInput('hint', 'Check your connection and retry.');
+    fixture.detectChanges();
+    expect(q('.ec-hint')?.textContent?.trim()).toBe('Check your connection and retry.');
+  });
+
   it('emits retry when the retry button is activated', () => {
     fixture.componentRef.setInput('title', 'Error');
     fixture.detectChanges();

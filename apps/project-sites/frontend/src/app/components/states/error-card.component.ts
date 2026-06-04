@@ -216,8 +216,25 @@ export class ErrorCardComponent {
   /** What happened, in plain language. */
   @Input() message = '';
 
-  /** "What to try next" recovery hint. */
-  @Input() hint = 'Try again. If it keeps failing, copy the reference below for support.';
+  /**
+   * "What to try next" recovery hint. When left at the default, the wording
+   * adapts to whether a reference is actually shown — so we never promise
+   * "copy the reference below" when no correlationId renders (a false promise).
+   * An explicit value passed by the caller is always respected verbatim.
+   */
+  @Input()
+  set hint(v: string) {
+    this._hint = v;
+    this._hintExplicit = true;
+  }
+  get hint(): string {
+    if (this._hintExplicit) return this._hint;
+    return this.correlationId
+      ? 'Try again. If it keeps failing, copy the reference below for support.'
+      : 'Try again. If it keeps failing, contact support.';
+  }
+  private _hint = '';
+  private _hintExplicit = false;
 
   /** Optional correlation / request id surfaced for support hand-off. */
   @Input() correlationId = '';
