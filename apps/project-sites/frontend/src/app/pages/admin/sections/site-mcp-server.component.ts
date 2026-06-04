@@ -395,7 +395,16 @@ export class SiteMcpServerComponent implements OnInit {
     this.playgroundResult.set(null);
   }
 
-  runPlayground(): void {
+  /**
+   * MCP CRUD tools include write/delete operations. A leading or token-bounded
+   * mutating verb means the tool can change live site content, so gate it
+   * behind a danger confirm before firing it against production data. Read
+   * tools (get/list/read/search/…) run straight through.
+   */
+  private static readonly MUTATING_TOOL =
+    /(^|[_-])(create|update|delete|remove|write|set|publish|unpublish|insert|patch|put|drop|reset|destroy|edit|upload|rename|move)([_-]|$)/i;
+
+  async runPlayground(): Promise<void> {
     const tool = this.playgroundTool();
     if (!tool) return;
     let args: Record<string, unknown> = {};
@@ -404,6 +413,15 @@ export class SiteMcpServerComponent implements OnInit {
     } catch {
       this.toast.error('Invalid JSON arguments');
       return;
+    }
+    if (SiteMcpServerComponent.MUTATING_TOOL.test(tool.name)) {
+      const ok = await this.confirmSvc.confirm({
+        title: `Run ${tool.name}?`,
+        message: `This MCP tool can modify live site content. Running it executes immediately against ${this.siteSlug() ?? 'this site'} and cannot be undone from here.`,
+        confirmLabel: 'Run tool',
+        danger: true,
+      });
+      if (!ok) return;
     }
     this.playgroundRunning.set(true);
     this.playgroundResult.set(null);

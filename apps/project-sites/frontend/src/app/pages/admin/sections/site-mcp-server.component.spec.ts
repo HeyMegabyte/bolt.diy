@@ -109,14 +109,45 @@ describe('SiteMcpServerComponent (MCP token CRUD + playground)', () => {
     expect(c.tokens().map((t) => t.id)).toEqual(['keep', 'gone']); // nothing removed
   });
 
-  it('runPlayground rejects invalid JSON arguments before firing a request', () => {
+  it('runPlayground rejects invalid JSON arguments before firing a request', async () => {
     const { c, http, toast } = make();
     c.openPlayground({ name: 'echo' } as never);
     c.playgroundArgs = '{ not json';
-    c.runPlayground();
+    await c.runPlayground();
     expect(toast.error).toHaveBeenCalledWith('Invalid JSON arguments');
     expect(http.post).not.toHaveBeenCalled();
     expect(c.playgroundRunning()).toBe(false);
+  });
+
+  it('runPlayground confirms before running a mutating CRUD tool (verify destructive actions)', async () => {
+    const { c, http, confirmSpy } = make();
+    c.ngOnInit();
+    c.openPlayground({ name: 'delete_page' } as never);
+    c.playgroundArgs = '{"slug":"home"}';
+    await c.runPlayground();
+    expect(confirmSpy).toHaveBeenCalled(); // destructive write is gated
+    expect(http.post).toHaveBeenCalled(); // confirmed → fires
+  });
+
+  it('runPlayground does NOT fire a mutating tool when the confirm is cancelled', async () => {
+    const { c, http, confirmSpy } = make({ confirmResult: false });
+    c.ngOnInit();
+    c.openPlayground({ name: 'update_content' } as never);
+    c.playgroundArgs = '{}';
+    await c.runPlayground();
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(http.post).not.toHaveBeenCalled();
+    expect(c.playgroundRunning()).toBe(false);
+  });
+
+  it('runPlayground runs a read-only tool with NO confirm prompt', async () => {
+    const { c, http, confirmSpy } = make();
+    c.ngOnInit();
+    c.openPlayground({ name: 'get_page' } as never);
+    c.playgroundArgs = '{}';
+    await c.runPlayground();
+    expect(confirmSpy).not.toHaveBeenCalled(); // read tools run straight through
+    expect(http.post).toHaveBeenCalled();
   });
 
   it('totalCallsToday sums only today’s usage rows', () => {
