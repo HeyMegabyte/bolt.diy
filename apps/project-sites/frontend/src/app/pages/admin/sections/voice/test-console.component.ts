@@ -379,7 +379,9 @@ export class VoiceTestConsoleComponent implements OnDestroy {
     return new Promise((resolve) => {
       this.api.post<{ data: CallToken }>('/voice/test/call-token', {
         site_id: this.state.selectedSite()?.id,
-      }).subscribe({
+      }, { silent: true }).subscribe({
+        // {silent}: a 501 shows the inline notConfigured panel, a non-501 shows the
+        // specific toast below — either way ONE surface, no generic double-toast.
         next: (r) => { this.notConfigured.set(false); resolve(r.data); },
         error: (err) => {
           if (err?.status === 501) {
