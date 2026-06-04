@@ -8,7 +8,7 @@ import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { MCP_PROVIDERS } from './mcp-providers';
 import { EnvVarsManagerComponent } from '../../../components/env-vars-manager/env-vars-manager.component';
-import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective } from '../../../ui';
+import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
@@ -40,7 +40,7 @@ const PROVIDERS = MCP_PROVIDERS;
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [RevealDirective, RollingCounterComponent, CharCountComponent, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, RollingCounterComponent, CharCountComponent, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -79,7 +79,7 @@ const PROVIDERS = MCP_PROVIDERS;
         </div>
       </div>
 
-      <nav class="flex gap-2 flex-wrap text-[0.78rem]" role="tablist" aria-label="Settings sections">
+      <nav class="flex gap-2 flex-wrap text-[0.78rem]" role="tablist" hlmTablist aria-label="Settings sections">
         @for (t of tabs; track t.id) {
           <button class="tab" role="tab" [class.active]="tab() === t.id" [attr.aria-selected]="tab() === t.id" (click)="setTab(t.id)" [title]="t.desc">{{ t.label }}</button>
         }

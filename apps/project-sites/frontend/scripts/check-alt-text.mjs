@@ -30,6 +30,10 @@ function* walk(dir) {
       yield* walk(full);
       continue;
     }
+    // Spec files never ship — their inline templates + XSS-payload fixture
+    // strings (e.g. a `<img onerror>` used to assert HTML-escaping) are not
+    // production images and must not trip the shipped-HTML alt-text gate.
+    if (full.endsWith('.spec.ts')) continue;
     if (EXTS.some((ext) => full.endsWith(ext))) yield full;
   }
 }

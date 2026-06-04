@@ -72,6 +72,23 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(selected.length).toBe(1);
   });
 
+  it('the settings tablist is keyboard-navigable — ArrowRight moves focus to the next tab (hlmTablist APG roving)', () => {
+    build({ id: 's', slug: 'demo' });
+    const host = fixture.nativeElement as HTMLElement;
+    document.body.appendChild(host); // focus() + document.activeElement need the el in the doc
+    try {
+      const nav = host.querySelector('nav[role="tablist"]')!;
+      const tabs = Array.from(nav.querySelectorAll('button[role="tab"]')) as HTMLButtonElement[];
+      expect(tabs.length).withContext('multiple settings tabs').toBeGreaterThan(1);
+      tabs[0].focus();
+      tabs[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      expect(document.activeElement)
+        .withContext('ArrowRight moves focus to the next tab (APG roving tabindex)').toBe(tabs[1]);
+    } finally {
+      host.remove();
+    }
+  });
+
   it('navigates within the SPA (fragment route) when switching tabs — no full reload', () => {
     build({ id: 's', slug: 'demo' });
     const router = TestBed.inject(Router) as unknown as { navigate: jasmine.Spy };
