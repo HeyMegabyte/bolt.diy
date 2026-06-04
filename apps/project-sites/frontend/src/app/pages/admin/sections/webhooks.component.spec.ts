@@ -72,6 +72,23 @@ describe('AdminWebhooksComponent', () => {
     expect(q('[data-testid="webhooks-secret"]')?.textContent).toContain('whsec_topsecret');
   });
 
+  // The signing secret is shown ONCE + 'won't be shown again' — manually selecting
+  // a break-all <code> block to copy an unrecoverable secret is error-prone. A
+  // Copy button must exist + copy the exact secret to the clipboard.
+  it('reveals a Copy button for the one-time secret + copies the exact value', async () => {
+    build({ id: 's1' });
+    const writeText = jasmine.createSpy('writeText').and.resolveTo(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    fixture.componentInstance.createdSecret.set('whsec_topsecret');
+    fixture.detectChanges();
+
+    const copyBtn = q('[data-testid="webhooks-secret-copy"]') as HTMLButtonElement | null;
+    expect(copyBtn).withContext('a one-time secret must have a Copy affordance').not.toBeNull();
+    await fixture.componentInstance.copySecret();
+    expect(writeText).toHaveBeenCalledWith('whsec_topsecret');
+    expect(fixture.componentInstance.secretCopied()).toBeTrue();
+  });
+
   it('toggles event selection', () => {
     build({ id: 's1' });
     const c = fixture.componentInstance;

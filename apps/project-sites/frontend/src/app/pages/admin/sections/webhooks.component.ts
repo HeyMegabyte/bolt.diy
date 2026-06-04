@@ -59,7 +59,13 @@ interface Delivery {
         @if (createdSecret(); as s) {
           <div data-testid="webhooks-secret" role="status" class="mb-5 rounded-xl border border-primary/30 bg-primary/[0.06] p-4">
             <p class="text-sm text-light font-semibold mb-1">Signing secret — copy it now, it won't be shown again</p>
-            <code class="block text-[0.8rem] text-primary break-all">{{ s }}</code>
+            <div class="flex items-center gap-2">
+              <code class="flex-1 text-[0.8rem] text-primary break-all">{{ s }}</code>
+              <button type="button" data-testid="webhooks-secret-copy"
+                class="shrink-0 text-[0.72rem] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                [attr.aria-label]="secretCopied() ? 'Signing secret copied' : 'Copy signing secret'"
+                (click)="copySecret()">{{ secretCopied() ? 'Copied' : 'Copy' }}</button>
+            </div>
           </div>
         }
 
@@ -171,6 +177,22 @@ export class AdminWebhooksComponent {
   /** True when the load error is transient (not a 404 feature-gate) → show a Retry. */
   readonly errorRetryable = signal(false);
   readonly createdSecret = signal<string | null>(null);
+  readonly secretCopied = signal(false);
+
+  /** One-click copy of the one-time signing secret — the warning says "copy it
+   *  now, it won't be shown again", so a copyable affordance is essential (the
+   *  break-all <code> is still selectable if the clipboard API is unavailable). */
+  async copySecret(): Promise<void> {
+    const s = this.createdSecret();
+    if (!s) return;
+    try {
+      await navigator.clipboard?.writeText(s);
+      this.secretCopied.set(true);
+      setTimeout(() => this.secretCopied.set(false), 1600);
+    } catch {
+      this.toast.error('Could not copy automatically — select the secret and copy it manually.');
+    }
+  }
 
   private loadedSiteId: string | null = null;
 
