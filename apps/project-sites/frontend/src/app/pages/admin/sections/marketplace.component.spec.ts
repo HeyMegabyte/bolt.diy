@@ -186,6 +186,14 @@ describe('AdminMarketplaceComponent (cohesion r8)', () => {
     expect(errSpy).toHaveBeenCalled();
   });
 
+  it('resultAnnouncement(): announces the filtered section count + active industry for screen readers', () => {
+    const c = fixture.componentInstance;
+    expect(c.resultAnnouncement()).withContext('all industries, 2 seeded sections').toBe('Showing 2 sections');
+    c.setIndustry('nonprofit'); // matches s1 only
+    fixture.detectChanges();
+    expect(c.resultAnnouncement()).withContext('singular noun + active industry').toBe('1 section · nonprofit');
+  });
+
   it('a no-match filter combo shows the "Clear filters" empty-state CTA; resetFilters restores the catalog', () => {
     const c = fixture.componentInstance;
     expect(c.hasActiveFilter()).withContext('no filter at rest').toBeFalse();

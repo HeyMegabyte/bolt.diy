@@ -122,6 +122,7 @@ const SLOT_COLORS: Record<string, string> = {
       </button>
     }
   </div>
+  <span class="sr-only" role="status" aria-live="polite" data-testid="marketplace-result-status">{{ resultAnnouncement() }}</span>
 
   <!-- ── Section Grid ─────────────────────────────────────────────────── -->
   @if (loading()) {
@@ -328,6 +329,18 @@ export class AdminMarketplaceComponent implements OnInit {
   readonly previewSection = signal<SectionSummary | null>(null);
 
   readonly totalSections = computed(() => this.sections().length);
+
+  /**
+   * SR-only announcement of the filtered section count + active industry — the
+   * industry/slot filters re-render the grid with no count feedback otherwise
+   * (the tabs have no count-in-label). Mirrors apps.resultAnnouncement.
+   */
+  readonly resultAnnouncement = computed<string>(() => {
+    const n = this.filteredSections().length;
+    const noun = n === 1 ? 'section' : 'sections';
+    const ind = this.activeIndustry();
+    return ind === 'all' ? `Showing ${n} ${noun}` : `${n} ${noun} · ${ind}`;
+  });
 
   readonly filteredSections = computed(() => {
     const ind = this.activeIndustry();
