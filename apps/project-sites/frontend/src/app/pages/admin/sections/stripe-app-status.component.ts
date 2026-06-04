@@ -132,7 +132,12 @@ interface Summary {
 
         <section class="card" appReveal>
           <h3 class="card-h">Recent installs</h3>
-          @if (installs().length === 0) {
+          @if (installsError() && installs().length === 0) {
+            <p class="hint" role="alert" data-testid="stripe-installs-error">
+              {{ installsError() }}
+              <button class="btn-ghost text-xs ml-2" type="button" (click)="refresh()">Retry</button>
+            </p>
+          } @else if (installs().length === 0) {
             <p class="hint">No installs yet.</p>
           }
           @if (installs().length > 0) {
@@ -195,6 +200,8 @@ export class AdminStripeAppStatusComponent {
 
   readonly summary = signal<Summary | null>(null);
   readonly installs = signal<Install[]>([]);
+  /** Set when the installs feed fails so the table shows a Retry, not a fake "No installs yet". */
+  readonly installsError = signal<string | null>(null);
   readonly loading = signal(false);
   /** Persistent non-404 load failure — so a failed fetch shows a retry, not a blank panel. */
   readonly loadError = signal<string | null>(null);
@@ -251,11 +258,14 @@ export class AdminStripeAppStatusComponent {
       },
     });
 
+    this.installsError.set(null);
     this.api
-      .get<{ data: Install[] }>('/stripe-app/installs?limit=100')
+      .get<{ data: Install[] }>('/stripe-app/installs?limit=100', undefined, { silent: true })
       .subscribe({
-        next: (res) => this.installs.set(res.data ?? []),
-        error: () => undefined,
+        // {silent} so this secondary feed's failure doesn't double-toast with the
+        // summary's managed error; surface it inline on the table instead.
+        next: (res) => { this.installs.set(res.data ?? []); this.installsError.set(null); },
+        error: () => this.installsError.set("Couldn't load recent installs — retry."),
       });
   }
 }

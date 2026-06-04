@@ -12,10 +12,12 @@ import { FeatureFlagService } from '../../../services/feature-flag.service';
  * panel). 404 = flag-disabled card (no error). Flag stubbed off so the
  * constructor doesn't auto-refresh; the /installs fetch returns [] harmlessly.
  */
-function make(summaryGet: jasmine.Spy): { c: AdminStripeAppStatusComponent; toastErr: jasmine.Spy } {
+function make(summaryGet: jasmine.Spy, installsGet?: jasmine.Spy): { c: AdminStripeAppStatusComponent; toastErr: jasmine.Spy } {
   const toastErr = jasmine.createSpy('error');
   const get = jasmine.createSpy('get').and.callFake((path: string) =>
-    path.includes('/stripe-app/summary') ? summaryGet(path) : of({ data: [] }),
+    path.includes('/stripe-app/summary')
+      ? summaryGet(path)
+      : (installsGet ? installsGet(path) : of({ data: [] })),
   );
   TestBed.configureTestingModule({
     imports: [AdminStripeAppStatusComponent],
@@ -46,6 +48,15 @@ describe('AdminStripeAppStatusComponent (load-error gating)', () => {
     expect(c.loadError()).toContain("Couldn't load");
     expect(c.notFound()).toBe(false);
     expect(toastErr).toHaveBeenCalled();
+  });
+
+  it('an installs-feed failure sets installsError (not a fake "No installs yet")', () => {
+    const okSummary = jasmine.createSpy('sg').and.returnValue(of({ data: { total_installs: 0, active_installs: 0, uninstalled: 0, paused: 0, last_event_at: null } }));
+    const failInstalls = jasmine.createSpy('ig').and.returnValue(throwError(() => ({ status: 500 })));
+    const { c } = make(okSummary, failInstalls);
+    c.refresh();
+    expect(c.installsError()).toContain("Couldn't load recent installs");
+    expect(c.installs().length).toBe(0);
   });
 
   it('a 404 shows the flag-disabled card without a loadError', () => {
