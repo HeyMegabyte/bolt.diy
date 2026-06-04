@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { AdminSocialComponent } from './social.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -401,5 +401,75 @@ describe('AdminSocialComponent (destructive actions are confirm-guarded)', () =>
     const c = TestBed.createComponent(AdminSocialComponent).componentInstance;
     c.publishNow({ id: 'p9' } as never);
     expect(post).toHaveBeenCalledWith('/social/posts/p9/publish-now', {}, { silent: true });
+  });
+});
+
+/**
+ * Double-submit guard (reliability — "no silent failures", real failure/success
+ * states). publishNow had NO in-flight guard: a fast double-click on "Send now" /
+ * "Publish" fired TWO /publish-now POSTs → the post is published TWICE to the
+ * user's real connected social accounts (an externally-visible duplicate, no undo).
+ * Now an in-flight publish is tracked per-post in `publishingIds`; a second click
+ * while one is in flight is a no-op, and the button renders disabled + "Publishing…".
+ */
+describe('AdminSocialComponent (publishNow double-submit guard)', () => {
+  let post: jasmine.Spy;
+  function build(postSpy: jasmine.Spy): AdminSocialComponent {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: postSpy, delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0, info: () => 0 } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigateByUrl: () => undefined } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    return TestBed.createComponent(AdminSocialComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('a second click while a publish is in flight is a no-op (POST fires exactly once)', () => {
+    const gate = new Subject<unknown>(); // never completes until we emit → publish stays in flight
+    post = jasmine.createSpy('post').and.returnValue(gate);
+    const c = build(post);
+    const p = { id: 'p1' } as never;
+    c.publishNow(p);
+    expect(c.isPublishing('p1')).withContext('flagged in-flight after first click').toBeTrue();
+    c.publishNow(p); // double-click while still publishing
+    expect(post).withContext('guard blocks the duplicate publish').toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the in-flight flag on success (button re-enables)', () => {
+    const gate = new Subject<unknown>();
+    post = jasmine.createSpy('post').and.returnValue(gate);
+    const c = build(post);
+    c.publishNow({ id: 'p2' } as never);
+    expect(c.isPublishing('p2')).toBeTrue();
+    gate.next({ ok: true });
+    gate.complete();
+    expect(c.isPublishing('p2')).withContext('flag cleared once the publish resolves').toBeFalse();
+  });
+
+  it('clears the in-flight flag on failure (recoverable — can retry)', () => {
+    const gate = new Subject<unknown>();
+    post = jasmine.createSpy('post').and.returnValue(gate);
+    const c = build(post);
+    c.publishNow({ id: 'p3' } as never);
+    expect(c.isPublishing('p3')).toBeTrue();
+    gate.error({ status: 500 });
+    expect(c.isPublishing('p3')).withContext('a failed publish must release the lock so the user can retry').toBeFalse();
+  });
+
+  it('two DIFFERENT posts can publish concurrently (guard is per-post, not global)', () => {
+    const gate = new Subject<unknown>();
+    post = jasmine.createSpy('post').and.returnValue(gate);
+    const c = build(post);
+    c.publishNow({ id: 'a' } as never);
+    c.publishNow({ id: 'b' } as never);
+    expect(post).withContext('distinct posts are not blocked by each other').toHaveBeenCalledTimes(2);
+    expect(c.isPublishing('a')).toBeTrue();
+    expect(c.isPublishing('b')).toBeTrue();
   });
 });

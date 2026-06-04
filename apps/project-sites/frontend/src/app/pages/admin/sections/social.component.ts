@@ -674,12 +674,12 @@ const PLATFORMS: readonly PlatformDef[] = [
                   @if (tab() === 'drafts') {
                     <button type="button" class="btn-ghost sm" (click)="editPost(post)">Edit</button>
                     <button type="button" class="btn-ghost sm danger" (click)="deletePost(post)">Delete</button>
-                    <button type="button" class="btn-primary sm" (click)="publishNow(post)">Publish</button>
+                    <button type="button" class="btn-primary sm" [class.is-busy]="isPublishing(post.id)" [disabled]="isPublishing(post.id)" (click)="publishNow(post)">{{ isPublishing(post.id) ? 'Publishing…' : 'Publish' }}</button>
                   }
                   @if (tab() === 'queue') {
                     <button type="button" class="btn-ghost sm" (click)="editPost(post)">Edit time</button>
                     <button type="button" class="btn-ghost sm danger" (click)="deletePost(post)">Cancel</button>
-                    <button type="button" class="btn-primary sm" (click)="publishNow(post)">Send now</button>
+                    <button type="button" class="btn-primary sm" [class.is-busy]="isPublishing(post.id)" [disabled]="isPublishing(post.id)" (click)="publishNow(post)">{{ isPublishing(post.id) ? 'Publishing…' : 'Send now' }}</button>
                   }
                   @if (tab() === 'sent') {
                     <button type="button" class="btn-ghost sm" (click)="duplicatePost(post)">Duplicate</button>
@@ -965,6 +965,7 @@ const PLATFORMS: readonly PlatformDef[] = [
         color: var(--ps-accent, #00e5ff);
       }
       .auto-pilot-toggle.is-busy { opacity: 0.6; cursor: progress; }
+      .btn-primary.is-busy { opacity: 0.65; cursor: progress; }
       .auto-pilot-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
       .auto-pilot-toggle__track {
         position: relative; width: 28px; height: 16px; border-radius: 999px;
@@ -1583,6 +1584,12 @@ export class AdminSocialComponent implements OnInit {
   readonly scheduleTz = signal('America/Los_Angeles');
   readonly bestTimes = signal<string[]>([]);
   readonly editingId = signal<string | null>(null);
+  /** Per-post in-flight publish lock — blocks a double-click from publishing twice
+   *  to the user's real social accounts (no undo on a duplicate post). */
+  readonly publishingIds = signal<Set<string>>(new Set());
+  isPublishing(id: string): boolean {
+    return this.publishingIds().has(id);
+  }
 
   /* Auto-Pilot */
   readonly autoPilotEnabled = signal(false);
@@ -2291,9 +2298,17 @@ export class AdminSocialComponent implements OnInit {
   }
 
   publishNow(post: SocialPost): void {
+    if (this.publishingIds().has(post.id)) return; // guard double-submit → no duplicate publish
+    this.publishingIds.update((s) => new Set(s).add(post.id));
+    const release = () =>
+      this.publishingIds.update((s) => {
+        const n = new Set(s);
+        n.delete(post.id);
+        return n;
+      });
     this.api.post(`/social/posts/${post.id}/publish-now`, {}, { silent: true }).subscribe({
-      next: () => { this.toast.success('Publishing…'); this.loadPosts(); },
-      error: () => this.toast.error('Publish failed'),
+      next: () => { release(); this.toast.success('Publishing…'); this.loadPosts(); },
+      error: () => { release(); this.toast.error('Publish failed'); },
     });
   }
   editPost(post: SocialPost): void {
