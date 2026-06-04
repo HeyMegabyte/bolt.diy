@@ -60,19 +60,31 @@ describe('AdminSocialComponent (site-reactive load)', () => {
     selectedSite.set({ id: 'site-deep' });
     fixture.detectChanges(); // flush the constructor effect — NOT a timer
 
-    expect(get).toHaveBeenCalledWith('/social/accounts', { site_id: 'site-deep' });
+    expect(get).toHaveBeenCalledWith('/social/accounts', { site_id: 'site-deep' }, { silent: true });
     expect(postsCalls().length).toBe(1);
     expect(postsCalls()[0][1]).toEqual({ site_id: 'site-deep' });
   });
 
   it('re-loads when the operator switches sites', () => {
     build({ id: 'site-a' });
-    expect(get).toHaveBeenCalledWith('/social/accounts', { site_id: 'site-a' });
+    expect(get).toHaveBeenCalledWith('/social/accounts', { site_id: 'site-a' }, { silent: true });
 
     selectedSite.set({ id: 'site-b' });
     fixture.detectChanges();
 
-    expect(get).toHaveBeenCalledWith('/social/accounts', { site_id: 'site-b' });
+    expect(get).toHaveBeenCalledWith('/social/accounts', { site_id: 'site-b' }, { silent: true });
+  });
+
+  it('flags accountsError on a failed accounts load (connected platforms not silently shown disconnected)', () => {
+    build(null);
+    get.and.callFake((path: string) => {
+      if (path === '/social/auto-pilot/config') return of({ data: null });
+      if (path === '/social/accounts') return throwError(() => ({ status: 500 }));
+      return of({ data: [] });
+    });
+    selectedSite.set({ id: 'site-x' });
+    fixture.detectChanges();
+    expect(fixture.componentInstance.accountsError()).toBeTrue();
   });
 });
 

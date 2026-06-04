@@ -304,6 +304,12 @@ const PLATFORMS: readonly PlatformDef[] = [
     <!-- ─────────── LEFT: ACCOUNTS ─────────── -->
     <aside class="pane-accounts" appReveal aria-label="Connected accounts">
       <div class="pane-h">Connected accounts</div>
+      @if (accountsError()) {
+        <div class="acct-load-error" role="alert" data-testid="social-accounts-error">
+          Couldn't load connection states — badges may be out of date.
+          <button type="button" (click)="retryAccounts()" data-testid="social-accounts-retry">Retry</button>
+        </div>
+      }
       <div class="acct-list">
         @for (p of platforms; track p.id) {
           @let acct = accountFor(p.id);
@@ -1228,6 +1234,9 @@ const PLATFORMS: readonly PlatformDef[] = [
       /* ── Accounts ── */
       .pane-accounts { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
       .acct-list { display: flex; flex-direction: column; gap: 6px; }
+      .acct-load-error { font-size: 0.68rem; line-height: 1.4; color: oklch(0.82 0.16 75); background: color-mix(in oklch, oklch(0.82 0.16 75) 8%, transparent); border: 1px solid color-mix(in oklch, oklch(0.82 0.16 75) 28%, transparent); border-radius: 8px; padding: 6px 8px; margin-bottom: 8px; }
+      .acct-load-error button { color: var(--ps-accent, #00E5FF); background: none; border: none; cursor: pointer; font-size: 0.68rem; font-weight: 600; padding: 0 0 0 4px; }
+      .acct-load-error button:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; border-radius: 3px; }
       .acct-card {
         --brand: var(--ps-accent, #00e5ff);
         display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 8px;
@@ -1650,6 +1659,8 @@ export class AdminSocialComponent implements OnInit {
   readonly saving = signal(false);
   readonly tab = signal<Tab>('compose');
   readonly accounts = signal<SocialAccount[]>([]);
+  /** Set when the accounts load fails so connected platforms don't silently look "Not connected". */
+  readonly accountsError = signal<boolean>(false);
   readonly posts = signal<SocialPost[]>([]);
   readonly analyticsCache = signal<Record<string, AnalyticsRow[]>>({});
 
@@ -1805,14 +1816,22 @@ export class AdminSocialComponent implements OnInit {
     return this.platforms.find((p) => p.id === pid);
   }
 
+  /** Public retry for the inline accounts-load-error banner. */
+  retryAccounts(): void { this.loadAccounts(); }
+
   private loadAccounts(): void {
     const sid = this.siteId();
     if (!sid) return;
-    this.api.get<{ data: SocialAccount[] }>(`/social/accounts`, { site_id: sid }).subscribe({
-      next: (r) => this.accounts.set(r.data ?? []),
+    this.accountsError.set(false);
+    // {silent} so the inline banner is the only signal (not a generic toast on
+    // top) when connection states can't load.
+    this.api.get<{ data: SocialAccount[] }>(`/social/accounts`, { site_id: sid }, { silent: true }).subscribe({
+      next: (r) => { this.accounts.set(r.data ?? []); this.accountsError.set(false); },
       error: () => {
-        // Sibling agent may not have shipped yet — keep platforms list visible
+        // Keep the platforms list visible, but flag that the "Not connected"
+        // badges may be stale so the operator doesn't reconnect a duplicate.
         this.accounts.set(this.platforms.map((p) => ({ platform: p.id, connected: false })));
+        this.accountsError.set(true);
       },
     });
   }
