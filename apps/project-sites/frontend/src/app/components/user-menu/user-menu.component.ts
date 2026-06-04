@@ -30,11 +30,14 @@ import { ApiService } from '../../services/api.service';
   selector: 'app-user-menu',
   standalone: true,
   template: `
-    <div class="user-menu" (click)="toggleMenu($event)">
-      <div class="user-avatar">{{ getInitial() }}</div>
-      <svg class="chevron" [class.open]="menuOpen()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="m6 9 6 6 6-6" />
-      </svg>
+    <div class="user-menu">
+      <button type="button" class="user-menu-trigger" (click)="toggleMenu($event)"
+              aria-haspopup="menu" [attr.aria-expanded]="menuOpen()" aria-label="Account menu">
+        <div class="user-avatar">{{ getInitial() }}</div>
+        <svg class="chevron" [class.open]="menuOpen()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
       @if (menuOpen()) {
         <div class="dropdown" (click)="$event.stopPropagation()" role="menu" aria-label="Account menu">
           <div class="dropdown-header">
@@ -78,14 +81,22 @@ import { ApiService } from '../../services/api.service';
   styles: [`
     .user-menu {
       position: relative;
+      display: inline-flex;
+    }
+    /* The trigger is a real <button> (keyboard-operable) carrying the chrome. */
+    .user-menu-trigger {
       display: flex; align-items: center; gap: 8px;
       cursor: pointer;
       padding: 4px 10px 4px 4px;
       border-radius: 12px;
+      background: none; border: none; color: inherit; font: inherit;
       transition: background 0.2s;
     }
-    .user-menu:hover {
+    .user-menu-trigger:hover {
       background: rgba(0, 212, 255, 0.06);
+    }
+    .user-menu-trigger:focus-visible {
+      outline: 2px solid #00E5FF; outline-offset: 2px;
     }
     .user-avatar {
       width: 34px; height: 34px; border-radius: 50%;
@@ -96,7 +107,7 @@ import { ApiService } from '../../services/api.service';
       box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.15);
       transition: box-shadow 0.3s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
-    .user-menu:hover .user-avatar {
+    .user-menu-trigger:hover .user-avatar {
       box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.35), 0 0 16px rgba(0, 212, 255, 0.15);
       transform: scale(1.05);
     }
