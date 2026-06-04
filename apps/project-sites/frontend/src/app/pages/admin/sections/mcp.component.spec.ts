@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { AdminMcpComponent } from './mcp.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -95,5 +95,56 @@ describe('AdminMcpComponent — mutations pass {silent:true} (own toast.error �
     (c as unknown as { performDisconnect: (conn: unknown, siteId: string) => void })
       .performDisconnect({ id: 'conn9', provider: 'stripe' }, 's1');
     expect(del).toHaveBeenCalledWith('/sites/s1/mcp/connections/conn9', { silent: true });
+  });
+});
+
+/**
+ * submitPaste double-submit guard: clicking "Save" twice (or hammering Enter)
+ * while the paste POST is in flight must NOT fire a second POST (double-toast +
+ * double load()). An in-flight `pasting` signal gates the handler + disables the
+ * button with a "Saving…" affordance.
+ */
+describe('AdminMcpComponent — submitPaste in-flight guard (no double-submit)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function make(post: jasmine.Spy): AdminMcpComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminMcpComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: { connections: [] } }), post, delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminMcpComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(AdminMcpComponent).componentInstance;
+    c.pasteMode.set('resend');
+    c.pastedKey = 're_abc123';
+    return c;
+  }
+
+  it('a second submitPaste while the first is in flight does NOT double-POST', () => {
+    const pending = new Subject<unknown>();
+    const post = jasmine.createSpy('post').and.returnValue(pending.asObservable());
+    const c = make(post);
+    c.submitPaste('resend');
+    expect(c.pasting()).withContext('first submit marks in-flight').toBe(true);
+    c.submitPaste('resend'); // user double-clicks Save / mashes Enter
+    expect(post).withContext('the in-flight guard blocks the 2nd POST').toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the in-flight flag + closes the paste form on success', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({}));
+    const c = make(post);
+    c.submitPaste('resend');
+    expect(c.pasting()).withContext('flag reset so a later paste can save').toBe(false);
+    expect(c.pasteMode()).withContext('form closes on success').toBeNull();
+  });
+
+  it('clears the in-flight flag on error so the user can retry', () => {
+    const post = jasmine.createSpy('post').and.returnValue(throwError(() => ({ status: 500 })));
+    const c = make(post);
+    c.submitPaste('resend');
+    expect(c.pasting()).withContext('a failed paste re-enables Save').toBe(false);
   });
 });

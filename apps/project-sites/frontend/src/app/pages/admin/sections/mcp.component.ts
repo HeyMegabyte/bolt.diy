@@ -135,8 +135,8 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
                       <button class="btn-primary"
                               type="button"
                               (click)="submitPaste(p.id)"
-                              [disabled]="!pastedKey.trim()"
-                              [attr.data-testid]="'mcp-paste-save-' + p.id">Save</button>
+                              [disabled]="!pastedKey.trim() || pasting()"
+                              [attr.data-testid]="'mcp-paste-save-' + p.id">{{ pasting() ? 'Saving…' : 'Save' }}</button>
                       <button class="btn-ghost"
                               type="button"
                               (click)="cancelPaste()"
@@ -330,6 +330,8 @@ export class AdminMcpComponent implements OnInit {
   loadError = signal<string | null>(null);
   pasteMode = signal<string | null>(null);
   pastedKey = '';
+  /** In-flight guard for the paste-key save — blocks double-submit + drives the "Saving…" affordance. */
+  readonly pasting = signal(false);
   loading = signal(false);
 
   /** Count of currently-connected providers — drives the header status pill. */
@@ -390,6 +392,7 @@ export class AdminMcpComponent implements OnInit {
   }
 
   submitPaste(provider: string): void {
+    if (this.pasting()) return; // in-flight guard — a 2nd Save/Enter must not double-POST
     const s = this.state.selectedSite(); if (!s) return;
     const key = this.pastedKey.trim();
     if (!key) {
@@ -397,14 +400,19 @@ export class AdminMcpComponent implements OnInit {
       return;
     }
     const meta = this.providers.find((p) => p.id === provider);
+    this.pasting.set(true);
     this.api.post(`/mcp/${provider}/paste?site_id=${s.id}`, { api_key: key }, { silent: true }).subscribe({
       next: () => {
+        this.pasting.set(false);
         this.pastedKey = '';
         this.pasteMode.set(null);
         this.toast.success(`${meta?.label ?? provider} connected — form router can now call it`);
         this.load();
       },
-      error: () => this.toast.error(`Could not save ${meta?.label ?? provider} key — check the value + retry`),
+      error: () => {
+        this.pasting.set(false);
+        this.toast.error(`Could not save ${meta?.label ?? provider} key — check the value + retry`);
+      },
     });
   }
 
