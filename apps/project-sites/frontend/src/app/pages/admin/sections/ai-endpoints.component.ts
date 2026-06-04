@@ -1177,6 +1177,8 @@ export class AdminAiEndpointsComponent implements OnInit {
     const d = this.detail();
     if (!s || !d) return;
     this.saving.set(true);
+    // {silent}: the error branch surfaces its own specific 'Save failed' (or the
+    // server message); without {silent} ApiService's generic toast double-fires.
     this.api.put(`/sites/${s.id}/ai-endpoints/${d.id}`, {
       language: d.language,
       files: d.files,
@@ -1185,7 +1187,7 @@ export class AdminAiEndpointsComponent implements OnInit {
       rate_limit_per_sec: d.rate_limit_per_sec,
       cache_ttl_seconds: d.cache_ttl_seconds,
       cron_expression: d.cron_expression,
-    }).subscribe({
+    }, { silent: true }).subscribe({
       next: () => {
         this.saving.set(false);
         this.detailDirty.set(false);

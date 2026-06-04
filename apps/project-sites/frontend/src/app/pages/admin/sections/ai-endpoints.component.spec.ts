@@ -191,14 +191,15 @@ describe('AdminAiEndpointsComponent (inline-edit accessible names)', () => {
  * post + delete silent contracts with minimal state setup.)
  */
 describe('AdminAiEndpointsComponent — mutations pass {silent:true} (no generic double-toast)', () => {
-  let post: jasmine.Spy, del: jasmine.Spy;
+  let post: jasmine.Spy, del: jasmine.Spy, put: jasmine.Spy;
   function buildSpies(): AdminAiEndpointsComponent {
     post = jasmine.createSpy('post').and.returnValue(of({ data: {} }));
     del = jasmine.createSpy('delete').and.returnValue(of({}));
+    put = jasmine.createSpy('put').and.returnValue(of({}));
     TestBed.configureTestingModule({
       imports: [AdminAiEndpointsComponent],
       providers: [
-        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, put: () => of({}), delete: del } },
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, put, delete: del } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
@@ -219,6 +220,16 @@ describe('AdminAiEndpointsComponent — mutations pass {silent:true} (no generic
     const c = buildSpies();
     await c.remove({ id: 'e9' } as never);
     expect(del).toHaveBeenCalledWith('/sites/s1/ai-endpoints/e9', { silent: true });
+  });
+
+  it('saveDetail → PUT is {silent} (its own "Save failed" toast is the sole message)', () => {
+    const c = buildSpies();
+    c.detail.set({
+      id: 'e9', language: 'ts', files: [], bindings: [],
+      auth_mode: 'none', rate_limit_per_sec: 0, cache_ttl_seconds: 0, cron_expression: null,
+    } as never);
+    c.saveDetail();
+    expect(put).toHaveBeenCalledWith('/sites/s1/ai-endpoints/e9', jasmine.any(Object), { silent: true });
   });
 });
 
