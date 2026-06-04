@@ -130,12 +130,14 @@ describe('AdminPseoComponent (cohesion + a11y, convergence r18)', () => {
  */
 describe('AdminPseoComponent (mutations are {silent} — no double-toast)', () => {
   let post: jasmine.Spy;
+  let get: jasmine.Spy;
   function make(): AdminPseoComponent {
     post = jasmine.createSpy('post').and.returnValue(of({}));
+    get = jasmine.createSpy('get').and.returnValue(of({ pages: [], total: 0, stats: { total: 0, approved: 0, published: 0, thinContent: 0 } }));
     TestBed.configureTestingModule({
       imports: [AdminPseoComponent],
       providers: [
-        { provide: ApiService, useValue: { get: () => of({ pages: [], total: 0 }), post } },
+        { provide: ApiService, useValue: { get, post } },
         { provide: ToastService, useValue: { success: () => 0, error: () => 0, info: () => 0 } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
       ],
@@ -159,5 +161,15 @@ describe('AdminPseoComponent (mutations are {silent} — no double-toast)', () =
     expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
     await c.rejectPage({ id: 'p1', route_slug: 'r' } as never);
     expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
+  });
+
+  it('approvePage + rejectPage refresh the stats header (no stale "approved" count)', async () => {
+    const c = make();
+    get.calls.reset();
+    await c.approvePage({ id: 'p1', route_slug: 'r' } as never);
+    expect(get).toHaveBeenCalledWith('/pseo/s1'); // loadStats fired → counter stays accurate
+    get.calls.reset();
+    await c.rejectPage({ id: 'p2', route_slug: 'r2' } as never);
+    expect(get).toHaveBeenCalledWith('/pseo/s1');
   });
 });

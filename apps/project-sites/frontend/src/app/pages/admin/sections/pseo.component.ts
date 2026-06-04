@@ -477,6 +477,7 @@ export class AdminPseoComponent {
       await firstValueFrom(this.api.post(`/pseo/${siteId}/pages/${p.id}/approve`, {}, { silent: true }));
       this.pages.update((list) => list.map((row) => row.id === p.id ? { ...row, status: 'approved' as const } : row));
       this.toast.success(`Approved ${p.route_slug}`);
+      this.loadStats(); // keep the header "approved" counter accurate after the status change
     } catch (e) {
       this.toast.error((e as { error?: { error?: string } })?.error?.error ?? `Could not approve ${p.route_slug}. Try again.`);
     } finally {
@@ -508,6 +509,7 @@ export class AdminPseoComponent {
       await firstValueFrom(this.api.post(`/pseo/${siteId}/pages/${p.id}/reject`, {}, { silent: true }));
       this.pages.update((list) => list.map((row) => row.id === p.id ? { ...row, status: 'rejected' as const } : row));
       this.toast.success(`Rejected ${p.route_slug}`);
+      this.loadStats(); // approved/draft pool changed — refresh the header counts
     } catch (e) {
       this.toast.error((e as { error?: { error?: string } })?.error?.error ?? `Could not reject ${p.route_slug}. Try again.`);
     } finally {
