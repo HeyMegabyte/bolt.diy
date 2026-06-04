@@ -1382,7 +1382,9 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
         const fd = new FormData();
         fd.append('file', file, file.name);
         await new Promise<void>((resolve, reject) => {
-          this.api.postFormData<{ data?: unknown }>('/media/upload', fd).subscribe({
+          // {silent}: per-file failures are aggregated into one summary toast
+          // below — suppress the generic per-file toast (no flood on a batch).
+          this.api.postFormData<{ data?: unknown }>('/media/upload', fd, { silent: true }).subscribe({
             next: () => resolve(),
             error: (err: Error) => reject(err),
           });
@@ -1420,7 +1422,7 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
       confirmLabel: 'Delete',
     });
     if (!ok) return;
-    this.api.delete<{ ok: boolean }>(`/media/assets/${asset.id}`).subscribe({
+    this.api.delete<{ ok: boolean }>(`/media/assets/${asset.id}`, { silent: true }).subscribe({
       next: () => {
         this.assets.update((rows) => rows.filter((r) => r.id !== asset.id));
         const sel = new Set(this.selectedIds());
@@ -1446,7 +1448,9 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     let done = 0;
     let fail = 0;
     for (const id of ids) {
-      this.api.delete<{ ok: boolean }>(`/media/assets/${id}`).subscribe({
+      // {silent}: bulk failures are summarized in finishBulkDelete — suppress
+      // the generic per-asset toast so a partial failure doesn't flood toasts.
+      this.api.delete<{ ok: boolean }>(`/media/assets/${id}`, { silent: true }).subscribe({
         next: () => {
           done++;
           if (done + fail === ids.length) this.finishBulkDelete(done, fail);

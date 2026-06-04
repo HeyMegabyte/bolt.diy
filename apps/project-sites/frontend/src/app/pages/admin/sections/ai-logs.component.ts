@@ -1318,7 +1318,7 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
     loading.add(id);
     this.explainLoading.set(loading);
     this.api.post<{ data: { markdown: string; model?: string; cached?: boolean } }>(
-      `/admin/traces/${id}/explain`, {},
+      `/admin/traces/${id}/explain`, {}, { silent: true },
     ).subscribe({
       next: (r) => {
         const next = new Map(this.explainCache());
@@ -1358,7 +1358,7 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
     if (!s) return;
     let payload: unknown;
     try { payload = JSON.parse(detail.input_json); } catch { payload = detail.input_json; }
-    this.api.post<{ data?: unknown }>(`/sites/${s.id}/ai-endpoints/${detail.endpoint_slug}/invoke`, payload as Record<string, unknown>).subscribe({
+    this.api.post<{ data?: unknown }>(`/sites/${s.id}/ai-endpoints/${detail.endpoint_slug}/invoke`, payload as Record<string, unknown>, { silent: true }).subscribe({
       next: () => { this.toast.success('Endpoint re-run queued — refreshing traces'); setTimeout(() => this.reload(), 800); },
       error: () => this.toast.error('Re-run failed'),
     });

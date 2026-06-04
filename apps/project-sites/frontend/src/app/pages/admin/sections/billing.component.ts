@@ -2206,7 +2206,9 @@ export class AdminBillingComponent implements OnInit {
     if (this.upgrading()) return;
     this.upgrading.set(true);
     this.telemetry.track('billing.upgrade_clicked', { plan: 'pro' });
-    this.api.post<{ data: { url?: string } }>('/billing/checkout', { plan: 'pro' }).subscribe({
+    // {silent}: the error callback shows its own specific checkout message —
+    // suppress the generic ApiService toast so a failure shows ONE, not two.
+    this.api.post<{ data: { url?: string } }>('/billing/checkout', { plan: 'pro' }, { silent: true }).subscribe({
       next: (r) => {
         this.upgrading.set(false);
         const url = r.data?.url;

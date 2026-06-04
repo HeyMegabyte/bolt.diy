@@ -163,3 +163,41 @@ describe('AdminAiLogsComponent (master/detail + filter contract)', () => {
     expect(c.displayRows().map((r) => r.id)).toEqual(['a', 'a::detail']);
   });
 });
+
+/**
+ * Double-toast guard: explainTrace + rerunTrace each show their OWN specific
+ * toast.error in the error callback, so the api.post must pass {silent:true} or
+ * a failure fires TWO toasts (generic ApiService + the section-specific one).
+ */
+describe('AdminAiLogsComponent (mutations are {silent} — no double-toast)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makePost(post: jasmine.Spy): AdminAiLogsComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminAiLogsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: {} }), post } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+        { provide: Router, useValue: { navigate: () => 0, navigateByUrl: () => 0, events: of() } },
+      ],
+    });
+    TestBed.overrideComponent(AdminAiLogsComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminAiLogsComponent).componentInstance;
+  }
+
+  it('explainTrace POSTs {silent:true}', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: { markdown: 'x' } }));
+    const c = makePost(post);
+    c.explainTrace('t1');
+    expect(post).toHaveBeenCalledWith('/admin/traces/t1/explain', {}, { silent: true });
+  });
+
+  it('rerunTrace POSTs {silent:true}', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: {} }));
+    const c = makePost(post);
+    c.rerunTrace({ id: 't1', endpoint_slug: 'greet', input_json: '{"a":1}' } as never);
+    expect(post.calls.mostRecent().args[0]).toBe('/sites/s1/ai-endpoints/greet/invoke');
+    expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
+  });
+});

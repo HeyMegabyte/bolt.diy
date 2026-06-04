@@ -265,3 +265,31 @@ describe('AdminBillingComponent (Stripe Connect onboard — useful error, not ge
     expect(toastErr.calls.mostRecent().args[0]).withContext('actionable, names the add-on').toContain('Agency');
   });
 });
+
+/**
+ * Double-toast guard: upgrade() shows its own specific "Could not start checkout"
+ * toast.error, so the /billing/checkout POST must pass {silent:true} — otherwise
+ * a failure fires the generic ApiService toast on top of the specific one.
+ */
+describe('AdminBillingComponent (upgrade checkout is {silent})', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('upgrade() POSTs /billing/checkout with {silent:true}', () => {
+    // Return NO url so the next-handler hits the safe toast.info branch — never
+    // window.open / window.location (a location redirect reloads the Karma page).
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: {} }));
+    TestBed.configureTestingModule({
+      imports: [AdminBillingComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: {} }), post, put: () => of({}), delete: () => of({}) } },
+        { provide: AdminStateService, useValue: { sites: signal([]) } },
+        { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0 } },
+        { provide: TelemetryService, useValue: { track: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    const c = TestBed.createComponent(AdminBillingComponent).componentInstance;
+    c.upgrade();
+    expect(post).toHaveBeenCalledWith('/billing/checkout', { plan: 'pro' }, { silent: true });
+  });
+});

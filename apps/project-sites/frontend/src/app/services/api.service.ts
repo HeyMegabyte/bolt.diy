@@ -174,14 +174,17 @@ export class ApiService {
   /**
    * Multipart-form POST for binary uploads (assets, logos, ZIPs).
    * Omits the JSON `Content-Type` so the browser sets the multipart boundary.
+   * Pass `{ silent: true }` to suppress the generic error toast when the caller
+   * aggregates per-file results into its own summary toast (avoids a flood of
+   * one generic toast per failed file on a multi-file upload).
    */
-  postFormData<T>(path: string, formData: FormData): Observable<T> {
+  postFormData<T>(path: string, formData: FormData, opts?: { silent?: boolean }): Observable<T> {
     let headers = new HttpHeaders();
     const token = this.auth.getToken();
     if (token) {
       headers = headers.set('Authorization', `Bearer ${token}`);
     }
-    return this.http.post<T>(`/api${path}`, formData, { headers }).pipe(this.handleError());
+    return this.http.post<T>(`/api${path}`, formData, { headers }).pipe(this.handleError(opts?.silent));
   }
 
   /** Search businesses via Google Places proxy */

@@ -286,3 +286,44 @@ describe('AdminMediaComponent (stock search states)', () => {
     expect(el.querySelector('[data-testid="stock-no-matches"]')).toBeNull();
   });
 });
+
+/**
+ * Double-toast guard: deleteOne shows its own toast.error in the error callback,
+ * and the bulk deleteSelected + upload aggregate per-item failures into one
+ * summary toast — so each api call must pass {silent:true} or a failure fires
+ * the generic ApiService toast on top (a flood on bulk/multi-file ops).
+ */
+describe('AdminMediaComponent (mutations are {silent} — no double-toast/flood)', () => {
+  let del: jasmine.Spy;
+  let postFormData: jasmine.Spy;
+
+  function build(confirmResult = true): AdminMediaComponent {
+    del = jasmine.createSpy('delete').and.returnValue(of({ ok: true }));
+    postFormData = jasmine.createSpy('postFormData').and.returnValue(of({ data: null }));
+    TestBed.configureTestingModule({
+      imports: [AdminMediaComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ ok: true }), postFormData, delete: del } },
+        { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
+        { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(confirmResult) } },
+      ],
+    });
+    return TestBed.createComponent(AdminMediaComponent).componentInstance;
+  }
+  afterEach(() => { try { localStorage.clear(); } catch { /* */ } TestBed.resetTestingModule(); });
+
+  it('deleteOne DELETEs {silent:true}', async () => {
+    const c = build(true);
+    await c.deleteOne({ id: 'a1', name: 'pic.png' } as never);
+    expect(del).toHaveBeenCalledWith('/media/assets/a1', { silent: true });
+  });
+
+  it('bulk deleteSelected DELETEs {silent:true} per asset (no toast flood)', async () => {
+    const c = build(true);
+    c.selectedIds.set(new Set(['a1', 'a2']));
+    await c.deleteSelected();
+    expect(del.calls.allArgs().every((a) => a[1] && (a[1] as { silent?: boolean }).silent === true)).toBeTrue();
+    expect(del).toHaveBeenCalledTimes(2);
+  });
+});
