@@ -8,7 +8,10 @@ import { ToastService } from '../../../services/toast.service';
   standalone: true,
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4" data-testid="accept-invite-section">
-      <section class="card max-w-xl mx-auto text-center">
+      <section class="card max-w-xl mx-auto text-center"
+               [attr.role]="state() === 'error' ? 'alert' : 'status'"
+               [attr.aria-live]="state() === 'error' ? 'assertive' : 'polite'"
+               [attr.aria-busy]="state() === 'verifying' ? 'true' : null">
         @if (state() === 'verifying') {
           <h2 class="text-base font-semibold text-white m-0">Verifying invite…</h2>
           <p class="text-[0.78rem] text-text-secondary mt-2">Checking the token from your email.</p>
@@ -41,7 +44,10 @@ export class AdminAcceptInviteComponent implements OnInit {
   ngOnInit(): void {
     const token = this.route.snapshot.queryParamMap.get('token');
     if (!token) { this.state.set('error'); this.message.set('Missing token in URL.'); return; }
-    this.api.post<{ data: { joined: boolean; role: string } }>('/team/invites/accept', { token }).subscribe({
+    // {silent}: the error branch renders a contextual panel with the server
+    // message — suppress the generic ApiService toast so an expired/used invite
+    // doesn't ALSO fire a misleading "resource not found" toast on top.
+    this.api.post<{ data: { joined: boolean; role: string } }>('/team/invites/accept', { token }, { silent: true }).subscribe({
       next: (r) => {
         this.state.set('success');
         this.toast.success(`Joined as ${r.data?.role ?? 'member'}`);

@@ -80,4 +80,50 @@ describe('AdminAcceptInviteComponent (invite acceptance flow)', () => {
     c.goAdmin();
     expect(nav).toHaveBeenCalledWith('/admin');
   });
+
+  it('accepts the invite with {silent:true} so the error panel is the sole failure surface (no generic double-toast)', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: { joined: true, role: 'editor' } }));
+    const { c } = make('tok-123', post);
+    c.ngOnInit();
+    expect(post).toHaveBeenCalledWith('/team/invites/accept', { token: 'tok-123' }, { silent: true });
+  });
+});
+
+/**
+ * WCAG 4.1.3 status messages: the verifying/success/error transitions must be
+ * announced to assistive tech. The card carries a live region — role=alert
+ * (assertive) on error, role=status (polite) otherwise; aria-busy while
+ * verifying. Real-template render (the stripped harness above can't see it).
+ */
+import { ActivatedRoute as AR2, Router as R2 } from '@angular/router';
+describe('AdminAcceptInviteComponent (state region is an announced live region)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  function render(token: string | null, post: jasmine.Spy): HTMLElement {
+    TestBed.configureTestingModule({
+      imports: [AdminAcceptInviteComponent],
+      providers: [
+        { provide: AR2, useValue: { snapshot: { queryParamMap: { get: () => token } } } },
+        { provide: R2, useValue: { navigateByUrl: () => 0 } },
+        { provide: ApiService, useValue: { post } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0 } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminAcceptInviteComponent);
+    fx.detectChanges(); // ngOnInit
+    return fx.nativeElement as HTMLElement;
+  }
+
+  it('error state → role=alert + aria-live=assertive', () => {
+    const host = render(null, jasmine.createSpy('post')); // missing token → error
+    const sec = host.querySelector('section.card')!;
+    expect(sec.getAttribute('role')).toBe('alert');
+    expect(sec.getAttribute('aria-live')).toBe('assertive');
+  });
+
+  it('success state → role=status + aria-live=polite', () => {
+    const host = render('tok', jasmine.createSpy('post').and.returnValue(of({ data: { joined: true, role: 'member' } })));
+    const sec = host.querySelector('section.card')!;
+    expect(sec.getAttribute('role')).toBe('status');
+    expect(sec.getAttribute('aria-live')).toBe('polite');
+  });
 });
