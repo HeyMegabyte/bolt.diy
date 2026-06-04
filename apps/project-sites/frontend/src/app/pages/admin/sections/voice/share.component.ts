@@ -84,6 +84,11 @@ interface PurchasedNumber {
               @if (qrLoading()) { <div class="qr-skel">Loading QR…</div> }
             </div>
           </div>
+        } @else if (loadError() && numbers().length === 0) {
+          <p class="muted-help" role="alert" data-testid="share-load-error">
+            Couldn't load your number — {{ loadError() }}.
+            <button class="btn-ghost text-xs ml-2" type="button" (click)="retryLoad()">Retry</button>
+          </p>
         } @else {
           <p class="muted-help">Buy a number on the Numbers tab to enable sharing.</p>
         }
@@ -204,6 +209,8 @@ export class VoiceShareComponent {
   @ViewChild('qrTile', { static: false }) private qrTileRef?: ElementRef<HTMLDivElement>;
 
   numbers = signal<PurchasedNumber[]>([]);
+  /** Set when the numbers fetch fails so we don't tell a user to "buy a number" they may already own. */
+  loadError = signal<string | null>(null);
   qrLoading = signal(false);
 
   primaryNumber = computed<string | null>(() => this.numbers().find((n) => n.capabilities.voice)?.phone_number ?? null);
@@ -244,15 +251,22 @@ export class VoiceShareComponent {
     });
   }
 
+  /** Public retry hook for the inline "couldn't load" affordance. */
+  retryLoad(): void { this.loadNumbers(); }
+
   private loadNumbers(): void {
     const site = this.state.selectedSite();
     if (!site) return;
+    this.loadError.set(null);
     this.api.get<{ data: PurchasedNumber[] }>(`/voice/numbers?siteId=${site.id}`, undefined, { silent: true }).subscribe({
       next: (r) => {
         this.numbers.set(r.data ?? []);
+        this.loadError.set(null);
         queueMicrotask(() => this.renderQr());
       },
-      error: () => this.numbers.set([]),
+      // Don't wipe (keep any number we already have); flag the failure so the
+      // template offers Retry instead of a misleading "buy a number" message.
+      error: () => this.loadError.set('the numbers service did not respond'),
     });
   }
 
