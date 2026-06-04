@@ -58,6 +58,21 @@ describe('AdminFeatureFlagsComponent (flag control surface)', () => {
     expect(c.resolvedOn(flag({ default_enabled: false, kill_switch: false }))).toBe(false);
   });
 
+  it('filterAnnouncement(): announces the filtered count + active stage for screen readers', () => {
+    const c = make(okGet());
+    c.flags.set([
+      flag({ key: 'a', stage: 'beta' }),
+      flag({ key: 'b', stage: 'stable' }),
+      flag({ key: 'c', stage: 'beta' }),
+    ]);
+    c.stage.set('all');
+    expect(c.filterAnnouncement()).toBe('Showing 3 flags');
+    c.stage.set('beta');
+    expect(c.filterAnnouncement()).toBe('2 flags in beta');
+    c.stage.set('stable');
+    expect(c.filterAnnouncement()).withContext('singular noun for one match').toBe('1 flag in stable');
+  });
+
   it('filtered(): applies the stage filter and the search query', () => {
     const c = make(okGet());
     c.flags.set([

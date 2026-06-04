@@ -116,6 +116,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
             </button>
           }
         </div>
+        <span class="sr-only" role="status" aria-live="polite" data-testid="ff-filter-status">{{ filterAnnouncement() }}</span>
       </div>
 
       @if (loading()) {
@@ -408,6 +409,19 @@ export class AdminFeatureFlagsComponent implements OnInit {
       if (!q) return true;
       return f.key.toLowerCase().includes(q) || f.description.toLowerCase().includes(q);
     });
+  });
+
+  /**
+   * SR-only announcement of the filtered result count on every stage/search
+   * change — without it, screen-reader users selecting a stage chip get no
+   * feedback that the flag list re-rendered (the chips' visible counts aren't
+   * announced on selection). Mirrors apps.resultAnnouncement.
+   */
+  readonly filterAnnouncement = computed<string>(() => {
+    const n = this.filtered().length;
+    const noun = n === 1 ? 'flag' : 'flags';
+    const s = this.stage();
+    return s === 'all' ? `Showing ${n} ${noun}` : `${n} ${noun} in ${s}`;
   });
 
   /** Copy a flag key to the clipboard — devs paste it into isFlagOn()/useFeatureFlag(). */
