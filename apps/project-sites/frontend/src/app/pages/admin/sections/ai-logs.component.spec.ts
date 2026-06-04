@@ -201,3 +201,21 @@ describe('AdminAiLogsComponent (mutations are {silent} — no double-toast)', ()
     expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
   });
 });
+
+describe('AdminAiLogsComponent (chart sample honesty)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('windowSampleCount counts only in-window loaded traces with latency (sparse long-period reads as "small sample")', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    const now = Date.now();
+    const iso = (msAgo: number) => new Date(now - msAgo).toISOString();
+    c.rows.set([
+      { id: 'r1', created_at: iso(60 * 60 * 1000), latency_ms: 100 },        // 1h ago, in 24h
+      { id: 'r2', created_at: iso(2 * 60 * 60 * 1000), latency_ms: 200 },    // 2h ago, in 24h
+      { id: 'r3', created_at: iso(40 * 24 * 60 * 60 * 1000), latency_ms: 9 },// 40d ago, OUT of 24h
+      { id: 'r4', created_at: iso(60 * 60 * 1000), latency_ms: null },       // in window but no latency
+    ] as never);
+    c.chartPeriod.set('24h');
+    expect(c.windowSampleCount()).withContext('only r1 + r2 (in-window, with latency)').toBe(2);
+  });
+});

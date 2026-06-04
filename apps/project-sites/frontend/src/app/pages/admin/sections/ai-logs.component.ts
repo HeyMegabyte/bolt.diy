@@ -289,7 +289,7 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
           <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
             <div>
               <h3 class="m-0 text-base font-semibold text-white">Latency percentiles</h3>
-              <p class="text-[0.7rem] text-text-secondary m-0 mt-0.5">p50 / p95 / p99 over {{ chartPeriodLabel() }} · {{ chartBins().length }} bins</p>
+              <p class="text-[0.7rem] text-text-secondary m-0 mt-0.5" data-testid="ai-logs-chart-subtitle">p50 / p95 / p99 over {{ chartPeriodLabel() }} · {{ windowSampleCount() }} {{ windowSampleCount() === 1 ? 'trace' : 'traces' }} · {{ chartBins().length }} bins</p>
             </div>
             <div class="period-pills" role="tablist" hlmTablist aria-label="Chart period">
               @for (p of periods; track p.id) {
@@ -786,6 +786,16 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
       return { p50: pick(0.5), p95: pick(0.95), p99: pick(0.99), count: arr.length };
     });
   });
+
+  /**
+   * Loaded traces that actually fall inside the selected window — surfaced in
+   * the chart subtitle so a sparse long-period view (only the recent N traces
+   * are fetched, no server-side window param) reads as "small sample", not
+   * "no activity".
+   */
+  readonly windowSampleCount = computed<number>(() =>
+    this.chartBins().reduce((sum, b) => sum + b.count, 0),
+  );
 
   /** Maximum latency across all percentiles in the current chart window. */
   private chartMax = computed<number>(() => {
