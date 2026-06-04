@@ -229,6 +229,9 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
           @if (sqlResult(); as r) {
             <div class="sql-result-meta">
               <span class="sql-result-count">{{ r.rows.length }} {{ r.rows.length === 1 ? 'row' : 'rows' }} · {{ r.duration_ms }}ms</span>
+              @if (r.rows.length > sqlRenderCap) {
+                <span class="sql-result-cap" data-testid="sql-result-cap">showing first {{ sqlRenderCap }} — Copy JSON for all</span>
+              }
               @if (r.rows.length > 0) {
                 <button type="button" class="sql-result-copy" data-testid="sql-result-copy" (click)="copySqlResult(r)">
                   {{ sqlCopied() ? '✓ Copied' : 'Copy JSON' }}
@@ -246,7 +249,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
                   </tr>
                 </thead>
                 <tbody>
-                  @for (row of r.rows; track $index) {
+                  @for (row of cappedRows(r); track $index) {
                     <tr>
                       @for (col of r.columns; track col) {
                         <td data-testid="sql-result-cell">{{ row[col] }}</td>
@@ -352,6 +355,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
     .sql-starter-chip:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
     .sql-result-meta { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; }
     .sql-result-count { font-size: 0.72rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); font-variant-numeric: tabular-nums; }
+    .sql-result-cap { font-size: 0.68rem; color: #ffc800; }
     .sql-result-copy {
       margin-left: auto; font-size: 0.7rem; font-weight: 500; padding: 0.2rem 0.55rem; border-radius: 6px; cursor: pointer;
       color: var(--ps-accent, #00e5ff);
@@ -431,6 +435,14 @@ export class AdminSiteDetailComponent {
   useSqlStarter(query: string): void {
     this.sqlQuery.set(query);
     this.runSql();
+  }
+
+  /** Cap the rendered table rows so a `SELECT *` on a large table can't dump
+   *  thousands of <tr> into the DOM (layout shift + jank). The full result stays
+   *  in sqlResult() — Copy JSON exports every row regardless of this cap. */
+  readonly sqlRenderCap = 200;
+  cappedRows(r: SqlResult): Array<Record<string, unknown>> {
+    return r.rows.length > this.sqlRenderCap ? r.rows.slice(0, this.sqlRenderCap) : r.rows;
   }
 
   /** Brief "✓ Copied" affordance on the SQL-result Copy button. */

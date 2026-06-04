@@ -345,3 +345,22 @@ describe('AdminSiteDetailComponent (SQL result Copy JSON)', () => {
     expect(c.sqlCopied()).toBeTrue();
   });
 });
+
+describe('AdminSiteDetailComponent (SQL result row cap — perf)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('cappedRows renders at most sqlRenderCap rows (full data stays in the result for Copy JSON)', () => {
+    const { c } = make();
+    const big = Array.from({ length: 500 }, (_, i) => ({ id: i }));
+    const r = { columns: ['id'], rows: big, duration_ms: 1 };
+    expect(c.sqlRenderCap).toBe(200);
+    expect(c.cappedRows(r).length).toBe(200);
+    expect(r.rows.length).withContext('underlying result untouched — Copy JSON exports all').toBe(500);
+  });
+
+  it('cappedRows returns all rows when under the cap', () => {
+    const { c } = make();
+    const r = { columns: ['id'], rows: [{ id: 1 }, { id: 2 }], duration_ms: 1 };
+    expect(c.cappedRows(r).length).toBe(2);
+  });
+});
