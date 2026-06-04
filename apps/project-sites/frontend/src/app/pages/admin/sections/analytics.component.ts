@@ -1045,6 +1045,11 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
       this.loadUrls();
     }
     this.loading.set(true);
+    // Clear any stale error when a (re)load starts so the error card can't sit
+    // UNDER a "Loading" pill (contradictory state) and a Retry/refresh feels
+    // responsive (card clears immediately). It re-appears only if THIS load also
+    // fails (catchError re-sets it below).
+    this.error.set(null);
     this.secondsUntilRefresh.set(REFRESH_INTERVAL_SEC);
     const excludeArr = Array.from(this.excluded());
     forkJoin({

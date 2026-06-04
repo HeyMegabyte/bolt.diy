@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
 import { Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, throwError, NEVER } from 'rxjs';
 import { AdminAnalyticsComponent } from './analytics.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -76,6 +76,16 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
     fixture.detectChanges();
 
     expect(getAnalytics.calls.mostRecent().args[0]).toBe('site-b');
+  });
+
+  it('reload() clears a stale error at the start — no "Loading" pill over a stale error card; Retry feels responsive', () => {
+    build({ id: 'site-x' });
+    const c = fixture.componentInstance;
+    c.error.set("Couldn't reach the analytics service");
+    getAnalytics.and.returnValue(NEVER); // reload stays in-flight so we observe the start state
+    c.reload();
+    expect(c.error()).withContext('stale error cleared the instant the reload starts (error card hidden during retry)').toBeNull();
+    expect(c.loading()).withContext('reload is in-flight').toBe(true);
   });
 
   describe('pvTrend (period-over-period delta chip)', () => {
