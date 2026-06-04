@@ -30,7 +30,6 @@
  *   duplicate endpoint
  *   tag chips + filter (client-side)
  *   client-side search/filter by method, language, status, tag
- *   sparkline placeholder (random until invocations land)
  *   AI helper menu (calls stub backend)
  *   rate-limit / auth mode / cache TTL persisted server-side
  *
@@ -344,7 +343,14 @@ interface InlineEdit {
                 class="w-full"
                 placeholder="What does this agent do?"
                 [(ngModel)]="createDraft().description"
-                maxlength="200" />
+                maxlength="200"
+                data-testid="ai-endpoint-create-description" />
+              <div
+                class="char-count"
+                [class.near]="(createDraft().description?.length ?? 0) >= 180"
+                data-testid="ai-endpoint-desc-count"
+                aria-hidden="true"
+              >{{ createDraft().description?.length ?? 0 }}/200</div>
             </label>
 
             <label class="block">
@@ -602,70 +608,10 @@ interface InlineEdit {
     /* .description-input removed — now Spartan hlmInput (text-[0.66rem]). badge-select + slug-input kept (intentional pill / dashed inline-edit affordances). */
     .meta-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 0.66rem; color: rgba(255,255,255,0.55); flex-wrap: wrap; }
     .lang-pill { padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.65); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; }
-    .sparkline-wrap { position: relative; display: inline-flex; align-items: center; }
-    .sparkline { display: inline-flex; gap: 2px; align-items: flex-end; height: 18px; outline: none; border-radius: 4px; padding: 2px; transition: background 160ms ease; cursor: help; }
-    .sparkline:hover, .sparkline:focus-visible { background: rgba(0, 229, 255, 0.06); }
-    .sparkline:focus-visible { outline: 2px solid color-mix(in oklch, oklch(0.78 0.18 220) 55%, transparent); outline-offset: 2px; }
-    .sparkline .bar {
-      width: 3px;
-      background: linear-gradient(180deg,
-        oklch(0.78 0.18 220) 0%,
-        oklch(0.62 0.20 280) 100%);
-      border-radius: 1px;
-      box-shadow: 0 0 4px -1px color-mix(in oklch, oklch(0.78 0.18 220) 60%, transparent);
-    }
-    .latency-tip {
-      position: absolute;
-      bottom: calc(100% + 8px);
-      left: 50%;
-      transform: translate(-50%, 4px);
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      padding: 8px 12px;
-      min-width: 132px;
-      background: linear-gradient(180deg,
-        oklch(0.20 0.04 240 / 0.96),
-        oklch(0.13 0.03 240 / 0.96));
-      border: 1px solid color-mix(in oklch, oklch(0.78 0.18 220) 38%, transparent);
-      border-radius: 10px;
-      font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
-      font-size: 0.66rem;
-      letter-spacing: 0.02em;
-      color: rgba(255, 255, 255, 0.92);
-      white-space: nowrap;
-      box-shadow:
-        0 14px 32px rgba(0, 0, 0, 0.55),
-        0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-      backdrop-filter: blur(12px) saturate(140%);
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-      transition: opacity 160ms ease, transform 160ms ease, visibility 160ms;
-      z-index: 5;
-    }
-    .latency-tip::after {
-      content: '';
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      border: 6px solid transparent;
-      border-top-color: color-mix(in oklch, oklch(0.78 0.18 220) 38%, transparent);
-    }
-    .latency-tip .tip-row { display: flex; justify-content: space-between; gap: 14px; }
-    .latency-tip .tip-row b { color: oklch(0.82 0.16 220); font-weight: 600; }
-    .sparkline-wrap:hover .latency-tip,
-    .sparkline:focus-visible ~ .latency-tip,
-    .sparkline-wrap:focus-within .latency-tip {
-      opacity: 1;
-      visibility: visible;
-      transform: translate(-50%, 0);
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .latency-tip { transition: none; }
-      .sparkline { transition: none; }
-    }
+    /* (.sparkline / .latency-tip styles removed with the fabricated per-row
+       latency display — see createEndpoint() history. No template uses them.) */
+    .char-count { font-size: 0.62rem; color: rgba(255,255,255,0.4); text-align: right; margin-top: 3px; transition: color 140ms ease; }
+    .char-count.near { color: oklch(0.82 0.16 75); }
     .actions { display: flex; gap: 8px; margin-left: auto; align-items: center; }
     .link-btn { background: transparent; border: 0; color: rgba(255,255,255,0.6); font-size: 0.66rem; cursor: pointer; padding: 0; }
     .link-btn:hover { color: #00E5FF; }
