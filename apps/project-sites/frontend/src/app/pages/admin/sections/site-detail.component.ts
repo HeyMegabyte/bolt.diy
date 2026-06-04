@@ -218,6 +218,8 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
           <div class="sql-toolbar">
             <button type="button" (click)="runSql()">Run</button>
             @if (sqlRunning()) { <span class="muted">running…</span> }
+            <span class="sql-readonly-pill" data-testid="sql-readonly-pill"
+                  title="This console runs SELECT / EXPLAIN / WITH queries only — writes are rejected.">Read-only</span>
           </div>
 
           @if (sqlError()) {
@@ -342,6 +344,13 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
     .sql-result-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
     .sql-result-table th, .sql-result-table td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--ps-edge, rgba(255,255,255,0.08)); }
     .sql-error { color: #ff7e8a; }
+    .sql-readonly-pill {
+      margin-left: auto; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em;
+      text-transform: uppercase; padding: 0.2rem 0.55rem; border-radius: 999px; cursor: help;
+      color: var(--ps-accent, #00e5ff);
+      background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent);
+    }
     .rollback-error { margin-top: 0.5rem; color: #ff7e8a; font-size: 0.85rem; }
     .sql-history { margin-top: 1rem; }
     .sql-history ul { list-style: none; padding: 0; margin: 0.5rem 0 0; display: grid; gap: 0.25rem; }
@@ -520,9 +529,24 @@ export class AdminSiteDetailComponent {
   }
 
   // ── SQL ──────────────────────────────────────────────────────────────
+  /** Leading write/DDL keyword → this console is read-only. Matches only the
+   *  FIRST statement keyword (after any leading line comments) so a SELECT with
+   *  "update" inside a string/column never false-positives. The server is the
+   *  real boundary; this is instant feedback + defense-in-depth. */
+  private static readonly WRITE_LEAD =
+    /^\s*(?:--[^\n]*\r?\n\s*)*(DROP|DELETE|UPDATE|INSERT|ALTER|CREATE|TRUNCATE|REPLACE|ATTACH|DETACH|VACUUM|REINDEX)\b/i;
+
   runSql(): void {
     const query = this.sqlQuery().trim();
     if (!query) return;
+    const write = AdminSiteDetailComponent.WRITE_LEAD.exec(query);
+    if (write) {
+      this.sqlResult.set(null);
+      this.sqlError.set(
+        `This console is read-only — remove the ${write[1].toUpperCase()} statement. Only SELECT / EXPLAIN / WITH queries run here.`,
+      );
+      return;
+    }
     const id = this.siteId();
     this.sqlRunning.set(true);
     this.sqlError.set(null);

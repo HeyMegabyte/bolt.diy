@@ -72,11 +72,45 @@ describe('AdminSiteDetailComponent (tabs + logs + SQL console)', () => {
   });
 
   it('runSql surfaces a query error without throwing (server read-only/validation errors)', () => {
-    const { c } = make(jasmine.createSpy('post').and.returnValue(throwError(() => ({ error: { error: { message: 'writes are not allowed' } } }))));
-    c.sqlQuery.set('DELETE FROM sites');
+    // Uses a SELECT (passes the client read-only guard) that the SERVER rejects,
+    // so this still covers the server-error surface path.
+    const { c } = make(jasmine.createSpy('post').and.returnValue(throwError(() => ({ error: { error: { message: 'no such table: ghost' } } }))));
+    c.sqlQuery.set('SELECT * FROM ghost');
     c.runSql();
-    expect(c.sqlError()).toContain('not allowed');
+    expect(c.sqlError()).toContain('no such table');
     expect(c.sqlRunning()).toBe(false);
+  });
+
+  // Client-side read-only guard: a leading write/DDL keyword is blocked BEFORE the
+  // POST — instant clear feedback + no wasted round-trip (the server is still the
+  // real boundary). Defense-in-depth on a power-tool that could tempt a DROP.
+  it('runSql BLOCKS a leading write statement client-side (no POST, clear read-only error)', () => {
+    const { c, post } = make();
+    for (const q of ['DELETE FROM sites', 'drop table users', '  UPDATE sites SET x=1', '-- note\nINSERT INTO t VALUES(1)']) {
+      c.sqlError.set(null);
+      c.sqlQuery.set(q);
+      c.runSql();
+      expect(post).withContext(`must not POST a write query: ${q}`).not.toHaveBeenCalled();
+      expect(c.sqlError()).withContext(`read-only message for: ${q}`).toContain('read-only');
+    }
+  });
+
+  it('runSql ALLOWS read queries (SELECT / WITH / EXPLAIN) through to the server', () => {
+    for (const q of ['SELECT 1', 'with t as (select 1) select * from t', 'EXPLAIN QUERY PLAN SELECT 1']) {
+      const { c, post } = make();
+      c.sqlQuery.set(q);
+      c.runSql();
+      expect(post).withContext(`read query must POST: ${q}`).toHaveBeenCalled();
+      TestBed.resetTestingModule();
+    }
+  });
+
+  it('a SELECT with the word "update" inside it is NOT a false positive', () => {
+    const { c, post } = make();
+    c.sqlQuery.set("SELECT * FROM sites WHERE note = 'please update later'");
+    c.runSql();
+    expect(post).withContext('only the LEADING keyword gates — inner text is fine').toHaveBeenCalled();
+    expect(c.sqlError()).toBeNull();
   });
 
   // ── Rollback must NOT claim a false success on failure (lying-UI guard) ──
