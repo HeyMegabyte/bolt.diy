@@ -94,7 +94,10 @@ interface Recipe {
             </label>
           }
           <div class="flex items-center gap-3">
-            <button hlmBtn data-testid="recipes-create-btn" [disabled]="creating() || !canSubmit()" (click)="create()">
+            <button hlmBtn data-testid="recipes-create-btn"
+                    [disabled]="creating() || !canSubmit() || !!error()"
+                    [attr.title]="error() ? 'Automations are not available for this site' : null"
+                    (click)="create()">
               {{ creating() ? 'Creating…' : 'Add recipe' }}
             </button>
             <label class="inline-flex items-center gap-2 cursor-pointer text-sm text-light">
@@ -273,6 +276,9 @@ export class AdminRecipesComponent {
   create(): void {
     const id = this.siteId();
     if (!id || this.creating()) return;
+    // Automations flag-gated off for this site (error() is set exclusively by the
+    // not-available 404) → the create route 404s; don't fire a dead POST.
+    if (this.error()) return;
     if (!this.nameModel().trim()) {
       this.toast.error('Give the recipe a name.');
       return;

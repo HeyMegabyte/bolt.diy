@@ -248,4 +248,23 @@ describe('AdminRecipesComponent', () => {
     fixture.detectChanges();
     expect(q('app-empty-state')).withContext('uses the reusable empty-state primitive').not.toBeNull();
   });
+
+  // When automations are flag-gated off for the site (error() = the 'not
+  // available' 404), the Add-recipe form must not be a dead mutation: the button
+  // is disabled + create() no-ops (the POST would 404).
+  it('disables Add recipe + no-ops create() when automations are not available (flag-gated)', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.error.set('Automations are not available for this site.');
+    // a fully-valid form otherwise — only the not-available gate should block it
+    c.nameModel.set('Email me on new lead');
+    fixture.detectChanges();
+
+    const btn = q('[data-testid="recipes-create-btn"]') as HTMLButtonElement;
+    expect(btn.disabled).withContext('Add recipe locked when not available').toBeTrue();
+
+    post.calls.reset();
+    c.create();
+    expect(post).withContext('no dead POST to the flag-gated route').not.toHaveBeenCalled();
+  });
 });
