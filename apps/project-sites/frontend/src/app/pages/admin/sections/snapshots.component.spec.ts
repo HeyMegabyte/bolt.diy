@@ -140,14 +140,15 @@ describe('AdminSnapshotsComponent (destructive revert is confirm-guarded)', () =
  * — else the generic "Can't reach the server" toast double-fires on failure.
  */
 describe('AdminSnapshotsComponent — mutations pass {silent:true} (no generic double-toast)', () => {
-  let post: jasmine.Spy, del: jasmine.Spy;
+  let post: jasmine.Spy, del: jasmine.Spy, get: jasmine.Spy;
   function buildSpies(): AdminSnapshotsComponent {
     post = jasmine.createSpy('post').and.returnValue(of({ data: { commit_sha: 'abc', html_url: 'h' } }));
     del = jasmine.createSpy('delete').and.returnValue(of({}));
+    get = jasmine.createSpy('get').and.returnValue(of({ data: [] }));
     TestBed.configureTestingModule({
       imports: [AdminSnapshotsComponent],
       providers: [
-        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, delete: del } },
+        { provide: ApiService, useValue: { get, post, delete: del } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
         { provide: TelemetryService, useValue: { track: () => undefined, capture: () => undefined } },
@@ -183,6 +184,16 @@ describe('AdminSnapshotsComponent — mutations pass {silent:true} (no generic d
     const c = buildSpies();
     c.deleteSnapshot('snap9');
     expect(del).toHaveBeenCalledWith('/sites/s1/snapshots/snap9', { silent: true });
+  });
+
+  it('linkGithub → OAuth-URL GET is {silent} (its own error toast is the sole message)', () => {
+    const c = buildSpies();
+    c.linkGithub();
+    expect(get).toHaveBeenCalledWith(
+      '/sites/s1/github/connect',
+      { return_url: '/admin/snapshots' },
+      { silent: true },
+    );
   });
 });
 

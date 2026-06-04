@@ -150,6 +150,7 @@ interface GhStatus {
         <!-- GitHub link/sync — mirrors the isomorphic-git snapshot tree to GitHub on every build. -->
         @if (!ghStatus()?.connected) {
           <button class="btn-github-link" [disabled]="linkingGh() || !state.selectedSite()" (click)="linkGithub()"
+                  [attr.aria-busy]="linkingGh()" data-testid="snapshots-link-github"
                   [brnTooltip]="'Mirror snapshot history to a GitHub repo; every new snapshot will push automatically.'">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
             <span>{{ linkingGh() ? 'Opening GitHub…' : 'Link GitHub' }}</span>
@@ -177,7 +178,7 @@ interface GhStatus {
               </svg>
             </button>
             <button class="btn-github-unlink" [disabled]="unlinkingGh()" (click)="unlinkGithub()"
-                    aria-label="Disconnect GitHub backup"
+                    aria-label="Disconnect GitHub backup" [attr.aria-busy]="unlinkingGh()"
                     [brnTooltip]="'Disconnect GitHub backup'">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
@@ -1542,7 +1543,9 @@ export class AdminSnapshotsComponent implements OnInit {
     // The /github/connect route requires Bearer auth — a raw browser
     // navigation drops the header and 401s. Fetch the OAuth URL via
     // ApiService (auth header attached), then redirect.
-    this.api.get<{ url: string }>(`/sites/${site.id}/github/connect`, { return_url: '/admin/snapshots' }).subscribe({
+    // {silent}: the error branch surfaces its OWN specific message; without
+    // {silent} ApiService's generic "Can't reach the server" toast double-fires.
+    this.api.get<{ url: string }>(`/sites/${site.id}/github/connect`, { return_url: '/admin/snapshots' }, { silent: true }).subscribe({
       next: (r) => { if (r?.url) window.location.href = r.url; else this.linkingGh.set(false); },
       error: (err) => {
         this.linkingGh.set(false);
