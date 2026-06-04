@@ -13,13 +13,13 @@
  */
 
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { EditorChatComponent } from '../components/editor-chat/editor-chat.component';
 
 @Component({
   selector: 'app-editor-native-page',
   standalone: true,
-  imports: [EditorChatComponent],
+  imports: [EditorChatComponent, RouterLink],
   template: `
     @if (allowed()) {
       <div class="enp-wrap" data-testid="editor-native-page">
