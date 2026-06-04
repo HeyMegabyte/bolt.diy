@@ -39,7 +39,7 @@ interface Notification {
       </button>
 
       @if (isOpen()) {
-        <div class="dropdown" role="menu">
+        <div class="dropdown">
           <div class="dropdown-header">
             <span>Notifications</span>
             @if (unreadCount() > 0) {
@@ -58,11 +58,11 @@ interface Notification {
           } @else {
             <div class="notification-list">
               @for (notif of notifications(); track notif.id) {
-                <div
+                <button
+                  type="button"
                   class="notification-item"
                   [class.unread]="!notif.read"
                   (click)="handleClick(notif)"
-                  role="menuitem"
                 >
                   <div class="notif-icon" [attr.data-type]="notif.type">
                     {{ typeIcon(notif.type) }}
@@ -75,7 +75,7 @@ interface Notification {
                   @if (!notif.read) {
                     <span class="unread-dot"></span>
                   }
-                </div>
+                </button>
               }
             </div>
           }
@@ -191,6 +191,8 @@ interface Notification {
     .notification-list { padding: 6px; }
     .notification-item {
       display: flex; align-items: flex-start; gap: 10px;
+      /* keyboard-operable <button> reset (was a mouse-only clickable div) */
+      width: 100%; text-align: left; background: none; color: inherit; font: inherit;
       padding: 10px 12px; cursor: pointer;
       border-radius: var(--ps-radius-sm, 8px);
       border: 1px solid transparent;
@@ -199,6 +201,9 @@ interface Notification {
         border-color var(--ps-dur-fast, 140ms),
         transform var(--ps-dur-fast, 140ms) var(--ps-ease-emphasized, cubic-bezier(0.16,1,0.3,1));
       animation: notifIn 240ms var(--ps-ease-emphasized, cubic-bezier(0.16,1,0.3,1)) both;
+    }
+    .notification-item:focus-visible {
+      outline: 2px solid #00E5FF; outline-offset: -2px;
     }
     .notification-item:hover {
       background: rgba(0,229,255,0.05);
