@@ -137,8 +137,11 @@ const SLOT_COLORS: Record<string, string> = {
   } @else if (filteredSections().length === 0) {
     <app-empty-state
       icon="▦"
-      title="No sections available"
-      body="Curated bento sections are added per industry — try a different category above, or check back soon." />
+      [title]="hasActiveFilter() ? 'No sections match these filters' : 'No sections available'"
+      [body]="hasActiveFilter() ? 'Nothing in the catalog matches this industry + slot combination yet.' : 'Curated bento sections are added per industry — check back soon.'"
+      [primary]="hasActiveFilter() ? 'Clear filters' : undefined"
+      (primaryClick)="resetFilters()"
+      data-testid="marketplace-empty" />
   } @else {
     <div class="mkt-grid" appReveal role="list">
       @for (section of filteredSections(); track section.id) {
@@ -334,6 +337,16 @@ export class AdminMarketplaceComponent implements OnInit {
       (slot === 'all' || s.slot === slot),
     );
   });
+
+  /** A filter is narrowing the catalog — so an empty result is "no match", not "no sections". */
+  readonly hasActiveFilter = computed(() => this.activeIndustry() !== 'all' || this.activeSlot() !== 'all');
+
+  /** Empty-state first action: drop both filters back to "all" so the catalog reappears. */
+  resetFilters(): void {
+    this.activeIndustry.set('all');
+    this.activeSlot.set('all');
+    this.cdr.markForCheck();
+  }
 
   ngOnInit() {
     this.loadCatalog();

@@ -185,6 +185,24 @@ describe('AdminMarketplaceComponent (cohesion r8)', () => {
     expect((q('.mkt-card__fork-btn') as HTMLElement).textContent).not.toContain('Forked');
     expect(errSpy).toHaveBeenCalled();
   });
+
+  it('a no-match filter combo shows the "Clear filters" empty-state CTA; resetFilters restores the catalog', () => {
+    const c = fixture.componentInstance;
+    expect(c.hasActiveFilter()).withContext('no filter at rest').toBeFalse();
+    // nonprofit + cta matches neither seeded section (s1=nonprofit/hero, s2=restaurant/cta)
+    c.setIndustry('nonprofit');
+    c.setSlot('cta');
+    fixture.detectChanges();
+    expect(c.filteredSections().length).withContext('no section matches the combo').toBe(0);
+    expect(c.hasActiveFilter()).toBeTrue();
+    const empty = host.querySelector('[data-testid="marketplace-empty"]');
+    expect(empty?.querySelector('button')?.textContent).withContext('offers Clear filters').toContain('Clear filters');
+
+    c.resetFilters();
+    fixture.detectChanges();
+    expect(c.hasActiveFilter()).toBeFalse();
+    expect(c.filteredSections().length).withContext('catalog restored').toBe(2);
+  });
 });
 
 /**
