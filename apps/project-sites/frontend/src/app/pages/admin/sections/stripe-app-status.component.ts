@@ -23,6 +23,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { InlineErrorComponent } from '../../../components/states';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { FeatureFlagService } from '../../../services/feature-flag.service';
@@ -54,7 +55,7 @@ interface Summary {
 @Component({
   selector: 'app-admin-stripe-app-status',
   standalone: true,
-  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, DatePipe],
+  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, DatePipe, InlineErrorComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
@@ -133,10 +134,7 @@ interface Summary {
         <section class="card" appReveal>
           <h3 class="card-h">Recent installs</h3>
           @if (installsError() && installs().length === 0) {
-            <p class="hint" role="alert" data-testid="stripe-installs-error">
-              {{ installsError() }}
-              <button class="btn-ghost text-xs ml-2" type="button" (click)="refresh()">Retry</button>
-            </p>
+            <app-inline-error tone="error" data-testid="stripe-installs-error" [message]="installsError()!" (retry)="refresh()" />
           } @else if (installs().length === 0) {
             <p class="hint">No installs yet.</p>
           }
