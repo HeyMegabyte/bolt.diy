@@ -60,12 +60,17 @@ const COMMANDS: PaletteCommand[] = [
             (input)="onInput($event)"
             autocomplete="off"
             spellcheck="false"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-controls="ps-palette-listbox"
+            [attr.aria-expanded]="flatItems().length > 0"
+            [attr.aria-activedescendant]="activeOptionId()"
             data-testid="command-palette-input"
           />
           <kbd class="palette-esc">esc</kbd>
         </div>
         <div class="palette-divider"></div>
-        <ul class="palette-list" role="listbox" aria-label="Commands" [@listStagger]="flatItems().length">
+        <ul id="ps-palette-listbox" class="palette-list" role="listbox" aria-label="Commands" [@listStagger]="flatItems().length">
           @if (predicted().length > 0) {
             <li class="palette-group" role="presentation" data-testid="command-predicted-header">
               <span class="palette-group-spark" [innerHTML]="getIcon('sparkle')"></span>
@@ -76,6 +81,7 @@ const COMMANDS: PaletteCommand[] = [
                 class="palette-item"
                 [class.active]="i === activeIndex()"
                 [attr.aria-selected]="i === activeIndex()"
+                [id]="'ps-palette-opt-' + i"
                 role="option"
                 (click)="execute(cmd)"
                 (mouseenter)="activeIndex.set(i)"
@@ -95,6 +101,7 @@ const COMMANDS: PaletteCommand[] = [
               class="palette-item"
               [class.active]="(i + predicted().length) === activeIndex()"
               [attr.aria-selected]="(i + predicted().length) === activeIndex()"
+              [id]="'ps-palette-opt-' + (i + predicted().length)"
               role="option"
               (click)="execute(cmd)"
               (mouseenter)="activeIndex.set(i + predicted().length)"
@@ -324,6 +331,13 @@ export class CommandPaletteComponent implements AfterViewInit, OnDestroy {
   /** Flat keyboard-nav order: predicted first, then the rest. activeIndex
    *  indexes into this combined list. */
   readonly flatItems = computed<PaletteCommand[]>(() => [...this.predicted(), ...this.restList()]);
+
+  /** id of the active option for the input's aria-activedescendant — so screen
+   *  readers announce the highlighted command as the user arrows (APG combobox). */
+  readonly activeOptionId = computed<string | null>(() => {
+    const i = this.activeIndex();
+    return i >= 0 && i < this.flatItems().length ? `ps-palette-opt-${i}` : null;
+  });
 
   /** Read the per-command tally from localStorage (defensive: {} on any error). */
   private readFreq(): Record<string, { n: number; last: number }> {
