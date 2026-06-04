@@ -11,3 +11,4 @@
 export { SkeletonComponent, type SkeletonVariant } from './skeleton.component';
 export { EmptyStateComponent } from './empty-state.component';
 export { ErrorCardComponent } from './error-card.component';
+export { InlineErrorComponent } from './inline-error.component';

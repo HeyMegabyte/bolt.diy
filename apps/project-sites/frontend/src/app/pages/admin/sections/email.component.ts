@@ -2,6 +2,7 @@ import { Component, computed, inject, signal, type OnInit } from '@angular/core'
 import { FormsModule } from '@angular/forms';
 import { HlmInputDirective } from '../../../ui';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
+import { InlineErrorComponent } from '../../../components/states';
 import { AdminStateService } from '../admin-state.service';
 import {
   ApiService,
@@ -34,7 +35,7 @@ const PROVIDERS: ProviderMeta[] = [
 @Component({
   selector: 'app-admin-email',
   standalone: true,
-  imports: [FormsModule, HlmInputDirective, DialogShellComponent],
+  imports: [FormsModule, HlmInputDirective, DialogShellComponent, InlineErrorComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4" data-testid="email-section">
       @if (!state.selectedSite()) {
@@ -61,10 +62,11 @@ const PROVIDERS: ProviderMeta[] = [
 
         @if (tab() === 'integrations') {
           @if (integrationsError()) {
-            <div class="mb-4 rounded-md border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2 text-[0.78rem] text-amber-300" role="alert" data-testid="email-integrations-error">
-              Couldn't load your connection states — the badges below may be out of date.
-              <button class="btn-ghost text-xs ml-2" type="button" (click)="refreshIntegrations()" data-testid="email-integrations-retry">Retry</button>
-            </div>
+            <app-inline-error
+              class="block mb-4"
+              data-testid="email-integrations-error"
+              message="Couldn't load your connection states — the badges below may be out of date."
+              (retry)="refreshIntegrations()" />
           }
           <section class="grid grid-cols-3 gap-3 mb-7 max-lg:grid-cols-2 max-md:grid-cols-1">
             @for (provider of providers; track provider.id) {

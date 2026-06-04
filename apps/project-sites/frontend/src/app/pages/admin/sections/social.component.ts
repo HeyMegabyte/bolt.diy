@@ -41,6 +41,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { InlineErrorComponent } from '../../../components/states';
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { AdminStateService } from '../admin-state.service';
@@ -235,7 +236,7 @@ const PLATFORMS: readonly PlatformDef[] = [
   selector: 'app-admin-social',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RevealDirective, RollingCounterComponent, DialogShellComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
+  imports: [CommonModule, FormsModule, RevealDirective, RollingCounterComponent, DialogShellComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, InlineErrorComponent],
   template: `
 <div class="social-wrap" [class.is-loading]="loading()">
 
@@ -305,10 +306,11 @@ const PLATFORMS: readonly PlatformDef[] = [
     <aside class="pane-accounts" appReveal aria-label="Connected accounts">
       <div class="pane-h">Connected accounts</div>
       @if (accountsError()) {
-        <div class="acct-load-error" role="alert" data-testid="social-accounts-error">
-          Couldn't load connection states — badges may be out of date.
-          <button type="button" (click)="retryAccounts()" data-testid="social-accounts-retry">Retry</button>
-        </div>
+        <app-inline-error
+          class="block mb-2"
+          data-testid="social-accounts-error"
+          message="Couldn't load connection states — badges may be out of date."
+          (retry)="retryAccounts()" />
       }
       <div class="acct-list">
         @for (p of platforms; track p.id) {
@@ -1234,9 +1236,6 @@ const PLATFORMS: readonly PlatformDef[] = [
       /* ── Accounts ── */
       .pane-accounts { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
       .acct-list { display: flex; flex-direction: column; gap: 6px; }
-      .acct-load-error { font-size: 0.68rem; line-height: 1.4; color: oklch(0.82 0.16 75); background: color-mix(in oklch, oklch(0.82 0.16 75) 8%, transparent); border: 1px solid color-mix(in oklch, oklch(0.82 0.16 75) 28%, transparent); border-radius: 8px; padding: 6px 8px; margin-bottom: 8px; }
-      .acct-load-error button { color: var(--ps-accent, #00E5FF); background: none; border: none; cursor: pointer; font-size: 0.68rem; font-weight: 600; padding: 0 0 0 4px; }
-      .acct-load-error button:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; border-radius: 3px; }
       .acct-card {
         --brand: var(--ps-accent, #00e5ff);
         display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 8px;
