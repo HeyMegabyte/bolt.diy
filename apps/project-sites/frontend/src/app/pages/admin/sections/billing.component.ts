@@ -140,7 +140,7 @@ interface ForecastBar {
               <div class="rounded-lg border border-white/8 bg-black/20 px-3 py-2">
                 <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary font-bold">Period ends</div>
                 <div class="text-white font-bold" data-testid="subscription-period-end">
-                  {{ subStatus()?.current_period_end ?? '—' }}
+                  {{ subStatus()?.current_period_end ?? 'No renewal' }}
                 </div>
               </div>
               @if (subStatus()?.last_webhook) {

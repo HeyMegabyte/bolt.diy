@@ -162,10 +162,13 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
       .withContext('an empty/null subscription must leave subStatus null, not {plan:"—"}')
       .toBeNull();
     fixture.detectChanges();
-    const planEl = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="subscription-plan"]');
-    expect(planEl?.textContent?.trim())
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('[data-testid="subscription-plan"]')?.textContent?.trim())
       .withContext('a free user must see "Free", not an uninformative em-dash')
       .toBe('Free');
+    expect(root.querySelector('[data-testid="subscription-period-end"]')?.textContent?.trim())
+      .withContext('a free user has no billing cycle → "No renewal", not a bare em-dash')
+      .toBe('No renewal');
   });
 });
 
