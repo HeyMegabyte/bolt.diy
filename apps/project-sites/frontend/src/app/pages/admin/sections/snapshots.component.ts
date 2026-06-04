@@ -11,6 +11,7 @@ import { DialogShellComponent } from '../../../components/dialog-shell/dialog-sh
 import { FullscreenOverlayComponent } from '../../../components/fullscreen-overlay/fullscreen-overlay.component';
 import { BoltEmbedService } from '../../../services/bolt-embed.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { CharCountComponent } from '../../../components/char-count/char-count.component';
 import { HlmInputDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { RevealDirective } from '../../../directives/reveal.directive';
@@ -110,7 +111,7 @@ interface GhStatus {
 @Component({
   selector: 'app-admin-snapshots',
   standalone: true,
-  imports: [RevealDirective, FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, HlmInputDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, FormsModule, DialogShellComponent, FullscreenOverlayComponent, RollingCounterComponent, CharCountComponent, HlmInputDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -213,6 +214,7 @@ interface GhStatus {
                 aria-describedby="snap-name-error"
                 data-testid="snapshot-name-input"
                 autofocus />
+              <app-char-count [value]="newSnapshotName" [max]="50" />
               @if (nameError(); as err) {
                 <p id="snap-name-error" class="snap-error" role="alert" aria-live="polite">{{ err }}</p>
               }
