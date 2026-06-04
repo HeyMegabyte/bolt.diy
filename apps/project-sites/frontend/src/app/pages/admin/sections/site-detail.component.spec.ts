@@ -122,4 +122,25 @@ describe('AdminSiteDetailComponent (cinematic entrance — matches sibling secti
     expect(root).withContext('site-detail root renders').not.toBeNull();
     expect(root!.classList.contains('animate-fade-in')).withContext('root must animate in (opacity-only, reduced-motion-safe) like sibling sections').toBe(true);
   });
+
+  it('never renders a bare ".projectsites.dev" subtitle when the site fails to resolve (falls back to the URL slug)', () => {
+    // GET /sites/:id can 200 with { site: null } (id not fully resolvable) — site()
+    // stays null and the header used to show a broken bare ".projectsites.dev".
+    const api = { get: jasmine.createSpy('get').and.returnValue(of({ site: null })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
+    TestBed.configureTestingModule({
+      imports: [AdminSiteDetailComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: api },
+        { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 'site-1' }), queryParamMap: of({ get: () => null }) } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminSiteDetailComponent);
+    f.detectChanges();
+    const sub = (f.nativeElement as HTMLElement).querySelector('.site-detail__subtitle');
+    expect(sub).not.toBeNull();
+    const txt = (sub!.textContent ?? '').trim();
+    expect(txt).withContext('subtitle must not be a bare orphaned TLD').not.toBe('.projectsites.dev');
+    expect(txt).withContext('falls back to the URL slug so the host is meaningful').toContain('site-1');
+  });
 });

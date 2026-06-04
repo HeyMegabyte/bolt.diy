@@ -71,8 +71,14 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
   template: `
     <section class="site-detail animate-fade-in" data-testid="site-detail">
       <header class="site-detail__head">
-        <h1 class="site-detail__title">{{ site()?.name ?? 'Site' }}</h1>
-        <p class="site-detail__subtitle">{{ site()?.slug }}.projectsites.dev</p>
+        <h1 class="site-detail__title">{{ site()?.name || 'Site' }}</h1>
+        @if (site()?.slug; as slug) {
+          <p class="site-detail__subtitle">{{ slug }}.projectsites.dev</p>
+        } @else {
+          <!-- Site didn't fully resolve (GET can 200 with site:null) — fall back to
+               the URL slug so the host is meaningful, never a bare ".projectsites.dev". -->
+          <p class="site-detail__subtitle">{{ siteId() ? siteId() + '.projectsites.dev' : 'Site overview' }}</p>
+        }
       </header>
 
       <nav class="site-detail__tabs" role="tablist" hlmTablist aria-label="Site detail sections">
