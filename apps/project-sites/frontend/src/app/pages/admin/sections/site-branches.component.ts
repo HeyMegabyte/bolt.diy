@@ -21,6 +21,7 @@ import { RouterModule, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { EmptyStateComponent } from '../../../components/states';
@@ -234,6 +235,7 @@ export class SiteBranchesComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly http = inject(HttpClient);
   private readonly toast = inject(ToastService);
+  private readonly confirmSvc = inject(ConfirmService);
 
   readonly branches = signal<Branch[]>([]);
   readonly loading = signal(true);
@@ -325,7 +327,15 @@ export class SiteBranchesComponent implements OnInit {
       });
   }
 
-  mergeBranch(branch: Branch): void {
+  async mergeBranch(branch: Branch): Promise<void> {
+    // Merging publishes the branch to the LIVE production site — verify first.
+    const ok = await this.confirmSvc.confirm({
+      title: 'Merge to production',
+      message: `Merge "${branch.branch_name}" to production? This publishes the branch's content to your live site, replacing what visitors currently see.`,
+      confirmLabel: 'Merge to production',
+      danger: true,
+    });
+    if (!ok) return;
     // The build_version for a merged branch is auto-generated here as a timestamp.
     const buildVersion = `branch-merge-${Date.now()}`;
     this.actioning.set(branch.id);

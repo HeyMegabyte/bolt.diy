@@ -4,6 +4,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { SiteBranchesComponent } from './site-branches.component';
 import { ToastService } from '../../../services/toast.service';
+import { ConfirmService } from '../../../services/confirm.service';
 
 /**
  * Guards the convergence-r12 cohesion pass for the Site Branches section:
@@ -17,15 +18,18 @@ describe('SiteBranchesComponent (cohesion + a11y)', () => {
   let fixture: ComponentFixture<SiteBranchesComponent>;
   let component: SiteBranchesComponent;
   let httpMock: HttpTestingController;
+  let confirmSpy: jasmine.Spy;
 
   const SITE_ID = 'site-branches-1';
 
-  function build(loadFails = false): void {
+  function build(loadFails = false, confirmResult = true): void {
+    confirmSpy = jasmine.createSpy('confirm').and.resolveTo(confirmResult);
     TestBed.configureTestingModule({
       imports: [SiteBranchesComponent, RouterModule.forRoot([])],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        { provide: ConfirmService, useValue: { confirm: confirmSpy } },
         {
           provide: ToastService,
           useValue: {
@@ -140,5 +144,22 @@ describe('SiteBranchesComponent (cohesion + a11y)', () => {
     fixture.detectChanges();
     expect(component.loadError()).toBeNull();
     expect(component.branches().length).toBe(1);
+  });
+
+  // Merging publishes the branch to the LIVE production site → must be confirmed.
+  it('mergeBranch confirms (danger) before POSTing the merge', async () => {
+    build(false, true); // confirm → true
+    await component.mergeBranch(branch({ id: 'b1', branch_name: 'homepage-redesign' }));
+    expect(confirmSpy).toHaveBeenCalled();
+    expect((confirmSpy.calls.mostRecent().args[0] as { danger?: boolean }).danger).toBeTrue();
+    const req = httpMock.expectOne(`/api/sites/${SITE_ID}/branches/b1/merge`);
+    req.flush({ branch: branch({ id: 'b1', status: 'merged' }) });
+  });
+
+  it('mergeBranch does NOT POST when the confirm is cancelled', async () => {
+    build(false, false); // confirm → false
+    await component.mergeBranch(branch({ id: 'b1' }));
+    expect(confirmSpy).toHaveBeenCalled();
+    httpMock.expectNone(`/api/sites/${SITE_ID}/branches/b1/merge`); // aborted before any request
   });
 });
