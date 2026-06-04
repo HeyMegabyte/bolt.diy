@@ -18,6 +18,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { ToastService } from '../../../services/toast.service';
 import { RouterModule } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
@@ -206,6 +207,7 @@ export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
   @Input() siteSlug = signal('');
 
   private http = inject(HttpClient);
+  private toast = inject(ToastService);
   private destroy$ = new Subject<void>();
 
   sessions = signal<CopilotSession[]>([]);
@@ -273,7 +275,9 @@ export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => this.enabled.set(enabled),
-        error: () => {},
+        // No silent failures: surface the error (the [checked]=enabled() binding
+        // already reverts the native checkbox since the signal didn't change).
+        error: () => this.toast.error('Could not update Copilot — please try again.'),
       });
   }
 

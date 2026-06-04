@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { AdminSiteCopilotComponent } from './site-copilot.component';
+import { ToastService } from '../../../services/toast.service';
 
 /**
  * Guards the copilot-sessions load-error gating (first coverage): a non-404
@@ -13,7 +14,10 @@ import { AdminSiteCopilotComponent } from './site-copilot.component';
 function make(get: jasmine.Spy): AdminSiteCopilotComponent {
   TestBed.configureTestingModule({
     imports: [AdminSiteCopilotComponent],
-    providers: [{ provide: HttpClient, useValue: { get, put: () => of({ ok: true }) } }],
+    providers: [
+      { provide: HttpClient, useValue: { get, put: () => of({ ok: true }) } },
+      { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+    ],
   });
   TestBed.overrideComponent(AdminSiteCopilotComponent, { set: { template: '<div></div>', imports: [] } });
   const c = TestBed.createComponent(AdminSiteCopilotComponent).componentInstance;
@@ -67,10 +71,15 @@ describe('AdminSiteCopilotComponent (sessions load-error gating)', () => {
  * a toggle there is contradictory + dead. The template disables it; the handler
  * also no-ops + reverts the native checkbox defensively.
  */
+let toggleToastErr: jasmine.Spy;
 function makeToggle(put: jasmine.Spy): AdminSiteCopilotComponent {
+  toggleToastErr = jasmine.createSpy('error');
   TestBed.configureTestingModule({
     imports: [AdminSiteCopilotComponent],
-    providers: [{ provide: HttpClient, useValue: { get: () => of({ sessions: [], distribution: [] }), put } }],
+    providers: [
+      { provide: HttpClient, useValue: { get: () => of({ sessions: [], distribution: [] }), put } },
+      { provide: ToastService, useValue: { error: toggleToastErr, success: () => 0 } },
+    ],
   });
   TestBed.overrideComponent(AdminSiteCopilotComponent, { set: { template: '<div></div>', imports: [] } });
   const c = TestBed.createComponent(AdminSiteCopilotComponent).componentInstance;
@@ -99,5 +108,15 @@ describe('AdminSiteCopilotComponent (enable toggle gated by the feature flag)', 
     c.toggleEnabled({ target: { checked: true } as HTMLInputElement } as unknown as Event);
     expect(put).toHaveBeenCalledWith('/api/sites/s1/copilot/config', { enabled: true });
     expect(c.enabled()).toBe(true);
+  });
+
+  it('a failed toggle PUT surfaces an error toast (no silent failure) + leaves enabled() unchanged', () => {
+    const put = jasmine.createSpy('put').and.returnValue(throwError(() => ({ status: 500 })));
+    const c = makeToggle(put);
+    c.flagEnabled.set(true);
+    c.enabled.set(false);
+    c.toggleEnabled({ target: { checked: true } as HTMLInputElement } as unknown as Event);
+    expect(toggleToastErr).withContext('failed mutation must not fail silently').toHaveBeenCalled();
+    expect(c.enabled()).withContext('signal unchanged on failure → [checked] binding reverts the checkbox').toBe(false);
   });
 });
