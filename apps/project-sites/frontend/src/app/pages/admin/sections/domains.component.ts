@@ -249,7 +249,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                         <span class="px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/30">{{ strategyLabel(card.strategy) }}</span>
                         <span class="font-mono">{{ formatPrice(card.price_usd) }}/yr</span>
                       </div>
-                      <button class="btn-primary w-full text-[0.78rem] py-1.5" type="button" (click)="registerDomain(card.name)" [disabled]="registering() === card.name" [attr.data-testid]="'register-' + card.name">
+                      <button class="btn-primary w-full text-[0.78rem] py-1.5" type="button" (click)="registerDomain(card)" [disabled]="registering() === card.name" [attr.data-testid]="'register-' + card.name">
                         {{ registering() === card.name ? 'Registering…' : 'Register' }}
                       </button>
                     </article>
@@ -813,9 +813,19 @@ export class AdminDomainsComponent implements OnInit {
   }
 
   /** Register an available domain card via Cloudflare Registrar. */
-  registerDomain(name: string): void {
+  async registerDomain(card: DomainCard): Promise<void> {
     const site = this.state.selectedSite();
-    if (!site) return;
+    if (!site || this.registering()) return;
+    const name = card.name;
+    // Registering a domain is a real recurring financial charge — verify the
+    // price + annual nature before the purchase (mirrors the voice number-buy).
+    const ok = await this.confirmSvc.confirm({
+      title: 'Register this domain?',
+      message: `Register ${name} for ${this.formatPrice(card.price_usd)}/yr? This purchases the domain and starts the recurring annual registration charge.`,
+      confirmLabel: 'Register domain',
+      danger: true,
+    });
+    if (!ok) return;
     this.registering.set(name);
     this.api
       .post<{ data: { domain: string; status: string } }>(`/sites/${site.id}/domains/register`, {

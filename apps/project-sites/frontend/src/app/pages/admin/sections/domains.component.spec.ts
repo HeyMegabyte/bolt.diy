@@ -386,3 +386,41 @@ describe('AdminDomainsComponent — mutations pass {silent:true} (no generic dou
     expect(post).toHaveBeenCalledWith('/sites/s1/domains/ai-search', { query: 'coffee shop' }, { silent: true });
   });
 });
+
+describe('AdminDomainsComponent (register domain — confirm before the recurring charge)', () => {
+  function make(confirmResult: boolean): { c: AdminDomainsComponent; post: jasmine.Spy; confirmSpy: jasmine.Spy } {
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: { domain: 'x.com', status: 'pending' } }));
+    const confirmSpy = jasmine.createSpy('confirm').and.resolveTo(confirmResult);
+    TestBed.configureTestingModule({
+      imports: [AdminDomainsComponent],
+      providers: [
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'vito' }) } },
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, put: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => undefined, success: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: confirmSpy } },
+      ],
+    });
+    TestBed.overrideComponent(AdminDomainsComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminDomainsComponent).componentInstance, post, confirmSpy };
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  const card = { name: 'getvito.com', tld: 'com', price_usd: 12.99, available: true, strategy: 'exact' } as never;
+
+  it('confirms with danger:true (showing the price) then POSTs the registration', async () => {
+    const { c, post, confirmSpy } = make(true);
+    await c.registerDomain(card);
+    expect(confirmSpy).toHaveBeenCalled();
+    const arg = confirmSpy.calls.mostRecent().args[0] as { danger?: boolean; message?: string };
+    expect(arg.danger).toBeTrue();
+    expect(arg.message).toContain('$12.99');
+    expect(post).toHaveBeenCalledWith('/sites/s1/domains/register', { domain: 'getvito.com' });
+  });
+
+  it('does NOT POST (no charge) when the confirm is cancelled', async () => {
+    const { c, post, confirmSpy } = make(false);
+    await c.registerDomain(card);
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+});
