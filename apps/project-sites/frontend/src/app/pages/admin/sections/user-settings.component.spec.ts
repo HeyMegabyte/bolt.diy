@@ -250,3 +250,48 @@ describe('AdminUserSettingsComponent (destructive delete guard + notifications)'
     expect(after.find((p) => p.id === unseen.id)?.enabled).withContext('a pref the server has not seen stays at its local value').toBe(unseenBefore);
   });
 });
+
+/**
+ * API-key rotate/revoke are now MODAL-confirm-gated (not auto-dismissing toasts):
+ * both break live API clients immediately + irreversibly (old secret dies / 401),
+ * so they must go through ConfirmService — deliberate, focus-trapped, no
+ * auto-dismiss. Matches account-delete + apps-instances destroy.
+ */
+describe('AdminUserSettingsComponent (API-key rotate/revoke are modal-confirm-gated)', () => {
+  function makeKeys(confirm: () => Promise<boolean>): { c: AdminUserSettingsComponent; del: jasmine.Spy; post: jasmine.Spy } {
+    const del = jasmine.createSpy('delete').and.returnValue(of({}));
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: { token: 'k', id: 'new' } }));
+    const http = { get: () => of({}), post, put: () => of({}), delete: del };
+    TestBed.configureTestingModule({
+      imports: [AdminUserSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: http },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0 } },
+        { provide: AuthService, useValue: { email: () => 'test@megabyte.space', user: () => ({}), signOut: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm } },
+        { provide: HttpClient, useValue: http },
+      ],
+    });
+    TestBed.overrideComponent(AdminUserSettingsComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminUserSettingsComponent).componentInstance, del, post };
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('revokeKey does NOT DELETE when the confirm is cancelled', async () => {
+    const { c, del } = makeKeys(() => Promise.resolve(false));
+    await c.revokeKey({ id: 'k1', name: 'CI key' });
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it('revokeKey DELETEs only after the modal confirm is accepted', async () => {
+    const { c, del } = makeKeys(() => Promise.resolve(true));
+    await c.revokeKey({ id: 'k1', name: 'CI key' });
+    expect(del).toHaveBeenCalledWith('/admin/api-keys/k1');
+  });
+
+  it('rotateKey does NOT mint a new key when the confirm is cancelled', async () => {
+    const { c, post } = makeKeys(() => Promise.resolve(false));
+    await c.rotateKey({ id: 'k1', name: 'CI key', scopes: [], created_at: '' } as never);
+    expect(post).not.toHaveBeenCalled();
+  });
+});

@@ -1462,14 +1462,18 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
    * the worker revokes the old key and returns a fresh secret which we surface
    * in the reveal modal so the user can save it.
    */
-  rotateKey(k: ApiKeyRow): void {
-    this.toast.warning(
-      `Rotate "${k.name}"? Old secret stops working immediately — clients must redeploy with the new one.`,
-      {
-        action: { label: 'Rotate', run: () => this.performRotate(k) },
-        duration: 7000,
-      },
-    );
+  async rotateKey(k: ApiKeyRow): Promise<void> {
+    // Modal confirm (not an auto-dismissing toast): rotating kills the old
+    // secret IMMEDIATELY + irreversibly — live clients 401 until they redeploy.
+    // Matches the revoke/account-delete dialogs + the one-dialog-primitive rule.
+    const ok = await this.confirmSvc.confirm({
+      title: 'Rotate API key',
+      message: `Rotate "${k.name}"? The old secret stops working immediately — every client using it must redeploy with the new secret. This cannot be undone.`,
+      confirmLabel: 'Rotate',
+      danger: true,
+    });
+    if (!ok) return;
+    this.performRotate(k);
   }
 
   private performRotate(k: ApiKeyRow): void {
@@ -1511,14 +1515,17 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  revokeKey(k: { id: string; name: string }): void {
-    this.toast.warning(
-      `Revoke "${k.name}"? Any client using it will start receiving 401 immediately.`,
-      {
-        action: { label: 'Revoke', run: () => this.performRevoke(k) },
-        duration: 7000,
-      },
-    );
+  async revokeKey(k: { id: string; name: string }): Promise<void> {
+    // Modal confirm: revoking is immediate + irreversible — any client using the
+    // key starts getting 401 at once. Deliberate, focus-trapped, no auto-dismiss.
+    const ok = await this.confirmSvc.confirm({
+      title: 'Revoke API key',
+      message: `Revoke "${k.name}"? Any client using it will start receiving 401 immediately. This cannot be undone.`,
+      confirmLabel: 'Revoke',
+      danger: true,
+    });
+    if (!ok) return;
+    this.performRevoke(k);
   }
 
   private performRevoke(k: { id: string; name: string }): void {
