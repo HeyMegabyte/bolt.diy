@@ -38,12 +38,18 @@ describe('AdminMcpComponent (connections load-error gating)', () => {
     expect(c.loading()).toBe(false);
   });
 
-  it('a load error sets a persistent loadError banner + toasts', () => {
-    const { c, toastErr } = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
+  it('a load error sets a persistent loadError banner ONLY — no redundant toast (read is {silent})', () => {
+    const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 })));
+    const { c, toastErr } = make(get);
     c.load();
     expect(c.loadError()).toContain('stale');
     expect(c.loading()).toBe(false);
-    expect(toastErr).toHaveBeenCalled();
+    // The sticky banner is the persistent UX; a transient toast on top (plus the
+    // now-silenced generic ApiService toast) was redundant triple-feedback.
+    expect(toastErr).not.toHaveBeenCalled();
+    // {silent:true} so ApiService's generic "Can't reach the server" toast never
+    // double-fires over the banner.
+    expect(get).toHaveBeenCalledWith('/sites/s1/mcp/connections', undefined, { silent: true });
   });
 
   it('retry after an error clears the prior loadError', () => {
@@ -56,5 +62,38 @@ describe('AdminMcpComponent (connections load-error gating)', () => {
     expect(c.loadError()).not.toBeNull();
     c.load();
     expect(c.loadError()).toBeNull();
+  });
+});
+
+describe('AdminMcpComponent — mutations pass {silent:true} (own toast.error → no generic double-toast)', () => {
+  let post: jasmine.Spy, del: jasmine.Spy;
+  function buildSpies(): AdminMcpComponent {
+    post = jasmine.createSpy('post').and.returnValue(of({}));
+    del = jasmine.createSpy('delete').and.returnValue(of({}));
+    TestBed.configureTestingModule({
+      imports: [AdminMcpComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: { connections: [] } }), post, delete: del } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminMcpComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminMcpComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('submitPaste → paste POST is {silent}', () => {
+    const c = buildSpies();
+    c.pastedKey = 'sk_test_abc123';
+    c.submitPaste('stripe');
+    expect(post).toHaveBeenCalledWith('/mcp/stripe/paste?site_id=s1', { api_key: 'sk_test_abc123' }, { silent: true });
+  });
+
+  it('performDisconnect → DELETE is {silent}', () => {
+    const c = buildSpies();
+    (c as unknown as { performDisconnect: (conn: unknown, siteId: string) => void })
+      .performDisconnect({ id: 'conn9', provider: 'stripe' }, 's1');
+    expect(del).toHaveBeenCalledWith('/sites/s1/mcp/connections/conn9', { silent: true });
   });
 });

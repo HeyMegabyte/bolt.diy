@@ -355,7 +355,7 @@ export class AdminMcpComponent implements OnInit {
     const s = this.state.selectedSite(); if (!s) return;
     this.loading.set(true);
     this.loadError.set(null);
-    this.api.get<{ data: { connections: Conn[] } }>(`/sites/${s.id}/mcp/connections`).subscribe({
+    this.api.get<{ data: { connections: Conn[] } }>(`/sites/${s.id}/mcp/connections`, undefined, { silent: true }).subscribe({
       next: (r) => {
         this.connections.set(r.data?.connections ?? []);
         this.loadError.set(null);
@@ -365,8 +365,9 @@ export class AdminMcpComponent implements OnInit {
         this.loading.set(false);
         // Persistent banner — otherwise the provider cards below render every
         // provider as "not connected", making a failed load look like a clean slate.
+        // Persistent inline banner only — a transient toast on top of a sticky
+        // banner (and the now-silenced generic ApiService toast) was triple feedback.
         this.loadError.set('Could not load connection status — shown statuses may be stale.');
-        this.toast.error('Could not load MCP connections — retry from the sidebar');
       },
     });
   }
@@ -396,7 +397,7 @@ export class AdminMcpComponent implements OnInit {
       return;
     }
     const meta = this.providers.find((p) => p.id === provider);
-    this.api.post(`/mcp/${provider}/paste?site_id=${s.id}`, { api_key: key }).subscribe({
+    this.api.post(`/mcp/${provider}/paste?site_id=${s.id}`, { api_key: key }, { silent: true }).subscribe({
       next: () => {
         this.pastedKey = '';
         this.pasteMode.set(null);
@@ -426,7 +427,7 @@ export class AdminMcpComponent implements OnInit {
 
   private performDisconnect(c: Conn, siteId: string): void {
     const meta = this.providers.find((p) => p.id === c.provider);
-    this.api.delete(`/sites/${siteId}/mcp/connections/${c.id}`).subscribe({
+    this.api.delete(`/sites/${siteId}/mcp/connections/${c.id}`, { silent: true }).subscribe({
       next: () => { this.toast.success(`${meta?.label ?? c.provider} disconnected`); this.load(); },
       error: () => this.toast.error(`Could not disconnect ${meta?.label ?? c.provider} — retry shortly`),
     });
