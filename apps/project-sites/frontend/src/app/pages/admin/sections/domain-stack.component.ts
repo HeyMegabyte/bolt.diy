@@ -168,6 +168,17 @@ interface StackAdvanceResponse {
         }
       }
 
+      <!-- Initial-load feedback: don't leave the board blank (no layout shift,
+           announced to AT) while the first stack-status fetch is in flight. -->
+      @if (!featureDisabled() && hostname() && tiles().length === 0 && loading()) {
+        <div class="empty-card" role="status" aria-live="polite" aria-busy="true" data-testid="domain-stack-loading">
+          <p class="text-text-secondary text-sm flex items-center gap-2">
+            <span class="tile-spin tile-run" aria-hidden="true">⟳</span>
+            Checking stack status for <strong class="text-white">{{ hostname() }}</strong>…
+          </p>
+        </div>
+      }
+
       @if (!featureDisabled() && hostname() && tiles().length === 0 && !loading()) {
         <div class="empty-card">
           <p class="text-text-secondary text-sm">No stack run yet for <strong class="text-white">{{ hostname() }}</strong>.</p>
@@ -314,7 +325,11 @@ export class AdminDomainStackComponent implements OnDestroy {
     const hn = this.hostname();
     if (!hn) return;
     this.loading.set(true);
-    this.api.get<StackStatusResponse>(`/domains/${encodeURIComponent(hn)}/stack-status`).subscribe({
+    // {silent}: this handler owns its error UX — 404/feature_disabled return
+    // silently, a 500 shows its own 'Failed to load stack status'. Without
+    // {silent} ApiService's generic toast double-fires (or wrongly toasts
+    // 'not found' on the intended-silent 404).
+    this.api.get<StackStatusResponse>(`/domains/${encodeURIComponent(hn)}/stack-status`, undefined, { silent: true }).subscribe({
       next: (res) => {
         const d = res.data;
         this.tiles.set(d.tiles ?? []);

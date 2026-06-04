@@ -118,4 +118,35 @@ describe('AdminDomainStackComponent (r13 cohesion + a11y)', () => {
     expect(args[0]).toBe('/domains/acme.dev/stack');
     expect(args[2]).toEqual({ silent: true });
   });
+
+  // refresh() owns its OWN error UX: 404 / feature_disabled stay silent (early
+  // return → no toast), a 500 shows its own 'Failed to load stack status'. So the
+  // GET must be {silent:true} — otherwise ApiService's generic toast double-fires
+  // over the component's (500) or wrongly toasts 'not found' on the silent 404.
+  it('refresh() GETs {silent:true} so the component owns the error UX (no generic double-toast)', () => {
+    build({ id: 's1', primary_hostname: 'acme.dev' });
+    component.refresh();
+    const args = getSpy.calls.mostRecent().args;
+    expect(args[0]).toBe('/domains/acme.dev/stack-status');
+    expect(args[2]).toEqual({ silent: true });
+  });
+
+  it('a non-404 refresh failure surfaces exactly one (its own) toast', () => {
+    build({ id: 's1', primary_hostname: 'acme.dev' }, throwError(() => ({ status: 500 })));
+    // build()'s detectChanges already ran refresh() once via mount; call again to be explicit.
+    component.refresh();
+    expect(toastError).toHaveBeenCalledWith('Failed to load stack status');
+  });
+
+  it('shows an announced loading card (not a blank board) while the first fetch is in flight', () => {
+    build({ id: 's1', primary_hostname: 'acme.dev' });
+    component.loading.set(true);
+    component.tiles.set([]);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const loadingCard = host.querySelector('[data-testid="domain-stack-loading"]');
+    expect(loadingCard).withContext('loading feedback during initial fetch').not.toBeNull();
+    expect(loadingCard?.getAttribute('aria-busy')).toBe('true');
+    expect(loadingCard?.getAttribute('role')).toBe('status');
+  });
 });
