@@ -95,12 +95,25 @@ interface ToolUsage {
       <section class="space-y-3" appReveal>
         <div class="flex items-center justify-between">
           <h3 class="text-sm font-semibold m-0">API Tokens</h3>
-          <button
-            class="btn-ghost text-xs px-2 py-1"
-            data-testid="mint-token-btn"
-            (click)="mintToken()"
-            [disabled]="minting()"
-          >{{ minting() ? 'Generating…' : '+ New Token' }}</button>
+          <div class="flex items-center gap-2">
+            <input
+              hlmInput
+              class="text-xs h-8 w-40"
+              [(ngModel)]="newTokenLabel"
+              [disabled]="minting()"
+              maxlength="48"
+              placeholder="Label (e.g. Cursor)"
+              aria-label="New token label"
+              data-testid="new-token-label"
+              (keydown.enter)="mintToken()"
+            />
+            <button
+              class="btn-ghost text-xs px-2 py-1"
+              data-testid="mint-token-btn"
+              (click)="mintToken()"
+              [disabled]="minting()"
+            >{{ minting() ? 'Generating…' : '+ New Token' }}</button>
+          </div>
         </div>
 
         <!-- Newly minted token — show once -->
@@ -266,6 +279,7 @@ export class SiteMcpServerComponent implements OnInit {
   readonly siteSlug = signal<string | null>(null);
 
   playgroundArgs = '{}';
+  newTokenLabel = '';
 
   private siteId = '';
 
@@ -332,13 +346,18 @@ export class SiteMcpServerComponent implements OnInit {
   }
 
   mintToken(): void {
+    if (this.minting()) return;
+    // A user-named label keeps the revoke table legible; blank → a unique
+    // auto-label (`Token N`) so two tokens are never both "Default".
+    const label = this.newTokenLabel.trim() || `Token ${this.tokens().length + 1}`;
     this.minting.set(true);
     this.http
-      .post<{ id: string; token: string }>(`/api/sites/${this.siteId}/mcp/tokens`, { label: 'Default' })
+      .post<{ id: string; token: string }>(`/api/sites/${this.siteId}/mcp/tokens`, { label })
       .pipe(catchError((err) => { this.toast.error(err?.error?.error ?? 'Failed to mint token'); return of(null); }))
       .subscribe((res) => {
         if (res) {
           this.newTokenRaw.set(res.token);
+          this.newTokenLabel = '';
           this.loadTokens(); // refresh list (hash only)
         }
         this.minting.set(false);

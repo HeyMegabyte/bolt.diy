@@ -73,6 +73,24 @@ describe('SiteMcpServerComponent (MCP token CRUD + playground)', () => {
     expect(c.minting()).toBe(false);
   });
 
+  it('mintToken posts the user-entered label (trimmed) so revoke rows are distinguishable', () => {
+    const { c, http } = make();
+    c.ngOnInit(); // resolves siteId='s1' from the route (fires get only; post stays clean)
+    c.newTokenLabel = '  Cursor laptop  ';
+    c.mintToken();
+    expect(http.post).toHaveBeenCalledWith('/api/sites/s1/mcp/tokens', { label: 'Cursor laptop' });
+    expect(c.newTokenLabel).toBe(''); // input clears after mint
+  });
+
+  it('mintToken falls back to a unique auto-label when the field is blank (never another "Default")', () => {
+    const { c, http } = make();
+    c.ngOnInit();
+    c.tokens.set([{ id: 'a' } as never, { id: 'b' } as never]); // 2 existing
+    c.newTokenLabel = '   ';
+    c.mintToken();
+    expect(http.post).toHaveBeenCalledWith('/api/sites/s1/mcp/tokens', { label: 'Token 3' });
+  });
+
   it('revokeToken (after confirm) optimistically removes the row and clears the in-flight marker', async () => {
     const { c, confirmSpy } = make();
     c.tokens.set([{ id: 'keep' } as never, { id: 'gone' } as never]);
