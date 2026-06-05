@@ -1250,6 +1250,9 @@ const PLATFORMS: readonly PlatformDef[] = [
       }
       .acct-card.is-on { border-color: color-mix(in oklch, var(--brand) 35%, transparent); }
       .acct-card:hover { transform: translateY(-1px); box-shadow: 0 4px 14px color-mix(in oklch, var(--brand) 14%, transparent); }
+      /* While accounts reload, dim the cards so the provisional "Off" states read
+         as loading (not a definitive "Not connected"). Wires the .is-loading host. */
+      .social-wrap.is-loading .acct-card { opacity: 0.5; transition: opacity 0.2s ease; }
       .acct-glyph {
         width: 28px; height: 28px; border-radius: 8px;
         background: color-mix(in oklch, var(--brand) 14%, transparent);

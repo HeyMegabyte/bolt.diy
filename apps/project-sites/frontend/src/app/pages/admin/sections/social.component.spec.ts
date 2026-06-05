@@ -105,6 +105,17 @@ describe('AdminSocialComponent (site-reactive load)', () => {
     const pill = (fixture.nativeElement as HTMLElement).querySelector('.hdr-pill');
     expect(pill!.querySelector('app-rolling-counter')).withContext('real count once loaded').not.toBeNull();
   });
+
+  it('marks the wrap .is-loading while accounts reload (wires the loading-dim treatment on the cards)', () => {
+    build({ id: 'site-x' });
+    fixture.componentInstance.loading.set(true);
+    fixture.detectChanges();
+    const wrap = (fixture.nativeElement as HTMLElement).querySelector('.social-wrap');
+    expect(wrap?.classList.contains('is-loading')).withContext('is-loading host toggles with loading() (the .acct-card dim targets it)').toBeTrue();
+    fixture.componentInstance.loading.set(false);
+    fixture.detectChanges();
+    expect(wrap?.classList.contains('is-loading')).withContext('clears once loaded — cards return to full opacity').toBeFalse();
+  });
 });
 
 /**
