@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, throwError, NEVER } from 'rxjs';
 import { AdminInboxComponent } from './inbox.component';
 import { ApiService } from '../../../services/api.service';
 import { FeatureFlagService } from '../../../services/feature-flag.service';
@@ -155,6 +155,25 @@ describe('AdminInboxComponent — stats hidden while flag-disabled (real templat
     const host = render(false);
     expect(host.querySelector('[data-testid="inbox-stats"]')).withContext('no fake counts for a disabled feature').toBeNull();
     expect(host.querySelector('.inbox-flag-gate')).withContext('flag-disabled card shown instead').not.toBeNull();
+  });
+
+  it('hides the open/unread stats while conversations are still loading (no premature "0 open · 0 unread")', () => {
+    // openCount/unreadCount derive from conversations() (empty during load) — so
+    // the stats must wait for the load, else they assert "0 open" over a skeleton list.
+    TestBed.configureTestingModule({
+      imports: [AdminInboxComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => NEVER, post: () => of({}), patch: () => of({}) } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(true) } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminInboxComponent);
+    fx.componentInstance.flagEnabled.set(true);
+    fx.detectChanges(); // conversations fetch is in-flight (NEVER) → loading stays true
+    const host = fx.nativeElement as HTMLElement;
+    expect(fx.componentInstance.loading()).withContext('load in-flight').toBeTrue();
+    expect(host.querySelector('[data-testid="inbox-stats"]')).withContext('no premature counts over the skeleton list').toBeNull();
   });
 
   it('the flag-gate Feature-Flags link is an inline, UNDERLINED, working RouterLink (cohesion with enterprise/trust/stripe gates)', () => {

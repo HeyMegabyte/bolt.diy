@@ -90,7 +90,9 @@ const STATUS_COLORS: Record<string, string> = {
           <span class="inbox-eyebrow">Unified Inbox</span>
           <h1 class="inbox-title">Visitor Conversations</h1>
         </div>
-        @if (flagEnabled()) {
+        <!-- Stats derive from conversations() — show only once the load resolves so
+             they never assert "0 open · 0 unread" over a still-loading / errored list. -->
+        @if (flagEnabled() && !loading() && !convError()) {
           <div class="inbox-stats" data-testid="inbox-stats" appReveal>
             <div class="inbox-stat">
               <app-rolling-counter [value]="openCount()" suffix=" open" />
