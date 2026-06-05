@@ -24,6 +24,7 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { ErrorCardComponent } from '../../../components/states';
 
 ModuleRegistry.registerModules([
   ClientSideRowModelModule,
@@ -172,7 +173,7 @@ function actionToFallbackMessage(action: string): string {
 @Component({
   selector: 'app-admin-audit',
   standalone: true,
-  imports: [RollingCounterComponent, AgGridAngular],
+  imports: [RollingCounterComponent, AgGridAngular, ErrorCardComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-4">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -212,14 +213,11 @@ function actionToFallbackMessage(action: string): string {
       </div>
 
       @if (loadError(); as err) {
-        <div class="empty-state card error-state" role="alert" data-testid="audit-error">
-          <svg class="error-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-          </svg>
-          <h3 class="empty-title">Couldn't load audit events</h3>
-          <p class="empty-body">{{ err }}</p>
-          <button class="btn-gradient" type="button" (click)="load()">Retry</button>
-        </div>
+        <app-error-card data-testid="audit-error" class="block"
+          title="Couldn't load audit events"
+          [message]="err"
+          [correlationId]="loadErrorRef()"
+          (retry)="load()" />
       } @else if (!loading() && displayRows().length === 0) {
         <div class="empty-state card" role="status" data-testid="audit-empty">
           <svg class="empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -403,6 +401,8 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
    *  misleading "No audit events yet" empty state (a security log must never
    *  imply zero activity when the fetch actually failed). */
   loadError = signal<string | null>(null);
+  /** Worker request_id from a failed load → the copyable support reference on the error card. */
+  readonly loadErrorRef = signal('');
 
   /** Set of master-row ids currently expanded with their detail panel open. */
   private expandedIds = signal<Set<string>>(new Set<string>());
@@ -673,6 +673,7 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
   load(): void {
     this.loading.set(true);
     this.loadError.set(null);
+    this.loadErrorRef.set('');
     const params: Record<string, string> = { limit: '500' };
     this.api.get<{ data: AuditRow[] }>('/audit-logs', params, { silent: true }).subscribe({
       next: (r) => {
@@ -680,11 +681,18 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
         this.loading.set(false);
         this.lastSyncAt.set(Date.now());
       },
-      error: () => {
+      error: (err: unknown) => {
         this.loading.set(false);
-        this.loadError.set('Could not load audit events — check your connection and retry.');
+        // The shared <app-error-card> owns Retry + a copyable support reference.
+        this.loadError.set('Could not load audit events.');
+        this.loadErrorRef.set(this.requestIdFrom(err));
       },
     });
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: unknown): string {
+    return ((e as { error?: { error?: { request_id?: string } } } | undefined)?.error?.error?.request_id) ?? '';
   }
 
   /**
