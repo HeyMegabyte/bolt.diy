@@ -158,6 +158,19 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-testid="kpi-pageviews"]')).withContext('KPI tiles hidden on error').toBeNull();
     expect(el.textContent).withContext('error banner still shows').toContain('Analytics returned an error');
+    // Standardized onto the shared gold-standard <app-error-card> (Retry + support ref).
+    expect(el.querySelector('app-error-card')).withContext('shared error-card primitive').not.toBeNull();
+    expect(el.querySelector('[data-testid="error-retry"]')).withContext('Retry on the card').not.toBeNull();
+  });
+
+  it('surfaces the worker request_id as a copyable support reference on a failed load', () => {
+    build(null);
+    getAnalytics.and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req_an7' } } })));
+    selectedSite.set({ id: 'site-x' });
+    fixture.detectChanges();
+    expect(fixture.componentInstance.loadErrorRef()).toBe('req_an7');
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="error-correlation"]')?.textContent).withContext('reference shown for support').toContain('req_an7');
   });
 
   it('with a site + no error, the KPI tiles render', () => {

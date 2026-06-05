@@ -16,6 +16,7 @@ import { ToastService } from '../../../services/toast.service';
 import { PromptService } from '../../../services/prompt.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
+import { ErrorCardComponent } from '../../../components/states';
 import { RevealDirective } from '../../../directives/reveal.directive';
 
 type RangeId = AnalyticsRange;
@@ -54,7 +55,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
 @Component({
   selector: 'app-admin-analytics',
   standalone: true,
-  imports: [RevealDirective, DatePipe, DecimalPipe, RollingCounterComponent, MiniEmptyComponent, HlmTablistDirective],
+  imports: [RevealDirective, DatePipe, DecimalPipe, RollingCounterComponent, MiniEmptyComponent, HlmTablistDirective, ErrorCardComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -182,13 +183,11 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
           </div>
         </div>
       } @else if (error()) {
-        <div class="card notice notice-red" role="alert">
-          <div class="flex-1">
-            <strong>Analytics returned an error.</strong>
-            <span class="block text-[0.74rem] mt-0.5">{{ error() }}</span>
-          </div>
-          <button class="btn-ghost" type="button" (click)="reload()" aria-label="Retry loading analytics">Retry</button>
-        </div>
+        <app-error-card class="block"
+          title="Analytics returned an error"
+          [message]="error() ?? ''"
+          [correlationId]="loadErrorRef()"
+          (retry)="reload()" />
       }
 
       <!-- Body renders ONLY with a site selected + no load error. On error the
@@ -711,6 +710,8 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   credStatus = signal<CloudflareCredentialStatus | null>(null);
 
   error = signal<string | null>(null);
+  /** Worker request_id from a failed load → the copyable support reference on the error card. */
+  readonly loadErrorRef = signal('');
   loading = signal(false);
   refreshedAt = signal<Date | null>(null);
   secondsUntilRefresh = signal<number>(REFRESH_INTERVAL_SEC);
@@ -1050,16 +1051,20 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     // responsive (card clears immediately). It re-appears only if THIS load also
     // fails (catchError re-sets it below).
     this.error.set(null);
+    this.loadErrorRef.set('');
     this.secondsUntilRefresh.set(REFRESH_INTERVAL_SEC);
     const excludeArr = Array.from(this.excluded());
     forkJoin({
       analytics: this.api.getMultiUrlAnalytics(site.id, this.range(), excludeArr).pipe(
         timeout(AdminAnalyticsComponent.FETCH_TIMEOUT_MS),
         catchError((err: unknown) => {
+          // The shared error card owns the Retry affordance, so the message no
+          // longer says "Retry below"; capture the worker request_id for support.
           const msg = err instanceof TimeoutError
-            ? 'Analytics request timed out after 10 s — retry, or check the worker logs.'
-            : "Couldn't reach the analytics service — this is usually temporary. Retry below, or check back shortly.";
+            ? 'Analytics request timed out after 10 s — this is usually temporary.'
+            : "Couldn't reach the analytics service — this is usually temporary.";
           this.error.set(msg);
+          this.loadErrorRef.set(this.requestIdFrom(err));
           return of({ data: null as MultiUrlAnalyticsEnvelope | null });
         }),
       ),
@@ -1073,5 +1078,10 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
         this.loading.set(false);
       },
     });
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: unknown): string {
+    return ((e as { error?: { error?: { request_id?: string } } } | undefined)?.error?.error?.request_id) ?? '';
   }
 }
