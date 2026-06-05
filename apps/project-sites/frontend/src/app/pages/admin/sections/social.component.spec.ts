@@ -86,6 +86,25 @@ describe('AdminSocialComponent (site-reactive load)', () => {
     fixture.detectChanges();
     expect(fixture.componentInstance.accountsError()).toBeTrue();
   });
+
+  it('does not show a premature "0 connected" pill while accounts are still loading', () => {
+    build({ id: 'site-x' });
+    fixture.componentInstance.loading.set(true);
+    fixture.componentInstance.accounts.set([]);
+    fixture.detectChanges();
+    const pill = (fixture.nativeElement as HTMLElement).querySelector('.hdr-pill');
+    expect(pill).withContext('connected pill present').toBeTruthy();
+    expect(pill!.querySelector('app-rolling-counter')).withContext('no "0 connected" count over the loading accounts').toBeNull();
+  });
+
+  it('shows the connected-count rolling-counter once accounts resolve', () => {
+    build({ id: 'site-x' });
+    fixture.componentInstance.loading.set(false);
+    fixture.componentInstance.accounts.set([{ platform: 'x', connected: true } as never]);
+    fixture.detectChanges();
+    const pill = (fixture.nativeElement as HTMLElement).querySelector('.hdr-pill');
+    expect(pill!.querySelector('app-rolling-counter')).withContext('real count once loaded').not.toBeNull();
+  });
 });
 
 /**

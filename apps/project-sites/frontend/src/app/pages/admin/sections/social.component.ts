@@ -251,7 +251,11 @@ const PLATFORMS: readonly PlatformDef[] = [
         Social
         <span class="hdr-pill">
           <span class="hdr-pill-dot"></span>
-          <app-rolling-counter [value]="connectedCount()" />&nbsp;connected
+          @if (loading() && accounts().length === 0) {
+            <span aria-hidden="true">…</span>&nbsp;connected
+          } @else {
+            <app-rolling-counter [value]="connectedCount()" />&nbsp;connected
+          }
         </span>
       </h1>
       <p class="hdr-sub">Compose once. Tailor per network. Schedule, queue, measure.</p>
