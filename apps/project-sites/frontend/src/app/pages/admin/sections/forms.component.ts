@@ -19,6 +19,7 @@ import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { mcpProvider } from './mcp-providers';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { ErrorCardComponent } from '../../../components/states';
 
 /**
  * Compare two dates for same-day equality (local timezone).
@@ -137,7 +138,7 @@ const POLL_INTERVAL_MS = 10_000;
 @Component({
   selector: 'app-admin-forms',
   standalone: true,
-  imports: [RevealDirective, RollingCounterComponent, FormsModule, RouterLink, DatePipe, JsonPipe, FullscreenOverlayComponent, HlmInputDirective, HlmTablistDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, RollingCounterComponent, FormsModule, RouterLink, DatePipe, JsonPipe, FullscreenOverlayComponent, HlmInputDirective, HlmTablistDirective, ErrorCardComponent, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header appReveal>
@@ -458,14 +459,11 @@ const POLL_INTERVAL_MS = 10_000;
             }
           </div>
         } @else if (loadError() && submissions().length === 0) {
-          <div class="empty-state" role="alert" data-testid="forms-load-error">
-            <svg class="empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
-            <h4 class="empty-title">Couldn't load submissions</h4>
-            <p class="empty-body">{{ loadError() }}</p>
-            <button class="empty-cta" data-testid="forms-retry" (click)="reload()" [disabled]="loading()">
-              <span class="empty-cta-text"><span class="empty-cta-title">Retry</span></span>
-            </button>
-          </div>
+          <app-error-card data-testid="forms-load-error" class="block"
+            title="Couldn't load submissions"
+            [message]="loadError() ?? ''"
+            [correlationId]="loadErrorRef()"
+            (retry)="reload()" />
         } @else if (submissions().length === 0) {
           <div class="empty-state" role="status" data-testid="forms-empty">
             <svg class="empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -854,6 +852,8 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
   loading = signal(false);
   /** Persistent submissions-load failure — so a fetch error shows a Retry card, not a fake "No submissions yet" empty state. */
   loadError = signal<string | null>(null);
+  /** Worker request_id from a failed load → the copyable support reference on the error card. */
+  readonly loadErrorRef = signal('');
   views = [
     { id: 'all', label: 'All', test: (_s: Submission) => true },
     { id: 'today', label: 'Today', test: (s: Submission) => sameDay(new Date(s.created_at), new Date()) },
@@ -1340,25 +1340,32 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     const site = this.state.selectedSite();
     if (!site) return;
     if (!opts.silent) this.loading.set(true);
-    if (!opts.silent) this.loadError.set(null);
+    if (!opts.silent) { this.loadError.set(null); this.loadErrorRef.set(''); }
     this.api.get<{ data: Submission[] }>(`/sites/${site.id}/form-submissions`, undefined, { silent: true }).subscribe({
       next: (r) => {
         this.submissions.set(r.data ?? []);
         this.loadError.set(null);
         this.loading.set(false);
       },
-      error: () => {
+      error: (err: unknown) => {
         this.loading.set(false);
         // Persist the failure so the empty state can't masquerade as "no submissions".
         // (Silent background polls keep any already-loaded list visible.)
         // Read is {silent} so the generic ApiService toast never fires (even on a
-        // background poll); the inline loadError banner is the user-facing feedback
-        // on a non-silent (user-initiated) load — no transient toast on top of it.
+        // background poll); the inline error card is the user-facing feedback on a
+        // non-silent (user-initiated) load — no transient toast on top of it. The
+        // shared <app-error-card> owns the Retry, so the message drops "— retry".
         if (!opts.silent) {
-          this.loadError.set('Could not load submissions — retry.');
+          this.loadError.set('Could not load submissions.');
+          this.loadErrorRef.set(this.requestIdFrom(err));
         }
       },
     });
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: unknown): string {
+    return ((e as { error?: { error?: { request_id?: string } } } | undefined)?.error?.error?.request_id) ?? '';
   }
 
   open(s: Submission): void {

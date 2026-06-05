@@ -113,6 +113,18 @@ describe('AdminFormsComponent (cohesion + a11y, convergence r17)', () => {
     expect(counter).withContext('count pill must use the cinematic rolling-counter').toBeTruthy();
   });
 
+  it('renders the load error through the shared <app-error-card> with a support reference', () => {
+    build({ id: 'site-1' });
+    component.submissions.set([]);
+    component.loadError.set('Could not load submissions.');
+    component.loadErrorRef.set('req_fm42');
+    fixture.detectChanges();
+    const card = fixture.nativeElement.querySelector('app-error-card[data-testid="forms-load-error"]');
+    expect(card).withContext('shared error-card primitive (not a bespoke empty-state error)').toBeTruthy();
+    expect(card.querySelector('[data-testid="error-retry"]')).withContext('Retry on the card').toBeTruthy();
+    expect(card.querySelector('[data-testid="error-correlation"]')?.textContent).withContext('worker request_id shown for support').toContain('req_fm42');
+  });
+
   it('renders keyboard-openable submission rows (role=button + tabindex)', () => {
     build({ id: 'site-1' });
     component.submissions.set([
