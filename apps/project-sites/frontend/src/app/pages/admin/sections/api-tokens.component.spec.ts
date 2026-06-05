@@ -231,4 +231,26 @@ describe('AdminApiTokensComponent (flag-disabled banner link is underlined)', ()
     expect(link).not.toBeNull();
     expect(link!.className).withContext('in-text link needs a default underline').toContain('underline');
   });
+
+  it('the OpenAPI external link uses the canonical external-link icon (aria-hidden), not a bare ↗', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminApiTokensComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get: () => of({ data: [] }), post: () => of({}) } },
+        { provide: ToastService, useValue: { show: () => 0 } },
+        { provide: AdminStateService, useValue: { orgId: signal('org1') } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminApiTokensComponent);
+    fx.componentInstance.flagDisabled.set(false); // render the normal content (not the flag banner)
+    fx.detectChanges();
+    const link = (fx.nativeElement as HTMLElement).querySelector('a.at-openapi-link');
+    expect(link).withContext('OpenAPI spec link renders').not.toBeNull();
+    // was a bare unicode "↗" (announced "north east arrow") → now the canonical
+    // external-link SVG (aria-hidden) matching the "Preview in new tab" button.
+    expect(link!.querySelector('svg[aria-hidden="true"]'))
+      .withContext('crisp external-link SVG, not a unicode arrow').not.toBeNull();
+    expect(link!.textContent ?? '').withContext('no leftover ↗ glyph').not.toContain('↗');
+  });
 });

@@ -160,7 +160,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
               {{ backupDomain() }}
             </code>
             <button class="btn-ghost" (click)="copyBackup()" [brnTooltip]="'Copy to clipboard'">Copy</button>
-            <a class="btn-ghost" [href]="'https://' + backupDomain()" target="_blank" rel="noopener noreferrer" [brnTooltip]="'Open in a new tab'">Open ↗</a>
+            <a class="btn-ghost" [href]="'https://' + backupDomain()" target="_blank" rel="noopener noreferrer" [brnTooltip]="'Open in a new tab'">Open<svg class="inline-block align-[-2px] ml-[3px]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
           </div>
         </section>
 
@@ -447,7 +447,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                   <button class="btn-ghost text-[0.72rem]" type="button" (click)="copyText(t.authCode)" [brnTooltip]="'Copy auth code'">Copy</button>
                 </div>
                 <p class="text-[0.75rem] text-text-secondary m-0">
-                  <a class="text-primary underline" [href]="t.instructionsUrl" target="_blank" rel="noopener noreferrer">Read Cloudflare's transfer-out guide ↗</a>
+                  <a class="text-primary underline" [href]="t.instructionsUrl" target="_blank" rel="noopener noreferrer">Read Cloudflare's transfer-out guide<svg class="inline-block align-[-2px] ml-[3px]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
                 </p>
                 <div class="flex justify-end">
                   <button class="btn-primary" type="button" (click)="closeTransferModal()">Done</button>
