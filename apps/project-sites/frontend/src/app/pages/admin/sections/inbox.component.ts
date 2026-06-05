@@ -398,6 +398,9 @@ const STATUS_COLORS: Record<string, string> = {
       .inbox-msg-time { font-size: 10px; color: var(--inbox-ink-35); }
       .inbox-msg-body { background: color-mix(in oklch, var(--ps-ink) 4%, transparent); border: 1px solid var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 8%, transparent)); border-radius: 10px; padding: 8px 12px; font-size: 13px; line-height: 1.5; }
       .inbox-msg.outbound .inbox-msg-body { background: var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 8%, transparent)); border-color: var(--ps-accent-line, color-mix(in oklch, var(--ps-accent) 18%, transparent)); }
+      /* Group AI-drafted replies with a violet left-accent — cohesive with the
+         "AI draft" tag (same --ps-accent-secondary). Combines with .outbound. */
+      .inbox-msg.ai-drafted .inbox-msg-body { border-left: 2px solid color-mix(in oklch, var(--ps-accent-secondary, #7c3aed) 50%, transparent); }
       .inbox-reply-bar { padding: 10px 12px; border-top: 1px solid var(--inbox-hairline); display: flex; flex-direction: column; gap: 8px; }
       /* .inbox-reply-input removed — now Spartan hlmInput [multiline] (resize-none). */
       .inbox-reply-actions { display: flex; justify-content: flex-end; gap: 8px; }

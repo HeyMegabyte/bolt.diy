@@ -207,6 +207,39 @@ describe('AdminInboxComponent (thread message-load error)', () => {
     expect(c.messagesError()).toBeNull();
   });
 
+  it('an AI-drafted reply bubble carries the .ai-drafted class (violet grouping, wires the formerly-dead binding)', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminInboxComponent],
+      providers: [
+        // One object serves both the conversations-list load (reads .conversations)
+        // and the thread load (reads .messages) — selectedConversation() is computed
+        // from conversations(), so c1 must be in the list the init load populates.
+        { provide: ApiService, useValue: { get: () => of({
+          conversation: { id: 'c1', channel: 'web', status: 'open', subject: 'Hi' },
+          conversations: [{ id: 'c1', status: 'open', unread_count: 0, channel: 'web', subject: 'Hi' }],
+          hasMore: false,
+          messages: [
+            { id: 'm1', body: 'human q', direction: 'inbound', ai_drafted: false, sent_at: 'now' },
+            { id: 'm2', body: 'ai reply', direction: 'outbound', ai_drafted: true, sent_at: 'now' },
+          ],
+        }), post: () => of({}), patch: () => of({}) } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(true) } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminInboxComponent);
+    fx.componentInstance.flagEnabled.set(true);
+    fx.detectChanges(); // init load populates conversations() with c1
+    fx.componentInstance.selectConversation({ id: 'c1', status: 'open', unread_count: 0, channel: 'web', subject: 'Hi' } as never);
+    fx.detectChanges();
+    const msgs = Array.from((fx.nativeElement as HTMLElement).querySelectorAll('.inbox-msg'));
+    expect(msgs.length).withContext('thread rendered both messages').toBe(2);
+    const aiMsg = msgs.find((m) => m.classList.contains('ai-drafted'));
+    expect(aiMsg).withContext('the AI-drafted reply is grouped via .ai-drafted (the violet bubble accent targets it)').toBeTruthy();
+    expect(aiMsg!.querySelector('.inbox-msg-ai-tag')?.textContent).withContext('and shows the AI-draft tag').toContain('AI');
+    expect(msgs.find((m) => !m.classList.contains('ai-drafted'))).withContext('the human message is NOT marked ai-drafted').toBeTruthy();
+  });
+
   it('a failed thread load sets messagesError + empties messages (no silent blank thread)', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
     c.selectConversation({ id: 'c1', status: 'open', unread_count: 0 } as never);
