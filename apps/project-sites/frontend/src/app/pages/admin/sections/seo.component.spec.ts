@@ -115,4 +115,16 @@ describe('AdminSeoComponent (cyan/black cohesion + a11y)', () => {
     expect(c.siteName).toBe('Vito Salon');
     expect(c.siteDomain).toBe('vito-salon.projectsites.dev');
   });
+
+  it('shows a Social Share (Open Graph) preview — the section promises social sharing', () => {
+    build({ business_name: 'Vito Salon', slug: 'vito-salon' });
+    const el: HTMLElement = fixture.nativeElement;
+    const card = el.querySelector('[data-testid="seo-social-preview"]');
+    expect(card).withContext('subtitle promises social sharing → a social-card preview must render').toBeTruthy();
+    // mirrors the Google-preview mockup: real domain + composed title, branded OG-image area
+    expect(card!.textContent ?? '').toContain('vito-salon.projectsites.dev');
+    expect(card!.textContent ?? '').toContain('Vito Salon');
+    // the OG-image area is a decorative mockup (no live asset) → hidden from SR
+    expect(card!.querySelector('.social-card-img')?.getAttribute('aria-hidden')).toBe('true');
+  });
 });

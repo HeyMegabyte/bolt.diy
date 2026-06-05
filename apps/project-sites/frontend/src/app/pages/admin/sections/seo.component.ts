@@ -76,6 +76,29 @@ import { RevealDirective } from '../../../directives/reveal.directive';
         </div>
       </div>
 
+      <!-- Social Share Preview -->
+      <div class="seo-card group" appReveal data-testid="seo-social-preview">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-base font-semibold text-white m-0 flex items-center gap-2">
+            <svg class="seo-card-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Social Share Preview
+          </h3>
+          <span class="seo-pill seo-pill-auto">Auto</span>
+        </div>
+        <p class="text-[0.72rem] text-text-secondary m-0 mb-3">How your link looks when shared on X, LinkedIn, Facebook, and iMessage — every page emits a branded 1200×630 Open Graph card.</p>
+        <div class="social-card max-w-[520px]">
+          <div class="social-card-img" aria-hidden="true">
+            <span class="social-card-img-name">{{ siteName }}</span>
+            <span class="social-card-img-dim">Open Graph · 1200 × 630</span>
+          </div>
+          <div class="social-card-meta">
+            <div class="social-card-domain">{{ siteDomain }}</div>
+            <div class="social-card-title">{{ siteTitle }} | {{ siteName }}</div>
+            <div class="social-card-desc">Your Open Graph description is generated from your business profile until manual overrides ship.</div>
+          </div>
+        </div>
+      </div>
+
       <!-- JSON-LD Preview -->
       <div class="seo-card group" appReveal>
         <div class="flex items-center justify-between mb-4">
@@ -137,6 +160,21 @@ import { RevealDirective } from '../../../directives/reveal.directive';
     .seo-header {
       animation: fadeUp 500ms var(--ease-cinematic);
     }
+
+    /* Social-share (Open Graph) card mockup — token-driven so it tracks --ps-accent. */
+    .social-card { border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; overflow: hidden; background: rgba(255, 255, 255, 0.02); }
+    .social-card-img {
+      aspect-ratio: 1200 / 630;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem;
+      background: linear-gradient(135deg, color-mix(in oklch, var(--seo-accent) 20%, #060610), #0a0a18 72%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .social-card-img-name { font-size: 1.4rem; font-weight: 700; color: #fff; letter-spacing: -0.01em; text-align: center; padding: 0 1rem; line-height: 1.15; }
+    .social-card-img-dim { font-size: 0.66rem; letter-spacing: 0.05em; color: color-mix(in oklch, var(--seo-accent) 72%, #fff); font-family: ui-monospace, monospace; }
+    .social-card-meta { padding: 0.65rem 0.9rem; }
+    .social-card-domain { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary, #94a3b8); }
+    .social-card-title { font-size: 0.9rem; font-weight: 600; color: #fff; margin-top: 0.1rem; line-height: 1.25; }
+    .social-card-desc { font-size: 0.74rem; color: color-mix(in oklch, var(--text-secondary, #94a3b8) 92%, transparent); margin-top: 0.15rem; line-height: 1.35; }
 
     .seo-card {
       position: relative;
