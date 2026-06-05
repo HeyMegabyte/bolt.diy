@@ -151,7 +151,6 @@ const ALL_SCOPES = [
                   @if (header.column.getCanSort()) {
                     <th
                       class="at-sortable"
-                      [class.at-num-col]="header.id === 'scopes'"
                       tabindex="0"
                       [attr.aria-sort]="ariaSort(header.column.getIsSorted())"
                       (click)="header.column.toggleSorting()"
