@@ -164,6 +164,8 @@ const SPECIALIST_COLORS: Record<string, string> = {
         </div>
       }
     </section>
+  } @else if (loadError() && loadErrorGated()) {
+    <div class="swarm-gate-notice" data-testid="swarm-load-error" appReveal role="status">{{ loadError() }}</div>
   } @else if (loadError()) {
     <app-error-card data-testid="swarm-load-error" class="block" appReveal
       title="Couldn't load swarm runs"
@@ -321,6 +323,7 @@ const SPECIALIST_COLORS: Record<string, string> = {
     .swarm-agent__conflict-badge { font-size: 0.6rem; background: color-mix(in oklch, var(--sw-warn) 15%, transparent); color: var(--sw-warn); padding: 0.1rem 0.4rem; border-radius: 4px; }
     /* Empty */
     .swarm-empty { text-align: center; padding: 3rem 1rem; opacity: 0.6; }
+    .swarm-gate-notice { text-align: center; padding: 3rem 1rem; font-size: 0.9rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 68%, transparent); }
     .swarm-empty__cta { color: var(--ps-accent, #00e5ff); background: none; border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 40%, transparent); padding: 0.375rem 0.875rem; border-radius: 9999px; cursor: pointer; }
     /* Progressive preview */
     .swarm-preview { background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 2%, transparent); border: 1px solid var(--sw-line); border-radius: 10px; padding: 0.75rem; margin-bottom: 1.5rem; }
@@ -371,6 +374,8 @@ export class AdminSwarmComponent implements OnInit, OnDestroy {
   readonly loadError = signal<string | null>(null);
   /** Worker request_id from a failed load → the copyable support reference on the error card. */
   readonly loadErrorRef = signal('');
+  /** True when the failure is a 404 (swarm flag off / foreign site) → permanent, no Retry. */
+  readonly loadErrorGated = signal(false);
   readonly running = signal(false);
   readonly currentRun = signal<SwarmRun | null>(null);
   readonly runHistory = signal<SwarmRun[]>([]);
@@ -417,16 +422,25 @@ export class AdminSwarmComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.loadError.set(null);
     this.loadErrorRef.set('');
+    this.loadErrorGated.set(false);
     this.http.get<{ runs: SwarmRun[] }>(`/api/swarm/${this.siteId()}/runs`)
       // null sentinel on error so a failed load is NOT mistaken for "no runs
       // yet" — otherwise a network/server failure renders the empty-state CTA
       // ("Start first swarm run"), a silent failure. Capture the worker
-      // request_id for the error card's copyable support reference.
-      .pipe(catchError((err: unknown) => { this.loadErrorRef.set(this.requestIdFrom(err)); return of(null); }))
+      // request_id (support reference) + distinguish a 404 feature-gate
+      // (swarm flag off / foreign site → retrying can't help) from a transient
+      // failure (500/network → offer a Retry).
+      .pipe(catchError((err: unknown) => {
+        this.loadErrorRef.set(this.requestIdFrom(err));
+        this.loadErrorGated.set((err as { status?: number })?.status === 404);
+        return of(null);
+      }))
       .subscribe((res: { runs: SwarmRun[] } | null) => {
         this.loading.set(false);
         if (!res) {
-          this.loadError.set('Could not load swarm runs — check your connection and retry.');
+          this.loadError.set(this.loadErrorGated()
+            ? "Swarm isn't available for this site."
+            : 'Could not load swarm runs — check your connection and retry.');
           this.cdr.markForCheck();
           return;
         }

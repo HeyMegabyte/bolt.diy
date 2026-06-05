@@ -126,6 +126,22 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
     expect(root.querySelector('[data-testid="error-correlation"]')?.textContent).withContext('reference shown for support').toContain('req_sw1');
   });
 
+  it('a 404 (swarm flag off / foreign site) → a calm "not available" notice with NO Retry', () => {
+    // The worker returns 404 when the swarm flag is off OR the site is foreign —
+    // retrying never helps, so showing "check your connection · Retry" is wrong.
+    const http = TestBed.inject(HttpTestingController);
+    fixture.componentInstance.siteId.set('s1');
+    fixture.componentInstance.loadHistory();
+    http.expectOne('/api/swarm/s1/runs').flush('nope', { status: 404, statusText: 'Not Found' });
+    fixture.detectChanges();
+    expect(fixture.componentInstance.loadErrorGated()).toBeTrue();
+    expect(fixture.componentInstance.loadError()).toContain('available');
+    const root: HTMLElement = fixture.nativeElement;
+    expect(root.querySelector('[data-testid="swarm-load-error"]')).withContext('notice still present').not.toBeNull();
+    expect(root.querySelector('app-error-card')).withContext('no transient error-card for a permanent gate').toBeNull();
+    expect(root.querySelector('[data-testid="error-retry"]')).withContext('no false Retry on a 404 gate').toBeNull();
+  });
+
   it('startSwarm failure surfaces an error toast + clears running (no silent failure)', () => {
     const errSpy = spyOn(TestBed.inject(ToastService), 'error');
     const http = TestBed.inject(HttpTestingController);
