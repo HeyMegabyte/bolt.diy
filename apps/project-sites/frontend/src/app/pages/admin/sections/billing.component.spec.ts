@@ -139,6 +139,20 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
     expect(empty!.getAttribute('role')).toBe('status');
   });
 
+  it('reflects the Stripe subscription status on the badge (trialing → its own styled state, not the slate fallback)', () => {
+    build();
+    // Stripe passes status through verbatim; a trial must read as active, not neutral.
+    fixture.componentInstance.subStatus.set({ status: 'trialing' } as never);
+    fixture.detectChanges();
+    const badge = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="subscription-status"]');
+    expect(badge).withContext('status badge present').toBeTruthy();
+    expect(badge!.getAttribute('data-status')).withContext('trialing now has a per-status style hook').toBe('trialing');
+    // and a dunning state is targetable too
+    fixture.componentInstance.subStatus.set({ status: 'unpaid' } as never);
+    fixture.detectChanges();
+    expect(badge!.getAttribute('data-status')).toBe('unpaid');
+  });
+
   it('the affiliate-payouts empty renders the cyan glyph (cohesion with the other billing empties)', () => {
     build();
     const cmp = fixture.componentInstance;

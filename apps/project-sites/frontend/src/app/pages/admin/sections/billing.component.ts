@@ -1185,6 +1185,12 @@ interface ForecastBar {
     .subscription-status-badge[data-status="active"] { background: rgba(52,211,153,0.1); color: #6ee7b7; border-color: rgba(52,211,153,0.3); }
     .subscription-status-badge[data-status="past_due"] { background: rgba(251,191,36,0.1); color: #fbbf24; border-color: rgba(251,191,36,0.3); }
     .subscription-status-badge[data-status="canceled"] { background: rgba(248,113,113,0.1); color: #fca5a5; border-color: rgba(248,113,113,0.25); }
+    /* Stripe passes subscription.status through verbatim — cover the rest of the
+       vocabulary so a trial reads as active (not the neutral slate fallback) + the
+       dunning states warn. active=green · past_due/incomplete=amber · canceled/unpaid=red. */
+    .subscription-status-badge[data-status="trialing"] { background: rgba(0,229,255,0.1); color: #67e8f9; border-color: rgba(0,229,255,0.3); }
+    .subscription-status-badge[data-status="incomplete"] { background: rgba(251,191,36,0.1); color: #fbbf24; border-color: rgba(251,191,36,0.3); }
+    .subscription-status-badge[data-status="unpaid"] { background: rgba(248,113,113,0.1); color: #fca5a5; border-color: rgba(248,113,113,0.3); }
 
     /* ─────── Billing warning / grace-period banners ─────── */
     .billing-warning-banner {
