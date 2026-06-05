@@ -85,19 +85,22 @@ const INTENT_ICONS: Record<string, string> = {
           </div>
         }
 
-        <!-- Stats row -->
-        <div class="copilot-stats" appReveal>
-          <div class="copilot-stat">
-            <app-rolling-counter [value]="totalSessions()" suffix=" sessions" />
-            <span class="copilot-stat-label">Total</span>
-          </div>
-          @for (d of distribution(); track d.intent) {
+        <!-- Stats row — only once the sessions load resolves, so the header never
+             asserts a definitive "0 sessions" over a still-loading / errored table. -->
+        @if (!loading() && !loadError()) {
+          <div class="copilot-stats" appReveal>
             <div class="copilot-stat">
-              <app-rolling-counter [value]="d.count" [suffix]="' ' + d.intent" />
-              <span class="copilot-stat-label" [style.color]="intentColor(d.intent)">{{ intentIcon(d.intent) }}</span>
+              <app-rolling-counter [value]="totalSessions()" suffix=" sessions" />
+              <span class="copilot-stat-label">Total</span>
             </div>
-          }
-        </div>
+            @for (d of distribution(); track d.intent) {
+              <div class="copilot-stat">
+                <app-rolling-counter [value]="d.count" [suffix]="' ' + d.intent" />
+                <span class="copilot-stat-label" [style.color]="intentColor(d.intent)">{{ intentIcon(d.intent) }}</span>
+              </div>
+            }
+          </div>
+        }
 
         <!-- Sessions table -->
         <div class="copilot-table-wrap" appReveal>

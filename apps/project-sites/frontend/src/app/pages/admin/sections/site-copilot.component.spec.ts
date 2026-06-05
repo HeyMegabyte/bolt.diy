@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, throwError, NEVER } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { AdminSiteCopilotComponent } from './site-copilot.component';
 import { ToastService } from '../../../services/toast.service';
@@ -149,5 +149,44 @@ describe('AdminSiteCopilotComponent — flag-gate link cohesion (real template)'
     expect(link).withContext('flag-gate links to Feature Flags').toBeTruthy();
     expect(link.className).toContain('underline');
     expect(link.getAttribute('href')).toBe('/admin/feature-flags');
+  });
+
+  // The session-count stats ("0 sessions" + intent distribution) must NOT render
+  // a definitive count while the sessions table is still loading — otherwise the
+  // header asserts "0 sessions" OVER a skeleton-loading table (a contradictory,
+  // premature stat). The stats appear only once data genuinely resolves.
+  it('hides the session-count stats while loading (no "0 sessions" over a skeleton table)', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminSiteCopilotComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get: () => NEVER, put: () => of({ ok: true }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSiteCopilotComponent);
+    fx.componentInstance.flagEnabled.set(true); // flag on → table renders (not the gate notice)
+    fx.detectChanges();
+    const el = fx.nativeElement as HTMLElement;
+    expect(fx.componentInstance.loading()).withContext('sessions fetch in-flight').toBeTrue();
+    expect(el.querySelector('.copilot-stats')).withContext('no premature stats over a loading table').toBeNull();
+    expect(el.querySelector('.copilot-table[aria-busy="true"]')).withContext('the loading table is the only state shown').not.toBeNull();
+  });
+
+  it('shows the session-count stats once the load resolves', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminSiteCopilotComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get: () => of({ sessions: [], distribution: [] }), put: () => of({ ok: true }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSiteCopilotComponent);
+    fx.componentInstance.flagEnabled.set(true);
+    fx.componentInstance.loading.set(false); // simulate a resolved sessions load
+    fx.detectChanges();
+    const el = fx.nativeElement as HTMLElement;
+    expect(el.querySelector('.copilot-stats')).withContext('stats render once data loaded').not.toBeNull();
   });
 });
