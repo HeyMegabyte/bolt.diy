@@ -145,14 +145,25 @@ describe('AdminWebhooksComponent', () => {
     expect(q('[data-testid="webhooks-error"]')).not.toBeNull();
   });
 
-  it('a transient 500 → retryable error + a Retry button (not a permanent feature-gate)', () => {
+  it('a transient 500 → retryable error rendered via the gold-standard error card + Retry', () => {
     build({ id: 's1' });
     get.and.returnValue(throwError(() => ({ status: 500 })));
     fixture.componentInstance.load();
     fixture.detectChanges();
     expect(fixture.componentInstance.errorRetryable()).toBeTrue();
-    expect(fixture.componentInstance.error()).toContain('retry');
-    expect(q('[data-testid="webhooks-retry"]')).not.toBeNull();
+    // The transient failure now uses the shared <app-error-card> (Retry + a
+    // copyable support reference) instead of a bare banner.
+    expect(q('app-error-card')).withContext('shared error-card primitive').not.toBeNull();
+    expect(q('[data-testid="error-retry"]')).withContext('Retry on the card').not.toBeNull();
+  });
+
+  it('surfaces the worker request_id as a copyable support reference on a transient failure', () => {
+    build({ id: 's1' });
+    get.and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req_abc123' } } })));
+    fixture.componentInstance.load();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.loadErrorRef()).toBe('req_abc123');
+    expect(q('[data-testid="error-correlation"]')?.textContent).withContext('reference shown for support').toContain('req_abc123');
   });
 
   it('a 404 → "not enabled" feature-gate with NO Retry (retrying cannot help)', () => {

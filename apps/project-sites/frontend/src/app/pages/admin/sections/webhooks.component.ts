@@ -17,7 +17,7 @@ import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective } from '../../../ui';
-import { SkeletonComponent, EmptyStateComponent } from '../../../components/states';
+import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
 
 /** Mirrors the worker's WEBHOOK_EVENT_TYPES allowlist. */
 const EVENT_TYPES = ['site.published', 'form.submitted', 'payment.succeeded', 'review.received', 'build.failed', 'domain.active'];
@@ -40,7 +40,7 @@ interface Delivery {
 @Component({
   selector: 'app-admin-webhooks',
   standalone: true,
-  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent],
+  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -103,13 +103,14 @@ interface Delivery {
           </div>
         </div>
 
-        @if (error()) {
-          <div data-testid="webhooks-error" role="alert" class="mb-5 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-sm text-red-300 flex items-center justify-between gap-3">
-            <span>{{ error() }}</span>
-            @if (errorRetryable()) {
-              <button hlmBtn variant="ghost" size="sm" data-testid="webhooks-retry" (click)="load()">Retry</button>
-            }
-          </div>
+        @if (error() && errorRetryable()) {
+          <app-error-card data-testid="webhooks-error" class="block mb-5"
+            title="Couldn't load webhooks"
+            message="Check your connection and retry."
+            [correlationId]="loadErrorRef()"
+            (retry)="load()" />
+        } @else if (error()) {
+          <div data-testid="webhooks-error" role="alert" class="mb-5 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-sm text-red-300">{{ error() }}</div>
         }
 
         <!-- List -->
@@ -176,6 +177,8 @@ export class AdminWebhooksComponent {
   readonly error = signal<string | null>(null);
   /** True when the load error is transient (not a 404 feature-gate) → show a Retry. */
   readonly errorRetryable = signal(false);
+  /** Worker request_id from a failed load → the copyable support reference on the error card. */
+  readonly loadErrorRef = signal('');
   readonly createdSecret = signal<string | null>(null);
   readonly secretCopied = signal(false);
 
@@ -237,6 +240,7 @@ export class AdminWebhooksComponent {
     this.loading.set(true);
     this.error.set(null);
     this.errorRetryable.set(false);
+    this.loadErrorRef.set('');
     // Silent: this component owns an accurate inline error (the gated vs
     // transient/retryable banner below) — the generic ApiService toast would
     // double-fire over it (the redundant-network-toast class).
@@ -248,12 +252,13 @@ export class AdminWebhooksComponent {
       // Distinguish a genuine feature-gate (404 → retrying won't help) from a
       // transient failure (500/network → offer a Retry). Never read a transient
       // error as a permanent "not available for this site".
-      error: (err: { status?: number }) => {
+      error: (err: { status?: number; error?: unknown }) => {
         const gated = err?.status === 404;
         this.error.set(gated
           ? 'Webhooks are not enabled for this site.'
           : "Couldn't load webhooks — check your connection and retry.");
         this.errorRetryable.set(!gated);
+        if (!gated) this.loadErrorRef.set(this.requestIdFrom(err));
         this.loading.set(false);
       },
     });
@@ -264,6 +269,11 @@ export class AdminWebhooksComponent {
       next: (res) => this.deliveries.set(res.deliveries ?? []),
       error: () => this.deliveries.set([]),
     });
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: { error?: unknown } | undefined): string {
+    return (e?.error as { error?: { request_id?: string } } | undefined)?.error?.request_id ?? '';
   }
 
   create(): void {
