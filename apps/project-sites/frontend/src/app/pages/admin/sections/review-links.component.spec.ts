@@ -113,12 +113,22 @@ describe('AdminReviewLinksComponent (load-error retryability)', () => {
   }
   afterEach(() => TestBed.resetTestingModule());
 
-  it('a transient 500 → retryable error + a Retry button (not a fake feature-gate)', () => {
+  it('a transient 500 → retryable error rendered via the gold-standard error card + Retry', () => {
     const fx = buildErr(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
     const c = fx.componentInstance;
+    const el = fx.nativeElement as HTMLElement;
     expect(c.errorRetryable()).toBeTrue();
-    expect(c.error()).toContain('retry');
-    expect((fx.nativeElement as HTMLElement).querySelector('[data-testid="review-links-retry"]')).toBeTruthy();
+    // The transient failure now uses the shared <app-error-card> (Retry + a
+    // copyable support reference) instead of a bare banner.
+    expect(el.querySelector('app-error-card')).withContext('shared error-card primitive').not.toBeNull();
+    expect(el.querySelector('[data-testid="error-retry"]')).withContext('Retry on the card').not.toBeNull();
+  });
+
+  it('surfaces the worker request_id as a copyable support reference on a transient failure', () => {
+    const fx = buildErr(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req_rl99' } } }))));
+    const el = fx.nativeElement as HTMLElement;
+    expect(fx.componentInstance.loadErrorRef()).toBe('req_rl99');
+    expect(el.querySelector('[data-testid="error-correlation"]')?.textContent).withContext('reference shown for support').toContain('req_rl99');
   });
 
   it('a 404 → a feature-gate message with NO Retry (retrying cannot help)', () => {
