@@ -176,6 +176,38 @@ describe('AdminSiteDetailComponent (cinematic entrance — matches sibling secti
     expect(root!.classList.contains('animate-fade-in')).withContext('root must animate in (opacity-only, reduced-motion-safe) like sibling sections').toBe(true);
   });
 
+  // The Logs + Snapshots tab empties used bare muted text; the cockpit standard
+  // for a sub-panel empty is the cyan-glyph <app-mini-empty> primitive.
+  function renderEmpty(): import('@angular/core/testing').ComponentFixture<AdminSiteDetailComponent> {
+    const api = { get: jasmine.createSpy('get').and.returnValue(of({ site: { id: 'site-1', slug: 's', name: 'S' }, columns: [], rows: [], logs: [], snapshots: [] })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
+    TestBed.configureTestingModule({
+      imports: [AdminSiteDetailComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: api },
+        { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 'site-1' }), queryParamMap: of({ get: () => null }) } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminSiteDetailComponent);
+    f.detectChanges();
+    return f;
+  }
+
+  it('the Logs tab empty uses the cyan-glyph <app-mini-empty> (not bare muted text)', () => {
+    const f = renderEmpty();
+    const tail = (f.nativeElement as HTMLElement).querySelector('[data-testid="site-logs-tail"]');
+    expect(tail?.querySelector('app-mini-empty')).withContext('cyan-glyph empty primitive in the Logs tab').not.toBeNull();
+    expect(tail?.querySelector('p.muted')).withContext('no bare muted "No logs yet." text').toBeNull();
+  });
+
+  it('the Snapshots tab empty uses the cyan-glyph <app-mini-empty>', () => {
+    const f = renderEmpty();
+    f.componentInstance.setTab('snapshots');
+    f.detectChanges();
+    const list = (f.nativeElement as HTMLElement).querySelector('[data-testid="site-snapshots-list"]');
+    expect(list?.querySelector('app-mini-empty')).withContext('cyan-glyph empty primitive in the Snapshots tab').not.toBeNull();
+  });
+
   it('never renders a bare ".projectsites.dev" subtitle when the site fails to resolve (falls back to the URL slug)', () => {
     // GET /sites/:id can 200 with { site: null } (id not fully resolvable) — site()
     // stays null and the header used to show a broken bare ".projectsites.dev".

@@ -30,6 +30,7 @@ import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../.
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
+import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of } from 'rxjs';
 import { catchError, retry, switchMap, timer } from 'rxjs';
@@ -67,7 +68,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
 @Component({
   selector: 'app-admin-site-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
+  imports: [CommonModule, FormsModule, RouterModule, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, MiniEmptyComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="site-detail animate-fade-in" data-testid="site-detail">
@@ -155,7 +156,9 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
                 <span class="log-message">{{ row.message }}</span>
               </div>
             } @empty {
-              <p class="muted">No logs yet.</p>
+              <app-mini-empty text="No logs yet — activity will stream in here.">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h7"/></svg>
+              </app-mini-empty>
             }
           </div>
         </div>
@@ -181,7 +184,11 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
                 >Rollback</button>
               </li>
             } @empty {
-              <li class="muted">No snapshots yet.</li>
+              <li>
+                <app-mini-empty text="No snapshots yet — the first is created automatically on build.">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </app-mini-empty>
+              </li>
             }
           </ul>
 
