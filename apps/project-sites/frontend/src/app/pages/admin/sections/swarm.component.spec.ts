@@ -110,6 +110,20 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
     const root: HTMLElement = fixture.nativeElement;
     expect(root.querySelector('[data-testid="swarm-load-error"]')).not.toBeNull();
     expect(root.querySelector('.swarm-empty')).withContext('no false "no runs" CTA on a load failure').toBeNull();
+    // Standardized onto the shared gold-standard <app-error-card> (Retry + support ref).
+    expect(root.querySelector('app-error-card')).withContext('shared error-card primitive').not.toBeNull();
+    expect(root.querySelector('[data-testid="error-retry"]')).withContext('Retry on the card').not.toBeNull();
+  });
+
+  it('surfaces the worker request_id as a copyable support reference on a failed load', () => {
+    const http = TestBed.inject(HttpTestingController);
+    fixture.componentInstance.siteId.set('s1');
+    fixture.componentInstance.loadHistory();
+    http.expectOne('/api/swarm/s1/runs').flush({ error: { request_id: 'req_sw1' } }, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    expect(fixture.componentInstance.loadErrorRef()).toBe('req_sw1');
+    const root: HTMLElement = fixture.nativeElement;
+    expect(root.querySelector('[data-testid="error-correlation"]')?.textContent).withContext('reference shown for support').toContain('req_sw1');
   });
 
   it('startSwarm failure surfaces an error toast + clears running (no silent failure)', () => {
