@@ -335,9 +335,9 @@
           }
         }
         @if (isEditorRoute() && state.selectedSite()) {
-          <button class="top-btn text-primary border-primary/20 hover:bg-primary/10" (click)="saveEditor()" [disabled]="bolt.saving()" [brnTooltip]="'Save & deploy this site'">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            {{ bolt.saving() ? 'Saving...' : 'Save & Deploy' }}
+          <button class="top-btn text-primary border-primary/20 hover:bg-primary/10" (click)="saveEditor()" [disabled]="bolt.saving()" [attr.aria-busy]="bolt.saving()" [brnTooltip]="'Save & deploy this site'">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            {{ bolt.saving() ? 'Publishing…' : 'Save & Deploy' }}
           </button>
         }
         <div class="w-px h-6 bg-white/[0.06] mx-1"></div>
