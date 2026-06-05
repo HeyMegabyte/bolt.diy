@@ -36,6 +36,20 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
     expect(root.querySelector('.swarm-demo-badge')?.textContent).toContain('Simulated');
   });
 
+  it('a queued agent gets the --queued card modifier + a queued status-pill (wires the formerly-dead state)', () => {
+    fixture.componentInstance.currentRun.set({
+      run_id: 'r1', site_id: 's1', prompt: 'p', status: 'running',
+      agents: [{ id: 'a1', name: 'seo', status: 'queued', file_glob: '*' }],
+      started_at: new Date().toISOString(),
+    } as never);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const card = root.querySelector('.swarm-agent');
+    expect(card).withContext('the agent board renders the queued agent').toBeTruthy();
+    expect(card!.classList.contains('swarm-agent--queued')).withContext('queued agent is visually distinguished (the dashed/dim modifier targets this)').toBeTrue();
+    expect(root.querySelector('.swarm-agent__status-pill[data-status="queued"]')).withContext('the queued status-pill is now styled').toBeTruthy();
+  });
+
   it('routes the conflict stat through <app-rolling-counter> (no raw numeric text node)', () => {
     const root: HTMLElement = fixture.nativeElement;
     const conflictStat = root.querySelectorAll('.swarm-stat')[1];

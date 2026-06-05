@@ -307,6 +307,9 @@ const SPECIALIST_COLORS: Record<string, string> = {
     .swarm-agent--done { border-color: var(--sw-ok); }
     .swarm-agent--error { border-color: var(--sw-err); }
     .swarm-agent--conflict { border-color: var(--sw-warn); }
+    /* Queued = waiting to start: a dashed, dimmed card so pending agents read as
+       not-yet-active (vs the solid-bordered running/done/error states). */
+    .swarm-agent--queued { border-style: dashed; opacity: 0.72; }
     @keyframes agent-pulse { 0%,100%{opacity:1} 50%{opacity:.7} }
     @media (prefers-reduced-motion: reduce) { .swarm-agent--running { animation: none; } }
     .swarm-agent__header { display: flex; align-items: center; gap: 0.375rem; }
@@ -317,6 +320,7 @@ const SPECIALIST_COLORS: Record<string, string> = {
     .swarm-agent__status-pill[data-status=running] { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 20%, transparent); color: var(--ps-accent, #00e5ff); }
     .swarm-agent__status-pill[data-status=done] { background: color-mix(in oklch, var(--sw-ok) 20%, transparent); color: var(--sw-ok); }
     .swarm-agent__status-pill[data-status=error] { background: color-mix(in oklch, var(--sw-err) 20%, transparent); color: var(--sw-err); }
+    .swarm-agent__status-pill[data-status=queued] { background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 9%, transparent); color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 58%, transparent); }
     .swarm-agent__glob { font: 0.6rem/1.3 'JetBrains Mono', monospace; opacity: 0.5; word-break: break-all; margin: 0; }
     .swarm-agent__preview { font-size: 0.65rem; opacity: 0.7; margin: 0; font-style: italic; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     .swarm-agent__duration { font: 0.65rem 'JetBrains Mono', monospace; color: var(--ps-accent, #00e5ff); }
