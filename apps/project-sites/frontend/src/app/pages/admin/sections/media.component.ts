@@ -448,15 +448,19 @@ interface BoltMediaAttachMessage {
                 }
               </div>
             } @else if (stockError()) {
-              <div class="med-empty" role="alert" data-testid="stock-error">
-                <div class="med-empty__glyph" aria-hidden="true">⚠️</div>
+              <div class="med-empty med-empty--warn" role="alert" data-testid="stock-error">
+                <div class="med-empty__glyph" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </div>
                 <h2 class="med-empty__title">Search failed</h2>
                 <p class="med-empty__body">{{ stockError() }}</p>
                 <button type="button" class="btn-primary" (click)="runStockSearch()" [disabled]="stockLoading() || !stockQuery.trim()">Retry</button>
               </div>
             } @else if (stockResults().length === 0 && stockSearched()) {
               <div class="med-empty" role="status" data-testid="stock-no-matches">
-                <div class="med-empty__glyph" aria-hidden="true">🔍</div>
+                <div class="med-empty__glyph" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                </div>
                 <h2 class="med-empty__title">No matches for “{{ stockLastQuery }}”</h2>
                 <p class="med-empty__body">
                   Try different keywords, or enable more libraries above.
@@ -464,7 +468,9 @@ interface BoltMediaAttachMessage {
               </div>
             } @else if (stockResults().length === 0) {
               <div class="med-empty" role="status" data-testid="stock-initial">
-                <div class="med-empty__glyph" aria-hidden="true">🔎</div>
+                <div class="med-empty__glyph" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>
+                </div>
                 <h2 class="med-empty__title">No results yet</h2>
                 <p class="med-empty__body">
                   Type a query above and pick which libraries to include.

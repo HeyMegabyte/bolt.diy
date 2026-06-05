@@ -284,6 +284,9 @@ describe('AdminMediaComponent (stock search states)', () => {
     expect(errEl).toBeTruthy();
     expect(errEl!.querySelector('button')?.textContent).toContain('Retry');
     expect(el.querySelector('[data-testid="stock-no-matches"]')).toBeNull();
+    // Cockpit cohesion: the error glyph is an amber-haloed SVG (med-empty--warn), not a bare emoji.
+    expect(errEl!.classList.contains('med-empty--warn')).withContext('amber warn variant').toBeTrue();
+    expect(errEl!.querySelector('.med-empty__glyph svg')).withContext('SVG glyph, not an emoji char').toBeTruthy();
   });
 });
 
