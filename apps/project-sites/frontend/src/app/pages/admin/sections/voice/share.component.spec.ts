@@ -55,3 +55,31 @@ describe('VoiceShareComponent (load failure ≠ "buy a number")', () => {
     expect(c.loadError()).toBeTruthy();
   });
 });
+
+/**
+ * The "every channel" pitch chips were colorful emoji (💬📱📞📧🔌) — off-brand on
+ * the monochrome cyan/black cockpit + SR noise. They now render monochrome SVG
+ * line icons (aria-hidden), keeping just the channel name as the accessible label.
+ */
+describe('VoiceShareComponent (channel chips are monochrome SVG, not emoji)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('renders one aria-hidden SVG icon per channel chip and no emoji glyphs', () => {
+    TestBed.configureTestingModule({
+      imports: [VoiceShareComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }) } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0, info: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(VoiceShareComponent);
+    fx.detectChanges();
+    const chips = (fx.nativeElement as HTMLElement).querySelectorAll('.chip-row .ch-chip');
+    expect(chips.length).withContext('five channel chips').toBe(5);
+    const svgs = (fx.nativeElement as HTMLElement).querySelectorAll('.chip-row .ch-chip svg[aria-hidden="true"]');
+    expect(svgs.length).withContext('each chip carries a monochrome SVG icon').toBe(5);
+    const rowText = (fx.nativeElement as HTMLElement).querySelector('.chip-row')?.textContent ?? '';
+    expect(rowText).withContext('no leftover emoji in the chip row').not.toMatch(/[\u{1F300}-\u{1FAFF}\u{1F004}\u{1F0CF}\u{1F170}-\u{1F251}\u{2600}-\u{27BF}\u{1F900}-\u{1F9FF}]/u);
+  });
+});

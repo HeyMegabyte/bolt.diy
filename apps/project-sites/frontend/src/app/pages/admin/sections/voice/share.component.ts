@@ -53,11 +53,11 @@ interface PurchasedNumber {
           email, and 100+ MCP integrations. One source of truth — your customers feel it.
         </p>
         <div class="chip-row mt-4">
-          <span class="ch-chip">💬 Web chat</span>
-          <span class="ch-chip">📱 SMS</span>
-          <span class="ch-chip">📞 Voice</span>
-          <span class="ch-chip">📧 Email</span>
-          <span class="ch-chip">🔌 100+ MCPs</span>
+          <span class="ch-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Web chat</span>
+          <span class="ch-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>SMS</span>
+          <span class="ch-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Voice</span>
+          <span class="ch-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Email</span>
+          <span class="ch-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>100+ MCPs</span>
         </div>
       </article>
 
@@ -156,10 +156,12 @@ interface PurchasedNumber {
     }
     .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
     .ch-chip {
+      display: inline-flex; align-items: center; gap: 6px;
       padding: 6px 12px; border-radius: 999px;
       background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
       font: 600 0.74rem 'Inter', system-ui, sans-serif; color: rgba(255,255,255,0.88);
     }
+    .ch-chip svg { width: 14px; height: 14px; flex-shrink: 0; color: var(--ps-accent, #00e5ff); }
 
     .phone-grid { display: grid; grid-template-columns: 1fr auto; gap: 1.2rem; align-items: center; }
     @media (max-width: 540px) { .phone-grid { grid-template-columns: 1fr; } }
