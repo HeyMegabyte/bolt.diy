@@ -219,3 +219,28 @@ describe('AdminAiLogsComponent (chart sample honesty)', () => {
     expect(c.windowSampleCount()).withContext('only r1 + r2 (in-window, with latency)').toBe(2);
   });
 });
+
+describe('AdminAiLogsComponent (all four KPI tiles roll — cinematic-ui)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('Avg latency rolls like its sibling tiles (Calls/Errors/Credits), not a static node', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminAiLogsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+        { provide: Router, useValue: { navigate: () => 0, navigateByUrl: () => 0, events: of() } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminAiLogsComponent);
+    fx.componentInstance.rows.set([
+      { latency_ms: 240, status: 'ok', credits_debited: 2 },
+      { latency_ms: 260, status: 'error', credits_debited: 3 },
+    ] as never);
+    fx.detectChanges();
+    // the KPI row has 4 tiles — Avg latency was the lone static one beside 3 rolling siblings.
+    const counters = (fx.nativeElement as HTMLElement).querySelectorAll('.grid-cols-4 app-rolling-counter');
+    expect(counters.length).withContext('all four KPI tiles roll via app-rolling-counter').toBe(4);
+  });
+});
