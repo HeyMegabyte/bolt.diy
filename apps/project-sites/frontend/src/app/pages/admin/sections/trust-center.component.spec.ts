@@ -53,6 +53,38 @@ describe('AdminTrustCenterComponent (flag-disabled card links to Feature Flags)'
   });
 });
 
+describe('AdminTrustCenterComponent (list remove buttons: contextual name + destructive affordance)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('names the item it removes (not a generic "Remove") + carries the --danger modifier', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminTrustCenterComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ data: {} }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(true) } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminTrustCenterComponent);
+    f.componentInstance.notFound.set(false); // render the editor (not the flag-disabled card)
+    f.componentInstance.aiModels.set([{ vendor: 'OpenAI', model: 'gpt-4o', purpose: 'copy' }] as never);
+    f.componentInstance.provenance.set([{ area: 'homepage hero', origin: 'ai-generated', reviewed_by: '' }] as never);
+    f.detectChanges();
+    const el = f.nativeElement as HTMLElement;
+    // a SR arrowing a list of model rows needs to know WHICH row's × they're on.
+    const modelRemove = el.querySelector('button[aria-label*="gpt-4o"]');
+    expect(modelRemove).withContext('model remove button names the model').not.toBeNull();
+    expect(modelRemove!.classList.contains('btn-ghost-sm--danger'))
+      .withContext('destructive × must visibly differ from the neutral "+ Add" ghost button').toBeTrue();
+    const provRemove = el.querySelector('button[aria-label*="homepage hero"]');
+    expect(provRemove).withContext('provenance remove button names the area').not.toBeNull();
+    // the "+ Add model" ghost button shares .btn-ghost-sm but must NOT be flagged destructive.
+    const addBtn = Array.from(el.querySelectorAll('button')).find((b) => /Add model/i.test(b.textContent ?? ''));
+    expect(addBtn?.classList.contains('btn-ghost-sm--danger')).withContext('add button stays neutral').toBeFalsy();
+  });
+});
+
 describe('AdminTrustCenterComponent (load-error gating)', () => {
   afterEach(() => TestBed.resetTestingModule());
 

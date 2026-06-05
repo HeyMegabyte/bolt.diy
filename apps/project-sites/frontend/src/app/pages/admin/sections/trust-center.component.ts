@@ -193,7 +193,7 @@ interface ProfileEnvelope {
                 (input)="patchModel(i, 'model', $any($event.target).value)" />
               <input hlmInput placeholder="Purpose" [value]="m.purpose"
                 (input)="patchModel(i, 'purpose', $any($event.target).value)" />
-              <button class="btn-ghost-sm" (click)="removeModel(i)" aria-label="Remove">×</button>
+              <button class="btn-ghost-sm btn-ghost-sm--danger" (click)="removeModel(i)" [attr.aria-label]="'Remove model ' + (m.model || m.vendor || ('row ' + (i + 1)))">×</button>
             </div>
           }
           <button class="btn-ghost-sm" (click)="addModel()">+ Add model</button>
@@ -217,7 +217,7 @@ interface ProfileEnvelope {
               </select>
               <input hlmInput placeholder="Reviewed by (optional)" [value]="p.reviewed_by ?? ''"
                 (input)="patchProv(i, 'reviewed_by', $any($event.target).value)" />
-              <button class="btn-ghost-sm" (click)="removeProv(i)" aria-label="Remove">×</button>
+              <button class="btn-ghost-sm btn-ghost-sm--danger" (click)="removeProv(i)" [attr.aria-label]="'Remove provenance area ' + (p.area || ('row ' + (i + 1)))">×</button>
             </div>
           }
           <button class="btn-ghost-sm" (click)="addProv()">+ Add area</button>
@@ -254,6 +254,10 @@ interface ProfileEnvelope {
       .empty-card { background: rgba(255,255,255,.02); border: 1px dashed rgba(255,255,255,.08); border-radius: 12px; padding: 16px 18px; }
       .btn-ghost-sm { font-size: 0.72rem; padding: 4px 10px; border-radius: 6px; background: transparent; border: 1px solid rgba(255,255,255,.12); color: rgba(244,244,255,.7); cursor: pointer; }
       .btn-ghost-sm:hover { color: var(--ps-ink); border-color: rgba(255,255,255,.2); }
+      /* Destructive list-row × — signals removal intent on hover/focus (the neutral
+         "+ Add" buttons share .btn-ghost-sm but stay neutral). */
+      .btn-ghost-sm--danger:hover { color: #f87171; border-color: rgba(248,113,113,.4); background: rgba(248,113,113,.08); }
+      .btn-ghost-sm--danger:focus-visible { outline: 2px solid rgba(248,113,113,.7); outline-offset: 1px; }
     `,
   ],
 })
