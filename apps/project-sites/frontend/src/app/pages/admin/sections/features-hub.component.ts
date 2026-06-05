@@ -249,7 +249,10 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
                   </button>
                 </div>
                 @if (result()[f.flag + ':' + i]; as r) {
-                  <div class="hub-result" [attr.data-status]="r.status" data-testid="hub-result">
+                  <div class="hub-result" [attr.data-status]="r.status" data-testid="hub-result"
+                       [class.hub-result--ok]="r.status >= 200 && r.status < 300"
+                       [class.hub-result--warn]="r.status >= 400 && r.status < 500"
+                       [class.hub-result--err]="r.status === 0 || r.status >= 500">
                     <header>
                       <span class="hub-result-status">HTTP {{ r.status }}</span>
                       @if (r.status === 404) {
@@ -325,8 +328,11 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
     .hub-try:hover:not(:disabled) { border-color: var(--ps-accent, #00e5ff); color: var(--ps-accent, #00e5ff); }
     .hub-try:disabled { opacity: .5; cursor: progress; }
     .hub-result { background: color-mix(in oklch, var(--ps-bg, #060610) 75%, transparent); border-radius: 8px; padding: .55rem .65rem; font-size: .78rem; border: 1px solid transparent; }
-    .hub-result[data-status="404"] { border-color: color-mix(in oklch, #fbbf24 40%, transparent); }
-    .hub-result[data-status="200"] { border-color: color-mix(in oklch, #4ade80 40%, transparent); }
+    /* Range-based status colors so EVERY HTTP code reads its outcome — a 500/0
+       now shows red (was a transparent/neutral border, indistinguishable from 200). */
+    .hub-result--ok   { border-color: color-mix(in oklch, #4ade80 40%, transparent); }
+    .hub-result--warn { border-color: color-mix(in oklch, #fbbf24 40%, transparent); }
+    .hub-result--err  { border-color: color-mix(in oklch, #f87171 45%, transparent); }
     .hub-result header { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; margin-bottom: .35rem; }
     .hub-result-status { font-family: var(--ps-mono, ui-monospace, monospace); font-weight: 600; }
     .hub-result-hint { color: color-mix(in oklch, currentColor 70%, transparent); font-size: .75rem; }

@@ -122,6 +122,33 @@ describe('AdminFeaturesHubComponent (in-text feature-flags link is underlined)',
     expect(link!.className).withContext('in-text link needs a default underline, not color-only').toContain('underline');
   });
 
+  it('a try-it result reads its outcome by HTTP range: 5xx → --err, 4xx → --warn, 2xx → --ok', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminFeaturesHubComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get: () => of({ flags: [] }), post: () => of({}) } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminFeaturesHubComponent);
+    fx.componentInstance.tab.set('obs'); // tab holding otlp_unified_events (endpoint 0)
+    fx.detectChanges();
+    const key = 'otlp_unified_events:0';
+    const res = () => (fx.nativeElement as HTMLElement).querySelector('[data-testid="hub-result"]');
+    // 500 — was a transparent/neutral border (indistinguishable from 200); now red.
+    fx.componentInstance.result.set({ [key]: { status: 500, body: {} } });
+    fx.detectChanges();
+    expect(res()).withContext('try-it result renders').toBeTruthy();
+    expect(res()!.classList.contains('hub-result--err')).withContext('5xx → error border').toBeTrue();
+    fx.componentInstance.result.set({ [key]: { status: 403, body: {} } });
+    fx.detectChanges();
+    expect(res()!.classList.contains('hub-result--warn')).withContext('4xx → warn border').toBeTrue();
+    fx.componentInstance.result.set({ [key]: { status: 200, body: {} } });
+    fx.detectChanges();
+    expect(res()!.classList.contains('hub-result--ok')).withContext('2xx → ok border').toBeTrue();
+  });
+
   it('the feature-flags link is a WORKING RouterLink (renders href → SPA nav, not a dead attribute)', () => {
     TestBed.configureTestingModule({
       imports: [AdminFeaturesHubComponent],
