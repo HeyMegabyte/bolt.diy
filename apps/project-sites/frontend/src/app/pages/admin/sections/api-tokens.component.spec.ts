@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
@@ -127,6 +127,47 @@ describe('AdminApiTokensComponent (token CRUD)', () => {
     c.tokens.set([]);
     c.loading.set(false);
     expect(c.showTableSkeleton()).toBe(false);
+  });
+});
+
+/**
+ * The "active tokens" stat must not render a definitive "0" over the table
+ * skeleton during the first load (premature-stat) — it shows a loading
+ * placeholder until tokens resolve, then the rolling-counter.
+ */
+describe('AdminApiTokensComponent (no premature active-tokens count while loading)', () => {
+  function render(): ComponentFixture<AdminApiTokensComponent> {
+    TestBed.configureTestingModule({
+      imports: [AdminApiTokensComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get: () => of({ data: [] }), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { show: () => 0 } },
+        { provide: AdminStateService, useValue: { orgId: signal('org1') } },
+        provideRouter([]),
+      ],
+    });
+    return TestBed.createComponent(AdminApiTokensComponent);
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('shows a loading placeholder (not "0") on the active-tokens stat while the first fetch is in flight', () => {
+    const fx = render();
+    fx.detectChanges();
+    fx.componentInstance.loading.set(true);
+    fx.componentInstance.tokens.set([]);
+    fx.detectChanges();
+    const activeChip = (fx.nativeElement as HTMLElement).querySelector('.at-stat-chip');
+    expect(activeChip?.querySelector('app-rolling-counter')).withContext('no definitive "0 active tokens" while loading').toBeNull();
+    expect(activeChip?.querySelector('.at-stat-loading')).withContext('loading placeholder shown instead').not.toBeNull();
+  });
+
+  it('shows the active-tokens rolling-counter once the load resolves', () => {
+    const fx = render();
+    fx.componentInstance.loading.set(false);
+    fx.componentInstance.tokens.set([{ id: 'a', name: 'CI' } as never]);
+    fx.detectChanges();
+    const activeChip = (fx.nativeElement as HTMLElement).querySelector('.at-stat-chip');
+    expect(activeChip?.querySelector('app-rolling-counter')).withContext('real count once loaded').not.toBeNull();
   });
 });
 
