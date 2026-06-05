@@ -114,3 +114,35 @@ describe('AdminSnapshotsDiffComponent (loading state is announced)', () => {
     expect(card?.textContent).toContain('Computing diff');
   });
 });
+
+describe('AdminSnapshotsDiffComponent (diff stat counts roll — cinematic-ui)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('renders Added/Removed/Modified as app-rolling-counter, not static text nodes', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminSnapshotsDiffComponent],
+      providers: [
+        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
+        { provide: ApiService, useValue: { get: () => of({ added: [], removed: [], modified: [] }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSnapshotsDiffComponent);
+    fx.detectChanges();
+    fx.componentInstance.diff.set({
+      from: { name: 'A' },
+      to: { name: 'B' },
+      added: [{ path: 'a.html' }],
+      removed: [],
+      modified: [{ path: 'b.html', hunks: [] }],
+      summary: null,
+    } as never);
+    fx.componentInstance.loading.set(false);
+    fx.componentInstance.error.set(null);
+    fx.detectChanges();
+    // the three prominent text-2xl diff counts are a cockpit stat row → must roll.
+    const counters = (fx.nativeElement as HTMLElement).querySelectorAll('.grid-cols-3 app-rolling-counter');
+    expect(counters.length).withContext('Added/Removed/Modified counts each roll via app-rolling-counter').toBe(3);
+  });
+});

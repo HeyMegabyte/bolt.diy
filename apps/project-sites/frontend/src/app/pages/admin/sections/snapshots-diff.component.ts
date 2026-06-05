@@ -19,6 +19,7 @@ import { firstValueFrom } from 'rxjs';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
+import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
 interface DiffHunk {
   added: boolean;
@@ -53,7 +54,7 @@ interface DiffResponse {
 @Component({
   selector: 'app-admin-snapshots-diff',
   standalone: true,
-  imports: [RouterModule],
+  imports: [RouterModule, RollingCounterComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" data-testid="snapshots-diff-section">
       <header class="flex items-start justify-between gap-4">
@@ -100,15 +101,15 @@ interface DiffResponse {
         <div class="grid grid-cols-3 gap-3">
           <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] p-3">
             <div class="text-[0.7rem] uppercase tracking-wide text-emerald-300/80">Added</div>
-            <div class="text-2xl font-semibold text-emerald-200 mt-1">{{ d.added.length }}</div>
+            <div class="text-2xl font-semibold text-emerald-200 mt-1"><app-rolling-counter [value]="d.added.length" /></div>
           </div>
           <div class="rounded-lg border border-red-500/20 bg-red-500/[0.05] p-3">
             <div class="text-[0.7rem] uppercase tracking-wide text-red-300/80">Removed</div>
-            <div class="text-2xl font-semibold text-red-200 mt-1">{{ d.removed.length }}</div>
+            <div class="text-2xl font-semibold text-red-200 mt-1"><app-rolling-counter [value]="d.removed.length" /></div>
           </div>
           <div class="rounded-lg border border-amber-500/20 bg-amber-500/[0.05] p-3">
             <div class="text-[0.7rem] uppercase tracking-wide text-amber-300/80">Modified</div>
-            <div class="text-2xl font-semibold text-amber-200 mt-1">{{ d.modified.length }}</div>
+            <div class="text-2xl font-semibold text-amber-200 mt-1"><app-rolling-counter [value]="d.modified.length" /></div>
           </div>
         </div>
 
