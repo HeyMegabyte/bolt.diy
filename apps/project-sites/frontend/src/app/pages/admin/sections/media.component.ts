@@ -148,9 +148,14 @@ interface BoltMediaAttachMessage {
       <header class="med-header">
         <div class="med-header__title-row">
           <h1 class="med-title">Media</h1>
-          <span class="count-chip" role="status" [attr.aria-label]="assetCountLabel()">
-            <app-rolling-counter [value]="assets().length" [duration]="900" aria-hidden="true" />
-            <span aria-hidden="true">{{ assets().length === 1 ? 'asset' : 'assets' }}</span>
+          <span class="count-chip" role="status"
+                [attr.aria-label]="loadingLibrary() && assets().length === 0 ? 'Loading library…' : assetCountLabel()">
+            @if (loadingLibrary() && assets().length === 0) {
+              <span aria-hidden="true" class="count-chip-loading">…</span>
+            } @else {
+              <app-rolling-counter [value]="assets().length" [duration]="900" aria-hidden="true" />
+              <span aria-hidden="true">{{ assets().length === 1 ? 'asset' : 'assets' }}</span>
+            }
           </span>
           @if (assets().length >= mediaCap) {
             <span class="med-cap-note" data-testid="media-cap-note"
@@ -776,6 +781,7 @@ interface BoltMediaAttachMessage {
         letter-spacing: 0.04em; text-transform: uppercase;
       }
       .count-chip app-rolling-counter { font: inherit; color: inherit; }
+      .count-chip-loading { opacity: 0.55; letter-spacing: 0.12em; }
       .med-header__actions {
         display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
       }

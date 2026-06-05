@@ -66,6 +66,19 @@ describe('AdminMediaComponent (cyan/black cohesion + a11y)', () => {
     expect(chip!.getAttribute('role')).toBe('status');
   });
 
+  it('does NOT announce a premature "0 assets" while the library is still loading', () => {
+    build();
+    // Initial library load in-flight: loadingLibrary true + no assets yet.
+    fixture.componentInstance.loadingLibrary.set(true);
+    fixture.componentInstance.assets.set([]);
+    fixture.detectChanges();
+    const chip = (fixture.nativeElement as HTMLElement).querySelector('.count-chip')!;
+    // No definitive count (rolling-counter) over a loading library...
+    expect(chip.querySelector('app-rolling-counter')).withContext('no "0 assets" count while loading').toBeNull();
+    // ...and role=status must NOT announce a false "0 assets in library".
+    expect(chip.getAttribute('aria-label')).withContext('honest SR announcement while loading').not.toContain('0 assets');
+  });
+
   it('applies the appReveal entrance host on the section shell', () => {
     build();
     const el: HTMLElement = fixture.nativeElement;
