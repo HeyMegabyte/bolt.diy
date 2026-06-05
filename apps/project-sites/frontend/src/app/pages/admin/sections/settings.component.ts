@@ -66,7 +66,13 @@ const PROVIDERS = MCP_PROVIDERS;
            the meaning for AT users. -->
       <div class="stat-strip" appReveal role="group" aria-label="Settings overview">
         <div class="stat-cell">
-          <span class="stat-val" [attr.aria-label]="connections().length + ' connected MCPs'"><app-rolling-counter [value]="connections().length" /></span>
+          <span class="stat-val" [attr.aria-label]="loadingConnections() && connections().length === 0 ? 'Loading connected MCPs…' : connections().length + ' connected MCPs'">
+            @if (loadingConnections() && connections().length === 0) {
+              <span aria-hidden="true" class="stat-loading">…</span>
+            } @else {
+              <app-rolling-counter [value]="connections().length" />
+            }
+          </span>
           <span class="stat-lbl">Connected MCPs</span>
         </div>
         <div class="stat-cell">
@@ -74,7 +80,13 @@ const PROVIDERS = MCP_PROVIDERS;
           <span class="stat-lbl">Available integrations</span>
         </div>
         <div class="stat-cell">
-          <span class="stat-val" [attr.aria-label]="members().length + ' team members'"><app-rolling-counter [value]="members().length" /></span>
+          <span class="stat-val" [attr.aria-label]="loadingTeam() && members().length === 0 ? 'Loading team members…' : members().length + ' team members'">
+            @if (loadingTeam() && members().length === 0) {
+              <span aria-hidden="true" class="stat-loading">…</span>
+            } @else {
+              <app-rolling-counter [value]="members().length" />
+            }
+          </span>
           <span class="stat-lbl">Team members</span>
         </div>
       </div>
@@ -618,6 +630,7 @@ const PROVIDERS = MCP_PROVIDERS;
     }
     .stat-cell:hover { border-color: color-mix(in oklch, var(--accent) 34%, transparent); transform: translateY(-1px); }
     .stat-val { font-family: 'Sora', system-ui, sans-serif; font-weight: 700; font-size: 1.5rem; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+    .stat-loading { opacity: 0.5; letter-spacing: 0.1em; }
     .stat-lbl { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; }
     @media (prefers-reduced-motion: reduce) { .stat-cell { transition: none; } .stat-cell:hover { transform: none; } }
     h2, h3 { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }

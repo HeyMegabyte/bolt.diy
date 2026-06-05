@@ -54,6 +54,23 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(el.querySelectorAll('.stat-strip app-rolling-counter').length).toBe(3);
   });
 
+  it('does not show a premature "0" count (or announce it) while connections/team load', () => {
+    build({ id: 's', slug: 'demo' });
+    // Initial loads in-flight: the two list-derived stats have no resolved data yet.
+    fixture.componentInstance.loadingConnections.set(true);
+    fixture.componentInstance.loadingTeam.set(true);
+    fixture.componentInstance.connections.set([]);
+    fixture.componentInstance.members.set([]);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    // Only the STATIC "available integrations" stat shows a count; the two
+    // list-derived stats show a loading placeholder, not a definitive "0".
+    expect(el.querySelectorAll('.stat-strip app-rolling-counter').length).withContext('list-derived counts withheld while loading').toBe(1);
+    const labels = Array.from(el.querySelectorAll('.stat-strip .stat-val')).map((s) => s.getAttribute('aria-label') ?? '');
+    expect(labels.some((l) => l.includes('0 connected MCPs'))).withContext('no false "0 connected MCPs" SR announcement').toBeFalse();
+    expect(labels.some((l) => l.includes('0 team members'))).withContext('no false "0 team members" SR announcement').toBeFalse();
+  });
+
   it('marks the overview strip as a labelled group for AT users', () => {
     build({ id: 's', slug: 'demo' });
     const strip = (fixture.nativeElement as HTMLElement).querySelector('.stat-strip');
