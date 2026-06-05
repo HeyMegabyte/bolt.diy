@@ -50,22 +50,25 @@ interface Recipe {
           <p class="text-text-secondary text-sm">Select a site from <strong class="text-light">Sites</strong> to manage its automations.</p>
         </div>
       } @else {
+        @if (error()) {
+          <div data-testid="recipes-error" role="alert" class="mb-5 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-sm text-red-300">{{ error() }}</div>
+        }
         <!-- Create -->
-        <div class="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5 flex flex-col gap-4 mb-6">
+        <div class="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5 flex flex-col gap-4 mb-6 transition-opacity" [class.opacity-60]="!!error()">
           <label class="flex flex-col gap-1.5">
             <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Recipe name</span>
-            <input hlmInput data-testid="recipes-name" placeholder="e.g. Email me on new lead" [(ngModel)]="nameModel" />
+            <input hlmInput data-testid="recipes-name" placeholder="e.g. Email me on new lead" [(ngModel)]="nameModel" [disabled]="!!error()" />
           </label>
           <div class="flex flex-col gap-3 sm:flex-row">
             <label class="flex flex-col gap-1.5 flex-1">
               <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">When (trigger)</span>
-              <select hlmSelect data-testid="recipes-trigger" class="w-full" [(ngModel)]="triggerModel">
+              <select hlmSelect data-testid="recipes-trigger" class="w-full" [(ngModel)]="triggerModel" [disabled]="!!error()">
                 @for (t of triggers; track t) { <option [value]="t">{{ t }}</option> }
               </select>
             </label>
             <label class="flex flex-col gap-1.5 flex-1">
               <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Do (action)</span>
-              <select hlmSelect data-testid="recipes-action" class="w-full" [(ngModel)]="actionModel">
+              <select hlmSelect data-testid="recipes-action" class="w-full" [(ngModel)]="actionModel" [disabled]="!!error()">
                 @for (a of actions; track a) { <option [value]="a">{{ a }}</option> }
               </select>
             </label>
@@ -73,7 +76,7 @@ interface Recipe {
           <!-- Per-action config -->
           <label class="flex flex-col gap-1.5">
             <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">{{ primaryLabel() }}</span>
-            <input hlmInput data-testid="recipes-cfg-primary" [placeholder]="primaryPlaceholder()" [(ngModel)]="cfgPrimary"
+            <input hlmInput data-testid="recipes-cfg-primary" [placeholder]="primaryPlaceholder()" [(ngModel)]="cfgPrimary" [disabled]="!!error()"
               [attr.type]="actionModel() === 'send_email' ? 'email' : actionModel() === 'webhook' ? 'url' : 'text'"
               [attr.aria-invalid]="configInvalid()" [attr.aria-describedby]="configInvalid() ? 'recipes-cfg-hint' : null"
               [class.ring-1]="configInvalid()" [class.ring-red-500/60]="configInvalid()" [class.border-red-500/50]="configInvalid()" />
@@ -90,7 +93,7 @@ interface Recipe {
           @if (showSecondary()) {
             <label class="flex flex-col gap-1.5">
               <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Subject (optional)</span>
-              <input hlmInput data-testid="recipes-cfg-secondary" placeholder="New lead from your site" [(ngModel)]="cfgSecondary" />
+              <input hlmInput data-testid="recipes-cfg-secondary" placeholder="New lead from your site" [(ngModel)]="cfgSecondary" [disabled]="!!error()" />
             </label>
           }
           <div class="flex items-center gap-3">
@@ -100,16 +103,12 @@ interface Recipe {
                     (click)="create()">
               {{ creating() ? 'Creating…' : 'Add recipe' }}
             </button>
-            <label class="inline-flex items-center gap-2 cursor-pointer text-sm text-light">
-              <input type="checkbox" hlmCheckbox [(ngModel)]="enabledModel" />
+            <label class="inline-flex items-center gap-2 cursor-pointer text-sm text-light" [class.opacity-50]="!!error()">
+              <input type="checkbox" hlmCheckbox [(ngModel)]="enabledModel" [disabled]="!!error()" />
               <span>Enabled</span>
             </label>
           </div>
         </div>
-
-        @if (error()) {
-          <div data-testid="recipes-error" role="alert" class="mb-5 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-sm text-red-300">{{ error() }}</div>
-        }
 
         @if (loading()) {
           <app-skeleton variant="table" [rows]="3" />

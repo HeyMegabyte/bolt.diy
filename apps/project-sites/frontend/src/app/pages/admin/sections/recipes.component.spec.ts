@@ -252,16 +252,35 @@ describe('AdminRecipesComponent', () => {
   // When automations are flag-gated off for the site (error() = the 'not
   // available' 404), the Add-recipe form must not be a dead mutation: the button
   // is disabled + create() no-ops (the POST would 404).
-  it('disables Add recipe + no-ops create() when automations are not available (flag-gated)', () => {
+  it('disables Add recipe + no-ops create() when automations are not available (flag-gated)', async () => {
     build({ id: 's1' });
     const c = fixture.componentInstance;
     c.error.set('Automations are not available for this site.');
     // a fully-valid form otherwise — only the not-available gate should block it
     c.nameModel.set('Email me on new lead');
     fixture.detectChanges();
+    // ngModel propagates [disabled] in a microtask — let it settle before reading.
+    await fixture.whenStable();
+    fixture.detectChanges();
 
     const btn = q('[data-testid="recipes-create-btn"]') as HTMLButtonElement;
     expect(btn.disabled).withContext('Add recipe locked when not available').toBeTrue();
+
+    // The WHOLE form must read as inert, not just the submit — an editable form
+    // above a "not available" banner invites input it can never accept. Every
+    // control is disabled so the unavailable state is honest end-to-end.
+    expect((q('[data-testid="recipes-name"]') as HTMLInputElement).disabled).withContext('name input').toBeTrue();
+    expect((q('[data-testid="recipes-trigger"]') as HTMLSelectElement).disabled).withContext('trigger select').toBeTrue();
+    expect((q('[data-testid="recipes-action"]') as HTMLSelectElement).disabled).withContext('action select').toBeTrue();
+    expect((q('[data-testid="recipes-cfg-primary"]') as HTMLInputElement).disabled).withContext('config input').toBeTrue();
+
+    // The unavailable notice renders BEFORE the form (top-down honesty), so a
+    // user reads "not available" first rather than after filling the form.
+    const errEl = q('[data-testid="recipes-error"]');
+    const formEl = q('[data-testid="recipes-name"]');
+    expect(errEl).withContext('error banner present').not.toBeNull();
+    expect(errEl!.compareDocumentPosition(formEl!) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .withContext('error banner precedes the form').toBeTruthy();
 
     post.calls.reset();
     c.create();
