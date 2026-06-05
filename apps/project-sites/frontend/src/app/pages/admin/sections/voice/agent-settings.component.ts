@@ -30,6 +30,7 @@ import { ApiService } from '../../../../services/api.service';
 import { ToastService } from '../../../../services/toast.service';
 import { RevealOnScrollDirective } from '../../../../animations/reveal-on-scroll.directive';
 import { HlmInputDirective, HlmSelectDirective } from '../../../../ui';
+import { ErrorCardComponent } from '../../../../components/states';
 
 interface AgentSettings {
   voice_system_prompt: string;
@@ -81,9 +82,13 @@ const LLM_OPTIONS = [
   selector: 'app-voice-agent-settings',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RevealOnScrollDirective, HlmInputDirective, HlmSelectDirective],
+  imports: [FormsModule, RevealOnScrollDirective, HlmInputDirective, HlmSelectDirective, ErrorCardComponent],
   template: `
     <section class="space-y-5" psReveal>
+      @if (loadError()) {
+        <app-error-card title="Couldn't load your saved voice settings"
+          [message]="loadError() ?? ''" (retry)="reload()" data-testid="agent-settings-load-error" />
+      }
       <!-- Voice + SMS system prompts -->
       <article class="card" psReveal>
         <header class="mb-3">
@@ -245,7 +250,7 @@ const LLM_OPTIONS = [
 
       <div class="flex items-center justify-end gap-2 sticky bottom-0 py-3" psReveal>
         <button class="btn-ghost text-xs" type="button" (click)="reload()" [disabled]="saving()">Discard</button>
-        <button class="btn-primary" type="button" (click)="save()" [disabled]="saving()">
+        <button class="btn-primary" type="button" (click)="save()" [disabled]="saving() || !!loadError()">
           {{ saving() ? 'Saving…' : 'Save changes' }}
         </button>
       </div>
@@ -318,6 +323,9 @@ export class VoiceAgentSettingsComponent {
 
   settings: AgentSettings = { ...DEFAULTS };
   saving = signal(false);
+  /** Set when the settings load FAILS for a real reason (non-404). Gates Save so a
+   *  failed load can't be saved over the user's real settings with DEFAULTS. */
+  loadError = signal<string | null>(null);
   metaOpen = signal(false);
   metaPrompt = signal<string>('Loading…');
 
@@ -356,10 +364,17 @@ export class VoiceAgentSettingsComponent {
     // un-provisioned org (the form just shows defaults).
     this.api.get<{ data: AgentSettings }>(`/voice/agent-settings?siteId=${site.id}`, undefined, { silent: true }).subscribe({
       next: (r) => {
+        this.loadError.set(null);
         if (r.data) this.settings = { ...DEFAULTS, ...r.data };
         else this.settings = { ...DEFAULTS };
       },
-      error: () => { this.settings = { ...DEFAULTS }; },
+      // 404 = un-provisioned org → graceful defaults (the author's intent). Any other
+      // failure (500/network) → DON'T overwrite; flag loadError so Save is blocked and
+      // the user can retry instead of clobbering saved settings with DEFAULTS.
+      error: (err: { status?: number } | undefined) => {
+        if (err?.status === 404) { this.settings = { ...DEFAULTS }; this.loadError.set(null); }
+        else { this.loadError.set('Could not load your saved voice settings.'); }
+      },
     });
   }
 
