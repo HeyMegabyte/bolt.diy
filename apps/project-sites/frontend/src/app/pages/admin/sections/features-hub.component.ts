@@ -149,9 +149,9 @@ const FEATURES: Feature[] = [
 ];
 
 const TABS: Array<{ id: string; label: string; icon: string }> = [
-  { id: 'ide', label: '⌨ IDE + Agents', icon: '⌨' },
-  { id: 'bigbets', label: '🚀 Big Bets', icon: '🚀' },
-  { id: 'brilliant', label: '★ Brilliant', icon: '★' },
+  { id: 'ide', label: 'IDE + Agents', icon: '⌨' },
+  { id: 'bigbets', label: 'Big Bets', icon: '◎' },
+  { id: 'brilliant', label: 'Brilliant', icon: '★' },
   { id: 'stack', label: 'Stack', icon: '⚙' },
   { id: 'cwv', label: 'Core Web Vitals', icon: '⚡' },
   { id: 'geo', label: 'AI Search (GEO)', icon: '◆' },

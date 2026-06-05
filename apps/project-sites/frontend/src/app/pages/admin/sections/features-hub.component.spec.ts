@@ -68,6 +68,14 @@ describe('AdminFeaturesHubComponent (filter + tabs + try-it)', () => {
     expect(c.nextTabId('ide', 'Enter')).toBe('ide'); // non-nav key = no move
   });
 
+  it('no tab label embeds its own icon (the template renders <icon> + <label> — embedding doubles it)', () => {
+    const { c } = make();
+    for (const t of c.tabs) {
+      expect(t.label.trim().startsWith(t.icon))
+        .withContext(`tab "${t.label}" prefixes its own icon "${t.icon}" → renders it twice`).toBeFalse();
+    }
+  });
+
   it('flagState reflects the loaded flag map', () => {
     const { c } = make();
     c.flags.set({ multi_model_router: { key: 'multi_model_router', default_enabled: true, stage: 'stable' } as never });
