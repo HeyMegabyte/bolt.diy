@@ -506,6 +506,7 @@ const POLL_INTERVAL_MS = 10_000;
             </button>
           </div>
         } @else {
+          <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Submissions table — scroll horizontally" data-testid="forms-table-scroll">
           <table class="w-full text-[0.78rem]">
             <thead class="text-text-secondary/70 uppercase text-[0.6rem] tracking-wider">
               <tr class="border-b border-white/[0.06]">
@@ -545,6 +546,7 @@ const POLL_INTERVAL_MS = 10_000;
               }
             </tbody>
           </table>
+          </div>
         }
       </section>
 

@@ -434,6 +434,19 @@ describe('AdminFormsComponent (bulk-select submissions → export selected)', ()
     expect(c.selectedIds().size).withContext('selection resets per view').toBe(0);
   });
 
+  it('wraps the submissions table in a keyboard-scrollable overflow-x region (WCAG 1.4.10 — no page overflow at 320px with the extra checkbox column)', () => {
+    const f = mount();
+    f.componentInstance.submissions.set([sub('a')]);
+    f.detectChanges();
+    const host = f.nativeElement as HTMLElement;
+    const region = host.querySelector('[data-testid="forms-table-scroll"]') as HTMLElement;
+    expect(region).withContext('scroll region present').toBeTruthy();
+    expect(region.classList.contains('overflow-x-auto')).withContext('horizontal scroll, not page overflow').toBeTrue();
+    expect(region.getAttribute('role')).toBe('region');
+    expect(region.getAttribute('tabindex')).withContext('keyboard-scrollable').toBe('0');
+    expect(region.querySelector('table')).withContext('the table lives inside the scroll region').toBeTruthy();
+  });
+
   it('renders a select-all header checkbox + a per-row checkbox; export label reflects the selection', () => {
     const f = mount();
     f.componentInstance.submissions.set([sub('a'), sub('b')]);
