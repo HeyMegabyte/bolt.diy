@@ -120,10 +120,17 @@ aside::before {
   text-align: left; cursor: pointer; text-decoration: none;
   transition: background 140ms ease, color 140ms ease;
 }
-.sa-item:hover:not([disabled]), .sa-item:focus-visible:not([disabled]) {
+.sa-item:hover:not([disabled]) {
   background: rgba(0, 229, 255, 0.08); color: #00E5FF;
+  // Cockpit cyan left-rail — the recognizable "active row" affordance used across
+  // the admin; makes the hovered command unmistakable at a glance.
+  box-shadow: inset 2px 0 0 var(--ps-accent, #00E5FF);
 }
-.sa-item:focus-visible { outline: none; box-shadow: inset 0 0 0 1px rgba(0,229,255,0.5); }
+// Keyboard focus keeps BOTH the focus ring AND the cyan left-rail.
+.sa-item:focus-visible {
+  outline: none; background: rgba(0, 229, 255, 0.08); color: #00E5FF;
+  box-shadow: inset 2px 0 0 var(--ps-accent, #00E5FF), inset 0 0 0 1px rgba(0, 229, 255, 0.5);
+}
 .sa-item svg { flex: none; opacity: 0.85; }
 .sa-item[disabled] { opacity: 0.45; cursor: not-allowed; }
 .sa-label { flex: 1; min-width: 0; }

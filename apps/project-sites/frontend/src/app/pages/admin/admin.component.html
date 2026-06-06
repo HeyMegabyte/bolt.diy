@@ -329,7 +329,7 @@
           <div class="avatar-wrap">
             <button class="top-btn site-actions-btn" (click)="toggleSiteActions($event)"
                     [class.is-open]="siteActionsOpen()"
-                    [attr.aria-expanded]="siteActionsOpen()" aria-haspopup="menu"
+                    [attr.aria-expanded]="siteActionsOpen()" aria-haspopup="true"
                     [brnTooltip]="'Site actions — preview, deploy, review links'"
                     aria-label="Site actions menu" data-testid="site-actions-btn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -337,25 +337,25 @@
               <svg class="sa-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             @if (siteActionsOpen()) {
-              <div class="notif-pop site-actions-pop" role="menu" aria-label="Site actions" (click)="$event.stopPropagation()" data-testid="site-actions-menu">
-                <button class="sa-item" role="menuitem" type="button" (click)="previewSite(site)"
+              <div class="notif-pop site-actions-pop" role="group" aria-label="Site actions" (click)="$event.stopPropagation()" data-testid="site-actions-menu">
+                <button class="sa-item" type="button" (click)="previewSite(site)"
                         [disabled]="site.status !== 'published'" data-testid="sa-preview">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                   <span class="sa-label">Preview</span>
                   @if (site.status !== 'published') { <span class="sa-hint">publish first</span> }
                 </button>
-                <button class="sa-item" role="menuitem" type="button" (click)="copySiteUrl(site)" data-testid="sa-copy-url">
+                <button class="sa-item" type="button" (click)="copySiteUrl(site)" data-testid="sa-copy-url">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                   <span class="sa-label">Copy site URL</span>
                 </button>
-                <button class="sa-item" role="menuitem" type="button" (click)="deployFromMenu()"
+                <button class="sa-item" type="button" (click)="deployFromMenu()"
                         [disabled]="!isEditorRoute() || bolt.saving()" [attr.aria-busy]="bolt.saving()" data-testid="sa-deploy">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                   <span class="sa-label">{{ bolt.saving() ? 'Publishing…' : 'Save & Deploy' }}</span>
                   @if (!isEditorRoute()) { <span class="sa-hint">open the editor</span> }
                 </button>
                 <div class="sa-sep" role="separator"></div>
-                <a class="sa-item" role="menuitem" routerLink="/admin/review-links" (click)="closeSiteActions()" data-testid="sa-review-links">
+                <a class="sa-item" routerLink="/admin/review-links" (click)="closeSiteActions()" data-testid="sa-review-links">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                   <span class="sa-label">Review &amp; Approval Links</span>
                 </a>

@@ -67,6 +67,11 @@ test.describe('navbar Site-actions dropdown', () => {
     const menu = page.locator('[data-testid="site-actions-menu"]');
     await expect(menu).toBeVisible();
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    // Codebase a11y standard: small action popovers are a labeled Tab-navigable
+    // button GROUP, not an APG menu (which would require arrow-key nav we don't
+    // implement). So the container is role="group", not role="menu".
+    await expect(menu).toHaveAttribute('role', 'group');
+    await expect(menu.locator('[role="menuitem"]')).toHaveCount(0);
     await expect(menu.locator('[data-testid="sa-preview"]')).toBeVisible();
     await expect(menu.locator('[data-testid="sa-copy-url"]')).toBeVisible();
     await expect(menu.locator('[data-testid="sa-deploy"]')).toBeVisible();
