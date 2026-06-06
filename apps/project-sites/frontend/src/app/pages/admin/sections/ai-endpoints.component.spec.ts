@@ -62,6 +62,26 @@ describe('AdminAiEndpointsComponent (endpoint-list load-error gating)', () => {
     expect(c.loadError()).toBeNull();
   });
 
+  it('captures the worker request_id from a failed load → loadErrorRef (copyable support reference on the shared error card)', () => {
+    const get = jasmine
+      .createSpy('get')
+      .and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req_ai99' } } })));
+    const c = make(get);
+    c.reload();
+    expect(c.loadErrorRef()).toBe('req_ai99');
+  });
+
+  it('resets loadErrorRef at the start of every reload (no stale reference)', () => {
+    const get = jasmine
+      .createSpy('get')
+      .and.returnValues(throwError(() => ({ status: 500, error: { error: { request_id: 'req_z' } } })), of({ data: [] }));
+    const c = make(get);
+    c.reload();
+    expect(c.loadErrorRef()).toBe('req_z');
+    c.reload();
+    expect(c.loadErrorRef()).toBe('');
+  });
+
   // ── Per-endpoint logs load: a failed fetch must surface an error in the IDE
   // Logs panel, not read as a fake "No invocations yet".
   it('loadLogs success populates logs + leaves logsError null', () => {

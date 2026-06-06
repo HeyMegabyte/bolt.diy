@@ -50,7 +50,7 @@ import { FullscreenOverlayComponent } from '../../../components/fullscreen-overl
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
-import { SkeletonComponent } from '../../../components/states';
+import { SkeletonComponent, ErrorCardComponent } from '../../../components/states';
 import { CharCountComponent } from '../../../components/char-count/char-count.component';
 import {
   LANGUAGE_OPTIONS,
@@ -83,6 +83,7 @@ interface InlineEdit {
     DatePipe,
     EmptyStateComponent,
     SkeletonComponent,
+    ErrorCardComponent,
     IdeComponent,
     FullscreenOverlayComponent,
     DialogShellComponent,
@@ -161,10 +162,14 @@ interface InlineEdit {
             <app-skeleton variant="card" [rows]="4" label="Loading AI agents…" />
           </div>
         } @else if (loadError()) {
-          <div class="p-4 m-4 rounded-md border border-red-500/30 bg-red-500/5" role="alert" data-testid="ai-endpoints-load-error">
-            <p class="text-red-300 text-sm m-0 mb-2">{{ loadError() }}</p>
-            <button class="btn-ghost text-xs" data-testid="ai-endpoints-retry" (click)="reload()" [disabled]="loading()">Retry</button>
-          </div>
+          <app-error-card
+            data-testid="ai-endpoints-load-error"
+            class="block p-4 m-4"
+            title="Couldn't load your AI agents"
+            [message]="loadError()!"
+            [correlationId]="loadErrorRef()"
+            [retryLabel]="loading() ? 'Retrying…' : 'Retry'"
+            (retry)="reload()" />
         } @else if (endpoints().length === 0) {
           <app-empty-state
             icon="⌬"
@@ -841,6 +846,8 @@ export class AdminAiEndpointsComponent implements OnInit {
   loading = signal(false);
   /** Persistent endpoint-list load failure — so a fetch error shows a Retry card, not a fake "build your first agent" empty state (which hides agents the user already created). */
   loadError = signal<string | null>(null);
+  /** Worker request_id from a failed endpoint-list load → copyable support reference on the error card. */
+  readonly loadErrorRef = signal('');
   saving = signal(false);
   wfpConfigured = signal(false);
   langs = LANGUAGE_OPTIONS;
@@ -971,6 +978,7 @@ export class AdminAiEndpointsComponent implements OnInit {
     if (!s) return;
     this.loading.set(true);
     this.loadError.set(null);
+    this.loadErrorRef.set('');
     this.api.get<EndpointListResponse>(`/sites/${s.id}/ai-endpoints`, undefined, { silent: true }).subscribe({
       next: (r) => {
         this.loadError.set(null);
@@ -987,11 +995,17 @@ export class AdminAiEndpointsComponent implements OnInit {
         this.loading.set(false);
       },
       // Silent error → empty list masqueraded as "no agents yet", hiding agents the user built. Record it.
-      error: () => {
-        this.loadError.set('Could not load your AI agents — they are safe, retry.');
+      error: (err: { error?: unknown } | undefined) => {
+        this.loadError.set('Could not load your AI agents — they are safe.');
+        this.loadErrorRef.set(this.requestIdFrom(err));
         this.loading.set(false);
       },
     });
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: { error?: unknown } | undefined): string {
+    return (e?.error as { error?: { request_id?: string } } | undefined)?.error?.request_id ?? '';
   }
 
   /**
