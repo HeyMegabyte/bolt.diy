@@ -197,7 +197,7 @@ interface DnaPrefsResp {
         }
 
         <!-- Feedback history table -->
-        <div class="dna-table-wrap" appReveal>
+        <div class="dna-table-wrap" appReveal tabindex="0" role="region" aria-label="Feedback history — scroll horizontally" data-testid="dna-table-scroll">
           <div class="dna-table-hdr">
             <span class="dna-section-label">Recent feedback</span>
             <button class="dna-refresh-btn" (click)="load()" [disabled]="loading()" aria-label="Refresh feedback history">
@@ -387,7 +387,10 @@ interface DnaPrefsResp {
       .dna-pref-score.positive { color: var(--ps-accent, #00e5ff); }
 
       /* ── Table ── */
-      .dna-table-wrap { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; overflow: hidden; }
+      /* overflow-x:auto (not hidden) so long component ids/classes scroll into view
+         at narrow widths instead of clipping unreachably (WCAG 1.4.10); overflow-y
+         stays hidden to preserve the rounded-corner clip. */
+      .dna-table-wrap { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; overflow-x: auto; overflow-y: hidden; }
       .dna-table-hdr { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
       .dna-refresh-btn { background: none; border: 1px solid rgba(0,229,255,0.2); border-radius: 6px; min-width: 28px; min-height: 24px; padding: 2px 8px; color: var(--ps-accent, #00e5ff); font-size: 14px; cursor: pointer; transition: background .15s, border-color .15s; }
       .dna-refresh-btn:hover:not(:disabled) { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.4); }

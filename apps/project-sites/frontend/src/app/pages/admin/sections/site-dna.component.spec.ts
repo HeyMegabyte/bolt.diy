@@ -88,6 +88,17 @@ describe('AdminSiteDnaComponent (taste pulse + a11y)', () => {
     expect(Math.round(sum)).toBe(100);
   });
 
+  it('the feedback table is a keyboard-scrollable region (WCAG 1.4.10 — long component ids scroll, never clip unreachably)', () => {
+    build(true);
+    component.history.set([row('accept')]);
+    fixture.detectChanges();
+    const region = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="dna-table-scroll"]') as HTMLElement;
+    expect(region).withContext('feedback table wrap present').toBeTruthy();
+    expect(region.getAttribute('role')).toBe('region');
+    expect(region.getAttribute('tabindex')).withContext('keyboard-scrollable').toBe('0');
+    expect(region.querySelector('table')).withContext('table inside the scroll region').toBeTruthy();
+  });
+
   it('the pulse aria-label mirrors the visible accept/edit/reject counts', () => {
     build(true);
     component.history.set([row('accept'), row('reject'), row('edit'), row('edit')]);
