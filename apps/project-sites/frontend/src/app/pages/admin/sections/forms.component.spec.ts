@@ -446,4 +446,23 @@ describe('AdminFormsComponent (bulk-select submissions → export selected)', ()
     const btn = host.querySelector('[data-testid="forms-export-csv"]') as HTMLButtonElement;
     expect(btn.textContent ?? '').withContext('label switches to "Export N selected"').toContain('1 selected');
   });
+
+  it('the select-all header checkbox shows the INDETERMINATE state on a partial selection', () => {
+    const f = mount();
+    f.componentInstance.submissions.set([sub('a'), sub('b')]);
+    f.detectChanges();
+    const all = (f.nativeElement as HTMLElement).querySelector('[data-testid="forms-select-all"]') as HTMLInputElement;
+    expect(all.indeterminate).withContext('none selected → not indeterminate').toBeFalse();
+    expect(all.checked).toBeFalse();
+
+    f.componentInstance.toggleSelect('a'); // 1 of 2 → partial
+    f.detectChanges();
+    expect(all.indeterminate).withContext('partial selection → indeterminate dash').toBeTrue();
+    expect(all.checked).withContext('partial is not "checked"').toBeFalse();
+
+    f.componentInstance.toggleSelect('b'); // 2 of 2 → all
+    f.detectChanges();
+    expect(all.indeterminate).withContext('all selected → solid check, not indeterminate').toBeFalse();
+    expect(all.checked).toBeTrue();
+  });
 });

@@ -505,8 +505,8 @@ const POLL_INTERVAL_MS = 10_000;
               <tr class="border-b border-white/[0.06]">
                 <th class="p-3 w-8">
                   <input type="checkbox" class="accent-[#00E5FF] cursor-pointer align-middle" data-testid="forms-select-all"
-                         [checked]="allFilteredSelected()" (change)="toggleSelectAll()"
-                         [attr.aria-label]="allFilteredSelected() ? 'Deselect all submissions' : 'Select all ' + filteredSubmissions().length + ' submissions'" />
+                         [checked]="allFilteredSelected()" [indeterminate]="someFilteredSelected()" (change)="toggleSelectAll()"
+                         [attr.aria-label]="allFilteredSelected() ? 'Deselect all submissions' : (someFilteredSelected() ? 'Select all (' + selectedRows().length + ' of ' + filteredSubmissions().length + ' selected)' : 'Select all ' + filteredSubmissions().length + ' submissions')" />
                 </th>
                 <th class="text-left p-3 font-semibold">When</th>
                 <th class="text-left p-3 font-semibold">Form</th>
@@ -903,6 +903,8 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     const f = this.filteredSubmissions();
     return f.length > 0 && f.every((s) => this.selectedIds().has(s.id));
   });
+  /** Some-but-not-all filtered rows selected → the select-all box renders indeterminate (—). */
+  readonly someFilteredSelected = computed(() => this.selectedRows().length > 0 && !this.allFilteredSelected());
 
   toggleSelect(id: string): void {
     this.selectedIds.update((set) => {
