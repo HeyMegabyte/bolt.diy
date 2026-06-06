@@ -103,7 +103,7 @@ const INTENT_ICONS: Record<string, string> = {
         }
 
         <!-- Sessions table -->
-        <div class="copilot-table-wrap" appReveal>
+        <div class="copilot-table-wrap" appReveal tabindex="0" role="region" aria-label="Recent copilot sessions — scroll horizontally" data-testid="copilot-table-scroll">
           <table class="copilot-table" aria-label="Recent copilot sessions" [attr.aria-busy]="loading()">
             <thead>
               <tr>
@@ -184,7 +184,8 @@ const INTENT_ICONS: Record<string, string> = {
       .copilot-stats { display: flex; gap: 20px; flex-wrap: wrap; }
       .copilot-stat { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
       .copilot-stat-label { font-size: 11px; color: rgba(244,244,255,0.72); }
-      .copilot-table-wrap { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; overflow: hidden; }
+      .copilot-table-wrap { background: rgba(255,255,255,0.02); border: 1px solid rgba(0,229,255,0.1); border-radius: 12px; overflow-x: auto; overflow-y: hidden; }
+      .copilot-table-wrap:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
       .copilot-table { width: 100%; border-collapse: collapse; font-size: 12px; }
       .copilot-table th { padding: 8px 12px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(244,244,255,0.72); border-bottom: 1px solid rgba(255,255,255,0.05); }
       .copilot-table td { padding: 7px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }

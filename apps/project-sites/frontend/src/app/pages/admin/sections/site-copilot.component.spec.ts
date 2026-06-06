@@ -173,6 +173,25 @@ describe('AdminSiteCopilotComponent — flag-gate link cohesion (real template)'
     expect(el.querySelector('.copilot-table[aria-busy="true"]')).withContext('the loading table is the only state shown').not.toBeNull();
   });
 
+  it('the sessions table is a keyboard-scrollable region (WCAG 1.4.10 — wide signal/status values scroll, never clip unreachably)', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminSiteCopilotComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get: () => of({ sessions: [], distribution: [] }), put: () => of({ ok: true }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSiteCopilotComponent);
+    fx.componentInstance.flagEnabled.set(true);
+    fx.detectChanges();
+    const region = (fx.nativeElement as HTMLElement).querySelector('[data-testid="copilot-table-scroll"]') as HTMLElement;
+    expect(region).withContext('sessions table wrap present').toBeTruthy();
+    expect(region.getAttribute('role')).toBe('region');
+    expect(region.getAttribute('tabindex')).withContext('keyboard-scrollable').toBe('0');
+    expect(region.querySelector('table')).withContext('table inside the scroll region').toBeTruthy();
+  });
+
   it('shows the session-count stats once the load resolves', () => {
     TestBed.configureTestingModule({
       imports: [AdminSiteCopilotComponent],
