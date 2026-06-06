@@ -158,11 +158,26 @@ export class DialogShellComponent implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    const panel = this.el.nativeElement.querySelector('.dialog-panel');
-    if (panel) {
-      this.focusTrap = this.focusTrapFactory.create(panel);
-      this.focusTrap.focusInitialElementWhenReady();
-    }
+    const panel = this.el.nativeElement.querySelector('.dialog-panel') as HTMLElement | null;
+    if (!panel) return;
+    this.focusTrap = this.focusTrapFactory.create(panel);
+    // CDK focuses [cdkFocusInitial] if present, else the FIRST tabbable element —
+    // which here is the ✕ close button (it precedes the body). For a form dialog
+    // that lands focus on "close" instead of the first field. Prefer the first
+    // real body control so a create/edit dialog opens ready to type (autofocus UX).
+    // (Promise.resolve wraps the real Promise<boolean> AND the test mock's void.)
+    void Promise.resolve(this.focusTrap.focusInitialElementWhenReady()).then(() => this.focusFirstBodyField(panel));
+  }
+
+  /** Focus the first enabled form control in the dialog body, unless the consumer
+   *  explicitly marked an element with [cdkFocusInitial] (then CDK already did). */
+  private focusFirstBodyField(panel: HTMLElement): void {
+    if (panel.querySelector('[cdkFocusInitial]')) return;
+    const body = panel.querySelector('.flex-1');
+    const first = body?.querySelector(
+      'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [contenteditable="true"]',
+    ) as HTMLElement | null;
+    first?.focus({ preventScroll: true });
   }
 
   ngOnDestroy(): void {

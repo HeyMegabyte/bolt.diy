@@ -1,3 +1,4 @@
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ConfigurableFocusTrapFactory } from '@angular/cdk/a11y';
 import { DialogShellComponent } from './dialog-shell.component';
@@ -83,6 +84,29 @@ describe('DialogShellComponent (a11y: accessible name)', () => {
     expect(root?.getAttribute('aria-labelledby'))
       .withContext('the dialog is named by its title element')
       .toBe(h2!.id);
+  });
+});
+
+@Component({
+  standalone: true,
+  imports: [DialogShellComponent],
+  template: `<app-dialog-shell><span dialogTitle>New token</span><input data-testid="first" /><input data-testid="second" /></app-dialog-shell>`,
+})
+class DialogHostComponent {}
+
+describe('DialogShellComponent (a11y: autofocus the first body field, not the ✕)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('focuses the first enabled body control on open (a form dialog opens ready to type)', async () => {
+    TestBed.configureTestingModule({ imports: [DialogHostComponent], providers: [focusTrapProvider] });
+    const fx = TestBed.createComponent(DialogHostComponent);
+    document.body.appendChild(fx.nativeElement); // focus only takes effect for an in-document element
+    fx.detectChanges(); // ngAfterViewInit → focusFirstBodyField (after the WhenReady microtask)
+    await fx.whenStable();
+    await Promise.resolve(); // let the focusInitialElementWhenReady().then(...) microtask run
+    const first = (fx.nativeElement as HTMLElement).querySelector('[data-testid="first"]');
+    expect(document.activeElement).withContext('first body field is focused, not the ✕ close button').toBe(first);
+    fx.nativeElement.remove();
   });
 });
 
