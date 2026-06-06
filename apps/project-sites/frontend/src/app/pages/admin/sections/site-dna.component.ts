@@ -100,6 +100,10 @@ interface DnaPrefsResp {
         <!-- Stats row — labels stay mounted; numbers shimmer until the first
              fetch resolves so a definitive "0 signals" never flashes over the
              still-loading table below (premature-stat-during-load guard). -->
+        <!-- Stats hidden when the load errored with no data — a definitive
+             "0 signals · 0 accepted · …" over the error message is wrong (the
+             count is unknown, not 0). Mirrors the marketplace stat-over-error fix. -->
+        @if (!loadError() || totalFeedback() > 0) {
         <div class="dna-stats" appReveal data-testid="dna-stats" [attr.aria-busy]="showStatsSkeleton()">
           <div class="dna-stat">
             @if (showStatsSkeleton()) {
@@ -142,6 +146,7 @@ interface DnaPrefsResp {
             <span class="dna-stat-label">Learned</span>
           </div>
         </div>
+        }
 
         <!-- Taste Pulse — segmented distribution of accept/reject/edit signals.
              Cyan-forward "what the AI has learned to favor" at a glance. -->

@@ -118,6 +118,23 @@ describe('AdminSiteDnaComponent (taste pulse + a11y)', () => {
     expect(component.flagEnabled()).toBe(true); // not 404 → the feature stays enabled
   });
 
+  // A definitive "0 signals · 0 accepted · …" must NOT show over the error
+  // message when the load failed with no data — the count is unknown, not 0
+  // (same stat-over-error fix as marketplace).
+  it('hides the header stats on a load error with no data; shows them when data exists', () => {
+    build(true);
+    component.loadError.set('Server error');
+    component.history.set([]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="dna-stats"]'))
+      .withContext('no "0 signals" over the error').toBeNull();
+
+    component.history.set([row('accept')]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="dna-stats"]'))
+      .withContext('stats return once there is data').not.toBeNull();
+  });
+
   it('a 404 load failure flips the flag-gate off without a loadError', () => {
     build(true);
     apiGet.and.returnValue(throwError(() => ({ status: 404 })));
