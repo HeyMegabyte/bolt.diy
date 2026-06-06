@@ -450,6 +450,13 @@ const POLL_INTERVAL_MS = 10_000;
               <span class="text-[0.66rem] text-amber-300/90" data-testid="forms-cap-note"
                     title="The inbox shows the {{ submissionCap }} most recent submissions. Older ones are still stored.">· latest {{ submissionCap }}</span>
             }
+            <button class="btn-ghost text-xs inline-flex items-center gap-1.5" type="button" data-testid="forms-export-csv"
+                    [disabled]="filteredSubmissions().length === 0" (click)="exportCsv()"
+                    [attr.title]="filteredSubmissions().length === 0 ? 'No submissions to export' : 'Download the filtered submissions as CSV'"
+                    [attr.aria-label]="'Export ' + filteredSubmissions().length + ' submission' + (filteredSubmissions().length === 1 ? '' : 's') + ' as CSV'">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export CSV
+            </button>
           </div>
         </div>
         @if (loading() && submissions().length === 0) {
@@ -873,6 +880,47 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     const v = this.views.find((x) => x.id === this.activeView()) ?? this.views[0]!;
     return this.submissions().filter((s) => v.test(s));
   });
+
+  /**
+   * Download the currently-filtered submissions as a CSV (leads → spreadsheet/CRM).
+   * Columns: Date/Form/Email/Status + the union of dynamic field keys. Client-side
+   * (no worker round-trip). No-ops on an empty list (the button is also disabled).
+   */
+  exportCsv(): void {
+    const rows = this.filteredSubmissions();
+    if (rows.length === 0) return;
+    const blob = new Blob([this.buildSubmissionsCsv(rows)], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `submissions-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /** Build an RFC4180 CSV (with a formula-injection guard) from submission rows. */
+  buildSubmissionsCsv(rows: Submission[]): string {
+    const fieldKeys = Array.from(new Set(rows.flatMap((r) => Object.keys(r.fields ?? {})))).sort();
+    const header = ['Date', 'Form', 'Email', 'Status', ...fieldKeys];
+    const lines = [header.map((h) => this.csvCell(h)).join(',')];
+    for (const r of rows) {
+      const base = [r.created_at, r.form_name, r.email ?? '', r.status];
+      const extra = fieldKeys.map((k) => {
+        const v = (r.fields ?? {})[k];
+        return v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+      });
+      lines.push([...base, ...extra].map((c) => this.csvCell(c)).join(','));
+    }
+    return lines.join('\r\n');
+  }
+
+  /** Escape a CSV cell + neutralize spreadsheet formula injection (leading =,+,-,@). */
+  private csvCell(value: unknown): string {
+    let s = value == null ? '' : String(value);
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    if (/[",\r\n]/.test(s)) s = `"${s.replace(/"/g, '""')}"`;
+    return s;
+  }
 
   testing = signal(false);
   testOpen = signal(false);

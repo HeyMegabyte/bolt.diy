@@ -307,3 +307,68 @@ describe('AdminFormsComponent (submission-cap honesty)', () => {
     expect(host.querySelector('[data-testid="forms-cap-note"]')).toBeNull();
   });
 });
+
+/**
+ * CSV export of form submissions (leads) — a standard SaaS list affordance.
+ * Exports the currently-filtered rows: Date/Form/Email/Status + the union of
+ * dynamic field keys. Hardened against CSV formula injection (a field starting
+ * with =,+,-,@ is prefixed with ' so Excel/Sheets can't execute it) + RFC4180
+ * escaping (commas/quotes/newlines).
+ */
+describe('AdminFormsComponent (submissions CSV export)', () => {
+  function mount(): ComponentFixture<AdminFormsComponent> {
+    const get = jasmine.createSpy('get').and.callFake((url: string) =>
+      url.includes('/ai-settings')
+        ? of({ data: { form_router_prompt: '', form_router_prompt_default: '', reply_email: '' } })
+        : of({ data: [] }),
+    );
+    TestBed.configureTestingModule({
+      imports: [AdminFormsComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get, put: () => of({}), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminFormsComponent);
+    f.detectChanges();
+    return f;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  const row = (over: Partial<Record<string, unknown>> = {}) =>
+    ({ id: 'x', form_name: 'contact', email: 'a@b.com', fields: {}, status: 'new', origin_url: null, ip_address: null, created_at: '2026-06-06T00:00:00Z', ...over }) as never;
+
+  it('buildSubmissionsCsv emits a header + a row, unions field keys, guards formulas, escapes commas', () => {
+    const c = mount().componentInstance;
+    const csv = (c as unknown as { buildSubmissionsCsv(r: unknown[]): string }).buildSubmissionsCsv([
+      row({ fields: { message: 'hi, there', danger: '=SUM(A1)' } }),
+    ]);
+    const lines = csv.split('\r\n');
+    expect(lines[0]).toContain('Date');
+    expect(lines[0]).toContain('Email');
+    expect(lines[0]).toContain('danger');
+    expect(lines[0]).toContain('message');
+    expect(csv).withContext('formula-injection guard prefixes a leading =').toContain("'=SUM(A1)");
+    expect(csv).withContext('a value with a comma is quoted').toContain('"hi, there"');
+    expect(lines.length).withContext('header + 1 data row').toBe(2);
+  });
+
+  it('exportCsv no-ops when there are no filtered rows (the button is also disabled)', () => {
+    const c = mount().componentInstance;
+    c.submissions.set([]);
+    const spy = spyOn(document, 'createElement').and.callThrough();
+    (c as unknown as { exportCsv(): void }).exportCsv();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('renders an Export CSV button, disabled when the filtered list is empty', () => {
+    const f = mount();
+    f.componentInstance.submissions.set([]);
+    f.detectChanges();
+    const btn = (f.nativeElement as HTMLElement).querySelector('[data-testid="forms-export-csv"]') as HTMLButtonElement;
+    expect(btn).withContext('Export CSV button present').toBeTruthy();
+    expect(btn.disabled).withContext('disabled with no rows to export').toBeTrue();
+  });
+});
