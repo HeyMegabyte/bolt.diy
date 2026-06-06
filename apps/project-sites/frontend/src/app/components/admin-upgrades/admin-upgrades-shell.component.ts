@@ -118,9 +118,12 @@ const ADMIN_NAV_INDEX: ReadonlyArray<{ id: string; source: string; label: string
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
       @if (orgOpen()) {
-        <ul class="adm-org-menu" role="menu">
+        <!-- Labeled native list of Tab-navigable buttons — NOT role=menu/menuitem
+             (which would require arrow-key roving we don't implement). Matches the
+             account-menu + Actions-dropdown standard (small action popovers = button groups). -->
+        <ul class="adm-org-menu" [attr.aria-label]="'admin.org.switcher' | translate">
           @for (org of availableOrgs; track org.id) {
-            <li role="menuitem"><button (click)="selectOrg(org)">{{ org.name }}</button></li>
+            <li><button (click)="selectOrg(org)">{{ org.name }}</button></li>
           }
         </ul>
       }
@@ -352,7 +355,8 @@ const ADMIN_NAV_INDEX: ReadonlyArray<{ id: string; source: string; label: string
     .adm-org { display: inline-flex; align-items: center; gap: .35rem; background: transparent; color: inherit; border: 1px solid color-mix(in oklch, currentColor 12%, transparent); padding: .3rem .65rem; border-radius: 6px; font: inherit; font-size: .85rem; cursor: pointer; }
     .adm-org-menu { position: absolute; top: 100%; left: 0; background: var(--ps-bg, #060610); border: 1px solid color-mix(in oklch, currentColor 16%, transparent); border-radius: 10px; padding: .25rem; list-style: none; margin: .25rem 0 0; z-index: 100; min-width: 180px; }
     .adm-org-menu button { width: 100%; text-align: left; background: transparent; color: inherit; border: 0; padding: .4rem .55rem; border-radius: 6px; cursor: pointer; font: inherit; font-size: .85rem; }
-    .adm-org-menu button:hover { background: color-mix(in oklch, currentColor 10%, transparent); }
+    .adm-org-menu button:hover { background: color-mix(in oklch, var(--ps-accent, #00E5FF) 12%, transparent); color: var(--ps-accent, #00E5FF); }
+    .adm-org-menu button:focus-visible { outline: none; background: color-mix(in oklch, var(--ps-accent, #00E5FF) 12%, transparent); color: var(--ps-accent, #00E5FF); box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--ps-accent, #00E5FF) 55%, transparent); }
 
     .adm-presence { list-style: none; display: inline-flex; padding: 0; margin: 0; }
     .adm-presence-avatar { width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: .8rem; margin-left: -.4rem; border: 2px solid var(--ps-bg, #060610); }
