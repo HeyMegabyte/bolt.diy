@@ -79,7 +79,7 @@ aside::before {
 // at 1000, modals at 9050, palette at 9100). The menu MUST sit above all of
 // those so users can actually click items. `isolation: isolate` creates a new
 // stacking context so the menu's z-index is final.
-.notif-pop, .user-pop {
+.notif-pop, .user-pop, .site-actions-pop {
   position: absolute;
   top: calc(100% + 6px); right: 22px;
   min-width: 320px;
@@ -103,10 +103,34 @@ aside::before {
   animation: popIn 220ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1)) both;
   transform-origin: top right;
 }
-.notif-pop::before, .user-pop::before {
+.notif-pop::before, .user-pop::before, .site-actions-pop::before {
   content: ""; position: absolute; top: 0; left: 8px; right: 8px; height: 1px;
   background: linear-gradient(90deg, transparent, rgba(0,229,255,0.55) 30%, rgba(124,58,237,0.40) 70%, transparent);
   pointer-events: none;
+}
+
+/* ── Navbar "Site actions" dropdown ── */
+.site-actions-pop { min-width: 248px; max-width: 300px; }
+.site-actions-btn .sa-chevron { transition: transform 180ms var(--ps-ease-emphasized, cubic-bezier(0.16,1,0.3,1)); opacity: 0.7; }
+.site-actions-btn.is-open .sa-chevron { transform: rotate(180deg); }
+.sa-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 10px; border-radius: 10px; border: 0; background: transparent;
+  color: var(--ps-ink, #f4f4ff); font-size: 0.82rem; font-family: inherit;
+  text-align: left; cursor: pointer; text-decoration: none;
+  transition: background 140ms ease, color 140ms ease;
+}
+.sa-item:hover:not([disabled]), .sa-item:focus-visible:not([disabled]) {
+  background: rgba(0, 229, 255, 0.08); color: #00E5FF;
+}
+.sa-item:focus-visible { outline: none; box-shadow: inset 0 0 0 1px rgba(0,229,255,0.5); }
+.sa-item svg { flex: none; opacity: 0.85; }
+.sa-item[disabled] { opacity: 0.45; cursor: not-allowed; }
+.sa-label { flex: 1; min-width: 0; }
+.sa-hint { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.4px; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 42%, transparent); white-space: nowrap; }
+.sa-sep { height: 1px; margin: 6px 4px; background: rgba(255,255,255,0.07); }
+@media (prefers-reduced-motion: reduce) {
+  .site-actions-btn .sa-chevron { transition: none; }
 }
 // Avatar wrapper provides the positioning context for `.user-pop`.
 // Without `position: relative` on the parent of the avatar button + pop,

@@ -123,6 +123,8 @@ export class AdminComponent implements OnInit, OnDestroy {
   // User menu + notifications + palette.
   userMenuOpen = signal(false);
   notifOpen = signal(false);
+  /** Navbar "Site actions" dropdown (Preview · Save & Deploy · Review links). */
+  siteActionsOpen = signal(false);
   notifications = signal<Notification[]>([]);
   unreadCount = computed(() => this.notifications().filter((n) => !n.read).length);
 
@@ -277,6 +279,7 @@ export class AdminComponent implements OnInit, OnDestroy {
     this.siteSearchQuery.set('');
     this.userMenuOpen.set(false);
     this.notifOpen.set(false);
+    this.siteActionsOpen.set(false);
   }
 
   selectSite(site: Site): void {
@@ -458,6 +461,7 @@ export class AdminComponent implements OnInit, OnDestroy {
     ev.stopPropagation();
     this.userMenuOpen.update((v) => !v);
     this.notifOpen.set(false);
+    this.siteActionsOpen.set(false);
   }
 
   // ── Notifications ───────────────────────────────────
@@ -465,6 +469,37 @@ export class AdminComponent implements OnInit, OnDestroy {
   toggleNotifications(ev: MouseEvent): void {
     ev.stopPropagation();
     this.notifOpen.update((v) => !v);
+    this.userMenuOpen.set(false);
+    this.siteActionsOpen.set(false);
+  }
+
+  // ── Site actions dropdown (Preview · Save & Deploy · Review links) ──
+
+  toggleSiteActions(ev: MouseEvent): void {
+    ev.stopPropagation();
+    this.siteActionsOpen.update((v) => !v);
+    this.notifOpen.set(false);
+    this.userMenuOpen.set(false);
+  }
+  closeSiteActions(): void { this.siteActionsOpen.set(false); }
+  /** Preview the live site in a new tab, then close the menu. */
+  previewSite(site: Site): void {
+    this.state.visitSite(site);
+    this.siteActionsOpen.set(false);
+  }
+  /** Save & deploy from the menu (no-ops off the editor route), then close. */
+  deployFromMenu(): void {
+    if (!this.isEditorRoute() || this.bolt.saving()) return;
+    this.saveEditor();
+    this.siteActionsOpen.set(false);
+  }
+
+  /** Close the avatar-wrap popovers on any outside click (the toggles + pop
+   *  contents stopPropagation, so only genuine outside clicks reach here). */
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.siteActionsOpen.set(false);
+    this.notifOpen.set(false);
     this.userMenuOpen.set(false);
   }
   markAllRead(): void {
@@ -586,6 +621,9 @@ export class AdminComponent implements OnInit, OnDestroy {
   @HostListener('document:keydown', ['$event'])
   onGlobalKey(ev: KeyboardEvent): void {
     const inField = (ev.target as HTMLElement | null)?.matches('input, textarea, [contenteditable]');
+    if (ev.key === 'Escape' && (this.siteActionsOpen() || this.notifOpen() || this.userMenuOpen())) {
+      this.siteActionsOpen.set(false); this.notifOpen.set(false); this.userMenuOpen.set(false); return;
+    }
     if (ev.key === '?' && !inField) { ev.preventDefault(); this.shortcutsOpen.set(true); return; }
     if (ev.key === '/' && !inField) {
       ev.preventDefault();

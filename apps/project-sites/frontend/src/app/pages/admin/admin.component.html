@@ -239,10 +239,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
         <span>Automations</span>
       </a>
-      <a class="nav-item" routerLink="/admin/review-links" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" [brnTooltip]="'Review Links — share a private preview+approve link with a client'">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M21 12c-1.5 4-5 7-9 7s-7.5-3-9-7c1.5-4 5-7 9-7s7.5 3 9 7z"/></svg>
-        <span>Review Links</span>
-      </a>
+      <!-- Review Links moved to the navbar "Actions" dropdown (route /admin/review-links kept). -->
       <a class="nav-item" routerLink="/admin/features" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" [brnTooltip]="'Features Hub — every feature in one place, grouped + with live Try-it buttons'">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
         <span>Features Hub</span>
@@ -326,19 +323,41 @@
           <span class="cmdk-label">Quick find</span>
           <kbd class="cmdk-kbd">⌘K</kbd>
         </button>
-@if (state.selectedSite(); as site) {
-          @if (site.status === 'published') {
-            <button class="top-btn" (click)="state.visitSite(site)" [brnTooltip]="'Preview site'" aria-label="Preview site in new tab">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              Preview
+        <!-- Site actions — Preview · Save & Deploy · Review links collapsed into one
+             dropdown so the navbar stays compact and has room for more commands. -->
+        @if (state.selectedSite(); as site) {
+          <div class="avatar-wrap">
+            <button class="top-btn site-actions-btn" (click)="toggleSiteActions($event)"
+                    [class.is-open]="siteActionsOpen()"
+                    [attr.aria-expanded]="siteActionsOpen()" aria-haspopup="menu"
+                    [brnTooltip]="'Site actions — preview, deploy, review links'"
+                    aria-label="Site actions menu" data-testid="site-actions-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span>Actions</span>
+              <svg class="sa-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
-          }
-        }
-        @if (isEditorRoute() && state.selectedSite()) {
-          <button class="top-btn text-primary border-primary/20 hover:bg-primary/10" (click)="saveEditor()" [disabled]="bolt.saving()" [attr.aria-busy]="bolt.saving()" [brnTooltip]="'Save & deploy this site'">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            {{ bolt.saving() ? 'Publishing…' : 'Save & Deploy' }}
-          </button>
+            @if (siteActionsOpen()) {
+              <div class="notif-pop site-actions-pop" role="menu" aria-label="Site actions" (click)="$event.stopPropagation()" data-testid="site-actions-menu">
+                <button class="sa-item" role="menuitem" type="button" (click)="previewSite(site)"
+                        [disabled]="site.status !== 'published'" data-testid="sa-preview">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  <span class="sa-label">Preview</span>
+                  @if (site.status !== 'published') { <span class="sa-hint">publish first</span> }
+                </button>
+                <button class="sa-item" role="menuitem" type="button" (click)="deployFromMenu()"
+                        [disabled]="!isEditorRoute() || bolt.saving()" [attr.aria-busy]="bolt.saving()" data-testid="sa-deploy">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <span class="sa-label">{{ bolt.saving() ? 'Publishing…' : 'Save & Deploy' }}</span>
+                  @if (!isEditorRoute()) { <span class="sa-hint">open the editor</span> }
+                </button>
+                <div class="sa-sep" role="separator"></div>
+                <a class="sa-item" role="menuitem" routerLink="/admin/review-links" (click)="closeSiteActions()" data-testid="sa-review-links">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                  <span class="sa-label">Review &amp; Approval Links</span>
+                </a>
+              </div>
+            }
+          </div>
         }
         <div class="w-px h-6 bg-white/[0.06] mx-1"></div>
 
