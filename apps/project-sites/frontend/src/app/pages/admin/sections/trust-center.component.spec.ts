@@ -83,6 +83,37 @@ describe('AdminTrustCenterComponent (list remove buttons: contextual name + dest
     const addBtn = Array.from(el.querySelectorAll('button')).find((b) => /Add model/i.test(b.textContent ?? ''));
     expect(addBtn?.classList.contains('btn-ghost-sm--danger')).withContext('add button stays neutral').toBeFalsy();
   });
+
+  it('every AI-models + provenance row control + the disclosures textarea has an accessible name (WCAG 4.1.2 — placeholder is NOT a name)', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminTrustCenterComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ data: {} }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(true) } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminTrustCenterComponent);
+    f.componentInstance.notFound.set(false);
+    f.componentInstance.aiModels.set([{ vendor: 'OpenAI', model: 'gpt-4o', purpose: 'copy' }] as never);
+    f.componentInstance.provenance.set([{ area: 'homepage hero', origin: 'ai-generated', reviewed_by: '' }] as never);
+    f.componentInstance.customDisclosures.set('hi');
+    f.detectChanges();
+    const el = f.nativeElement as HTMLElement;
+
+    // The inline-row editors (.row) hold placeholder-only inputs/selects — each
+    // needs a row-unique aria-label so a screen reader announces more than "edit text".
+    const rowControls = Array.from(el.querySelectorAll('.row input, .row select')) as HTMLElement[];
+    expect(rowControls.length).withContext('model + provenance rows render controls').toBeGreaterThan(0);
+    rowControls.forEach((c) => {
+      const name = (c.getAttribute('aria-label') ?? '').trim();
+      expect(name).withContext(`row control "${c.getAttribute('placeholder') ?? c.tagName}" needs an aria-label`).not.toBe('');
+    });
+
+    const ta = el.querySelector('textarea');
+    expect((ta?.getAttribute('aria-label') ?? '').trim()).withContext('custom-disclosures textarea needs an aria-label').not.toBe('');
+  });
 });
 
 describe('AdminTrustCenterComponent (load-error gating)', () => {

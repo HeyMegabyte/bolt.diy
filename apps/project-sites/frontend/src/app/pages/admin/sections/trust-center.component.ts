@@ -192,10 +192,13 @@ interface ProfileEnvelope {
           @for (m of aiModels(); let i = $index; track i) {
             <div class="row">
               <input hlmInput placeholder="Vendor" [value]="m.vendor"
+                [attr.aria-label]="'AI model ' + (i + 1) + ' vendor'"
                 (input)="patchModel(i, 'vendor', $any($event.target).value)" />
               <input hlmInput placeholder="Model" [value]="m.model"
+                [attr.aria-label]="'AI model ' + (i + 1) + ' name'"
                 (input)="patchModel(i, 'model', $any($event.target).value)" />
               <input hlmInput placeholder="Purpose" [value]="m.purpose"
+                [attr.aria-label]="'AI model ' + (i + 1) + ' purpose'"
                 (input)="patchModel(i, 'purpose', $any($event.target).value)" />
               <button class="btn-ghost-sm btn-ghost-sm--danger" (click)="removeModel(i)" [attr.aria-label]="'Remove model ' + (m.model || m.vendor || ('row ' + (i + 1)))">×</button>
             </div>
@@ -212,14 +215,16 @@ interface ProfileEnvelope {
           @for (p of provenance(); let i = $index; track i) {
             <div class="row">
               <input hlmInput placeholder="Area (e.g. homepage hero)" [value]="p.area"
+                [attr.aria-label]="'Provenance area ' + (i + 1)"
                 (input)="patchProv(i, 'area', $any($event.target).value)" />
-              <select hlmSelect aria-label="AI provenance origin" [value]="p.origin"
+              <select hlmSelect [attr.aria-label]="'Provenance area ' + (i + 1) + ' origin'" [value]="p.origin"
                 (change)="patchProv(i, 'origin', $any($event.target).value)">
                 <option value="ai-generated">AI-generated</option>
                 <option value="ai-assisted">AI-assisted</option>
                 <option value="human-authored">Human-authored</option>
               </select>
               <input hlmInput placeholder="Reviewed by (optional)" [value]="p.reviewed_by ?? ''"
+                [attr.aria-label]="'Provenance area ' + (i + 1) + ' reviewed by'"
                 (input)="patchProv(i, 'reviewed_by', $any($event.target).value)" />
               <button class="btn-ghost-sm btn-ghost-sm--danger" (click)="removeProv(i)" [attr.aria-label]="'Remove provenance area ' + (p.area || ('row ' + (i + 1)))">×</button>
             </div>
@@ -233,6 +238,7 @@ interface ProfileEnvelope {
           <textarea
             hlmInput [multiline]="true"
             rows="6"
+            aria-label="Custom disclosures (Markdown)"
             [ngModel]="customDisclosures() ?? ''"
             (ngModelChange)="customDisclosures.set($event)"
             placeholder="### Additional disclosures…"
