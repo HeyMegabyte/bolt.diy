@@ -338,6 +338,10 @@ describe('AdminMarketplaceComponent — flag-gate (404) vs transient error', () 
     expect(fixture.componentInstance.loadError()).withContext('not a transient error').toBeFalse();
     expect(host.querySelector('[data-testid="marketplace-flag-gate"]')).withContext('calm gate notice shown').not.toBeNull();
     expect(host.querySelector('app-error-card')).withContext('NO alarming error card on a flag-gate').toBeNull();
+    // Filters + stats are dead controls over a disabled section → must be hidden.
+    expect(host.querySelector('.mkt-industry-tabs')).withContext('industry tabs hidden when flag-gated').toBeNull();
+    expect(host.querySelector('.mkt-slot-filter')).withContext('slot filter hidden when flag-gated').toBeNull();
+    expect(host.querySelector('.mkt-header__stats')).withContext('header stats hidden when flag-gated').toBeNull();
     const link = host.querySelector('[data-testid="marketplace-flag-gate"] a');
     expect(link?.getAttribute('href')).withContext('SPA link to Feature Flags').toBe('/admin/feature-flags');
   });

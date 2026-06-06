@@ -94,9 +94,10 @@ const SLOT_COLORS: Record<string, string> = {
     }
   </header>
 
-  <!-- Filters hidden while loading / on error — dead controls over the spinner
-       or the "Couldn't load" card (nothing to filter). -->
-  @if (!loading() && !loadError()) {
+  <!-- Filters hidden while loading / on error / flag-gated — dead controls over
+       the spinner, the "Couldn't load" card, or the disabled-feature notice
+       (nothing to filter). -->
+  @if (!loading() && !loadError() && !flagDisabled()) {
   <!-- ── Industry Filter Tabs ─────────────────────────────────────────── -->
   <div class="mkt-industry-tabs" role="tablist" hlmTablist aria-label="Filter by industry" appReveal>
     <button class="mkt-tab" type="button" role="tab"
