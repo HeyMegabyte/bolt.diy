@@ -144,8 +144,8 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
               [ngModel]="logSearch()"
               (ngModelChange)="logSearch.set($event)"
             />
-            <span data-testid="site-logs-ws-status" [class]="'ws-' + wsStatus()">
-              {{ wsStatus() === 'connected' ? 'connected' : wsStatus() }}
+            <span data-testid="site-logs-ws-status" [class]="'ws-status ws-' + wsStatus()">
+              <span class="ws-dot" aria-hidden="true"></span>{{ wsStatus() === 'connected' ? 'connected' : wsStatus() }}
             </span>
           </div>
           <div class="site-detail__logs" data-testid="site-logs-tail">
@@ -338,6 +338,10 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
     .log-row { display: grid; grid-template-columns: 12rem 5rem 1fr; gap: 0.75rem; padding: 0.25rem 0; }
     .log-row[data-level="error"] { color: #ff7e8a; }
     .log-row[data-level="warn"] { color: #ffd166; }
+    /* Status dot + text — matches the cockpit live-status pattern (ai-logs
+       live-pill, apps-instances status-pill). The dot inherits the state colour. */
+    .ws-status { display: inline-flex; align-items: center; gap: 5px; }
+    .ws-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
     .ws-connected { color: #76e7a3; }
     .ws-connecting { color: #ffd166; }
     .ws-error { color: #ff7e8a; }
