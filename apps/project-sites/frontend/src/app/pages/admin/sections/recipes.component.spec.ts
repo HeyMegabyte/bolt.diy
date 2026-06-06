@@ -29,6 +29,7 @@ describe('AdminRecipesComponent', () => {
     TestBed.configureTestingModule({
       imports: [AdminRecipesComponent],
       providers: [
+        provideRouter([]),
         { provide: ApiService, useValue: { get, post, delete: del } },
         { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
         { provide: ConfirmService, useValue: { confirm: confirmSpy } },
@@ -249,13 +250,13 @@ describe('AdminRecipesComponent', () => {
     expect(q('app-empty-state')).withContext('uses the reusable empty-state primitive').not.toBeNull();
   });
 
-  // When automations are flag-gated off for the site (error() = the 'not
-  // available' 404), the Add-recipe form must not be a dead mutation: the button
-  // is disabled + create() no-ops (the POST would 404).
+  // When automations are flag-gated off for the site (404 → flagDisabled), the
+  // Add-recipe form must not be a dead mutation: the button is disabled +
+  // create() no-ops (the POST would 404).
   it('disables Add recipe + no-ops create() when automations are not available (flag-gated)', async () => {
     build({ id: 's1' });
     const c = fixture.componentInstance;
-    c.error.set('Automations are not available for this site.');
+    c.flagDisabled.set(true);
     // a fully-valid form otherwise — only the not-available gate should block it
     c.nameModel.set('Email me on new lead');
     fixture.detectChanges();
@@ -274,16 +275,68 @@ describe('AdminRecipesComponent', () => {
     expect((q('[data-testid="recipes-action"]') as HTMLSelectElement).disabled).withContext('action select').toBeTrue();
     expect((q('[data-testid="recipes-cfg-primary"]') as HTMLInputElement).disabled).withContext('config input').toBeTrue();
 
-    // The unavailable notice renders BEFORE the form (top-down honesty), so a
-    // user reads "not available" first rather than after filling the form.
-    const errEl = q('[data-testid="recipes-error"]');
+    // The flag-gate notice renders BEFORE the form (top-down honesty), so a user
+    // reads "not available" first rather than after filling the form.
+    const gateEl = q('[data-testid="recipes-flag-gate"]');
     const formEl = q('[data-testid="recipes-name"]');
-    expect(errEl).withContext('error banner present').not.toBeNull();
-    expect(errEl!.compareDocumentPosition(formEl!) & Node.DOCUMENT_POSITION_FOLLOWING)
-      .withContext('error banner precedes the form').toBeTruthy();
+    expect(gateEl).withContext('flag-gate notice present').not.toBeNull();
+    expect(gateEl!.compareDocumentPosition(formEl!) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .withContext('flag-gate notice precedes the form').toBeTruthy();
 
     post.calls.reset();
     c.create();
     expect(post).withContext('no dead POST to the flag-gated route').not.toHaveBeenCalled();
+  });
+});
+
+import { provideRouter } from '@angular/router';
+
+/**
+ * Load-error 404-vs-transient distinction (canonical pattern). A 404 means the
+ * automation_builder flag is OFF → calm flag-gate notice with a Feature Flags
+ * link (NOT alarming red), form locked. A non-404 is a transient failure →
+ * <app-error-card> with Retry + a copyable request_id, form locked. Previously
+ * ANY error showed "not available" (a transient 500 masqueraded as permanently off).
+ */
+describe('AdminRecipesComponent (load-error 404 flag-gate vs transient)', () => {
+  function setup(err: unknown) {
+    const get = jasmine.createSpy('get').and.returnValue(throwError(() => err));
+    TestBed.configureTestingModule({
+      imports: [AdminRecipesComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get, post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: AdminStateService, useValue: { selectedSite: () => ({ id: 's1' }) } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminRecipesComponent);
+    f.detectChanges();
+    return f;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('404 → flagDisabled (calm Feature-Flags notice, NOT a transient error card), form locked', () => {
+    const f = setup({ status: 404 });
+    const c = f.componentInstance;
+    expect(c.flagDisabled()).toBeTrue();
+    expect(c.loadError()).toBeNull();
+    expect(c.formLocked()).toBeTrue();
+    const host = f.nativeElement as HTMLElement;
+    expect(host.querySelector('[data-testid="recipes-flag-gate"] a[routerLink="/admin/feature-flags"]'))
+      .withContext('flag-gate links to Feature Flags').not.toBeNull();
+    expect(host.querySelector('[data-testid="recipes-error"]')).withContext('no transient error card on a 404').toBeNull();
+  });
+
+  it('non-404 → transient loadError + captured request_id (app-error-card with retry), form locked', () => {
+    const f = setup({ status: 500, error: { error: { request_id: 'req_rcp9' } } });
+    const c = f.componentInstance;
+    expect(c.flagDisabled()).toBeFalse();
+    expect(c.loadError()).toContain('Could not load');
+    expect(c.loadErrorRef()).toBe('req_rcp9');
+    expect(c.formLocked()).toBeTrue();
+    expect((f.nativeElement as HTMLElement).querySelector('[data-testid="recipes-error"]'))
+      .withContext('transient error card renders').not.toBeNull();
   });
 });

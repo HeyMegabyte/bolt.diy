@@ -15,9 +15,10 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
+import { RouterLink } from '@angular/router';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective } from '../../../ui';
-import { SkeletonComponent, EmptyStateComponent } from '../../../components/states';
+import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
 
 /** Mirror the worker allowlists (services/automation_builder.ts). */
 const TRIGGERS = ['form.submitted', 'site.published', 'payment.succeeded', 'review.received', 'build.failed', 'domain.active'];
@@ -34,7 +35,7 @@ interface Recipe {
 @Component({
   selector: 'app-admin-recipes',
   standalone: true,
-  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent],
+  imports: [CommonModule, FormsModule, RouterLink, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -50,25 +51,38 @@ interface Recipe {
           <p class="text-text-secondary text-sm">Select a site from <strong class="text-light">Sites</strong> to manage its automations.</p>
         </div>
       } @else {
-        @if (error()) {
-          <div data-testid="recipes-error" role="alert" class="mb-5 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-sm text-red-300">{{ error() }}</div>
+        @if (flagDisabled()) {
+          <!-- Flag OFF (404) → calm cohesive notice (NOT alarming red), inline Feature-Flags link. -->
+          <div data-testid="recipes-flag-gate" role="status" class="mb-5 rounded-xl border border-[#00E5FF]/15 bg-[#00E5FF]/[0.04] p-4 text-sm text-text-secondary">
+            Automations are behind the <code class="text-[#00E5FF]">automation_builder</code> feature flag (currently disabled). Enable it in
+            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
+          </div>
+        } @else if (loadError()) {
+          <!-- Transient (non-404) failure → shared error card with Retry + support ref. -->
+          <app-error-card
+            data-testid="recipes-error"
+            class="block mb-5"
+            title="Couldn’t load automations"
+            [message]="loadError()!"
+            [correlationId]="loadErrorRef()"
+            (retry)="load()" />
         }
         <!-- Create -->
-        <div class="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5 flex flex-col gap-4 mb-6 transition-opacity" [class.opacity-60]="!!error()">
+        <div class="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5 flex flex-col gap-4 mb-6 transition-opacity" [class.opacity-60]="formLocked()">
           <label class="flex flex-col gap-1.5">
             <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Recipe name</span>
-            <input hlmInput data-testid="recipes-name" placeholder="e.g. Email me on new lead" [(ngModel)]="nameModel" [disabled]="!!error()" />
+            <input hlmInput data-testid="recipes-name" placeholder="e.g. Email me on new lead" [(ngModel)]="nameModel" [disabled]="formLocked()" />
           </label>
           <div class="flex flex-col gap-3 sm:flex-row">
             <label class="flex flex-col gap-1.5 flex-1">
               <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">When (trigger)</span>
-              <select hlmSelect data-testid="recipes-trigger" class="w-full" [(ngModel)]="triggerModel" [disabled]="!!error()">
+              <select hlmSelect data-testid="recipes-trigger" class="w-full" [(ngModel)]="triggerModel" [disabled]="formLocked()">
                 @for (t of triggers; track t) { <option [value]="t">{{ t }}</option> }
               </select>
             </label>
             <label class="flex flex-col gap-1.5 flex-1">
               <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Do (action)</span>
-              <select hlmSelect data-testid="recipes-action" class="w-full" [(ngModel)]="actionModel" [disabled]="!!error()">
+              <select hlmSelect data-testid="recipes-action" class="w-full" [(ngModel)]="actionModel" [disabled]="formLocked()">
                 @for (a of actions; track a) { <option [value]="a">{{ a }}</option> }
               </select>
             </label>
@@ -76,7 +90,7 @@ interface Recipe {
           <!-- Per-action config -->
           <label class="flex flex-col gap-1.5">
             <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">{{ primaryLabel() }}</span>
-            <input hlmInput data-testid="recipes-cfg-primary" [placeholder]="primaryPlaceholder()" [(ngModel)]="cfgPrimary" [disabled]="!!error()"
+            <input hlmInput data-testid="recipes-cfg-primary" [placeholder]="primaryPlaceholder()" [(ngModel)]="cfgPrimary" [disabled]="formLocked()"
               [attr.type]="actionModel() === 'send_email' ? 'email' : actionModel() === 'webhook' ? 'url' : 'text'"
               [attr.aria-invalid]="configInvalid()" [attr.aria-describedby]="configInvalid() ? 'recipes-cfg-hint' : null"
               [class.ring-1]="configInvalid()" [class.ring-red-500/60]="configInvalid()" [class.border-red-500/50]="configInvalid()" />
@@ -93,18 +107,18 @@ interface Recipe {
           @if (showSecondary()) {
             <label class="flex flex-col gap-1.5">
               <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Subject (optional)</span>
-              <input hlmInput data-testid="recipes-cfg-secondary" placeholder="New lead from your site" [(ngModel)]="cfgSecondary" [disabled]="!!error()" />
+              <input hlmInput data-testid="recipes-cfg-secondary" placeholder="New lead from your site" [(ngModel)]="cfgSecondary" [disabled]="formLocked()" />
             </label>
           }
           <div class="flex items-center gap-3">
             <button hlmBtn data-testid="recipes-create-btn"
-                    [disabled]="creating() || !canSubmit() || !!error()"
-                    [attr.title]="error() ? 'Automations are not available for this site' : null"
+                    [disabled]="creating() || !canSubmit() || formLocked()"
+                    [attr.title]="formLocked() ? 'Automations are not available — see the notice above' : null"
                     (click)="create()">
               {{ creating() ? 'Creating…' : 'Add recipe' }}
             </button>
-            <label class="inline-flex items-center gap-2 cursor-pointer text-sm text-light" [class.opacity-50]="!!error()">
-              <input type="checkbox" hlmCheckbox [(ngModel)]="enabledModel" [disabled]="!!error()" />
+            <label class="inline-flex items-center gap-2 cursor-pointer text-sm text-light" [class.opacity-50]="formLocked()">
+              <input type="checkbox" hlmCheckbox [(ngModel)]="enabledModel" [disabled]="formLocked()" />
               <span>Enabled</span>
             </label>
           </div>
@@ -203,7 +217,14 @@ export class AdminRecipesComponent {
   readonly recipes = signal<Recipe[]>([]);
   readonly loading = signal(false);
   readonly creating = signal(false);
-  readonly error = signal<string | null>(null);
+  /** Flag OFF (load 404 = automation_builder disabled) → calm Feature-Flags notice. */
+  readonly flagDisabled = signal(false);
+  /** Transient (non-404) load failure → app-error-card with Retry. */
+  readonly loadError = signal<string | null>(null);
+  /** Worker request_id from a transient failure → copyable support reference. */
+  readonly loadErrorRef = signal('');
+  /** Either gate locks the create form (can't create against a flag-off or failed-load site). */
+  readonly formLocked = computed(() => this.flagDisabled() || this.loadError() !== null);
 
   private loadedSiteId: string | null = null;
 
@@ -256,28 +277,42 @@ export class AdminRecipesComponent {
     const id = this.siteId();
     if (!id) return;
     this.loading.set(true);
-    this.error.set(null);
-    // Silent: this component owns its accurate inline error ("Automations are
-    // not available for this site.") — the generic ApiService network toast
-    // would double-fire over it (the redundant-network-toast class).
+    this.flagDisabled.set(false);
+    this.loadError.set(null);
+    this.loadErrorRef.set('');
+    // Silent: this component owns its inline state — the generic ApiService
+    // network toast would double-fire over it (the redundant-network-toast class).
     this.api.get<{ ok: boolean; recipes: Recipe[] }>(`/sites/${id}/recipes`, undefined, { silent: true }).subscribe({
       next: (res) => {
         this.recipes.set(res.recipes ?? []);
         this.loading.set(false);
       },
-      error: () => {
-        this.error.set('Automations are not available for this site.');
+      // 404 = automation_builder flag OFF (permanent → calm Feature-Flags notice);
+      // any other status = transient (→ app-error-card with Retry + request_id).
+      // Previously ANY error read as "not available", so a 500 masqueraded as off.
+      error: (err: { status?: number; error?: unknown } | undefined) => {
+        if (err?.status === 404) {
+          this.flagDisabled.set(true);
+        } else {
+          this.loadError.set('Could not load automations — retry.');
+          this.loadErrorRef.set(this.requestIdFrom(err));
+        }
         this.loading.set(false);
       },
     });
   }
 
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: { error?: unknown } | undefined): string {
+    return (e?.error as { error?: { request_id?: string } } | undefined)?.error?.request_id ?? '';
+  }
+
   create(): void {
     const id = this.siteId();
     if (!id || this.creating()) return;
-    // Automations flag-gated off for this site (error() is set exclusively by the
-    // not-available 404) → the create route 404s; don't fire a dead POST.
-    if (this.error()) return;
+    // Don't fire a dead POST when the form is locked: flag OFF (the create route
+    // 404s) or the list failed to load (state unknown → re-load before mutating).
+    if (this.formLocked()) return;
     if (!this.nameModel().trim()) {
       this.toast.error('Give the recipe a name.');
       return;
