@@ -85,6 +85,26 @@ describe('AdminMarketplaceComponent (cohesion r8)', () => {
     expect(all('.mkt-header__stats app-rolling-counter').length).toBe(2);
   });
 
+  // A definitive "0 sections · 0 industries" must NOT show over the "Couldn't
+  // load" error card (or a loading skeleton) — 0 is wrong there, the count is
+  // unknown. The header stats appear only once the catalog genuinely resolves.
+  it('hides the header stats during loadError (no false "0 sections" over the error card)', () => {
+    fixture.componentInstance.loadError.set(true);
+    fixture.detectChanges();
+    expect(q('.mkt-header__stats')).withContext('stats hidden on error').toBeNull();
+    fixture.componentInstance.loadError.set(false);
+    fixture.detectChanges();
+    expect(q('.mkt-header__stats')).withContext('stats return once resolved').not.toBeNull();
+  });
+
+  it('hides the header stats while loading (no premature "0 sections" over the skeleton)', () => {
+    fixture.componentInstance.loading.set(true);
+    fixture.detectChanges();
+    expect(q('.mkt-header__stats')).withContext('stats hidden while loading').toBeNull();
+    fixture.componentInstance.loading.set(false);
+    fixture.detectChanges();
+  });
+
   it('announces the loading state to assistive tech (WCAG 4.1.3 — role=status + aria-live)', () => {
     // A bare <div aria-label="Loading sections"> is NOT a live region — an SR
     // user never hears it appear. The loading block must be a polite status.

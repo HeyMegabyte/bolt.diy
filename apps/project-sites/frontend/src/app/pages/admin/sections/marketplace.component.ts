@@ -76,16 +76,21 @@ const SLOT_COLORS: Record<string, string> = {
     <h1 class="mkt-header__title">Section Marketplace</h1>
     <p class="mkt-header__sub">Curated bento sections per industry — fork and customise</p>
 
-    <div class="mkt-header__stats">
-      <div class="mkt-stat">
-        <app-rolling-counter [value]="totalSections()" />
-        <span class="mkt-stat__label">sections</span>
+    <!-- Stats render ONLY once the catalog genuinely resolves — never a
+         definitive "0 sections" over a loading skeleton or a "Couldn't load"
+         error card (0 is wrong there; the count is unknown). -->
+    @if (!loading() && !loadError()) {
+      <div class="mkt-header__stats">
+        <div class="mkt-stat">
+          <app-rolling-counter [value]="totalSections()" />
+          <span class="mkt-stat__label">sections</span>
+        </div>
+        <div class="mkt-stat">
+          <app-rolling-counter [value]="catalog().length" />
+          <span class="mkt-stat__label">industries</span>
+        </div>
       </div>
-      <div class="mkt-stat">
-        <app-rolling-counter [value]="catalog().length" />
-        <span class="mkt-stat__label">industries</span>
-      </div>
-    </div>
+    }
   </header>
 
   <!-- ── Industry Filter Tabs ─────────────────────────────────────────── -->
