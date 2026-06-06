@@ -259,6 +259,20 @@ describe('AdminRecipesComponent', () => {
     expect(q('app-empty-state')).withContext('uses the reusable empty-state primitive').not.toBeNull();
   });
 
+  // A transient load failure leaves recipes() === [] (it never loaded) — but that
+  // is UNKNOWN, not empty. Showing the "No automations yet" empty state UNDER the
+  // error card is a contradiction (the error card already conveys "couldn't load").
+  it('does NOT show the "no automations" empty state when the list failed to load (error card only)', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.loadError.set('Could not load automations — retry.');
+    c.recipes.set([]);
+    fixture.detectChanges();
+    expect(q('[data-testid="recipes-error"]')).withContext('error card present').not.toBeNull();
+    expect(host.textContent ?? '').not.toContain('No automations yet');
+    expect(q('app-empty-state')).withContext('no empty-state under a load error').toBeNull();
+  });
+
   // When automations are flag-gated off for the site (404 → flagDisabled), the
   // Add-recipe form must not be a dead mutation: the button is disabled +
   // create() no-ops (the POST would 404).
