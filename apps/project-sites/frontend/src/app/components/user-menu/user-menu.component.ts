@@ -32,14 +32,14 @@ import { ApiService } from '../../services/api.service';
   template: `
     <div class="user-menu">
       <button type="button" class="user-menu-trigger" (click)="toggleMenu($event)"
-              aria-haspopup="menu" [attr.aria-expanded]="menuOpen()" aria-label="Account menu">
+              aria-haspopup="true" [attr.aria-expanded]="menuOpen()" aria-label="Account menu">
         <div class="user-avatar">{{ getInitial() }}</div>
         <svg class="chevron" [class.open]="menuOpen()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="m6 9 6 6 6-6" />
         </svg>
       </button>
       @if (menuOpen()) {
-        <div class="dropdown" (click)="$event.stopPropagation()" role="menu" aria-label="Account menu">
+        <div class="dropdown" (click)="$event.stopPropagation()" role="group" aria-label="Account menu">
           <div class="dropdown-header">
             <div class="dropdown-avatar">{{ getInitial() }}</div>
             <div class="dropdown-user-info">
@@ -48,27 +48,27 @@ import { ApiService } from '../../services/api.service';
             </div>
           </div>
           <div class="dropdown-divider"></div>
-          <button class="dropdown-item" role="menuitem" (click)="goAdmin()">
+          <button class="dropdown-item" (click)="goAdmin()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
               <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
             </svg>
             Dashboard
           </button>
-          <button class="dropdown-item" role="menuitem" (click)="goCreate()">
+          <button class="dropdown-item" (click)="goCreate()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 5v14M5 12h14" />
             </svg>
             New Site
           </button>
-          <button class="dropdown-item" role="menuitem" (click)="goBilling()">
+          <button class="dropdown-item" (click)="goBilling()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <rect x="1" y="4" width="22" height="16" rx="2" /><line x1="1" y1="10" x2="23" y2="10" />
             </svg>
             Billing
           </button>
           <div class="dropdown-divider"></div>
-          <button class="dropdown-item logout" role="menuitem" (click)="logout()">
+          <button class="dropdown-item logout" (click)="logout()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
             </svg>

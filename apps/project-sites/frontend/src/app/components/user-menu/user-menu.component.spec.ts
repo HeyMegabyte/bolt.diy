@@ -35,7 +35,9 @@ describe('UserMenuComponent (a11y: keyboard-operable trigger)', () => {
     expect(trigger?.tagName.toLowerCase())
       .withContext('keyboard-operable button, not a mouse-only click div')
       .toBe('button');
-    expect(trigger?.getAttribute('aria-haspopup')).toBe('menu');
+    // Opens a labeled button GROUP (not an APG menu — no arrow-key roving), so
+    // aria-haspopup is the generic "true", matching the admin Actions dropdown.
+    expect(trigger?.getAttribute('aria-haspopup')).toBe('true');
     expect(trigger?.getAttribute('aria-expanded')).withContext('closed initially').toBe('false');
 
     fx.componentInstance.menuOpen.set(true);
@@ -43,8 +45,13 @@ describe('UserMenuComponent (a11y: keyboard-operable trigger)', () => {
     expect(el.querySelector('.user-menu-trigger')?.getAttribute('aria-expanded'))
       .withContext('aria-expanded flips when open')
       .toBe('true');
-    expect(el.querySelector('.dropdown')).withContext('dropdown renders + is a sibling of the trigger').toBeTruthy();
+    const dropdown = el.querySelector('.dropdown');
+    expect(dropdown).withContext('dropdown renders + is a sibling of the trigger').toBeTruthy();
     // the dropdown must NOT be nested inside the button (invalid + breaks SR)
     expect(el.querySelector('.user-menu-trigger .dropdown')).toBeNull();
+    // Codebase standard: a labeled Tab-navigable button group, NOT role=menu/menuitem
+    // (which would require arrow-key nav we don't implement). Matches the admin Actions dropdown.
+    expect(dropdown?.getAttribute('role')).withContext('button group, not an APG menu').toBe('group');
+    expect(el.querySelectorAll('[role="menuitem"]').length).withContext('no menuitems — plain buttons').toBe(0);
   });
 });

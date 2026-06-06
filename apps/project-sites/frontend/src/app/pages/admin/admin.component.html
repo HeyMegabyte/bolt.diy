@@ -413,7 +413,7 @@
           {{ userInitials() }}
         </button>
         @if (userMenuOpen()) {
-          <div class="user-pop" [focusTrap]="userMenuOpen()" role="menu" (click)="$event.stopPropagation()" data-testid="user-menu">
+          <div class="user-pop" [focusTrap]="userMenuOpen()" role="group" aria-label="Account menu" (click)="$event.stopPropagation()" data-testid="user-menu">
             <div class="px-3 py-2">
               <div class="text-[0.85rem] font-semibold text-white">{{ userName() || 'Account' }}</div>
               <div class="text-[0.7rem] text-text-secondary truncate">{{ userEmail() }}</div>
