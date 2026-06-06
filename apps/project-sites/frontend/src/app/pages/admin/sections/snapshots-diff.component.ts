@@ -20,6 +20,7 @@ import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { ErrorCardComponent } from '../../../components/states';
 
 interface DiffHunk {
   added: boolean;
@@ -54,7 +55,7 @@ interface DiffResponse {
 @Component({
   selector: 'app-admin-snapshots-diff',
   standalone: true,
-  imports: [RouterModule, RollingCounterComponent],
+  imports: [RouterModule, RollingCounterComponent, ErrorCardComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" data-testid="snapshots-diff-section">
       <header class="flex items-start justify-between gap-4">
@@ -81,10 +82,13 @@ interface DiffResponse {
           Computing diff…
         </div>
       } @else if (error()) {
-        <div class="rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-red-200 text-sm flex items-center justify-between gap-3" role="alert" data-testid="snapshots-diff-error">
-          <span>{{ error() }}</span>
-          <button class="btn-ghost text-xs flex-shrink-0" data-testid="snapshots-diff-retry" (click)="load()" [disabled]="loading()">Retry</button>
-        </div>
+        <app-error-card
+          data-testid="snapshots-diff-error"
+          class="block"
+          title="Couldn't load the diff"
+          [message]="error()!"
+          [correlationId]="loadErrorRef()"
+          (retry)="load()" />
       } @else if (diff()) {
         @let d = diff()!;
         <!-- AI summary banner -->
@@ -200,6 +204,8 @@ export class AdminSnapshotsDiffComponent implements OnInit {
 
   loading = signal(true);
   error = signal<string | null>(null);
+  /** Worker request_id from a failed diff load — shown as the card's copyable support reference. */
+  readonly loadErrorRef = signal('');
   diff = signal<DiffResponse | null>(null);
 
   fromId = signal<string>('');
@@ -243,6 +249,7 @@ export class AdminSnapshotsDiffComponent implements OnInit {
     }
     this.loading.set(true);
     this.error.set(null);
+    this.loadErrorRef.set('');
     try {
       const path = `/sites/${siteId}/snapshots/diff`;
       const res = await firstValueFrom(
@@ -252,11 +259,19 @@ export class AdminSnapshotsDiffComponent implements OnInit {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn('snapshot-diff load failed', { error: msg });
-      // inline error banner (snapshots-diff-error) is the UX — no toast on top,
-      // and the read is {silent} so the generic ApiService toast doesn't fire.
-      this.error.set(`Could not load diff — ${msg}`);
+      // <app-error-card data-testid="snapshots-diff-error"> is the UX — no toast
+      // on top, and the read is {silent} so the generic ApiService toast doesn't
+      // fire. The card title carries "Couldn't load the diff", so the message is
+      // just the raw cause; capture the worker request_id for the support ref.
+      this.loadErrorRef.set(this.requestIdFrom(err as { error?: unknown }));
+      this.error.set(msg);
     } finally {
       this.loading.set(false);
     }
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: { error?: unknown } | undefined): string {
+    return (e?.error as { error?: { request_id?: string } } | undefined)?.error?.request_id ?? '';
   }
 }

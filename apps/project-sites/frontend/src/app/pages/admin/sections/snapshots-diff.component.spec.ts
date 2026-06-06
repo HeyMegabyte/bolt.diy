@@ -71,8 +71,10 @@ describe('AdminSnapshotsDiffComponent (diff load + guards)', () => {
     const { c, toast } = make(get);
     c.fromId.set('a'); c.toId.set('b');
     await c.load();
-    expect(c.error()).toContain('Could not load diff');
-    // banner is the UX; the read is {silent} so the generic toast can't fire and
+    // error() is now the raw cause ('boom') — the <app-error-card> title carries
+    // the "Couldn't load the diff" headline, so the message isn't doubled.
+    expect(c.error()).toBe('boom');
+    // card is the UX; the read is {silent} so the generic toast can't fire and
     // the component no longer toasts on top of its own banner.
     expect(toast.error).not.toHaveBeenCalled();
     expect(get.calls.first().args[2]).toEqual({ silent: true });
@@ -81,6 +83,22 @@ describe('AdminSnapshotsDiffComponent (diff load + guards)', () => {
     await c.load();
     expect(c.error()).toBeNull();
     expect(c.diff()).not.toBeNull();
+  });
+
+  it('captures the worker request_id for the <app-error-card> support reference, and resets it on a clean reload', async () => {
+    const get = jasmine.createSpy('get').and.returnValues(
+      throwError(() => ({ error: { error: { request_id: 'req-snap-9' } } })),
+      of({ added: [], removed: [], modified: [] }),
+    );
+    const { c } = make(get);
+    c.fromId.set('a'); c.toId.set('b');
+    await c.load();
+    expect(c.error()).not.toBeNull();
+    expect(c.loadErrorRef()).toBe('req-snap-9'); // surfaced as the card's copyable ref
+    // A successful reload clears both the error and the stale reference.
+    await c.load();
+    expect(c.error()).toBeNull();
+    expect(c.loadErrorRef()).toBe('');
   });
 });
 
