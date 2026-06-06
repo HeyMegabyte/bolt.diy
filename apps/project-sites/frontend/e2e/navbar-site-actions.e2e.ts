@@ -52,8 +52,10 @@ test.describe('navbar Site-actions dropdown', () => {
 
     const trigger = page.locator('[data-testid="site-actions-btn"]');
     // The dropdown renders once a site is selected (AdminStateService auto-selects
-    // the first site). If the seeded account has no site, skip gracefully.
-    if ((await trigger.count()) === 0) {
+    // the first site; the list loads async). Wait briefly, then skip gracefully
+    // if the seeded account genuinely has no site.
+    const appeared = await trigger.first().waitFor({ state: 'visible', timeout: 8_000 }).then(() => true).catch(() => false);
+    if (!appeared) {
       test.skip(true, 'no site selected for the test account — Actions dropdown not rendered');
       return;
     }
@@ -90,7 +92,8 @@ test.describe('navbar Site-actions dropdown', () => {
     await page.goto('/admin');
     await expect(page.locator('nav[aria-label="Admin sections"]')).toBeVisible({ timeout: 15_000 });
     const trigger = page.locator('[data-testid="site-actions-btn"]');
-    if ((await trigger.count()) === 0) {
+    const appeared = await trigger.first().waitFor({ state: 'visible', timeout: 8_000 }).then(() => true).catch(() => false);
+    if (!appeared) {
       test.skip(true, 'no site selected for the test account');
       return;
     }
