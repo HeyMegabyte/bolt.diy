@@ -1,4 +1,4 @@
-import { adminSectionLabel, ADMIN_SECTION_LABELS } from './admin-section-labels';
+import { adminSectionLabel, adminSectionLabelFromPath, ADMIN_SECTION_LABELS } from './admin-section-labels';
 
 /**
  * Guards the per-route document-title map (WCAG 2.4.2 Page Titled). A missing
@@ -41,5 +41,42 @@ describe('adminSectionLabel (per-route title map)', () => {
     for (const [seg, label] of Object.entries(ADMIN_SECTION_LABELS)) {
       expect(label.length).withContext(`segment "${seg}"`).toBeGreaterThan(0);
     }
+  });
+});
+
+/**
+ * The path resolver fixes the real bug: param routes (`/admin/sites/:id`) +
+ * sub-paths (`/admin/snapshots/diff`) used to mislabel to "Dashboard" because a
+ * bare last-segment lookup hit the param value / unmapped tail. Walk-back picks
+ * the section root for a param, but keeps a sub-VIEW's own label.
+ */
+describe('adminSectionLabelFromPath (param + sub-path routes)', () => {
+  it('labels PARAM routes by their section root, not the param value (was "Dashboard")', () => {
+    expect(adminSectionLabelFromPath('/admin/sites/e2e-site-1')).toBe('Sites');
+    expect(adminSectionLabelFromPath('/admin/swarm/e2e-site-1')).toBe('Swarm');
+    expect(adminSectionLabelFromPath('/admin/apps/some-app-id')).toBe('Apps');
+    expect(adminSectionLabelFromPath('/admin/apps/instances/inst-9')).toBe('App Instances');
+  });
+
+  it('keeps a sub-VIEW label when the tail segment is itself a known section', () => {
+    expect(adminSectionLabelFromPath('/admin/sites/e2e-site-1/branches')).toBe('Branches');
+    expect(adminSectionLabelFromPath('/admin/sites/e2e-site-1/copilot')).toBe('Copilot');
+    expect(adminSectionLabelFromPath('/admin/sites/e2e-site-1/dna')).toBe('Site DNA');
+    expect(adminSectionLabelFromPath('/admin/sites/e2e-site-1/mcp-server')).toBe('MCP Server');
+    expect(adminSectionLabelFromPath('/admin/snapshots/diff')).toBe('Snapshot Diff');
+    expect(adminSectionLabelFromPath('/admin/domains/dom-1/stack')).toBe('Domain Stack');
+  });
+
+  it('handles the index, query/hash, and unknown (404) paths', () => {
+    expect(adminSectionLabelFromPath('/admin')).toBe('Dashboard');
+    expect(adminSectionLabelFromPath('/admin/snapshots/diff?from=a&to=b')).toBe('Snapshot Diff');
+    expect(adminSectionLabelFromPath('/admin/feature-flags#stage')).toBe('Feature Flags');
+    expect(adminSectionLabelFromPath('/admin/totally-unknown-xyz')).toBe('Dashboard');
+  });
+
+  it('top-level sections resolve the same as the bare-segment lookup (no regression)', () => {
+    expect(adminSectionLabelFromPath('/admin/billing')).toBe('Billing');
+    expect(adminSectionLabelFromPath('/admin/feature-flags')).toBe('Feature Flags');
+    expect(adminSectionLabelFromPath('/admin/traces')).toBe('AI Traces');
   });
 });

@@ -25,6 +25,7 @@ export const ADMIN_SECTION_LABELS: Readonly<Record<string, string>> = {
   mcp: 'MCP', seo: 'SEO', inbox: 'Inbox', marketplace: 'Marketplace',
   import: 'Import', sites: 'Sites', welcome: 'Welcome', email: 'Email',
   swarm: 'Swarm', copilot: 'Copilot', dna: 'Site DNA', branches: 'Branches',
+  'mcp-server': 'MCP Server', stack: 'Domain Stack', diff: 'Snapshot Diff',
   // Coverage gap closed: these routed sections fell back to 'Editor' → stale
   // document title (WCAG 2.4.2). Verified live the titles stayed "Editor".
   'bulk-ops': 'Bulk Ops', deliverability: 'Deliverability', webhooks: 'Webhooks',
@@ -34,9 +35,36 @@ export const ADMIN_SECTION_LABELS: Readonly<Record<string, string>> = {
 };
 
 /**
- * Resolve the human label for a route's last path segment.
+ * Resolve the human label for a single route segment.
  * Falls back to 'Dashboard' (the `/admin` home) for unknown segments.
  */
 export function adminSectionLabel(segment: string): string {
   return ADMIN_SECTION_LABELS[segment] ?? 'Dashboard';
+}
+
+/**
+ * Resolve the human label for a full admin URL, handling PARAM + SUB-PATH
+ * routes that a bare last-segment lookup mislabels.
+ *
+ * The old `url.split('/').pop()` grabbed the LAST segment — which for a param
+ * route (`/admin/sites/:id`, `/admin/swarm/:siteId`, `/admin/apps/:id`) is the
+ * PARAM VALUE (a site id), and for some sub-paths (`/admin/snapshots/diff`,
+ * `/admin/domains/:id/stack`) is an unmapped tail → both fell back to a wrong
+ * "Dashboard" breadcrumb + document title + SR route-announcer (WCAG 2.4.2).
+ *
+ * Walk segments most-specific → least and return the first KNOWN label: a
+ * sub-view keeps its own label (`/sites/:id/branches` → "Branches"); a param
+ * value is skipped so the section root wins (`/sites/:id` → "Sites"); a fully
+ * unknown path (a 404) still falls back to 'Dashboard' (unchanged).
+ */
+export function adminSectionLabelFromPath(url: string): string {
+  const path = url.split('?')[0].split('#')[0];
+  const segments = path.split('/').filter(Boolean);
+  const afterAdmin = segments[0] === 'admin' ? segments.slice(1) : segments;
+  if (afterAdmin.length === 0) return ADMIN_SECTION_LABELS[''] ?? 'Dashboard';
+  for (let i = afterAdmin.length - 1; i >= 0; i--) {
+    const label = ADMIN_SECTION_LABELS[afterAdmin[i]];
+    if (label) return label;
+  }
+  return 'Dashboard';
 }

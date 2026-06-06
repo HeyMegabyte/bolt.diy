@@ -24,7 +24,7 @@ import { TaskTrayComponent } from '../../components/task-tray/task-tray.componen
 import { EditorTabsComponent, type EditorTab } from '../../components/editor-tabs/editor-tabs.component';
 import { AdminMediaComponent } from './sections/media.component';
 import { AdminAiEndpointsComponent } from './sections/ai-endpoints.component';
-import { adminSectionLabel } from './admin-section-labels';
+import { adminSectionLabelFromPath } from './admin-section-labels';
 
 interface Notification { id: string; title: string; time: string; kind: 'info' | 'warn' | 'ok'; read: boolean; ts?: number; href?: string; }
 
@@ -153,8 +153,10 @@ export class AdminComponent implements OnInit, OnDestroy {
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       this.sidebarCollapsed.set(true);
     }
-    const segment = url.split('?')[0].split('#')[0].split('/').pop() || '';
-    const section = adminSectionLabel(segment);
+    // Resolve from the FULL path, not the last segment — a param route
+    // (`/admin/sites/:id`) or sub-path (`/admin/snapshots/diff`) would otherwise
+    // mislabel to "Dashboard" (the last segment is a param value / unmapped tail).
+    const section = adminSectionLabelFromPath(url);
     this.currentSection.set(section);
     // Per-route meta swap — only the title + description change; the shell
     // (sidebar + topbar) is never touched. Keeps each tab a distinct, share-
