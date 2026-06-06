@@ -302,3 +302,51 @@ describe('AdminMarketplaceComponent (error-state correlation id)', () => {
     httpMock.expectOne('/api/section-marketplace/sections?limit=200').flush({ sections: [] });
   });
 });
+
+/**
+ * Flag-gate (404) vs transient-error (5xx) distinction. /api/section-marketplace
+ * returns 404 when the `section_marketplace` flag is OFF — that must surface a
+ * CALM "enable in Feature Flags" notice, NOT the alarming "Couldn't load · Retry"
+ * card (retrying can't enable a flag; "check your connection" is wrong). This was
+ * a real bug — the section showed the transient error card for a disabled feature.
+ */
+describe('AdminMarketplaceComponent — flag-gate (404) vs transient error', () => {
+  let fixture: ComponentFixture<AdminMarketplaceComponent>;
+  let host: HTMLElement;
+  let httpMock: HttpTestingController;
+
+  function loadWith(status: number): void {
+    TestBed.configureTestingModule({
+      imports: [AdminMarketplaceComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+    fixture = TestBed.createComponent(AdminMarketplaceComponent);
+    host = fixture.nativeElement as HTMLElement;
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture.detectChanges(); // ngOnInit → loadCatalog + loadSections
+    const body = status === 404 ? { error: { code: 'NOT_FOUND' } } : 'boom';
+    httpMock.expectOne('/api/section-marketplace').flush(body, { status, statusText: 'x' });
+    httpMock.expectOne('/api/section-marketplace/sections?limit=200').flush(body, { status, statusText: 'x' });
+    fixture.detectChanges();
+  }
+
+  afterEach(() => { httpMock.verify(); TestBed.resetTestingModule(); });
+
+  it('a 404 (flag off) → calm Feature-Flags notice, NOT the transient error card', () => {
+    loadWith(404);
+    expect(fixture.componentInstance.flagDisabled()).withContext('404 = flag-gate').toBeTrue();
+    expect(fixture.componentInstance.loadError()).withContext('not a transient error').toBeFalse();
+    expect(host.querySelector('[data-testid="marketplace-flag-gate"]')).withContext('calm gate notice shown').not.toBeNull();
+    expect(host.querySelector('app-error-card')).withContext('NO alarming error card on a flag-gate').toBeNull();
+    const link = host.querySelector('[data-testid="marketplace-flag-gate"] a');
+    expect(link?.getAttribute('href')).withContext('SPA link to Feature Flags').toBe('/admin/feature-flags');
+  });
+
+  it('a non-404 (500) → the transient error card with Retry, NOT the flag-gate notice', () => {
+    loadWith(500);
+    expect(fixture.componentInstance.loadError()).withContext('5xx = transient').toBeTrue();
+    expect(fixture.componentInstance.flagDisabled()).withContext('not a flag-gate').toBeFalse();
+    expect(host.querySelector('app-error-card')).withContext('transient error card on a 500').not.toBeNull();
+    expect(host.querySelector('[data-testid="marketplace-flag-gate"]')).withContext('NO flag-gate notice on a transient error').toBeNull();
+  });
+});

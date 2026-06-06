@@ -19,8 +19,9 @@ import {
   Component, OnInit, inject, signal, computed, ChangeDetectionStrategy, ChangeDetectorRef, HostListener,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
+import { ApiService } from '../../../services/api.service';
 import { catchError, of } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { HlmTablistDirective } from '../../../ui';
@@ -79,7 +80,7 @@ const SLOT_COLORS: Record<string, string> = {
     <!-- Stats render ONLY once the catalog genuinely resolves — never a
          definitive "0 sections" over a loading skeleton or a "Couldn't load"
          error card (0 is wrong there; the count is unknown). -->
-    @if (!loading() && !loadError()) {
+    @if (!loading() && !loadError() && !flagDisabled()) {
       <div class="mkt-header__stats">
         <div class="mkt-stat">
           <app-rolling-counter [value]="totalSections()" />
@@ -137,6 +138,13 @@ const SLOT_COLORS: Record<string, string> = {
   @if (loading()) {
     <div class="mkt-loading" role="status" aria-live="polite" aria-label="Loading sections">
       <div class="mkt-loading__spinner" aria-hidden="true"></div>
+    </div>
+  } @else if (flagDisabled()) {
+    <!-- Flag OFF (404) → calm cohesive Feature-Flags notice (NOT the alarming
+         "Couldn't load · Retry" card — retrying can't enable a disabled flag). -->
+    <div data-testid="marketplace-flag-gate" role="status" class="rounded-xl border border-[#00E5FF]/15 bg-[#00E5FF]/[0.04] p-4 text-sm text-text-secondary">
+      The Section Marketplace is behind the <code class="text-[#00E5FF]">section_marketplace</code> feature flag (currently disabled). Enable it in
+      <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
     </div>
   } @else if (loadError()) {
     <app-error-card
@@ -321,12 +329,17 @@ const SLOT_COLORS: Record<string, string> = {
   `],
 })
 export class AdminMarketplaceComponent implements OnInit {
-  private http = inject(HttpClient);
+  // ApiService (not raw HttpClient) so /api/section-marketplace* carries the auth
+  // bearer when the flag is ON. See [[admin-raw-httpclient-auth-gap]].
+  private api = inject(ApiService);
   private cdr = inject(ChangeDetectorRef);
   private toast = inject(ToastService);
 
   readonly loading = signal(false);
   readonly loadError = signal(false);
+  /** Flag OFF (load 404 = section_marketplace disabled) → calm Feature-Flags notice,
+   *  NOT the alarming transient "Couldn't load · Retry" card (retrying can't enable a flag). */
+  readonly flagDisabled = signal(false);
   /** Worker request_id from a failed feed → shown as the support reference on the error card. */
   readonly loadErrorRef = signal('');
   readonly catalog = signal<IndustryCatalog[]>([]);
@@ -378,6 +391,7 @@ export class AdminMarketplaceComponent implements OnInit {
   /** Retry both feeds after a load failure. */
   reload() {
     this.loadError.set(false);
+    this.flagDisabled.set(false);
     this.loadErrorRef.set('');
     this.loadCatalog();
     this.loadSections();
@@ -392,11 +406,16 @@ export class AdminMarketplaceComponent implements OnInit {
   }
 
   loadCatalog() {
-    this.http.get<{ catalog: IndustryCatalog[] }>('/api/section-marketplace')
+    this.api.get<{ catalog: IndustryCatalog[] }>('/section-marketplace', undefined, { silent: true })
       .pipe(catchError((err: HttpErrorResponse) => {
-        this.loadError.set(true);
-        const ref = this.refOf(err);
-        if (ref) this.loadErrorRef.set(ref);
+        // 404 = section_marketplace flag OFF (permanent → calm Feature-Flags notice,
+        // no futile Retry); any other status = a transient failure → the error card.
+        if (err?.status === 404) this.flagDisabled.set(true);
+        else {
+          this.loadError.set(true);
+          const ref = this.refOf(err);
+          if (ref) this.loadErrorRef.set(ref);
+        }
         return of({ catalog: [] as IndustryCatalog[] });
       }))
       .subscribe((res: { catalog: IndustryCatalog[] }) => {
@@ -407,11 +426,14 @@ export class AdminMarketplaceComponent implements OnInit {
 
   loadSections() {
     this.loading.set(true);
-    this.http.get<{ sections: SectionSummary[] }>('/api/section-marketplace/sections?limit=200')
+    this.api.get<{ sections: SectionSummary[] }>('/section-marketplace/sections', { limit: '200' }, { silent: true })
       .pipe(catchError((err: HttpErrorResponse) => {
-        this.loadError.set(true);
-        const ref = this.refOf(err);
-        if (ref) this.loadErrorRef.set(ref);
+        if (err?.status === 404) this.flagDisabled.set(true);
+        else {
+          this.loadError.set(true);
+          const ref = this.refOf(err);
+          if (ref) this.loadErrorRef.set(ref);
+        }
         return of({ sections: [] as SectionSummary[] });
       }))
       .subscribe((res: { sections: SectionSummary[] }) => {
@@ -440,7 +462,7 @@ export class AdminMarketplaceComponent implements OnInit {
 
   fork(id: string) {
     if (this.forkedIds().has(id)) return;
-    this.http.post<{ id: string; fork_count: number }>(`/api/section-marketplace/sections/${id}/fork`, {})
+    this.api.post<{ id: string; fork_count: number }>(`/section-marketplace/sections/${id}/fork`, {}, { silent: true })
       .pipe(catchError(() => of(null as { id: string; fork_count: number } | null)))
       .subscribe((res: { id: string; fork_count: number } | null) => {
         if (res) {
