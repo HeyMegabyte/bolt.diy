@@ -149,9 +149,13 @@ interface BoltMediaAttachMessage {
         <div class="med-header__title-row">
           <h1 class="med-title">Media</h1>
           <span class="count-chip" role="status"
-                [attr.aria-label]="loadingLibrary() && assets().length === 0 ? 'Loading library…' : assetCountLabel()">
+                [attr.aria-label]="loadingLibrary() && assets().length === 0 ? 'Loading library…' : (libraryError() && assets().length === 0 ? 'Library failed to load' : assetCountLabel())">
             @if (loadingLibrary() && assets().length === 0) {
               <span aria-hidden="true" class="count-chip-loading">…</span>
+            } @else if (libraryError() && assets().length === 0) {
+              <!-- Load errored with no assets → the count is UNKNOWN, not 0.
+                   Show "—" (mirrors the loading "…"), never a false "0 assets". -->
+              <span aria-hidden="true" class="count-chip-loading">—</span>&nbsp;<span aria-hidden="true">assets</span>
             } @else {
               <app-rolling-counter [value]="assets().length" [duration]="900" aria-hidden="true" />
               <span aria-hidden="true">{{ assets().length === 1 ? 'asset' : 'assets' }}</span>

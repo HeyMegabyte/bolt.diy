@@ -79,6 +79,18 @@ describe('AdminMediaComponent (cyan/black cohesion + a11y)', () => {
     expect(chip.getAttribute('aria-label')).withContext('honest SR announcement while loading').not.toContain('0 assets');
   });
 
+  it('does NOT announce a false "0 assets" when the library load errors (count is unknown)', () => {
+    build();
+    fixture.componentInstance.loadingLibrary.set(false);
+    fixture.componentInstance.libraryError.set('Server error');
+    fixture.componentInstance.assets.set([]);
+    fixture.detectChanges();
+    const chip = (fixture.nativeElement as HTMLElement).querySelector('.count-chip')!;
+    expect(chip.querySelector('app-rolling-counter')).withContext('no "0 assets" count over the load error').toBeNull();
+    expect(chip.getAttribute('aria-label')).withContext('honest SR announcement on error').not.toContain('0 assets');
+    expect(chip.textContent ?? '').withContext('shows the unknown dash').toContain('—');
+  });
+
   it('applies the appReveal entrance host on the section shell', () => {
     build();
     const el: HTMLElement = fixture.nativeElement;
