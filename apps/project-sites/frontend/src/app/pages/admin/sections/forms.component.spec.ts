@@ -447,6 +447,24 @@ describe('AdminFormsComponent (bulk-select submissions → export selected)', ()
     expect(btn.textContent ?? '').withContext('label switches to "Export N selected"').toContain('1 selected');
   });
 
+  it('shows a Clear button only while rows are selected; clicking it deselects all', () => {
+    const f = mount();
+    f.componentInstance.submissions.set([sub('a'), sub('b')]);
+    f.detectChanges();
+    const host = f.nativeElement as HTMLElement;
+    expect(host.querySelector('[data-testid="forms-clear-selection"]')).withContext('hidden with no selection').toBeNull();
+
+    f.componentInstance.toggleSelect('a'); // partial
+    f.detectChanges();
+    const clear = host.querySelector('[data-testid="forms-clear-selection"]') as HTMLButtonElement;
+    expect(clear).withContext('Clear button appears once a row is selected').toBeTruthy();
+
+    clear.click();
+    f.detectChanges();
+    expect(f.componentInstance.selectedIds().size).withContext('one click clears the whole selection').toBe(0);
+    expect(host.querySelector('[data-testid="forms-clear-selection"]')).withContext('hidden again once cleared').toBeNull();
+  });
+
   it('the select-all header checkbox shows the INDETERMINATE state on a partial selection', () => {
     const f = mount();
     f.componentInstance.submissions.set([sub('a'), sub('b')]);

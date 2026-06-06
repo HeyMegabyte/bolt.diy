@@ -457,6 +457,12 @@ const POLL_INTERVAL_MS = 10_000;
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               {{ selectedIds().size > 0 ? 'Export ' + selectedIds().size + ' selected' : 'Export CSV' }}
             </button>
+            @if (selectedIds().size > 0) {
+              <button class="btn-ghost text-xs" type="button" data-testid="forms-clear-selection" (click)="clearSelection()"
+                      [attr.aria-label]="'Clear selection of ' + selectedIds().size + ' submission' + (selectedIds().size === 1 ? '' : 's')">
+                Clear
+              </button>
+            }
           </div>
         </div>
         @if (loading() && submissions().length === 0) {
@@ -913,6 +919,10 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
       else next.add(id);
       return next;
     });
+  }
+  /** Deselect all in one click — reliable clear from any state (incl. partial). */
+  clearSelection(): void {
+    this.selectedIds.set(new Set());
   }
   toggleSelectAll(): void {
     const f = this.filteredSubmissions();
