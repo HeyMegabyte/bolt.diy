@@ -178,3 +178,64 @@ describe('AdminStateService — visibility-aware live-refresh (hidden tabs do no
     expect(listSites.calls.count()).withContext('polling resumes after the tab returns').toBeGreaterThan(base);
   });
 });
+
+/**
+ * copyUrl() copies the site's LIVE url (primary hostname → slug.projectsites.dev)
+ * to the clipboard. A clipboard rejection (insecure context / denied permission)
+ * must surface a friendly error toast — never a silent unhandled rejection (which
+ * would also trip the console-error gate).
+ */
+describe('AdminStateService — copyUrl (clipboard + graceful failure)', () => {
+  let writeText: jasmine.Spy;
+  let success: jasmine.Spy;
+  let error: jasmine.Spy;
+  let origClipboard: PropertyDescriptor | undefined;
+
+  function build(): AdminStateService {
+    success = jasmine.createSpy('success');
+    error = jasmine.createSpy('error');
+    TestBed.configureTestingModule({
+      providers: [
+        AdminStateService,
+        { provide: ApiService, useValue: { listSites: () => of({ data: [] }), getDomainSummary: () => of({ data: {} }), getSubscription: () => of({ data: null }), getMe: () => of({ data: {} }), getAnalytics: () => of({ data: null }) } },
+        { provide: AuthService, useValue: { isLoggedIn: () => true } },
+        { provide: ToastService, useValue: { success, error, toasts: () => [] } },
+        { provide: TelemetryService, useValue: { track: () => undefined } },
+        { provide: Router, useValue: { navigate: () => undefined, url: '/admin' } },
+        { provide: DomSanitizer, useValue: { bypassSecurityTrustResourceUrl: (u: string) => u } },
+        { provide: Dialog, useValue: { open: () => ({ closed: of(undefined) }) } },
+      ],
+    });
+    return TestBed.inject(AdminStateService);
+  }
+
+  beforeEach(() => {
+    origClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    writeText = jasmine.createSpy('writeText');
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  });
+  afterEach(() => {
+    if (origClipboard) Object.defineProperty(navigator, 'clipboard', origClipboard);
+    else Reflect.deleteProperty(navigator as unknown as Record<string, unknown>, 'clipboard');
+    TestBed.resetTestingModule();
+  });
+
+  it('copies the live URL and toasts success', async () => {
+    writeText.and.returnValue(Promise.resolve());
+    const svc = build();
+    svc.copyUrl({ id: 's', slug: 'vito', business_name: 'Vito', status: 'published' } as never);
+    await Promise.resolve(); await Promise.resolve();
+    expect(writeText).toHaveBeenCalledWith('https://vito.projectsites.dev');
+    expect(success).toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it('a clipboard rejection surfaces an error toast — no silent unhandled rejection', async () => {
+    writeText.and.returnValue(Promise.reject(new Error('denied')));
+    const svc = build();
+    svc.copyUrl({ id: 's', slug: 'vito', business_name: 'Vito', status: 'published' } as never);
+    await Promise.resolve(); await Promise.resolve();
+    expect(error).toHaveBeenCalled();
+    expect(success).not.toHaveBeenCalled();
+  });
+});

@@ -487,6 +487,11 @@ export class AdminComponent implements OnInit, OnDestroy {
     this.state.visitSite(site);
     this.siteActionsOpen.set(false);
   }
+  /** Copy the site's live URL to the clipboard (toast + graceful failure), then close. */
+  copySiteUrl(site: Site): void {
+    this.state.copyUrl(site);
+    this.siteActionsOpen.set(false);
+  }
   /** Save & deploy from the menu (no-ops off the editor route), then close. */
   deployFromMenu(): void {
     if (!this.isEditorRoute() || this.bolt.saving()) return;

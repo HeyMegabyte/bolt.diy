@@ -302,9 +302,12 @@ export class AdminStateService {
   }
 
   copyUrl(site: Site): void {
-    navigator.clipboard.writeText(this.getSiteUrl(site)).then(() => {
-      this.toast.success('URL copied to clipboard');
-    });
+    navigator.clipboard
+      .writeText(this.getSiteUrl(site))
+      .then(() => this.toast.success('URL copied to clipboard'))
+      // Insecure context / denied permission → friendly toast, never a silent
+      // unhandled rejection (which would also trip the console-error gate).
+      .catch(() => this.toast.error('Could not copy — copy the URL from the address bar'));
   }
 
   openCheckout(): void {

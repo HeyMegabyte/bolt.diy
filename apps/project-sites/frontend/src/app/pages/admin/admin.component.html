@@ -344,6 +344,10 @@
                   <span class="sa-label">Preview</span>
                   @if (site.status !== 'published') { <span class="sa-hint">publish first</span> }
                 </button>
+                <button class="sa-item" role="menuitem" type="button" (click)="copySiteUrl(site)" data-testid="sa-copy-url">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span class="sa-label">Copy site URL</span>
+                </button>
                 <button class="sa-item" role="menuitem" type="button" (click)="deployFromMenu()"
                         [disabled]="!isEditorRoute() || bolt.saving()" [attr.aria-busy]="bolt.saving()" data-testid="sa-deploy">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>

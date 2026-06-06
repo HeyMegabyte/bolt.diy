@@ -68,6 +68,7 @@ test.describe('navbar Site-actions dropdown', () => {
     await expect(menu).toBeVisible();
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
     await expect(menu.locator('[data-testid="sa-preview"]')).toBeVisible();
+    await expect(menu.locator('[data-testid="sa-copy-url"]')).toBeVisible();
     await expect(menu.locator('[data-testid="sa-deploy"]')).toBeVisible();
     await expect(menu.locator('[data-testid="sa-review-links"]')).toBeVisible();
 
