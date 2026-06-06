@@ -58,6 +58,19 @@ describe('AdminSitesComponent (sorting + a11y + tiers)', () => {
     expect(c.ariaSort('composite')).toBe('ascending');
   });
 
+  // Unsorted sortable columns must advertise that they're sortable (a faint ↕),
+  // matching content-freshness / api-tokens — NOT render nothing until clicked.
+  it('sortIndicator shows a ↕ affordance on unsorted columns and the live arrow on the active one', () => {
+    const c = make();
+    c.sortKey.set('composite');
+    c.sortDir.set('desc');
+    expect(c.sortIndicator('composite')).withContext('active column → direction arrow').toBe('↓');
+    expect(c.sortIndicator('lcp')).withContext('unsorted → sortable affordance, not empty').toBe('↕');
+    expect(c.sortIndicator('name')).toBe('↕');
+    c.sortDir.set('asc');
+    expect(c.sortIndicator('composite')).toBe('↑');
+  });
+
   it('sortBy toggles direction on the same key and resets triage', () => {
     const c = make();
     c.triage.set(true);
@@ -126,12 +139,12 @@ describe('AdminSitesComponent (sorting + a11y + tiers)', () => {
     expect(c.tierForScore(null)).toBe('neutral');
   });
 
-  it('sortIndicator shows a glyph only for the active column', () => {
+  it('sortIndicator shows the live arrow on the active column and a ↕ affordance on the rest', () => {
     const c = make();
     c.sortKey.set('lcp');
     c.sortDir.set('asc');
     expect(c.sortIndicator('lcp')).toBe('↑');
-    expect(c.sortIndicator('cls')).toBe('');
+    expect(c.sortIndicator('cls')).withContext('inactive columns advertise sortability with ↕').toBe('↕');
   });
 });
 

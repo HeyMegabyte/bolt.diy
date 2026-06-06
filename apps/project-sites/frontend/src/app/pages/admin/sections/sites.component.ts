@@ -58,6 +58,10 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
   styles: [`
     :host ::ng-deep .spark { display: inline-block; vertical-align: middle; margin-left: 6px; }
     :host ::ng-deep .cell-val { display: inline-block; vertical-align: middle; min-width: 48px; }
+    /* Sort affordance: faint ↕ on unsorted sortable headers, cyan ↑/↓ on the active one (parity with content-freshness). */
+    .st-sort-ind { margin-left: 4px; opacity: .45; font-size: .8em; }
+    th[aria-sort="ascending"] .st-sort-ind,
+    th[aria-sort="descending"] .st-sort-ind { opacity: 1; color: var(--ps-accent, #00e5ff); }
   `],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-5">
@@ -123,32 +127,32 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
                 <th scope="col" tabindex="0" class="px-4 py-3 cursor-pointer hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]"
                     [attr.aria-sort]="ariaSort('name')"
                     (click)="sortBy('name')" (keydown.enter)="sortBy('name')" (keydown.space)="sortBy('name'); $event.preventDefault()">
-                  Site {{ sortIndicator('name') }}
+                  Site <span class="st-sort-ind" aria-hidden="true">{{ sortIndicator('name') }}</span>
                 </th>
                 <th scope="col" tabindex="0" class="px-4 py-3 cursor-pointer hover:text-white text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]"
                     [attr.aria-sort]="ariaSort('lcp')"
                     (click)="sortBy('lcp')" (keydown.enter)="sortBy('lcp')" (keydown.space)="sortBy('lcp'); $event.preventDefault()">
-                  LCP {{ sortIndicator('lcp') }}
+                  LCP <span class="st-sort-ind" aria-hidden="true">{{ sortIndicator('lcp') }}</span>
                 </th>
                 <th scope="col" tabindex="0" class="px-4 py-3 cursor-pointer hover:text-white text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]"
                     [attr.aria-sort]="ariaSort('cls')"
                     (click)="sortBy('cls')" (keydown.enter)="sortBy('cls')" (keydown.space)="sortBy('cls'); $event.preventDefault()">
-                  CLS {{ sortIndicator('cls') }}
+                  CLS <span class="st-sort-ind" aria-hidden="true">{{ sortIndicator('cls') }}</span>
                 </th>
                 <th scope="col" tabindex="0" class="px-4 py-3 cursor-pointer hover:text-white text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]"
                     [attr.aria-sort]="ariaSort('inp')"
                     (click)="sortBy('inp')" (keydown.enter)="sortBy('inp')" (keydown.space)="sortBy('inp'); $event.preventDefault()">
-                  INP {{ sortIndicator('inp') }}
+                  INP <span class="st-sort-ind" aria-hidden="true">{{ sortIndicator('inp') }}</span>
                 </th>
                 <th scope="col" tabindex="0" class="px-4 py-3 cursor-pointer hover:text-white text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]"
                     [attr.aria-sort]="ariaSort('lh')"
                     (click)="sortBy('lh')" (keydown.enter)="sortBy('lh')" (keydown.space)="sortBy('lh'); $event.preventDefault()">
-                  Lighthouse {{ sortIndicator('lh') }}
+                  Lighthouse <span class="st-sort-ind" aria-hidden="true">{{ sortIndicator('lh') }}</span>
                 </th>
                 <th scope="col" tabindex="0" class="px-4 py-3 cursor-pointer hover:text-white text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]"
                     [attr.aria-sort]="ariaSort('composite')"
                     (click)="sortBy('composite')" (keydown.enter)="sortBy('composite')" (keydown.space)="sortBy('composite'); $event.preventDefault()">
-                  Score {{ sortIndicator('composite') }}
+                  Score <span class="st-sort-ind" aria-hidden="true">{{ sortIndicator('composite') }}</span>
                 </th>
               </tr>
             </thead>
@@ -286,7 +290,9 @@ export class AdminSitesComponent implements OnInit {
   }
 
   sortIndicator(key: SortKey): string {
-    if (this.sortKey() !== key) return '';
+    // Unsorted columns advertise sortability with a faint ↕ (parity with
+    // content-freshness / api-tokens) rather than rendering nothing until clicked.
+    if (this.sortKey() !== key) return '↕';
     return this.sortDir() === 'asc' ? '↑' : '↓';
   }
 
