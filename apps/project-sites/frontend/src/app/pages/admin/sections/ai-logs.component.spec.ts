@@ -84,6 +84,22 @@ describe('AdminAiLogsComponent (grid state — skeleton vs empty vs data)', () =
     expect(c.gridLoadingSkeleton()).toBe(false);
   });
 
+  // KPI tiles must NOT assert "0 calls · 0ms · 0 errors · 0 credits" over the
+  // error card — the count is unknown on error, not 0.
+  it('hides the KPI tiles on a load error with no rows; shows them with data', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.loadError.set('Could not load AI traces — retry.');
+    c.rows.set([]);
+    expect(c.showKpis()).withContext('no "0 calls" over the error').toBe(false);
+
+    c.rows.set([{ id: 'l1' } as never]);
+    expect(c.showKpis()).withContext('stale data still shows KPIs').toBe(true);
+
+    c.loadError.set(null);
+    c.rows.set([]);
+    expect(c.showKpis()).withContext('error-free empty still renders (animates 0)').toBe(true);
+  });
+
   it('suppresses the empty state on a load error (the error card owns that case)', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
     c.loading.set(false);

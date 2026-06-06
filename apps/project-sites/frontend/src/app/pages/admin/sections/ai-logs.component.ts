@@ -253,12 +253,17 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
       </header>
 
       <!-- KPI tiles ──────────────────────────────────────────────────── -->
+      <!-- Hidden when the load errored with no data — definitive "0 calls · 0ms
+           · 0 errors · 0 credits" over the error card is wrong (unknown, not 0).
+           Stale data still shows them. Mirrors the marketplace/site-dna fix. -->
+      @if (showKpis()) {
       <div class="grid grid-cols-4 gap-3 text-[0.78rem]">
         <div class="card" appReveal><div class="muted-h">Calls</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="rows().length" [duration]="1100" /></div></div>
         <div class="card" appReveal><div class="muted-h">Avg latency</div><div class="text-2xl font-bold text-white">@if (avgLatency() < 1000) { <app-rolling-counter [value]="avgLatency()" suffix="ms" [duration]="1100" /> } @else { <app-rolling-counter [value]="avgLatency() / 1000" [decimals]="1" suffix="s" [duration]="1100" /> }</div></div>
         <div class="card" appReveal><div class="muted-h">Errors</div><div class="text-2xl font-bold" [class.text-red-400]="errors() > 0" [class.text-white]="errors() === 0"><app-rolling-counter [value]="errors()" [duration]="1100" /></div></div>
         <div class="card" appReveal><div class="muted-h">Credits used</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="totalCredits()" [duration]="1100" /></div></div>
       </div>
+      }
 
       @if (loadError() && rows().length === 0 && !loading()) {
         <div class="card" role="alert" data-testid="ai-logs-load-error">
@@ -728,6 +733,9 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
   gridLoadingSkeleton = computed<boolean>(() => this.loading() && this.rows().length === 0);
   /** Genuine "no traces yet" (not loading, no error) → a friendly empty state, not ag-grid's generic overlay. */
   gridEmpty = computed<boolean>(() => !this.loading() && !this.loadError() && this.rows().length === 0);
+  /** KPI tiles hidden when the load errored with no data — a definitive "0 calls
+   *  · 0ms · 0 errors · 0 credits" over the error card is wrong (unknown, not 0). */
+  showKpis = computed<boolean>(() => !this.loadError() || this.rows().length > 0);
 
   // ─── Filtered rows + synthetic detail injection ────────────────────
   /**
