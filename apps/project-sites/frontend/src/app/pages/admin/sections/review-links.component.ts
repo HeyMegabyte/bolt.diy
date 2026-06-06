@@ -83,7 +83,7 @@ interface ReviewLink {
             @for (l of links(); track l.id) {
               <li data-testid="review-links-row" class="flex items-center justify-between gap-3 rounded-lg bg-white/[0.03] px-3 py-2.5">
                 <div class="min-w-0">
-                  <code class="text-[0.82rem] text-light truncate block">{{ l.url }}</code>
+                  <code class="text-[0.82rem] text-light truncate block" [attr.title]="l.url">{{ l.url }}</code>
                   <span class="text-[0.7rem] text-text-secondary tabular-nums">expires {{ l.expiresAt | date: 'MMM d, y' }}</span>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">

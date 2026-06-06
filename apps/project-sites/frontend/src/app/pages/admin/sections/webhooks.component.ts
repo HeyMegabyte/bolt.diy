@@ -124,7 +124,7 @@ interface Delivery {
             @for (e of endpoints(); track e.id) {
               <li data-testid="webhooks-row" class="flex items-center justify-between gap-3 rounded-lg bg-white/[0.03] px-3 py-2.5">
                 <div class="min-w-0">
-                  <code class="text-[0.82rem] text-light truncate block">{{ e.url }}</code>
+                  <code class="text-[0.82rem] text-light truncate block" [attr.title]="e.url">{{ e.url }}</code>
                   <span class="text-[0.7rem] text-text-secondary">{{ e.eventTypes.join(', ') }}</span>
                 </div>
                 <button hlmBtn variant="ghost" size="sm" data-testid="webhooks-delete" (click)="remove(e.id, e.url)">Delete</button>

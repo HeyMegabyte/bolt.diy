@@ -156,7 +156,7 @@ interface BulkApplyResult {
               <ul class="flex flex-col gap-1.5">
                 @for (s of p.skipped; track s.id) {
                   <li data-testid="bulk-ops-skip-row" class="flex items-center justify-between gap-3 text-[0.8rem] rounded-lg bg-white/[0.03] px-3 py-2">
-                    <code class="text-text-secondary truncate">{{ s.id }}</code>
+                    <code class="text-text-secondary truncate" [attr.title]="s.id">{{ s.id }}</code>
                     <span class="text-amber-300/90 shrink-0">{{ s.reason }}</span>
                   </li>
                 }
@@ -190,7 +190,7 @@ interface BulkApplyResult {
             <ul class="mt-3 flex flex-col gap-1.5">
               @for (f of r.failed; track f.id) {
                 <li data-testid="bulk-ops-apply-fail-row" class="flex items-center justify-between gap-3 text-[0.8rem] rounded-lg bg-white/[0.03] px-3 py-2">
-                  <code class="text-text-secondary truncate">{{ f.id }}</code>
+                  <code class="text-text-secondary truncate" [attr.title]="f.id">{{ f.id }}</code>
                   <span class="text-amber-300/90 shrink-0">{{ f.reason }}</span>
                 </li>
               }

@@ -348,7 +348,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
             @for (r of envelope()!.top_pages; track r.path) {
               <div class="bar-row">
                 <div class="flex justify-between mb-1 gap-2">
-                  <span class="font-mono text-[0.72rem] truncate text-white">{{ r.path }}</span>
+                  <span class="font-mono text-[0.72rem] truncate text-white" [attr.title]="r.path">{{ r.path }}</span>
                   <span class="text-[0.7rem] text-text-secondary tabular">{{ formatCount(r.views) }}</span>
                 </div>
                 <div class="bar"><div class="bar-fill" [style.width.%]="barWidth(r.views, maxPage())"></div></div>
@@ -391,7 +391,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
           @for (r of envelope()!.top_referrers; track r.referrer) {
             <div class="bar-row">
               <div class="flex justify-between mb-1 gap-2">
-                <span class="text-[0.78rem] truncate">{{ r.referrer }}</span>
+                <span class="text-[0.78rem] truncate" [attr.title]="r.referrer">{{ r.referrer }}</span>
                 <span class="text-[0.7rem] text-text-secondary tabular">{{ formatCount(r.views) }}</span>
               </div>
               <div class="bar"><div class="bar-fill" [style.width.%]="barWidth(r.views, maxReferrer())"></div></div>

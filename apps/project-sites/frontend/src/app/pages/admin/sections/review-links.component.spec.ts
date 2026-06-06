@@ -57,6 +57,16 @@ describe('AdminReviewLinksComponent', () => {
     expect(q('[data-testid="review-links-status"]')?.textContent?.trim()).toBe('pending');
   });
 
+  // The link URL is truncated (.truncate) — it MUST carry a title so the full
+  // value is readable on hover when clipped (it's an opaque identifier otherwise).
+  it('gives the truncated link URL a hover title (readable when clipped)', () => {
+    build({ id: 's1' });
+    const code = q('[data-testid="review-links-row"] code') as HTMLElement;
+    expect(code).withContext('link URL code cell').not.toBeNull();
+    expect(code.classList.contains('truncate')).withContext('is truncated').toBeTrue();
+    expect(code.getAttribute('title')).withContext('hover title = full URL').toBe('/review/r1');
+  });
+
   it('creates a link and reveals it', () => {
     build({ id: 's1' });
     (q('[data-testid="review-links-create-btn"]') as HTMLButtonElement).click();

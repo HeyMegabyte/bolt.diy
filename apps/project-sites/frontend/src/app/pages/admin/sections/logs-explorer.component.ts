@@ -162,7 +162,7 @@ const LEVEL_COLORS: Record<string, string> = {
           </div>
           @for (row of costRows().slice(0, 15); track row.route) {
             <div class="cost-row flex items-center gap-2">
-              <span class="cost-route text-[0.68rem] text-text-secondary truncate w-48 shrink-0">{{ row.route }}</span>
+              <span class="cost-route text-[0.68rem] text-text-secondary truncate w-48 shrink-0" [attr.title]="row.route">{{ row.route }}</span>
               <div class="cost-bar-bg flex-1 relative h-5 rounded overflow-hidden">
                 <div
                   class="cost-bar-fill absolute inset-y-0 left-0 bg-[--ps-accent] opacity-20 rounded"
@@ -205,7 +205,7 @@ const LEVEL_COLORS: Record<string, string> = {
                 <span class="col-ts text-[#888]">{{ row.ts | slice:11:19 }}</span>
                 <span class="col-level {{ LEVEL_COLORS[row.level] ?? '' }}">{{ row.level }}</span>
                 <span class="col-method text-[#888]">{{ row.method }}</span>
-                <span class="col-route truncate text-[0.68rem]">{{ row.route }}</span>
+                <span class="col-route truncate text-[0.68rem]" [attr.title]="row.route">{{ row.route }}</span>
                 <span class="col-status" [class.text-red-400]="(row.status ?? 0) >= 500">{{ row.status ?? '—' }}</span>
                 <span class="col-dur text-[#888]">{{ row.duration_ms ?? '—' }}</span>
                 <span class="col-msg truncate text-[0.68rem]" title="{{ row.message }}">{{ row.message }}</span>
