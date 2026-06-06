@@ -97,6 +97,19 @@ describe('AdminMarketplaceComponent (cohesion r8)', () => {
     expect(q('.mkt-header__stats')).withContext('stats return once resolved').not.toBeNull();
   });
 
+  // The industry tabs + slot filter must NOT render over the error card — they
+  // filter a catalog that failed to load (dead controls).
+  it('hides the industry tabs + slot filter on loadError; shows them once resolved', () => {
+    fixture.componentInstance.loadError.set(true);
+    fixture.detectChanges();
+    expect(q('.mkt-industry-tabs')).withContext('industry tabs hidden on error').toBeNull();
+    expect(q('.mkt-slot-filter')).withContext('slot filter hidden on error').toBeNull();
+    fixture.componentInstance.loadError.set(false);
+    fixture.detectChanges();
+    expect(q('.mkt-industry-tabs')).withContext('filters return once resolved').not.toBeNull();
+    expect(q('.mkt-slot-filter')).not.toBeNull();
+  });
+
   it('hides the header stats while loading (no premature "0 sections" over the skeleton)', () => {
     fixture.componentInstance.loading.set(true);
     fixture.detectChanges();

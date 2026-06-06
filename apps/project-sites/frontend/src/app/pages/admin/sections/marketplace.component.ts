@@ -93,6 +93,9 @@ const SLOT_COLORS: Record<string, string> = {
     }
   </header>
 
+  <!-- Filters hidden while loading / on error — dead controls over the spinner
+       or the "Couldn't load" card (nothing to filter). -->
+  @if (!loading() && !loadError()) {
   <!-- ── Industry Filter Tabs ─────────────────────────────────────────── -->
   <div class="mkt-industry-tabs" role="tablist" hlmTablist aria-label="Filter by industry" appReveal>
     <button class="mkt-tab" type="button" role="tab"
@@ -128,6 +131,7 @@ const SLOT_COLORS: Record<string, string> = {
     }
   </div>
   <span class="sr-only" role="status" aria-live="polite" data-testid="marketplace-result-status">{{ resultAnnouncement() }}</span>
+  }
 
   <!-- ── Section Grid ─────────────────────────────────────────────────── -->
   @if (loading()) {
