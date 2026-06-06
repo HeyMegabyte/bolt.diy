@@ -391,14 +391,14 @@
               @for (group of groupedNotifications(); track group.label) {
                 <div class="text-[0.6rem] text-text-secondary/70 uppercase tracking-wider font-bold mt-3 mb-1 px-1">{{ group.label }}</div>
                 @for (n of group.items; track n.id) {
-                  <div class="notif-item" [class.is-unread]="!n.read" (click)="openNotification(n)">
+                  <button type="button" class="notif-item" [class.is-unread]="!n.read" (click)="openNotification(n)">
                     <div class="notif-icon" [class.is-warn]="n.kind === 'warn'" [class.is-info]="n.kind === 'info'" [class.is-ok]="n.kind === 'ok'">{{ n.kind === 'warn' ? '!' : n.kind === 'ok' ? '✓' : '●' }}</div>
                     <div class="flex-1 min-w-0">
                       <div class="text-[0.78rem] text-white truncate">{{ n.title }}</div>
                       <div class="text-[0.66rem] text-text-secondary">{{ n.time }}</div>
                     </div>
                     @if (!n.read) { <span class="notif-dot-mini" aria-label="unread"></span> }
-                  </div>
+                  </button>
                 }
               }
             }
