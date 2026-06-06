@@ -23,6 +23,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { ApiService } from '../../../services/api.service';
 import { catchError, of } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
@@ -262,6 +263,9 @@ interface ToolUsage {
 })
 export class SiteMcpServerComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
+  // ApiService for the admin /api/* calls (injects the bearer + 401-handling);
+  // raw HttpClient stays ONLY for the public `/{slug}/mcp` playground endpoint.
+  private readonly api = inject(ApiService);
   private readonly http = inject(HttpClient);
   private readonly toast = inject(ToastService);
   private readonly confirmSvc = inject(ConfirmService);
@@ -309,8 +313,8 @@ export class SiteMcpServerComponent implements OnInit {
 
   private loadSiteSlug(): void {
     if (!this.siteId) return;
-    this.http
-      .get<{ data: { slug: string } }>(`/api/sites/${this.siteId}`)
+    this.api
+      .get<{ data: { slug: string } }>(`/sites/${this.siteId}`, undefined, { silent: true })
       .pipe(catchError(() => of(null)))
       .subscribe((res) => {
         if (res?.data?.slug) this.siteSlug.set(res.data.slug);
@@ -320,8 +324,8 @@ export class SiteMcpServerComponent implements OnInit {
   loadTokens(): void {
     this.tokensLoading.set(true);
     this.tokensError.set(null);
-    this.http
-      .get<{ tokens: McpToken[] }>(`/api/sites/${this.siteId}/mcp/tokens`)
+    this.api
+      .get<{ tokens: McpToken[] }>(`/sites/${this.siteId}/mcp/tokens`, undefined, { silent: true })
       .pipe(catchError(() => { this.tokensError.set('The MCP token service did not respond.'); return of(null); }))
       .subscribe((res) => {
         if (res) this.tokens.set(res.tokens);
@@ -332,8 +336,8 @@ export class SiteMcpServerComponent implements OnInit {
   loadTools(): void {
     this.toolsLoading.set(true);
     this.toolsError.set(null);
-    this.http
-      .get<{ tools: ToolDef[] }>(`/api/sites/${this.siteId}/mcp/tools`)
+    this.api
+      .get<{ tools: ToolDef[] }>(`/sites/${this.siteId}/mcp/tools`, undefined, { silent: true })
       .pipe(catchError(() => { this.toolsError.set('The MCP tool registry did not respond.'); return of(null); }))
       .subscribe((res) => {
         if (res) this.tools.set(res.tools);
@@ -342,8 +346,8 @@ export class SiteMcpServerComponent implements OnInit {
   }
 
   private loadUsage(): void {
-    this.http
-      .get<{ usage: ToolUsage[] }>(`/api/sites/${this.siteId}/mcp/tool-usage`)
+    this.api
+      .get<{ usage: ToolUsage[] }>(`/sites/${this.siteId}/mcp/tool-usage`, undefined, { silent: true })
       .pipe(catchError(() => of({ usage: [] as ToolUsage[] })))
       .subscribe((res) => this.usage.set(res.usage));
   }
@@ -354,8 +358,8 @@ export class SiteMcpServerComponent implements OnInit {
     // auto-label (`Token N`) so two tokens are never both "Default".
     const label = this.newTokenLabel.trim() || `Token ${this.tokens().length + 1}`;
     this.minting.set(true);
-    this.http
-      .post<{ id: string; token: string }>(`/api/sites/${this.siteId}/mcp/tokens`, { label })
+    this.api
+      .post<{ id: string; token: string }>(`/sites/${this.siteId}/mcp/tokens`, { label }, { silent: true })
       .pipe(catchError((err) => { this.toast.error(err?.error?.error ?? 'Failed to mint token'); return of(null); }))
       .subscribe((res) => {
         if (res) {
@@ -383,8 +387,8 @@ export class SiteMcpServerComponent implements OnInit {
     });
     if (!ok) return;
     this.revoking.set(tokenId);
-    this.http
-      .delete(`/api/sites/${this.siteId}/mcp/tokens/${tokenId}`)
+    this.api
+      .delete(`/sites/${this.siteId}/mcp/tokens/${tokenId}`, { silent: true })
       .pipe(catchError((err) => { this.toast.error(err?.error?.error ?? 'Failed'); return of(null); }))
       .subscribe(() => {
         this.tokens.update((ts) => ts.filter((t) => t.id !== tokenId));

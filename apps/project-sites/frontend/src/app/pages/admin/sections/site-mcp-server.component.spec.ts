@@ -3,34 +3,48 @@ import { of, throwError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { SiteMcpServerComponent } from './site-mcp-server.component';
+import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 
 /**
  * First coverage for the per-site MCP server (security-critical token CRUD — untested):
+ *  - admin token/tool CRUD routes through ApiService (carries the auth bearer — the
+ *    section used to use raw HttpClient with NO Authorization header → every call
+ *    401'd → the section was non-functional. Regression-guarded below.)
  *  - loadTokens/loadTools error gating (sets *Error, not a silent empty)
  *  - mintToken reveals the raw token once + reloads
  *  - revokeToken optimistically drops the row + clears the in-flight marker
  *  - runPlayground rejects invalid JSON args before firing a request (input validation)
  *  - totalCallsToday sums only today's usage
  * overrideComponent strips the template so ngOnInit doesn't auto-fire; methods driven directly.
+ * The admin /api/* calls use `api` (bearer + 401-handling); the public `/{slug}/mcp`
+ * playground call stays on raw `http`.
  */
 function make(over: { get?: jasmine.Spy; post?: jasmine.Spy; del?: jasmine.Spy; confirmResult?: boolean } = {}): {
   c: SiteMcpServerComponent;
+  api: { get: jasmine.Spy; post: jasmine.Spy; delete: jasmine.Spy };
   http: { get: jasmine.Spy; post: jasmine.Spy; delete: jasmine.Spy };
   toast: { error: jasmine.Spy; success: jasmine.Spy };
   confirmSpy: jasmine.Spy;
 } {
+  const api = {
+    get: over.get ?? jasmine.createSpy('apiGet').and.returnValue(of({ tokens: [], tools: [], usage: [] })),
+    post: over.post ?? jasmine.createSpy('apiPost').and.returnValue(of({ id: 't1', token: 'mcp_raw_secret' })),
+    delete: over.del ?? jasmine.createSpy('apiDelete').and.returnValue(of({})),
+  };
+  // raw HttpClient is used ONLY by the public-endpoint playground call now.
   const http = {
-    get: over.get ?? jasmine.createSpy('get').and.returnValue(of({ tokens: [], tools: [], usage: [] })),
-    post: over.post ?? jasmine.createSpy('post').and.returnValue(of({ id: 't1', token: 'mcp_raw_secret' })),
-    delete: over.del ?? jasmine.createSpy('delete').and.returnValue(of({})),
+    get: jasmine.createSpy('httpGet').and.returnValue(of({})),
+    post: jasmine.createSpy('httpPost').and.returnValue(of({ ok: true })),
+    delete: jasmine.createSpy('httpDelete').and.returnValue(of({})),
   };
   const toast = { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') };
   const confirmSpy = jasmine.createSpy('confirm').and.resolveTo(over.confirmResult ?? true);
   TestBed.configureTestingModule({
     imports: [SiteMcpServerComponent],
     providers: [
+      { provide: ApiService, useValue: api },
       { provide: HttpClient, useValue: http },
       { provide: ToastService, useValue: toast },
       { provide: ConfirmService, useValue: { confirm: confirmSpy } },
@@ -38,11 +52,21 @@ function make(over: { get?: jasmine.Spy; post?: jasmine.Spy; del?: jasmine.Spy; 
     ],
   });
   TestBed.overrideComponent(SiteMcpServerComponent, { set: { template: '<div></div>', imports: [] } });
-  return { c: TestBed.createComponent(SiteMcpServerComponent).componentInstance, http, toast, confirmSpy };
+  return { c: TestBed.createComponent(SiteMcpServerComponent).componentInstance, api, http, toast, confirmSpy };
 }
 
 describe('SiteMcpServerComponent (MCP token CRUD + playground)', () => {
   afterEach(() => TestBed.resetTestingModule());
+
+  it('admin token CRUD routes through ApiService (auth bearer), NEVER raw HttpClient (the 401 bug)', () => {
+    const { c, api, http } = make();
+    c.ngOnInit(); // resolves siteId + fires loadTokens/loadTools/loadUsage
+    // The 5 admin /api calls go through ApiService (which injects the bearer +
+    // 401-handling) at the de-/api-prefixed path. Raw http must NOT be used for them.
+    expect(api.get).toHaveBeenCalledWith('/sites/s1/mcp/tokens', undefined, { silent: true });
+    expect(api.get).toHaveBeenCalledWith('/sites/s1/mcp/tools', undefined, { silent: true });
+    expect(http.get).not.toHaveBeenCalled(); // was the bug: raw http.get → no Authorization → 401
+  });
 
   it('loadTokens success populates tokens and clears error', () => {
     const c = make({ get: jasmine.createSpy('get').and.returnValue(of({ tokens: [{ id: 'a' }] })) }).c;
@@ -74,21 +98,21 @@ describe('SiteMcpServerComponent (MCP token CRUD + playground)', () => {
   });
 
   it('mintToken posts the user-entered label (trimmed) so revoke rows are distinguishable', () => {
-    const { c, http } = make();
+    const { c, api } = make();
     c.ngOnInit(); // resolves siteId='s1' from the route (fires get only; post stays clean)
     c.newTokenLabel = '  Cursor laptop  ';
     c.mintToken();
-    expect(http.post).toHaveBeenCalledWith('/api/sites/s1/mcp/tokens', { label: 'Cursor laptop' });
+    expect(api.post).toHaveBeenCalledWith('/sites/s1/mcp/tokens', { label: 'Cursor laptop' }, { silent: true });
     expect(c.newTokenLabel).toBe(''); // input clears after mint
   });
 
   it('mintToken falls back to a unique auto-label when the field is blank (never another "Default")', () => {
-    const { c, http } = make();
+    const { c, api } = make();
     c.ngOnInit();
     c.tokens.set([{ id: 'a' } as never, { id: 'b' } as never]); // 2 existing
     c.newTokenLabel = '   ';
     c.mintToken();
-    expect(http.post).toHaveBeenCalledWith('/api/sites/s1/mcp/tokens', { label: 'Token 3' });
+    expect(api.post).toHaveBeenCalledWith('/sites/s1/mcp/tokens', { label: 'Token 3' }, { silent: true });
   });
 
   it('revokeToken (after confirm) optimistically removes the row and clears the in-flight marker', async () => {
@@ -101,11 +125,11 @@ describe('SiteMcpServerComponent (MCP token CRUD + playground)', () => {
   });
 
   it('revokeToken does NOT delete when the confirm is cancelled', async () => {
-    const { c, http, confirmSpy } = make({ confirmResult: false });
+    const { c, api, confirmSpy } = make({ confirmResult: false });
     c.tokens.set([{ id: 'keep' } as never, { id: 'gone' } as never]);
     await c.revokeToken('gone');
     expect(confirmSpy).toHaveBeenCalled();
-    expect(http.delete).not.toHaveBeenCalled();
+    expect(api.delete).not.toHaveBeenCalled();
     expect(c.tokens().map((t) => t.id)).toEqual(['keep', 'gone']); // nothing removed
   });
 
