@@ -17,7 +17,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { RouterModule } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
@@ -208,7 +208,10 @@ export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
   @Input() siteId = '';
   @Input() siteSlug = signal('');
 
-  private http = inject(HttpClient);
+  // ApiService (not raw HttpClient) so /api/sites/:id/copilot/* carries the auth
+  // bearer — raw http sent no Authorization → 401 when the copilot flag is on.
+  // See [[admin-raw-httpclient-auth-gap]].
+  private api = inject(ApiService);
   private toast = inject(ToastService);
   private destroy$ = new Subject<void>();
 
@@ -242,7 +245,7 @@ export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
   }
 
   private loadConfig(): void {
-    this.http.get<{ enabled: boolean }>(`/api/sites/${this.siteId}/copilot/config`)
+    this.api.get<{ enabled: boolean }>(`/sites/${this.siteId}/copilot/config`, undefined, { silent: true })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (r) => { this.enabled.set(r.enabled); this.flagEnabled.set(true); },
@@ -253,8 +256,8 @@ export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
   loadSessions(): void {
     this.loading.set(true);
     this.loadError.set(null);
-    this.http.get<{ sessions: CopilotSession[]; distribution: IntentDistRow[] }>(
-      `/api/sites/${this.siteId}/copilot/sessions`,
+    this.api.get<{ sessions: CopilotSession[]; distribution: IntentDistRow[] }>(
+      `/sites/${this.siteId}/copilot/sessions`, undefined, { silent: true },
     )
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -280,7 +283,7 @@ export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
     // native checkbox to the real state + no PUT (the gate notice is the truth).
     if (!this.flagEnabled()) { input.checked = this.enabled(); return; }
     const enabled = input.checked;
-    this.http.put<{ ok: boolean }>(`/api/sites/${this.siteId}/copilot/config`, { enabled })
+    this.api.put<{ ok: boolean }>(`/sites/${this.siteId}/copilot/config`, { enabled }, { silent: true })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => this.enabled.set(enabled),

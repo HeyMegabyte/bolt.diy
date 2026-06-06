@@ -23,7 +23,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { ApiService } from '../../../services/api.service';
 import { catchError, of } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { ErrorCardComponent } from '../../../components/states';
@@ -369,7 +369,10 @@ const SPECIALIST_COLORS: Record<string, string> = {
 })
 export class AdminSwarmComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
-  private http = inject(HttpClient);
+  // ApiService (not raw HttpClient) so /api/swarm/* carries the auth bearer —
+  // raw http sent no Authorization → 401 when the swarm flag is on. See
+  // [[admin-raw-httpclient-auth-gap]]. (SSE log-stream stays its own EventSource.)
+  private api = inject(ApiService);
   private cdr = inject(ChangeDetectorRef);
   private toast = inject(ToastService);
 
@@ -427,7 +430,7 @@ export class AdminSwarmComponent implements OnInit, OnDestroy {
     this.loadError.set(null);
     this.loadErrorRef.set('');
     this.loadErrorGated.set(false);
-    this.http.get<{ runs: SwarmRun[] }>(`/api/swarm/${this.siteId()}/runs`)
+    this.api.get<{ runs: SwarmRun[] }>(`/swarm/${this.siteId()}/runs`, undefined, { silent: true })
       // null sentinel on error so a failed load is NOT mistaken for "no runs
       // yet" — otherwise a network/server failure renders the empty-state CTA
       // ("Start first swarm run"), a silent failure. Capture the worker
@@ -466,9 +469,9 @@ export class AdminSwarmComponent implements OnInit, OnDestroy {
   startSwarm() {
     if (this.running()) return;
     this.running.set(true);
-    this.http.post<SwarmRun>(`/api/swarm/${this.siteId()}/start`, {
+    this.api.post<SwarmRun>(`/swarm/${this.siteId()}/start`, {
       prompt: this.swarmPrompt.trim() || this.DEFAULT_DIRECTIVE,
-    }).pipe(catchError((_e: unknown) => {
+    }, { silent: true }).pipe(catchError((_e: unknown) => {
       this.running.set(false);
       this.toast.error('Could not start a swarm run — please try again.');
       return of(null as SwarmRun | null);

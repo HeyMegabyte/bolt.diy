@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of, throwError, NEVER } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
+import { ApiService } from '../../../services/api.service';
 import { AdminSiteCopilotComponent } from './site-copilot.component';
 import { ToastService } from '../../../services/toast.service';
 
@@ -16,7 +16,7 @@ function make(get: jasmine.Spy): AdminSiteCopilotComponent {
   TestBed.configureTestingModule({
     imports: [AdminSiteCopilotComponent],
     providers: [
-      { provide: HttpClient, useValue: { get, put: () => of({ ok: true }) } },
+      { provide: ApiService, useValue: { get, put: () => of({ ok: true }) } },
       { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
     ],
   });
@@ -78,7 +78,7 @@ function makeToggle(put: jasmine.Spy): AdminSiteCopilotComponent {
   TestBed.configureTestingModule({
     imports: [AdminSiteCopilotComponent],
     providers: [
-      { provide: HttpClient, useValue: { get: () => of({ sessions: [], distribution: [] }), put } },
+      { provide: ApiService, useValue: { get: () => of({ sessions: [], distribution: [] }), put } },
       { provide: ToastService, useValue: { error: toggleToastErr, success: () => 0 } },
     ],
   });
@@ -107,7 +107,9 @@ describe('AdminSiteCopilotComponent (enable toggle gated by the feature flag)', 
     const c = makeToggle(put);
     c.flagEnabled.set(true);
     c.toggleEnabled({ target: { checked: true } as HTMLInputElement } as unknown as Event);
-    expect(put).toHaveBeenCalledWith('/api/sites/s1/copilot/config', { enabled: true });
+    // Routes through ApiService (bearer + 401-handling) at the de-/api path, silent
+    // (the component owns its error toast). Was raw http.put('/api/...') with no auth.
+    expect(put).toHaveBeenCalledWith('/sites/s1/copilot/config', { enabled: true }, { silent: true });
     expect(c.enabled()).toBe(true);
   });
 
@@ -135,7 +137,7 @@ describe('AdminSiteCopilotComponent — flag-gate link cohesion (real template)'
     TestBed.configureTestingModule({
       imports: [AdminSiteCopilotComponent],
       providers: [
-        { provide: HttpClient, useValue: { get: () => of({ sessions: [], distribution: [] }), put: () => of({ ok: true }) } },
+        { provide: ApiService, useValue: { get: () => of({ sessions: [], distribution: [] }), put: () => of({ ok: true }) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
         provideRouter([]),
       ],
@@ -159,7 +161,7 @@ describe('AdminSiteCopilotComponent — flag-gate link cohesion (real template)'
     TestBed.configureTestingModule({
       imports: [AdminSiteCopilotComponent],
       providers: [
-        { provide: HttpClient, useValue: { get: () => NEVER, put: () => of({ ok: true }) } },
+        { provide: ApiService, useValue: { get: () => NEVER, put: () => of({ ok: true }) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
         provideRouter([]),
       ],
@@ -177,7 +179,7 @@ describe('AdminSiteCopilotComponent — flag-gate link cohesion (real template)'
     TestBed.configureTestingModule({
       imports: [AdminSiteCopilotComponent],
       providers: [
-        { provide: HttpClient, useValue: { get: () => of({ sessions: [], distribution: [] }), put: () => of({ ok: true }) } },
+        { provide: ApiService, useValue: { get: () => of({ sessions: [], distribution: [] }), put: () => of({ ok: true }) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
         provideRouter([]),
       ],
@@ -196,7 +198,7 @@ describe('AdminSiteCopilotComponent — flag-gate link cohesion (real template)'
     TestBed.configureTestingModule({
       imports: [AdminSiteCopilotComponent],
       providers: [
-        { provide: HttpClient, useValue: { get: () => of({ sessions: [], distribution: [] }), put: () => of({ ok: true }) } },
+        { provide: ApiService, useValue: { get: () => of({ sessions: [], distribution: [] }), put: () => of({ ok: true }) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
         provideRouter([]),
       ],

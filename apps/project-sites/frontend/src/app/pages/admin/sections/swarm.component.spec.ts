@@ -214,3 +214,33 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
       .withContext('active run flips the preview into the streaming state').toBeTrue();
   });
 });
+
+/**
+ * Auth-bearer regression guard: /api/swarm/:id/runs must route through ApiService
+ * (which injects the Authorization bearer). The section used raw HttpClient with no
+ * header → 401 when the swarm flag is on. See admin-raw-httpclient-auth-gap.
+ */
+describe('AdminSwarmComponent — auth bearer (raw-http 401 regression guard)', () => {
+  afterEach(() => {
+    try { localStorage.removeItem('ps_session'); } catch { /* private mode */ }
+    TestBed.resetTestingModule();
+  });
+
+  it('routes /api/swarm/:id/runs through ApiService so it carries the auth bearer', () => {
+    // Seed BEFORE createComponent so AuthService loads the token at construction.
+    try {
+      localStorage.setItem('ps_session', JSON.stringify({ token: 'tkn_swarm_test', identifier: 'test@megabyte.space', createdAt: Date.now() }));
+    } catch { /* private mode */ }
+    TestBed.configureTestingModule({
+      imports: [AdminSwarmComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+    const fx = TestBed.createComponent(AdminSwarmComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fx.componentInstance.siteId.set('s1');
+    fx.componentInstance.loadHistory();
+    const req = http.expectOne('/api/swarm/s1/runs');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer tkn_swarm_test');
+    req.flush({ runs: [] });
+  });
+});
