@@ -209,3 +209,18 @@ describe('AdminSiteCopilotComponent — flag-gate link cohesion (real template)'
     expect(el.querySelector('.copilot-stats')).withContext('stats render once data loaded').not.toBeNull();
   });
 });
+
+describe('AdminSiteCopilotComponent — latency formatting', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  // Raw "12345ms" reads badly; mirror the ai-logs cockpit pattern
+  // (<1000 → "Xms", else "X.Ys") so the Latency column is human + consistent.
+  it('formats session latency like the rest of the cockpit', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ sessions: [], distribution: [] })));
+    expect(c.formatLatency(340)).toBe('340ms');
+    expect(c.formatLatency(999)).toBe('999ms');
+    expect(c.formatLatency(1000)).toBe('1.0s');
+    expect(c.formatLatency(12345)).toBe('12.3s');
+    expect(c.formatLatency(null as unknown as number)).toBe('—');
+  });
+});

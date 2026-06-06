@@ -145,7 +145,7 @@ const INTENT_ICONS: Record<string, string> = {
                       @if (s.has_audio) { <span title="Audio">A</span> }
                       @if (s.has_image) { <span title="Image">I</span> }
                     </td>
-                    <td>{{ s.total_ms }}ms</td>
+                    <td [attr.title]="s.total_ms + 'ms'">{{ formatLatency(s.total_ms) }}</td>
                     <td>
                       <span class="copilot-status-dot" [class]="s.status">{{ s.status }}</span>
                     </td>
@@ -222,6 +222,13 @@ export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
   copied = signal(false);
 
   totalSessions = computed(() => this.sessions().length);
+
+  /** Human latency, consistent with ai-logs: <1000 → "Xms", else "X.Ys". */
+  formatLatency(ms: number | null | undefined): string {
+    if (ms == null) return '—';
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
+  }
 
   ngOnInit(): void {
     if (!this.siteId) return;
