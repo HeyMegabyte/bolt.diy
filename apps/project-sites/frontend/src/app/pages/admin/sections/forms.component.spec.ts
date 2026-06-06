@@ -372,3 +372,78 @@ describe('AdminFormsComponent (submissions CSV export)', () => {
     expect(btn.disabled).withContext('disabled with no rows to export').toBeTrue();
   });
 });
+
+/**
+ * Bulk-select → Export selected (Mission "bulk actions where useful"). Per-row
+ * checkboxes + a header select-all; the Export button acts on the SELECTION when
+ * any rows are picked, else all filtered rows. The checkbox cell stops click
+ * propagation so ticking a box never opens the row's detail panel.
+ */
+describe('AdminFormsComponent (bulk-select submissions → export selected)', () => {
+  function mount(): ComponentFixture<AdminFormsComponent> {
+    const get = jasmine.createSpy('get').and.callFake((url: string) =>
+      url.includes('/ai-settings')
+        ? of({ data: { form_router_prompt: '', form_router_prompt_default: '', reply_email: '' } })
+        : of({ data: [] }),
+    );
+    TestBed.configureTestingModule({
+      imports: [AdminFormsComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get, put: () => of({}), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminFormsComponent);
+    f.detectChanges();
+    return f;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  const sub = (id: string) =>
+    ({ id, form_name: 'contact', email: id + '@b.com', fields: {}, status: 'new', origin_url: null, ip_address: null, created_at: '2026-06-06T00:00:00Z' }) as never;
+
+  it('exportRows() is all-filtered with no selection, and just the selection once rows are picked', () => {
+    const c = mount().componentInstance;
+    c.submissions.set([sub('a'), sub('b'), sub('c')]);
+    expect(c.exportRows().length).withContext('no selection → export all filtered').toBe(3);
+    c.toggleSelect('b');
+    expect(c.exportRows().map((r: { id: string }) => r.id)).withContext('selection → only picked rows').toEqual(['b']);
+    c.toggleSelect('b'); // untick
+    expect(c.exportRows().length).withContext('back to all filtered').toBe(3);
+  });
+
+  it('toggleSelectAll selects every filtered row, then clears on a second toggle', () => {
+    const c = mount().componentInstance;
+    c.submissions.set([sub('a'), sub('b')]);
+    c.toggleSelectAll();
+    expect(c.allFilteredSelected()).toBeTrue();
+    expect(c.exportRows().length).toBe(2);
+    c.toggleSelectAll();
+    expect(c.allFilteredSelected()).toBeFalse();
+    expect(c.selectedIds().size).toBe(0);
+  });
+
+  it('switching the saved view clears the selection (no stale cross-view picks)', () => {
+    const c = mount().componentInstance;
+    c.submissions.set([sub('a')]);
+    c.toggleSelect('a');
+    expect(c.selectedIds().size).toBe(1);
+    c.setView('all');
+    expect(c.selectedIds().size).withContext('selection resets per view').toBe(0);
+  });
+
+  it('renders a select-all header checkbox + a per-row checkbox; export label reflects the selection', () => {
+    const f = mount();
+    f.componentInstance.submissions.set([sub('a'), sub('b')]);
+    f.detectChanges();
+    const host = f.nativeElement as HTMLElement;
+    expect(host.querySelector('[data-testid="forms-select-all"]')).withContext('select-all checkbox present').toBeTruthy();
+    expect(host.querySelector('[data-testid="forms-row-select-a"]')).withContext('per-row checkbox present').toBeTruthy();
+    f.componentInstance.toggleSelect('a');
+    f.detectChanges();
+    const btn = host.querySelector('[data-testid="forms-export-csv"]') as HTMLButtonElement;
+    expect(btn.textContent ?? '').withContext('label switches to "Export N selected"').toContain('1 selected');
+  });
+});

@@ -451,11 +451,11 @@ const POLL_INTERVAL_MS = 10_000;
                     title="The inbox shows the {{ submissionCap }} most recent submissions. Older ones are still stored.">· latest {{ submissionCap }}</span>
             }
             <button class="btn-ghost text-xs inline-flex items-center gap-1.5" type="button" data-testid="forms-export-csv"
-                    [disabled]="filteredSubmissions().length === 0" (click)="exportCsv()"
-                    [attr.title]="filteredSubmissions().length === 0 ? 'No submissions to export' : 'Download the filtered submissions as CSV'"
-                    [attr.aria-label]="'Export ' + filteredSubmissions().length + ' submission' + (filteredSubmissions().length === 1 ? '' : 's') + ' as CSV'">
+                    [disabled]="exportRows().length === 0" (click)="exportCsv()"
+                    [attr.title]="exportRows().length === 0 ? 'No submissions to export' : (selectedIds().size > 0 ? 'Download the ' + selectedIds().size + ' selected submission(s) as CSV' : 'Download the filtered submissions as CSV')"
+                    [attr.aria-label]="'Export ' + exportRows().length + ' submission' + (exportRows().length === 1 ? '' : 's') + ' as CSV'">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Export CSV
+              {{ selectedIds().size > 0 ? 'Export ' + selectedIds().size + ' selected' : 'Export CSV' }}
             </button>
           </div>
         </div>
@@ -503,6 +503,11 @@ const POLL_INTERVAL_MS = 10_000;
           <table class="w-full text-[0.78rem]">
             <thead class="text-text-secondary/70 uppercase text-[0.6rem] tracking-wider">
               <tr class="border-b border-white/[0.06]">
+                <th class="p-3 w-8">
+                  <input type="checkbox" class="accent-[#00E5FF] cursor-pointer align-middle" data-testid="forms-select-all"
+                         [checked]="allFilteredSelected()" (change)="toggleSelectAll()"
+                         [attr.aria-label]="allFilteredSelected() ? 'Deselect all submissions' : 'Select all ' + filteredSubmissions().length + ' submissions'" />
+                </th>
                 <th class="text-left p-3 font-semibold">When</th>
                 <th class="text-left p-3 font-semibold">Form</th>
                 <th class="text-left p-3 font-semibold">Email</th>
@@ -519,6 +524,12 @@ const POLL_INTERVAL_MS = 10_000;
                     (click)="open(s)"
                     (keydown.enter)="open(s)"
                     (keydown.space)="$event.preventDefault(); open(s)">
+                  <td class="p-3 w-8" (click)="$event.stopPropagation()">
+                    <input type="checkbox" class="accent-[#00E5FF] cursor-pointer align-middle"
+                           [attr.data-testid]="'forms-row-select-' + s.id"
+                           [checked]="selectedIds().has(s.id)" (change)="toggleSelect(s.id)" (keydown)="$event.stopPropagation()"
+                           [attr.aria-label]="'Select submission from ' + s.form_name + (s.email ? ' by ' + s.email : '')" />
+                  </td>
                   <td class="p-3 text-text-secondary">{{ s.created_at | date:'short' }}</td>
                   <td class="p-3 font-mono text-[0.72rem]">{{ s.form_name }}</td>
                   <td class="p-3">{{ s.email || '—' }}</td>
@@ -881,13 +892,38 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     return this.submissions().filter((s) => v.test(s));
   });
 
+  // ── Bulk selection (→ export selected) ───────────────────────────────────
+  readonly selectedIds = signal<ReadonlySet<string>>(new Set());
+  /** Selected rows ∩ currently-filtered (stale ids from a prior view never leak in). */
+  readonly selectedRows = computed(() => this.filteredSubmissions().filter((s) => this.selectedIds().has(s.id)));
+  /** Rows the Export button acts on: the selection if any, else all filtered. */
+  readonly exportRows = computed(() => (this.selectedIds().size > 0 ? this.selectedRows() : this.filteredSubmissions()));
+  /** True when every filtered row is selected (drives the header checkbox). */
+  readonly allFilteredSelected = computed(() => {
+    const f = this.filteredSubmissions();
+    return f.length > 0 && f.every((s) => this.selectedIds().has(s.id));
+  });
+
+  toggleSelect(id: string): void {
+    this.selectedIds.update((set) => {
+      const next = new Set(set);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  toggleSelectAll(): void {
+    const f = this.filteredSubmissions();
+    this.selectedIds.set(this.allFilteredSelected() ? new Set<string>() : new Set(f.map((s) => s.id)));
+  }
+
   /**
    * Download the currently-filtered submissions as a CSV (leads → spreadsheet/CRM).
    * Columns: Date/Form/Email/Status + the union of dynamic field keys. Client-side
    * (no worker round-trip). No-ops on an empty list (the button is also disabled).
    */
   exportCsv(): void {
-    const rows = this.filteredSubmissions();
+    const rows = this.exportRows();
     if (rows.length === 0) return;
     const blob = new Blob([this.buildSubmissionsCsv(rows)], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -1235,6 +1271,7 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
 
   setView(id: (typeof this.views)[number]['id']): void {
     this.activeView.set(id);
+    this.selectedIds.set(new Set()); // selection is per-view — reset on switch
     try {
       localStorage.setItem('ps_forms_view', id);
     } catch {
