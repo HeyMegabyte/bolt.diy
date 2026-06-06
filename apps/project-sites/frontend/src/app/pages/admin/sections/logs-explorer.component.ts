@@ -95,12 +95,15 @@ const LEVEL_COLORS: Record<string, string> = {
             30-day full-text search across Worker tail logs with cost attribution per route.
           </p>
         </div>
-        <div class="flex items-center gap-2">
-          <!-- Range pills -->
-          @for (r of RANGES; track r) {
-            <button class="range-pill" [class.active]="range() === r" (click)="setRange(r)">{{ r }}</button>
-          }
-        </div>
+        <!-- Range pills hidden when the feature is flag-gated off — they filter
+             a search that can't run, so they'd be dead controls over the gate notice. -->
+        @if (!featureDisabled()) {
+          <div class="flex items-center gap-2">
+            @for (r of RANGES; track r) {
+              <button class="range-pill" [class.active]="range() === r" (click)="setRange(r)">{{ r }}</button>
+            }
+          </div>
+        }
       </header>
 
       @if (featureDisabled()) {

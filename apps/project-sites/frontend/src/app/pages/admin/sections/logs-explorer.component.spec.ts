@@ -5,6 +5,7 @@ import { AdminLogsExplorerComponent } from './logs-explorer.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
+import { provideRouter } from '@angular/router';
 
 /**
  * Guards the Log Explorer search-state logic: a fetch error sets a PERSISTENT
@@ -147,5 +148,39 @@ describe('AdminLogsExplorerComponent (cost load)', () => {
     c.loadCosts();
     expect(c.featureDisabled()).toBe(false);
     expect(toastErr).toHaveBeenCalled();
+  });
+});
+
+describe('AdminLogsExplorerComponent — range pills hidden when flag-gated (real template)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function render() {
+    TestBed.configureTestingModule({
+      imports: [AdminLogsExplorerComponent],
+      providers: [
+        { provide: ApiService, useValue: { post: () => of({ data: { items: [], next_cursor: null, total_returned: 0 } }), get: () => of({ data: { rows: [], grand_total_cost: 0 } }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal(null) } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminLogsExplorerComponent);
+    fx.detectChanges();
+    return fx;
+  }
+
+  // When log_explorer is off, the range pills filter a search that can't run —
+  // dead controls over the gate notice. They must be hidden.
+  it('hides the range pills when the feature is flag-gated off; shows them when enabled', () => {
+    const fx = render();
+    fx.componentInstance.featureDisabled.set(true);
+    fx.detectChanges();
+    expect((fx.nativeElement as HTMLElement).querySelectorAll('.range-pill').length)
+      .withContext('no dead range pills over the gate notice').toBe(0);
+
+    fx.componentInstance.featureDisabled.set(false);
+    fx.detectChanges();
+    expect((fx.nativeElement as HTMLElement).querySelectorAll('.range-pill').length)
+      .withContext('range pills return when the feature is enabled').toBeGreaterThan(0);
   });
 });
