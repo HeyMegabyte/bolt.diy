@@ -51,10 +51,14 @@ test.describe('marketing — responsive a11y (390 axe + 320 reflow)', () => {
     }
   });
 
-  test.describe('320px reflow', () => {
-    test.use({ viewport: { width: 320, height: 800 } });
+  // 320px floor + 390px (most common phone) — 390 catches mid-breakpoint
+  // overflow that 320 misses (a flex-wrap row that wraps at 320 but overflows
+  // at 390), the class that hit the /admin top-bar (see admin-reflow).
+  for (const VW of [320, 390]) {
+  test.describe(`${VW}px reflow`, () => {
+    test.use({ viewport: { width: VW, height: 800 } });
     for (const path of ROUTES) {
-      test(`no element overflows @320px — ${path}`, async ({ page }) => {
+      test(`no element overflows @${VW}px — ${path}`, async ({ page }) => {
         test.setTimeout(60000);
         await page.emulateMedia({ reducedMotion: 'reduce' });
         await page.goto(path, { waitUntil: 'load' });
@@ -85,10 +89,11 @@ test.describe('marketing — responsive a11y (390 axe + 320 reflow)', () => {
           }
           return found.slice(0, 5);
         });
-        expect(culprits, `${path} overflows @320px:\n${culprits.join('\n')}`).toEqual([]);
+        expect(culprits, `${path} overflows @${VW}px:\n${culprits.join('\n')}`).toEqual([]);
       });
     }
   });
+  }
 });
 
 test.describe('marketing — integrations logos resolve (no dead clearbit API)', () => {
