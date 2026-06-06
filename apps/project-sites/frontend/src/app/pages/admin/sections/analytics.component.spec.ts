@@ -289,3 +289,54 @@ describe('AdminAnalyticsComponent (top-pages/countries cyan mini-empty cohesion)
       .withContext('each mini-empty has a cyan accent glyph').toBe(2);
   });
 });
+
+describe('AdminAnalyticsComponent — bounded auto-refresh retry (error-recovery max 3)', () => {
+  let selectedSite: WritableSignal<{ id: string } | null>;
+  let getAnalytics: jasmine.Spy;
+  let fx: ComponentFixture<AdminAnalyticsComponent>;
+
+  function build(): AdminAnalyticsComponent {
+    selectedSite = signal<{ id: string } | null>({ id: 'site-x' });
+    getAnalytics = jasmine.createSpy('getMultiUrlAnalytics').and.returnValue(of({ data: null }));
+    TestBed.configureTestingModule({
+      imports: [AdminAnalyticsComponent],
+      providers: [
+        { provide: ApiService, useValue: {
+          getMultiUrlAnalytics: getAnalytics,
+          listSiteUrls: () => of({ data: [] }),
+          getCloudflareCredentialStatus: () => of({ data: null }),
+          addSiteUrl: () => of({}),
+        } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: PromptService, useValue: { prompt: () => Promise.resolve(null) } },
+        { provide: Router, useValue: { navigateByUrl: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite } },
+      ],
+    });
+    fx = TestBed.createComponent(AdminAnalyticsComponent);
+    fx.detectChanges();
+    return fx.componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('pauses auto-refresh after 3 consecutive load errors; a success resumes it', () => {
+    const c = build();
+    getAnalytics.and.returnValue(throwError(() => ({ status: 500 })));
+    c.reload(); c.reload(); c.reload();
+    expect(c.consecutiveErrors()).toBe(3);
+    expect(c.autoRefreshPaused()).withContext('paused after max retries').toBeTrue();
+
+    getAnalytics.and.returnValue(of({ data: { series: [] } }));
+    c.reload();
+    expect(c.consecutiveErrors()).toBe(0);
+    expect(c.autoRefreshPaused()).withContext('a success resumes auto-refresh').toBeFalse();
+  });
+
+  it('a successful EMPTY response (data null, no error) does NOT pause auto-refresh', () => {
+    const c = build();
+    getAnalytics.and.returnValue(of({ data: null })); // "no traffic yet" — not an error
+    c.reload(); c.reload(); c.reload(); c.reload();
+    expect(c.consecutiveErrors()).toBe(0);
+    expect(c.autoRefreshPaused()).toBeFalse();
+  });
+});

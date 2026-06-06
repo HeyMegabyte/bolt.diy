@@ -89,6 +89,10 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
               @if (loading()) {
                 <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
                 <span>Refreshing now</span>
+              } @else if (autoRefreshPaused()) {
+                <!-- Stopped auto-hammering a persistently-failing endpoint (max 3);
+                     the manual Retry on the error card still works. -->
+                Auto-refresh paused
               } @else if (error()) {
                 <!-- Auto-refresh keeps polling after a failure — say "Retrying",
                      not "Refreshing", so it's honest alongside the error card. -->
@@ -717,6 +721,13 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   /** Worker request_id from a failed load → the copyable support reference on the error card. */
   readonly loadErrorRef = signal('');
   loading = signal(false);
+  /** Consecutive failed auto-loads. After MAX, the 60s auto-refresh PAUSES so it
+   *  stops re-hammering a persistently-failing endpoint ([[error-recovery]]
+   *  "retry with backoff, max 3"). The manual Retry/Refresh always works and a
+   *  successful load resets the counter → auto-refresh resumes. */
+  private static readonly MAX_AUTO_RETRIES = 3;
+  readonly consecutiveErrors = signal(0);
+  readonly autoRefreshPaused = computed(() => this.consecutiveErrors() >= AdminAnalyticsComponent.MAX_AUTO_RETRIES);
   refreshedAt = signal<Date | null>(null);
   secondsUntilRefresh = signal<number>(REFRESH_INTERVAL_SEC);
   readonly refreshIntervalSec = REFRESH_INTERVAL_SEC;
@@ -1006,7 +1017,7 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     // The site-dependent loads (loadUrls + reload) are owned by the constructor
     // effect so a deep-link populates instantly when selectedSite() resolves.
     this.loadCredStatus();
-    this.refreshTimer = setInterval(() => this.reload(), REFRESH_INTERVAL_SEC * 1000);
+    this.refreshTimer = setInterval(() => { if (!this.autoRefreshPaused()) this.reload(); }, REFRESH_INTERVAL_SEC * 1000);
     this.countdownTimer = setInterval(() => {
       this.secondsUntilRefresh.update((s) => (s <= 1 ? REFRESH_INTERVAL_SEC : s - 1));
     }, 1000);
@@ -1083,6 +1094,10 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
           this.envelope.set(r.analytics.data);
           this.error.set(null);
         }
+        // Count ONLY genuine load errors (catchError set error() + returned null)
+        // toward the auto-retry cap — a successful empty response (data null, no
+        // error: a site with no traffic yet) must NOT pause auto-refresh.
+        this.consecutiveErrors.set(this.error() ? this.consecutiveErrors() + 1 : 0);
         this.refreshedAt.set(new Date());
         this.loading.set(false);
       },
