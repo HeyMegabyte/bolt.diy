@@ -127,6 +127,22 @@ describe('AdminAuditComponent (load + KPI logic)', () => {
     c.rows.set([ROW({ id: 'a' }), ROW({ id: 'b', created_at: old })] as never);
     expect(c.last24h()).toBe(1);
   });
+
+  // Stat cards must NOT assert "0 events · 0 actions · …" over the error card —
+  // the count is unknown on error, not 0.
+  it('hides the stat cards on a load error with no rows; shows them with data', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.loadError.set('Server error');
+    c.rows.set([]);
+    expect(c.showStats()).withContext('no "0 events" over the error').toBe(false);
+
+    c.rows.set([ROW({ id: 'a' })] as never);
+    expect(c.showStats()).withContext('stale data still shows stats').toBe(true);
+
+    c.loadError.set(null);
+    c.rows.set([]);
+    expect(c.showStats()).withContext('error-free empty still renders (animates 0)').toBe(true);
+  });
 });
 
 describe('AdminAuditComponent (master/detail splicing)', () => {

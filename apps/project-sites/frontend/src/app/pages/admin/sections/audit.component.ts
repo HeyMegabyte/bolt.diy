@@ -204,7 +204,9 @@ function actionToFallbackMessage(action: string): string {
           @for (i of [0,1,2,3]; track i) {
             <div class="card"><div class="muted-h">Loading</div><div class="skeleton skeleton-line"></div></div>
           }
-        } @else {
+        } @else if (showStats()) {
+          <!-- Hidden when the load errored with no data — definitive "0 events ·
+               0 actions · …" over the error card is wrong (unknown, not 0). -->
           <div class="card"><div class="muted-h">Events</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="displayRows().length" [duration]="1100" /></div></div>
           <div class="card"><div class="muted-h">Unique actions</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="uniqueActions()" [duration]="1100" /></div></div>
           <div class="card"><div class="muted-h">Last 24h</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="last24h()" [duration]="1100" /></div></div>
@@ -434,6 +436,9 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
     }
     return out;
   });
+  /** Stat cards hidden when the load errored with no data — a definitive
+   *  "0 events · 0 actions · …" over the error card is wrong (unknown, not 0). */
+  showStats = computed<boolean>(() => !this.loadError() || this.displayRows().length > 0);
   /**
    * Default chip slug — `megabytespace` is the canonical org slug surfaced as
    * the initial filter chip. The chip is purely a visual label here; the
