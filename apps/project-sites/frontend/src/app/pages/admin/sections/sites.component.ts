@@ -62,6 +62,10 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
     .st-sort-ind { margin-left: 4px; opacity: .45; font-size: .8em; }
     th[aria-sort="ascending"] .st-sort-ind,
     th[aria-sort="descending"] .st-sort-ind { opacity: 1; color: var(--ps-accent, #00e5ff); }
+    /* Refresh-button spinner (parity with analytics' refresh-btn); reduced-motion safe. */
+    .st-spin { animation: st-spin 1.2s linear infinite; transform-origin: center; }
+    @keyframes st-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .st-spin { animation: none; } }
   `],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-5">
@@ -79,8 +83,14 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
           </label>
           <app-synced-pill [at]="syncedAt()" data-testid="sites-synced" />
           <button (click)="reload()"
-                  class="text-[0.78rem] text-white/80 border border-white/15 hover:border-white/30 px-3 py-1.5 rounded-md">
-            Refresh
+                  type="button"
+                  [disabled]="loading()"
+                  [attr.aria-busy]="loading()"
+                  aria-label="Refresh sites"
+                  title="Refresh sites data now"
+                  class="inline-flex items-center gap-1.5 text-[0.78rem] text-white/80 border border-white/15 hover:border-white/30 px-3 py-1.5 rounded-md disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" [class.st-spin]="loading()"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <span>{{ loading() ? 'Refreshing' : 'Refresh' }}</span>
           </button>
         </div>
       </header>

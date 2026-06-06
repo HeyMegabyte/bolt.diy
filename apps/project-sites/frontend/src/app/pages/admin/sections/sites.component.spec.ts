@@ -146,6 +146,33 @@ describe('AdminSitesComponent (sorting + a11y + tiers)', () => {
     expect(c.sortIndicator('lcp')).toBe('↑');
     expect(c.sortIndicator('cls')).withContext('inactive columns advertise sortability with ↕').toBe('↕');
   });
+
+  // The Refresh button must give feedback (disable + "Refreshing") while a reload
+  // is in flight, not look inert on click — parity with the analytics refresh-btn.
+  // Full render here (make() strips the template) so the button actually mounts.
+  it('Refresh button disables + shows "Refreshing" while loading (feedback, not inert)', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminSitesComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [], sites: [] }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, show: () => 0 } },
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSitesComponent);
+    fx.detectChanges(); // ngOnInit → reload → of([]) resolves → loading false
+    fx.componentInstance.loading.set(true);
+    fx.detectChanges();
+    const btn = (fx.nativeElement as HTMLElement).querySelector('button[aria-label="Refresh sites"]') as HTMLButtonElement | null;
+    expect(btn).withContext('Refresh button rendered').not.toBeNull();
+    expect(btn!.disabled).withContext('disabled while loading').toBeTrue();
+    expect(btn!.getAttribute('aria-busy')).toBe('true');
+    expect(btn!.textContent).toContain('Refreshing');
+    fx.componentInstance.loading.set(false);
+    fx.detectChanges();
+    expect(btn!.disabled).withContext('re-enabled when idle').toBeFalse();
+    expect(btn!.textContent).toContain('Refresh');
+  });
 });
 
 /**
