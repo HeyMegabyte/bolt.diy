@@ -35,12 +35,14 @@ async function seed(page: Page): Promise<void> {
 
 test.describe('admin — forced-colors (Windows High Contrast) legibility', () => {
   test.skip(!KEY, 'E2E_API_KEY not set');
-  test.use({ forcedColors: 'active' });
   test.describe.configure({ retries: 2 });
 
   test('admin shell + nav stay visible in forced-colors', async ({ page }) => {
     test.setTimeout(45000);
     await seed(page);
+    // emulateMedia (NOT test.use) — the proven pattern here; test.use media
+    // options don't reliably apply in this prod config (admin-reduced-motion r-).
+    await page.emulateMedia({ forcedColors: 'active' });
     await page.goto('/admin/feature-flags', { waitUntil: 'load' });
     // The shell chrome must not vanish when author colours are stripped.
     await expect(page.locator('.admin-sidebar, nav').first()).toBeVisible({ timeout: 30000 });
@@ -51,6 +53,7 @@ test.describe('admin — forced-colors (Windows High Contrast) legibility', () =
   test('the analytics error card conveys its state without relying on colour', async ({ page }) => {
     test.setTimeout(45000);
     await seed(page);
+    await page.emulateMedia({ forcedColors: 'active' });
     // Analytics 404s for the test site → the error card is the default state.
     await page.goto('/admin/analytics', { waitUntil: 'load' });
     const card = page.locator('app-error-card, [data-testid="audit-error"], [data-testid*="error"]').first();
