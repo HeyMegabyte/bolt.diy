@@ -24,6 +24,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { ErrorCardComponent } from '../../../components/states';
 import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -74,7 +75,7 @@ interface AuditExport {
 @Component({
   selector: 'app-admin-enterprise',
   standalone: true,
-  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, RollingCounterComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, RollingCounterComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, ErrorCardComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
@@ -116,10 +117,13 @@ interface AuditExport {
       }
 
       @if (loadError() && !loading()) {
-        <div class="empty-card" data-testid="enterprise-load-error" role="alert">
-          <p class="err-text text-sm mb-2">{{ loadError() }}</p>
-          <button class="btn-ghost text-xs" data-testid="enterprise-retry" (click)="refresh()">Retry</button>
-        </div>
+        <app-error-card
+          data-testid="enterprise-load-error"
+          class="block"
+          title="Couldn't load your enterprise contract"
+          [message]="loadError()!"
+          [correlationId]="loadErrorRef()"
+          (retry)="refresh()" />
       }
 
       @if (!notFound() && !loadError()) {
@@ -343,7 +347,6 @@ interface AuditExport {
       .card { background: var(--ps-elev-1, rgba(255,255,255,.02)); border: 1px solid var(--ps-hairline, rgba(255,255,255,.06)); border-radius: 14px; padding: 16px 18px; }
       .card-h { font-size: 0.92rem; color: var(--ps-ink, #f4f4ff); margin: 0 0 10px; font-weight: 600; }
       .hint { font-size: 0.72rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); margin: 10px 0 0; }
-      .err-text { color: var(--ent-danger); }
       .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
       label { display: block; font-size: 0.72rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 70%, transparent); }
       /* .input/.select/.textarea removed — all controls now Spartan hlmInput/hlmSelect. */
@@ -392,6 +395,8 @@ export class AdminEnterpriseComponent {
   readonly loading = signal(false);
   /** Persistent non-404 contract load failure — gates the editor so a failed fetch never presents a default-valued, savable form. */
   readonly loadError = signal<string | null>(null);
+  /** Worker request_id from a non-404 contract-load failure → copyable support reference on the error card. */
+  readonly loadErrorRef = signal('');
   readonly saving = signal(false);
   readonly enqueueing = signal(false);
   // Pessimistic: assume the enterprise_plan flag is OFF until the client-side
@@ -488,10 +493,16 @@ export class AdminEnterpriseComponent {
     }[tier];
   }
 
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: { error?: unknown } | undefined): string {
+    return (e?.error as { error?: { request_id?: string } } | undefined)?.error?.request_id ?? '';
+  }
+
   refresh(): void {
     this.loading.set(true);
     this.notFound.set(false);
     this.loadError.set(null);
+    this.loadErrorRef.set('');
     this.api.get<{ data: Contract | null }>('/enterprise/contract', undefined, { silent: true }).subscribe({
       next: (res) => {
         this.loadError.set(null);
@@ -517,6 +528,7 @@ export class AdminEnterpriseComponent {
           // Persistent in-panel error gates the editor — a failed load must not
           // present a default-valued contract form the operator could save over real data.
           this.loadError.set("Couldn't load your enterprise contract — retry before editing.");
+          this.loadErrorRef.set(this.requestIdFrom(err));
           this.toast.error('Failed to load enterprise contract');
         }
         this.loading.set(false);

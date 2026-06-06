@@ -65,6 +65,32 @@ describe('AdminEnterpriseComponent (contract load-error gating)', () => {
     c.refresh();
     expect(c.loadError()).toBeNull();
   });
+
+  it('captures the worker request_id from a non-404 failure → loadErrorRef (copyable support reference on the shared error card)', () => {
+    const { c } = make(
+      jasmine.createSpy('cg').and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req_ent7' } } }))),
+    );
+    c.refresh();
+    expect(c.loadErrorRef()).toBe('req_ent7');
+  });
+
+  it('a 404 leaves loadErrorRef empty (gate card, not the transient error card)', () => {
+    const { c } = make(jasmine.createSpy('cg').and.returnValue(throwError(() => ({ status: 404, error: { error: { request_id: 'nope' } } }))));
+    c.refresh();
+    expect(c.notFound()).toBe(true);
+    expect(c.loadErrorRef()).toBe('');
+  });
+
+  it('resets loadErrorRef at the start of every refresh (no stale reference)', () => {
+    const cg = jasmine
+      .createSpy('cg')
+      .and.returnValues(throwError(() => ({ status: 500, error: { error: { request_id: 'req_z' } } })), of({ data: null }));
+    const { c } = make(cg);
+    c.refresh();
+    expect(c.loadErrorRef()).toBe('req_z');
+    c.refresh();
+    expect(c.loadErrorRef()).toBe('');
+  });
 });
 
 describe('AdminEnterpriseComponent (mutations are {silent} — no generic double-toast)', () => {
