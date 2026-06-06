@@ -89,6 +89,9 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
               @if (loading()) {
                 <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
                 <span>Refreshing now</span>
+              } @else if (notAvailable()) {
+                <!-- 404 = not provisioned here (permanent); the notice below
+                     explains. No countdown — there is nothing to refresh toward. -->
               } @else if (autoRefreshPaused()) {
                 <!-- Stopped auto-hammering a persistently-failing endpoint (max 3);
                      the manual Retry on the error card still works. -->
@@ -190,6 +193,14 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
             <span class="block text-[0.74rem] mt-0.5">Pick a site from the sidebar — analytics are scoped per-site.</span>
           </div>
         </div>
+      } @else if (notAvailable()) {
+        <!-- 404 from the analytics route = not provisioned for this site/env.
+             A 404 is PERMANENT, so a calm cyan notice (not a red "temporary"
+             error card) is the honest signal; the header Refresh re-checks. -->
+        <div class="rounded-xl border border-[#00E5FF]/15 bg-[#00E5FF]/[0.04] p-4 text-sm text-text-secondary" role="status" data-testid="analytics-unavailable">
+          <strong class="text-white">Traffic analytics aren’t available for this site yet.</strong>
+          <span class="block text-[0.74rem] mt-1">Edge traffic analytics appear here once the site is fully provisioned. Use <strong class="text-white">Refresh</strong> to check again.</span>
+        </div>
       } @else if (error()) {
         <app-error-card class="block"
           title="Analytics returned an error"
@@ -201,7 +212,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
       <!-- Body renders ONLY with a site selected + no load error. On error the
            banner above is the whole truth — never also paint "0 views / no
            traffic yet" (a definitive empty-data claim) over a FAILED load. -->
-      @if (state.selectedSite() && !error()) {
+      @if (state.selectedSite() && !error() && !notAvailable()) {
       <!-- ─────────────────── KPI TILES ─────────────────── -->
       <div class="grid gap-3 grid-cols-3 max-md:grid-cols-1">
         <div class="card kpi" appReveal data-testid="kpi-pageviews">
@@ -720,6 +731,12 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   error = signal<string | null>(null);
   /** Worker request_id from a failed load → the copyable support reference on the error card. */
   readonly loadErrorRef = signal('');
+  /**
+   * The analytics route returned 404 (not registered for this site/env). A 404
+   * is PERMANENT — not "temporary" — so we show a calm "not available" notice
+   * (never the red transient error card) and pause auto-refresh (no 404-hammering).
+   */
+  readonly notAvailable = signal(false);
   loading = signal(false);
   /** Consecutive failed auto-loads. After MAX, the 60s auto-refresh PAUSES so it
    *  stops re-hammering a persistently-failing endpoint ([[error-recovery]]
@@ -727,7 +744,7 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
    *  successful load resets the counter → auto-refresh resumes. */
   private static readonly MAX_AUTO_RETRIES = 3;
   readonly consecutiveErrors = signal(0);
-  readonly autoRefreshPaused = computed(() => this.consecutiveErrors() >= AdminAnalyticsComponent.MAX_AUTO_RETRIES);
+  readonly autoRefreshPaused = computed(() => this.consecutiveErrors() >= AdminAnalyticsComponent.MAX_AUTO_RETRIES || this.notAvailable());
   refreshedAt = signal<Date | null>(null);
   secondsUntilRefresh = signal<number>(REFRESH_INTERVAL_SEC);
   readonly refreshIntervalSec = REFRESH_INTERVAL_SEC;
@@ -806,6 +823,7 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     const env = this.envelope();
     // Errored with no data → the badge must NOT falsely read "Loading" (the
     // load failed; it's retrying). Reflect the unavailable state honestly.
+    if (this.notAvailable()) return 'Unavailable';
     if (!env && this.error()) return 'Unavailable';
     if (!env) return 'Loading';
     if (env.any_real_data) return 'Cloudflare Edge';
@@ -816,6 +834,7 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   dataHealth = computed<'healthy' | 'warning' | 'degraded'>(() => {
     const env = this.envelope();
     if (env?.any_real_data) return 'healthy';
+    if (this.notAvailable()) return 'warning';
     if (!env && this.error()) return 'degraded';
     const cred = this.credStatus();
     if (cred && cred.source === 'none') return 'degraded';
@@ -823,6 +842,7 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   });
   dataTooltip = computed<string>(() => {
     const env = this.envelope();
+    if (this.notAvailable()) return 'Traffic analytics aren’t available for this site yet.';
     if (!env && this.error()) return this.error()!;
     if (env?.any_real_data) {
       return `Cloudflare GraphQL — aggregated across ${env.urls_included.length} URL${env.urls_included.length === 1 ? '' : 's'}. No session-duration / bounce-rate at the edge.`;
@@ -1072,12 +1092,23 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     // fails (catchError re-sets it below).
     this.error.set(null);
     this.loadErrorRef.set('');
+    this.notAvailable.set(false);
     this.secondsUntilRefresh.set(REFRESH_INTERVAL_SEC);
     const excludeArr = Array.from(this.excluded());
     forkJoin({
       analytics: this.api.getMultiUrlAnalytics(site.id, this.range(), excludeArr).pipe(
         timeout(AdminAnalyticsComponent.FETCH_TIMEOUT_MS),
         catchError((err: unknown) => {
+          // A 404 = the analytics route isn't registered for this site/env —
+          // PERMANENT (it won't fix itself). Show the calm "not available" notice
+          // instead of a red "usually temporary, retry" card, and let
+          // autoRefreshPaused stop the 60s re-poll (never hammer a 404 forever).
+          const status = (err as { status?: number } | undefined)?.status;
+          if (status === 404) {
+            this.notAvailable.set(true);
+            this.loadErrorRef.set('');
+            return of({ data: null as MultiUrlAnalyticsEnvelope | null });
+          }
           // The shared error card owns the Retry affordance, so the message no
           // longer says "Retry below"; capture the worker request_id for support.
           const msg = err instanceof TimeoutError

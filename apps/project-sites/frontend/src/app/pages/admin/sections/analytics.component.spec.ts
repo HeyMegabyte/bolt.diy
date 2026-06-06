@@ -190,6 +190,24 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="kpi-pageviews"]'))
       .withContext('body renders on the happy path').not.toBeNull();
   });
+
+  // A 404 (route not registered for this site/env) is PERMANENT — not "temporary".
+  // It must surface a calm "not available" notice (not the red transient error
+  // card promising "try again") and pause auto-refresh (never re-poll a 404).
+  it('treats a 404 as "not available" — calm cyan notice, no red error card, auto-refresh paused', () => {
+    build(null);
+    getAnalytics.and.returnValue(throwError(() => ({ status: 404, error: { error: { request_id: 'req_404' } } })));
+    selectedSite.set({ id: 'site-x' });
+    fixture.detectChanges();
+    const c = fixture.componentInstance;
+    expect(c.notAvailable()).withContext('404 → notAvailable').toBeTrue();
+    expect(c.error()).withContext('no red transient error for a permanent 404').toBeNull();
+    expect(c.autoRefreshPaused()).withContext('a permanent 404 stops the 60s re-poll').toBeTrue();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="analytics-unavailable"]')).withContext('calm not-available notice shown').not.toBeNull();
+    expect(el.querySelector('app-error-card')).withContext('no red error card for a 404').toBeNull();
+    expect(el.querySelector('[data-testid="kpi-pageviews"]')).withContext('KPI body hidden under the notice').toBeNull();
+  });
 });
 
 /**
