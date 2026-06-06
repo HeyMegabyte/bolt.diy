@@ -97,6 +97,19 @@ describe('AdminSocialComponent (site-reactive load)', () => {
     expect(pill!.querySelector('app-rolling-counter')).withContext('no "0 connected" count over the loading accounts').toBeNull();
   });
 
+  it('shows "—" not a false "0 connected" when connection states fail to load', () => {
+    build({ id: 'site-x' });
+    fixture.componentInstance.loading.set(false);
+    fixture.componentInstance.accountsError.set(true);
+    fixture.componentInstance.accounts.set([]);
+    fixture.detectChanges();
+    const pill = (fixture.nativeElement as HTMLElement).querySelector('.hdr-pill');
+    expect(pill).withContext('connected pill present').toBeTruthy();
+    expect(pill!.querySelector('app-rolling-counter'))
+      .withContext('no definitive "0 connected" over a connection-state error').toBeNull();
+    expect(pill!.textContent ?? '').withContext('shows the unknown dash').toContain('—');
+  });
+
   it('post-preview action row is decorative (aria-hidden) with monochrome SVG icons, not emoji', () => {
     build({ id: 'site-x' });
     // selecting a platform renders a live-preview card whose footer mimics a

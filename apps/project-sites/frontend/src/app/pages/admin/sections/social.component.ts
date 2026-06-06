@@ -253,6 +253,10 @@ const PLATFORMS: readonly PlatformDef[] = [
           <span class="hdr-pill-dot"></span>
           @if (loading() && accounts().length === 0) {
             <span aria-hidden="true">…</span>&nbsp;connected
+          } @else if (accountsError() && accounts().length === 0) {
+            <!-- Connection states failed to load → the count is UNKNOWN, not 0.
+                 Show "—" (mirrors the loading "…"), never a false "0 connected". -->
+            <span aria-hidden="true">—</span>&nbsp;connected
           } @else {
             <app-rolling-counter [value]="connectedCount()" />&nbsp;connected
           }
