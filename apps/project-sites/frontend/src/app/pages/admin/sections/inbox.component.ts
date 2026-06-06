@@ -24,6 +24,7 @@ import { RollingCounterComponent } from '../../../components/rolling-counter/rol
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { EmptyStateComponent } from '../../../components/states';
+import { ChannelIconComponent } from '../../../components/channel-icon/channel-icon.component';
 
 interface VisitorIdentity {
   id: string;
@@ -63,10 +64,6 @@ interface Message {
   sent_at: string;
 }
 
-const CHANNEL_ICONS: Record<string, string> = {
-  form: '📋', chat: '💬', voice: '📞', sms: '📱', email: '✉️',
-};
-
 // Status accents resolve to design tokens (open/resolved) + locally-scoped
 // semantic vars (pending/spam) defined in the inbox style block — no raw hex
 // leaks into bound styles. Cyan/black brand cohesion per convergence r21.
@@ -80,7 +77,7 @@ const STATUS_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-inbox',
   standalone: true,
-  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, EmptyStateComponent],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, EmptyStateComponent, ChannelIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="inbox-shell" appReveal>
@@ -133,7 +130,7 @@ const STATUS_COLORS: Record<string, string> = {
           <select hlmSelect aria-label="Filter by channel" [(ngModel)]="selectedChannel">
             <option value="">All channels</option>
             @for (ch of channels; track ch) {
-              <option [value]="ch">{{ channelIcon(ch) }} {{ ch }}</option>
+              <option [value]="ch">{{ ch }}</option>
             }
           </select>
           <input
@@ -185,7 +182,7 @@ const STATUS_COLORS: Record<string, string> = {
                   tabindex="0"
                   (keydown.enter)="selectConversation(conv)"
                   (keydown.space)="selectConversation(conv)">
-                  <span class="inbox-row-icon" [attr.title]="conv.channel">{{ channelIcon(conv.channel) }}</span>
+                  <span class="inbox-row-icon" [attr.title]="conv.channel"><app-channel-icon [channel]="conv.channel" /></span>
                   <div class="inbox-row-body">
                     <div class="inbox-row-name">{{ visitorName(conv) }}</div>
                     <div class="inbox-row-sub">{{ conv.subject || 'No subject' }}</div>
@@ -214,7 +211,7 @@ const STATUS_COLORS: Record<string, string> = {
             } @else {
               <header class="inbox-thread-hdr">
                 <div class="inbox-thread-hdr-top">
-                  <span class="inbox-ch-chip">{{ channelIcon(selectedConversation()!.channel) }} {{ selectedConversation()!.channel }}</span>
+                  <span class="inbox-ch-chip"><app-channel-icon [channel]="selectedConversation()!.channel" /> {{ selectedConversation()!.channel }}</span>
                   <span class="inbox-status-chip" [style.color]="statusColor(selectedConversation()!.status)">{{ selectedConversation()!.status }}</span>
                 </div>
                 <h2 class="inbox-thread-subject">{{ selectedConversation()!.subject || visitorName(selectedConversation()!) }}</h2>
@@ -385,7 +382,7 @@ const STATUS_COLORS: Record<string, string> = {
       .inbox-empty-thread { display: flex; align-items: center; justify-content: center; flex: 1; color: var(--inbox-ink-35); font-size: 13px; }
       .inbox-thread-hdr { padding: 12px 16px; border-bottom: 1px solid var(--inbox-hairline); }
       .inbox-thread-hdr-top { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
-      .inbox-ch-chip { font-size: 11px; background: var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 10%, transparent)); border: 1px solid var(--ps-accent-line, color-mix(in oklch, var(--ps-accent) 20%, transparent)); border-radius: 20px; padding: 2px 8px; }
+      .inbox-ch-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; text-transform: capitalize; background: var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 10%, transparent)); border: 1px solid var(--ps-accent-line, color-mix(in oklch, var(--ps-accent) 20%, transparent)); border-radius: 20px; padding: 2px 8px; }
       .inbox-status-chip { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
       .inbox-thread-subject { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
       .inbox-thread-visitor { font-size: 12px; color: var(--inbox-ink-45); margin: 0; }
@@ -651,10 +648,6 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
         },
         error: () => {},
       });
-  }
-
-  channelIcon(ch: string): string {
-    return CHANNEL_ICONS[ch] ?? '?';
   }
 
   statusColor(status: string): string {
