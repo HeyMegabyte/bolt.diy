@@ -602,13 +602,6 @@ export class ApiService {
     return this.post(`/sites/${siteId}/publish-bolt`, { files, chat, slug });
   }
 
-  /** Get chat export for a site by slug */
-  getChatExport(slug: string): Observable<{ messages: unknown[]; description?: string; exportDate?: string }> {
-    return this.http.get<{ messages: unknown[]; description?: string; exportDate?: string }>(
-      `/api/sites/by-slug/${slug}/chat`,
-    ).pipe(this.handleError());
-  }
-
   /** Get GA4 analytics data for a site */
   getAnalytics(siteId: string, period = '7'): Observable<{ data: AnalyticsData }> {
     return this.get(`/analytics/${siteId}`, { period });
