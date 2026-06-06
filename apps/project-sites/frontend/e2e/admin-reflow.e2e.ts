@@ -54,8 +54,13 @@ test.describe('admin — 320px reflow (WCAG 1.4.10) + mobile drawer', () => {
   test.skip(!KEY, 'E2E_API_KEY not set');
   test.describe.configure({ retries: 2 });
 
-  test.describe('no horizontal page scroll @320px', () => {
-    test.use({ viewport: { width: 320, height: 800 } });
+  // Both the 320px floor AND 390px (the most common phone width). 390 catches
+  // "mid-breakpoint" overflow that 320 misses: a flex-wrap row that wraps to a
+  // 2nd line at 320 (no overflow) but stays on one line + overflows at 390 — the
+  // exact class that left the top-bar avatar cut off pre-cd56f3ed.
+  for (const VW of [320, 390]) {
+  test.describe(`no horizontal page scroll @${VW}px`, () => {
+    test.use({ viewport: { width: VW, height: 800 } });
     for (const path of ROUTES) {
       test(`${path}`, async ({ page }) => {
         test.setTimeout(60000);
@@ -101,10 +106,11 @@ test.describe('admin — 320px reflow (WCAG 1.4.10) + mobile drawer', () => {
           }
           return found.slice(0, 5);
         });
-        expect(culprits, `elements overflow the 320px viewport (real reflow bug):\n${culprits.join('\n')}`).toEqual([]);
+        expect(culprits, `elements overflow the ${VW}px viewport (real reflow bug):\n${culprits.join('\n')}`).toEqual([]);
       });
     }
   });
+  }
 
   test.describe('mobile drawer open/close', () => {
     test.use({ viewport: { width: 390, height: 844 } });
