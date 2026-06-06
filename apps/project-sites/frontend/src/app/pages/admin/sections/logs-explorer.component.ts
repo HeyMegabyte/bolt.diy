@@ -112,7 +112,7 @@ const LEVEL_COLORS: Record<string, string> = {
           <p class="text-text-secondary text-sm m-0 mt-1">
             This feature is gated behind the <code>log_explorer</code> flag, which is off for
             this environment. Enable it in
-            <a routerLink="/admin/feature-flags" class="underline">Feature Flags</a>
+            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>
             to search Worker tail logs and view cost-by-route.
           </p>
         </div>
