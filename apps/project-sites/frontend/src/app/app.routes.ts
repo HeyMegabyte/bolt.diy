@@ -503,6 +503,17 @@ export const routes: Routes = [
             (m) => m.AdminStripeAppStatusComponent,
           ),
       },
+      {
+        // Admin-scoped 404 — MUST be last. Catches any unknown `/admin/*` path
+        // (stale bookmark to a renamed route, or a param-route hit without its
+        // param like `/admin/swarm`) and renders INSIDE the cockpit shell,
+        // instead of falling through to the ROOT `**` public marketing 404.
+        path: '**',
+        loadComponent: () =>
+          import('./pages/admin/sections/not-found.component').then(
+            (m) => m.AdminNotFoundComponent,
+          ),
+      },
     ],
   },
   {
