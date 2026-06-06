@@ -227,9 +227,10 @@ const CITATION_REGEX = /\[(\d+)\]/g;
         border-top: 1px solid rgba(255, 255, 255, 0.08);
         margin: 14px 0;
       }
-      /* Tool chips embedded inline via the pre-processor. */
-      .am-body :global(.agent-tool-chip),
-      .am-body .agent-tool-chip {
+      /* Tool chips embedded inline via the pre-processor ([innerHTML]) → ::ng-deep
+         to pierce encapsulation; :global() is a CSS-Modules construct that Angular
+         leaves invalid, and a plain .am-body .agent-tool-chip can't reach innerHTML. */
+      :host ::ng-deep .am-body .agent-tool-chip {
         display: inline-flex;
         align-items: center;
         gap: 4px;

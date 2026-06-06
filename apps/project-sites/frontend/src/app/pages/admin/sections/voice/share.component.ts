@@ -178,7 +178,8 @@ interface PurchasedNumber {
       box-shadow: 0 8px 24px -12px rgba(0,229,255,0.4);
     }
     .qr-skel { font: 600 0.7rem 'JetBrains Mono', ui-monospace, monospace; color: #444; }
-    .qr-tile :global(canvas), .qr-tile :global(svg) { width: 100%; height: 100%; }
+    /* QR canvas/svg is rendered into .qr-tile at runtime → ::ng-deep, not :global() (dead in Angular). */
+    :host ::ng-deep .qr-tile canvas, :host ::ng-deep .qr-tile svg { width: 100%; height: 100%; }
 
     .copy-row {
       display: flex; gap: 0.6rem; align-items: stretch;

@@ -290,7 +290,10 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
       letter-spacing: -0.01em;
       color: var(--ps-ink, #fff);
     }
-    .vanity-display :global(b) { color: var(--ps-accent, #00E5FF); }
+    /* vanityHtml injects <b> via [innerHTML] → needs ::ng-deep, NOT :global()
+       (a CSS-Modules construct Angular leaves invalid → the rule was dead → the
+       vanity match never went cyan). */
+    :host ::ng-deep .vanity-display b { color: var(--ps-accent, #00E5FF); }
     .num-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; font-size: 0.66rem; color: rgba(255,255,255,0.6); align-items: center; }
     .cap-chip, .cost-chip {
       padding: 2px 7px; border-radius: 999px;

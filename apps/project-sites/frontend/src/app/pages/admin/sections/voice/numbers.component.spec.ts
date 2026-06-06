@@ -87,4 +87,18 @@ describe('VoiceNumbersComponent (purchase + release confirmation)', () => {
     expect(c.numbers().length).withContext('numbers survive a transient failure').toBe(2);
     expect(c.loadError()).toBeTruthy();
   });
+
+  // The vanity match is bolded with <b> (injected via [innerHTML]); the cockpit
+  // styles those cyan via `:host ::ng-deep .vanity-display b` (was a dead
+  // `:global(b)` rule → browser default, off-brand). Confirm the <b> markup the
+  // rule targets is actually produced.
+  it('vanityHtml wraps the vanity match in <b> for the cyan highlight to style', () => {
+    const { c } = make();
+    // (855) 522-6700 — last7 "5226700" contains LABOR's digit-map "52267".
+    const html = c.vanityHtml('+18555226700', 'LABOR');
+    expect(html).toContain('<b>L</b>');
+    expect(html).toContain('<b>R</b>');
+    // No vanity arg → plain number, no stray <b>.
+    expect(c.vanityHtml('+18555226700')).not.toContain('<b>');
+  });
 });
