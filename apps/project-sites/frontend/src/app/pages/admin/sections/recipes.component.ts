@@ -134,7 +134,7 @@ interface Recipe {
             @for (r of recipes(); track r.id) {
               <li data-testid="recipes-row" class="flex items-center justify-between gap-3 rounded-lg bg-white/[0.03] px-3 py-2.5">
                 <div class="min-w-0">
-                  <span class="text-sm text-light block truncate">{{ r.name }}</span>
+                  <span class="text-sm text-light block truncate" [attr.title]="r.name">{{ r.name }}</span>
                   <span class="text-[0.7rem] text-text-secondary">{{ r.trigger.type }} → {{ r.actions[0]?.type }}{{ r.enabled ? '' : ' · disabled' }}</span>
                 </div>
                 <button hlmBtn variant="ghost" size="sm" data-testid="recipes-delete" (click)="remove(r.id, r.name)">Delete</button>

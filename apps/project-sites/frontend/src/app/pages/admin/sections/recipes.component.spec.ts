@@ -45,6 +45,15 @@ describe('AdminRecipesComponent', () => {
   const all = (sel: string): HTMLElement[] => Array.from(host.querySelectorAll(sel));
   afterEach(() => TestBed.resetTestingModule());
 
+  // The recipe name is truncated (.truncate); it must carry a hover title so a
+  // long name is readable when clipped (truncate-without-title sweep).
+  it('gives the truncated recipe name a hover title', () => {
+    build({ id: 's1' });
+    const nameEl = all('span.truncate').find((s) => s.textContent?.trim() === 'Lead alert');
+    expect(nameEl).withContext('recipe name span').toBeTruthy();
+    expect(nameEl!.getAttribute('title')).toBe('Lead alert');
+  });
+
   it('shows the empty state with no selected site', () => {
     build(null);
     expect(q('[data-testid="recipes-empty"]')).not.toBeNull();

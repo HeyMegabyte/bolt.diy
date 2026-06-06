@@ -140,7 +140,7 @@ interface Delivery {
             <ul class="flex flex-col gap-1.5">
               @for (d of deliveries(); track d.id) {
                 <li data-testid="webhooks-delivery-row" class="flex items-center justify-between gap-3 text-[0.8rem] rounded-lg bg-white/[0.03] px-3 py-2">
-                  <span class="text-text-secondary truncate">{{ d.eventType }} <span class="text-light/60">· attempt {{ d.attempt }}</span></span>
+                  <span class="text-text-secondary truncate" [attr.title]="d.eventType + ' · attempt ' + d.attempt">{{ d.eventType }} <span class="text-light/60">· attempt {{ d.attempt }}</span></span>
                   <span [class]="d.ok ? 'text-primary' : 'text-amber-300/90'" class="shrink-0 tabular-nums">{{ d.statusCode || '—' }} {{ d.ok ? 'OK' : 'fail' }}</span>
                 </li>
               }

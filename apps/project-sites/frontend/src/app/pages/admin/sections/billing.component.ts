@@ -547,7 +547,7 @@ interface ForecastBar {
             @for (r of siteCosts(); track r.site_id) {
               <div class="flex items-center gap-3">
                 <div class="flex-1 min-w-0">
-                  <div class="text-[0.78rem] text-white truncate">{{ r.business_name || r.slug }}</div>
+                  <div class="text-[0.78rem] text-white truncate" [attr.title]="r.business_name || r.slug">{{ r.business_name || r.slug }}</div>
                   <div class="text-[0.66rem] text-text-secondary font-mono">{{ formatCredits(r.ai_credits) }} credits used · 30d</div>
                 </div>
                 <input hlmInput type="number" min="0" step="50" placeholder="no cap"
@@ -1110,7 +1110,7 @@ interface ForecastBar {
                 @for (s of state.sites(); track s.id) {
                   <li class="flex items-center gap-3 p-2 rounded-lg border border-white/[0.05]">
                     <div class="flex-1 min-w-0">
-                      <div class="text-[0.78rem] text-white truncate">{{ s.business_name || s.slug }}</div>
+                      <div class="text-[0.78rem] text-white truncate" [attr.title]="s.business_name || s.slug">{{ s.business_name || s.slug }}</div>
                       <div class="text-[0.66rem] text-text-secondary font-mono">{{ s.slug }}</div>
                     </div>
                     <input

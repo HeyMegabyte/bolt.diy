@@ -105,7 +105,7 @@ interface NotificationGroup {
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2 flex-wrap mb-1">
-              <h3 class="section-h m-0 text-base font-semibold text-white truncate">{{ displayName() }}</h3>
+              <h3 class="section-h m-0 text-base font-semibold text-white truncate" [attr.title]="displayName()">{{ displayName() }}</h3>
               <span class="role-pill" title="Your role on this workspace">{{ roleLabel() }}</span>
             </div>
             <p class="text-[0.74rem] text-text-secondary m-0 break-all">{{ auth.email() || '—' }}</p>
@@ -384,7 +384,7 @@ interface NotificationGroup {
                 </div>
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-2 flex-wrap">
-                    <span class="font-medium text-white text-[0.82rem] truncate">{{ s.device || s.browser || 'Unknown device' }}</span>
+                    <span class="font-medium text-white text-[0.82rem] truncate" [attr.title]="s.device || s.browser || 'Unknown device'">{{ s.device || s.browser || 'Unknown device' }}</span>
                     @if (s.current) { <span class="status-pill is-active">This device</span> }
                   </div>
                   <div class="text-[0.7rem] text-text-secondary mt-0.5 truncate">

@@ -207,7 +207,7 @@ interface ToolUsage {
                     </span>
                   </div>
                   @if (tool.description) {
-                    <p class="text-[0.72rem] text-text-secondary m-0 mt-0.5 truncate">{{ tool.description }}</p>
+                    <p class="text-[0.72rem] text-text-secondary m-0 mt-0.5 truncate" [attr.title]="tool.description">{{ tool.description }}</p>
                   }
                 </div>
                 <button

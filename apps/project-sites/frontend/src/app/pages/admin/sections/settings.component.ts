@@ -367,7 +367,7 @@ const PROVIDERS = MCP_PROVIDERS;
                     <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-white/[0.04] border border-white/[0.04]" [title]="m.provider + ' — toggle availability for AI Chat'">
                       <input hlmCheckbox type="checkbox" [checked]="chatMcps().includes(m.provider)" (change)="toggleChatMcp(m.provider)" />
                       <span class="badge">{{ m.provider }}</span>
-                      <span class="text-[0.66rem] text-text-secondary flex-1 truncate">{{ m.display_name || m.provider }}</span>
+                      <span class="text-[0.66rem] text-text-secondary flex-1 truncate" [attr.title]="m.display_name || m.provider">{{ m.display_name || m.provider }}</span>
                     </label>
                   }
                   @if (connections().length === 0) {

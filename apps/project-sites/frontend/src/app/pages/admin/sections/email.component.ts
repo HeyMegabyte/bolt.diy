@@ -147,10 +147,10 @@ const PROVIDERS: ProviderMeta[] = [
                   @for (s of submissions(); track s.id) {
                     <button class="submission-row" [class.selected]="selectedId() === s.id" (click)="selectedId.set(s.id)">
                       <div class="flex items-center justify-between gap-2 mb-1">
-                        <span class="text-[0.78rem] font-semibold text-white truncate">{{ s.email || s.form_name || 'Anonymous' }}</span>
+                        <span class="text-[0.78rem] font-semibold text-white truncate" [attr.title]="s.email || s.form_name || 'Anonymous'">{{ s.email || s.form_name || 'Anonymous' }}</span>
                         <span class="text-[0.65rem] text-text-secondary/60 flex-shrink-0">{{ state.formatRelativeTime(s.created_at) }}</span>
                       </div>
-                      <div class="text-[0.7rem] text-text-secondary truncate">{{ describePayload(s) }}</div>
+                      <div class="text-[0.7rem] text-text-secondary truncate" [attr.title]="describePayload(s)">{{ describePayload(s) }}</div>
                       @if (s.forwarded_to?.length) {
                         <div class="flex items-center gap-1 mt-1.5 flex-wrap">
                           @for (provider of s.forwarded_to ?? []; track provider) {
