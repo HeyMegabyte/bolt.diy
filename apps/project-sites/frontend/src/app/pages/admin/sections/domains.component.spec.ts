@@ -205,6 +205,26 @@ describe('AdminDomainsComponent (hostname load-error gating)', () => {
     c.loadHostnames();
     expect(c.hostnamesError()).toBeNull();
   });
+
+  it('captures the worker request_id from a failed load → hostnamesErrorRef (copyable support reference on the shared error card)', () => {
+    const get = jasmine
+      .createSpy('get')
+      .and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req_abc123' } } })));
+    const { c } = makeErroring(get);
+    c.loadHostnames();
+    expect(c.hostnamesErrorRef()).toBe('req_abc123');
+  });
+
+  it('resets hostnamesErrorRef at the start of every load (no stale reference)', () => {
+    const get = jasmine
+      .createSpy('get')
+      .and.returnValues(throwError(() => ({ status: 500, error: { error: { request_id: 'req_x' } } })), of({ data: [] }));
+    const { c } = makeErroring(get);
+    c.loadHostnames();
+    expect(c.hostnamesErrorRef()).toBe('req_x');
+    c.loadHostnames();
+    expect(c.hostnamesErrorRef()).toBe('');
+  });
 });
 
 /**

@@ -37,6 +37,7 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { EmptyStateComponent } from '../empty-state.component';
+import { ErrorCardComponent } from '../../../components/states';
 import { HlmInputDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { RevealDirective } from '../../../directives/reveal.directive';
@@ -110,6 +111,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
     RevealDirective,
     FormsModule,
     EmptyStateComponent,
+    ErrorCardComponent,
     HlmInputDirective,
     FocusTrapDirective,
     RollingCounterComponent,
@@ -307,10 +309,14 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
               }
             </div>
           } @else if (hostnamesError()) {
-            <div class="rounded-md border border-red-500/30 bg-red-500/5 p-4" role="alert" data-testid="hostnames-load-error">
-              <p class="text-red-300 text-sm m-0 mb-2">{{ hostnamesError() }}</p>
-              <button class="btn-ghost text-xs" data-testid="hostnames-retry" (click)="loadHostnames()" [disabled]="loadingHostnames()">Retry</button>
-            </div>
+            <app-error-card
+              data-testid="hostnames-load-error"
+              class="block"
+              title="Couldn't load your domains"
+              [message]="hostnamesError()!"
+              [correlationId]="hostnamesErrorRef()"
+              [retryLabel]="loadingHostnames() ? 'Retrying…' : 'Retry'"
+              (retry)="loadHostnames()" />
           } @else if (hostnames().length === 0) {
             <app-empty-state
               icon="🔗"
@@ -669,6 +675,8 @@ export class AdminDomainsComponent implements OnInit {
   loadingHostnames = signal(false);
   /** Persistent hostname-load failure — so a fetch error shows a Retry card, not a fake "No connected domains" empty state (which could prompt a re-provision of a domain the user already owns). */
   hostnamesError = signal<string | null>(null);
+  /** Worker request_id from a failed hostname load → copyable support reference on the error card. */
+  readonly hostnamesErrorRef = signal('');
   addingCustom = signal(false);
   aiSearching = signal(false);
   aiResults = signal<{ available: readonly DomainCard[]; unavailable: readonly DomainCard[] } | null>(null);
@@ -722,6 +730,7 @@ export class AdminDomainsComponent implements OnInit {
     if (!site) return;
     this.loadingHostnames.set(true);
     this.hostnamesError.set(null);
+    this.hostnamesErrorRef.set('');
     // {silent}: this read owns its error UX — a persistent hostnamesError banner
     // with Retry. Without {silent} the generic ApiService toast double-fired over
     // it (and the own toast below made it a TRIPLE). The banner+Retry is the sole
@@ -732,12 +741,18 @@ export class AdminDomainsComponent implements OnInit {
         this.hostnamesError.set(null);
         this.loadingHostnames.set(false);
       },
-      error: () => {
+      error: (err: { error?: unknown } | undefined) => {
         this.loadingHostnames.set(false);
         // Persist the failure so the empty state can't masquerade as "no domains".
-        this.hostnamesError.set('Could not load connected domains — your existing domains are safe. Retry.');
+        this.hostnamesError.set('Could not load connected domains — your existing domains are safe.');
+        this.hostnamesErrorRef.set(this.requestIdFrom(err));
       },
     });
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: { error?: unknown } | undefined): string {
+    return (e?.error as { error?: { request_id?: string } } | undefined)?.error?.request_id ?? '';
   }
 
   // ─── Backup-domain helpers ─────────────────────────────────
