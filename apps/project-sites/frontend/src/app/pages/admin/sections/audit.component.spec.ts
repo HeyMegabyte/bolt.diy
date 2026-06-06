@@ -335,3 +335,20 @@ describe('AdminAuditComponent (CSV export is formula-injection-safe)', () => {
     expect(opts.processCellCallback!({ value: 'normal' })).toBe('normal');
   });
 });
+
+describe('AdminAuditComponent — bounded auto-poll retry (error-recovery max 3)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('pauses auto-poll after 3 consecutive load errors; a success resumes it', () => {
+    const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 })));
+    const c = make(get);
+    c.load(); c.load(); c.load();
+    expect(c.consecutiveErrors()).toBe(3);
+    expect(c.autoRefreshPaused()).withContext('paused after max retries').toBeTrue();
+
+    get.and.returnValue(of({ data: [] }));
+    c.load();
+    expect(c.consecutiveErrors()).toBe(0);
+    expect(c.autoRefreshPaused()).withContext('a success resumes auto-poll').toBeFalse();
+  });
+});

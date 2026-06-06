@@ -181,7 +181,9 @@ function actionToFallbackMessage(action: string): string {
           <div class="kicker">Forensics</div>
           <h2 class="section-h text-lg font-bold text-white m-0">Audit Log</h2>
           <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
-            Every privileged action — what happened, who did it, when. Auto-refreshing every 15s · last sync {{ lastSyncLabel() }}.
+            Every privileged action — what happened, who did it, when.
+            @if (autoRefreshPaused()) { Auto-refresh paused } @else { Auto-refreshing every 15s }
+            · last sync {{ lastSyncLabel() }}.
           </p>
         </div>
         <div class="flex gap-2 items-center">
@@ -403,6 +405,13 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
    *  misleading "No audit events yet" empty state (a security log must never
    *  imply zero activity when the fetch actually failed). */
   loadError = signal<string | null>(null);
+  /** Consecutive failed auto-polls. After MAX, the 15s poll PAUSES so it stops
+   *  re-hammering a persistently-failing endpoint ([[error-recovery]] "retry
+   *  with backoff, max 3"). Manual Retry (+ tab-return) bypasses the guard and a
+   *  successful load resets the counter → auto-poll resumes. */
+  private static readonly MAX_AUTO_RETRIES = 3;
+  readonly consecutiveErrors = signal(0);
+  readonly autoRefreshPaused = computed(() => this.consecutiveErrors() >= AdminAuditComponent.MAX_AUTO_RETRIES);
   /** Worker request_id from a failed load → the copyable support reference on the error card. */
   readonly loadErrorRef = signal('');
 
@@ -651,6 +660,7 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
     // quota on background tabs. Resume + immediate sync on visibility return.
     this.pollTimer = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      if (this.autoRefreshPaused()) return; // stopped after repeated errors; Retry/tab-return resumes
       this.load();
     }, AdminAuditComponent.POLL_MS);
     this.visibilityHandler = (): void => {
@@ -685,12 +695,14 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
         this.rows.set(r.data ?? []);
         this.loading.set(false);
         this.lastSyncAt.set(Date.now());
+        this.consecutiveErrors.set(0); // success → resume auto-poll
       },
       error: (err: unknown) => {
         this.loading.set(false);
         // The shared <app-error-card> owns Retry + a copyable support reference.
         this.loadError.set('Could not load audit events.');
         this.loadErrorRef.set(this.requestIdFrom(err));
+        this.consecutiveErrors.update((n) => n + 1); // count toward the auto-poll cap
       },
     });
   }
