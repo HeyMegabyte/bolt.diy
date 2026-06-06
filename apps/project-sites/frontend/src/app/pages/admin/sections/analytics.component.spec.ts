@@ -88,6 +88,16 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
     expect(c.loading()).withContext('reload is in-flight').toBe(true);
   });
 
+  it('the status badge reads "Unavailable" (not a false "Loading") when the load errors with no data', () => {
+    build({ id: 'site-x' });
+    const c = fixture.componentInstance;
+    c.envelope.set(null as never);
+    c.error.set('Server error');
+    expect(c.dataLabel()).withContext('honest badge, not "Loading"').toBe('Unavailable');
+    expect(c.dataHealth()).withContext('degraded health on error').toBe('degraded');
+    expect(c.dataTooltip()).withContext('tooltip surfaces the error').toBe('Server error');
+  });
+
   describe('pvTrend (period-over-period delta chip)', () => {
     function series(views: number[]): { series: { date: string; page_views: number; unique_visitors: number }[] } {
       return { series: views.map((v, i) => ({ date: `2026-06-0${i + 1}`, page_views: v, unique_visitors: v })) };

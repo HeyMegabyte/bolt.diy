@@ -89,6 +89,10 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
               @if (loading()) {
                 <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
                 <span>Refreshing now</span>
+              } @else if (error()) {
+                <!-- Auto-refresh keeps polling after a failure — say "Retrying",
+                     not "Refreshing", so it's honest alongside the error card. -->
+                Retrying in {{ secondsUntilRefresh() }}s
               } @else {
                 Refreshing in {{ secondsUntilRefresh() }}s
               }
@@ -789,6 +793,9 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   /** Data-source label/health based on envelope state + credential status. */
   dataLabel = computed<string>(() => {
     const env = this.envelope();
+    // Errored with no data → the badge must NOT falsely read "Loading" (the
+    // load failed; it's retrying). Reflect the unavailable state honestly.
+    if (!env && this.error()) return 'Unavailable';
     if (!env) return 'Loading';
     if (env.any_real_data) return 'Cloudflare Edge';
     const cred = this.credStatus();
@@ -798,12 +805,14 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   dataHealth = computed<'healthy' | 'warning' | 'degraded'>(() => {
     const env = this.envelope();
     if (env?.any_real_data) return 'healthy';
+    if (!env && this.error()) return 'degraded';
     const cred = this.credStatus();
     if (cred && cred.source === 'none') return 'degraded';
     return 'warning';
   });
   dataTooltip = computed<string>(() => {
     const env = this.envelope();
+    if (!env && this.error()) return this.error()!;
     if (env?.any_real_data) {
       return `Cloudflare GraphQL — aggregated across ${env.urls_included.length} URL${env.urls_included.length === 1 ? '' : 's'}. No session-duration / bounce-rate at the edge.`;
     }
