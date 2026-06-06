@@ -260,3 +260,20 @@ describe('AdminAiLogsComponent (all four KPI tiles roll — cinematic-ui)', () =
     expect(counters.length).withContext('all four KPI tiles roll via app-rolling-counter').toBe(4);
   });
 });
+
+describe('AdminAiLogsComponent — bounded auto-poll retry (error-recovery max 3)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('pauses auto-poll after 3 consecutive load errors; a success resumes it', () => {
+    const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 })));
+    const c = make(get);
+    c.reload(); c.reload(); c.reload();
+    expect(c.consecutiveErrors()).toBe(3);
+    expect(c.autoRefreshPaused()).withContext('paused after max retries').toBeTrue();
+
+    get.and.returnValue(of({ data: [] }));
+    c.reload();
+    expect(c.consecutiveErrors()).toBe(0);
+    expect(c.autoRefreshPaused()).withContext('a success resumes auto-poll').toBeFalse();
+  });
+});

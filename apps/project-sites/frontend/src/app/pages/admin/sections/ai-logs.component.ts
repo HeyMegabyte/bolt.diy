@@ -241,9 +241,9 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
           <div class="kicker">Observability</div>
           <h2 class="section-h text-lg font-bold text-white m-0 flex items-center gap-3">
             AI Traces
-            <span class="live-pill" [class.live-pill--paused]="!polling()" [title]="polling() ? 'Polling every 15s' : 'Polling paused (tab hidden)'">
+            <span class="live-pill" [class.live-pill--paused]="!polling()" [title]="polling() ? 'Polling every 15s' : (autoRefreshPaused() ? 'Auto-refresh paused after repeated errors — use Retry' : 'Polling paused (tab hidden)')">
               <span class="live-dot" aria-hidden="true"></span>
-              <span class="live-text">{{ polling() ? 'Live' : 'Paused' }}</span>
+              <span class="live-text">{{ polling() ? 'Live' : (autoRefreshPaused() ? 'Auto-paused' : 'Paused') }}</span>
             </span>
           </h2>
           <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
@@ -696,6 +696,13 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
   loading = signal(false);
   /** Persistent load failure — shown only when there are no rows (so a failed fetch isn't a blank/empty masquerade); stale data stays visible otherwise. */
   loadError = signal<string | null>(null);
+  /** Consecutive failed auto-polls. After MAX, the 15s poll PAUSES so it stops
+   *  re-hammering a persistently-failing endpoint ([[error-recovery]] "retry
+   *  with backoff, max 3"). Manual Retry (+ tab-return) bypasses the guard and a
+   *  successful load resets the counter → auto-poll resumes. */
+  private static readonly MAX_AUTO_RETRIES = 3;
+  readonly consecutiveErrors = signal(0);
+  readonly autoRefreshPaused = computed(() => this.consecutiveErrors() >= AdminAiLogsComponent.MAX_AUTO_RETRIES);
   filter = signal('');
   searchFocused = signal(false);
   polling = signal(true);
@@ -1222,6 +1229,7 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
         this.polling.set(false);
         return;
       }
+      if (this.autoRefreshPaused()) { this.polling.set(false); return; } // stopped after repeated errors; Retry/tab-return resumes
       this.polling.set(true);
       this.reload();
     }, AdminAiLogsComponent.POLL_MS);
@@ -1248,10 +1256,10 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
     if (!s) return;
     this.loading.set(true);
     this.api.get<{ data: TraceRow[] }>(`/sites/${s.id}/ai-logs`, undefined, { silent: true }).subscribe({
-      next: (r) => { this.rows.set(r.data ?? []); this.loadError.set(null); this.loading.set(false); },
+      next: (r) => { this.rows.set(r.data ?? []); this.loadError.set(null); this.loading.set(false); this.consecutiveErrors.set(0); },
       // Silent error → empty grid masquerades as "no traces". Record it; the
       // banner shows only when there are no rows (stale data stays visible on a poll blip).
-      error: () => { this.loadError.set('Could not load AI traces — retry.'); this.loading.set(false); },
+      error: () => { this.loadError.set('Could not load AI traces — retry.'); this.loading.set(false); this.consecutiveErrors.update((n) => n + 1); },
     });
   }
 
