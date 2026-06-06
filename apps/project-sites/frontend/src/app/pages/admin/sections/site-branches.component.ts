@@ -18,7 +18,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { ApiService } from '../../../services/api.service';
 import { catchError, of } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
@@ -233,7 +233,10 @@ interface Branch {
 })
 export class SiteBranchesComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
-  private readonly http = inject(HttpClient);
+  // ApiService (not raw HttpClient) so every /api/sites/:id/branches* call carries
+  // the auth bearer + 401-handling — raw http.* sent no Authorization → 401 (the
+  // same bug fixed in site-mcp-server). See [[admin-raw-httpclient-auth-gap]].
+  private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
   private readonly confirmSvc = inject(ConfirmService);
 
@@ -267,8 +270,8 @@ export class SiteBranchesComponent implements OnInit {
     if (!this.siteId) return;
     this.loading.set(true);
     this.loadError.set(null);
-    this.http
-      .get<{ branches: Branch[] }>(`/api/sites/${this.siteId}/branches`)
+    this.api
+      .get<{ branches: Branch[] }>(`/sites/${this.siteId}/branches`, undefined, { silent: true })
       .pipe(catchError(() => { this.loadError.set('Could not load branches — check your connection and retry.'); return of({ branches: [] as Branch[] }); }))
       .subscribe((res) => {
         this.branches.set(res.branches);
@@ -279,11 +282,11 @@ export class SiteBranchesComponent implements OnInit {
   createBranch(): void {
     if (!this.newBranchName.trim()) return;
     this.creating.set(true);
-    this.http
-      .post<{ branch: Branch }>(`/api/sites/${this.siteId}/branches`, {
+    this.api
+      .post<{ branch: Branch }>(`/sites/${this.siteId}/branches`, {
         branch_name: this.newBranchName.trim(),
         approvals_required: this.newApprovalsRequired,
-      })
+      }, { silent: true })
       .pipe(catchError((err) => { this.toast.error(err?.error?.error ?? 'Failed to create branch'); return of(null); }))
       .subscribe((res) => {
         if (res?.branch) {
@@ -298,8 +301,8 @@ export class SiteBranchesComponent implements OnInit {
 
   requestReview(branchId: string): void {
     this.actioning.set(branchId);
-    this.http
-      .post<{ branch: Branch }>(`/api/sites/${this.siteId}/branches/${branchId}/review`, {})
+    this.api
+      .post<{ branch: Branch }>(`/sites/${this.siteId}/branches/${branchId}/review`, {}, { silent: true })
       .pipe(catchError((err) => { this.toast.error(err?.error?.error ?? 'Failed'); return of(null); }))
       .subscribe((res) => {
         if (res?.branch) this.updateBranch(res.branch);
@@ -315,8 +318,8 @@ export class SiteBranchesComponent implements OnInit {
 
   approve(branchId: string): void {
     this.actioning.set(branchId);
-    this.http
-      .post<{ branch: Branch; readyToMerge: boolean }>(`/api/sites/${this.siteId}/branches/${branchId}/approve`, {})
+    this.api
+      .post<{ branch: Branch; readyToMerge: boolean }>(`/sites/${this.siteId}/branches/${branchId}/approve`, {}, { silent: true })
       .pipe(catchError((err) => { this.toast.error(err?.error?.error ?? 'Failed'); return of(null); }))
       .subscribe((res) => {
         if (res?.branch) {
@@ -339,8 +342,8 @@ export class SiteBranchesComponent implements OnInit {
     // The build_version for a merged branch is auto-generated here as a timestamp.
     const buildVersion = `branch-merge-${Date.now()}`;
     this.actioning.set(branch.id);
-    this.http
-      .post<{ branch: Branch }>(`/api/sites/${this.siteId}/branches/${branch.id}/merge`, { build_version: buildVersion })
+    this.api
+      .post<{ branch: Branch }>(`/sites/${this.siteId}/branches/${branch.id}/merge`, { build_version: buildVersion }, { silent: true })
       .pipe(catchError((err) => { this.toast.error(err?.error?.error ?? 'Merge failed'); return of(null); }))
       .subscribe((res) => {
         if (res?.branch) {
@@ -353,8 +356,8 @@ export class SiteBranchesComponent implements OnInit {
 
   closeBranch(branchId: string): void {
     this.actioning.set(branchId);
-    this.http
-      .post<{ branch: Branch }>(`/api/sites/${this.siteId}/branches/${branchId}/close`, {})
+    this.api
+      .post<{ branch: Branch }>(`/sites/${this.siteId}/branches/${branchId}/close`, {}, { silent: true })
       .pipe(catchError((err) => { this.toast.error(err?.error?.error ?? 'Failed'); return of(null); }))
       .subscribe((res) => {
         if (res?.branch) this.updateBranch(res.branch);

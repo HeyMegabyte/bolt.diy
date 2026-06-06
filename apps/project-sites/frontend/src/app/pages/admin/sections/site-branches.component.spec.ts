@@ -24,6 +24,12 @@ describe('SiteBranchesComponent (cohesion + a11y)', () => {
 
   function build(loadFails = false, confirmResult = true): void {
     confirmSpy = jasmine.createSpy('confirm').and.resolveTo(confirmResult);
+    // Seed a session so ApiService.headers() attaches the bearer — the regression
+    // guard below asserts every /api/branches call carries it (the section used
+    // raw HttpClient with NO Authorization → 401; see admin-raw-httpclient-auth-gap).
+    try {
+      localStorage.setItem('ps_session', JSON.stringify({ token: 'tkn_branches_test', identifier: 'test@megabyte.space', createdAt: Date.now() }));
+    } catch { /* private mode */ }
     TestBed.configureTestingModule({
       imports: [SiteBranchesComponent, RouterModule.forRoot([])],
       providers: [
@@ -52,12 +58,16 @@ describe('SiteBranchesComponent (cohesion + a11y)', () => {
     fixture.detectChanges();
     // Flush the ngOnInit load (success by default, or an error for the masquerade path)
     const req = httpMock.expectOne(`/api/sites/${SITE_ID}/branches`);
+    // REGRESSION GUARD: the call MUST carry the auth bearer (routes through
+    // ApiService, not raw HttpClient). Raw http.get sent no Authorization → 401.
+    expect(req.request.headers.get('Authorization')).toBe('Bearer tkn_branches_test');
     if (loadFails) req.flush('err', { status: 500, statusText: 'Server Error' });
     else req.flush({ branches: [] });
     fixture.detectChanges();
   }
 
   afterEach(() => {
+    try { localStorage.removeItem('ps_session'); } catch { /* private mode */ }
     httpMock.verify();
     TestBed.resetTestingModule();
   });
