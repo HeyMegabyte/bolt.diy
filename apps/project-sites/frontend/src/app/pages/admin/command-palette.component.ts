@@ -293,7 +293,11 @@ interface DocsEndpoint {
     .cp-icon { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: rgba(255,255,255,0.04); color: #a5b4fc; flex: 0 0 auto; }
     .cp-title-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
     .cp-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .cp-title mark { background: transparent; color: #00E5FF; font-weight: 600; padding: 0; }
+    /* The mark elements are injected via [innerHTML] (_renderedTitle), so they carry
+       NO _ngcontent attribute — a plain .cp-title mark rule (Emulated encapsulation)
+       never matches them and they fall back to the browser default (black-on-yellow,
+       off-brand). Pierce encapsulation so the cyan highlight actually applies. */
+    :host ::ng-deep .cp-title mark { background: transparent; color: #00E5FF; font-weight: 600; padding: 0; }
     .cp-desc { font-size: 0.7rem; color: rgba(255,255,255,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .cp-pin { color: #FACC15; font-size: 0.78rem; }
     .cp-hint { display: inline-flex; gap: 3px; font-size: 0.7rem; color: rgba(255,255,255,0.45); }
