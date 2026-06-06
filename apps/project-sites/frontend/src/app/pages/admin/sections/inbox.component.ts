@@ -130,7 +130,7 @@ const STATUS_COLORS: Record<string, string> = {
           <select hlmSelect aria-label="Filter by channel" [(ngModel)]="selectedChannel">
             <option value="">All channels</option>
             @for (ch of channels; track ch) {
-              <option [value]="ch">{{ ch }}</option>
+              <option [value]="ch">{{ channelLabel(ch) }}</option>
             }
           </select>
           <input
@@ -211,7 +211,7 @@ const STATUS_COLORS: Record<string, string> = {
             } @else {
               <header class="inbox-thread-hdr">
                 <div class="inbox-thread-hdr-top">
-                  <span class="inbox-ch-chip"><app-channel-icon [channel]="selectedConversation()!.channel" /> {{ selectedConversation()!.channel }}</span>
+                  <span class="inbox-ch-chip"><app-channel-icon [channel]="selectedConversation()!.channel" /> {{ channelLabel(selectedConversation()!.channel) }}</span>
                   <span class="inbox-status-chip" [style.color]="statusColor(selectedConversation()!.status)">{{ selectedConversation()!.status }}</span>
                 </div>
                 <h2 class="inbox-thread-subject">{{ selectedConversation()!.subject || visitorName(selectedConversation()!) }}</h2>
@@ -382,7 +382,7 @@ const STATUS_COLORS: Record<string, string> = {
       .inbox-empty-thread { display: flex; align-items: center; justify-content: center; flex: 1; color: var(--inbox-ink-35); font-size: 13px; }
       .inbox-thread-hdr { padding: 12px 16px; border-bottom: 1px solid var(--inbox-hairline); }
       .inbox-thread-hdr-top { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
-      .inbox-ch-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; text-transform: capitalize; background: var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 10%, transparent)); border: 1px solid var(--ps-accent-line, color-mix(in oklch, var(--ps-accent) 20%, transparent)); border-radius: 20px; padding: 2px 8px; }
+      .inbox-ch-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; background: var(--ps-accent-soft, color-mix(in oklch, var(--ps-accent) 10%, transparent)); border: 1px solid var(--ps-accent-line, color-mix(in oklch, var(--ps-accent) 20%, transparent)); border-radius: 20px; padding: 2px 8px; }
       .inbox-status-chip { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
       .inbox-thread-subject { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
       .inbox-thread-visitor { font-size: 12px; color: var(--inbox-ink-45); margin: 0; }
@@ -464,6 +464,18 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
 
   statuses = ['open', 'pending', 'resolved', 'spam', 'all'];
   channels = ['form', 'chat', 'voice', 'sms', 'email'];
+
+  /**
+   * Human-friendly channel labels. A bare CSS `text-transform: capitalize`
+   * mis-cases the initialisms ("sms" → "Sms"); this map keeps "SMS" correct
+   * and titlecases the rest, with a safe titlecase fallback for any future key.
+   */
+  private static readonly CHANNEL_LABELS: Record<string, string> = {
+    form: 'Form', chat: 'Chat', voice: 'Voice', sms: 'SMS', email: 'Email',
+  };
+  channelLabel(ch: string): string {
+    return AdminInboxComponent.CHANNEL_LABELS[ch] ?? (ch ? ch.charAt(0).toUpperCase() + ch.slice(1) : ch);
+  }
 
   selectedConversation = computed(() =>
     this.conversations().find((c) => c.id === this.selectedId()) ?? null,

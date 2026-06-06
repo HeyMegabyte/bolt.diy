@@ -260,3 +260,24 @@ describe('AdminInboxComponent (thread message-load error)', () => {
     expect(c.messages().length).toBe(1);
   });
 });
+
+describe('AdminInboxComponent — channel labels', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  // text-transform:capitalize mis-cases initialisms ("sms"→"Sms"); the label
+  // map keeps "SMS" correct and titlecases the rest.
+  it('maps channel keys to human-friendly labels (SMS stays upper-cased)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ conversations: [], hasMore: false })));
+    expect(c.channelLabel('sms')).toBe('SMS');
+    expect(c.channelLabel('email')).toBe('Email');
+    expect(c.channelLabel('form')).toBe('Form');
+    expect(c.channelLabel('chat')).toBe('Chat');
+    expect(c.channelLabel('voice')).toBe('Voice');
+  });
+
+  it('titlecases an unknown channel and tolerates empty input', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ conversations: [], hasMore: false })));
+    expect(c.channelLabel('webhook')).toBe('Webhook');
+    expect(c.channelLabel('')).toBe('');
+  });
+});
