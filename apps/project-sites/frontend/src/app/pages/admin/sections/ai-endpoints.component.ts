@@ -48,6 +48,7 @@ import { EmptyStateComponent } from '../empty-state.component';
 import { IdeComponent } from './ai-endpoints/ide.component';
 import { FullscreenOverlayComponent } from '../../../components/fullscreen-overlay/fullscreen-overlay.component';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
+import { AiSparkComponent } from '../../../components/ai-spark/ai-spark.component';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { SkeletonComponent, ErrorCardComponent } from '../../../components/states';
@@ -87,6 +88,7 @@ interface InlineEdit {
     IdeComponent,
     FullscreenOverlayComponent,
     DialogShellComponent,
+    AiSparkComponent,
     HlmInputDirective,
     HlmSelectDirective,
     CharCountComponent,
@@ -176,7 +178,7 @@ interface InlineEdit {
             title="Build your first AI agent"
             body="Pick an AI prompt, JS, TS, Python, or Rust-WASM. Edit code in the browser, deploy to a live URL."
             primary="+ Create agent"
-            secondary="✨ Use AI"
+            secondary="Use AI"
             (primaryClick)="openCreateManual()"
             (secondaryClick)="openCreateAi()" />
         } @else {
@@ -311,7 +313,7 @@ interface InlineEdit {
           class="split-btn split-btn-ai"
           (click)="openCreateAi()"
           data-testid="ai-endpoint-create-ai">
-          <span class="sparkle" aria-hidden="true">✨</span>
+          <app-ai-spark class="sparkle" />
           <span>Use AI</span>
         </button>
       </div>

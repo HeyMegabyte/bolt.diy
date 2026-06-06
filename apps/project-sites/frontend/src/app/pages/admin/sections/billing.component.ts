@@ -9,6 +9,7 @@ import { TelemetryService } from '../../../services/telemetry.service';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { AiSparkComponent } from '../../../components/ai-spark/ai-spark.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 
 interface Bundle { credits: number; usd: number; price_id: string; }
@@ -62,7 +63,7 @@ interface ForecastBar {
 @Component({
   selector: 'app-admin-billing',
   standalone: true,
-  imports: [FormsModule, DatePipe, CurrencyPipe, DecimalPipe, DialogShellComponent, RollingCounterComponent, RevealDirective, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
+  imports: [FormsModule, DatePipe, CurrencyPipe, DecimalPipe, DialogShellComponent, RollingCounterComponent, AiSparkComponent, RevealDirective, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header appReveal>
@@ -624,7 +625,7 @@ interface ForecastBar {
                 <strong class="text-violet-300">{{ f.biggest_driver }}</strong>
               </div>
               <div class="mt-3 p-3 rounded-lg border border-violet-500/30 bg-violet-500/[0.06]">
-                <div class="text-[0.6rem] uppercase tracking-wider text-violet-300 font-bold mb-1">✨ Savings tip</div>
+                <div class="text-[0.6rem] uppercase tracking-wider text-violet-300 font-bold mb-1 inline-flex items-center gap-1"><app-ai-spark /> Savings tip</div>
                 <div class="text-text-secondary text-[0.72rem] leading-relaxed">{{ f.savings_tip }}</div>
               </div>
             </div>

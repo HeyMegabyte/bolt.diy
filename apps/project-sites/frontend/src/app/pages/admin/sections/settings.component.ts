@@ -13,6 +13,7 @@ import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { CharCountComponent } from '../../../components/char-count/char-count.component';
+import { AiSparkComponent } from '../../../components/ai-spark/ai-spark.component';
 
 interface Member { id: string; email: string; name: string | null; role: string; created_at: string; }
 interface Invite { id: string; email: string; role: string; created_at: string; expires_at: string; }
@@ -40,7 +41,7 @@ const PROVIDERS = MCP_PROVIDERS;
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [RevealDirective, RollingCounterComponent, CharCountComponent, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, RollingCounterComponent, CharCountComponent, AiSparkComponent, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -294,20 +295,20 @@ const PROVIDERS = MCP_PROVIDERS;
               <label class="block">
                 <div class="flex items-center justify-between">
                   <span class="muted-h">System prompt</span>
-                  <button class="btn-ghost text-[0.66rem]" (click)="improveChatField('system')" [disabled]="improvingField() === 'system'" [brnTooltip]="'Rewrite this system prompt for clarity + concrete behavioral rules'">{{ improvingField() === 'system' ? 'Improving…' : '✨ Improve with AI' }}</button>
+                  <button class="btn-ghost text-[0.66rem] inline-flex items-center gap-1" (click)="improveChatField('system')" [disabled]="improvingField() === 'system'" [brnTooltip]="'Rewrite this system prompt for clarity + concrete behavioral rules'">@if (improvingField() !== 'system') { <app-ai-spark /> }<span>{{ improvingField() === 'system' ? 'Improving…' : 'Improve with AI' }}</span></button>
                 </div>
                 <textarea hlmInput [multiline]="true" class="w-full mt-1 font-mono text-[0.72rem] ai-chat-textarea" rows="10"
                           [placeholder]="chat.system_prompt_default || 'You are the AI concierge for [business]. Concise. Never invent prices.'"
                           [(ngModel)]="chat.system_prompt"></textarea>
                 <p class="text-[0.62rem] text-text-secondary mt-1 leading-relaxed">
-                  Tip: leave this empty and tap <strong>✨ Improve with AI</strong> to load the v2 best-prompt default as a starting point — no AI credits used.
+                  Tip: leave this empty and tap <strong>Improve with AI</strong> to load the v2 best-prompt default as a starting point — no AI credits used.
                 </p>
               </label>
 
               <label class="block">
                 <div class="flex items-center justify-between">
                   <span class="muted-h">Persona (one line)</span>
-                  <button class="btn-ghost text-[0.66rem]" (click)="improveChatField('persona')" [disabled]="improvingField() === 'persona'" [brnTooltip]="'Rewrite this persona with the brand AI'">{{ improvingField() === 'persona' ? 'Improving…' : '✨ Improve with AI' }}</button>
+                  <button class="btn-ghost text-[0.66rem] inline-flex items-center gap-1" (click)="improveChatField('persona')" [disabled]="improvingField() === 'persona'" [brnTooltip]="'Rewrite this persona with the brand AI'">@if (improvingField() !== 'persona') { <app-ai-spark /> }<span>{{ improvingField() === 'persona' ? 'Improving…' : 'Improve with AI' }}</span></button>
                 </div>
                 <input hlmInput type="text" class="w-full mt-1 ai-chat-textarea" placeholder="warm, plainspoken, never pushy" [(ngModel)]="chat.persona" />
                 <p class="text-[0.62rem] text-text-secondary mt-2 leading-relaxed">A one-line voice cue — the AI uses this to set tone on every reply.</p>
