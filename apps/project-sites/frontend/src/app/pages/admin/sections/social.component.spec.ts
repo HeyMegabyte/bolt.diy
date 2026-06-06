@@ -621,6 +621,22 @@ describe('AdminSocialComponent (paste-key connect)', () => {
     expect(post).toHaveBeenCalledWith('/social/mastodon/paste', { kind: 'mastodon', instance_url: 'https://mastodon.social', access_token: 'a-twenty-plus-char-access-token' }, { silent: true });
   });
 
+  it('submitPasteConnect REJECTS an http/localhost/single-label/junk mastodon instance_url (no POST)', () => {
+    const c = make();
+    c.openPaste('mastodon' as never);
+    c.pasteF.access_token = 'a-twenty-plus-char-access-token';
+    // Client guard (isValidHttpsUrl) = UX/format: rejects http://, localhost,
+    // single-label + junk before the worker connects. (Dotted IP-literals like
+    // 169.254.169.254 are a valid https FORMAT → client passes; the SERVER-side
+    // SSRF guard (isSafeWebhookUrl) is the real boundary for private/metadata IPs.)
+    for (const bad of ['http://mastodon.social', 'http://localhost:3000', 'https://localhost', 'https://internal', 'not-a-url']) {
+      c.pasteF.instance_url = bad;
+      expect(c.mastoUrlInvalid()).withContext(`${bad} flagged invalid`).toBeTrue();
+      c.submitPasteConnect();
+    }
+    expect(post).withContext('no POST for any http/localhost/single-label/junk instance_url').not.toHaveBeenCalled();
+  });
+
   it('submitPasteConnect omits an empty optional display_name (telegram)', () => {
     const c = make();
     c.openPaste('telegram' as never);

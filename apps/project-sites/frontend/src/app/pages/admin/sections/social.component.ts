@@ -950,7 +950,11 @@ const PLATFORMS: readonly PlatformDef[] = [
             <p class="ap-dlg-blurb">Create an application in your instance’s Preferences → Development, then paste its access token.</p>
             <div>
               <label class="ap-dlg-lbl" for="paste-masto-url">Instance URL</label>
-              <input hlmInput id="paste-masto-url" class="w-full" type="url" [(ngModel)]="pasteF.instance_url" placeholder="https://mastodon.social" autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <input hlmInput id="paste-masto-url" class="w-full" type="url" [(ngModel)]="pasteF.instance_url" placeholder="https://mastodon.social" autocomplete="off" autocapitalize="off" spellcheck="false"
+                     [attr.aria-invalid]="mastoUrlInvalid() || null" [attr.aria-describedby]="mastoUrlInvalid() ? 'paste-masto-url-err' : null" />
+              @if (mastoUrlInvalid()) {
+                <p class="paste-err" id="paste-masto-url-err" role="alert">Enter the instance’s full https URL (e.g. https://mastodon.social).</p>
+              }
             </div>
             <div>
               <label class="ap-dlg-lbl" for="paste-masto-tok">Access token</label>
@@ -1892,7 +1896,11 @@ export class AdminSocialComponent implements OnInit {
       case 'bluesky':
         return f.identifier.trim() && f.app_password.trim() ? { kind: 'bluesky', identifier: f.identifier.trim(), app_password: f.app_password.trim() } : null;
       case 'mastodon':
-        return /^https?:\/\/[^\s]+$/i.test(f.instance_url.trim()) && f.access_token.trim().length >= 20 ? { kind: 'mastodon', instance_url: f.instance_url.trim(), access_token: f.access_token.trim() } : null;
+        // instance_url is FETCHED/authenticated against server-side → require a
+        // real public https URL (rejects http://, localhost, single-label + internal
+        // hosts) via the shared isValidHttpsUrl guard, NOT a permissive http?-regex
+        // (SSRF-adjacent). See [[server-fetched-url-validation-sweep]].
+        return this.isValidHttpsUrl(f.instance_url.trim()) && f.access_token.trim().length >= 20 ? { kind: 'mastodon', instance_url: f.instance_url.trim(), access_token: f.access_token.trim() } : null;
       case 'telegram':
         return f.chat_id.trim() ? { kind: 'telegram', chat_id: f.chat_id.trim(), ...(f.display_name.trim() ? { display_name: f.display_name.trim() } : {}) } : null;
       case 'discord':
@@ -2580,6 +2588,11 @@ export class AdminSocialComponent implements OnInit {
   /** Inline-hint gate: a non-empty value that fails validation. */
   rssUrlInvalid(): boolean {
     const v = this.rssUrl.trim();
+    return v.length > 0 && !this.isValidHttpsUrl(v);
+  }
+  /** Mastodon paste: inline-hint gate — a non-empty instance URL that isn't a valid public https URL. */
+  mastoUrlInvalid(): boolean {
+    const v = this.pasteF.instance_url.trim();
     return v.length > 0 && !this.isValidHttpsUrl(v);
   }
 
