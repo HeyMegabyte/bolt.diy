@@ -212,10 +212,10 @@ interface DnaPrefsResp {
           <table class="dna-table" aria-label="Site DNA feedback history" [attr.aria-busy]="loading()">
             <thead>
               <tr>
-                <th>Component</th>
-                <th>Class</th>
-                <th>Action</th>
-                <th>When</th>
+                <th scope="col">Component</th>
+                <th scope="col">Class</th>
+                <th scope="col">Action</th>
+                <th scope="col">When</th>
               </tr>
             </thead>
             <tbody>

@@ -168,11 +168,11 @@ interface Branch {
             <caption class="sr-only">Site preview branches with status, approval progress, and lifecycle actions</caption>
             <thead>
               <tr class="bg-white/3 text-text-secondary text-[0.62rem] uppercase tracking-wide">
-                <th class="px-3 py-2 font-semibold">Branch</th>
-                <th class="px-3 py-2 font-semibold">Status</th>
-                <th class="px-3 py-2 font-semibold">Approvals</th>
-                <th class="px-3 py-2 font-semibold">Created</th>
-                <th class="px-3 py-2 font-semibold text-right">Actions</th>
+                <th scope="col" class="px-3 py-2 font-semibold">Branch</th>
+                <th scope="col" class="px-3 py-2 font-semibold">Status</th>
+                <th scope="col" class="px-3 py-2 font-semibold">Approvals</th>
+                <th scope="col" class="px-3 py-2 font-semibold">Created</th>
+                <th scope="col" class="px-3 py-2 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody>

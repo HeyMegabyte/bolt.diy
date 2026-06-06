@@ -96,11 +96,11 @@ interface AggregateResponse {
           <table>
             <thead>
               <tr>
-                <th>Platform</th>
-                <th>Posts</th>
-                <th>Impressions</th>
-                <th>Reach</th>
-                <th>Engagement</th>
+                <th scope="col">Platform</th>
+                <th scope="col">Posts</th>
+                <th scope="col">Impressions</th>
+                <th scope="col">Reach</th>
+                <th scope="col">Engagement</th>
               </tr>
             </thead>
             <tbody>

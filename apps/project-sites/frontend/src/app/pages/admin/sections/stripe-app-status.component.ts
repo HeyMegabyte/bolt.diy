@@ -139,11 +139,11 @@ interface Summary {
             <table class="installs">
               <thead>
                 <tr>
-                  <th>Stripe account</th>
-                  <th>Status</th>
-                  <th>Source</th>
-                  <th>Installed</th>
-                  <th>Last event</th>
+                  <th scope="col">Stripe account</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Source</th>
+                  <th scope="col">Installed</th>
+                  <th scope="col">Last event</th>
                 </tr>
               </thead>
               <tbody>

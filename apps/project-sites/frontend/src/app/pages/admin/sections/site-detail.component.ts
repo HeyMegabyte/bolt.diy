@@ -252,7 +252,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
               <table class="sql-result-table">
                 <thead>
                   <tr>
-                    @for (col of r.columns; track col) { <th>{{ col }}</th> }
+                    @for (col of r.columns; track col) { <th scope="col">{{ col }}</th> }
                   </tr>
                 </thead>
                 <tbody>

@@ -107,11 +107,11 @@ const INTENT_ICONS: Record<string, string> = {
           <table class="copilot-table" aria-label="Recent copilot sessions" [attr.aria-busy]="loading()">
             <thead>
               <tr>
-                <th>Intent</th>
-                <th>Signals</th>
-                <th>Latency</th>
-                <th>Status</th>
-                <th>When</th>
+                <th scope="col">Intent</th>
+                <th scope="col">Signals</th>
+                <th scope="col">Latency</th>
+                <th scope="col">Status</th>
+                <th scope="col">When</th>
               </tr>
             </thead>
             <tbody>

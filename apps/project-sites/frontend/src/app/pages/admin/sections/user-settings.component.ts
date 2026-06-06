@@ -273,13 +273,13 @@ interface NotificationGroup {
             <table class="w-full text-[0.78rem]">
               <thead class="text-text-secondary/70 uppercase text-[0.6rem] tracking-wider">
                 <tr class="border-b border-white/[0.06]">
-                  <th class="text-left p-2 font-semibold">Name</th>
-                  <th class="text-left p-2 font-semibold">Key</th>
-                  <th class="text-left p-2 font-semibold">Scope</th>
-                  <th class="text-left p-2 font-semibold">Last used</th>
-                  <th class="text-left p-2 font-semibold">Rotated</th>
-                  <th class="text-left p-2 font-semibold">Expires</th>
-                  <th class="text-right p-2 font-semibold"></th>
+                  <th scope="col" class="text-left p-2 font-semibold">Name</th>
+                  <th scope="col" class="text-left p-2 font-semibold">Key</th>
+                  <th scope="col" class="text-left p-2 font-semibold">Scope</th>
+                  <th scope="col" class="text-left p-2 font-semibold">Last used</th>
+                  <th scope="col" class="text-left p-2 font-semibold">Rotated</th>
+                  <th scope="col" class="text-left p-2 font-semibold">Expires</th>
+                  <th scope="col" class="text-right p-2 font-semibold"></th>
                 </tr>
               </thead>
               <tbody>

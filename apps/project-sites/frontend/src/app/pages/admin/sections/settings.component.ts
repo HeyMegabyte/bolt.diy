@@ -244,7 +244,7 @@ const PROVIDERS = MCP_PROVIDERS;
             <table class="w-full text-[0.78rem]">
               <thead class="text-text-secondary/70 uppercase text-[0.6rem] tracking-wider">
                 <tr class="border-b border-white/[0.06]">
-                  <th class="text-left p-2">Email</th><th class="text-left p-2">Role</th><th class="text-left p-2">Joined</th><th class="text-right p-2"></th>
+                  <th scope="col" class="text-left p-2">Email</th><th scope="col" class="text-left p-2">Role</th><th scope="col" class="text-left p-2">Joined</th><th scope="col" class="text-right p-2"></th>
                 </tr>
               </thead>
               <tbody>

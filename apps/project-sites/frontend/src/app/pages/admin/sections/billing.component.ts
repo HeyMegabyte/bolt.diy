@@ -896,12 +896,12 @@ interface ForecastBar {
             <table class="w-full text-[0.78rem]">
               <thead class="text-text-secondary/70 uppercase text-[0.6rem] tracking-wider">
                 <tr class="border-b border-white/[0.06]">
-                  <th class="text-left p-2">Site</th>
-                  <th class="text-left p-2">Plan</th>
-                  <th class="text-right p-2">AI calls</th>
-                  <th class="text-right p-2">$ spent</th>
-                  <th class="text-right p-2">% of org</th>
-                  <th class="text-right p-2">Last call</th>
+                  <th scope="col" class="text-left p-2">Site</th>
+                  <th scope="col" class="text-left p-2">Plan</th>
+                  <th scope="col" class="text-right p-2">AI calls</th>
+                  <th scope="col" class="text-right p-2">$ spent</th>
+                  <th scope="col" class="text-right p-2">% of org</th>
+                  <th scope="col" class="text-right p-2">Last call</th>
                 </tr>
               </thead>
               <tbody>

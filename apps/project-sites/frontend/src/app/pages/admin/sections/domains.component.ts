@@ -328,11 +328,11 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
               <table class="w-full text-[0.82rem]" data-testid="hostnames-table">
                 <thead>
                   <tr class="text-left text-[0.68rem] uppercase tracking-wider text-text-secondary border-b border-border">
-                    <th class="py-2 pr-3 font-medium">Hostname</th>
-                    <th class="py-2 pr-3 font-medium">Status</th>
-                    <th class="py-2 pr-3 font-medium">SSL</th>
-                    <th class="py-2 pr-3 font-medium">Primary</th>
-                    <th class="py-2 pr-3 font-medium text-right">Actions</th>
+                    <th scope="col" class="py-2 pr-3 font-medium">Hostname</th>
+                    <th scope="col" class="py-2 pr-3 font-medium">Status</th>
+                    <th scope="col" class="py-2 pr-3 font-medium">SSL</th>
+                    <th scope="col" class="py-2 pr-3 font-medium">Primary</th>
+                    <th scope="col" class="py-2 pr-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>

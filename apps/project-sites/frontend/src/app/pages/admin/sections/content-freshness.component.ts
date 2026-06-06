@@ -178,6 +178,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
             @for (header of table.getHeaderGroups()[0].headers; track header.id) {
               @if (header.column.getCanSort()) {
                 <th
+                  scope="col"
                   class="cf-sortable"
                   [class.cf-num-col]="numCol[header.id]"
                   tabindex="0"
@@ -189,7 +190,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
                   <span class="cf-sort-ind" aria-hidden="true">{{ sortGlyph(header.column.getIsSorted()) }}</span>
                 </th>
               } @else {
-                <th class="cf-actions-col">{{ headerLabel[header.id] }}</th>
+                <th scope="col" class="cf-actions-col">{{ headerLabel[header.id] }}</th>
               }
             }
           </tr>

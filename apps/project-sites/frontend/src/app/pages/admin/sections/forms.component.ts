@@ -510,16 +510,16 @@ const POLL_INTERVAL_MS = 10_000;
           <table class="w-full text-[0.78rem]">
             <thead class="text-text-secondary/70 uppercase text-[0.6rem] tracking-wider">
               <tr class="border-b border-white/[0.06]">
-                <th class="p-3 w-8">
+                <th scope="col" class="p-3 w-8">
                   <input type="checkbox" class="accent-[#00E5FF] cursor-pointer align-middle" data-testid="forms-select-all"
                          [checked]="allFilteredSelected()" [indeterminate]="someFilteredSelected()" (change)="toggleSelectAll()"
                          [attr.aria-label]="allFilteredSelected() ? 'Deselect all submissions' : (someFilteredSelected() ? 'Select all (' + selectedRows().length + ' of ' + filteredSubmissions().length + ' selected)' : 'Select all ' + filteredSubmissions().length + ' submissions')" />
                 </th>
-                <th class="text-left p-3 font-semibold">When</th>
-                <th class="text-left p-3 font-semibold">Form</th>
-                <th class="text-left p-3 font-semibold">Email</th>
-                <th class="text-left p-3 font-semibold">Origin</th>
-                <th class="text-right p-3 font-semibold"></th>
+                <th scope="col" class="text-left p-3 font-semibold">When</th>
+                <th scope="col" class="text-left p-3 font-semibold">Form</th>
+                <th scope="col" class="text-left p-3 font-semibold">Email</th>
+                <th scope="col" class="text-left p-3 font-semibold">Origin</th>
+                <th scope="col" class="text-right p-3 font-semibold"></th>
               </tr>
             </thead>
             <tbody>

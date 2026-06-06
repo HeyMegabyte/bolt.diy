@@ -150,6 +150,7 @@ const ALL_SCOPES = [
                 @for (header of table.getHeaderGroups()[0].headers; track header.id) {
                   @if (header.column.getCanSort()) {
                     <th
+                      scope="col"
                       class="at-sortable"
                       tabindex="0"
                       [attr.aria-sort]="ariaSort(header.column.getIsSorted())"
@@ -160,7 +161,7 @@ const ALL_SCOPES = [
                       <span class="at-sort-ind" aria-hidden="true">{{ sortGlyph(header.column.getIsSorted()) }}</span>
                     </th>
                   } @else {
-                    <th [class.at-actions-col]="header.id === 'actions'" [attr.aria-label]="header.id === 'actions' ? 'Actions' : null">{{ headerLabel[header.id] }}</th>
+                    <th scope="col" [class.at-actions-col]="header.id === 'actions'" [attr.aria-label]="header.id === 'actions' ? 'Actions' : null">{{ headerLabel[header.id] }}</th>
                   }
                 }
               </tr>

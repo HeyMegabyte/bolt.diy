@@ -148,10 +148,10 @@ interface ToolUsage {
             <table class="w-full text-xs" data-testid="tokens-table">
               <thead>
                 <tr class="border-b border-white/5 text-text-secondary text-[0.65rem] uppercase tracking-wider">
-                  <th class="px-3 py-2 text-left font-medium">Label</th>
-                  <th class="px-3 py-2 text-left font-medium">Last Used</th>
-                  <th class="px-3 py-2 text-left font-medium">Created</th>
-                  <th class="px-3 py-2 text-right font-medium">Actions</th>
+                  <th scope="col" class="px-3 py-2 text-left font-medium">Label</th>
+                  <th scope="col" class="px-3 py-2 text-left font-medium">Last Used</th>
+                  <th scope="col" class="px-3 py-2 text-left font-medium">Created</th>
+                  <th scope="col" class="px-3 py-2 text-right font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
