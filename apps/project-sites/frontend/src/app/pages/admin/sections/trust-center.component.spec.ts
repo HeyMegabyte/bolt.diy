@@ -125,6 +125,33 @@ describe('AdminTrustCenterComponent (load-error gating)', () => {
     c.refresh();
     expect(c.loadError()).toBeNull();
   });
+
+  it('captures the worker request_id from a non-404 failure → loadErrorRef (copyable support reference on the shared error card)', () => {
+    const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req_tc42' } } })));
+    const { c } = make(get);
+    c.refresh();
+    expect(c.loadErrorRef()).toBe('req_tc42');
+  });
+
+  it('a 404 leaves loadErrorRef empty (flag-gate card, not the transient error card)', () => {
+    const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 404, error: { error: { request_id: 'nope' } } })));
+    const { c } = make(get);
+    c.refresh();
+    expect(c.notFound()).toBe(true);
+    expect(c.loadErrorRef()).toBe('');
+  });
+
+  it('resets loadErrorRef at the start of every refresh (no stale reference)', () => {
+    const get = jasmine.createSpy('get').and.returnValues(
+      throwError(() => ({ status: 500, error: { error: { request_id: 'req_z' } } })),
+      of({ data: { data_residency: 'global', audit_log_policy: 'on-request', ai_outage_behavior: 'graceful-degradation', custom_disclosures: null, ai_models: [], content_provenance: [], published: false } }),
+    );
+    const { c } = make(get);
+    c.refresh();
+    expect(c.loadErrorRef()).toBe('req_z');
+    c.refresh();
+    expect(c.loadErrorRef()).toBe('');
+  });
 });
 
 describe('AdminTrustCenterComponent (silent profile read — no double-toast)', () => {

@@ -30,6 +30,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
+import { ErrorCardComponent } from '../../../components/states';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { FeatureFlagService } from '../../../services/feature-flag.service';
@@ -79,7 +80,7 @@ interface ProfileEnvelope {
 @Component({
   selector: 'app-admin-trust-center',
   standalone: true,
-  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, HlmInputDirective, HlmSelectDirective],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, HlmInputDirective, HlmSelectDirective, ErrorCardComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
@@ -129,10 +130,13 @@ interface ProfileEnvelope {
       }
 
       @if (loadError() && !loading()) {
-        <div class="empty-card" data-testid="trust-load-error" role="alert">
-          <p class="text-red-300 text-sm mb-2">{{ loadError() }}</p>
-          <button class="btn-ghost text-xs" data-testid="trust-retry" (click)="refresh()">Retry</button>
-        </div>
+        <app-error-card
+          data-testid="trust-load-error"
+          class="block"
+          title="Couldn't load your Trust Center"
+          [message]="loadError()!"
+          [correlationId]="loadErrorRef()"
+          (retry)="refresh()" />
       }
 
       @if (!notFound() && !loadError()) {
@@ -270,6 +274,8 @@ export class AdminTrustCenterComponent {
   readonly loading = signal(false);
   /** Persistent non-404 load failure — gates the editor so a failed fetch never presents a default-valued, publishable form. */
   readonly loadError = signal<string | null>(null);
+  /** Worker request_id from a non-404 profile-load failure → copyable support reference on the error card. */
+  readonly loadErrorRef = signal('');
   readonly saving = signal(false);
   readonly publishing = signal(false);
   // Pessimistic: assume trust_center is OFF until the client-side flag check
@@ -305,10 +311,16 @@ export class AdminTrustCenterComponent {
       });
   }
 
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: { error?: unknown } | undefined): string {
+    return (e?.error as { error?: { request_id?: string } } | undefined)?.error?.request_id ?? '';
+  }
+
   refresh(): void {
     this.loading.set(true);
     this.notFound.set(false);
     this.loadError.set(null);
+    this.loadErrorRef.set('');
     this.api.get<ProfileEnvelope>('/trust/profile', undefined, { silent: true }).subscribe({
       next: (res) => {
         this.loadError.set(null);
@@ -330,6 +342,7 @@ export class AdminTrustCenterComponent {
           // Persistent in-panel error gates the editor — a failed load must not
           // present a default-valued form the operator could publish over real data.
           this.loadError.set("Couldn't load your Trust Center profile — retry before editing.");
+          this.loadErrorRef.set(this.requestIdFrom(err));
           this.toast.error('Failed to load Trust Center profile');
         }
         this.loading.set(false);
