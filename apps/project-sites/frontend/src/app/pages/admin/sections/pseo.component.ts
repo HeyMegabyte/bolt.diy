@@ -146,7 +146,9 @@ type StatusFilter = 'all' | PseoPage['status'];
 
       @if (!loading() && !error() && pages().length === 0) {
         <div class="ps-empty" data-testid="pseo-empty">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          <span class="ps-empty-glyph" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          </span>
           @if (statusFilter() !== 'all') {
             <p>No <strong>{{ statusFilter() }}</strong> pages in the matrix.</p>
             <button class="ps-btn-outline" (click)="showAllPages()" data-testid="pseo-show-all">Show all pages</button>
@@ -297,6 +299,9 @@ type StatusFilter = 'all' | PseoPage['status'];
     .ps-pill-active { background:color-mix(in oklch, var(--ps-accent, #00E5FF) 12%, transparent); color:var(--ps-accent, #00E5FF); border-color:color-mix(in oklch, var(--ps-accent, #00E5FF) 35%, transparent); }
 
     .ps-empty { text-align:center; padding:2.5rem 1rem; color:color-mix(in oklch, var(--ps-ink, #f4f4ff) 72%, transparent); font-size:.8rem; display:flex; flex-direction:column; align-items:center; gap:.75rem; }
+    /* Cockpit cyan-halo glyph disc (matches <app-mini-empty>) — not a bare dim-grey icon. */
+    .ps-empty-glyph { width:52px; height:52px; display:grid; place-items:center; border-radius:50%; background:color-mix(in oklch, var(--ps-accent, #00E5FF) 9%, transparent); border:1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 24%, transparent); color:var(--ps-accent, #00E5FF); }
+    .ps-empty-glyph svg { width:24px; height:24px; }
     .ps-skel { display:flex; flex-direction:column; gap:8px; padding:.5rem 0; }
     .ps-skel-bar { display:block; width:100%; height:34px; border-radius:8px; }
 

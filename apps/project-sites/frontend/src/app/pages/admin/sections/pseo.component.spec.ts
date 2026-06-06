@@ -86,6 +86,20 @@ describe('AdminPseoComponent (cohesion + a11y, convergence r18)', () => {
     expect(counters.length).toBeGreaterThanOrEqual(4);
   });
 
+  // The empty-state glyph must be the cockpit cyan-halo disc (matches
+  // <app-mini-empty>), not a bare dim-grey icon.
+  it('renders the empty-state glyph in a cyan-halo disc (cockpit cohesion)', async () => {
+    build({ id: 'site-1' }); // pages endpoint returns [] → empty state renders
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const empty = fixture.nativeElement.querySelector('[data-testid="pseo-empty"]') as HTMLElement;
+    expect(empty).withContext('empty state present (0 pages)').toBeTruthy();
+    const glyph = empty.querySelector('.ps-empty-glyph') as HTMLElement;
+    expect(glyph).withContext('glyph wrapped in the halo disc').toBeTruthy();
+    expect(glyph.getAttribute('aria-hidden')).toBe('true');
+    expect(glyph.querySelector('svg')).withContext('monochrome SVG inside the disc').toBeTruthy();
+  });
+
   it('exposes status filter pills as keyboard-reachable tabs', () => {
     build({ id: 'site-1' });
     const pills = fixture.nativeElement.querySelectorAll('.ps-pill[role="tab"]');
