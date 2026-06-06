@@ -94,4 +94,41 @@ test.describe('admin — auth-class regression guard (rounds 101-103)', () => {
     const auth = req.headers()['authorization'] ?? '';
     expect(auth, 'site-detail must attach a Bearer token on its tab API calls').toMatch(BEARER);
   });
+
+  // PARAM SUB-ROUTES — the exact routes that had the raw-HttpClient auth bug
+  // (admin-raw-httpclient-auth-gap: mcp-server/branches always-broken,
+  // swarm/copilot latent-flag-gated, all fixed 2026-06-06). The top-level sweep
+  // above never reached these → all 4 bugs slipped through. Assert each fires
+  // its /api call WITH a Bearer. We assert on the REQUEST, so a flag-gated 404
+  // (swarm/copilot when the flag is off) is irrelevant — the header is on the
+  // wire at send-time regardless. If any regresses to raw HttpClient, the Bearer
+  // vanishes and this fails.
+  const SUBROUTES: { route: (id: string) => string; match: RegExp; label: string }[] = [
+    { route: (id) => `/admin/sites/${id}/mcp-server`, match: /\/api\/sites\/[^/]+\/mcp\/tokens/, label: 'site-mcp-server' },
+    { route: (id) => `/admin/sites/${id}/branches`, match: /\/api\/sites\/[^/]+\/branches/, label: 'site-branches' },
+    { route: (id) => `/admin/swarm/${id}`, match: /\/api\/swarm\/[^/]+\/runs/, label: 'swarm' },
+    { route: (id) => `/admin/sites/${id}/copilot`, match: /\/api\/sites\/[^/]+\/copilot\/(config|sessions)/, label: 'site-copilot' },
+  ];
+
+  async function firstSiteId(page: Page): Promise<string | null> {
+    await page.goto('/admin/sites', { waitUntil: 'load' });
+    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
+    const link = page.locator('a[href^="/admin/sites/"]').first();
+    if ((await link.count()) === 0) return null;
+    return (await link.getAttribute('href'))?.match(/\/admin\/sites\/([^/]+)/)?.[1] ?? null;
+  }
+
+  for (const s of SUBROUTES) {
+    test(`${s.label}: param-route /api request carries Authorization: Bearer`, async ({ page }) => {
+      test.setTimeout(60000);
+      await seed(page);
+      const id = await firstSiteId(page);
+      if (!id) { test.skip(true, 'No site rows from the test token — param sub-route needs a real site id.'); return; }
+      const reqP = page.waitForRequest((r) => s.match.test(r.url()), { timeout: 25000 });
+      await page.goto(s.route(id), { waitUntil: 'load' });
+      const req = await reqP;
+      const auth = req.headers()['authorization'] ?? '';
+      expect(auth, `${s.label} must attach a Bearer token (regressed to raw HttpClient?)`).toMatch(BEARER);
+    });
+  }
 });
