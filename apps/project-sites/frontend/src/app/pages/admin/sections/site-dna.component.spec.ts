@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { AdminSiteDnaComponent } from './site-dna.component';
 import { ApiService } from '../../../services/api.service';
 import { FeatureFlagService } from '../../../services/feature-flag.service';
@@ -127,6 +127,56 @@ describe('AdminSiteDnaComponent (taste pulse + a11y)', () => {
       return opts?.silent === true;
     });
     expect(allSilent).withContext('both history + prefs GETs are {silent}').toBeTrue();
+  });
+
+  it('does NOT flash a definitive 0-counter over the loading skeleton — header stats shimmer until the first fetch resolves (premature-stat-during-load guard)', () => {
+    // forkJoin emits only when BOTH inner GETs complete; pending Subjects keep
+    // load() in flight → loading()=true, history()=[] (the bug window).
+    const history$ = new Subject<{ history: unknown[] }>();
+    const prefs$ = new Subject<{ preferences: unknown[] }>();
+    isOn = jasmine.createSpy('isOn').and.returnValue(of(true));
+    apiGet = jasmine
+      .createSpy('get')
+      .and.callFake((url: string) => (url.includes('/history') ? history$ : prefs$));
+    TestBed.configureTestingModule({
+      imports: [AdminSiteDnaComponent, RouterModule.forRoot([])],
+      providers: [
+        { provide: ApiService, useValue: { get: apiGet, post: jasmine.createSpy('post').and.returnValue(of({ id: 'x' })) } },
+        { provide: FeatureFlagService, useValue: { isOn } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'site-dna-1' } } } },
+      ],
+    });
+    fixture = TestBed.createComponent(AdminSiteDnaComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges(); // ngOnInit → flag on → load() fires, forkJoin pending
+
+    // ── Bug window: loading with nothing yet ──
+    expect(component.loading()).withContext('first fetch still in flight').toBeTrue();
+    const host = fixture.nativeElement as HTMLElement;
+    const stats = host.querySelector('[data-testid="dna-stats"]');
+    expect(stats).withContext('stats row + labels stay mounted (no layout shift)').toBeTruthy();
+    // The numbers must be shimmer skeletons, NOT live rolling-counters showing "0".
+    expect(host.querySelectorAll('[data-testid="dna-stats"] .dna-stat-skel').length)
+      .withContext('every stat value is a skeleton during initial load')
+      .toBeGreaterThan(0);
+    expect(host.querySelectorAll('[data-testid="dna-stats"] app-rolling-counter').length)
+      .withContext('no definitive 0-counter renders during initial load')
+      .toBe(0);
+
+    // ── Resolve the load with one accept signal ──
+    history$.next({ history: [row('accept')] });
+    history$.complete();
+    prefs$.next({ preferences: [] });
+    prefs$.complete();
+    fixture.detectChanges();
+
+    expect(component.loading()).toBeFalse();
+    expect(host.querySelectorAll('[data-testid="dna-stats"] .dna-stat-skel').length)
+      .withContext('skeletons gone once data resolves')
+      .toBe(0);
+    expect(host.querySelectorAll('[data-testid="dna-stats"] app-rolling-counter').length)
+      .withContext('real rolling counters render after load')
+      .toBeGreaterThan(0);
   });
 
   function row(action: 'accept' | 'reject' | 'edit') {

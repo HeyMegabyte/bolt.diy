@@ -97,26 +97,48 @@ interface DnaPrefsResp {
         </div>
       } @else {
 
-        <!-- Stats row -->
-        <div class="dna-stats" appReveal data-testid="dna-stats">
+        <!-- Stats row — labels stay mounted; numbers shimmer until the first
+             fetch resolves so a definitive "0 signals" never flashes over the
+             still-loading table below (premature-stat-during-load guard). -->
+        <div class="dna-stats" appReveal data-testid="dna-stats" [attr.aria-busy]="showStatsSkeleton()">
           <div class="dna-stat">
-            <app-rolling-counter [value]="totalFeedback()" suffix=" signals" />
+            @if (showStatsSkeleton()) {
+              <span class="glow-skel dna-stat-skel" aria-hidden="true"></span>
+            } @else {
+              <app-rolling-counter [value]="totalFeedback()" suffix=" signals" />
+            }
             <span class="dna-stat-label">Total</span>
           </div>
           <div class="dna-stat">
-            <app-rolling-counter [value]="acceptCount()" suffix=" accepted" />
+            @if (showStatsSkeleton()) {
+              <span class="glow-skel dna-stat-skel" aria-hidden="true"></span>
+            } @else {
+              <app-rolling-counter [value]="acceptCount()" suffix=" accepted" />
+            }
             <span class="dna-stat-label dna-stat-label--accept"><span class="dna-glyph" aria-hidden="true">✓</span> Accepted</span>
           </div>
           <div class="dna-stat">
-            <app-rolling-counter [value]="rejectCount()" suffix=" rejected" />
+            @if (showStatsSkeleton()) {
+              <span class="glow-skel dna-stat-skel" aria-hidden="true"></span>
+            } @else {
+              <app-rolling-counter [value]="rejectCount()" suffix=" rejected" />
+            }
             <span class="dna-stat-label dna-stat-label--reject"><span class="dna-glyph" aria-hidden="true">✕</span> Rejected</span>
           </div>
           <div class="dna-stat">
-            <app-rolling-counter [value]="editCount()" suffix=" edited" />
+            @if (showStatsSkeleton()) {
+              <span class="glow-skel dna-stat-skel" aria-hidden="true"></span>
+            } @else {
+              <app-rolling-counter [value]="editCount()" suffix=" edited" />
+            }
             <span class="dna-stat-label dna-stat-label--edit"><span class="dna-glyph" aria-hidden="true">✎</span> Edited</span>
           </div>
           <div class="dna-stat">
-            <app-rolling-counter [value]="prefCount()" suffix=" classes" />
+            @if (showStatsSkeleton()) {
+              <span class="glow-skel dna-stat-skel" aria-hidden="true"></span>
+            } @else {
+              <app-rolling-counter [value]="prefCount()" suffix=" classes" />
+            }
             <span class="dna-stat-label">Learned</span>
           </div>
         </div>
@@ -325,6 +347,9 @@ interface DnaPrefsResp {
       /* ── Stats ── */
       .dna-stats { display: flex; gap: 24px; flex-wrap: wrap; }
       .dna-stat { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
+      /* Shimmer placeholder sized like the counter value — keeps the row height
+         steady (no layout shift) while the first fetch is in flight. */
+      .dna-stat-skel { display: inline-block; width: 56px; height: 15px; border-radius: 5px; margin-block: 1px; }
       .dna-stat-label { font-size: 11px; color: rgba(244,244,255,0.5); display: inline-flex; align-items: center; gap: 4px; }
       .dna-glyph { font-size: 12px; line-height: 1; }
       .dna-stat-label--accept { color: var(--dna-accept); }
@@ -428,6 +453,14 @@ export class AdminSiteDnaComponent implements OnInit, OnDestroy {
   readonly rejectCount = computed(() => this.history().filter((r) => r.action === 'reject').length);
   readonly editCount = computed(() => this.history().filter((r) => r.action === 'edit').length);
   readonly prefCount = computed(() => this.prefs().length);
+
+  /**
+   * True only during the FIRST load (in flight + nothing fetched yet). Gates the
+   * header stat numbers to shimmer skeletons so a definitive "0 signals" never
+   * flashes over the still-loading table. A manual refresh-with-data keeps the
+   * existing counters visible (loading() true but history() already populated).
+   */
+  readonly showStatsSkeleton = computed(() => this.loading() && this.history().length === 0);
 
   /** Accept rate as a whole-number percent of all signals. */
   readonly acceptRatio = computed(() => {
