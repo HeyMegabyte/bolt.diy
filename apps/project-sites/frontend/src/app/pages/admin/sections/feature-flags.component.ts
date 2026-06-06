@@ -84,7 +84,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
 
       @if (blockedFeature(); as key) {
         <div class="ff-blocked" role="status" data-testid="ff-blocked-banner">
-          <span class="ff-blocked-icon" aria-hidden="true">🔒</span>
+          <span class="ff-blocked-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
           <span class="ff-blocked-text">
             The <code>{{ key }}</code> feature is currently <strong>disabled</strong>, so that page isn't available yet. Enable it below to access it.
           </span>
@@ -275,7 +275,7 @@ type StageFilter = 'all' | FlagDefinition['stage'];
     .ff-blocked { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.25rem; padding: 0.7rem 0.9rem; border-radius: 12px;
       border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 35%, transparent);
       background: color-mix(in oklch, var(--ps-accent, #00E5FF) 8%, transparent); }
-    .ff-blocked-icon { font-size: 1rem; line-height: 1; }
+    .ff-blocked-icon { display: inline-flex; align-items: center; line-height: 1; flex: none; }
     .ff-blocked-text { flex: 1; font-size: 0.78rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 88%, transparent); }
     .ff-blocked-text code { font-family: 'JetBrains Mono', monospace; color: var(--ps-accent, #00E5FF); font-size: 0.74rem; }
     .ff-blocked-dismiss { background: none; border: 0; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); cursor: pointer; font-size: 0.85rem; padding: 0.2rem 0.35rem; border-radius: 6px; min-height: 24px; min-width: 24px; }

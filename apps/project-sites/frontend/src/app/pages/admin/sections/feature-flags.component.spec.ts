@@ -154,3 +154,37 @@ describe('AdminFeatureFlagsComponent (flag control surface)', () => {
     expect(c.blockedFeature()).toBeNull();
   });
 });
+
+import { provideRouter } from '@angular/router';
+
+/**
+ * Cockpit cohesion: the blocked-feature banner icon must be a monochrome SVG
+ * (cyan/black brand), NOT the colorful 🔒 emoji. Matches the documented
+ * emoji→SVG standard (voice share-tab, features-hub).
+ */
+describe('AdminFeatureFlagsComponent (blocked banner uses a mono SVG lock, not emoji)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('renders an SVG lock in the blocked banner, no 🔒 emoji', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminFeatureFlagsComponent],
+      providers: [
+        provideRouter([]),
+        { provide: HttpClient, useValue: { get: () => of({ data: [] }), patch: () => of({}), post: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: AdminStateService, useValue: { selectedSite: signal(null), isSuperAdmin: () => false } },
+        { provide: FeatureFlagService, useValue: { invalidate: () => undefined, isOn: () => of(false) } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }), snapshot: { queryParamMap: { get: () => null } } } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminFeatureFlagsComponent);
+    f.componentInstance.blockedFeature.set('voice_agent');
+    f.detectChanges();
+    const banner = (f.nativeElement as HTMLElement).querySelector('[data-testid="ff-blocked-banner"]');
+    expect(banner).withContext('blocked banner renders when blockedFeature is set').toBeTruthy();
+    const icon = banner!.querySelector('.ff-blocked-icon');
+    expect(icon!.querySelector('svg')).withContext('icon is a monochrome SVG lock').toBeTruthy();
+    expect(icon!.textContent ?? '').withContext('no 🔒 emoji glyph').not.toMatch(/\u{1F512}/u);
+  });
+});
