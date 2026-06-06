@@ -89,10 +89,7 @@ interface Summary {
       }
 
       @if (loadError() && !loading()) {
-        <div class="empty-card" data-testid="stripe-app-load-error" role="alert">
-          <p class="text-red-300 text-sm mb-2">{{ loadError() }}</p>
-          <button class="btn-ghost text-xs" data-testid="stripe-app-retry" (click)="refresh()">Retry</button>
-        </div>
+        <app-inline-error tone="error" data-testid="stripe-app-load-error" [message]="loadError()!" (retry)="refresh()" />
       }
 
       @if (!notFound() && summary()) {

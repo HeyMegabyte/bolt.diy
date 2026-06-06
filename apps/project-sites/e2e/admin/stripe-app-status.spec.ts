@@ -40,7 +40,9 @@ test.describe('ADMIN-33 — /admin/stripe-app-status Stripe App Marketplace rend
     const loadError = page.locator('[data-testid="stripe-app-load-error"]').first();
     if (await loadError.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await expect(loadError).toBeVisible();
-      await expect(page.locator('[data-testid="stripe-app-retry"]').first()).toBeVisible();
+      // The error banner now renders via the shared <app-inline-error> primitive,
+      // whose retry button carries data-testid="inline-error-retry".
+      await expect(page.locator('[data-testid="inline-error-retry"]').first()).toBeVisible();
     } else {
       // Either the disabled empty-card or the resolved KPI summary grid.
       await expect(
