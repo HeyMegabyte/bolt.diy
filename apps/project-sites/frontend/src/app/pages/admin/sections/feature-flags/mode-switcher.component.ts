@@ -29,6 +29,7 @@ export type DisclosureMode = 'simple' | 'advanced' | 'expert';
           [attr.aria-selected]="mode === m.id"
           [tabindex]="mode === m.id ? 0 : -1"
           [attr.data-testid]="'ff-mode-' + m.id"
+          [attr.title]="m.hint"
           [attr.aria-label]="m.label + ' mode — ' + m.hint"
         >
           {{ m.label }}
