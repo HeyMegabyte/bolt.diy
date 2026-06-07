@@ -353,8 +353,9 @@ interface NotificationGroup {
             <button class="btn-ghost"
                     type="button"
                     (click)="revokeAllOtherSessions()"
+                    [disabled]="revokingAll()" [attr.aria-busy]="revokingAll()"
                     [attr.aria-label]="'Revoke ' + otherSessionsCount() + ' other session' + (otherSessionsCount() === 1 ? '' : 's')"
-                    title="Sign out every session except this one">Revoke {{ otherSessionsCount() }} other session{{ otherSessionsCount() === 1 ? '' : 's' }}</button>
+                    title="Sign out every session except this one">{{ revokingAll() ? 'Signing out…' : 'Revoke ' + otherSessionsCount() + ' other session' + (otherSessionsCount() === 1 ? '' : 's') }}</button>
           }
         </div>
 
@@ -399,7 +400,8 @@ interface NotificationGroup {
                   <button class="btn-tiny-danger"
                           type="button"
                           (click)="revokeSession(s)"
-                          [attr.aria-label]="'Revoke session on ' + (s.device || s.browser || 'this device')">Revoke</button>
+                          [disabled]="isRevokingSession(s.id)" [attr.aria-busy]="isRevokingSession(s.id)"
+                          [attr.aria-label]="'Revoke session on ' + (s.device || s.browser || 'this device')">{{ isRevokingSession(s.id) ? 'Revoking…' : 'Revoke' }}</button>
                 }
               </li>
             }
@@ -1179,6 +1181,11 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
 
   // ── Sessions ──
   sessions = signal<SessionRow[]>([]);
+  /** Session ids with an in-flight revoke + a flag for revoke-all — guard the
+   *  toast-armed actions against a double-DELETE/POST + drive "Signing out…". */
+  private readonly revokingSessionIds = signal<ReadonlySet<string>>(new Set());
+  readonly revokingAll = signal(false);
+  isRevokingSession(id: string): boolean { return this.revokingSessionIds().has(id); }
   loadingSessions = signal(false);
   /** Count of OTHER (non-current) sessions — drives the "Revoke N other
    *  sessions" affordance + its visibility (hidden when only this device). */
@@ -1587,36 +1594,41 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
     this.toast.warning(
       `Sign out ${s.device || s.browser || 'this device'}?`,
       {
-        action: {
-          label: 'Sign out',
-          run: () => {
-            this.api.delete(`/admin/sessions/${s.id}`).subscribe({
-              next: () => { this.toast.success('Session revoked'); this.loadSessions(); },
-              error: () => this.toast.error('Could not revoke that session — retry shortly.'),
-            });
-          },
-        },
+        action: { label: 'Sign out', run: () => this.performRevokeSession(s) },
         duration: 7000,
       },
     );
+  }
+
+  /** Guarded per-session revoke — re-armed toast action while in flight = no-op. */
+  private performRevokeSession(s: SessionRow): void {
+    if (this.revokingSessionIds().has(s.id)) return;
+    this.revokingSessionIds.update((set) => new Set(set).add(s.id));
+    const done = () => this.revokingSessionIds.update((set) => { const n = new Set(set); n.delete(s.id); return n; });
+    this.api.delete(`/admin/sessions/${s.id}`).subscribe({
+      next: () => { done(); this.toast.success('Session revoked'); this.loadSessions(); },
+      error: () => { done(); this.toast.error('Could not revoke that session — retry shortly.'); },
+    });
   }
 
   revokeAllOtherSessions(): void {
     this.toast.warning(
       'Sign out every session except this one?',
       {
-        action: {
-          label: 'Sign out all',
-          run: () => {
-            this.api.post('/admin/sessions/revoke-others', {}).subscribe({
-              next: () => { this.toast.success('Other sessions revoked'); this.loadSessions(); },
-              error: () => this.toast.error('Could not revoke other sessions — retry shortly.'),
-            });
-          },
-        },
+        action: { label: 'Sign out all', run: () => this.performRevokeAll() },
         duration: 7000,
       },
     );
+  }
+
+  /** Guarded revoke-all — re-armed toast action while in flight = no-op. */
+  private performRevokeAll(): void {
+    if (this.revokingAll()) return;
+    this.revokingAll.set(true);
+    this.api.post('/admin/sessions/revoke-others', {}).subscribe({
+      next: () => { this.revokingAll.set(false); this.toast.success('Other sessions revoked'); this.loadSessions(); },
+      error: () => { this.revokingAll.set(false); this.toast.error('Could not revoke other sessions — retry shortly.'); },
+    });
   }
 
   private detectDevice(): string {

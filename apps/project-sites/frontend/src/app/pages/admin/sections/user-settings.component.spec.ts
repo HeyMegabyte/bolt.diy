@@ -332,3 +332,49 @@ describe('AdminUserSettingsComponent (active sessions — other-session count)',
     expect(c.otherSessionsCount()).toBe(0);
   });
 });
+
+import { NEVER } from 'rxjs';
+
+/**
+ * Session revoke / revoke-all are toast-armed (7s action, re-clickable
+ * mid-async). A re-entrant revoke must NOT fire a duplicate DELETE/POST.
+ */
+describe('AdminUserSettingsComponent (session-revoke in-flight guards)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function mk(del: jasmine.Spy, post: jasmine.Spy): AdminUserSettingsComponent {
+    const http = { get: () => of({}), post, put: () => of({}), delete: del };
+    TestBed.configureTestingModule({
+      imports: [AdminUserSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: http },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0, info: () => 0 } },
+        { provide: AuthService, useValue: { email: () => 'x', user: () => ({}), signOut: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: HttpClient, useValue: http },
+      ],
+    });
+    TestBed.overrideComponent(AdminUserSettingsComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminUserSettingsComponent).componentInstance;
+  }
+
+  it('per-session revoke: a re-entrant revoke of the same session fires one DELETE', () => {
+    const del = jasmine.createSpy('delete').and.returnValue(NEVER);
+    const c = mk(del, jasmine.createSpy('post').and.returnValue(NEVER));
+    const pr = (c as unknown as { performRevokeSession: (s: unknown) => void }).performRevokeSession.bind(c);
+    pr({ id: 'sess1' });
+    pr({ id: 'sess1' });
+    expect(del).withContext('no duplicate DELETE').toHaveBeenCalledTimes(1);
+    expect((c as unknown as { isRevokingSession: (id: string) => boolean }).isRevokingSession('sess1')).toBeTrue();
+  });
+
+  it('revoke-all: a re-entrant revoke-all fires one POST', () => {
+    const post = jasmine.createSpy('post').and.returnValue(NEVER);
+    const c = mk(jasmine.createSpy('delete').and.returnValue(NEVER), post);
+    const pa = (c as unknown as { performRevokeAll: () => void }).performRevokeAll.bind(c);
+    pa();
+    pa();
+    expect(post).withContext('no duplicate POST').toHaveBeenCalledTimes(1);
+    expect((c as unknown as { revokingAll: () => boolean }).revokingAll()).toBeTrue();
+  });
+});
