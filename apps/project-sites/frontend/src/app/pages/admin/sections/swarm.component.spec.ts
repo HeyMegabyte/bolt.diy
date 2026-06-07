@@ -70,6 +70,25 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
     expect(btn.textContent).toContain('Running');
   });
 
+  // When the swarm surface fails to load (flag off / foreign site / 404 →
+  // "Swarm isn't available for this site."), the launch + stream actions must be
+  // DISABLED, not left as dead buttons that just POST → 404 → error toast.
+  it('disables Start Swarm + directive + Connect-live-stream when the swarm is unavailable (no dead buttons)', () => {
+    const c = fixture.componentInstance;
+    c.loadError.set("Swarm isn't available for this site.");
+    c.loadErrorGated.set(true);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(c.unavailable()).withContext('unavailable computed reflects loadError').toBeTrue();
+    expect((root.querySelector('.swarm-header__start') as HTMLButtonElement).disabled).withContext('Start Swarm disabled').toBeTrue();
+    expect((root.querySelector('.swarm-preview__connect') as HTMLButtonElement).disabled).withContext('Connect live stream disabled').toBeTrue();
+    // Handler guard: a bypassed click (Enter/programmatic) is a no-op.
+    c.startSwarm();
+    expect(c.running()).withContext('startSwarm no-ops when unavailable').toBeFalse();
+    c.connectSse();
+    expect(c.sseConnected()).withContext('connectSse no-ops when unavailable').toBeFalse();
+  });
+
   // The conflict badge was the ⚠ char (U+26A0) — emoji-presentation → colourful ⚠️
   // ignoring its --sw-warn CSS color. Must be a monochrome SVG.
   it('the conflict badge uses a monochrome SVG, not the colourful ⚠ emoji', () => {

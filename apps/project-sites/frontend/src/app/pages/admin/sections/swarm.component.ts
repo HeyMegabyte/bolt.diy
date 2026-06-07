@@ -126,7 +126,9 @@ const SPECIALIST_COLORS: Record<string, string> = {
         (keydown.enter)="startSwarm()"
         data-testid="swarm-directive" />
       <button class="swarm-header__start" (click)="startSwarm()"
-              [disabled]="running()" [attr.aria-busy]="running()" aria-label="Start new swarm run">
+              [disabled]="running() || unavailable()" [attr.aria-busy]="running()"
+              [attr.title]="unavailable() ? 'Swarm is not available for this site' : null"
+              [attr.aria-label]="unavailable() ? 'Start swarm — unavailable for this site' : 'Start new swarm run'">
         @if (running()) {
           <svg class="sw-btn-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Running…
         } @else {
@@ -213,7 +215,9 @@ const SPECIALIST_COLORS: Record<string, string> = {
     </div>
 
     @if (!sseConnected()) {
-      <button class="swarm-preview__connect" (click)="connectSse()">
+      <button class="swarm-preview__connect" (click)="connectSse()"
+              [disabled]="unavailable()"
+              [attr.title]="unavailable() ? 'Swarm is not available for this site' : null">
         Connect live stream
       </button>
     }
@@ -391,6 +395,12 @@ export class AdminSwarmComponent implements OnInit, OnDestroy {
   readonly loadErrorRef = signal('');
   /** True when the failure is a 404 (swarm flag off / foreign site) → permanent, no Retry. */
   readonly loadErrorGated = signal(false);
+  /**
+   * True when the swarm surface failed to load (flag off / foreign site / a
+   * transient error) — the launch + stream actions can't succeed, so they must
+   * be disabled rather than left as dead buttons that just toast an error.
+   */
+  readonly unavailable = computed(() => this.loadError() !== null);
   readonly running = signal(false);
   readonly currentRun = signal<SwarmRun | null>(null);
   readonly runHistory = signal<SwarmRun[]>([]);
@@ -479,7 +489,9 @@ export class AdminSwarmComponent implements OnInit, OnDestroy {
   swarmPrompt = '';
 
   startSwarm() {
-    if (this.running()) return;
+    // Guard the handler too — a disabled button is bypassable (Enter key /
+    // programmatic). No-op when a run is live or the swarm is unavailable.
+    if (this.running() || this.unavailable()) return;
     this.running.set(true);
     this.api.post<SwarmRun>(`/swarm/${this.siteId()}/start`, {
       prompt: this.swarmPrompt.trim() || this.DEFAULT_DIRECTIVE,
@@ -500,7 +512,7 @@ export class AdminSwarmComponent implements OnInit, OnDestroy {
   }
 
   connectSse() {
-    if (this.sseConnected()) return;
+    if (this.sseConnected() || this.unavailable()) return;
     const run = this.currentRun();
     const url = `/api/swarm/${this.siteId()}/stream${run ? `?run_id=${run.run_id}` : ''}`;
     this.sseSource = new EventSource(url);
