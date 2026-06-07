@@ -32,6 +32,7 @@ import { VoiceTestConsoleComponent } from './voice/test-console.component';
 import { VoiceAgentSettingsComponent } from './voice/agent-settings.component';
 import { VoiceMcpsComponent } from './voice/mcps.component';
 import { VoiceShareComponent } from './voice/share.component';
+import { EmptyStateComponent } from '../empty-state.component';
 
 type VoiceTab = 'numbers' | 'conversations' | 'test' | 'agent' | 'mcps' | 'share';
 
@@ -63,6 +64,7 @@ const TABS: readonly TabSpec[] = [
     VoiceAgentSettingsComponent,
     VoiceMcpsComponent,
     VoiceShareComponent,
+    EmptyStateComponent,
   ],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" data-testid="voice-section">
@@ -94,10 +96,11 @@ const TABS: readonly TabSpec[] = [
 
       <!-- No-site guard -->
       @if (!state.selectedSite()) {
-        <div class="notice notice-amber" role="status" psReveal>
-          <strong>No site selected.</strong>
-          Pick a site from the sidebar — every voice setting is scoped per-site.
-        </div>
+        <app-empty-state
+          icon="📞"
+          title="No site selected"
+          body="Pick a site from the sidebar — every voice setting is scoped per-site."
+        />
       } @else {
         <!-- Tabs -->
         <nav class="tabs" role="tablist" aria-label="Voice sections" psReveal (keydown)="onTabKey($event)">
@@ -175,16 +178,6 @@ const TABS: readonly TabSpec[] = [
       text-shadow: 0 1px 2px rgba(0,0,0,0.6);
     }
     .stat-strip-label { font-size: 0.78rem; color: var(--ps-ink, #f4f4ff); opacity: 0.78; }
-
-    .notice {
-      border-radius: var(--ps-radius-sm, 8px);
-      padding: 0.85rem 1rem;
-      font-size: 0.78rem;
-      background: var(--ps-surface-1, rgba(13,13,40,0.62));
-      border: 1px solid rgba(255,255,255,0.06);
-    }
-    .notice-amber { background: rgba(251,191,36,0.06); border-color: rgba(251,191,36,0.3); color: #fde68a; }
-    .notice-amber strong { color: #fcd34d; }
 
     .tabs {
       display: flex; gap: 6px; flex-wrap: wrap;

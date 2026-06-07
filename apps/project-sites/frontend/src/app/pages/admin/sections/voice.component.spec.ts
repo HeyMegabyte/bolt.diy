@@ -92,6 +92,17 @@ describe('VoiceComponent (cyan/black cohesion + a11y)', () => {
     expect(el.querySelector('[data-testid="voice-live-pill"]')).toBeNull();
   });
 
+  // Cockpit cohesion: the no-site guard should use the shared cyan
+  // <app-empty-state> (matching domains/site-branches), not a bespoke
+  // off-brand amber notice box.
+  it('renders the no-site guard via the shared cyan app-empty-state (cyan SVG glyph, no amber notice)', () => {
+    build(null);
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('app-empty-state')).withContext('uses the cockpit cyan empty-state primitive').toBeTruthy();
+    expect(el.querySelector('.notice-amber')).withContext('no off-brand amber notice box').toBeNull();
+    expect(el.querySelector('app-empty-state svg')).withContext('icon maps to a monochrome cyan SVG').toBeTruthy();
+  });
+
   it('opens the tab named by ?tab= on load (bookmarkable), winning over the stored tab', () => {
     try { localStorage.setItem('voice.activeTab', 'conversations'); } catch { /* */ }
     build({ id: 's1', business_name: 'Vito Salon' }, 'agent');
