@@ -698,7 +698,7 @@ interface BoltMediaAttachMessage {
                 id="pod-title"
                 type="text"
                 hlmInput
-                [(ngModel)]="podcastTitle"
+                [ngModel]="podcastTitle()" (ngModelChange)="podcastTitle.set($event)"
                 placeholder="Episode 12 — The Future of Edge Compute"
                 aria-label="Podcast title"
               />
@@ -1316,7 +1316,8 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
   );
 
   // ─── Podcast Studio state ─────────────────────────────────────────────────
-  podcastTitle = '';
+  /** SIGNAL so podcastReady (a computed) re-evaluates live as the title is typed (a plain field would leave the Generate button stale in zoneless). */
+  readonly podcastTitle = signal('');
   podcastProvider: 'elevenlabs' | 'openai' = 'elevenlabs';
   readonly podcastSegments = signal<PodcastSegment[]>([
     { voice: '', text: '' },
@@ -1325,7 +1326,7 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
   readonly podcastResult = signal<MediaAsset | null>(null);
 
   readonly podcastReady = computed(() => {
-    if (!this.podcastTitle.trim()) return false;
+    if (!this.podcastTitle().trim()) return false;
     const segs = this.podcastSegments();
     return segs.length > 0 && segs.every((s) => s.voice.trim() && s.text.trim());
   });
@@ -1809,7 +1810,7 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.podcastGenerating.set(true);
     this.api
       .post<{ data: MediaAsset }>('/media/generate/podcast', {
-        title: this.podcastTitle.trim(),
+        title: this.podcastTitle().trim(),
         provider: this.podcastProvider,
         segments: this.podcastSegments(),
       })

@@ -59,6 +59,21 @@ describe('AdminMediaComponent (cyan/black cohesion + a11y)', () => {
     TestBed.resetTestingModule();
   });
 
+  // podcastReady is a computed that gates the "Generate podcast" button. It read
+  // podcastTitle as a PLAIN field — in zoneless Angular a computed only recomputes
+  // on a SIGNAL change, so typing a title never re-enabled the button until a
+  // segment changed (stale). podcastTitle must be a signal so the gate is live.
+  it('podcastReady reacts to the podcastTitle signal (live, not stale)', () => {
+    build();
+    const c = fixture.componentInstance;
+    c.podcastSegments.set([{ voice: 'Aria', text: 'Hello world' }]);
+    expect(c.podcastReady()).withContext('valid segment but no title → not ready').toBeFalse();
+    c.podcastTitle.set('My Episode');
+    expect(c.podcastReady()).withContext('title typed → ready recomputes live').toBeTrue();
+    c.podcastTitle.set('   ');
+    expect(c.podcastReady()).withContext('whitespace-only title → not ready').toBeFalse();
+  });
+
   it('renders the asset count through <app-rolling-counter> (numeric stat mandate)', () => {
     build();
     const el: HTMLElement = fixture.nativeElement;
