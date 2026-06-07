@@ -485,3 +485,33 @@ describe('AdminFeatureFlagsComponent (Expert eval-trace test-subject builder)', 
     expect(c.resolvedSubject()).toBe('platform');
   });
 });
+
+/**
+ * The System-Admin flag console's emergency/danger affordances must use
+ * monochrome stroke SVGs (inherit the red danger ink), never the colourful
+ * ⛔ (U+26D4) / ⚠ (U+26A0) emoji that broke the cyan/black cockpit.
+ */
+describe('AdminFeatureFlagsComponent (emergency/danger icons are SVGs, not emoji)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('renders the Emergency button glyph as an SVG, no ⛔ emoji', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminFeatureFlagsComponent],
+      providers: [
+        provideRouter([]),
+        { provide: HttpClient, useValue: { get: () => of({ data: [] }), patch: () => of({}), post: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: AdminStateService, useValue: { selectedSite: signal(null), isSuperAdmin: () => false } },
+        { provide: FeatureFlagService, useValue: { invalidate: () => undefined, isOn: () => of(false) } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }), snapshot: { queryParamMap: { get: () => null } } } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminFeatureFlagsComponent);
+    f.detectChanges();
+    const btn = (f.nativeElement as HTMLElement).querySelector('[data-testid="ff-emergency-open"]');
+    expect(btn).withContext('emergency button renders').toBeTruthy();
+    expect(btn!.querySelector('svg')).withContext('button glyph is an SVG').toBeTruthy();
+    expect(btn!.textContent ?? '').withContext('no ⛔ emoji').not.toContain('⛔');
+  });
+});

@@ -124,7 +124,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
           <app-flag-mode-switcher [mode]="mode()" (modeChange)="setMode($event)" label="Disclosure mode (System Administrator)" />
           <button class="ff-refresh" (click)="reload()" [disabled]="loading()" aria-label="Refresh flag list">↻ Refresh</button>
           <button class="ff-emergency" (click)="openEmergency()" data-testid="ff-emergency-open"
-                  aria-label="Open emergency kill-switch console">⛔ Emergency</button>
+                  aria-label="Open emergency kill-switch console"><span class="ff-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg></span>Emergency</button>
         </div>
       </header>
 
@@ -350,7 +350,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
         <div class="ff-danger-overlay" role="dialog" aria-modal="true" aria-labelledby="ff-danger-title" data-testid="ff-danger-panel"
              cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
           <div class="ff-danger">
-            <h2 id="ff-danger-title">⚠ Confirm dangerous change</h2>
+            <h2 id="ff-danger-title"><span class="ff-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>Confirm dangerous change</h2>
             <p class="ff-danger-flag"><code>{{ p.flag.key }}</code> — {{ p.label }}</p>
             <div class="ff-danger-section" data-testid="ff-blast-radius">
               <h3>Blast radius</h3>
@@ -380,7 +380,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
         <div class="ff-danger-overlay" role="dialog" aria-modal="true" aria-labelledby="ff-emergency-title" data-testid="ff-emergency-panel"
              cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
           <div class="ff-danger ff-emergency-console">
-            <h2 id="ff-emergency-title">⛔ Emergency console</h2>
+            <h2 id="ff-emergency-title"><span class="ff-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg></span>Emergency console</h2>
             <p>Instantly disable experimental + beta features platform-wide. Stable + sentinel core flags are never touched.</p>
             <p class="ff-emergency-count"><strong>{{ emergencyTargets().length }}</strong> non-stable flags would be killed.</p>
             <label class="ff-danger-reason-label" for="ff-emergency-reason">Reason (required)</label>
@@ -415,6 +415,8 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
     .ff-refresh:hover { background: color-mix(in oklch, currentColor 10%, transparent); }
     .ff-refresh:disabled { opacity: .5; cursor: not-allowed; }
     .ff-emergency { border-color: color-mix(in oklch, #ff5555 45%, transparent); color: #ff8888; }
+    .ff-ic { display: inline-flex; vertical-align: -0.15em; margin-right: .4rem; }
+    .ff-ic svg { width: 1em; height: 1em; display: block; }
     .ff-emergency:hover { background: color-mix(in oklch, #ff5555 12%, transparent); }
     .ff-refresh:focus-visible, .ff-emergency:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
     .ff-blocked { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.25rem; padding: 0.7rem 0.9rem; border-radius: 12px;
