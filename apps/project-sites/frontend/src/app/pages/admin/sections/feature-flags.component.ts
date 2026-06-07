@@ -345,6 +345,12 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
                     <div class="ff-expert-actions">
                       <button class="ff-btn ff-btn-primary" data-testid="ff-json-apply" (click)="applyJson(flag)" [disabled]="busy()[flag.key]">Apply payload</button>
                     </div>
+                    <h3>API payload (curl)</h3>
+                    <pre class="ff-json" data-testid="ff-curl">{{ curlFor(flag) }}</pre>
+                    <div class="ff-expert-actions">
+                      <button class="ff-btn" type="button" data-testid="ff-curl-copy" (click)="copyCurl(flag)"
+                              [attr.aria-label]="'Copy the reproduce-this-change curl for ' + flag.key">Copy curl</button>
+                    </div>
                   </div>
                 }
 
@@ -754,6 +760,37 @@ export class AdminFeatureFlagsComponent implements OnInit {
     try {
       await navigator.clipboard.writeText(key);
       this.toast.success(`Copied "${key}"`);
+    } catch {
+      this.toast.error('Copy failed — clipboard unavailable');
+    }
+  }
+
+  /**
+   * Expert "API payload": the exact curl to reproduce this flag's mutation via
+   * the super-admin API — uses the edited draft when it's valid JSON, else the
+   * committed payload. The bearer is a `<YOUR_TOKEN>` PLACEHOLDER (never leak a
+   * real session token into a copyable snippet).
+   */
+  curlFor(flag: FlagDefinition): string {
+    const draft = this.jsonEditorDraft()[flag.key];
+    let body: string;
+    try {
+      body = JSON.stringify(JSON.parse(draft !== undefined ? draft : this.jsonPayloadFor(flag)));
+    } catch {
+      body = JSON.stringify(JSON.parse(this.jsonPayloadFor(flag)));
+    }
+    return [
+      `curl -X POST 'https://projectsites.dev/api/super-admin/feature-flags' \\`,
+      `  -H 'content-type: application/json' \\`,
+      `  -H 'authorization: Bearer <YOUR_TOKEN>' \\`,
+      `  -d '${body.replace(/'/g, `'\\''`)}'`,
+    ].join('\n');
+  }
+
+  async copyCurl(flag: FlagDefinition): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(this.curlFor(flag));
+      this.toast.success('Copied curl');
     } catch {
       this.toast.error('Copy failed — clipboard unavailable');
     }

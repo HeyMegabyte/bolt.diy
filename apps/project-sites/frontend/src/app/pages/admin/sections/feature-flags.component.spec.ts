@@ -542,3 +542,31 @@ describe('AdminFeatureFlagsComponent (Expert JSON payload diff)', () => {
     expect(c.jsonDiff(f)).withContext('invalid JSON → no diff (error path owns it)').toEqual([]);
   });
 });
+
+/**
+ * Expert-mode "API payload": a copyable curl to reproduce the flag mutation via
+ * the super-admin API (the brief's Expert "API payloads"). Must reflect the
+ * edited draft when valid + carry a PLACEHOLDER token (never leak a real one).
+ */
+describe('AdminFeatureFlagsComponent (Expert API payload / curl)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('curlFor builds a reproducible POST curl (placeholder token, reflects the draft)', () => {
+    const c = make(okGet());
+    const f = flag({ key: 'k', default_enabled: true, default_rollout_percent: 25, kill_switch: false });
+    const curl = c.curlFor(f);
+    expect(curl).toContain('curl -X POST');
+    expect(curl).toContain('/api/super-admin/feature-flags');
+    expect(curl).withContext('placeholder, not a real session token').toContain('<YOUR_TOKEN>');
+    expect(curl).toContain('"rollout_pct":25');
+    expect(curl).toContain('"enabled_globally":true');
+
+    c.setJsonDraft('k', JSON.stringify({ key: 'k', enabled_globally: false, rollout_pct: 0, kill_switch: true }));
+    const edited = c.curlFor(f);
+    expect(edited).withContext('reflects a valid edited draft').toContain('"rollout_pct":0');
+    expect(edited).toContain('"kill_switch":true');
+
+    c.setJsonDraft('k', '{ not json');
+    expect(c.curlFor(f)).withContext('invalid draft falls back to the committed payload').toContain('"rollout_pct":25');
+  });
+});
