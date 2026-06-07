@@ -114,4 +114,66 @@ describe('AppDetailComponent (subdomain validation + deploy guard)', () => {
     soon.ngOnInit();
     expect(soon.supported()).toBeFalse();
   });
+
+  // a11y: the cost total is a financial figure rendered through
+  // <app-rolling-counter>, which exposes only the bare digits ("47") to AT.
+  // A screen reader otherwise hears "$ 47 / mo" as three disconnected nodes
+  // with no "what is this" context. costTotalLabel() bundles the whole figure
+  // (and its /mo unit) into one programmatic accessible name, mirroring the
+  // analytics/seo KPI group pattern.
+  it('costTotalLabel() names the figure + monthly unit for AT', () => {
+    const { c } = make(undefined, 'umami');
+    c.ngOnInit();
+    const label = c.costTotalLabel();
+    expect(label).toContain('Total');
+    expect(label).toContain('$' + c.totalCost());
+    expect(label).toMatch(/per month/i);
+  });
+});
+
+/**
+ * a11y: full-render assertions for the cost-total group. Renders the real
+ * template (no override) so the role=group + aria-label wiring is exercised.
+ */
+describe('AppDetailComponent (cost-total a11y group)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function render(appId = 'umami') {
+    const post = jasmine.createSpy('post').and.returnValue(of({ instance_id: 'i1' }));
+    TestBed.configureTestingModule({
+      imports: [AppDetailComponent],
+      providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => appId } } } },
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        { provide: ApiService, useValue: { post } },
+        { provide: ToastService, useValue: { success: jasmine.createSpy('s'), error: jasmine.createSpy('e') } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'demo' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AppDetailComponent);
+    fx.detectChanges();
+    return fx;
+  }
+
+  it('renders the cost total as a labelled group (role=group + aria-label)', () => {
+    const fx = render();
+    const total: HTMLElement | null = fx.nativeElement.querySelector('.cost-total');
+    expect(total).toBeTruthy();
+    expect(total!.getAttribute('role')).toBe('group');
+    const label = total!.getAttribute('aria-label') ?? '';
+    expect(label).toContain('Total');
+    expect(label).toMatch(/per month/i);
+  });
+
+  it('marks the deploy button aria-busy while provisioning', () => {
+    const fx = render();
+    const c = fx.componentInstance;
+    c.onSubdomainChange('my-cool-app');
+    c.subdomain = 'my-cool-app';
+    c.deploying.set(true);
+    fx.detectChanges();
+    const btn: HTMLElement | null = fx.nativeElement.querySelector('[data-testid="apps-deploy-cta"]');
+    expect(btn).toBeTruthy();
+    expect(btn!.getAttribute('aria-busy')).toBe('true');
+  });
 });

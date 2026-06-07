@@ -244,7 +244,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
               @for (e of f.endpoints; track e.method + e.path; let i = $index) {
                 <div class="hub-endpoint">
                   <span class="hub-method" [attr.data-method]="e.method">{{ e.method }}</span>
-                  <code class="hub-path" title="Click to copy" (click)="copy(e.path)">{{ e.path }}</code>
+                  <button type="button" class="hub-path" title="Copy endpoint path" [attr.aria-label]="'Copy ' + e.method + ' ' + e.path" (click)="copy(e.path)">{{ e.path }}</button>
                   <button class="hub-try" (click)="tryIt(f, i)" [disabled]="loading()[f.flag + ':' + i]" data-testid="hub-try-btn">
                     {{ loading()[f.flag + ':' + i] ? '…' : 'Try' }}
                   </button>
@@ -323,8 +323,11 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
     .hub-method { font-family: var(--ps-mono, ui-monospace, monospace); font-size: .72rem; font-weight: 700; padding: .15rem .45rem; border-radius: 5px; }
     .hub-method[data-method="GET"] { background: #4ade80; color: #052e16; }
     .hub-method[data-method="POST"] { background: #fbbf24; color: #1c1917; }
-    .hub-path { font-family: var(--ps-mono, ui-monospace, monospace); font-size: .8rem; flex: 1 1 200px; word-break: break-all; cursor: copy; padding: .15rem .35rem; border-radius: 4px; }
+    /* The endpoint path is a real <button> (keyboard + SR operable copy control),
+       reset to read like the inline mono <code> it replaced. */
+    .hub-path { appearance: none; background: transparent; border: 0; color: inherit; text-align: left; font-family: var(--ps-mono, ui-monospace, monospace); font-size: .8rem; flex: 1 1 200px; word-break: break-all; cursor: copy; padding: .15rem .35rem; border-radius: 4px; }
     .hub-path:hover { background: color-mix(in oklch, currentColor 10%, transparent); }
+    .hub-path:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; background: color-mix(in oklch, currentColor 10%, transparent); }
     .hub-try { background: transparent; color: inherit; border: 1px solid color-mix(in oklch, currentColor 25%, transparent); padding: .25rem .65rem; border-radius: 6px; cursor: pointer; font: inherit; font-size: .8rem; }
     .hub-try:hover:not(:disabled) { border-color: var(--ps-accent, #00e5ff); color: var(--ps-accent, #00e5ff); }
     .hub-try:disabled { opacity: .5; cursor: progress; }

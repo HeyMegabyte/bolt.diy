@@ -16,19 +16,19 @@ import { ToastService } from '../../../services/toast.service';
           <div class="invite-glyph invite-glyph--cyan" data-testid="invite-glyph" aria-hidden="true">
             <span class="invite-spinner"></span>
           </div>
-          <h2 class="text-base font-semibold text-white m-0">Verifying invite…</h2>
+          <h1 class="text-base font-semibold text-white m-0">Verifying invite…</h1>
           <p class="text-[0.78rem] text-text-secondary mt-2">Checking the token from your email.</p>
         } @else if (state() === 'success') {
           <div class="invite-glyph invite-glyph--success" data-testid="invite-glyph" aria-hidden="true">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
-          <h2 class="text-base font-semibold text-emerald-300 m-0 mt-2">Joined</h2>
+          <h1 class="text-base font-semibold text-emerald-300 m-0 mt-2">Joined</h1>
           <p class="text-[0.78rem] text-text-secondary mt-1">Redirecting to admin…</p>
         } @else {
           <div class="invite-glyph invite-glyph--warn" data-testid="invite-glyph" aria-hidden="true">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           </div>
-          <h2 class="text-base font-semibold text-amber-300 m-0 mt-2">Couldn't accept invite</h2>
+          <h1 class="text-base font-semibold text-amber-300 m-0 mt-2">Couldn't accept invite</h1>
           <p class="text-[0.78rem] text-text-secondary mt-1">{{ message() }}</p>
           <button class="btn-primary mt-3" (click)="goAdmin()" title="Back to admin home">Go to admin</button>
         }

@@ -229,9 +229,9 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
                     <span class="cost-line-value">$<app-rolling-counter [value]="line.monthlyUsd" /></span>
                   </div>
                 }
-                <div class="cost-total">
-                  <span class="cost-total-label">Total</span>
-                  <span class="cost-total-value">$<app-rolling-counter [value]="totalCost()" /><span class="cost-unit">/mo</span></span>
+                <div class="cost-total" role="group" [attr.aria-label]="costTotalLabel()">
+                  <span class="cost-total-label" aria-hidden="true">Total</span>
+                  <span class="cost-total-value" aria-hidden="true">$<app-rolling-counter [value]="totalCost()" /><span class="cost-unit">/mo</span></span>
                 </div>
               </div>
 
@@ -239,6 +239,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
                 type="button"
                 class="btn-deploy"
                 [disabled]="!canDeploy() || deploying()"
+                [attr.aria-busy]="deploying()"
                 (click)="deploy(a)"
                 data-testid="apps-deploy-cta">
                 @if (deploying()) {
@@ -643,6 +644,14 @@ export class AppDetailComponent implements OnInit {
   });
 
   totalCost = computed<number>(() => this.costLines().reduce((acc, l) => acc + l.monthlyUsd, 0));
+
+  /**
+   * Complete accessible name for the cost-total group. The `<app-rolling-counter>`
+   * inside exposes only the bare digits to AT, so the surrounding "Total" label and
+   * the "/mo" unit are `aria-hidden` and the meaning is carried here instead — one
+   * programmatic phrase a screen reader reads as a unit.
+   */
+  costTotalLabel = computed<string>(() => `Total monthly cost: $${this.totalCost()} per month`);
 
   /**
    * Synthetic Dockerfile shown on the detail page. Built off-template so

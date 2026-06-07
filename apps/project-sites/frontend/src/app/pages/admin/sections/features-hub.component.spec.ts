@@ -187,4 +187,31 @@ describe('AdminFeaturesHubComponent (in-text feature-flags link is underlined)',
     // component imports the attribute is INERT (no href) → a dead link.
     expect(link.getAttribute('href')).toBe('/admin/feature-flags');
   });
+
+  /**
+   * WCAG 2.1.1 (keyboard) + 4.1.2 (name/role): the endpoint-path copy control was a
+   * bare <code> with only a (click) handler — a keyboard user cannot trigger it and
+   * a screen reader hears an unlabelled, non-interactive code span. It MUST be a real
+   * <button> with an accessible name that NAMES the endpoint it copies.
+   */
+  it('each endpoint path is a keyboard-operable <button> with an accessible name naming the path', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminFeaturesHubComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get: () => of({ flags: [] }), post: () => of({}) } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminFeaturesHubComponent);
+    fx.componentInstance.tab.set('obs'); // otlp_unified_events → POST /api/otlp/span
+    fx.detectChanges();
+    const copy = (fx.nativeElement as HTMLElement).querySelector('.hub-path');
+    expect(copy).withContext('endpoint-path copy control renders').not.toBeNull();
+    // role: a click-only <code> is inert to keyboard + SR. Must be a <button>.
+    expect(copy!.tagName).withContext('copy control must be a real <button>, not a <code>').toBe('BUTTON');
+    // name: title="Click to copy" is generic — the accessible name must NAME the path.
+    const label = copy!.getAttribute('aria-label') ?? '';
+    expect(label).withContext('accessible name must name the endpoint path').toContain('/api/otlp/span');
+  });
 });

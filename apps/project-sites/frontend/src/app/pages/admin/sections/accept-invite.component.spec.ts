@@ -170,6 +170,29 @@ describe('AdminAcceptInviteComponent (cyan/black glyph-halo polish)', () => {
     expect(err.querySelector('.invite-glyph--warn')).withContext('error halo').toBeTruthy();
   });
 
+  // WCAG 2.4.6 / document outline: this is a standalone landing page (child of the
+  // admin shell, which renders NO <h1>). Every sibling admin section uses <h1> as its
+  // top-level heading; accept-invite shipped only <h2>, so a screen-reader user
+  // navigating by heading landed on an h2 with no h1 above it (a broken outline).
+  // The state heading must be the page's <h1> in EVERY state.
+  it('verifying state exposes the page heading as an <h1> (not a stray <h2> with no h1 above)', () => {
+    const host = render('tok', jasmine.createSpy('post').and.returnValue(new Subject()));
+    expect(host.querySelector('h2')).withContext('no stray h2 as the top heading').toBeFalsy();
+    expect(host.querySelector('h1')!.textContent).withContext('verifying h1').toContain('Verifying');
+  });
+
+  it('success state exposes the page heading as an <h1>', () => {
+    const ok = render('tok', jasmine.createSpy('post').and.returnValue(of({ data: { joined: true, role: 'member' } })));
+    expect(ok.querySelector('h2')).toBeFalsy();
+    expect(ok.querySelector('h1')!.textContent).withContext('success h1').toContain('Joined');
+  });
+
+  it('error state exposes the page heading as an <h1>', () => {
+    const err = render(null, jasmine.createSpy('post'));
+    expect(err.querySelector('h2')).toBeFalsy();
+    expect(err.querySelector('h1')!.textContent).withContext('error h1').toContain("Couldn't accept");
+  });
+
   // The success/error glyphs must be monochrome stroke SVGs (currentColor) — the
   // ⚠ char (U+26A0) is emoji-presentation by DEFAULT, so it rendered as a colorful
   // ⚠️ emoji ignoring the amber CSS color, off-brand in the cyan/black cockpit.
