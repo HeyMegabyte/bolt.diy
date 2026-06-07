@@ -49,6 +49,7 @@ admin_sections:
   analytics:       { status: covered, specs: [analytics-cf-traffic.spec.ts] }
   billing:         { status: covered, specs: [stripe-link-inline-checkout.spec.ts, production-admin.spec.ts] }
   feature_flags:   { status: covered, specs: [admin-feature-flags.e2e.ts, admin-flag-gated.e2e.ts] }
+  flag_control_plane: { status: covered, specs: [admin-flag-control-plane.spec.ts], note: "two-layer control plane: System Administrator (/admin/feature-flags) + Features (/admin/site-features) — progressive disclosure, dangerous-change confirm, entitlement-locked, preview, undo, SPA nav" }
   forms:           { status: covered, specs: [forms-header-button.spec.ts, full-feature-coverage.spec.ts] }
   notifications:   { status: covered, specs: [notification-bell.e2e.ts] }
   user_settings:   { status: covered, specs: [admin-user-settings.e2e.ts], note: "sessions toast-clean; rotate/disconnect via branded confirm" }

@@ -209,11 +209,22 @@ export const routes: Routes = [
           import('./pages/admin/sections/api-tokens.component').then((m) => m.AdminApiTokensComponent),
       },
       {
-        // Feature flag registry browser + admin override editor.
-        // Reads from GET /api/feature-flags, supports filter / search / toggle.
+        // Two-layer control plane — LAYER 1 (System Administrator). Platform-ops
+        // flags for the operator. Reads GET /api/feature-flags merged with the
+        // super-admin overrides; supports filter / search / toggle / rollout /
+        // killswitch with progressive disclosure + dangerous-change confirm.
         path: 'feature-flags',
         loadComponent: () =>
           import('./pages/admin/sections/feature-flags.component').then((m) => m.AdminFeatureFlagsComponent),
+      },
+      {
+        // Two-layer control plane — LAYER 2 (Features, owner-facing). Site/tenant
+        // -scoped features a site owner enables for their hosted site, plan-aware
+        // with entitlement-locked states, preview, and undo. Backed by
+        // GET/POST /api/site-features.
+        path: 'site-features',
+        loadComponent: () =>
+          import('./pages/admin/sections/site-features.component').then((m) => m.AdminSiteFeaturesComponent),
       },
       {
         // Content Freshness — Feature #16. AI rewrite drafts for idle sections.

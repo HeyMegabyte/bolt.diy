@@ -745,6 +745,14 @@ const flagPatchSchema = z.object({
   enabled_globally: z.boolean().optional(),
   rollout_pct: z.number().min(0).max(100).optional(),
   kill_switch: z.boolean().optional(),
+  /**
+   * Operator-supplied reason for a dangerous change (killswitch / global-enable /
+   * large rollout jump). Persisted in the audit trail so the per-flag history
+   * panel can surface "why" alongside the diff. Required by the admin UI for
+   * dangerous changes; the schema keeps it optional so non-dangerous nudges
+   * (small rollout tweaks) don't demand a reason.
+   */
+  reason: z.string().max(500).optional(),
 });
 
 /**
@@ -780,9 +788,65 @@ superAdmin.post('/api/super-admin/feature-flags', zValidator('json', flagPatchSc
       userId,
     )
     .run();
-  await audit(c, 'feature_flag_upsert', { target_kind: 'feature_flag', target_id: body.key, after: body });
+  await audit(c, 'feature_flag_upsert', { target_kind: 'feature_flag', target_id: body.key, after: body, reason: body.reason });
   return c.json({ ok: true });
 });
+
+/**
+ * `GET /api/super-admin/feature-flags/:key/audit` — Per-flag change history for
+ * the System-Administrator layer's detail panel. Reads the `super_admin_audit`
+ * trail filtered to this flag key. Returns a UI-ready entry list (actor +
+ * action + a human summary derived from the persisted before/after + reason).
+ *
+ * @throws 403 FORBIDDEN when the caller is not a super-admin.
+ */
+superAdmin.get('/api/super-admin/feature-flags/:key/audit', async (c) => {
+  const key = c.req.param('key');
+  const { data } = await dbQuery<{
+    id: string;
+    actor_user_id: string;
+    action: string;
+    before_json: string | null;
+    after_json: string | null;
+    reason: string | null;
+    created_at: string;
+  }>(
+    c.env.DB,
+    `SELECT id, actor_user_id, action, before_json, after_json, reason, created_at
+       FROM super_admin_audit
+      WHERE target_kind = 'feature_flag' AND target_id = ?
+      ORDER BY created_at DESC
+      LIMIT 50`,
+    [key],
+  );
+  const entries = (data ?? []).map((row) => ({
+    id: row.id,
+    actor: row.actor_user_id,
+    action: row.action,
+    summary: summarizeAuditRow(row.before_json, row.after_json),
+    reason: row.reason,
+    created_at: row.created_at,
+  }));
+  return c.json({ entries });
+});
+
+/**
+ * Build a one-line "rollout 0% → 25%, enabled off → on" summary from the
+ * persisted before/after JSON of a feature-flag audit row.
+ */
+function summarizeAuditRow(beforeJson: string | null, afterJson: string | null): string {
+  let after: Record<string, unknown> = {};
+  try {
+    after = afterJson ? (JSON.parse(afterJson) as Record<string, unknown>) : {};
+  } catch {
+    after = {};
+  }
+  const parts: string[] = [];
+  if (typeof after.enabled_globally === 'boolean') parts.push(`enabled → ${after.enabled_globally ? 'on' : 'off'}`);
+  if (typeof after.rollout_pct === 'number') parts.push(`rollout → ${after.rollout_pct}%`);
+  if (typeof after.kill_switch === 'boolean') parts.push(`kill switch → ${after.kill_switch ? 'on' : 'off'}`);
+  return parts.length ? parts.join(', ') : 'flag updated';
+}
 
 // ─── Impersonation sessions ───────────────────────────────────────────────
 

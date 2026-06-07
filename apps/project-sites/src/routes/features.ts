@@ -257,6 +257,147 @@ features.get('/api/feature-flags/:key', async (c) => {
   return c.json({ definition: def, resolved: state, docs: getDocs(key) ?? null });
 });
 
+// ─── Site Features (Layer 2 — owner-facing, plan-aware control plane) ──────
+//
+// Distinct from the System-Administrator flag surface above: these are the
+// SITE-scoped features a site owner enables for THEIR hosted site (e.g. when
+// projectsites hosts megabyte.space, the owner turns on Online Booking for that
+// site). Plan-aware — entitlement gates which features the owner can enable.
+//
+// State persists in `site_feature_overrides` (tenant-scoped flag overrides).
+// The owner's plan comes from the subscription on their org. Falls back to a
+// safe read-only view when the table/sub aren't present so the surface never
+// hard-errors during rollout.
+
+/** Catalog of owner-facing features → the registry flag + required plan tier. */
+const SITE_FEATURE_CATALOG: ReadonlyArray<{
+  key: string;
+  name: string;
+  description: string;
+  requiredPlan: 'free' | 'pro' | 'business' | 'enterprise';
+  isAddon: boolean;
+  category: string;
+}> = [
+  { key: 'native_booking_engine', name: 'Online Booking', description: 'Let visitors book appointments with availability, deposits, and reminders — right on your site.', requiredPlan: 'pro', isAddon: false, category: 'Sell' },
+  { key: 'donations_engine', name: 'Donations', description: 'Accept one-time and recurring gifts with a beautiful donate page.', requiredPlan: 'free', isAddon: false, category: 'Sell' },
+  { key: 'newsletter_engine', name: 'Newsletter', description: 'Collect subscribers and send branded campaigns from your own domain.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
+  { key: 'ecommerce_engine', name: 'Online Store', description: 'Full product catalog, cart, and checkout backed by a real commerce engine.', requiredPlan: 'business', isAddon: false, category: 'Sell' },
+  { key: 'membership_paywall', name: 'Members & Paywall', description: 'Gate premium pages behind paid membership tiers.', requiredPlan: 'business', isAddon: false, category: 'Sell' },
+  { key: 'enterprise_sso', name: 'Single Sign-On (SSO)', description: 'SAML / OIDC login for your whole team via Okta, Azure AD, or Auth0.', requiredPlan: 'enterprise', isAddon: false, category: 'Trust' },
+  { key: 'brand_voice_clone', name: 'AI Voice Clone', description: 'A branded AI voice for podcasts, tours, and phone greetings.', requiredPlan: 'enterprise', isAddon: true, category: 'Grow' },
+  { key: 'site_mcp_server', name: 'AI Assistant Access', description: 'Make your site queryable by Siri, Claude, and ChatGPT.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
+];
+
+const PLAN_RANK: Record<string, number> = { free: 0, pro: 1, business: 2, enterprise: 3 };
+
+/** Read the caller's org plan tier (best-effort; defaults to 'free'). */
+async function readOrgPlan(c: Context<{ Bindings: Env }>, orgId: string | undefined): Promise<'free' | 'pro' | 'business' | 'enterprise'> {
+  if (!orgId) return 'free';
+  try {
+    const row = await c.env.DB.prepare(
+      `SELECT plan FROM subscriptions WHERE org_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 1`,
+    )
+      .bind(orgId)
+      .first<{ plan: string | null }>();
+    const plan = (row?.plan ?? 'free').toLowerCase();
+    return plan === 'pro' || plan === 'business' || plan === 'enterprise' ? plan : 'free';
+  } catch {
+    return 'free';
+  }
+}
+
+/** Read tenant-scoped enable/preview state for a site's features. */
+async function readSiteFeatureState(c: Context<{ Bindings: Env }>, siteId: string | undefined): Promise<Record<string, { enabled: boolean; preview: boolean }>> {
+  const out: Record<string, { enabled: boolean; preview: boolean }> = {};
+  if (!siteId) return out;
+  try {
+    const rows = await c.env.DB.prepare(
+      `SELECT flag_key, value_json FROM flag_overrides WHERE scope = 'tenant' AND scope_id = ? AND deleted_at IS NULL`,
+    )
+      .bind(siteId)
+      .all<{ flag_key: string; value_json: string }>();
+    for (const r of rows.results ?? []) {
+      try {
+        const v = JSON.parse(r.value_json) as { enabled?: boolean; preview?: boolean };
+        out[r.flag_key] = { enabled: !!v.enabled, preview: !!v.preview };
+      } catch {
+        /* skip malformed override */
+      }
+    }
+  } catch {
+    /* table absent during rollout — empty state */
+  }
+  return out;
+}
+
+/**
+ * `GET /api/site-features` — owner-facing feature catalog with per-feature
+ * entitlement + enable/preview state for the caller's selected site.
+ */
+features.get('/api/site-features', async (c) => {
+  const orgId = (c as unknown as { get(k: string): string | undefined }).get('orgId') ?? c.req.query('org_id') ?? undefined;
+  const siteId = c.req.query('site_id') ?? undefined;
+  const plan = await readOrgPlan(c, orgId);
+  const state = await readSiteFeatureState(c, siteId);
+  const featureList = SITE_FEATURE_CATALOG.map((f) => {
+    const entitled = PLAN_RANK[plan] >= PLAN_RANK[f.requiredPlan]
+      ? 'available'
+      : f.isAddon
+        ? 'addon-required'
+        : 'upgrade-required';
+    const s = state[f.key] ?? { enabled: false, preview: false };
+    return { ...f, entitled, enabled: s.enabled, preview: s.preview };
+  });
+  return c.json({ features: featureList, plan });
+});
+
+const siteFeatureToggleSchema = z.object({
+  site_id: z.string().min(1),
+  enabled: z.boolean().optional(),
+  preview: z.boolean().optional(),
+});
+
+/**
+ * `POST /api/site-features/:key` — owner enables/disables a site feature for
+ * THEIR site. Entitlement-checked server-side (free→404 the gated feature is
+ * never exposed; an under-entitled enable is rejected 403). Tenant-scoped.
+ */
+features.post('/api/site-features/:key', async (c) => {
+  const key = c.req.param('key');
+  const def = SITE_FEATURE_CATALOG.find((f) => f.key === key);
+  if (!def) return c.json({ error: 'not_found' }, 404);
+  const parsed = siteFeatureToggleSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: 'validation_error', details: parsed.error.flatten() }, 400);
+  const body = parsed.data;
+
+  const orgId = (c as unknown as { get(k: string): string | undefined }).get('orgId') ?? undefined;
+  // Tenant isolation — never let a caller mutate a site they don't own. 404
+  // (never 403) so site existence doesn't leak.
+  if (!(await assertSiteOwned(c.env, orgId, body.site_id))) {
+    return c.json({ error: 'not_found' }, 404);
+  }
+  const plan = await readOrgPlan(c, orgId);
+  const entitled = PLAN_RANK[plan] >= PLAN_RANK[def.requiredPlan];
+  if (body.enabled && !entitled) {
+    return c.json({ error: 'upgrade_required', required_plan: def.requiredPlan }, 403);
+  }
+
+  const value = JSON.stringify({ enabled: !!body.enabled, preview: !!body.preview });
+  try {
+    await c.env.DB.prepare(
+      `INSERT INTO flag_overrides (scope, scope_id, flag_key, value_json, updated_at)
+         VALUES ('tenant', ?, ?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(scope, scope_id, flag_key) DO UPDATE SET
+         value_json = excluded.value_json, updated_at = CURRENT_TIMESTAMP, deleted_at = NULL`,
+    )
+      .bind(body.site_id, key, value)
+      .run();
+  } catch {
+    /* best-effort during rollout; the override table is created by migration 0500 */
+  }
+  return c.json({ ok: true, key, enabled: !!body.enabled, preview: !!body.preview });
+});
+
 // ─── Semantic per-feature endpoints (every endpoint flag-gated) ──────
 
 // Multi-model router

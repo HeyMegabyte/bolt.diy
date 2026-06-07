@@ -70,6 +70,7 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
 | Analytics (CF traffic) | `analytics-cf-traffic.spec.ts` | ✅ |
 | Billing + Stripe checkout | `stripe-link-inline-checkout.spec.ts`, `production-admin.spec.ts` | ✅ |
 | Feature flags (on + off) | `admin-feature-flags.e2e.ts`, `admin-flag-gated.e2e.ts` | ✅ |
+| Two-layer flag control plane (System Administrator + Features) | `admin-flag-control-plane.spec.ts` | ✅ |
 | Forms builder | `forms-header-button.spec.ts`, `full-feature-coverage.spec.ts` | ✅ |
 | Notifications bell | `notification-bell.e2e.ts` | ✅ |
 | Rebuilt sections (Spartan) | `admin-rebuilt-sections.e2e.ts` | ✅ |

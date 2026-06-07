@@ -103,6 +103,75 @@ const MOCK_HOSTNAMES = [
   { id: 'hn-001', hostname: 'www.vitos-salon.com', status: 'active', is_primary: true },
 ];
 
+// ─── Feature-flag control plane (two-layer) mock data ───────────────────────
+
+// Layer 1 registry — a representative slice of the worker FLAG_REGISTRY (enough
+// to exercise stage filters, dependency constraints, and the killswitch console).
+const FF_REGISTRY = [
+  { key: 'multi_model_router', description: 'Multi-model picker (Opus/Sonnet/Workers AI/GPT-5) per prompt', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space', has_docs: true },
+  { key: 'speculation_rules', description: 'Speculation Rules auto-injection on marketing HTML', default_enabled: true, default_rollout_percent: 100, stage: 'stable', owner_email: 'brian@megabyte.space', has_docs: false },
+  { key: 'crdt_coedit', description: 'Real-time multi-cursor co-edit via DO + Yjs CRDT', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space', has_docs: false },
+  { key: 'tenant_hot_state', description: 'Per-tenant DO SQLite hot state (drafts, cursors, sessions)', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space', has_docs: false },
+  { key: 'native_editor', description: 'Phase-1 native Angular editor at /admin/editor-native', default_enabled: false, default_rollout_percent: 0, stage: 'beta', owner_email: 'brian@megabyte.space', has_docs: false },
+  { key: 'ide_sandbox', description: 'Cloudflare Sandbox-backed full IDE editor', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space', has_docs: false },
+  { key: 'mcp_server', description: '/.well-known/mcp + OAuth 2.1 resource discovery', default_enabled: true, default_rollout_percent: 100, stage: 'stable', owner_email: 'brian@megabyte.space', has_docs: false },
+  { key: 'streaming_generation', description: 'Streaming-first site generation (<8s to hero render)', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space', has_docs: false },
+];
+
+const FF_DOCS = {
+  multi_model_router: {
+    explanation: 'Customers pick the AI model per-prompt with a live USD cost preview before send, so they never hit a surprise bill.',
+    smoke_test: ['GET /api/models → 4 models', 'GET /api/models/cost?model=claude-opus-4-7 → {usd, free}'],
+    e2e_tests: ['e2e/_fortress/multi-model-router/happy.spec.ts'],
+    references: ['https://www.nxcode.io/resources/news/v0-vs-bolt-vs-lovable-ai-app-builder-comparison-2025'],
+  },
+};
+
+// Persisted super-admin overrides keyed by flag key.
+const ffOverrides = new Map();
+// Per-flag audit history.
+const ffAudit = new Map();
+
+function summarizeFlagChange(prev, next) {
+  const parts = [];
+  if (prev.enabled_globally !== next.enabled_globally) parts.push(`enabled ${prev.enabled_globally ? 'on' : 'off'} → ${next.enabled_globally ? 'on' : 'off'}`);
+  if (prev.rollout_pct !== next.rollout_pct) parts.push(`rollout ${prev.rollout_pct}% → ${next.rollout_pct}%`);
+  if (prev.kill_switch !== next.kill_switch) parts.push(`kill switch ${prev.kill_switch ? 'on' : 'off'} → ${next.kill_switch ? 'on' : 'off'}`);
+  return parts.length ? parts.join(', ') : 'no-op';
+}
+
+// Layer 2 — owner-facing, plan-aware site features. The mock owner is on the
+// "business" plan, so free/pro/business are available and enterprise is locked.
+const SF_FEATURES = [
+  { key: 'native_booking_engine', name: 'Online Booking', description: 'Let visitors book appointments with availability, deposits, and reminders — right on your site.', requiredPlan: 'pro', isAddon: false, category: 'Sell' },
+  { key: 'donations_engine', name: 'Donations', description: 'Accept one-time and recurring gifts with a beautiful donate page.', requiredPlan: 'free', isAddon: false, category: 'Sell' },
+  { key: 'newsletter_engine', name: 'Newsletter', description: 'Collect subscribers and send branded campaigns from your own domain.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
+  { key: 'ecommerce_engine', name: 'Online Store', description: 'Full product catalog, cart, and checkout backed by a real commerce engine.', requiredPlan: 'business', isAddon: false, category: 'Sell' },
+  { key: 'membership_paywall', name: 'Members & Paywall', description: 'Gate premium pages behind paid membership tiers.', requiredPlan: 'business', isAddon: false, category: 'Sell' },
+  { key: 'enterprise_sso', name: 'Single Sign-On (SSO)', description: 'SAML / OIDC login for your whole team via Okta, Azure AD, or Auth0.', requiredPlan: 'enterprise', isAddon: false, category: 'Trust' },
+  { key: 'brand_voice_clone', name: 'AI Voice Clone', description: 'A branded AI voice for podcasts, tours, and phone greetings.', requiredPlan: 'enterprise', isAddon: true, category: 'Grow' },
+  { key: 'site_mcp_server', name: 'AI Assistant Access', description: 'Make your site queryable by Siri, Claude, and ChatGPT.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
+];
+
+// Per-feature enable/preview state for the owner layer.
+const sfState = new Map();
+
+// Mock owner is on the "business" plan: free/pro/business available, enterprise locked.
+const SF_PLAN = 'business';
+const SF_PLAN_RANK = { free: 0, pro: 1, business: 2, enterprise: 3 };
+
+function ffSiteFeatures() {
+  return SF_FEATURES.map((f) => {
+    const s = sfState.get(f.key) || { enabled: false, preview: false };
+    const entitled = SF_PLAN_RANK[SF_PLAN] >= SF_PLAN_RANK[f.requiredPlan]
+      ? 'available'
+      : f.isAddon
+        ? 'addon-required'
+        : 'upgrade-required';
+    return { ...f, entitled, enabled: s.enabled, preview: s.preview };
+  });
+}
+
 // ─── Helpers ────────────────────────────────────
 
 function json(res, data, status = 200) {
@@ -996,6 +1065,101 @@ async function handleAPI(req, res, urlPath) {
   if (deleteSiteOptionsMatch && method === 'DELETE') {
     createdSites.delete(deleteSiteOptionsMatch[1]);
     return json(res, {});
+  }
+
+  // ─── Feature-flag control plane (two layers) ────────────────────────────
+
+  // Registry — Layer 1 (System Administrator) reads the registry defaults +
+  // merges super-admin overrides. Layer 2 (Site Features) reads the same list.
+  if (urlPath === '/api/feature-flags' && method === 'GET') {
+    return json(res, { flags: FF_REGISTRY, count: FF_REGISTRY.length });
+  }
+
+  // Per-flag detail: definition + resolved state + docs.
+  const ffKeyMatch = urlPath.match(/^\/api\/feature-flags\/([^/]+)$/);
+  if (ffKeyMatch && method === 'GET') {
+    const key = ffKeyMatch[1];
+    const def = FF_REGISTRY.find((f) => f.key === key);
+    if (!def) return json(res, { error: 'unknown_flag' }, 404);
+    const ov = ffOverrides.get(key);
+    return json(res, {
+      definition: def,
+      resolved: {
+        enabled: ov ? !!ov.enabled_globally : def.default_enabled,
+        rollout_percent: ov ? ov.rollout_pct : def.default_rollout_percent,
+        stage: def.stage,
+        source: ov ? 'global' : 'registry',
+      },
+      docs: FF_DOCS[key] ?? null,
+    });
+  }
+
+  // Super-admin: persisted overrides (Layer 1 merges these onto the registry).
+  if (urlPath === '/api/super-admin/feature-flags' && method === 'GET') {
+    return json(res, { flags: [...ffOverrides.values()] });
+  }
+  if (urlPath === '/api/super-admin/feature-flags' && method === 'POST') {
+    const body = await readBody(req);
+    if (!body.key || typeof body.key !== 'string') {
+      return json(res, { error: { code: 'VALIDATION_ERROR', message: 'key required' } }, 400);
+    }
+    const def = FF_REGISTRY.find((f) => f.key === body.key);
+    const prev = ffOverrides.get(body.key) || {
+      key: body.key,
+      enabled_globally: def ? (def.default_enabled ? 1 : 0) : 0,
+      rollout_pct: def ? def.default_rollout_percent : 0,
+      kill_switch: 0,
+      updated_at: null,
+    };
+    const next = {
+      key: body.key,
+      enabled_globally: body.enabled_globally === undefined ? prev.enabled_globally : body.enabled_globally ? 1 : 0,
+      rollout_pct: body.rollout_pct === undefined ? prev.rollout_pct : body.rollout_pct,
+      kill_switch: body.kill_switch === undefined ? prev.kill_switch : body.kill_switch ? 1 : 0,
+      updated_at: new Date().toISOString(),
+    };
+    ffOverrides.set(body.key, next);
+    // Record audit entry.
+    const list = ffAudit.get(body.key) || [];
+    list.unshift({
+      id: 'ffa-' + Date.now(),
+      actor: 'brian@megabyte.space',
+      action: 'feature_flag_upsert',
+      summary: summarizeFlagChange(prev, next),
+      reason: body.reason || null,
+      created_at: new Date().toISOString(),
+    });
+    ffAudit.set(body.key, list);
+    return json(res, { ok: true });
+  }
+
+  // Per-flag audit history (Layer 1 detail panel).
+  const ffAuditMatch = urlPath.match(/^\/api\/super-admin\/feature-flags\/([^/]+)\/audit$/);
+  if (ffAuditMatch && method === 'GET') {
+    const key = ffAuditMatch[1];
+    const list = ffAudit.get(key) || [
+      { id: 'ffa-seed-1', actor: 'system', action: 'flag_registered', summary: `${key} registered (experimental, 0%)`, reason: null, created_at: '2026-05-28T12:00:00Z' },
+    ];
+    return json(res, { entries: list });
+  }
+
+  // ─── Site Features (Layer 2 — owner-facing, plan-aware) ─────────────────
+  if (urlPath === '/api/site-features' && method === 'GET') {
+    return json(res, { features: ffSiteFeatures(), plan: SF_PLAN });
+  }
+  const sfToggleMatch = urlPath.match(/^\/api\/site-features\/([^/]+)$/);
+  if (sfToggleMatch && method === 'POST') {
+    const key = sfToggleMatch[1];
+    const body = await readBody(req);
+    const feat = SF_FEATURES.find((f) => f.key === key);
+    if (!feat) return json(res, { error: { code: 'NOT_FOUND', message: 'Unknown feature' } }, 404);
+    // Server-side entitlement guard mirrors the worker: under-entitled enable → 403.
+    const entitled = SF_PLAN_RANK[SF_PLAN] >= SF_PLAN_RANK[feat.requiredPlan];
+    if (body.enabled && !entitled) {
+      return json(res, { error: 'upgrade_required', required_plan: feat.requiredPlan }, 403);
+    }
+    sfState.set(key, { enabled: !!body.enabled, preview: !!body.preview });
+    return json(res, { ok: true, key, enabled: !!body.enabled });
   }
 
   // Fallback
