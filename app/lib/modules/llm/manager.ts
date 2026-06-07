@@ -60,7 +60,10 @@ export class LLMManager {
       return;
     }
 
-    logger.info('Registering Provider: ', provider.name);
+    // `debug`, not `info`: this fires once per provider (~22×) on every editor
+    // boot. At the prod default level (`info`) that spammed 22 lines into the
+    // admin↔editor console on every load; `debug` keeps it visible in dev only.
+    logger.debug('Registering Provider: ', provider.name);
     this._providers.set(provider.name, provider);
     this._modelList = [...this._modelList, ...provider.staticModels];
   }
