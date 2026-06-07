@@ -12,10 +12,10 @@ describe('AdminEmptyStateComponent (a11y parity)', () => {
   let fx: ComponentFixture<EmptyStateComponent>;
   afterEach(() => TestBed.resetTestingModule());
 
-  function render(): HTMLElement {
+  function render(icon = '▦'): HTMLElement {
     TestBed.configureTestingModule({ imports: [EmptyStateComponent] });
     fx = TestBed.createComponent(EmptyStateComponent);
-    fx.componentRef.setInput('icon', '▦');
+    fx.componentRef.setInput('icon', icon);
     fx.componentRef.setInput('title', 'No sections available');
     fx.detectChanges();
     return fx.nativeElement as HTMLElement;
@@ -30,5 +30,18 @@ describe('AdminEmptyStateComponent (a11y parity)', () => {
     const glyph = render().querySelector('.empty-glyph');
     expect(glyph).not.toBeNull();
     expect(glyph?.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('maps a colorful emoji icon to a monochrome cyan SVG (cockpit standard), not the raw emoji', () => {
+    const glyph = render('📞').querySelector('.empty-glyph');
+    expect(glyph?.querySelector('svg')).withContext('emoji → SVG').not.toBeNull();
+    expect(glyph?.textContent?.trim()).withContext('raw emoji replaced by SVG').toBe('');
+    expect(glyph?.querySelector('svg')?.getAttribute('stroke')).toBe('currentColor');
+  });
+
+  it('falls through to the text glyph for an unmapped on-brand mono symbol (▦)', () => {
+    const glyph = render('▦').querySelector('.empty-glyph');
+    expect(glyph?.querySelector('svg')).withContext('mono symbol stays text, no SVG').toBeNull();
+    expect(glyph?.querySelector('.empty-emoji')?.textContent?.trim()).toBe('▦');
   });
 });
