@@ -188,6 +188,25 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     expect(component.filterAnnouncement()).toBe('Showing 2 features');
   });
 
+  // Visible "N of M" count chip — sighted parity with the sr-only announcer +
+  // cohesion with the sibling System-Admin feature-flags toolbar. isFiltering
+  // gates it so the chip only shows once a search is active.
+  it('isFiltering(): false with a blank search, true once a query is typed', async () => {
+    await build({
+      plan: 'pro',
+      features: [
+        feat({ key: 'online_booking', name: 'Online Booking', entitled: 'available' }),
+        feat({ key: 'live_chat', name: 'Live Chat', entitled: 'available' }),
+      ],
+    });
+    expect(component.isFiltering()).withContext('default view → no count chip').toBeFalse();
+    component.search.set('chat');
+    expect(component.isFiltering()).withContext('active search → count chip').toBeTrue();
+    expect(component.filtered().length).withContext('chip would read 1 of 2').toBe(1);
+    component.search.set('   ');
+    expect(component.isFiltering()).withContext('whitespace-only → not filtering').toBeFalse();
+  });
+
   it('persists the disclosure mode to localStorage', async () => {
     await build({ features: [] });
     component.setMode('expert');

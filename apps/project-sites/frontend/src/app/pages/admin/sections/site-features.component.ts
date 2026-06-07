@@ -86,6 +86,9 @@ interface SiteFeature {
           (ngModelChange)="search.set($event)"
           aria-label="Search site features"
         />
+        @if (isFiltering()) {
+          <span class="sf-count" data-testid="sf-filter-count" aria-hidden="true">{{ filtered().length }} <span class="sf-count-sep">of</span> {{ features().length }}</span>
+        }
         <span class="sr-only" role="status" aria-live="polite">{{ filterAnnouncement() }}</span>
       </div>
 
@@ -209,6 +212,11 @@ interface SiteFeature {
     .sf-refresh:disabled { opacity: .5; cursor: not-allowed; }
     .sf-refresh:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
     .sf-toolbar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    /* Visible filtered-count chip — sighted parity with the sr-only announcer (cyan accent), matching the System-Admin feature-flags toolbar. */
+    .sf-count { font-size: .72rem; font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap;
+      color: var(--ps-accent, #00e5ff); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent); padding: .12rem .55rem; border-radius: 999px; }
+    .sf-count-sep { color: color-mix(in oklch, var(--ps-accent, #00e5ff) 55%, transparent); font-weight: 400; }
     .sf-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 1rem; }
     .sf-card { background: color-mix(in oklch, var(--ps-bg, #060610) 55%, transparent); border: 1px solid color-mix(in oklch, currentColor 14%, transparent); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: .65rem; transition: border-color .15s ease; }
     .sf-card:hover { border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent); }
@@ -307,6 +315,13 @@ export class AdminSiteFeaturesComponent implements OnInit {
     const n = this.filtered().length;
     return `Showing ${n} feature${n === 1 ? '' : 's'}`;
   });
+
+  /**
+   * Gates the VISIBLE "N of M" count chip (sighted parity with the sr-only
+   * announcer + cohesion with the System-Admin feature-flags toolbar) — shown
+   * only once a search is active, so the default toolbar stays clean.
+   */
+  readonly isFiltering = computed<boolean>(() => this.search().trim() !== '');
 
   private readMode(): DisclosureMode {
     try {
