@@ -1587,7 +1587,9 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     try {
       this.testInput.fields_json = JSON.stringify(scenario.payload, null, 2);
     } catch (err) {
-      console.warn('[forms] could not serialize scenario payload', err);
+      // Structured + message-only (matches the worker convention) — never log the
+      // raw error object / payload, so nothing sensitive can leak to the console.
+      console.warn(JSON.stringify({ service: 'forms', event: 'scenario_serialize_failed', error: err instanceof Error ? err.message : String(err) }));
       this.testInput.fields_json = '{}';
     }
     this.activeScenario.set(id);
