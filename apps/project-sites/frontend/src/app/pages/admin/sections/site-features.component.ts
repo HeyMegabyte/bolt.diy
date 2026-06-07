@@ -441,11 +441,15 @@ export class AdminSiteFeaturesComponent implements OnInit {
       this.features.set(res.features);
       this.plan.set(res.plan ?? 'free');
     } catch (e) {
-      // A 200 body that didn't parse as JSON (the route served SPA HTML because the
-      // worker predates /api/site-features) → read-only catalog, not a blank/error
-      // page. A genuine 4xx/5xx keeps the retryable error card.
+      // Route-not-provisioned signals → read-only catalog fallback (never a scary
+      // error page): a 200 body that didn't parse as JSON (worker predates
+      // /api/site-features → SPA HTML), OR a 404 (the catalog route/site isn't
+      // live yet). A 404 is permanent until the worker deploys, so a red
+      // "Couldn't load / Retry / check you're signed in" card is the wrong signal.
+      // Only a genuine TRANSIENT failure (5xx / network / other 4xx like 400/422)
+      // keeps the retryable error card.
       const status = (e as { status?: number })?.status;
-      if (status !== undefined && status >= 400) {
+      if (status !== undefined && status >= 400 && status !== 404) {
         this.error.set((e as Error).message ?? 'unknown error');
       } else {
         this.enterFallbackMode();

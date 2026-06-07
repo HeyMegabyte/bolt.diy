@@ -99,11 +99,26 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     await fixture.whenStable();
   });
 
-  it('renders the shared error card (not skeleton) when the catalog fails', async () => {
+  it('renders the shared error card (not skeleton) when the catalog fails transiently (5xx)', async () => {
     await build({ features: [] }, 500);
     expect(component.error()).toBeTruthy();
     expect(fixture.nativeElement.querySelector('app-error-card')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-skeleton')).toBeNull();
+  });
+
+  it('a 404 (catalog route not provisioned for this site yet) → calm read-only fallback, NOT a scary red error card', async () => {
+    // A 404 is permanent until the worker route is live — a red "Couldn't load /
+    // Retry / check you're signed in" card is the wrong signal (Retry is futile,
+    // the user IS signed in). Treat it like the no-JSON fall-through: show the
+    // read-only catalog + a calm "provisioning" notice. Addresses "Features shows
+    // nothing" — the owner still sees what's available on their plan.
+    await build({ features: [] }, 404);
+    expect(component.error()).withContext('404 is not a transient error — no error string set').toBeNull();
+    expect(component.degraded()).withContext('404 → read-only provisioning fallback').toBeTrue();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('app-error-card')).withContext('no scary red error card for a 404').toBeNull();
+    expect(host.querySelector('[data-testid="sf-provisioning"]')).withContext('calm provisioning banner instead').not.toBeNull();
+    expect(host.querySelectorAll('.sf-card').length).withContext('catalog shown read-only, not blank').toBe(8);
   });
 
   it('falls back to the read-only catalog + provisioning banner when the route returns no JSON catalog', async () => {
