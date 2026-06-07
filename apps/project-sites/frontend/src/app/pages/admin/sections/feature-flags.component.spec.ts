@@ -515,3 +515,30 @@ describe('AdminFeatureFlagsComponent (emergency/danger icons are SVGs, not emoji
     expect(btn!.textContent ?? '').withContext('no ⛔ emoji').not.toContain('⛔');
   });
 });
+
+/**
+ * Expert-mode "diff": before Apply, show exactly which fields the edited JSON
+ * payload changes vs the committed flag (the brief's Expert "diffs" + a pre-Apply
+ * blast-radius preview). Pure logic — invalid/absent draft yields no diff.
+ */
+describe('AdminFeatureFlagsComponent (Expert JSON payload diff)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('lists the fields the edited payload would change (and nothing when unchanged/invalid)', () => {
+    const c = make(okGet());
+    const f = flag({ key: 'k', default_enabled: false, default_rollout_percent: 50, kill_switch: false });
+
+    expect(c.jsonDiff(f)).withContext('no draft → no diff').toEqual([]);
+
+    c.setJsonDraft('k', JSON.stringify({ key: 'k', enabled_globally: false, rollout_pct: 0, kill_switch: true }));
+    const d = c.jsonDiff(f);
+    expect(d.map((x) => x.field).sort()).toEqual(['kill_switch', 'rollout_pct']);
+    expect(d.find((x) => x.field === 'rollout_pct')).toEqual({ field: 'rollout_pct', from: '50', to: '0' });
+
+    c.setJsonDraft('k', JSON.stringify({ key: 'k', enabled_globally: false, rollout_pct: 50, kill_switch: false }));
+    expect(c.jsonDiff(f)).withContext('identical payload → no diff').toEqual([]);
+
+    c.setJsonDraft('k', '{ not json');
+    expect(c.jsonDiff(f)).withContext('invalid JSON → no diff (error path owns it)').toEqual([]);
+  });
+});

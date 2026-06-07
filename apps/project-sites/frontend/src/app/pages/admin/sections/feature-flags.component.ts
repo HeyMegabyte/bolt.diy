@@ -329,6 +329,19 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
                     @if (jsonError()[flag.key]) {
                       <p class="ff-json-error" data-testid="ff-json-error" role="alert">{{ jsonError()[flag.key] }}</p>
                     }
+                    @if (jsonDiff(flag); as changes) {
+                      @if (changes.length > 0) {
+                        <!-- Pre-Apply impact preview: exactly what this payload changes. -->
+                        <div class="ff-json-diff" data-testid="ff-json-diff">
+                          <span class="ff-diff-label">{{ changes.length }} pending change{{ changes.length === 1 ? '' : 's' }}</span>
+                          <ul class="ff-diff-list">
+                            @for (ch of changes; track ch.field) {
+                              <li><code>{{ ch.field }}</code> <span class="ff-diff-from">{{ ch.from }}</span> <span class="ff-diff-arrow" aria-hidden="true">→</span> <span class="ff-diff-to">{{ ch.to }}</span></li>
+                            }
+                          </ul>
+                        </div>
+                      }
+                    }
                     <div class="ff-expert-actions">
                       <button class="ff-btn ff-btn-primary" data-testid="ff-json-apply" (click)="applyJson(flag)" [disabled]="busy()[flag.key]">Apply payload</button>
                     </div>
@@ -518,6 +531,13 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
     .ff-json-editor { width: 100%; box-sizing: border-box; font-family: var(--ps-mono, ui-monospace, monospace); font-size: .78rem; background: color-mix(in oklch, var(--ps-bg, #060610) 80%, transparent); color: inherit; border: 1px solid color-mix(in oklch, currentColor 20%, transparent); border-radius: 6px; padding: .55rem; resize: vertical; }
     .ff-json-editor:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; }
     .ff-json-error { color: #fca5a5; font-size: .78rem; margin: .4rem 0 0; }
+    .ff-json-diff { margin: .5rem 0 .2rem; padding: .5rem .65rem; border-radius: 6px; background: color-mix(in oklch, var(--ps-accent, #00e5ff) 6%, transparent); border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 22%, transparent); }
+    .ff-diff-label { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ps-accent, #00e5ff); font-weight: 600; }
+    .ff-diff-list { list-style: none; margin: .35rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .25rem; font-family: var(--ps-mono, ui-monospace, monospace); font-size: .76rem; }
+    .ff-diff-list code { color: var(--ps-ink, #f4f4ff); }
+    .ff-diff-from { color: color-mix(in oklch, #fca5a5 90%, transparent); text-decoration: line-through; }
+    .ff-diff-arrow { color: color-mix(in oklch, currentColor 50%, transparent); }
+    .ff-diff-to { color: #6ee7b7; }
     .ff-expert-actions { margin-top: .6rem; }
     .ff-danger-overlay { position: fixed; inset: 0; z-index: var(--ps-z-overlay-takeover, 100000); display: grid; place-items: center; padding: 1rem;
       background: color-mix(in oklch, #000 72%, transparent); backdrop-filter: blur(4px); }
@@ -702,6 +722,32 @@ export class AdminFeatureFlagsComponent implements OnInit {
   setJsonDraft(key: string, value: string): void {
     this.jsonEditorDraft.update((d) => ({ ...d, [key]: value }));
     this.jsonError.update((e) => ({ ...e, [key]: '' }));
+  }
+
+  /**
+   * Expert "diff": the fields the edited JSON payload would change vs the
+   * committed flag — a pre-Apply impact preview. Returns [] when there's no
+   * draft, the draft is invalid JSON (the error path owns that), or nothing
+   * actually changed.
+   */
+  jsonDiff(flag: FlagDefinition): Array<{ field: string; from: string; to: string }> {
+    const draftRaw = this.jsonEditorDraft()[flag.key];
+    if (draftRaw === undefined) return [];
+    let draft: Record<string, unknown>;
+    try {
+      draft = JSON.parse(draftRaw) as Record<string, unknown>;
+    } catch {
+      return [];
+    }
+    const current = JSON.parse(this.jsonPayloadFor(flag)) as Record<string, unknown>;
+    const out: Array<{ field: string; from: string; to: string }> = [];
+    for (const field of ['key', 'enabled_globally', 'rollout_pct', 'kill_switch']) {
+      const to = draft[field];
+      if (to !== undefined && JSON.stringify(current[field]) !== JSON.stringify(to)) {
+        out.push({ field, from: String(current[field]), to: String(to) });
+      }
+    }
+    return out;
   }
 
   async copyKey(key: string): Promise<void> {
