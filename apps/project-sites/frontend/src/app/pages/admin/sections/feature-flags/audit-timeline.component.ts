@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface AuditEntry {
@@ -22,7 +22,7 @@ export interface AuditEntry {
   imports: [CommonModule],
   template: `
     <ol class="at" data-testid="ff-audit-timeline" aria-label="Change history">
-      @for (e of entries; track e.id) {
+      @for (e of entries(); track e.id) {
         <li class="at-row">
           <span class="at-dot" aria-hidden="true"></span>
           <div class="at-body">
@@ -32,7 +32,9 @@ export interface AuditEntry {
               <span class="at-sep" aria-hidden="true">·</span>
               <span class="at-action">{{ e.action }}</span>
               <span class="at-sep" aria-hidden="true">·</span>
-              <time [attr.datetime]="e.created_at">{{ e.created_at | date: 'medium' }}</time>
+              <!-- Relative time is more scannable in a history feed; the absolute
+                   timestamp stays available on hover (title) + in datetime. -->
+              <time [attr.datetime]="e.created_at" [attr.title]="e.created_at | date: 'medium'">{{ relTime(e.created_at) }}</time>
             </p>
             @if (e.reason) {
               <p class="at-reason"><span class="at-reason-label">Reason:</span> {{ e.reason }}</p>
@@ -40,7 +42,7 @@ export interface AuditEntry {
           </div>
         </li>
       }
-      @if (entries.length === 0) {
+      @if (entries().length === 0) {
         <li class="at-empty" role="status">No changes recorded yet.</li>
       }
     </ol>
@@ -61,5 +63,24 @@ export interface AuditEntry {
   `],
 })
 export class FlagAuditTimelineComponent {
-  @Input() entries: AuditEntry[] = [];
+  readonly entries = input<AuditEntry[]>([]);
+
+  /**
+   * Compact relative time for the history feed ("just now" / "5m ago" /
+   * "3h ago" / "2d ago"), degrading to a locale date beyond 30 days. `now` is
+   * injectable for deterministic tests. Invalid input → '' (never "NaN ago").
+   */
+  relTime(iso: string, now: number = Date.now()): string {
+    const t = new Date(iso).getTime();
+    if (Number.isNaN(t)) return '';
+    const s = Math.floor((now - t) / 1000);
+    if (s < 45) return 'just now';
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    if (d < 30) return `${d}d ago`;
+    return new Date(iso).toLocaleDateString();
+  }
 }
