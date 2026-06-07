@@ -11,6 +11,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
@@ -40,7 +41,7 @@ interface Delivery {
 @Component({
   selector: 'app-admin-webhooks',
   standalone: true,
-  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent],
+  imports: [CommonModule, FormsModule, RouterLink, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -96,27 +97,31 @@ interface Delivery {
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <button hlmBtn data-testid="webhooks-create-btn" [disabled]="creating() || !canSubmit()" (click)="create()">
+            <button hlmBtn data-testid="webhooks-create-btn" [disabled]="creating() || !canSubmit() || flagDisabled()" (click)="create()">
               {{ creating() ? 'Creating…' : 'Add endpoint' }}
             </button>
             <span class="text-[0.72rem] text-text-secondary">{{ selected().length }} event(s) selected</span>
           </div>
         </div>
 
-        @if (error() && errorRetryable()) {
+        @if (flagDisabled()) {
+          <!-- Flag OFF (404) → calm cohesive notice (NOT alarming red), inline Feature-Flags link. -->
+          <div data-testid="webhooks-flag-gate" role="status" class="mb-5 rounded-xl border border-[#00E5FF]/15 bg-[#00E5FF]/[0.04] p-4 text-sm text-text-secondary">
+            Webhooks are behind the <code class="text-[#00E5FF]">outbound_webhooks</code> feature flag (currently disabled). Enable it in
+            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
+          </div>
+        } @else if (error()) {
           <app-error-card data-testid="webhooks-error" class="block mb-5"
             title="Couldn't load webhooks"
             message="Check your connection and retry."
             [correlationId]="loadErrorRef()"
             (retry)="load()" />
-        } @else if (error()) {
-          <div data-testid="webhooks-error" role="alert" class="mb-5 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-sm text-red-300">{{ error() }}</div>
         }
 
         <!-- List -->
         @if (loading()) {
           <app-skeleton variant="table" [rows]="3" />
-        } @else if (!error() && endpoints().length === 0) {
+        } @else if (!error() && !flagDisabled() && endpoints().length === 0) {
           <app-empty-state icon="↪" title="No webhook endpoints"
             body="Add an endpoint above to receive a signed callback whenever your selected events fire." />
         } @else if (endpoints().length > 0) {
@@ -175,6 +180,8 @@ export class AdminWebhooksComponent {
   readonly loading = signal(false);
   readonly creating = signal(false);
   readonly error = signal<string | null>(null);
+  /** Flag OFF (load 404 = outbound_webhooks disabled) → calm cyan Feature-Flags notice, NOT a red error. */
+  readonly flagDisabled = signal(false);
   /** True when the load error is transient (not a 404 feature-gate) → show a Retry. */
   readonly errorRetryable = signal(false);
   /** Worker request_id from a failed load → the copyable support reference on the error card. */
@@ -240,6 +247,7 @@ export class AdminWebhooksComponent {
     this.loading.set(true);
     this.error.set(null);
     this.errorRetryable.set(false);
+    this.flagDisabled.set(false);
     this.loadErrorRef.set('');
     // Silent: this component owns an accurate inline error (the gated vs
     // transient/retryable banner below) — the generic ApiService toast would
@@ -253,12 +261,17 @@ export class AdminWebhooksComponent {
       // transient failure (500/network → offer a Retry). Never read a transient
       // error as a permanent "not available for this site".
       error: (err: { status?: number; error?: unknown }) => {
-        const gated = err?.status === 404;
-        this.error.set(gated
-          ? 'Webhooks are not enabled for this site.'
-          : "Couldn't load webhooks — check your connection and retry.");
-        this.errorRetryable.set(!gated);
-        if (!gated) this.loadErrorRef.set(this.requestIdFrom(err));
+        // 404 = outbound_webhooks flag OFF (permanent → calm cyan Feature-Flags
+        // notice, NOT alarming red); anything else = transient (→ app-error-card
+        // with Retry + request_id). A worker SPA-fallthrough (200+HTML) is remapped
+        // to 404 by ApiService, so it lands here as the calm gate, not a red card.
+        if (err?.status === 404) {
+          this.flagDisabled.set(true);
+        } else {
+          this.error.set("Couldn't load webhooks — check your connection and retry.");
+          this.errorRetryable.set(true);
+          this.loadErrorRef.set(this.requestIdFrom(err));
+        }
         this.loading.set(false);
       },
     });

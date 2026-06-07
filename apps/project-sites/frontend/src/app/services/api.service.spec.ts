@@ -124,4 +124,24 @@ describe('ApiService (auth header + 401 redirect + error mapping)', () => {
     api.listSiteUrls('site-1').subscribe({ error: () => undefined, next: () => undefined });
     expect(toastErr).not.toHaveBeenCalled();
   });
+
+  it('remaps a 2xx-with-non-JSON body (SPA fallthrough) to 404 so "endpoint unavailable" handling applies', () => {
+    // Angular HttpClient surfaces a 200 whose body is HTML (JSON parse fails) as an
+    // HttpErrorResponse with a 2xx status. The worker's SPA catch-all returns 200 +
+    // index.html for any /api path whose route isn't deployed/registered → callers
+    // (recipes/webhooks/deliverability all branch on status===404) must see it as
+    // unavailable (calm flag-gate notice), NOT an alarming transient "Couldn't load" card.
+    const fallthrough = jasmine.createSpy('get').and.callFake(() =>
+      throwError(() => new HttpErrorResponse({
+        status: 200, statusText: 'OK', url: '/api/sites/x/recipes',
+        error: { error: new SyntaxError('Unexpected token <'), text: '<!doctype html><html>…' },
+      })),
+    );
+    const { api, toastErr } = make({ token: 't', url: '/admin/recipes', get: fallthrough });
+    let seen: HttpErrorResponse | undefined;
+    api.get('/sites/x/recipes').subscribe({ next: () => undefined, error: (e: HttpErrorResponse) => (seen = e) });
+    expect(seen?.status).withContext('2xx parse-failure remapped to 404').toBe(404);
+    // Not user-actionable (the section renders its own calm notice) → never toast, even unsilenced.
+    expect(toastErr).withContext('SPA fallthrough must not surface a generic network toast').not.toHaveBeenCalled();
+  });
 });

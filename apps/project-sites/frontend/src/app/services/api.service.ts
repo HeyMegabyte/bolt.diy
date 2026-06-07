@@ -23,7 +23,7 @@
  * ```
  */
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders, type HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Observable, throwError, TimeoutError } from 'rxjs';
 import { catchError, timeout } from 'rxjs/operators';
 import { Router } from '@angular/router';
@@ -67,6 +67,23 @@ export class ApiService {
             // dashboards bucket them next to network drops.
             this.telemetry.track('http.failure', { status: 0, reason: 'timeout' });
             return throwError(() => error);
+          }
+          // A 2xx status in the error path means HttpClient could NOT parse the
+          // body as JSON — almost always an /api/* path that fell through to the
+          // SPA shell (worker route not deployed/registered → 200 + index.html).
+          // Surface it as a clean 404 so the standard "endpoint unavailable"
+          // handling (calm flag-gate notice in recipes/webhooks/deliverability,
+          // all of which branch on status===404) applies instead of an alarming
+          // "Couldn't load — retry" card that would re-hammer a route that can't
+          // succeed. Never toast (not user-actionable; the section owns its notice).
+          if (error.status >= 200 && error.status < 300) {
+            this.telemetry.track('http.failure', { status: error.status, url: this.safeUrl(error.url), reason: 'spa_fallthrough' });
+            return throwError(() => new HttpErrorResponse({
+              error: error.error,
+              status: 404,
+              statusText: 'Not Found',
+              url: error.url ?? undefined,
+            }));
           }
           const message = this.getErrorMessage(error);
           // `silent` suppresses the user-facing toast for fire-and-forget /

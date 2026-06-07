@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AdminWebhooksComponent } from './webhooks.component';
 import { ApiService } from '../../../services/api.service';
@@ -32,6 +34,7 @@ describe('AdminWebhooksComponent', () => {
     TestBed.configureTestingModule({
       imports: [AdminWebhooksComponent],
       providers: [
+        provideRouter([]),
         { provide: ApiService, useValue: { get, post, delete: del } },
         { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
         { provide: ConfirmService, useValue: { confirm: confirmSpy } },
@@ -46,6 +49,32 @@ describe('AdminWebhooksComponent', () => {
   const q = (sel: string): HTMLElement | null => host.querySelector(sel);
   const all = (sel: string): HTMLElement[] => Array.from(host.querySelectorAll(sel));
   afterEach(() => TestBed.resetTestingModule());
+
+  it('a 404 (outbound_webhooks flag OFF) shows the calm cyan Feature-Flags gate, not a red error card', () => {
+    const g = jasmine.createSpy('get').and.callFake((path: string) =>
+      path.endsWith('/deliveries')
+        ? of({ ok: true, deliveries: [] })
+        : throwError(() => new HttpErrorResponse({ status: 404, statusText: 'Not Found' })),
+    );
+    TestBed.configureTestingModule({
+      imports: [AdminWebhooksComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: g, post: jasmine.createSpy('post'), delete: jasmine.createSpy('delete') } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: ConfirmService, useValue: { confirm: jasmine.createSpy('confirm') } },
+        { provide: AdminStateService, useValue: { selectedSite: () => ({ id: 'site-1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminWebhooksComponent);
+    fx.detectChanges();
+    const el = fx.nativeElement as HTMLElement;
+    expect(fx.componentInstance.flagDisabled()).withContext('404 → flag-disabled').toBeTrue();
+    const gate = el.querySelector('[data-testid="webhooks-flag-gate"]');
+    expect(gate).withContext('calm cyan gate notice renders').toBeTruthy();
+    expect(el.querySelector('[data-testid="webhooks-error"]')).withContext('no red error card on a permanent gate').toBeNull();
+    expect((gate?.querySelector('a') as HTMLAnchorElement | null)?.getAttribute('href')).toBe('/admin/feature-flags');
+  });
 
   it('shows the empty state with no selected site', () => {
     build(null);
@@ -123,6 +152,7 @@ describe('AdminWebhooksComponent', () => {
     TestBed.configureTestingModule({
       imports: [AdminWebhooksComponent],
       providers: [
+        provideRouter([]),
         { provide: ApiService, useValue: { get: g, post: jasmine.createSpy('post'), delete: jasmine.createSpy('delete') } },
         { provide: ToastService, useValue: { error: jasmine.createSpy('e'), success: jasmine.createSpy('s') } },
         { provide: AdminStateService, useValue: { selectedSite: siteSig } },
@@ -166,14 +196,15 @@ describe('AdminWebhooksComponent', () => {
     expect(q('[data-testid="error-correlation"]')?.textContent).withContext('reference shown for support').toContain('req_abc123');
   });
 
-  it('a 404 → "not enabled" feature-gate with NO Retry (retrying cannot help)', () => {
+  it('a 404 (flag OFF) → calm cyan flag-gate, NOT a red error card (retrying cannot help)', () => {
     build({ id: 's1' });
     get.and.returnValue(throwError(() => ({ status: 404 })));
     fixture.componentInstance.load();
     fixture.detectChanges();
-    expect(fixture.componentInstance.errorRetryable()).toBeFalse();
-    expect(fixture.componentInstance.error()).toContain('not enabled');
-    expect(q('[data-testid="webhooks-retry"]')).toBeNull();
+    expect(fixture.componentInstance.flagDisabled()).withContext('404 → flag-disabled').toBeTrue();
+    expect(fixture.componentInstance.error()).withContext('gate is not a red error').toBeNull();
+    expect(q('[data-testid="webhooks-flag-gate"]')).withContext('calm cyan gate renders').not.toBeNull();
+    expect(q('[data-testid="webhooks-error"]')).withContext('no red error card / Retry on a permanent gate').toBeNull();
   });
 
   it('a load error SUPPRESSES the empty state (no error + "No webhook endpoints" shown together)', () => {
