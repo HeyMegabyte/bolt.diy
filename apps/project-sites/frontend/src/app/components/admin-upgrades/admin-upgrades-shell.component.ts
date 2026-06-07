@@ -701,7 +701,7 @@ export class AdminUpgradesShellComponent implements OnInit {
     }
     if (this.chordPending()) {
       this.chordPending.set(false);
-      const route = ({ s: '/admin/sites', b: '/admin/billing', a: '/admin/audit', f: '/admin/features', '?': '/admin' } as Record<string, string>)[e.key];
+      const route = ({ s: '/admin/sites', b: '/admin/billing', a: '/admin/audit', f: '/admin/site-features', '?': '/admin' } as Record<string, string>)[e.key];
       if (route) {
         if (e.key === '?') {
           this.shortcutsOpen.set(true);

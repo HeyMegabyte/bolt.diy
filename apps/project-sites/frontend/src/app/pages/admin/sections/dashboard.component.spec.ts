@@ -6,6 +6,7 @@ import { AdminDashboardComponent } from './dashboard.component';
 import { DashboardChatService } from './dashboard/dashboard-chat.service';
 import { SlashCommandRegistryService, type SlashCommand } from './dashboard/slash-command-registry.service';
 import { AdminStateService } from '../admin-state.service';
+import { AuthService } from '../../../services/auth.service';
 
 /**
  * Guards the dashboard command-palette keyboard logic that drives its ARIA
@@ -126,22 +127,24 @@ import { TranslateService } from '@ngx-translate/core';
 import { AdminUpgradesShellComponent } from '../../../components/admin-upgrades/admin-upgrades-shell.component';
 
 /**
- * The /admin landing features-banner must render its icons as monochrome stroke
- * SVGs (cyan Features Hub, amber Feature Flags) — never the colourful ⚡ emoji
- * (U+26A1 is emoji-presentation by default) that broke the cyan/black cockpit.
+ * The /admin landing features-banner is the dashboard entry to the two-layer
+ * feature plane. Icons must render as monochrome stroke SVGs (never the
+ * colourful ⚡/⚑ emoji that broke the cyan/black cockpit). The "System Admin"
+ * (platform-ops) card is operator-only — gated to sys-admin identities, exactly
+ * like the sidebar nav + sysAdminGuard; every owner sees the "Features" card.
  */
-describe('AdminDashboardComponent (features-banner icons)', () => {
+describe('AdminDashboardComponent (features-banner)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
-  it('renders banner icons as SVGs, not the colourful ⚡/⚑ emoji', () => {
-    const chat = chatStub();
+  function renderBanner(email: string): HTMLElement {
     TestBed.configureTestingModule({
       imports: [AdminDashboardComponent],
       providers: [
         provideRouter([]),
-        { provide: DashboardChatService, useValue: chat },
+        { provide: DashboardChatService, useValue: chatStub() },
         { provide: SlashCommandRegistryService, useValue: { commands: () => [], search: () => [], parse: () => null } },
         { provide: AdminStateService, useValue: { selectedSite: signal(null) } },
+        { provide: AuthService, useValue: { email: () => email } },
         {
           provide: TranslateService,
           useValue: { instant: (k: string) => k, get: (k: string) => of(k), stream: (k: string) => of(k), use: () => of({}), setDefaultLang: () => 0, addLangs: () => 0, currentLang: 'en', onLangChange: of(), onTranslationChange: of(), onDefaultLangChange: of() },
@@ -153,14 +156,27 @@ describe('AdminDashboardComponent (features-banner icons)', () => {
     TestBed.overrideComponent(AdminUpgradesShellComponent, { set: { template: '', imports: [] } });
     const fx = TestBed.createComponent(AdminDashboardComponent);
     fx.detectChanges();
-    const host = fx.nativeElement as HTMLElement;
+    return fx.nativeElement as HTMLElement;
+  }
 
+  it('renders both banner icons as SVGs (not ⚡/⚑ emoji) for a System Administrator', () => {
+    const host = renderBanner('brian@megabyte.space');
     const icons = host.querySelectorAll('.features-banner-icon');
-    expect(icons.length).withContext('two banner cards').toBe(2);
+    expect(icons.length).withContext('Features + System Admin cards').toBe(2);
     icons.forEach((i) => expect(i.querySelector('svg')).withContext('icon is an SVG').not.toBeNull());
     const banner = host.querySelector('.features-banner')?.textContent ?? '';
     expect(banner).not.toContain('⚡');
     expect(banner).not.toContain('⚑');
+  });
+
+  it('shows only the owner-facing Features card to a non-operator (hides System Admin)', () => {
+    const host = renderBanner('owner@acme.com');
+    const cards = host.querySelectorAll('.features-banner-card');
+    expect(cards.length).withContext('only the Features card').toBe(1);
+    expect(host.querySelector('[data-testid="dash-features-card"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="dash-system-admin-card"]')).toBeNull();
+    // The Features card points at the owner-facing layer, never the retired hub.
+    expect(host.querySelector('[data-testid="dash-features-card"]')?.getAttribute('href')).toContain('/admin/site-features');
   });
 });
 

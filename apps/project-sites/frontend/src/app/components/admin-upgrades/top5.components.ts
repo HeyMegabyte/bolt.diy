@@ -429,10 +429,10 @@ export class PredictedActionsComponent implements OnInit {
       out.push({ id: 'p3', label: `Reopen ${recentlyViewed[0].label}`, href: recentlyViewed[0].href, reason: 'Last opened recently — likely continuing', confidence: 0.84 });
     }
     if (recent.length > 5) {
-      out.push({ id: 'p4', label: 'Open ★ Brilliant features hub', href: '/admin/features', reason: 'High activity day — try a new feature', confidence: 0.55 });
+      out.push({ id: 'p4', label: 'Explore site Features', href: '/admin/site-features', reason: 'High activity day — try a new feature', confidence: 0.55 });
     }
     if (out.length === 0) {
-      out.push({ id: 'p5', label: 'Open Features Hub', href: '/admin/features', reason: 'Catch up on the latest', confidence: 0.5 });
+      out.push({ id: 'p5', label: 'Open Features', href: '/admin/site-features', reason: 'Catch up on the latest', confidence: 0.5 });
     }
     this.predictions.set(out.slice(0, 4));
   }

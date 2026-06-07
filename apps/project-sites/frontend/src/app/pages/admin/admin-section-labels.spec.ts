@@ -22,7 +22,9 @@ describe('adminSectionLabel (per-route title map)', () => {
   it('keeps the established labels intact', () => {
     expect(adminSectionLabel('snapshots')).toBe('Snapshots');
     expect(adminSectionLabel('sites')).toBe('Sites');
-    expect(adminSectionLabel('feature-flags')).toBe('Feature Flags');
+    // LAYER 1 platform-ops flags titled "System Admin" (operator-only) since the
+    // two-layer plane landed (2026-06-07) — see admin nav + sysAdminGuard.
+    expect(adminSectionLabel('feature-flags')).toBe('System Admin');
   });
 
   it('disambiguates the two-layer feature surfaces (no "Dashboard" fallback / WCAG 2.4.2)', () => {
@@ -79,13 +81,13 @@ describe('adminSectionLabelFromPath (param + sub-path routes)', () => {
   it('handles the index, query/hash, and unknown (404) paths', () => {
     expect(adminSectionLabelFromPath('/admin')).toBe('Dashboard');
     expect(adminSectionLabelFromPath('/admin/snapshots/diff?from=a&to=b')).toBe('Snapshot Diff');
-    expect(adminSectionLabelFromPath('/admin/feature-flags#stage')).toBe('Feature Flags');
+    expect(adminSectionLabelFromPath('/admin/feature-flags#stage')).toBe('System Admin');
     expect(adminSectionLabelFromPath('/admin/totally-unknown-xyz')).toBe('Dashboard');
   });
 
   it('top-level sections resolve the same as the bare-segment lookup (no regression)', () => {
     expect(adminSectionLabelFromPath('/admin/billing')).toBe('Billing');
-    expect(adminSectionLabelFromPath('/admin/feature-flags')).toBe('Feature Flags');
+    expect(adminSectionLabelFromPath('/admin/feature-flags')).toBe('System Admin');
     expect(adminSectionLabelFromPath('/admin/traces')).toBe('AI Traces');
   });
 });

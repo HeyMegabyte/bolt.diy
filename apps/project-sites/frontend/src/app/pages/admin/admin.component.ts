@@ -25,6 +25,7 @@ import { EditorTabsComponent, type EditorTab } from '../../components/editor-tab
 import { AdminMediaComponent } from './sections/media.component';
 import { AdminAiEndpointsComponent } from './sections/ai-endpoints.component';
 import { adminSectionLabelFromPath } from './admin-section-labels';
+import { isSysAdminEmail } from './sys-admin';
 
 interface Notification { id: string; title: string; time: string; kind: 'info' | 'warn' | 'ok'; read: boolean; ts?: number; href?: string; }
 
@@ -45,6 +46,13 @@ export class AdminComponent implements OnInit, OnDestroy {
   // import since Angular only checks for the named method on the class.
   state = inject(AdminStateService);
   auth = inject(AuthService);
+  /**
+   * True when the signed-in identity is a platform System Administrator — gates
+   * the operator-only LAYER 1 "System Admin" nav item (platform-ops feature
+   * flags). Normal site owners only see LAYER 2 "Features" (site-features).
+   * Reactive to the auth session signal; mirrors {@link sysAdminGuard}.
+   */
+  isSysAdmin = computed(() => isSysAdminEmail(this.auth.email()));
   router = inject(Router);
   bolt = inject(BoltEmbedService);
   private toast = inject(ToastService);

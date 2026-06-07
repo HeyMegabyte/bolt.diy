@@ -33,6 +33,8 @@ import { WidgetRendererComponent } from './dashboard/widgets';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { AdminUpgradesShellComponent } from '../../../components/admin-upgrades/admin-upgrades-shell.component';
 import { AdminStateService } from '../admin-state.service';
+import { AuthService } from '../../../services/auth.service';
+import { isSysAdminEmail } from '../sys-admin';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -45,26 +47,30 @@ import { AdminStateService } from '../admin-state.service';
            they render across every /admin/* route via the persistent
            dashboard host. Each feature carries data-upgrade="N" for E2E. -->
       <app-admin-upgrades-shell></app-admin-upgrades-shell>
-      <!-- Features Hub + Feature Flags discovery banner. Both also have sidebar
-           nav entries (added 2026-06-04); this banner is an intentional, more
-           prominent dashboard entry point to the two highest-value meta surfaces. -->
-      <section class="features-banner" role="navigation" aria-label="Newly shipped features">
-        <a class="features-banner-card" routerLink="/admin/features">
-          <span class="features-banner-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+      <!-- Two-layer feature plane discovery banner. LAYER 2 "Features"
+           (owner-facing, site-scoped) shows to everyone; LAYER 1 "System Admin"
+           (platform-ops flags) is operator-only. Both also have sidebar nav
+           entries; this banner is a more prominent dashboard entry point. The
+           old combined "Features Hub" was retired 2026-06-07. -->
+      <section class="features-banner" role="navigation" aria-label="Feature control plane">
+        <a class="features-banner-card" routerLink="/admin/site-features" data-testid="dash-features-card">
+          <span class="features-banner-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>
           <span class="features-banner-body">
-            <strong>Features Hub</strong>
-            <span class="features-banner-sub">Every feature in one place — Stack / CWV / GEO / A11y / Editor / Monetize / Observability / Media / Platform / Gaps. Live "Try it" buttons.</span>
+            <strong>Features</strong>
+            <span class="features-banner-sub">Turn site capabilities on for your hosted site — plan-aware, previewable, undoable. Upgrade-locked add-ons surface here.</span>
           </span>
           <span class="features-banner-cta" aria-hidden="true">→</span>
         </a>
-        <a class="features-banner-card features-banner-card-alt" routerLink="/admin/feature-flags">
+        @if (isSysAdmin()) {
+        <a class="features-banner-card features-banner-card-alt" routerLink="/admin/feature-flags" data-testid="dash-system-admin-card">
           <span class="features-banner-icon features-banner-icon--alt" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></span>
           <span class="features-banner-body">
-            <strong>Feature Flags</strong>
-            <span class="features-banner-sub">Toggle, roll out, killswitch 50+ feature flags. Stage filter, per-flag inspect, hash-chain audit trail.</span>
+            <strong>System Admin</strong>
+            <span class="features-banner-sub">Platform-ops control plane — toggle, roll out, killswitch 50+ feature flags. Stage filter, per-flag inspect, hash-chain audit trail.</span>
           </span>
           <span class="features-banner-cta" aria-hidden="true">→</span>
         </a>
+        }
       </section>
       @if (chat.messages().length === 0) {
         <section class="hero" appReveal>
@@ -602,6 +608,9 @@ export class AdminDashboardComponent {
   registry = inject(SlashCommandRegistryService);
   private router = inject(Router);
   state = inject(AdminStateService);
+  private auth = inject(AuthService);
+  /** Operator-only gate for the "System Admin" dashboard discovery card — mirrors the sidebar nav + sysAdminGuard. */
+  readonly isSysAdmin = computed(() => isSysAdminEmail(this.auth.email()));
 
   @ViewChild('input') inputRef?: ElementRef<HTMLInputElement>;
   @ViewChild('thread') threadRef?: ElementRef<HTMLElement>;

@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { type Routes, Router } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
+import { sysAdminGuard } from './guards/sys-admin.guard';
 import { featureFlagGuard } from './services/feature-flag.service';
 
 export const routes: Routes = [
@@ -213,7 +214,10 @@ export const routes: Routes = [
         // flags for the operator. Reads GET /api/feature-flags merged with the
         // super-admin overrides; supports filter / search / toggle / rollout /
         // killswitch with progressive disclosure + dangerous-change confirm.
+        // sysAdminGuard hides it from normal site owners (operator-only); a
+        // non-operator hitting the URL is bounced to their /admin/site-features.
         path: 'feature-flags',
+        canActivate: [sysAdminGuard],
         loadComponent: () =>
           import('./pages/admin/sections/feature-flags.component').then((m) => m.AdminFeatureFlagsComponent),
       },
@@ -252,13 +256,15 @@ export const routes: Routes = [
           import('./pages/admin/sections/seo.component').then((m) => m.AdminSeoComponent),
       },
       {
-        // Features Hub — every shipped feature in one searchable surface.
-        // Tabbed by theme (Stack / CWV / GEO / A11y / Editor / Monetize /
-        // Observability / Media / Platform / Gaps). Per-card flag state +
-        // "Try it" buttons that hit the real endpoints.
+        // Features Hub (RETIRED 2026-06-07) — the old combined catalog is
+        // superseded by the two-layer plane: LAYER 1 System Administrator
+        // (/admin/feature-flags, operator-only) + LAYER 2 Features
+        // (/admin/site-features, owner-facing). Redirect old deep links /
+        // command-palette entries to the owner-facing Features layer so they
+        // never 404. (AdminFeaturesHubComponent left in source, now unrouted.)
         path: 'features',
-        loadComponent: () =>
-          import('./pages/admin/sections/features-hub.component').then((m) => m.AdminFeaturesHubComponent),
+        redirectTo: 'site-features',
+        pathMatch: 'full',
       },
       {
         path: 'forms',

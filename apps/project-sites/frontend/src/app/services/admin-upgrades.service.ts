@@ -132,7 +132,7 @@ export class AdminUpgradesService {
   private seedNotifications(): void {
     this.notifications.set([
       { id: 'n1', level: 'success', title: 'Site published', body: 'bayonne-bakery is live', ts: new Date(Date.now() - 12_000).toISOString(), read: false, href: '/admin/sites' },
-      { id: 'n2', level: 'info', title: '50 brilliant features available', body: 'Open the ★ Brilliant tab in Features Hub', ts: new Date(Date.now() - 60_000).toISOString(), read: false, href: '/admin/features' },
+      { id: 'n2', level: 'info', title: 'New site features available', body: 'Open Features to turn on capabilities for your site', ts: new Date(Date.now() - 60_000).toISOString(), read: false, href: '/admin/site-features' },
       { id: 'n3', level: 'warning', title: 'CWV gate triggered', body: 'LCP 2.7s on /pricing', ts: new Date(Date.now() - 180_000).toISOString(), read: false, href: '/admin/sites' },
     ]);
   }
