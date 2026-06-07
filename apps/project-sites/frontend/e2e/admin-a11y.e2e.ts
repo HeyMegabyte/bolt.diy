@@ -4,13 +4,26 @@
  * WCAG 2.2 AA audit of the legacy admin via axe-core. The agentskills mandate
  * is axe 0 violations; this gate scans each key section and fails on
  * serious/critical violations (moderate/minor are reported for triage but not
- * blocking, so the gate is actionable not noisy). Seeds `ps_session` from
- * `E2E_API_KEY`. Run: `npm run test:e2e:prod`.
+ * blocking, so the gate is actionable not noisy).
+ *
+ * PLUS the form-control accessible-name rules (`label`, `select-name`,
+ * `aria-input-field-name`) are ALWAYS blocking regardless of axe's impact
+ * ranking. axe ranks these "moderate", so the serious/critical filter alone
+ * was STATE-BLIND to them — which is exactly why the per-section label-association
+ * sweeps were belt-and-suspenders. Now that that sweep is closed + live, promoting
+ * these three rules to blocking turns the manual sweep into enforced regression
+ * protection (a missing label on any input/select/contenteditable fails the gate).
+ *
+ * Seeds `ps_session` from `E2E_API_KEY`. Run: `npm run test:e2e:prod`.
  */
 import AxeBuilder from '@axe-core/playwright';
 import { test, expect, type Page } from '@playwright/test';
 
 const KEY = process.env.E2E_API_KEY ?? '';
+/** Accessible-name rules promoted to blocking (axe ranks them only "moderate"). */
+const NAME_RULES = new Set(['label', 'select-name', 'aria-input-field-name']);
+const isBlocking = (impact: string | null | undefined, id: string): boolean =>
+  impact === 'critical' || impact === 'serious' || NAME_RULES.has(id);
 const SECTIONS = [
   '/admin/snapshots', '/admin/forms', '/admin/analytics', '/admin/audit',
   '/admin/feature-flags', '/admin/api-tokens', '/admin/settings', '/admin/billing',
@@ -60,7 +73,7 @@ test.describe('legacy /admin — WCAG 2.2 AA (axe-core)', () => {
   // Reduced-motion settles scroll-reveal animations so axe scans the steady UI
   // (no networkidle: the admin polls continuously + never idles).
   for (const path of SECTIONS) {
-    test(`no serious/critical axe violations — ${path}`, async ({ page }) => {
+    test(`no serious/critical or unnamed-control axe violations — ${path}`, async ({ page }) => {
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await seed(page);
       await page.goto(path, { waitUntil: 'load' });
@@ -94,10 +107,10 @@ test.describe('legacy /admin — WCAG 2.2 AA (axe-core)', () => {
         .exclude('.ag-root')
         .analyze();
       const advisory = results.violations
-        .filter((v) => v.impact !== 'critical' && v.impact !== 'serious')
+        .filter((v) => !isBlocking(v.impact, v.id))
         .map((v) => `${v.impact ?? '?'} · ${v.id} · ${v.nodes.length}×`);
       const blocking = results.violations
-        .filter((v) => v.impact === 'critical' || v.impact === 'serious')
+        .filter((v) => isBlocking(v.impact, v.id))
         .map((v) => `${v.impact} · ${v.id} · ${v.nodes.length}× · ${v.help}\n      ${v.nodes[0]?.target?.join(' ') ?? ''}`);
       if (advisory.length) console.warn(`\n[${path}] axe ADVISORY: ${advisory.join(' | ')}`);
       console.warn(`\n[${path}] axe BLOCKING (serious/critical): ${blocking.length}${blocking.length ? '\n' + blocking.join('\n') : ' ✓'}`);
