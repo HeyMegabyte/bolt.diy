@@ -505,6 +505,19 @@ const POLL_INTERVAL_MS = 10_000;
               <svg class="empty-cta-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </button>
           </div>
+        } @else if (filteredSubmissions().length === 0) {
+          <div class="empty-state" role="status" data-testid="forms-view-empty">
+            <svg class="empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <h4 class="empty-title">No submissions match this view</h4>
+            <p class="empty-body">Nothing matches the “{{ activeViewLabel() }}” filter. Try another view or show them all.</p>
+            <button class="empty-cta" type="button" data-testid="forms-view-show-all" (click)="activeView.set('all')"
+                    [brnTooltip]="'Reset to the All view'">
+              <span class="empty-cta-text"><span class="empty-cta-title">Show all submissions</span></span>
+              <svg class="empty-cta-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </button>
+          </div>
         } @else {
           <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Submissions table — scroll horizontally" data-testid="forms-table-scroll">
           <table class="w-full text-[0.78rem]">
@@ -899,6 +912,8 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     const v = this.views.find((x) => x.id === this.activeView()) ?? this.views[0]!;
     return this.submissions().filter((s) => v.test(s));
   });
+  /** Human label of the active view — for the "no submissions match this view" notice. */
+  readonly activeViewLabel = computed(() => this.views.find((v) => v.id === this.activeView())?.label ?? 'this view');
 
   // ── Bulk selection (→ export selected) ───────────────────────────────────
   readonly selectedIds = signal<ReadonlySet<string>>(new Set());

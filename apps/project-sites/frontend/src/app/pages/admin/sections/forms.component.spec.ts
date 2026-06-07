@@ -85,6 +85,26 @@ describe('AdminFormsComponent (cohesion + a11y, convergence r17)', () => {
     expect(get).not.toHaveBeenCalled();
   });
 
+  // When submissions exist but the active VIEW filters out every one, the table
+  // rendered header-only (blank body). Show a "no match" notice + a Show-all
+  // reset instead. (filtered-list-blank class — forms was missed in that sweep.)
+  it('shows a no-match notice (not a blank table) when a view filters out every submission', () => {
+    build({ id: 'site-1' });
+    component.submissions.set([
+      { id: 's1', form_name: 'contact', email: 'a@b.com', status: 'received', created_at: new Date().toISOString(), origin: 'x' } as never,
+    ]);
+    component.loading.set(false);
+    component.activeView.set('errors'); // status==='received' → excluded by the 'errors' view
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('[data-testid="forms-view-empty"]')).withContext('no-match notice shown').toBeTruthy();
+    expect(host.querySelector('table')).withContext('no blank table rendered').toBeNull();
+    (host.querySelector('[data-testid="forms-view-show-all"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(component.activeView()).withContext('Show-all resets the view').toBe('all');
+    expect(host.querySelector('table')).withContext('table returns once the view is reset').toBeTruthy();
+  });
+
   it('fires reload + loadSettings + loadMcp the instant the site resolves', () => {
     build(null);
     selectedSite.set({ id: 'site-1' });
