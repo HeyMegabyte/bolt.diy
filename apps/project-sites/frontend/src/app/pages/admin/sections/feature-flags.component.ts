@@ -674,7 +674,18 @@ export class AdminFeatureFlagsComponent implements OnInit {
   }
 
   jsonPayloadFor(flag: FlagDefinition): string {
-    return JSON.stringify({ key: flag.key, enabled_globally: flag.default_enabled, rollout_pct: flag.default_rollout_percent, kill_switch: !!flag.kill_switch }, null, 2);
+    const payload: Record<string, unknown> = {
+      key: flag.key,
+      enabled_globally: flag.default_enabled,
+      rollout_pct: flag.default_rollout_percent,
+      kill_switch: !!flag.kill_switch,
+    };
+    // Carry the Advanced-mode "Expires (optional)" intent into the payload so it
+    // rides in the JSON view + curl + the next POST (was a dead input). The
+    // worker decides persistence; omitted entirely when no expiry is set.
+    const expiry = (this.expiryDraft()[flag.key] ?? '').trim();
+    if (expiry) payload['expires_at'] = expiry;
+    return JSON.stringify(payload, null, 2);
   }
 
   readonly emptyFilterHint = computed(() => {

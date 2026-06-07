@@ -570,3 +570,25 @@ describe('AdminFeatureFlagsComponent (Expert API payload / curl)', () => {
     expect(c.curlFor(f)).withContext('invalid draft falls back to the committed payload').toContain('"rollout_pct":25');
   });
 });
+
+/**
+ * The Advanced-mode "Expires (optional)" input was a dead affordance — its
+ * expiryDraft fed nothing. Wire it into the payload so a set expiry rides along
+ * in the Expert JSON view + curl + the next POST (worker decides persistence).
+ */
+describe('AdminFeatureFlagsComponent (expiry wires into the payload)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('jsonPayloadFor + curlFor include expires_at only when an expiry is set', () => {
+    const c = make(okGet());
+    const f = flag({ key: 'k' });
+    expect(c.jsonPayloadFor(f)).withContext('no expiry → omitted').not.toContain('expires_at');
+
+    c.setExpiryDraft('k', '2026-12-31T23:59');
+    expect(c.jsonPayloadFor(f)).withContext('set expiry rides in the payload').toContain('"expires_at": "2026-12-31T23:59"');
+    expect(c.curlFor(f)).withContext('curl reflects it too').toContain('expires_at');
+
+    c.setExpiryDraft('k', '');
+    expect(c.jsonPayloadFor(f)).withContext('cleared → omitted again').not.toContain('expires_at');
+  });
+});
