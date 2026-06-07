@@ -33,6 +33,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { A11yModule } from '@angular/cdk/a11y';
 import { RevealDirective } from '../../../../directives/reveal.directive';
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../../ui';
 import { AuthService } from '../../../../services/auth.service';
@@ -83,7 +84,7 @@ interface BookingDraft {
   selector: 'app-calendar-widget',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RevealDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
+  imports: [CommonModule, FormsModule, A11yModule, RevealDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective],
   template: `
     <section class="cal" appReveal aria-label="Calendar">
       <header class="bar">
@@ -214,6 +215,7 @@ interface BookingDraft {
       <!-- ── Event editor modal ─────────────────────────────────── -->
       @if (editor()) {
         <div class="modal" role="dialog" aria-modal="true" aria-label="Event editor"
+             cdkTrapFocus [cdkTrapFocusAutoCapture]="true"
              (click)="closeEditor($event)">
           <div class="modal-card" (click)="$event.stopPropagation()">
             <div class="m-hd">
@@ -271,6 +273,7 @@ interface BookingDraft {
       <!-- ── Booking-link generator modal ───────────────────── -->
       @if (booking()) {
         <div class="modal" role="dialog" aria-modal="true" aria-label="Booking link generator"
+             cdkTrapFocus [cdkTrapFocusAutoCapture]="true"
              (click)="closeBooking($event)">
           <div class="modal-card" (click)="$event.stopPropagation()">
             <div class="m-hd">

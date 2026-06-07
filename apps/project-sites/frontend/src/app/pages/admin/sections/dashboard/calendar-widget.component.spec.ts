@@ -72,6 +72,22 @@ describe('CalendarWidgetComponent (destructive deleteEvent is confirm-guarded)',
     expect(warning).not.toHaveBeenCalled();
     expect(del).not.toHaveBeenCalled();
   });
+
+  // Esc dismisses either open modal (WCAG 2.1.1). Pairs with the cdkTrapFocus
+  // focus-trap added on each .modal so keyboard users aren't stranded.
+  it('Esc closes the event-editor modal', () => {
+    const c = build();
+    c.editor.set(true);
+    c.onKey(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(c.editor()).toBe(false);
+  });
+
+  it('Esc closes the booking-link modal', () => {
+    const c = build();
+    c.booking.set(true);
+    c.onKey(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(c.booking()).toBe(false);
+  });
 });
 
 /**
@@ -117,6 +133,13 @@ describe('CalendarWidgetComponent (event-editor label association)', () => {
     expect(checked).toBeGreaterThanOrEqual(3);
   });
 
+  it('wires a focus-trap on the event-editor modal (cdkTrapFocus)', () => {
+    const el = render(); // editor open
+    const modal = el.querySelector('.modal[role="dialog"]') as HTMLElement | null;
+    expect(modal).withContext('editor modal renders').toBeTruthy();
+    expect(modal!.hasAttribute('cdktrapfocus')).withContext('CDK focus-trap directive on the dialog').toBeTrue();
+  });
+
   it('associates the booking-link Title / Public slug / Time zone with their labels', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -134,6 +157,8 @@ describe('CalendarWidgetComponent (event-editor label association)', () => {
     fx.componentInstance.booking.set(true);
     fx.detectChanges();
     const el = fx.nativeElement as HTMLElement;
+    const modal = el.querySelector('.modal[role="dialog"]') as HTMLElement | null;
+    expect(modal!.hasAttribute('cdktrapfocus')).withContext('booking modal focus-trapped').toBeTrue();
     let checked = 0;
     for (const r of Array.from(el.querySelectorAll('.m-row'))) {
       const lbl = r.querySelector(':scope > label');
