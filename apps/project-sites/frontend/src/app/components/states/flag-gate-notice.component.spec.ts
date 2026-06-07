@@ -2,6 +2,7 @@ import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { Component } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { FlagGateNoticeComponent } from './flag-gate-notice.component';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   standalone: true,
@@ -82,5 +83,39 @@ describe('FlagGateNoticeComponent (shared cockpit flag-gate primitive)', () => {
     expect(el.querySelector('.flag-gate__heading')?.textContent?.trim()).toBe("Log Explorer isn't enabled");
     const body = el.querySelector('.flag-gate__body')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
     expect(body).toContain('Enable it in System Admin to search Worker tail logs and view cost-by-route.');
+  });
+
+  // Owner-aware messaging: the operator-only "Enable it in System Admin" CTA is
+  // meaningless to a site owner (they can't reach the platform-flags layer), so
+  // non-operators get a plain plan-aware explanation with NO operator link.
+  function buildAs(email: string): HTMLElement {
+    TestBed.configureTestingModule({
+      imports: [HostComponent],
+      providers: [provideRouter([]), { provide: AuthService, useValue: { email: () => email } }],
+    });
+    fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('OPERATOR identity → keeps the "Enable it in System Admin" CTA link', () => {
+    const el = buildAs('brian@megabyte.space');
+    const link = el.querySelector('.flag-gate__body a');
+    expect(link?.getAttribute('href')).toBe('/admin/feature-flags');
+    expect(el.querySelector('.flag-gate__body')?.textContent).toContain('Enable it in');
+  });
+
+  it('OWNER identity → plain plan-aware copy, NO operator System Admin link', () => {
+    const el = buildAs('owner@acme.com');
+    expect(el.querySelector('.flag-gate__body a')).withContext('no operator link for owners').toBeNull();
+    const body = el.querySelector('.flag-gate__body')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    expect(body).toContain('not available for your site yet');
+    expect(body).not.toContain('System Admin');
+    expect(body).not.toContain('feature flag');
+  });
+
+  it('NO AuthService provided → defaults to the operator view (link shown) so section specs stay green', () => {
+    const el = build(); // build() provides no AuthService
+    expect(el.querySelector('.flag-gate__body a')?.getAttribute('href')).toBe('/admin/feature-flags');
   });
 });

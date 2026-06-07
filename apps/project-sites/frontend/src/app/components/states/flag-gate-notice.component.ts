@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
+import { isSysAdminEmail } from '../../pages/admin/sys-admin';
 
 /**
  * Shared flag-gate notice — the calm cyan "this section is behind a platform
@@ -31,10 +33,19 @@ import { RouterLink } from '@angular/router';
       @if (heading()) {
         <p class="flag-gate__heading">{{ heading() }}</p>
       }
-      <p class="flag-gate__body">
-        {{ feature() }} {{ plural() ? 'are' : 'is' }} behind the <code>{{ flag() }}</code> feature flag (currently disabled). Enable it in
-        <a routerLink="/admin/feature-flags" class="flag-gate__link">System&nbsp;Admin</a>@if (suffix()) { {{ ' ' + suffix() }}}.
-      </p>
+      @if (isOperator()) {
+        <p class="flag-gate__body">
+          {{ feature() }} {{ plural() ? 'are' : 'is' }} behind the <code>{{ flag() }}</code> feature flag (currently disabled). Enable it in
+          <a routerLink="/admin/feature-flags" class="flag-gate__link">System&nbsp;Admin</a>@if (suffix()) { {{ ' ' + suffix() }}}.
+        </p>
+      } @else {
+        <!-- Owner view: a site owner can't toggle a platform flag (it lives in the
+             operator-only System Admin layer), so don't send them there — give a
+             plain, plan-aware explanation. -->
+        <p class="flag-gate__body">
+          {{ feature() }} {{ plural() ? 'are' : 'is' }} not available for your site yet. It's a platform feature managed by ProjectSites.
+        </p>
+      }
     </div>
   `,
   styles: [`
@@ -49,6 +60,18 @@ import { RouterLink } from '@angular/router';
   `],
 })
 export class FlagGateNoticeComponent {
+  // AuthService is providedIn:'root' so it's always resolvable (optional guards
+  // the rare no-DI render). An EMPTY email means "no active session" — never a
+  // signed-in owner viewing a gated section (those always carry a non-operator
+  // email in prod), so unknown identity → OPERATOR view (link shown). That also
+  // keeps every existing section spec's "links to System Admin" assertion green.
+  private readonly auth = inject(AuthService, { optional: true });
+  /** True for platform operators (or when identity is unknown) → show the System Admin CTA. */
+  readonly isOperator = computed(() => {
+    const email = this.auth?.email() ?? '';
+    return email === '' || isSysAdminEmail(email);
+  });
+
   /** Subject of the sentence, e.g. "The Section Marketplace" / "Webhooks". */
   readonly feature = input.required<string>();
   /** The flag key rendered in `<code>`, e.g. "section_marketplace". */
