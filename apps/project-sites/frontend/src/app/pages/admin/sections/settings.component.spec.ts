@@ -8,6 +8,7 @@ import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { AdminWebhooksComponent } from './webhooks.component';
+import { AdminDeliverabilityComponent } from './deliverability.component';
 
 /**
  * Convergence r23 cohesion guard for the Settings section.
@@ -100,12 +101,14 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     const nav = el.querySelector('nav[role="tablist"]');
     expect(nav).toBeTruthy();
     const tabs = el.querySelectorAll('button[role="tab"]');
-    // 7 since Webhooks moved under Settings (2026-06-07): General · Business ·
-    // Team · AI Chat · MCP · AI Env Vars · Webhooks.
-    expect(tabs.length).toBe(7);
+    // 8 since Webhooks + Email moved under Settings (2026-06-07): General ·
+    // Business · Team · AI Chat · MCP · AI Env Vars · Webhooks · Email.
+    expect(tabs.length).toBe(8);
     const selected = Array.from(tabs).filter((t) => t.getAttribute('aria-selected') === 'true');
     expect(selected.length).toBe(1);
-    expect(Array.from(tabs).map((t) => t.textContent?.trim())).withContext('Webhooks now a Settings tab').toContain('Webhooks');
+    const labels = Array.from(tabs).map((t) => t.textContent?.trim());
+    expect(labels).withContext('Webhooks now a Settings tab').toContain('Webhooks');
+    expect(labels).withContext('Email now a Settings tab').toContain('Email');
   });
 
   it('embeds the Webhooks surface under its own Settings tab (moved from top-level nav)', () => {
@@ -134,6 +137,43 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(panel!.getAttribute('role')).toBe('tabpanel');
     expect(panel!.getAttribute('aria-labelledby')).toBe('settings-tab-webhooks');
     expect(el.querySelector('app-admin-webhooks')).withContext('webhooks component embedded').toBeTruthy();
+  });
+
+  it('Email tab shows the free-send allowance + a NON-dead SMTP affordance + embeds Deliverability', () => {
+    // Isolate from the embedded components' DI graphs (RouterLink etc.).
+    selectedSite = signal({ id: 's', slug: 'demo' });
+    TestBed.configureTestingModule({
+      imports: [AdminSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: null }), put: () => of({}), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: 'email', url: [] } } },
+        { provide: AdminStateService, useValue: { selectedSite, loadData: () => undefined } },
+      ],
+    });
+    TestBed.overrideComponent(AdminDeliverabilityComponent, { set: { template: '<div data-testid="dlv-stub"></div>', imports: [] } });
+    fixture = TestBed.createComponent(AdminSettingsComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.setTab('email');
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const panel = el.querySelector('[data-testid="settings-email-panel"]');
+    expect(panel).withContext('email tabpanel renders').toBeTruthy();
+    expect(panel!.getAttribute('role')).toBe('tabpanel');
+    expect(panel!.getAttribute('aria-labelledby')).toBe('settings-tab-email');
+    // Free-send allowance card surfaces the cap figure + the shared sender.
+    const allowance = el.querySelector('[data-testid="email-allowance-card"]');
+    expect(allowance?.textContent).withContext('shared sender shown').toContain('noreply@projectsites.dev');
+    expect(allowance?.querySelector('app-rolling-counter')).withContext('cap figure rolls').toBeTruthy();
+    // SMTP affordance is a graceful, disabled coming-soon control — never a dead/mutating button.
+    const smtpBtn = el.querySelector('[data-testid="email-smtp-configure"]') as HTMLButtonElement | null;
+    expect(smtpBtn).withContext('SMTP affordance present').toBeTruthy();
+    expect(smtpBtn!.disabled).withContext('disabled — backend persistence not yet shipped').toBeTrue();
+    expect(smtpBtn!.getAttribute('aria-disabled')).toBe('true');
+    // Deliverability (SPF/DKIM/DMARC) is embedded under the same tab.
+    expect(el.querySelector('app-admin-deliverability')).withContext('deliverability embedded').toBeTruthy();
   });
 
   it('associates the active panel with its tab (APG: role=tabpanel + aria-labelledby ↔ tab id + aria-controls)', () => {

@@ -135,7 +135,9 @@ test.describe('Admin form-control label association (WCAG 1.3.1 / 4.1.2)', () =>
   test('Deliverability — sending-domain input is programmatically named', async ({
     authedPage: page,
   }) => {
-    await page.goto('/admin/deliverability');
+    // Deliverability moved under Settings (2026-06-07) → the Email tab. The legacy
+    // /admin/deliverability path redirects here; navigate to the canonical location.
+    await page.goto('/admin/settings#email');
     await page.waitForLoadState('networkidle');
 
     await assertNamed(page, {

@@ -179,10 +179,13 @@ export const routes: Routes = [
           import('./pages/admin/sections/bulk-ops.component').then((m) => m.AdminBulkOpsComponent),
       },
       {
-        // Email Deliverability Wizard (#12) — SPF/DKIM/DMARC score (flag: email_deliverability_wizard).
+        // Email Deliverability (#12) moved UNDER Settings (2026-06-07) — now part
+        // of the "Email" tab of /admin/settings (alongside the send allowance +
+        // bring-your-own-SMTP). The component is embedded there; this legacy path
+        // redirects to the Settings fragment so deep links + palette keep working.
         path: 'deliverability',
-        loadComponent: () =>
-          import('./pages/admin/sections/deliverability.component').then((m) => m.AdminDeliverabilityComponent),
+        redirectTo: () => inject(Router).parseUrl('/admin/settings#email'),
+        pathMatch: 'full',
       },
       {
         // Outbound Webhooks (#10) moved UNDER Settings (2026-06-07) — now the

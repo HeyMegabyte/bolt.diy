@@ -9,6 +9,7 @@ import { ConfirmService } from '../../../services/confirm.service';
 import { MCP_PROVIDERS } from './mcp-providers';
 import { EnvVarsManagerComponent } from '../../../components/env-vars-manager/env-vars-manager.component';
 import { AdminWebhooksComponent } from './webhooks.component';
+import { AdminDeliverabilityComponent } from './deliverability.component';
 import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { RevealDirective } from '../../../directives/reveal.directive';
@@ -33,7 +34,18 @@ const TABS = [
   { id: 'mcp',      label: 'MCP',         desc: 'Per-project integrations: Slack, Stripe, Notion, HubSpot +20 more' },
   { id: 'env-vars', label: 'AI Env Vars', desc: 'Custom key-value store surfaced to AI + MCP at inference time (org-wide)' },
   { id: 'webhooks', label: 'Webhooks',    desc: 'Signed, retried event notifications to your endpoints (this project)' },
+  { id: 'email',    label: 'Email',       desc: 'Sending limits · bring your own SMTP · deliverability (SPF/DKIM/DMARC)' },
 ] as const;
+
+/**
+ * Free monthly transactional-email allowance ProjectSites sends on a site's
+ * behalf from the shared `noreply@projectsites.dev` sender (magic links + form
+ * notifications). Past this, the owner brings their own SMTP. Surfaced in the
+ * Email tab's allowance card. Mirror the worker's enforced cap when it lands.
+ */
+export const FREE_EMAIL_CAP_PER_MONTH = 500;
+/** The shared sender address ProjectSites uses for free transactional email. */
+export const PROVIDED_EMAIL_SENDER = 'noreply@projectsites.dev';
 type Tab = (typeof TABS)[number]['id'];
 
 // Provider catalogue moved to ./mcp-providers.ts (single source of truth shared
@@ -43,7 +55,7 @@ const PROVIDERS = MCP_PROVIDERS;
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [RevealDirective, RollingCounterComponent, CharCountComponent, AiSparkComponent, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, AdminWebhooksComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, RollingCounterComponent, CharCountComponent, AiSparkComponent, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, AdminWebhooksComponent, AdminDeliverabilityComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -626,6 +638,60 @@ const PROVIDERS = MCP_PROVIDERS;
           <app-admin-webhooks />
         </div>
       }
+      @else if (tab() === 'email') {
+        <!-- Email moved under Settings (2026-06-07): the provided-sender allowance,
+             bring-your-own-SMTP, and the existing Deliverability (SPF/DKIM/DMARC)
+             surface. /admin/deliverability redirects to /admin/settings#email. -->
+        <div appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()" data-testid="settings-email-panel">
+          <!-- Free transactional-send allowance on the shared sender. -->
+          <section class="card" data-testid="email-allowance-card">
+            <header class="mb-3 flex items-start gap-3">
+              <span class="shrink-0 grid place-items-center w-9 h-9 rounded-lg" style="background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.25);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ps-accent, #00e5ff)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="m4 7 8 6 8-6"/></svg>
+              </span>
+              <div>
+                <h3 class="m-0 text-base font-semibold text-white mb-1">Email sending</h3>
+                <p class="text-[0.72rem] text-text-secondary m-0 leading-relaxed">
+                  ProjectSites sends your transactional email — magic links + form notifications —
+                  from <strong class="text-accent">{{ providedEmailSender }}</strong> on your behalf.
+                </p>
+              </div>
+            </header>
+            <div class="rounded-lg p-3 flex items-center gap-3" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
+              <div class="text-[1.35rem] font-bold text-accent tabular-nums leading-none">
+                <app-rolling-counter [value]="freeEmailCap" />
+              </div>
+              <div class="text-[0.7rem] text-text-secondary leading-snug">
+                <strong class="text-white">free emails / month</strong>, per site, on the shared sender.<br />
+                Need your own branded sender or a higher limit? Bring your own SMTP below.
+              </div>
+            </div>
+          </section>
+
+          <!-- Bring your own SMTP — graceful coming-soon (server-side persistence
+               of SMTP credentials is a worker-backed change shipping next). No
+               dead button: the action is disabled with a clear status pill. -->
+          <section class="card mt-4" data-testid="email-smtp-card">
+            <header class="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h3 class="m-0 text-base font-semibold text-white mb-1">Bring your own SMTP</h3>
+                <p class="text-[0.7rem] text-text-secondary m-0">
+                  Send from your own mail server / domain (host, port, username, from-address) and lift the free cap.
+                </p>
+              </div>
+              <span class="shrink-0 text-[0.6rem] font-semibold uppercase tracking-wider px-2 py-1 rounded-full" style="color:#fcd34d;background:rgba(252,211,77,0.12);border:1px solid rgba(252,211,77,0.3);">Coming soon</span>
+            </header>
+            <button type="button" class="smtp-soon-btn" disabled aria-disabled="true" data-testid="email-smtp-configure" [brnTooltip]="'Custom SMTP credentials persist server-side — rolling out in the next backend update'">
+              Configure SMTP
+            </button>
+          </section>
+
+          <!-- Deliverability (SPF/DKIM/DMARC) — fully functional, embedded here. -->
+          <section class="mt-4">
+            <app-admin-deliverability />
+          </section>
+        </div>
+      }
 
       <!-- Security tab removed entirely:
            · API keys → /admin/user
@@ -676,6 +742,11 @@ const PROVIDERS = MCP_PROVIDERS;
     @media (max-width: 640px) {
       .btn-primary, .btn-ghost { width: 100%; }
     }
+    /* Local cyan override — the global .text-accent utility renders dim; this
+       forces brand cyan for the email-sender + allowance figures (axe contrast). */
+    .text-accent { color: var(--ps-accent, #00e5ff); }
+    /* Email tab — disabled "Configure SMTP" coming-soon affordance (not a dead button). */
+    .smtp-soon-btn { padding: 0.45rem 0.9rem; border-radius: 0.55rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.45); font-size: 0.74rem; font-weight: 600; cursor: not-allowed; }
     .tab { padding: 0.4rem 0.95rem; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); cursor: pointer; font-size: 0.74rem; font-weight: 600; transition: all 120ms ease; }
     .tab:hover { color: #fff; border-color: color-mix(in oklch, var(--accent) 25%, transparent); }
     .tab.active { background: color-mix(in oklch, var(--accent) 12%, transparent); color: var(--accent); border-color: color-mix(in oklch, var(--accent) 35%, transparent); }
@@ -878,6 +949,9 @@ export class AdminSettingsComponent implements OnInit {
   tab = signal<Tab>('general');
   /** Static tab list exposed to the template (Cmd-K palette handles search now). */
   tabs = TABS;
+  /** Email tab — free transactional-send allowance + shared sender (template-readonly). */
+  readonly freeEmailCap = FREE_EMAIL_CAP_PER_MONTH;
+  readonly providedEmailSender = PROVIDED_EMAIL_SENDER;
   saving = signal(false);
   savingChat = signal(false);
   inviting = signal(false);

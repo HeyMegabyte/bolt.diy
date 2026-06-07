@@ -228,10 +228,9 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         <span>Bulk Ops</span>
       </a>
-      <a class="nav-item" routerLink="/admin/deliverability" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" [brnTooltip]="'Email Deliverability — SPF/DKIM/DMARC score + fixes for your sending domain'">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16v16H4z"/><path d="m4 7 8 6 8-6"/></svg>
-        <span>Deliverability</span>
-      </a>
+      <!-- Email Deliverability moved under Settings (2026-06-07) → /admin/settings#email
+           (the /admin/deliverability route redirects there). Removed as a top-level nav item. -->
+
       <!-- Outbound Webhooks moved under Settings (2026-06-07) → /admin/settings#webhooks
            (the /admin/webhooks route redirects there). Removed as a top-level nav item. -->
       <a class="nav-item" routerLink="/admin/recipes" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" [brnTooltip]="'Automations — no-code trigger to action recipes (Zapier-lite)'">
