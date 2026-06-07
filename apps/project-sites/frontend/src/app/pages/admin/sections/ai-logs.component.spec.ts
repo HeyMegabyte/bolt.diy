@@ -100,6 +100,21 @@ describe('AdminAiLogsComponent (grid state — skeleton vs empty vs data)', () =
     expect(c.showKpis()).withContext('error-free empty still renders (animates 0)').toBe(true);
   });
 
+  // KPI tiles must NOT flash a definitive "0 calls · 0ms · 0 errors · 0 credits"
+  // over the loading skeleton — during the initial fetch the counts are unknown,
+  // not zero. They appear once the load settles (or stale data is present).
+  it('hides the KPI tiles during the initial load, keeps them during a refresh with data', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.loading.set(true);
+    c.loadError.set(null);
+    c.rows.set([]);
+    expect(c.showKpis()).withContext('no premature zeros over the loading skeleton').toBe(false);
+
+    // A background refresh (rows already present) keeps the KPIs visible.
+    c.rows.set([{ id: 'l1' } as never]);
+    expect(c.showKpis()).withContext('stale data stays visible during refresh').toBe(true);
+  });
+
   it('suppresses the empty state on a load error (the error card owns that case)', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
     c.loading.set(false);

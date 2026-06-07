@@ -742,7 +742,13 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
   gridEmpty = computed<boolean>(() => !this.loading() && !this.loadError() && this.rows().length === 0);
   /** KPI tiles hidden when the load errored with no data — a definitive "0 calls
    *  · 0ms · 0 errors · 0 credits" over the error card is wrong (unknown, not 0). */
-  showKpis = computed<boolean>(() => !this.loadError() || this.rows().length > 0);
+  // Show the KPI tiles only once the load has SETTLED (or stale data is present):
+  // never flash a definitive "0 calls · 0ms · 0 errors · 0 credits" over the
+  // loading skeleton (counts are unknown mid-fetch, not zero) NOR over the error
+  // card (unknown, not zero). A background refresh with rows keeps them visible.
+  showKpis = computed<boolean>(
+    () => !this.gridLoadingSkeleton() && (!this.loadError() || this.rows().length > 0),
+  );
 
   // ─── Filtered rows + synthetic detail injection ────────────────────
   /**
