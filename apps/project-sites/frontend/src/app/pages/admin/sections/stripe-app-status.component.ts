@@ -23,7 +23,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
-import { InlineErrorComponent } from '../../../components/states';
+import { InlineErrorComponent, FlagGateNoticeComponent } from '../../../components/states';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { FeatureFlagService } from '../../../services/feature-flag.service';
@@ -55,7 +55,7 @@ interface Summary {
 @Component({
   selector: 'app-admin-stripe-app-status',
   standalone: true,
-  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, DatePipe, InlineErrorComponent],
+  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, DatePipe, InlineErrorComponent, FlagGateNoticeComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
@@ -79,13 +79,7 @@ interface Summary {
       </header>
 
       @if (notFound()) {
-        <div class="empty-card">
-          <p class="text-text-secondary text-sm">
-            Stripe App marketplace status is disabled. Enable
-            <code>stripe_app_status</code> in
-            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.
-          </p>
-        </div>
+        <app-flag-gate-notice feature="Stripe App marketplace status" flag="stripe_app_status" testid="stripe-app-flag-gate" />
       }
 
       @if (loadError() && !loading()) {

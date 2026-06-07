@@ -23,7 +23,7 @@ import { Subject, takeUntil, interval, tap, filter, switchMap, startWith } from 
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
-import { EmptyStateComponent } from '../../../components/states';
+import { EmptyStateComponent, FlagGateNoticeComponent } from '../../../components/states';
 import { ChannelIconComponent } from '../../../components/channel-icon/channel-icon.component';
 import { AiSparkComponent } from '../../../components/ai-spark/ai-spark.component';
 
@@ -78,7 +78,7 @@ const STATUS_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-inbox',
   standalone: true,
-  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, EmptyStateComponent, ChannelIconComponent, AiSparkComponent],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, EmptyStateComponent, FlagGateNoticeComponent, ChannelIconComponent, AiSparkComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="inbox-shell" appReveal>
@@ -103,12 +103,7 @@ const STATUS_COLORS: Record<string, string> = {
       </header>
 
       @if (!flagEnabled()) {
-        <div class="inbox-flag-gate" appReveal>
-          <p class="m-0">
-            The Unified Inbox is behind the <code>unified_inbox</code> feature flag. Enable it in
-            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.
-          </p>
-        </div>
+        <app-flag-gate-notice feature="The Unified Inbox" flag="unified_inbox" testid="inbox-flag-gate" />
       } @else {
         <!-- Filter toolbar -->
         <div class="inbox-toolbar" appReveal>

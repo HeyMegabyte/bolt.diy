@@ -227,9 +227,10 @@ describe('AdminApiTokensComponent (flag-disabled banner link is underlined)', ()
     const fx = TestBed.createComponent(AdminApiTokensComponent);
     fx.componentInstance.flagDisabled.set(true); // force the flag-disabled banner to render
     fx.detectChanges();
-    const link = (fx.nativeElement as HTMLElement).querySelector('.at-flag-banner a[routerLink="/admin/feature-flags"]');
+    const link = (fx.nativeElement as HTMLElement).querySelector('[data-testid="api-tokens-flag-gate"] a[routerLink="/admin/feature-flags"]') as HTMLAnchorElement | null;
     expect(link).not.toBeNull();
-    expect(link!.className).withContext('in-text link needs a default underline').toContain('underline');
+    // Shared <app-flag-gate-notice> underlines via `.flag-gate__link` CSS (not the Tailwind class).
+    expect(getComputedStyle(link!).textDecorationLine).withContext('in-text link permanently underlined').toContain('underline');
   });
 
   it('the OpenAPI external link uses the canonical external-link icon (aria-hidden), not a bare ↗', () => {

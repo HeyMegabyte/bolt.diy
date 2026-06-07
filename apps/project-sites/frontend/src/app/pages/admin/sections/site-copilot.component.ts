@@ -22,6 +22,7 @@ import { ToastService } from '../../../services/toast.service';
 import { RouterModule } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { FlagGateNoticeComponent } from '../../../components/states/flag-gate-notice.component';
 import { HlmCheckboxDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
 
@@ -48,7 +49,7 @@ const INTENT_ICONS: Record<string, string> = {
 @Component({
   selector: 'app-admin-site-copilot',
   standalone: true,
-  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmCheckboxDirective],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmCheckboxDirective, FlagGateNoticeComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="copilot-shell" appReveal>
@@ -70,9 +71,7 @@ const INTENT_ICONS: Record<string, string> = {
       </header>
 
       @if (!flagEnabled()) {
-        <div class="copilot-flag-gate" appReveal>
-          <p class="m-0">The Multimodal Copilot is behind the <code>multimodal_copilot</code> feature flag. Enable it in <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.</p>
-        </div>
+        <app-flag-gate-notice feature="The Multimodal Copilot" flag="multimodal_copilot" testid="copilot-flag-gate" />
       } @else {
         <!-- Widget embed snippet -->
         @if (siteSlug()) {

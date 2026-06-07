@@ -237,7 +237,7 @@ describe('AdminInboxComponent — stats hidden while flag-disabled (real templat
   it('hides the open/unread stats when the inbox is flag-disabled (no lying "0 open")', () => {
     const host = render(false);
     expect(host.querySelector('[data-testid="inbox-stats"]')).withContext('no fake counts for a disabled feature').toBeNull();
-    expect(host.querySelector('.inbox-flag-gate')).withContext('flag-disabled card shown instead').not.toBeNull();
+    expect(host.querySelector('[data-testid="inbox-flag-gate"]')).withContext('flag-disabled card shown instead').not.toBeNull();
   });
 
   it('hides the open/unread stats while conversations are still loading (no premature "0 open · 0 unread")', () => {
@@ -261,11 +261,11 @@ describe('AdminInboxComponent — stats hidden while flag-disabled (real templat
 
   it('the flag-gate Feature-Flags link is an inline, UNDERLINED, working RouterLink (cohesion with enterprise/trust/stripe gates)', () => {
     const host = render(false);
-    const link = host.querySelector('.inbox-flag-gate a[routerLink="/admin/feature-flags"]') as HTMLAnchorElement;
-    expect(link).withContext('flag-gate links to Feature Flags').not.toBeNull();
-    // In-text link affordance must match the sibling flag-gate cards (underline,
-    // not the old color-only standalone CTA) + be a real SPA link (renders href).
-    expect(link.className).toContain('underline');
+    const link = host.querySelector('[data-testid="inbox-flag-gate"] a[routerLink="/admin/feature-flags"]') as HTMLAnchorElement;
+    expect(link).withContext('flag-gate links to System Admin').not.toBeNull();
+    // In-text link affordance matches the sibling flag-gate cards: the shared
+    // <app-flag-gate-notice> underlines via `.flag-gate__link` CSS (not the Tailwind class).
+    expect(getComputedStyle(link).textDecorationLine).withContext('permanently underlined').toContain('underline');
     expect(link.getAttribute('href')).toBe('/admin/feature-flags');
   });
 

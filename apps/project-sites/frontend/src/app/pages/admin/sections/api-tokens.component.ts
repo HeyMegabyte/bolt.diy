@@ -48,6 +48,7 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { FlagGateNoticeComponent } from '../../../components/states/flag-gate-notice.component';
 
 interface ApiToken {
   id: string;
@@ -85,6 +86,7 @@ const ALL_SCOPES = [
     HlmButtonDirective,
     HlmInputDirective,
     HlmCheckboxDirective,
+    FlagGateNoticeComponent,
   ],
   template: `
     <div class="api-tokens-root">
@@ -126,13 +128,9 @@ const ALL_SCOPES = [
         </div>
       </div>
 
-      <!-- Feature-disabled banner -->
+      <!-- Feature-disabled banner (shared primitive). -->
       @if (flagDisabled()) {
-        <div class="at-flag-banner" role="alert">
-          <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-          Public API v1 is disabled. Enable the <strong>public_api_v1</strong> feature flag in
-          <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a> to activate.
-        </div>
+        <app-flag-gate-notice feature="Public API v1" flag="public_api_v1" testid="api-tokens-flag-gate" margin="mb-5" />
       }
 
       <!-- Token list (TanStack headless table) -->
