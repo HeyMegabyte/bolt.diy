@@ -169,4 +169,21 @@ describe('AdminAcceptInviteComponent (cyan/black glyph-halo polish)', () => {
     const err = render(null, jasmine.createSpy('post')); // missing token → error
     expect(err.querySelector('.invite-glyph--warn')).withContext('error halo').toBeTruthy();
   });
+
+  // The success/error glyphs must be monochrome stroke SVGs (currentColor) — the
+  // ⚠ char (U+26A0) is emoji-presentation by DEFAULT, so it rendered as a colorful
+  // ⚠️ emoji ignoring the amber CSS color, off-brand in the cyan/black cockpit.
+  it('success ✓ renders as a monochrome stroke SVG (currentColor), not an emoji char', () => {
+    const ok = render('tok', jasmine.createSpy('post').and.returnValue(of({ data: { joined: true, role: 'member' } })));
+    const okSvg = ok.querySelector('.invite-glyph--success svg');
+    expect(okSvg).withContext('success ✓ is a stroke SVG').toBeTruthy();
+    expect(okSvg!.getAttribute('stroke')).withContext('inherits the emerald glyph color').toBe('currentColor');
+  });
+
+  it('error ⚠ renders as a monochrome stroke SVG, not the colorful U+26A0 emoji', () => {
+    const err = render(null, jasmine.createSpy('post'));
+    const errSvg = err.querySelector('.invite-glyph--warn svg');
+    expect(errSvg).withContext('warn ⚠ is a stroke SVG, not a colorful emoji').toBeTruthy();
+    expect(errSvg!.getAttribute('stroke')).withContext('inherits the amber glyph color').toBe('currentColor');
+  });
 });
