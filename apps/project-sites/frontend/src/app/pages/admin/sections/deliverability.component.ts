@@ -13,7 +13,7 @@
  * this surface shows a friendly "not available" error (never leaks existence).
  */
 
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -180,6 +180,25 @@ export class AdminDeliverabilityComponent {
 
   readonly site = computed(() => this.state.selectedSite());
   readonly domainModel = signal('');
+
+  /** The site whose result is currently shown — drives the cross-site clear. */
+  private resultSiteId: string | null = null;
+
+  constructor() {
+    // Read-only result hygiene: when the operator switches sites, drop the prior
+    // report + error + per-site domain override. Without this, site A's score
+    // sits under site B's header until the next Check — a stale cross-site leak.
+    effect(() => {
+      const id = this.state.selectedSite()?.id ?? null;
+      if (id !== this.resultSiteId) {
+        this.resultSiteId = id;
+        this.report.set(null);
+        this.error.set(null);
+        this.flagDisabled.set(false);
+        this.domainModel.set('');
+      }
+    });
+  }
 
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);

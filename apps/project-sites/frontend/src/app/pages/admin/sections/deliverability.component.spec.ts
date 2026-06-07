@@ -188,3 +188,52 @@ describe('AdminDeliverabilityComponent', () => {
     expect(fixture.componentInstance.domainInvalid()).toBeFalse();
   });
 });
+
+import { signal } from '@angular/core';
+
+/**
+ * Read-only result hygiene: the deliverability panel renders a report for the
+ * site the operator checked. Switching sites must CLEAR that report (+ error /
+ * domain override) so site A's score can never sit under site B's header — a
+ * read-only stale-cross-site leak.
+ */
+describe('AdminDeliverabilityComponent (clears stale result on site switch)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  const REPORT2 = {
+    ok: true,
+    report: {
+      domain: 'a.com', spf: { present: true, record: 'x' },
+      dmarc: { present: true, record: 'x', policy: 'reject' },
+      dkim: { present: true, selectorsChecked: ['g'], foundSelectors: ['g'] },
+      score: 88, recommendations: [],
+    },
+  };
+
+  it('clears a prior report + domain override when the selected site changes', () => {
+    const selectedSite = signal<{ id: string; slug: string } | null>({ id: 'site1', slug: 'a' });
+    const get = jasmine.createSpy('get').and.returnValue(of(REPORT2));
+    TestBed.configureTestingModule({
+      imports: [AdminDeliverabilityComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite } },
+      ],
+    });
+    const fixture = TestBed.createComponent(AdminDeliverabilityComponent);
+    fixture.detectChanges();
+    const c = fixture.componentInstance;
+    c.domainModel.set('mail.a.com');
+    c.check();
+    fixture.detectChanges();
+    expect(c.report()?.score).withContext('site1 report present').toBe(88);
+
+    // Operator switches to a different site — the stale site1 report must clear.
+    selectedSite.set({ id: 'site2', slug: 'b' });
+    fixture.detectChanges();
+    expect(c.report()).withContext('no stale cross-site report under the new site').toBeNull();
+    expect(c.domainModel()).withContext('per-site override cleared').toBe('');
+  });
+});
