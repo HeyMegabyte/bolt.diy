@@ -180,6 +180,21 @@ describe('AdminEnterpriseComponent (SSO metadata URL validation)', () => {
     expect(c.ssoUrlInvalid()).withContext('a valid https URL clears it').toBe(false);
   });
 
+  it('rejects private / link-local / metadata IP metadata URLs (the "public hostname" promise)', () => {
+    const { c } = makeMut();
+    c.ssoEnabled.set(true);
+    c.ssoProvider.set('saml');
+    for (const url of [
+      'https://127.0.0.1/meta', 'https://10.0.0.1/meta', 'https://192.168.0.1/meta',
+      'https://172.20.1.1/meta', 'https://169.254.169.254/meta', 'https://idp.internal/meta',
+    ]) {
+      c.ssoMetadataUrl.set(url);
+      expect(c.ssoUrlInvalid()).withContext(url).toBe(true);
+    }
+    c.ssoMetadataUrl.set('https://idp.example.com/metadata');
+    expect(c.ssoUrlInvalid()).withContext('public host clears it').toBe(false);
+  });
+
   it('treats the metadata URL as optional for cloudflare-access, but validates a present value', () => {
     const { c } = makeMut();
     c.ssoEnabled.set(true);

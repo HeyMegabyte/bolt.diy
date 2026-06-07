@@ -548,14 +548,33 @@ export class AdminEnterpriseComponent {
       });
   }
 
-  /** An SSO metadata URL is fetched server-side by the IdP handshake — require a valid public https endpoint. */
+  /**
+   * An SSO metadata URL is fetched server-side by the IdP handshake — require a
+   * genuinely PUBLIC https endpoint. Reject http://, junk, and every loopback /
+   * private / link-local / metadata host (not just single-label `localhost`) so
+   * the "public hostname" the hint promises holds. The worker's SSRF guard is
+   * the real boundary; this is the UX layer.
+   */
   private isValidHttpsUrl(raw: string): boolean {
+    let u: URL;
     try {
-      const u = new URL(raw);
-      return u.protocol === 'https:' && u.hostname.includes('.') && !u.hostname.endsWith('.');
+      u = new URL(raw);
     } catch {
       return false;
     }
+    if (u.protocol !== 'https:') return false;
+    const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, ''); // strip IPv6 brackets
+    if (!host.includes('.') || host.endsWith('.')) return false; // localhost, ::1, trailing-dot
+    if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) return false;
+    const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (m) {
+      const a = Number(m[1]);
+      const b = Number(m[2]);
+      if (a === 0 || a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) || (a === 169 && b === 254)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
