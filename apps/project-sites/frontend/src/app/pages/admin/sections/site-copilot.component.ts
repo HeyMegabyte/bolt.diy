@@ -19,7 +19,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
-import { RouterModule } from '@angular/router';
+import { RouterModule, ActivatedRoute } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { FlagGateNoticeComponent } from '../../../components/states/flag-gate-notice.component';
@@ -206,6 +206,7 @@ const INTENT_ICONS: Record<string, string> = {
   `,
 })
 export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
+  /** Settable via @Input for embedding; otherwise resolved from the :id route param in ngOnInit. */
   @Input() siteId = '';
   @Input() siteSlug = signal('');
 
@@ -213,6 +214,7 @@ export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
   // bearer — raw http sent no Authorization → 401 when the copilot flag is on.
   // See [[admin-raw-httpclient-auth-gap]].
   private api = inject(ApiService);
+  private readonly route = inject(ActivatedRoute);
   private toast = inject(ToastService);
   private destroy$ = new Subject<void>();
 
@@ -235,7 +237,18 @@ export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    if (!this.siteId) return;
+    // The route is sites/:id/copilot and withComponentInputBinding is NOT enabled,
+    // so the @Input never populates from the param — fall back to the route param
+    // (mirrors site-branches / site-dna). Without this, siteId stays '' and the
+    // sessions table is stuck in a perpetual loading skeleton.
+    if (!this.siteId) {
+      this.siteId = this.route.parent?.snapshot.params['id'] ?? this.route.snapshot.params['id'] ?? '';
+    }
+    if (!this.siteId) {
+      // Genuinely no site → don't sit on a skeleton; resolve to the empty state.
+      this.loading.set(false);
+      return;
+    }
     this.loadConfig();
     this.loadSessions();
   }

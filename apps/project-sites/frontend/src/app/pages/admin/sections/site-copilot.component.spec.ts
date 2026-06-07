@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, ActivatedRoute } from '@angular/router';
 import { of, throwError, NEVER } from 'rxjs';
 import { ApiService } from '../../../services/api.service';
 import { AdminSiteCopilotComponent } from './site-copilot.component';
@@ -18,6 +18,7 @@ function make(get: jasmine.Spy): AdminSiteCopilotComponent {
     providers: [
       { provide: ApiService, useValue: { get, put: () => of({ ok: true }) } },
       { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+      { provide: ActivatedRoute, useValue: { snapshot: { params: {} }, parent: { snapshot: { params: {} } } } },
     ],
   });
   TestBed.overrideComponent(AdminSiteCopilotComponent, { set: { template: '<div></div>', imports: [] } });
@@ -28,6 +29,27 @@ function make(get: jasmine.Spy): AdminSiteCopilotComponent {
 
 describe('AdminSiteCopilotComponent (sessions load-error gating)', () => {
   afterEach(() => TestBed.resetTestingModule());
+
+  it('resolves siteId from the :id route param when not bound via @Input → ngOnInit loads (no perpetual skeleton)', () => {
+    // The route is sites/:id/copilot but the component had @Input() siteId with
+    // NO route-param fallback + no withComponentInputBinding → siteId stayed ''
+    // → ngOnInit early-returned → loading() stuck true forever (stuck skeleton).
+    const get = jasmine.createSpy('get').and.returnValue(of({ sessions: [], distribution: [] }));
+    TestBed.configureTestingModule({
+      imports: [AdminSiteCopilotComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, put: () => of({ ok: true }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ActivatedRoute, useValue: { snapshot: { params: { id: 's-route' } }, parent: { snapshot: { params: {} } } } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSiteCopilotComponent, { set: { template: '<div></div>', imports: [] } });
+    const fx = TestBed.createComponent(AdminSiteCopilotComponent);
+    fx.detectChanges(); // fires ngOnInit
+    expect(fx.componentInstance.siteId).withContext('siteId resolved from the route param').toBe('s-route');
+    expect(get).withContext('sessions actually fetched (loadSessions ran)').toHaveBeenCalled();
+    expect(fx.componentInstance.loading()).withContext('load resolved — not a perpetual skeleton').toBe(false);
+  });
 
   it('success populates sessions and clears loadError', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(of({ sessions: [{ id: 'a' }], distribution: [] })));
@@ -113,6 +135,7 @@ function makeToggle(put: jasmine.Spy): AdminSiteCopilotComponent {
     providers: [
       { provide: ApiService, useValue: { get: () => of({ sessions: [], distribution: [] }), put } },
       { provide: ToastService, useValue: { error: toggleToastErr, success: () => 0 } },
+      { provide: ActivatedRoute, useValue: { snapshot: { params: {} }, parent: { snapshot: { params: {} } } } },
     ],
   });
   TestBed.overrideComponent(AdminSiteCopilotComponent, { set: { template: '<div></div>', imports: [] } });
@@ -173,6 +196,7 @@ describe('AdminSiteCopilotComponent — flag-gate link cohesion (real template)'
         { provide: ApiService, useValue: { get: () => of({ sessions: [], distribution: [] }), put: () => of({ ok: true }) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
         provideRouter([]),
+        { provide: ActivatedRoute, useValue: { snapshot: { params: {} }, parent: { snapshot: { params: {} } } } },
       ],
     });
     const fx = TestBed.createComponent(AdminSiteCopilotComponent);
@@ -198,6 +222,10 @@ describe('AdminSiteCopilotComponent — flag-gate link cohesion (real template)'
         { provide: ApiService, useValue: { get: () => NEVER, put: () => of({ ok: true }) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
         provideRouter([]),
+        // A real :id so siteId resolves + loadSessions actually runs (NEVER keeps
+        // it genuinely in-flight — this is the REAL loading state, not the old
+        // stuck-skeleton-from-empty-siteId bug).
+        { provide: ActivatedRoute, useValue: { snapshot: { params: { id: 's1' } }, parent: { snapshot: { params: {} } } } },
       ],
     });
     const fx = TestBed.createComponent(AdminSiteCopilotComponent);
@@ -216,6 +244,7 @@ describe('AdminSiteCopilotComponent — flag-gate link cohesion (real template)'
         { provide: ApiService, useValue: { get: () => of({ sessions: [], distribution: [] }), put: () => of({ ok: true }) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
         provideRouter([]),
+        { provide: ActivatedRoute, useValue: { snapshot: { params: {} }, parent: { snapshot: { params: {} } } } },
       ],
     });
     const fx = TestBed.createComponent(AdminSiteCopilotComponent);
@@ -241,6 +270,7 @@ describe('AdminSiteCopilotComponent — flag-gate link cohesion (real template)'
         { provide: ApiService, useValue: { get: () => of({ sessions: [], distribution: [] }), put: () => of({ ok: true }) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
         provideRouter([]),
+        { provide: ActivatedRoute, useValue: { snapshot: { params: {} }, parent: { snapshot: { params: {} } } } },
       ],
     });
     const fx = TestBed.createComponent(AdminSiteCopilotComponent);
@@ -263,6 +293,7 @@ describe('AdminSiteCopilotComponent — flag-gate link cohesion (real template)'
         { provide: ApiService, useValue: { get: () => of({ sessions: [], distribution: [] }), put: () => of({ ok: true }) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
         provideRouter([]),
+        { provide: ActivatedRoute, useValue: { snapshot: { params: {} }, parent: { snapshot: { params: {} } } } },
       ],
     });
     const fx = TestBed.createComponent(AdminSiteCopilotComponent);
