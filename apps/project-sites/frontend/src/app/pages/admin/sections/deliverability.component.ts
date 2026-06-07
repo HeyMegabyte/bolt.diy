@@ -16,6 +16,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
@@ -39,7 +40,7 @@ interface DeliverabilityResponse {
 @Component({
   selector: 'app-admin-deliverability',
   standalone: true,
-  imports: [CommonModule, FormsModule, RollingCounterComponent, RevealDirective, HlmButtonDirective, HlmInputDirective],
+  imports: [CommonModule, FormsModule, RouterLink, RollingCounterComponent, RevealDirective, HlmButtonDirective, HlmInputDirective],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -84,7 +85,7 @@ interface DeliverabilityResponse {
               hlmBtn
               data-testid="deliverability-check-btn"
               class="min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-dark"
-              [disabled]="loading() || domainInvalid()"
+              [disabled]="loading() || domainInvalid() || flagDisabled()"
               [attr.aria-busy]="loading()"
               (click)="check()"
             >
@@ -95,7 +96,13 @@ interface DeliverabilityResponse {
         </div>
       }
 
-      @if (error()) {
+      @if (flagDisabled()) {
+        <!-- Flag OFF (404) → calm cohesive cyan notice (NOT alarming red), inline Feature-Flags link. -->
+        <div data-testid="deliverability-flag-gate" role="status" class="mt-5 rounded-xl border border-[#00E5FF]/15 bg-[#00E5FF]/[0.04] p-4 text-sm text-text-secondary">
+          The deliverability wizard is behind the <code class="text-[#00E5FF]">email_deliverability_wizard</code> feature flag (currently disabled). Enable it in
+          <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
+        </div>
+      } @else if (error()) {
         <div data-testid="deliverability-error" role="alert" class="mt-5 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-sm text-red-300">
           {{ error() }}
         </div>
@@ -176,6 +183,8 @@ export class AdminDeliverabilityComponent {
 
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
+  /** Flag OFF (check 404 = email_deliverability_wizard disabled) → calm cyan Feature-Flags notice, NOT a red error. */
+  readonly flagDisabled = signal(false);
   readonly report = signal<DeliverabilityReport | null>(null);
 
   /** The domain override is OPTIONAL (empty → the site's own domain). When the
@@ -205,6 +214,7 @@ export class AdminDeliverabilityComponent {
     }
     this.loading.set(true);
     this.error.set(null);
+    this.flagDisabled.set(false);
 
     const domain = this.domainModel().trim();
     const params = domain ? { domain } : undefined;
@@ -215,17 +225,19 @@ export class AdminDeliverabilityComponent {
         this.loading.set(false);
       },
       error: (err: { status?: number; error?: { error?: { message?: string } } }) => {
-        // Distinguish a genuine feature-gate (404 → "not available", don't leak)
-        // from a transient failure (500/network → honest "try again"). Re-running
-        // is one click on the Check button, so no separate Retry control is needed.
-        const serverMsg = err?.error?.error?.message;
-        const msg = err?.status === 404
-          ? 'Deliverability check is not available for this site.'
-          : (serverMsg ?? 'Deliverability check failed — please try again.');
-        // Inline error banner (in the result panel where the user just clicked
-        // "Check") is the UX — no transient toast on top, and the read is {silent}
-        // so the generic ApiService toast doesn't fire either (was triple feedback).
-        this.error.set(msg);
+        // 404 = email_deliverability_wizard flag OFF (permanent → calm cyan
+        // Feature-Flags notice, NOT alarming red; a worker SPA-fallthrough 200+HTML
+        // is remapped to 404 by ApiService so it lands here as the calm gate too).
+        // Anything else = transient (→ honest red "try again"; re-running is one
+        // click on the Check button, so no separate Retry control is needed).
+        if (err?.status === 404) {
+          this.flagDisabled.set(true);
+        } else {
+          // Inline error banner (in the result panel where the user just clicked
+          // "Check") is the UX — no transient toast on top, and the read is {silent}
+          // so the generic ApiService toast doesn't fire either (was triple feedback).
+          this.error.set(err?.error?.error?.message ?? 'Deliverability check failed — please try again.');
+        }
         this.loading.set(false);
       },
     });

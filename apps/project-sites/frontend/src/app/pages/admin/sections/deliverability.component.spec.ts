@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AdminDeliverabilityComponent } from './deliverability.component';
 import { ApiService } from '../../../services/api.service';
@@ -34,6 +35,7 @@ describe('AdminDeliverabilityComponent', () => {
     TestBed.configureTestingModule({
       imports: [AdminDeliverabilityComponent],
       providers: [
+        provideRouter([]),
         { provide: ApiService, useValue: { get } },
         { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
         { provide: AdminStateService, useValue: { selectedSite } },
@@ -82,11 +84,19 @@ describe('AdminDeliverabilityComponent', () => {
     expect(q('[data-testid="deliverability-error"]')).not.toBeNull();
   });
 
-  it('a 404 shows the "not available for this site" feature-gate message', () => {
+  it('a 404 (flag OFF) shows the calm cyan Feature-Flags gate, NOT a red error', () => {
     build({ id: 'site1', name: 'Acme', slug: 'acme' });
     get.and.returnValue(throwError(() => ({ status: 404 })));
     fixture.componentInstance.check();
-    expect(fixture.componentInstance.error()).toContain('not available for this site');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.flagDisabled()).withContext('404 → flag-disabled').toBeTrue();
+    expect(fixture.componentInstance.error()).withContext('gate is not a red error').toBeNull();
+    const gate = q('[data-testid="deliverability-flag-gate"]');
+    expect(gate).withContext('calm cyan gate renders').not.toBeNull();
+    expect(q('[data-testid="deliverability-error"]')).withContext('no red error card on a permanent gate').toBeNull();
+    expect((gate?.querySelector('a') as HTMLAnchorElement | null)?.getAttribute('href')).toBe('/admin/feature-flags');
+    // The Check button locks once gated (re-checking can't help until the flag is on).
+    expect((q('[data-testid="deliverability-check-btn"]') as HTMLButtonElement).disabled).toBeTrue();
   });
 
   it('a transient failure (no server message) says "try again" — NOT a permanent "not available"', () => {
