@@ -349,12 +349,12 @@ interface NotificationGroup {
               Devices currently signed in to your account. Revoke anything you don't recognize.
             </p>
           </div>
-          @if (sessions().length > 1) {
+          @if (otherSessionsCount() > 0) {
             <button class="btn-ghost"
                     type="button"
                     (click)="revokeAllOtherSessions()"
-                    aria-label="Revoke all other sessions"
-                    title="Sign out every session except this one">Revoke all other sessions</button>
+                    [attr.aria-label]="'Revoke ' + otherSessionsCount() + ' other session' + (otherSessionsCount() === 1 ? '' : 's')"
+                    title="Sign out every session except this one">Revoke {{ otherSessionsCount() }} other session{{ otherSessionsCount() === 1 ? '' : 's' }}</button>
           }
         </div>
 
@@ -387,7 +387,8 @@ interface NotificationGroup {
                     <span class="font-medium text-white text-[0.82rem] truncate" [attr.title]="s.device || s.browser || 'Unknown device'">{{ s.device || s.browser || 'Unknown device' }}</span>
                     @if (s.current) { <span class="status-pill is-active">This device</span> }
                   </div>
-                  <div class="text-[0.7rem] text-text-secondary mt-0.5 truncate">
+                  <div class="text-[0.7rem] text-text-secondary mt-0.5 truncate"
+                       [attr.title]="(s.os || '—') + ' · ' + (s.location || s.ip || 'Unknown location')">
                     {{ s.os || '—' }} · {{ s.location || s.ip || 'Unknown location' }}
                   </div>
                   <div class="text-[0.66rem] text-text-secondary/70 mt-0.5">
@@ -1179,6 +1180,9 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
   // ── Sessions ──
   sessions = signal<SessionRow[]>([]);
   loadingSessions = signal(false);
+  /** Count of OTHER (non-current) sessions — drives the "Revoke N other
+   *  sessions" affordance + its visibility (hidden when only this device). */
+  otherSessionsCount = computed<number>(() => this.sessions().filter((s) => !s.current).length);
 
   // ── Notification prefs (local-first; forward-syncs to /api/admin/notifications) ──
   private static readonly NOTIFICATION_KEY = 'ps_notification_prefs';

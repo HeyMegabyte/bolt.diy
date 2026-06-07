@@ -305,3 +305,30 @@ describe('AdminUserSettingsComponent (API-key rotate/revoke are modal-confirm-ga
     expect(del).toHaveBeenCalledWith('/admin/api-keys/k1', { silent: true });
   });
 });
+
+/**
+ * Active-sessions security surface: the "Revoke all other sessions" affordance
+ * must reflect the real count of OTHER (non-current) sessions — gating on it
+ * (not a raw length > 1) so the button can't show when the only "other" rows
+ * are stale duplicates of the current device, and the label tells the operator
+ * exactly how many sign-outs the click triggers.
+ */
+describe('AdminUserSettingsComponent (active sessions — other-session count)', () => {
+  afterEach(() => { try { localStorage.clear(); } catch { /* */ } TestBed.resetTestingModule(); });
+
+  it('otherSessionsCount() counts only non-current sessions', () => {
+    const { c } = make();
+    c.sessions.set([
+      { id: 'a', current: true },
+      { id: 'b', current: false },
+      { id: 'c' }, // undefined current === not current
+    ]);
+    expect(c.otherSessionsCount()).toBe(2);
+  });
+
+  it('otherSessionsCount() is 0 when only the current device is signed in (button hidden)', () => {
+    const { c } = make();
+    c.sessions.set([{ id: 'a', current: true }]);
+    expect(c.otherSessionsCount()).toBe(0);
+  });
+});
