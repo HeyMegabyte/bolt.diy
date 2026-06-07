@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { VoiceNumbersComponent } from './numbers.component';
 import { ApiService } from '../../../../services/api.service';
 import { ToastService } from '../../../../services/toast.service';
@@ -67,6 +67,43 @@ describe('VoiceNumbersComponent (purchase + release confirmation)', () => {
     const no = make(false);
     await no.c.release({ id: 'n1', phone_number: '+18558522267' } as never);
     expect(no.api.delete).not.toHaveBeenCalled();
+  });
+
+  // Buy CHARGES MONEY + Release is DESTRUCTIVE — both must be double-submit-safe.
+  it('confirmBuy does NOT double-POST while a purchase is in flight (no double charge)', async () => {
+    const { c, api } = make(true);
+    api.post.and.returnValue(new Subject()); // stays pending → buy guard stays held
+    const cand = { phone_number: '+18558522267', monthly_cost_usd: 1.15 } as never;
+    await c.confirmBuy(cand);
+    await c.confirmBuy(cand);
+    expect(api.post).withContext('a second buy while the first is in flight must not fire').toHaveBeenCalledTimes(1);
+  });
+
+  it('confirmBuy clears the buy guard on error so a retry can fire (no stuck guard)', async () => {
+    const { c, api } = make(true);
+    api.post.and.returnValues(throwError(() => ({ status: 500 })), of({ data: {} }));
+    const cand = { phone_number: '+18558522267', monthly_cost_usd: 1.15 } as never;
+    await c.confirmBuy(cand);
+    await c.confirmBuy(cand);
+    expect(api.post).withContext('a failed buy must not block the retry').toHaveBeenCalledTimes(2);
+  });
+
+  it('release does NOT double-DELETE the same number while in flight', async () => {
+    const { c, api } = make(true);
+    api.delete.and.returnValue(new Subject());
+    const n = { id: 'n1', phone_number: '+18558522267' } as never;
+    await c.release(n);
+    await c.release(n);
+    expect(api.delete).withContext('a second release of the same number must not fire').toHaveBeenCalledTimes(1);
+  });
+
+  it('release clears the guard on error so a retry can fire', async () => {
+    const { c, api } = make(true);
+    api.delete.and.returnValues(throwError(() => ({ status: 500 })), of(undefined));
+    const n = { id: 'n1', phone_number: '+18558522267' } as never;
+    await c.release(n);
+    await c.release(n);
+    expect(api.delete).toHaveBeenCalledTimes(2);
   });
 
   it('loadNumbers failure sets loadError (not a fake empty + $0.00 spend)', () => {

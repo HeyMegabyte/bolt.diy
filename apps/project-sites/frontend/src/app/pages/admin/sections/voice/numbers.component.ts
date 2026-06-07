@@ -136,8 +136,10 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
                         [attr.aria-label]="'Copy ' + n.phone_number">Copy</button>
                 <button class="btn-danger-ghost"
                         type="button"
+                        [disabled]="isReleasing(n.id)"
+                        [attr.aria-busy]="isReleasing(n.id)"
                         (click)="release(n)"
-                        [attr.aria-label]="'Release ' + n.phone_number">Release</button>
+                        [attr.aria-label]="'Release ' + n.phone_number">{{ isReleasing(n.id) ? 'Releasing…' : 'Release' }}</button>
               </li>
             }
           </ul>
@@ -207,9 +209,10 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
                 </div>
                 <button class="btn-primary"
                         type="button"
-                        [disabled]="capped()"
+                        [disabled]="capped() || buyingNumber() !== null"
+                        [attr.aria-busy]="buyingNumber() === c.phone_number"
                         (click)="confirmBuy(c)"
-                        [attr.aria-label]="'Buy ' + c.phone_number">Buy</button>
+                        [attr.aria-label]="'Buy ' + c.phone_number">{{ buyingNumber() === c.phone_number ? 'Buying…' : 'Buy' }}</button>
               </li>
             }
           </ul>
@@ -375,6 +378,11 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
   suggestions = signal<VanitySuggestion[]>([]);
   suggestionsLoading = signal(false);
   cappedNotice = signal(false);
+  /** Phone number currently being purchased — double-submit guard (Buy charges money). Held from confirm → POST resolve/error. */
+  buyingNumber = signal<string | null>(null);
+  /** Number ids currently being released — per-row double-submit guard (Release is destructive). */
+  releasingIds = signal<ReadonlySet<string>>(new Set());
+  isReleasing(id: string): boolean { return this.releasingIds().has(id); }
 
   capped = computed(() => this.numbers().length >= MAX_NUMBERS);
   monthlySpend = computed(() =>
@@ -464,6 +472,11 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
       this.cappedNotice.set(true);
       return;
     }
+    // Double-submit guard: Buy charges money. Claim the in-flight slot BEFORE the
+    // confirm dialog opens so a second click can't open a 2nd dialog or fire a 2nd
+    // purchase; cleared on cancel + on POST resolve/error so a retry always works.
+    if (this.buyingNumber()) return;
+    this.buyingNumber.set(c.phone_number);
     // Provisioning a number starts a recurring monthly charge — verify via the
     // branded cyan confirm modal (not a native window.confirm).
     const ok = await this.confirmSvc.confirm({
@@ -472,7 +485,7 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
       confirmLabel: 'Buy number',
       danger: true,
     });
-    if (!ok) return;
+    if (!ok) { this.buyingNumber.set(null); return; }
     // Worker route is POST /api/voice/numbers/purchase with a camelCase body
     // ({ siteId, phoneNumber }) per purchaseBody in routes/voice.ts. The old
     // call hit bare /voice/numbers (no such route → SPA HTML) with snake_case
@@ -482,28 +495,35 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
       phoneNumber: c.phone_number,
     }, { silent: true }).subscribe({
       next: () => {
+        this.buyingNumber.set(null);
         this.toast.success(`${this.format(c.phone_number)} added`);
         this.searchResults.set([]);
         this.query = '';
         this.loadNumbers();
       },
       // {silent}: the specific message below is the sole failure surface (no generic double-toast).
-      error: () => this.toast.error('Purchase failed — check Twilio funds + permissions'),
+      error: () => { this.buyingNumber.set(null); this.toast.error('Purchase failed — check Twilio funds + permissions'); },
     });
   }
 
   async release(n: PurchasedNumber): Promise<void> {
+    // Double-submit guard: Release is destructive (gives up a live number). Claim
+    // the row BEFORE the confirm so a second click can't fire a 2nd DELETE; cleared
+    // on cancel + on DELETE resolve/error so a failed release stays retryable.
+    if (this.isReleasing(n.id)) return;
+    this.releasingIds.update((s) => new Set(s).add(n.id));
+    const done = () => this.releasingIds.update((s) => { const next = new Set(s); next.delete(n.id); return next; });
     const ok = await this.confirmSvc.confirm({
       title: 'Release number',
       message: `Release ${this.format(n.phone_number)}? Inbound calls + texts stop immediately and the number is given up — you may not be able to get it back.`,
       confirmLabel: 'Release',
       danger: true,
     });
-    if (!ok) return;
+    if (!ok) { done(); return; }
     this.api.delete<void>(`/voice/numbers/${n.id}`, { silent: true }).subscribe({
-      next: () => { this.toast.success('Number released'); this.loadNumbers(); },
+      next: () => { done(); this.toast.success('Number released'); this.loadNumbers(); },
       // {silent}: the specific message below is the sole failure surface (no generic double-toast).
-      error: () => this.toast.error('Failed to release number'),
+      error: () => { done(); this.toast.error('Failed to release number'); },
     });
   }
 
