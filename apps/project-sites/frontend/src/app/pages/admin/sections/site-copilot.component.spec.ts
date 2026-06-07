@@ -37,6 +37,39 @@ describe('AdminSiteCopilotComponent (sessions load-error gating)', () => {
     expect(c.loading()).toBe(false);
   });
 
+  // STALE-ROUTE FAKE-EMPTY GUARD: a stale worker route can return a parseable-but-
+  // shapeless 200 (SPA/marketing HTML object or `{}`) that ApiService's 2xx→404
+  // remap does NOT catch (it only fires on an UNPARSEABLE body). Without an
+  // Array.isArray guard, `r.sessions` is undefined → totalSessions() crashes on
+  // `.length`, OR a non-array `r.distribution` crashes the @for. Must degrade to
+  // the existing error card, never fake-empty/crash. Mirrors webhooks/inbox.
+  it('a shapeless 200 ({}) degrades to loadError (not a fake-empty / crash)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({})));
+    expect(() => c.loadSessions()).not.toThrow();
+    expect(c.loadError()).withContext('shapeless 200 is a retryable error, not "no sessions"').not.toBeNull();
+    expect(c.sessions().length).withContext('never leave a non-array in the signal').toBe(0);
+    expect(c.distribution().length).toBe(0);
+    expect(c.loading()).toBe(false);
+  });
+
+  it('a 200 with a non-array sessions/distribution is treated as an error, never iterated', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(
+      of({ sessions: 'not-an-array', distribution: 'nope' } as unknown),
+    ));
+    expect(() => c.loadSessions()).not.toThrow();
+    expect(c.loadError()).not.toBeNull();
+    expect(c.sessions().length).toBe(0);
+    expect(c.distribution().length).toBe(0);
+  });
+
+  it('keeps a well-shaped sessions array but coerces a missing distribution to []', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ sessions: [{ id: 'a' }] })));
+    c.loadSessions();
+    expect(c.loadError()).toBeNull();
+    expect(c.sessions().length).toBe(1);
+    expect(c.distribution().length).withContext('absent distribution coerces to [] — no @for crash').toBe(0);
+  });
+
   it('a 404 marks the feature flag-disabled WITHOUT a loadError (honest state, not a masquerade)', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 404 }))));
     c.loadSessions();
@@ -192,6 +225,34 @@ describe('AdminSiteCopilotComponent — flag-gate link cohesion (real template)'
     expect(region.getAttribute('role')).toBe('region');
     expect(region.getAttribute('tabindex')).withContext('keyboard-scrollable').toBe('0');
     expect(region.querySelector('table')).withContext('table inside the scroll region').toBeTruthy();
+  });
+
+  // TRUNCATE-WITHOUT-TITLE: the embed snippet <code> ellipsis-clips long slugs
+  // (white-space:nowrap; text-overflow:ellipsis). Without [attr.title] the full
+  // script URL is unreadable on hover → add the full snippet as the title so a
+  // truncated value is always recoverable. Also the Copy button needs an
+  // accessible name (it toggles "Copy"/"✓ Copied" text — fine — plus aria-label
+  // so the action intent is stable for SR users regardless of the copied state).
+  it('the truncated embed snippet exposes the full URL via title + the copy button has an accessible name', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminSiteCopilotComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ sessions: [], distribution: [] }), put: () => of({ ok: true }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSiteCopilotComponent);
+    fx.componentInstance.flagEnabled.set(true);
+    fx.componentInstance.loading.set(false);
+    fx.componentInstance.siteSlug.set('vitos-mens-salon');
+    fx.detectChanges();
+    const el = fx.nativeElement as HTMLElement;
+    const code = el.querySelector('#copilot-embed-snippet') as HTMLElement;
+    expect(code).withContext('embed snippet rendered').toBeTruthy();
+    expect(code.getAttribute('title')).withContext('full snippet recoverable on hover').toContain('vitos-mens-salon');
+    const copyBtn = el.querySelector('.copilot-copy-btn') as HTMLButtonElement;
+    expect((copyBtn.getAttribute('aria-label') ?? '').toLowerCase()).toContain('copy');
   });
 
   it('shows the session-count stats once the load resolves', () => {

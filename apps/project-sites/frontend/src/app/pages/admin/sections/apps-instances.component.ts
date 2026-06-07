@@ -403,24 +403,61 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
     if (this.pollHandle) clearInterval(this.pollHandle);
   }
 
+  /** First/manual load — a failure (or stale shapeless 200) shows the retry card. */
   load(): void {
-    this.loading.set(true);
-    this.loadError.set(null);
+    this.fetch(false);
+  }
+
+  /** Poll-tick refresh — a stale tick keeps the prior list + toasts, never wipes. */
+  refresh(): void {
+    this.fetch(true);
+  }
+
+  /**
+   * Fetch the instances list. `poll=true` (a 15s tick while apps provision)
+   * preserves the prior healthy list on a stale/failed response — flipping a
+   * live list to an error card mid-poll would be jarring + lose context.
+   * `poll=false` (first/manual) degrades honestly to the inline retry card.
+   *
+   * Stale-route guard: a stale worker route can return a parseable-but-shapeless
+   * 200 (marketing HTML / `{}`) that bypasses ApiService's 2xx→404 remap; without
+   * the `Array.isArray` check `r.instances ?? []` would fake-empty the list.
+   */
+  private fetch(poll: boolean): void {
+    if (!poll) {
+      this.loading.set(true);
+      this.loadError.set(null);
+    }
     // {silent}: the inline <app-error-card> + Retry is the accurate, persistent
     // failure UX. Without {silent} ApiService's generic "Can't reach the server"
     // toast double-fires on top of that card.
     this.api.get<{ instances: Record<string, unknown>[] }>('/apps/instances', undefined, { silent: true }).subscribe({
       next: (r) => {
-        this.instances.set((r.instances ?? []).map(adaptInstance));
+        if (!r || !Array.isArray(r.instances)) {
+          // Shapeless 200 — treat as a failure, never fake-empty.
+          if (poll) {
+            this.toast.error('Couldn’t refresh your apps — showing the last known list.');
+          } else {
+            this.loadError.set('Your running apps are safe — nothing was lost.');
+            this.loading.set(false);
+          }
+          console.warn('[apps] instances response had no array — kept prior list');
+          return;
+        }
+        this.instances.set(r.instances.map(adaptInstance));
         this.loadError.set(null);
         this.syncedAt.set(Date.now());
         this.loading.set(false);
         this.maybeStartPolling();
       },
       error: () => {
-        // Record the failure so the list shows a Retry card, not a fake empty.
-        this.loadError.set('Your running apps are safe — nothing was lost.');
-        this.loading.set(false);
+        if (poll) {
+          this.toast.error('Couldn’t refresh your apps — showing the last known list.');
+        } else {
+          // Record the failure so the list shows a Retry card, not a fake empty.
+          this.loadError.set('Your running apps are safe — nothing was lost.');
+          this.loading.set(false);
+        }
         console.warn('[apps] load instances failed');
       },
     });
@@ -429,7 +466,7 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
   private maybeStartPolling(): void {
     const provisioning = this.instances().some((i) => i.status === 'provisioning');
     if (provisioning && !this.pollHandle) {
-      this.pollHandle = setInterval(() => this.load(), 15_000);
+      this.pollHandle = setInterval(() => this.refresh(), 15_000);
     } else if (!provisioning && this.pollHandle) {
       clearInterval(this.pollHandle);
       this.pollHandle = undefined;
@@ -564,15 +601,15 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
 
         <div class="grid-2col">
           <!-- ─── LOGS ─── -->
-          <section class="card" appReveal>
+          <section class="card" appReveal [attr.aria-busy]="logsLoading()">
             <header class="flex items-center justify-between mb-3 gap-2 flex-wrap">
               <h3 class="card-h m-0">Logs</h3>
               <div class="flex items-center gap-2">
                 <span class="text-[0.62rem] text-text-secondary font-mono" aria-live="polite">
                   {{ logs().length }} lines · {{ pollingLabel() }}
                 </span>
-                <button class="btn-tiny" type="button" (click)="refreshLogs()" [disabled]="logsLoading()" aria-label="Refresh logs">
-                  Refresh
+                <button class="btn-tiny" type="button" (click)="refreshLogs()" [disabled]="logsLoading()" [attr.aria-label]="logsLoading() ? 'Refreshing logs' : 'Refresh logs'">
+                  {{ logsLoading() ? 'Refreshing…' : 'Refresh' }}
                 </button>
               </div>
             </header>
@@ -927,7 +964,15 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
     this.logsLoading.set(true);
     this.api.get<{ lines: LogLine[] }>(`/apps/instances/${id}/logs`).subscribe({
       next: (r) => {
-        this.logs.set(r.lines ?? []);
+        // Stale-route guard: a shapeless 200 (marketing HTML / `{}`) can bypass
+        // ApiService's 2xx→404 remap. A non-array `lines` would either fake-empty
+        // the log box or crash the `@for (l of logs())` render — so on a stale
+        // tick keep the prior buffer (logs poll every 5s) and never set a non-array.
+        if (r && Array.isArray(r.lines)) {
+          this.logs.set(r.lines);
+        } else {
+          console.warn('[apps] logs response had no array — kept prior buffer');
+        }
         this.logsLoading.set(false);
         requestAnimationFrame(() => {
           if (this.logsBox?.nativeElement) {

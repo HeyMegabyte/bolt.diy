@@ -484,6 +484,105 @@ describe('AdminSiteDetailComponent (paste-key save — no silent failure)', () =
 });
 
 /**
+ * Stale-route fake-empty guard — a STALE worker route can return a parseable
+ * but shapeless 200 (SPA/marketing HTML, or `{}`). ApiService's 2xx→404 remap
+ * only fires on an UNPARSEABLE body, so a shapeless 200 reaches the SUCCESS path.
+ * The list-set handlers must guard `Array.isArray(...)` so a shapeless 200
+ * degrades honestly (visible error / keep the fallback catalog) instead of
+ * fake-emptying the list or crashing the @for on a non-array.
+ */
+describe('AdminSiteDetailComponent (stale-route shapeless 200 — no fake-empty / no crash)', () => {
+  afterEach(() => { try { localStorage.clear(); } catch { /* */ } TestBed.resetTestingModule(); });
+
+  function buildWithGet(getRes: unknown): AdminSiteDetailComponent {
+    const api = {
+      get: jasmine.createSpy('get').and.returnValue(of(getRes)),
+      post: jasmine.createSpy('post').and.returnValue(of({ ok: true })),
+      delete: () => of({}),
+    };
+    TestBed.configureTestingModule({
+      imports: [AdminSiteDetailComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: api },
+        { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 'site-1' }), queryParamMap: of({ get: () => null }) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSiteDetailComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminSiteDetailComponent).componentInstance;
+  }
+
+  it('loadSnapshots: a shapeless 200 ({} — no snapshots array) sets a visible error and keeps the list a safe empty array (no crash, no fake "no snapshots yet")', () => {
+    const c = buildWithGet({}); // stale route → parseable but no `snapshots`
+    (c as unknown as { loadSnapshots: (id: string) => void }).loadSnapshots('site-1');
+    expect(Array.isArray(c.snapshots())).withContext('list is always an array — @for never iterates a non-array').toBeTrue();
+    expect(c.snapshots().length).toBe(0);
+    expect(c.snapshotsError()).withContext('shapeless 200 surfaces an honest error, not a silent fake-empty').toBeTruthy();
+  });
+
+  it('loadSnapshots: a NON-ARRAY snapshots value (e.g. HTML coerced to a string) never reaches the signal (no @for crash)', () => {
+    const c = buildWithGet({ snapshots: '<html>not an array</html>' });
+    (c as unknown as { loadSnapshots: (id: string) => void }).loadSnapshots('site-1');
+    expect(Array.isArray(c.snapshots())).toBeTrue();
+    expect(c.snapshots().length).toBe(0);
+    expect(c.snapshotsError()).toBeTruthy();
+  });
+
+  it('loadSnapshots: a real array clears any prior error and populates the list', () => {
+    const c = buildWithGet({ snapshots: [{ id: 's1', snapshot_name: 'v1', kind: 'initial', created_at: 'x' }] });
+    c.snapshotsError.set('stale error');
+    (c as unknown as { loadSnapshots: (id: string) => void }).loadSnapshots('site-1');
+    expect(c.snapshots().length).toBe(1);
+    expect(c.snapshotsError()).withContext('a healthy load clears the prior error').toBeNull();
+  });
+
+  it('loadIntegrations: a NON-ARRAY providers value never reaches the @for — falls back to the default catalog', () => {
+    const c = buildWithGet({ providers: 'not-an-array' }); // truthy `.length` would have slipped a string into the list
+    (c as unknown as { loadIntegrations: (id: string) => void }).loadIntegrations('site-1');
+    expect(Array.isArray(c.integrations())).toBeTrue();
+    expect(c.integrations().length).withContext('falls back to the default provider catalog, not a coerced string').toBeGreaterThan(0);
+    expect(c.integrations().every((p) => typeof p.key === 'string')).toBeTrue();
+  });
+});
+
+/**
+ * Rollback double-submit guard — onRollbackClick is async (awaits the confirm
+ * dialog). The most destructive admin action must not let a rapid double-click
+ * open TWO confirm dialogs (and risk firing two overwrites).
+ */
+describe('AdminSiteDetailComponent (rollback double-submit guard)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('a second Rollback click while the confirm is still pending opens only ONE dialog', async () => {
+    let resolveConfirm!: (v: boolean) => void;
+    const confirm = jasmine.createSpy('confirm').and.callFake(
+      () => new Promise<boolean>((res) => { resolveConfirm = res; }),
+    );
+    const post = jasmine.createSpy('post').and.returnValue(of({ ok: true, snapshot_name: 'v3' }));
+    TestBed.configureTestingModule({
+      imports: [AdminSiteDetailComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ site: { id: 's1', slug: 's', name: 'S' } }), post, delete: () => of({}) } },
+        { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 's1' }), queryParamMap: of({ get: () => null }) } },
+        { provide: ConfirmService, useValue: { confirm } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSiteDetailComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(AdminSiteDetailComponent).componentInstance;
+    const SNAP = { id: 'snap-9', snapshot_name: 'launch-v3' } as never;
+
+    const p1 = c.onRollbackClick(SNAP);
+    c.onRollbackClick(SNAP); // second click while the first confirm is still open
+    expect(confirm).withContext('only one confirm dialog despite two rapid clicks').toHaveBeenCalledTimes(1);
+    resolveConfirm(true);
+    await p1;
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
  * Deep-linkable tabs — a `?tab=sql` URL opens that tab (bookmarkable/shareable),
  * and clicking a tab reflects it in the URL (replaceUrl, merge — SPA, no reload).
  */

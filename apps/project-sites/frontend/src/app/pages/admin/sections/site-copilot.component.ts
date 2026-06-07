@@ -78,10 +78,12 @@ const INTENT_ICONS: Record<string, string> = {
         @if (siteSlug()) {
           <div class="copilot-embed-card" appReveal>
             <span class="copilot-embed-label">Embed on your site</span>
-            <code class="copilot-embed-code" id="copilot-embed-snippet">
+            <code class="copilot-embed-code" id="copilot-embed-snippet"
+                  [attr.title]="'<script src=&quot;https://projectsites.dev/sites/' + siteSlug() + '/copilot.js&quot;></script>'">
               &lt;script src="https://projectsites.dev/sites/{{ siteSlug() }}/copilot.js"&gt;&lt;/script&gt;
             </code>
-            <button class="copilot-copy-btn" (click)="copySnippet()">{{ copied() ? '✓ Copied' : 'Copy' }}</button>
+            <button class="copilot-copy-btn" (click)="copySnippet()"
+                    [attr.aria-label]="copied() ? 'Embed snippet copied to clipboard' : 'Copy embed snippet to clipboard'">{{ copied() ? '✓ Copied' : 'Copy' }}</button>
           </div>
         }
 
@@ -262,8 +264,21 @@ export class AdminSiteCopilotComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (r) => {
+          // Shape guard: a STALE worker route can return a parseable-but-shapeless
+          // 200 (SPA/marketing HTML object or `{}`) that ApiService's 2xx→404 remap
+          // does NOT catch (it only fires on an UNPARSEABLE body). Without this,
+          // `r.sessions` is undefined → totalSessions() crashes on `.length`, or a
+          // non-array distribution crashes the @for. Degrade to the existing error
+          // card — never a fake "No sessions yet" / crash. Mirrors webhooks/inbox.
+          if (!r || !Array.isArray(r.sessions)) {
+            this.loadError.set('Could not load copilot sessions — retry.');
+            this.sessions.set([]);
+            this.distribution.set([]);
+            this.loading.set(false);
+            return;
+          }
           this.sessions.set(r.sessions);
-          this.distribution.set(r.distribution);
+          this.distribution.set(Array.isArray(r.distribution) ? r.distribution : []);
           this.flagEnabled.set(true);
           this.loadError.set(null);
           this.loading.set(false);

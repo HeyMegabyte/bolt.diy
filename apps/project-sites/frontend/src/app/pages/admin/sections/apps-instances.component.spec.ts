@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { NEVER, of, throwError } from 'rxjs';
 import { Router, provideRouter } from '@angular/router';
 import { AppInstancesComponent } from './apps-instances.component';
 import { ApiService } from '../../../services/api.service';
@@ -147,6 +147,46 @@ describe('AppInstancesComponent (instance lifecycle)', () => {
     c.load();
     expect(c.loadError()).toBeNull();
   });
+
+  // ── Stale-route fake-empty guard (documented prod bug class) ──
+  // A STALE worker route returns a parseable-but-shapeless 200 (SPA/marketing
+  // HTML or `{}`). ApiService's 2xx→404 remap only fires on an UNPARSEABLE
+  // body, so a shapeless 200 flows straight through the SUCCESS path. Without
+  // an Array.isArray guard, `r.instances ?? []` fake-empties — surfacing the
+  // "No app instances yet" empty state even though the org HAS running apps
+  // (which could prompt re-installing an app they already have). On a FIRST
+  // load it must degrade honestly to the retryable error card.
+  it('load() success with a shapeless 200 (no instances array) does NOT fake-empty — records loadError', () => {
+    const { c, api } = make();
+    api.get.and.returnValue(of({} as never)); // stale-route shapeless 200
+    c.load();
+    expect(c.instances().length).withContext('no fake-empty list from a shapeless 200').toBe(0);
+    expect(c.loadError()).withContext('degrades honestly to the retry card, not a fake empty').not.toBeNull();
+    expect(c.loading()).toBeFalse();
+  });
+
+  it('load() success with a non-array instances field (stale HTML string) does NOT crash + records loadError', () => {
+    const { c, api } = make();
+    api.get.and.returnValue(of({ instances: '<!doctype html>' } as never)); // marketing HTML leaked through
+    c.load();
+    expect(c.instances().length).toBe(0);
+    expect(c.loadError()).not.toBeNull();
+  });
+
+  // On a POLL refresh (already have a list), a stale tick must NOT wipe the
+  // healthy list or flip to a full error card mid-poll — keep the prior data
+  // and surface a single error toast instead.
+  it('a stale poll tick keeps the prior instances list (no mid-poll wipe)', () => {
+    const { c, api, toast } = make();
+    api.get.and.returnValue(of({ instances: [inst('keep')] }));
+    c.load();
+    expect(c.instances().length).toBe(1);
+    api.get.and.returnValue(of({} as never)); // stale tick while polling
+    c.refresh();
+    expect(c.instances().length).withContext('prior healthy list preserved on a stale poll tick').toBe(1);
+    expect(c.loadError()).withContext('no full error card mid-poll').toBeNull();
+    expect(toast.error).toHaveBeenCalled();
+  });
 });
 
 /**
@@ -236,5 +276,101 @@ describe('AppInstanceDetailComponent (destroy is modal-confirm-gated)', () => {
     const { c, del } = makeDetail(() => Promise.resolve(true));
     await c.destroy();
     expect(del).toHaveBeenCalledWith('/apps/instances/i1');
+  });
+});
+
+/**
+ * refreshLogs() stale-route guard. The logs endpoint polls every 5s while the
+ * instance is provisioning/running; a STALE worker route can return a shapeless
+ * 200 (`{}` or marketing HTML). Without an Array.isArray guard `r.lines ?? []`
+ * either fake-empties the log box or — worse — a non-array `lines` reaches the
+ * `@for (l of logs())` template and crashes the render. The guard must preserve
+ * the prior log buffer (it's a poll) and never set a non-array.
+ */
+describe('AppInstanceDetailComponent (refreshLogs stale-route guard)', () => {
+  function makeDetail(logsResp: unknown): { c: AppInstanceDetailComponent; get: jasmine.Spy } {
+    const get = jasmine.createSpy('get').and.returnValue(of(logsResp));
+    TestBed.configureTestingModule({
+      imports: [AppInstanceDetailComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, post: () => of({}), delete: () => of({}), patch: () => of({}) } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'i1' } }, paramMap: of({ get: () => 'i1' }) } },
+        provideRouter([]),
+      ],
+    });
+    const c = TestBed.createComponent(AppInstanceDetailComponent).componentInstance; // no detectChanges → skip ngOnInit
+    c.instanceId.set('i1');
+    return { c, get };
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('a shapeless 200 (no lines array) leaves logs() an array — never sets a crashable non-array', () => {
+    const { c } = makeDetail({}); // stale-route shapeless 200
+    c.refreshLogs();
+    expect(Array.isArray(c.logs())).withContext('logs() stays a safe array for the @for render').toBeTrue();
+    expect(c.logs().length).toBe(0);
+    expect(c.logsLoading()).toBeFalse();
+  });
+
+  it('a non-array lines field (leaked HTML string) does NOT reach logs() (no @for crash)', () => {
+    const { c } = makeDetail({ lines: '<!doctype html>' });
+    c.refreshLogs();
+    expect(Array.isArray(c.logs())).toBeTrue();
+    expect(c.logs().length).toBe(0);
+  });
+
+  it('a stale logs tick preserves the prior log buffer (it is a poll, not a wipe)', () => {
+    const line = { ts: 't', level: 'info', msg: 'boot' };
+    const { c, get } = makeDetail({ lines: [line] });
+    c.refreshLogs();
+    expect(c.logs().length).toBe(1);
+    get.and.returnValue(of({} as never)); // stale tick
+    c.refreshLogs();
+    expect(c.logs().length).withContext('prior logs kept on a stale poll tick').toBe(1);
+  });
+});
+
+/**
+ * a11y: the logs card exposes aria-busy while a refresh is in flight so screen
+ * readers announce the in-progress state (matches the feature-flags aria-busy
+ * pattern), and the Refresh button's accessible name reflects the busy state.
+ */
+describe('AppInstanceDetailComponent (logs refresh aria-busy)', () => {
+  function render(): import('@angular/core/testing').ComponentFixture<AppInstanceDetailComponent> {
+    TestBed.configureTestingModule({
+      imports: [AppInstanceDetailComponent],
+      providers: [
+        // get never completes → logsLoading stays true after refreshLogs()
+        { provide: ApiService, useValue: { get: () => NEVER, post: () => of({}), delete: () => of({}), patch: () => of({}) } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'i1' } }, paramMap: of({ get: () => 'i1' }) } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AppInstanceDetailComponent);
+    fx.componentInstance.instanceId.set('i1');
+    fx.componentInstance.instance.set({ id: 'i1', app_id: 'medusa', status: 'running', hostname: 'x', created_at: '' } as never);
+    return fx;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('logs card is aria-busy + button reads "Refreshing…" while a refresh is in flight', () => {
+    const fx = render();
+    fx.detectChanges(); // ngOnInit
+    // ngOnInit re-reads the (empty) route paramMap, so re-pin id after it runs,
+    // then start a refresh whose get() never completes → logsLoading stays true.
+    fx.componentInstance.instanceId.set('i1');
+    fx.componentInstance.refreshLogs();
+    fx.detectChanges();
+    const el: HTMLElement = fx.nativeElement;
+    const busySection = el.querySelector('section[aria-busy="true"]');
+    expect(busySection).withContext('logs card exposes aria-busy during refresh').toBeTruthy();
+    const btn = Array.from(el.querySelectorAll('button')).find((b) => /Refreshing/.test(b.textContent ?? ''));
+    expect(btn).withContext('Refresh button shows the busy label').toBeTruthy();
+    expect(btn?.getAttribute('aria-label')).toBe('Refreshing logs');
+    expect((btn as HTMLButtonElement | undefined)?.disabled).toBeTrue();
   });
 });

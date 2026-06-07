@@ -169,6 +169,12 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
       <!-- ──────────────────────────────────── SNAPSHOTS TAB ──────────────────────────────────── -->
       @if (tab() === 'snapshots') {
         <div class="site-detail__panel" role="tabpanel" id="sd-panel-snapshots" aria-labelledby="sd-tab-snapshots" data-testid="site-snapshots-panel">
+          @if (snapshotsError()) {
+            <p class="snapshots-load-error" role="alert" data-testid="snapshots-load-error">
+              {{ snapshotsError() }}
+              <button type="button" class="snapshots-retry" (click)="loadSnapshots(siteId())">Retry</button>
+            </p>
+          }
           <ul class="snapshot-list" data-testid="site-snapshots-list">
             @for (s of snapshots(); track s.id) {
               <li class="snapshot-row" data-testid="snapshot-row">
@@ -390,6 +396,12 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
       border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent);
     }
     .rollback-error { margin-top: 0.5rem; color: #ff7e8a; font-size: 0.85rem; }
+    /* Shapeless-200 load error — calm amber notice with an inline Retry, not a
+       red alarm (the data didn't fail destructively, the route was unexpected). */
+    .snapshots-load-error { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.75rem; padding: 0.55rem 0.75rem; border-radius: 8px; font-size: 0.85rem; color: #ffd166; background: color-mix(in oklch, #ffd166 9%, transparent); border: 1px solid color-mix(in oklch, #ffd166 28%, transparent); }
+    .snapshots-retry { margin-left: auto; padding: 0.25rem 0.7rem; border-radius: 6px; cursor: pointer; font: inherit; font-size: 0.78rem; color: var(--ps-accent, #00e5ff); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 9%, transparent); border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 32%, transparent); }
+    .snapshots-retry:hover { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 18%, transparent); }
+    .snapshots-retry:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
     .sql-history { margin-top: 1rem; }
     .sql-history ul { list-style: none; padding: 0; margin: 0.5rem 0 0; display: grid; gap: 0.25rem; }
     .sql-history li { padding: 0.25rem 0.5rem; background: rgba(255,255,255,0.03); border-radius: 4px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.8rem; }
@@ -441,9 +453,16 @@ export class AdminSiteDetailComponent {
 
   // ── Snapshots ────────────────────────────────────────────────────────
   readonly snapshots = signal<SnapshotRow[]>([]);
+  /** Honest load-error surface — set when a stale route returns a shapeless 200
+   *  (no snapshots array) so the panel shows a retryable notice instead of a
+   *  fake "no snapshots yet" empty state. */
+  readonly snapshotsError = signal<string | null>(null);
   readonly pendingRollback = signal<SnapshotRow | null>(null);
   readonly rollbackResult = signal<string | null>(null);
   readonly rollbackError = signal<string | null>(null);
+  /** Re-entry guard for the most destructive action — a rapid double-click on
+   *  Rollback must not open two confirm dialogs / fire two overwrites. */
+  private rollbackBusy = false;
 
   // ── SQL ──────────────────────────────────────────────────────────────
   readonly sqlQuery = signal('');
@@ -595,14 +614,30 @@ export class AdminSiteDetailComponent {
   }
 
   // ── Snapshots ────────────────────────────────────────────────────────
-  private loadSnapshots(id: string): void {
+  /** Public so the panel's Retry button can re-fire it after a shapeless-200. */
+  loadSnapshots(id: string): void {
     this.api
       .get<{ snapshots: SnapshotRow[] }>(`/sites/${id}/snapshots`, undefined, { silent: true })
+      // catchError → null so a genuine network/404 is distinguishable from a
+      // healthy-but-shapeless 200 (which reaches the subscriber as a non-array).
       .pipe(
-        catchError(() => of({ snapshots: [] as SnapshotRow[] })),
+        catchError(() => of(null)),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe((res) => this.snapshots.set(res.snapshots ?? []));
+      .subscribe((res) => {
+        // Shape guard: a STALE worker route can return a parseable 200 whose body
+        // lacks the snapshots array (SPA/marketing HTML, or `{}`). `?? []` would
+        // mask that as a fake "no snapshots yet" — or crash the @for on a non-array
+        // (e.g. a coerced string). Surface an honest, retryable error instead and
+        // keep the list a safe empty array.
+        if (!res || !Array.isArray(res.snapshots)) {
+          this.snapshots.set([]);
+          this.snapshotsError.set("Couldn't load snapshots — the response was unexpected. Retry.");
+          return;
+        }
+        this.snapshotsError.set(null);
+        this.snapshots.set(res.snapshots);
+      });
   }
 
   /** Rolling back OVERWRITES the live production site — the single most
@@ -610,18 +645,24 @@ export class AdminSiteDetailComponent {
    *  (branded danger dialog: focus-trap + Esc + focus-restore), replacing the
    *  bespoke inline confirm <div>. confirmRollback() does the actual POST. */
   async onRollbackClick(s: SnapshotRow): Promise<void> {
-    const ok = await this.confirm.confirm({
-      title: `Roll back to ${s.snapshot_name}?`,
-      message: `This OVERWRITES the live production site with the "${s.snapshot_name}" snapshot — the current version is replaced immediately. You can only undo it by rolling back again.`,
-      confirmLabel: 'Roll back live site',
-      danger: true,
-    });
-    if (!ok) {
-      this.pendingRollback.set(null);
-      return;
+    if (this.rollbackBusy) return; // re-entry guard: one confirm + one overwrite per click-burst
+    this.rollbackBusy = true;
+    try {
+      const ok = await this.confirm.confirm({
+        title: `Roll back to ${s.snapshot_name}?`,
+        message: `This OVERWRITES the live production site with the "${s.snapshot_name}" snapshot — the current version is replaced immediately. You can only undo it by rolling back again.`,
+        confirmLabel: 'Roll back live site',
+        danger: true,
+      });
+      if (!ok) {
+        this.pendingRollback.set(null);
+        return;
+      }
+      this.pendingRollback.set(s);
+      this.confirmRollback();
+    } finally {
+      this.rollbackBusy = false;
     }
-    this.pendingRollback.set(s);
-    this.confirmRollback();
   }
 
   confirmRollback(): void {
@@ -732,7 +773,12 @@ export class AdminSiteDetailComponent {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((res) => {
-        this.integrations.set(res.providers?.length ? res.providers : DEFAULT_PROVIDERS);
+        // Shape guard: only an actual non-empty ARRAY replaces the default catalog.
+        // A shapeless 200 (e.g. `{ providers: '<html>' }`) has a truthy `.length`
+        // and would otherwise slip a coerced string into the @for and crash it.
+        this.integrations.set(
+          Array.isArray(res.providers) && res.providers.length ? res.providers : DEFAULT_PROVIDERS,
+        );
       });
   }
 
