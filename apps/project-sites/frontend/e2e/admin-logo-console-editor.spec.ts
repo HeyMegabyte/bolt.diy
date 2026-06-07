@@ -138,6 +138,21 @@ test.describe('admin shell — logo removed + clean console + editor', () => {
     expect(tailReqs.length - afterLogs, 'logs/tail kept polling after leaving the Logs tab').toBeLessThanOrEqual(1);
   });
 
+  test('site-mcp-server: graceful error-cards + stat tiles show "—" (not a false 0) on load failure', async ({ authedPage: page }) => {
+    // Param route /admin/sites/:id/mcp-server. The mock 404s tokens + tools, so
+    // both load. The page must degrade to error-cards (no scary toast) AND the
+    // stat tiles must NOT claim a definitive "0" next to a "Couldn't load" card.
+    test.setTimeout(60000);
+    await page.goto('/admin/sites/site-001/mcp-server', { waitUntil: 'load' });
+    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
+    await page.waitForTimeout(1500);
+    await expect(page.getByText(/Couldn.t load (tokens|tools)/i).first()).toBeVisible();
+    const notFoundToast = page.locator('[data-testid="toast-item"]', { hasText: /not found|wasn.t found/i });
+    await expect(notFoundToast, 'mcp-server surfaced an error toast instead of an error-card').toHaveCount(0);
+    // All 3 stat tiles render the unknown "—" placeholder, not a misleading "0".
+    await expect(page.locator('[aria-label*="failed to load"]')).toHaveCount(3);
+  });
+
   test('editor surface loads (tab strip + persistent bolt iframe)', async ({ authedPage: page }) => {
     test.setTimeout(60000);
     const cap = captureConsole(page);

@@ -87,7 +87,11 @@ interface ToolUsage {
       <div class="grid grid-cols-3 gap-3" appReveal>
         @for (stat of stats(); track stat.label) {
           <div class="card p-3 text-center">
-            <app-rolling-counter [value]="stat.value" class="text-xl font-bold text-accent" />
+            @if (stat.unknown) {
+              <div class="text-xl font-bold text-text-secondary/50" [attr.aria-label]="stat.label + ': unknown — failed to load'" title="Failed to load">—</div>
+            } @else {
+              <app-rolling-counter [value]="stat.value" class="text-xl font-bold text-accent" />
+            }
             <div class="text-[0.7rem] text-text-secondary mt-0.5">{{ stat.label }}</div>
           </div>
         }
@@ -297,11 +301,19 @@ export class SiteMcpServerComponent implements OnInit {
       .reduce((sum, u) => sum + u.call_count, 0);
   });
 
-  readonly stats = computed(() => [
-    { label: 'Tools', value: this.tools().length },
-    { label: 'Tokens', value: this.tokens().length },
-    { label: 'Calls Today', value: this.totalCallsToday() },
-  ]);
+  readonly stats = computed(() => {
+    // `unknown` = the source FAILED to load → show "—", not a false "0" (a stat
+    // claiming "0 Tools" next to a "Couldn't load tools" error-card is a lie —
+    // see the premature-stat-during-load / lying-UI class). Calls Today derives
+    // from the tools/usage feed, so a tools error makes it unknown too.
+    const toolsUnknown = !!this.toolsError() && this.tools().length === 0;
+    const tokensUnknown = !!this.tokensError() && this.tokens().length === 0;
+    return [
+      { label: 'Tools', value: this.tools().length, unknown: toolsUnknown },
+      { label: 'Tokens', value: this.tokens().length, unknown: tokensUnknown },
+      { label: 'Calls Today', value: this.totalCallsToday(), unknown: toolsUnknown },
+    ];
+  });
 
   ngOnInit(): void {
     this.siteId = this.route.parent?.snapshot.params['id'] ?? this.route.snapshot.params['id'] ?? '';
