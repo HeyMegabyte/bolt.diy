@@ -110,6 +110,7 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
 | Admin 320px reflow | `admin-reflow.e2e.ts` | ✅ |
 | Admin console / CSP / network clean | `admin-console-hygiene.e2e.ts` | ✅ |
 | Admin sidebar logo-removed + clean console + editor mount | `admin-logo-console-editor.spec.ts` | ✅ |
+| Admin form-control labels (WCAG 1.3.1/4.1.2 — webhooks/recipes/deliverability/domains) | `admin-form-labels.spec.ts` | ✅ |
 | Marketing axe (9 public routes) | `marketing-a11y.e2e.ts` | ✅ |
 | Marketing 390 axe + 320 reflow | `marketing-responsive.e2e.ts` | ✅ |
 | Mobile layout (34 checks) | `mobile.spec.ts` | ✅ |
