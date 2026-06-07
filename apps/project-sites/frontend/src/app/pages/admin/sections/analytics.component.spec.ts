@@ -57,6 +57,16 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
     expect(credStatus).toHaveBeenCalled(); // org-level cred status still loads
   });
 
+  // Cockpit cohesion: the no-site guard should use the shared cyan
+  // <app-empty-state> (matching domains/voice), not a bespoke amber notice box.
+  it('renders the no-site guard via the shared cyan app-empty-state (cyan SVG, no amber notice)', () => {
+    build(null);
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('app-empty-state')).withContext('uses the cockpit cyan empty-state primitive').toBeTruthy();
+    expect(host.querySelector('.notice-amber')).withContext('no off-brand amber no-site notice').toBeNull();
+    expect(host.querySelector('app-empty-state svg')).withContext('icon maps to a monochrome cyan SVG').toBeTruthy();
+  });
+
   it('fetches analytics the instant the site resolves after mount (no poll tick)', () => {
     build(null);
     expect(getAnalytics).not.toHaveBeenCalled();

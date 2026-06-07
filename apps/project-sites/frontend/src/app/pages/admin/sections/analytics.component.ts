@@ -16,6 +16,7 @@ import { ToastService } from '../../../services/toast.service';
 import { PromptService } from '../../../services/prompt.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
+import { EmptyStateComponent } from '../empty-state.component';
 import { ErrorCardComponent } from '../../../components/states';
 import { RevealDirective } from '../../../directives/reveal.directive';
 
@@ -55,7 +56,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
 @Component({
   selector: 'app-admin-analytics',
   standalone: true,
-  imports: [RevealDirective, DatePipe, DecimalPipe, RollingCounterComponent, MiniEmptyComponent, HlmTablistDirective, ErrorCardComponent],
+  imports: [RevealDirective, DatePipe, DecimalPipe, RollingCounterComponent, MiniEmptyComponent, EmptyStateComponent, HlmTablistDirective, ErrorCardComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
 
@@ -187,12 +188,11 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
 
       <!-- ─────────────────── ERROR / STATE BANNERS ─────────────────── -->
       @if (!state.selectedSite()) {
-        <div class="card notice notice-amber" role="status">
-          <div>
-            <strong>No site selected.</strong>
-            <span class="block text-[0.74rem] mt-0.5">Pick a site from the sidebar — analytics are scoped per-site.</span>
-          </div>
-        </div>
+        <app-empty-state
+          icon="🔭"
+          title="No site selected"
+          body="Pick a site from the sidebar — analytics are scoped per-site."
+        />
       } @else if (notAvailable()) {
         <!-- 404 from the analytics route = not provisioned for this site/env.
              A 404 is PERMANENT, so a calm cyan notice (not a red "temporary"
