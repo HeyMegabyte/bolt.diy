@@ -58,8 +58,28 @@ describe('EmptyStateComponent', () => {
     fixture.componentRef.setInput('icon', '🌐');
     fixture.detectChanges();
     const icon = q('.es-icon');
-    expect(icon?.textContent?.trim()).toBe('🌐');
+    expect(icon).not.toBeNull();
     expect(icon?.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('maps a colorful emoji icon to a monochrome cyan SVG (cockpit standard), not the raw emoji', () => {
+    fixture.componentRef.setInput('title', 'No review links yet');
+    fixture.componentRef.setInput('icon', '🔗');
+    fixture.detectChanges();
+    const icon = q('.es-icon');
+    expect(icon?.querySelector('svg')).withContext('emoji → SVG').not.toBeNull();
+    expect(icon?.textContent?.trim()).withContext('the raw emoji is replaced by the SVG').toBe('');
+    // SVG uses stroke=currentColor; .es-icon sets color:var(--ps-accent) → cyan (CSS-enforced).
+    expect(icon?.querySelector('svg')?.getAttribute('stroke')).toBe('currentColor');
+  });
+
+  it('falls through to the text glyph for an unmapped on-brand mono symbol (⌬)', () => {
+    fixture.componentRef.setInput('title', 'No endpoints yet');
+    fixture.componentRef.setInput('icon', '⌬');
+    fixture.detectChanges();
+    const icon = q('.es-icon');
+    expect(icon?.querySelector('svg')).withContext('mono symbol stays text, no SVG').toBeNull();
+    expect(icon?.textContent?.trim()).toBe('⌬');
   });
 
   it('renders the CTA only when ctaLabel is set and emits ctaClick on activation', () => {
