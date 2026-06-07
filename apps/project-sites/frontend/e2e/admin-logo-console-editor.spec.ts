@@ -89,6 +89,19 @@ test.describe('admin shell — logo removed + clean console + editor', () => {
     assertClean('/admin', cap);
   });
 
+  test('admin shell shows NO error toast for the background audit fetch (silent degrade)', async ({ authedPage: page }) => {
+    // The shell pulls /audit/rows for the recent-activity feed. The mock server
+    // returns 404 for it — and that background, best-effort fetch must NOT
+    // surface ApiService's generic "resource wasn't found" error toast on every
+    // admin load (it passes { silent: true } and degrades to the seeded feed).
+    test.setTimeout(60000);
+    await page.goto('/admin/feature-flags', { waitUntil: 'load' });
+    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
+    await page.waitForTimeout(2000); // let the audit fetch resolve/fail
+    const notFoundToast = page.locator('[data-testid="toast-item"]', { hasText: /not found|wasn.t found/i });
+    await expect(notFoundToast).toHaveCount(0);
+  });
+
   test('editor surface loads (tab strip + persistent bolt iframe)', async ({ authedPage: page }) => {
     test.setTimeout(60000);
     const cap = captureConsole(page);

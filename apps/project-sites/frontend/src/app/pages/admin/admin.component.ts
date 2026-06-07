@@ -546,8 +546,13 @@ export class AdminComponent implements OnInit, OnDestroy {
       { id: 'welcome', title: 'Welcome — press ⌘K to find anything.', time: 'just now', kind: 'info', read: readIds.includes('welcome'), ts: Date.now() },
     ];
     this.notifications.set(seeded);
-    // Pull recent audit log entries as notifications (last 5).
-    this.api.get<{ data: { id: string; action: string; target_type: string; created_at: string }[] }>('/audit/rows?limit=5').subscribe({
+    // Pull recent audit log entries as notifications (last 5). Background,
+    // best-effort: pass { silent: true } so an audit fetch failure (404 / no
+    // data / transient) degrades to the seeded + Novu feed instead of firing
+    // ApiService's generic "resource wasn't found" error toast on every admin
+    // page load. The error handler below is already silent — but without this
+    // opt the generic toast fires anyway.
+    this.api.get<{ data: { id: string; action: string; target_type: string; created_at: string }[] }>('/audit/rows?limit=5', undefined, { silent: true }).subscribe({
       next: (r) => {
         const now = Date.now();
         const items: Notification[] = (r.data ?? []).map((row) => {
