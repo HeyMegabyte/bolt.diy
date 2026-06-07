@@ -400,8 +400,10 @@ interface BoltMediaAttachMessage {
                           Send to Editor
                         </button>
                         <button type="button" class="btn-overlay btn-overlay--danger"
-                                (click)="deleteOne(a)" [attr.aria-label]="'Delete ' + a.name">
-                          Delete
+                                (click)="deleteOne(a)" [disabled]="deletingId() === a.id"
+                                [attr.aria-busy]="deletingId() === a.id"
+                                [attr.aria-label]="'Delete ' + a.name">
+                          {{ deletingId() === a.id ? 'Deleting…' : 'Delete' }}
                         </button>
                       </div>
                     </div>
@@ -1253,6 +1255,9 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
   /** True while a confirmed bulk delete is in flight — guards double-submit +
    *  drives the "Deleting…" feedback + disables the bulk-action bar. */
   readonly bulkBusy = signal(false);
+  /** Id of the single asset currently being deleted (per-row) — guards a
+   *  re-click double-submit + drives that row's "Deleting…" state. */
+  readonly deletingId = signal<string | null>(null);
 
   readonly filteredAssets = computed(() => {
     const q = this.searchTerm().toLowerCase().trim();
@@ -1526,6 +1531,7 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   async deleteOne(asset: MediaAsset): Promise<void> {
+    if (this.deletingId() === asset.id) return; // re-click while this row deletes = no-op
     const ok = await this.confirmSvc.confirm({
       title: 'Delete asset',
       message: `Delete "${asset.name}"? This cannot be undone — any site using it will show a broken reference.`,
@@ -1533,8 +1539,10 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
       danger: true,
     });
     if (!ok) return;
+    this.deletingId.set(asset.id);
     this.api.delete<{ ok: boolean }>(`/media/assets/${asset.id}`, { silent: true }).subscribe({
       next: () => {
+        this.deletingId.set(null);
         this.assets.update((rows) => rows.filter((r) => r.id !== asset.id));
         const sel = new Set(this.selectedIds());
         sel.delete(asset.id);
@@ -1542,6 +1550,7 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
         this.toast.success(`Deleted ${asset.name}`);
       },
       error: () => {
+        this.deletingId.set(null);
         this.toast.error(`Failed to delete ${asset.name}`);
       },
     });

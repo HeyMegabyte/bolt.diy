@@ -621,3 +621,46 @@ describe('AdminMediaComponent (bulk-delete busy guard)', () => {
     expect(c.selectedIds().size).withContext('selection cleared after delete').toBe(0);
   });
 });
+
+/**
+ * Per-row delete (the sibling of the bulk delete) must also guard double-submit:
+ * a deletingId tracks the in-flight row so a re-click is a no-op + the row's
+ * Delete button can show "Deleting…", cleared on completion.
+ */
+describe('AdminMediaComponent (per-row delete busy guard)', () => {
+  function mk(del$: Subject<{ ok: boolean }>): AdminMediaComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminMediaComponent],
+      providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({}), delete: jasmine.createSpy('delete').and.returnValue(del$) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0, dismiss: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
+      ],
+    });
+    TestBed.overrideComponent(AdminMediaComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminMediaComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('tracks deletingId while one row deletes, ignores a re-click, clears + drops the row', async () => {
+    const del$ = new Subject<{ ok: boolean }>();
+    const c = mk(del$);
+    const del = TestBed.inject(ApiService).delete as jasmine.Spy;
+    const asset = { id: 'a1', name: 'pic.png' } as unknown as Parameters<AdminMediaComponent['deleteOne']>[0];
+    c.assets.set([asset]);
+
+    await c.deleteOne(asset);
+    expect(c.deletingId()).withContext('row marked in-flight').toBe('a1');
+    expect(del.calls.count()).toBe(1);
+
+    await c.deleteOne(asset);          // re-click while deleting → no-op
+    expect(del.calls.count()).withContext('no duplicate delete').toBe(1);
+
+    del$.next({ ok: true }); del$.complete();
+    expect(c.deletingId()).withContext('cleared on completion').toBeNull();
+    expect(c.assets().length).withContext('row dropped').toBe(0);
+  });
+});
