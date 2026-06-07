@@ -196,6 +196,51 @@ describe('AdminFeatureFlagsComponent (flag control surface)', () => {
       expect(c.emergencyOpen()).withContext('emergency stays open for a second Esc').toBeTrue();
     });
   });
+
+  // ── Expert-mode JSON payload editor (input validation, WCAG-alert + reliability) ──
+  // applyJson is a runtime boundary: a malformed/garbage payload must NOT reach
+  // the worker. It surfaces a per-flag `jsonError` (role=alert) and bails.
+  describe('applyJson (Expert JSON payload validation)', () => {
+    const setDraft = (c: ReturnType<typeof make>, key: string, raw: string) =>
+      c.jsonEditorDraft.set({ [key]: raw });
+
+    it('rejects invalid JSON syntax (does not apply)', () => {
+      const c = make(okGet());
+      const f = flag({ key: 'k' });
+      setDraft(c, 'k', '{ not valid json ');
+      c.applyJson(f);
+      expect(c.jsonError()['k']).toBe('Invalid JSON — fix the syntax before applying.');
+      expect(c.pending()).withContext('no override routed on invalid input').toBeNull();
+    });
+
+    it('rejects a non-object payload (e.g. a bare number)', () => {
+      const c = make(okGet());
+      setDraft(c, 'k', '42');
+      c.applyJson(flag({ key: 'k' }));
+      expect(c.jsonError()['k']).toBe('Payload must be a JSON object.');
+    });
+
+    it('rejects an object with no recognized fields', () => {
+      const c = make(okGet());
+      setDraft(c, 'k', '{"foo":1,"bar":true}');
+      c.applyJson(flag({ key: 'k' }));
+      expect(c.jsonError()['k']).toBe('No recognized fields (enabled_globally / rollout_pct / kill_switch).');
+    });
+
+    it('ignores recognized fields of the wrong type (rollout_pct as string → no-op)', () => {
+      const c = make(okGet());
+      setDraft(c, 'k', '{"rollout_pct":"50"}'); // string, not number → not applied
+      c.applyJson(flag({ key: 'k' }));
+      expect(c.jsonError()['k']).toBe('No recognized fields (enabled_globally / rollout_pct / kill_switch).');
+    });
+
+    it('accepts a valid recognized payload + clears the error', () => {
+      const c = make(okGet());
+      setDraft(c, 'k', '{"rollout_pct":50}');
+      c.applyJson(flag({ key: 'k', default_rollout_percent: 0 }));
+      expect(c.jsonError()['k']).withContext('error cleared past validation').toBe('');
+    });
+  });
 });
 
 import { provideRouter } from '@angular/router';
