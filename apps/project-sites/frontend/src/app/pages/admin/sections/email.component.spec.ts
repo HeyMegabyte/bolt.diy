@@ -226,3 +226,29 @@ describe('AdminEmailComponent (disconnect guard + error feedback)', () => {
     expect(p.isDisconnecting('i1')).withContext('busy cleared after failure').toBeFalse();
   });
 });
+
+/**
+ * toggleActive (pause/resume) is a mutation with no component error handler — a
+ * failure should surface a specific toast, not rely solely on the generic one.
+ */
+describe('AdminEmailComponent (toggleActive error feedback)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('surfaces a toast when the pause/resume update fails', () => {
+    const error = jasmine.createSpy('error');
+    const update = jasmine.createSpy('updateIntegration').and.returnValue(throwError(() => ({ status: 500 })));
+    TestBed.configureTestingModule({
+      imports: [AdminEmailComponent],
+      providers: [
+        { provide: ApiService, useValue: { updateIntegration: update, listFormSubmissions: () => of({ data: [] }), listIntegrations: () => of({ data: [] }), get: () => of({ data: [] }), post: () => of({}) } },
+        { provide: ToastService, useValue: { error, success: () => 0, warning: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }), formatRelativeTime: () => 'now' } },
+      ],
+    });
+    TestBed.overrideComponent(AdminEmailComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(AdminEmailComponent).componentInstance;
+    c.integrations.set([{ id: 'i1', provider: 'webhook', active: true } as never]);
+    c.toggleActive('webhook' as never);
+    expect(error).withContext('failure surfaced, not silent').toHaveBeenCalled();
+  });
+});

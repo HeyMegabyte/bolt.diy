@@ -455,6 +455,9 @@ export class AdminEmailComponent implements OnInit {
         this.integrations.update(list => list.map(i => i.id === integration.id ? res.data : i));
         this.toast.success(res.data.active ? 'Integration resumed' : 'Integration paused');
       },
+      // Was relying on the generic ApiService toast — give a specific message
+      // (the toggle didn't change, so the operator needs to know to retry).
+      error: () => this.toast.error(`Couldn't ${integration.active ? 'pause' : 'resume'} the integration — retry shortly.`),
     });
   }
 
