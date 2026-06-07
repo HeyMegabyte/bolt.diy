@@ -572,8 +572,18 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res) => {
+          // Stale-route guard (canonical: site-features). A worker that predates
+          // /api/inbox/conversations serves the SPA HTML at 200 → res.conversations
+          // is undefined/non-array. Without this guard that set undefined (later
+          // crashing filteredConversations().filter()) or faked a "no conversations"
+          // empty state masking a broken route. Surface an honest retryable error.
+          if (!res || !Array.isArray(res.conversations)) {
+            this.convError.set("Couldn't load conversations — retry.");
+            this.loading.set(false);
+            return;
+          }
           this.conversations.set(append ? [...this.conversations(), ...res.conversations] : res.conversations);
-          this.hasMore.set(res.hasMore);
+          this.hasMore.set(!!res.hasMore);
           this.flagEnabled.set(true);
           this.convError.set(null);
           this.loading.set(false);
@@ -596,9 +606,12 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
     this.api.get<{ conversations: Conversation[]; hasMore: boolean }>('/inbox/conversations', params)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
+        // Same stale-route guard on the paginated page — never append a non-array
+        // (which would corrupt the loaded rows with undefined).
         next: (res) => {
+          if (!res || !Array.isArray(res.conversations)) return;
           this.conversations.set([...this.conversations(), ...res.conversations]);
-          this.hasMore.set(res.hasMore);
+          this.hasMore.set(!!res.hasMore);
         },
         error: () => {},
       });

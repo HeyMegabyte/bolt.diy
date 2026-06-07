@@ -115,6 +115,43 @@ describe('AdminInboxComponent (conversations load error)', () => {
     expect(get).not.toHaveBeenCalled();
   });
 
+  // Stale-route resilience: a worker that predates /api/inbox/conversations serves
+  // the SPA/marketing HTML at 200 — ApiService parses that as a shapeless object
+  // with NO `conversations` array. Without an Array.isArray guard this either threw
+  // in filteredConversations().filter() or set conversations to undefined → a fake
+  // "No conversations yet" empty state masking a broken route. The guard surfaces
+  // an honest retryable error instead (canonical pattern from site-features).
+  it('a 200 body whose conversations is not an array sets convError (stale-route, not fake-empty)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ ok: true } as never)));
+    c.loadConversations();
+    expect(c.convError()).withContext('shapeless 200 → honest error, never a silent empty inbox').not.toBeNull();
+    expect(c.conversations()).withContext('conversations stays a safe array (no undefined.filter() crash)').toEqual([]);
+    expect(c.loading()).toBe(false);
+    // filteredConversations must not throw on the post-stale-load state.
+    expect(() => c.filteredConversations()).not.toThrow();
+  });
+
+  it('a 200 body with a non-array conversations field is treated as stale-route', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ conversations: '<html>…</html>', hasMore: false } as never)));
+    c.loadConversations();
+    expect(c.convError()).not.toBeNull();
+    expect(c.conversations()).toEqual([]);
+  });
+
+  it('loadMore ignores a stale-route non-array body instead of corrupting the list', () => {
+    const get = jasmine.createSpy('get').and.returnValues(
+      of({ conversations: [{ id: 'c1', status: 'open', unread_count: 0, last_message_at: 't0' }], hasMore: true }),
+      of({ ok: true } as never), // stale paginated response
+    );
+    const c = make(get);
+    c.loadConversations();
+    expect(c.conversations().length).toBe(1);
+    c.loadMore();
+    // The bad page must NOT append undefined / corrupt the loaded rows.
+    expect(c.conversations().length).withContext('stale page ignored — existing rows intact').toBe(1);
+    expect(() => c.filteredConversations()).not.toThrow();
+  });
+
   it('retry after an error clears the prior convError', () => {
     const get = jasmine.createSpy('get').and.returnValues(
       throwError(() => ({ status: 500 })),

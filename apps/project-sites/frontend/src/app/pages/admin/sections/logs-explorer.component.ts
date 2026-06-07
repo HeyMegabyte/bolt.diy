@@ -408,6 +408,17 @@ export class AdminLogsExplorerComponent implements OnInit {
       limit: 100,
     }, { silent: true }).subscribe({
       next: (res) => {
+        // A stale worker route (predates /api/logs/search) falls through to the
+        // SPA → the request 200s with HTML, so res.data.items is undefined.
+        // Without this guard `this.rows.set(undefined)` crashes the template's
+        // `rows().length` (or shows a misleading fake-empty). Treat a shapeless
+        // body as an honest error, never a 0-results state. (cf. site-features.)
+        if (!res?.data || !Array.isArray(res.data.items)) {
+          this.searchError.set("Couldn't load logs — the log service is unavailable. Retry.");
+          this.searching.set(false);
+          this.searched.set(true);
+          return;
+        }
         this.rows.set(res.data.items);
         this.nextCursor.set(res.data.next_cursor);
         this.searchError.set(null);
@@ -443,6 +454,13 @@ export class AdminLogsExplorerComponent implements OnInit {
       cursor,
     }, { silent: true }).subscribe({
       next: (res) => {
+        // Same stale-route guard as search(): a shapeless body must not spread
+        // `undefined` into the rows array (TypeError) — keep prior rows + toast.
+        if (!res?.data || !Array.isArray(res.data.items)) {
+          this.toast.error('Failed to load more logs');
+          this.searching.set(false);
+          return;
+        }
         this.rows.update((prev) => [...prev, ...res.data.items]);
         this.nextCursor.set(res.data.next_cursor);
         this.searching.set(false);
@@ -458,6 +476,14 @@ export class AdminLogsExplorerComponent implements OnInit {
     this.costLoading.set(true);
     this.api.get<CostResponse>(`/logs/cost-by-route?range=${this.range()}`, undefined, { silent: true }).subscribe({
       next: (res) => {
+        // Stale-route guard: a 200-with-HTML body has no rows array → leave
+        // costRows empty (the chart simply hides) and don't render a NaN total,
+        // rather than crashing `costRows().slice(0, 15)` / `grandTotal()`.
+        if (!res?.data || !Array.isArray(res.data.rows)) {
+          this.toast.error('Failed to load cost data');
+          this.costLoading.set(false);
+          return;
+        }
         this.costRows.set(res.data.rows);
         this.grandTotal.set(res.data.grand_total_cost);
         this.costLoading.set(false);

@@ -237,3 +237,90 @@ describe('AdminDeliverabilityComponent (clears stale result on site switch)', ()
     expect(c.domainModel()).withContext('per-site override cleared').toBe('');
   });
 });
+
+/**
+ * Network-failure honesty: a TRANSIENT failure on the live DNS check must read as
+ * retryable via the gold-standard <app-error-card> — a real Retry that re-runs the
+ * check (preserving the typed domain) AND a copyable worker request_id for support
+ * hand-off. Parity with review-links / trust-center. A 404 stays the calm cyan
+ * flag gate (retrying can't help). The worker envelope is
+ * `{ error: { code, message, request_id } }`.
+ */
+describe('AdminDeliverabilityComponent (network-failure honesty)', () => {
+  const OK = {
+    ok: true,
+    report: {
+      domain: 'mail.acme.com', spf: { present: true, record: 'x' },
+      dmarc: { present: false, record: null, policy: null },
+      dkim: { present: true, selectorsChecked: ['g'], foundSelectors: ['g'] },
+      score: 67, recommendations: ['Add a DMARC record.'],
+    },
+  };
+
+  function buildErr(getSpy: jasmine.Spy): ComponentFixture<AdminDeliverabilityComponent> {
+    TestBed.configureTestingModule({
+      imports: [AdminDeliverabilityComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: getSpy } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal<{ id: string } | null>({ id: 's1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminDeliverabilityComponent);
+    fx.detectChanges();
+    (fx.nativeElement.querySelector('[data-testid="deliverability-check-btn"]') as HTMLButtonElement).click();
+    fx.detectChanges();
+    return fx;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('a transient 500 → retryable failure rendered via the gold-standard error card + Retry', () => {
+    const fx = buildErr(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
+    const el = fx.nativeElement as HTMLElement;
+    expect(fx.componentInstance.flagDisabled()).withContext('500 is not a flag gate').toBeFalse();
+    expect(el.querySelector('app-error-card')).withContext('shared error-card primitive').not.toBeNull();
+    expect(el.querySelector('[data-testid="error-retry"]')).withContext('Retry on the card').not.toBeNull();
+  });
+
+  it('surfaces the worker request_id as a copyable support reference on a transient failure', () => {
+    const fx = buildErr(
+      jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req_dl42' } } }))),
+    );
+    const el = fx.nativeElement as HTMLElement;
+    expect(fx.componentInstance.loadErrorRef()).toBe('req_dl42');
+    expect(el.querySelector('[data-testid="error-correlation"]')?.textContent).withContext('reference shown for support').toContain('req_dl42');
+  });
+
+  it('Retry re-runs the live DNS check (preserving the typed domain) + clears the error on success', () => {
+    const get = jasmine.createSpy('get').and.returnValues(
+      throwError(() => ({ status: 500, error: { error: { request_id: 'req_dl1' } } })),
+      of(OK),
+    );
+    const fx = buildErr(get);
+    fx.componentInstance.domainModel.set('mail.acme.com');
+    expect(fx.componentInstance.error()).withContext('first attempt failed').not.toBeNull();
+
+    (fx.nativeElement.querySelector('[data-testid="error-retry"]') as HTMLButtonElement).click();
+    fx.detectChanges();
+
+    expect(get).toHaveBeenCalledTimes(2);
+    // The override domain is preserved across the retry (not lost) + stays {silent}.
+    expect(get.calls.mostRecent().args).toEqual(['/sites/s1/deliverability', { domain: 'mail.acme.com' }, { silent: true }]);
+    expect(fx.componentInstance.error()).withContext('error cleared on retry success').toBeNull();
+    expect(fx.componentInstance.loadErrorRef()).withContext('reference cleared on success').toBe('');
+    expect(fx.nativeElement.querySelector('[data-testid="deliverability-result"]')).not.toBeNull();
+  });
+
+  it('drops the stale report when a fresh check transiently fails (no score under an error)', () => {
+    const get = jasmine.createSpy('get').and.returnValues(of(OK), throwError(() => ({ status: 500 })));
+    const fx = buildErr(get); // first click (in buildErr) succeeded → report present
+    expect(fx.componentInstance.report()).withContext('first check succeeded').not.toBeNull();
+
+    (fx.nativeElement.querySelector('[data-testid="deliverability-check-btn"]') as HTMLButtonElement).click();
+    fx.detectChanges();
+    expect(fx.componentInstance.report()).withContext('stale report dropped on the failed re-check').toBeNull();
+    expect(fx.nativeElement.querySelector('app-error-card')).not.toBeNull();
+    expect(fx.nativeElement.querySelector('[data-testid="deliverability-result"]')).toBeNull();
+  });
+});

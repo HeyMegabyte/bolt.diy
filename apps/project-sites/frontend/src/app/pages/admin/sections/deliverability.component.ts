@@ -22,6 +22,7 @@ import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
+import { ErrorCardComponent } from '../../../components/states/error-card.component';
 import { HlmButtonDirective, HlmInputDirective } from '../../../ui';
 
 interface DeliverabilityReport {
@@ -40,7 +41,7 @@ interface DeliverabilityResponse {
 @Component({
   selector: 'app-admin-deliverability',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, RollingCounterComponent, RevealDirective, HlmButtonDirective, HlmInputDirective],
+  imports: [CommonModule, FormsModule, RouterLink, RollingCounterComponent, RevealDirective, ErrorCardComponent, HlmButtonDirective, HlmInputDirective],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -103,9 +104,17 @@ interface DeliverabilityResponse {
           <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
         </div>
       } @else if (error()) {
-        <div data-testid="deliverability-error" role="alert" class="mt-5 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-sm text-red-300">
-          {{ error() }}
-        </div>
+        <!-- TRANSIENT failure (network/5xx) → gold-standard error card: a real Retry
+             that re-runs the DNS check (preserving the typed domain) + a copyable
+             worker request_id for support. Parity with review-links / trust-center. -->
+        <app-error-card
+          data-testid="deliverability-error"
+          class="block mt-5"
+          title="Deliverability check failed"
+          [message]="error() ?? ''"
+          [correlationId]="loadErrorRef()"
+          (retry)="check()"
+        />
       }
 
       @if (report(); as r) {
@@ -194,6 +203,7 @@ export class AdminDeliverabilityComponent {
         this.resultSiteId = id;
         this.report.set(null);
         this.error.set(null);
+        this.loadErrorRef.set('');
         this.flagDisabled.set(false);
         this.domainModel.set('');
       }
@@ -202,6 +212,8 @@ export class AdminDeliverabilityComponent {
 
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
+  /** Worker request_id from a TRANSIENT check failure → copyable support reference on the error card. */
+  readonly loadErrorRef = signal('');
   /** Flag OFF (check 404 = email_deliverability_wizard disabled) → calm cyan Feature-Flags notice, NOT a red error. */
   readonly flagDisabled = signal(false);
   readonly report = signal<DeliverabilityReport | null>(null);
@@ -233,7 +245,11 @@ export class AdminDeliverabilityComponent {
     }
     this.loading.set(true);
     this.error.set(null);
+    this.loadErrorRef.set('');
     this.flagDisabled.set(false);
+    // Drop the prior report so a still-visible score can never sit under a fresh
+    // failure (a stale-result lie). It re-renders on success.
+    this.report.set(null);
 
     const domain = this.domainModel().trim();
     const params = domain ? { domain } : undefined;
@@ -247,18 +263,24 @@ export class AdminDeliverabilityComponent {
         // 404 = email_deliverability_wizard flag OFF (permanent → calm cyan
         // Feature-Flags notice, NOT alarming red; a worker SPA-fallthrough 200+HTML
         // is remapped to 404 by ApiService so it lands here as the calm gate too).
-        // Anything else = transient (→ honest red "try again"; re-running is one
-        // click on the Check button, so no separate Retry control is needed).
         if (err?.status === 404) {
           this.flagDisabled.set(true);
         } else {
-          // Inline error banner (in the result panel where the user just clicked
-          // "Check") is the UX — no transient toast on top, and the read is {silent}
-          // so the generic ApiService toast doesn't fire either (was triple feedback).
-          this.error.set(err?.error?.error?.message ?? 'Deliverability check failed — please try again.');
+          // Anything else = transient (network / 5xx). Honest, retryable failure via
+          // the gold-standard <app-error-card>: a real Retry (re-runs check(), keeping
+          // the typed domain) + the worker request_id captured as a copyable support
+          // reference. The read is {silent} so the generic ApiService toast doesn't
+          // double-fire on top of the card.
+          this.error.set(err?.error?.error?.message ?? 'Live DNS lookup failed — please try again.');
+          this.loadErrorRef.set(this.requestIdFrom(err));
         }
         this.loading.set(false);
       },
     });
+  }
+
+  /** Pull the worker request_id from a failed response (`{ error: { request_id } }`) for the support reference. */
+  private requestIdFrom(e: { error?: unknown } | undefined): string {
+    return (e?.error as { error?: { request_id?: string } } | undefined)?.error?.request_id ?? '';
   }
 }

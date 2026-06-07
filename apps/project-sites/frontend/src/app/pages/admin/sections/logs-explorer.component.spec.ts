@@ -71,6 +71,46 @@ describe('AdminLogsExplorerComponent (search state)', () => {
     expect(c.searchError()).toBeNull();
   });
 
+  // STALE-ROUTE RESILIENCE (the real gap): a worker route that predates
+  // /api/logs/search falls through to the SPA — the request 200s with HTML, so
+  // res.data is undefined. Without a shape guard, `this.rows.set(res.data.items)`
+  // throws (or sets rows() = undefined, which then crashes the template's
+  // `rows().length`). A 200-with-HTML never hits the error branch, so all the
+  // existing 4xx/5xx resilience is bypassed. Mirror site-features.component.ts:
+  // guard the shape → honest retryable error, never a crash or fake-empty.
+  it('a 200 with a non-array body (stale SPA-HTML route) sets a retryable error, never crashes', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of('<!doctype html><html>…</html>' as unknown));
+    const { c } = make(post);
+    expect(() => c.search()).not.toThrow();
+    expect(Array.isArray(c.rows())).withContext('rows() must stay an array').toBe(true);
+    expect(c.rows().length).toBe(0);
+    expect(c.searchError()).withContext('honest error, not a fake-empty').not.toBeNull();
+    expect(c.featureDisabled()).toBe(false);
+    expect(c.searching()).toBe(false);
+  });
+
+  it('a 200 whose data lacks an items array (shapeless body) is treated as an error, not 0 results', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: { next_cursor: null } } as unknown));
+    const { c } = make(post);
+    expect(() => c.search()).not.toThrow();
+    expect(Array.isArray(c.rows())).toBe(true);
+    expect(c.searchError()).not.toBeNull();
+  });
+
+  it('loadMore() with a non-array body keeps prior rows and toasts (no undefined spread crash)', () => {
+    const post = jasmine.createSpy('post').and.returnValues(
+      of({ data: { items: [{ id: 'l1' }], next_cursor: 'cur', total_returned: 1 } }),
+      of('<!doctype html>' as unknown),
+    );
+    const { c, toastErr } = make(post);
+    c.search();
+    expect(c.rows().length).toBe(1);
+    c.loadMore();
+    expect(c.rows().length).withContext('prior rows preserved').toBe(1);
+    expect(toastErr).toHaveBeenCalled();
+    expect(c.searching()).toBe(false);
+  });
+
   // ngOnInit auto-runs search() on every visit; the component owns its OWN error
   // UX (404 → silent flag-disabled banner; non-404 → inline searchError + its own
   // toast). So the read must be {silent:true} — otherwise ApiService's generic
@@ -148,6 +188,20 @@ describe('AdminLogsExplorerComponent (cost load)', () => {
     c.loadCosts();
     expect(c.featureDisabled()).toBe(false);
     expect(toastErr).toHaveBeenCalled();
+  });
+
+  // STALE-ROUTE RESILIENCE: a 200-with-HTML cost response (route predates the
+  // endpoint) has no rows array. Without a guard, costRows() = undefined crashes
+  // the template's `costRows().slice(0, 15)` and `grandTotal()` renders NaN.
+  it('a 200 with a non-array cost body keeps costRows an empty array + toasts (no template crash)', () => {
+    const get = jasmine.createSpy('get').and.returnValue(of('<!doctype html>' as unknown));
+    const { c, toastErr } = makeCost(get);
+    expect(() => c.loadCosts()).not.toThrow();
+    expect(Array.isArray(c.costRows())).withContext('costRows() must stay an array').toBe(true);
+    expect(c.costRows().length).toBe(0);
+    expect(c.grandTotal()).withContext('no NaN total from a shapeless body').toBe(0);
+    expect(toastErr).toHaveBeenCalled();
+    expect(c.costLoading()).toBe(false);
   });
 });
 
