@@ -33,7 +33,7 @@ import { ConfirmService } from '../../../services/confirm.service';
 import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of } from 'rxjs';
-import { catchError, retry, switchMap, timer } from 'rxjs';
+import { catchError, switchMap, timer } from 'rxjs';
 
 interface LogRow {
   ts: string;
@@ -515,7 +515,10 @@ export class AdminSiteDetailComponent {
   // ── Site load ────────────────────────────────────────────────────────
   private loadSite(id: string): void {
     this.api
-      .get<{ site: { id: string; slug: string; name: string } }>(`/sites/${id}`)
+      // { silent }: the catchError below degrades to a slug-only record, so a
+      // 404/transient must NOT also fire ApiService's generic "resource wasn't
+      // found" toast (it stacked scary toasts on this param route).
+      .get<{ site: { id: string; slug: string; name: string } }>(`/sites/${id}`, undefined, { silent: true })
       .pipe(
         // On failure, fall back to a slug-only record (slug = the URL id) — never
         // inject a misleading "Site" name literal (the h1 + subtitle derive a
@@ -532,8 +535,11 @@ export class AdminSiteDetailComponent {
     timer(0, 3000)
       .pipe(
         switchMap(() =>
-          this.api.get<{ logs: LogRow[] }>(`/sites/${id}/logs/tail`).pipe(
-            retry({ count: 2, delay: 1000 }),
+          // { silent } + NO inner retry: the timer(0, 3000) above IS the poll
+          // cadence, so retrying a permanent 404 just tripled the requests
+          // (a 30×-in-seconds storm) and the missing { silent } toasted each
+          // failure. catchError degrades this tick to empty; next tick re-polls.
+          this.api.get<{ logs: LogRow[] }>(`/sites/${id}/logs/tail`, undefined, { silent: true }).pipe(
             catchError(() => of({ logs: [] as LogRow[] })),
           ),
         ),
@@ -550,7 +556,7 @@ export class AdminSiteDetailComponent {
   // ── Snapshots ────────────────────────────────────────────────────────
   private loadSnapshots(id: string): void {
     this.api
-      .get<{ snapshots: SnapshotRow[] }>(`/sites/${id}/snapshots`)
+      .get<{ snapshots: SnapshotRow[] }>(`/sites/${id}/snapshots`, undefined, { silent: true })
       .pipe(
         catchError(() => of({ snapshots: [] as SnapshotRow[] })),
         takeUntilDestroyed(this.destroyRef),
@@ -679,7 +685,7 @@ export class AdminSiteDetailComponent {
   // ── Integrations ─────────────────────────────────────────────────────
   private loadIntegrations(id: string): void {
     this.api
-      .get<{ providers: IntegrationProvider[] }>(`/sites/${id}/integrations`)
+      .get<{ providers: IntegrationProvider[] }>(`/sites/${id}/integrations`, undefined, { silent: true })
       .pipe(
         catchError(() => of({ providers: DEFAULT_PROVIDERS })),
         takeUntilDestroyed(this.destroyRef),

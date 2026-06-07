@@ -112,6 +112,25 @@ test.describe('admin shell — logo removed + clean console + editor', () => {
     }
   });
 
+  test('site-detail param route: no error toast + no logs/tail retry storm', async ({ authedPage: page }) => {
+    // Param sub-routes aren't covered by the top-level gates. site-detail fires
+    // 4 secondary reads (site / logs-tail / snapshots / integrations) the mock
+    // 404s — all now { silent } so none toast, and the logs-tail poll dropped
+    // its inner retry({count:2}) so a 404 no longer triples each 3s tick.
+    test.setTimeout(60000);
+    const tailReqs: string[] = [];
+    page.on('request', (r) => {
+      if (/\/api\/sites\/[^/]+\/logs\/tail/.test(r.url())) tailReqs.push(r.url());
+    });
+    await page.goto('/admin/sites/site-001', { waitUntil: 'load' });
+    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
+    await page.waitForTimeout(4000); // timer(0,3000) → ~2 polls in this window
+    const notFoundToast = page.locator('[data-testid="toast-item"]', { hasText: /not found|wasn.t found/i });
+    await expect(notFoundToast, 'site-detail surfaced an error toast for a 404 secondary read').toHaveCount(0);
+    // Pre-fix: 2 polls × (1 + 2 retries) = 6. Post-fix: 2 polls × 1 = ~2.
+    expect(tailReqs.length, `logs/tail retry storm: ${tailReqs.length} requests in ~4s`).toBeLessThanOrEqual(3);
+  });
+
   test('editor surface loads (tab strip + persistent bolt iframe)', async ({ authedPage: page }) => {
     test.setTimeout(60000);
     const cap = captureConsole(page);
