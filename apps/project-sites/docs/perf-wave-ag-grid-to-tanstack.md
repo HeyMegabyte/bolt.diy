@@ -62,6 +62,28 @@ audit-only: **CSV export** (`gridApi.exportDataAsCsv`), **site filter**
   canvas, cyan `#00e5ff` accents, `tabular-nums`); `:focus-visible` cyan ring;
   reduced-motion safe.
 
+## Safety net — the data logic is ALREADY characterized (re-verified 2026-06-07)
+This is a **rendering-layer swap, not a logic rewrite** — the risk is narrower than it looks.
+Both components' grid-feeding logic is **grid-agnostic** (it produces row models /
+splices detail rows / computes KPIs / escapes CSV — none of it touches ag-grid's DOM)
+and is **already covered by Karma specs that carry over to TanStack unchanged**:
+- `audit.component.spec.ts` — **27 tests**: master/detail splicing (`displayRows` splices
+  the synthetic `__detail` row; KPI computeds EXCLUDE it; `toggleExpand` no-op on a detail
+  row; collapse removes it; two-expanded interleave), KPI computeds (`uniqueActions`/
+  `uniqueActors`/`last24h`), load/error/`{silent}`/retry, **CSV formula-injection guard**
+  (`csvFormulaGuard` prefixes `=`/`+`/`-`/`@`), `canExport` (no headers-only CSV), a11y
+  (rolling-counter, role=status, keyboard, cyan-not-orange, reduced-motion).
+- `ai-logs.component.spec.ts` — **19 tests**: master/detail contract (`displayRows`
+  splice/expand), KPI-over-error gating (`showKpis`), rows, filter contract.
+
+**Implication for the session:** keep these specs GREEN throughout the migration — they
+already lock the data behaviour TanStack must reproduce. The ONLY thing they DON'T cover
+(because the specs grid-strip the ag-grid template) is the **rendered DOM** — so the
+live-QA in step 7 is the focused remaining risk: does the TanStack `<table>` visually
+render the rows, expand the detail `<tr>`, paginate, sort, and theme correctly. Write the
+new DOM-level assertions (rows render, expand toggles a visible detail row) as the migration's
+RED-first tests; the 46 existing logic tests are the regression backstop.
+
 ## Migration steps (per grid; do audit-companion `ai-logs` FIRST — lower stakes)
 1. Build a `<th>`-sortable, paginated TanStack `<table>` rendering the existing
    `columnDefs` cells; keep the same `data-testid`s the e2e specs assert.
