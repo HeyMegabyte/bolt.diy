@@ -153,7 +153,7 @@ const TABS: Array<{ id: string; label: string; icon: string }> = [
   { id: 'bigbets', label: 'Big Bets', icon: '◎' },
   { id: 'brilliant', label: 'Brilliant', icon: '★' },
   { id: 'stack', label: 'Stack', icon: '⚙' },
-  { id: 'cwv', label: 'Core Web Vitals', icon: '⚡' },
+  { id: 'cwv', label: 'Core Web Vitals', icon: '\u26A1\uFE0E' }, // U+26A1 zap + U+FE0E VS15 -> monochrome (else colourful emoji)
   { id: 'geo', label: 'AI Search (GEO)', icon: '◆' },
   { id: 'a11y', label: 'Accessibility', icon: '◉' },
   { id: 'editor', label: 'Editor UX', icon: '✎' },

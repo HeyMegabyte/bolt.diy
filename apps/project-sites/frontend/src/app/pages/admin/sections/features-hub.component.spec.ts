@@ -104,6 +104,18 @@ describe('AdminFeaturesHubComponent (filter + tabs + try-it)', () => {
     expect(c.loading()[key]).toBe(false);
     expect(c.result()[key]?.status).toBe(404);
   });
+
+  it('forces the Core Web Vitals ⚡ tab icon to MONOCHROME (text-presentation selector)', () => {
+    // U+26A1 is emoji-presentation by default → a colourful yellow emoji that
+    // breaks the cyan/black cockpit. A trailing U+FE0E (VS15) forces the text
+    // (monochrome) glyph, matching the 12 sibling unicode-symbol tab icons.
+    const { c } = make();
+    const cwv = c.tabs.find((t) => t.id === 'cwv');
+    expect(cwv).toBeTruthy();
+    expect(cwv!.icon.codePointAt(0)).withContext('still the ⚡ glyph').toBe(0x26a1);
+    expect(cwv!.icon).withContext('carries the VS15 text-presentation selector').toContain('\uFE0E');
+  });
+
 });
 
 /**
