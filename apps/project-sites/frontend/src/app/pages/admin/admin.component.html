@@ -472,9 +472,11 @@
 
     <!-- Content area -->
     @if (state.loading()) {
-      <div class="flex flex-col items-center justify-center gap-3 py-[60px] px-5 text-text-secondary text-[0.85rem]">
+      <div class="flex flex-col items-center justify-center gap-3 py-[60px] px-5 text-text-secondary text-[0.85rem]" role="status" aria-live="polite">
         <div class="loading-spinner"></div>
-        <span>Loading dashboard...</span>
+        <!-- Route-aware label — shown on EVERY admin route during the cold sites
+             load, so it must name the current section, not always "dashboard". -->
+        <span>Loading {{ currentSection() }}…</span>
       </div>
     } @else if (!state.selectedSite()) {
       <!-- No sites -->
