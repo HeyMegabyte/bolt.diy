@@ -45,9 +45,11 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
  * Admin → Apps catalog.
  *
  * @remarks
- * Browses the curated self-hostable app catalog (38 apps × 11 categories),
+ * Browses the curated self-hostable app catalog (grouped by category),
  * filtered live by category chip + fuzzy search. Click a card →
  * `/admin/apps/:id` detail. Cmd+/ focuses the search input.
+ * Catalog structure (unique ids, valid categories, no dead chips,
+ * supported-slug coherence) is locked by `apps-catalog.data.spec.ts`.
  */
 @Component({
   selector: 'app-admin-apps',
