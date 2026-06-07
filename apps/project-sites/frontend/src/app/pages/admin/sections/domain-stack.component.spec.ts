@@ -80,6 +80,17 @@ describe('AdminDomainStackComponent (r13 cohesion + a11y)', () => {
     expect(component.completionPct()).toBe(0);
   });
 
+  // Cockpit cohesion: the no-site guard should use the shared cyan
+  // <app-empty-state> (matching domains/voice/analytics), not a bespoke card.
+  it('renders the no-site guard via the shared cyan app-empty-state (cyan SVG glyph)', () => {
+    build(null, statusResp([]));
+    const host = fixture.nativeElement as HTMLElement;
+    const es = host.querySelector('app-empty-state');
+    expect(es).withContext('uses the cockpit cyan empty-state primitive').toBeTruthy();
+    expect(es!.textContent).toContain('No site selected');
+    expect(es!.querySelector('svg')).withContext('icon maps to a monochrome cyan SVG').toBeTruthy();
+  });
+
   it('liveStatus names the in-progress step for assistive tech', () => {
     build({ id: 's1', primary_hostname: 'acme.dev' });
     expect(component.liveStatus()).toBe('Configuring Email Auth…');

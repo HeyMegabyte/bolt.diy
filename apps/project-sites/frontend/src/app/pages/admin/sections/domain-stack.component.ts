@@ -26,6 +26,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
+import { EmptyStateComponent } from '../empty-state.component';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -58,7 +59,7 @@ interface StackAdvanceResponse {
 @Component({
   selector: 'app-domain-stack',
   standalone: true,
-  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, MiniEmptyComponent],
+  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, MiniEmptyComponent, EmptyStateComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <!-- Header -->
@@ -102,9 +103,11 @@ interface StackAdvanceResponse {
 
       <!-- No site selected -->
       @if (!featureDisabled() && !state.selectedSite()) {
-        <div class="empty-card">
-          <p class="text-text-secondary text-sm">Select a site to start the domain stack wizard.</p>
-        </div>
+        <app-empty-state
+          icon="🌐"
+          title="No site selected"
+          body="Select a site from the sidebar to start the domain stack wizard."
+        />
       }
 
       <!-- Hostname missing -->
