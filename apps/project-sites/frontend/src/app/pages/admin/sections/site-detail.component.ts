@@ -158,7 +158,7 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
                 <span class="log-message">{{ row.message }}</span>
               </div>
             } @empty {
-              <app-mini-empty text="No logs yet — activity will stream in here.">
+              <app-mini-empty [text]="logsEmptyText()">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h7"/></svg>
               </app-mini-empty>
             }
@@ -428,6 +428,16 @@ export class AdminSiteDetailComponent {
       return true;
     });
   });
+  /**
+   * Filter-aware empty message for the logs `@empty` block — "no match" when a
+   * level/search filter is hiding existing logs, vs "no logs yet" when the site
+   * truly has none (so we never claim "no logs yet" while logs exist).
+   */
+  readonly logsEmptyText = computed(() =>
+    (this.logLevel() !== 'all' || this.logSearch().trim() !== '') && this.logs().length > 0
+      ? 'No logs match this level / search filter.'
+      : 'No logs yet — activity will stream in here.',
+  );
 
   // ── Snapshots ────────────────────────────────────────────────────────
   readonly snapshots = signal<SnapshotRow[]>([]);

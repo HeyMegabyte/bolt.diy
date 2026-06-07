@@ -49,6 +49,21 @@ describe('AdminSiteDetailComponent (tabs + logs + SQL console)', () => {
     expect(c.filteredLogs().map((r) => r.message)).toEqual(['started build', 'build FAILED']);
   });
 
+  // The logs @empty message must be filter-aware: never claim "No logs yet"
+  // while logs exist but a level/search filter hides them all.
+  it('logsEmptyText says "no match" when a filter hides existing logs, "no logs yet" when truly empty', () => {
+    const { c } = make();
+    c.logs.set([]); c.logLevel.set('all'); c.logSearch.set('');
+    expect(c.logsEmptyText()).withContext('truly empty').toContain('No logs yet');
+    c.logs.set([{ ts: 1, level: 'info', message: 'served page' }] as never);
+    c.logLevel.set('error'); // no error rows → filtered to zero, but logs exist
+    expect(c.logsEmptyText()).withContext('level filter hides all → no-match').toContain('No logs match');
+    c.logLevel.set('all'); c.logSearch.set('zzz-no-such-line');
+    expect(c.logsEmptyText()).withContext('search hides all → no-match').toContain('No logs match');
+    c.logSearch.set('');
+    expect(c.logsEmptyText()).withContext('back to no filter → no-logs-yet copy').toContain('No logs yet');
+  });
+
   it('setTab switches the active tab', () => {
     const { c } = make();
     expect(c.tab()).toBe('logs');
