@@ -124,7 +124,7 @@ interface DiffResponse {
             <ul class="rounded-xl border border-white/10 bg-white/[0.02] divide-y divide-white/[0.06]">
               @for (f of d.added; track f.path) {
                 <li class="flex items-center justify-between gap-3 px-4 py-2.5">
-                  <code class="text-[0.82rem] text-emerald-200 font-mono truncate">+ {{ f.path }}</code>
+                  <code class="text-[0.82rem] text-emerald-200 font-mono truncate" [attr.title]="f.path">+ {{ f.path }}</code>
                   <a [href]="editorUrl(f.path)" target="_blank" rel="noopener"
                      class="text-[0.72rem] text-white/70 hover:text-white border border-white/15 px-2 py-1 rounded">
                     Open in editor
@@ -142,7 +142,7 @@ interface DiffResponse {
             <ul class="rounded-xl border border-white/10 bg-white/[0.02] divide-y divide-white/[0.06]">
               @for (f of d.removed; track f.path) {
                 <li class="flex items-center justify-between gap-3 px-4 py-2.5">
-                  <code class="text-[0.82rem] text-red-200 font-mono truncate">− {{ f.path }}</code>
+                  <code class="text-[0.82rem] text-red-200 font-mono truncate" [attr.title]="f.path">− {{ f.path }}</code>
                 </li>
               }
             </ul>
@@ -157,7 +157,7 @@ interface DiffResponse {
               @for (f of d.modified; track f.path) {
                 <article class="rounded-xl border border-white/10 bg-[#0b0b18] overflow-hidden">
                   <header class="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-white/10 bg-white/[0.02]">
-                    <code class="text-[0.82rem] text-amber-200 font-mono truncate">~ {{ f.path }}</code>
+                    <code class="text-[0.82rem] text-amber-200 font-mono truncate" [attr.title]="f.path">~ {{ f.path }}</code>
                     <div class="flex items-center gap-2">
                       @if (f.truncated) {
                         <span class="text-[0.65rem] text-amber-300/80 uppercase tracking-wide">Truncated 256KB</span>
