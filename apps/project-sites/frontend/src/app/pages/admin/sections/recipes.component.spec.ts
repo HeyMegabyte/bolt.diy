@@ -54,6 +54,19 @@ describe('AdminRecipesComponent', () => {
     expect(nameEl!.getAttribute('title')).toBe('Lead alert');
   });
 
+  // The per-row Delete button shows the compact text "Delete" (cockpit density),
+  // but its ACCESSIBLE NAME must name the recipe — a screen-reader user tabbing
+  // a list of destructive buttons otherwise hears "Delete, Delete, Delete" with
+  // no idea WHICH automation each one removes (named-destructive-action a11y).
+  it('gives the per-row Delete button an accessible name that names the recipe', () => {
+    build({ id: 's1' });
+    const del = q('[data-testid="recipes-delete"]') as HTMLButtonElement;
+    expect(del).withContext('delete button present').not.toBeNull();
+    // Visible text stays compact; the accessible name carries the recipe identity.
+    expect(del.textContent?.trim()).toBe('Delete');
+    expect(del.getAttribute('aria-label')).withContext('aria-label names the recipe').toBe('Delete automation “Lead alert”');
+  });
+
   it('shows the empty state with no selected site', () => {
     build(null);
     expect(q('[data-testid="recipes-empty"]')).not.toBeNull();

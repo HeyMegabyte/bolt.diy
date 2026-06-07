@@ -102,17 +102,21 @@ interface DiffResponse {
           </section>
         }
 
-        <!-- Stat row -->
+        <!-- Stat row — category is tinted (emerald/red/amber), so each card is a
+             labelled group so the count carries its category to AT (WCAG 1.4.1). -->
         <div class="grid grid-cols-3 gap-3">
-          <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] p-3">
+          <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] p-3"
+               role="group" [attr.aria-label]="d.added.length + ' file' + (d.added.length === 1 ? '' : 's') + ' added'">
             <div class="text-[0.7rem] uppercase tracking-wide text-emerald-300/80">Added</div>
             <div class="text-2xl font-semibold text-emerald-200 mt-1"><app-rolling-counter [value]="d.added.length" /></div>
           </div>
-          <div class="rounded-lg border border-red-500/20 bg-red-500/[0.05] p-3">
+          <div class="rounded-lg border border-red-500/20 bg-red-500/[0.05] p-3"
+               role="group" [attr.aria-label]="d.removed.length + ' file' + (d.removed.length === 1 ? '' : 's') + ' removed'">
             <div class="text-[0.7rem] uppercase tracking-wide text-red-300/80">Removed</div>
             <div class="text-2xl font-semibold text-red-200 mt-1"><app-rolling-counter [value]="d.removed.length" /></div>
           </div>
-          <div class="rounded-lg border border-amber-500/20 bg-amber-500/[0.05] p-3">
+          <div class="rounded-lg border border-amber-500/20 bg-amber-500/[0.05] p-3"
+               role="group" [attr.aria-label]="d.modified.length + ' file' + (d.modified.length === 1 ? '' : 's') + ' modified'">
             <div class="text-[0.7rem] uppercase tracking-wide text-amber-300/80">Modified</div>
             <div class="text-2xl font-semibold text-amber-200 mt-1"><app-rolling-counter [value]="d.modified.length" /></div>
           </div>
@@ -169,11 +173,14 @@ interface DiffResponse {
                       </a>
                     </div>
                   </header>
-                  <pre class="m-0 p-3 overflow-x-auto text-[0.78rem] leading-[1.55] font-mono"><!--
+                  <pre class="m-0 p-3 overflow-x-auto text-[0.78rem] leading-[1.55] font-mono"
+                       tabindex="0" role="region" [attr.aria-label]="'Line diff for ' + f.path + ' — scroll horizontally'"><!--
                   -->@for (h of f.hunks; track $index) {<!--
                     --><span [class.diff-add]="h.added"
                             [class.diff-rem]="h.removed"
-                            [class.diff-ctx]="!h.added && !h.removed">{{ h.value }}</span><!--
+                            [class.diff-ctx]="!h.added && !h.removed"
+                            [attr.data-gutter]="h.added ? '+' : h.removed ? '−' : ' '"
+                            [attr.aria-label]="(h.added ? 'Added line' : h.removed ? 'Removed line' : 'Unchanged line')">{{ h.value }}</span><!--
                   -->}</pre>
                 </article>
               }
@@ -191,9 +198,21 @@ interface DiffResponse {
   `,
   styles: [`
     /* Inline tints — kept here (not in _polish.scss, owned by another agent) */
-    :host ::ng-deep .diff-add { display: block; background: rgba(16, 185, 129, 0.12); color: #b7f7d6; }
-    :host ::ng-deep .diff-rem { display: block; background: rgba(239, 68, 68, 0.14); color: #fecaca; }
-    :host ::ng-deep .diff-ctx { display: block; color: rgba(244, 244, 255, 0.7); }
+    /* Tint pairs with a +/−/space gutter glyph (data-gutter) so add/remove
+       reads WITHOUT color (WCAG 1.4.1 Use of Color), not just by green/red. */
+    :host ::ng-deep .diff-add,
+    :host ::ng-deep .diff-rem,
+    :host ::ng-deep .diff-ctx { display: block; }
+    :host ::ng-deep [data-gutter]::before {
+      content: attr(data-gutter) ' ';
+      display: inline-block;
+      width: 1ch;
+      opacity: 0.65;
+      user-select: none;
+    }
+    :host ::ng-deep .diff-add { background: rgba(16, 185, 129, 0.12); color: #b7f7d6; }
+    :host ::ng-deep .diff-rem { background: rgba(239, 68, 68, 0.14); color: #fecaca; }
+    :host ::ng-deep .diff-ctx { color: rgba(244, 244, 255, 0.7); }
     :host ::ng-deep pre { white-space: pre; }
   `],
 })

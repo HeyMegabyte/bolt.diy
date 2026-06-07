@@ -341,6 +341,65 @@ import { ConfirmService as ConfirmService2 } from '../../../services/confirm.ser
 import { Router as Router2, ActivatedRoute as ActivatedRoute2 } from '@angular/router';
 
 /**
+ * WCAG 4.1.3 (Status Messages) + 1.3.1 — the 2FA toggle on the Team tab is the
+ * most security-sensitive control in this section and persists ASYNCHRONOUSLY
+ * (no Save button). While the PUT is in flight the only feedback was a visual
+ * "saving…" span (no aria-live) and the checkbox carried no aria-busy, so a
+ * screen-reader user toggling "Require 2FA" got ZERO signal that a network save
+ * was running. The control now exposes aria-busy and the status text is an
+ * aria-live polite region. Mirrors the feature-flags refresh button pattern.
+ */
+describe('AdminSettingsComponent (2FA toggle async-save is announced to AT)', () => {
+  function render(): ComponentFixture<AdminSettingsComponent> {
+    TestBed.configureTestingModule({
+      imports: [AdminSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: null }), put: () => of({}), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+        { provide: Router, useValue: { navigate: () => undefined } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 's' }), loadData: () => undefined } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSettingsComponent);
+    fx.detectChanges();                    // ngOnInit may set the tab from the route
+    fx.componentInstance.tab.set('team');  // the 2FA toggle lives in the Team tab
+    fx.detectChanges();
+    return fx;
+  }
+  const toggle = (el: HTMLElement) =>
+    el.querySelector('[data-testid="team-2fa-toggle"]') as HTMLInputElement | null;
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('reflects savingSecurity() on the 2FA checkbox via aria-busy', () => {
+    const fx = render();
+    const el = fx.nativeElement as HTMLElement;
+    const cb = toggle(el)!;
+    expect(cb).withContext('2FA toggle rendered in Team tab').toBeTruthy();
+    // Idle: no in-flight save → not busy.
+    expect(cb.getAttribute('aria-busy')).withContext('not busy at rest').not.toBe('true');
+    // In-flight save → busy announced to AT.
+    fx.componentInstance.savingSecurity.set(true);
+    fx.detectChanges();
+    expect(cb.getAttribute('aria-busy'))
+      .withContext('aria-busy=true while the 2FA PUT is in flight').toBe('true');
+  });
+
+  it('announces the in-flight save via an aria-live region (not a silent visual hint)', () => {
+    const fx = render();
+    fx.componentInstance.savingSecurity.set(true);
+    fx.detectChanges();
+    const el = fx.nativeElement as HTMLElement;
+    const live = Array.from(el.querySelectorAll('[aria-live]')).find(
+      (n) => /saving/i.test(n.textContent ?? ''),
+    );
+    expect(live).withContext('"saving…" status is an aria-live region').toBeTruthy();
+    expect(live!.getAttribute('aria-live')).toBe('polite');
+  });
+});
+
+/**
  * MCP-connection disconnect is toast-armed (7s action, re-clickable mid-async).
  * A second disconnect of the same connection while one is in flight must NOT
  * fire a duplicate DELETE.

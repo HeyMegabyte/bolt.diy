@@ -166,6 +166,123 @@ describe('AdminSnapshotsDiffComponent (diff stat counts roll — cinematic-ui)',
 });
 
 /**
+ * WCAG 1.4.1 Use of Color — the diff conveys added / removed / context by the
+ * green / red / grey tint ALONE. A screen-reader user (or anyone who can't
+ * distinguish the tints) gets no cue which lines changed how. Each hunk span
+ * must carry a NON-COLOR alternative: a per-line aria-label ('Added line' /
+ * 'Removed line' / 'Unchanged line') + a visible +/−/space gutter glyph, and
+ * the scrollable <pre> must be a labelled region (mirrors seo.component's
+ * role=region + the KPI role=group pattern).
+ */
+describe('AdminSnapshotsDiffComponent (diff a11y — non-color cue, WCAG 1.4.1)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function renderWithModified() {
+    TestBed.configureTestingModule({
+      imports: [AdminSnapshotsDiffComponent],
+      providers: [
+        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
+        { provide: ApiService, useValue: { get: () => of({ added: [], removed: [], modified: [] }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSnapshotsDiffComponent);
+    fx.detectChanges();
+    fx.componentInstance.diff.set({
+      from: { name: 'A' },
+      to: { name: 'B' },
+      added: [],
+      removed: [],
+      modified: [{
+        path: 'index.html',
+        before: '',
+        after: '',
+        truncated: false,
+        hunks: [
+          { added: true, removed: false, value: 'new line\n' },
+          { added: false, removed: true, value: 'gone line\n' },
+          { added: false, removed: false, value: 'kept line\n' },
+        ],
+      }],
+      summary: null,
+    } as never);
+    fx.componentInstance.loading.set(false);
+    fx.componentInstance.error.set(null);
+    fx.detectChanges();
+    return fx;
+  }
+
+  it('labels each diff hunk with a non-color status (Added / Removed / Unchanged line)', () => {
+    const fx = renderWithModified();
+    const host = fx.nativeElement as HTMLElement;
+    const add = host.querySelector('.diff-add');
+    const rem = host.querySelector('.diff-rem');
+    const ctx = host.querySelector('.diff-ctx');
+    expect(add?.getAttribute('aria-label')).withContext('added hunk announces status').toBe('Added line');
+    expect(rem?.getAttribute('aria-label')).withContext('removed hunk announces status').toBe('Removed line');
+    expect(ctx?.getAttribute('aria-label')).withContext('context hunk announces status').toBe('Unchanged line');
+  });
+
+  it('carries a data-gutter +/−/space glyph per hunk so the cue survives without color', () => {
+    const fx = renderWithModified();
+    const host = fx.nativeElement as HTMLElement;
+    expect(host.querySelector('.diff-add')?.getAttribute('data-gutter')).toBe('+');
+    expect(host.querySelector('.diff-rem')?.getAttribute('data-gutter')).toBe('−');
+    expect(host.querySelector('.diff-ctx')?.getAttribute('data-gutter')).toBe(' ');
+  });
+
+  it('wraps the scrollable diff in a labelled region (role=region + aria-label)', () => {
+    const fx = renderWithModified();
+    const host = fx.nativeElement as HTMLElement;
+    const pre = host.querySelector('pre[role="region"]');
+    expect(pre).withContext('diff <pre> is a labelled scroll region').not.toBeNull();
+    expect(pre?.getAttribute('aria-label')).toContain('index.html');
+  });
+});
+
+/**
+ * WCAG 1.4.1 — the Added / Removed / Modified KPI stat row distinguishes the
+ * three categories by tint (emerald / red / amber) alone. Each card needs a
+ * role=group + aria-label so the count carries its category to AT, mirroring
+ * seo.component's role=group stat pattern + analytics.component's KPI groups.
+ */
+describe('AdminSnapshotsDiffComponent (KPI stat row groups — WCAG 1.4.1)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('marks each stat card as a labelled group naming its category + count', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminSnapshotsDiffComponent],
+      providers: [
+        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
+        { provide: ApiService, useValue: { get: () => of({ added: [], removed: [], modified: [] }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSnapshotsDiffComponent);
+    fx.detectChanges();
+    fx.componentInstance.diff.set({
+      from: { name: 'A' },
+      to: { name: 'B' },
+      added: [{ path: 'a.html' }, { path: 'c.html' }],
+      removed: [{ path: 'b.html' }],
+      modified: [],
+      summary: null,
+    } as never);
+    fx.componentInstance.loading.set(false);
+    fx.componentInstance.error.set(null);
+    fx.detectChanges();
+    const groups = (fx.nativeElement as HTMLElement).querySelectorAll('.grid-cols-3 [role="group"]');
+    expect(groups.length).withContext('three labelled KPI groups').toBe(3);
+    const labels = Array.from(groups).map((g) => g.getAttribute('aria-label'));
+    expect(labels).toContain('2 files added');
+    expect(labels).toContain('1 file removed');
+    expect(labels).toContain('0 files modified');
+  });
+});
+
+/**
  * Cross-site result hygiene: the diff is for `?from&to` snapshot ids of the
  * SELECTED site. Switching sites (sidebar) must drop the stale diff and
  * re-evaluate — site A's snapshot diff can never sit under site B's header.

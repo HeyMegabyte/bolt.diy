@@ -192,13 +192,14 @@ const PROVIDERS = MCP_PROVIDERS;
                 <span class="text-[0.66rem] text-text-secondary mt-0.5">Every member must enroll a TOTP authenticator before signing in.</span>
               </div>
               <label class="flex items-center gap-2 text-[0.72rem] cursor-pointer select-none">
-                @if (savingSecurity()) {
-                  <span class="text-[0.6rem] text-text-secondary">saving…</span>
-                }
+                <span class="text-[0.6rem] text-text-secondary" role="status" aria-live="polite">
+                  @if (savingSecurity()) { saving… }
+                </span>
                 <input hlmCheckbox type="checkbox"
                        data-testid="team-2fa-toggle"
                        [checked]="security.require_2fa"
                        (change)="toggleRequire2FA($event)"
+                       [attr.aria-busy]="savingSecurity()"
                        [disabled]="savingSecurity()" />
                 <span class="text-text-secondary">{{ security.require_2fa ? 'On' : 'Off' }}</span>
               </label>
@@ -330,9 +331,12 @@ const PROVIDERS = MCP_PROVIDERS;
                        data-testid="ai-chat-enable-web-search"
                        [checked]="allowWebResearch()"
                        (change)="toggleWebResearch($any($event.target).checked)"
+                       [attr.aria-busy]="savingWebResearch()"
                        [disabled]="savingWebResearch()" />
                 <span>Enable web search</span>
-                @if (savingWebResearch()) { <span class="text-[0.6rem] text-text-secondary">saving…</span> }
+                <span class="text-[0.6rem] text-text-secondary" role="status" aria-live="polite">
+                  @if (savingWebResearch()) { saving… }
+                </span>
               </label>
 
               <div>
