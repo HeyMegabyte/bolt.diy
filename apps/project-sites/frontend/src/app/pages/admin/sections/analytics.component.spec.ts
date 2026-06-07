@@ -202,6 +202,46 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
       .withContext('body renders on the happy path').not.toBeNull();
   });
 
+  // a11y: each primary KPI figure is an animated <app-rolling-counter> number —
+  // a screen reader otherwise reads the bare value with no label tying it to its
+  // meaning ("Page views" / "Unique visitors" / "Total requests"). Each tile must
+  // be a role=group with an aria-label combining the value AND the metric name
+  // (the same per-stat pattern as the seo summary). aria-label is the SR truth so
+  // it's read correctly even mid-count-up.
+  it('each KPI tile is a role=group with an aria-label combining value + metric name', () => {
+    build({ id: 'site-x' });
+    const c = fixture.componentInstance;
+    c.error.set(null);
+    c.envelope.set({ series: [], pageviews: 1240, uniques: 312, total_requests: 5000 } as never);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+
+    const pv = el.querySelector('[data-testid="kpi-pageviews"]');
+    expect(pv?.getAttribute('role')).withContext('KPI tile is a group').toBe('group');
+    expect(pv?.getAttribute('aria-label')).withContext('aria-label carries value + meaning').toBe('1,240 page views');
+
+    const vis = el.querySelector('[data-testid="kpi-visitors"]');
+    expect(vis?.getAttribute('role')).toBe('group');
+    expect(vis?.getAttribute('aria-label')).toBe('312 unique visitors');
+
+    const req = el.querySelector('[data-testid="kpi-requests"]');
+    expect(req?.getAttribute('role')).toBe('group');
+    expect(req?.getAttribute('aria-label')).toBe('5,000 total requests');
+  });
+
+  it('the KPI aria-labels do not lie during the loading skeleton (no premature "0 …" claim)', () => {
+    build({ id: 'site-x' });
+    const c = fixture.componentInstance;
+    c.error.set(null);
+    c.envelope.set(null);
+    c.loading.set(true);
+    fixture.detectChanges();
+    const pv = fixture.nativeElement.querySelector('[data-testid="kpi-pageviews"]') as HTMLElement;
+    // While the skeleton shows (loading + no envelope), the tile must not assert
+    // a definitive "0 page views" to AT — announce the loading status instead.
+    expect(pv?.getAttribute('aria-label')).withContext('loading state announced, not a fake 0').toBe('Page views, loading');
+  });
+
   // A 404 (route not registered for this site/env) is PERMANENT — not "temporary".
   // It must surface a calm "not available" notice (not the red transient error
   // card promising "try again") and pause auto-refresh (never re-poll a 404).

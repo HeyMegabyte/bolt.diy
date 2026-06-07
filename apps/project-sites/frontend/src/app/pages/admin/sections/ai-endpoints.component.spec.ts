@@ -282,6 +282,60 @@ describe('AdminAiEndpointsComponent — mutations pass {silent:true} (no generic
   });
 });
 
+/**
+ * Double-submit busy-guard: the IDE Save button (`<button (click)="save.emit()">`,
+ * data-testid="ide-save") has NO [disabled] binding — it always emits, even while
+ * a PUT is in flight, bypassing the overlay's [disabled]="saving()" guard. A rapid
+ * double-click therefore fires saveDetail() twice → two concurrent PUTs. createEndpoint()
+ * has the same class of risk (Enter/rapid-click race). The button [disabled] is NOT
+ * enough — the HANDLER must early-return on the busy signal (email.component pattern).
+ */
+describe('AdminAiEndpointsComponent — mutation handlers guard against double-submit', () => {
+  let put: jasmine.Spy, post: jasmine.Spy;
+  function build(): AdminAiEndpointsComponent {
+    // Never-resolving observables so saving() stays true across the second call.
+    put = jasmine.createSpy('put').and.returnValue(new (require('rxjs').Subject)());
+    post = jasmine.createSpy('post').and.returnValue(new (require('rxjs').Subject)());
+    TestBed.configureTestingModule({
+      imports: [AdminAiEndpointsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, put, delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'site' }) } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminAiEndpointsComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminAiEndpointsComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('saveDetail() while a save is in flight is a no-op (no second PUT — IDE Save button bypasses the disabled overlay button)', () => {
+    const c = build();
+    c.detail.set({
+      id: 'e9', language: 'ts', files: {}, bindings: [],
+      auth_mode: 'open', rate_limit_per_sec: 0, cache_ttl_seconds: 0, cron_expression: null,
+    } as never);
+    c.saveDetail();
+    expect(put).toHaveBeenCalledTimes(1);
+    expect(c.saving()).toBeTrue();
+    c.saveDetail(); // simulate the second IDE-Save click before the PUT resolves
+    expect(put).withContext('the busy handler early-returns — no double-submit').toHaveBeenCalledTimes(1);
+  });
+
+  it('createEndpoint() while a create is in flight is a no-op (no double POST on Enter/rapid-click race)', () => {
+    const c = build();
+    c.createDraft.set({
+      slug: 'lead-scorer', method: 'POST', description: '', language: 'ai-prompt', promptBody: '', files: {},
+    } as never);
+    c.createEndpoint();
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(c.saving()).toBeTrue();
+    c.createEndpoint(); // a second rapid submit before the POST resolves
+    expect(post).withContext('the busy handler early-returns — no double-submit').toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('AdminAiEndpointsComponent (⋯ popover Esc dismiss)', () => {
   afterEach(() => TestBed.resetTestingModule());
   it('Esc closes the open ⋯ popover (keyboard dismiss)', () => {

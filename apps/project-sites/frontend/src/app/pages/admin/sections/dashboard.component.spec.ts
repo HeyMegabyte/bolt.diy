@@ -163,3 +163,54 @@ describe('AdminDashboardComponent (features-banner icons)', () => {
     expect(banner).not.toContain('⚑');
   });
 });
+
+/**
+ * The feature pills are toggle buttons whose active feature is signalled ONLY by
+ * colour + glow (`.pill.on`). Status-by-colour-alone is a WCAG 1.4.1 failure for
+ * screen-reader users, so each pill must expose its selected state via
+ * `aria-pressed` reflecting `chat.lastPill() === cmd.id` — not just a CSS class.
+ */
+describe('AdminDashboardComponent (pill aria-pressed)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function renderPills(activeId: string | null): HTMLElement {
+    const chat = chatStub();
+    (chat.lastPill as { set: (v: string | null) => void }).set(activeId);
+    TestBed.configureTestingModule({
+      imports: [AdminDashboardComponent],
+      providers: [
+        provideRouter([]),
+        { provide: DashboardChatService, useValue: chat },
+        { provide: SlashCommandRegistryService, useValue: { commands: () => CMDS, search: () => [], parse: () => null } },
+        { provide: AdminStateService, useValue: { selectedSite: signal(null) } },
+        {
+          provide: TranslateService,
+          useValue: { instant: (k: string) => k, get: (k: string) => of(k), stream: (k: string) => of(k), use: () => of({}), setDefaultLang: () => 0, addLangs: () => 0, currentLang: 'en', onLangChange: of(), onTranslationChange: of(), onDefaultLangChange: of() },
+        },
+      ],
+    });
+    TestBed.overrideComponent(AdminUpgradesShellComponent, { set: { template: '', imports: [] } });
+    const fx = TestBed.createComponent(AdminDashboardComponent);
+    fx.detectChanges();
+    return fx.nativeElement as HTMLElement;
+  }
+
+  it('marks every pill with aria-pressed (true on the active feature, false otherwise)', () => {
+    const host = renderPills('analytics'); // CMDS[1]
+    const pills = host.querySelectorAll('.pill');
+    expect(pills.length).withContext('all registry commands render as pills').toBe(CMDS.length);
+    pills.forEach((pill) => {
+      const pressed = pill.getAttribute('aria-pressed');
+      expect(pressed).withContext('every pill exposes aria-pressed').not.toBeNull();
+    });
+    const active = host.querySelector('.pill.on');
+    expect(active?.getAttribute('aria-pressed')).withContext('active pill is pressed').toBe('true');
+  });
+
+  it('reports aria-pressed=false on all pills when no feature is active', () => {
+    const host = renderPills(null);
+    const pills = host.querySelectorAll('.pill');
+    pills.forEach((pill) => expect(pill.getAttribute('aria-pressed')).toBe('false'));
+    expect(host.querySelector('.pill.on')).withContext('no pill is visually active').toBeNull();
+  });
+});

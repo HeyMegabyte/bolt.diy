@@ -215,7 +215,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
       @if (state.selectedSite() && !error() && !notAvailable()) {
       <!-- ─────────────────── KPI TILES ─────────────────── -->
       <div class="grid gap-3 grid-cols-3 max-md:grid-cols-1">
-        <div class="card kpi" appReveal data-testid="kpi-pageviews">
+        <div class="card kpi" appReveal data-testid="kpi-pageviews" role="group" [attr.aria-label]="kpiPageviewsLabel()">
           @if (loading() && !envelope()) {
             <div class="skel skel-line w-20 h-3 mb-2"></div>
             <div class="skel skel-line w-28 h-7 mb-2"></div>
@@ -260,7 +260,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
           }
         </div>
 
-        <div class="card kpi" appReveal data-testid="kpi-visitors">
+        <div class="card kpi" appReveal data-testid="kpi-visitors" role="group" [attr.aria-label]="kpiVisitorsLabel()">
           @if (loading() && !envelope()) {
             <div class="skel skel-line w-24 h-3 mb-2"></div>
             <div class="skel skel-line w-24 h-7 mb-2"></div>
@@ -286,7 +286,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
           }
         </div>
 
-        <div class="card kpi" appReveal data-testid="kpi-requests">
+        <div class="card kpi" appReveal data-testid="kpi-requests" role="group" [attr.aria-label]="kpiRequestsLabel()">
           @if (loading() && !envelope()) {
             <div class="skel skel-line w-24 h-3 mb-2"></div>
             <div class="skel skel-line w-24 h-7 mb-2"></div>
@@ -1008,6 +1008,22 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
       title: `Recent half vs earlier half of the selected range (${dir === 'flat' ? 'no significant change' : word + ' ' + rounded + '%'})`,
     };
   });
+
+  /**
+   * Accessible labels for the three KPI tiles. Each figure is an animated
+   * `<app-rolling-counter>` whose visible digits a screen reader would read
+   * bare and disconnected from the metric name. The tile's `aria-label` is the
+   * SR truth — value + meaning in one phrase — read correctly even mid-count-up.
+   * While the skeleton shows (loading + no envelope) it announces the loading
+   * status instead of a definitive "0 …" (the lying-zero trap).
+   */
+  private kpiLabel(value: number, noun: string): string {
+    if (this.loading() && !this.envelope()) return `${noun}, loading`;
+    return `${(value).toLocaleString()} ${noun.toLowerCase()}`;
+  }
+  kpiPageviewsLabel = computed(() => this.kpiLabel(this.envelope()?.pageviews ?? 0, 'Page views'));
+  kpiVisitorsLabel = computed(() => this.kpiLabel(this.envelope()?.uniques ?? 0, 'Unique visitors'));
+  kpiRequestsLabel = computed(() => this.kpiLabel(this.envelope()?.total_requests ?? 0, 'Total requests'));
 
   maxPage = computed(() => Math.max(1, ...(this.envelope()?.top_pages ?? []).map((p) => p.views)));
   maxReferrer = computed(() => Math.max(1, ...(this.envelope()?.top_referrers ?? []).map((r) => r.views)));

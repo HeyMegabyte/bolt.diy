@@ -130,6 +130,7 @@ import { AdminStateService } from '../admin-state.service';
             type="button"
             class="pill"
             [class.on]="chat.lastPill() === cmd.id"
+            [attr.aria-pressed]="chat.lastPill() === cmd.id"
             [attr.title]="cmd.description"
             [disabled]="chat.streaming()"
             (click)="pillClick(cmd)"

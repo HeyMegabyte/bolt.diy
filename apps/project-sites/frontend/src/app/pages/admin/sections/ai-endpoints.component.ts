@@ -1209,6 +1209,10 @@ export class AdminAiEndpointsComponent implements OnInit {
   markDetailDirty(): void { this.detailDirty.set(true); }
 
   saveDetail(): void {
+    // Busy-guard: the IDE Save button (`(click)="save.emit()"`, no [disabled]) always
+    // emits, so a rapid double-click bypasses the overlay's [disabled]="saving()" guard
+    // and re-enters here. Guard the HANDLER, not just the button, or two PUTs race.
+    if (this.saving()) return;
     const s = this.state.selectedSite();
     const d = this.detail();
     if (!s || !d) return;
@@ -1372,6 +1376,10 @@ export class AdminAiEndpointsComponent implements OnInit {
   }
 
   createEndpoint(): void {
+    // Busy-guard: early-return when a create is already in flight so an Enter-key
+    // submit or a rapid second click can't fire two concurrent POSTs (the [disabled]
+    // button alone doesn't cover a handler re-entered before saving() flips).
+    if (this.saving()) return;
     const s = this.state.selectedSite();
     if (!s) return;
     const v = this.createDraft();
