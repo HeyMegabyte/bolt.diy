@@ -18,7 +18,7 @@ import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective } from '../../../ui';
-import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
+import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent } from '../../../components/states';
 
 /** Mirrors the worker's WEBHOOK_EVENT_TYPES allowlist. */
 const EVENT_TYPES = ['site.published', 'form.submitted', 'payment.succeeded', 'review.received', 'build.failed', 'domain.active'];
@@ -43,7 +43,7 @@ interface Delivery {
 @Component({
   selector: 'app-admin-webhooks',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent],
+  imports: [CommonModule, FormsModule, RouterLink, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -107,11 +107,8 @@ interface Delivery {
         </div>
 
         @if (flagDisabled()) {
-          <!-- Flag OFF (404) → calm cohesive notice (NOT alarming red), inline Feature-Flags link. -->
-          <div data-testid="webhooks-flag-gate" role="status" class="mb-5 rounded-xl border border-[#00E5FF]/15 bg-[#00E5FF]/[0.04] p-4 text-sm text-text-secondary">
-            Webhooks are behind the <code class="text-[#00E5FF]">outbound_webhooks</code> feature flag (currently disabled). Enable it in
-            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.
-          </div>
+          <!-- Flag OFF (404) → calm cohesive notice (NOT alarming red). Shared primitive. -->
+          <app-flag-gate-notice feature="Webhooks" flag="outbound_webhooks" [plural]="true" testid="webhooks-flag-gate" margin="mb-5" />
         } @else if (error()) {
           <app-error-card data-testid="webhooks-error" class="block mb-5"
             title="Couldn't load webhooks"

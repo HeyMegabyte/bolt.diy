@@ -18,7 +18,7 @@ import { AdminStateService } from '../admin-state.service';
 import { RouterLink } from '@angular/router';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective } from '../../../ui';
-import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
+import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent } from '../../../components/states';
 
 /** Mirror the worker allowlists (services/automation_builder.ts). */
 const TRIGGERS = ['form.submitted', 'site.published', 'payment.succeeded', 'review.received', 'build.failed', 'domain.active'];
@@ -35,7 +35,7 @@ interface Recipe {
 @Component({
   selector: 'app-admin-recipes',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent],
+  imports: [CommonModule, FormsModule, RouterLink, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -52,11 +52,8 @@ interface Recipe {
         </div>
       } @else {
         @if (flagDisabled()) {
-          <!-- Flag OFF (404) → calm cohesive notice (NOT alarming red), inline Feature-Flags link. -->
-          <div data-testid="recipes-flag-gate" role="status" class="mb-5 rounded-xl border border-[#00E5FF]/15 bg-[#00E5FF]/[0.04] p-4 text-sm text-text-secondary">
-            Automations are behind the <code class="text-[#00E5FF]">automation_builder</code> feature flag (currently disabled). Enable it in
-            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.
-          </div>
+          <!-- Flag OFF (404) → calm cohesive notice (NOT alarming red). Shared primitive. -->
+          <app-flag-gate-notice feature="Automations" flag="automation_builder" [plural]="true" testid="recipes-flag-gate" margin="mb-5" />
         } @else if (loadError()) {
           <!-- Transient (non-404) failure → shared error card with Retry + support ref. -->
           <app-error-card

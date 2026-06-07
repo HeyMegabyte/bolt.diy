@@ -23,6 +23,7 @@ import { AdminStateService } from '../admin-state.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { ErrorCardComponent } from '../../../components/states/error-card.component';
+import { FlagGateNoticeComponent } from '../../../components/states/flag-gate-notice.component';
 import { HlmButtonDirective, HlmInputDirective } from '../../../ui';
 
 interface DeliverabilityReport {
@@ -41,7 +42,7 @@ interface DeliverabilityResponse {
 @Component({
   selector: 'app-admin-deliverability',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, RollingCounterComponent, RevealDirective, ErrorCardComponent, HlmButtonDirective, HlmInputDirective],
+  imports: [CommonModule, FormsModule, RouterLink, RollingCounterComponent, RevealDirective, ErrorCardComponent, FlagGateNoticeComponent, HlmButtonDirective, HlmInputDirective],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -98,11 +99,8 @@ interface DeliverabilityResponse {
       }
 
       @if (flagDisabled()) {
-        <!-- Flag OFF (404) → calm cohesive cyan notice (NOT alarming red), inline Feature-Flags link. -->
-        <div data-testid="deliverability-flag-gate" role="status" class="mt-5 rounded-xl border border-[#00E5FF]/15 bg-[#00E5FF]/[0.04] p-4 text-sm text-text-secondary">
-          The deliverability wizard is behind the <code class="text-[#00E5FF]">email_deliverability_wizard</code> feature flag (currently disabled). Enable it in
-          <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.
-        </div>
+        <!-- Flag OFF (404) → calm cohesive cyan notice (NOT alarming red). Shared primitive. -->
+        <app-flag-gate-notice feature="The deliverability wizard" flag="email_deliverability_wizard" testid="deliverability-flag-gate" margin="mt-5" />
       } @else if (error()) {
         <!-- TRANSIENT failure (network/5xx) → gold-standard error card: a real Retry
              that re-runs the DNS check (preserving the typed domain) + a copyable

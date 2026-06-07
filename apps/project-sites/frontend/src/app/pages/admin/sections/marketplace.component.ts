@@ -28,7 +28,7 @@ import { HlmTablistDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { FocusTrapDirective } from '../../../directives/focus-trap.directive';
 import { EmptyStateComponent } from '../empty-state.component';
-import { ErrorCardComponent } from '../../../components/states';
+import { ErrorCardComponent, FlagGateNoticeComponent } from '../../../components/states';
 import { ToastService } from '../../../services/toast.service';
 
 type SectionIndustry = 'nonprofit' | 'restaurant' | 'lawyer' | 'salon' | 'medical' | 'all';
@@ -63,7 +63,7 @@ const SLOT_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-marketplace',
   standalone: true,
-  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, HlmTablistDirective, EmptyStateComponent, ErrorCardComponent, FocusTrapDirective],
+  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, HlmTablistDirective, EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent, FocusTrapDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="mkt-shell">
@@ -141,12 +141,9 @@ const SLOT_COLORS: Record<string, string> = {
       <div class="mkt-loading__spinner" aria-hidden="true"></div>
     </div>
   } @else if (flagDisabled()) {
-    <!-- Flag OFF (404) → calm cohesive Feature-Flags notice (NOT the alarming
-         "Couldn't load · Retry" card — retrying can't enable a disabled flag). -->
-    <div data-testid="marketplace-flag-gate" role="status" class="rounded-xl border border-[#00E5FF]/15 bg-[#00E5FF]/[0.04] p-4 text-sm text-text-secondary">
-      The Section Marketplace is behind the <code class="text-[#00E5FF]">section_marketplace</code> feature flag (currently disabled). Enable it in
-      <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.
-    </div>
+    <!-- Flag OFF (404) → calm cohesive notice (NOT the alarming "Couldn't load ·
+         Retry" card — retrying can't enable a disabled flag). Shared primitive. -->
+    <app-flag-gate-notice feature="The Section Marketplace" flag="section_marketplace" testid="marketplace-flag-gate" />
   } @else if (loadError()) {
     <app-error-card
       title="Couldn't load the marketplace"
