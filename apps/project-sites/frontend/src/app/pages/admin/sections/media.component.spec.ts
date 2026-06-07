@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { AdminMediaComponent } from './media.component';
 import { ApiService } from '../../../services/api.service';
 import { BoltEmbedService } from '../../../services/bolt-embed.service';
@@ -576,5 +576,48 @@ describe('AdminMediaComponent (deep-linkable tabs)', () => {
     expect(opts.queryParams).toEqual({ tab: 'image' });
     expect(opts.replaceUrl).toBeTrue();
     expect(opts.queryParamsHandling).toBe('merge');
+  });
+});
+
+/**
+ * The bulk-delete is destructive (confirm-gated) — it must ALSO guard against
+ * double-submit + show it's in flight: a busy signal set after confirm, cleared
+ * on completion, and a re-entrant call while busy is a no-op (no duplicate
+ * DELETE storm).
+ */
+describe('AdminMediaComponent (bulk-delete busy guard)', () => {
+  function mk(del$: Subject<{ ok: boolean }>): AdminMediaComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminMediaComponent],
+      providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({}), delete: jasmine.createSpy('delete').and.returnValue(del$) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0, dismiss: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
+      ],
+    });
+    TestBed.overrideComponent(AdminMediaComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminMediaComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('sets bulkBusy while deleting, ignores a re-entrant call, clears on completion', async () => {
+    const del$ = new Subject<{ ok: boolean }>();
+    const c = mk(del$);
+    const del = TestBed.inject(ApiService).delete as jasmine.Spy;
+    c.selectedIds.set(new Set(['a1']));
+
+    await c.deleteSelected();          // confirm resolves true → delete subscribes (pending)
+    expect(c.bulkBusy()).withContext('busy during the in-flight delete').toBeTrue();
+    expect(del.calls.count()).toBe(1);
+
+    await c.deleteSelected();          // re-entrant while busy → no-op
+    expect(del.calls.count()).withContext('no duplicate DELETE storm').toBe(1);
+
+    del$.next({ ok: true }); del$.complete(); // finish
+    expect(c.bulkBusy()).withContext('cleared on completion').toBeFalse();
+    expect(c.selectedIds().size).withContext('selection cleared after delete').toBe(0);
   });
 });

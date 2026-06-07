@@ -270,18 +270,18 @@ interface BoltMediaAttachMessage {
             @if (selectedIds().size > 0 && !compact()) {
               <div class="bulk-bar" role="toolbar" aria-label="Bulk actions">
                 <span class="bulk-count">{{ selectedIds().size }} selected</span>
-                <button type="button" class="btn-ghost" (click)="sendSelectedToBolt()">
+                <button type="button" class="btn-ghost" (click)="sendSelectedToBolt()" [disabled]="bulkBusy()">
                   Send {{ selectedIds().size }} to Editor
                 </button>
-                <button type="button" class="btn-danger" (click)="deleteSelected()">
-                  Delete {{ selectedIds().size }}
+                <button type="button" class="btn-danger" (click)="deleteSelected()" [disabled]="bulkBusy()" [attr.aria-busy]="bulkBusy()">
+                  {{ bulkBusy() ? 'Deleting…' : 'Delete ' + selectedIds().size }}
                 </button>
                 @if (!allFilteredSelected()) {
-                  <button type="button" class="btn-ghost btn-ghost--quiet" data-testid="media-select-all" (click)="selectAll()">
+                  <button type="button" class="btn-ghost btn-ghost--quiet" data-testid="media-select-all" (click)="selectAll()" [disabled]="bulkBusy()">
                     Select all {{ filteredAssets().length }}
                   </button>
                 }
-                <button type="button" class="btn-ghost btn-ghost--quiet" (click)="clearSelection()">
+                <button type="button" class="btn-ghost btn-ghost--quiet" (click)="clearSelection()" [disabled]="bulkBusy()">
                   Clear
                 </button>
               </div>
@@ -1250,6 +1250,9 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
   readonly searchTerm = signal('');
   /** Set of asset IDs the user has multi-selected for bulk actions. */
   readonly selectedIds = signal<Set<string>>(new Set());
+  /** True while a confirmed bulk delete is in flight — guards double-submit +
+   *  drives the "Deleting…" feedback + disables the bulk-action bar. */
+  readonly bulkBusy = signal(false);
 
   readonly filteredAssets = computed(() => {
     const q = this.searchTerm().toLowerCase().trim();
@@ -1546,7 +1549,7 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   async deleteSelected(): Promise<void> {
     const ids = Array.from(this.selectedIds());
-    if (ids.length === 0) return;
+    if (ids.length === 0 || this.bulkBusy()) return; // re-entrant click while busy = no-op
     const ok = await this.confirmSvc.confirm({
       title: 'Delete assets',
       message: `Delete ${ids.length} ${ids.length === 1 ? 'asset' : 'assets'}? This cannot be undone.`,
@@ -1554,6 +1557,7 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
       danger: true,
     });
     if (!ok) return;
+    this.bulkBusy.set(true);
     let done = 0;
     let fail = 0;
     for (const id of ids) {
@@ -1573,6 +1577,7 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private finishBulkDelete(done: number, fail: number): void {
+    this.bulkBusy.set(false);
     if (done > 0 && fail === 0) this.toast.success(`Deleted ${done}`);
     else if (done > 0) this.toast.warning(`Deleted ${done}, ${fail} failed`);
     else this.toast.error('Delete failed');
