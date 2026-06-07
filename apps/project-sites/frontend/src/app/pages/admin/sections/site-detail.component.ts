@@ -25,7 +25,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -64,6 +64,8 @@ interface IntegrationProvider {
 }
 
 type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
+/** Runtime allow-list for validating a `?tab=` deep-link (unknown → default). */
+const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
 
 @Component({
   selector: 'app-admin-site-detail',
@@ -403,6 +405,7 @@ type Tab = 'logs' | 'snapshots' | 'sql' | 'integrations';
 export class AdminSiteDetailComponent {
   private readonly api = inject(ApiService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly toast = inject(ToastService);
   private readonly confirm = inject(ConfirmService);
@@ -486,6 +489,19 @@ export class AdminSiteDetailComponent {
         this.loadSite(id);
       });
 
+    // Deep-linkable tabs: a `?tab=sql` URL opens that tab (bookmarkable +
+    // shareable for support). Validated against VALID_TABS (unknown → default).
+    // Sets the signal only — no re-navigation here, so there's no loop with
+    // setTab's URL sync below.
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((q) => {
+        const t = q.get('tab');
+        if (t && VALID_TABS.includes(t as Tab) && t !== this.tab()) {
+          this.tab.set(t as Tab);
+        }
+      });
+
     // Restore SQL history from localStorage (per-site).
     effect(() => {
       const id = this.siteId();
@@ -510,6 +526,15 @@ export class AdminSiteDetailComponent {
 
   setTab(t: Tab): void {
     this.tab.set(t);
+    // Reflect the tab in the URL so it's bookmarkable/shareable. `replaceUrl`
+    // keeps tab clicks out of browser history (no back-button spam); `merge`
+    // preserves any other query params. SPA nav — never a reload.
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: t },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   // ── Site load ────────────────────────────────────────────────────────

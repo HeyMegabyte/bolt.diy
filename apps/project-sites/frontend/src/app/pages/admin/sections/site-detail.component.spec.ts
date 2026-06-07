@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { of, throwError, Subject } from 'rxjs';
-import { ActivatedRoute, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, provideRouter } from '@angular/router';
 import { AdminSiteDetailComponent } from './site-detail.component';
 import { ApiService } from '../../../services/api.service';
 import { ConfirmService } from '../../../services/confirm.service';
@@ -23,6 +23,7 @@ function make(post = jasmine.createSpy('post').and.returnValue(of({ ok: true, co
   TestBed.configureTestingModule({
     imports: [AdminSiteDetailComponent],
     providers: [
+      provideRouter([]),
       { provide: ApiService, useValue: api },
       { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 'site-1' }), queryParamMap: of({ get: () => null }) } },
     ],
@@ -464,5 +465,51 @@ describe('AdminSiteDetailComponent (paste-key save — no silent failure)', () =
     expect(post).toHaveBeenCalledWith('/mcp/mailchimp/paste', { api_key: 'k', site_id: 's1' }, { silent: true });
     c.submitPasteKey(PROV); // second click while in-flight
     expect(post).withContext('double-submit guarded').toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Deep-linkable tabs — a `?tab=sql` URL opens that tab (bookmarkable/shareable),
+ * and clicking a tab reflects it in the URL (replaceUrl, merge — SPA, no reload).
+ */
+describe('AdminSiteDetailComponent (deep-linkable tabs)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeWithTab(tabParam: string | null): { c: AdminSiteDetailComponent; nav: jasmine.Spy } {
+    const api = {
+      get: jasmine.createSpy('get').and.returnValue(of({ site: { id: 'site-1', slug: 's', name: 'S' } })),
+      post: jasmine.createSpy('post').and.returnValue(of({ ok: true })),
+    };
+    TestBed.configureTestingModule({
+      imports: [AdminSiteDetailComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: api },
+        { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 'site-1' }), queryParamMap: of({ get: (k: string) => (k === 'tab' ? tabParam : null) }) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSiteDetailComponent, { set: { template: '<div></div>', imports: [] } });
+    const nav = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const c = TestBed.createComponent(AdminSiteDetailComponent).componentInstance;
+    return { c, nav };
+  }
+
+  it('opens the tab named in ?tab= (deep-link / bookmark)', () => {
+    expect(makeWithTab('sql').c.tab()).toBe('sql');
+  });
+
+  it('ignores an unknown ?tab= value (falls back to the default logs tab)', () => {
+    expect(makeWithTab('bogus').c.tab()).toBe('logs');
+  });
+
+  it('setTab reflects the tab in the URL (bookmarkable: replaceUrl + merge)', () => {
+    const { c, nav } = makeWithTab(null);
+    c.setTab('integrations');
+    expect(c.tab()).toBe('integrations');
+    expect(nav).toHaveBeenCalled();
+    const opts = nav.calls.mostRecent().args[1] as { queryParams: unknown; replaceUrl: boolean; queryParamsHandling: string };
+    expect(opts.queryParams).toEqual({ tab: 'integrations' });
+    expect(opts.replaceUrl).toBeTrue();
+    expect(opts.queryParamsHandling).toBe('merge');
   });
 });
