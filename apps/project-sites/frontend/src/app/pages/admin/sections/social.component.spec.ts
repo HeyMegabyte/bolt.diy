@@ -709,3 +709,36 @@ describe('AdminSocialComponent (delete-post in-flight guard)', () => {
     expect((c as unknown as { isDeletingPost: (id: string) => boolean }).isDeletingPost('p1')).toBeTrue();
   });
 });
+
+/**
+ * Account disconnect is toast-armed (7s action, re-clickable mid-async). A
+ * second disconnect of the same platform while one is in flight must NOT fire a
+ * duplicate DELETE.
+ */
+describe('AdminSocialComponent (account-disconnect in-flight guard)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('ignores a re-entrant disconnect of the same platform while one is in flight', () => {
+    const del = jasmine.createSpy('delete').and.returnValue(NEVER);
+    const get = jasmine.createSpy('get').and.callFake((path: string) =>
+      path === '/social/auto-pilot/config' ? of({ data: null }) : of({ data: [] }));
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, post: () => of({ data: {} }), delete: del } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigateByUrl: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSocialComponent);
+    fx.detectChanges();
+    const c = fx.componentInstance;
+    const pd = (c as unknown as { performDisconnect: (pid: string, acctId: string) => void }).performDisconnect.bind(c);
+    pd('twitter', 'a1');
+    pd('twitter', 'a1');
+    expect(del).withContext('no duplicate DELETE').toHaveBeenCalledTimes(1);
+    expect((c as unknown as { isDisconnectingAcct: (pid: string) => boolean }).isDisconnectingAcct('twitter')).toBeTrue();
+  });
+});

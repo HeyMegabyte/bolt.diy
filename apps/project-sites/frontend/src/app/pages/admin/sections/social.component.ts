@@ -337,7 +337,7 @@ const PLATFORMS: readonly PlatformDef[] = [
             </div>
             <span class="acct-pill" [class.is-on]="acct?.connected">{{ acct?.connected ? 'Live' : 'Off' }}</span>
             @if (acct?.connected) {
-              <button class="acct-btn" type="button" (click)="disconnect(p.id)" [attr.aria-label]="'Disconnect ' + p.label">Disconnect</button>
+              <button class="acct-btn" type="button" (click)="disconnect(p.id)" [disabled]="isDisconnectingAcct(p.id)" [attr.aria-busy]="isDisconnectingAcct(p.id)" [attr.aria-label]="'Disconnect ' + p.label">{{ isDisconnectingAcct(p.id) ? 'Disconnecting…' : 'Disconnect' }}</button>
             } @else {
               <button class="acct-btn primary" type="button" (click)="connect(p.id)" [attr.aria-label]="'Connect ' + p.label">+ Connect</button>
             }
@@ -1711,6 +1711,12 @@ export class AdminSocialComponent implements OnInit {
   isDeletingPost(id: string): boolean {
     return this.deletingPostIds().has(id);
   }
+  /** Platform ids with an in-flight account disconnect — guards the toast-armed
+   *  action against a double-DELETE + drives the row's "Disconnecting…" state. */
+  readonly disconnectingPids = signal<Set<string>>(new Set());
+  isDisconnectingAcct(pid: string): boolean {
+    return this.disconnectingPids().has(pid);
+  }
 
   /* Auto-Pilot */
   readonly autoPilotEnabled = signal(false);
@@ -1955,13 +1961,17 @@ export class AdminSocialComponent implements OnInit {
     });
   }
   private performDisconnect(pid: PlatformId, acctId: string): void {
+    if (this.disconnectingPids().has(pid)) return; // re-armed toast action while in flight = no-op
+    this.disconnectingPids.update((s) => new Set(s).add(pid));
+    const done = () => this.disconnectingPids.update((s) => { const n = new Set(s); n.delete(pid); return n; });
     this.api.delete(`/social/accounts/${acctId}`, { silent: true }).subscribe({
       next: () => {
+        done();
         this.toast.success(`Disconnected ${this.defOf(pid)?.label}`);
         this.loadAccounts();
         this.selected.update((s) => s.filter((id) => id !== pid));
       },
-      error: () => this.toast.error('Disconnect failed'),
+      error: () => { done(); this.toast.error('Disconnect failed'); },
     });
   }
 
