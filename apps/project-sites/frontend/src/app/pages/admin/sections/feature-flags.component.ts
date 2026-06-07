@@ -213,6 +213,12 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
                 </h2>
               </header>
               <app-flag-badge-row [badges]="badgesFor(flag)" />
+              <!-- At-a-glance rollout: a thin cyan progress bar (dimmed when the flag is off). -->
+              <div class="ff-rollout-bar" role="progressbar"
+                   [attr.aria-valuenow]="flag.default_rollout_percent" aria-valuemin="0" aria-valuemax="100"
+                   [attr.aria-label]="'Rollout ' + flag.default_rollout_percent + '%' + (resolvedOn(flag) ? '' : ' (flag off)')">
+                <span class="ff-rollout-fill" [class.ff-rollout-fill--off]="!resolvedOn(flag)" [style.width.%]="flag.default_rollout_percent"></span>
+              </div>
               <p class="ff-desc">{{ flag.description }}</p>
               <p class="ff-why" data-testid="ff-why">{{ whyFor(flag) }}</p>
               <div class="ff-owner">Owner: {{ flag.owner_email }}</div>
@@ -486,6 +492,12 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
     .ff-state-on { background: #4ade80; color: #052e16; }
     .ff-state-off { background: color-mix(in oklch, currentColor 18%, transparent); }
     .ff-rollout { font-family: var(--ps-mono, ui-monospace, monospace); font-size: .85rem; color: color-mix(in oklch, currentColor 65%, transparent); }
+    /* At-a-glance rollout progress on each flag card. */
+    .ff-rollout-bar { height: 4px; border-radius: 999px; overflow: hidden; margin: -.15rem 0 .1rem;
+      background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent); }
+    .ff-rollout-fill { display: block; height: 100%; border-radius: 999px; background: var(--ps-accent, #00e5ff); transition: width .35s ease; }
+    .ff-rollout-fill--off { background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 28%, transparent); }
+    @media (prefers-reduced-motion: reduce) { .ff-rollout-fill { transition: none; } }
     .ff-owner { font-size: .75rem; color: color-mix(in oklch, currentColor 50%, transparent); }
     .ff-resolved { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
     .ff-resolved-source { font-size: .72rem; color: color-mix(in oklch, currentColor 60%, transparent); font-style: italic; }

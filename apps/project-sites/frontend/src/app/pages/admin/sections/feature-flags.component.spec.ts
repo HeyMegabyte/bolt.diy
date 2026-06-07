@@ -295,6 +295,54 @@ describe('AdminFeatureFlagsComponent (blocked banner uses a mono SVG lock, not e
 });
 
 /**
+ * Each flag card carries a cyan rollout progress bar — an at-a-glance scan of
+ * how far each flag is rolled out (role=progressbar for a11y; dimmed when the
+ * flag is off, since rollout is then moot).
+ */
+describe('AdminFeatureFlagsComponent (flag-card rollout bar)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function render() {
+    TestBed.configureTestingModule({
+      imports: [AdminFeatureFlagsComponent],
+      providers: [
+        provideRouter([]),
+        { provide: HttpClient, useValue: { get: () => of({ data: [] }), patch: () => of({}), post: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: AdminStateService, useValue: { selectedSite: signal(null), isSuperAdmin: () => false } },
+        { provide: FeatureFlagService, useValue: { invalidate: () => undefined, isOn: () => of(false) } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }), snapshot: { queryParamMap: { get: () => null } } } },
+      ],
+    });
+    return TestBed.createComponent(AdminFeatureFlagsComponent);
+  }
+
+  it('renders a cyan rollout progressbar reflecting the rollout %', () => {
+    const f = render();
+    f.detectChanges(); // ngOnInit → reload sets flags from the (empty) mock first
+    f.componentInstance.flags.set([flag({ key: 'k', default_enabled: true, default_rollout_percent: 40 })]);
+    f.componentInstance.loading.set(false);
+    f.detectChanges(); // now render the list with our flag
+    const bar = (f.nativeElement as HTMLElement).querySelector('.ff-rollout-bar');
+    expect(bar).withContext('rollout bar rendered on the card').toBeTruthy();
+    expect(bar!.getAttribute('role')).toBe('progressbar');
+    expect(bar!.getAttribute('aria-valuenow')).toBe('40');
+    expect((bar!.querySelector('.ff-rollout-fill') as HTMLElement).style.width).withContext('fill width = rollout %').toBe('40%');
+  });
+
+  it('dims the rollout fill when the flag is off (rollout is moot)', () => {
+    const f = render();
+    f.detectChanges();
+    f.componentInstance.flags.set([flag({ key: 'off', default_enabled: false, default_rollout_percent: 80 })]);
+    f.componentInstance.loading.set(false);
+    f.detectChanges();
+    const fill = (f.nativeElement as HTMLElement).querySelector('.ff-rollout-fill');
+    expect(fill?.classList.contains('ff-rollout-fill--off')).withContext('off flag → dimmed fill').toBeTrue();
+  });
+});
+
+/**
  * Emergency console — the highest-blast destructive admin action (kills every
  * non-stable flag platform-wide). The brief's "emergency controls" test item.
  * Safety contract: NEVER touches stable or core_ sentinel flags; requires a
