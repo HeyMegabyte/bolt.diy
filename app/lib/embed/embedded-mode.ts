@@ -245,11 +245,10 @@ export function onParentMessage(handler: MessageHandler): () => void {
 }
 
 function handleMessage(event: MessageEvent): void {
-  // Debug: log all messages when embedded
-  if (isEmbedded && event.data?.type?.startsWith?.('PS_')) {
-    console.warn('[embed] Received postMessage:', event.data.type, 'from', event.origin);
-  }
-
+  // (Removed the per-message "[embed] Received postMessage" debug warn — it
+  // fired on EVERY PS_ message in embedded mode, spamming the editor console.
+  // The origin-reject + handler-error logs below remain — those are rare,
+  // diagnostic, and security-relevant.)
   if (!isAllowedOrigin(event)) {
     if (isEmbedded && event.data?.type?.startsWith?.('PS_')) {
       console.warn('[embed] REJECTED — origin not allowed:', event.origin, 'Allowed:', [...ALLOWED_ORIGINS]);
