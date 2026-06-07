@@ -11,7 +11,8 @@
  * row in `_admin-upgrades-30.md` so the E2E spec can target by ID.
  */
 
-import { Component, ElementRef, HostListener, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, HostListener, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, formatNumber } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, NavigationEnd } from '@angular/router';
@@ -440,6 +441,7 @@ const ADMIN_NAV_INDEX: ReadonlyArray<{ id: string; source: string; label: string
 export class AdminUpgradesShellComponent implements OnInit {
   readonly upgrades = inject(AdminUpgradesService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
   private readonly host = inject(ElementRef);
@@ -508,7 +510,7 @@ export class AdminUpgradesShellComponent implements OnInit {
 
   ngOnInit(): void {
     // #14 track route changes into recently-viewed
-    this.router.events.subscribe((e) => {
+    this.router.events.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((e) => {
       if (e instanceof NavigationEnd && e.urlAfterRedirects.startsWith('/admin/') && e.urlAfterRedirects !== '/admin/') {
         const label = e.urlAfterRedirects.split('/').filter(Boolean).slice(-1)[0]?.replace(/-/g, ' ');
         if (label) this.upgrades.trackRecentlyViewed({ id: e.urlAfterRedirects, label, href: e.urlAfterRedirects });
