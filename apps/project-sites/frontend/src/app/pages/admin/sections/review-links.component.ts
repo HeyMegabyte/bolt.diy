@@ -12,6 +12,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
@@ -30,7 +31,7 @@ interface ReviewLink {
 @Component({
   selector: 'app-admin-review-links',
   standalone: true,
-  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent],
+  imports: [CommonModule, FormsModule, RouterLink, RevealDirective, HlmButtonDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
@@ -57,25 +58,29 @@ interface ReviewLink {
         }
 
         <div class="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5 flex items-center gap-3 mb-6">
-          <button hlmBtn data-testid="review-links-create-btn" [disabled]="creating()" (click)="create()">
+          <button hlmBtn data-testid="review-links-create-btn" [disabled]="creating() || flagDisabled()" (click)="create()">
             {{ creating() ? 'Creating…' : 'Create review link' }}
           </button>
           <span class="text-[0.72rem] text-text-secondary">Valid for 7 days · stakeholder can approve or request changes</span>
         </div>
 
-        @if (error() && errorRetryable()) {
+        @if (flagDisabled()) {
+          <!-- Flag OFF (404) → calm cohesive cyan notice (NOT alarming red), inline Feature-Flags link. -->
+          <div data-testid="review-links-flag-gate" role="status" class="mb-5 rounded-xl border border-[#00E5FF]/15 bg-[#00E5FF]/[0.04] p-4 text-sm text-text-secondary">
+            Review links are behind the <code class="text-[#00E5FF]">approval_workflow</code> feature flag (currently disabled). Enable it in
+            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
+          </div>
+        } @else if (error()) {
           <app-error-card data-testid="review-links-error" class="block mb-5"
             title="Couldn't load review links"
             message="Check your connection and retry."
             [correlationId]="loadErrorRef()"
             (retry)="load()" />
-        } @else if (error()) {
-          <div data-testid="review-links-error" role="alert" class="mb-5 rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-sm text-red-300">{{ error() }}</div>
         }
 
         @if (loading()) {
           <app-skeleton variant="table" [rows]="3" data-testid="review-links-loading" />
-        } @else if (!error() && links().length === 0) {
+        } @else if (!error() && !flagDisabled() && links().length === 0) {
           <app-empty-state data-testid="review-links-none" icon="🔗" title="No review links yet"
             body="Create a shareable approval link above so a stakeholder can preview and sign off before publish." />
         } @else if (links().length > 0) {
@@ -108,6 +113,8 @@ export class AdminReviewLinksComponent {
   readonly loading = signal(false);
   readonly creating = signal(false);
   readonly error = signal<string | null>(null);
+  /** Flag OFF (load 404 = approval_workflow disabled) → calm cyan Feature-Flags notice, NOT a red error. */
+  readonly flagDisabled = signal(false);
   /** True when the load error is transient (not a 404 feature-gate) → show a Retry. */
   readonly errorRetryable = signal(false);
   /** Worker request_id from a failed load → the copyable support reference on the error card. */
@@ -156,22 +163,25 @@ export class AdminReviewLinksComponent {
     this.loading.set(true);
     this.error.set(null);
     this.errorRetryable.set(false);
+    this.flagDisabled.set(false);
     this.loadErrorRef.set('');
     this.api.get<{ ok: boolean; links: ReviewLink[] }>(`/sites/${id}/review-links`, undefined, { silent: true }).subscribe({
       next: (res) => {
         this.links.set(res.links ?? []);
         this.loading.set(false);
       },
-      // Distinguish a genuine feature-gate (404 → retrying won't help) from a
-      // transient failure (500/network → offer a Retry). Never read a transient
-      // error as a permanent "not available for this site".
+      // 404 = approval_workflow flag OFF (permanent → calm cyan Feature-Flags notice,
+      // NOT alarming red; a worker SPA-fallthrough 200+HTML is remapped to 404 by
+      // ApiService so it lands here as the calm gate too). Anything else = transient
+      // (→ app-error-card with Retry + request_id).
       error: (err: { status?: number; error?: unknown }) => {
-        const gated = err?.status === 404;
-        this.error.set(gated
-          ? "Review links aren't enabled for this site."
-          : "Couldn't load review links — check your connection and retry.");
-        this.errorRetryable.set(!gated);
-        if (!gated) this.loadErrorRef.set(this.requestIdFrom(err));
+        if (err?.status === 404) {
+          this.flagDisabled.set(true);
+        } else {
+          this.error.set("Couldn't load review links — check your connection and retry.");
+          this.errorRetryable.set(true);
+          this.loadErrorRef.set(this.requestIdFrom(err));
+        }
         this.loading.set(false);
       },
     });

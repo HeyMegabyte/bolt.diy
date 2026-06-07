@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AdminReviewLinksComponent } from './review-links.component';
 import { ApiService } from '../../../services/api.service';
@@ -27,6 +28,7 @@ describe('AdminReviewLinksComponent', () => {
     TestBed.configureTestingModule({
       imports: [AdminReviewLinksComponent],
       providers: [
+        provideRouter([]),
         { provide: ApiService, useValue: { get, post } },
         { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
         { provide: AdminStateService, useValue: { selectedSite } },
@@ -112,6 +114,7 @@ describe('AdminReviewLinksComponent (load-error retryability)', () => {
     TestBed.configureTestingModule({
       imports: [AdminReviewLinksComponent],
       providers: [
+        provideRouter([]),
         { provide: ApiService, useValue: { get: getSpy, post: () => of({}) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
         { provide: AdminStateService, useValue: { selectedSite: signal<{ id: string } | null>({ id: 's1' }) } },
@@ -141,12 +144,18 @@ describe('AdminReviewLinksComponent (load-error retryability)', () => {
     expect(el.querySelector('[data-testid="error-correlation"]')?.textContent).withContext('reference shown for support').toContain('req_rl99');
   });
 
-  it('a 404 → a feature-gate message with NO Retry (retrying cannot help)', () => {
+  it('a 404 (flag OFF) → calm cyan Feature-Flags gate, NOT a red error card (retrying cannot help)', () => {
     const fx = buildErr(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 404 }))));
     const c = fx.componentInstance;
-    expect(c.errorRetryable()).toBeFalse();
-    expect(c.error()).toContain("aren't enabled");
-    expect((fx.nativeElement as HTMLElement).querySelector('[data-testid="review-links-retry"]')).toBeNull();
+    const el = fx.nativeElement as HTMLElement;
+    expect(c.flagDisabled()).withContext('404 → flag-disabled').toBeTrue();
+    expect(c.error()).withContext('gate is not a red error').toBeNull();
+    const gate = el.querySelector('[data-testid="review-links-flag-gate"]');
+    expect(gate).withContext('calm cyan gate renders').not.toBeNull();
+    expect(el.querySelector('[data-testid="review-links-error"]')).withContext('no red error card on a permanent gate').toBeNull();
+    expect((gate?.querySelector('a') as HTMLAnchorElement | null)?.getAttribute('href')).toBe('/admin/feature-flags');
+    // Create locks when gated (POST would 404 too).
+    expect((el.querySelector('[data-testid="review-links-create-btn"]') as HTMLButtonElement).disabled).toBeTrue();
   });
 
   it('a load error SUPPRESSES the empty state (no error + "No review links yet" together)', () => {
