@@ -101,7 +101,7 @@ interface DeliverabilityResponse {
         <!-- Flag OFF (404) → calm cohesive cyan notice (NOT alarming red), inline Feature-Flags link. -->
         <div data-testid="deliverability-flag-gate" role="status" class="mt-5 rounded-xl border border-[#00E5FF]/15 bg-[#00E5FF]/[0.04] p-4 text-sm text-text-secondary">
           The deliverability wizard is behind the <code class="text-[#00E5FF]">email_deliverability_wizard</code> feature flag (currently disabled). Enable it in
-          <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
+          <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.
         </div>
       } @else if (error()) {
         <!-- TRANSIENT failure (network/5xx) → gold-standard error card: a real Retry

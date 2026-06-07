@@ -83,7 +83,7 @@ interface Summary {
           <p class="text-text-secondary text-sm">
             Stripe App marketplace status is disabled. Enable
             <code>stripe_app_status</code> in
-            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
+            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.
           </p>
         </div>
       }

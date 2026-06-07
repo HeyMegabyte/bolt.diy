@@ -71,7 +71,7 @@ const INTENT_ICONS: Record<string, string> = {
 
       @if (!flagEnabled()) {
         <div class="copilot-flag-gate" appReveal>
-          <p class="m-0">The Multimodal Copilot is behind the <code>multimodal_copilot</code> feature flag. Enable it in <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.</p>
+          <p class="m-0">The Multimodal Copilot is behind the <code>multimodal_copilot</code> feature flag. Enable it in <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.</p>
         </div>
       } @else {
         <!-- Widget embed snippet -->

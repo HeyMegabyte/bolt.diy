@@ -42,7 +42,7 @@ import { Meta, Title } from '@angular/platform-browser';
         <nav class="anf-links" aria-label="Jump to an admin section">
           <a routerLink="/admin/sites" class="anf-link">Sites</a>
           <a routerLink="/admin/analytics" class="anf-link">Analytics</a>
-          <a routerLink="/admin/feature-flags" class="anf-link">Feature Flags</a>
+          <a routerLink="/admin/feature-flags" class="anf-link">System Admin</a>
           <a routerLink="/admin/snapshots" class="anf-link">Snapshots</a>
         </nav>
       </div>

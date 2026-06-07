@@ -36,7 +36,7 @@ const ADMIN_NAV_INDEX: ReadonlyArray<{ id: string; source: string; label: string
   { id: 'n-analytics', source: 'section', label: 'Analytics', href: '/admin/analytics' },
   { id: 'n-audit', source: 'section', label: 'Audit Log', href: '/admin/audit' },
   { id: 'n-tokens', source: 'section', label: 'API Tokens', href: '/admin/api-tokens' },
-  { id: 'n-flags', source: 'section', label: 'Feature Flags', href: '/admin/feature-flags' },
+  { id: 'n-flags', source: 'section', label: 'System Admin', href: '/admin/feature-flags' },
   { id: 'n-freshness', source: 'section', label: 'Content Freshness', href: '/admin/content-freshness' },
   { id: 'n-pseo', source: 'section', label: 'Programmatic SEO', href: '/admin/pseo' },
   { id: 'n-seo', source: 'section', label: 'SEO', href: '/admin/seo' },

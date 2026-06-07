@@ -92,7 +92,7 @@ interface DnaPrefsResp {
         <div class="dna-flag-gate" appReveal data-testid="dna-flag-gate">
           <p class="m-0">
             The Site DNA Taste Graph is behind the
-            <code>site_dna_taste_graph</code> feature flag (currently disabled). Enable it in <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
+            <code>site_dna_taste_graph</code> feature flag (currently disabled). Enable it in <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.
           </p>
         </div>
       } @else {

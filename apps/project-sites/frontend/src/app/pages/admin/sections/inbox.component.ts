@@ -106,7 +106,7 @@ const STATUS_COLORS: Record<string, string> = {
         <div class="inbox-flag-gate" appReveal>
           <p class="m-0">
             The Unified Inbox is behind the <code>unified_inbox</code> feature flag. Enable it in
-            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
+            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.
           </p>
         </div>
       } @else {

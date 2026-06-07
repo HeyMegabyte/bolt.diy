@@ -55,7 +55,7 @@ interface Recipe {
           <!-- Flag OFF (404) → calm cohesive notice (NOT alarming red), inline Feature-Flags link. -->
           <div data-testid="recipes-flag-gate" role="status" class="mb-5 rounded-xl border border-[#00E5FF]/15 bg-[#00E5FF]/[0.04] p-4 text-sm text-text-secondary">
             Automations are behind the <code class="text-[#00E5FF]">automation_builder</code> feature flag (currently disabled). Enable it in
-            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
+            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.
           </div>
         } @else if (loadError()) {
           <!-- Transient (non-404) failure → shared error card with Retry + support ref. -->

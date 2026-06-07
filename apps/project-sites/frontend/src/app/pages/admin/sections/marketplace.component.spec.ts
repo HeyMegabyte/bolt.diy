@@ -343,7 +343,10 @@ describe('AdminMarketplaceComponent — flag-gate (404) vs transient error', () 
     expect(host.querySelector('.mkt-slot-filter')).withContext('slot filter hidden when flag-gated').toBeNull();
     expect(host.querySelector('.mkt-header__stats')).withContext('header stats hidden when flag-gated').toBeNull();
     const link = host.querySelector('[data-testid="marketplace-flag-gate"] a');
-    expect(link?.getAttribute('href')).withContext('SPA link to Feature Flags').toBe('/admin/feature-flags');
+    expect(link?.getAttribute('href')).withContext('SPA link to the platform-flags section').toBe('/admin/feature-flags');
+    // The section was renamed "System Admin" (2026-06-07) — the inline label must
+    // match the nav, never the stale "Feature Flags".
+    expect(link?.textContent?.replace(/\s+/g, ' ').trim()).withContext('label matches the renamed System Admin section').toBe('System Admin');
   });
 
   it('a non-404 (500) → the transient error card with Retry, NOT the flag-gate notice', () => {

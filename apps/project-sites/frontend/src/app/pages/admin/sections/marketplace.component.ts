@@ -145,7 +145,7 @@ const SLOT_COLORS: Record<string, string> = {
          "Couldn't load · Retry" card — retrying can't enable a disabled flag). -->
     <div data-testid="marketplace-flag-gate" role="status" class="rounded-xl border border-[#00E5FF]/15 bg-[#00E5FF]/[0.04] p-4 text-sm text-text-secondary">
       The Section Marketplace is behind the <code class="text-[#00E5FF]">section_marketplace</code> feature flag (currently disabled). Enable it in
-      <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">Feature&nbsp;Flags</a>.
+      <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.
     </div>
   } @else if (loadError()) {
     <app-error-card
