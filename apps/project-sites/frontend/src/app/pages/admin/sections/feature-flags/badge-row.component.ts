@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface FlagBadge {
@@ -21,7 +21,7 @@ export interface FlagBadge {
   imports: [CommonModule],
   template: `
     <div class="br" data-testid="ff-badge-row">
-      @for (b of badges; track b.label + b.tone) {
+      @for (b of badges(); track b.label + b.tone) {
         <span class="br-chip" [attr.data-tone]="b.tone" [attr.title]="b.title || null" [attr.aria-label]="b.title || b.label">
           {{ b.label }}
         </span>
@@ -43,5 +43,5 @@ export interface FlagBadge {
   `],
 })
 export class FlagBadgeRowComponent {
-  @Input() badges: FlagBadge[] = [];
+  readonly badges = input<FlagBadge[]>([]);
 }
