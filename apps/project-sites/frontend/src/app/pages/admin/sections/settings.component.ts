@@ -566,7 +566,7 @@ const PROVIDERS = MCP_PROVIDERS;
                               [attr.aria-label]="(isMcpEnvVarsOpen(p.id) ? 'Hide' : 'Show') + ' custom env vars for ' + p.label">
                         {{ isMcpEnvVarsOpen(p.id) ? 'Hide env vars' : 'Env vars' }}
                       </button>
-                      <button class="mcp-btn mcp-btn-danger" (click)="disconnect(c)">Disconnect</button>
+                      <button class="mcp-btn mcp-btn-danger" (click)="disconnect(c)" [disabled]="isDisconnecting(c.id)" [attr.aria-busy]="isDisconnecting(c.id)">{{ isDisconnecting(c.id) ? 'Disconnecting…' : 'Disconnect' }}</button>
                     </div>
                   </div>
                   @if (isMcpEnvVarsOpen(p.id)) {
@@ -1094,6 +1094,10 @@ export class AdminSettingsComponent implements OnInit {
 
   providers = PROVIDERS;
   connections = signal<Conn[]>([]);
+  /** Connection ids with an in-flight disconnect — guards the toast-armed action
+   *  against a double-DELETE + drives the row's "Disconnecting…" state. */
+  private readonly disconnectingIds = signal<ReadonlySet<string>>(new Set());
+  isDisconnecting(id: string): boolean { return this.disconnectingIds().has(id); }
   pasteMode = signal<string | null>(null);
   pastedKey = '';
   /** In-flight guard for the paste-key connect POST (prevents double-submit). */
@@ -1420,9 +1424,12 @@ export class AdminSettingsComponent implements OnInit {
     });
   }
   private performDisconnect(c: Conn, siteId: string): void {
+    if (this.disconnectingIds().has(c.id)) return; // re-armed toast action while in flight = no-op
+    this.disconnectingIds.update((s) => new Set(s).add(c.id));
+    const done = () => this.disconnectingIds.update((s) => { const n = new Set(s); n.delete(c.id); return n; });
     this.api.delete(`/sites/${siteId}/mcp/connections/${c.id}`).subscribe({
-      next: () => { this.toast.success('Disconnected'); this.loadConnections(); },
-      error: () => { /* api.service already toasted */ },
+      next: () => { done(); this.toast.success('Disconnected'); this.loadConnections(); },
+      error: () => { done(); /* api.service already toasted */ },
     });
   }
   handleMcpReturn(): void {

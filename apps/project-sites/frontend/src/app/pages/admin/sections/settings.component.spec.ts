@@ -335,3 +335,37 @@ describe('AdminSettingsComponent (paste-key connect is double-submit-safe)', () 
     expect(c.pasteSaving()).toBeFalse(); // synchronous of({}) completed
   });
 });
+
+import { NEVER } from 'rxjs';
+import { ConfirmService as ConfirmService2 } from '../../../services/confirm.service';
+import { Router as Router2, ActivatedRoute as ActivatedRoute2 } from '@angular/router';
+
+/**
+ * MCP-connection disconnect is toast-armed (7s action, re-clickable mid-async).
+ * A second disconnect of the same connection while one is in flight must NOT
+ * fire a duplicate DELETE.
+ */
+describe('AdminSettingsComponent (disconnect in-flight guard)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('ignores a re-entrant disconnect of the same connection while one is in flight', () => {
+    const del = jasmine.createSpy('delete').and.returnValue(NEVER);
+    TestBed.configureTestingModule({
+      imports: [AdminSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: null }), put: () => of({}), post: () => of({}), delete: del } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+        { provide: ConfirmService2, useValue: { confirm: () => Promise.resolve(false) } },
+        { provide: Router2, useValue: { navigate: () => 0 } },
+        { provide: ActivatedRoute2, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'a' }), loadData: () => undefined } },
+      ],
+    });
+    const c = TestBed.createComponent(AdminSettingsComponent).componentInstance;
+    const pd = (c as unknown as { performDisconnect: (conn: unknown, siteId: string) => void }).performDisconnect.bind(c);
+    pd({ id: 'conn9', provider: 'stripe' }, 's1');
+    pd({ id: 'conn9', provider: 'stripe' }, 's1');
+    expect(del).withContext('no duplicate DELETE').toHaveBeenCalledTimes(1);
+    expect((c as unknown as { isDisconnecting: (id: string) => boolean }).isDisconnecting('conn9')).toBeTrue();
+  });
+});
