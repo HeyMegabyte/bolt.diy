@@ -85,6 +85,16 @@ describe('AdminDomainsComponent (cyan/black cohesion + a11y)', () => {
     expect(el.querySelectorAll('[appReveal]').length).toBeGreaterThanOrEqual(3);
   });
 
+  // Cohesion: the panels use the cockpit `.card` (glass bg + glow border) like the
+  // other 38 sections — NOT the `bg-surface` outlier, which resolved to a bare white
+  // border with NO background (transparent panels on the dark page).
+  it('panels use the cockpit .card class (not the bg-less bg-surface outlier)', () => {
+    build({ id: 's1', slug: 'vito' }, [row()]);
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelectorAll('section.card').length).withContext('panels are cockpit cards').toBeGreaterThanOrEqual(3);
+    expect(el.querySelector('.bg-surface')).withContext('no bg-less bg-surface panels remain').toBeNull();
+  });
+
   it('announces the hostnames loading skeleton to assistive tech (role=status + aria-busy)', () => {
     build({ id: 's1', slug: 'vito' }, [row()]);
     fixture.componentInstance.loadingHostnames.set(true);
