@@ -966,32 +966,32 @@ export class WCodeComponent {
       :host {
         display: block;
       }
-      .md {
+      :host ::ng-deep .md {
         color: var(--ps-ink, #f4f4ff);
         font-size: 0.92rem;
         line-height: 1.55;
       }
-      .md h1,
-      .md h2,
-      .md h3 {
+      :host ::ng-deep .md h1,
+      :host ::ng-deep .md h2,
+      :host ::ng-deep .md h3 {
         font-family: 'Sora', system-ui, sans-serif;
         margin: 0.6em 0 0.3em;
       }
-      .md p {
+      :host ::ng-deep .md p {
         margin: 0.4em 0;
       }
-      .md code {
+      :host ::ng-deep .md code {
         background: rgba(0, 229, 255, 0.1);
         color: #67e8f9;
         padding: 1px 6px;
         border-radius: 4px;
         font-size: 0.85em;
       }
-      .md a {
+      :host ::ng-deep .md a {
         color: var(--ps-accent, #00e5ff);
       }
-      .md ul,
-      .md ol {
+      :host ::ng-deep .md ul,
+      :host ::ng-deep .md ol {
         padding-left: 1.4em;
         margin: 0.4em 0;
       }
