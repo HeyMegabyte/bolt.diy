@@ -127,7 +127,11 @@ const SPECIALIST_COLORS: Record<string, string> = {
         data-testid="swarm-directive" />
       <button class="swarm-header__start" (click)="startSwarm()"
               [disabled]="running()" aria-label="Start new swarm run">
-        {{ running() ? '⚡ Running…' : '▶ Start Swarm' }}
+        @if (running()) {
+          <svg class="sw-btn-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Running…
+        } @else {
+          <svg class="sw-btn-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg> Start Swarm
+        }
       </button>
     </div>
   </header>
@@ -161,7 +165,7 @@ const SPECIALIST_COLORS: Record<string, string> = {
             </div>
           }
           @if (agent.conflict_detected) {
-            <div class="swarm-agent__conflict-badge" role="alert">⚠ Conflict</div>
+            <div class="swarm-agent__conflict-badge" role="alert"><svg class="sw-warn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Conflict</div>
           }
         </div>
       }
@@ -326,7 +330,9 @@ const SPECIALIST_COLORS: Record<string, string> = {
     .swarm-agent__glob { font: 0.6rem/1.3 'JetBrains Mono', monospace; opacity: 0.5; word-break: break-all; margin: 0; }
     .swarm-agent__preview { font-size: 0.65rem; opacity: 0.7; margin: 0; font-style: italic; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     .swarm-agent__duration { font: 0.65rem 'JetBrains Mono', monospace; color: var(--ps-accent, #00e5ff); }
-    .swarm-agent__conflict-badge { font-size: 0.6rem; background: color-mix(in oklch, var(--sw-warn) 15%, transparent); color: var(--sw-warn); padding: 0.1rem 0.4rem; border-radius: 4px; }
+    .swarm-agent__conflict-badge { font-size: 0.6rem; background: color-mix(in oklch, var(--sw-warn) 15%, transparent); color: var(--sw-warn); padding: 0.1rem 0.4rem; border-radius: 4px; display: inline-flex; align-items: center; }
+    .sw-warn-ic { width: 1em; height: 1em; margin-right: 0.25em; }
+    .sw-btn-ic { width: 1em; height: 1em; margin-right: 0.3em; vertical-align: -0.12em; }
     /* Empty */
     .swarm-empty { text-align: center; padding: 3rem 1rem; opacity: 0.6; }
     .swarm-gate-notice { text-align: center; padding: 3rem 1rem; font-size: 0.9rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 68%, transparent); }

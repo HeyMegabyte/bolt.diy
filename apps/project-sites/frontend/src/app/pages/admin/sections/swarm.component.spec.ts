@@ -56,6 +56,36 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
     expect(conflictStat?.querySelector('app-rolling-counter')).withContext('conflicts uses rolling-counter').toBeTruthy();
   });
 
+  // ⚡ (U+26A1) + ▶ are emoji-presentation-prone; the Start/Running button must use
+  // monochrome SVG icons, not literal emoji chars in the {{ ternary }} label.
+  it('the Start/Running button uses monochrome SVG icons, not ⚡/▶ emoji chars', () => {
+    const btn = (fixture.nativeElement as HTMLElement).querySelector('.swarm-header__start') as HTMLElement;
+    expect(btn.querySelector('svg')).withContext('idle state has a play SVG').toBeTruthy();
+    expect(btn.textContent).withContext('no ▶ char').not.toContain('▶');
+    expect(btn.textContent).toContain('Start Swarm');
+    fixture.componentInstance.running.set(true);
+    fixture.detectChanges();
+    expect(btn.querySelector('svg')).withContext('running state has a zap SVG').toBeTruthy();
+    expect(btn.textContent).withContext('no ⚡ char').not.toContain('⚡');
+    expect(btn.textContent).toContain('Running');
+  });
+
+  // The conflict badge was the ⚠ char (U+26A0) — emoji-presentation → colourful ⚠️
+  // ignoring its --sw-warn CSS color. Must be a monochrome SVG.
+  it('the conflict badge uses a monochrome SVG, not the colourful ⚠ emoji', () => {
+    fixture.componentInstance.currentRun.set({
+      run_id: 'r1', site_id: 's1', prompt: 'p', status: 'running',
+      agents: [{ id: 'a1', name: 'seo', status: 'running', file_glob: '*', conflict_detected: true }],
+      started_at: new Date().toISOString(),
+    } as never);
+    fixture.detectChanges();
+    const badge = (fixture.nativeElement as HTMLElement).querySelector('.swarm-agent__conflict-badge') as HTMLElement;
+    expect(badge).withContext('conflict badge renders for a conflicted agent').toBeTruthy();
+    expect(badge.querySelector('svg')).withContext('mono SVG, not the ⚠ emoji').toBeTruthy();
+    expect(badge.textContent).withContext('no raw ⚠ char').not.toContain('⚠');
+    expect(badge.textContent).toContain('Conflict');
+  });
+
   it('declares the tokenized status palette on :host (no scattered raw hex in rules)', () => {
     const styles = (AdminSwarmComponent as { ɵcmp?: { styles?: string[] } }).ɵcmp?.styles?.join('\n') ?? '';
     // Single-source-of-truth tokens exist…
