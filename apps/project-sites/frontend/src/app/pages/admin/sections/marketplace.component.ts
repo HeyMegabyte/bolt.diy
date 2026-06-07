@@ -203,9 +203,12 @@ const SLOT_COLORS: Record<string, string> = {
             <button class="mkt-card__fork-btn"
                     type="button"
                     [class.mkt-card__fork-btn--done]="forkedIds().has(section.id)"
+                    [class.mkt-card__fork-btn--busy]="forking().has(section.id)"
+                    [disabled]="forking().has(section.id)"
+                    [attr.aria-busy]="forking().has(section.id) ? 'true' : null"
                     (click)="fork(section.id)"
                     [attr.aria-label]="'Fork ' + section.name">
-              {{ forkedIds().has(section.id) ? '✓ Forked' : 'Fork' }}
+              {{ forkedIds().has(section.id) ? '✓ Forked' : forking().has(section.id) ? 'Forking…' : 'Fork' }}
             </button>
             <button class="mkt-card__preview-btn"
                     type="button"
@@ -300,6 +303,8 @@ const SLOT_COLORS: Record<string, string> = {
     .mkt-card__actions { display: flex; gap: 0.375rem; margin-top: auto; }
     .mkt-card__fork-btn { flex: 1; min-height: 24px; background: var(--mkt-accent-wash); border: 1px solid var(--mkt-accent-line); color: var(--mkt-accent); padding: 0.25rem; border-radius: 9999px; font-size: 0.65rem; cursor: pointer; transition: background 0.2s; }
     .mkt-card__fork-btn--done { background: color-mix(in oklch, var(--mkt-ok) 12%, transparent); border-color: color-mix(in oklch, var(--mkt-ok) 30%, transparent); color: var(--mkt-ok); }
+    .mkt-card__fork-btn--busy { opacity: 0.6; cursor: progress; }
+    .mkt-card__fork-btn:disabled { cursor: progress; }
     .mkt-card__preview-btn { min-height: 24px; background: var(--mkt-surface); border: 1px solid var(--mkt-line); color: inherit; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.65rem; cursor: pointer; }
     /* Loading */
     .mkt-loading { display: flex; justify-content: center; padding: 3rem; }
@@ -348,6 +353,9 @@ export class AdminMarketplaceComponent implements OnInit {
   readonly activeIndustry = signal<SectionIndustry>('all');
   readonly activeSlot = signal<SectionSlot>('all');
   readonly forkedIds = signal<Set<string>>(new Set());
+  /** Ids with an in-flight fork POST — guards against double-submit (a second click
+   *  before the first request resolves) and arms the button's aria-busy + disabled state. */
+  readonly forking = signal<Set<string>>(new Set());
   readonly forkCounts = signal<Map<string, number>>(new Map());
   readonly previewSection = signal<SectionSummary | null>(null);
 
@@ -420,6 +428,17 @@ export class AdminMarketplaceComponent implements OnInit {
         return of({ catalog: [] as IndustryCatalog[] });
       }))
       .subscribe((res: { catalog: IndustryCatalog[] }) => {
+        // Stale-route fake-empty guard (canonical: site-features / inbox / logs-explorer).
+        // A STALE worker route returns 200 + SPA/marketing HTML (NOT a 4xx) — the body
+        // has no `catalog` array. `res.catalog ?? []` would fake an empty catalog
+        // (masking the broken route) or let a non-array string poison catalog().length +
+        // the @for. Surface the honest retryable error card instead of fake-empty.
+        // (catchError already set the flag-gate/error branch on a real status code.)
+        if (!this.flagDisabled() && (!res || !Array.isArray(res.catalog))) {
+          this.loadError.set(true);
+          this.cdr.markForCheck();
+          return;
+        }
         this.catalog.set(res.catalog ?? []);
         this.cdr.markForCheck();
       });
@@ -438,6 +457,15 @@ export class AdminMarketplaceComponent implements OnInit {
         return of({ sections: [] as SectionSummary[] });
       }))
       .subscribe((res: { sections: SectionSummary[] }) => {
+        // Same stale-route fake-empty guard — a 200-HTML route with no `sections`
+        // array must NOT fake an empty grid or poison sections() with a non-array
+        // (which would crash filteredSections().filter()). Honest error, never fake-empty.
+        if (!this.flagDisabled() && (!res || !Array.isArray(res.sections))) {
+          this.loadError.set(true);
+          this.loading.set(false);
+          this.cdr.markForCheck();
+          return;
+        }
         this.sections.set(res.sections ?? []);
         this.loading.set(false);
         this.cdr.markForCheck();
@@ -462,7 +490,10 @@ export class AdminMarketplaceComponent implements OnInit {
   }
 
   fork(id: string) {
-    if (this.forkedIds().has(id)) return;
+    // Double-submit guard: skip if already forked OR a fork POST is in flight for
+    // this id (a slow network lets a user click Fork repeatedly → duplicate POSTs).
+    if (this.forkedIds().has(id) || this.forking().has(id)) return;
+    this.forking.update((prev: Set<string>) => new Set([...prev, id]));
     this.api.post<{ id: string; fork_count: number }>(`/section-marketplace/sections/${id}/fork`, {}, { silent: true })
       .pipe(catchError(() => of(null as { id: string; fork_count: number } | null)))
       .subscribe((res: { id: string; fork_count: number } | null) => {
@@ -474,6 +505,7 @@ export class AdminMarketplaceComponent implements OnInit {
         } else {
           this.toast.error('Could not fork this section — please try again.');
         }
+        this.forking.update((prev: Set<string>) => { const next = new Set(prev); next.delete(id); return next; });
         this.cdr.markForCheck();
       });
   }

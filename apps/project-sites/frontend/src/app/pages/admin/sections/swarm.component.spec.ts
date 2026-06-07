@@ -186,6 +186,34 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
     expect(root.querySelector('[data-testid="error-retry"]')).withContext('no false Retry on a 404 gate').toBeNull();
   });
 
+  // ── Reliability: stale-route fake-empty guard ──
+  // A STALE worker route can 200 with SPA/marketing HTML (not a 4xx). The body
+  // parses to an object with NO `runs` array. `res.runs ?? []` would set [] →
+  // a fake "no runs yet" empty masking a broken route. Treat a non-array
+  // `res.runs` as a load failure (retryable error card), never fake-empty.
+  it('a 200 with a non-array runs payload (stale-route HTML) shows the error card, NOT fake-empty', () => {
+    const http = TestBed.inject(HttpTestingController);
+    fixture.componentInstance.siteId.set('s1');
+    fixture.componentInstance.loadHistory();
+    // Stale route → 200 + an object lacking a runs array (the JSON-parsed SPA shell).
+    http.expectOne('/api/swarm/s1/runs').flush({} as never);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.loadError()).withContext('non-array payload is a failure').not.toBeNull();
+    expect(fixture.componentInstance.loadErrorGated()).withContext('stale 200 is transient, not a permanent gate').toBeFalse();
+    const root: HTMLElement = fixture.nativeElement;
+    expect(root.querySelector('app-error-card')).withContext('retryable error card, not fake-empty').not.toBeNull();
+    expect(root.querySelector('.swarm-empty')).withContext('no misleading "no runs" CTA').toBeNull();
+    expect(fixture.componentInstance.runHistory().length).withContext('history stays empty, not poisoned').toBe(0);
+  });
+
+  it('the Start button is aria-busy while a run is launching (assistive-tech announces the in-flight state)', () => {
+    const btn = (fixture.nativeElement as HTMLElement).querySelector('.swarm-header__start') as HTMLElement;
+    expect(btn.getAttribute('aria-busy')).withContext('idle → not busy').toBe('false');
+    fixture.componentInstance.running.set(true);
+    fixture.detectChanges();
+    expect(btn.getAttribute('aria-busy')).withContext('launching → aria-busy true').toBe('true');
+  });
+
   it('startSwarm failure surfaces an error toast + clears running (no silent failure)', () => {
     const errSpy = spyOn(TestBed.inject(ToastService), 'error');
     const http = TestBed.inject(HttpTestingController);

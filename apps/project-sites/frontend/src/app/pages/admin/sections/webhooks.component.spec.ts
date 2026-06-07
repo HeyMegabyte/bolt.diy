@@ -216,6 +216,72 @@ describe('AdminWebhooksComponent', () => {
     expect(q('app-empty-state')).withContext('the error owns the display — no double "No endpoints"').toBeNull();
   });
 
+  // ── Stale-route fake-empty guard (reliability) ────────────────────────────
+  // A STALE worker route can return 200 + a body that PARSES as JSON but is the
+  // wrong shape (e.g. `{}` from a misroute, or an SPA-fallthrough that happens
+  // to parse). `res.endpoints ?? []` only guards null/undefined → a shapeless
+  // 200 becomes a misleading "No webhook endpoints" masking a broken route, or
+  // (non-array `endpoints`) crashes the @for. Guard with Array.isArray → honest
+  // retryable error, never fake-empty/crash. (Mirrors site-features.enterFallbackMode.)
+  it('a stale 200 with NO endpoints array shows an honest error, NOT a fake-empty list', () => {
+    build({ id: 's1' });
+    get.and.callFake((path: string) =>
+      path.endsWith('/deliveries') ? of({ ok: true, deliveries: [] }) : of({} as { ok: boolean; endpoints: never[] }),
+    );
+    fixture.componentInstance.load();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.endpoints()).withContext('no fake-empty population').toEqual([]);
+    expect(fixture.componentInstance.error()).withContext('shapeless 200 → honest error').not.toBeNull();
+    expect(fixture.componentInstance.errorRetryable()).toBeTrue();
+    expect(q('[data-testid="webhooks-error"]')).withContext('retryable error card').not.toBeNull();
+    expect(q('app-empty-state')).withContext('no misleading "No endpoints" over a broken route').toBeNull();
+  });
+
+  it('a stale 200 with a non-array endpoints value degrades to an error (no @for crash)', () => {
+    build({ id: 's1' });
+    get.and.callFake((path: string) =>
+      path.endsWith('/deliveries')
+        ? of({ ok: true, deliveries: [] })
+        : of({ ok: true, endpoints: '<!doctype html>' } as unknown as { ok: boolean; endpoints: never[] }),
+    );
+    fixture.componentInstance.load();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.endpoints()).withContext('never set to a non-array').toEqual([]);
+    expect(fixture.componentInstance.error()).withContext('non-array shape → honest error').not.toBeNull();
+  });
+
+  it('a stale 200 with a non-array deliveries value stays empty (best-effort, no @for crash)', () => {
+    build({ id: 's1' });
+    get.and.callFake((path: string) =>
+      path.endsWith('/deliveries')
+        ? of({ ok: true, deliveries: '<!doctype html>' } as unknown as { ok: boolean; deliveries: never[] })
+        : of({ ok: true, endpoints: [] }),
+    );
+    fixture.componentInstance.load();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.deliveries()).withContext('non-array deliveries → empty, never crashes the @for').toEqual([]);
+  });
+
+  // ── Failed-delivery reason surfacing (visible operator improvement) ────────
+  // The deliveries endpoint already exposes a per-attempt `error` string. A
+  // failed row showed only "500 fail" with no reason — surface the worker's own
+  // failure text as an accessible tooltip so operators can debug (timeout / 401
+  // / DNS) without a separate fetch. (No secret involved — it's the delivery error.)
+  it('a failed delivery surfaces its error reason as an accessible title', () => {
+    build({ id: 's1' });
+    get.and.callFake((path: string) =>
+      path.endsWith('/deliveries')
+        ? of({ ok: true, deliveries: [{ id: 'd9', eventType: 'form.submitted', statusCode: 0, ok: false, attempt: 3, error: 'Connection timeout after 10s', createdAt: '2026-06-02T00:00:00Z' }] })
+        : of({ ok: true, endpoints: [] }),
+    );
+    fixture.componentInstance.load();
+    fixture.detectChanges();
+    const row = q('[data-testid="webhooks-delivery-row"]');
+    expect(row).not.toBeNull();
+    const status = row?.querySelector('[data-testid="webhooks-delivery-status"]') as HTMLElement | null;
+    expect(status?.getAttribute('title')).withContext('failure reason shown on hover').toContain('Connection timeout after 10s');
+  });
+
   // ── Create input validation (security/reliability) ────────────────────────
   // A webhook endpoint is called server-side, so a junk / http / internal URL
   // is an SSRF-adjacent footgun. Bad input must be rejected client-side with a

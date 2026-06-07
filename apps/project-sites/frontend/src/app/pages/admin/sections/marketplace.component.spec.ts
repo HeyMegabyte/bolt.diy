@@ -354,3 +354,121 @@ describe('AdminMarketplaceComponent — flag-gate (404) vs transient error', () 
     expect(host.querySelector('[data-testid="marketplace-flag-gate"]')).withContext('NO flag-gate notice on a transient error').toBeNull();
   });
 });
+
+/**
+ * Stale-route fake-empty guard (canonical: site-features / inbox / logs-explorer).
+ * A STALE worker route returns 200 + SPA/marketing HTML (NOT a 4xx) — the body
+ * parses to a shapeless object with no `catalog`/`sections` array. The old
+ * `res.catalog ?? []` only caught null/undefined, so a 200-HTML route faked an
+ * empty catalog (masking a broken route) OR — worse — a non-array `catalog`
+ * (e.g. `{ catalog: '<html>' }`) flowed straight into `catalog().length` and the
+ * `@for`. The fix: `!res || !Array.isArray(res.catalog)` → the honest retryable
+ * error card, never fake-empty.
+ */
+describe('AdminMarketplaceComponent — stale-route fake-empty guard', () => {
+  let fixture: ComponentFixture<AdminMarketplaceComponent>;
+  let host: HTMLElement;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [AdminMarketplaceComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+    fixture = TestBed.createComponent(AdminMarketplaceComponent);
+    host = fixture.nativeElement as HTMLElement;
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture.detectChanges(); // ngOnInit → loadCatalog + loadSections
+  });
+  afterEach(() => { httpMock.verify(); TestBed.resetTestingModule(); });
+  const q = (sel: string): HTMLElement | null => host.querySelector(sel);
+
+  it('a 200 with NO catalog array (stale-route HTML) → error card, NOT a fake-empty catalog', () => {
+    // Stale worker route: 200 status, but the body is a shapeless object (the SPA
+    // HTML parsed as JSON-ish) with no `catalog`/`sections` array.
+    httpMock.expectOne('/api/section-marketplace').flush({} as never);
+    httpMock.expectOne('/api/section-marketplace/sections?limit=200').flush({} as never);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.loadError()).withContext('honest error on a stale 200-HTML route').toBeTrue();
+    expect(fixture.componentInstance.flagDisabled()).withContext('not a flag-gate — 200, not 404').toBeFalse();
+    expect(q('[data-testid="error-card"]')).withContext('retryable error card, not a fake-empty list').not.toBeNull();
+    // The catalog/sections signals must stay empty arrays (never a non-array poison value).
+    expect(fixture.componentInstance.catalog()).toEqual([]);
+    expect(fixture.componentInstance.sections()).toEqual([]);
+  });
+
+  it('a 200 with a non-array catalog (poison value) → error card, never a crashing non-array set', () => {
+    // The nastier case: a non-array catalog flowing into catalog().length + the @for.
+    httpMock.expectOne('/api/section-marketplace').flush({ catalog: '<html>' } as never);
+    httpMock.expectOne('/api/section-marketplace/sections?limit=200').flush({ sections: '<html>' } as never);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.loadError()).withContext('honest error, not a poisoned signal').toBeTrue();
+    // The guard MUST NOT set the non-array string — the signal stays a clean array.
+    expect(Array.isArray(fixture.componentInstance.catalog())).withContext('catalog stays an array').toBeTrue();
+    expect(Array.isArray(fixture.componentInstance.sections())).withContext('sections stays an array').toBeTrue();
+  });
+});
+
+/**
+ * Fork double-submit guard. The fork POST early-returns only AFTER success
+ * (forkedIds().has(id)). While the POST is in flight, repeated clicks fire
+ * duplicate POSTs. A `forking` set tracks the in-flight id so a second click is a
+ * no-op until the first request resolves (canonical: [[double-submit-mutation-guards]]).
+ */
+describe('AdminMarketplaceComponent — fork double-submit guard', () => {
+  let fixture: ComponentFixture<AdminMarketplaceComponent>;
+  let host: HTMLElement;
+  let httpMock: HttpTestingController;
+
+  const CATALOG = { catalog: [{ industry: 'nonprofit', section_count: 1, slots: ['hero'] }] };
+  const SECTIONS = {
+    sections: [{
+      id: 's1', industry: 'nonprofit', name: 'Warm Donor Hero', slot: 'hero',
+      quality_score: 9.2, author: 'team', fork_count: 12, data_schema_fields: [],
+    }],
+  };
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [AdminMarketplaceComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+    fixture = TestBed.createComponent(AdminMarketplaceComponent);
+    host = fixture.nativeElement as HTMLElement;
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    httpMock.expectOne('/api/section-marketplace').flush(CATALOG);
+    httpMock.expectOne('/api/section-marketplace/sections?limit=200').flush(SECTIONS);
+    fixture.detectChanges();
+  });
+  afterEach(() => { httpMock.verify(); TestBed.resetTestingModule(); });
+  const q = (sel: string): HTMLElement | null => host.querySelector(sel);
+
+  it('a second fork click while the first POST is in flight does NOT fire a duplicate request', () => {
+    const btn = q('.mkt-card__fork-btn') as HTMLButtonElement;
+    btn.click(); // first click — fires the POST
+    fixture.detectChanges();
+    btn.click(); // second click while in flight — must be a no-op
+    fixture.detectChanges();
+
+    // Exactly ONE outstanding fork POST (httpMock.expectOne throws on a duplicate).
+    const req = httpMock.expectOne('/api/section-marketplace/sections/s1/fork');
+    req.flush({ id: 's1', fork_count: 13 });
+    fixture.detectChanges();
+    expect(fixture.componentInstance.forkedIds().has('s1')).toBeTrue();
+  });
+
+  it('the fork button is aria-busy + disabled while the POST is in flight', () => {
+    const btn = q('.mkt-card__fork-btn') as HTMLButtonElement;
+    btn.click();
+    fixture.detectChanges();
+    expect(btn.getAttribute('aria-busy')).withContext('busy while forking').toBe('true');
+    expect(btn.disabled).withContext('disabled while forking').toBeTrue();
+
+    httpMock.expectOne('/api/section-marketplace/sections/s1/fork').flush({ id: 's1', fork_count: 13 });
+    fixture.detectChanges();
+    expect(btn.getAttribute('aria-busy')).withContext('no longer busy after resolve').not.toBe('true');
+  });
+});

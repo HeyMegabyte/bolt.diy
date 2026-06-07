@@ -35,6 +35,8 @@ interface Delivery {
   statusCode: number;
   ok: boolean;
   attempt: number;
+  /** Worker's own failure reason for a failed attempt (timeout / 401 / DNS) — surfaced on hover. */
+  error?: string | null;
   createdAt: string;
 }
 
@@ -145,8 +147,16 @@ interface Delivery {
             <ul class="flex flex-col gap-1.5">
               @for (d of deliveries(); track d.id) {
                 <li data-testid="webhooks-delivery-row" class="flex items-center justify-between gap-3 text-[0.8rem] rounded-lg bg-white/[0.03] px-3 py-2">
-                  <span class="text-text-secondary truncate" [attr.title]="d.eventType + ' · attempt ' + d.attempt">{{ d.eventType }} <span class="text-light/60">· attempt {{ d.attempt }}</span></span>
-                  <span [class]="d.ok ? 'text-primary' : 'text-amber-300/90'" class="shrink-0 tabular-nums">{{ d.statusCode || '—' }} {{ d.ok ? 'OK' : 'fail' }}</span>
+                  <span class="text-text-secondary truncate min-w-0" [attr.title]="d.eventType + ' · attempt ' + d.attempt">
+                    {{ d.eventType }} <span class="text-light/60">· attempt {{ d.attempt }}</span>
+                    @if (!d.ok && d.error) {
+                      <!-- The worker exposes a per-attempt failure reason (timeout / 401 / DNS).
+                           Surface it as the operator's first debugging signal — no secret involved. -->
+                      <span class="text-amber-300/70 italic" data-testid="webhooks-delivery-reason"> — {{ d.error }}</span>
+                    }
+                  </span>
+                  <span data-testid="webhooks-delivery-status" [class]="d.ok ? 'text-primary' : 'text-amber-300/90'" class="shrink-0 tabular-nums"
+                    [attr.title]="d.ok ? null : (d.error || ('Delivery failed (HTTP ' + (d.statusCode || 'no response') + ')'))">{{ d.statusCode || '—' }} {{ d.ok ? 'OK' : 'fail' }}</span>
                 </li>
               }
             </ul>
@@ -269,7 +279,19 @@ export class AdminWebhooksComponent {
     // double-fire over it (the redundant-network-toast class).
     this.api.get<{ ok: boolean; endpoints: Endpoint[] }>(`/sites/${id}/webhooks`, undefined, { silent: true }).subscribe({
       next: (res) => {
-        this.endpoints.set(res.endpoints ?? []);
+        // Shape guard: a STALE worker route can return 200 + a body that parses
+        // but lacks the endpoints array (a misroute, or an SPA-fallthrough that
+        // happens to be valid JSON). `?? []` would mask that as a fake-empty
+        // "No webhook endpoints" (or crash the @for on a non-array). Treat a
+        // shapeless 200 as an honest, retryable error — never a silent empty.
+        if (!res || !Array.isArray(res.endpoints)) {
+          this.error.set("Couldn't load webhooks — the response was unexpected. Retry.");
+          this.errorRetryable.set(true);
+          this.endpoints.set([]);
+          this.loading.set(false);
+          return;
+        }
+        this.endpoints.set(res.endpoints);
         this.loading.set(false);
       },
       // Distinguish a genuine feature-gate (404 → retrying won't help) from a
@@ -294,7 +316,10 @@ export class AdminWebhooksComponent {
     // a secondary best-effort read that intentionally empties on failure must
     // not toast (the main load's inline error already signals connectivity).
     this.api.get<{ ok: boolean; deliveries: Delivery[] }>(`/sites/${id}/webhooks/deliveries`, undefined, { silent: true }).subscribe({
-      next: (res) => this.deliveries.set(res.deliveries ?? []),
+      // Shape guard: deliveries is secondary/best-effort, so a missing OR non-array
+      // body just stays empty (the main load's error already signals connectivity) —
+      // but a non-array must NEVER reach the @for / .length (stale-route crash guard).
+      next: (res) => this.deliveries.set(res && Array.isArray(res.deliveries) ? res.deliveries : []),
       error: () => this.deliveries.set([]),
     });
   }

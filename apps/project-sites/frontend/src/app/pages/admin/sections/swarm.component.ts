@@ -126,7 +126,7 @@ const SPECIALIST_COLORS: Record<string, string> = {
         (keydown.enter)="startSwarm()"
         data-testid="swarm-directive" />
       <button class="swarm-header__start" (click)="startSwarm()"
-              [disabled]="running()" aria-label="Start new swarm run">
+              [disabled]="running()" [attr.aria-busy]="running()" aria-label="Start new swarm run">
         @if (running()) {
           <svg class="sw-btn-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Running…
         } @else {
@@ -452,15 +452,19 @@ export class AdminSwarmComponent implements OnInit, OnDestroy {
       }))
       .subscribe((res: { runs: SwarmRun[] } | null) => {
         this.loading.set(false);
-        if (!res) {
+        // Treat both a null sentinel (catchError) AND a 200 whose body lacks a
+        // runs array (a STALE route returning SPA/marketing HTML, not a 4xx) as
+        // a load failure. `res.runs ?? []` would otherwise fake-empty a broken
+        // route into a misleading "no runs yet" CTA. See [[stale-route-fake-empty]].
+        if (!res || !Array.isArray(res.runs)) {
           this.loadError.set(this.loadErrorGated()
             ? "Swarm isn't available for this site."
             : 'Could not load swarm runs — check your connection and retry.');
           this.cdr.markForCheck();
           return;
         }
-        this.runHistory.set(res.runs ?? []);
-        if (res.runs?.[0]) this.currentRun.set(res.runs[0]);
+        this.runHistory.set(res.runs);
+        if (res.runs[0]) this.currentRun.set(res.runs[0]);
         this.cdr.markForCheck();
       });
   }
