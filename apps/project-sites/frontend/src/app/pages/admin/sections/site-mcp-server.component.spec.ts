@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, provideRouter } from '@angular/router';
 import { SiteMcpServerComponent } from './site-mcp-server.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -54,6 +54,58 @@ function make(over: { get?: jasmine.Spy; post?: jasmine.Spy; del?: jasmine.Spy; 
   TestBed.overrideComponent(SiteMcpServerComponent, { set: { template: '<div></div>', imports: [] } });
   return { c: TestBed.createComponent(SiteMcpServerComponent).componentInstance, api, http, toast, confirmSpy };
 }
+
+/**
+ * Full-render guard for the header "calls today" pill (lying-UI / premature-stat
+ * class): the stats grid already shows "—" when the tools feed fails, but the
+ * prominent header pill rendered totalCallsToday() raw → a confident "0 calls
+ * today" next to a "Couldn't load tools" card. The pill must mirror the grid:
+ * "…" while loading, "—" when unknown, the real rolling count only once loaded.
+ */
+describe('SiteMcpServerComponent (header calls-today pill — no false "0")', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function renderFull(): import('@angular/core/testing').ComponentFixture<SiteMcpServerComponent> {
+    TestBed.configureTestingModule({
+      imports: [SiteMcpServerComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ tokens: [], tools: [], usage: [] }), post: () => of({}), delete: () => of({}) } },
+        { provide: HttpClient, useValue: { get: () => of({}), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { params: { id: 's1' } }, parent: { snapshot: { params: { id: 's1' } } } } },
+      ],
+    });
+    return TestBed.createComponent(SiteMcpServerComponent);
+  }
+
+  it('shows "—" (not a false "0 calls today") when the tools feed failed', () => {
+    const f = renderFull();
+    f.detectChanges(); // ngOnInit fires the (mock-success) loads first
+    f.componentInstance.toolsLoading.set(false); // then simulate the failed-feed state
+    f.componentInstance.toolsError.set('The MCP tool registry did not respond.');
+    f.componentInstance.tools.set([]);
+    f.detectChanges();
+    const pill = (f.nativeElement as HTMLElement).querySelector('.header-pill') as HTMLElement;
+    expect(pill).withContext('header pill renders').not.toBeNull();
+    expect(pill.textContent ?? '').withContext('unknown → em dash, not a fabricated count').toContain('—');
+    expect(pill.textContent ?? '').withContext('must NOT claim a definitive 0').not.toContain('0 calls today');
+    expect(pill.querySelector('app-rolling-counter')).withContext('no rolling count when the value is unknown').toBeNull();
+  });
+
+  it('shows the real rolling count once loaded (no error, not loading)', () => {
+    const f = renderFull();
+    f.detectChanges();
+    f.componentInstance.toolsLoading.set(false);
+    f.componentInstance.toolsError.set(null);
+    f.componentInstance.tools.set([{ name: 'read', description: 'd' } as never]);
+    f.detectChanges();
+    const pill = (f.nativeElement as HTMLElement).querySelector('.header-pill') as HTMLElement;
+    expect(pill.querySelector('app-rolling-counter')).withContext('loaded → the real rolling counter').not.toBeNull();
+    expect(pill.textContent ?? '').not.toContain('—');
+  });
+});
 
 describe('SiteMcpServerComponent (MCP token CRUD + playground)', () => {
   afterEach(() => TestBed.resetTestingModule());

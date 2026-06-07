@@ -67,9 +67,15 @@ interface ToolUsage {
         <div class="kicker">External Agents</div>
         <h2 class="section-h m-0 mt-1 flex items-center gap-2">
           MCP Server
-          <span class="header-pill">
+          <span class="header-pill" [attr.title]="callsTodayUnknown() ? 'Calls today failed to load' : null">
             <span class="header-pill-dot" aria-hidden="true"></span>
-            <app-rolling-counter [value]="totalCallsToday()" suffix=" calls today" />
+            @if (toolsLoading()) {
+              <span aria-label="Loading calls today">… calls today</span>
+            } @else if (callsTodayUnknown()) {
+              <span aria-label="Calls today: unknown — failed to load">— calls today</span>
+            } @else {
+              <app-rolling-counter [value]="totalCallsToday()" suffix=" calls today" />
+            }
           </span>
         </h2>
         <p class="text-[0.78rem] text-text-secondary m-0 mt-1 max-w-prose">
@@ -300,6 +306,9 @@ export class SiteMcpServerComponent implements OnInit {
       .filter((u) => u.day === today)
       .reduce((sum, u) => sum + u.call_count, 0);
   });
+
+  /** Calls Today is unknown (not zero) when the tools/usage feed failed to load — gates the header pill so it never claims a confident "0 calls today". */
+  readonly callsTodayUnknown = computed(() => !!this.toolsError() && this.tools().length === 0);
 
   readonly stats = computed(() => {
     // `unknown` = the source FAILED to load → show "—", not a false "0" (a stat
