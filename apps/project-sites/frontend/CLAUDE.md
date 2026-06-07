@@ -89,7 +89,10 @@ src/
 │   │   │                               # ai-endpoints, ai-logs, settings, analytics,
 │   │   │                               # mcp, user-settings, editor (iframe-host),
 │   │   │                               # media (Media library + studios), apps, social,
-│   │   │                               # voice, dashboard, domains, seo, sites
+│   │   │                               # voice, dashboard, domains, seo, sites,
+│   │   │                               # feature-flags (System Administrator layer +
+│   │   │                               # feature-flags/ primitives), site-features
+│   │   │                               # (Features layer — site-scoped, plan-aware)
 │   │   ├── blog/, changelog/, status/, privacy/, terms/, content/, contact/
 │   ├── services/
 │   │   ├── api.service.ts              # HttpClient wrapper — typed endpoints, 30s timeout
