@@ -372,6 +372,17 @@ describe('AdminFeatureFlagsComponent (flag-card rollout bar)', () => {
   // premature-stat-during-load: the header subtitle ("N registered · M on") must
   // not assert a definitive "0 registered · 0 on" while the flag list is still
   // loading (skeleton below). Show a muted "…" until the load resolves.
+  // axe (authed prod run) flagged this serious WCAG 1.4.1 violation: the "Features →"
+  // cross-link sits inside the .ff-sub text block distinguishable by COLOR ALONE.
+  // In-text links must carry a non-colour cue (underline).
+  it('the "Features →" cross-link is underlined (not colour-only — WCAG 1.4.1)', () => {
+    const f = render();
+    f.detectChanges();
+    const link = (f.nativeElement as HTMLElement).querySelector('.ff-cross-link') as HTMLElement;
+    expect(link).withContext('cross-link rendered').toBeTruthy();
+    expect(getComputedStyle(link).textDecorationLine).withContext('link distinguishable without colour').toContain('underline');
+  });
+
   it('the header counts show "…" (not a false 0) while flags are still loading', () => {
     const f = render();
     f.detectChanges(); // ngOnInit reload → flags [] + loading false

@@ -438,7 +438,8 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
     .ff-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent); max-width: 66ch; }
     .ff-sub strong { color: var(--ps-accent, #00e5ff); font-family: var(--ps-mono, ui-monospace, monospace); }
     .ff-stat-dots { opacity: 0.5; letter-spacing: 0.1em; }
-    .ff-cross-link { color: var(--ps-accent, #00e5ff); }
+    .ff-cross-link { color: var(--ps-accent, #00e5ff); text-decoration: underline; text-underline-offset: 2px; }
+    .ff-cross-link:hover { color: var(--ps-ink, #f4f4ff); }
     .ff-cross-link:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 4px; }
     .ff-refresh, .ff-emergency { background: transparent; border: 1px solid color-mix(in oklch, currentColor 30%, transparent); color: inherit; padding: .5rem 1rem; border-radius: 8px; cursor: pointer; font: inherit; min-height: 24px; }
     .ff-refresh:hover { background: color-mix(in oklch, currentColor 10%, transparent); }
