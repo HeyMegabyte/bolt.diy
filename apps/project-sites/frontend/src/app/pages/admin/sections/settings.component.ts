@@ -107,11 +107,19 @@ const PROVIDERS = MCP_PROVIDERS;
           </div>
           <label class="block">
             <span class="muted-h">Contact email <small class="text-text-secondary">(shown on your site)</small></span>
-            <input hlmInput type="email" class="w-full mt-1" placeholder="hello@yourbiz.com" [(ngModel)]="settings.contact_email" />
+            <input hlmInput type="email" class="w-full mt-1" placeholder="hello@yourbiz.com" [(ngModel)]="settings.contact_email"
+              [attr.aria-invalid]="emailInvalid(settings.contact_email) || null" [attr.aria-describedby]="emailInvalid(settings.contact_email) ? 'contact-email-hint' : null" />
+            @if (emailInvalid(settings.contact_email)) {
+              <span id="contact-email-hint" role="alert" class="text-xs text-red-400 mt-1 block">Enter a valid email address (or leave blank).</span>
+            }
           </label>
           <label class="block">
             <span class="muted-h">Reply email <small class="text-text-secondary">(where the AI router sends contact-form messages)</small></span>
-            <input hlmInput type="email" class="w-full mt-1" placeholder="owner@yourbiz.com" [(ngModel)]="settings.reply_email" />
+            <input hlmInput type="email" class="w-full mt-1" placeholder="owner@yourbiz.com" [(ngModel)]="settings.reply_email"
+              [attr.aria-invalid]="emailInvalid(settings.reply_email) || null" [attr.aria-describedby]="emailInvalid(settings.reply_email) ? 'reply-email-hint' : null" />
+            @if (emailInvalid(settings.reply_email)) {
+              <span id="reply-email-hint" role="alert" class="text-xs text-red-400 mt-1 block">Enter a valid email address (or leave blank).</span>
+            }
           </label>
           <label class="block">
             <span class="muted-h">Brand tone</span>
@@ -167,7 +175,7 @@ const PROVIDERS = MCP_PROVIDERS;
 
           <div class="md:col-span-2 flex justify-end gap-2">
             <button class="btn-ghost" (click)="loadGeneral()">Cancel</button>
-            <button class="btn-primary" [disabled]="saving()" (click)="save()">{{ saving() ? 'Saving…' : 'Save general settings' }}</button>
+            <button class="btn-primary" [disabled]="saving() || generalEmailsInvalid()" (click)="save()">{{ saving() ? 'Saving…' : 'Save general settings' }}</button>
           </div>
         </section>
       }
@@ -1188,7 +1196,25 @@ export class AdminSettingsComponent implements OnInit {
       error: () => { /* api.service already toasted */ },
     });
   }
+  /** Per-field: a non-empty value that isn't a valid email (blank = valid; both
+   *  General emails are optional). Drives the inline hint on each field. */
+  emailInvalid(v: string | null | undefined): boolean {
+    return !!v && v.trim() !== '' && !this.isValidEmail(v);
+  }
+
+  /** True when EITHER General email is malformed — gates the Save button. */
+  generalEmailsInvalid(): boolean {
+    return this.emailInvalid(this.settings.contact_email) || this.emailInvalid(this.settings.reply_email);
+  }
+
   save(): void {
+    // Real client-side validation before the PUT — a typo'd contact/reply email
+    // otherwise round-trips as a silent garbage save (the CRUD "real validation +
+    // useful errors" bar; mirrors the invite-email gate in this same component).
+    if (this.generalEmailsInvalid()) {
+      this.toast.error('Enter valid contact + reply email addresses (or leave them blank).');
+      return;
+    }
     const s = this.state.selectedSite(); if (!s) return;
     this.saving.set(true);
     this.api.put(`/sites/${s.id}/ai-settings`, this.settings).subscribe({

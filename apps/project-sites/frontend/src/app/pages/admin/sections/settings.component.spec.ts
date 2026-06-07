@@ -54,6 +54,21 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(el.querySelectorAll('.stat-strip app-rolling-counter').length).toBe(3);
   });
 
+  it('generalEmailsInvalid flags a malformed contact/reply email (empty optional = valid); save() no-ops + toasts when invalid', () => {
+    build({ id: 's', slug: 'demo' });
+    const c = fixture.componentInstance;
+    c.settings.contact_email = '';
+    c.settings.reply_email = '';
+    expect(c.generalEmailsInvalid()).withContext('empty optional emails are valid').toBeFalse();
+    c.settings.contact_email = 'not-an-email';
+    expect(c.generalEmailsInvalid()).withContext('malformed contact email → invalid').toBeTrue();
+    const api = TestBed.inject(ApiService) as unknown as { put: jasmine.Spy };
+    const toast = TestBed.inject(ToastService) as unknown as { error: jasmine.Spy };
+    c.save();
+    expect(api.put).withContext('no PUT with an invalid email — real validation, not a silent garbage save').not.toHaveBeenCalled();
+    expect(toast.error).withContext('useful inline error').toHaveBeenCalled();
+  });
+
   it('does not show a premature "0" count (or announce it) while connections/team load', () => {
     build({ id: 's', slug: 'demo' });
     // Initial loads in-flight: the two list-derived stats have no resolved data yet.
