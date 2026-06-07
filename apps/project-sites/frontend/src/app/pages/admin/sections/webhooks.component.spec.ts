@@ -311,3 +311,37 @@ describe('AdminWebhooksComponent', () => {
     expect(q('app-empty-state')).withContext('uses the reusable empty-state primitive').not.toBeNull();
   });
 });
+
+describe('AdminWebhooksComponent (public-host URL validation)', () => {
+  let fx: import('@angular/core/testing').ComponentFixture<AdminWebhooksComponent>;
+  afterEach(() => TestBed.resetTestingModule());
+
+  function mk(): AdminWebhooksComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminWebhooksComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ ok: true, endpoints: [] }), post: () => of({ ok: true }), delete: () => of({ ok: true }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: AdminStateService, useValue: { selectedSite: () => ({ id: 's1' }) } },
+      ],
+    });
+    fx = TestBed.createComponent(AdminWebhooksComponent);
+    fx.detectChanges();
+    return fx.componentInstance;
+  }
+
+  it('flags private / link-local / metadata IP webhook URLs invalid (the "public hostname" promise)', () => {
+    const c = mk();
+    for (const url of [
+      'https://127.0.0.1/h', 'https://10.0.0.1/h', 'https://192.168.0.1/h',
+      'https://172.20.1.1/h', 'https://169.254.169.254/meta', 'https://api.internal/h',
+    ]) {
+      c.urlModel.set(url);
+      expect(c.urlInvalid()).withContext(url).toBeTrue();
+    }
+    c.urlModel.set('https://hooks.example.com/projectsites');
+    expect(c.urlInvalid()).withContext('public host valid').toBeFalse();
+  });
+});
