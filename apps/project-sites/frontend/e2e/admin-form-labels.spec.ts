@@ -90,7 +90,9 @@ test.describe('Admin form-control label association (WCAG 1.3.1 / 4.1.2)', () =>
   test('Webhooks — endpoint URL + event checkboxes are programmatically named', async ({
     authedPage: page,
   }) => {
-    await page.goto('/admin/webhooks');
+    // Webhooks moved under Settings (2026-06-07) → the Webhooks tab. The legacy
+    // /admin/webhooks path redirects here; navigate to the canonical location.
+    await page.goto('/admin/settings#webhooks');
     await page.waitForLoadState('networkidle');
 
     await assertNamed(page, {

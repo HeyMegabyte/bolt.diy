@@ -185,10 +185,14 @@ export const routes: Routes = [
           import('./pages/admin/sections/deliverability.component').then((m) => m.AdminDeliverabilityComponent),
       },
       {
-        // Outbound Webhooks (#10) — subscribe endpoints to site events (flag: outbound_webhooks).
+        // Outbound Webhooks (#10) moved UNDER Settings (2026-06-07) — now the
+        // "Webhooks" tab of /admin/settings. The component (AdminWebhooksComponent)
+        // is embedded there; this legacy path redirects to the Settings fragment
+        // so old deep links + the command palette keep working. (Static redirectTo
+        // can't carry a #fragment → functional redirect, same pattern as mcp/ai-chat.)
         path: 'webhooks',
-        loadComponent: () =>
-          import('./pages/admin/sections/webhooks.component').then((m) => m.AdminWebhooksComponent),
+        redirectTo: () => inject(Router).parseUrl('/admin/settings#webhooks'),
+        pathMatch: 'full',
       },
       {
         // Automation Builder (#11) — no-code trigger->action recipes (flag: automation_builder).

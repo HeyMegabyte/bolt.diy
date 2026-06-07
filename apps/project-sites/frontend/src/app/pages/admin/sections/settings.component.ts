@@ -8,6 +8,7 @@ import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { MCP_PROVIDERS } from './mcp-providers';
 import { EnvVarsManagerComponent } from '../../../components/env-vars-manager/env-vars-manager.component';
+import { AdminWebhooksComponent } from './webhooks.component';
 import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { BrnTooltipImports } from '@spartan-ng/brain/tooltip';
 import { RevealDirective } from '../../../directives/reveal.directive';
@@ -31,6 +32,7 @@ const TABS = [
   { id: 'ai-chat',  label: 'AI Chat',     desc: 'System prompt · persona · web search · knowledge files (this project)' },
   { id: 'mcp',      label: 'MCP',         desc: 'Per-project integrations: Slack, Stripe, Notion, HubSpot +20 more' },
   { id: 'env-vars', label: 'AI Env Vars', desc: 'Custom key-value store surfaced to AI + MCP at inference time (org-wide)' },
+  { id: 'webhooks', label: 'Webhooks',    desc: 'Signed, retried event notifications to your endpoints (this project)' },
 ] as const;
 type Tab = (typeof TABS)[number]['id'];
 
@@ -41,7 +43,7 @@ const PROVIDERS = MCP_PROVIDERS;
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [RevealDirective, RollingCounterComponent, CharCountComponent, AiSparkComponent, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, ...BrnTooltipImports],
+  imports: [RevealDirective, RollingCounterComponent, CharCountComponent, AiSparkComponent, FormsModule, DatePipe, SlicePipe, RouterLink, EnvVarsManagerComponent, AdminWebhooksComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, ...BrnTooltipImports],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -614,6 +616,15 @@ const PROVIDERS = MCP_PROVIDERS;
           </header>
           <app-env-vars-manager [scope]="'org'" />
         </section>
+      }
+      @else if (tab() === 'webhooks') {
+        <!-- Outbound Webhooks moved under Settings (2026-06-07). The standalone
+             /admin/webhooks route now redirects to /admin/settings#webhooks. The
+             embedded component renders its own surfaces; this wrapper only carries
+             the tabpanel a11y contract (role + id + aria-labelledby). -->
+        <div appReveal role="tabpanel" id="settings-panel" [attr.aria-labelledby]="'settings-tab-' + tab()" data-testid="settings-webhooks-panel">
+          <app-admin-webhooks />
+        </div>
       }
 
       <!-- Security tab removed entirely:

@@ -7,6 +7,7 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
+import { AdminWebhooksComponent } from './webhooks.component';
 
 /**
  * Convergence r23 cohesion guard for the Settings section.
@@ -99,9 +100,40 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     const nav = el.querySelector('nav[role="tablist"]');
     expect(nav).toBeTruthy();
     const tabs = el.querySelectorAll('button[role="tab"]');
-    expect(tabs.length).toBe(6);
+    // 7 since Webhooks moved under Settings (2026-06-07): General · Business ·
+    // Team · AI Chat · MCP · AI Env Vars · Webhooks.
+    expect(tabs.length).toBe(7);
     const selected = Array.from(tabs).filter((t) => t.getAttribute('aria-selected') === 'true');
     expect(selected.length).toBe(1);
+    expect(Array.from(tabs).map((t) => t.textContent?.trim())).withContext('Webhooks now a Settings tab').toContain('Webhooks');
+  });
+
+  it('embeds the Webhooks surface under its own Settings tab (moved from top-level nav)', () => {
+    // Isolate from AdminWebhooksComponent's own DI graph (RouterLink etc.) —
+    // assert it MOUNTS in the tabpanel, not its internals.
+    selectedSite = signal({ id: 's', slug: 'demo' });
+    TestBed.configureTestingModule({
+      imports: [AdminSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: null }), put: () => of({}), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: 'webhooks', url: [] } } },
+        { provide: AdminStateService, useValue: { selectedSite, loadData: () => undefined } },
+      ],
+    });
+    TestBed.overrideComponent(AdminWebhooksComponent, { set: { template: '<div data-testid="wh-stub"></div>', imports: [] } });
+    fixture = TestBed.createComponent(AdminSettingsComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.setTab('webhooks');
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const panel = el.querySelector('[data-testid="settings-webhooks-panel"]');
+    expect(panel).withContext('webhooks tabpanel renders').toBeTruthy();
+    expect(panel!.getAttribute('role')).toBe('tabpanel');
+    expect(panel!.getAttribute('aria-labelledby')).toBe('settings-tab-webhooks');
+    expect(el.querySelector('app-admin-webhooks')).withContext('webhooks component embedded').toBeTruthy();
   });
 
   it('associates the active panel with its tab (APG: role=tabpanel + aria-labelledby ↔ tab id + aria-controls)', () => {
