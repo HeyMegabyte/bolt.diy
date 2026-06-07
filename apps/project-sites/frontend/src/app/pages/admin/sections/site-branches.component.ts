@@ -46,6 +46,10 @@ interface Branch {
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [
     `
+      /* Force the cyan token — without this .text-accent cascades to a dim teal
+         (axe serious color-contrast on the small Preview ↗ link). Matches the
+         sibling sections that all declare it locally. */
+      .text-accent { color: var(--ps-accent, #00e5ff); }
       .sr-only {
         position: absolute;
         width: 1px;
