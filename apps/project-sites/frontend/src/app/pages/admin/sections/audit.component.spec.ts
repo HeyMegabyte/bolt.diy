@@ -83,6 +83,24 @@ describe('AdminAuditComponent (load + KPI logic)', () => {
     expect((c as unknown as { gridApi?: unknown }).gridApi).withContext('stale destroyed-grid api cleared').toBeUndefined();
   });
 
+  it('canExport gates Export CSV: false with no events (never a headers-only / dead-button CSV), and exportCsv no-ops when empty', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.load();
+    expect(c.rows().length).toBe(0);
+    expect(c.canExport()).withContext('no events → export disabled (matches analytics + forms)').toBeFalse();
+    // Even if a stale grid api lingers, exportCsv must not emit an empty CSV.
+    const spy = jasmine.createSpy('exportDataAsCsv');
+    (c as unknown as { gridApi?: { exportDataAsCsv: jasmine.Spy } }).gridApi = { exportDataAsCsv: spy };
+    c.exportCsv();
+    expect(spy).withContext('no export attempted when empty').not.toHaveBeenCalled();
+  });
+
+  it('canExport is true once events load', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [ROW()] })));
+    c.load();
+    expect(c.canExport()).toBeTrue();
+  });
+
   it('load() error clears loading + sets loadError (security log must not masquerade as empty)', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
     c.load();
@@ -326,7 +344,8 @@ describe('AdminAuditComponent (CSV export is formula-injection-safe)', () => {
   });
 
   it('exportCsv wires the formula guard into ag-grid processCellCallback', () => {
-    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [ROW()] })));
+    c.load(); // seed an event so canExport() is true — export is gated on real data
     let opts: { processCellCallback?: (p: { value: unknown }) => string } = {};
     (c as unknown as { gridApi?: unknown }).gridApi = { exportDataAsCsv: (o: typeof opts) => { opts = o; } };
     c.exportCsv();

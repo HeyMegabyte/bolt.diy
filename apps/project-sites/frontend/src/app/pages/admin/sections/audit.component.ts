@@ -197,7 +197,7 @@ function actionToFallbackMessage(action: string): string {
               Org: {{ scopeName() }} <span class="x">×</span>
             </button>
           }
-          <button class="btn-ghost" (click)="exportCsv()">Export CSV</button>
+          <button class="btn-ghost" (click)="exportCsv()" [disabled]="!canExport()" [attr.aria-disabled]="!canExport()" [attr.title]="canExport() ? 'Download visible audit events as CSV' : 'No audit events to export yet'">Export CSV</button>
         </div>
       </header>
 
@@ -445,6 +445,11 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
     }
     return out;
   });
+  /** Export CSV is meaningful only when real audit events exist (synthetic
+   *  master/detail splice rows don't count). Disables the button when empty,
+   *  matching analytics (`!envelope()`) + forms (`exportRows().length === 0`)
+   *  so it never downloads a headers-only CSV / acts as a dead button. */
+  readonly canExport = computed(() => this.rows().length > 0);
   /** Stat cards hidden when the load errored with no data — a definitive
    *  "0 events · 0 actions · …" over the error card is wrong (unknown, not 0). */
   showStats = computed<boolean>(() => !this.loadError() || this.displayRows().length > 0);
@@ -900,6 +905,7 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
   }
 
   exportCsv(): void {
+    if (!this.canExport()) return; // nothing to export — never emit a headers-only CSV
     this.gridApi?.exportDataAsCsv({
       fileName: `audit-log-${new Date().toISOString().slice(0, 10)}.csv`,
       // Guard CSV formula injection (CWE-1236): audit rows carry user/system
