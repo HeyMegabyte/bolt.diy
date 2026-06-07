@@ -124,11 +124,18 @@ test.describe('admin shell — logo removed + clean console + editor', () => {
     });
     await page.goto('/admin/sites/site-001', { waitUntil: 'load' });
     await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
-    await page.waitForTimeout(4000); // timer(0,3000) → ~2 polls in this window
+    await page.waitForTimeout(4000); // timer(0,3000) → ~2 polls in this window (Logs tab active)
     const notFoundToast = page.locator('[data-testid="toast-item"]', { hasText: /not found|wasn.t found/i });
     await expect(notFoundToast, 'site-detail surfaced an error toast for a 404 secondary read').toHaveCount(0);
     // Pre-fix: 2 polls × (1 + 2 retries) = 6. Post-fix: 2 polls × 1 = ~2.
     expect(tailReqs.length, `logs/tail retry storm: ${tailReqs.length} requests in ~4s`).toBeLessThanOrEqual(3);
+
+    // Switching off the Logs tab must STOP the tail poll (it used to keep hitting
+    // the network every 3s for the component's whole lifetime).
+    const afterLogs = tailReqs.length;
+    await page.locator('[role="tab"], button', { hasText: /^SQL$/ }).first().click();
+    await page.waitForTimeout(4000);
+    expect(tailReqs.length - afterLogs, 'logs/tail kept polling after leaving the Logs tab').toBeLessThanOrEqual(1);
   });
 
   test('editor surface loads (tab strip + persistent bolt iframe)', async ({ authedPage: page }) => {

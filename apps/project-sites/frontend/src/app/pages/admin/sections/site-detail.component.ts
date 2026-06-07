@@ -534,18 +534,24 @@ export class AdminSiteDetailComponent {
     this.wsStatus.set('connecting');
     timer(0, 3000)
       .pipe(
-        switchMap(() =>
+        switchMap(() => {
+          // Only poll while the Logs tab is actually visible — otherwise the
+          // tail kept hitting the network every 3s for the component's whole
+          // lifetime while the user sat on SQL/Integrations/Snapshots (wasted
+          // requests + console noise). `of(null)` skips the tick cleanly.
+          if (this.tab() !== 'logs') return of(null);
           // { silent } + NO inner retry: the timer(0, 3000) above IS the poll
           // cadence, so retrying a permanent 404 just tripled the requests
           // (a 30×-in-seconds storm) and the missing { silent } toasted each
           // failure. catchError degrades this tick to empty; next tick re-polls.
-          this.api.get<{ logs: LogRow[] }>(`/sites/${id}/logs/tail`, undefined, { silent: true }).pipe(
+          return this.api.get<{ logs: LogRow[] }>(`/sites/${id}/logs/tail`, undefined, { silent: true }).pipe(
             catchError(() => of({ logs: [] as LogRow[] })),
-          ),
-        ),
+          );
+        }),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((res) => {
+        if (!res) return; // skipped tick — Logs tab not active
         this.wsStatus.set('connected');
         if (Array.isArray(res.logs) && res.logs.length) {
           this.logs.set(res.logs);
