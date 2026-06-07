@@ -276,3 +276,82 @@ describe('AdminFeatureFlagsComponent (blocked banner uses a mono SVG lock, not e
     expect(icon!.textContent ?? '').withContext('no 🔒 emoji glyph').not.toMatch(/\u{1F512}/u);
   });
 });
+
+/**
+ * Emergency console — the highest-blast destructive admin action (kills every
+ * non-stable flag platform-wide). The brief's "emergency controls" test item.
+ * Safety contract: NEVER touches stable or core_ sentinel flags; requires a
+ * typed reason; each kill is a super-admin POST carrying that reason.
+ */
+describe('AdminFeatureFlagsComponent (emergency kill-all)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeWithPost(post: jasmine.Spy): AdminFeatureFlagsComponent {
+    const get = jasmine.createSpy('get').and.callFake((url: string) =>
+      url.includes('/auth/me') ? of({ is_super_admin: false }) : of({ flags: [], count: 0 }));
+    TestBed.configureTestingModule({
+      imports: [AdminFeatureFlagsComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get, post, patch: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: AdminStateService, useValue: { selectedSite: signal(null), isSuperAdmin: () => false } },
+        { provide: FeatureFlagService, useValue: { invalidate: () => undefined, isOn: () => of(false) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
+      ],
+    });
+    TestBed.overrideComponent(AdminFeatureFlagsComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminFeatureFlagsComponent).componentInstance;
+  }
+
+  it('emergencyTargets selects only non-stable, non-core, non-killswitch flags', () => {
+    const c = makeWithPost(jasmine.createSpy('post').and.returnValue(of({})));
+    c.flags.set([
+      flag({ key: 'stable_x', stage: 'stable', default_enabled: true }),
+      flag({ key: 'core_auth', stage: 'experimental', default_enabled: true }),
+      flag({ key: 'exp_a', stage: 'experimental', default_enabled: true }),
+      flag({ key: 'beta_b', stage: 'beta', default_enabled: true }),
+      flag({ key: 'killed_c', stage: 'killswitch', default_enabled: false }),
+    ]);
+    const keys = c.emergencyTargets().map((f) => f.key);
+    expect(keys).toContain('exp_a');
+    expect(keys).toContain('beta_b');
+    expect(keys).withContext('never kills stable').not.toContain('stable_x');
+    expect(keys).withContext('never kills core sentinels').not.toContain('core_auth');
+    expect(keys).withContext('skips already-killswitch-staged').not.toContain('killed_c');
+  });
+
+  it('refuses to fire without a ≥4-char reason (no POST, console stays open)', async () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({}));
+    const c = makeWithPost(post);
+    c.flags.set([flag({ key: 'exp_a', stage: 'experimental', default_enabled: true })]);
+    c.emergencyOpen.set(true);
+    c.dangerReason.set('x'); // < 4 chars
+    await c.killAllNonStable();
+    expect(post).not.toHaveBeenCalled();
+    expect(c.emergencyOpen()).withContext('guard bailed — console not closed').toBeTrue();
+  });
+
+  it('kills each non-stable target via super-admin POST (reason attached) + closes the console; stable untouched', async () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({}));
+    const c = makeWithPost(post);
+    c.flags.set([
+      flag({ key: 'exp_a', stage: 'experimental', default_enabled: true }),
+      flag({ key: 'beta_b', stage: 'beta', default_enabled: true }),
+      flag({ key: 'stable_x', stage: 'stable', default_enabled: true }),
+    ]);
+    c.emergencyOpen.set(true);
+    c.dangerReason.set('Platform incident — kill experimental surfaces');
+    await c.killAllNonStable();
+    expect(post).toHaveBeenCalledTimes(2); // only the 2 non-stable targets
+    for (const args of post.calls.allArgs()) {
+      expect(args[0]).toBe('/api/super-admin/feature-flags');
+      expect(args[1].kill_switch).withContext('each kill sets kill_switch').toBeTrue();
+      expect(args[1].reason).toContain('Platform incident');
+    }
+    const killed = post.calls.allArgs().map((a) => a[1].key);
+    expect(killed).withContext('stable flag never killed').not.toContain('stable_x');
+    expect(c.emergencyOpen()).withContext('console closed after sweep').toBeFalse();
+    expect(c.emergencyBusy()).toBeFalse();
+  });
+});
