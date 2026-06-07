@@ -114,8 +114,8 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
           <h1 data-testid="ff-layer-heading">System Administrator</h1>
           <p class="ff-sub">
             Platform-ops flags for the operator.
-            <strong><app-rolling-counter [value]="flagCount()" /></strong> registered ·
-            <strong><app-rolling-counter [value]="enabledCount()" /></strong> on.
+            <strong>@if (statsLoading()) { <span class="ff-stat-dots" aria-label="Loading">…</span> } @else { <app-rolling-counter [value]="flagCount()" /> }</strong> registered ·
+            <strong>@if (statsLoading()) { <span class="ff-stat-dots" aria-label="Loading">…</span> } @else { <app-rolling-counter [value]="enabledCount()" /> }</strong> on.
             Site owners manage their own features under
             <a routerLink="/admin/site-features" data-testid="ff-nav-site-features" class="ff-cross-link">Features →</a>.
           </p>
@@ -437,6 +437,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
     .ff-header h1 { font-size: clamp(1.5rem, 3vw, 2.25rem); margin: 0 0 .25rem; }
     .ff-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent); max-width: 66ch; }
     .ff-sub strong { color: var(--ps-accent, #00e5ff); font-family: var(--ps-mono, ui-monospace, monospace); }
+    .ff-stat-dots { opacity: 0.5; letter-spacing: 0.1em; }
     .ff-cross-link { color: var(--ps-accent, #00e5ff); }
     .ff-cross-link:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 4px; }
     .ff-refresh, .ff-emergency { background: transparent; border: 1px solid color-mix(in oklch, currentColor 30%, transparent); color: inherit; padding: .5rem 1rem; border-radius: 8px; cursor: pointer; font: inherit; min-height: 24px; }
@@ -626,6 +627,8 @@ export class AdminFeatureFlagsComponent implements OnInit {
 
   readonly flagCount = computed(() => this.flags().length);
   readonly enabledCount = computed(() => this.flags().filter((f) => this.resolvedOn(f)).length);
+  /** True only during the initial flag load (no data yet) — gates the header subtitle counts so they never assert a false "0 registered · 0 on" over the loading skeleton. Refresh-with-data keeps the live counts. */
+  readonly statsLoading = computed(() => this.loading() && this.flags().length === 0);
 
   readonly coherenceWarnings = computed(() => {
     const enabledByKey: Record<string, boolean> = {};

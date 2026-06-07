@@ -90,6 +90,15 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     expect(component.loading()).toBeFalse();
   });
 
+  it('the header counts show "…" (not a false 0) while the catalog loads', async () => {
+    await build(null); // GET pending → loading true, features empty
+    const sub = fixture.nativeElement.querySelector('.sf-sub') as HTMLElement;
+    expect(sub.textContent ?? '').withContext('honest loading placeholder, not "0 enabled · 0 available"').toContain('…');
+    expect(sub.querySelector('app-rolling-counter')).withContext('no rolling count over the skeleton').toBeNull();
+    httpMock.expectOne(GET_URL).flush({ features: [], plan: 'free' }); // satisfy httpMock.verify()
+    await fixture.whenStable();
+  });
+
   it('renders the shared error card (not skeleton) when the catalog fails', async () => {
     await build({ features: [] }, 500);
     expect(component.error()).toBeTruthy();

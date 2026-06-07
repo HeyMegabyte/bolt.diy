@@ -64,8 +64,8 @@ interface SiteFeature {
           <h1 data-testid="sf-layer-heading">Features</h1>
           <p class="sf-sub">
             Turn capabilities on for <strong>{{ siteName() }}</strong>.
-            <strong><app-rolling-counter [value]="enabledCount()" /></strong> enabled ·
-            <strong><app-rolling-counter [value]="availableCount()" /></strong> available on your {{ plan() }} plan.
+            <strong>@if (statsLoading()) { <span class="sf-stat-dots" aria-label="Loading">…</span> } @else { <app-rolling-counter [value]="enabledCount()" /> }</strong> enabled ·
+            <strong>@if (statsLoading()) { <span class="sf-stat-dots" aria-label="Loading">…</span> } @else { <app-rolling-counter [value]="availableCount()" /> }</strong> available on your {{ plan() }} plan.
             Platform operators manage system flags under
             <a routerLink="/admin/feature-flags" data-testid="sf-nav-system" class="sf-cross-link">System Administrator →</a>.
           </p>
@@ -205,6 +205,7 @@ interface SiteFeature {
     .sf-header h1 { font-size: clamp(1.5rem, 3vw, 2.25rem); margin: 0 0 .25rem; }
     .sf-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent); max-width: 66ch; }
     .sf-sub strong { color: var(--ps-accent, #00e5ff); }
+    .sf-stat-dots { opacity: 0.5; letter-spacing: 0.1em; }
     .sf-cross-link { color: var(--ps-accent, #00e5ff); }
     .sf-cross-link:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 4px; }
     .sf-refresh { background: transparent; border: 1px solid color-mix(in oklch, currentColor 30%, transparent); color: inherit; padding: .5rem 1rem; border-radius: 8px; cursor: pointer; font: inherit; min-height: 24px; }
@@ -304,6 +305,8 @@ export class AdminSiteFeaturesComponent implements OnInit {
   readonly siteName = computed(() => this.state.selectedSite()?.business_name ?? 'your site');
   readonly enabledCount = computed(() => this.features().filter((f) => f.enabled).length);
   readonly availableCount = computed(() => this.features().filter((f) => f.entitled === 'available').length);
+  /** True only during the initial catalog load (no data yet) — gates the header counts so they never assert a false "0 enabled · 0 available" over the loading skeleton. */
+  readonly statsLoading = computed(() => this.loading() && this.features().length === 0);
 
   readonly filtered = computed(() => {
     const q = this.search().trim().toLowerCase();

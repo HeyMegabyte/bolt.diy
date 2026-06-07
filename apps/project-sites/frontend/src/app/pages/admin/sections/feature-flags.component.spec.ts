@@ -368,6 +368,30 @@ describe('AdminFeatureFlagsComponent (flag-card rollout bar)', () => {
     const fill = (f.nativeElement as HTMLElement).querySelector('.ff-rollout-fill');
     expect(fill?.classList.contains('ff-rollout-fill--off')).withContext('off flag → dimmed fill').toBeTrue();
   });
+
+  // premature-stat-during-load: the header subtitle ("N registered · M on") must
+  // not assert a definitive "0 registered · 0 on" while the flag list is still
+  // loading (skeleton below). Show a muted "…" until the load resolves.
+  it('the header counts show "…" (not a false 0) while flags are still loading', () => {
+    const f = render();
+    f.detectChanges(); // ngOnInit reload → flags [] + loading false
+    f.componentInstance.loading.set(true); // simulate the in-flight initial load (no data yet)
+    f.detectChanges();
+    const sub = (f.nativeElement as HTMLElement).querySelector('.ff-sub') as HTMLElement;
+    expect(sub.textContent ?? '').withContext('honest loading placeholder, not a definitive 0').toContain('…');
+    expect(sub.querySelector('app-rolling-counter')).withContext('no rolling count over a loading skeleton').toBeNull();
+  });
+
+  it('the header renders real rolling-counters once flags load', () => {
+    const f = render();
+    f.detectChanges();
+    f.componentInstance.flags.set([flag({ key: 'a', default_enabled: true }), flag({ key: 'b', default_enabled: false })]);
+    f.componentInstance.loading.set(false);
+    f.detectChanges();
+    const sub = (f.nativeElement as HTMLElement).querySelector('.ff-sub') as HTMLElement;
+    expect(sub.querySelectorAll('app-rolling-counter').length).withContext('registered + on counters').toBe(2);
+    expect(sub.textContent ?? '').not.toContain('…');
+  });
 });
 
 /**
