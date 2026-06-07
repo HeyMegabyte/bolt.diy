@@ -273,6 +273,10 @@ interface ToolUsage {
 
     </div>
   `,
+  // Force the cyan token for .text-accent — without this local rule the global
+  // utility cascades to a dim teal here (axe serious color-contrast ~1.1:1 on the
+  // small endpoint URL). Mirrors analytics/apps/user-settings which all declare it.
+  styles: [`.text-accent { color: var(--ps-accent, #00e5ff); }`],
 })
 export class SiteMcpServerComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
