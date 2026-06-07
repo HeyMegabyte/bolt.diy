@@ -29,6 +29,35 @@ function make(get: jasmine.Spy): AdminAiEndpointsComponent {
   return TestBed.createComponent(AdminAiEndpointsComponent).componentInstance;
 }
 
+describe('AdminAiEndpointsComponent (filter no-match notice)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  // When agents exist but the active filter excludes ALL of them, the list
+  // rendered a blank <ul> (no rows, no notice). filterNoMatch drives a cyan
+  // "no matches" notice (with Clear) instead — never a blank list body.
+  it('filterNoMatch is true only when agents exist AND the filter excludes every one', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.endpoints.set([
+      { id: '1', endpoint_slug: 'summarizer', method: 'POST', language: 'javascript', description: '' },
+      { id: '2', endpoint_slug: 'classifier', method: 'GET', language: 'python', description: '' },
+    ] as never);
+    expect(c.filterNoMatch()).withContext('no filter → not a no-match state').toBeFalse();
+    c.filterText.set('summar');
+    expect(c.filterNoMatch()).withContext('a matching filter → not a no-match state').toBeFalse();
+    c.filterText.set('zzz-no-such-agent');
+    expect(c.filterNoMatch()).withContext('an excluding filter → no-match notice').toBeTrue();
+    c.clearFilters();
+    expect(c.filterNoMatch()).withContext('cleared → back to normal').toBeFalse();
+  });
+
+  it('filterNoMatch stays false when there are no agents at all (true-empty owns that state)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.endpoints.set([] as never);
+    c.filterText.set('anything');
+    expect(c.filterNoMatch()).toBeFalse();
+  });
+});
+
 describe('AdminAiEndpointsComponent (endpoint-list load-error gating)', () => {
   afterEach(() => TestBed.resetTestingModule());
 

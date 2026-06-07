@@ -181,6 +181,11 @@ interface InlineEdit {
             secondary="Use AI"
             (primaryClick)="openCreateManual()"
             (secondaryClick)="openCreateAi()" />
+        } @else if (filterNoMatch()) {
+          <div class="ae-nomatch" role="status" data-testid="ai-endpoints-nomatch">
+            <p class="ae-nomatch__msg">No agents match your filter.</p>
+            <button type="button" class="ae-nomatch__clear" (click)="clearFilters()">Clear filters</button>
+          </div>
         } @else {
           <ul class="endpoint-list">
             @for (e of filteredEndpoints(); track e.id) {
@@ -552,6 +557,14 @@ interface InlineEdit {
     .card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 1.4rem; }
     /* .input-field removed — all form controls now use Spartan hlmInput/hlmSelect. */
     .endpoint-list { list-style: none; padding: 0; margin: 0; }
+    /* Filter-excludes-everything notice (cyan cockpit) — never a blank list body. */
+    .ae-nomatch { margin: 1rem; padding: 1.5rem; text-align: center; border-radius: 12px;
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 25%, transparent);
+      background: color-mix(in oklch, var(--ps-accent, #00e5ff) 5%, transparent); }
+    .ae-nomatch__msg { margin: 0; font-size: .85rem; color: color-mix(in oklch, #f4f4ff 75%, transparent); }
+    .ae-nomatch__clear { margin-top: .5rem; font-size: .78rem; color: var(--ps-accent, #00e5ff);
+      background: none; border: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+    .ae-nomatch__clear:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 4px; }
     .endpoint-row {
       padding: 0.9rem 1.1rem;
       border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -872,6 +885,13 @@ export class AdminAiEndpointsComponent implements OnInit {
     this.filterMethod.set('');
     this.filterLanguage.set('');
   }
+  /**
+   * True when agents exist but the active filter excludes every one → drives a
+   * "no matches" notice so a filtered list never renders a blank <ul>.
+   * (True-empty — no agents at all — is owned by the "Build your first agent"
+   * empty state, not this.)
+   */
+  filterNoMatch = computed<boolean>(() => this.endpoints().length > 0 && this.filteredEndpoints().length === 0);
 
   /** Per-row inline editor (slug + method + description). */
   editingId = signal<string | null>(null);
