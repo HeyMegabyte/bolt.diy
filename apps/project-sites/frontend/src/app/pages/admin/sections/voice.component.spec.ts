@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { VoiceComponent } from './voice.component';
 import { AdminStateService } from '../admin-state.service';
 
@@ -13,17 +14,28 @@ import { AdminStateService } from '../admin-state.service';
 describe('VoiceComponent (cyan/black cohesion + a11y)', () => {
   let fixture: ComponentFixture<VoiceComponent>;
   let selectedSite: WritableSignal<{ id: string; business_name: string } | null>;
+  let navigate: jasmine.Spy;
 
-  function build(initial: { id: string; business_name: string } | null): void {
+  function build(initial: { id: string; business_name: string } | null, tabParam: string | null = null): void {
     selectedSite = signal(initial);
+    navigate = jasmine.createSpy('navigate').and.resolveTo(true);
     TestBed.configureTestingModule({
       imports: [VoiceComponent],
-      providers: [{ provide: AdminStateService, useValue: { selectedSite } }],
+      providers: [
+        { provide: AdminStateService, useValue: { selectedSite } },
+        { provide: Router, useValue: { navigate } },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: { get: (k: string) => (k === 'tab' ? tabParam : null) } } },
+        },
+      ],
     });
     fixture = TestBed.createComponent(VoiceComponent);
     fixture.detectChanges();
   }
 
+  // Keep the localStorage-remembered tab from leaking across tests.
+  beforeEach(() => { try { localStorage.removeItem('voice.activeTab'); } catch { /* */ } });
   afterEach(() => TestBed.resetTestingModule());
 
   it('renders the surface count through <app-rolling-counter> (numeric stat mandate)', () => {
@@ -78,6 +90,32 @@ describe('VoiceComponent (cyan/black cohesion + a11y)', () => {
     // No tablist / live pill when there is no site.
     expect(el.querySelector('[role="tablist"]')).toBeNull();
     expect(el.querySelector('[data-testid="voice-live-pill"]')).toBeNull();
+  });
+
+  it('opens the tab named by ?tab= on load (bookmarkable), winning over the stored tab', () => {
+    try { localStorage.setItem('voice.activeTab', 'conversations'); } catch { /* */ }
+    build({ id: 's1', business_name: 'Vito Salon' }, 'agent');
+    expect(fixture.componentInstance.activeTab()).withContext('deep-link wins over localStorage').toBe('agent');
+  });
+
+  it('ignores an unknown ?tab= value and keeps the default tab', () => {
+    build({ id: 's1', business_name: 'Vito Salon' }, 'bogus');
+    expect(fixture.componentInstance.activeTab()).toBe('numbers');
+  });
+
+  it('setTab() reflects the choice in the URL (merge + replaceUrl, SPA no-reload)', () => {
+    build({ id: 's1', business_name: 'Vito Salon' });
+    navigate.calls.reset();
+    fixture.componentInstance.setTab('mcps');
+    expect(fixture.componentInstance.activeTab()).toBe('mcps');
+    expect(navigate).toHaveBeenCalledWith(
+      [],
+      jasmine.objectContaining({
+        queryParams: { tab: 'mcps' },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      }),
+    );
   });
 
   it('arrow-key navigation moves the active tab (WCAG 2.2 tab pattern)', () => {

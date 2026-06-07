@@ -22,6 +22,7 @@ import {
   signal,
   type OnInit,
 } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AdminStateService } from '../admin-state.service';
 import { RevealOnScrollDirective } from '../../../animations/reveal-on-scroll.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
@@ -226,9 +227,20 @@ export class VoiceComponent implements OnInit {
    *  `<app-rolling-counter>` (every numeric stat animates per the brand mandate). */
   readonly tabsCount = computed(() => TABS.length);
 
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+
   activeTab = signal<VoiceTab>('numbers');
 
   ngOnInit(): void {
+    // Deep-link: `?tab=agent` opens that sub-view (bookmarkable/shareable),
+    // winning over the localStorage-remembered tab for this visit (validated;
+    // unknown ignored). Falls back to the stored tab, then the 'numbers' default.
+    const fromUrl = this.route.snapshot.queryParamMap.get('tab') as VoiceTab | null;
+    if (fromUrl && TABS.some((t) => t.id === fromUrl)) {
+      this.activeTab.set(fromUrl);
+      return;
+    }
     try {
       const stored = localStorage.getItem('voice.activeTab') as VoiceTab | null;
       if (stored && TABS.some((t) => t.id === stored)) this.activeTab.set(stored);
@@ -238,6 +250,14 @@ export class VoiceComponent implements OnInit {
   setTab(id: VoiceTab): void {
     this.activeTab.set(id);
     try { localStorage.setItem('voice.activeTab', id); } catch { /* */ }
+    // Reflect in the URL so a voice sub-view is bookmarkable/shareable
+    // (replaceUrl = no back-button spam; merge keeps other params; SPA no-reload).
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: id },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   /** Left/Right arrow nav between tabs per WCAG 2.2 tab-list pattern. */
