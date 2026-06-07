@@ -331,6 +331,18 @@ describe('AdminFeatureFlagsComponent (flag-card rollout bar)', () => {
     expect((bar!.querySelector('.ff-rollout-fill') as HTMLElement).style.width).withContext('fill width = rollout %').toBe('40%');
   });
 
+  it('the flag owner email is a clickable mailto link (contact the owner)', () => {
+    const f = render();
+    f.detectChanges();
+    f.componentInstance.flags.set([flag({ key: 'k', owner_email: 'brian@megabyte.space' })]);
+    f.componentInstance.loading.set(false);
+    f.detectChanges();
+    const link = (f.nativeElement as HTMLElement).querySelector('.ff-owner a') as HTMLAnchorElement;
+    expect(link).withContext('owner email rendered as a link').toBeTruthy();
+    expect(link.getAttribute('href')).toBe('mailto:brian@megabyte.space');
+    expect(link.textContent).toContain('brian@megabyte.space');
+  });
+
   it('the Refresh button shows "Refreshing…" + aria-busy while loading (feedback, not inert)', () => {
     const f = render();
     f.detectChanges();

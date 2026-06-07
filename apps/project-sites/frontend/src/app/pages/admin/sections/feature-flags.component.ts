@@ -221,7 +221,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
               </div>
               <p class="ff-desc">{{ flag.description }}</p>
               <p class="ff-why" data-testid="ff-why">{{ whyFor(flag) }}</p>
-              <div class="ff-owner">Owner: {{ flag.owner_email }}</div>
+              <div class="ff-owner">Owner: <a class="ff-owner-link" [href]="'mailto:' + flag.owner_email" [attr.aria-label]="'Email the owner of ' + flag.key + ', ' + flag.owner_email">{{ flag.owner_email }}</a></div>
               <div class="ff-actions">
                 <button class="ff-btn ff-btn-primary" (click)="toggle(flag)" [disabled]="busy()[flag.key]"
                         [attr.aria-label]="(flag.default_enabled ? 'Disable ' : 'Enable ') + flag.key + ' globally'">
@@ -499,6 +499,10 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
     .ff-rollout-fill--off { background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 28%, transparent); }
     @media (prefers-reduced-motion: reduce) { .ff-rollout-fill { transition: none; } }
     .ff-owner { font-size: .75rem; color: color-mix(in oklch, currentColor 50%, transparent); }
+    /* Owner email → mailto (in-text link needs a default underline per WCAG 1.4.1). */
+    .ff-owner-link { color: var(--ps-accent, #00e5ff); text-decoration: underline; text-underline-offset: 2px; }
+    .ff-owner-link:hover { color: var(--ps-ink, #f4f4ff); }
+    .ff-owner-link:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 3px; }
     .ff-resolved { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
     .ff-resolved-source { font-size: .72rem; color: color-mix(in oklch, currentColor 60%, transparent); font-style: italic; }
     .ff-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: auto; }
