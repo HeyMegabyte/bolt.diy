@@ -633,6 +633,14 @@ html { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparen
 }
 .card:hover::before { opacity: 0.9; }
 
+// `.text-accent` is NOT a Tailwind utility (no `accent` colour in the theme), so
+// without a rule the class renders a dim, near-invisible teal — axe flagged it
+// serious (~1.1:1) on /admin/sites/:id/mcp-server. 6 admin sections each redeclare
+// it locally to force cyan; this is the GLOBAL floor so every (current + future)
+// `.text-accent` is brand-cyan with no per-component band-aid. Component-scoped
+// `.text-accent` rules keep higher specificity, so this never overrides them.
+.text-accent { color: var(--ps-accent, #00e5ff); }
+
 // Buttons — consistent app-wide. Don't override existing utility classes,
 // just upgrade the primary/ghost system if those classes exist.
 .btn-primary {

@@ -31,4 +31,19 @@ describe('brand tokens (cyan/black cohesion)', () => {
     expect(grad).withContext('primary gradient must start from cyan #00E5FF').toContain('#00e5ff');
     expect(grad).withContext('primary gradient must NOT be the stray mint green #00ffc8').not.toContain('#00ffc8');
   });
+
+  // `.text-accent` is not a Tailwind utility (no `accent` colour in the theme), so
+  // without the global floor rule it renders a dim near-invisible teal — axe caught
+  // it serious (~1.1:1) on the mcp-server endpoint URL. Lock the global cyan floor.
+  it('.text-accent resolves to the cyan brand accent (global floor — not a dim teal)', () => {
+    const el = document.createElement('span');
+    el.className = 'text-accent';
+    el.textContent = 'accent';
+    document.body.appendChild(el);
+    const color = getComputedStyle(el).color.replace(/\s/g, '');
+    document.body.removeChild(el);
+    // --ps-accent is undefined on :root in the test bundle → the #00e5ff fallback
+    // applies → rgb(0,229,255). It must be bright cyan, never the dim teal.
+    expect(color).withContext('global .text-accent must be cyan, not a dim teal').toBe('rgb(0,229,255)');
+  });
 });
