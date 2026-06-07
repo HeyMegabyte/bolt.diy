@@ -198,10 +198,12 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
                   <td class="px-4 py-3">
                     <div class="flex flex-col">
                       <a [routerLink]="['/admin/sites', r.site_id]"
+                         [attr.title]="r.business_name || r.slug"
                          class="text-white font-medium truncate max-w-[260px] hover:text-[var(--ps-accent)] inline-flex items-center min-h-[24px]">
                         {{ r.business_name || r.slug }}
                       </a>
                       <a [href]="'https://' + r.slug + '.projectsites.dev'" target="_blank" rel="noopener"
+                         [attr.title]="r.slug + '.projectsites.dev'"
                          class="text-[0.7rem] text-white/50 hover:text-[var(--ps-accent)] truncate inline-flex items-center min-h-[24px]">
                         {{ r.slug }}.projectsites.dev
                       </a>

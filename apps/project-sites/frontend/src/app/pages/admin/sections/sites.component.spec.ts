@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
-import { Router } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { AdminSitesComponent } from './sites.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -172,6 +172,40 @@ describe('AdminSitesComponent (sorting + a11y + tiers)', () => {
     fx.detectChanges();
     expect(btn!.disabled).withContext('re-enabled when idle').toBeFalse();
     expect(btn!.textContent).toContain('Refresh');
+  });
+
+  // The name + slug cells truncate at max-w-[260px]; without a title a long
+  // business name / slug is unreadable when ellipsized. Each carries its full
+  // value as a hover title.
+  it('truncated site name + slug links carry a full-value title (readable on hover)', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminSitesComponent],
+      providers: [
+        provideRouter([]), // rendered rows use routerLink → needs ActivatedRoute
+        { provide: ApiService, useValue: { get: () => of({ data: [], sites: [] }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, show: () => 0 } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSitesComponent);
+    fx.detectChanges();
+    // Inline row (the row() helper omits `daily`, which cellHtml maps over during render).
+    fx.componentInstance.rows.set([
+      {
+        site_id: 's1',
+        slug: 'acme-bakery-of-greater-newark',
+        business_name: 'Acme Bakery of Greater Newark and Surrounding Areas LLC',
+        composite_score: 88,
+        daily: [],
+        latest: { lcp_ms: null, cls: null, inp_ms: null, lh_perf: null, captured_at: null },
+      },
+    ] as never);
+    fx.componentInstance.loading.set(false); // the async reload leaves loading true → force the loaded table to render
+    fx.detectChanges();
+    const host = fx.nativeElement as HTMLElement;
+    expect(host.querySelector('a[title="Acme Bakery of Greater Newark and Surrounding Areas LLC"]'))
+      .withContext('name link carries the full name as a title').toBeTruthy();
+    expect(host.querySelector('a[title="acme-bakery-of-greater-newark.projectsites.dev"]'))
+      .withContext('slug link carries the full host as a title').toBeTruthy();
   });
 });
 
