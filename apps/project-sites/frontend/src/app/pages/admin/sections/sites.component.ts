@@ -124,12 +124,37 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
           ctaLabel="Create your first site"
           (ctaClick)="createSite()" />
       } @else {
+        <!-- Free-text filter: narrow a multi-site table by name/slug; composes with sort. -->
+        <div class="flex items-center gap-2.5">
+          <div class="relative flex-1 max-w-xs">
+            <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/35 pointer-events-none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" [value]="filterText()" (input)="filterText.set($any($event.target).value)"
+                   placeholder="Filter by name or slug…"
+                   aria-label="Filter sites by name or slug"
+                   data-testid="sites-filter"
+                   class="w-full bg-white/[0.03] border border-white/12 rounded-md pl-8 pr-7 py-1.5 text-[0.8rem] text-white placeholder-white/35 focus:border-[var(--ps-accent)]/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]" />
+            @if (filterText()) {
+              <button type="button" (click)="clearFilter()" aria-label="Clear filter" title="Clear filter"
+                      class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 leading-none flex items-center justify-center text-white/40 hover:text-[var(--ps-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)] rounded">×</button>
+            }
+          </div>
+          @if (filterText().trim()) {
+            <span class="text-[0.72rem] text-white/45 tabular-nums" data-testid="sites-filter-count" aria-live="polite">{{ sortedRows().length }} of {{ rows().length }}</span>
+          }
+        </div>
         @if (allVitalsEmpty()) {
           <div class="mb-3 flex items-start gap-2 rounded-lg border border-[var(--ps-accent)]/25 bg-[var(--ps-accent)]/[0.06] px-3.5 py-2.5 text-[0.8rem] text-white/75" role="status" data-testid="sites-no-vitals-hint">
             <span aria-hidden="true" class="text-[var(--ps-accent)] leading-none mt-0.5">◆</span>
             <span>No Web Vitals data yet — published sites report Core Web Vitals automatically once they receive real traffic. The heatmap fills in as data arrives.</span>
           </div>
         }
+        @if (filterNoMatch()) {
+          <div class="rounded-xl border border-[var(--ps-accent)]/25 bg-[var(--ps-accent)]/[0.05] px-4 py-6 text-center" role="status" data-testid="sites-filter-empty">
+            <p class="text-[0.85rem] text-white/75 m-0">No sites match "<span class="text-[var(--ps-accent)] font-medium">{{ filterText() }}</span>".</p>
+            <button type="button" (click)="clearFilter()"
+                    class="mt-2 text-[0.78rem] text-[var(--ps-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)] rounded">Clear filter</button>
+          </div>
+        } @else {
         <div class="rounded-xl border border-white/10 bg-white/[0.02] overflow-x-auto" tabindex="0" role="region" aria-label="Sites table — scroll horizontally">
           <table class="w-full text-[0.85rem] text-left">
             <thead class="bg-white/[0.03] text-[0.7rem] uppercase tracking-wider text-white/60">
@@ -202,6 +227,7 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
             </tbody>
           </table>
         </div>
+        }
       }
     </div>
   `,
@@ -219,6 +245,8 @@ export class AdminSitesComponent implements OnInit {
   sortKey = signal<SortKey>('composite');
   sortDir = signal<'asc' | 'desc'>('asc');
   triage = signal<boolean>(false);
+  /** Free-text query that narrows the table by business name OR slug (case-insensitive). */
+  filterText = signal<string>('');
   /** When the heatmap data last loaded — fed to <app-synced-pill> for the live freshness indicator. */
   syncedAt = signal<number | null>(null);
 
@@ -312,8 +340,26 @@ export class AdminSitesComponent implements OnInit {
     return this.sortDir() === 'asc' ? 'ascending' : 'descending';
   }
 
+  clearFilter(): void {
+    this.filterText.set('');
+  }
+
+  /**
+   * True when a real (non-blank) query is active but excludes every site —
+   * drives a "no matches" notice so a filtered table never renders blank.
+   */
+  filterNoMatch = computed<boolean>(() =>
+    this.filterText().trim() !== '' && this.rows().length > 0 && this.sortedRows().length === 0,
+  );
+
   sortedRows = computed<SiteSparkline[]>(() => {
-    const rows = [...this.rows()];
+    const q = this.filterText().trim().toLowerCase();
+    const rows = (q
+      ? this.rows().filter(
+          (r) =>
+            (r.business_name ?? '').toLowerCase().includes(q) || (r.slug ?? '').toLowerCase().includes(q),
+        )
+      : [...this.rows()]);
     const dir = this.sortDir() === 'asc' ? 1 : -1;
     const key = this.sortKey();
     const valueOf = (r: SiteSparkline): number | string => {

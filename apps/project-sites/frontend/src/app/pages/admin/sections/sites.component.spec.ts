@@ -176,6 +176,75 @@ describe('AdminSitesComponent (sorting + a11y + tiers)', () => {
 });
 
 /**
+ * Free-text filter: a multi-site account needs to narrow the Web-Vitals table
+ * by name/slug, not just sort it. The filter composes with the active sort and
+ * is case-insensitive over business_name OR slug; a whitespace-only query is a
+ * no-op (shows everything), and an excluding query drives a "no matches" notice
+ * instead of rendering a blank table body.
+ */
+describe('AdminSitesComponent (text filter)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function seed(c: AdminSitesComponent): void {
+    c.rows.set([
+      row({ site_id: 'a', business_name: 'Acme Bakery', slug: 'acme-bakery', composite_score: 90 }),
+      row({ site_id: 'b', business_name: "Vito's Salon", slug: 'vitos-salon', composite_score: 70 }),
+      row({ site_id: 'c', business_name: 'Newark Soup Kitchen', slug: 'njsk', composite_score: 80 }),
+    ] as never);
+    c.sortKey.set('composite');
+    c.sortDir.set('desc');
+  }
+
+  it('an empty filter shows every row (default)', () => {
+    const c = make();
+    seed(c);
+    expect(c.filterText()).toBe('');
+    expect(c.sortedRows().map((r) => r.site_id)).toEqual(['a', 'c', 'b']);
+  });
+
+  it('filters by business_name substring (case-insensitive) and keeps the sort', () => {
+    const c = make();
+    seed(c);
+    c.filterText.set('ACME');
+    expect(c.sortedRows().map((r) => r.site_id)).toEqual(['a']);
+  });
+
+  it('filters by slug substring when the name does not match', () => {
+    const c = make();
+    seed(c);
+    c.filterText.set('njsk');
+    expect(c.sortedRows().map((r) => r.site_id)).toEqual(['c']);
+  });
+
+  it('treats a whitespace-only query as no filter (shows everything)', () => {
+    const c = make();
+    seed(c);
+    c.filterText.set('   ');
+    expect(c.sortedRows().length).toBe(3);
+    expect(c.filterNoMatch()).toBeFalse();
+  });
+
+  it('filterNoMatch is true only when a real query excludes every row', () => {
+    const c = make();
+    seed(c);
+    expect(c.filterNoMatch()).withContext('no query → not a no-match state').toBeFalse();
+    c.filterText.set('acme');
+    expect(c.filterNoMatch()).withContext('a matching query → not a no-match state').toBeFalse();
+    c.filterText.set('zzz-no-such-site');
+    expect(c.filterNoMatch()).withContext('an excluding query → no-match notice').toBeTrue();
+  });
+
+  it('clearFilter() resets the query', () => {
+    const c = make();
+    seed(c);
+    c.filterText.set('acme');
+    c.clearFilter();
+    expect(c.filterText()).toBe('');
+    expect(c.sortedRows().length).toBe(3);
+  });
+});
+
+/**
  * Live freshness pill: the heatmap polls live, so a "Synced HH:MM:SS" indicator
  * gives the user a trust/freshness signal. It must reflect a REAL successful
  * load (never show a synced time when the load failed → no false freshness).
