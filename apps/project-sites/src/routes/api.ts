@@ -2906,6 +2906,35 @@ api.get('/api/sites/by-slug/:slug/build-context', async (c) => {
 });
 
 /**
+ * A valid-but-empty bolt.diy chat payload (HTTP 200). Returned by the
+ * `/chat` endpoint instead of a 404 when a site has no R2 manifest /
+ * version / source files yet. The editor auto-imports `/chat` via
+ * `importChatFrom`; a 404 there logs an un-suppressable
+ * "Failed to load resource: 404" on our origin for every admin route.
+ * An empty `messages` array makes bolt boot a fresh workbench silently.
+ *
+ * @param slug - site slug (used only to derive a human description)
+ * @returns 200 `application/json` `{ messages: [], description, exportDate }`
+ */
+function emptyBoltChatResponse(slug: string): Response {
+  const businessName = slug.replace(/-/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
+  const now = new Date().toISOString();
+  const chatJson = {
+    messages: [] as unknown[],
+    description: `${businessName} Website`,
+    exportDate: now,
+  };
+  return new Response(JSON.stringify(chatJson), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
+}
+
+/**
  * Reconstruct a bolt.diy-compatible chat export for a published site so
  * the editor can "open" the site as if it were the original chat
  * session. Reads `_manifest.json` to find the current version, lists
@@ -2924,8 +2953,9 @@ api.get('/api/sites/by-slug/:slug/build-context', async (c) => {
  *   source file. For Vite projects, includes shell actions
  *   (`npm install` + `npm run dev`) so opening the chat auto-boots the
  *   dev server.
- * @throws {AppError} `NOT_FOUND` — manifest missing, no `current_version`,
- *   or no readable text files in the resolved prefix.
+ *   When the manifest / version / source files are absent, returns 200 with
+ *   an empty bolt chat (`{ messages: [] }`) instead of 404 — see the
+ *   "Graceful empty-state" note below.
  *
  * @remarks
  * Vite-vs-static branching: `is_vite_project=true` reads from
@@ -2949,7 +2979,17 @@ api.get('/api/sites/by-slug/:slug/build-context', async (c) => {
  * `research.json` (raw research data) are filtered out — they aren't
  * source files.
  *
+ * Graceful empty-state (NOT 404): when a site has no R2 manifest /
+ * version / source files yet — e.g. a row that is `published` in D1 but
+ * whose build artifacts never landed in R2 — this returns 200 with an
+ * empty bolt chat instead of a hard 404. The editor iframe auto-imports
+ * this via `importChatFrom`, so a 404 would surface an un-suppressable
+ * "Failed to load resource: 404" in the browser console on EVERY admin
+ * route (the iframe is persistently mounted). An empty chat lets bolt
+ * boot a fresh workbench with zero console noise.
+ *
  * @see {@link generateSlugFromChat} for inverse direction (chat → slug).
+ * @see {@link emptyBoltChatResponse} for the graceful empty-state payload.
  */
 api.get('/api/sites/by-slug/:slug/chat', async (c) => {
   const slug = c.req.param('slug');
@@ -2958,7 +2998,7 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
   const manifest = await c.env.SITES_BUCKET.get(`sites/${slug}/_manifest.json`);
 
   if (!manifest) {
-    throw notFound('Site not found or no version published');
+    return emptyBoltChatResponse(slug);
   }
 
   const manifestData = (await manifest.json()) as {
@@ -2969,7 +3009,7 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
   };
 
   if (!manifestData.current_version) {
-    throw notFound('No published version found');
+    return emptyBoltChatResponse(slug);
   }
 
   const version = manifestData.current_version;
@@ -3049,7 +3089,7 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
   );
 
   if (files.length === 0) {
-    throw notFound('No files found for this site version');
+    return emptyBoltChatResponse(slug);
   }
 
   // Look up business name from D1

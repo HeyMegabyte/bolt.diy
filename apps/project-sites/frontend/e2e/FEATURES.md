@@ -108,6 +108,7 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
 | Admin axe (param routes) | `admin-param-routes-a11y.e2e.ts` | ✅ |
 | Admin 320px reflow | `admin-reflow.e2e.ts` | ✅ |
 | Admin console / CSP / network clean | `admin-console-hygiene.e2e.ts` | ✅ |
+| Admin sidebar logo-removed + clean console + editor mount | `admin-logo-console-editor.spec.ts` | ✅ |
 | Marketing axe (9 public routes) | `marketing-a11y.e2e.ts` | ✅ |
 | Marketing 390 axe + 320 reflow | `marketing-responsive.e2e.ts` | ✅ |
 | Mobile layout (34 checks) | `mobile.spec.ts` | ✅ |

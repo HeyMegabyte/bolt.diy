@@ -82,4 +82,31 @@ test.describe('admin — console hygiene', () => {
     ).toEqual([]);
     expect(superAdmin401s, 'no 401 from the super-admin endpoint may be logged').toEqual([]);
   });
+
+  test('bolt chat import does NOT 404 on our origin (graceful empty-state)', async ({ page }) => {
+    test.setTimeout(60000);
+    // The persistent bolt iframe auto-imports `/api/sites/by-slug/:slug/chat`.
+    // Sites that are `published` in D1 but missing their R2 manifest used to 404
+    // here, logging an un-suppressable "Failed to load resource: 404" on
+    // projectsites.dev for every admin route. The worker now returns 200 with an
+    // empty bolt chat, so no chat fetch on our origin may 404.
+    const chat404s: string[] = [];
+    page.on('response', (r) => {
+      if (/\/api\/sites\/by-slug\/[^/]+\/chat/i.test(r.url()) && r.status() === 404) {
+        chat404s.push(`${r.status()} ${r.url()}`);
+      }
+    });
+
+    await seed(page);
+    await page.goto('/admin', { waitUntil: 'load' });
+    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
+    // The editor route forces the iframe visible + triggers the chat import.
+    await page.goto('/admin/editor', { waitUntil: 'load' });
+    await page.waitForTimeout(3000);
+
+    expect(
+      chat404s,
+      `the chat-import endpoint must degrade to 200 empty, never 404:\n${chat404s.join('\n')}`,
+    ).toEqual([]);
+  });
 });

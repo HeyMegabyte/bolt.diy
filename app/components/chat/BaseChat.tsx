@@ -45,6 +45,7 @@ import { CostEstimateBadge } from './CostEstimateBadge';
 import { startChatStateMirror } from '~/lib/chat/chat-state-mirror';
 import { chatId } from '~/lib/persistence/useChatHistory';
 import { describeImage } from '~/lib/chat/voice-vision';
+import { isEmbedded } from '~/lib/embed/embedded-mode';
 
 // Single-line default for the cinematic-persona input redesign (2026-05-24);
 // the textarea expands on focus/content up to TEXTAREA_MAX_HEIGHT.
@@ -319,6 +320,18 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
         } catch (error) {
           console.error('Error loading API keys from cookies:', error);
           Cookies.remove('apiKeys');
+        }
+
+        // Embedded mode (projectsites.dev admin iframe) hides the model picker
+        // entirely, so the client-side `/api/models` fetch is pure waste — and
+        // on the static editor deploy that route 404s, logging an
+        // un-suppressable "Failed to load resource: 404" in the parent admin's
+        // console on every load. Skip the fetch when embedded; bolt falls back
+        // to its static model list (unused in this surface anyway).
+        if (isEmbedded) {
+          setModelList([]);
+          setIsModelLoading(undefined);
+          return;
         }
 
         setIsModelLoading('all');

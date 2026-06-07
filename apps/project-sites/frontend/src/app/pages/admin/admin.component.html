@@ -46,16 +46,17 @@
     class="admin-sidebar w-[232px] min-w-[232px] bg-dark border-r border-white/[0.06] flex flex-col h-screen sticky top-0 z-[100] overflow-y-auto overflow-x-hidden flex-shrink-0 sidebar-scrollbar max-md:fixed max-md:left-0 max-md:top-0 max-md:bottom-0 max-md:z-[1000] max-md:transition-transform max-md:duration-[250ms] max-md:ease-[cubic-bezier(0.4,0,0.2,1)]"
     [class.max-md:-translate-x-full]="sidebarCollapsed()">
 
-    <!-- Logo -->
-    <a class="flex items-center gap-2.5 px-5 pt-[18px] pb-3.5 border-b border-white/[0.06] no-underline cursor-pointer transition-opacity hover:opacity-85" routerLink="/">
-      <img src="/logo-header-icon.png" alt="ProjectSites" width="32" height="32" class="flex-shrink-0" />
-      <img src="/logo-text.png" alt="projectsites.dev" height="28" class="flex-shrink-0 opacity-90" />
-      @if (!sidebarCollapsed()) {
-        <button aria-label="Close navigation menu" class="hidden max-md:flex items-center justify-center min-w-[44px] min-h-[44px] bg-transparent border-none text-text-secondary cursor-pointer p-1 rounded ml-auto hover:text-white" (click)="sidebarCollapsed.set(true); $event.preventDefault(); $event.stopPropagation()">
+    <!-- Logo removed — the navigation uses the full sidebar width and renders
+         flush at the top. On mobile we still need a way to dismiss the drawer,
+         so a dedicated close button sits at the top (desktop hides it since the
+         sidebar is always visible there). -->
+    @if (!sidebarCollapsed()) {
+      <div class="hidden max-md:flex justify-end px-3 pt-3" data-testid="admin-sidebar-mobile-close">
+        <button aria-label="Close navigation menu" class="flex items-center justify-center min-w-[44px] min-h-[44px] bg-transparent border-none text-text-secondary cursor-pointer p-1 rounded hover:text-white" (click)="sidebarCollapsed.set(true); $event.stopPropagation()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-      }
-    </a>
+      </div>
+    }
 
     <!-- Site Selector -->
     <div class="px-3 pt-3 relative" (click)="$event.stopPropagation()">

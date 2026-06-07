@@ -231,16 +231,23 @@ describe('GET /api/sites/by-slug/:slug/chat', () => {
     expect(res.headers.get('Cache-Control')).toBe('no-cache, no-store, must-revalidate');
   });
 
-  it('returns 404 when manifest does not exist', async () => {
+  // Graceful empty-state: the editor auto-imports /chat via importChatFrom, so
+  // a 404 logs an un-suppressable "Failed to load resource: 404" on our origin
+  // for every admin route. These now return 200 with an empty bolt chat so the
+  // editor boots a fresh workbench silently. See emptyBoltChatResponse().
+  it('returns 200 with an empty bolt chat when manifest does not exist', async () => {
     const r2Get = jest.fn().mockResolvedValue(null);
 
     const { app, env } = createApp(r2Get);
     const res = await app.request('/api/sites/by-slug/nonexistent/chat', {}, env);
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.messages).toEqual([]);
+    expect(body.exportDate).toBeTruthy();
   });
 
-  it('returns 404 when manifest has no current_version', async () => {
+  it('returns 200 with an empty bolt chat when manifest has no current_version', async () => {
     const r2Get = jest.fn().mockImplementation((key: string) => {
       if (key === 'sites/no-version/_manifest.json') {
         return Promise.resolve(createMockR2Object({ current_version: '' }));
@@ -251,10 +258,12 @@ describe('GET /api/sites/by-slug/:slug/chat', () => {
     const { app, env } = createApp(r2Get);
     const res = await app.request('/api/sites/by-slug/no-version/chat', {}, env);
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.messages).toEqual([]);
   });
 
-  it('returns 404 when no files found in R2', async () => {
+  it('returns 200 with an empty bolt chat when no files found in R2', async () => {
     const r2Get = jest.fn().mockImplementation((key: string) => {
       if (key === 'sites/empty-site/_manifest.json') {
         return Promise.resolve(
@@ -268,7 +277,9 @@ describe('GET /api/sites/by-slug/:slug/chat', () => {
     const { app, env } = createApp(r2Get);
     const res = await app.request('/api/sites/by-slug/empty-site/chat', {}, env);
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.messages).toEqual([]);
   });
 
   it('looks up business name from D1', async () => {

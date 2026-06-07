@@ -76,6 +76,7 @@ a11y_responsive:
   admin_axe_params:    { status: covered, specs: [admin-param-routes-a11y.e2e.ts] }
   admin_reflow:        { status: covered, specs: [admin-reflow.e2e.ts] }
   admin_console:       { status: covered, specs: [admin-console-hygiene.e2e.ts] }
+  admin_logo_editor:   { status: covered, specs: [admin-logo-console-editor.spec.ts] }
   marketing_axe:       { status: covered, specs: [marketing-a11y.e2e.ts] }
   marketing_responsive:{ status: covered, specs: [marketing-responsive.e2e.ts] }
   mobile:              { status: covered, specs: [mobile.spec.ts] }
