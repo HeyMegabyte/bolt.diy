@@ -131,7 +131,7 @@ interface ToolUsage {
 
         <!-- Newly minted token — show once -->
         @if (newTokenRaw()) {
-          <div class="card p-3 border-accent/30 space-y-2" data-testid="new-token-banner">
+          <div class="card p-3 border-primary/30 space-y-2" data-testid="new-token-banner">
             <p class="text-xs text-amber-400 font-semibold m-0">Copy this token now — it won't be shown again.</p>
             <div class="flex items-center gap-2">
               <code class="flex-1 text-accent text-[0.72rem] break-all bg-white/5 px-2 py-1.5 rounded">{{ newTokenRaw() }}</code>
@@ -213,7 +213,7 @@ interface ToolUsage {
                   <div class="flex items-center gap-2">
                     <code class="text-accent text-[0.75rem] font-semibold">{{ tool.name }}</code>
                     @if (tool.requiresAuth) {
-                      <span class="text-[0.62rem] bg-accent/10 text-accent px-1.5 rounded">auth required</span>
+                      <span class="text-[0.62rem] bg-primary/10 text-accent px-1.5 rounded">auth required</span>
                     }
                     <span class="text-[0.65rem] text-text-secondary ml-auto">
                       {{ callsForTool(tool.name) }} calls (30d)

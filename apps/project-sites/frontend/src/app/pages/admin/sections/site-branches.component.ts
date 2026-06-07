@@ -119,7 +119,7 @@ interface Branch {
       </header>
 
       <!-- Stats -->
-      <div class="flex gap-6 mb-4 rounded-xl border-l-2 border-accent/40 border-y border-r border-white/6 bg-white/2 px-5 py-3" appReveal role="group" aria-label="Branch statistics">
+      <div class="flex gap-6 mb-4 rounded-xl border-l-2 border-primary/40 border-y border-r border-white/6 bg-white/2 px-5 py-3" appReveal role="group" aria-label="Branch statistics">
         @for (s of stats(); track s.label) {
           <div class="flex flex-col" [class.branch-stat--live]="s.label === 'In Review' && s.value > 0">
             <app-rolling-counter [value]="s.value" [duration]="900" />
@@ -130,7 +130,7 @@ interface Branch {
 
       <!-- Create form -->
       @if (showCreate()) {
-        <form class="flex items-end gap-3 flex-wrap mb-4 rounded-xl border border-accent/20 bg-accent/4 p-4" (submit)="$event.preventDefault(); createBranch()" appReveal>
+        <form class="flex items-end gap-3 flex-wrap mb-4 rounded-xl border border-primary/20 bg-primary/4 p-4" (submit)="$event.preventDefault(); createBranch()" appReveal>
           <label class="flex flex-col gap-1 text-[0.72rem] text-text-secondary flex-1 min-w-[200px]">
             Branch name
             <input hlmInput type="text" name="branchName" [(ngModel)]="newBranchName" placeholder="e.g. homepage-redesign" data-testid="branch-name-input" />
