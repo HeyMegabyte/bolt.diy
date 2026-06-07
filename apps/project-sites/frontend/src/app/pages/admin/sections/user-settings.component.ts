@@ -1337,6 +1337,9 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
         this.toast.info('Cloudflare credentials removed');
         this.loadCredStatus();
       },
+      // Was relying on the generic ApiService toast — surface a specific message
+      // so a failed removal isn't silent (the creds stay; the operator retries).
+      error: () => this.toast.error('Could not remove Cloudflare credentials — retry shortly.'),
     });
   }
 
