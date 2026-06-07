@@ -125,8 +125,15 @@ const PROVIDERS: ProviderMeta[] = [
             </header>
 
             @if (loadingSubmissions()) {
-              <div class="flex items-center justify-center py-12 text-text-secondary text-sm">
-                <div class="loading-spinner mr-3"></div> Loading submissions...
+              <!-- Cyan row skeleton mirroring the submission list — parity with
+                   the forms section + minimal layout shift when rows arrive. -->
+              <div data-testid="email-submissions-loading" aria-busy="true" aria-label="Loading submissions">
+                @for (i of [0,1,2,3,4]; track i) {
+                  <div class="es-skel-row">
+                    <div class="es-skel-line es-skel-line--name"></div>
+                    <div class="es-skel-line es-skel-line--meta"></div>
+                  </div>
+                }
               </div>
             } @else if (submissionsError()) {
               <div class="flex flex-col items-center justify-center py-16 px-5 text-center gap-3" role="alert" data-testid="email-submissions-error">
@@ -256,6 +263,12 @@ const PROVIDERS: ProviderMeta[] = [
       border-color: rgba(34, 197, 94, 0.25);
       background: rgba(34, 197, 94, 0.03);
     }
+    .es-skel-row { padding: 0.7rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 0.4rem; }
+    .es-skel-line { height: 0.7rem; border-radius: 5px; background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent); animation: es-skel-pulse 1.3s ease-in-out infinite; }
+    .es-skel-line--name { width: 55%; }
+    .es-skel-line--meta { width: 32%; height: 0.6rem; }
+    @keyframes es-skel-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .es-skel-line { animation: none; } }
     .submission-row {
       width: 100%;
       text-align: left;

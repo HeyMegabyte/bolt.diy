@@ -151,3 +151,33 @@ describe('AdminEmailComponent (webhook URL validation before connect)', () => {
     expect(createIntegration).toHaveBeenCalledTimes(1);
   });
 });
+
+import { NEVER } from 'rxjs';
+
+/**
+ * Submissions loading should render a cyan ROW skeleton (parity with the forms
+ * section + minimal layout shift when the real submission list arrives), not a
+ * bare centred spinner.
+ */
+describe('AdminEmailComponent (submissions loading skeleton)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('shows a cyan skeleton (not a bare spinner) while submissions load', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminEmailComponent],
+      providers: [
+        { provide: ApiService, useValue: { listFormSubmissions: () => NEVER, listIntegrations: () => of({ data: [] }), get: () => of({ data: [] }), post: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }), formatRelativeTime: () => 'now' } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminEmailComponent);
+    const c = fx.componentInstance;
+    c.tab.set('submissions');
+    c.loadingSubmissions.set(true);
+    fx.detectChanges();
+    const host = fx.nativeElement as HTMLElement;
+    expect(host.querySelector('[data-testid="email-submissions-loading"]')).withContext('cyan row skeleton renders').not.toBeNull();
+    expect(host.textContent ?? '').withContext('no bare spinner text').not.toContain('Loading submissions...');
+  });
+});
