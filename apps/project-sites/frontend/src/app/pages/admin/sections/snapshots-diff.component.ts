@@ -13,7 +13,8 @@
  *
  * @see apps/project-sites/src/routes/api.ts  (GET /api/sites/:siteId/snapshots/diff)
  */
-import { Component, computed, effect, inject, signal, type OnInit } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal, type OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AdminStateService } from '../admin-state.service';
@@ -198,6 +199,7 @@ interface DiffResponse {
 })
 export class AdminSnapshotsDiffComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
   private api = inject(ApiService);
   private toast = inject(ToastService);
   state = inject(AdminStateService);
@@ -246,7 +248,7 @@ export class AdminSnapshotsDiffComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.route.queryParamMap.subscribe((params) => {
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const from = params.get('from') ?? '';
       const to = params.get('to') ?? '';
       this.fromId.set(from);

@@ -13,7 +13,8 @@
  * marketing copy.
  */
 
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
@@ -347,6 +348,7 @@ export class AdminFeaturesHubComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly tabs = TABS;
   readonly features = FEATURES;
@@ -379,7 +381,7 @@ export class AdminFeaturesHubComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    this.route.queryParamMap.subscribe((q) => {
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((q) => {
       const t = q.get('tab');
       if (t && this.tabs.some((x) => x.id === t)) this.tab.set(t);
     });

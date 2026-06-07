@@ -1,5 +1,6 @@
 import {
   Component,
+  DestroyRef,
   ElementRef,
   HostListener,
   ViewChild,
@@ -9,6 +10,7 @@ import {
   type AfterViewInit,
   type OnInit,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EmptyStateComponent } from '../empty-state.component';
@@ -611,6 +613,7 @@ export class AppsComponent implements AfterViewInit, OnInit {
   @ViewChild('searchInput') private searchInputRef?: ElementRef<HTMLInputElement>;
 
   private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly categories = APP_CATEGORIES;
   readonly totalCount = APPS_CATALOG.length;
@@ -671,7 +674,7 @@ export class AppsComponent implements AfterViewInit, OnInit {
    * Unknown values fall back to the default "all" view.
    */
   ngOnInit(): void {
-    this.route.queryParamMap.subscribe((params) => {
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const raw = params.get('category');
       if (!raw) return;
       const validIds = APP_CATEGORIES.map((c) => c.id);

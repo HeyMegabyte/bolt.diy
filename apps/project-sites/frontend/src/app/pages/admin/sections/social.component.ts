@@ -26,6 +26,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   HostListener,
   ViewChild,
@@ -36,6 +37,7 @@ import {
   type AfterViewInit,
   type OnInit,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -1647,6 +1649,7 @@ export class AdminSocialComponent implements OnInit {
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   readonly state = inject(AdminStateService);
 
   /** Guards the site-reactive load effect — see constructor + _ULTIMATE_CONVERGENCE.md §7. */
@@ -1806,7 +1809,7 @@ export class AdminSocialComponent implements OnInit {
   /* ── Lifecycle ── */
   ngOnInit(): void {
     // Slash command `/social new` → focus composer
-    this.route.queryParamMap.subscribe((q) => {
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((q) => {
       if (q.get('action') === 'new') {
         this.tab.set('compose');
         queueMicrotask(() => this.taRef?.nativeElement?.focus());
