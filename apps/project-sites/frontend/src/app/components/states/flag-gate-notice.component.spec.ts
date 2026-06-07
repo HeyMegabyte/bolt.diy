@@ -6,7 +6,7 @@ import { FlagGateNoticeComponent } from './flag-gate-notice.component';
 @Component({
   standalone: true,
   imports: [FlagGateNoticeComponent],
-  template: `<app-flag-gate-notice [feature]="feature" [flag]="flag" [testid]="testid" [plural]="plural" [margin]="margin" />`,
+  template: `<app-flag-gate-notice [feature]="feature" [flag]="flag" [testid]="testid" [plural]="plural" [margin]="margin" [heading]="heading" [suffix]="suffix" />`,
 })
 class HostComponent {
   feature = 'The Section Marketplace';
@@ -14,6 +14,8 @@ class HostComponent {
   testid = 'marketplace-flag-gate';
   plural = false;
   margin = 'mb-5';
+  heading = '';
+  suffix = '';
 }
 
 describe('FlagGateNoticeComponent (shared cockpit flag-gate primitive)', () => {
@@ -58,5 +60,27 @@ describe('FlagGateNoticeComponent (shared cockpit flag-gate primitive)', () => {
     fixture.componentInstance.plural = true;
     fixture.detectChanges();
     expect(el.querySelector('.flag-gate__body')?.textContent).toContain('Webhooks are behind');
+  });
+
+  it('omits the heading + suffix by default', () => {
+    const el = build();
+    expect(el.querySelector('.flag-gate__heading')).withContext('no heading unless provided').toBeNull();
+    const body = el.querySelector('.flag-gate__body')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    expect(body.endsWith('System Admin.')).withContext('sentence ends at "System Admin." with no suffix').toBeTrue();
+  });
+
+  it('renders an optional bold heading + a trailing suffix clause when provided', () => {
+    fixture = undefined as unknown as ComponentFixture<HostComponent>;
+    TestBed.configureTestingModule({ imports: [HostComponent], providers: [provideRouter([])] });
+    const fx = TestBed.createComponent(HostComponent);
+    fx.componentInstance.feature = 'Log Explorer';
+    fx.componentInstance.flag = 'log_explorer';
+    fx.componentInstance.heading = "Log Explorer isn't enabled";
+    fx.componentInstance.suffix = 'to search Worker tail logs and view cost-by-route';
+    fx.detectChanges();
+    const el = fx.nativeElement as HTMLElement;
+    expect(el.querySelector('.flag-gate__heading')?.textContent?.trim()).toBe("Log Explorer isn't enabled");
+    const body = el.querySelector('.flag-gate__body')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    expect(body).toContain('Enable it in System Admin to search Worker tail logs and view cost-by-route.');
   });
 });

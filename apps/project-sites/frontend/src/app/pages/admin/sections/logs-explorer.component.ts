@@ -25,6 +25,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { FlagGateNoticeComponent } from '../../../components/states/flag-gate-notice.component';
 import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
 import { HlmInputDirective } from '../../../ui';
 import { AdminStateService } from '../admin-state.service';
@@ -82,7 +83,7 @@ const LEVEL_COLORS: Record<string, string> = {
   selector: 'app-logs-explorer',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, RollingCounterComponent, MiniEmptyComponent, HlmInputDirective],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, RollingCounterComponent, MiniEmptyComponent, HlmInputDirective, FlagGateNoticeComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-5">
 
@@ -107,15 +108,7 @@ const LEVEL_COLORS: Record<string, string> = {
       </header>
 
       @if (featureDisabled()) {
-        <div class="empty-card">
-          <p class="text-white text-sm font-semibold m-0">Log Explorer isn’t enabled</p>
-          <p class="text-text-secondary text-sm m-0 mt-1">
-            This feature is gated behind the <code>log_explorer</code> flag, which is off for
-            this environment. Enable it in
-            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>
-            to search Worker tail logs and view cost-by-route.
-          </p>
-        </div>
+        <app-flag-gate-notice feature="Log Explorer" flag="log_explorer" heading="Log Explorer isn’t enabled" suffix="to search Worker tail logs and view cost-by-route" testid="logs-explorer-flag-gate" />
       } @else {
 
       <!-- Search bar -->

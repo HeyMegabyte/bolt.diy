@@ -25,6 +25,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { FlagGateNoticeComponent } from '../../../components/states/flag-gate-notice.component';
 import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
 import { EmptyStateComponent } from '../empty-state.component';
 import { AdminStateService } from '../admin-state.service';
@@ -59,7 +60,7 @@ interface StackAdvanceResponse {
 @Component({
   selector: 'app-domain-stack',
   standalone: true,
-  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, MiniEmptyComponent, EmptyStateComponent],
+  imports: [RevealDirective, CommonModule, RouterLink, RollingCounterComponent, MiniEmptyComponent, EmptyStateComponent, FlagGateNoticeComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <!-- Header -->
@@ -89,17 +90,9 @@ interface StackAdvanceResponse {
         </div>
       </header>
 
-      <!-- Feature flag off -->
+      <!-- Feature flag off (shared primitive). -->
       @if (featureDisabled()) {
-        <div class="empty-card">
-          <p class="text-white text-sm font-semibold m-0">Domain Stack Wizard isn’t enabled</p>
-          <p class="text-text-secondary text-sm m-0 mt-1">
-            This feature is gated behind the <code>domain_stack_wizard</code> flag, which is off
-            for this environment. Enable it in
-            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>
-            to run the registrar → DNS → SSL → email-auth → GSC setup board.
-          </p>
-        </div>
+        <app-flag-gate-notice feature="The Domain Stack Wizard" flag="domain_stack_wizard" heading="Domain Stack Wizard isn’t enabled" suffix="to run the registrar → DNS → SSL → email-auth → GSC setup board" testid="domain-stack-flag-gate" />
       }
 
       <!-- No site selected -->
