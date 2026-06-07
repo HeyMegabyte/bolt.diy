@@ -105,6 +105,20 @@ describe('SiteMcpServerComponent (header calls-today pill — no false "0")', ()
     expect(pill.querySelector('app-rolling-counter')).withContext('loaded → the real rolling counter').not.toBeNull();
     expect(pill.textContent ?? '').not.toContain('—');
   });
+
+  // a11y: the mint button reflects its in-flight state to assistive tech via
+  // aria-busy (the disabled + "Generating…" label is visual; aria-busy is the
+  // programmatic signal SR users get). Mirrors feature-flags.component.ts.
+  it('mint-token button exposes aria-busy="true" while minting', () => {
+    const f = renderFull();
+    f.detectChanges();
+    const btn = (f.nativeElement as HTMLElement).querySelector('[data-testid="mint-token-btn"]') as HTMLElement;
+    expect(btn).withContext('mint button renders').not.toBeNull();
+    expect(btn.getAttribute('aria-busy')).withContext('idle → not busy').toBe('false');
+    f.componentInstance.minting.set(true);
+    f.detectChanges();
+    expect(btn.getAttribute('aria-busy')).withContext('minting → busy').toBe('true');
+  });
 });
 
 describe('SiteMcpServerComponent (MCP token CRUD + playground)', () => {
@@ -140,6 +154,39 @@ describe('SiteMcpServerComponent (MCP token CRUD + playground)', () => {
     c.loadTools();
     expect(c.toolsError()).toContain('did not respond');
     expect(c.toolsLoading()).toBe(false);
+  });
+
+  // ── Stale-route fake-empty class (parseable-but-shapeless 200) ──────────────
+  // ApiService's 2xx→404 remap only fires on an UNPARSEABLE body. A parseable
+  // shapeless 200 (SPA/marketing HTML routed to the SPA, or `{}`) flows STRAIGHT
+  // through the success branch. Without an Array.isArray guard, `res.tokens` /
+  // `res.tools` / `res.usage` are `undefined` → set() with undefined →
+  // `tokens().length` / `@for` / `totalCallsToday()`'s reduce crash or fake-empty.
+  // The handled ERROR branch does NOT cover this — it's a 200, not a throw.
+  it('loadTokens on a shapeless 200 ({}) stays an array + sets tokensError (no fake-empty / crash)', () => {
+    const c = make({ get: jasmine.createSpy('get').and.returnValue(of({})) }).c;
+    c.loadTokens();
+    expect(Array.isArray(c.tokens())).withContext('tokens stays an array').toBe(true);
+    expect(c.tokens().length).toBe(0);
+    expect(c.tokensError()).withContext('shapeless 200 is surfaced as an error, not a confident empty').toContain('did not respond');
+    expect(c.tokensLoading()).toBe(false);
+  });
+
+  it('loadTools on a shapeless 200 ({}) stays an array + sets toolsError', () => {
+    const c = make({ get: jasmine.createSpy('get').and.returnValue(of({})) }).c;
+    c.loadTools();
+    expect(Array.isArray(c.tools())).withContext('tools stays an array').toBe(true);
+    expect(c.tools().length).toBe(0);
+    expect(c.toolsError()).toContain('did not respond');
+    expect(c.toolsLoading()).toBe(false);
+  });
+
+  it('loadUsage on a shapeless 200 ({}) keeps usage an array so totalCallsToday()’s reduce never crashes', () => {
+    const c = make({ get: jasmine.createSpy('get').and.returnValue(of({})) }).c;
+    c.ngOnInit(); // loadUsage is private — fired via ngOnInit (siteId resolves to 's1')
+    expect(Array.isArray(c.usage())).withContext('usage stays an array even on a shapeless 200').toBe(true);
+    expect(() => c.totalCallsToday()).withContext('reduce over a guarded array never throws').not.toThrow();
+    expect(c.totalCallsToday()).toBe(0);
   });
 
   it('mintToken reveals the raw token once and clears the minting flag', () => {

@@ -538,7 +538,7 @@ const PLATFORMS: readonly PlatformDef[] = [
               <option value="playful">Playful</option>
               <option value="story">Story-driven</option>
             </select>
-            <button type="button" class="btn-ai" (click)="generate()" [disabled]="aiLoading() || selected().length === 0">
+            <button type="button" class="btn-ai" (click)="generate()" [disabled]="aiLoading() || selected().length === 0" [attr.aria-busy]="aiLoading()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
               {{ aiLoading() ? 'Drafting…' : 'AI assist' }}
             </button>
@@ -2302,7 +2302,16 @@ export class AdminSocialComponent implements OnInit {
     const u = this.link().trim();
     if (!u) { this.og.set(null); return; }
     this.api.post<{ og: OgData }>('/social/og-preview', { url: u }, { silent: true }).subscribe({
-      next: (r) => this.og.set(r.og),
+      next: (r) => {
+        // A stale route can return a parseable-but-shapeless 200 → `r.og` is
+        // undefined or a `{}` with no usable fields. Either collapses to null so
+        // the composer shows the branded hostname fallback card, never a blank
+        // OG card (and never leaks `undefined` into the OgData|null signal).
+        const og = r?.og;
+        const usable =
+          og && typeof og === 'object' && !!(og.title || og.description || og.image || og.site_name);
+        this.og.set(usable ? og : null);
+      },
       error: () => this.og.set(null),
     });
   }
@@ -2322,9 +2331,15 @@ export class AdminSocialComponent implements OnInit {
       })
       .subscribe({
         next: (r) => {
-          this.aiVariants.set(r.variants ?? []);
-          this.variantIdx.set(0);
           this.aiLoading.set(false);
+          // A stale route can return a parseable-but-shapeless 200 (HTML→{}); an
+          // empty-or-missing variants array is a failure, not a silent dead-end.
+          if (!r || !Array.isArray(r.variants) || r.variants.length === 0) {
+            this.toast.error('AI assist unavailable right now');
+            return;
+          }
+          this.aiVariants.set(r.variants);
+          this.variantIdx.set(0);
         },
         error: () => {
           this.aiLoading.set(false);

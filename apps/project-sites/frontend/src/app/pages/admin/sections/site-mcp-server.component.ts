@@ -124,6 +124,7 @@ interface ToolUsage {
               data-testid="mint-token-btn"
               (click)="mintToken()"
               [disabled]="minting()"
+              [attr.aria-busy]="minting()"
             >{{ minting() ? 'Generating…' : '+ New Token' }}</button>
           </div>
         </div>
@@ -176,6 +177,7 @@ interface ToolUsage {
                         data-testid="revoke-token-btn"
                         (click)="revokeToken(t.id)"
                         [disabled]="revoking() === t.id"
+                        [attr.aria-busy]="revoking() === t.id"
                       >Revoke</button>
                     </td>
                   </tr>
@@ -257,6 +259,7 @@ interface ToolUsage {
               data-testid="playground-run-btn"
               (click)="runPlayground()"
               [disabled]="playgroundRunning()"
+              [attr.aria-busy]="playgroundRunning()"
             >{{ playgroundRunning() ? 'Running…' : 'Run' }}</button>
           </div>
           @if (playgroundResult()) {
@@ -349,7 +352,15 @@ export class SiteMcpServerComponent implements OnInit {
       .get<{ tokens: McpToken[] }>(`/sites/${this.siteId}/mcp/tokens`, undefined, { silent: true })
       .pipe(catchError(() => { this.tokensError.set('The MCP token service did not respond.'); return of(null); }))
       .subscribe((res) => {
-        if (res) this.tokens.set(res.tokens);
+        // A parseable-but-shapeless 200 (SPA/marketing HTML, `{}`) flows through
+        // the success branch — ApiService only remaps UNPARSEABLE 2xx to 404.
+        // Guard the shape so a shapeless 200 surfaces as an error, never a
+        // confident "no tokens" fake-empty (stale-route class).
+        if (res && Array.isArray(res.tokens)) {
+          this.tokens.set(res.tokens);
+        } else if (res) {
+          this.tokensError.set('The MCP token service did not respond.');
+        }
         this.tokensLoading.set(false);
       });
   }
@@ -361,7 +372,13 @@ export class SiteMcpServerComponent implements OnInit {
       .get<{ tools: ToolDef[] }>(`/sites/${this.siteId}/mcp/tools`, undefined, { silent: true })
       .pipe(catchError(() => { this.toolsError.set('The MCP tool registry did not respond.'); return of(null); }))
       .subscribe((res) => {
-        if (res) this.tools.set(res.tools);
+        // Shape-guard the success branch — a shapeless 200 must not fake-empty
+        // the tool list (which would also fake-zero the Calls-Today stat).
+        if (res && Array.isArray(res.tools)) {
+          this.tools.set(res.tools);
+        } else if (res) {
+          this.toolsError.set('The MCP tool registry did not respond.');
+        }
         this.toolsLoading.set(false);
       });
   }
@@ -370,7 +387,10 @@ export class SiteMcpServerComponent implements OnInit {
     this.api
       .get<{ usage: ToolUsage[] }>(`/sites/${this.siteId}/mcp/tool-usage`, undefined, { silent: true })
       .pipe(catchError(() => of({ usage: [] as ToolUsage[] })))
-      .subscribe((res) => this.usage.set(res.usage));
+      // Guard the array so a shapeless 200 never sets `usage` to undefined —
+      // totalCallsToday()/callsForTool() reduce over it and would crash the
+      // header pill + per-tool counts. Non-array → empty (usage is a soft stat).
+      .subscribe((res) => this.usage.set(Array.isArray(res?.usage) ? res.usage : []));
   }
 
   mintToken(): void {

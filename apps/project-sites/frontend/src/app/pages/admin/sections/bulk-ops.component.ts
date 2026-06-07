@@ -277,7 +277,26 @@ export class AdminBulkOpsComponent {
     // generic ApiService toast so a failure shows ONE message, not two.
     this.api.post<BulkPreviewResponse>('/sites/bulk', body, { silent: true }).subscribe({
       next: (res) => {
-        this.plan.set(res.plan);
+        // Stale-route defense: a stale/misrouted worker can return a parseable
+        // but shapeless 200 (SPA HTML, `{}`, or `{plan:{}}`) that ApiService's
+        // 2xx→404 remap (which only fires on UNPARSEABLE bodies) lets through.
+        // A missing `res.plan` means we got no real plan — treat as an error.
+        const raw = (res as Partial<BulkPreviewResponse> | null)?.plan;
+        if (!raw || typeof raw !== 'object') {
+          const msg = 'Could not preview the bulk operation — unexpected response from the server.';
+          this.error.set(msg);
+          this.toast.error(msg);
+          this.loading.set(false);
+          return;
+        }
+        // Coerce the list fields so a partial `{plan:{}}` can never crash the
+        // `p.eligible.length` / `@for (s of p.skipped)` template bindings.
+        this.plan.set({
+          operation: typeof raw.operation === 'string' ? raw.operation : this.operationModel(),
+          eligible: Array.isArray(raw.eligible) ? raw.eligible : [],
+          skipped: Array.isArray(raw.skipped) ? raw.skipped : [],
+          cappedAt: typeof raw.cappedAt === 'number' ? raw.cappedAt : null,
+        });
         this.applyResults.set(null);
         this.loading.set(false);
       },
@@ -304,9 +323,35 @@ export class AdminBulkOpsComponent {
 
     this.api.post<BulkApplyResponse>('/sites/bulk', body, { silent: true }).subscribe({
       next: (res) => {
-        const applied = res.results.archived ?? res.results.set ?? [];
-        this.applyResults.set({ applied, failed: res.results.failed ?? [] });
-        this.toast.success(`Applied to ${applied.length} site(s)`);
+        // Stale-route defense: a shapeless 200 (no `results`) must not throw on
+        // `res.results.archived` nor fabricate a success — treat it as a failure.
+        const results = (res as Partial<BulkApplyResponse> | null)?.results;
+        if (!results || typeof results !== 'object') {
+          const msg = 'Could not apply the bulk operation — unexpected response from the server.';
+          this.toast.error(msg);
+          this.confirmOpen.set(false);
+          this.applying.set(false);
+          return;
+        }
+        // Array.isArray-guard every list so a wrong-typed field can't leak a
+        // string into `r.applied.length` / `@for (f of r.failed)`.
+        const applied = Array.isArray(results.archived)
+          ? results.archived
+          : Array.isArray(results.set)
+            ? results.set
+            : [];
+        const failed = Array.isArray(results.failed) ? results.failed : [];
+        this.applyResults.set({ applied, failed });
+        // Honest messaging: a green "success" only when sites actually changed.
+        // A zero-effect apply (matched the plan but updated nothing) is a no-op,
+        // surfaced as info — never a misleading success.
+        if (applied.length > 0) {
+          this.toast.success(`Applied to ${applied.length} site(s)`);
+        } else if (failed.length > 0) {
+          this.toast.warning(`No sites updated — ${failed.length} failed`);
+        } else {
+          this.toast.info('No sites were updated.');
+        }
         // The sites just changed — the preview is now stale, so drop it (and with
         // it the Apply button) to prevent a re-apply against the old plan. The
         // result card below stays to show the outcome.

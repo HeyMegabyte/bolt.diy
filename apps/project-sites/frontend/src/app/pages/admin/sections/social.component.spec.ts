@@ -742,3 +742,121 @@ describe('AdminSocialComponent (account-disconnect in-flight guard)', () => {
     expect((c as unknown as { isDisconnectingAcct: (pid: string) => boolean }).isDisconnectingAcct('twitter')).toBeTrue();
   });
 });
+
+/**
+ * Stale-route fake-empty / fake-shape guards (production bug class). ApiService's
+ * 2xx→404 remap fires ONLY on an UNPARSEABLE body — a STALE worker route that
+ * returns a parseable-but-shapeless 200 (SPA/marketing HTML coerced to {}, or a
+ * bare `{}`) flows straight through the SUCCESS path. Without a shape guard:
+ *   - generate(): `r.variants ?? []` → AI assist clears its spinner with ZERO
+ *     variants and NO error toast → a silent dead-end (looks like it "worked").
+ *   - fetchOg(): `this.og.set(r.og)` sets `undefined` (or a shapeless truthy
+ *     object) into an `OgData | null` signal → the type contract breaks and a
+ *     malformed `{}` renders a blank OG card instead of the branded fallback.
+ * Mirrors the Array.isArray success-path guards shipped in webhooks/inbox/sites.
+ */
+describe('AdminSocialComponent (stale-route shape guards)', () => {
+  let post: jasmine.Spy;
+  let error: jasmine.Spy;
+
+  function make(getFake?: (path: string) => unknown): AdminSocialComponent {
+    TestBed.resetTestingModule();
+    post = jasmine.createSpy('post');
+    error = jasmine.createSpy('error');
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: getFake ?? (() => of({ data: [] })), post, delete: () => of({}) } },
+        { provide: ToastService, useValue: { error, success: () => 0, warning: () => 0, info: () => 0 } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigateByUrl: () => undefined } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSocialComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminSocialComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('generate() on a shapeless 200 surfaces the error toast — NOT a silent empty (no fake-empty variants)', () => {
+    const c = make();
+    post.and.returnValue(of({})); // stale route: parseable-but-shapeless 200
+    c.selected.set(['twitter']);
+    c.generate();
+    expect(c.aiVariants()).withContext('no fabricated empty variant list').toEqual([]);
+    expect(c.aiLoading()).withContext('spinner released').toBeFalse();
+    expect(error).withContext('a shapeless response must be flagged, not silently swallowed').toHaveBeenCalled();
+  });
+
+  it('generate() with a real variants array still works', () => {
+    const c = make();
+    post.and.returnValue(of({ variants: ['hello', 'world'] }));
+    c.selected.set(['twitter']);
+    c.generate();
+    expect(c.aiVariants()).toEqual(['hello', 'world']);
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it('fetchOg() on a shapeless 200 sets og to null (branded fallback), never a malformed/undefined OG', () => {
+    const c = make();
+    post.and.returnValue(of({})); // r.og is undefined
+    c.link.set('https://blog.acme.io/post');
+    c.fetchOg();
+    expect(c.og()).withContext('undefined/missing og collapses to null for the fallback card').toBeNull();
+  });
+
+  it('fetchOg() rejects a shapeless truthy og object (blank card guard)', () => {
+    const c = make();
+    post.and.returnValue(of({ og: {} })); // truthy but no title/description/image/site_name
+    c.link.set('https://blog.acme.io/post');
+    c.fetchOg();
+    expect(c.og()).withContext('an OG object with no usable fields is not rendered as a real card').toBeNull();
+  });
+
+  it('fetchOg() accepts a real OG object', () => {
+    const c = make();
+    post.and.returnValue(of({ og: { title: 'Real', description: 'd', image: '', site_name: 'Acme' } }));
+    c.link.set('https://blog.acme.io/post');
+    c.fetchOg();
+    expect(c.og()).toEqual({ title: 'Real', description: 'd', image: '', site_name: 'Acme' });
+  });
+});
+
+/**
+ * The "AI assist" composer button changes its label to "Drafting…" + disables
+ * while generating, but a busy button must ALSO announce `aria-busy="true"` so
+ * assistive tech reports the processing state (mirrors the disconnect / delete /
+ * feature-flags-refresh buttons that already carry [attr.aria-busy]).
+ */
+describe('AdminSocialComponent (AI-assist aria-busy)', () => {
+  let fixture: ComponentFixture<AdminSocialComponent>;
+
+  function build(): void {
+    const get = jasmine.createSpy('get').and.callFake((path: string) =>
+      path === '/social/auto-pilot/config' ? of({ data: null }) : of({ data: [] }));
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, post: () => of({ data: {} }), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0, info: () => 0 } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigateByUrl: () => undefined } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    fixture = TestBed.createComponent(AdminSocialComponent);
+    fixture.detectChanges();
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('the AI-assist button reflects aria-busy while drafting', () => {
+    build();
+    fixture.componentInstance.selected.set(['twitter']);
+    const btn = () => (fixture.nativeElement as HTMLElement).querySelector('.btn-ai');
+    fixture.detectChanges();
+    expect(btn()?.getAttribute('aria-busy')).withContext('idle → not busy').toBe('false');
+    fixture.componentInstance.aiLoading.set(true);
+    fixture.detectChanges();
+    expect(btn()?.getAttribute('aria-busy')).withContext('drafting → aria-busy true').toBe('true');
+  });
+});

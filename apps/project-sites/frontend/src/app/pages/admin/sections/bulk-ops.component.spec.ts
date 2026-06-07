@@ -31,7 +31,15 @@ describe('AdminBulkOpsComponent', () => {
       imports: [AdminBulkOpsComponent],
       providers: [
         { provide: ApiService, useValue: { post } },
-        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        {
+          provide: ToastService,
+          useValue: {
+            error: jasmine.createSpy('error'),
+            success: jasmine.createSpy('success'),
+            info: jasmine.createSpy('info'),
+            warning: jasmine.createSpy('warning'),
+          },
+        },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(AdminBulkOpsComponent);
@@ -214,5 +222,74 @@ describe('AdminBulkOpsComponent', () => {
     expect(fixture.componentInstance.plan()).withContext('preview is stale once the sites changed').toBeNull();
     expect(q('[data-testid="bulk-ops-apply-btn"]')).withContext('Apply control gone after success').toBeNull();
     expect(q('[data-testid="bulk-ops-apply-result"]')).withContext('outcome card still shown').not.toBeNull();
+  });
+
+  // ── Reliability: stale-route shapeless 200 cannot corrupt the rendered plan/result ──
+  it('treats a shapeless 200 preview (stale route → {}) as an error, not a corrupt plan', () => {
+    post.and.returnValue(of({})); // stale worker route: parseable but no .plan
+    (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.plan()).withContext('no corrupt plan signal set').toBeNull();
+    expect(q('[data-testid="bulk-ops-error"]')).withContext('shows the inline error instead').not.toBeNull();
+    expect(q('[data-testid="bulk-ops-result"]')).toBeNull();
+  });
+
+  it('coerces a partial plan (missing eligible/skipped arrays) into safe empty arrays — no template crash', () => {
+    post.and.returnValue(of({ ok: true, dryRun: true, plan: { operation: 'archive', cappedAt: null } }));
+    expect(() => {
+      (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    }).not.toThrow();
+    const p = fixture.componentInstance.plan();
+    expect(Array.isArray(p?.eligible)).withContext('eligible coerced to []').toBe(true);
+    expect(Array.isArray(p?.skipped)).withContext('skipped coerced to []').toBe(true);
+    expect(p?.eligible.length).toBe(0);
+  });
+
+  it('treats a shapeless 200 apply (stale route → {}) as an error, not a fake success', () => {
+    post.and.returnValue(of(PLAN));
+    (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const toast = TestBed.inject(ToastService) as unknown as { success: jasmine.Spy; error: jasmine.Spy };
+    post.and.returnValue(of({})); // stale route: no .results
+    expect(() => {
+      fixture.componentInstance.apply();
+      fixture.detectChanges();
+    }).withContext('no crash on undefined results').not.toThrow();
+    expect(fixture.componentInstance.applyResults()).withContext('no fabricated success result').toBeNull();
+    expect(toast.success).withContext('no misleading success toast').not.toHaveBeenCalled();
+    expect(toast.error).withContext('honest failure toast').toHaveBeenCalled();
+  });
+
+  it('Array.isArray-guards the apply result lists (a non-array archived/set/failed → [], not a string)', () => {
+    post.and.returnValue(of(PLAN));
+    (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    // shapeless-ish 200: results present but lists are the wrong type
+    post.and.returnValue(of({ ok: true, dryRun: false, plan: PLAN.plan, results: { archived: 'corrupt', failed: 'corrupt' } }));
+    fixture.componentInstance.apply();
+    fixture.detectChanges();
+    const r = fixture.componentInstance.applyResults();
+    expect(Array.isArray(r?.applied)).withContext('applied coerced to []').toBe(true);
+    expect(Array.isArray(r?.failed)).withContext('failed coerced to []').toBe(true);
+    expect(r?.applied.length).toBe(0);
+  });
+
+  it('a zero-applied apply result reports "0 site(s)" honestly — not a misleading success toast', () => {
+    post.and.returnValue(of(PLAN));
+    (q('[data-testid="bulk-ops-preview-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const toast = TestBed.inject(ToastService) as unknown as { success: jasmine.Spy; error: jasmine.Spy; info: jasmine.Spy };
+    // backend matched the plan but applied to zero sites (no-op) with no failures
+    post.and.returnValue(of({ ok: true, dryRun: false, plan: PLAN.plan, results: { archived: [], failed: [] } }));
+    fixture.componentInstance.apply();
+    fixture.detectChanges();
+    expect(toast.success).withContext('no green "success" on a zero-effect apply').not.toHaveBeenCalled();
+    expect(toast.error).withContext('a no-op is not a failure either').not.toHaveBeenCalled();
+    expect(toast.info).withContext('honest no-op message ("0 sites updated")').toHaveBeenCalled();
+    expect(q('[data-testid="bulk-ops-apply-result"]')).withContext('outcome card still renders the 0 count').not.toBeNull();
   });
 });
