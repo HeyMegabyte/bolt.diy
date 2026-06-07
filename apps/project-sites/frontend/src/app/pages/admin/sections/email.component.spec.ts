@@ -113,6 +113,27 @@ describe('AdminEmailComponent (webhook URL validation before connect)', () => {
     expect(error).toHaveBeenCalled();
   });
 
+  it('rejects private / link-local / metadata IP webhooks (SSRF-adjacent), not just localhost', () => {
+    const c = build();
+    for (const url of [
+      'https://127.0.0.1/h',        // loopback
+      'https://10.0.0.5/h',         // private 10/8
+      'https://192.168.1.1/h',      // private 192.168/16
+      'https://172.20.0.1/h',       // private 172.16-31
+      'https://169.254.169.254/latest/meta-data/', // cloud metadata
+      'https://api.internal/hook',  // internal TLD
+    ]) {
+      createIntegration.calls.reset();
+      error.calls.reset();
+      c.connectingProvider.set(webhookProvider);
+      c.apiKey = 'k';
+      c.webhookUrl = url;
+      c.submitConnect(webhookProvider);
+      expect(createIntegration).withContext(url).not.toHaveBeenCalled();
+      expect(error).withContext(url).toHaveBeenCalled();
+    }
+  });
+
   it('accepts a well-formed https webhook — POSTs once', () => {
     const c = build();
     c.connectingProvider.set(webhookProvider);
