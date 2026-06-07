@@ -173,6 +173,9 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
             </button>
           }
         </div>
+        @if (isFiltering()) {
+          <span class="ff-count" data-testid="ff-filter-count" aria-hidden="true">{{ filtered().length }} <span class="ff-count-sep">of</span> {{ flags().length }}</span>
+        }
         <span class="sr-only" role="status" aria-live="polite" data-testid="ff-filter-status">{{ filterAnnouncement() }}</span>
       </div>
 
@@ -458,6 +461,11 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
     .ff-stage-chip-active { background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); border-color: var(--ps-accent, #00e5ff); }
     .ff-stage-count { background: color-mix(in oklch, currentColor 18%, transparent); padding: .05rem .4rem; border-radius: 999px; font-size: .75rem; }
     .ff-stage-chip-active .ff-stage-count { background: color-mix(in oklch, currentColor 25%, transparent); }
+    /* Visible filtered-count chip — sighted parity with the sr-only announcer (cyan accent). */
+    .ff-count { font-size: .72rem; font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap;
+      color: var(--ps-accent, #00e5ff); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent); padding: .12rem .55rem; border-radius: 999px; }
+    .ff-count-sep { color: color-mix(in oklch, var(--ps-accent, #00e5ff) 55%, transparent); font-weight: 400; }
     .ff-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); gap: 1rem; }
     .ff-card { background: color-mix(in oklch, var(--ps-bg, #060610) 55%, transparent); border: 1px solid color-mix(in oklch, currentColor 14%, transparent); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: .65rem; transition: border-color .15s ease; }
     .ff-card:hover { border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent); }
@@ -717,6 +725,14 @@ export class AdminFeatureFlagsComponent implements OnInit {
     const s = this.stage();
     return s === 'all' ? `Showing ${n} ${noun}` : `${n} ${noun} in ${s}`;
   });
+
+  /**
+   * True when a search query OR a non-'all' stage filter is active — gates the
+   * VISIBLE "N of M" count chip so sighted users get the same feedback the
+   * sr-only filterAnnouncement gives screen readers, without cluttering the
+   * default (unfiltered) toolbar.
+   */
+  readonly isFiltering = computed<boolean>(() => this.search().trim() !== '' || this.stage() !== 'all');
 
   private readMode(): DisclosureMode {
     try {

@@ -87,6 +87,22 @@ describe('AdminFeatureFlagsComponent (flag control surface)', () => {
     expect(c.filtered().map((f) => f.key)).toEqual(['checkout_v2']);
   });
 
+  // isFiltering() drives the VISIBLE "N of M" count chip (sighted parity with the
+  // sr-only filterAnnouncement) — only shows when a search query OR a non-'all'
+  // stage filter is active, so the toolbar stays clean in the default view.
+  it('isFiltering(): false in the default view, true once a search or stage filter is active', () => {
+    const c = make(okGet());
+    expect(c.isFiltering()).withContext('default view → no count chip').toBeFalse();
+    c.search.set('checkout');
+    expect(c.isFiltering()).withContext('active search → count chip').toBeTrue();
+    c.search.set('   ');
+    expect(c.isFiltering()).withContext('whitespace-only search → not filtering').toBeFalse();
+    c.stage.set('beta');
+    expect(c.isFiltering()).withContext('non-all stage → count chip').toBeTrue();
+    c.stage.set('all');
+    expect(c.isFiltering()).withContext('back to all + blank search → clean').toBeFalse();
+  });
+
   it('countForStage(): all = total, else per-stage', () => {
     const c = make(okGet());
     c.flags.set([flag({ stage: 'beta' }), flag({ stage: 'beta' }), flag({ stage: 'stable' })]);
