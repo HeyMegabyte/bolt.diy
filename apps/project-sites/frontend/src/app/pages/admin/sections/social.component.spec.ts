@@ -674,3 +674,38 @@ describe('AdminSocialComponent (paste-key connect)', () => {
     expect(c.pasteOpen()).withContext('stays open so the user can fix + retry').toBe('bluesky' as never);
   });
 });
+
+import { NEVER } from 'rxjs';
+
+/**
+ * Post delete is DESTRUCTIVE + toast-armed (7s action, re-clickable mid-async).
+ * A second delete of the same post while one is in flight must NOT fire a
+ * duplicate DELETE.
+ */
+describe('AdminSocialComponent (delete-post in-flight guard)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('ignores a re-entrant delete of the same post while one is in flight', () => {
+    const del = jasmine.createSpy('delete').and.returnValue(NEVER);
+    const get = jasmine.createSpy('get').and.callFake((path: string) =>
+      path === '/social/auto-pilot/config' ? of({ data: null }) : of({ data: [] }));
+    TestBed.configureTestingModule({
+      imports: [AdminSocialComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, post: () => of({ data: {} }), delete: del } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigateByUrl: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSocialComponent);
+    fx.detectChanges();
+    const c = fx.componentInstance;
+    const pd = (c as unknown as { performDeletePost: (p: unknown) => void }).performDeletePost.bind(c);
+    pd({ id: 'p1' });
+    pd({ id: 'p1' });
+    expect(del).withContext('no duplicate DELETE on a destructive post-delete').toHaveBeenCalledTimes(1);
+    expect((c as unknown as { isDeletingPost: (id: string) => boolean }).isDeletingPost('p1')).toBeTrue();
+  });
+});

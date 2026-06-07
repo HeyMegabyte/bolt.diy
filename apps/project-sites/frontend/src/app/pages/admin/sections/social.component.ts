@@ -696,12 +696,12 @@ const PLATFORMS: readonly PlatformDef[] = [
                 <div class="post-actions">
                   @if (tab() === 'drafts') {
                     <button type="button" class="btn-ghost sm" (click)="editPost(post)">Edit</button>
-                    <button type="button" class="btn-ghost sm danger" (click)="deletePost(post)">Delete</button>
+                    <button type="button" class="btn-ghost sm danger" [disabled]="isDeletingPost(post.id)" [attr.aria-busy]="isDeletingPost(post.id)" (click)="deletePost(post)">{{ isDeletingPost(post.id) ? 'Deleting…' : 'Delete' }}</button>
                     <button type="button" class="btn-primary sm" [class.is-busy]="isPublishing(post.id)" [disabled]="isPublishing(post.id)" (click)="publishNow(post)">{{ isPublishing(post.id) ? 'Publishing…' : 'Publish' }}</button>
                   }
                   @if (tab() === 'queue') {
                     <button type="button" class="btn-ghost sm" (click)="editPost(post)">Edit time</button>
-                    <button type="button" class="btn-ghost sm danger" (click)="deletePost(post)">Cancel</button>
+                    <button type="button" class="btn-ghost sm danger" [disabled]="isDeletingPost(post.id)" [attr.aria-busy]="isDeletingPost(post.id)" (click)="deletePost(post)">{{ isDeletingPost(post.id) ? 'Cancelling…' : 'Cancel' }}</button>
                     <button type="button" class="btn-primary sm" [class.is-busy]="isPublishing(post.id)" [disabled]="isPublishing(post.id)" (click)="publishNow(post)">{{ isPublishing(post.id) ? 'Publishing…' : 'Send now' }}</button>
                   }
                   @if (tab() === 'sent') {
@@ -1705,6 +1705,12 @@ export class AdminSocialComponent implements OnInit {
   isPublishing(id: string): boolean {
     return this.publishingIds().has(id);
   }
+  /** Post ids with an in-flight delete — guards the toast-armed destructive
+   *  delete against a double-DELETE + drives the row's "Deleting…" state. */
+  readonly deletingPostIds = signal<Set<string>>(new Set());
+  isDeletingPost(id: string): boolean {
+    return this.deletingPostIds().has(id);
+  }
 
   /* Auto-Pilot */
   readonly autoPilotEnabled = signal(false);
@@ -2517,9 +2523,12 @@ export class AdminSocialComponent implements OnInit {
     });
   }
   private performDeletePost(post: SocialPost): void {
+    if (this.deletingPostIds().has(post.id)) return; // re-armed toast action while in flight = no-op
+    this.deletingPostIds.update((s) => new Set(s).add(post.id));
+    const done = () => this.deletingPostIds.update((s) => { const n = new Set(s); n.delete(post.id); return n; });
     this.api.delete(`/social/posts/${post.id}`, { silent: true }).subscribe({
-      next: () => { this.toast.success('Deleted'); this.loadPosts(); },
-      error: () => this.toast.error('Delete failed'),
+      next: () => { done(); this.toast.success('Deleted'); this.loadPosts(); },
+      error: () => { done(); this.toast.error('Delete failed'); },
     });
   }
   duplicatePost(post: SocialPost): void {
