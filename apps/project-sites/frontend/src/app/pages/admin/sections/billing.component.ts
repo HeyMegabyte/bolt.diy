@@ -2289,6 +2289,13 @@ export class AdminBillingComponent implements OnInit {
     });
   }
   topup(bundle: string): void {
+    // Double-submit guard (money-moving): a rapid second click before Angular
+    // re-renders `[disabled]="buying() === key"` would otherwise open a SECOND
+    // Stripe checkout session (or, in the non-stripe `mode`, double-grant
+    // credits). Early-return on the busy signal — never trust the [disabled]
+    // attribute alone. Mirrors topupCustom()'s guard. Cleared in next/error so a
+    // failed attempt stays retryable.
+    if (this.buying()) return;
     this.buying.set(bundle);
     const credits = this.bundleCredits(bundle);
     const usd = this.bundleUsd(bundle);

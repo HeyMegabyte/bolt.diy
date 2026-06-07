@@ -139,3 +139,44 @@ describe('AppsComponent (decorative glyphs are SVGs, not colourful emoji)', () =
     });
   });
 });
+
+/**
+ * a11y: the catalog grid is the primary content — a screen-reader user needs a
+ * "list of N items" cue + per-card "item X of N" position. CSS `display:grid`
+ * strips the implicit list role, so the grid carries an explicit `role="list"`
+ * and every card carries `role="listitem"`. Without it, the grid reads as an
+ * undifferentiated wall of links with no count/position affordance.
+ */
+describe('AppsComponent (catalog grid has semantic list markup)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function render(): HTMLElement {
+    TestBed.configureTestingModule({
+      imports: [AppsComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AppsComponent);
+    fx.detectChanges();
+    return fx.nativeElement as HTMLElement;
+  }
+
+  it('exposes the apps grid as a list', () => {
+    const host = render();
+    const grid = host.querySelector('.apps-grid');
+    expect(grid).withContext('apps grid present').not.toBeNull();
+    expect(grid?.getAttribute('role')).withContext('grid is role=list').toBe('list');
+  });
+
+  it('exposes every catalog card as a listitem matching the visible card count', () => {
+    const host = render();
+    const cards = Array.from(host.querySelectorAll('.app-card'));
+    expect(cards.length).withContext('at least one card rendered').toBeGreaterThan(0);
+    cards.forEach((card) =>
+      expect(card.getAttribute('role')).withContext('card is role=listitem').toBe('listitem'),
+    );
+    expect(host.querySelectorAll('.apps-grid [role="listitem"]').length).toBe(cards.length);
+  });
+});

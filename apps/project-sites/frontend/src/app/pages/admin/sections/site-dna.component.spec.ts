@@ -114,6 +114,37 @@ describe('AdminSiteDnaComponent (taste pulse + a11y)', () => {
     expect(region.querySelector('table')).withContext('table inside the scroll region').toBeTruthy();
   });
 
+  // The preference chart renders each component-class score as a colored,
+  // width-scaled <div> bar. An [aria-label] on a bare <div> (no role) is
+  // IGNORED by screen readers — so the score (conveyed by color + width alone)
+  // had no text alternative (WCAG 1.1.1 / 1.4.1). The bar must carry role="img"
+  // for the label to be announced, mirroring the sibling taste-pulse bar.
+  it('each preference bar exposes its net score to AT via role=img + a descriptive aria-label', () => {
+    build(true);
+    component.prefs.set([
+      { component_class: 'hero', accept_count: 9, reject_count: 1, net_score: 8 },
+      { component_class: 'pricing', accept_count: 2, reject_count: 5, net_score: -3 },
+    ]);
+    fixture.detectChanges();
+
+    const bars = (fixture.nativeElement as HTMLElement).querySelectorAll(
+      '[data-testid="dna-prefs-chart"] .dna-pref-bar-wrap',
+    );
+    expect(bars.length).withContext('one bar per preference row').toBe(2);
+
+    bars.forEach((bar) => {
+      // role=img makes the bar an image with an accessible name (without it the
+      // aria-label on a generic <div> is dropped).
+      expect(bar.getAttribute('role')).withContext('bar is announced as an image').toBe('img');
+      const label = bar.getAttribute('aria-label') ?? '';
+      expect(label).withContext('label names the component class').toContain('net score');
+    });
+
+    const first = bars[0] as HTMLElement;
+    expect(first.getAttribute('aria-label')).toContain('hero');
+    expect(first.getAttribute('aria-label')).toContain('8');
+  });
+
   it('the pulse aria-label mirrors the visible accept/edit/reject counts', () => {
     build(true);
     component.history.set([row('accept'), row('reject'), row('edit'), row('edit')]);

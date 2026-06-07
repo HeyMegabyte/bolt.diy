@@ -192,10 +192,11 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
           (primaryClick)="resetFilters()"
         />
       } @else {
-        <div class="apps-grid">
+        <div class="apps-grid" role="list" aria-label="App catalog">
           @for (app of filteredApps(); track app.id) {
             <a
               appReveal
+              role="listitem"
               class="app-card"
               [routerLink]="['/admin/apps', app.id]"
               [attr.data-testid]="'apps-card-' + app.id"

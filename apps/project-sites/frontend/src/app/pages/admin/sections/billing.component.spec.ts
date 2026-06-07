@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { AdminBillingComponent } from './billing.component';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
@@ -344,6 +344,61 @@ describe('AdminBillingComponent (upgrade checkout is {silent})', () => {
     const c = TestBed.createComponent(AdminBillingComponent).componentInstance;
     c.upgrade();
     expect(post).toHaveBeenCalledWith('/billing/checkout', { plan: 'pro' }, { silent: true });
+  });
+});
+
+/**
+ * Double-submit guard on the credit-purchase grid. `topup(bundle)` is the primary
+ * money-moving action — a rapid double-click (before Angular re-renders the
+ * `[disabled]="buying() === key"` state) MUST NOT fire `/billing/credits/topup`
+ * twice, or the operator opens two Stripe checkout sessions (or, in the non-stripe
+ * `mode`, double-grants credits). The handler must early-return on its own
+ * `buying()` busy signal — mirrors the guard already on `topupCustom()`. The guard
+ * must also clear on error so a failed attempt stays retryable.
+ */
+describe('AdminBillingComponent (credit top-up double-submit guard)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function setup(post: jasmine.Spy): AdminBillingComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminBillingComponent],
+      providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
+        { provide: ApiService, useValue: {
+          get: () => of({ data: {} }), post, put: () => of({ data: {} }), delete: () => of({ ok: true }),
+          getCostForecast: () => of({ data: { projected_usd: 0, current_period_usd: 0, rolling_daily_avg: 0, days_until_cap_hit: null, plan_cap_usd: 0, percent_of_cap: 0, daily: [], breakdown: [] } }),
+        } },
+        { provide: AdminStateService, useValue: { sites: signal([]) } },
+        { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
+        { provide: TelemetryService, useValue: { track: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    return TestBed.createComponent(AdminBillingComponent).componentInstance;
+  }
+
+  it('topup() fires /billing/credits/topup at most once when double-clicked', () => {
+    // NEVER observable — the request never resolves, so `buying()` stays set and
+    // the second call must early-return instead of POSTing again.
+    const post = jasmine.createSpy('post').and.returnValue(new Subject());
+    const c = setup(post);
+    post.calls.reset(); // ignore any POSTs fired during ngOnInit's loadAll
+    c.topup('500');
+    c.topup('500'); // immediate second click before the first settles
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(c.buying()).toBe('500');
+  });
+
+  it('topup() clears the busy guard on error so the purchase stays retryable', () => {
+    const post = jasmine.createSpy('post').and.returnValue(throwError(() => ({ status: 500 })));
+    const c = setup(post);
+    post.calls.reset();
+    c.topup('500');
+    expect(c.buying()).withContext('busy guard cleared after a failed top-up').toBeNull();
+    // A retry is allowed — the guard no longer blocks the next POST.
+    c.topup('500');
+    expect(post).toHaveBeenCalledTimes(2);
   });
 });
 

@@ -187,7 +187,7 @@ interface DnaPrefsResp {
               @for (p of prefs(); track p.component_class) {
                 <div class="dna-pref-row">
                   <span class="dna-pref-class">{{ p.component_class }}</span>
-                  <div class="dna-pref-bar-wrap" [attr.aria-label]="p.component_class + ' net score ' + p.net_score">
+                  <div class="dna-pref-bar-wrap" role="img" [attr.aria-label]="p.component_class + ' net score ' + p.net_score">
                     <div
                       class="dna-pref-bar"
                       [style.width]="barWidth(p.net_score) + '%'"
