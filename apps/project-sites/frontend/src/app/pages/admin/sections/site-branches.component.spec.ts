@@ -156,6 +156,39 @@ describe('SiteBranchesComponent (cohesion + a11y)', () => {
     expect(component.branches().length).toBe(1);
   });
 
+  // ── Stale-route fake-empty / shapeless-200 guard ─────────────────────────
+  // ApiService only remaps 2xx→404 when the body FAILS to parse. A STALE worker
+  // route that returns a parseable-but-shapeless 200 (SPA/marketing HTML coerced
+  // to {}, or a bare {}) flows STRAIGHT THROUGH — without an Array.isArray guard
+  // it either fake-empties "No branches yet" (masking a broken route) or crashes
+  // the @for/.length on a non-array. The success path must degrade HONESTLY into
+  // the error card instead.
+  it('treats a shapeless 200 (no branches array) as a load error, not fake-empty', () => {
+    build(); // initial succeeds with { branches: [] }
+    component.loadBranches();
+    const req = httpMock.expectOne(`/api/sites/${SITE_ID}/branches`);
+    req.flush({}); // stale route: parseable 200 with NO branches field
+    fixture.detectChanges();
+    // Honest degrade: error card shown, NOT the "No branches yet" empty state.
+    expect(component.loadError()).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="branches-error"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-empty-state')).toBeNull();
+    // Branch list stays an array (never undefined) so @for/.length can't crash.
+    expect(Array.isArray(component.branches())).toBe(true);
+    expect(component.loading()).toBe(false);
+  });
+
+  it('treats a 200 whose branches field is not an array as a load error', () => {
+    build();
+    component.loadBranches();
+    const req = httpMock.expectOne(`/api/sites/${SITE_ID}/branches`);
+    req.flush({ branches: '<html>marketing</html>' }); // non-array (SPA HTML leaked into field)
+    fixture.detectChanges();
+    expect(component.loadError()).toBeTruthy();
+    expect(Array.isArray(component.branches())).toBe(true);
+    expect(component.branches().length).toBe(0);
+  });
+
   it('surfaces the worker request_id on the error card as a copyable support ref', () => {
     build(); // succeed first so we control the failing re-fetch below
     component.loadBranches();

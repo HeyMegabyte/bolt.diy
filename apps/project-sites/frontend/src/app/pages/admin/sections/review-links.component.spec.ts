@@ -102,6 +102,19 @@ describe('AdminReviewLinksComponent', () => {
     fixture.detectChanges();
     expect(q('app-empty-state')).withContext('uses the reusable empty-state primitive').not.toBeNull();
   });
+
+  // While creating, the button must announce its busy state to assistive tech
+  // (aria-busy) so a screen-reader user knows the action is in flight — not just
+  // a visual "Creating…" label sighted users see.
+  it('marks the create button aria-busy while a create is in flight', () => {
+    build({ id: 's1' });
+    const btn = q('[data-testid="review-links-create-btn"]') as HTMLButtonElement;
+    expect(btn.getAttribute('aria-busy')).withContext('idle = not busy').toBe('false');
+    fixture.componentInstance.creating.set(true);
+    fixture.detectChanges();
+    expect(btn.getAttribute('aria-busy')).withContext('in-flight = busy').toBe('true');
+    expect(btn.disabled).withContext('also disabled to block double-submit').toBeTrue();
+  });
 });
 
 /**
@@ -175,5 +188,28 @@ describe('AdminReviewLinksComponent (load-error retryability)', () => {
     fx.componentInstance.load();
     expect(fx.componentInstance.error()).toBeNull();
     expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  // Stale-route shape guard: ApiService only remaps a 2xx→404 when the body FAILS
+  // to parse. A stale worker route returning a parseable-but-shapeless 200 ({} or
+  // SPA/marketing HTML) flows straight through the SUCCESS path — `res.links ?? []`
+  // would mask it as a fake-empty "No review links yet" (or crash @for on a
+  // non-array). It must degrade to the honest, retryable error card instead.
+  it('a shapeless 200 ({}) → honest retryable error, NOT a fake-empty list', () => {
+    const fx = buildErr(jasmine.createSpy('get').and.returnValue(of({})));
+    const c = fx.componentInstance;
+    const el = fx.nativeElement as HTMLElement;
+    expect(c.links().length).withContext('no fake-empty list set').toBe(0);
+    expect(c.error()).withContext('shapeless 200 reads as an error').not.toBeNull();
+    expect(c.errorRetryable()).toBeTrue();
+    expect(el.querySelector('app-error-card')).withContext('honest error card, not a silent empty').not.toBeNull();
+    expect(el.querySelector('[data-testid="review-links-none"]')).withContext('NO fake "No review links yet"').toBeNull();
+  });
+
+  it('a 200 whose links is a non-array → honest error, never crashes the list', () => {
+    const fx = buildErr(jasmine.createSpy('get').and.returnValue(of({ ok: true, links: '<html>' })));
+    const c = fx.componentInstance;
+    expect(c.error()).withContext('non-array shape is rejected').not.toBeNull();
+    expect(c.links().length).withContext('list stays empty, @for never sees a string').toBe(0);
   });
 });

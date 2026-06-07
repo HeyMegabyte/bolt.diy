@@ -58,7 +58,7 @@ interface ReviewLink {
         }
 
         <div class="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5 flex items-center gap-3 mb-6">
-          <button hlmBtn data-testid="review-links-create-btn" [disabled]="creating() || flagDisabled()" (click)="create()">
+          <button hlmBtn data-testid="review-links-create-btn" [disabled]="creating() || flagDisabled()" [attr.aria-busy]="creating()" (click)="create()">
             {{ creating() ? 'Creating…' : 'Create review link' }}
           </button>
           <span class="text-[0.72rem] text-text-secondary">Valid for 7 days · stakeholder can approve or request changes</span>
@@ -167,7 +167,20 @@ export class AdminReviewLinksComponent {
     this.loadErrorRef.set('');
     this.api.get<{ ok: boolean; links: ReviewLink[] }>(`/sites/${id}/review-links`, undefined, { silent: true }).subscribe({
       next: (res) => {
-        this.links.set(res.links ?? []);
+        // Shape guard: ApiService only remaps a 2xx→404 when the body FAILS to
+        // parse. A stale worker route returning a parseable-but-shapeless 200
+        // ({} or an SPA/marketing-HTML fallthrough that's valid JSON) flows
+        // straight through here. `res.links ?? []` would mask it as a fake-empty
+        // "No review links yet" (or crash the @for on a non-array). Treat a
+        // shapeless 200 as an honest, retryable error — never a silent empty.
+        if (!res || !Array.isArray(res.links)) {
+          this.error.set("Couldn't load review links — the response was unexpected. Retry.");
+          this.errorRetryable.set(true);
+          this.links.set([]);
+          this.loading.set(false);
+          return;
+        }
+        this.links.set(res.links);
         this.loading.set(false);
       },
       // 404 = approval_workflow flag OFF (permanent → calm cyan Feature-Flags notice,

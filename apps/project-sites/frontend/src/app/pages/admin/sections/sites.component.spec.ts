@@ -331,3 +331,131 @@ describe('AdminSitesComponent (live freshness pill)', () => {
     expect(c.error()).toContain('Could not load sites');
   });
 });
+
+/**
+ * Stale-route / shapeless-200 hardening on the CORE Sites list (the worst section
+ * to silently fake-empty). If /sites or /sites/sparklines ever goes stale — or an
+ * SPA-fallthrough returns a parseable-but-shapeless 200 — a bare `?? []` would
+ * either fake-empty "No sites yet" over an org that owns sites OR feed a non-array
+ * into the @for / sortedRows() spread and crash. The success paths shape-guard both
+ * responses with Array.isArray so a stale route degrades honestly, never fake-empty,
+ * never throws.
+ */
+describe('AdminSitesComponent (stale-route / shapeless-200 hardening)', () => {
+  function makeWith(get: jasmine.Spy): AdminSitesComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminSitesComponent],
+      providers: [
+        { provide: ApiService, useValue: { get } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, show: () => 0 } },
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSitesComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminSitesComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  // A shapeless sparklines 200 ({} — no data[]) must NOT crash sortedRows() and
+  // must NOT fake-empty a row set. With no fallback list either, it surfaces the
+  // honest inline error card (routes through the same catch as a thrown 5xx).
+  it('a shapeless sparklines 200 (no data array) degrades to the inline error, never a fake-empty crash', async () => {
+    const c = makeWith(jasmine.createSpy('get').and.returnValue(of({})));
+    await expectAsync(c.reload()).toBeResolved(); // never throws
+    expect(c.rows().length).withContext('no rows fabricated from a shapeless body').toBe(0);
+    expect(() => c.sortedRows()).withContext('sortedRows must not crash on the guarded empty set').not.toThrow();
+    expect(c.error()).withContext('honest error, not a silent fake-empty').toContain('Could not load sites');
+    expect(c.syncedAt()).withContext('a shapeless body is not a successful sync').toBeNull();
+  });
+
+  // A non-array `data` (e.g. data:"oops") is the crash vector `?? []` can't catch —
+  // it would reach the spread/filter in sortedRows(). The guard treats it as an error.
+  it('a non-array sparklines `data` is treated as an error (never reaches the @for spread)', async () => {
+    const c = makeWith(jasmine.createSpy('get').and.returnValue(of({ data: 'oops' as never })));
+    await c.reload();
+    expect(Array.isArray(c.rows())).withContext('rows stays an array').toBeTrue();
+    expect(c.rows().length).toBe(0);
+    expect(() => c.sortedRows()).not.toThrow();
+    expect(c.error()).toContain('Could not load sites');
+  });
+
+  // The fallback /sites list is THE core sites list. A shapeless 200 there must
+  // stay an empty array (the heatmap empty/error UX covers it) — never a non-array
+  // (which would crash the fallback @for / .length), never a fabricated set.
+  it('a shapeless /sites fallback body keeps fallbackSites an empty array (no non-array, no fake-set)', async () => {
+    // /sites returns shapeless {}; /sites/sparklines returns a clean empty set.
+    const get = jasmine.createSpy('get').and.callFake((path: string) =>
+      path === '/sites' ? of({}) : of({ data: [] }),
+    );
+    const c = makeWith(get);
+    await c.reload();
+    expect(Array.isArray(c.fallbackSites())).withContext('fallbackSites is always an array').toBeTrue();
+    expect(c.fallbackSites().length).withContext('a shapeless body yields no fallback sites').toBe(0);
+  });
+
+  it('a non-array /sites `sites` field never reaches the fallback list (stays empty array)', async () => {
+    const get = jasmine.createSpy('get').and.callFake((path: string) =>
+      path === '/sites' ? of({ sites: 'not-an-array' as never }) : of({ data: [] }),
+    );
+    const c = makeWith(get);
+    await c.reload();
+    expect(Array.isArray(c.fallbackSites())).toBeTrue();
+    expect(c.fallbackSites().length).toBe(0);
+  });
+
+  // The happy path must stay intact: a well-shaped /sites list still populates the
+  // fallback set (the guard only rejects shapeless/non-array bodies, not real data).
+  it('a well-shaped /sites body still populates the fallback list (happy path intact)', async () => {
+    const get = jasmine.createSpy('get').and.callFake((path: string) =>
+      path === '/sites'
+        ? of({ sites: [{ id: 's1', slug: 'acme', name: 'Acme' }] })
+        : of({ data: [] }),
+    );
+    const c = makeWith(get);
+    await c.reload();
+    expect(c.fallbackSites().map((s) => s.id)).toEqual(['s1']);
+  });
+});
+
+/**
+ * Keyboard focus visibility (WCAG 2.4.7 / 2.4.11): every interactive element in
+ * the table — the site-name routerLink and the live-site host link — must show a
+ * cyan focus-visible ring when tabbed to, parity with the sortable headers, the
+ * filter input, and the Refresh button.
+ */
+describe('AdminSitesComponent (row-link focus ring)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('the site-name + host row links carry a focus-visible cyan ring', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminSitesComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: [], sites: [] }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, show: () => 0 } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSitesComponent);
+    fx.detectChanges();
+    fx.componentInstance.rows.set([
+      {
+        site_id: 's1',
+        slug: 'acme',
+        business_name: 'Acme',
+        composite_score: 88,
+        daily: [],
+        latest: { lcp_ms: null, cls: null, inp_ms: null, lh_perf: null, captured_at: null },
+      },
+    ] as never);
+    fx.componentInstance.loading.set(false);
+    fx.detectChanges();
+    const host = fx.nativeElement as HTMLElement;
+    const links = Array.from(host.querySelectorAll('tbody a')) as HTMLAnchorElement[];
+    expect(links.length).withContext('both row links rendered').toBeGreaterThanOrEqual(2);
+    for (const a of links) {
+      expect(a.className)
+        .withContext('every row link has the cyan focus-visible ring')
+        .toContain('focus-visible:outline-[var(--ps-accent)]');
+    }
+  });
+});

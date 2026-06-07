@@ -283,6 +283,17 @@ export class SiteBranchesComponent implements OnInit {
         return of({ branches: [] as Branch[] });
       }))
       .subscribe((res) => {
+        // Guard the success-path list-set: ApiService only remaps 2xx→404 when the
+        // body fails to parse. A STALE worker route returning a parseable-but-shapeless
+        // 200 (SPA/marketing HTML coerced to {}, or a bare {}) flows straight through —
+        // without this guard it fake-empties "No branches yet" (masking a broken route)
+        // or crashes the @for/.length on a non-array. Degrade honestly into the error
+        // card instead. See [[stale-route fake-empty]] + site-features sibling.
+        if (!res || !Array.isArray(res.branches)) {
+          this.loadError.set('Branches are temporarily unavailable — please retry.');
+          this.loading.set(false);
+          return;
+        }
         this.branches.set(res.branches);
         this.loading.set(false);
       });

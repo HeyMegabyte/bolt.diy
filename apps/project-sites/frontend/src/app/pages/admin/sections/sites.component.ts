@@ -109,7 +109,8 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
           @for (s of fallbackSites(); track s.id) {
             <li class="px-4 py-3">
               <a [routerLink]="['/admin/sites', s.id]"
-                 class="text-white font-medium hover:text-[var(--ps-accent)] inline-flex items-center min-h-[24px]">
+                 [attr.title]="s.name || s.slug"
+                 class="text-white font-medium hover:text-[var(--ps-accent)] inline-flex items-center min-h-[24px] rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]">
                 {{ s.name || s.slug }}
               </a>
               <span class="text-[0.75rem] text-white/50 ml-2">{{ s.slug }}.projectsites.dev</span>
@@ -199,12 +200,12 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
                     <div class="flex flex-col">
                       <a [routerLink]="['/admin/sites', r.site_id]"
                          [attr.title]="r.business_name || r.slug"
-                         class="text-white font-medium truncate max-w-[260px] hover:text-[var(--ps-accent)] inline-flex items-center min-h-[24px]">
+                         class="text-white font-medium truncate max-w-[260px] hover:text-[var(--ps-accent)] inline-flex items-center min-h-[24px] rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]">
                         {{ r.business_name || r.slug }}
                       </a>
                       <a [href]="'https://' + r.slug + '.projectsites.dev'" target="_blank" rel="noopener"
                          [attr.title]="r.slug + '.projectsites.dev'"
-                         class="text-[0.7rem] text-white/50 hover:text-[var(--ps-accent)] truncate inline-flex items-center min-h-[24px]">
+                         class="text-[0.7rem] text-white/50 hover:text-[var(--ps-accent)] truncate inline-flex items-center min-h-[24px] rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)]">
                         {{ r.slug }}.projectsites.dev
                       </a>
                     </div>
@@ -278,13 +279,27 @@ export class AdminSitesComponent implements OnInit {
       .get<{ sites?: Array<{ id: string; slug: string; name: string }> }>('/sites', undefined, { silent: true })
       .subscribe({
         error: () => this.fallbackSites.set([]),
-        next: (res) => this.fallbackSites.set(res.sites ?? []),
+        // Shape guard on the CORE sites list: a STALE /sites route (or an
+        // SPA-fallthrough that happens to parse) can 200 with a body lacking the
+        // sites[] array. `?? []` would fake-empty "No sites yet" over an org that
+        // owns sites, OR a non-array `sites` would crash the fallback @for / .length.
+        // Treat a shapeless 200 as no fallback list (the heatmap error/empty UX
+        // covers it) — never set a non-array, never silently fake-empty.
+        next: (res) => this.fallbackSites.set(res && Array.isArray(res.sites) ? res.sites : []),
       });
     try {
       const res = await firstValueFrom(
         this.api.get<{ data: SiteSparkline[] }>('/sites/sparklines', { days: '30' }, { silent: true }),
       );
-      this.rows.set(res.data ?? []);
+      // Shape guard: a shapeless 200 (misroute / SPA-fallthrough) parses but
+      // lacks the data[] array. `?? []` only catches null/undefined — a non-array
+      // `data` would reach sortedRows()'s spread/filter and throw. Treat an
+      // unexpected shape as a thrown error so it routes through the same
+      // fallback-list-or-inline-error path below, never a fake-empty/crash.
+      if (!res || !Array.isArray(res.data)) {
+        throw new Error('Sites response was unexpected (no metrics array)');
+      }
+      this.rows.set(res.data);
       this.syncedAt.set(Date.now());
     } catch (err) {
       // Sparklines may not be populated for a brand-new org. Silently fall
