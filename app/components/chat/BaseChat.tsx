@@ -360,6 +360,15 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       setApiKeys(newApiKeys);
       Cookies.set('apiKeys', JSON.stringify(newApiKeys));
 
+      // Embedded mode (projectsites.dev admin iframe) hides the model picker /
+      // API-key manager, and the static editor deploy 404s on `/api/models/*`,
+      // logging an un-suppressable "Failed to load resource: 404" in the parent
+      // admin console. Skip the per-provider refresh when embedded — mirrors the
+      // `/api/models` guard above so the whole model-fetch class is closed.
+      if (isEmbedded) {
+        return;
+      }
+
       setIsModelLoading(providerName);
 
       let providerModels: ModelInfo[] = [];
