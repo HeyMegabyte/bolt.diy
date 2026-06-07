@@ -1,4 +1,5 @@
 import { Component, inject, signal, computed, type OnInit } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { DatePipe, CurrencyPipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
@@ -1454,6 +1455,8 @@ export class AdminBillingComponent implements OnInit {
   private toast = inject(ToastService);
   private confirmSvc = inject(ConfirmService);
   private telemetry = inject(TelemetryService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
   credits = signal<CreditState | null>(null);
 
   /** 30-day forecast loaded from `/admin/forecast/cost` (#95). */
@@ -1486,7 +1489,18 @@ export class AdminBillingComponent implements OnInit {
   /** Currently active tab id. */
   activeTab = signal<string>('subscription');
 
-  setTab(id: string): void { this.activeTab.set(id); }
+  setTab(id: string): void {
+    this.activeTab.set(id);
+    // Deep-linkable / bookmarkable billing tabs (e.g. share a link straight to
+    // Usage or Affiliates). replaceUrl = no back-button spam; merge = keep other
+    // params. SPA nav, never a reload.
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: id },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
 
   // ── Subscription tab signals ──
 
@@ -2039,7 +2053,14 @@ export class AdminBillingComponent implements OnInit {
     return typeof v === 'number' ? v : Number(v) || 0;
   }
 
-  ngOnInit(): void { this.loadAll(); this.loadTabData(); }
+  ngOnInit(): void {
+    // Open the tab named in ?tab= (validated against billingTabs; unknown →
+    // default 'subscription') BEFORE loading so the right tab's data loads first.
+    const t = this.route.snapshot.queryParamMap.get('tab');
+    if (t && this.billingTabs.some((x) => x.id === t)) this.activeTab.set(t);
+    this.loadAll();
+    this.loadTabData();
+  }
 
   /**
    * Insert a ripple span at the click coordinates and remove it when the

@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AdminBillingComponent } from './billing.component';
 import { AdminStateService } from '../admin-state.service';
@@ -57,6 +58,8 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
     TestBed.configureTestingModule({
       imports: [AdminBillingComponent],
       providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: ApiService, useValue: apiStub },
         { provide: AdminStateService, useValue: { sites: signal([]) } },
         {
@@ -230,6 +233,8 @@ describe('AdminBillingComponent (per-site cap input accessible names)', () => {
     TestBed.configureTestingModule({
       imports: [AdminBillingComponent],
       providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: ApiService, useValue: apiStub },
         { provide: AdminStateService, useValue: { sites: signal(sites) } },
         { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
@@ -278,6 +283,8 @@ describe('AdminBillingComponent (Stripe Connect onboard — useful error, not ge
     TestBed.configureTestingModule({
       imports: [AdminBillingComponent],
       providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: ApiService, useValue: {
           get: () => of({ data: {} }), post: postSpy, put: () => of({ data: {} }), delete: () => of({ ok: true }),
           getCostForecast: () => of({ data: { projected_usd: 0, current_period_usd: 0, rolling_daily_avg: 0, days_until_cap_hit: null, plan_cap_usd: 0, percent_of_cap: 0, daily: [], breakdown: [] } }),
@@ -325,6 +332,8 @@ describe('AdminBillingComponent (upgrade checkout is {silent})', () => {
     TestBed.configureTestingModule({
       imports: [AdminBillingComponent],
       providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: ApiService, useValue: { get: () => of({ data: {} }), post, put: () => of({}), delete: () => of({}) } },
         { provide: AdminStateService, useValue: { sites: signal([]) } },
         { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0 } },
@@ -335,5 +344,57 @@ describe('AdminBillingComponent (upgrade checkout is {silent})', () => {
     const c = TestBed.createComponent(AdminBillingComponent).componentInstance;
     c.upgrade();
     expect(post).toHaveBeenCalledWith('/billing/checkout', { plan: 'pro' }, { silent: true });
+  });
+});
+
+/**
+ * Deep-linkable billing tabs — `?tab=usage` opens that tab (bookmarkable/shareable),
+ * unknown values fall back to the default, and a tab click reflects in the URL
+ * (replaceUrl + merge, SPA no-reload). Mirrors the site-detail tab pattern.
+ */
+describe('AdminBillingComponent (deep-linkable tabs)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function mk(tabParam: string | null): { c: AdminBillingComponent; nav: jasmine.Spy } {
+    const nav = jasmine.createSpy('navigate').and.resolveTo(true);
+    // Permissive stub: ngOnInit's loadAll/loadTabData call many ApiService methods
+    // (getCostForecast, etc.); a Proxy returns a safe observable for ANY method so
+    // these deep-link tests focus on tab state, not the data-load shapes.
+    const safe = () => of({ data: [], rows: [], ledger: [], subscription: null, plan: 'free', ok: true, entitlements: { sites: 0, storage_gb: 0, seats: 0 } });
+    const apiStub = new Proxy({}, { get: () => jasmine.createSpy().and.callFake(safe) });
+    TestBed.configureTestingModule({
+      imports: [AdminBillingComponent],
+      providers: [
+        { provide: Router, useValue: { navigate: nav } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: (k: string) => (k === 'tab' ? tabParam : null) } } } },
+        { provide: ApiService, useValue: apiStub },
+        { provide: AdminStateService, useValue: { sites: signal([]) } },
+        { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
+        { provide: TelemetryService, useValue: { track: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminBillingComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(AdminBillingComponent).componentInstance;
+    c.ngOnInit(); // reads ?tab=
+    return { c, nav };
+  }
+
+  it('opens the tab named in ?tab= (deep-link / bookmark)', () => {
+    expect(mk('usage').c.activeTab()).toBe('usage');
+  });
+
+  it('ignores an unknown ?tab= value (falls back to the default subscription tab)', () => {
+    expect(mk('bogus').c.activeTab()).toBe('subscription');
+  });
+
+  it('setTab reflects the tab in the URL (bookmarkable: replaceUrl + merge)', () => {
+    const { c, nav } = mk(null);
+    c.setTab('affiliates');
+    expect(c.activeTab()).toBe('affiliates');
+    const opts = nav.calls.mostRecent().args[1] as { queryParams: unknown; replaceUrl: boolean; queryParamsHandling: string };
+    expect(opts.queryParams).toEqual({ tab: 'affiliates' });
+    expect(opts.replaceUrl).toBeTrue();
+    expect(opts.queryParamsHandling).toBe('merge');
   });
 });
