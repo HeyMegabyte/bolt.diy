@@ -21,6 +21,42 @@ This means:
 
 ---
 
+## Two-layer control plane (UI architecture)
+
+Feature flags surface on **two layers**, each its own route + audience:
+
+### Layer 1 — System Administrator (`/admin/feature-flags`)
+Platform-operations flags for the super-admin (`AdminFeatureFlagsComponent`):
+- Lists every registry flag with status / scope / risk badges, owner, rollout, stage.
+- **Progressive disclosure** (persisted in `localStorage`): **Simple** (cards + toggle +
+  rollout + one-line "why") → **Advanced** (targeting / rollout slider / scheduling) →
+  **Expert** (raw key, JSON payload editor — invalid-JSON / non-object / no-recognized-fields
+  all bail with a `role=alert`; evaluation trace killswitch→global→rollout→result; per-flag
+  audit-history timeline; blast-radius; admin payload editor).
+- **Dangerous changes** (kill-switch-on, global-enable-from-off, ≥25-pt rollout jump per
+  `classifyChange`) route through a confirm panel demanding a typed reason (≥4 chars → audit
+  trail) + blast radius + rollback plan. **Emergency console** kills every non-stable,
+  non-core flag in one reasoned sweep (`killAllNonStable` — never touches `stable`/`core_`).
+
+### Layer 2 — Features (`/admin/site-features`)
+Owner-facing, SITE/tenant-scoped features a site owner enables for THEIR hosted site
+(e.g. Online Booking for megabyte.space) — `AdminSiteFeaturesComponent`:
+- Plan-aware feature cards + one-line "why" + toggle + entitlement-locked states
+  (upgrade / add-on — never a broken toggle) + preview mode + undo.
+- Plan-gated via `entitlementFor({plan, requiredPlan, isAddon})` →
+  `available | upgrade-required | addon-required`; the worker re-checks entitlement +
+  tenant-isolates on `POST /api/site-features/:key`.
+
+Shared logic: `sections/feature-flags/flag-logic.ts` (bucketing, rollout, evaluation trace,
+`classifyChange`, `validateConstraints`, `entitlementFor`) — tested by `flag-logic.spec.ts`
+(35) + component specs (feature-flags 30, site-features 11) + `admin-flag-control-plane.spec.ts`
+E2E (27).
+
+> **Not yet built (worker-backed, tracked):** quota controls, multi-user approval workflow,
+> A/B experiments (only the `experimental` *stage* exists today), auto-rollback.
+
+---
+
 ## D1 schema
 
 Three tables added by `migrations/0500_feature_flags_and_services.sql`:
