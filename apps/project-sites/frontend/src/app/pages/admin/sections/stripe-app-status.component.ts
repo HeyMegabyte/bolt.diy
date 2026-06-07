@@ -92,6 +92,17 @@ interface Summary {
         <app-inline-error tone="error" data-testid="stripe-app-load-error" [message]="loadError()!" (retry)="refresh()" />
       }
 
+      <!-- Cyan KPI skeleton while the first summary is in flight (flag on, no
+           data/error yet) — never a blank panel, and the grid below pops in
+           without a layout shift since the skeleton mirrors its 4-up layout. -->
+      @if (!notFound() && loading() && !summary() && !loadError()) {
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-3" data-testid="stripe-app-skeleton" aria-busy="true" aria-label="Loading installation analytics">
+          @for (i of [0,1,2,3]; track i) {
+            <div class="kpi"><div class="sk-line sk-line--label"></div><div class="sk-line sk-line--value"></div></div>
+          }
+        </section>
+      }
+
       @if (!notFound() && summary()) {
         <section class="grid grid-cols-2 md:grid-cols-4 gap-3" appReveal>
           <div class="kpi">
@@ -171,6 +182,11 @@ interface Summary {
       .kpi { background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.06); border-radius: 12px; padding: 14px 16px; }
       .kpi-label { font-size: 0.7rem; color: rgba(244,244,255,.55); }
       .kpi-value { font-size: 1.15rem; color: var(--ps-ink, #f4f4ff); font-weight: 600; margin-top: 4px; }
+      .sk-line { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 14%, transparent); border-radius: 6px; animation: sk-pulse 1.3s ease-in-out infinite; }
+      .sk-line--label { height: 0.7rem; width: 60%; }
+      .sk-line--value { height: 1.15rem; width: 45%; margin-top: 6px; }
+      @keyframes sk-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) { .sk-line { animation: none; } }
       .empty-card { background: rgba(255,255,255,.02); border: 1px dashed rgba(255,255,255,.08); border-radius: 12px; padding: 16px 18px; }
       .source-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
       .source-list li { display: grid; grid-template-columns: 100px 1fr 60px; gap: 12px; align-items: center; font-size: 0.78rem; color: rgba(244,244,255,.7); }

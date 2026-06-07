@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, throwError, NEVER } from 'rxjs';
 import { AdminStripeAppStatusComponent } from './stripe-app-status.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -119,5 +119,32 @@ describe('AdminStripeAppStatusComponent (silent summary read — no double-toast
     TestBed.overrideComponent(AdminStripeAppStatusComponent, { set: { template: '<div></div>', imports: [] } });
     TestBed.createComponent(AdminStripeAppStatusComponent);
     expect(get).toHaveBeenCalledWith('/stripe-app/summary', undefined, { silent: true });
+  });
+});
+
+/**
+ * Full-render: while the flag is ON and the summary fetch is in flight, the
+ * panel must show a cyan loading skeleton (not a blank panel) so the KPI grid
+ * doesn't pop in with a layout shift.
+ */
+describe('AdminStripeAppStatusComponent (loading skeleton)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('renders a cyan KPI skeleton while the summary loads (flag on, no data yet)', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminStripeAppStatusComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => NEVER } }, // never resolves → loading stays true
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(true) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminStripeAppStatusComponent);
+    fx.detectChanges();
+    const host = fx.nativeElement as HTMLElement;
+    expect(host.querySelector('[data-testid="stripe-app-skeleton"]')).withContext('skeleton shows during load').not.toBeNull();
+    // The real KPI grid (driven by summary()) is NOT shown yet.
+    expect(fx.componentInstance.summary()).toBeNull();
   });
 });
