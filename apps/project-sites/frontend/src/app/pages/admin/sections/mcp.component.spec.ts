@@ -149,6 +149,52 @@ describe('AdminMcpComponent — submitPaste in-flight guard (no double-submit)',
   });
 });
 
+/**
+ * OAuth connect double-submit + busy-affordance guard. "Connect via OAuth" fires
+ * a full-page `window.location.href` redirect; without a guard a double-click (or
+ * a slow browser unload) triggers TWO navigations, and the button gives no
+ * "Connecting…" / aria-busy feedback while the redirect is pending. The
+ * `connectingProvider` signal gates re-entry + drives the busy affordance,
+ * mirroring the paste/disconnect in-flight pattern.
+ */
+describe('AdminMcpComponent — OAuth connect in-flight guard (no double-redirect)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function make(): { c: AdminMcpComponent; nav: jasmine.Spy } {
+    const nav = jasmine.createSpy('navigate');
+    TestBed.configureTestingModule({
+      imports: [AdminMcpComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: { connections: [] } }), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminMcpComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(AdminMcpComponent).componentInstance;
+    // Stub the redirect so the test runner doesn't actually navigate away.
+    (c as unknown as { redirectTo: (url: string) => void }).redirectTo = nav;
+    return { c, nav };
+  }
+
+  it('a second OAuth connect of the same provider does NOT fire a second redirect', () => {
+    const { c, nav } = make();
+    c.connect('stripe');
+    expect(c.isConnecting('stripe')).withContext('first connect marks in-flight').toBeTrue();
+    c.connect('stripe'); // user double-clicks "Connect via OAuth"
+    expect(nav).withContext('the in-flight guard blocks the 2nd redirect').toHaveBeenCalledTimes(1);
+    expect(nav).toHaveBeenCalledWith('/api/mcp/stripe/connect?site_id=s1&return_url=/admin/mcp');
+  });
+
+  it('paste-flow providers do NOT mark an OAuth connecting state', () => {
+    const { c, nav } = make();
+    c.connect('resend'); // resend is paste-key, not OAuth
+    expect(c.isConnecting('resend')).withContext('paste flow opens inline, no redirect').toBeFalse();
+    expect(nav).not.toHaveBeenCalled();
+    expect(c.pasteMode()).toBe('resend');
+  });
+});
+
 import { NEVER } from 'rxjs';
 
 /**

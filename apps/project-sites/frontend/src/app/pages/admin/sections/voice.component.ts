@@ -241,6 +241,13 @@ export class VoiceComponent implements OnInit {
   }
 
   setTab(id: VoiceTab): void {
+    // Re-selecting the already-active tab is a no-op — early-return so we don't
+    // fire a redundant router.navigate() (or localStorage write). Without this,
+    // clicking the active tab, pressing Home/End at a boundary, or holding an
+    // arrow key while it wraps spams a replaceUrl navigation per keystroke for
+    // zero state change. Same "re-entry is a no-op" instinct as a mutation
+    // double-submit guard, applied to redundant navigation.
+    if (id === this.activeTab()) return;
     this.activeTab.set(id);
     try { localStorage.setItem('voice.activeTab', id); } catch { /* */ }
     // Reflect in the URL so a voice sub-view is bookmarkable/shareable

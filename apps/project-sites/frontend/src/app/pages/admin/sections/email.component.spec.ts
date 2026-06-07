@@ -228,6 +228,54 @@ describe('AdminEmailComponent (disconnect guard + error feedback)', () => {
 });
 
 /**
+ * submitConnect is the section's primary mutation. It only had a `[disabled]="saving()"`
+ * guard — which blocks the Connect *button* click but NOT the <form (submit)> path
+ * (Enter key fires the form submit even while the button is disabled), so a fast
+ * double-Enter / re-entrant call issued a SECOND createIntegration POST → duplicate
+ * integration. Every sibling mutation (disconnect) guards re-entry; this one must too.
+ */
+describe('AdminEmailComponent (connect double-submit guard)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function mk(createIntegration: jasmine.Spy): AdminEmailComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminEmailComponent],
+      providers: [
+        { provide: ApiService, useValue: { createIntegration, listFormSubmissions: () => of({ data: [] }), listIntegrations: () => of({ data: [] }), get: () => of({ data: [] }), post: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }), formatRelativeTime: () => 'now' } },
+      ],
+    });
+    TestBed.overrideComponent(AdminEmailComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminEmailComponent).componentInstance;
+  }
+  const plain = { id: 'mailchimp', name: 'Mailchimp', needsWebhookUrl: false } as never;
+
+  it('ignores a re-entrant submitConnect while one is in flight (no duplicate POST)', () => {
+    const create = jasmine.createSpy('createIntegration').and.returnValue(NEVER); // stays pending → saving() stays true
+    const c = mk(create);
+    c.connectingProvider.set(plain);
+    c.apiKey = 'k';
+    c.submitConnect(plain);
+    c.submitConnect(plain); // re-entrant (e.g. second Enter while button disabled)
+    expect(create).withContext('only one POST issued').toHaveBeenCalledTimes(1);
+    expect(c.saving()).withContext('still saving').toBeTrue();
+  });
+
+  it('allows a fresh submit after the prior one resolved', () => {
+    const create = jasmine.createSpy('createIntegration').and.returnValue(of({ data: { provider: 'mailchimp' } }));
+    const c = mk(create);
+    c.connectingProvider.set(plain);
+    c.apiKey = 'k';
+    c.submitConnect(plain);         // completes synchronously → saving() back to false
+    expect(c.saving()).toBeFalse();
+    c.connectingProvider.set(plain);
+    c.submitConnect(plain);         // a genuine second connect must go through
+    expect(create).withContext('second genuine submit goes through').toHaveBeenCalledTimes(2);
+  });
+});
+
+/**
  * toggleActive (pause/resume) is a mutation with no component error handler — a
  * failure should surface a specific toast, not rely solely on the generic one.
  */

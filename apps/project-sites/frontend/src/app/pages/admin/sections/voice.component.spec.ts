@@ -159,4 +159,39 @@ describe('VoiceComponent (cyan/black cohesion + a11y)', () => {
       expect(prevent).withContext('native shortcut must not be blocked').not.toHaveBeenCalled();
     }
   });
+
+  // Re-selecting the already-active tab is a no-op: setTab must early-return so
+  // it does NOT fire a redundant router.navigate() (and redundant localStorage
+  // write). Without the guard, pressing Home while already on the first tab, or
+  // holding an arrow key at a wrap boundary, or clicking the active tab, spams
+  // a replaceUrl navigation per keystroke for zero state change. This is the
+  // same "re-entry is a no-op" discipline as the mutation double-submit guard,
+  // applied to redundant navigation.
+  it('setTab() is a no-op when the tab is already active (no redundant router.navigate)', () => {
+    build({ id: 's1', business_name: 'Vito Salon' });
+    const cmp = fixture.componentInstance;
+    expect(cmp.activeTab()).toBe('numbers');
+    navigate.calls.reset();
+
+    // Re-select the current tab → must NOT navigate again.
+    cmp.setTab('numbers');
+    expect(cmp.activeTab()).toBe('numbers');
+    expect(navigate).withContext('re-selecting the active tab must not re-navigate').not.toHaveBeenCalled();
+
+    // A genuine change still navigates exactly once.
+    cmp.setTab('agent');
+    expect(cmp.activeTab()).toBe('agent');
+    expect(navigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('onTabKey Home on the first tab does not fire a redundant navigation', () => {
+    build({ id: 's1', business_name: 'Vito Salon' });
+    const cmp = fixture.componentInstance;
+    expect(cmp.activeTab()).toBe('numbers');
+    navigate.calls.reset();
+    // Already on the first tab → Home is a no-op move → no navigation.
+    cmp.onTabKey(new KeyboardEvent('keydown', { key: 'Home' }));
+    expect(cmp.activeTab()).toBe('numbers');
+    expect(navigate).withContext('Home on the first tab must not re-navigate').not.toHaveBeenCalled();
+  });
 });

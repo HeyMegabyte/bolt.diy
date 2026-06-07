@@ -223,7 +223,7 @@ const PROVIDERS: ProviderMeta[] = [
               }
               <div class="flex justify-end gap-2 mt-2">
                 <button type="button" class="btn-ghost text-sm cursor-pointer" (click)="cancelConnect()">Cancel</button>
-                <button type="submit" class="btn-accent text-sm cursor-pointer" [disabled]="saving() || webhookUrlInvalid()">{{ saving() ? 'Saving...' : 'Connect' }}</button>
+                <button type="submit" class="btn-accent text-sm cursor-pointer" [disabled]="saving() || webhookUrlInvalid()" [attr.aria-busy]="saving()">{{ saving() ? 'Saving…' : 'Connect' }}</button>
               </div>
             </form>
           </app-dialog-shell>
@@ -421,6 +421,7 @@ export class AdminEmailComponent implements OnInit {
   }
 
   submitConnect(provider: ProviderMeta): void {
+    if (this.saving()) return; // re-entry guard: <form (submit)> fires on Enter even while the button is [disabled], so a fast double-Enter would issue a second POST
     const site = this.state.selectedSite();
     if (!site) return;
     // The worker calls webhook_url server-side — reject non-https / internal

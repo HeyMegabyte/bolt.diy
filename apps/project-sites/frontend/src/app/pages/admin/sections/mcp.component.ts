@@ -153,9 +153,14 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
                 <button class="btn-primary mt-3 self-start mcp-connect"
                         type="button"
                         (click)="connect(p.id)"
+                        [disabled]="isConnecting(p.id)"
+                        [attr.aria-busy]="isConnecting(p.id)"
                         [attr.data-testid]="'mcp-connect-' + p.id"
                         [attr.aria-label]="'Connect ' + p.label">
-                  @if (p.oauth) {
+                  @if (isConnecting(p.id)) {
+                    <svg class="mcp-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                    <span>Connecting…</span>
+                  } @else if (p.oauth) {
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                     <span>Connect via OAuth</span>
                   } @else {
@@ -274,6 +279,9 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
     }
 
     .mcp-connect { min-height: 32px; }
+    .mcp-spin { animation: mcp-spin 0.7s linear infinite; }
+    @keyframes mcp-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .mcp-spin { animation: none; } }
 
     /* Translucent loading skeleton */
     .skel {
@@ -338,6 +346,10 @@ export class AdminMcpComponent implements OnInit {
   pastedKey = '';
   /** In-flight guard for the paste-key save — blocks double-submit + drives the "Saving…" affordance. */
   readonly pasting = signal(false);
+  /** Provider with an in-flight OAuth redirect — guards against a double-navigation
+   *  + drives the "Connecting…" / aria-busy affordance on the OAuth connect button. */
+  readonly connectingProvider = signal<string | null>(null);
+  isConnecting(provider: string): boolean { return this.connectingProvider() === provider; }
   loading = signal(false);
 
   /** Count of currently-connected providers — drives the header status pill. */
@@ -389,8 +401,17 @@ export class AdminMcpComponent implements OnInit {
     const meta = this.providers.find((p) => p.id === provider);
     // Providers without OAuth (currently: Resend) get the inline paste flow.
     if (meta && !meta.oauth) { this.pasteMode.set(provider); this.pastedKey = ''; return; }
-    window.location.href = `/api/mcp/${provider}/connect?site_id=${s.id}&return_url=/admin/mcp`;
+    // In-flight guard: a 2nd click (or a slow browser unload) must not fire a
+    // second navigation. The signal also drives the "Connecting…" + aria-busy
+    // affordance so the button never looks idle while the redirect is pending.
+    if (this.connectingProvider()) return;
+    this.connectingProvider.set(provider);
+    this.redirectTo(`/api/mcp/${provider}/connect?site_id=${s.id}&return_url=/admin/mcp`);
   }
+
+  /** Seam for the full-page OAuth redirect — overridable in tests so the runner
+   *  doesn't actually navigate away. */
+  protected redirectTo(url: string): void { window.location.href = url; }
 
   cancelPaste(): void {
     this.pasteMode.set(null);
