@@ -1,8 +1,30 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { of } from 'rxjs';
+import { of, NEVER } from 'rxjs';
 import { AdminDocsComponent, renderMarkdown, highlightJson, type OpenApiSpec } from './docs.component';
 import { ApiService } from '../../../services/api.service';
+
+/**
+ * The header Refresh button matches the rest of /admin: it announces aria-busy
+ * while the spec re-fetches and reads "Refreshing…" (not a bare "…" ellipsis a
+ * screen reader can't interpret). A NEVER api leaves specService.loading() true.
+ */
+describe('AdminDocsComponent (Refresh button busy state — cohesion + a11y)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('the spec Refresh button binds aria-busy and reads "Refreshing…" while loading', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminDocsComponent],
+      providers: [provideRouter([{ path: '**', children: [] }]), { provide: ApiService, useValue: { get: () => NEVER } }],
+    });
+    const f = TestBed.createComponent(AdminDocsComponent);
+    f.detectChanges(); // ngOnInit → specService.load() → loading stays true (NEVER)
+    const btn = (f.nativeElement as HTMLElement).querySelector('button.docs-refresh') as HTMLButtonElement;
+    expect(btn).withContext('Refresh button renders in the header').not.toBeNull();
+    expect(btn.getAttribute('aria-busy')).withContext('busy state announced to AT').toBe('true');
+    expect(btn.textContent ?? '').withContext('a real busy label, not a bare ellipsis').toContain('Refreshing…');
+  });
+});
 
 /**
  * highlightJson renders LIVE API response bodies (untrusted — a response can echo

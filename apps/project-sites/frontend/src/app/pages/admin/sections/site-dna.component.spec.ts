@@ -58,6 +58,21 @@ describe('AdminSiteDnaComponent (taste pulse + a11y)', () => {
     expect(link.getAttribute('href')).toBe('/admin/feature-flags');
   });
 
+  // The icon-only Refresh button (↻) keeps its constant aria-label, but a screen
+  // reader also needs the in-progress state — aria-busy — while history reloads.
+  // Cohesion with the rest of /admin's Refresh affordances.
+  it('the ↻ Refresh button announces aria-busy while the feedback history reloads', () => {
+    build(true);
+    const btn = fixture.nativeElement.querySelector('.dna-refresh-btn[aria-label="Refresh feedback history"]') as HTMLButtonElement;
+    expect(btn).withContext('icon refresh button renders when the flag is on').toBeTruthy();
+    component.loading.set(true);
+    fixture.detectChanges();
+    expect(btn.getAttribute('aria-busy')).withContext('busy state announced to AT during reload').toBe('true');
+    component.loading.set(false);
+    fixture.detectChanges();
+    expect(btn.getAttribute('aria-busy')).withContext('busy clears when idle').toBe('false');
+  });
+
   it('computes accept ratio as a whole-number percent of all signals', () => {
     build(true);
     component.history.set([

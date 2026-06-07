@@ -205,7 +205,7 @@ interface DnaPrefsResp {
         <div class="dna-table-wrap" appReveal tabindex="0" role="region" aria-label="Feedback history — scroll horizontally" data-testid="dna-table-scroll">
           <div class="dna-table-hdr">
             <span class="dna-section-label">Recent feedback</span>
-            <button class="dna-refresh-btn" (click)="load()" [disabled]="loading()" aria-label="Refresh feedback history">
+            <button class="dna-refresh-btn" (click)="load()" [disabled]="loading()" [attr.aria-busy]="loading()" aria-label="Refresh feedback history">
               {{ loading() ? '…' : '↻' }}
             </button>
           </div>
