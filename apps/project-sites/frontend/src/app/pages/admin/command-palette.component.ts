@@ -30,6 +30,7 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { AiSparkComponent } from '../../components/ai-spark/ai-spark.component';
 import { AdminStateService } from './admin-state.service';
 import { ToastService } from '../../services/toast.service';
 import { ApiService } from '../../services/api.service';
@@ -61,7 +62,7 @@ interface DocsEndpoint {
 @Component({
   selector: 'app-command-palette',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, AiSparkComponent],
   template: `
     @if (open()) {
       <div class="cp-overlay" (click)="close()" tabindex="-1">
@@ -126,7 +127,7 @@ interface DocsEndpoint {
                       role="option"
                       [attr.data-testid]="'palette-ai-hit-' + hit.entity"
                       (click)="openAiHit(hit)">
-                      <span class="cp-icon" aria-hidden="true">✨</span>
+                      <app-ai-spark class="cp-icon" />
                       <span class="cp-title-wrap">
                         <span class="cp-title">{{ hit.title }}</span>
                         @if (hit.description) { <span class="cp-desc">{{ hit.description }}</span> }

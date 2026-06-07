@@ -25,6 +25,7 @@ import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../.
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { EmptyStateComponent } from '../../../components/states';
 import { ChannelIconComponent } from '../../../components/channel-icon/channel-icon.component';
+import { AiSparkComponent } from '../../../components/ai-spark/ai-spark.component';
 
 interface VisitorIdentity {
   id: string;
@@ -77,7 +78,7 @@ const STATUS_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-inbox',
   standalone: true,
-  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, EmptyStateComponent, ChannelIconComponent],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, EmptyStateComponent, ChannelIconComponent, AiSparkComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="inbox-shell" appReveal>
@@ -254,7 +255,7 @@ const STATUS_COLORS: Record<string, string> = {
                 </textarea>
                 <div class="inbox-reply-actions">
                   <button class="inbox-btn-secondary" (click)="generateDraft()" [disabled]="draftLoading()">
-                    {{ draftLoading() ? 'Drafting…' : '✨ AI Draft' }}
+                    @if (draftLoading()) { Drafting… } @else { <app-ai-spark /> AI Draft }
                   </button>
                   <button class="inbox-btn-primary" (click)="sendReply()" [disabled]="replySending() || !replyBody.trim()">
                     {{ replySending() ? 'Sending…' : 'Send ↗' }}

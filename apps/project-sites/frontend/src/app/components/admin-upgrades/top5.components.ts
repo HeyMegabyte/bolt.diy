@@ -23,6 +23,7 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { AdminUpgradesService } from '../../services/admin-upgrades.service';
 import { PromptService } from '../../services/prompt.service';
+import { AiSparkComponent } from '../ai-spark/ai-spark.component';
 
 // Shared flag-resolver — gracefully degrades when API unreachable
 async function flagOn(http: HttpClient, key: string): Promise<boolean> {
@@ -352,12 +353,12 @@ interface PredictedAction {
 @Component({
   selector: 'app-predicted-actions',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, AiSparkComponent],
   template: `
     @if (enabled() && predictions().length > 0) {
       <section class="pa-panel" data-upgrade="r2-21" [attr.aria-label]="'Predicted next actions'">
         <header>
-          <span class="pa-icon" aria-hidden="true">✨</span>
+          <app-ai-spark class="pa-icon" />
           <strong>Predicted next</strong>
           <span class="pa-sub">— based on your patterns</span>
         </header>
