@@ -255,6 +255,10 @@ export class VoiceComponent implements OnInit {
 
   /** Left/Right arrow nav between tabs per WCAG 2.2 tab-list pattern. */
   onTabKey(ev: KeyboardEvent): void {
+    // Let native browser/OS gestures win — Alt/Cmd+Left (back), Cmd+Right
+    // (forward), Ctrl+arrow shortcuts. Only bare arrows drive the tablist, so
+    // a keyboard user's history navigation isn't swallowed while focus is here.
+    if (ev.altKey || ev.metaKey || ev.ctrlKey || ev.shiftKey) return;
     if (ev.key !== 'ArrowRight' && ev.key !== 'ArrowLeft' && ev.key !== 'Home' && ev.key !== 'End') return;
     ev.preventDefault();
     const ids = TABS.map((t) => t.id);

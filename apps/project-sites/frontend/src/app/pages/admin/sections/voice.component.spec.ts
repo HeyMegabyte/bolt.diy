@@ -140,4 +140,23 @@ describe('VoiceComponent (cyan/black cohesion + a11y)', () => {
     cmp.onTabKey(new KeyboardEvent('keydown', { key: 'Home' }));
     expect(cmp.activeTab()).toBe('numbers');
   });
+
+  // A modified arrow (Alt+Left / Cmd+Left browser-back, Cmd+Right forward,
+  // Ctrl+arrow OS shortcuts) must pass through untouched — the tablist must
+  // NOT hijack the keystroke (no preventDefault, no tab switch). Without the
+  // guard, a keyboard user's native browser/OS navigation gesture is swallowed
+  // while focus rests in the voice tab row.
+  it('ignores modified arrow keys so native browser/OS shortcuts pass through', () => {
+    build({ id: 's1', business_name: 'Vito Salon' });
+    const cmp = fixture.componentInstance;
+    expect(cmp.activeTab()).toBe('numbers');
+
+    for (const mod of [{ altKey: true }, { metaKey: true }, { ctrlKey: true }, { shiftKey: true }] as const) {
+      const ev = new KeyboardEvent('keydown', { key: 'ArrowRight', ...mod });
+      const prevent = spyOn(ev, 'preventDefault');
+      cmp.onTabKey(ev);
+      expect(cmp.activeTab()).withContext(`modified arrow (${JSON.stringify(mod)}) must not switch tabs`).toBe('numbers');
+      expect(prevent).withContext('native shortcut must not be blocked').not.toHaveBeenCalled();
+    }
+  });
 });

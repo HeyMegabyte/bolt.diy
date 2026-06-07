@@ -19,20 +19,27 @@ import { RevealDirective } from '../../../directives/reveal.directive';
       </div>
 
       <!-- Coverage summary strip (cyan/black UX win) -->
+      <!-- a11y: each stat is differentiated visually by colour (green/amber/cyan) + position
+           only. Each is exposed as its OWN labelled figure so AT announces "8 guaranteed SEO
+           checks" as one unit (number + colour-encoded meaning), with the inner counter + label
+           hidden so the figure isn't double-read (WCAG 1.3.1 / 1.4.1 / 4.1.2). -->
       <div class="seo-summary" appReveal role="group" aria-label="SEO coverage summary">
-        <div class="seo-summary-stat" data-numeric>
-          <span class="seo-summary-num seo-summary-pass"><app-rolling-counter [value]="guaranteedCount" [duration]="1100" /></span>
-          <span class="seo-summary-label">Guaranteed</span>
+        <div class="seo-summary-stat" data-numeric role="group"
+             [attr.aria-label]="guaranteedCount + ' guaranteed SEO checks'">
+          <span class="seo-summary-num seo-summary-pass" aria-hidden="true"><app-rolling-counter [value]="guaranteedCount" [duration]="1100" /></span>
+          <span class="seo-summary-label" aria-hidden="true">Guaranteed</span>
         </div>
         <div class="seo-summary-divider" aria-hidden="true"></div>
-        <div class="seo-summary-stat" data-numeric>
-          <span class="seo-summary-num seo-summary-review"><app-rolling-counter [value]="reviewCount" [duration]="1100" /></span>
-          <span class="seo-summary-label">To review</span>
+        <div class="seo-summary-stat" data-numeric role="group"
+             [attr.aria-label]="reviewCount + ' checks to review'">
+          <span class="seo-summary-num seo-summary-review" aria-hidden="true"><app-rolling-counter [value]="reviewCount" [duration]="1100" /></span>
+          <span class="seo-summary-label" aria-hidden="true">To review</span>
         </div>
         <div class="seo-summary-divider" aria-hidden="true"></div>
-        <div class="seo-summary-stat" data-numeric>
-          <span class="seo-summary-num seo-summary-total"><app-rolling-counter [value]="totalCount" [duration]="1100" /></span>
-          <span class="seo-summary-label">Checks</span>
+        <div class="seo-summary-stat" data-numeric role="group"
+             [attr.aria-label]="totalCount + ' SEO checks total'">
+          <span class="seo-summary-num seo-summary-total" aria-hidden="true"><app-rolling-counter [value]="totalCount" [duration]="1100" /></span>
+          <span class="seo-summary-label" aria-hidden="true">Checks</span>
         </div>
       </div>
 

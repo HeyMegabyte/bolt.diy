@@ -127,4 +127,51 @@ describe('AdminSeoComponent (cyan/black cohesion + a11y)', () => {
     // the OG-image area is a decorative mockup (no live asset) → hidden from SR
     expect(card!.querySelector('.social-card-img')?.getAttribute('aria-hidden')).toBe('true');
   });
+
+  /**
+   * WCAG 1.3.1 / 1.4.1 / 4.1.2 — the summary strip differentiates its three
+   * figures only by COLOR (green guaranteed / amber review / cyan total) and
+   * position. Each stat is a rolling counter (bare "8") next to a separate
+   * label span, so a screen reader heard a flat "8 Guaranteed 2 To review 10
+   * Checks" stream with no programmatic number↔meaning binding and no exposure
+   * of the colour-encoded status. Each stat must be a self-described figure
+   * (role=group + combined aria-label), with the inner number + label hidden
+   * from AT so the figure is announced exactly once. Mirrors the settings
+   * section's `.stat-val` aria-label pattern.
+   */
+  it('exposes each summary stat as a single labelled figure (number + meaning, not colour-only)', () => {
+    build({ business_name: 'Acme', slug: 'acme' });
+    const c = fixture.componentInstance;
+    const el: HTMLElement = fixture.nativeElement;
+    const stats = Array.from(el.querySelectorAll('.seo-summary .seo-summary-stat'));
+    expect(stats.length).toBe(3);
+
+    for (const stat of stats) {
+      expect(stat.getAttribute('role')).withContext('each stat is its own figure/group').toBe('group');
+      expect((stat.getAttribute('aria-label') ?? '').trim().length)
+        .withContext('combined accessible name present').toBeGreaterThan(0);
+    }
+
+    const names = stats.map((s) => (s.getAttribute('aria-label') ?? '').toLowerCase());
+    // Accessible name carries the COUNT + the MEANING — not colour alone.
+    expect(names[0]).toContain(String(c.guaranteedCount));
+    expect(names[0]).toContain('guaranteed');
+    expect(names[1]).toContain(String(c.reviewCount));
+    expect(names[1]).toContain('review');
+    expect(names[2]).toContain(String(c.totalCount));
+    expect(names[2]).toContain('check');
+  });
+
+  it('hides the inner counter + label from AT so each figure is announced once (no double-read)', () => {
+    build({ business_name: 'Acme', slug: 'acme' });
+    const el: HTMLElement = fixture.nativeElement;
+    const stats = Array.from(el.querySelectorAll('.seo-summary .seo-summary-stat'));
+    expect(stats.length).toBe(3);
+    for (const stat of stats) {
+      expect(stat.querySelector('.seo-summary-num')?.getAttribute('aria-hidden'))
+        .withContext('inner number hidden from AT').toBe('true');
+      expect(stat.querySelector('.seo-summary-label')?.getAttribute('aria-hidden'))
+        .withContext('inner label hidden from AT').toBe('true');
+    }
+  });
 });

@@ -79,6 +79,35 @@ describe('AdminContentFreshnessComponent (aggregate stat strip + cohesion)', () 
       .withContext('stat strip hidden when no drafts').toBeNull();
   }));
 
+  it('hides the aria-live stat strip during a reload so no stale count is announced', fakeAsync(() => {
+    build(DRAFTS); // page 1 lands: 2 drafts, total 2
+    tick();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.cf-stats'))
+      .withContext('strip visible once a page has loaded').not.toBeNull();
+
+    // Simulate a filter-change reload in flight: loading flips true while the
+    // PREVIOUS page's drafts/total are still in the signal. The aria-live strip
+    // must NOT keep announcing the stale count.
+    component.loading.set(true);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.cf-stats'))
+      .withContext('stat strip suppressed mid-reload (no stale announce)').toBeNull();
+  }));
+
+  it('hides the pending awaiting-approval badge during a reload', fakeAsync(() => {
+    build(DRAFTS, 2); // pending filter is the default → pending() === total === 2
+    tick();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.cf-badge'))
+      .withContext('awaiting-approval badge visible once loaded').not.toBeNull();
+
+    component.loading.set(true);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.cf-badge'))
+      .withContext('awaiting-approval badge suppressed mid-reload').toBeNull();
+  }));
+
   it('uses the --ps-success token (not a hard-coded hex) for the approve action', fakeAsync(() => {
     build(DRAFTS);
     tick();

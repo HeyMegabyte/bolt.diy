@@ -23,6 +23,13 @@
  * strip (`<app-rolling-counter>` for awaiting / avg-idle / avg-dwell across the
  * fetched page), tokenized the lone approve-button hex, and hardened a11y
  * (status-region for live counts, descriptive scroll-region label).
+ *
+ * Later round: gated the aria-live stat strip + the "awaiting approval" badge on
+ * `!loading()`. On a filter-change/refresh reload the previous page's
+ * `drafts()`/`total()` stay in their signals while `loading()` is true — so the
+ * definitive counts (and the `role=status aria-live=polite` strip) used to render
+ * a stale figure mid-reload and announce it to AT. They now disappear during the
+ * reload and reappear with the fresh page (the `premature-stat-during-load` class).
  */
 
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
@@ -88,7 +95,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
           <h1 class="cf-h1">Content Freshness</h1>
           <p class="cf-sub">
             Sections idle >90 days with low dwell are automatically rewritten by AI.
-            @if (pending() > 0) {
+            @if (!loading() && pending() > 0) {
               <span class="cf-badge">
                 <app-rolling-counter [value]="pending()" suffix="" />
                 awaiting approval
@@ -122,8 +129,9 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
 
       <!-- Aggregate stat strip — cyan/black cockpit cards; every figure rolls
            via <app-rolling-counter>. aria-live so a screen reader hears the
-           page totals refresh after a filter change / scan. -->
-      @if (drafts().length > 0) {
+           page totals refresh after a filter change / scan. Gated on !loading()
+           so a mid-reload render never announces a stale (previous-page) count. -->
+      @if (!loading() && drafts().length > 0) {
         <div class="cf-stats" psReveal role="status" aria-live="polite"
              [attr.aria-label]="statTotal() + ' drafts shown, average ' + statAvgIdle() + ' idle days, average ' + statAvgDwell() + ' seconds dwell'">
           <div class="cf-stat">
