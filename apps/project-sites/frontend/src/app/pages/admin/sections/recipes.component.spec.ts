@@ -363,3 +363,38 @@ describe('AdminRecipesComponent (load-error 404 flag-gate vs transient)', () => 
       .withContext('transient error card renders').not.toBeNull();
   });
 });
+
+describe('AdminRecipesComponent (webhook public-host URL validation)', () => {
+  let fx: import('@angular/core/testing').ComponentFixture<AdminRecipesComponent>;
+  afterEach(() => TestBed.resetTestingModule());
+
+  function mk(): AdminRecipesComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminRecipesComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ ok: true, recipes: [] }), post: () => of({ ok: true }), delete: () => of({ ok: true }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: AdminStateService, useValue: { selectedSite: () => ({ id: 's1' }) } },
+      ],
+    });
+    fx = TestBed.createComponent(AdminRecipesComponent);
+    fx.detectChanges();
+    return fx.componentInstance;
+  }
+
+  it('flags private / link-local / metadata IP webhook URLs invalid (the "public hostname" promise)', () => {
+    const c = mk();
+    c.actionModel.set('webhook');
+    for (const url of [
+      'https://127.0.0.1/h', 'https://10.0.0.1/h', 'https://192.168.0.1/h',
+      'https://172.20.1.1/h', 'https://169.254.169.254/meta', 'https://api.internal/h',
+    ]) {
+      c.cfgPrimary.set(url);
+      expect(c.configInvalid()).withContext(url).toBeTrue();
+    }
+    c.cfgPrimary.set('https://hooks.example.com/projectsites');
+    expect(c.configInvalid()).withContext('public host valid').toBeFalse();
+  });
+});
