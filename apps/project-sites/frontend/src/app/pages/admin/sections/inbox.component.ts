@@ -128,7 +128,7 @@ const STATUS_COLORS: Record<string, string> = {
               </button>
             }
           </div>
-          <select hlmSelect aria-label="Filter by channel" [(ngModel)]="selectedChannel">
+          <select hlmSelect aria-label="Filter by channel" [ngModel]="selectedChannel()" (ngModelChange)="selectedChannel.set($event)">
             <option value="">All channels</option>
             @for (ch of channels; track ch) {
               <option [value]="ch">{{ channelLabel(ch) }}</option>
@@ -139,7 +139,7 @@ const STATUS_COLORS: Record<string, string> = {
             type="search"
             class="flex-1 min-w-[160px]"
             placeholder="Search conversations…"
-            [(ngModel)]="searchQuery"
+            [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)"
             aria-label="Search conversations" />
         </div>
 
@@ -164,6 +164,13 @@ const STATUS_COLORS: Record<string, string> = {
                 <p class="text-red-300">{{ convError() }}</p>
                 <button class="btn-ghost text-xs" data-testid="inbox-conv-retry" (click)="loadConversations()">Retry</button>
               </div>
+            } @else if (filterNoMatch()) {
+              <app-empty-state icon="🔍"
+                title="No conversations match your search"
+                message="Try a different name, email, subject, or channel."
+                ctaLabel="Clear search"
+                (ctaClick)="clearClientFilter()"
+                data-testid="inbox-filter-empty" />
             } @else if (filteredConversations().length === 0) {
               <app-empty-state icon="💬"
                 [title]="selectedStatus() === 'all' ? 'No conversations yet' : 'No ' + selectedStatus() + ' conversations'"
@@ -458,8 +465,9 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
   replySending = signal(false);
 
   selectedStatus = signal<string>('open');
-  selectedChannel = '';
-  searchQuery = '';
+  /** Client-side filters — SIGNALS so filteredConversations re-filters live (a plain field never re-triggered the computed → stale search). */
+  selectedChannel = signal<string>('');
+  searchQuery = signal<string>('');
   replyBody = '';
   assignTarget = '';
 
@@ -483,9 +491,10 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
   );
 
   filteredConversations = computed(() => {
-    const q = this.searchQuery.toLowerCase();
+    const q = this.searchQuery().toLowerCase();
+    const ch = this.selectedChannel();
     return this.conversations().filter((c) => {
-      if (this.selectedChannel && c.channel !== this.selectedChannel) return false;
+      if (ch && c.channel !== ch) return false;
       if (!q) return true;
       return (
         (c.visitor?.email ?? '').toLowerCase().includes(q) ||
@@ -494,6 +503,20 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
       );
     });
   });
+
+  /** A client-side search/channel filter is active (status is server-side, excluded here). */
+  hasClientFilter = computed(() => this.searchQuery().trim() !== '' || this.selectedChannel() !== '');
+  /**
+   * True when conversations are loaded but the client filter excludes every one →
+   * drives a search-aware "no matches" empty state (with Clear) instead of the
+   * status empty state's misleading "No conversations yet".
+   */
+  filterNoMatch = computed(() => this.hasClientFilter() && this.conversations().length > 0 && this.filteredConversations().length === 0);
+  /** Reset the client-side search + channel filter (the "Clear search" CTA). */
+  clearClientFilter(): void {
+    this.searchQuery.set('');
+    this.selectedChannel.set('');
+  }
 
   openCount = computed(() => this.conversations().filter((c) => c.status === 'open').length);
   unreadCount = computed(() => this.conversations().reduce((s, c) => s + c.unread_count, 0));
@@ -543,7 +566,7 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.convError.set(null);
     const params: Record<string, string> = { status: this.selectedStatus(), limit: '50' };
-    if (this.selectedChannel) params['channel'] = this.selectedChannel;
+    if (this.selectedChannel()) params['channel'] = this.selectedChannel();
 
     this.api.get<{ conversations: Conversation[]; hasMore: boolean }>('/inbox/conversations', params)
       .pipe(takeUntil(this.destroy$))

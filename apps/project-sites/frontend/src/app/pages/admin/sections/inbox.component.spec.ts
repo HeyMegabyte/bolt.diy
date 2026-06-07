@@ -25,6 +25,52 @@ function make(get: jasmine.Spy): AdminInboxComponent {
   return TestBed.createComponent(AdminInboxComponent).componentInstance;
 }
 
+describe('AdminInboxComponent (live client-side search + filter no-match)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function seed(c: AdminInboxComponent): void {
+    c.conversations.set([
+      { id: 'a', status: 'open', unread_count: 0, channel: 'email', subject: 'Booking question', visitor: { email: 'ann@acme.com', display_name: 'Ann' } },
+      { id: 'b', status: 'open', unread_count: 0, channel: 'chat', subject: 'Refund', visitor: { email: 'bob@biz.io', display_name: 'Bob' } },
+    ] as never);
+  }
+
+  // searchQuery/selectedChannel must be SIGNALS so filteredConversations (a
+  // computed) re-filters live on every keystroke — as plain fields the computed
+  // never recomputed until the next 30s poll (stale search = reliability bug).
+  it('filteredConversations re-filters reactively when the searchQuery signal changes', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ conversations: [], hasMore: false })));
+    seed(c);
+    expect(c.filteredConversations().map((x) => x.id)).toEqual(['a', 'b']);
+    c.searchQuery.set('refund');
+    expect(c.filteredConversations().map((x) => x.id)).withContext('search narrows live, not on next poll').toEqual(['b']);
+    c.searchQuery.set('');
+    c.selectedChannel.set('email');
+    expect(c.filteredConversations().map((x) => x.id)).withContext('channel filter is reactive too').toEqual(['a']);
+  });
+
+  it('filterNoMatch is true only when conversations exist but the client filter excludes every one', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ conversations: [], hasMore: false })));
+    seed(c);
+    expect(c.filterNoMatch()).withContext('no client filter → not a no-match state').toBeFalse();
+    c.searchQuery.set('booking');
+    expect(c.filterNoMatch()).withContext('matching filter → not a no-match state').toBeFalse();
+    c.searchQuery.set('zzz-nobody');
+    expect(c.filterNoMatch()).withContext('excluding filter → search-aware no-match').toBeTrue();
+    c.conversations.set([] as never);
+    expect(c.filterNoMatch()).withContext('truly empty → status empty-state owns it, not this').toBeFalse();
+  });
+
+  it('clearClientFilter() resets the search query and channel', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ conversations: [], hasMore: false })));
+    seed(c);
+    c.searchQuery.set('x'); c.selectedChannel.set('chat');
+    c.clearClientFilter();
+    expect(c.searchQuery()).toBe('');
+    expect(c.selectedChannel()).toBe('');
+  });
+});
+
 describe('AdminInboxComponent (conversations load error)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
