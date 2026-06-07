@@ -1,6 +1,6 @@
 import { Component, inject, signal, computed, effect, type OnInit, type OnDestroy } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { timeout, catchError } from 'rxjs/operators';
 import { forkJoin, of, TimeoutError } from 'rxjs';
 import { AdminStateService } from '../admin-state.service';
@@ -721,6 +721,7 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   private toast = inject(ToastService);
   private promptSvc = inject(PromptService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   /** Aggregated CF GraphQL envelope from `GET /api/sites/:id/analytics`. */
   envelope = signal<MultiUrlAnalyticsEnvelope | null>(null);
@@ -757,6 +758,13 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   readonly formatCount = formatCount;
 
   constructor() {
+    // Deep-link: `?range=30d` opens that window (bookmarkable/shareable), winning
+    // over the localStorage-remembered range for this visit (validated; unknown
+    // ignored). Set BEFORE the site-reactive effect's first reload so the right
+    // window loads immediately.
+    const r = this.route.snapshot.queryParamMap.get('range');
+    if (r === '24h' || r === '7d' || r === '30d' || r === '90d') this.range.set(r);
+
     // Site-reactive load: when the selected site resolves on a deep-link (it
     // arrives AFTER mount) or the operator switches sites, fetch immediately
     // instead of waiting up to REFRESH_INTERVAL_SEC for the next poll tick.
@@ -799,6 +807,14 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   setRange(id: RangeId): void {
     this.range.set(id);
     try { localStorage.setItem('ps_analytics_range', id); } catch { /* */ }
+    // Reflect in the URL so a time-window view is bookmarkable/shareable
+    // (replaceUrl = no back-button spam; merge keeps other params; SPA no-reload).
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { range: id },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
     this.reload();
   }
 

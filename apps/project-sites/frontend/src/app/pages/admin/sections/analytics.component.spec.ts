@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { of, throwError, NEVER } from 'rxjs';
 import { AdminAnalyticsComponent } from './analytics.component';
 import { ApiService } from '../../../services/api.service';
@@ -40,7 +40,8 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
         },
         { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
         { provide: PromptService, useValue: { prompt: jasmine.createSpy('prompt').and.resolveTo(null) } },
-        { provide: Router, useValue: { navigateByUrl: jasmine.createSpy('navigateByUrl') } },
+        { provide: Router, useValue: { navigateByUrl: jasmine.createSpy('navigateByUrl'), navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: AdminStateService, useValue: { selectedSite } },
       ],
     });
@@ -226,7 +227,8 @@ describe('AdminAnalyticsComponent (CSV export is formula-injection-safe)', () =>
         { provide: ApiService, useValue: { getMultiUrlAnalytics: () => of({ data: null }), listSiteUrls: () => of({ data: [] }), getCloudflareCredentialStatus: () => of({ data: null }) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
         { provide: PromptService, useValue: { prompt: () => Promise.resolve(null) } },
-        { provide: Router, useValue: { navigateByUrl: () => 0 } },
+        { provide: Router, useValue: { navigateByUrl: () => 0, navigate: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: AdminStateService, useValue: { selectedSite: signal(null) } },
       ],
     });
@@ -285,7 +287,8 @@ describe('AdminAnalyticsComponent (top-pages/countries cyan mini-empty cohesion)
         },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
         { provide: PromptService, useValue: { prompt: () => Promise.resolve(null) } },
-        { provide: Router, useValue: { navigateByUrl: () => 0 } },
+        { provide: Router, useValue: { navigateByUrl: () => 0, navigate: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: AdminStateService, useValue: { selectedSite } },
       ],
     });
@@ -327,7 +330,8 @@ describe('AdminAnalyticsComponent — bounded auto-refresh retry (error-recovery
         } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
         { provide: PromptService, useValue: { prompt: () => Promise.resolve(null) } },
-        { provide: Router, useValue: { navigateByUrl: () => 0 } },
+        { provide: Router, useValue: { navigateByUrl: () => 0, navigate: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: AdminStateService, useValue: { selectedSite } },
       ],
     });
@@ -356,5 +360,71 @@ describe('AdminAnalyticsComponent — bounded auto-refresh retry (error-recovery
     c.reload(); c.reload(); c.reload(); c.reload();
     expect(c.consecutiveErrors()).toBe(0);
     expect(c.autoRefreshPaused()).toBeFalse();
+  });
+});
+
+/**
+ * Guards the deep-linkable time-range: `?range=30d` opens that window on load
+ * (bookmarkable/shareable, winning over the localStorage-remembered range and
+ * validated against the allow-list), and `setRange()` reflects the choice in
+ * the URL via a merge/replaceUrl SPA navigation (no full reload, no back spam).
+ */
+describe('AdminAnalyticsComponent (deep-linkable range)', () => {
+  let navigate: jasmine.Spy;
+  let selectedSite: WritableSignal<{ id: string } | null>;
+
+  function build(rangeParam: string | null): AdminAnalyticsComponent {
+    navigate = jasmine.createSpy('navigate').and.resolveTo(true);
+    selectedSite = signal<{ id: string } | null>({ id: 'site-1' });
+    // Permissive API stub: any method → a safe observable (constructor effect
+    // + setRange both fan out to several api calls).
+    const api = new Proxy(
+      {},
+      { get: (_t, prop) => () => of(prop === 'listSiteUrls' ? { data: [] } : { data: null }) },
+    );
+    TestBed.configureTestingModule({
+      imports: [AdminAnalyticsComponent],
+      providers: [
+        { provide: ApiService, useValue: api },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: PromptService, useValue: { prompt: () => Promise.resolve(null) } },
+        { provide: Router, useValue: { navigateByUrl: () => 0, navigate } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => rangeParam } } } },
+        { provide: AdminStateService, useValue: { selectedSite } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminAnalyticsComponent);
+    fx.detectChanges();
+    return fx.componentInstance;
+  }
+
+  beforeEach(() => {
+    try { localStorage.removeItem('ps_analytics_range'); } catch { /* */ }
+  });
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('opens the window named by `?range=30d` on load (over the stored default)', () => {
+    const c = build('30d');
+    expect(c.range()).withContext('deep-link wins over localStorage default').toBe('30d');
+  });
+
+  it('ignores an unknown `?range=` value and keeps the default 7d window', () => {
+    const c = build('bogus');
+    expect(c.range()).toBe('7d');
+  });
+
+  it('setRange() reflects the choice in the URL (merge + replaceUrl, no reload)', () => {
+    const c = build(null);
+    navigate.calls.reset();
+    c.setRange('90d');
+    expect(c.range()).toBe('90d');
+    expect(navigate).toHaveBeenCalledWith(
+      [],
+      jasmine.objectContaining({
+        queryParams: { range: '90d' },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      }),
+    );
   });
 });
