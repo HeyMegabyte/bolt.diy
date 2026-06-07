@@ -108,6 +108,36 @@ test.describe('admin shell — logo removed + clean console + editor', () => {
     await page.waitForTimeout(1500);
     assertClean('/admin/editor', cap);
   });
+
+  test('editor pane fills exactly viewport minus the top bar + tab strip', async ({ authedPage: page }) => {
+    test.setTimeout(60000);
+    await page.goto('/admin/editor', { waitUntil: 'load' });
+    await expect(page.locator('[data-testid="editor-tabs-host"]')).toBeVisible({ timeout: 30000 });
+    const frame = page.locator('iframe.bolt-frame');
+    await expect(frame).toBeAttached({ timeout: 30000 });
+
+    const geo = await page.evaluate(() => {
+      const f = document.querySelector('iframe.bolt-frame') as HTMLElement | null;
+      const tb = document.querySelector('.admin-topbar') as HTMLElement | null;
+      const ts = document.querySelector('.editor-tabs-host') as HTMLElement | null;
+      const r = f?.getBoundingClientRect();
+      return {
+        innerHeight: window.innerHeight,
+        topbarH: tb?.getBoundingClientRect().height ?? 0,
+        tabsH: ts?.getBoundingClientRect().height ?? 0,
+        frameTop: r?.top ?? 0,
+        frameHeight: r?.height ?? 0,
+        frameBottom: r?.bottom ?? 0,
+      };
+    });
+
+    // Editor starts right below the two stacked bars…
+    expect(Math.abs(geo.frameTop - (geo.topbarH + geo.tabsH))).toBeLessThanOrEqual(3);
+    // …its height === viewport - topbar - tab strip…
+    expect(Math.abs(geo.frameHeight - (geo.innerHeight - geo.topbarH - geo.tabsH))).toBeLessThanOrEqual(3);
+    // …and its bottom lands flush at the viewport bottom (no overflow / scroll).
+    expect(Math.abs(geo.frameBottom - geo.innerHeight)).toBeLessThanOrEqual(3);
+  });
 });
 
 test.describe('project-wide console sweep — each major route loads clean', () => {

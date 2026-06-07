@@ -3,7 +3,14 @@
 // Only animations and complex selectors that Tailwind can't handle
 // ═══════════════════════════════════════════════
 
-:host { display: block; }
+:host {
+  display: block;
+  // Single source of truth for the two stacked admin bars so the bolt editor
+  // pane can be sized as exactly `100dvh - topbar - tab strip`. Change a bar
+  // height here and the iframe + tab strip + overlay all follow.
+  --ps-admin-topbar-h: 62px;   // sticky admin top bar
+  --ps-editor-tabs-h: 44px;    // editor Code/Preview/Media/Agents strip
+}
 
 // Subtle glow on the sidebar surface — depth via radial accent + rim-light.
 // NOTE: do NOT set `position: relative` here — this component-scoped `aside`
@@ -570,10 +577,16 @@ aside::before {
   view-transition-name: bolt-frame;
 }
 .bolt-frame--visible {
-  top: 62px;     /* below the admin top bar */
+  /* Size the editor as EXACTLY viewport-minus-bars. `100dvh` (not `100%`) is
+     deliberate: `100%` resolves against the right-column parent, which grows
+     past the viewport whenever the under-content (dashboard), a wrapped
+     top bar, or the site-error banner is tall — pushing the editor below the
+     fold. `100dvh` pins it to the live viewport so the editor never overflows
+     and never under-fills, on desktop or mobile. */
+  top: var(--ps-admin-topbar-h);     /* below the admin top bar */
   left: 0;
   width: 100%;
-  height: calc(100% - 62px);
+  height: calc(100dvh - var(--ps-admin-topbar-h));
   opacity: 1;
   pointer-events: auto;
   z-index: 1;
@@ -582,10 +595,10 @@ aside::before {
 /* When the editor tab strip is rendered above the iframe (44px tall), shift
    the iframe down by the strip height so its content doesn't sit behind the
    tabs. Composes with `.bolt-frame--visible` so non-editor routes are
-   unaffected. */
+   unaffected. Result: height === 100dvh - top bar - tab strip. */
 .bolt-frame--visible.bolt-frame--with-tabs {
-  top: calc(62px + 44px);
-  height: calc(100% - 62px - 44px);
+  top: calc(var(--ps-admin-topbar-h) + var(--ps-editor-tabs-h));
+  height: calc(100dvh - var(--ps-admin-topbar-h) - var(--ps-editor-tabs-h));
 }
 
 /* ───────────────────────────────────────────────────────────────────────
@@ -596,10 +609,10 @@ aside::before {
    ─────────────────────────────────────────────────────────────────────── */
 .editor-tabs-host {
   position: absolute;
-  top: 62px;        /* directly below the admin top bar */
+  top: var(--ps-admin-topbar-h);   /* directly below the admin top bar */
   left: 0;
   right: 0;
-  height: 44px;
+  height: var(--ps-editor-tabs-h);
   z-index: 30;      /* above iframe (z:1), below overlay (z:50) */
 }
 
@@ -613,7 +626,7 @@ aside::before {
    ─────────────────────────────────────────────────────────────────────── */
 .editor-overlay {
   position: absolute;
-  top: calc(62px + 44px);     /* below top bar + tab strip */
+  top: calc(var(--ps-admin-topbar-h) + var(--ps-editor-tabs-h));   /* below top bar + tab strip */
   left: 0;                    /* full width (was right:0 + width:50%) */
   right: 0;
   bottom: 0;
