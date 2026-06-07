@@ -193,7 +193,13 @@ const LOW_BALANCE_CENTS = 500;
         display: flex;
         flex-direction: column;
         gap: 12px;
-        background: var(--ps-surface-glass, rgba(13, 13, 40, 0.78));
+        /* Near-opaque (NOT the shared 0.62 --ps-surface-glass token): this panel
+           pops OVER arbitrary page content (incl. the bright page H1), so a 0.62
+           glass let that content bleed through + hurt the picker's own legibility
+           (text-contrast standard: an actively-read panel needs ≥0.9 alpha). The
+           blur keeps the cockpit glass edge; the opacity stops the bleed. The 0.62
+           token stays correct for on-page cards (analytics) that sit on the dark bg. */
+        background: rgba(11, 11, 32, 0.97);
         backdrop-filter: blur(22px) saturate(140%);
         -webkit-backdrop-filter: blur(22px) saturate(140%);
         border: 1px solid rgba(255, 255, 255, 0.08);
