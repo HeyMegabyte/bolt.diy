@@ -22,7 +22,8 @@
  * (no column) so it is read-only here.
  */
 
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, HostListener, computed, inject, signal } from '@angular/core';
+import { A11yModule } from '@angular/cdk/a11y';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -99,7 +100,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
   selector: 'app-admin-feature-flags',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, RouterLink, RevealDirective,
+    CommonModule, FormsModule, RouterLink, RevealDirective, A11yModule,
     HlmInputDirective, HlmTablistDirective,
     SkeletonComponent, EmptyStateComponent, ErrorCardComponent, RollingCounterComponent,
     FlagModeSwitcherComponent, FlagBadgeRowComponent, FlagAuditTimelineComponent,
@@ -332,7 +333,8 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
 
       <!-- Dangerous-change confirm panel (kill switch / enable / large jump) -->
       @if (pending(); as p) {
-        <div class="ff-danger-overlay" role="dialog" aria-modal="true" aria-labelledby="ff-danger-title" data-testid="ff-danger-panel">
+        <div class="ff-danger-overlay" role="dialog" aria-modal="true" aria-labelledby="ff-danger-title" data-testid="ff-danger-panel"
+             cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
           <div class="ff-danger">
             <h2 id="ff-danger-title">⚠ Confirm dangerous change</h2>
             <p class="ff-danger-flag"><code>{{ p.flag.key }}</code> — {{ p.label }}</p>
@@ -361,7 +363,8 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
 
       <!-- Emergency kill-switch console -->
       @if (emergencyOpen()) {
-        <div class="ff-danger-overlay" role="dialog" aria-modal="true" aria-labelledby="ff-emergency-title" data-testid="ff-emergency-panel">
+        <div class="ff-danger-overlay" role="dialog" aria-modal="true" aria-labelledby="ff-emergency-title" data-testid="ff-emergency-panel"
+             cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
           <div class="ff-danger ff-emergency-console">
             <h2 id="ff-emergency-title">⛔ Emergency console</h2>
             <p>Instantly disable experimental + beta features platform-wide. Stable + sentinel core flags are never touched.</p>
@@ -764,6 +767,24 @@ export class AdminFeatureFlagsComponent implements OnInit {
       return;
     }
     void this.applyOverride(flag, patch, label, optimistic);
+  }
+
+  /**
+   * Esc dismisses whichever destructive overlay is open (the dangerous-change
+   * confirm panel or the emergency console). These are hand-rolled
+   * `role="dialog"` surfaces, so — unlike the shared DialogShell — they need
+   * explicit keyboard dismissal (WCAG 2.1.1). The CDK `cdkTrapFocusAutoCapture`
+   * on each overlay traps Tab inside the dialog + restores focus to the trigger
+   * on close; this adds the missing Esc affordance. No-op when neither is open.
+   */
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.pending()) {
+      this.cancelDangerous();
+    } else if (this.emergencyOpen()) {
+      this.emergencyOpen.set(false);
+      this.dangerReason.set('');
+    }
   }
 
   cancelDangerous(): void {

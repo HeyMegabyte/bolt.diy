@@ -153,6 +153,49 @@ describe('AdminFeatureFlagsComponent (flag control surface)', () => {
     c.dismissBlockedBanner();
     expect(c.blockedFeature()).toBeNull();
   });
+
+  // ── Destructive-overlay keyboard dismissal (WCAG 2.1.1) ───────────────────
+  // The dangerous-change confirm + emergency console are hand-rolled role=dialog
+  // overlays (not the shared DialogShell), so they need an explicit Esc handler.
+  // (Focus-trap + autofocus + focus-restore are handled by cdkTrapFocusAutoCapture
+  // on each overlay — AOT-verified; this covers the Esc-dismiss logic.)
+  describe('Esc dismisses the destructive overlays', () => {
+    it('closes the dangerous-change confirm panel + clears the typed reason', () => {
+      const c = make(okGet());
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      c.pending.set({ flag: flag(), label: 'Kill switch', blast: 'all', rollback: 'flip back' } as any);
+      c.dangerReason.set('Sev-1 incident');
+      c.onEscapeKey();
+      expect(c.pending()).toBeNull();
+      expect(c.dangerReason()).toBe('');
+    });
+
+    it('closes the emergency console + clears the typed reason', () => {
+      const c = make(okGet());
+      c.emergencyOpen.set(true);
+      c.dangerReason.set('Platform incident');
+      c.onEscapeKey();
+      expect(c.emergencyOpen()).toBeFalse();
+      expect(c.dangerReason()).toBe('');
+    });
+
+    it('is a no-op when neither overlay is open', () => {
+      const c = make(okGet());
+      expect(() => c.onEscapeKey()).not.toThrow();
+      expect(c.pending()).toBeNull();
+      expect(c.emergencyOpen()).toBeFalse();
+    });
+
+    it('closes the confirm panel first when both could be open (no double-close)', () => {
+      const c = make(okGet());
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      c.pending.set({ flag: flag(), label: 'Enable', blast: 'all', rollback: 'disable' } as any);
+      c.emergencyOpen.set(true);
+      c.onEscapeKey();
+      expect(c.pending()).withContext('confirm panel closed first').toBeNull();
+      expect(c.emergencyOpen()).withContext('emergency stays open for a second Esc').toBeTrue();
+    });
+  });
 });
 
 import { provideRouter } from '@angular/router';
