@@ -88,7 +88,9 @@ const PROVIDERS: ProviderMeta[] = [
                     <button class="btn-ghost text-xs cursor-pointer" (click)="toggleActive(provider.id)">
                       {{ getIntegration(provider.id)?.active ? 'Pause' : 'Resume' }}
                     </button>
-                    <button class="btn-ghost text-xs cursor-pointer text-red-400" (click)="disconnect(provider.id)">Disconnect</button>
+                    <button class="btn-ghost text-xs cursor-pointer text-red-400" (click)="disconnect(provider.id)"
+                            [disabled]="isDisconnecting(getIntegration(provider.id)?.id ?? '')"
+                            [attr.aria-busy]="isDisconnecting(getIntegration(provider.id)?.id ?? '')">{{ isDisconnecting(getIntegration(provider.id)?.id ?? '') ? 'Disconnecting…' : 'Disconnect' }}</button>
                   } @else {
                     <button class="btn-accent text-xs cursor-pointer" (click)="openConnect(provider)">Connect</button>
                   }
@@ -327,6 +329,10 @@ export class AdminEmailComponent implements OnInit {
 
   tab = signal<'integrations' | 'submissions'>('integrations');
   integrations = signal<NewsletterIntegration[]>([]);
+  /** Integration ids with an in-flight disconnect — guards the toast-armed action
+   *  against a double-DELETE + drives the row's "Disconnecting…" state. */
+  private readonly disconnectingIds = signal<ReadonlySet<string>>(new Set());
+  isDisconnecting(id: string): boolean { return this.disconnectingIds().has(id); }
   /** Set when the integrations load fails so connected providers don't silently appear "Not connected". */
   integrationsError = signal<boolean>(false);
   submissions = signal<FormSubmission[]>([]);
@@ -465,10 +471,19 @@ export class AdminEmailComponent implements OnInit {
   }
 
   private performDisconnect(siteId: string, integrationId: string): void {
+    if (this.disconnectingIds().has(integrationId)) return; // re-armed toast action while in flight = no-op
+    this.disconnectingIds.update((s) => new Set(s).add(integrationId));
+    const done = () => this.disconnectingIds.update((s) => { const n = new Set(s); n.delete(integrationId); return n; });
     this.api.deleteIntegration(siteId, integrationId).subscribe({
       next: () => {
+        done();
         this.integrations.update(list => list.filter(i => i.id !== integrationId));
         this.toast.success('Integration removed');
+      },
+      // Was silent — a failed disconnect left the row with no feedback. Surface it.
+      error: () => {
+        done();
+        this.toast.error('Could not disconnect the integration — retry shortly.');
       },
     });
   }

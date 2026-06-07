@@ -181,3 +181,48 @@ describe('AdminEmailComponent (submissions loading skeleton)', () => {
     expect(host.textContent ?? '').withContext('no bare spinner text').not.toContain('Loading submissions...');
   });
 });
+
+/**
+ * Integration disconnect (toast-armed, so the 7s action is re-clickable mid-async):
+ * must guard against a double-DELETE AND surface a failure (it had no error
+ * handler → a failed disconnect was silent).
+ */
+describe('AdminEmailComponent (disconnect guard + error feedback)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function mk(del: jasmine.Spy, error: jasmine.Spy): AdminEmailComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminEmailComponent],
+      providers: [
+        { provide: ApiService, useValue: { deleteIntegration: del, listFormSubmissions: () => of({ data: [] }), listIntegrations: () => of({ data: [] }), get: () => of({ data: [] }), post: () => of({}) } },
+        { provide: ToastService, useValue: { error, success: () => 0, warning: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }), formatRelativeTime: () => 'now' } },
+      ],
+    });
+    TestBed.overrideComponent(AdminEmailComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminEmailComponent).componentInstance;
+  }
+  type Priv = { performDisconnect: (siteId: string, integrationId: string) => void; isDisconnecting: (id: string) => boolean };
+
+  it('ignores a re-entrant disconnect of the same integration while one is in flight', () => {
+    const del = jasmine.createSpy('deleteIntegration').and.returnValue(NEVER);
+    const c = mk(del, jasmine.createSpy('error'));
+    const p = c as unknown as Priv;
+    p.performDisconnect('s1', 'i1');
+    p.performDisconnect('s1', 'i1');
+    expect(del).withContext('no duplicate DELETE').toHaveBeenCalledTimes(1);
+    expect(p.isDisconnecting('i1')).toBeTrue();
+  });
+
+  it('surfaces a toast + clears the busy flag when the disconnect fails (not silent)', () => {
+    const del = jasmine.createSpy('deleteIntegration').and.returnValue(throwError(() => ({ status: 500 })));
+    const error = jasmine.createSpy('error');
+    const c = mk(del, error);
+    c.integrations.set([{ id: 'i1', provider: 'webhook' } as never]);
+    const p = c as unknown as Priv;
+    p.performDisconnect('s1', 'i1');
+    expect(error).withContext('failure is surfaced, not swallowed').toHaveBeenCalled();
+    expect(c.integrations().length).withContext('integration stays — disconnect did not succeed').toBe(1);
+    expect(p.isDisconnecting('i1')).withContext('busy cleared after failure').toBeFalse();
+  });
+});
