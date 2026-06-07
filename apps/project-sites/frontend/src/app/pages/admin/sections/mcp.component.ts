@@ -112,9 +112,11 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
                   <button class="btn-danger-ghost"
                           type="button"
                           (click)="disconnect(c)"
+                          [disabled]="isDisconnecting(c.id)"
+                          [attr.aria-busy]="isDisconnecting(c.id)"
                           [attr.data-testid]="'mcp-disconnect-' + p.id"
                           [attr.aria-label]="'Disconnect ' + p.label">
-                    Disconnect
+                    {{ isDisconnecting(c.id) ? 'Disconnecting…' : 'Disconnect' }}
                   </button>
                 </footer>
               } @else if (pasteMode() === p.id) {
@@ -326,6 +328,10 @@ export class AdminMcpComponent implements OnInit {
   private toast = inject(ToastService);
   providers = PROVIDERS;
   connections = signal<Conn[]>([]);
+  /** Connection ids with an in-flight disconnect — guards the toast-armed action
+   *  against a double-DELETE + drives the row's "Disconnecting…" state. */
+  private readonly disconnectingIds = signal<ReadonlySet<string>>(new Set());
+  isDisconnecting(id: string): boolean { return this.disconnectingIds().has(id); }
   /** Persistent load failure — without it, a failed fetch shows every provider as "not connected" (stale/misleading). */
   loadError = signal<string | null>(null);
   pasteMode = signal<string | null>(null);
@@ -434,10 +440,13 @@ export class AdminMcpComponent implements OnInit {
   }
 
   private performDisconnect(c: Conn, siteId: string): void {
+    if (this.disconnectingIds().has(c.id)) return; // re-armed toast action while in flight = no-op
+    this.disconnectingIds.update((s) => new Set(s).add(c.id));
     const meta = this.providers.find((p) => p.id === c.provider);
+    const done = () => this.disconnectingIds.update((s) => { const n = new Set(s); n.delete(c.id); return n; });
     this.api.delete(`/sites/${siteId}/mcp/connections/${c.id}`, { silent: true }).subscribe({
-      next: () => { this.toast.success(`${meta?.label ?? c.provider} disconnected`); this.load(); },
-      error: () => this.toast.error(`Could not disconnect ${meta?.label ?? c.provider} — retry shortly`),
+      next: () => { done(); this.toast.success(`${meta?.label ?? c.provider} disconnected`); this.load(); },
+      error: () => { done(); this.toast.error(`Could not disconnect ${meta?.label ?? c.provider} — retry shortly`); },
     });
   }
 

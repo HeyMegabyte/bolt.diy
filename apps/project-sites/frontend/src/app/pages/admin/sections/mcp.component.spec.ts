@@ -148,3 +148,34 @@ describe('AdminMcpComponent — submitPaste in-flight guard (no double-submit)',
     expect(c.pasting()).withContext('a failed paste re-enables Save').toBe(false);
   });
 });
+
+import { NEVER } from 'rxjs';
+
+/**
+ * performDisconnect double-submit guard: the disconnect is armed via a 7s toast
+ * action, so the action can be clicked twice before the first DELETE resolves +
+ * the list reloads. A second disconnect of the same connection while one is in
+ * flight must NOT fire a second DELETE.
+ */
+describe('AdminMcpComponent — performDisconnect in-flight guard (no double-DELETE)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('ignores a re-entrant disconnect of the same connection while one is in flight', () => {
+    const del = jasmine.createSpy('delete').and.returnValue(NEVER);
+    TestBed.configureTestingModule({
+      imports: [AdminMcpComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: { connections: [] } }), post: () => of({}), delete: del } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminMcpComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(AdminMcpComponent).componentInstance;
+    const pd = (c as unknown as { performDisconnect: (conn: unknown, siteId: string) => void }).performDisconnect.bind(c);
+    pd({ id: 'conn9', provider: 'stripe' }, 's1');
+    pd({ id: 'conn9', provider: 'stripe' }, 's1'); // re-entrant while the first is pending
+    expect(del).withContext('no duplicate DELETE').toHaveBeenCalledTimes(1);
+    expect((c as unknown as { isDisconnecting: (id: string) => boolean }).isDisconnecting('conn9')).toBeTrue();
+  });
+});
