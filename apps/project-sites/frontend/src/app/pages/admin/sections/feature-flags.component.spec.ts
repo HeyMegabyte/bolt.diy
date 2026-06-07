@@ -355,3 +355,97 @@ describe('AdminFeatureFlagsComponent (emergency kill-all)', () => {
     expect(c.emergencyBusy()).toBeFalse();
   });
 });
+
+/**
+ * Core mutation engine — every toggle/rollout/killswitch routes through
+ * requestOverride → (dangerous? confirm : applyOverride). The brief's
+ * toggles / rollout controls / reason-gated confirmation, plus the
+ * revert-on-failure reliability contract. confirmDangerous is what actually
+ * SENDS the change + persists the reason to the audit trail.
+ */
+describe('AdminFeatureFlagsComponent (core mutation engine)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  const flush = () => new Promise<void>((r) => setTimeout(r, 0));
+
+  function mk(post: jasmine.Spy): AdminFeatureFlagsComponent {
+    const get = jasmine.createSpy('get').and.callFake((url: string) =>
+      url.includes('/auth/me') ? of({ is_super_admin: false }) : of({ flags: [], count: 0 }));
+    TestBed.configureTestingModule({
+      imports: [AdminFeatureFlagsComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get, post, patch: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: AdminStateService, useValue: { selectedSite: signal(null), isSuperAdmin: () => false } },
+        { provide: FeatureFlagService, useValue: { invalidate: () => undefined, isOn: () => of(false) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
+      ],
+    });
+    TestBed.overrideComponent(AdminFeatureFlagsComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminFeatureFlagsComponent).componentInstance;
+  }
+
+  it('toggling a flag OFF at a small rollout (non-dangerous) applies directly via super-admin POST', async () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({}));
+    const c = mk(post);
+    // rollout 10 → 0 is a <25-pt drop ⇒ review-risk, not dangerous ⇒ direct apply.
+    c.flags.set([flag({ key: 'k', default_enabled: true, default_rollout_percent: 10 })]);
+    c.toggle(c.flags()[0]);
+    await flush();
+    expect(c.pending()).withContext('small-rollout disable is review-risk, not a confirm').toBeNull();
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post.calls.mostRecent().args[1]).toEqual(jasmine.objectContaining({ key: 'k', enabled_globally: false }));
+  });
+
+  it('toggling a flag ON (dangerous) opens the confirm panel — no immediate POST', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({}));
+    const c = mk(post);
+    c.flags.set([flag({ key: 'k', default_enabled: false, default_rollout_percent: 0 })]);
+    c.toggle(c.flags()[0]);
+    expect(c.pending()).withContext('enable-from-off is dangerous → confirm').not.toBeNull();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('confirmDangerous sends the patch WITH the typed reason (audit trail)', async () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({}));
+    const c = mk(post);
+    c.flags.set([flag({ key: 'k', default_enabled: false, default_rollout_percent: 0 })]);
+    c.toggle(c.flags()[0]); // opens pending
+    c.dangerReason.set('Sev-1 launch');
+    await c.confirmDangerous();
+    expect(post).toHaveBeenCalledTimes(1);
+    const body = post.calls.mostRecent().args[1];
+    expect(body.key).toBe('k');
+    expect(body.enabled_globally).toBeTrue();
+    expect(body.reason).withContext('reason persisted for the audit trail').toBe('Sev-1 launch');
+    expect(c.pending()).toBeNull();
+  });
+
+  it('confirmDangerous refuses a <4-char reason (no POST, panel stays open)', async () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({}));
+    const c = mk(post);
+    c.flags.set([flag({ key: 'k', default_enabled: false })]);
+    c.toggle(c.flags()[0]);
+    c.dangerReason.set('x');
+    await c.confirmDangerous();
+    expect(post).not.toHaveBeenCalled();
+    expect(c.pending()).withContext('still awaiting a valid reason').not.toBeNull();
+  });
+
+  it('reverts the optimistic change when the POST fails', async () => {
+    const post = jasmine.createSpy('post').and.returnValue(throwError(() => ({ status: 403 })));
+    const c = mk(post);
+    c.flags.set([flag({ key: 'k', default_enabled: true, default_rollout_percent: 10 })]);
+    c.toggle(c.flags()[0]); // small-rollout disable → direct apply → POST fails
+    await flush();
+    expect(c.flags()[0].default_enabled).withContext('reverted to enabled after failure').toBeTrue();
+  });
+
+  it('setRollout clamps out-of-range values into [0,100]', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({}));
+    const c = mk(post);
+    c.flags.set([flag({ key: 'k', default_enabled: true, default_rollout_percent: 50 })]);
+    c.setRollout(c.flags()[0], 150); // clamps to 100; 50→100 = +50 ⇒ dangerous ⇒ confirm
+    expect(c.pending()?.patch.rollout_pct).withContext('clamped to 100').toBe(100);
+  });
+});
