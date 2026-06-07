@@ -149,7 +149,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
             [class.active]="activeCategory() === null"
             [attr.aria-selected]="activeCategory() === null"
             (click)="setCategory(null)">
-            <span class="chip-glyph" aria-hidden="true">✨</span>
+            <span class="chip-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275z"/></svg></span>
             <span>All</span>
             <span class="chip-count" aria-hidden="true">{{ totalCount }}</span>
           </button>
@@ -246,7 +246,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
                 }
                 @if (app.infra.length === 0) {
                   <span class="infra-pill infra-pill--bare" title="Stateless container">
-                    <span class="infra-glyph" aria-hidden="true">⚡</span>
+                    <span class="infra-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
                     <span>Stateless</span>
                   </span>
                 }
@@ -352,7 +352,8 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       outline: var(--ps-ring-focus, 2px solid #00E5FF);
       outline-offset: 2px;
     }
-    .chip-glyph { font-size: 0.86rem; line-height: 1; }
+    .chip-glyph { line-height: 1; display: inline-flex; }
+    .chip-glyph svg { width: 0.92rem; height: 0.92rem; display: block; }
     .chip-count {
       font-family: 'JetBrains Mono', ui-monospace, monospace;
       font-size: 0.6rem; opacity: 0.7;
@@ -565,7 +566,8 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 26%, transparent);
       background: color-mix(in oklch, var(--ps-accent, #00E5FF) 6%, transparent);
     }
-    .infra-glyph { font-size: 0.78rem; line-height: 1; }
+    .infra-glyph { line-height: 1; display: inline-flex; }
+    .infra-glyph svg { width: 0.82rem; height: 0.82rem; display: block; }
 
     .app-card-foot {
       display: flex; align-items: center; justify-content: space-between;

@@ -103,3 +103,39 @@ describe('AppsComponent (catalog filter + a11y)', () => {
     expect(c.activeCategory()).toBeNull();
   });
 });
+
+import { provideRouter } from '@angular/router';
+
+/**
+ * Cyan/black cohesion: the decorative category-chip + infra-pill glyphs must be
+ * monochrome stroke SVGs (inherit the chip/pill colour), never the colourful
+ * ✨ (U+2728) / ⚡ (U+26A1) emoji — both emoji-presentation by default.
+ */
+describe('AppsComponent (decorative glyphs are SVGs, not colourful emoji)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('renders the All-chip glyph as an SVG + leaks no ✨/⚡ emoji into the catalog', () => {
+    TestBed.configureTestingModule({
+      imports: [AppsComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AppsComponent);
+    fx.detectChanges();
+    const host = fx.nativeElement as HTMLElement;
+
+    // Scope to the two DECORATIVE chrome glyphs only — the per-app/per-service
+    // catalog glyphs (🐘/⚡/… on individual apps) are a separate deliberate icon
+    // set (a big refactor with semantic loss), out of scope here.
+    const chipGlyph = host.querySelector('.chip-glyph');
+    expect(chipGlyph).withContext('All-chip glyph present').not.toBeNull();
+    expect(chipGlyph?.querySelector('svg')).withContext('chip glyph is an SVG').not.toBeNull();
+    expect(chipGlyph?.textContent ?? '').withContext('no ✨ emoji in the chip glyph').not.toContain('✨');
+    host.querySelectorAll('.infra-pill--bare .infra-glyph').forEach((g) => {
+      expect(g.querySelector('svg')).withContext('Stateless glyph is an SVG').not.toBeNull();
+      expect(g.textContent ?? '').withContext('no ⚡ emoji in the Stateless glyph').not.toContain('⚡');
+    });
+  });
+});
