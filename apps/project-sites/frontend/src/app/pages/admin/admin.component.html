@@ -395,7 +395,19 @@
                 <div class="text-[0.6rem] text-text-secondary/70 uppercase tracking-wider font-bold mt-3 mb-1 px-1">{{ group.label }}</div>
                 @for (n of group.items; track n.id) {
                   <button type="button" class="notif-item" [class.is-unread]="!n.read" (click)="openNotification(n)">
-                    <div class="notif-icon" [class.is-warn]="n.kind === 'warn'" [class.is-info]="n.kind === 'info'" [class.is-ok]="n.kind === 'ok'">{{ n.kind === 'warn' ? '!' : n.kind === 'ok' ? '✓' : '●' }}</div>
+                    <div class="notif-icon" [class.is-warn]="n.kind === 'warn'" [class.is-info]="n.kind === 'info'" [class.is-ok]="n.kind === 'ok'" aria-hidden="true">
+                      @switch (n.kind) {
+                        @case ('warn') {
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        }
+                        @case ('ok') {
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        }
+                        @default {
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        }
+                      }
+                    </div>
                     <div class="flex-1 min-w-0">
                       <div class="text-[0.78rem] text-white truncate">{{ n.title }}</div>
                       <div class="text-[0.66rem] text-text-secondary">{{ n.time }}</div>

@@ -54,6 +54,14 @@ test.describe('admin notification bell — keyboard operable', () => {
       const tag = await items.nth(i).evaluate((el) => el.tagName.toLowerCase());
       expect(tag, `notif item ${i} is a <button>`).toBe('button');
     }
+    // Status glyphs are proper monochrome SVG icons (the cockpit SVG-icon standard:
+    // channel-icon, ai-spark) — NOT bare chars (!/✓/●, where ● was a weak generic dot).
+    const svgCount = await page.locator('.notif-item .notif-icon svg').count();
+    expect(svgCount, 'every notif-icon renders an SVG status glyph').toBe(n);
+    const iconTexts = await page.locator('.notif-item .notif-icon').allInnerTexts();
+    for (const t of iconTexts) {
+      expect(t.trim(), 'notif-icon has no bare char glyph (!/✓/●)').toBe('');
+    }
     // The first item is reachable + activatable by keyboard.
     await items.first().focus();
     await expect(items.first()).toBeFocused();
