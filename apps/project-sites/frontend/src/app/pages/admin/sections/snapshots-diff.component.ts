@@ -13,7 +13,7 @@
  *
  * @see apps/project-sites/src/routes/api.ts  (GET /api/sites/:siteId/snapshots/diff)
  */
-import { Component, computed, inject, signal, type OnInit } from '@angular/core';
+import { Component, computed, effect, inject, signal, type OnInit } from '@angular/core';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AdminStateService } from '../admin-state.service';
@@ -222,6 +222,28 @@ export class AdminSnapshotsDiffComponent implements OnInit {
   };
 
   selectedSiteId = computed(() => this.state.selectedSite()?.id ?? null);
+
+  /** The site the current diff belongs to — drives the cross-site reload. */
+  private diffSiteId: string | null | undefined = undefined;
+
+  constructor() {
+    // The diff is for `?from&to` snapshot ids of the SELECTED site. If the
+    // operator switches sites in the sidebar, those ids belong to the old site,
+    // so the shown diff is stale-cross-site. Drop it + re-evaluate for the new
+    // site (the old ids 404 → honest error, never site A's diff under site B).
+    // The initial site is owned by ngOnInit's queryParam load — skip it here.
+    effect(() => {
+      const id = this.selectedSiteId();
+      if (this.diffSiteId === undefined) { this.diffSiteId = id; return; }
+      if (id !== this.diffSiteId) {
+        this.diffSiteId = id;
+        this.diff.set(null);
+        this.error.set(null);
+        this.loadErrorRef.set('');
+        void this.load();
+      }
+    });
+  }
 
   ngOnInit(): void {
     this.route.queryParamMap.subscribe((params) => {

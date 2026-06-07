@@ -164,3 +164,41 @@ describe('AdminSnapshotsDiffComponent (diff stat counts roll — cinematic-ui)',
     expect(counters.length).withContext('Added/Removed/Modified counts each roll via app-rolling-counter').toBe(3);
   });
 });
+
+/**
+ * Cross-site result hygiene: the diff is for `?from&to` snapshot ids of the
+ * SELECTED site. Switching sites (sidebar) must drop the stale diff and
+ * re-evaluate — site A's snapshot diff can never sit under site B's header.
+ */
+describe('AdminSnapshotsDiffComponent (clears + reloads on site switch)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('drops the stale diff and reloads for the new site when the selection changes', async () => {
+    const selectedSite = signal<{ id: string } | null>({ id: 's1' });
+    const get = jasmine.createSpy('get').and.returnValue(of({ added: [], removed: [], modified: [] }));
+    TestBed.configureTestingModule({
+      imports: [AdminSnapshotsDiffComponent],
+      providers: [
+        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: (k: string) => (k === 'from' ? 'A' : k === 'to' ? 'B' : null) }) } },
+        { provide: ApiService, useValue: { get } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSnapshotsDiffComponent);
+    fx.detectChanges();
+    await fx.whenStable();
+    const c = fx.componentInstance;
+    expect(get.calls.mostRecent().args[0]).toBe('/sites/s1/snapshots/diff');
+    expect(c.diff()).withContext('s1 diff present').not.toBeNull();
+    get.calls.reset();
+
+    // Operator switches site in the sidebar.
+    selectedSite.set({ id: 's2' });
+    fx.detectChanges(); // flush the effect
+    expect(c.diff()).withContext('stale s1 diff dropped immediately').toBeNull();
+    await fx.whenStable();
+    expect(get).withContext('re-evaluated for the new site').toHaveBeenCalled();
+    expect(get.calls.mostRecent().args[0]).toBe('/sites/s2/snapshots/diff');
+  });
+});
