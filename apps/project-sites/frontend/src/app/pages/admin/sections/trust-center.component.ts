@@ -97,8 +97,8 @@ interface ProfileEnvelope {
         </div>
         <div class="flex items-center gap-3">
           <a routerLink="/admin" class="btn-ghost text-xs">← Admin</a>
-          <button class="btn-ghost text-xs" (click)="refresh()" [disabled]="loading()">
-            {{ loading() ? 'Loading…' : 'Refresh' }}
+          <button class="btn-ghost text-xs" (click)="refresh()" [disabled]="loading()" [attr.aria-busy]="loading()">
+            {{ loading() ? 'Refreshing…' : 'Refresh' }}
           </button>
           <!-- Save / Publish only when the editor is actually shown. When Trust
                Center is flag-disabled (notFound) or the load failed there's no

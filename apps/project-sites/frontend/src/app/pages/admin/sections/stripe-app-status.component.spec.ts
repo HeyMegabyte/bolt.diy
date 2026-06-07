@@ -123,6 +123,50 @@ describe('AdminStripeAppStatusComponent (silent summary read — no double-toast
 });
 
 /**
+ * The header Refresh button matches the rest of /admin: aria-busy while
+ * reloading + the "Refreshing…" label (not the initial-load "Loading…"), so a
+ * screen reader hears the in-progress state and the copy is cockpit-consistent.
+ */
+describe('AdminStripeAppStatusComponent (Refresh button busy state — cohesion + a11y)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function render(): import('@angular/core/testing').ComponentFixture<AdminStripeAppStatusComponent> {
+    TestBed.configureTestingModule({
+      imports: [AdminStripeAppStatusComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: [] }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+      ],
+    });
+    return TestBed.createComponent(AdminStripeAppStatusComponent);
+  }
+
+  it('Refresh button binds aria-busy and reads "Refreshing…" while loading', () => {
+    const f = render();
+    f.componentInstance.notFound.set(true); // gated render → Refresh is the only header button
+    f.componentInstance.loading.set(true);
+    f.detectChanges();
+    const btn = (f.nativeElement as HTMLElement).querySelector('button.btn-ghost') as HTMLButtonElement;
+    expect(btn).withContext('Refresh button renders in the header').not.toBeNull();
+    expect(btn.getAttribute('aria-busy')).withContext('busy state announced to AT').toBe('true');
+    expect(btn.textContent ?? '').withContext('reload label, not initial "Loading…"').toContain('Refreshing…');
+    expect(btn.textContent ?? '').not.toContain('Loading…');
+  });
+
+  it('Refresh button reads "Refresh" and clears aria-busy when idle', () => {
+    const f = render();
+    f.componentInstance.notFound.set(true);
+    f.componentInstance.loading.set(false);
+    f.detectChanges();
+    const btn = (f.nativeElement as HTMLElement).querySelector('button.btn-ghost') as HTMLButtonElement;
+    expect(btn.textContent ?? '').toContain('Refresh');
+    expect(btn.getAttribute('aria-busy')).toBe('false');
+  });
+});
+
+/**
  * Full-render: while the flag is ON and the summary fetch is in flight, the
  * panel must show a cyan loading skeleton (not a blank panel) so the KPI grid
  * doesn't pop in with a layout shift.

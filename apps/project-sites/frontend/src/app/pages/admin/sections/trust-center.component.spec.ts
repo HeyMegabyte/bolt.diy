@@ -247,6 +247,47 @@ describe('AdminTrustCenterComponent (Save/Publish gated when disabled)', () => {
   });
 });
 
+describe('AdminTrustCenterComponent (Refresh button busy state — cohesion + a11y)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  function render(): import('@angular/core/testing').ComponentFixture<AdminTrustCenterComponent> {
+    TestBed.configureTestingModule({
+      imports: [AdminTrustCenterComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: {} }), post: () => of({ data: {} }), put: () => of({ data: {} }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+      ],
+    });
+    return TestBed.createComponent(AdminTrustCenterComponent);
+  }
+
+  // The Refresh button matches the rest of /admin: it announces aria-busy while
+  // reloading and reads "Refreshing…" (not the initial-load "Loading…") — a SR
+  // hears the in-progress state and the label is consistent with the cockpit.
+  it('Refresh button binds aria-busy and reads "Refreshing…" while loading', () => {
+    const f = render();
+    f.componentInstance.notFound.set(true); // gated render → Refresh is the only header button
+    f.componentInstance.loading.set(true);
+    f.detectChanges();
+    const btn = (f.nativeElement as HTMLElement).querySelector('button.btn-ghost') as HTMLButtonElement;
+    expect(btn).withContext('Refresh button renders in the header').not.toBeNull();
+    expect(btn.getAttribute('aria-busy')).withContext('busy state announced to AT').toBe('true');
+    expect(btn.textContent ?? '').withContext('reload label, not initial "Loading…"').toContain('Refreshing…');
+    expect(btn.textContent ?? '').not.toContain('Loading…');
+  });
+
+  it('Refresh button reads "Refresh" and clears aria-busy when idle', () => {
+    const f = render();
+    f.componentInstance.notFound.set(true);
+    f.componentInstance.loading.set(false);
+    f.detectChanges();
+    const btn = (f.nativeElement as HTMLElement).querySelector('button.btn-ghost') as HTMLButtonElement;
+    expect(btn.textContent ?? '').toContain('Refresh');
+    expect(btn.getAttribute('aria-busy')).toBe('false');
+  });
+});
+
 describe('AdminTrustCenterComponent (Save/Publish hidden in the gated render)', () => {
   afterEach(() => TestBed.resetTestingModule());
   function render(): import('@angular/core/testing').ComponentFixture<AdminTrustCenterComponent> {
