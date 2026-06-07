@@ -39,6 +39,16 @@ describe('AdminEmptyStateComponent (a11y parity)', () => {
     expect(glyph?.querySelector('svg')?.getAttribute('stroke')).toBe('currentColor');
   });
 
+  it('maps the colorful sparkles emoji (✨) to a cyan SVG, never the raw emoji (site-features)', () => {
+    // ✨ is emoji-presentation by default → it would render in full color and
+    // break the cyan/black cockpit. Site-features uses it for its empty state,
+    // so it MUST resolve to a monochrome stroke SVG like every other emoji.
+    const glyph = render('✨').querySelector('.empty-glyph');
+    expect(glyph?.querySelector('svg')).withContext('✨ → SVG').not.toBeNull();
+    expect(glyph?.querySelector('.empty-emoji')).withContext('no raw colorful emoji leaks').toBeNull();
+    expect(glyph?.querySelector('svg')?.getAttribute('stroke')).toBe('currentColor');
+  });
+
   it('falls through to the text glyph for an unmapped on-brand mono symbol (▦)', () => {
     const glyph = render('▦').querySelector('.empty-glyph');
     expect(glyph?.querySelector('svg')).withContext('mono symbol stays text, no SVG').toBeNull();
