@@ -172,6 +172,9 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(smtpBtn).withContext('SMTP affordance present').toBeTruthy();
     expect(smtpBtn!.disabled).withContext('disabled — backend persistence not yet shipped').toBeTrue();
     expect(smtpBtn!.getAttribute('aria-disabled')).toBe('true');
+    // The SMTP card is an informative feature-preview (benefit bullets), not a bare stub.
+    const benefits = el.querySelectorAll('[data-testid="email-smtp-card"] .smtp-benefits li');
+    expect(benefits.length).withContext('SMTP benefits previewed').toBe(3);
     // Deliverability (SPF/DKIM/DMARC) is embedded under the same tab.
     expect(el.querySelector('app-admin-deliverability')).withContext('deliverability embedded').toBeTruthy();
   });

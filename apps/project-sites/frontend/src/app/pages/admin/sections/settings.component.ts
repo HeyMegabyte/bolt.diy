@@ -668,21 +668,37 @@ const PROVIDERS = MCP_PROVIDERS;
             </div>
           </section>
 
-          <!-- Bring your own SMTP — graceful coming-soon (server-side persistence
-               of SMTP credentials is a worker-backed change shipping next). No
-               dead button: the action is disabled with a clear status pill. -->
+          <!-- Bring your own SMTP — informative feature-preview (server-side
+               persistence of SMTP credentials is a worker-backed change shipping
+               next). No dead button: the action is disabled with a clear status
+               pill + the benefits + future fields are previewed. -->
           <section class="card mt-4" data-testid="email-smtp-card">
             <header class="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h3 class="m-0 text-base font-semibold text-white mb-1">Bring your own SMTP</h3>
                 <p class="text-[0.7rem] text-text-secondary m-0">
-                  Send from your own mail server / domain (host, port, username, from-address) and lift the free cap.
+                  Send from your own mail server instead of the shared sender — encrypted credentials, set per project.
                 </p>
               </div>
               <span class="shrink-0 text-[0.6rem] font-semibold uppercase tracking-wider px-2 py-1 rounded-full" style="color:#fcd34d;background:rgba(252,211,77,0.12);border:1px solid rgba(252,211,77,0.3);">Coming soon</span>
             </header>
+            <ul class="smtp-benefits" role="list">
+              <li>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ps-accent, #00e5ff)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                Send from <strong class="text-white">your own domain</strong> — better brand trust + inbox placement.
+              </li>
+              <li>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ps-accent, #00e5ff)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                <strong class="text-white">No monthly cap</strong> — your provider's limits apply, not the free {{ freeEmailCap }}.
+              </li>
+              <li>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ps-accent, #00e5ff)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                <strong class="text-white">Encrypted at rest</strong> — host · port · username · password · from-address.
+              </li>
+            </ul>
             <button type="button" class="smtp-soon-btn" disabled aria-disabled="true" data-testid="email-smtp-configure" [brnTooltip]="'Custom SMTP credentials persist server-side — rolling out in the next backend update'">
               Configure SMTP
+              <span class="smtp-soon-hint">· available after the next platform update</span>
             </button>
           </section>
 
@@ -746,7 +762,11 @@ const PROVIDERS = MCP_PROVIDERS;
        forces brand cyan for the email-sender + allowance figures (axe contrast). */
     .text-accent { color: var(--ps-accent, #00e5ff); }
     /* Email tab — disabled "Configure SMTP" coming-soon affordance (not a dead button). */
-    .smtp-soon-btn { padding: 0.45rem 0.9rem; border-radius: 0.55rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.45); font-size: 0.74rem; font-weight: 600; cursor: not-allowed; }
+    .smtp-benefits { list-style: none; margin: 0 0 0.9rem; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+    .smtp-benefits li { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.72rem; color: rgba(255,255,255,0.62); line-height: 1.35; }
+    .smtp-benefits li svg { flex: 0 0 auto; margin-top: 0.12rem; }
+    .smtp-soon-btn { display: inline-flex; align-items: baseline; gap: 0.4rem; padding: 0.45rem 0.9rem; border-radius: 0.55rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.45); font-size: 0.74rem; font-weight: 600; cursor: not-allowed; }
+    .smtp-soon-hint { font-size: 0.64rem; font-weight: 500; color: rgba(255,255,255,0.32); }
     .tab { padding: 0.4rem 0.95rem; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); cursor: pointer; font-size: 0.74rem; font-weight: 600; transition: all 120ms ease; }
     .tab:hover { color: #fff; border-color: color-mix(in oklch, var(--accent) 25%, transparent); }
     .tab.active { background: color-mix(in oklch, var(--accent) 12%, transparent); color: var(--accent); border-color: color-mix(in oklch, var(--accent) 35%, transparent); }
