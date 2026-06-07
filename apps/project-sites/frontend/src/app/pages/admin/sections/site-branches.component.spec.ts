@@ -156,6 +156,18 @@ describe('SiteBranchesComponent (cohesion + a11y)', () => {
     expect(component.branches().length).toBe(1);
   });
 
+  it('surfaces the worker request_id on the error card as a copyable support ref', () => {
+    build(); // succeed first so we control the failing re-fetch below
+    component.loadBranches();
+    const req = httpMock.expectOne(`/api/sites/${SITE_ID}/branches`);
+    // Worker error envelope: { error: { code, message, request_id } }
+    req.flush({ error: { code: 'INTERNAL_ERROR', request_id: 'req_branch_42' } }, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    expect(component.loadErrorRef()).toBe('req_branch_42');
+    // The shared cockpit error card is what renders (not a hand-rolled banner).
+    expect(fixture.nativeElement.querySelector('app-error-card[data-testid="branches-error"]')).not.toBeNull();
+  });
+
   // Merging publishes the branch to the LIVE production site → must be confirmed.
   it('mergeBranch confirms (danger) before POSTing the merge', async () => {
     build(false, true); // confirm → true

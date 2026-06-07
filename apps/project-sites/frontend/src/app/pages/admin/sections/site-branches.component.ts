@@ -17,6 +17,7 @@ import {
   type OnInit,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
 import { RouterModule, ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
 import { catchError, of } from 'rxjs';
@@ -24,7 +25,7 @@ import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { RevealDirective } from '../../../directives/reveal.directive';
-import { EmptyStateComponent } from '../../../components/states';
+import { EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
 import { HlmInputDirective, HlmButtonDirective } from '../../../ui';
 
 interface Branch {
@@ -41,7 +42,7 @@ interface Branch {
 @Component({
   selector: 'app-site-branches',
   standalone: true,
-  imports: [FormsModule, RouterModule, RollingCounterComponent, RevealDirective, EmptyStateComponent, HlmInputDirective, HlmButtonDirective],
+  imports: [FormsModule, RouterModule, RollingCounterComponent, RevealDirective, EmptyStateComponent, ErrorCardComponent, HlmInputDirective, HlmButtonDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [
     `
@@ -148,13 +149,12 @@ interface Branch {
           }
         </div>
       } @else if (loadError(); as err) {
-        <div class="rounded-xl border p-6 text-center flex flex-col items-center gap-2" role="alert" data-testid="branches-error"
-             style="border-color: rgba(255,92,122,0.32); background: rgba(255,92,122,0.04);">
-          <span aria-hidden="true" class="text-2xl" style="color: rgba(255,92,122,0.8);">⚠</span>
-          <h4 class="m-0 font-semibold text-white text-[0.9rem]">Couldn't load branches</h4>
-          <p class="m-0 text-[0.78rem] text-text-secondary max-w-[34ch]">{{ err }}</p>
-          <button hlmBtn size="sm" type="button" (click)="loadBranches()" data-testid="branches-retry">Retry</button>
-        </div>
+        <app-error-card
+          data-testid="branches-error"
+          title="Couldn't load branches"
+          [message]="err"
+          [correlationId]="loadErrorRef()"
+          (retry)="loadBranches()" />
       } @else if (branches().length === 0) {
         <app-empty-state
           icon="⎇"
@@ -245,6 +245,9 @@ export class SiteBranchesComponent implements OnInit {
   /** Set when the branches fetch fails so we show a distinct error card with a
    *  Retry instead of the misleading "No branches yet" empty state. */
   readonly loadError = signal<string | null>(null);
+  /** Worker request_id from the failed fetch → shown as the copyable support
+   *  reference on the error card (empty string when none was returned). */
+  readonly loadErrorRef = signal('');
   readonly showCreate = signal(false);
   readonly creating = signal(false);
   readonly actioning = signal<string | null>(null);
@@ -270,13 +273,27 @@ export class SiteBranchesComponent implements OnInit {
     if (!this.siteId) return;
     this.loading.set(true);
     this.loadError.set(null);
+    this.loadErrorRef.set('');
     this.api
       .get<{ branches: Branch[] }>(`/sites/${this.siteId}/branches`, undefined, { silent: true })
-      .pipe(catchError(() => { this.loadError.set('Could not load branches — check your connection and retry.'); return of({ branches: [] as Branch[] }); }))
+      .pipe(catchError((err: HttpErrorResponse) => {
+        this.loadError.set('Could not load branches — check your connection and retry.');
+        const ref = this.refOf(err);
+        if (ref) this.loadErrorRef.set(ref);
+        return of({ branches: [] as Branch[] });
+      }))
       .subscribe((res) => {
         this.branches.set(res.branches);
         this.loading.set(false);
       });
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }),
+   *  falling back to the X-Request-ID response header. Empty when neither exists. */
+  private refOf(err: unknown): string {
+    const e = err as HttpErrorResponse;
+    const fromBody = (e?.error as { error?: { request_id?: string } } | undefined)?.error?.request_id;
+    return fromBody || e?.headers?.get?.('X-Request-ID') || '';
   }
 
   createBranch(): void {
