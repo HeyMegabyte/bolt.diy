@@ -591,6 +591,10 @@ export class AdminEnterpriseComponent {
   });
 
   saveContract(): void {
+    // Re-entry guard: the Save button's [disabled] only blocks a click AFTER
+    // saving() lands, so a fast double-trigger (or a stalled first request) could
+    // otherwise issue a second PUT. Guard the handler, not just the button.
+    if (this.saving()) return;
     // Defense-in-depth: never PUT when there's no editor (plan disabled / load failed).
     if (this.notFound() || this.loadError()) return;
     // Block a broken-SSO save (the metadata URL is fetched by the IdP handshake).
@@ -622,6 +626,9 @@ export class AdminEnterpriseComponent {
   }
 
   enqueueExport(): void {
+    // Re-entry guard: a fast double-click (or a stalled first request) must not
+    // enqueue the same export twice — the button's [disabled] lags the click.
+    if (this.enqueueing()) return;
     if (!this.rangeStart() || !this.rangeEnd()) {
       this.toast.error('Pick a start + end date');
       return;

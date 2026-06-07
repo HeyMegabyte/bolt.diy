@@ -106,7 +106,7 @@ interface AggregateResponse {
             <tbody>
               @for (p of data()!.platform_totals; track p.platform) {
                 <tr>
-                  <td class="platform">{{ p.platform }}</td>
+                  <th scope="row" class="platform" [attr.title]="p.platform">{{ p.platform }}</th>
                   <td>{{ p.posts }}</td>
                   <td>{{ p.impressions | number }}</td>
                   <td>{{ p.reach | number }}</td>
@@ -152,9 +152,9 @@ interface AggregateResponse {
       }
       h2 { font-family: 'Sora', system-ui, sans-serif; font-size: 1.1rem; margin: 0 0 12px; }
       table { width: 100%; border-collapse: collapse; }
-      th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 0.9rem; }
-      th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.55; }
-      .platform { text-transform: capitalize; font-weight: 600; }
+      th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 0.9rem; font-weight: 400; }
+      thead th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.55; }
+      th.platform { text-transform: capitalize; font-weight: 600; }
       .empty { text-align: center; opacity: 0.55; padding: 18px; }
     `,
   ],

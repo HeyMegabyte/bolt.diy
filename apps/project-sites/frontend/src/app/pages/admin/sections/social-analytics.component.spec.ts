@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AdminSocialAnalyticsComponent } from './social-analytics.component';
 import { ApiService } from '../../../services/api.service';
@@ -60,5 +61,54 @@ describe('AdminSocialAnalyticsComponent (aggregate load + window)', () => {
     expect(c.widgetProps()).toEqual({});
     c.reload();
     expect((c.widgetProps() as { platform_totals: unknown[] }).platform_totals.length).toBe(1);
+  });
+});
+
+/**
+ * Full-render a11y contract for the "All platforms" data table (WCAG 1.3.1):
+ *  - each row's platform-name cell is a `<th scope="row">` so screen readers
+ *    announce the platform when reading any numeric cell in that row (without
+ *    it a SR user on the impressions cell hears a bare "1,234" with no anchor)
+ *  - the row header carries a [title] so a capitalized/truncated platform name
+ *    stays readable on hover
+ */
+describe('AdminSocialAnalyticsComponent (data-table a11y)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function render(): HTMLElement {
+    const get = jasmine.createSpy('get').and.returnValue(
+      of({
+        window_days: 30,
+        generated_at: '',
+        platform_totals: [
+          { platform: 'instagram', posts: 3, impressions: 1234, reach: 900, engagement: 87 },
+        ],
+        best_posts: [],
+        best_times: { platform: 'instagram', slots: [] },
+      }),
+    );
+    TestBed.configureTestingModule({
+      imports: [AdminSocialAnalyticsComponent],
+      providers: [provideRouter([]), { provide: ApiService, useValue: { get } }],
+    });
+    const fixture = TestBed.createComponent(AdminSocialAnalyticsComponent);
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('renders the platform-name cell as a row header (th[scope=row])', () => {
+    const el = render();
+    const rowHeader = el.querySelector('tbody tr th[scope="row"]');
+    expect(rowHeader).withContext('platform cell must be a th[scope=row]').toBeTruthy();
+    expect(rowHeader?.textContent?.trim()).toBe('instagram');
+    expect(el.querySelector('tbody tr td.platform'))
+      .withContext('platform must no longer be a plain td')
+      .toBeNull();
+  });
+
+  it('exposes the platform name via [title] for truncation recovery', () => {
+    const el = render();
+    const rowHeader = el.querySelector('tbody tr th[scope="row"]');
+    expect(rowHeader?.getAttribute('title')).toBe('instagram');
   });
 });

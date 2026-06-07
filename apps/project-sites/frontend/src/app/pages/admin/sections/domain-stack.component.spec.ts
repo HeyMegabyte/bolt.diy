@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
-import { of, throwError } from 'rxjs';
+import { of, throwError, NEVER } from 'rxjs';
 import { provideRouter } from '@angular/router';
 import { AdminDomainStackComponent } from './domain-stack.component';
 import { ApiService } from '../../../services/api.service';
@@ -169,5 +169,62 @@ describe('AdminDomainStackComponent (r13 cohesion + a11y)', () => {
     expect(loadingCard).withContext('loading feedback during initial fetch').not.toBeNull();
     expect(loadingCard?.getAttribute('aria-busy')).toBe('true');
     expect(loadingCard?.getAttribute('role')).toBe('status');
+  });
+
+  // Double-submit guard: advance() is the async mutation behind BOTH the
+  // "Advance" button (button-level [disabled]) AND the "Start Wizard" button
+  // (which has NO [disabled] in the no-run empty state). A rapid double-click on
+  // Start, or any re-entry while a run is mid-flight, must fire ONE POST — not
+  // two stack runs. Guard lives in advance() itself so every caller is covered.
+  it('advance() is a no-op when already advancing (no duplicate POST)', () => {
+    build({ id: 's1', primary_hostname: 'acme.dev' });
+    const post = (TestBed.inject(ApiService) as unknown as { post: jasmine.Spy }).post;
+    post.calls.reset();
+    component.advancing.set(true); // simulate an in-flight run
+    component.advance();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('start() double-click fires advance() once (re-entry guarded)', () => {
+    // post never completes → advancing stays true after the first call, so the
+    // second start() must short-circuit instead of POSTing again.
+    build({ id: 's1', primary_hostname: 'acme.dev' });
+    const post = (TestBed.inject(ApiService) as unknown as { post: jasmine.Spy }).post;
+    post.and.returnValue(NEVER);
+    post.calls.reset();
+    component.start();
+    component.start();
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
+  // a11y parity with the sibling Refresh button: the async Advance button must
+  // expose aria-busy while a run advances so AT announces the busy state, not
+  // just the static label (WCAG 4.1.3 status messages).
+  it('Advance button exposes aria-busy while advancing', () => {
+    build({ id: 's1', primary_hostname: 'acme.dev' });
+    component.currentState.set('in_progress'); // canAdvance() → renders the button
+    component.advancing.set(true);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const advanceBtn = Array.from(el.querySelectorAll('button')).find(
+      (b) => (b.getAttribute('aria-label') ?? '').includes('domain stack wizard'),
+    );
+    expect(advanceBtn).withContext('Advance button rendered').toBeTruthy();
+    expect(advanceBtn?.getAttribute('aria-busy')).toBe('true');
+  });
+
+  // The Start Wizard button (no-run empty state) must disable + announce busy
+  // while a run kicks off, so it can't be re-clicked before advancing() flips.
+  it('Start Wizard button disables + sets aria-busy while advancing', () => {
+    build({ id: 's1', primary_hostname: 'acme.dev' }, statusResp([]));
+    component.advancing.set(true);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const startBtn = el.querySelector<HTMLButtonElement>(
+      '[aria-label="Start the domain stack wizard"]',
+    );
+    expect(startBtn).withContext('Start Wizard button rendered').toBeTruthy();
+    expect(startBtn?.disabled).withContext('disabled while a run kicks off').toBeTrue();
+    expect(startBtn?.getAttribute('aria-busy')).toBe('true');
   });
 });

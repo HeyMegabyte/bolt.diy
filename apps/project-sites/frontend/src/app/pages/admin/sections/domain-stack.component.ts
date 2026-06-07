@@ -77,6 +77,7 @@ interface StackAdvanceResponse {
           <a routerLink="/admin/domains" class="btn-ghost text-xs ds-focus">← Domains</a>
           @if (canAdvance()) {
             <button class="btn-primary text-xs ds-focus" type="button" (click)="advance()" [disabled]="advancing()"
+                    [attr.aria-busy]="advancing()"
                     [attr.aria-label]="advancing() ? 'Advancing domain stack wizard' : 'Advance domain stack wizard'">
               {{ advancing() ? 'Running…' : 'Advance' }}
             </button>
@@ -189,7 +190,8 @@ interface StackAdvanceResponse {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
           </app-mini-empty>
           <button class="btn-primary text-xs mt-3 ds-focus" type="button" (click)="start()"
-                  aria-label="Start the domain stack wizard">Start Wizard</button>
+                  [disabled]="advancing()" [attr.aria-busy]="advancing()"
+                  aria-label="Start the domain stack wizard">{{ advancing() ? 'Starting…' : 'Start Wizard' }}</button>
         </div>
       }
     </div>
@@ -370,6 +372,10 @@ export class AdminDomainStackComponent implements OnDestroy {
   }
 
   advance() {
+    // Double-submit guard: covers both the Advance button ([disabled] handles
+    // its own re-click) AND the Start Wizard button (no [disabled] in the empty
+    // state) — a rapid double-click must fire ONE POST, not two stack runs.
+    if (this.advancing()) return;
     const hn = this.hostname();
     const siteId = this.state.selectedSite()?.id;
     if (!hn || !siteId) return;

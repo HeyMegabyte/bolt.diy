@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { AdminEnterpriseComponent } from './enterprise.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -129,6 +129,53 @@ describe('AdminEnterpriseComponent (mutations are {silent} — no generic double
     expect(post).toHaveBeenCalled();
     expect(post.calls.mostRecent().args[0]).toBe('/enterprise/audit-exports');
     expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
+  });
+});
+
+/**
+ * Double-submit re-entry guards (mirrors email.component's form-Enter guard).
+ * saveContract + enqueueExport are async mutations: the button's [disabled] only
+ * blocks a click AFTER the busy signal lands, so a fast double-trigger (or a
+ * never-completing first request leaving the flag true) must NOT issue a second
+ * PUT/POST. Guard the HANDLER, not just the button.
+ */
+describe('AdminEnterpriseComponent (mutation re-entry guards)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeMut(): { c: AdminEnterpriseComponent; put: jasmine.Spy; post: jasmine.Spy } {
+    // Mutations never complete (no next/error) so the busy flag stays true after the first call.
+    const put = jasmine.createSpy('put').and.returnValue(new Subject());
+    const post = jasmine.createSpy('post').and.returnValue(new Subject());
+    TestBed.configureTestingModule({
+      imports: [AdminEnterpriseComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), put, post } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminEnterpriseComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminEnterpriseComponent).componentInstance, put, post };
+  }
+
+  it('saveContract ignores a second call while a save is already in flight (one PUT only)', () => {
+    const { c, put } = makeMut();
+    c.notFound.set(false);
+    c.loadError.set(null);
+    c.saveContract();
+    c.saveContract(); // double-fire while saving() is still true
+    expect(put).toHaveBeenCalledTimes(1);
+    expect(c.saving()).toBe(true);
+  });
+
+  it('enqueueExport ignores a second call while an enqueue is already in flight (one POST only)', () => {
+    const { c, post } = makeMut();
+    c.rangeStart.set('2026-01-01');
+    c.rangeEnd.set('2026-02-01');
+    c.enqueueExport();
+    c.enqueueExport(); // double-fire while enqueueing() is still true
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(c.enqueueing()).toBe(true);
   });
 });
 
