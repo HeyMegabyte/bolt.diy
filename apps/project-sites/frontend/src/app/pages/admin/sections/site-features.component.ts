@@ -161,6 +161,22 @@ interface SiteFeature {
                   <p><span class="sf-meta-label">Feature key:</span> <code>{{ f.key }}</code></p>
                   <p><span class="sf-meta-label">Entitlement:</span> {{ entitlementLabel(f) }}</p>
                   <p><span class="sf-meta-label">Requires plan:</span> {{ f.requiredPlan }}{{ f.isAddon ? ' (or add-on)' : '' }}</p>
+                  @if (changesFor(f.key); as changes) {
+                    @if (changes.length > 0) {
+                      <div class="sf-timeline" data-testid="sf-timeline">
+                        <span class="sf-meta-label">Timeline · this session</span>
+                        <ul class="sf-timeline-list">
+                          @for (ch of changes; track ch.at) {
+                            <li class="sf-timeline-row">
+                              <span class="sf-tl-dot" [class.sf-tl-dot--on]="ch.enabled" aria-hidden="true"></span>
+                              <span class="sf-tl-state">{{ ch.enabled ? 'Enabled' : 'Disabled' }}</span>
+                              <span class="sf-tl-at">{{ ch.at | date: 'shortTime' }}</span>
+                            </li>
+                          }
+                        </ul>
+                      </div>
+                    }
+                  }
                 </div>
               }
             </li>
@@ -226,6 +242,13 @@ interface SiteFeature {
     .sf-expert p { margin: 0 0 .35rem; font-size: .82rem; }
     .sf-expert code { font-family: var(--ps-mono, ui-monospace, monospace); color: var(--ps-accent, #00e5ff); }
     .sf-meta-label { color: color-mix(in oklch, currentColor 55%, transparent); }
+    .sf-timeline { margin-top: .6rem; padding-top: .5rem; border-top: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 14%, transparent); }
+    .sf-timeline-list { list-style: none; margin: .4rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
+    .sf-timeline-row { display: flex; align-items: center; gap: .5rem; font-size: .78rem; }
+    .sf-tl-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 35%, transparent); }
+    .sf-tl-dot--on { background: var(--ps-accent, #00e5ff); box-shadow: 0 0 5px color-mix(in oklch, var(--ps-accent, #00e5ff) 60%, transparent); }
+    .sf-tl-state { color: var(--ps-ink, #f4f4ff); }
+    .sf-tl-at { margin-left: auto; font-variant-numeric: tabular-nums; color: color-mix(in oklch, currentColor 50%, transparent); }
     .sf-undo-bar { position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%); z-index: var(--ps-z-overlay-takeover, 100000);
       display: flex; gap: 1rem; align-items: center; padding: .65rem 1.1rem; border-radius: 999px;
       background: color-mix(in oklch, var(--ps-bg, #060610) 94%, var(--ps-accent, #00e5ff) 6%);
@@ -256,6 +279,19 @@ export class AdminSiteFeaturesComponent implements OnInit {
   readonly mode = signal<DisclosureMode>(this.readMode());
   /** Last toggle, for the undo bar. */
   readonly lastChange = signal<{ key: string; name: string; enabled: boolean } | null>(null);
+  /**
+   * Per-feature session change log (newest first, capped) — the honest,
+   * frontend-feasible "per-site timeline": what the owner changed in THIS
+   * session. A durable cross-session audit history needs the worker's
+   * `/site-features/:key/history` feed (separate wave); this never claims to be
+   * more than the current session, so it's not a fake-data leak.
+   */
+  readonly changeLog = signal<ReadonlyArray<{ key: string; enabled: boolean; at: number }>>([]);
+
+  /** This session's changes for one feature, newest first. */
+  changesFor(key: string): ReadonlyArray<{ enabled: boolean; at: number }> {
+    return this.changeLog().filter((c) => c.key === key);
+  }
 
   readonly siteName = computed(() => this.state.selectedSite()?.business_name ?? 'your site');
   readonly enabledCount = computed(() => this.features().filter((f) => f.enabled).length);
@@ -364,6 +400,7 @@ export class AdminSiteFeaturesComponent implements OnInit {
       );
       this.toast.success(`${f.name} ${next ? 'enabled' : 'disabled'}.`);
       this.lastChange.set({ key: f.key, name: f.name, enabled: next });
+      this.changeLog.update((log) => [{ key: f.key, enabled: next, at: Date.now() }, ...log].slice(0, 50));
     } catch (e) {
       this.features.set(before);
       const status = (e as { status?: number }).status ?? 'error';

@@ -133,6 +133,24 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="sf-undo"]')).not.toBeNull();
   });
 
+  it('expert mode shows a per-feature session timeline of the owner\'s changes', async () => {
+    await build({ plan: 'pro', features: [feat({ key: 'online_booking', enabled: false, entitled: 'available' })] });
+    component.setMode('expert');
+    fixture.detectChanges();
+    // No timeline before any change this session.
+    expect(fixture.nativeElement.querySelector('[data-testid="sf-timeline"]')).toBeNull();
+
+    // Toggle ON → the session change log records it + the timeline renders.
+    fixture.nativeElement.querySelector('[data-testid="sf-toggle"]').click();
+    httpMock.expectOne('/api/site-features/online_booking').flush({ ok: true });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const tl = fixture.nativeElement.querySelector('[data-testid="sf-timeline"]');
+    expect(tl).withContext('timeline appears after a change').not.toBeNull();
+    expect(tl.textContent).toContain('Enabled');
+  });
+
   it('NEVER toggles a locked feature — no POST fires (entitlement guard)', async () => {
     await build({ plan: 'free', features: [feat({ key: 'locked', entitled: 'upgrade-required', requiredPlan: 'business' })] });
     // No toggle button is even rendered for a locked card…
