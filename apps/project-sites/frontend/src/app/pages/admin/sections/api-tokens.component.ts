@@ -34,7 +34,6 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import {
   createAngularTable,
   getCoreRowModel,
@@ -45,6 +44,7 @@ import {
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { HlmBadgeDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective } from '../../../ui';
 import { AdminStateService } from '../admin-state.service';
+import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
@@ -407,7 +407,10 @@ const ALL_SCOPES = [
   `],
 })
 export class AdminApiTokensComponent {
-  private http = inject(HttpClient);
+  // ApiService injects the Authorization bearer (no global HTTP interceptor
+  // exists). The token-mgmt endpoints now derive orgId from that verified
+  // bearer/session server-side — NOT a client x-org-id header (closed IDOR).
+  private api = inject(ApiService);
   private toast = inject(ToastService);
   private adminState = inject(AdminStateService);
 
@@ -484,8 +487,10 @@ export class AdminApiTokensComponent {
 
   constructor() {
     // Reads `orgId()` synchronously via loadTokens → the effect re-fires once
-    // the shared state hydrates the org id, so the first paint isn't stuck
-    // sending an empty `x-org-id` (which the worker 401s).
+    // the shared state hydrates. We gate on it so the first paint waits for
+    // the authenticated session to be ready before hitting the bearer-guarded
+    // endpoint (the worker derives the org from the verified bearer, not a
+    // client header).
     effect(() => {
       this.loadTokens();
     });
@@ -494,16 +499,14 @@ export class AdminApiTokensComponent {
   private loadTokens(): void {
     const orgId = this.orgId; // tracked by the effect — re-runs when it hydrates
     if (!orgId) {
-      // Org id not ready yet; the effect will re-run when it resolves. Avoid
-      // firing a guaranteed-401 request with an empty header.
+      // Session not ready yet; the effect re-runs when it resolves. Avoid
+      // firing before the bearer/session context exists.
       this.loading.set(false);
       return;
     }
     this.loading.set(true);
-    this.http
-      .get<{ data: ApiToken[] }>('/api/v1-tokens', {
-        headers: { 'x-org-id': orgId },
-      })
+    this.api
+      .get<{ data: ApiToken[] }>('/v1-tokens', undefined, { silent: true })
       .subscribe({
         next: (res) => {
           this.tokens.set(res.data ?? []);
@@ -549,10 +552,8 @@ export class AdminApiTokensComponent {
       expires_at: this.newExpiry ? new Date(this.newExpiry).toISOString() : null,
     };
 
-    this.http
-      .post<CreateTokenResponse>('/api/v1-tokens', body, {
-        headers: { 'x-org-id': this.orgId },
-      })
+    this.api
+      .post<CreateTokenResponse>('/v1-tokens', body, { silent: true })
       .subscribe({
         next: (res) => {
           this.creating.set(false);
@@ -593,8 +594,8 @@ export class AdminApiTokensComponent {
     if (!t || this.revoking()) return;
     this.revoking.set(true);
 
-    this.http
-      .delete(`/api/v1-tokens/${t.id}`, { headers: { 'x-org-id': this.orgId } })
+    this.api
+      .delete(`/v1-tokens/${t.id}`, { silent: true })
       .subscribe({
         next: () => {
           this.revoking.set(false);

@@ -33,7 +33,7 @@ import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import type { Env } from '../types/env.js';
+import type { Env, Variables } from '../types/env.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import {
   extractBearerToken,
@@ -487,20 +487,23 @@ v1.get('/v1/sites/:id/analytics', requireScope('analytics:read'), async (c) => {
   });
 });
 
-// ─── Token management (admin only — uses session auth, not API token auth) ──
-// These routes are under /api/v1-tokens/* not /v1/* so they're outside the
-// API-token auth middleware above and use the standard session middleware.
-const tokenMgmt = new Hono<{ Bindings: Env }>();
+// ─── Token management (admin only — session/api-key auth) ──
+// Under /api/v1-tokens/* (NOT /v1/*), so they sit behind the global
+// `app.use('/api/*', authMiddleware)` in index.ts. orgId MUST come from the
+// authenticated session/api-key (`c.get('orgId')`) — NEVER from a client
+// `x-org-id` header, which was a critical IDOR (any caller could read/create/
+// delete another org's API tokens by naming its id).
+const tokenMgmt = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 tokenMgmt.get('/api/v1-tokens', async (c) => {
-  const orgId = c.req.header('x-org-id') ?? '';
+  const orgId = c.get('orgId') ?? '';
   if (!orgId) return c.json({ error: 'unauthorized' }, 401);
   const tokens = await listApiTokens(c.env.DB, orgId);
   return c.json({ data: tokens });
 });
 
 tokenMgmt.post('/api/v1-tokens', async (c) => {
-  const orgId = c.req.header('x-org-id') ?? '';
+  const orgId = c.get('orgId') ?? '';
   if (!orgId) return c.json({ error: 'unauthorized' }, 401);
 
   const body = await c.req.json().catch(() => ({})) as { name?: string; scopes?: string[]; expires_at?: string };
@@ -517,7 +520,7 @@ tokenMgmt.post('/api/v1-tokens', async (c) => {
 });
 
 tokenMgmt.delete('/api/v1-tokens/:id', async (c) => {
-  const orgId = c.req.header('x-org-id') ?? '';
+  const orgId = c.get('orgId') ?? '';
   if (!orgId) return c.json({ error: 'unauthorized' }, 401);
 
   const revoked = await revokeApiToken(c.env.DB, orgId, c.req.param('id'));
