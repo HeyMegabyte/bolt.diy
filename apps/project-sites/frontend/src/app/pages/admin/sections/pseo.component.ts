@@ -191,7 +191,7 @@ type StatusFilter = 'all' | PseoPage['status'];
                   <td>
                     <span class="ps-status-pill" [attr.data-status]="p.status">
                       {{ p.status }}
-                      @if (p.thin_content === 1) { <span class="ps-thin-flag" title="Thin content">⚠</span> }
+                      @if (p.thin_content === 1) { <span class="ps-thin-flag" title="Thin content" aria-label="Thin content" role="img"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> }
                     </span>
                   </td>
                   <td class="ps-cell-actions">
@@ -356,7 +356,8 @@ type StatusFilter = 'all' | PseoPage['status'];
     .ps-status-pill[data-status='approved'] { background:color-mix(in oklch, var(--ps-accent, #00E5FF) 10%, transparent); border:1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 35%, transparent); color:var(--ps-accent, #00E5FF); }
     .ps-status-pill[data-status='published'] { background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.35); color:#4ade80; }
     .ps-status-pill[data-status='rejected'] { background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.3); color:#f87171; }
-    .ps-thin-flag { color:#fbbf24; font-size:.7rem; }
+    .ps-thin-flag { color:#fbbf24; display:inline-flex; align-items:center; vertical-align:-0.15em; margin-left:.25rem; }
+    .ps-thin-flag svg { width:13px; height:13px; }
 
     .ps-act-approve {
       font-size:.62rem; font-weight:700; padding:.18rem .5rem;

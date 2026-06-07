@@ -100,6 +100,35 @@ describe('AdminPseoComponent (cohesion + a11y, convergence r18)', () => {
     expect(glyph.querySelector('svg')).withContext('monochrome SVG inside the disc').toBeTruthy();
   });
 
+  // The thin-content flag was the ⚠ char (U+26A0) — emoji-presentation by default,
+  // so it rendered as a colourful ⚠️ emoji ignoring its amber CSS color, and it
+  // had no accessible label. It must be a monochrome amber SVG with aria-label.
+  it('renders the thin-content flag as a monochrome SVG with an accessible label (not the ⚠ emoji)', async () => {
+    const sel = signal<{ id: string } | null>({ id: 'site-1' });
+    const thinGet = jasmine.createSpy('get').and.callFake((url: string) =>
+      url.includes('/pages')
+        ? of({ pages: [{ id: 'p1', route_slug: '/svc/newark', service: 'svc', city: 'Newark', intent: 'price', season: '', status: 'approved', thin_content: 1, word_count: 120, image_count: 1 }], total: 1, page: 1, limit: 50 })
+        : of({ stats: { total: 1, draft: 0, approved: 1, published: 0, rejected: 0, thinContent: 1 } }),
+    );
+    TestBed.configureTestingModule({
+      imports: [AdminPseoComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: thinGet, post: jasmine.createSpy('post').and.returnValue(of({})) } },
+        { provide: ToastService, useValue: { success: () => {}, error: () => {} } },
+        { provide: AdminStateService, useValue: { selectedSite: sel } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminPseoComponent);
+    fx.detectChanges();
+    await fx.whenStable();
+    fx.detectChanges();
+    const flag = fx.nativeElement.querySelector('.ps-thin-flag') as HTMLElement;
+    expect(flag).withContext('flag rendered for a thin_content row').toBeTruthy();
+    expect(flag.querySelector('svg')).withContext('mono SVG, not the colourful ⚠ emoji').toBeTruthy();
+    expect(flag.getAttribute('aria-label')).withContext('SR label for the flag').toBe('Thin content');
+    expect(flag.textContent).withContext('no raw ⚠ emoji char in the DOM').not.toContain('⚠');
+  });
+
   it('exposes status filter pills as keyboard-reachable tabs', () => {
     build({ id: 'site-1' });
     const pills = fixture.nativeElement.querySelectorAll('.ps-pill[role="tab"]');
