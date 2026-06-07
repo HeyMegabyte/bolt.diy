@@ -327,12 +327,15 @@ interface DocsEndpoint {
     .ai-streaming-text { color: #e2e8f0; font-size: 0.86rem; line-height: 1.5; min-height: 1em; }
     .cmdk-ai-raw { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: inherit; }
     .cmdk-ai-rendered { font-size: 0.86rem; line-height: 1.55; }
-    .cmdk-ai-rendered :is(h1,h2,h3) { font-size: 0.95rem; margin: 8px 0 4px; color: #fff; }
-    .cmdk-ai-rendered p { margin: 0 0 6px; }
-    .cmdk-ai-rendered ul, .cmdk-ai-rendered ol { margin: 0 0 6px; padding-left: 20px; }
-    .cmdk-ai-rendered code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 0.78rem; font-family: ui-monospace, monospace; }
-    .cmdk-ai-rendered pre { background: rgba(0,0,0,0.36); padding: 8px 10px; border-radius: 6px; overflow-x: auto; font-size: 0.78rem; }
-    .cmdk-ai-rendered a { color: #00E5FF; text-decoration: underline; }
+    /* aiHtml is [innerHTML]-injected markdown → child-element rules MUST pierce
+       Emulated encapsulation (::ng-deep) or they never apply (links fall back to
+       default blue, code/pre unstyled). Same fix as the .cp-title mark rule above. */
+    :host ::ng-deep .cmdk-ai-rendered :is(h1,h2,h3) { font-size: 0.95rem; margin: 8px 0 4px; color: #fff; }
+    :host ::ng-deep .cmdk-ai-rendered p { margin: 0 0 6px; }
+    :host ::ng-deep .cmdk-ai-rendered ul, :host ::ng-deep .cmdk-ai-rendered ol { margin: 0 0 6px; padding-left: 20px; }
+    :host ::ng-deep .cmdk-ai-rendered code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 0.78rem; font-family: ui-monospace, monospace; }
+    :host ::ng-deep .cmdk-ai-rendered pre { background: rgba(0,0,0,0.36); padding: 8px 10px; border-radius: 6px; overflow-x: auto; font-size: 0.78rem; }
+    :host ::ng-deep .cmdk-ai-rendered a { color: #00E5FF; text-decoration: underline; }
     .cmdk-ai-error { margin: 4px 0 0; color: #fda4af; font-size: 0.78rem; }
     .cmdk-ai-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
     .cmdk-ai-chip {
