@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { of, throwError, type Observable } from 'rxjs';
+import { of, throwError, Subject, type Observable } from 'rxjs';
 import { Router } from '@angular/router';
 import { AdminSnapshotsComponent } from './snapshots.component';
 import { ApiService } from '../../../services/api.service';
@@ -131,6 +131,52 @@ describe('AdminSnapshotsComponent (destructive revert is confirm-guarded)', () =
     expect(confirm).toHaveBeenCalled();
     expect(revert).not.toHaveBeenCalled();
     expect(c.reverting()).toBe(false);
+  });
+
+  // Revert OVERWRITES the live site — a double-trigger must never fire two
+  // reverts. The guard is claimed BEFORE the confirm so a 2nd invocation can't
+  // even open a 2nd dialog while the first revert is in flight.
+  it('does NOT double-revert while a revert is in flight (no double overwrite)', async () => {
+    const confirm = jasmine.createSpy('confirm').and.resolveTo(true);
+    const revert = jasmine.createSpy('revertSnapshot').and.returnValue(new Subject()); // stays pending
+    TestBed.configureTestingModule({
+      imports: [AdminSnapshotsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({}), delete: () => of({}), revertSnapshot: revert } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm } },
+        { provide: TelemetryService, useValue: { track: () => undefined, capture: () => undefined } },
+        { provide: BoltEmbedService, useValue: { openSnapshot: () => undefined } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }), loadData: () => undefined } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSnapshotsComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(AdminSnapshotsComponent).componentInstance;
+    await c.revertToSnapshot(snap);
+    await c.revertToSnapshot(snap);
+    expect(revert).withContext('a second revert while one is in flight must not fire').toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the revert guard on error so a failed revert stays retryable', async () => {
+    const confirm = jasmine.createSpy('confirm').and.resolveTo(true);
+    const revert = jasmine.createSpy('revertSnapshot').and.returnValues(throwError(() => ({ status: 500 })), of({ ok: true }));
+    TestBed.configureTestingModule({
+      imports: [AdminSnapshotsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({}), delete: () => of({}), revertSnapshot: revert } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm } },
+        { provide: TelemetryService, useValue: { track: () => undefined, capture: () => undefined } },
+        { provide: BoltEmbedService, useValue: { openSnapshot: () => undefined } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }), loadData: () => undefined } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSnapshotsComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(AdminSnapshotsComponent).componentInstance;
+    await c.revertToSnapshot(snap);
+    expect(c.reverting()).withContext('guard clears after a failed revert').toBe(false);
+    await c.revertToSnapshot(snap);
+    expect(revert).toHaveBeenCalledTimes(2);
   });
 });
 

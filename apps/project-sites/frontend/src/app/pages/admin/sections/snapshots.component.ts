@@ -2010,6 +2010,11 @@ export class AdminSnapshotsComponent implements OnInit {
   async revertToSnapshot(snap: Snapshot): Promise<void> {
     const site = this.state.selectedSite();
     if (!site) return;
+    // Double-submit guard: revert OVERWRITES the live site — a 2nd trigger must
+    // never fire a 2nd overwrite. Claim the slot BEFORE the confirm so a rapid
+    // re-trigger can't even open a 2nd dialog; cleared on cancel + on resolve/error.
+    if (this.reverting()) return;
+    this.reverting.set(true);
     // Reverting OVERWRITES the live production site — the most destructive admin
     // action there is (more than deleting a backup). Confirm first, mirroring
     // confirmDelete, so a single misclick can never roll the live site back —
@@ -2020,8 +2025,7 @@ export class AdminSnapshotsComponent implements OnInit {
       confirmLabel: 'Revert site',
       danger: true,
     });
-    if (!ok) return;
-    this.reverting.set(true);
+    if (!ok) { this.reverting.set(false); return; }
     this.api.revertSnapshot(site.id, snap.id).subscribe({
       next: () => {
         this.toast.success(`Reverted to "${snap.snapshot_name}"`);
