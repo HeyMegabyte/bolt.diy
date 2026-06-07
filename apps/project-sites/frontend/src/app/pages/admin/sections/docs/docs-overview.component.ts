@@ -384,47 +384,47 @@ import { DocsSpecService, renderMarkdown, type Operation } from '../docs.compone
     }
 
     /* ── Markdown / Prose docs (reference at bottom) ─────────────── */
-    .prose-docs { padding: 24px !important; }
-    .prose-docs :first-child { margin-top: 0; }
-    .prose-docs h2 {
+    :host ::ng-deep .prose-docs { padding: 24px !important; }
+    :host ::ng-deep .prose-docs :first-child { margin-top: 0; }
+    :host ::ng-deep .prose-docs h2 {
       font-family: 'Sora', ui-sans-serif, system-ui, sans-serif;
       font-size: 1.05rem; font-weight: 700; color: #fff;
       margin: 24px 0 10px;
       letter-spacing: -0.015em; line-height: 1.2;
     }
-    .prose-docs h3 {
+    :host ::ng-deep .prose-docs h3 {
       position: relative; padding-left: 18px;
       font-family: 'Sora', ui-sans-serif, system-ui, sans-serif;
       font-size: 0.95rem; font-weight: 600; color: #fff;
       margin: 18px 0 6px;
     }
-    .prose-docs h3::before {
+    :host ::ng-deep .prose-docs h3::before {
       content: '#'; position: absolute; left: 0; top: 0;
       font-family: ui-monospace, monospace; color: #00E5FF;
       font-weight: 700; opacity: 0.7;
     }
-    .prose-docs p {
+    :host ::ng-deep .prose-docs p {
       color: #cbd5e1; font-size: 0.85rem; line-height: 1.65;
       margin: 0 0 12px; max-width: 72ch;
     }
-    .prose-docs ul { list-style: none; padding-left: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 3px; }
-    .prose-docs li {
+    :host ::ng-deep .prose-docs ul { list-style: none; padding-left: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 3px; }
+    :host ::ng-deep .prose-docs li {
       position: relative; padding-left: 18px;
       color: #cbd5e1; font-size: 0.82rem; line-height: 1.55;
     }
-    .prose-docs li::before {
+    :host ::ng-deep .prose-docs li::before {
       content: ''; position: absolute; left: 4px; top: 0.65em;
       width: 5px; height: 5px; border-radius: 999px;
       background: #00E5FF; box-shadow: 0 0 6px rgba(0,229,255,0.6);
     }
-    .prose-docs code {
+    :host ::ng-deep .prose-docs code {
       font-family: 'JetBrains Mono', ui-monospace, monospace;
       font-size: 0.78rem;
       background: rgba(0,229,255,0.08); color: #fff;
       padding: 1px 6px; border-radius: 4px;
       border: 1px solid rgba(0,229,255,0.18);
     }
-    .prose-docs pre {
+    :host ::ng-deep .prose-docs pre {
       position: relative;
       font-family: 'JetBrains Mono', ui-monospace, monospace;
       font-size: 0.74rem; line-height: 1.55;
@@ -433,8 +433,8 @@ import { DocsSpecService, renderMarkdown, type Operation } from '../docs.compone
       padding: 12px 14px; overflow: auto;
       margin: 8px 0 12px;
     }
-    .prose-docs pre code { background: transparent; border: 0; padding: 0; font-size: inherit; color: #fff; }
-    .prose-docs pre .copy-code-btn {
+    :host ::ng-deep .prose-docs pre code { background: transparent; border: 0; padding: 0; font-size: inherit; color: #fff; }
+    :host ::ng-deep .prose-docs pre .copy-code-btn {
       position: absolute; top: 6px; right: 6px;
       padding: 3px 8px; border-radius: 5px;
       background: rgba(0,229,255,0.10); color: #00E5FF;
@@ -445,14 +445,14 @@ import { DocsSpecService, renderMarkdown, type Operation } from '../docs.compone
       opacity: 0; transform: translateY(-2px);
       transition: opacity 140ms ease, transform 140ms ease, background 140ms ease;
     }
-    .prose-docs pre:hover .copy-code-btn,
-    .prose-docs pre:focus-within .copy-code-btn { opacity: 1; transform: translateY(0); }
-    .prose-docs pre .copy-code-btn:hover { background: rgba(0,229,255,0.18); color: #fff; }
-    .prose-docs pre .copy-code-btn.is-copied { background: rgba(74,222,128,0.18); color: #4ade80; border-color: rgba(74,222,128,0.32); opacity: 1; }
-    .prose-docs a { color: #00E5FF; text-decoration: none; border-bottom: 1px dashed rgba(0,229,255,0.4); }
-    .prose-docs a:hover { border-bottom-color: #00E5FF; color: #fff; }
-    .prose-docs strong { color: #fff; font-weight: 700; }
-    .prose-docs em { color: rgba(255,255,255,0.85); font-style: italic; }
+    :host ::ng-deep .prose-docs pre:hover .copy-code-btn,
+    :host ::ng-deep .prose-docs pre:focus-within .copy-code-btn { opacity: 1; transform: translateY(0); }
+    :host ::ng-deep .prose-docs pre .copy-code-btn:hover { background: rgba(0,229,255,0.18); color: #fff; }
+    :host ::ng-deep .prose-docs pre .copy-code-btn.is-copied { background: rgba(74,222,128,0.18); color: #4ade80; border-color: rgba(74,222,128,0.32); opacity: 1; }
+    :host ::ng-deep .prose-docs a { color: #00E5FF; text-decoration: none; border-bottom: 1px dashed rgba(0,229,255,0.4); }
+    :host ::ng-deep .prose-docs a:hover { border-bottom-color: #00E5FF; color: #fff; }
+    :host ::ng-deep .prose-docs strong { color: #fff; font-weight: 700; }
+    :host ::ng-deep .prose-docs em { color: rgba(255,255,255,0.85); font-style: italic; }
 
     @media (prefers-reduced-motion: reduce) {
       .ov-stat, .ov-btn { transition: none !important; }
