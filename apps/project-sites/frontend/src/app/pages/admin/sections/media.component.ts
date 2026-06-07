@@ -43,6 +43,7 @@ import {
   type OnInit,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
@@ -114,6 +115,8 @@ interface StockSourceOption {
 
 /** Tabs rendered in the section header. */
 type MediaTab = 'library' | 'stock' | 'image' | 'video' | 'podcast';
+/** Runtime allow-list for validating a stored/`?tab=` value. */
+const MEDIA_TABS: readonly MediaTab[] = ['library', 'stock', 'image', 'video', 'podcast'];
 
 /** One podcast script segment authored in the Podcast Studio tab. */
 interface PodcastSegment {
@@ -1193,6 +1196,8 @@ interface BoltMediaAttachMessage {
 })
 export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly api = inject(ApiService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly bolt = inject(BoltEmbedService);
   private readonly toast = inject(ToastService);
   private readonly confirmSvc = inject(ConfirmService);
@@ -1343,6 +1348,11 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // ─── Lifecycle ────────────────────────────────────────────────────────────
   ngOnInit(): void {
+    // A shared/bookmarked `?tab=video` wins over the localStorage-remembered tab
+    // for this visit (validated; unknown ignored). activeTab was already seeded
+    // from localStorage at construction, so absent ?tab= keeps that preference.
+    const urlTab = this.route.snapshot.queryParamMap.get('tab');
+    if (urlTab && MEDIA_TABS.includes(urlTab as MediaTab)) this.activeTab.set(urlTab as MediaTab);
     this.refreshLibrary();
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', this.visibilityHandler);
@@ -1375,12 +1385,21 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     } catch {
       /* private mode — ignore */
     }
+    // Reflect in the URL so a studio tab is bookmarkable/shareable (matches
+    // site-detail + billing). replaceUrl = no back-button spam; merge keeps
+    // other params; SPA nav, never a reload.
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   private readStoredTab(): MediaTab {
     try {
       const stored = localStorage.getItem('media.tab') as MediaTab | null;
-      if (stored && ['library', 'stock', 'image', 'video', 'podcast'].includes(stored)) {
+      if (stored && MEDIA_TABS.includes(stored)) {
         return stored;
       }
     } catch {

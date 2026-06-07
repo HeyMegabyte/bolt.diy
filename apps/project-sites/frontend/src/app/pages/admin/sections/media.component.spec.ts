@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ActivatedRoute, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AdminMediaComponent } from './media.component';
 import { ApiService } from '../../../services/api.service';
@@ -30,6 +31,8 @@ describe('AdminMediaComponent (cyan/black cohesion + a11y)', () => {
     TestBed.configureTestingModule({
       imports: [AdminMediaComponent],
       providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: ApiService, useValue: apiStub },
         { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
         {
@@ -153,6 +156,8 @@ describe('AdminMediaComponent (library load-error gating)', () => {
     TestBed.configureTestingModule({
       imports: [AdminMediaComponent],
       providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: ApiService, useValue: { get, post: () => of({}), delete: () => of({}) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0, dismiss: () => undefined } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
@@ -211,6 +216,8 @@ describe('AdminMediaComponent (stock search states)', () => {
     TestBed.configureTestingModule({
       imports: [AdminMediaComponent],
       providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: ApiService, useValue: { get: () => of({ data: [] }), post, postFormData: () => of({ data: null }), delete: () => of({ ok: true }) } },
         { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
         { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: jasmine.createSpy('warning'), error: toastErr, dismiss: () => undefined } },
@@ -267,6 +274,8 @@ describe('AdminMediaComponent (stock search states)', () => {
     TestBed.configureTestingModule({
       imports: [AdminMediaComponent],
       providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: ApiService, useValue: { get: () => of({ data: [] }), post, postFormData: () => of({ data: null }), delete: () => of({ ok: true }) } },
         { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
         { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
@@ -333,6 +342,8 @@ describe('AdminMediaComponent (mutations are {silent} — no double-toast/flood)
     TestBed.configureTestingModule({
       imports: [AdminMediaComponent],
       providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ ok: true }), postFormData, delete: del } },
         { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
         { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
@@ -387,6 +398,8 @@ describe('AdminMediaComponent (library-cap honesty)', () => {
     TestBed.configureTestingModule({
       imports: [AdminMediaComponent],
       providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ ok: true }), postFormData: () => of({ data: null }), delete: () => of({ ok: true }) } },
         { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
         { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
@@ -424,6 +437,8 @@ describe('AdminMediaComponent (filtered-empty escape)', () => {
     TestBed.configureTestingModule({
       imports: [AdminMediaComponent],
       providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ ok: true }), postFormData: () => of({ data: null }), delete: () => of({ ok: true }) } },
         { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
         { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
@@ -483,6 +498,8 @@ describe('AdminMediaComponent (empty-state cyan glyph cohesion)', () => {
     TestBed.configureTestingModule({
       imports: [AdminMediaComponent],
       providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.resolveTo(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ ok: true }), postFormData: () => of({ data: null }), delete: () => of({ ok: true }) } },
         { provide: BoltEmbedService, useValue: { forwardToast: () => undefined } },
         { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
@@ -508,5 +525,56 @@ describe('AdminMediaComponent (empty-state cyan glyph cohesion)', () => {
     expect(glyph).toBeTruthy();
     // Cockpit standard: a monochrome SVG in a cyan halo disc — NOT a bare emoji char node.
     expect(glyph!.querySelector('svg')).withContext('cyan-glyph SVG, not a grey emoji char').toBeTruthy();
+  });
+});
+
+/**
+ * Deep-linkable studio tabs — `?tab=video` opens that studio (bookmarkable/shareable),
+ * URL wins over the localStorage-remembered tab on load, and clicking a tab reflects
+ * in the URL (replaceUrl + merge). Mirrors site-detail + billing.
+ */
+describe('AdminMediaComponent (deep-linkable tabs)', () => {
+  afterEach(() => { TestBed.resetTestingModule(); try { localStorage.removeItem('media.tab'); } catch { /* */ } });
+
+  function mk(tabParam: string | null): { c: AdminMediaComponent; nav: jasmine.Spy } {
+    try { localStorage.removeItem('media.tab'); } catch { /* */ } // default → 'library'
+    const nav = jasmine.createSpy('navigate').and.resolveTo(true);
+    const apiStub = { get: jasmine.createSpy('get').and.returnValue(of({ assets: [], data: [] })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })), delete: jasmine.createSpy('delete').and.returnValue(of({ ok: true })) };
+    TestBed.configureTestingModule({
+      imports: [AdminMediaComponent],
+      providers: [
+        { provide: Router, useValue: { navigate: nav } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: (k: string) => (k === 'tab' ? tabParam : null) } } } },
+        { provide: ApiService, useValue: apiStub },
+        { provide: BoltEmbedService, useValue: {} },
+        { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0, dismiss: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminMediaComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(AdminMediaComponent).componentInstance;
+    c.ngOnInit(); // reads ?tab= (URL wins)
+    return { c, nav };
+  }
+
+  it('opens the studio named in ?tab= (deep-link, URL wins over localStorage)', () => {
+    expect(mk('video').c.activeTab()).toBe('video');
+  });
+
+  it('ignores an unknown ?tab= value (keeps the default library tab)', () => {
+    expect(mk('bogus').c.activeTab()).toBe('library');
+  });
+
+  it('setTab reflects the tab in the URL + localStorage (bookmarkable: replaceUrl + merge)', () => {
+    const { c, nav } = mk(null);
+    c.setTab('image');
+    expect(c.activeTab()).toBe('image');
+    let stored: string | null = null;
+    try { stored = localStorage.getItem('media.tab'); } catch { /* */ }
+    expect(stored).toBe('image');
+    const opts = nav.calls.mostRecent().args[1] as { queryParams: unknown; replaceUrl: boolean; queryParamsHandling: string };
+    expect(opts.queryParams).toEqual({ tab: 'image' });
+    expect(opts.replaceUrl).toBeTrue();
+    expect(opts.queryParamsHandling).toBe('merge');
   });
 });
