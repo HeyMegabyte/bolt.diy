@@ -72,7 +72,7 @@ interface SiteFeature {
         </div>
         <div class="sf-head-right">
           <app-flag-mode-switcher [mode]="mode()" (modeChange)="setMode($event)" label="Disclosure mode (Features)" />
-          <button class="sf-refresh" (click)="reload()" [disabled]="loading()" aria-label="Refresh features">↻ Refresh</button>
+          <button class="sf-refresh" (click)="reload()" [disabled]="loading()" [attr.aria-busy]="loading()" aria-label="Refresh features">↻ {{ loading() ? 'Refreshing…' : 'Refresh' }}</button>
         </div>
       </header>
 

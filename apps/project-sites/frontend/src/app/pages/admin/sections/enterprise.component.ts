@@ -92,7 +92,7 @@ interface AuditExport {
         </div>
         <div class="flex items-center gap-3">
           <a routerLink="/admin" class="btn-ghost text-xs">← Admin</a>
-          <button class="btn-ghost text-xs" (click)="refresh()" [disabled]="loading()">Refresh</button>
+          <button class="btn-ghost text-xs" (click)="refresh()" [disabled]="loading()" [attr.aria-busy]="loading()">{{ loading() ? 'Refreshing…' : 'Refresh' }}</button>
           <!-- Only offer Save when the contract editor is actually rendered. When the
                plan is flag-disabled (notFound) or the load failed, there's no form to
                save — a visible Save here would POST to a gated/404 route (dead button). -->

@@ -331,6 +331,22 @@ describe('AdminFeatureFlagsComponent (flag-card rollout bar)', () => {
     expect((bar!.querySelector('.ff-rollout-fill') as HTMLElement).style.width).withContext('fill width = rollout %').toBe('40%');
   });
 
+  it('the Refresh button shows "Refreshing…" + aria-busy while loading (feedback, not inert)', () => {
+    const f = render();
+    f.detectChanges();
+    f.componentInstance.loading.set(true);
+    f.detectChanges();
+    const btn = (f.nativeElement as HTMLElement).querySelector('button[aria-label="Refresh flag list"]') as HTMLButtonElement;
+    expect(btn).withContext('refresh button rendered').toBeTruthy();
+    expect(btn.disabled).withContext('disabled while loading').toBeTrue();
+    expect(btn.getAttribute('aria-busy')).toBe('true');
+    expect(btn.textContent).toContain('Refreshing…');
+    f.componentInstance.loading.set(false);
+    f.detectChanges();
+    expect(btn.textContent).toContain('Refresh');
+    expect(btn.textContent).not.toContain('Refreshing');
+  });
+
   it('dims the rollout fill when the flag is off (rollout is moot)', () => {
     const f = render();
     f.detectChanges();
