@@ -139,6 +139,38 @@ describe('AdminPseoComponent (cohesion + a11y, convergence r18)', () => {
     });
   });
 
+  // a11y (WCAG 4.1.3 Status Messages): the spinner glyphs on Generate (⟳) +
+  // Refresh (↻) are visual-only. A screen-reader user needs aria-busy on the
+  // action button itself so the in-flight state is announced — mirroring the
+  // sibling site-features Refresh button ([attr.aria-busy]="loading()").
+  it('marks the Refresh button aria-busy while pages are loading (SR status)', async () => {
+    build({ id: 'site-1' });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const refresh = Array.from(
+      fixture.nativeElement.querySelectorAll('button.ps-btn-outline'),
+    ).find((b) => (b as HTMLElement).textContent?.includes('Refresh')) as HTMLElement;
+    expect(refresh).withContext('Refresh button present').toBeTruthy();
+    // Idle: not busy.
+    expect(refresh.getAttribute('aria-busy')).toBe('false');
+    // Loading: aria-busy flips true so AT announces the in-flight refresh.
+    component.loading.set(true);
+    fixture.detectChanges();
+    expect(refresh.getAttribute('aria-busy')).toBe('true');
+  });
+
+  it('marks the Generate button aria-busy while a matrix build is queuing (SR status)', () => {
+    build({ id: 'site-1' });
+    const generate = Array.from(
+      fixture.nativeElement.querySelectorAll('button.ps-btn-primary'),
+    ).find((b) => (b as HTMLElement).textContent?.includes('Generate')) as HTMLElement;
+    expect(generate).withContext('Generate button present (site selected)').toBeTruthy();
+    expect(generate.getAttribute('aria-busy')).toBe('false');
+    component.generating.set(true);
+    fixture.detectChanges();
+    expect(generate.getAttribute('aria-busy')).toBe('true');
+  });
+
   it('routes cyan through --ps-accent — no bare cyan literals (token cohesion)', () => {
     // Cohesion contract: accent must flow through var(--ps-accent, …). The ONLY
     // permitted #00E5FF occurrences are inside a `var(--ps-accent, #00E5FF)` fallback;

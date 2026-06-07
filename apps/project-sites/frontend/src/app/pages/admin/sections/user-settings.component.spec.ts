@@ -333,6 +333,58 @@ describe('AdminUserSettingsComponent (active sessions — other-session count)',
   });
 });
 
+/**
+ * API-keys load resilience against a STALE worker route.
+ *
+ * A not-yet-deployed `/api/admin/api-keys` returns 200 with the marketing/SPA
+ * HTML body, NOT a 4xx — so the request SUCCEEDS but `r.data` is `undefined`
+ * (no array). The old `next: r => apiKeys.set(r.data ?? [])` collapsed that into
+ * an empty list, rendering the misleading "No API keys yet" empty state — it
+ * tells the operator they have zero keys when the route simply isn't live.
+ *
+ * The graceful contract (mirrors site-features.component's Array.isArray guard):
+ * a non-array body is treated as "couldn't load — route not available yet" so
+ * the honest, retryable error card shows instead of a fake-empty panel.
+ */
+describe('AdminUserSettingsComponent (API-keys load — stale-route resilience)', () => {
+  afterEach(() => { try { localStorage.clear(); } catch { /* */ } TestBed.resetTestingModule(); });
+
+  it('a 200 with a NON-array body (stale SPA-HTML route) surfaces a retryable error, NOT a fake-empty list', () => {
+    const { c, http } = make();
+    // Stale route → 200 but the JSON parse yields the SPA shape (no `data` array).
+    http.get.and.returnValue(of({}));
+    c.loadApiKeys();
+    expect(c.apiKeys()).withContext('must NOT render the "No API keys yet" empty state').toEqual([]);
+    expect(c.keysError()).withContext('honest "not available" message → Retry card shows').toBeTruthy();
+    expect(c.loadingKeys()).toBe(false);
+  });
+
+  it('a healthy JSON response ({ data: [...] }) populates the table and clears any error', () => {
+    const { c, http } = make();
+    http.get.and.returnValue(of({ data: [{ id: 'k1', name: 'CI', prefix: 'psk_abc', scopes: ['read'], last_used_at: null, expires_at: null, active: true }] }));
+    c.loadApiKeys();
+    expect(c.apiKeys().length).toBe(1);
+    expect(c.keysError()).toBeNull();
+    expect(c.loadingKeys()).toBe(false);
+  });
+
+  it('an EMPTY-but-valid array ({ data: [] }) is an honest empty state, NOT an error', () => {
+    const { c, http } = make();
+    http.get.and.returnValue(of({ data: [] }));
+    c.loadApiKeys();
+    expect(c.apiKeys()).toEqual([]);
+    expect(c.keysError()).withContext('a real empty list is not an error — show "No API keys yet"').toBeNull();
+  });
+
+  it('a hard error still surfaces the retryable error card', () => {
+    const { c, http } = make();
+    http.get.and.returnValue(throwError(() => ({ status: 500, error: { error: { message: 'boom' } } })));
+    c.loadApiKeys();
+    expect(c.keysError()).toBe('boom');
+    expect(c.apiKeys()).toEqual([]);
+  });
+});
+
 import { NEVER } from 'rxjs';
 
 /**

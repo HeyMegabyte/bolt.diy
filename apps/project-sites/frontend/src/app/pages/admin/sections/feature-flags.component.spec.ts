@@ -403,14 +403,14 @@ describe('AdminFeatureFlagsComponent (flag-card rollout bar)', () => {
 describe('AdminFeatureFlagsComponent (emergency kill-all)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
-  function makeWithPost(post: jasmine.Spy): AdminFeatureFlagsComponent {
+  function makeWithPost(post: jasmine.Spy, toast: { error?: jasmine.Spy } = {}): AdminFeatureFlagsComponent {
     const get = jasmine.createSpy('get').and.callFake((url: string) =>
       url.includes('/auth/me') ? of({ is_super_admin: false }) : of({ flags: [], count: 0 }));
     TestBed.configureTestingModule({
       imports: [AdminFeatureFlagsComponent],
       providers: [
         { provide: HttpClient, useValue: { get, post, patch: () => of({}) } },
-        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ToastService, useValue: { error: toast.error ?? (() => 0), success: () => 0 } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
         { provide: AdminStateService, useValue: { selectedSite: signal(null), isSuperAdmin: () => false } },
         { provide: FeatureFlagService, useValue: { invalidate: () => undefined, isOn: () => of(false) } },
@@ -447,6 +447,28 @@ describe('AdminFeatureFlagsComponent (emergency kill-all)', () => {
     await c.killAllNonStable();
     expect(post).not.toHaveBeenCalled();
     expect(c.emergencyOpen()).withContext('guard bailed — console not closed').toBeTrue();
+  });
+
+  it('refuses to fire when there are zero non-stable targets (no-op POST, honest message)', async () => {
+    // All flags are stable / core / already-killswitched → emergencyTargets is empty.
+    // The sweep button promises to "kill all non-stable" — with nothing to kill it
+    // must NOT fire a no-op POST nor flash a misleading "Killed 0" success toast.
+    const post = jasmine.createSpy('post').and.returnValue(of({}));
+    const error = jasmine.createSpy('error');
+    const c = makeWithPost(post, { error });
+    c.flags.set([
+      flag({ key: 'stable_x', stage: 'stable', default_enabled: true }),
+      flag({ key: 'core_auth', stage: 'experimental', default_enabled: true }),
+      flag({ key: 'killed_c', stage: 'killswitch', default_enabled: false }),
+    ]);
+    expect(c.emergencyTargets().length).withContext('precondition: no killable targets').toBe(0);
+    c.emergencyOpen.set(true);
+    c.dangerReason.set('Platform incident — nothing left to kill');
+    await c.killAllNonStable();
+    expect(post).withContext('no no-op kill POST when nothing matches').not.toHaveBeenCalled();
+    expect(error).withContext('honest "nothing to kill" feedback, not a fake success').toHaveBeenCalled();
+    expect(c.emergencyOpen()).withContext('console stays open so the operator sees why').toBeTrue();
+    expect(c.emergencyBusy()).toBeFalse();
   });
 
   it('kills each non-stable target via super-admin POST (reason attached) + closes the console; stable untouched', async () => {

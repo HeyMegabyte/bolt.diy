@@ -71,11 +71,11 @@ type StatusFilter = 'all' | PseoPage['status'];
         </div>
         <div class="ps-header-actions">
           @if (selectedSiteId()) {
-            <button class="ps-btn-primary" (click)="generate()" [disabled]="generating()">
+            <button class="ps-btn-primary" (click)="generate()" [disabled]="generating()" [attr.aria-busy]="generating()">
               @if (generating()) { ⟳ Queuing… } @else { ⊕ Generate matrix }
             </button>
           }
-          <button class="ps-btn-outline" (click)="loadPages()" [disabled]="loading()">↻ Refresh</button>
+          <button class="ps-btn-outline" (click)="loadPages()" [disabled]="loading()" [attr.aria-busy]="loading()">↻ Refresh</button>
         </div>
       </header>
 

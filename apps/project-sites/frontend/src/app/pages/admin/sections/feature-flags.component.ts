@@ -418,7 +418,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
             <div class="ff-danger-actions">
               <button class="ff-btn" (click)="emergencyOpen.set(false)" data-testid="ff-emergency-cancel">Cancel</button>
               <button class="ff-btn ff-btn-danger-solid" (click)="killAllNonStable()"
-                      data-testid="ff-emergency-confirm" [disabled]="dangerReason().trim().length < 4 || emergencyBusy()">
+                      data-testid="ff-emergency-confirm" [disabled]="dangerReason().trim().length < 4 || emergencyBusy() || emergencyTargets().length === 0">
                 Kill all non-stable
               </button>
             </div>
@@ -1108,6 +1108,13 @@ export class AdminFeatureFlagsComponent implements OnInit {
     const reason = this.dangerReason().trim();
     if (reason.length < 4 || this.emergencyBusy()) return;
     const targets = this.emergencyTargets();
+    // Nothing to kill (all flags stable / core / already killswitched) → don't fire
+    // a no-op sweep or flash a misleading "Killed 0" success. Tell the operator why,
+    // leave the console open. The confirm button is also disabled in this state.
+    if (targets.length === 0) {
+      this.toast.error('No non-stable flags to kill — everything is stable or already disabled.');
+      return;
+    }
     this.emergencyBusy.set(true);
     let ok = 0;
     let fail = 0;

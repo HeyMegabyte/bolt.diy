@@ -1391,7 +1391,21 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
     this.loadingKeys.set(true);
     this.keysError.set(null);
     this.api.get<{ data: ApiKeyRow[] }>('/admin/api-keys').subscribe({
-      next: (r) => { this.apiKeys.set(r.data ?? []); this.loadingKeys.set(false); },
+      next: (r) => {
+        // A stale `/api/admin/api-keys` returns 200 with the SPA/marketing HTML
+        // body (not a 4xx), so the request succeeds but `r.data` is no array.
+        // Treat a shapeless body as "route not available yet" → honest retry card,
+        // NOT a misleading "No API keys yet" empty state. Mirrors the
+        // Array.isArray guard in site-features.component's graceful load.
+        if (!Array.isArray(r?.data)) {
+          this.apiKeys.set([]);
+          this.loadingKeys.set(false);
+          this.keysError.set('API keys are unavailable right now — retry shortly.');
+          return;
+        }
+        this.apiKeys.set(r.data);
+        this.loadingKeys.set(false);
+      },
       error: (err) => {
         this.apiKeys.set([]);
         this.loadingKeys.set(false);
