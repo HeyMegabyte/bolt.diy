@@ -38,8 +38,14 @@ test.describe('admin notification bell — keyboard operable', () => {
     const items = page.locator('.notif-item');
     const n = await items.count();
     if (n === 0) {
-      // Empty inbox is valid — assert the empty copy, nothing mouse-only to check.
-      await expect(pop).toContainText(/No notifications|caught up/i);
+      // Empty inbox is valid — assert the cockpit cyan-halo empty state (was a
+      // bare grey ✦): a role=status region with a cyan-disc glyph, not default grey.
+      const empty = page.locator('[data-testid="notif-empty"]');
+      await expect(empty).toBeVisible();
+      await expect(empty).toHaveAttribute('role', 'status');
+      await expect(empty).toContainText(/caught up/i);
+      const glyphColor = await page.locator('.notif-empty-glyph').evaluate((el) => getComputedStyle(el).color);
+      expect(glyphColor).toBe('rgb(0, 229, 255)'); // cyan, not grey
       return;
     }
     // Every notification row must be a real <button> (native keyboard + Enter/Space),

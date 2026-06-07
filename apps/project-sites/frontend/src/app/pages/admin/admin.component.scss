@@ -155,6 +155,15 @@ aside::before {
 .notif-item:hover { background: rgba(255,255,255,0.05); }
 .notif-item:focus-visible { outline: 2px solid #00E5FF; outline-offset: -2px; }
 .notif-item.is-unread { background: rgba(0,229,255,0.04); }
+/* Empty-state glyph — cockpit cyan-halo standard (was a bare grey ✦). */
+.notif-empty-glyph {
+  width: 40px; height: 40px; margin: 0 auto 8px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in oklch, var(--ps-accent, #00e5ff) 9%, transparent);
+  border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 22%, transparent);
+  color: var(--ps-accent, #00e5ff);
+}
 .notif-icon {
   width: 26px; height: 26px; border-radius: 8px;
   display: inline-flex; align-items: center; justify-content: center;
