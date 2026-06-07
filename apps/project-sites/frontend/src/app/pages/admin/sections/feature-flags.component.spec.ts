@@ -4,6 +4,7 @@ import { of, throwError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { AdminFeatureFlagsComponent } from './feature-flags.component';
+import { bucketFor } from './feature-flags/flag-logic';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
@@ -447,5 +448,40 @@ describe('AdminFeatureFlagsComponent (core mutation engine)', () => {
     c.flags.set([flag({ key: 'k', default_enabled: true, default_rollout_percent: 50 })]);
     c.setRollout(c.flags()[0], 150); // clamps to 100; 50→100 = +50 ⇒ dangerous ⇒ confirm
     expect(c.pending()?.patch.rollout_pct).withContext('clamped to 100').toBe(100);
+  });
+});
+
+/**
+ * Expert-mode "test context builder": the evaluation trace must re-evaluate for
+ * an arbitrary test subject the engineer types (user id / site id / anon id),
+ * not a single fixed subject. Rollout bucketing is FNV-1a(flagKey+subject), so
+ * a different subject genuinely changes the rollout decision — this is how an
+ * operator debugs "why does user X see the flag but user Y doesn't".
+ */
+describe('AdminFeatureFlagsComponent (Expert eval-trace test-subject builder)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('defaults the trace subject to the platform when nothing is typed (no selected site)', () => {
+    const c = make(okGet());
+    const f = flag({ default_enabled: true, default_rollout_percent: 50 });
+    expect(c.resolvedSubject()).toBe('platform');
+    expect(c.bucketOf(f)).toBe(bucketFor('k', 'platform'));
+  });
+
+  it('re-evaluates the trace for a typed subject (bucket + rollout step follow the subject)', () => {
+    const c = make(okGet());
+    const f = flag({ default_enabled: true, default_rollout_percent: 50 });
+    c.traceSubject.set('user-xyz');
+    expect(c.resolvedSubject()).toBe('user-xyz');
+    expect(c.bucketOf(f)).toBe(bucketFor('k', 'user-xyz'));
+    // The eval trace itself reflects the subject's bucket (partial-rollout step).
+    const detailHasBucket = c.traceFor(f).some((s) => s.detail.includes(String(c.bucketOf(f))));
+    expect(detailHasBucket).withContext('trace rollout step shows the subject bucket').toBeTrue();
+  });
+
+  it('falls back to the default subject when the typed subject is blank/whitespace', () => {
+    const c = make(okGet());
+    c.traceSubject.set('   ');
+    expect(c.resolvedSubject()).toBe('platform');
   });
 });

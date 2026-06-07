@@ -41,6 +41,7 @@ import { FlagModeSwitcherComponent, type DisclosureMode } from './feature-flags/
 import { FlagBadgeRowComponent, type FlagBadge } from './feature-flags/badge-row.component';
 import { FlagAuditTimelineComponent, type AuditEntry } from './feature-flags/audit-timeline.component';
 import {
+  bucketFor,
   classifyChange,
   evaluationTrace,
   validateConstraints,
@@ -295,6 +296,19 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
                 @if (mode() === 'expert') {
                   <div class="ff-detail ff-expert" data-testid="ff-expert">
                     <h3>Evaluation trace</h3>
+                    <!-- Test context builder: trace this flag as ANY subject
+                         (user / site / anon id). Rollout bucketing is subject-
+                         keyed, so the decision below re-evaluates as you type. -->
+                    <div class="ff-trace-ctx" data-testid="ff-trace-ctx">
+                      <label class="ff-trace-ctx-label" [attr.for]="'ff-trace-subj-' + flag.key">Trace as subject</label>
+                      <input class="ff-trace-input" type="text" [id]="'ff-trace-subj-' + flag.key"
+                             [ngModel]="traceSubject()" (ngModelChange)="traceSubject.set($event)"
+                             [placeholder]="resolvedSubject()" autocomplete="off" spellcheck="false"
+                             data-testid="ff-trace-subject"
+                             [attr.aria-label]="'Evaluate ' + flag.key + ' as a test subject — user id, site id, or anon id'" />
+                      <span class="ff-trace-bucket" data-testid="ff-trace-bucket"
+                            [attr.title]="'FNV-1a rollout bucket for ' + resolvedSubject()">bucket {{ bucketOf(flag) }}/99</span>
+                    </div>
                     <ol class="ff-eval-trace" data-testid="ff-eval-trace">
                       @for (st of traceFor(flag); track $index) {
                         <li [attr.data-outcome]="st.outcome">
@@ -476,6 +490,22 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
     .ff-sched { max-width: 320px; background: color-mix(in oklch, var(--ps-bg, #060610) 60%, transparent); color: inherit; border: 1px solid color-mix(in oklch, currentColor 20%, transparent); border-radius: 8px; padding: .35rem .5rem; font: inherit; font-size: .82rem; }
     .ff-sched:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; }
     .ff-ctl-hint { font-size: .72rem; color: color-mix(in oklch, currentColor 50%, transparent); margin: 0; line-height: 1.4; }
+    .ff-trace-ctx { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin: 0 0 .55rem; }
+    .ff-trace-ctx-label { font-size: .72rem; letter-spacing: .02em; text-transform: uppercase; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
+    .ff-trace-input {
+      flex: 1 1 9rem; min-width: 7rem; font: inherit; font-size: .8rem;
+      color: var(--ps-ink, #f4f4ff); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 5%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 24%, transparent);
+      border-radius: 7px; padding: .3rem .55rem; font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    .ff-trace-input:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; border-color: var(--ps-accent, #00e5ff); }
+    .ff-trace-input::placeholder { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 40%, transparent); }
+    .ff-trace-bucket {
+      font-size: .72rem; font-family: 'JetBrains Mono', ui-monospace, monospace; white-space: nowrap;
+      color: var(--ps-accent, #00e5ff); padding: .25rem .5rem; border-radius: 6px;
+      background: color-mix(in oklch, var(--ps-accent, #00e5ff) 10%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 22%, transparent);
+    }
     .ff-eval-trace { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .3rem; }
     .ff-eval-trace li { display: flex; gap: .5rem; align-items: baseline; font-size: .8rem; padding: .25rem .5rem; border-radius: 6px; background: color-mix(in oklch, currentColor 5%, transparent); }
     .ff-eval-trace li[data-outcome="block"], .ff-eval-trace li[data-outcome="final-off"] { background: color-mix(in oklch, #f87171 14%, transparent); }
@@ -580,13 +610,31 @@ export class AdminFeatureFlagsComponent implements OnInit {
     return `On for ~${flag.default_rollout_percent}% of the audience (stable rollout bucket).`;
   }
 
+  /**
+   * Expert-mode "test context builder" — the subject the eval trace runs for.
+   * Empty → the selected site (or 'platform'). Typed → trace any user/site/anon
+   * id, so an operator can debug "why does X see this flag but Y doesn't" (the
+   * rollout bucket is FNV-1a(flagKey+subject), so the decision genuinely moves).
+   */
+  readonly traceSubject = signal('');
+
+  /** The subject the trace evaluates against right now (typed value wins). */
+  resolvedSubject(): string {
+    return this.traceSubject().trim() || this.state.selectedSite()?.id || 'platform';
+  }
+
+  /** Stable 0-99 rollout bucket for a flag at the current trace subject. */
+  bucketOf(flag: FlagDefinition): number {
+    return bucketFor(flag.key, this.resolvedSubject());
+  }
+
   traceFor(flag: FlagDefinition): EvalStep[] {
     return evaluationTrace({
       enabled: flag.default_enabled,
       killSwitch: !!flag.kill_switch,
       rolloutPercent: flag.default_rollout_percent,
       flagKey: flag.key,
-      subject: this.state.selectedSite()?.id ?? 'platform',
+      subject: this.resolvedSubject(),
     });
   }
 
