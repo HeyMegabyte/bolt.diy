@@ -48,6 +48,31 @@ interface SiteFeature {
   preview: boolean;
 }
 
+/**
+ * Display mirror of the worker's SITE_FEATURE_CATALOG (apps/project-sites/src/routes/features.ts).
+ * Used ONLY as a read-only fallback so the Features page is never blank when the
+ * live `GET /api/site-features` route isn't serving JSON yet (e.g. the worker
+ * predates the route → the request falls through to the SPA HTML). The live API
+ * response always overrides this once it returns a valid catalog. Keep in sync
+ * with the worker catalog when features are added/removed.
+ */
+const SITE_FEATURE_CATALOG_DISPLAY: ReadonlyArray<Omit<SiteFeature, 'entitled' | 'enabled' | 'preview'>> = [
+  { key: 'native_booking_engine', name: 'Online Booking', description: 'Let visitors book appointments with availability, deposits, and reminders — right on your site.', requiredPlan: 'pro', isAddon: false, category: 'Sell' },
+  { key: 'donations_engine', name: 'Donations', description: 'Accept one-time and recurring gifts with a beautiful donate page.', requiredPlan: 'free', isAddon: false, category: 'Sell' },
+  { key: 'newsletter_engine', name: 'Newsletter', description: 'Collect subscribers and send branded campaigns from your own domain.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
+  { key: 'ecommerce_engine', name: 'Online Store', description: 'Full product catalog, cart, and checkout backed by a real commerce engine.', requiredPlan: 'business', isAddon: false, category: 'Sell' },
+  { key: 'membership_paywall', name: 'Members & Paywall', description: 'Gate premium pages behind paid membership tiers.', requiredPlan: 'business', isAddon: false, category: 'Sell' },
+  { key: 'enterprise_sso', name: 'Single Sign-On (SSO)', description: 'SAML / OIDC login for your whole team via Okta, Azure AD, or Auth0.', requiredPlan: 'enterprise', isAddon: false, category: 'Trust' },
+  { key: 'brand_voice_clone', name: 'AI Voice Clone', description: 'A branded AI voice for podcasts, tours, and phone greetings.', requiredPlan: 'enterprise', isAddon: true, category: 'Grow' },
+  { key: 'site_mcp_server', name: 'AI Assistant Access', description: 'Make your site queryable by Siri, Claude, and ChatGPT.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
+];
+
+/** Mirror of the worker's entitlement logic for the read-only fallback (assumes the free tier — the live API supplies the real plan). */
+function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): EntitlementState {
+  if (requiredPlan === 'free') return 'available';
+  return isAddon ? 'addon-required' : 'upgrade-required';
+}
+
 @Component({
   selector: 'app-admin-site-features',
   standalone: true,
@@ -106,6 +131,14 @@ interface SiteFeature {
         <app-empty-state icon="⊘" title="No features match your search"
           [message]="'Nothing matches “' + search() + '”.'" ctaLabel="Clear search" (ctaClick)="search.set('')" />
       } @else {
+        @if (degraded()) {
+          <div class="sf-provisioning" role="status" data-testid="sf-provisioning">
+            <span class="sf-provisioning-dot" aria-hidden="true"></span>
+            <span>Live feature management is provisioning for this site. The catalog below is read-only for now — toggles activate once setup completes.
+              <button type="button" class="sf-provisioning-retry" (click)="reload()" [disabled]="loading()">Retry</button>
+            </span>
+          </div>
+        }
         <ul class="sf-grid">
           @for (f of filtered(); track f.key) {
             <li class="sf-card" [attr.data-entitled]="f.entitled" [class.sf-card-on]="f.enabled" [attr.data-testid]="'sf-card-' + f.key">
@@ -118,7 +151,7 @@ interface SiteFeature {
                   <button type="button" class="sf-switch" role="switch" data-testid="sf-toggle"
                           [class.sf-switch-on]="f.enabled" [attr.aria-checked]="f.enabled"
                           [attr.aria-label]="(f.enabled ? 'Disable ' : 'Enable ') + f.name"
-                          [disabled]="busy()[f.key]" (click)="toggle(f)">
+                          [disabled]="busy()[f.key] || degraded()" (click)="toggle(f)">
                     <span class="sf-switch-knob"></span>
                   </button>
                 }
@@ -206,6 +239,17 @@ interface SiteFeature {
     .sf-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent); max-width: 66ch; }
     .sf-sub strong { color: var(--ps-accent, #00e5ff); }
     .sf-stat-dots { opacity: 0.5; letter-spacing: 0.1em; }
+    .sf-provisioning { display: flex; align-items: flex-start; gap: .6rem; margin-bottom: 1rem; padding: .7rem .9rem; font-size: .8rem; line-height: 1.45;
+      color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 80%, transparent);
+      background: color-mix(in oklch, var(--ps-accent, #00e5ff) 7%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent); border-radius: 12px; }
+    .sf-provisioning-dot { flex: none; width: 8px; height: 8px; margin-top: .42rem; border-radius: 50%; background: var(--ps-accent, #00e5ff);
+      box-shadow: 0 0 0 0 color-mix(in oklch, var(--ps-accent, #00e5ff) 60%, transparent); animation: sf-prov-pulse 2s ease-out infinite; }
+    @keyframes sf-prov-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--ps-accent, #00e5ff) 55%, transparent); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+    @media (prefers-reduced-motion: reduce) { .sf-provisioning-dot { animation: none; } }
+    .sf-provisioning-retry { margin-left: .35rem; background: none; border: none; padding: 0; font: inherit; color: var(--ps-accent, #00e5ff); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+    .sf-provisioning-retry:disabled { opacity: .5; cursor: default; }
+    .sf-provisioning-retry:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 3px; }
     .sf-cross-link { color: var(--ps-accent, #00e5ff); }
     .sf-cross-link:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 4px; }
     .sf-refresh { background: transparent; border: 1px solid color-mix(in oklch, currentColor 30%, transparent); color: inherit; padding: .5rem 1rem; border-radius: 8px; cursor: pointer; font: inherit; min-height: 24px; }
@@ -282,6 +326,8 @@ export class AdminSiteFeaturesComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly features = signal<SiteFeature[]>([]);
   readonly plan = signal<PlanTier>('free');
+  /** Read-only fallback active: the live /api/site-features route isn't serving JSON yet, so the catalog is shown but not togglable. */
+  readonly degraded = signal(false);
   readonly search = signal('');
   readonly busy = signal<Record<string, boolean>>({});
   readonly previewKey = signal<string | null>(null);
@@ -384,13 +430,44 @@ export class AdminSiteFeaturesComponent implements OnInit {
       const res = await firstValueFrom(
         this.api.get<{ features: SiteFeature[]; plan: PlanTier }>(`/site-features${this.siteQuery}`),
       );
-      this.features.set(res.features ?? []);
+      if (!res || !Array.isArray(res.features)) {
+        // The route returned a non-JSON / shapeless body (e.g. the worker predates
+        // /api/site-features → the request falls through to the SPA HTML). Show the
+        // catalog read-only instead of a blank page.
+        this.enterFallbackMode();
+        return;
+      }
+      this.degraded.set(false);
+      this.features.set(res.features);
       this.plan.set(res.plan ?? 'free');
     } catch (e) {
-      this.error.set((e as Error).message ?? 'unknown error');
+      // A 200 body that didn't parse as JSON (the route served SPA HTML because the
+      // worker predates /api/site-features) → read-only catalog, not a blank/error
+      // page. A genuine 4xx/5xx keeps the retryable error card.
+      const status = (e as { status?: number })?.status;
+      if (status !== undefined && status >= 400) {
+        this.error.set((e as Error).message ?? 'unknown error');
+      } else {
+        this.enterFallbackMode();
+      }
     } finally {
       this.loading.set(false);
     }
+  }
+
+  /** Populate the read-only catalog fallback (live management activates once the worker route is serving JSON). */
+  private enterFallbackMode(): void {
+    this.degraded.set(true);
+    this.error.set(null);
+    this.plan.set('free');
+    this.features.set(
+      SITE_FEATURE_CATALOG_DISPLAY.map((f) => ({
+        ...f,
+        entitled: entitlementForFreePlan(f.requiredPlan, f.isAddon),
+        enabled: false,
+        preview: false,
+      })),
+    );
   }
 
   togglePreview(f: SiteFeature): void {
@@ -398,7 +475,7 @@ export class AdminSiteFeaturesComponent implements OnInit {
   }
 
   async toggle(f: SiteFeature): Promise<void> {
-    if (f.entitled !== 'available' || this.busy()[f.key]) return;
+    if (this.degraded() || f.entitled !== 'available' || this.busy()[f.key]) return;
     await this.setEnabled(f, !f.enabled);
   }
 

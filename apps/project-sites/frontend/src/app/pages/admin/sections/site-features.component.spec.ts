@@ -106,6 +106,26 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     expect(fixture.nativeElement.querySelector('app-skeleton')).toBeNull();
   });
 
+  it('falls back to the read-only catalog + provisioning banner when the route returns no JSON catalog', async () => {
+    // The live worker route isn't deployed yet → the SPA serves HTML / a shapeless
+    // body with no features[]. The page must show the catalog, never blank.
+    await build({} as unknown as { features: unknown[] });
+    expect(component.degraded()).withContext('degraded fallback active').toBeTrue();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('[data-testid="sf-provisioning"]')).withContext('provisioning banner shown').not.toBeNull();
+    expect(host.querySelectorAll('.sf-card').length).withContext('8-feature catalog rendered, not blank').toBe(8);
+    expect(host.querySelector('app-empty-state')).withContext('no misleading "No features yet" empty-state').toBeNull();
+  });
+
+  it('degraded catalog toggles are disabled (live management not yet active)', async () => {
+    await build({} as unknown as { features: unknown[] });
+    expect(component.degraded()).toBeTrue();
+    const sw = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="sf-toggle"]') as HTMLButtonElement | null;
+    // donations_engine is free-plan → entitled 'available' → a switch renders, but disabled in fallback.
+    expect(sw).withContext('the free-plan feature renders a switch').not.toBeNull();
+    expect(sw!.disabled).withContext('toggle disabled in read-only fallback').toBeTrue();
+  });
+
   it('renders the empty state when there are no features', async () => {
     await build({ features: [], plan: 'free' });
     expect(fixture.nativeElement.querySelector('app-empty-state')).not.toBeNull();
