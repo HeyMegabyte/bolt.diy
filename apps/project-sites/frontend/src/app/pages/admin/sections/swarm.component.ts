@@ -2,8 +2,10 @@
  * Swarm Editor admin board — /admin/swarm/:siteId
  *
  * 7-column live progress grid for the Multi-Agent Swarm Editor (#5).
- * Also hosts the progressive-preview panel (#6) that streams components
- * from the SSE channel via EventSource.
+ * Also hosts an INLINE live-component-stream preview (#6) fed by the SSE
+ * channel via EventSource. (NB: this is swarm's own inline panel — it does
+ * NOT use the standalone `progressive-preview.component`, which is unrouted
+ * + unimported dead code per [[dead-admin-section-components]].)
  *
  * Per [[cinematic-ui-patterns]]:
  *  - Every numeric stat uses <app-rolling-counter>
