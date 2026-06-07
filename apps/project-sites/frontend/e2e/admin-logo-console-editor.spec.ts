@@ -89,17 +89,27 @@ test.describe('admin shell — logo removed + clean console + editor', () => {
     assertClean('/admin', cap);
   });
 
-  test('admin shell shows NO error toast for the background audit fetch (silent degrade)', async ({ authedPage: page }) => {
-    // The shell pulls /audit/rows for the recent-activity feed. The mock server
-    // returns 404 for it — and that background, best-effort fetch must NOT
-    // surface ApiService's generic "resource wasn't found" error toast on every
-    // admin load (it passes { silent: true } and degrades to the seeded feed).
+  test('admin shell shows NO error toast for background fetches (audit feed + route telemetry)', async ({ authedPage: page }) => {
+    // The shell fires two background best-effort calls on every admin nav:
+    // /audit/rows (recent-activity feed) and /analytics/track (route telemetry).
+    // The mock 404s both — and neither may surface ApiService's generic
+    // "resource wasn't found" toast (both pass { silent: true }). Check both new
+    // flag routes (site-features is where the telemetry toast was first caught).
     test.setTimeout(60000);
-    await page.goto('/admin/feature-flags', { waitUntil: 'load' });
-    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
-    await page.waitForTimeout(2000); // let the audit fetch resolve/fail
-    const notFoundToast = page.locator('[data-testid="toast-item"]', { hasText: /not found|wasn.t found/i });
-    await expect(notFoundToast).toHaveCount(0);
+    // route → expected document-title fragment (WCAG 2.4.2 — site-features used
+    // to fall back to "Dashboard" because it had no section-label entry).
+    const expectTitle: Record<string, RegExp> = {
+      '/admin/feature-flags': /Feature Flags/,
+      '/admin/site-features': /^Features ·/,
+    };
+    for (const route of Object.keys(expectTitle)) {
+      await page.goto(route, { waitUntil: 'load' });
+      await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
+      await page.waitForTimeout(1800); // let the background fetches resolve/fail
+      const notFoundToast = page.locator('[data-testid="toast-item"]', { hasText: /not found|wasn.t found/i });
+      await expect(notFoundToast, `error toast surfaced on ${route}`).toHaveCount(0);
+      expect(await page.title(), `wrong document title for ${route}`).toMatch(expectTitle[route]);
+    }
   });
 
   test('editor surface loads (tab strip + persistent bolt iframe)', async ({ authedPage: page }) => {

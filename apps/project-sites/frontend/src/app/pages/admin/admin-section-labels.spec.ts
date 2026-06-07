@@ -25,6 +25,15 @@ describe('adminSectionLabel (per-route title map)', () => {
     expect(adminSectionLabel('feature-flags')).toBe('Feature Flags');
   });
 
+  it('disambiguates the two-layer feature surfaces (no "Dashboard" fallback / WCAG 2.4.2)', () => {
+    // /admin/features = the Features Hub; /admin/site-features = the owner-facing
+    // Features layer. Both must have distinct, correct titles — site-features was
+    // missing → fell back to "Dashboard".
+    expect(adminSectionLabel('features')).toBe('Features Hub');
+    expect(adminSectionLabel('site-features')).toBe('Features');
+    expect(adminSectionLabelFromPath('/admin/site-features')).toBe('Features');
+  });
+
   it('labels the /admin index route "Dashboard" (it renders the AI dashboard, not the editor)', () => {
     expect(adminSectionLabel('')).toBe('Dashboard');
     expect(adminSectionLabel('admin')).toBe('Dashboard');

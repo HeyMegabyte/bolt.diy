@@ -166,10 +166,14 @@ export class AdminComponent implements OnInit, OnDestroy {
       name: 'description',
       content: `${section} — your ProjectSites admin dashboard.`,
     });
+    // Fire-and-forget route telemetry. { silent: true } so a 404/transient
+    // failure never surfaces ApiService's generic "resource wasn't found" error
+    // toast — this posts on EVERY admin route nav, so without it a single
+    // telemetry hiccup would spam the toast across the whole admin.
     this.api.post('/analytics/track', {
       route: url.split('?')[0],
       site_id: this.state.selectedSite()?.id ?? null,
-    }).subscribe({ error: () => {} });
+    }, { silent: true }).subscribe({ error: () => {} });
   }
 
   ngOnInit(): void {
