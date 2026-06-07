@@ -120,3 +120,46 @@ describe('AdminDashboardComponent (command palette)', () => {
     expect(chat.submit).toHaveBeenCalledWith('Make my hero punchier');
   });
 });
+
+import { provideRouter } from '@angular/router';
+import { TranslateService } from '@ngx-translate/core';
+import { AdminUpgradesShellComponent } from '../../../components/admin-upgrades/admin-upgrades-shell.component';
+
+/**
+ * The /admin landing features-banner must render its icons as monochrome stroke
+ * SVGs (cyan Features Hub, amber Feature Flags) — never the colourful ⚡ emoji
+ * (U+26A1 is emoji-presentation by default) that broke the cyan/black cockpit.
+ */
+describe('AdminDashboardComponent (features-banner icons)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('renders banner icons as SVGs, not the colourful ⚡/⚑ emoji', () => {
+    const chat = chatStub();
+    TestBed.configureTestingModule({
+      imports: [AdminDashboardComponent],
+      providers: [
+        provideRouter([]),
+        { provide: DashboardChatService, useValue: chat },
+        { provide: SlashCommandRegistryService, useValue: { commands: () => [], search: () => [], parse: () => null } },
+        { provide: AdminStateService, useValue: { selectedSite: signal(null) } },
+        {
+          provide: TranslateService,
+          useValue: { instant: (k: string) => k, get: (k: string) => of(k), stream: (k: string) => of(k), use: () => of({}), setDefaultLang: () => 0, addLangs: () => 0, currentLang: 'en', onLangChange: of(), onTranslationChange: of(), onDefaultLangChange: of() },
+        },
+      ],
+    });
+    // Neuter the heavy always-rendered upgrades shell (its own DI graph) so the
+    // dashboard's REAL template (incl. the banner) renders.
+    TestBed.overrideComponent(AdminUpgradesShellComponent, { set: { template: '', imports: [] } });
+    const fx = TestBed.createComponent(AdminDashboardComponent);
+    fx.detectChanges();
+    const host = fx.nativeElement as HTMLElement;
+
+    const icons = host.querySelectorAll('.features-banner-icon');
+    expect(icons.length).withContext('two banner cards').toBe(2);
+    icons.forEach((i) => expect(i.querySelector('svg')).withContext('icon is an SVG').not.toBeNull());
+    const banner = host.querySelector('.features-banner')?.textContent ?? '';
+    expect(banner).not.toContain('⚡');
+    expect(banner).not.toContain('⚑');
+  });
+});

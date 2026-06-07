@@ -50,7 +50,7 @@ import { AdminStateService } from '../admin-state.service';
            prominent dashboard entry point to the two highest-value meta surfaces. -->
       <section class="features-banner" role="navigation" aria-label="Newly shipped features">
         <a class="features-banner-card" routerLink="/admin/features">
-          <span class="features-banner-icon" aria-hidden="true">⚡</span>
+          <span class="features-banner-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
           <span class="features-banner-body">
             <strong>Features Hub</strong>
             <span class="features-banner-sub">Every feature in one place — Stack / CWV / GEO / A11y / Editor / Monetize / Observability / Media / Platform / Gaps. Live "Try it" buttons.</span>
@@ -58,7 +58,7 @@ import { AdminStateService } from '../admin-state.service';
           <span class="features-banner-cta" aria-hidden="true">→</span>
         </a>
         <a class="features-banner-card features-banner-card-alt" routerLink="/admin/feature-flags">
-          <span class="features-banner-icon" aria-hidden="true">⚑</span>
+          <span class="features-banner-icon features-banner-icon--alt" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></span>
           <span class="features-banner-body">
             <strong>Feature Flags</strong>
             <span class="features-banner-sub">Toggle, roll out, killswitch 50+ feature flags. Stage filter, per-flag inspect, hash-chain audit trail.</span>
@@ -214,7 +214,9 @@ import { AdminStateService } from '../admin-state.service';
     .features-banner-card:hover { border-color: var(--ps-accent, #00e5ff); transform: translateY(-1px); }
     .features-banner-card-alt { border-color: color-mix(in oklch, #fbbf24 30%, transparent); }
     .features-banner-card-alt:hover { border-color: #fbbf24; }
-    .features-banner-icon { font-size: 1.6rem; flex-shrink: 0; }
+    .features-banner-icon { flex-shrink: 0; display: inline-flex; color: var(--ps-accent, #00e5ff); }
+    .features-banner-icon svg { width: 26px; height: 26px; display: block; }
+    .features-banner-icon--alt { color: #fbbf24; }
     .features-banner-body { display: flex; flex-direction: column; gap: .15rem; flex: 1; }
     .features-banner-body strong { font-size: 1.05rem; }
     .features-banner-sub { font-size: .8rem; color: color-mix(in oklch, currentColor 65%, transparent); line-height: 1.45; }
