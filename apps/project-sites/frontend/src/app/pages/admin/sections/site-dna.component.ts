@@ -29,6 +29,7 @@ import { ApiService } from '../../../services/api.service';
 import { FeatureFlagService } from '../../../services/feature-flag.service';
 import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
+import { FlagGateNoticeComponent } from '../../../components/states/flag-gate-notice.component';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
 
@@ -68,7 +69,7 @@ interface DnaPrefsResp {
 @Component({
   selector: 'app-admin-site-dna',
   standalone: true,
-  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, FlagGateNoticeComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="dna-shell" appReveal>
@@ -89,12 +90,7 @@ interface DnaPrefsResp {
 
       <!-- Flag-gate notice -->
       @if (!flagEnabled()) {
-        <div class="dna-flag-gate" appReveal data-testid="dna-flag-gate">
-          <p class="m-0">
-            The Site DNA Taste Graph is behind the
-            <code>site_dna_taste_graph</code> feature flag (currently disabled). Enable it in <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.
-          </p>
-        </div>
+        <app-flag-gate-notice feature="The Site DNA Taste Graph" flag="site_dna_taste_graph" testid="dna-flag-gate" />
       } @else {
 
         <!-- Stats row — labels stay mounted; numbers shimmer until the first

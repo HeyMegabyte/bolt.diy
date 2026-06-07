@@ -51,10 +51,12 @@ describe('AdminSiteDnaComponent (taste pulse + a11y)', () => {
     const link = fixture.nativeElement.querySelector(
       '[data-testid="dna-flag-gate"] a[routerLink="/admin/feature-flags"]',
     ) as HTMLAnchorElement;
-    expect(link).withContext('flag-gate links to Feature Flags').toBeTruthy();
-    // In-text affordance matches the standard (underline, not the old color-only
-    // standalone CTA) + is a real SPA link (renders href).
-    expect(link.className).toContain('underline');
+    expect(link).withContext('flag-gate links to System Admin').toBeTruthy();
+    // In-text affordance is underlined + a real SPA link. The shared
+    // <app-flag-gate-notice> primitive underlines via the `.flag-gate__link`
+    // class (CSS text-decoration), not the Tailwind `underline` utility.
+    expect(link.classList.contains('flag-gate__link')).withContext('shared primitive underlined-link class').toBeTrue();
+    expect(getComputedStyle(link).textDecorationLine).withContext('rendered underline').toContain('underline');
     expect(link.getAttribute('href')).toBe('/admin/feature-flags');
   });
 

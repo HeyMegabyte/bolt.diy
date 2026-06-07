@@ -24,7 +24,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
-import { ErrorCardComponent } from '../../../components/states';
+import { ErrorCardComponent, FlagGateNoticeComponent } from '../../../components/states';
 import { HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -75,7 +75,7 @@ interface AuditExport {
 @Component({
   selector: 'app-admin-enterprise',
   standalone: true,
-  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, RollingCounterComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, ErrorCardComponent],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterLink, RollingCounterComponent, HlmCheckboxDirective, HlmInputDirective, HlmSelectDirective, ErrorCardComponent, FlagGateNoticeComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 space-y-6">
       <header class="flex items-start justify-between gap-4 flex-wrap">
@@ -107,13 +107,7 @@ interface AuditExport {
       </header>
 
       @if (notFound()) {
-        <div class="empty-card">
-          <p class="text-text-secondary text-sm">
-            Enterprise plan is disabled for your org. Enable
-            <code>enterprise_plan</code> in
-            <a routerLink="/admin/feature-flags" class="text-[#00E5FF] underline underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] rounded-sm">System&nbsp;Admin</a>.
-          </p>
-        </div>
+        <app-flag-gate-notice feature="The Enterprise plan" flag="enterprise_plan" testid="enterprise-flag-gate" />
       }
 
       @if (loadError() && !loading()) {
