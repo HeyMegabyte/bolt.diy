@@ -138,6 +138,24 @@ describe('AdminInboxComponent (conversations load error)', () => {
     expect(c.conversations()).toEqual([]);
   });
 
+  // The conversation-list load error renders through the shared <app-error-card>
+  // (copyable worker request_id for support), not a bare red banner. Capture the
+  // request_id on a non-404 failure; a 404 (flag-gate) leaves it empty.
+  it('captures the request_id from a non-404 conversation-load failure', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req-inbox-9' } } }))));
+    c.loadConversations();
+    expect(c.convError()).not.toBeNull();
+    expect(c.loadErrorRef()).withContext('support reference captured').toBe('req-inbox-9');
+  });
+
+  it('leaves the request_id empty on a 404 flag-gate (no leaked ref on the calm disabled state)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 404 }))));
+    c.loadConversations();
+    expect(c.flagEnabled()).toBeFalse();
+    expect(c.convError()).toBeNull();
+    expect(c.loadErrorRef()).toBe('');
+  });
+
   it('loadMore ignores a stale-route non-array body instead of corrupting the list', () => {
     const get = jasmine.createSpy('get').and.returnValues(
       of({ conversations: [{ id: 'c1', status: 'open', unread_count: 0, last_message_at: 't0' }], hasMore: true }),
@@ -240,6 +258,25 @@ describe('AdminInboxComponent — stats hidden while flag-disabled (real templat
     expect(host.querySelector('[data-testid="inbox-flag-gate"]')).withContext('flag-disabled card shown instead').not.toBeNull();
   });
 
+  it('renders the conversation-list load error via <app-error-card> (shared Retry + request_id), not a bare banner', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminInboxComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => throwError(() => ({ status: 500, error: { error: { request_id: 'req-inbox-1' } } })), post: () => of({}), patch: () => of({}) } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(true) } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminInboxComponent);
+    fx.componentInstance.flagEnabled.set(true);
+    fx.componentInstance.loadConversations();
+    fx.detectChanges();
+    const host = fx.nativeElement as HTMLElement;
+    expect(host.querySelector('[data-testid="inbox-conv-error"]')).withContext('error renders on the app-error-card host').not.toBeNull();
+    expect(host.querySelector('[data-testid="error-retry"]')).withContext('shared error-card Retry button').not.toBeNull();
+    expect(fx.componentInstance.loadErrorRef()).toBe('req-inbox-1');
+  });
+
   it('hides the open/unread stats while conversations are still loading (no premature "0 open · 0 unread")', () => {
     // openCount/unreadCount derive from conversations() (empty during load) — so
     // the stats must wait for the load, else they assert "0 open" over a skeleton list.
@@ -262,7 +299,7 @@ describe('AdminInboxComponent — stats hidden while flag-disabled (real templat
   it('the flag-gate Feature-Flags link is an inline, UNDERLINED, working RouterLink (cohesion with enterprise/trust/stripe gates)', () => {
     const host = render(false);
     const link = host.querySelector('[data-testid="inbox-flag-gate"] a[routerLink="/admin/feature-flags"]') as HTMLAnchorElement;
-    expect(link).withContext('flag-gate links to System Admin').not.toBeNull();
+    expect(link).withContext('flag-gate links to Feature Flags').not.toBeNull();
     // In-text link affordance matches the sibling flag-gate cards: the shared
     // <app-flag-gate-notice> underlines via `.flag-gate__link` CSS (not the Tailwind class).
     expect(getComputedStyle(link).textDecorationLine).withContext('permanently underlined').toContain('underline');

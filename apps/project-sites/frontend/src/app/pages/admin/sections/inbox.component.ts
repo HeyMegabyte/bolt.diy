@@ -23,7 +23,7 @@ import { Subject, takeUntil, interval, tap, filter, switchMap, startWith } from 
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
-import { EmptyStateComponent, FlagGateNoticeComponent } from '../../../components/states';
+import { EmptyStateComponent, FlagGateNoticeComponent, ErrorCardComponent } from '../../../components/states';
 import { ChannelIconComponent } from '../../../components/channel-icon/channel-icon.component';
 import { AiSparkComponent } from '../../../components/ai-spark/ai-spark.component';
 
@@ -78,7 +78,7 @@ const STATUS_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-inbox',
   standalone: true,
-  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, EmptyStateComponent, FlagGateNoticeComponent, ChannelIconComponent, AiSparkComponent],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, EmptyStateComponent, FlagGateNoticeComponent, ErrorCardComponent, ChannelIconComponent, AiSparkComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="inbox-shell" appReveal>
@@ -155,10 +155,13 @@ const STATUS_COLORS: Record<string, string> = {
                 }
               </div>
             } @else if (convError()) {
-              <div class="inbox-empty" data-testid="inbox-conv-error" role="alert">
-                <p class="text-red-300">{{ convError() }}</p>
-                <button class="btn-ghost text-xs" data-testid="inbox-conv-retry" (click)="loadConversations()">Retry</button>
-              </div>
+              <app-error-card
+                data-testid="inbox-conv-error"
+                class="block p-3"
+                title="Couldn't load conversations"
+                [message]="convError() ?? ''"
+                [correlationId]="loadErrorRef()"
+                (retry)="loadConversations()" />
             } @else if (filterNoMatch()) {
               <app-empty-state icon="🔍"
                 title="No conversations match your search"
@@ -450,6 +453,8 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
   loading = signal(true);
   /** Persistent non-404 conversations-load failure — so a fetch error shows a retry, not a fake "no conversations" empty state. */
   convError = signal<string | null>(null);
+  /** Worker request_id from a non-404 conversations-load failure → copyable support reference on the shared error card. */
+  loadErrorRef = signal('');
   /** Thread-load failure — so a failed message fetch shows a retry in the thread panel, not a silent blank thread. */
   messagesError = signal<string | null>(null);
   hasMore = signal(false);
@@ -560,6 +565,7 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
   loadConversations(append = false): void {
     this.loading.set(true);
     this.convError.set(null);
+    this.loadErrorRef.set('');
     const params: Record<string, string> = { status: this.selectedStatus(), limit: '50' };
     if (this.selectedChannel()) params['channel'] = this.selectedChannel();
 
@@ -587,11 +593,20 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
           // 404 = flag off (handled by the disabled banner). A non-404 error must
           // NOT fall through to the "No conversations" empty state — surface a
           // retryable in-panel error so a failed load never looks like an empty inbox.
-          if (err.status === 404) this.flagEnabled.set(false);
-          else this.convError.set("Couldn't load conversations — retry.");
+          if (err.status === 404) {
+            this.flagEnabled.set(false);
+          } else {
+            this.convError.set("Couldn't load conversations — retry.");
+            this.loadErrorRef.set(this.requestIdFrom(err));
+          }
           this.loading.set(false);
         },
       });
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: { error?: unknown } | undefined): string {
+    return (e?.error as { error?: { request_id?: string } } | undefined)?.error?.request_id ?? '';
   }
 
   loadMore(): void {

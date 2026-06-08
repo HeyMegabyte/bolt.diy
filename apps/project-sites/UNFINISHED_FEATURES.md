@@ -554,3 +554,9 @@ Scanned every flag-gated route file (outside the concurrently-`M` features.ts). 
 - Test-only — no worker source changed, no deploy needed. Verified: `tsc` 0 · `validate:features` 0 errors (4 pre-existing warnings) · full suite **237 suites / 4362 tests pass**.
 
 > Supervised quiet-tree session now owns THREE deferred items: (§11m) remove 44 dead `features.ts` exports; (§11m) wire `invalidateFlagCache` into `features.ts:387`; (§11n) register `approval_workflow` / `multimodal_copilot` / `domain_stack_wizard` (default-off experimental) so their built+tested features become reachable. All three blocked this fire by concurrent edits to `registry.ts` + `routes/features.ts`.
+
+### 11o. /loop iteration 9 (2026-06-08) — site_analytics branch coverage (windowDays clamp + 404)
+The entire flag-config surface (worker `registry.ts` + `routes/features.ts`, AND both frontend flag components) is under active concurrent edit by parallel sessions — all three deferred fixes (§11m, §11n) remain blocked, and that surface is already well-covered (worker iters 1–8 + frontend 49+16 specs). Touching it would clobber in-flight work. So this fire targeted a CLEAN real module instead.
+- `site_analytics` (live, mounted, flag `site_analytics`) was the thinnest real module (8 cases). Two genuine branches were untested: the handler's `windowDays` clamp (`Number.isInteger && >0 && <=365 ? : 30`) and the nonexistent-site path (`siteOrgId → null → 404`, distinct from the wrong-org 404 already covered).
+- Added `libs/features/site_analytics/__tests__/site_analytics_window.test.ts` (4 tests, new file for isolation): windowDays default-30 / in-range passthrough (90, 365) / clamp-to-30 (0, -5, 999, NaN, non-integer) + nonexistent-site 404. Reuses the shared route harness.
+- Test-only — no worker source changed, no deploy needed. Verified: `tsc` 0 · `validate:features` 0 errors (4 pre-existing warnings) · full suite **238 suites / 4366 tests pass**.
