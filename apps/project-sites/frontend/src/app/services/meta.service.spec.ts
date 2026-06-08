@@ -2,7 +2,26 @@ import { TestBed } from '@angular/core/testing';
 import { Title, Meta } from '@angular/platform-browser';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
-import { MetaService } from './meta.service';
+import { MetaService, robotsForUrl } from './meta.service';
+
+/**
+ * Authed /admin/* routes must be noindex (private dashboards); marketing routes
+ * stay index,follow. Pure helper so the rule is locked without a Router.
+ */
+describe('robotsForUrl', () => {
+  it('noindexes /admin and every /admin/* route (incl. query/hash)', () => {
+    expect(robotsForUrl('/admin')).toBe('noindex, nofollow');
+    expect(robotsForUrl('/admin/sites')).toBe('noindex, nofollow');
+    expect(robotsForUrl('/admin/sites/site-x?tab=logs')).toBe('noindex, nofollow');
+    expect(robotsForUrl('/admin/feature-flags#stage')).toBe('noindex, nofollow');
+  });
+  it('keeps marketing routes index,follow (and a lookalike like /administrator is NOT admin)', () => {
+    expect(robotsForUrl('/')).toBe('index, follow');
+    expect(robotsForUrl('/pricing')).toBe('index, follow');
+    expect(robotsForUrl('/blog/post')).toBe('index, follow');
+    expect(robotsForUrl('/administrator')).toBe('index, follow');
+  });
+});
 
 /**
  * Per-route SEO/social contract for MetaService. Every route must get its OWN

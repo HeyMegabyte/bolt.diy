@@ -97,6 +97,19 @@ const PAGE_META: Record<string, PageMeta> = {
 const BASE_URL = 'https://projectsites.dev';
 const OG_IMAGE = 'https://projectsites.dev/og-image.jpg';
 
+/**
+ * Authed admin routes (`/admin/*`) must NOT be indexed — they're private
+ * dashboards, and the SPA shell would otherwise index them under a wrong
+ * (marketing) canonical. Marketing routes stay `index, follow`. Pure +
+ * exported so it's unit-testable without a Router. The query/hash is stripped
+ * so `/admin/sites?tab=x` + `/admin#y` still resolve to noindex.
+ */
+export function robotsForUrl(url: string | null | undefined): 'noindex, nofollow' | 'index, follow' {
+  if (!url) return 'index, follow';
+  const path = url.split('?')[0].split('#')[0];
+  return path === '/admin' || path.startsWith('/admin/') ? 'noindex, nofollow' : 'index, follow';
+}
+
 @Injectable({ providedIn: 'root' })
 export class MetaService {
   private title = inject(Title);
@@ -137,6 +150,10 @@ export class MetaService {
 
     // Standard SEO
     this.meta.updateTag({ name: 'description', content: page.description });
+
+    // Index marketing routes; never index authed /admin/* dashboards. Set on
+    // every nav so it resets correctly when leaving admin (no sticky noindex).
+    this.meta.updateTag({ name: 'robots', content: robotsForUrl(this.router.url) });
 
     // Open Graph (Facebook, LinkedIn, Discord, Slack, iMessage, WhatsApp, Telegram)
     this.meta.updateTag({ property: 'og:title', content: page.title });
