@@ -155,7 +155,7 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
           <div class="site-detail__logs" data-testid="site-logs-tail">
             @for (row of filteredLogs(); track row.ts + row.message) {
               <div class="log-row" data-testid="site-logs-row" [attr.data-level]="row.level">
-                <time>{{ row.ts }}</time>
+                <time [attr.datetime]="row.ts">{{ formatTs(row.ts) }}</time>
                 <span class="log-level">{{ row.level }}</span>
                 <span class="log-message">{{ row.message }}</span>
               </div>
@@ -186,7 +186,7 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
                   @if (s.ai_name) {
                     <span class="ai-name" data-testid="snapshot-ai-name">{{ s.ai_name }}</span>
                   }
-                  <small>{{ s.kind }} · {{ s.created_at }}</small>
+                  <small>{{ s.kind }} · {{ formatTs(s.created_at) }}</small>
                 </div>
                 <button
                   type="button"
@@ -485,6 +485,19 @@ export class AdminSiteDetailComponent {
   readonly sqlRenderCap = 200;
   cappedRows(r: SqlResult): Array<Record<string, unknown>> {
     return r.rows.length > this.sqlRenderCap ? r.rows.slice(0, this.sqlRenderCap) : r.rows;
+  }
+
+  /**
+   * Render a timestamp (log `ts`, snapshot `created_at`) as a readable local
+   * date/time instead of a raw ISO/D1 string. DEFENSIVE: if the value isn't a
+   * parseable date (already formatted, relative, or empty) it's returned
+   * unchanged — so this never turns a good value into "Invalid Date".
+   */
+  formatTs(value: string | null | undefined): string {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return new Intl.DateTimeFormat(undefined, { dateStyle: 'short', timeStyle: 'medium' }).format(d);
   }
 
   /** Brief "✓ Copied" affordance on the SQL-result Copy button. */

@@ -677,3 +677,41 @@ describe('AdminSiteDetailComponent (deep-linkable tabs)', () => {
     expect(opts.queryParamsHandling).toBe('merge');
   });
 });
+
+/**
+ * Timestamp rendering (log `ts` + snapshot `created_at`) used to leak a raw
+ * ISO/D1 string into the UI. formatTs renders a readable local date/time but is
+ * DEFENSIVE: an unparseable value (already-formatted / relative / empty) is
+ * returned unchanged, so it never produces "Invalid Date".
+ */
+describe('AdminSiteDetailComponent (formatTs defensive timestamp formatting)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function comp(): AdminSiteDetailComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminSiteDetailComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ site: null }), post: () => of({}) } },
+        { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 'site-1' }), queryParamMap: of({ get: () => null }) } },
+      ],
+    });
+    return TestBed.createComponent(AdminSiteDetailComponent).componentInstance;
+  }
+
+  it('formats a parseable ISO timestamp to a readable local string (not the raw ISO)', () => {
+    const c = comp();
+    const out = c.formatTs('2026-06-08T12:34:56.000Z');
+    expect(out).withContext('year present in the formatted output').toContain('26');
+    expect(out).withContext('not the raw ISO string').not.toBe('2026-06-08T12:34:56.000Z');
+  });
+
+  it('returns an unparseable / already-formatted value UNCHANGED (never "Invalid Date")', () => {
+    const c = comp();
+    expect(c.formatTs('just now')).toBe('just now');
+    expect(c.formatTs('12:34:56')).toBe('12:34:56');
+    expect(c.formatTs('')).toBe('');
+    expect(c.formatTs(null)).toBe('');
+    expect(c.formatTs(undefined)).toBe('');
+  });
+});
