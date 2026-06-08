@@ -32,6 +32,7 @@ import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
 import { ErrorCardComponent } from '../../../components/states';
+import { RevealDirective } from '../../../directives/reveal.directive';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of } from 'rxjs';
 import { catchError, switchMap, timer } from 'rxjs';
@@ -71,11 +72,11 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
 @Component({
   selector: 'app-admin-site-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, MiniEmptyComponent, ErrorCardComponent],
+  imports: [CommonModule, FormsModule, RouterModule, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, MiniEmptyComponent, ErrorCardComponent, RevealDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="site-detail animate-fade-in" data-testid="site-detail">
-      <header class="site-detail__head">
+      <header class="site-detail__head" appReveal>
         <h1 class="site-detail__title">{{ site()?.name || site()?.slug || siteId() || 'Site' }}</h1>
         @if (site()?.slug; as slug) {
           <p class="site-detail__subtitle">{{ slug }}.projectsites.dev</p>
@@ -86,7 +87,7 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
         }
       </header>
 
-      <nav class="site-detail__tabs" role="tablist" hlmTablist aria-label="Site detail sections">
+      <nav class="site-detail__tabs" role="tablist" hlmTablist aria-label="Site detail sections" appReveal>
         <button
           type="button"
           role="tab"
@@ -127,7 +128,7 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
 
       <!-- ──────────────────────────────────────── LOGS TAB ──────────────────────────────────────── -->
       @if (tab() === 'logs') {
-        <div class="site-detail__panel" role="tabpanel" id="sd-panel-logs" aria-labelledby="sd-tab-logs" data-testid="site-logs-panel">
+        <div class="site-detail__panel" role="tabpanel" appReveal id="sd-panel-logs" aria-labelledby="sd-tab-logs" data-testid="site-logs-panel">
           <div class="site-detail__toolbar">
             <label>
               Level
@@ -169,7 +170,7 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
 
       <!-- ──────────────────────────────────── SNAPSHOTS TAB ──────────────────────────────────── -->
       @if (tab() === 'snapshots') {
-        <div class="site-detail__panel" role="tabpanel" id="sd-panel-snapshots" aria-labelledby="sd-tab-snapshots" data-testid="site-snapshots-panel">
+        <div class="site-detail__panel" role="tabpanel" appReveal id="sd-panel-snapshots" aria-labelledby="sd-tab-snapshots" data-testid="site-snapshots-panel">
           @if (snapshotsError()) {
             <app-error-card data-testid="snapshots-load-error" class="block mb-3"
               title="Couldn't load snapshots"
@@ -213,7 +214,7 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
 
       <!-- ──────────────────────────────────────── SQL TAB ──────────────────────────────────────── -->
       @if (tab() === 'sql') {
-        <div class="site-detail__panel" role="tabpanel" id="sd-panel-sql" aria-labelledby="sd-tab-sql" data-testid="site-sql-panel">
+        <div class="site-detail__panel" role="tabpanel" appReveal id="sd-panel-sql" aria-labelledby="sd-tab-sql" data-testid="site-sql-panel">
           <textarea
             data-testid="sql-editor"
             hlmInput
@@ -293,7 +294,7 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
 
       <!-- ──────────────────────────────────── INTEGRATIONS TAB ──────────────────────────────────── -->
       @if (tab() === 'integrations') {
-        <div class="site-detail__panel" role="tabpanel" id="sd-panel-integrations" aria-labelledby="sd-tab-integrations" data-testid="site-integrations-panel">
+        <div class="site-detail__panel" role="tabpanel" appReveal id="sd-panel-integrations" aria-labelledby="sd-tab-integrations" data-testid="site-integrations-panel">
           <div class="mcp-list" data-testid="mcp-provider-list">
             @for (p of integrations(); track p.key) {
               <article class="mcp-card" [attr.data-testid]="'mcp-provider-card-' + p.key">

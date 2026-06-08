@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { of, throwError, Subject } from 'rxjs';
 import { ActivatedRoute, Router, provideRouter } from '@angular/router';
 import { AdminSiteDetailComponent } from './site-detail.component';
+import { RevealDirective } from '../../../directives/reveal.directive';
 import { ApiService } from '../../../services/api.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { ToastService } from '../../../services/toast.service';
@@ -216,6 +218,28 @@ describe('AdminSiteDetailComponent (cinematic entrance — matches sibling secti
     const root = (f.nativeElement as HTMLElement).querySelector('.site-detail');
     expect(root).withContext('site-detail root renders').not.toBeNull();
     expect(root!.classList.contains('animate-fade-in')).withContext('root must animate in (opacity-only, reduced-motion-safe) like sibling sections').toBe(true);
+  });
+
+  it('stagger-reveals the header, tablist nav, and active panel via appReveal (first-paint cohesion)', () => {
+    const api = { get: jasmine.createSpy('get').and.returnValue(of({ site: { id: 'site-1', slug: 's', name: 'S' }, columns: [], rows: [], logs: [], snapshots: [] })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
+    TestBed.configureTestingModule({
+      imports: [AdminSiteDetailComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: api },
+        { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 'site-1' }), queryParamMap: of({ get: () => null }) } },
+      ],
+    });
+    const f = TestBed.createComponent(AdminSiteDetailComponent);
+    f.detectChanges();
+    const host = f.nativeElement as HTMLElement;
+    // header + tablist nav + the active (logs) panel each carry the directive.
+    expect(f.debugElement.queryAll(By.directive(RevealDirective)).length)
+      .withContext('header + nav + active panel stagger-reveal').toBeGreaterThanOrEqual(3);
+    expect(host.querySelector('.site-detail__head')?.hasAttribute('appReveal'))
+      .withContext('the header carries appReveal').toBe(true);
+    expect(host.querySelector('.site-detail__tabs')?.hasAttribute('appReveal'))
+      .withContext('the tablist nav carries appReveal').toBe(true);
   });
 
   // The Logs + Snapshots tab empties used bare muted text; the cockpit standard
