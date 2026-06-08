@@ -140,6 +140,7 @@ type StatusFilter = 'all' | PseoPage['status'];
         <app-error-card
           title="Couldn't load the pSEO matrix"
           [message]="error()!"
+          [correlationId]="loadErrorRef()"
           hint="Select a site, then retry. If it keeps failing, copy the reference for support."
           (retry)="loadPages()" />
       }
@@ -403,6 +404,8 @@ export class AdminPseoComponent {
   loading = signal(false);
   generating = signal(false);
   error = signal<string | null>(null);
+  /** Worker request_id from a failed pages load → copyable support reference on the error card. */
+  loadErrorRef = signal('');
   pages = signal<PseoPage[]>([]);
   total = signal(0);
   page = signal(1);
@@ -464,6 +467,7 @@ export class AdminPseoComponent {
     if (!siteId) return;
     this.loading.set(true);
     this.error.set(null);
+    this.loadErrorRef.set('');
     const statusParam = this.statusFilter() !== 'all' ? `&status=${this.statusFilter()}` : '';
     try {
       const resp = await firstValueFrom(
@@ -471,11 +475,17 @@ export class AdminPseoComponent {
       );
       this.pages.set(resp.pages);
       this.total.set(resp.total);
-    } catch {
+    } catch (err) {
       this.error.set('Could not load your pSEO pages.');
+      this.loadErrorRef.set(this.requestIdFrom(err));
     } finally {
       this.loading.set(false);
     }
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: unknown): string {
+    return ((e as { error?: { error?: { request_id?: string } } } | undefined)?.error?.error?.request_id) ?? '';
   }
 
   async generate(): Promise<void> {

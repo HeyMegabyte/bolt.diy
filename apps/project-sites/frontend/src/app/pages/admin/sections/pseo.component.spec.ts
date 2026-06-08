@@ -196,6 +196,20 @@ describe('AdminPseoComponent (cohesion + a11y, convergence r18)', () => {
     expect(msg).toContain('could not load');
     expect(msg).not.toContain('failed to load');
   });
+
+  // The error card's hint says "copy the reference for support" — so it MUST
+  // carry a request_id (the async catch previously discarded the err).
+  it('captures the request_id from a failed pages load (the hint promises a reference)', async () => {
+    build({ id: 'site-1' });
+    get.and.callFake((url: string) =>
+      url.includes('/pages')
+        ? throwError(() => ({ status: 500, error: { error: { request_id: 'req-pseo-5' } } }))
+        : of({ stats: {} }),
+    );
+    await component.loadPages();
+    expect(component.error()).not.toBeNull();
+    expect(component.loadErrorRef()).withContext('support reference captured').toBe('req-pseo-5');
+  });
 });
 
 /**
