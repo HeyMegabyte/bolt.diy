@@ -4,7 +4,7 @@ import { sysAdminGuard } from './sys-admin.guard';
 import { AuthService } from '../services/auth.service';
 
 /**
- * Coverage for sysAdminGuard — the gate on LAYER 1 (System Administrator /
+ * Coverage for sysAdminGuard — the gate on LAYER 1 (Feature Flags /
  * platform-ops feature flags). Contract:
  *  - a sys-admin identity admits (true)
  *  - any other signed-in owner is redirected to /admin/site-features (their own
@@ -22,7 +22,7 @@ function run(email: string): boolean | UrlTree {
   return TestBed.runInInjectionContext(() => sysAdminGuard({} as never, {} as never)) as boolean | UrlTree;
 }
 
-describe('sysAdminGuard (System Administrator layer protection)', () => {
+describe('sysAdminGuard (Feature Flags layer protection)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
   it('admits the platform operator brian@megabyte.space', () => {

@@ -1,0 +1,61 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]: Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner:
+      - banner [ref=e5]:
+        - generic [ref=e6]:
+          - generic [ref=e7] [cursor=pointer]:
+            - img "ProjectSites" [ref=e8]
+            - img "projectsites.dev" [ref=e9]
+          - button "Sign In" [ref=e11] [cursor=pointer]:
+            - img [ref=e12]
+            - text: Sign In
+    - main [ref=e15]:
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - heading "Welcome" [level=1] [ref=e19]
+          - paragraph [ref=e20]: Sign in to get your AI-powered website
+          - paragraph [ref=e21]: Every person and every business is welcome here. 🏳️‍🌈
+          - generic [ref=e22]:
+            - button "Continue with Google" [ref=e23] [cursor=pointer]:
+              - img [ref=e24]
+              - generic [ref=e29]: Continue with Google
+            - button "Continue with GitHub" [ref=e30] [cursor=pointer]:
+              - img [ref=e31]
+              - generic [ref=e33]: Continue with GitHub
+            - generic [ref=e36]: or
+            - button "Continue with Email" [ref=e38] [cursor=pointer]:
+              - img [ref=e39]
+              - generic [ref=e42]: Continue with Email
+        - button "Back to search" [ref=e43] [cursor=pointer]:
+          - img [ref=e44]
+          - text: Back to search
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - link "GitHub" [ref=e48] [cursor=pointer]:
+              - /url: https://github.com/HeyMegabyte
+              - img [ref=e49]
+            - link "X" [ref=e51] [cursor=pointer]:
+              - /url: https://x.com/HeyMegabyte
+              - img [ref=e52]
+            - link "LinkedIn" [ref=e54] [cursor=pointer]:
+              - /url: https://www.linkedin.com/in/blzalewski
+              - img [ref=e55]
+            - link "YouTube" [ref=e57] [cursor=pointer]:
+              - /url: https://www.youtube.com/@HeyMegabyte
+              - img [ref=e58]
+            - link "Instagram" [ref=e60] [cursor=pointer]:
+              - /url: https://www.instagram.com/heymegabyteofficial/
+              - img [ref=e61]
+            - link "Facebook" [ref=e63] [cursor=pointer]:
+              - /url: https://www.facebook.com/HeyMegabyte
+              - img [ref=e64]
+          - generic [ref=e66]:
+            - link "Terms" [ref=e67] [cursor=pointer]:
+              - /url: /terms
+            - text: ·
+            - link "Privacy" [ref=e68] [cursor=pointer]:
+              - /url: /privacy
+            - text: · © 2026 Megabyte LLC

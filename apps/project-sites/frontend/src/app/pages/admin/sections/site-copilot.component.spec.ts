@@ -205,7 +205,7 @@ describe('AdminSiteCopilotComponent — flag-gate link cohesion (real template)'
     const link = (fx.nativeElement as HTMLElement).querySelector(
       '[data-testid="copilot-flag-gate"] a[routerLink="/admin/feature-flags"]',
     ) as HTMLAnchorElement;
-    expect(link).withContext('flag-gate links to System Admin').toBeTruthy();
+    expect(link).withContext('flag-gate links to Feature Flags').toBeTruthy();
     // Shared <app-flag-gate-notice> underlines via `.flag-gate__link` CSS, not the Tailwind class.
     expect(getComputedStyle(link).textDecorationLine).withContext('permanently underlined').toContain('underline');
     expect(link.getAttribute('href')).toBe('/admin/feature-flags');

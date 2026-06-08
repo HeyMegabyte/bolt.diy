@@ -78,10 +78,6 @@ export interface Env {
    * when missing, capture endpoints return 503.
    */
   SNAPSHOT_QUALITY_WORKFLOW?: Workflow;
-  /**
-   * Content Freshness Workflow binding. Daily cron rewrites stale sections.
-   * See {@link workflows/content-freshness-workflow.ContentFreshnessWorkflow}.
-   */
   CONTENT_FRESHNESS_WORKFLOW?: Workflow;
   /**
    * pSEO Matrix Generation Workflow binding. Queued via POST /api/pseo/:siteId/generate.

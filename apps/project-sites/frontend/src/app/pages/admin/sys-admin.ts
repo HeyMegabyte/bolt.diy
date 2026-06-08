@@ -1,10 +1,10 @@
 /**
  * @module pages/admin/sys-admin
  *
- * Single source of truth for the **System Administrator** identity gate.
+ * Single source of truth for the **Feature Flags** identity gate.
  *
  * The admin has a two-layer feature control plane:
- *  - **LAYER 1 — System Administrator** (`/admin/feature-flags`): platform-ops
+ *  - **LAYER 1 — Feature Flags** (`/admin/feature-flags`): platform-ops
  *    flags (toggle / roll out / killswitch ANY feature across the whole
  *    platform). This is operator-only — it must NEVER be visible to a normal
  *    site owner. Only the identities in {@link SYS_ADMIN_EMAILS} see it.
@@ -22,7 +22,7 @@
 export const SYS_ADMIN_EMAILS: readonly string[] = ['brian@megabyte.space', 'hey@megabyte.space'];
 
 /**
- * True when `email` belongs to a platform System Administrator.
+ * True when `email` belongs to a platform Feature Flags.
  *
  * Case-insensitive + whitespace-trimmed; null / undefined / empty → false.
  *

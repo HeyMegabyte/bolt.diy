@@ -16,9 +16,9 @@ export default defineFeatureManifest({
   name: 'Billing',
   description:
     'Stripe checkout + subscriptions + entitlements + billing portal. ' +
-    'Gated behind stripe_meters flag for metered add-ons.',
+    'Core billing surface (always-on); includes donation-payout connection.',
   lifecycle: 'beta',
-  flagKey: 'stripe_meters',
+  flagKey: 'core_billing',
   owner: 'brian@megabyte.space',
   createdAt: '2026-05-28',
   updatedAt: '2026-05-28',

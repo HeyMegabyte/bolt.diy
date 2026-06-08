@@ -62,7 +62,6 @@ import { voiceRoutes } from './routes/voice.js';
 import { voiceWebhookRoutes } from './routes/voice_webhooks.js';
 import { domainPurchase } from './routes/domain_purchase.js';
 import { domainStack } from './routes/domain_stack.js';
-import { logs as logsRoutes } from './routes/logs.js';
 import { superAdmin } from './routes/super_admin.js';
 import { wallet as walletRoutes } from './routes/wallet.js';
 import { agency } from './routes/agency.js';
@@ -74,43 +73,24 @@ import { siteBranchesApp } from './routes/site_branches.js';
 import { experiments } from './routes/experiments.js';
 import { mediaRoutes } from './routes/media.js';
 import { publicRoutes } from './routes/public.js';
-import { publicApiV1 } from './routes/public_api.js';
-import { contentRoutes } from './routes/content.js';
 import { pseoRoutes } from './routes/pseo.js';
 import { pseoMatrixV2Routes } from './routes/pseo_matrix_v2.js';
-import { integrationDirectoryRoutes } from './routes/integration_directory.js';
-import { comparisonPagesRoutes } from './routes/comparison_pages.js';
-import { changelogPublicRoutes } from './routes/changelog_public.js';
 import features from './routes/features.js';
 import { inbox } from './routes/inbox.js';
 import { copilot } from './routes/copilot.js';
 import { siteDetailTabs } from './routes/site_detail_tabs.js';
-import { swarm } from './routes/swarm.js';
 import { siteDna } from './routes/site_dna.js';
 import { sectionMarketplace } from './routes/section_marketplace.js';
-import { reviewRoutes } from './routes/reviews.js';
 import { emailDeliverabilityRoutes } from './routes/email_deliverability.js';
-import { bulkSiteOps } from './routes/bulk_site_ops.js';
 import { reviewPublic } from './routes/review_public.js';
 import { reviewLinks } from './routes/review_links.js';
 import { automation } from './routes/automation.js';
 import { webhooksAdmin } from './routes/webhooks_admin.js';
 import { seoAutopilot } from './routes/seo_autopilot.js';
-import { conversationalEdits } from './routes/conversational_edits.js';
 // ── Marketplace + Creator Economy (IDEAS-50 #39/#40/#41/#42)
-import { templateMarketplace } from './routes/template_marketplace.js';
 import { sectionMarketplaceSubmissions } from './routes/section_marketplace_submissions.js';
-import { pluginMarketplace } from './routes/plugin_marketplace.js';
-import { aiComponents } from './routes/ai_components.js';
 import { trustCenter } from './routes/trust_center.js';
-import { enterprisePlan } from './routes/enterprise_plan.js';
-import { stripeAppStatus } from './routes/stripe_app_status.js';
 // Feature modules (libs/features/*) — ideas #33, #34, #36, #46
-import { referralLoop } from '../libs/features/referral_loop/handlers.js';
-import { agencyWhiteLabel } from '../libs/features/agency_white_label/handlers.js';
-import { stripeMarketplace } from '../libs/features/stripe_marketplace/handlers.js';
-import { auditHashChain } from '../libs/features/audit_hash_chain/handlers.js';
-import { buildProgress } from '../libs/features/build_progress/handlers.js'; // #10 event-sourced + streamed build progress (flag: streaming_generation)
 import { tokenBurnMeter } from '../libs/features/token_burn_meter/handlers.js'; // #13 per-tenant token-burn meter + budget killswitch (flag: token_burn_meter)
 import { contactsCore } from '../libs/features/contacts_core/handlers.js'; // shared contacts/CRM core (flag: contacts_core)
 import { siteAnalytics } from '../libs/features/site_analytics/handlers.js'; // owner-facing per-site analytics summary (flag: site_analytics)
@@ -118,15 +98,10 @@ import { visitorEvents } from '../libs/features/visitor_events_core/handlers.js'
 import { recordPageviewFromRequest } from '../libs/features/visitor_events_core/service.js'; // edge-recorded per-request pageview (no flag — core site analytics)
 import { emailMarketing } from '../libs/features/email_marketing/handlers.js'; // real campaign send to consented audience (flag: email_marketing)
 import { dataExport } from '../libs/features/data_export/handlers.js'; // owner contacts CSV export (flag: data_export)
-import { donationsEngine } from '../libs/features/donations_engine/handlers.js'; // campaign + donor-CRM layer (flag: donations_engine)
-import { reviewSynthesis } from '../libs/features/review_synthesis/handlers.js'; // verified review synthesis + AggregateRating JSON-LD (flag: review_synthesis)
 // IDEAS-50 wave 3 — GEO + reputation + growth
-import { reputation } from '../libs/features/reputation/handlers.js'; // #10/#11/#13 review requests + responder + monitor
-import { affiliateProgram } from '../libs/features/affiliate_program/handlers.js'; // #32 50%-recurring affiliate program
 import { searchSubmit } from '../libs/features/search_submit/handlers.js'; // #3 IndexNow + Bing/Google submit on publish (flag: search_engine_submit)
 import { gbpAssist } from '../libs/features/gbp_assist/handlers.js'; // #9 Google Business Profile setup + optimizer (flag: gbp_assist)
-import { publicGallery } from '../libs/features/public_gallery/handlers.js'; // #34 public indexable gallery of opted-in sites (flag: public_gallery)
-import { multimodalIntake } from '../libs/features/multimodal_intake/handlers.js'; // #18 PARKED — booking-page photo+voice intake (flag: multimodal_intake, dark)
+import { abuseTakedown } from '../libs/features/abuse_takedown/handlers.js'; // abuse + takedown intake (flag: abuse_takedown)
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { dbQueryOne, dbUpdate } from './services/db.js';
@@ -138,7 +113,6 @@ export { DriveSyncWorkflow } from './workflows/drive-sync.js';
 export { ImageGenerationWorkflow } from './workflows/image-generation.js';
 export { SnapshotQualityWorkflow } from './workflows/snapshot-quality.js';
 export { SocialPublishWorkflow } from './workflows/social-publish.js';
-export { ContentFreshnessWorkflow } from './workflows/content-freshness-workflow.js';
 export { PseoGenerationWorkflow } from './workflows/pseo-generation-workflow.js';
 export { SiteBuilderContainer } from './container.js';
 export { TraceHub, ActivityHub } from './durable_objects/trace_hub.js';
@@ -458,7 +432,6 @@ app.route('/', docs); // Interactive API explorer (OpenAPI + Angular overview)
 app.route('/', appsRoutes); // /admin/apps tab — catalog + per-org app_instances CRUD
 app.route('/', snapshotQuality); // /api/sites/:siteId/snapshots/:snapshotId/{capture,metrics,screenshot.png} — must precede `api` so the param order matches first
 app.route('/', siteDetailTabs); // /api/sites/:siteId/{logs/tail,snapshots/:id/rollback,sql/exec,integrations} — must precede `api` so the param order matches first
-app.route('/', swarm);            // /api/swarm/:siteId/{start,stream,runs,run/:runId} — #5 Swarm Editor + #6 Live-stream Preview
 app.route('/', siteDna);          // /api/site-dna/:siteId/{feedback,preferences,history} — #7 Site DNA Taste Graph
 app.route('/', sectionMarketplace); // /api/section-marketplace + /sections — #8 Vertical Section Marketplace
 app.route('/', dashboard); // /api/dashboard/chat (SSE) + /api/calendar/* — Perplexity-like dashboard surface
@@ -469,7 +442,6 @@ app.route('/', voiceRoutes); // /api/voice/* — AI Voice + SMS Agent (numbers, 
 app.route('/', voiceWebhookRoutes); // /webhooks/voice/* + /webhooks/sms/* + /internal/voice/* — Twilio webhook + media stream bridge
 app.route('/', domainPurchase); // Wallet-charged /api/domains/purchase + /api/billing/checkout/{wallet,topup} + /api/billing/wallet — must precede `api` so the wallet-aware purchase route wins over the legacy hosted-checkout route
 app.route('/', domainStack); // Domain Stack Wizard: POST /api/domains/:hostname/stack + GET /api/domains/:hostname/stack-status (flag: domain_stack_wizard)
-app.route('/', logsRoutes); // Worker tail log explorer: POST /api/logs/search + GET /api/logs/cost-by-route (flag: log_explorer)
 app.route('/', superAdmin); // /api/super-admin/* — cost-factor controls + wallet ops + 100-feature ops (is_super_admin=1 guarded)
 app.route('/', walletRoutes); // /api/wallet/* — customer-facing wallet read/subscribe/topup (additive aliases over domain_purchase /api/billing/wallet)
 app.route('/', agency); // /api/agency/* — white-label / agency surface (Pro-gated, manages child orgs + brand overrides + Stripe Connect)
@@ -484,50 +456,27 @@ app.route('/', siteBranchesApp); // /api/sites/:siteId/branches — branch-style
 app.route('/', experiments); // /_ps/{i,c,e,predict} + /api/sites/:siteId/experiments — Thompson-sampling A/B + predictive prerender
 app.route('/', mediaRoutes); // /api/media/* — unified media library (uploads, stock, AI gen, send-to-bolt)
 app.route('/', publicRoutes); // /changelog.json + /feed.xml + /api/public/{roadmap,integrations} — distribution flywheel surfaces; must precede the catch-all so the marketing worker never tries to resolve a site for these paths
-app.route('/', publicApiV1); // Public REST API v1 (/v1/*) + token management (/api/v1-tokens) — flag-gated behind public_api_v1
-app.route('/api/content', contentRoutes); // Content Freshness — feature #16: drafts list/approve/reject/trigger
 app.route('/api/pseo', pseoRoutes); // pSEO Matrix Builder — feature #17: service×city×intent×season generator
 app.route('/api/sites', pseoMatrixV2Routes); // pSEO v2 (#29) — /api/sites/:id/pseo/v2/* — user-tasks + 40% unique-data floor
-app.route('/api/sites', integrationDirectoryRoutes); // Integration Directory (#30) — /api/sites/:id/integrations/* — pair pages
-app.route('/api/sites', comparisonPagesRoutes); // Comparison Pages (#31) — /api/sites/:id/comparisons/* — vs/alternatives
-app.route('/', changelogPublicRoutes); // Public Changelog (#35) — /changelog + /changelog.rss + /changelog.json
-app.route('/api/reviews', reviewRoutes); // Verified Review Synthesis — idea #24: Google reviews → AggregateRating JSON-LD (verified origin only)
 app.route('/api/seo', seoAutopilot); // SEO/GEO Autopilot — idea #23: AI title/meta/JSON-LD/answer-block drafts per route
-app.route('/api/conversational-edits', conversationalEdits); // Conversational Editing — idea #1: NL site edits with reversible changesets
-app.route('/', templateMarketplace); // /api/template-marketplace/* — IDEAS-50 #39 Template Marketplace v1 (Framer-style 0%-cut + 50% on referrals)
 app.route('/', sectionMarketplaceSubmissions); // /api/marketplace/sections/* — IDEAS-50 #40 Section Marketplace creator submissions + admin curation
-app.route('/', pluginMarketplace); // /api/plugin-marketplace/* — IDEAS-50 #41 Plugin / Integration Marketplace (70/30 split)
-app.route('/', aiComponents); // /api/sites/:siteId/ai-components/* + /api/ai-components/* — IDEAS-50 #42 AI Code Components Generator
 app.route('/', trustCenter); // Trust Center — idea #50: per-org admin /admin/trust + per-site public /trust (flag: trust_center). Routes are prefixed with /api/trust + /api/public/trust internally
-app.route('/', enterprisePlan); // Enterprise Plan — idea #44: $500-$2k/mo tier (SSO + 99.9% SLA + audit export + custom terms + Slack)
-app.route('/', stripeAppStatus); // Stripe App Marketplace status — idea #36 admin slice: /api/stripe-app/{installs,summary,lifecycle}
 // libs/features/* — viral + billing + audit-chain modules (ideas #33, #34, #36, #46)
-app.route('/', referralLoop); // /api/referrals/* — built-in referral loop (idea #33)
-app.route('/', agencyWhiteLabel); // /api/agency-white-label/* — white-label agency tier (idea #34)
-app.route('/', stripeMarketplace); // /api/stripe-marketplace/* — Stripe App Marketplace manifest + OAuth callback (idea #36)
-app.route('/', auditHashChain); // /api/audit-chain/* — SHA-256 chained audit ledger (idea #46)
-app.route('/', buildProgress); // /api/sites/:id/build/{stream,events} — #10 event-sourced + streamed build progress (flag: streaming_generation). Must precede `api` so the :id/build/* suffix wins.
 app.route('/', tokenBurnMeter); // /api/usage/budget + /api/admin/usage/budget — #13 per-tenant token-burn meter + budget killswitch (flag: token_burn_meter)
 app.route('/', contactsCore); // /api/contacts{,/:id} — shared contacts/CRM core (flag: contacts_core)
 app.route('/', siteAnalytics); // /api/sites/:siteId/analytics — owner analytics summary (flag: site_analytics). Must precede `api` so the :siteId/analytics suffix wins.
 app.route('/', visitorEvents); // POST /api/v1/events — public beacon ingest (flag: visitor_events_core)
 app.route('/', emailMarketing); // /api/marketing/campaigns/:id/{recipients,send} + /api/marketing/unsubscribe — real campaign send (flag: email_marketing)
 app.route('/', dataExport); // /api/exports/contacts.csv — owner data portability (flag: data_export)
-app.route('/', donationsEngine); // /api/donations/campaigns{,/:id} — campaign + donor-CRM layer (flag: donations_engine)
-app.route('/', reviewSynthesis); // /api/reviews/:siteId{,/synthesize} — verified review synthesis + JSON-LD (flag: review_synthesis)
 app.route('/', emailDeliverabilityRoutes); // /api/sites/:siteId/deliverability — SPF/DKIM/DMARC score + fixes (flag: email_deliverability_wizard)
-app.route('/', bulkSiteOps); // POST /api/sites/bulk — plan/preview a bulk op across owned sites (flag: bulk_site_ops)
 app.route('/', reviewPublic); // GET/POST /api/review/:id{,/decision} — public reviewer approve/reject (flag: approval_workflow, scoped to review's org)
 app.route('/', reviewLinks); // GET/POST /api/sites/:siteId/review-links — admin create/list review links (flag: approval_workflow, assertSiteOwned)
 app.route('/', automation); // /api/sites/:siteId/recipes — no-code trigger->action recipe CRUD (flag: automation_builder)
 app.route('/', webhooksAdmin); // /api/sites/:siteId/webhooks — outbound webhook subscription CRUD (flag: outbound_webhooks)
 // ── IDEAS-50 wave 3 mounts — must precede `api` so :id/* suffixes + /r/:code + /gallery win
-app.route('/', reputation); // /api/sites/:id/reputation/{review-request,reply-draft,monitor} — #10/#11/#13 (flags: review_requests/review_responder/reputation_monitor)
-app.route('/', affiliateProgram); // /api/affiliate/* + /r/:code attribution redirect — #32 (flag: affiliate_program)
 app.route('/', searchSubmit); // /api/sites/:id/search-submit + /{key}.txt IndexNow verify — #3 (flag: search_engine_submit)
 app.route('/', gbpAssist); // /api/sites/:id/gbp/* — #9 Google Business Profile assist (flag: gbp_assist)
-app.route('/', publicGallery); // /gallery + /gallery/sitemap.xml + /api/gallery — #34 (flag: public_gallery)
-app.route('/', multimodalIntake); // /api/sites/:id/intake — #18 PARKED, dark (flag: multimodal_intake @ 0%)
+app.route('/', abuseTakedown); // /api/abuse/* — abuse + takedown intake (flag: abuse_takedown)
 
 app.route('/', api);
 app.route('/', webhooks);
@@ -1172,18 +1121,6 @@ export default {
             error: err instanceof Error ? err.message : String(err),
           }),
         );
-      }
-    }
-
-    // Daily 06:00 UTC — content freshness: scan stale sections, AI-rewrite,
-    // post drafts to task inbox. Flag-gated (content_freshness, default off).
-    if (_event.cron === '0 6 * * *') {
-      try {
-        const { scheduledContentFreshness } = await import('./services/content_freshness.js');
-        await scheduledContentFreshness(env);
-        console.warn(JSON.stringify({ level: 'info', service: 'cron', message: 'Content freshness run complete' }));
-      } catch (err) {
-        console.warn(JSON.stringify({ level: 'error', service: 'cron', message: 'Content freshness failed', error: String(err) }));
       }
     }
 

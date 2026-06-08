@@ -1,0 +1,109 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]: Project Sites builds and deploys complete AI-generated websites for small business in under 15 minutes on Cloudflare Workers. Customers pick the AI model per prompt (Claude Opus 4.7, Sonnet 4.6, Workers AI Llama 3.3 70B FP8, GPT-5). Every publish runs an axe-core accessibility gate at six viewports and a Lighthouse Core Web Vitals gate, blocking deploys that fail WCAG 2.2 AA or LCP under 2.5 seconds.
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - main [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - button "Open navigation menu" [ref=e8] [cursor=pointer]:
+            - img [ref=e9]
+          - complementary "Sidebar" [ref=e10]:
+            - link "ProjectSites projectsites.dev" [ref=e11] [cursor=pointer]:
+              - /url: /
+              - img "ProjectSites" [ref=e12]
+              - img "projectsites.dev" [ref=e13]
+            - button "Select site" [ref=e15] [cursor=pointer]:
+              - img [ref=e17]
+              - generic [ref=e21]: No sites
+              - img [ref=e22]
+            - navigation "Admin sections" [ref=e24]:
+              - link "Editor" [ref=e25] [cursor=pointer]:
+                - /url: /admin
+                - img [ref=e26]
+                - generic [ref=e29]: Editor
+              - link "Snapshots" [ref=e30] [cursor=pointer]:
+                - /url: /admin/snapshots
+                - img [ref=e31]
+                - generic [ref=e35]: Snapshots
+              - link "Analytics" [ref=e36] [cursor=pointer]:
+                - /url: /admin/analytics
+                - img [ref=e37]
+                - generic [ref=e38]: Analytics
+              - link "Forms" [ref=e39] [cursor=pointer]:
+                - /url: /admin/forms
+                - img [ref=e40]
+                - generic [ref=e43]: Forms
+              - link "Traces" [ref=e44] [cursor=pointer]:
+                - /url: /admin/traces
+                - img [ref=e45]
+                - generic [ref=e47]: Traces
+              - link "Apps" [ref=e48] [cursor=pointer]:
+                - /url: /admin/apps
+                - img [ref=e49]
+                - generic [ref=e52]: Apps
+              - link "Social" [ref=e53] [cursor=pointer]:
+                - /url: /admin/social
+                - img [ref=e54]
+                - generic [ref=e57]: Social
+              - link "Voice" [ref=e58] [cursor=pointer]:
+                - /url: /admin/voice
+                - img [ref=e59]
+                - generic [ref=e61]: Voice
+              - link "Audit Log" [ref=e63] [cursor=pointer]:
+                - /url: /admin/audit
+                - img [ref=e64]
+                - generic [ref=e67]: Audit Log
+              - link "Bulk Ops" [ref=e68] [cursor=pointer]:
+                - /url: /admin/bulk-ops
+                - img [ref=e69]
+                - generic [ref=e74]: Bulk Ops
+              - link "Deliverability" [ref=e75] [cursor=pointer]:
+                - /url: /admin/deliverability
+                - img [ref=e76]
+                - generic [ref=e79]: Deliverability
+              - link "Webhooks" [ref=e80] [cursor=pointer]:
+                - /url: /admin/webhooks
+                - img [ref=e81]
+                - generic [ref=e84]: Webhooks
+              - link "Automations" [ref=e85] [cursor=pointer]:
+                - /url: /admin/recipes
+                - img [ref=e86]
+                - generic [ref=e88]: Automations
+              - link "Review Links" [ref=e89] [cursor=pointer]:
+                - /url: /admin/review-links
+                - img [ref=e90]
+                - generic [ref=e93]: Review Links
+              - link "Feature Flags" [ref=e94] [cursor=pointer]:
+                - /url: /admin/feature-flags
+                - img [ref=e95]
+                - generic [ref=e97]: Feature Flags
+              - link "Docs" [ref=e98] [cursor=pointer]:
+                - /url: /admin/docs
+                - img [ref=e99]
+                - generic [ref=e102]: Docs
+              - link "Settings" [ref=e103] [cursor=pointer]:
+                - /url: /admin/settings
+                - img [ref=e104]
+                - generic [ref=e107]: Settings
+          - generic [ref=e108]:
+            - generic [ref=e109]:
+              - generic [ref=e112]:
+                - button "Go to admin home" [ref=e113] [cursor=pointer]:
+                  - img [ref=e114]
+                - 'button "Active domain: projectsites.dev. Click to change." [ref=e117] [cursor=pointer]':
+                  - generic [ref=e118]: projectsites.dev
+                  - img [ref=e119]
+              - generic [ref=e121]:
+                - button "Open command palette" [ref=e122] [cursor=pointer]:
+                  - img [ref=e123]
+                  - generic [ref=e126]: Quick find
+                  - generic [ref=e127]: ⌘K
+                - button "Notifications" [ref=e130] [cursor=pointer]:
+                  - img [ref=e131]
+                  - generic "1 new" [ref=e134]: "1"
+                - button "Account menu for current user" [ref=e136] [cursor=pointer]: "?"
+            - generic [ref=e139]: Loading dashboard...
+        - button "Open AI chat" [ref=e141] [cursor=pointer]:
+          - img [ref=e142]
+          - generic [ref=e144]: Ask AI

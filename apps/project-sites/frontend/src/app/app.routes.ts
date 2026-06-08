@@ -217,7 +217,7 @@ export const routes: Routes = [
           import('./pages/admin/sections/api-tokens.component').then((m) => m.AdminApiTokensComponent),
       },
       {
-        // Two-layer control plane — LAYER 1 (System Administrator). Platform-ops
+        // Two-layer control plane — LAYER 1 (Feature Flags). Platform-ops
         // flags for the operator. Reads GET /api/feature-flags merged with the
         // super-admin overrides; supports filter / search / toggle / rollout /
         // killswitch with progressive disclosure + dangerous-change confirm.
@@ -264,11 +264,11 @@ export const routes: Routes = [
       },
       {
         // Features Hub (RETIRED 2026-06-07) — the old combined catalog is
-        // superseded by the two-layer plane: LAYER 1 System Administrator
+        // superseded by the two-layer plane: LAYER 1 Feature Flags
         // (/admin/feature-flags, operator-only) + LAYER 2 Features
         // (/admin/site-features, owner-facing). Redirect old deep links /
         // command-palette entries to the owner-facing Features layer so they
-        // never 404. (AdminFeaturesHubComponent left in source, now unrouted.)
+        // never 404. (AdminFeaturesHubComponent + its spec DELETED 2026-06-07.)
         path: 'features',
         redirectTo: 'site-features',
         pathMatch: 'full',

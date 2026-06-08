@@ -38,7 +38,7 @@ export default defineFeatureManifest({
 
   // ---- tests ----
   e2eTests: [
-    'features/all-endpoints.spec.ts',
+    'flags/all-flags.spec.ts',
     '_fortress/feature-flags/happy-path.spec.ts',
     '_fortress/feature-flags/adversarial.spec.ts',
   ],

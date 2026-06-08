@@ -4,7 +4,7 @@ import { AuthService } from '../services/auth.service';
 import { isSysAdminEmail } from '../pages/admin/sys-admin';
 
 /**
- * Functional route guard for the **System Administrator** layer
+ * Functional route guard for the **Feature Flags** layer
  * (`/admin/feature-flags`).
  *
  * Admits only platform operators (see {@link isSysAdminEmail}); every other

@@ -7,7 +7,7 @@ export type DisclosureMode = 'simple' | 'advanced' | 'expert';
 
 /**
  * Reusable Simple / Advanced / Expert mode switcher. Both control-plane layers
- * (System Administrator + Site Features) embed this; the owning component
+ * (Feature Flags + Site Features) embed this; the owning component
  * persists the choice per-layer in localStorage and feeds it back via `mode`.
  *
  * WAI-ARIA Tabs pattern: roving tabindex + Arrow/Home/End keys + `aria-selected`.

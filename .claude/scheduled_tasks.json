@@ -1,15 +1,24 @@
 {
   "tasks": [
     {
-      "id": "38ea6f80",
-      "cron": "*/5 * * * *",
-      "prompt": "Mission: redesign, finish, test, polish projectsites.dev/admin into the best admin dashboard in the world. \"Nothing left to do\" = false convergence unless /admin is visually excellent, fully functional, fully tested, consistent with the public site. EXECUTE A REAL ROUND EACH FIRE — do not just report blockers; pick the highest-impact safe slice and ship it.\n\nBRAND: projectsites /admin = CYAN / BLACK (--ps-accent cyan #00E5FF on #060610, the cockpit system). NOT orange — \"orange\" was contamination for bricklabor.com (different repo, matches its own homepage).\n\nALSO address Brian's standing memory concerns (MEMORY.md) each round: dead admin mutation buttons → graceful disabled/coming-soon or wire them; dead admin section components → remove when safe; SPA-only nav (no full reloads, routerLink); legacy PrimeNG→Spartan convergence one primitive per round; cyan/black compact density; ports MIRROR legacy, not summarize.\n\nPer round: inspect /admin UX+code → pick highest-impact visible/functional gap (cross-check MEMORY.md) → Playwright E2E test FIRST → implement → re-run → verify route → commit to main (frontend ships to R2; git worktrees isolate edits so committing to main is safe — only avoid RACING concurrent R2 deploys: commit always, deploy only when no other deploy is mid-flight) → summarize → next. At least one VISIBLE cyan/black UX improvement per round unless exclusively fixing a blocking test.\n\nProduction-grade: a11y (keyboard/focus/ARIA/contrast/semantics), perf (lazy-load, fewer rerenders, less layout shift), reliability (no silent failures), observability (log failures, no secret leaks), security (validate inputs, protect routes, verify destructive actions), strong typing + reusable primitives. CRUD: real validation + success/failure states + safe refresh + useful errors. Worker deploys are Docker-blocked locally → worker-backend fixes wait for push; frontend (/admin SPA) ships to R2.\n\nDone only when every /admin route is polished, every visible feature works or is intentionally flagged, Playwright covers + passes all critical flows, cyan/black brand cohesive, zero TODOs/dead buttons/fake-data leaks/console errors/full reloads/layout bugs/untested critical flows.",
-      "createdAt": 1780434602262,
+      "id": "bf3f93c1",
+      "cron": "*/10 * * * *",
+      "prompt": "Visual-census loop. Pick the next route NOT yet captured in apps/project-sites/_VISUAL_CENSUS.md (marketing + every /admin section). Screenshot it at 6 breakpoints (375/390/768/1024/1280/1920) against the prod URL, authed via E2E_API_KEY (get-secret) + playwright.prod.config.ts — use the repo's headless Playwright + Cloudflare Browser Rendering REST API (the playwright/chrome-devtools MCP may be offline). Run the AI-vision rubric per ~/.claude e2e-visual-inspection: layout sane / WCAG-AA contrast / cyan-black cockpit brand / no AI-slop / score >=8. Append the route's screenshot paths + per-breakpoint score + notes to _VISUAL_CENSUS.md. READ-ONLY — never edit app code; surface any sub-8 route as a finding with a concrete fix. One route per fire; end with the running census coverage count (X of N routes).",
+      "createdAt": 1780933623458,
       "recurring": true,
-      "createdBySessionId": "5cf29b46-f7a8-4ac8-96c4-1e1d569fce63",
-      "createdByPid": 99631,
-      "createdByProcStart": "Mon Jun  1 04:10:16 2026",
-      "lastFiredAt": 1780434887803
+      "createdBySessionId": "63491509-1393-4ad6-a553-8898add3142e",
+      "createdByPid": 85061,
+      "createdByProcStart": "Sun Jun  7 23:06:40 2026"
+    },
+    {
+      "id": "599f7352",
+      "cron": "2,12,22,32,42,52 * * * *",
+      "prompt": "Accessibility loop. Run axe-core at 6 breakpoints (375/390/768/1024/1280/1920) on the next /admin route NOT yet in apps/project-sites/_A11Y_AUDIT.md, authed via E2E_API_KEY + playwright.prod.config.ts (repo headless Playwright). Fix every violation in-turn — component-local edits only, SKIP any file showing as concurrently modified in `git status`. Also check the WCAG 2.2 AA manual-review criteria (focus appearance, 24px target size, focus-not-obscured, consistent help, redundant entry). Log route + violations + fixes to _A11Y_AUDIT.md. Gate: `npx tsc --noEmit` + the component spec + `ng build` all green; zero axe violations to pass. Commit locally, do NOT push (Brian pushes). One route per fire.",
+      "createdAt": 1780933629407,
+      "recurring": true,
+      "createdBySessionId": "63491509-1393-4ad6-a553-8898add3142e",
+      "createdByPid": 85061,
+      "createdByProcStart": "Sun Jun  7 23:06:40 2026"
     }
   ]
 }

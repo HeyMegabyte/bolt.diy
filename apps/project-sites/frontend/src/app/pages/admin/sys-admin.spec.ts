@@ -1,10 +1,10 @@
 import { SYS_ADMIN_EMAILS, isSysAdminEmail } from './sys-admin';
 
 /**
- * Coverage for the System Administrator identity gate — the SSOT that decides
+ * Coverage for the Feature Flags identity gate — the SSOT that decides
  * who sees LAYER 1 (platform-ops feature flags) vs only LAYER 2 (site Features).
  */
-describe('isSysAdminEmail (System Administrator gate)', () => {
+describe('isSysAdminEmail (Feature Flags gate)', () => {
   it('admits the canonical operator brian@megabyte.space', () => {
     expect(isSysAdminEmail('brian@megabyte.space')).toBe(true);
   });

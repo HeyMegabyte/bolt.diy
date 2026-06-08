@@ -1,6 +1,6 @@
 /**
  * Pure feature-flag control-plane logic — no Angular, no I/O. Shared by both
- * control-plane layers (System Administrator + Site Features) so percentage
+ * control-plane layers (Feature Flags + Site Features) so percentage
  * bucketing, dependency/incompatibility validation, evaluation order, and
  * plan-entitlement gating live in ONE tested place.
  *

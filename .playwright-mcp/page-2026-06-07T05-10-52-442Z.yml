@@ -1,0 +1,184 @@
+- generic [ref=e2]:
+  - link "Skip to main content" [ref=e3] [cursor=pointer]:
+    - /url: "#main-content"
+  - alert [ref=e4] [cursor=pointer]:
+    - img [ref=e6]
+    - generic [ref=e10]: Failed to load API tokens
+    - button "Dismiss notification" [ref=e11]:
+      - img [ref=e12]
+  - main [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - status [ref=e17]: API Tokens section
+        - complementary "Sidebar" [ref=e18]:
+          - button "Select site" [ref=e20] [cursor=pointer]:
+            - generic [ref=e22]: V
+            - generic [ref=e23]:
+              - generic [ref=e24]: Vito's Mens Salon
+              - generic [ref=e25]: Live
+            - generic [ref=e27]: V
+            - img [ref=e28]
+          - navigation "Admin sections" [ref=e30]:
+            - link "Editor" [ref=e31] [cursor=pointer]:
+              - /url: /admin
+              - img [ref=e32]
+              - generic [ref=e35]: Editor
+            - link "Snapshots" [ref=e36] [cursor=pointer]:
+              - /url: /admin/snapshots
+              - img [ref=e37]
+              - generic [ref=e41]: Snapshots
+            - link "Analytics" [ref=e42] [cursor=pointer]:
+              - /url: /admin/analytics
+              - img [ref=e43]
+              - generic [ref=e44]: Analytics
+            - link "Forms" [ref=e45] [cursor=pointer]:
+              - /url: /admin/forms
+              - img [ref=e46]
+              - generic [ref=e49]: Forms
+            - link "Traces" [ref=e50] [cursor=pointer]:
+              - /url: /admin/traces
+              - img [ref=e51]
+              - generic [ref=e53]: Traces
+            - link "Apps" [ref=e54] [cursor=pointer]:
+              - /url: /admin/apps
+              - img [ref=e55]
+              - generic [ref=e58]: Apps
+            - link "Social" [ref=e59] [cursor=pointer]:
+              - /url: /admin/social
+              - img [ref=e60]
+              - generic [ref=e63]: Social
+            - link "Voice" [ref=e64] [cursor=pointer]:
+              - /url: /admin/voice
+              - img [ref=e65]
+              - generic [ref=e67]: Voice
+            - link "Audit Log" [ref=e69] [cursor=pointer]:
+              - /url: /admin/audit
+              - img [ref=e70]
+              - generic [ref=e73]: Audit Log
+            - link "Bulk Ops" [ref=e74] [cursor=pointer]:
+              - /url: /admin/bulk-ops
+              - img [ref=e75]
+              - generic [ref=e80]: Bulk Ops
+            - link "Deliverability" [ref=e81] [cursor=pointer]:
+              - /url: /admin/deliverability
+              - img [ref=e82]
+              - generic [ref=e85]: Deliverability
+            - link "Webhooks" [ref=e86] [cursor=pointer]:
+              - /url: /admin/webhooks
+              - img [ref=e87]
+              - generic [ref=e90]: Webhooks
+            - link "Automations" [ref=e91] [cursor=pointer]:
+              - /url: /admin/recipes
+              - img [ref=e92]
+              - generic [ref=e94]: Automations
+            - link "Features Hub" [ref=e95] [cursor=pointer]:
+              - /url: /admin/features
+              - img [ref=e96]
+              - generic [ref=e98]: Features Hub
+            - link "Feature Flags" [ref=e99] [cursor=pointer]:
+              - /url: /admin/feature-flags
+              - img [ref=e100]
+              - generic [ref=e102]: Feature Flags
+            - link "Features" [ref=e103] [cursor=pointer]:
+              - /url: /admin/site-features
+              - img [ref=e104]
+              - generic [ref=e108]: Features
+            - link "Marketplace" [ref=e109] [cursor=pointer]:
+              - /url: /admin/marketplace
+              - img [ref=e110]
+              - generic [ref=e114]: Marketplace
+            - link "Log Explorer" [ref=e115] [cursor=pointer]:
+              - /url: /admin/logs
+              - img [ref=e116]
+              - generic [ref=e119]: Log Explorer
+            - link "Enterprise" [ref=e120] [cursor=pointer]:
+              - /url: /admin/enterprise
+              - img [ref=e121]
+              - generic [ref=e124]: Enterprise
+            - link "Trust Center" [ref=e125] [cursor=pointer]:
+              - /url: /admin/trust
+              - img [ref=e126]
+              - generic [ref=e129]: Trust Center
+            - link "Stripe App" [ref=e130] [cursor=pointer]:
+              - /url: /admin/stripe-app-status
+              - img [ref=e131]
+              - generic [ref=e133]: Stripe App
+            - link "Docs" [ref=e134] [cursor=pointer]:
+              - /url: /admin/docs
+              - img [ref=e135]
+              - generic [ref=e138]: Docs
+            - link "Settings" [ref=e139] [cursor=pointer]:
+              - /url: /admin/settings
+              - img [ref=e140]
+              - generic [ref=e143]: Settings
+        - generic [ref=e144]:
+          - generic [ref=e145]:
+            - generic [ref=e146]:
+              - generic [ref=e148]:
+                - button "Go to admin home" [ref=e149] [cursor=pointer]:
+                  - img [ref=e150]
+                - 'button "Active domain: vitos-mens-salon.projectsites.dev. Click to change." [ref=e153] [cursor=pointer]':
+                  - generic [ref=e154]: vitos-mens-salon.projectsites.dev
+                  - img [ref=e155]
+              - img [ref=e157]
+              - generic [ref=e159]: API Tokens
+            - generic [ref=e160]:
+              - button "Open command palette" [ref=e161] [cursor=pointer]:
+                - img [ref=e162]
+                - generic [ref=e165]: Quick find
+                - generic [ref=e166]: ⌘K
+              - button "Site actions menu" [ref=e168] [cursor=pointer]:
+                - img [ref=e169]
+                - generic [ref=e171]: Actions
+                - img [ref=e172]
+              - button "Notifications" [ref=e176] [cursor=pointer]:
+                - img [ref=e177]
+                - generic "1 new" [ref=e180]: "1"
+              - button "Account menu for current user" [ref=e182] [cursor=pointer]: "?"
+          - generic [ref=e185]:
+            - generic [ref=e186]:
+              - generic [ref=e187]:
+                - generic [ref=e188]:
+                  - generic [ref=e189]: Developer
+                  - heading "API Tokens" [level=1] [ref=e190]
+                  - paragraph [ref=e191]: Authenticate programmatic access with scoped Bearer tokens.
+                - generic [ref=e192]:
+                  - link "API Docs" [ref=e193] [cursor=pointer]:
+                    - /url: /admin/docs/api-reference
+                    - img [ref=e194]
+                    - text: API Docs
+                  - button "New Token" [ref=e197] [cursor=pointer]:
+                    - img [ref=e198]
+                    - text: New Token
+              - generic [ref=e199]:
+                - generic [ref=e200]:
+                  - generic "0" [ref=e202]
+                  - generic [ref=e203]: active tokens
+                - generic [ref=e204]:
+                  - generic "6" [ref=e206]: "2"
+                  - generic [ref=e207]: scopes available
+                - link "OpenAPI 3.1 spec" [ref=e209] [cursor=pointer]:
+                  - /url: /v1/openapi.json
+                  - text: OpenAPI 3.1 spec
+                  - img [ref=e210]
+            - table [ref=e215]:
+              - rowgroup [ref=e216]:
+                - row "Name Scopes Last used Expires Created Actions" [ref=e217]:
+                  - columnheader "Name" [ref=e218] [cursor=pointer]: Name ↕
+                  - columnheader "Scopes" [ref=e219]
+                  - columnheader "Last used" [ref=e220] [cursor=pointer]: Last used ↕
+                  - columnheader "Expires" [ref=e221] [cursor=pointer]: Expires ↕
+                  - columnheader "Created" [ref=e222] [cursor=pointer]: Created ↕
+                  - columnheader "Actions" [ref=e223]
+              - rowgroup [ref=e224]:
+                - row [ref=e225]:
+                  - cell [ref=e226]:
+                    - status [ref=e227]:
+                      - img [ref=e228]
+                      - paragraph [ref=e232]: No API tokens yet.
+                      - button "Create your first token" [ref=e233] [cursor=pointer]
+          - iframe [ref=e234]:
+            
+      - button "Open AI chat" [ref=e236] [cursor=pointer]:
+        - img [ref=e237]
+        - generic [ref=e239]: Ask AI

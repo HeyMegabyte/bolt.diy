@@ -11,7 +11,7 @@ import { isSysAdminEmail } from '../../pages/admin/sys-admin';
  * {@link ErrorCardComponent}).
  *
  * Renders a "PLATFORM FLAG" eyebrow + cyan lock glyph, the disabled-feature
- * sentence, and a SPA link to the operator's **System Admin** layer (renamed
+ * sentence, and a SPA link to the operator's **Feature Flags** layer (renamed
  * from "Feature Flags" 2026-06-07). A non-operator who follows the link is
  * redirected to their owner Features layer by `sysAdminGuard`.
  *
@@ -36,11 +36,11 @@ import { isSysAdminEmail } from '../../pages/admin/sys-admin';
       @if (isOperator()) {
         <p class="flag-gate__body">
           {{ feature() }} {{ plural() ? 'are' : 'is' }} behind the <code>{{ flag() }}</code> feature flag (currently disabled). Enable it in
-          <a routerLink="/admin/feature-flags" class="flag-gate__link">System&nbsp;Admin</a>@if (suffix()) { {{ ' ' + suffix() }}}.
+          <a routerLink="/admin/feature-flags" class="flag-gate__link">Feature&nbsp;Flags</a>@if (suffix()) { {{ ' ' + suffix() }}}.
         </p>
       } @else {
         <!-- Owner view: a site owner can't toggle a platform flag (it lives in the
-             operator-only System Admin layer), so don't send them there — give a
+             operator-only Feature Flags layer), so don't send them there — give a
              plain, plan-aware explanation. -->
         <p class="flag-gate__body">
           {{ feature() }} {{ plural() ? 'are' : 'is' }} not available for your site yet. It's a platform feature managed by ProjectSites.
@@ -64,9 +64,9 @@ export class FlagGateNoticeComponent {
   // the rare no-DI render). An EMPTY email means "no active session" — never a
   // signed-in owner viewing a gated section (those always carry a non-operator
   // email in prod), so unknown identity → OPERATOR view (link shown). That also
-  // keeps every existing section spec's "links to System Admin" assertion green.
+  // keeps every existing section spec's "links to Feature Flags" assertion green.
   private readonly auth = inject(AuthService, { optional: true });
-  /** True for platform operators (or when identity is unknown) → show the System Admin CTA. */
+  /** True for platform operators (or when identity is unknown) → show the Feature Flags CTA. */
   readonly isOperator = computed(() => {
     const email = this.auth?.email() ?? '';
     return email === '' || isSysAdminEmail(email);
@@ -84,6 +84,6 @@ export class FlagGateNoticeComponent {
   readonly margin = input('');
   /** Optional bold heading line above the sentence (e.g. "Log Explorer isn't enabled"). */
   readonly heading = input('');
-  /** Optional trailing clause appended after "System Admin" (e.g. "to search Worker tail logs"). */
+  /** Optional trailing clause appended after "Feature Flags" (e.g. "to search Worker tail logs"). */
   readonly suffix = input('');
 }

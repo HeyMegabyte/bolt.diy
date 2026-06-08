@@ -22,16 +22,15 @@ describe('adminSectionLabel (per-route title map)', () => {
   it('keeps the established labels intact', () => {
     expect(adminSectionLabel('snapshots')).toBe('Snapshots');
     expect(adminSectionLabel('sites')).toBe('Sites');
-    // LAYER 1 platform-ops flags titled "System Admin" (operator-only) since the
+    // LAYER 1 platform-ops flags titled "Feature Flags" (operator-only) since the
     // two-layer plane landed (2026-06-07) — see admin nav + sysAdminGuard.
-    expect(adminSectionLabel('feature-flags')).toBe('System Admin');
+    expect(adminSectionLabel('feature-flags')).toBe('Feature Flags');
   });
 
-  it('disambiguates the two-layer feature surfaces (no "Dashboard" fallback / WCAG 2.4.2)', () => {
-    // /admin/features = the Features Hub; /admin/site-features = the owner-facing
-    // Features layer. Both must have distinct, correct titles — site-features was
-    // missing → fell back to "Dashboard".
-    expect(adminSectionLabel('features')).toBe('Features Hub');
+  it('owner Features layer has a correct title (no "Dashboard" fallback / WCAG 2.4.2)', () => {
+    // The retired Features Hub (/admin/features) now redirects to /admin/site-features;
+    // there is ONE owner-facing Features layer (site-features) + ONE operator System
+    // Admin layer (feature-flags). site-features was missing → fell back to "Dashboard".
     expect(adminSectionLabel('site-features')).toBe('Features');
     expect(adminSectionLabelFromPath('/admin/site-features')).toBe('Features');
   });
@@ -81,13 +80,13 @@ describe('adminSectionLabelFromPath (param + sub-path routes)', () => {
   it('handles the index, query/hash, and unknown (404) paths', () => {
     expect(adminSectionLabelFromPath('/admin')).toBe('Dashboard');
     expect(adminSectionLabelFromPath('/admin/snapshots/diff?from=a&to=b')).toBe('Snapshot Diff');
-    expect(adminSectionLabelFromPath('/admin/feature-flags#stage')).toBe('System Admin');
+    expect(adminSectionLabelFromPath('/admin/feature-flags#stage')).toBe('Feature Flags');
     expect(adminSectionLabelFromPath('/admin/totally-unknown-xyz')).toBe('Dashboard');
   });
 
   it('top-level sections resolve the same as the bare-segment lookup (no regression)', () => {
     expect(adminSectionLabelFromPath('/admin/billing')).toBe('Billing');
-    expect(adminSectionLabelFromPath('/admin/feature-flags')).toBe('System Admin');
+    expect(adminSectionLabelFromPath('/admin/feature-flags')).toBe('Feature Flags');
     expect(adminSectionLabelFromPath('/admin/traces')).toBe('AI Traces');
   });
 });
