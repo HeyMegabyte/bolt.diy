@@ -29,6 +29,27 @@ import { isSysAdminEmail } from './sys-admin';
 
 interface Notification { id: string; title: string; time: string; kind: 'info' | 'warn' | 'ok'; read: boolean; ts?: number; href?: string; }
 
+/**
+ * `g`-chord navigation targets — each MUST match the route the shortcuts-overlay
+ * advertises for that letter (the overlay is the user-facing source of truth).
+ * `e` → `/admin/editor` (NOT `/admin`): the editor moved off the index route, and
+ * the cheat-sheet says "Go to Editor", so this map went stale and `g e` was
+ * silently landing on the Dashboard. Exported so the contract is unit-tested
+ * without instantiating the heavy admin shell.
+ */
+export const G_CHORD_ROUTES: Readonly<Record<string, string>> = {
+  e: '/admin/editor',
+  s: '/admin/snapshots',
+  a: '/admin/analytics',
+  f: '/admin/forms',
+  l: '/admin/traces',
+  c: '/admin/ai-chat',
+  b: '/admin/billing',
+  v: '/admin/voice',
+  d: '/admin/domains',
+  u: '/admin/user',
+};
+
 @Component({
   selector: 'app-admin',
   standalone: true,
@@ -47,8 +68,8 @@ export class AdminComponent implements OnInit, OnDestroy {
   state = inject(AdminStateService);
   auth = inject(AuthService);
   /**
-   * True when the signed-in identity is a platform System Administrator — gates
-   * the operator-only LAYER 1 "System Admin" nav item (platform-ops feature
+   * True when the signed-in identity is a platform Feature Flags — gates
+   * the operator-only LAYER 1 "Feature Flags" nav item (platform-ops feature
    * flags). Normal site owners only see LAYER 2 "Features" (site-features).
    * Reactive to the auth session signal; mirrors {@link sysAdminGuard}.
    */
@@ -634,13 +655,13 @@ export class AdminComponent implements OnInit, OnDestroy {
     return `${Math.floor(h / 24)}d ago`;
   }
 
-  // Global keyboard shortcuts:
+  // Global keyboard shortcuts (must mirror the shortcuts-overlay cheat-sheet):
   //   ?     → open shortcuts cheat-sheet
   //   /     → focus sidebar search
-  //   ⌘D    → toggle density
   //   ⌘.    → toggle theme
   //   ⌘B    → toggle sidebar
-  //   g e/s/a/f/l → navigate to Editor/Snapshots/Analytics/Forms/AI Logs
+  //   ⌘S    → save & deploy (editor route only)
+  //   g <e/s/a/f/l/c/b/v/d/u> → navigate per G_CHORD_ROUTES (e → Editor)
   private gPressedAt = 0;
   @HostListener('document:keydown', ['$event'])
   onGlobalKey(ev: KeyboardEvent): void {
@@ -660,8 +681,7 @@ export class AdminComponent implements OnInit, OnDestroy {
     if (!inField && !ev.metaKey && !ev.ctrlKey) {
       if (ev.key === 'g') { this.gPressedAt = Date.now(); return; }
       if (Date.now() - this.gPressedAt < 900) {
-        const map: Record<string, string> = { e: '/admin', s: '/admin/snapshots', a: '/admin/analytics', f: '/admin/forms', l: '/admin/traces', c: '/admin/ai-chat', b: '/admin/billing', v: '/admin/voice', d: '/admin/domains', u: '/admin/user' };
-        const path = map[ev.key.toLowerCase()];
+        const path = G_CHORD_ROUTES[ev.key.toLowerCase()];
         if (path) { ev.preventDefault(); this.router.navigateByUrl(path); this.gPressedAt = 0; }
       }
     }
