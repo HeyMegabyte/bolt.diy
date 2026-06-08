@@ -73,6 +73,21 @@ describe('EmptyStateComponent', () => {
     expect(icon?.querySelector('svg')?.getAttribute('stroke')).toBe('currentColor');
   });
 
+  // 🔍 (search no-results: inbox + voice) and ✨ (site-features "No features
+  // yet") are emoji-presentation glyphs that render COLORFUL regardless of the
+  // .es-icon cyan color → must map to mono cyan SVGs like the pages/admin variant.
+  for (const emoji of ['🔍', '✨']) {
+    it(`maps the colorful emoji ${emoji} to a monochrome cyan SVG, not the raw emoji`, () => {
+      fixture.componentRef.setInput('title', 'No matches');
+      fixture.componentRef.setInput('icon', emoji);
+      fixture.detectChanges();
+      const icon = q('.es-icon');
+      expect(icon?.querySelector('svg')).withContext(`${emoji} → SVG`).not.toBeNull();
+      expect(icon?.textContent?.trim()).withContext('raw emoji replaced by SVG').toBe('');
+      expect(icon?.querySelector('svg')?.getAttribute('stroke')).toBe('currentColor');
+    });
+  }
+
   it('falls through to the text glyph for an unmapped on-brand mono symbol (⌬)', () => {
     fixture.componentRef.setInput('title', 'No endpoints yet');
     fixture.componentRef.setInput('icon', '⌬');
