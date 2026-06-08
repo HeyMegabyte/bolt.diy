@@ -1,6 +1,7 @@
 import { Component, inject, signal, computed, type OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DatePipe, CurrencyPipe, DecimalPipe } from '@angular/common';
+import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService, type CostForecastV2 } from '../../../services/api.service';
@@ -207,8 +208,8 @@ interface ForecastBar {
             </app-dialog-shell>
           }
 
-          <!-- Embedded checkout iframe placeholder (BILL-02) -->
-          @if (embeddedCheckoutOpen()) {
+          <!-- Embedded Stripe Checkout iframe — src is a host-validated SafeResourceUrl (BILL-02). -->
+          @if (embeddedCheckoutOpen() && embeddedCheckoutUrl()) {
             <div class="card mt-2">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="m-0 text-base font-semibold text-white text-sm">Stripe Checkout</h3>
@@ -1456,6 +1457,7 @@ export class AdminBillingComponent implements OnInit {
   private confirmSvc = inject(ConfirmService);
   private telemetry = inject(TelemetryService);
   private route = inject(ActivatedRoute);
+  private sanitizer = inject(DomSanitizer);
   private router = inject(Router);
   credits = signal<CreditState | null>(null);
 
@@ -1522,7 +1524,9 @@ export class AdminBillingComponent implements OnInit {
 
   /** Whether the embedded checkout frame is visible. */
   embeddedCheckoutOpen = signal(false);
-  embeddedCheckoutUrl = signal<string>('');
+  /** Sanitized iframe src — a plain string in an iframe[src] is blocked by Angular's
+   *  resource-URL sanitizer (console error), so the URL is host-validated then trusted. */
+  embeddedCheckoutUrl = signal<SafeResourceUrl | null>(null);
 
   // ── Add-ons tab ──
 
@@ -1609,13 +1613,27 @@ export class AdminBillingComponent implements OnInit {
     this.api.post<{ client_secret: string }>('/billing/embedded-checkout', { plan: 'pro' }).subscribe({
       next: (r) => {
         const secret = (r as unknown as { data?: { client_secret: string } }).data?.client_secret ?? (r as { client_secret?: string }).client_secret ?? '';
+        if (!secret) { this.toast.error('Could not start checkout — please try again.'); return; }
         // In a real implementation the client_secret would be passed to Stripe.js.
         // For E2E purposes we show the iframe panel so data-testid is visible.
-        this.embeddedCheckoutUrl.set(`https://checkout.stripe.com/c/pay/${encodeURIComponent(secret)}`);
+        const safe = this.toSafeStripeUrl(`https://checkout.stripe.com/c/pay/${encodeURIComponent(secret)}`);
+        if (!safe) { this.toast.error('Could not open the secure checkout.'); return; }
+        this.embeddedCheckoutUrl.set(safe);
         this.embeddedCheckoutOpen.set(true);
       },
       error: () => { /* api.service already toasted */ },
     });
+  }
+
+  /** Trust a checkout URL for the iframe ONLY when it is https on checkout.stripe.com — never bypass an arbitrary URL into a resource-URL context. */
+  private toSafeStripeUrl(url: string): SafeResourceUrl | null {
+    try {
+      const u = new URL(url);
+      if (u.protocol === 'https:' && u.hostname === 'checkout.stripe.com') {
+        return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+      }
+    } catch { /* malformed URL → reject */ }
+    return null;
   }
 
   purchaseAddon(addonId: string): void {
