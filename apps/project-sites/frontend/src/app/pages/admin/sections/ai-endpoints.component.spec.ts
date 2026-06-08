@@ -87,6 +87,30 @@ describe('AdminAiEndpointsComponent (filter no-match notice)', () => {
     expect(chip).withContext('count chip appears while filtering').not.toBeNull();
     expect(chip?.textContent?.replace(/\s+/g, ' ').trim()).toBe('1 of 2');
   });
+
+  // The icon-only ⋯ overflow trigger carries a visible hover tooltip (title),
+  // not just an aria-label — mouse users get the same affordance as SR users.
+  it('the ⋯ more-actions button has a hover title (not just aria-label)', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminAiEndpointsComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({}), put: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminAiEndpointsComponent);
+    fx.detectChanges();
+    fx.componentInstance.endpoints.set([
+      { id: '1', endpoint_slug: 'summarizer', method: 'POST', language: 'javascript', description: '' },
+    ] as never);
+    fx.detectChanges();
+    const more = (fx.nativeElement as HTMLElement).querySelector('[data-testid="ai-endpoint-more-summarizer"]');
+    expect(more).withContext('the ⋯ trigger renders').not.toBeNull();
+    expect(more?.getAttribute('title')).toBe('More actions for summarizer');
+  });
 });
 
 describe('AdminAiEndpointsComponent (endpoint-list load-error gating)', () => {

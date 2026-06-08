@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { of, throwError, Subject, type Observable } from 'rxjs';
-import { Router } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { AdminSnapshotsComponent } from './snapshots.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -251,5 +251,32 @@ describe('AdminSnapshotsComponent (⋯ popover Esc dismiss)', () => {
     expect(c.moreOpenId()).toBe('snap-1');
     c.onEscapeCloseMore();
     expect(c.moreOpenId()).toBeNull();
+  });
+});
+
+describe('AdminSnapshotsComponent (⋯ more-actions hover title)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('the icon-only ⋯ more button carries a hover title (not just aria-label)', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminSnapshotsComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: TelemetryService, useValue: { track: () => undefined, capture: () => undefined } },
+        { provide: BoltEmbedService, useValue: { openSnapshot: () => undefined } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'acme' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSnapshotsComponent);
+    fx.detectChanges();
+    fx.componentInstance.snapshots.set([{ id: 'snap9', snapshot_name: 'v3 launch' }] as never);
+    fx.componentInstance.loadingSnapshots.set(false);
+    fx.detectChanges();
+    const more = (fx.nativeElement as HTMLElement).querySelector('[data-testid="snapshot-more-snap9"]');
+    expect(more).withContext('the ⋯ trigger renders').not.toBeNull();
+    expect(more?.getAttribute('title')).toBe('More actions for snapshot v3 launch');
   });
 });
