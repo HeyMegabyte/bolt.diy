@@ -119,14 +119,12 @@
   <link rel="preconnect" href="https://webcontainer.io" crossorigin>
   <link rel="dns-prefetch" href="//webcontainer.io">
 
-  <!-- Item 4 (perf): prefetch the bolt.diy editor entry document so when the
-       user clicks Editor the iframe load is served from the HTTP cache. The
-       editor's hashed module chunks change every deploy, so we cannot
-       modulepreload them by name — but prefetching the entry HTML triggers
-       the browser to discover and fetch the linked modules opportunistically.
-       Marked `prefetch` (not `preload`) so it's deprioritized below in-flight
-       resources and never starves the admin's own LCP. -->
-  <link rel="prefetch" href="https://editor.projectsites.dev/" as="document" crossorigin="anonymous">
+  <!-- NOTE: we deliberately do NOT prefetch the bolt.diy editor document here.
+       editor.projectsites.dev returns `Access-Control-Allow-Origin: <itself>`,
+       so a cross-origin `rel="prefetch" as="document"` fails CORS on EVERY page
+       (marketing + admin) and logs a console error + ERR_FAILED for zero benefit.
+       The `preconnect`/`dns-prefetch` above already warm DNS+TCP+TLS; the editor
+       loads lazily on first /admin/editor visit. -->
 
   <!-- JSON-LD: WebSite (Google, Bing, Yahoo, DuckDuckGo, Brave, Yandex, Baidu) -->
   <script type="application/ld+json">
