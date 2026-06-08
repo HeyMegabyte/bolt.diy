@@ -1028,8 +1028,18 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  stop(): void {
+  async stop(): Promise<void> {
     const i = this.instance(); if (!i || this.busy()) return;
+    // Stopping takes the live service offline until someone restarts it — confirm
+    // so a misclick (Stop sits beside Destroy) never drops a customer-facing app.
+    // Reversible → non-danger. Mirrors the list-view stopInstance + destroy.
+    const ok = await this.confirmSvc.confirm({
+      title: 'Stop instance',
+      message: `Stop "${this.catalogApp()?.name ?? i.app_id}"? It goes offline until you restart it — visitors will see it as unavailable.`,
+      confirmLabel: 'Stop',
+      danger: false,
+    });
+    if (!ok) return;
     this.busy.set(true);
     this.api.post(`/apps/instances/${i.id}/stop`, {}).subscribe({
       next: () => { this.busy.set(false); this.toast.success('Stopped'); this.load(); },

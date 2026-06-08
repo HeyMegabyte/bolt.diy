@@ -258,12 +258,13 @@ describe('AppInstancesComponent (⋯ row-menu Esc dismiss)', () => {
 import { ActivatedRoute } from '@angular/router';
 import { AppInstanceDetailComponent } from './apps-instances.component';
 describe('AppInstanceDetailComponent (destroy is modal-confirm-gated)', () => {
-  function makeDetail(confirm: () => Promise<boolean>): { c: AppInstanceDetailComponent; del: jasmine.Spy } {
+  function makeDetail(confirm: () => Promise<boolean>): { c: AppInstanceDetailComponent; del: jasmine.Spy; post: jasmine.Spy } {
     const del = jasmine.createSpy('delete').and.returnValue(of({}));
+    const post = jasmine.createSpy('post').and.returnValue(of({}));
     TestBed.configureTestingModule({
       imports: [AppInstanceDetailComponent],
       providers: [
-        { provide: ApiService, useValue: { get: () => of({ instance: null }), post: () => of({}), delete: del } },
+        { provide: ApiService, useValue: { get: () => of({ instance: null }), post, delete: del } },
         { provide: ToastService, useValue: { success: () => 0, error: () => 0, warning: () => 0 } },
         { provide: ConfirmService, useValue: { confirm } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'i1' } }, paramMap: of({ get: () => 'i1' }) } },
@@ -272,7 +273,7 @@ describe('AppInstanceDetailComponent (destroy is modal-confirm-gated)', () => {
     });
     const c = TestBed.createComponent(AppInstanceDetailComponent).componentInstance; // no detectChanges → skip ngOnInit
     c.instance.set({ id: 'i1', app_id: 'medusa' } as never);
-    return { c, del };
+    return { c, del, post };
   }
   afterEach(() => TestBed.resetTestingModule());
 
@@ -286,6 +287,21 @@ describe('AppInstanceDetailComponent (destroy is modal-confirm-gated)', () => {
     const { c, del } = makeDetail(() => Promise.resolve(true));
     await c.destroy();
     expect(del).toHaveBeenCalledWith('/apps/instances/i1');
+  });
+
+  // Detail-panel Stop takes the live service offline (down until restarted) — like
+  // the list-view stopInstance + the detail destroy, it must confirm so a misclick
+  // never drops a customer-facing app.
+  it('stop() does NOT POST when the confirm is cancelled (no accidental outage)', async () => {
+    const { c, post } = makeDetail(() => Promise.resolve(false));
+    await c.stop();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('stop() POSTs to /stop only after the confirm is accepted', async () => {
+    const { c, post } = makeDetail(() => Promise.resolve(true));
+    await c.stop();
+    expect(post).toHaveBeenCalledWith('/apps/instances/i1/stop', {});
   });
 });
 
