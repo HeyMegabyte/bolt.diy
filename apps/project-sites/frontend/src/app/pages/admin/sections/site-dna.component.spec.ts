@@ -51,7 +51,7 @@ describe('AdminSiteDnaComponent (taste pulse + a11y)', () => {
     const link = fixture.nativeElement.querySelector(
       '[data-testid="dna-flag-gate"] a[routerLink="/admin/feature-flags"]',
     ) as HTMLAnchorElement;
-    expect(link).withContext('flag-gate links to System Admin').toBeTruthy();
+    expect(link).withContext('flag-gate links to Feature Flags').toBeTruthy();
     // In-text affordance is underlined + a real SPA link. The shared
     // <app-flag-gate-notice> primitive underlines via the `.flag-gate__link`
     // class (CSS text-decoration), not the Tailwind `underline` utility.
@@ -164,6 +164,26 @@ describe('AdminSiteDnaComponent (taste pulse + a11y)', () => {
     component.load();
     expect(component.loadError()).toBeTruthy();
     expect(component.flagEnabled()).toBe(true); // not 404 → the feature stays enabled
+  });
+
+  // The shared <app-error-card> surfaces a copyable worker request_id — capture it
+  // from the failed (non-404) response so a stuck operator can hand it to support.
+  it('captures the worker request_id into loadErrorRef on a non-404 failure', () => {
+    build(true);
+    apiGet.and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req-dna-3' } } })));
+    component.load();
+    expect(component.loadErrorRef()).toBe('req-dna-3');
+  });
+
+  it('leaves loadErrorRef empty on a 404 flag-gate + clears it on a healthy reload', () => {
+    build(true);
+    apiGet.and.returnValue(throwError(() => ({ status: 404, error: { error: { request_id: 'should-not-leak' } } })));
+    component.load();
+    expect(component.loadErrorRef()).withContext('404 is a calm flag-gate, no error card → no ref').toBe('');
+    apiGet.and.returnValue(of({ history: [], preferences: [] }));
+    component.load();
+    expect(component.loadError()).toBeNull();
+    expect(component.loadErrorRef()).toBe('');
   });
 
   // A definitive "0 signals · 0 accepted · …" must NOT show over the error

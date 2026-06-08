@@ -30,6 +30,7 @@ import { FeatureFlagService } from '../../../services/feature-flag.service';
 import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { FlagGateNoticeComponent } from '../../../components/states/flag-gate-notice.component';
+import { ErrorCardComponent } from '../../../components/states';
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
 
@@ -69,7 +70,7 @@ interface DnaPrefsResp {
 @Component({
   selector: 'app-admin-site-dna',
   standalone: true,
-  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, FlagGateNoticeComponent],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, FlagGateNoticeComponent, ErrorCardComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="dna-shell" appReveal>
@@ -226,9 +227,13 @@ interface DnaPrefsResp {
                 }
               } @else if (loadError() && history().length === 0) {
                 <tr>
-                  <td colspan="4" class="dna-td-center" role="alert" data-testid="dna-load-error">
-                    <span class="dna-error">{{ loadError() }}</span>
-                    <button class="dna-refresh-btn ml-2" type="button" (click)="load()">Retry</button>
+                  <td colspan="4" class="dna-td-center">
+                    <app-error-card data-testid="dna-load-error" class="block"
+                      title="Couldn't load feedback history"
+                      [message]="loadError() ?? ''"
+                      [correlationId]="loadErrorRef()"
+                      [retryLabel]="loading() ? 'Retrying…' : 'Retry'"
+                      (retry)="load()" />
                   </td>
                 </tr>
               } @else if (history().length === 0) {
@@ -442,6 +447,8 @@ export class AdminSiteDnaComponent implements OnInit, OnDestroy {
   readonly flagEnabled = signal(true); // assume on unless API 404s
   /** Set on a non-404 load failure so the table shows a Retry row, not a fake "No feedback yet". */
   readonly loadError = signal<string | null>(null);
+  /** Worker request_id from a failed (non-404) load, surfaced as a copyable support reference on the error card. */
+  readonly loadErrorRef = signal('');
 
   // ── Form state ──────────────────────────────────────────────────────────
   newComponentId = '';
@@ -512,6 +519,7 @@ export class AdminSiteDnaComponent implements OnInit, OnDestroy {
     if (!this.siteId) return;
     this.loading.set(true);
     this.loadError.set(null);
+    this.loadErrorRef.set('');
 
     // {silent}: this load owns its error UX — 404 → silent flag-gate, non-404 →
     // inline loadError banner with Retry. Without {silent} ApiService's generic
@@ -528,16 +536,27 @@ export class AdminSiteDnaComponent implements OnInit, OnDestroy {
           this.history.set(history.history ?? []);
           this.prefs.set(prefs.preferences ?? []);
           this.loadError.set(null);
+          this.loadErrorRef.set('');
           this.loading.set(false);
         },
-        error: (err) => {
-          // 404 means the flag is off (show the disabled message). Any other
-          // error gets a real Retry row — not a fake "No feedback yet".
-          if (err?.status === 404) this.flagEnabled.set(false);
-          else this.loadError.set('Could not load feedback history — retry.');
+        error: (err: { status?: number; error?: unknown }) => {
+          // 404 means the flag is off (show the calm disabled message — no error
+          // card, no support reference). Any other error gets the shared error
+          // card with Retry + a copyable request_id — not a fake "No feedback yet".
+          if (err?.status === 404) {
+            this.flagEnabled.set(false);
+          } else {
+            this.loadError.set('The feedback history service returned an error.');
+            this.loadErrorRef.set(this.requestIdFrom(err));
+          }
           this.loading.set(false);
         },
       });
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: { error?: unknown } | undefined): string {
+    return (e?.error as { error?: { request_id?: string } } | undefined)?.error?.request_id ?? '';
   }
 
   submitFeedback(): void {
