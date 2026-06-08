@@ -223,9 +223,10 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
               <p class="ff-why" data-testid="ff-why">{{ whyFor(flag) }}</p>
               <div class="ff-owner">Owner: <a class="ff-owner-link" [href]="'mailto:' + flag.owner_email" [attr.aria-label]="'Email the owner of ' + flag.key + ', ' + flag.owner_email">{{ flag.owner_email }}</a></div>
               <div class="ff-actions">
-                <button class="ff-btn ff-btn-primary" (click)="toggle(flag)" [disabled]="busy()[flag.key]"
-                        [attr.aria-label]="(flag.default_enabled ? 'Disable ' : 'Enable ') + flag.key + ' globally'">
-                  {{ flag.default_enabled ? 'Disable globally' : 'Enable globally' }}
+                <button class="ff-btn ff-btn-primary" (click)="toggle(flag)" [disabled]="busy()[flag.key] || isSentinel(flag)"
+                        [attr.aria-label]="isSentinel(flag) ? flag.key + ' is a core platform flag — always on, cannot be disabled' : (flag.default_enabled ? 'Disable ' : 'Enable ') + flag.key + ' globally'"
+                        [title]="isSentinel(flag) ? 'Core platform flag — always on, cannot be disabled' : null">
+                  {{ isSentinel(flag) ? 'Always on' : (flag.default_enabled ? 'Disable globally' : 'Enable globally') }}
                 </button>
                 <button class="ff-btn" (click)="openDetail(flag)"
                         [attr.aria-expanded]="detailKey() === flag.key" [attr.aria-label]="'Inspect ' + flag.key">Inspect</button>
@@ -236,8 +237,9 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
                     Restore
                   </button>
                 } @else {
-                  <button class="ff-btn ff-btn-danger" (click)="killswitch(flag)" [disabled]="busy()[flag.key]"
-                          [attr.aria-label]="'Killswitch ' + flag.key" title="Instant disable for all users — no redeploy">
+                  <button class="ff-btn ff-btn-danger" (click)="killswitch(flag)" [disabled]="busy()[flag.key] || isSentinel(flag)"
+                          [attr.aria-label]="isSentinel(flag) ? flag.key + ' is a core platform flag — protected from killswitch' : 'Killswitch ' + flag.key"
+                          [title]="isSentinel(flag) ? 'Core platform flag — protected from killswitch' : 'Instant disable for all users — no redeploy'">
                     Killswitch
                   </button>
                 }
@@ -1014,7 +1016,19 @@ export class AdminFeatureFlagsComponent implements OnInit {
     }
   }
 
+  /**
+   * `core_*` flags are load-bearing platform sentinels (auth, admin, site-create).
+   * The Emergency console + blast-radius already exclude them; this guards the
+   * per-card Disable/Killswitch buttons so an operator can never disable platform
+   * auth from a flag card (catastrophic if the worker accepts, dead button if it
+   * rejects). Mirrors the `key.startsWith('core_')` predicate used in blast-radius.
+   */
+  isSentinel(flag: FlagDefinition): boolean {
+    return flag.key.startsWith('core_');
+  }
+
   toggle(flag: FlagDefinition): void {
+    if (this.isSentinel(flag)) return; // protected — see isSentinel()
     const next = !flag.default_enabled;
     this.requestOverride(
       flag,
@@ -1039,6 +1053,7 @@ export class AdminFeatureFlagsComponent implements OnInit {
   }
 
   killswitch(flag: FlagDefinition): void {
+    if (this.isSentinel(flag)) return; // protected — see isSentinel()
     this.requestOverride(
       flag,
       { kill_switch: true, enabled_globally: false, rollout_pct: 0 },

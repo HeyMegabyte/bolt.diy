@@ -741,3 +741,66 @@ describe('AdminFeatureFlagsComponent (expiry wires into the payload)', () => {
     expect(c.jsonPayloadFor(f)).withContext('cleared → omitted again').not.toContain('expires_at');
   });
 });
+
+/**
+ * Security contract: `core_*` sentinel flags (auth, admin, site-create, …) are
+ * the platform's load-bearing flags. The Emergency console + blast-radius
+ * already exclude them ("Stable + sentinel core flags are never touched"), but
+ * the PER-CARD "Disable globally" + "Killswitch" buttons had no such guard — so
+ * an operator could try to disable platform auth (catastrophic if the worker
+ * accepts; a dead/error button if it rejects). They must be disabled in the UI
+ * AND no-op in code (defense in depth).
+ */
+describe('AdminFeatureFlagsComponent (core_ sentinels are protected from disable + killswitch)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function render() {
+    TestBed.configureTestingModule({
+      imports: [AdminFeatureFlagsComponent],
+      providers: [
+        provideRouter([]),
+        { provide: HttpClient, useValue: { get: () => of({ data: [] }), patch: () => of({}), post: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: AdminStateService, useValue: { selectedSite: signal(null), isSuperAdmin: () => false } },
+        { provide: FeatureFlagService, useValue: { invalidate: () => undefined, isOn: () => of(false) } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }), snapshot: { queryParamMap: { get: () => null } } } },
+      ],
+    });
+    return TestBed.createComponent(AdminFeatureFlagsComponent);
+  }
+
+  it('a core_ sentinel renders Disable + Killswitch DISABLED (cannot break platform auth from a card)', () => {
+    const f = render();
+    f.detectChanges();
+    f.componentInstance.flags.set([flag({ key: 'core_auth', default_enabled: true })]);
+    f.componentInstance.loading.set(false);
+    f.detectChanges();
+    const el = f.nativeElement as HTMLElement;
+    expect((el.querySelector('.ff-btn-primary') as HTMLButtonElement).disabled)
+      .withContext('sentinel cannot be disabled globally').toBeTrue();
+    expect((el.querySelector('.ff-btn-danger') as HTMLButtonElement).disabled)
+      .withContext('sentinel cannot be killswitched').toBeTrue();
+  });
+
+  it('a non-sentinel flag keeps Disable + Killswitch ENABLED (regression)', () => {
+    const f = render();
+    f.detectChanges();
+    f.componentInstance.flags.set([flag({ key: 'multi_model_router', default_enabled: true })]);
+    f.componentInstance.loading.set(false);
+    f.detectChanges();
+    const el = f.nativeElement as HTMLElement;
+    expect((el.querySelector('.ff-btn-primary') as HTMLButtonElement).disabled).toBeFalse();
+    expect((el.querySelector('.ff-btn-danger') as HTMLButtonElement).disabled).toBeFalse();
+  });
+
+  it('toggle() + killswitch() are no-ops on a sentinel (never POST a core_ disable)', () => {
+    const c = make(okGet());
+    const spy = spyOn(c as unknown as { requestOverride: () => void }, 'requestOverride');
+    c.toggle(flag({ key: 'core_admin_detail', default_enabled: true }));
+    c.killswitch(flag({ key: 'core_admin_detail', default_enabled: true }));
+    expect(spy).withContext('no override path for a sentinel').not.toHaveBeenCalled();
+    c.toggle(flag({ key: 'regular_feature', default_enabled: true }));
+    expect(spy).withContext('non-sentinel still routes through requestOverride').toHaveBeenCalled();
+  });
+});
