@@ -11,7 +11,6 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
@@ -43,7 +42,7 @@ interface Delivery {
 @Component({
   selector: 'app-admin-webhooks',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent],
+  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">

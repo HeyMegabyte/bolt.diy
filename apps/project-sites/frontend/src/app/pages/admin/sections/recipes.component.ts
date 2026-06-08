@@ -15,7 +15,6 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
-import { RouterLink } from '@angular/router';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective } from '../../../ui';
 import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent } from '../../../components/states';
@@ -35,7 +34,7 @@ interface Recipe {
 @Component({
   selector: 'app-admin-recipes',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent],
+  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, HlmInputDirective, HlmSelectDirective, HlmCheckboxDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">

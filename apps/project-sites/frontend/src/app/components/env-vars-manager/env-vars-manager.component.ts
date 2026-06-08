@@ -88,7 +88,7 @@ const EMPTY_DRAFT: NewVarDraft = {
   selector: 'app-env-vars-manager',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, DialogShellComponent],
+  imports: [FormsModule],
   template: `
     <section
       class="ev-shell"

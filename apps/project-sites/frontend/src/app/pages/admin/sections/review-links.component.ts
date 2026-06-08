@@ -12,7 +12,6 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
@@ -31,7 +30,7 @@ interface ReviewLink {
 @Component({
   selector: 'app-admin-review-links',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, RevealDirective, HlmButtonDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent],
+  imports: [CommonModule, FormsModule, RevealDirective, HlmButtonDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, FlagGateNoticeComponent],
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
