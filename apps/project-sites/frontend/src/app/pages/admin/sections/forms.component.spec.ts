@@ -85,6 +85,33 @@ describe('AdminFormsComponent (cohesion + a11y, convergence r17)', () => {
     expect(get).not.toHaveBeenCalled();
   });
 
+  // A submitter email in the table is a reply target — render it as a mailto: link
+  // ([[always]] mandate). The cell stops propagation so clicking the link replies
+  // without ALSO opening the submission detail (the rest of the row opens detail).
+  it('renders the submitter email as a mailto: link in the submissions table', () => {
+    build({ id: 'site-1' });
+    component.submissions.set([
+      { id: 's1', form_name: 'contact', email: 'jane@example.com', status: 'received', created_at: new Date().toISOString(), origin: 'x' } as never,
+    ]);
+    component.loading.set(false);
+    fixture.detectChanges();
+    const link = (fixture.nativeElement as HTMLElement).querySelector('a[href^="mailto:"]') as HTMLAnchorElement;
+    expect(link).withContext('email rendered as a mailto link').not.toBeNull();
+    expect(link.getAttribute('href')).toBe('mailto:jane@example.com');
+    expect(link.textContent?.trim()).toBe('jane@example.com');
+  });
+
+  it('renders a plain — (no mailto link) for an anonymous submission with no email', () => {
+    build({ id: 'site-1' });
+    component.submissions.set([
+      { id: 's2', form_name: 'contact', email: '', status: 'received', created_at: new Date().toISOString(), origin: 'x' } as never,
+    ]);
+    component.loading.set(false);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('a[href^="mailto:"]'))
+      .withContext('no link when there is no email').toBeNull();
+  });
+
   // When submissions exist but the active VIEW filters out every one, the table
   // rendered header-only (blank body). Show a "no match" notice + a Show-all
   // reset instead. (filtered-list-blank class — forms was missed in that sweep.)

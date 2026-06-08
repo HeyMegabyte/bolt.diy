@@ -552,7 +552,13 @@ const POLL_INTERVAL_MS = 10_000;
                   </td>
                   <td class="p-3 text-text-secondary">{{ s.created_at | date:'short' }}</td>
                   <td class="p-3 font-mono text-[0.72rem]">{{ s.form_name }}</td>
-                  <td class="p-3">{{ s.email || '—' }}</td>
+                  <td class="p-3" (click)="$event.stopPropagation()">
+                    @if (s.email) {
+                      <a class="forms-email-link" [href]="'mailto:' + s.email" [title]="'Email ' + s.email">{{ s.email }}</a>
+                    } @else {
+                      <span class="text-text-secondary">—</span>
+                    }
+                  </td>
                   <td class="p-3 text-text-secondary/70 truncate max-w-[240px]" [title]="s.origin_url">{{ s.origin_url || '—' }}</td>
                   <td class="p-3 text-right text-primary text-[0.7rem] font-semibold">Open ›</td>
                 </tr>
@@ -808,6 +814,10 @@ const POLL_INTERVAL_MS = 10_000;
     }
     .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2.8rem 1.4rem; gap: 0.6rem; }
     .empty-icon { color: color-mix(in oklch, var(--ps-accent, #00E5FF) 65%, transparent); }
+    /* Submitter email = reply target: cyan mailto link (cell stops row-open propagation). */
+    .forms-email-link { color: var(--ps-accent, #00E5FF); text-decoration: none; }
+    .forms-email-link:hover { text-decoration: underline; }
+    .forms-email-link:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; border-radius: 3px; }
     .empty-title { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; font-size: 1rem; color: #fff; margin: 0.2rem 0 0; }
     .empty-body { font-size: 0.78rem; color: rgba(255,255,255,0.65); margin: 0 0 0.9rem; max-width: 420px; line-height: 1.5; }
 
