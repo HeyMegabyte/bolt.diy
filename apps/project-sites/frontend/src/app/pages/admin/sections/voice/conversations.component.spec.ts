@@ -142,6 +142,33 @@ describe('VoiceConversationsComponent (top-caller click-to-call)', () => {
 describe('VoiceConversationsComponent (detail caller is click-to-call)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
+  it('statusLabel spaces a hyphenated status (in-progress → "in progress"; the chip CSS uppercases)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    expect(c.statusLabel('in-progress')).toBe('in progress');
+    expect(c.statusLabel('completed')).toBe('completed');
+  });
+
+  it('an in-progress conversation renders a cyan is-in-progress chip reading "in progress" (not raw "in-progress")', () => {
+    TestBed.configureTestingModule({
+      imports: [VoiceConversationsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: jasmine.createSpy('get').and.returnValue(of({ data: [] })) } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0, info: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(VoiceConversationsComponent);
+    fx.detectChanges(); // ngOnInit + load() (resolves to empty) run first
+    fx.componentInstance.conversations.set([
+      { id: 'x', from_number: '+15551234567', channel: 'call', status: 'in-progress', message_preview: '', summary: '', created_at: new Date().toISOString() } as never,
+    ]);
+    fx.detectChanges();
+    const chip = (fx.nativeElement as HTMLElement).querySelector('.status-chip');
+    expect(chip).withContext('status chip renders').not.toBeNull();
+    expect(chip!.classList).withContext('cyan active-state class').toContain('is-in-progress');
+    expect((chip!.textContent ?? '').trim()).withContext('hyphen spaced, no raw key').toBe('in progress');
+  });
+
   it('the detail-panel caller header renders a dialable tel: link with the formatted number', () => {
     TestBed.configureTestingModule({
       imports: [VoiceConversationsComponent],

@@ -177,7 +177,7 @@ type DayGroup = { label: string; items: Conversation[] };
                           {{ c.sentiment }}
                         </span>
                       }
-                      <span class="status-chip is-{{ c.status }}">{{ c.status }}</span>
+                      <span class="status-chip is-{{ c.status }}">{{ statusLabel(c.status) }}</span>
                       @if (c.has_recording) { <span class="rec-badge" title="Recording available">REC</span> }
                       @if (c.has_video) { <span class="rec-badge" title="Video browse available">VID</span> }
                     </div>
@@ -325,6 +325,7 @@ type DayGroup = { label: string; items: Conversation[] };
       background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.08);
     }
     .status-chip.is-completed { background: rgba(52,211,153,0.10); color: #86efac; border-color: rgba(52,211,153,0.3); }
+    .status-chip.is-in-progress { background: rgba(0,229,255,0.10); color: var(--ps-accent,#00e5ff); border-color: rgba(0,229,255,0.32); }
     .status-chip.is-escalated { background: rgba(251,191,36,0.10); color: #fde68a; border-color: rgba(251,191,36,0.3); }
     .status-chip.is-missed, .status-chip.is-failed { background: rgba(248,113,113,0.10); color: #fecaca; border-color: rgba(248,113,113,0.3); }
 
@@ -469,6 +470,11 @@ export class VoiceConversationsComponent implements OnDestroy {
   /** Reduce a (possibly formatted) number to a dialable tel: target — keep digits + a leading +. */
   telHref(raw: string): string {
     return raw.replace(/[^\d+]/g, '');
+  }
+
+  /** Display label for a conversation status — hyphenated keys spaced (the chip CSS uppercases). */
+  statusLabel(status: string): string {
+    return status.replace(/-/g, ' ');
   }
 
   private readonly siteEffect = effect(() => {
