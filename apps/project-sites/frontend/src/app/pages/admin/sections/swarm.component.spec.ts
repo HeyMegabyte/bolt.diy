@@ -50,6 +50,17 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
     expect(root.querySelector('.swarm-agent__status-pill[data-status="queued"]')).withContext('the queued status-pill is now styled').toBeTruthy();
   });
 
+  // The run-history status pills had done/running colours only + lowercase text;
+  // match the cockpit status-chip convention (uppercase) + colour error runs red
+  // (a failed run was showing a plain grey pill — looks like nothing happened).
+  it('run-history status pills are uppercase + colour error runs red (cockpit cohesion)', () => {
+    const css = Array.from(document.querySelectorAll('style')).map((s) => s.textContent ?? '').join('\n');
+    expect(css).withContext('status pill text uppercased')
+      .toMatch(/\.swarm-history__status-pill\b[\s\S]{0,400}text-transform:\s*uppercase/);
+    expect(css).withContext('error run gets its own colour rule')
+      .toMatch(/\.swarm-history__status-pill[\s\S]{0,80}\[data-status=error\]/);
+  });
+
   it('routes the conflict stat through <app-rolling-counter> (no raw numeric text node)', () => {
     const root: HTMLElement = fixture.nativeElement;
     const conflictStat = root.querySelectorAll('.swarm-stat')[1];

@@ -374,9 +374,10 @@ const SPECIALIST_COLORS: Record<string, string> = {
     .swarm-history__id { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; opacity: 0.7; }
     .swarm-history__prompt { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .swarm-history__count { font-family: 'JetBrains Mono', monospace; }
-    .swarm-history__status-pill { font-size: 0.6rem; padding: 0.1rem 0.4rem; border-radius: 9999px; background: var(--sw-line); }
+    .swarm-history__status-pill { font-size: 0.6rem; padding: 0.1rem 0.4rem; border-radius: 9999px; background: var(--sw-line); color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 62%, transparent); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
     .swarm-history__status-pill[data-status=done] { background: color-mix(in oklch, var(--sw-ok) 15%, transparent); color: var(--sw-ok); }
     .swarm-history__status-pill[data-status=running] { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 15%, transparent); color: var(--ps-accent, #00e5ff); }
+    .swarm-history__status-pill[data-status=error] { background: color-mix(in oklch, var(--sw-err) 15%, transparent); color: var(--sw-err); }
   `],
 })
 export class AdminSwarmComponent implements OnInit, OnDestroy {
