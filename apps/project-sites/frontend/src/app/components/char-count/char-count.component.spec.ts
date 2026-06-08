@@ -46,4 +46,20 @@ describe('CharCountComponent', () => {
     expect(cc.textContent?.trim()).toBe('190/200');
     expect(cc.classList.contains('cc-near')).toBe(true);
   });
+
+  // `maxlength` caps KEYBOARD entry, not a programmatic/loaded/pasted value —
+  // so a backend-stored value longer than the cap CAN exceed it. The counter
+  // must read that as OVER (red), not the misleading amber "near".
+  it('over() is true only when the value exceeds the cap', () => {
+    expect(make('a'.repeat(200), 200).componentInstance.over()).toBe(false); // exactly at cap
+    expect(make('a'.repeat(205), 200).componentInstance.over()).toBe(true); // over (e.g. backend-loaded)
+  });
+
+  it('renders the red .cc-over class + announces the overage when over the cap', () => {
+    const f = make('a'.repeat(210), 200, { liveThreshold: 20 });
+    const cc = f.nativeElement.querySelector('[data-testid="char-count"]') as HTMLElement;
+    expect(cc.textContent?.trim()).toBe('210/200');
+    expect(cc.classList.contains('cc-over')).toBe(true);
+    expect(f.componentInstance.liveMsg()).toBe('10 characters over the limit');
+  });
 });

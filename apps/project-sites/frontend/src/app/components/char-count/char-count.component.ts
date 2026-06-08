@@ -28,7 +28,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="cc" [class.cc-near]="near()" data-testid="char-count">{{ len() }}/{{ max() }}</div>
+    <div class="cc" [class.cc-near]="near()" [class.cc-over]="over()" data-testid="char-count">{{ len() }}/{{ max() }}</div>
     <span class="cc-sr" role="status" aria-live="polite">{{ liveMsg() }}</span>
   `,
   styles: [`
@@ -42,6 +42,8 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
       font-variant-numeric: tabular-nums;
     }
     .cc-near { color: oklch(0.82 0.16 75); } /* amber as the cap nears */
+    /* .cc-over after .cc-near so it wins when both apply (over implies near). */
+    .cc-over { color: oklch(0.65 0.2 18); font-weight: 600; } /* red past the cap */
     .cc-sr {
       position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
       overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
@@ -60,8 +62,12 @@ export class CharCountComponent {
 
   readonly len = computed(() => (this.value() ?? '').length);
   readonly near = computed(() => this.len() >= this.max() * this.warnRatio());
+  /** True when a programmatic/loaded/pasted value has exceeded the cap (`maxlength`
+   *  only caps keyboard entry) — drives the red `.cc-over` state. */
+  readonly over = computed(() => this.len() > this.max());
   readonly liveMsg = computed(() => {
     const remaining = this.max() - this.len();
-    return remaining <= this.liveThreshold() && remaining >= 0 ? `${remaining} characters left` : '';
+    if (remaining < 0) return `${-remaining} characters over the limit`;
+    return remaining <= this.liveThreshold() ? `${remaining} characters left` : '';
   });
 }
