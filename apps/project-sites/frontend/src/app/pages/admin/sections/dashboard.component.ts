@@ -48,7 +48,7 @@ import { isSysAdminEmail } from '../sys-admin';
            dashboard host. Each feature carries data-upgrade="N" for E2E. -->
       <app-admin-upgrades-shell></app-admin-upgrades-shell>
       <!-- Two-layer feature plane discovery banner. LAYER 2 "Features"
-           (owner-facing, site-scoped) shows to everyone; LAYER 1 "System Admin"
+           (owner-facing, site-scoped) shows to everyone; LAYER 1 "Feature Flags"
            (platform-ops flags) is operator-only. Both also have sidebar nav
            entries; this banner is a more prominent dashboard entry point. The
            old combined "Features Hub" was retired 2026-06-07. -->
@@ -65,7 +65,7 @@ import { isSysAdminEmail } from '../sys-admin';
         <a class="features-banner-card features-banner-card-alt" routerLink="/admin/feature-flags" data-testid="dash-system-admin-card">
           <span class="features-banner-icon features-banner-icon--alt" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></span>
           <span class="features-banner-body">
-            <strong>System Admin</strong>
+            <strong>Feature Flags</strong>
             <span class="features-banner-sub">Platform-ops control plane — toggle, roll out, killswitch 50+ feature flags. Stage filter, per-flag inspect, hash-chain audit trail.</span>
           </span>
           <span class="features-banner-cta" aria-hidden="true">→</span>
@@ -219,6 +219,7 @@ import { isSysAdminEmail } from '../sys-admin';
     @media (max-width: 720px) { .features-banner { grid-template-columns: 1fr; } }
     .features-banner-card { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.15rem; background: color-mix(in oklch, var(--ps-bg, #060610) 50%, transparent); border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent); border-radius: 14px; text-decoration: none; color: inherit; transition: border-color .15s ease, transform .15s ease; }
     .features-banner-card:hover { border-color: var(--ps-accent, #00e5ff); transform: translateY(-1px); }
+    .features-banner-card:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
     .features-banner-card-alt { border-color: color-mix(in oklch, #fbbf24 30%, transparent); }
     .features-banner-card-alt:hover { border-color: #fbbf24; }
     .features-banner-icon { flex-shrink: 0; display: inline-flex; color: var(--ps-accent, #00e5ff); }
@@ -309,6 +310,10 @@ import { isSysAdminEmail } from '../sys-admin';
       .examples button:hover:not([disabled]) {
         background: rgba(0, 229, 255, 0.12);
         transform: translateY(-1px);
+      }
+      .examples button:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff);
+        outline-offset: 2px;
       }
       .examples button[disabled] {
         opacity: 0.45;
@@ -430,6 +435,10 @@ import { isSysAdminEmail } from '../sys-admin';
       .pill:hover:not([disabled]) {
         border-color: rgba(0, 229, 255, 0.4);
         transform: translateY(-1px);
+      }
+      .pill:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff);
+        outline-offset: 2px;
       }
       .pill[disabled] {
         opacity: 0.45;
@@ -609,7 +618,7 @@ export class AdminDashboardComponent {
   private router = inject(Router);
   state = inject(AdminStateService);
   private auth = inject(AuthService);
-  /** Operator-only gate for the "System Admin" dashboard discovery card — mirrors the sidebar nav + sysAdminGuard. */
+  /** Operator-only gate for the "Feature Flags" dashboard discovery card — mirrors the sidebar nav + sysAdminGuard. */
   readonly isSysAdmin = computed(() => isSysAdminEmail(this.auth.email()));
 
   @ViewChild('input') inputRef?: ElementRef<HTMLInputElement>;

@@ -129,7 +129,7 @@ import { AdminUpgradesShellComponent } from '../../../components/admin-upgrades/
 /**
  * The /admin landing features-banner is the dashboard entry to the two-layer
  * feature plane. Icons must render as monochrome stroke SVGs (never the
- * colourful ⚡/⚑ emoji that broke the cyan/black cockpit). The "System Admin"
+ * colourful ⚡/⚑ emoji that broke the cyan/black cockpit). The "Feature Flags"
  * (platform-ops) card is operator-only — gated to sys-admin identities, exactly
  * like the sidebar nav + sysAdminGuard; every owner sees the "Features" card.
  */
@@ -159,17 +159,30 @@ describe('AdminDashboardComponent (features-banner)', () => {
     return fx.nativeElement as HTMLElement;
   }
 
-  it('renders both banner icons as SVGs (not ⚡/⚑ emoji) for a System Administrator', () => {
+  it('renders both banner icons as SVGs (not ⚡/⚑ emoji) for a Feature Flags', () => {
     const host = renderBanner('brian@megabyte.space');
     const icons = host.querySelectorAll('.features-banner-icon');
-    expect(icons.length).withContext('Features + System Admin cards').toBe(2);
+    expect(icons.length).withContext('Features + Feature Flags cards').toBe(2);
     icons.forEach((i) => expect(i.querySelector('svg')).withContext('icon is an SVG').not.toBeNull());
     const banner = host.querySelector('.features-banner')?.textContent ?? '';
     expect(banner).not.toContain('⚡');
     expect(banner).not.toContain('⚑');
   });
 
-  it('shows only the owner-facing Features card to a non-operator (hides System Admin)', () => {
+  // The landing screen's custom buttons strip the native outline via their own
+  // styling — keyboard users need a visible cyan focus ring (WCAG 2.4.7), matching
+  // the cockpit standard used everywhere else. Assert the scoped :focus-visible
+  // rules are present in the component's injected styles.
+  it('defines a cyan :focus-visible ring on the hero example buttons + feature pills (WCAG 2.4.7)', () => {
+    renderBanner('brian@megabyte.space'); // injects the component's scoped <style>
+    const css = Array.from(document.querySelectorAll('style')).map((s) => s.textContent ?? '').join('\n');
+    expect(css).withContext('.examples button focus-visible ring').toMatch(/\.examples\b[\s\S]{0,120}:focus-visible/);
+    expect(css).withContext('.pill focus-visible ring').toMatch(/\.pill\[[^\]]+\]:focus-visible/);
+    // each focus-visible rule carries an outline (the visible ring)
+    expect(css).withContext('focus-visible rules use outline').toMatch(/:focus-visible\s*\{[^}]*outline/);
+  });
+
+  it('shows only the owner-facing Features card to a non-operator (hides Feature Flags)', () => {
     const host = renderBanner('owner@acme.com');
     const cards = host.querySelectorAll('.features-banner-card');
     expect(cards.length).withContext('only the Features card').toBe(1);
