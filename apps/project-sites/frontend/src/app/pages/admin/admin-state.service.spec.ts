@@ -292,3 +292,73 @@ describe('AdminStateService — external opens are reverse-tabnabbing-safe (noop
     expect(openSpy).toHaveBeenCalledWith('https://billing.stripe.com/p/session/xyz', '_blank', 'noopener,noreferrer');
   });
 });
+
+/**
+ * The upgrade-checkout redirect navigates the admin's OWN tab via location.href.
+ * A non-https / non-stripe checkout_url (e.g. a manipulated `javascript:` value)
+ * must NEVER reach the redirect — validate the host+scheme, toast on a bad value.
+ */
+describe('AdminStateService — openCheckout only redirects to an https stripe URL', () => {
+  let redirectSpy: jasmine.Spy;
+  let toastErr: jasmine.Spy;
+
+  function build(checkoutUrl: string | null): AdminStateService {
+    toastErr = jasmine.createSpy('error');
+    const api = {
+      listSites: () => of({ data: [] }),
+      getDomainSummary: () => of({ data: { total: 0, active: 0, pending: 0, failed: 0 } }),
+      getSubscription: () => of({ data: null }),
+      getMe: () => of({ data: { org_id: 'org-1', is_super_admin: true } }),
+      getAnalytics: () => of({ data: null }),
+      post: () => of({ data: checkoutUrl ? { checkout_url: checkoutUrl } : {} }),
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        AdminStateService,
+        { provide: ApiService, useValue: api },
+        { provide: AuthService, useValue: { isLoggedIn: () => true } },
+        { provide: ToastService, useValue: { error: toastErr, success: () => 0, toasts: () => [] } },
+        { provide: TelemetryService, useValue: { track: () => undefined } },
+        { provide: Router, useValue: { navigate: () => undefined, url: '/admin' } },
+        { provide: DomSanitizer, useValue: { bypassSecurityTrustResourceUrl: (u: string) => u } },
+        { provide: Dialog, useValue: { open: () => ({ closed: of(undefined) }) } },
+      ],
+    });
+    const svc = TestBed.inject(AdminStateService);
+    redirectSpy = spyOn(svc as unknown as { redirectExternal(u: string): void }, 'redirectExternal');
+    return svc;
+  }
+
+  afterEach(() => {
+    try { (TestBed.inject(AdminStateService) as unknown as { stopLiveRefresh(): void }).stopLiveRefresh(); } catch { /* */ }
+    TestBed.resetTestingModule();
+  });
+
+  it('redirects to a valid https checkout.stripe.com URL', () => {
+    const svc = build('https://checkout.stripe.com/c/pay/cs_test');
+    svc.openCheckout();
+    expect(redirectSpy).toHaveBeenCalledWith('https://checkout.stripe.com/c/pay/cs_test');
+    expect(toastErr).not.toHaveBeenCalled();
+  });
+
+  it('refuses a non-https / non-stripe / javascript: checkout URL and toasts instead', () => {
+    for (const bad of ['http://checkout.stripe.com/x', 'https://evil-stripe.com/x', 'https://stripe.com.evil.com/x', 'javascript:alert(1)', 'not a url']) {
+      build(bad).openCheckout();
+      expect(redirectSpy).withContext(`must not redirect to ${bad}`).not.toHaveBeenCalled();
+      expect(toastErr).withContext(`toasts on ${bad}`).toHaveBeenCalled();
+      try { (TestBed.inject(AdminStateService) as unknown as { stopLiveRefresh(): void }).stopLiveRefresh(); } catch { /* */ }
+      TestBed.resetTestingModule();
+    }
+  });
+
+  it('isHttpsStripeUrl accepts stripe hosts, rejects look-alikes', () => {
+    const svc = build(null);
+    const v = (svc as unknown as { isHttpsStripeUrl(u: string): boolean }).isHttpsStripeUrl.bind(svc);
+    expect(v('https://checkout.stripe.com/x')).toBeTrue();
+    expect(v('https://billing.stripe.com/x')).toBeTrue();
+    expect(v('https://stripe.com/x')).toBeTrue();
+    expect(v('https://evil-stripe.com/x')).toBeFalse();
+    expect(v('https://stripe.com.evil.com/x')).toBeFalse();
+    expect(v('http://checkout.stripe.com/x')).toBeFalse();
+  });
+});

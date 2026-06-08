@@ -324,10 +324,11 @@ export class AdminStateService {
         if (site) body['site_id'] = site.id;
         this.api.post<{ data: { checkout_url?: string } }>('/billing/checkout', body).subscribe({
           next: (res) => {
-            if (res.data?.checkout_url) {
-              window.location.href = res.data.checkout_url;
+            const url = res.data?.checkout_url;
+            if (url && this.isHttpsStripeUrl(url)) {
+              this.redirectExternal(url);
             } else {
-              this.toast.error('Stripe did not return a checkout URL');
+              this.toast.error(url ? 'Received an invalid checkout URL — please retry.' : 'Stripe did not return a checkout URL');
             }
           },
           error: (err) => {
@@ -339,6 +340,19 @@ export class AdminStateService {
       error: () => this.toast.error('Failed to start checkout'),
     });
   }
+
+  /** Validate a Stripe redirect URL before navigating — a non-https or non-stripe
+   *  checkout URL (e.g. a manipulated/`javascript:` value) must never reach
+   *  `location.href`, which executes/redirects in the admin's own tab. */
+  private isHttpsStripeUrl(url: string): boolean {
+    try {
+      const u = new URL(url);
+      return u.protocol === 'https:' && /(^|\.)stripe\.com$/.test(u.hostname);
+    } catch { return false; }
+  }
+
+  /** Seam for the full-page checkout redirect — overridable in tests so the runner doesn't navigate away. */
+  protected redirectExternal(url: string): void { window.location.href = url; }
 
   openDeleteConfirm(site: Site): void {
     import('../../components/delete-confirm/delete-confirm-dialog.component').then(m => {
