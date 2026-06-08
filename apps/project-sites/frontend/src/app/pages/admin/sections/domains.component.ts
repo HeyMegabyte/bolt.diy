@@ -30,7 +30,7 @@
  *
  * @packageDocumentation
  */
-import { Component, inject, signal, computed, effect, type OnInit } from '@angular/core';
+import { Component, ElementRef, ViewChild, inject, signal, computed, effect, type OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
@@ -180,6 +180,7 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
             <label for="domains-custom-input" class="text-[0.72rem] uppercase tracking-wider text-text-secondary block">Already own a domain?</label>
             <div class="flex gap-2 flex-wrap">
               <input
+                #customInput
                 hlmInput
                 id="domains-custom-input"
                 class="flex-1 min-w-[240px]"
@@ -321,7 +322,9 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
             <app-empty-state
               icon="🔗"
               title="No connected domains"
-              body="Add a domain above or search for an available one with AI."
+              body="Connect a domain you already own, or search for an available one with AI."
+              primary="Add a domain"
+              (primaryClick)="focusAddDomain()"
             />
           } @else {
             <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Domains table — scroll horizontally">
@@ -655,6 +658,9 @@ export class AdminDomainsComponent implements OnInit {
   private readonly toast = inject(ToastService);
   private readonly confirmSvc = inject(ConfirmService);
 
+  /** The custom-domain text input — focused by the empty-state's "Add a domain" CTA. */
+  @ViewChild('customInput') private customInput?: ElementRef<HTMLInputElement>;
+
   /** ───── Form / input state ───── */
   customDomainInput = signal('');
   aiQuery = signal('');
@@ -772,6 +778,15 @@ export class AdminDomainsComponent implements OnInit {
    */
   isValidDomain(value: string): boolean {
     return /^[a-z0-9][a-z0-9-]*\.[a-z0-9-]+(\.[a-z0-9-]+)*$/i.test(value.trim());
+  }
+
+  /**
+   * Empty-state first-action CTA: jump the user straight to the "Already own a
+   * domain?" input (focus scrolls it into view) so connecting the first domain
+   * is one click, not a hunt up the page.
+   */
+  focusAddDomain(): void {
+    this.customInput?.nativeElement.focus();
   }
 
   /** Submit handler for the "Already own a domain?" form. */

@@ -70,6 +70,23 @@ describe('AdminDomainsComponent (cyan/black cohesion + a11y)', () => {
 
   afterEach(() => TestBed.resetTestingModule());
 
+  it('the "No connected domains" empty state offers an "Add a domain" CTA that focuses the input', () => {
+    build({ id: 's1', slug: 'vito' }, []); // empty → the no-domains empty state renders
+    const el = fixture.nativeElement as HTMLElement;
+    document.body.appendChild(el); // focus only moves when the element is in the document
+    try {
+      const cta = el.querySelector('app-empty-state button.btn-primary') as HTMLButtonElement | null;
+      expect(cta).withContext('empty state renders an Add-a-domain CTA').not.toBeNull();
+      expect(cta?.textContent?.trim()).toBe('Add a domain');
+      cta!.click();
+      fixture.detectChanges();
+      const input = el.querySelector('[data-testid="custom-domain-input"]');
+      expect(document.activeElement).withContext('CTA focuses the add-domain input').toBe(input);
+    } finally {
+      el.remove();
+    }
+  });
+
   it('renders the connected-domain count through <app-rolling-counter> (numeric-stat mandate)', () => {
     build({ id: 's1', slug: 'vito' }, [row({ id: 'a' }), row({ id: 'b', status: 'pending' })]);
     const el: HTMLElement = fixture.nativeElement;
