@@ -357,3 +357,31 @@ describe('securityHeadersMiddleware', () => {
     });
   });
 });
+
+describe('securityHeadersMiddleware — admin X-Robots-Tag noindex', () => {
+  function appFor() {
+    const app = new Hono<{ Bindings: any; Variables: any }>();
+    app.use('*', securityHeadersMiddleware);
+    app.get('/admin', (c) => c.text('ok'));
+    app.get('/admin/sites', (c) => c.text('ok'));
+    app.get('/', (c) => c.text('ok'));
+    app.get('/pricing', (c) => c.text('ok'));
+    return app;
+  }
+
+  it('sets X-Robots-Tag noindex on /admin and /admin/* (authed dashboards, dashboard host)', async () => {
+    const app = appFor();
+    const a = await app.request('https://projectsites.dev/admin');
+    const b = await app.request('https://projectsites.dev/admin/sites');
+    expect(a.headers.get('X-Robots-Tag')).toBe('noindex, nofollow');
+    expect(b.headers.get('X-Robots-Tag')).toBe('noindex, nofollow');
+  });
+
+  it('does NOT noindex the marketing homepage or other indexable routes', async () => {
+    const app = appFor();
+    const home = await app.request('https://projectsites.dev/');
+    const pricing = await app.request('https://projectsites.dev/pricing');
+    expect(home.headers.get('X-Robots-Tag')).toBeNull();
+    expect(pricing.headers.get('X-Robots-Tag')).toBeNull();
+  });
+});

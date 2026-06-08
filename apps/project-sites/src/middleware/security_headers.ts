@@ -77,6 +77,16 @@ export const securityHeadersMiddleware: MiddlewareHandler<{
     ].join(', '),
   );
 
+  // ── Authed admin dashboard: never index ───────────────────
+  // `/admin/*` are private dashboards served as the SPA shell. The client-side
+  // robots meta (MetaService) only reaches JS-rendering crawlers; this header
+  // is the authoritative noindex for ALL crawlers (incl. non-JS) on a hard
+  // load. Gated on the pathname — the dashboard host also serves the indexable
+  // marketing homepage at `/`, which must stay `index, follow`.
+  if (isDashboard && (url.pathname === '/admin' || url.pathname.startsWith('/admin/'))) {
+    c.header('X-Robots-Tag', 'noindex, nofollow');
+  }
+
   // ── bolt.diy editor ────────────────────────────────────────
   if (isBoltEditor) {
     const isBoltEmbedded = url.searchParams.has('embedded');
