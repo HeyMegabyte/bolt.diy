@@ -226,10 +226,13 @@ const STATUS_COLORS: Record<string, string> = {
 
               <div class="inbox-messages" role="log" aria-live="polite" aria-label="Messages">
                 @if (messagesError()) {
-                  <div class="inbox-empty" role="alert" data-testid="inbox-msg-error">
-                    <p class="text-red-300">{{ messagesError() }}</p>
-                    <button class="btn-ghost text-xs" data-testid="inbox-msg-retry" (click)="reloadMessages()">Retry</button>
-                  </div>
+                  <app-error-card
+                    data-testid="inbox-msg-error"
+                    class="block p-3"
+                    title="Couldn't load this conversation"
+                    [message]="messagesError() ?? ''"
+                    [correlationId]="msgErrorRef()"
+                    (retry)="reloadMessages()" />
                 }
                 @for (msg of messages(); track msg.id) {
                   <div class="inbox-msg" [class.outbound]="msg.direction === 'outbound'" [class.ai-drafted]="msg.ai_drafted">
@@ -457,6 +460,8 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
   loadErrorRef = signal('');
   /** Thread-load failure — so a failed message fetch shows a retry in the thread panel, not a silent blank thread. */
   messagesError = signal<string | null>(null);
+  /** Worker request_id from a thread message-load failure → copyable support reference on the shared error card. */
+  msgErrorRef = signal('');
   hasMore = signal(false);
   flagEnabled = signal(true); // assume on until 404 proves otherwise
   selectedId = signal<string | null>(null);
@@ -635,12 +640,13 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
 
   private loadMessages(convId: string): void {
     this.messagesError.set(null);
+    this.msgErrorRef.set('');
     this.api.get<{ conversation: Conversation; messages: Message[] }>(`/inbox/conversations/${convId}`)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res) => { this.messages.set(res.messages); this.messagesError.set(null); },
         // Don't leave a silent blank thread — surface a retryable error in-panel.
-        error: () => { this.messages.set([]); this.messagesError.set('Could not load this conversation — retry.'); },
+        error: (err) => { this.messages.set([]); this.messagesError.set('Could not load this conversation — retry.'); this.msgErrorRef.set(this.requestIdFrom(err)); },
       });
   }
 

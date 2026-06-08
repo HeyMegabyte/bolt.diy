@@ -156,6 +156,15 @@ describe('AdminInboxComponent (conversations load error)', () => {
     expect(c.loadErrorRef()).toBe('');
   });
 
+  // The thread message-load error also renders through <app-error-card> with a
+  // copyable request_id (the handler previously discarded the error).
+  it('captures the request_id from a thread message-load failure', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req-msg-7' } } }))));
+    c.selectConversation({ id: 'c1', status: 'open', unread_count: 0, channel: 'email' } as never);
+    expect(c.messagesError()).withContext('a failed thread load shows a retryable error, not a blank thread').not.toBeNull();
+    expect(c.msgErrorRef()).withContext('support reference captured').toBe('req-msg-7');
+  });
+
   it('loadMore ignores a stale-route non-array body instead of corrupting the list', () => {
     const get = jasmine.createSpy('get').and.returnValues(
       of({ conversations: [{ id: 'c1', status: 'open', unread_count: 0, last_message_at: 't0' }], hasMore: true }),
@@ -275,6 +284,36 @@ describe('AdminInboxComponent — stats hidden while flag-disabled (real templat
     expect(host.querySelector('[data-testid="inbox-conv-error"]')).withContext('error renders on the app-error-card host').not.toBeNull();
     expect(host.querySelector('[data-testid="error-retry"]')).withContext('shared error-card Retry button').not.toBeNull();
     expect(fx.componentInstance.loadErrorRef()).toBe('req-inbox-1');
+  });
+
+  it('renders the thread message-load error via <app-error-card> (not a bare banner)', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminInboxComponent],
+      providers: [
+        {
+          provide: ApiService,
+          useValue: {
+            get: (url: string) =>
+              url.includes('/inbox/conversations/')
+                ? throwError(() => ({ status: 500, error: { error: { request_id: 'req-msg-1' } } }))
+                : of({ conversations: [{ id: 'c1', status: 'open', unread_count: 0, channel: 'email', visitor: {} }], hasMore: false }),
+            post: () => of({}),
+            patch: () => of({}),
+          },
+        },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(true) } },
+        provideRouter([]),
+      ],
+    });
+    const fx = TestBed.createComponent(AdminInboxComponent);
+    fx.componentInstance.flagEnabled.set(true);
+    fx.detectChanges(); // conversation list loads OK
+    fx.componentInstance.selectConversation({ id: 'c1', status: 'open', unread_count: 0, channel: 'email' } as never);
+    fx.detectChanges();
+    const host = fx.nativeElement as HTMLElement;
+    expect(host.querySelector('[data-testid="inbox-msg-error"]')).withContext('thread error renders on the app-error-card host').not.toBeNull();
+    expect(host.querySelector('[data-testid="error-retry"]')).withContext('shared error-card Retry button').not.toBeNull();
+    expect(fx.componentInstance.msgErrorRef()).toBe('req-msg-1');
   });
 
   it('hides the open/unread stats while conversations are still loading (no premature "0 open · 0 unread")', () => {
