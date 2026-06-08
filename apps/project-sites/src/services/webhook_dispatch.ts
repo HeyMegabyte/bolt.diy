@@ -1,5 +1,5 @@
 /**
- * Outbound-webhook dispatch orchestrator (#10 / reused by #11 automation_builder).
+ * Outbound-webhook dispatch orchestrator (#10 Outbound Webhooks).
  *
  * This is the GLUE that ties the already-tested primitives in
  * {@link ./outbound_webhooks} into a single per-event run:

@@ -84,7 +84,6 @@ import { sectionMarketplace } from './routes/section_marketplace.js';
 import { emailDeliverabilityRoutes } from './routes/email_deliverability.js';
 import { reviewPublic } from './routes/review_public.js';
 import { reviewLinks } from './routes/review_links.js';
-import { automation } from './routes/automation.js';
 import { webhooksAdmin } from './routes/webhooks_admin.js';
 import { seoAutopilot } from './routes/seo_autopilot.js';
 // ── Marketplace + Creator Economy (IDEAS-50 #39/#40/#41/#42)
@@ -471,7 +470,6 @@ app.route('/', dataExport); // /api/exports/contacts.csv — owner data portabil
 app.route('/', emailDeliverabilityRoutes); // /api/sites/:siteId/deliverability — SPF/DKIM/DMARC score + fixes (flag: email_deliverability_wizard)
 app.route('/', reviewPublic); // GET/POST /api/review/:id{,/decision} — public reviewer approve/reject (flag: approval_workflow, scoped to review's org)
 app.route('/', reviewLinks); // GET/POST /api/sites/:siteId/review-links — admin create/list review links (flag: approval_workflow, assertSiteOwned)
-app.route('/', automation); // /api/sites/:siteId/recipes — no-code trigger->action recipe CRUD (flag: automation_builder)
 app.route('/', webhooksAdmin); // /api/sites/:siteId/webhooks — outbound webhook subscription CRUD (flag: outbound_webhooks)
 // ── IDEAS-50 wave 3 mounts — must precede `api` so :id/* suffixes + /r/:code + /gallery win
 app.route('/', searchSubmit); // /api/sites/:id/search-submit + /{key}.txt IndexNow verify — #3 (flag: search_engine_submit)

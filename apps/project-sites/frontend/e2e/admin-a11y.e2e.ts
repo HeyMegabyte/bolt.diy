@@ -51,7 +51,6 @@ const SECTIONS = [
   // (WCAG 2.0/2.1/2.2 AA, 0 violations) before adding — bulk-ops 26 passes,
   // deliverability 28, webhooks 26.
   '/admin/bulk-ops', '/admin/deliverability', '/admin/webhooks',
-  '/admin/recipes',
 ];
 
 async function seed(page: Page): Promise<void> {

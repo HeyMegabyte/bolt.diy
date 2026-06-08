@@ -85,7 +85,7 @@ describe('CommandPaletteActionsService (every sidebar section is quick-navigable
     '/admin/editor', '/admin/snapshots', '/admin/analytics', '/admin/forms', '/admin/traces',
     '/admin/voice', '/admin/billing', '/admin/settings', '/admin/user', '/admin/docs',
     '/admin/apps', '/admin/social', '/admin/deliverability', '/admin/webhooks',
-    '/admin/recipes', '/admin/feature-flags',
+    '/admin/feature-flags',
     // Unified logging dashboard (audit + log explorer merged 2026-06-08).
     '/admin/logs',
     // Core high-traffic sections — this guard list itself omitted them, so the

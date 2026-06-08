@@ -283,7 +283,6 @@ const SITE_FEATURE_CATALOG: ReadonlyArray<{
   { key: 'search_engine_submit', name: 'Instant Indexing', description: 'Auto-submit new and updated pages to Google and Bing the moment you publish.', requiredPlan: 'free', isAddon: false, category: 'Grow' },
   { key: 'pseo_matrix_v2', name: 'Local SEO Pages', description: 'Auto-generate location and service landing pages from real data to rank for "near me" searches.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
   { key: 'unified_inbox', name: 'Visitor Inbox', description: 'Every form, chat, and message from your site in one inbox, with AI-drafted replies.', requiredPlan: 'pro', isAddon: false, category: 'Engage' },
-  { key: 'automation_builder', name: 'Automations', description: 'No-code "when this, do that" recipes — e.g. new lead → email + Slack ping.', requiredPlan: 'business', isAddon: false, category: 'Engage' },
   { key: 'site_mcp_server', name: 'AI Assistant Access', description: 'Make your site queryable by Siri, Claude, and ChatGPT via a per-site MCP server.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
 ];
 

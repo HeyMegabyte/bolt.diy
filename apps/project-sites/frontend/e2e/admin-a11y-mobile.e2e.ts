@@ -30,7 +30,6 @@ const ROUTES = [
   '/admin/apps', '/admin/inbox', '/admin/marketplace', '/admin/trust',
   '/admin/enterprise', '/admin/user', '/admin/logs', '/admin/bulk-ops',
   '/admin/deliverability', '/admin/webhooks', '/admin/stripe-app-status',
-  '/admin/recipes',
 ];
 
 async function seed(page: Page): Promise<void> {

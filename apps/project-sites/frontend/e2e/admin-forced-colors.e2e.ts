@@ -61,7 +61,7 @@ test.describe('admin — forced-colors (Windows High Contrast) legibility', () =
     // probe a few and assert against the first that shows one — and never hard-fail
     // just because the admin is HEALTHY (no error card = acceptable; fall back to a
     // healthy interactive control's forced-colors legibility).
-    const candidates = ['/admin/marketplace', '/admin/recipes', '/admin/analytics', '/admin/audit'];
+    const candidates = ['/admin/marketplace', '/admin/analytics', '/admin/audit'];
     const cardSel = 'app-error-card, [data-testid="audit-error"], [data-testid*="error"]';
     let asserted = false;
     for (const path of candidates) {

@@ -127,11 +127,11 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     const host = fixture.nativeElement as HTMLElement;
     expect(host.querySelector('app-error-card')).withContext('no scary red error card for a 404').toBeNull();
     expect(host.querySelector('[data-testid="sf-provisioning"]')).withContext('calm provisioning banner instead').not.toBeNull();
-    expect(host.querySelectorAll('.sf-card').length).withContext('catalog shown read-only, not blank').toBe(9);
+    expect(host.querySelectorAll('.sf-card').length).withContext('catalog shown read-only, not blank').toBe(8);
   });
 
   it('renders a "What you get" ✓ capability checklist on each feature card', async () => {
-    await build({ features: [] }, 404); // read-only fallback shows the full 9-card catalog
+    await build({ features: [] }, 404); // read-only fallback shows the full 8-card catalog
     const host = fixture.nativeElement as HTMLElement;
     const donations = host.querySelector('[data-testid="sf-card-donations_engine"]') as HTMLElement;
     expect(donations).withContext('donations card present').not.toBeNull();
@@ -151,7 +151,7 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     expect(component.degraded()).withContext('degraded fallback active').toBeTrue();
     const host = fixture.nativeElement as HTMLElement;
     expect(host.querySelector('[data-testid="sf-provisioning"]')).withContext('provisioning banner shown').not.toBeNull();
-    expect(host.querySelectorAll('.sf-card').length).withContext('9-feature catalog rendered, not blank').toBe(9);
+    expect(host.querySelectorAll('.sf-card').length).withContext('8-feature catalog rendered, not blank').toBe(8);
     expect(host.querySelector('app-empty-state')).withContext('no misleading "No features yet" empty-state').toBeNull();
   });
 

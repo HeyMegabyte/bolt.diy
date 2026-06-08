@@ -25,7 +25,6 @@ const LIVE_ROUTE_FLAGS = [
   // own-file route modules
   'contacts_core',
   'unified_inbox',
-  'automation_builder',
   'outbound_webhooks',
   'email_deliverability_wizard',
   // features.ts grab-bag (wired + tested in prior loop iters)

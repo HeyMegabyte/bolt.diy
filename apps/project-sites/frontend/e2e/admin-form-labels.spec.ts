@@ -17,7 +17,6 @@
  * 404s the section's data endpoint.
  *
  * @see apps/project-sites/frontend/src/app/pages/admin/sections/webhooks.component.ts
- * @see apps/project-sites/frontend/src/app/pages/admin/sections/recipes.component.ts
  * @see apps/project-sites/frontend/src/app/pages/admin/sections/deliverability.component.ts
  * @see apps/project-sites/frontend/src/app/pages/admin/sections/domains.component.ts
  */
@@ -108,27 +107,6 @@ test.describe('Admin form-control label association (WCAG 1.3.1 / 4.1.2)', () =>
       await expect(cb).toBeVisible();
       const name = await accessibleName(cb);
       expect(name.length, `event checkbox ${i} must have an accessible name`).toBeGreaterThan(0);
-    }
-  });
-
-  test('Recipes — name, trigger, action, config + Enabled toggle are named', async ({
-    authedPage: page,
-  }) => {
-    await page.goto('/admin/recipes');
-    await page.waitForLoadState('networkidle');
-
-    await assertNamed(page, {
-      'Recipe name input': 'recipes-name',
-      'Trigger select': 'recipes-trigger',
-      'Action select': 'recipes-action',
-      'Primary config input': 'recipes-cfg-primary',
-    });
-
-    // The "Enabled" checkbox is wrapped in a <label><span>Enabled</span>.
-    const enabled = page.locator('input[type="checkbox"][hlmCheckbox]').last();
-    if (await enabled.count()) {
-      const name = await accessibleName(enabled);
-      expect(name.length, 'Enabled toggle must have an accessible name').toBeGreaterThan(0);
     }
   });
 

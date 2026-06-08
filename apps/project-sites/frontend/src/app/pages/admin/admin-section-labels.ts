@@ -31,7 +31,6 @@ export const ADMIN_SECTION_LABELS: Readonly<Record<string, string>> = {
   // document title (WCAG 2.4.2). Verified live the titles stayed "Editor".
   deliverability: 'Deliverability', webhooks: 'Webhooks',
   'api-tokens': 'API Tokens',
-  recipes: 'Automations',
   'accept-invite': 'Accept Invite',
 };
 

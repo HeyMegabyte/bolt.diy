@@ -27,7 +27,6 @@ export const ADMIN_ROUTE_HINTS: AdminRouteHint[] = [
   { path: 'inbox', label: 'Inbox' },
   { path: 'forms', label: 'Forms' },
   { path: 'webhooks', label: 'Webhooks' },
-  { path: 'recipes', label: 'Automations' },
   { path: 'api-tokens', label: 'API Tokens' },
   { path: 'apps', label: 'Apps' },
   { path: 'docs', label: 'API Docs' },

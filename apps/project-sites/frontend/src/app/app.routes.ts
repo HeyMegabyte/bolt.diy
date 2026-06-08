@@ -200,12 +200,6 @@ export const routes: Routes = [
         pathMatch: 'full',
       },
       {
-        // Automation Builder (#11) — no-code trigger->action recipes (flag: automation_builder).
-        path: 'recipes',
-        loadComponent: () =>
-          import('./pages/admin/sections/recipes.component').then((m) => m.AdminRecipesComponent),
-      },
-      {
         // Public API token management — create / list / revoke psk_* tokens.
         // Backend: GET|POST|DELETE /api/v1-tokens; flag-gated: public_api_v1.
         path: 'api-tokens',
