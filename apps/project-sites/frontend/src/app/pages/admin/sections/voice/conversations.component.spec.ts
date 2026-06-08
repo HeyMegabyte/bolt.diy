@@ -105,3 +105,33 @@ describe('VoiceConversationsComponent (filter no-match ≠ truly empty)', () => 
     expect(c.filtered().length).withContext('all rows visible after clear').toBe(2);
   });
 });
+
+// The "Top caller" stat surfaces the most-frequent number. It must DISPLAY the
+// formatted number (matching the conversation list) yet keep the raw E.164 for a
+// click-to-call tel: link — the entry previously stored only the formatted string,
+// losing the dialable digits.
+describe('VoiceConversationsComponent (top-caller click-to-call)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  const conv = (from: string) =>
+    ({ id: from, from_number: from, channel: 'call', status: 'open', message_preview: '', summary: '', created_at: new Date().toISOString() }) as never;
+
+  it('topCaller formats for display while topCallerRaw keeps the dialable raw number', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.conversations.set([conv('+12015551234'), conv('+12015551234'), conv('+19738880000')]);
+    expect(c.topCaller()).withContext('formatted like the list').toBe('(201) 555-1234');
+    expect(c.topCallerRaw()).withContext('raw E.164 preserved for tel:').toBe('+12015551234');
+    expect(c.topCallerCount()).toBe(2);
+  });
+
+  it('telHref strips formatting to a dialable tel: target', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    expect(c.telHref('+1 (201) 555-1234')).toBe('+12015551234');
+  });
+
+  it('topCallerRaw + topCaller are empty with no calls (the — placeholder renders, no link)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.conversations.set([]);
+    expect(c.topCallerRaw()).toBe('');
+    expect(c.topCaller()).toBe('');
+  });
+});

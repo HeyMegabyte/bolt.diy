@@ -91,7 +91,12 @@ type DayGroup = { label: string; items: Conversation[] };
         </article>
         <article class="stat-card">
           <span class="kicker">Top caller</span>
-          <strong class="stat-num text-base truncate">{{ topCaller() || '—' }}</strong>
+          @if (topCallerRaw()) {
+            <a class="stat-num text-base truncate stat-tel" [href]="'tel:' + telHref(topCallerRaw())"
+               [title]="'Call ' + topCaller()" [attr.aria-label]="'Call top caller ' + topCaller()">{{ topCaller() }}</a>
+          } @else {
+            <strong class="stat-num text-base">—</strong>
+          }
           <span class="muted-help">{{ topCallerCount() }} touchpoints</span>
         </article>
       </div>
@@ -266,6 +271,10 @@ type DayGroup = { label: string; items: Conversation[] };
     }
     .stat-card { display: flex; flex-direction: column; gap: 0.25rem; }
     .stat-num { font: 700 1.5rem 'Sora', system-ui, sans-serif; color: #fff; letter-spacing: -0.03em; }
+    /* Top-caller click-to-call: cyan link, max-width so the number truncates inside the card. */
+    a.stat-tel { display: block; max-width: 100%; color: var(--ps-accent, #00e5ff); text-decoration: none; transition: color .15s ease; }
+    a.stat-tel:hover { text-decoration: underline; }
+    a.stat-tel:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 3px; border-radius: 4px; }
 
     .filter-row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
     /* .input-field removed — search input + channel select now use hlmInput
@@ -434,7 +443,10 @@ export class VoiceConversationsComponent implements OnDestroy {
     return { calls, sms, escalated };
   });
 
-  topCaller = computed(() => this.topCallerEntry()?.[0] || '');
+  /** Formatted most-frequent number for display (matches the conversation list). */
+  topCaller = computed(() => { const e = this.topCallerEntry(); return e ? this.format(e[0]) : ''; });
+  /** Raw E.164 of the top caller — kept dialable for the click-to-call tel: link. */
+  topCallerRaw = computed(() => this.topCallerEntry()?.[0] ?? '');
   topCallerCount = computed(() => this.topCallerEntry()?.[1] || 0);
   private topCallerEntry = computed<[string, number] | null>(() => {
     const counts = new Map<string, number>();
@@ -443,10 +455,16 @@ export class VoiceConversationsComponent implements OnDestroy {
     }
     let best: [string, number] | null = null;
     for (const e of counts.entries()) {
-      if (!best || e[1] > best[1]) best = [this.format(e[0]), e[1]];
+      // Store the RAW number (not the formatted string) so the tel: href stays dialable.
+      if (!best || e[1] > best[1]) best = [e[0], e[1]];
     }
     return best;
   });
+
+  /** Reduce a (possibly formatted) number to a dialable tel: target — keep digits + a leading +. */
+  telHref(raw: string): string {
+    return raw.replace(/[^\d+]/g, '');
+  }
 
   private readonly siteEffect = effect(() => {
     const site = this.state.selectedSite();
