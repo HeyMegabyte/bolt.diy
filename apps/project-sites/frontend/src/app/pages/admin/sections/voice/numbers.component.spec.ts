@@ -139,3 +139,30 @@ describe('VoiceNumbersComponent (purchase + release confirmation)', () => {
     expect(c.vanityHtml('+18555226700')).not.toContain('<b>');
   });
 });
+
+/**
+ * The "No matches" hint gated on `query` only, so an AREA-CODE-ONLY search
+ * that returned nothing showed a silent blank (no guidance). `searchAttempted()`
+ * fires for a word OR an area-code search so the empty-results hint always shows.
+ */
+describe('VoiceNumbersComponent (area-code-only search shows the no-results hint)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('searchAttempted() is true for a word search', () => {
+    const { c } = make();
+    c.query = 'FIT'; c.areaCode = '';
+    expect(c.searchAttempted()).toBeTrue();
+  });
+
+  it('searchAttempted() is true for an AREA-CODE-ONLY search (the fix — no word typed)', () => {
+    const { c } = make();
+    c.query = ''; c.areaCode = '415';
+    expect(c.searchAttempted()).withContext('area-only search still counts as a search').toBeTrue();
+  });
+
+  it('searchAttempted() is false when neither a word nor an area code is set', () => {
+    const { c } = make();
+    c.query = '   '; c.areaCode = '';
+    expect(c.searchAttempted()).toBeFalse();
+  });
+});

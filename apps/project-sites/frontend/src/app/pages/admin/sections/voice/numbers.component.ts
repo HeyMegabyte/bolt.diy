@@ -216,8 +216,8 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
               </li>
             }
           </ul>
-        } @else if (query.trim().length > 0 && !searching()) {
-          <p class="muted-help mt-3">No matches — try a shorter word or a different area code.</p>
+        } @else if (searchAttempted()) {
+          <p class="muted-help mt-3" role="status">No numbers available for that search — try a different vanity word or area code.</p>
         }
       </article>
 
@@ -388,6 +388,12 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
   monthlySpend = computed(() =>
     this.numbers().reduce((sum, n) => sum + (n.monthly_cost_usd || 0), 0),
   );
+
+  /** A search was attempted by a vanity WORD or an AREA CODE — gates the
+   *  empty-results hint so an area-code-only search never shows a silent blank. */
+  searchAttempted(): boolean {
+    return this.query.trim().length > 0 || this.areaCode.trim().length > 0;
+  }
 
   private debounceTimer?: ReturnType<typeof setTimeout>;
   private abortCtrl?: AbortController;
