@@ -237,4 +237,15 @@ describe('AdminLogsExplorerComponent — range pills hidden when flag-gated (rea
     expect((fx.nativeElement as HTMLElement).querySelectorAll('.range-pill').length)
       .withContext('range pills return when the feature is enabled').toBeGreaterThan(0);
   });
+
+  // The custom range-pill + chip controls strip the native outline via their own
+  // styling — keyboard users need a visible cyan focus ring (WCAG 2.4.7), matching
+  // the cockpit standard. Deterministic CSS-rule assertion on the injected styles.
+  it('the custom range-pill + chip controls define a cyan :focus-visible ring (WCAG 2.4.7)', () => {
+    render(); // injects the component's scoped <style>
+    const css = Array.from(document.querySelectorAll('style')).map((s) => s.textContent ?? '').join('\n');
+    expect(css).withContext('.range-pill focus-visible ring').toMatch(/\.range-pill\[[^\]]+\]:focus-visible/);
+    expect(css).withContext('.chip focus-visible ring').toMatch(/\.chip\[[^\]]+\]:focus-visible/);
+    expect(css).withContext('focus-visible rules use outline').toMatch(/:focus-visible\s*\{[^}]*outline/);
+  });
 });

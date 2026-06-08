@@ -260,6 +260,7 @@ const LEVEL_COLORS: Record<string, string> = {
       color: #060610;
       border-color: transparent;
     }
+    .range-pill:focus-visible { outline: 2px solid var(--ps-accent,#00e5ff); outline-offset: 2px; }
     .chip {
       padding: 3px 10px;
       border-radius: 6px;
@@ -271,6 +272,7 @@ const LEVEL_COLORS: Record<string, string> = {
       transition: all .15s;
     }
     .chip-active, .chip:hover { border-color: var(--ps-accent,#00e5ff); color: var(--ps-accent,#00e5ff); background: rgba(0,229,255,.06); }
+    .chip:focus-visible { outline: 2px solid var(--ps-accent,#00e5ff); outline-offset: 2px; }
     .chip-ghost { border-style: dashed; }
     .cost-chart-section {
       background: rgba(0,229,255,.03);
