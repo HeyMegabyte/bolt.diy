@@ -89,8 +89,8 @@ const SLOT_LABELS: Record<string, string> = {
     @if (!loading() && !loadError() && !flagDisabled()) {
       <div class="mkt-header__stats">
         <div class="mkt-stat">
-          <app-rolling-counter [value]="totalSections()" />
-          <span class="mkt-stat__label">sections</span>
+          <app-rolling-counter [value]="isFiltering() ? filteredSections().length : totalSections()" />
+          <span class="mkt-stat__label">{{ isFiltering() ? 'of ' + totalSections() + ' sections' : 'sections' }}</span>
         </div>
         <div class="mkt-stat">
           <app-rolling-counter [value]="catalog().length" />
@@ -370,6 +370,11 @@ export class AdminMarketplaceComponent implements OnInit {
   readonly previewSection = signal<SectionSummary | null>(null);
 
   readonly totalSections = computed(() => this.sections().length);
+
+  /** True when an industry or slot filter narrows the catalog — drives the
+   *  filter-aware header stat ("N of M sections") so it never reads the full
+   *  catalog total while the visible grid shows a filtered subset. */
+  readonly isFiltering = computed(() => this.activeIndustry() !== 'all' || this.activeSlot() !== 'all');
 
   /**
    * SR-only announcement of the filtered section count + active industry — the

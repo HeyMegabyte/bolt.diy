@@ -85,6 +85,21 @@ describe('AdminMarketplaceComponent (cohesion r8)', () => {
     expect(all('.mkt-header__stats app-rolling-counter').length).toBe(2);
   });
 
+  // The "sections" stat showed the full catalog total even when an industry
+  // filter narrowed the visible grid. Filter-aware: "N of M sections" while
+  // filtering (parity with the media/ai-endpoints count cohesion).
+  it('the sections stat is filter-aware: "of M sections" while filtering, plain total otherwise', () => {
+    const c = fixture.componentInstance;
+    const label = () => q('.mkt-header__stats .mkt-stat__label')?.textContent?.trim();
+    expect(c.isFiltering()).withContext('all/all → not filtering').toBeFalse();
+    expect(label()).toBe('sections');
+    c.activeIndustry.set('restaurant');
+    fixture.detectChanges();
+    expect(c.isFiltering()).withContext('industry chosen → filtering').toBeTrue();
+    expect(c.filteredSections().length).withContext('1 restaurant section of 2 total').toBe(1);
+    expect(label()).toBe('of 2 sections');
+  });
+
   // The forked-state fork button must show a monochrome check SVG (cockpit
   // semantic-status-glyph standard, matching site-dna/bell), not a bare ✓ char.
   it('the forked fork button renders a check SVG (not a bare ✓ char)', () => {
