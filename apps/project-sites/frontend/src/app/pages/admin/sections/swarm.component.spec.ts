@@ -36,6 +36,27 @@ describe('AdminSwarmComponent — cyan/black cohesion + a11y (r53)', () => {
     expect(root.querySelector('.swarm-demo-badge')?.textContent).toContain('Simulated');
   });
 
+  // The live-stream slot status glyphs (ready ✓ / streaming ⟳) render as
+  // monochrome SVGs (cockpit semantic-status-glyph standard, cross-OS
+  // consistent — matches domain-stack tiles + site-dna ✓✕✎), inheriting their
+  // colour via currentColor; never bare unicode chars.
+  it('renders the slot status glyphs (ready / streaming) as SVGs, not bare ✓/⟳ chars', () => {
+    const c = fixture.componentInstance;
+    c.componentsReady.set(['nav']); // done → tick
+    c.activeComponent.set('hero'); // active → spinner
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const tick = root.querySelector('.swarm-preview__slot-tick');
+    const spinner = root.querySelector('.swarm-preview__slot-spinner');
+    expect(tick).withContext('a done slot renders its tick').not.toBeNull();
+    expect(tick!.querySelector('svg')).withContext('tick is an SVG').not.toBeNull();
+    expect(spinner).withContext('an active slot renders its spinner').not.toBeNull();
+    expect(spinner!.querySelector('svg')).withContext('spinner is an SVG').not.toBeNull();
+    // No bare status chars survive in the rendered stream.
+    expect(root.textContent).not.toContain('✓');
+    expect(root.textContent).not.toContain('⟳');
+  });
+
   it('a queued agent gets the --queued card modifier + a queued status-pill (wires the formerly-dead state)', () => {
     fixture.componentInstance.currentRun.set({
       run_id: 'r1', site_id: 's1', prompt: 'p', status: 'running',

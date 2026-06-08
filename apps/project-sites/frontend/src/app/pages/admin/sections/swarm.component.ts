@@ -204,9 +204,9 @@ const SPECIALIST_COLORS: Record<string, string> = {
              [class.swarm-preview__slot--active]="isComponentActive(comp)">
           <span class="swarm-preview__slot-name">{{ comp }}</span>
           @if (isComponentDone(comp)) {
-            <span class="swarm-preview__slot-tick" aria-label="ready">✓</span>
+            <span class="swarm-preview__slot-tick" aria-label="ready"><svg class="swarm-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
           } @else if (isComponentActive(comp)) {
-            <span class="swarm-preview__slot-spinner" aria-label="streaming" aria-live="polite">⟳</span>
+            <span class="swarm-preview__slot-spinner" aria-label="streaming" aria-live="polite"><svg class="swarm-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg></span>
           } @else {
             <span class="swarm-preview__slot-skeleton"></span>
           }
@@ -352,8 +352,12 @@ const SPECIALIST_COLORS: Record<string, string> = {
     .swarm-preview__slot--done { border-color: var(--sw-ok); background: color-mix(in oklch, var(--sw-ok) 6%, transparent); }
     .swarm-preview__slot--active { border-color: var(--ps-accent, #00e5ff); animation: agent-pulse 1.5s ease-in-out infinite; }
     .swarm-preview__slot-name { opacity: 0.8; }
-    .swarm-preview__slot-tick { color: var(--sw-ok); font-size: 0.75rem; }
-    .swarm-preview__slot-spinner { color: var(--ps-accent, #00e5ff); animation: spin 1s linear infinite; display: inline-block; font-size: 0.75rem; }
+    .swarm-preview__slot-tick { color: var(--sw-ok); font-size: 0.75rem; display: inline-flex; }
+    .swarm-preview__slot-spinner { color: var(--ps-accent, #00e5ff); animation: spin 1s linear infinite; display: inline-flex; font-size: 0.75rem; }
+    /* Status glyphs are SVGs (cockpit semantic-glyph standard, cross-OS
+       consistent); each inherits its colour from the wrapping span via
+       currentColor. The spinner span keeps animation: spin. */
+    .swarm-glyph { width: 0.95em; height: 0.95em; display: block; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) { .swarm-preview__slot--active, .swarm-preview__slot-spinner, .swarm-preview__slot-skeleton { animation: none; } }
     .swarm-preview__slot-skeleton { width: 24px; height: 6px; background: var(--sw-line); border-radius: 3px; opacity: .45; }
