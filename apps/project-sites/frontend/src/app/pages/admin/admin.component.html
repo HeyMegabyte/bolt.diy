@@ -163,7 +163,11 @@
 
 <!-- Navigation -->
     <nav class="px-3 pt-3 pb-6 flex flex-col gap-0.5 flex-1" aria-label="Admin sections">
-      <a class="nav-item nav-item-editor" routerLink="/admin" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: true }">
+      <a class="nav-item nav-item-dashboard" routerLink="/admin" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: true }">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a class="nav-item" routerLink="/admin/editor" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" [brnTooltip]="'Bolt editor — edit your site code + content (g e)'">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
         <span>Editor</span>
       </a>
@@ -238,14 +242,14 @@
         <span>Automations</span>
       </a>
       <!-- Review Links moved to the navbar "Actions" dropdown (route /admin/review-links kept). -->
-      <!-- Two-layer feature control plane. LAYER 1 "System Admin" (platform-ops
+      <!-- Two-layer feature control plane. LAYER 1 "Feature Flags" (platform-ops
            flags) is operator-only — gated to sys-admin identities. LAYER 2
            "Features" (site-scoped, plan-aware) shows to every site owner. The
            old combined "Features Hub" was retired 2026-06-07. -->
       @if (isSysAdmin()) {
-      <a class="nav-item" routerLink="/admin/feature-flags" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" data-testid="nav-system-admin" [brnTooltip]="'System Administrator — platform-ops flags: toggle, roll out, killswitch any feature (operator only)'">
+      <a class="nav-item" routerLink="/admin/feature-flags" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" data-testid="nav-system-admin" [brnTooltip]="'Feature Flags — platform-ops flags: toggle, roll out, killswitch any feature (operator only)'">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-        <span>System Admin</span>
+        <span>Feature Flags</span>
       </a>
       }
       <a class="nav-item" routerLink="/admin/site-features" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" data-testid="nav-features" [brnTooltip]="'Features — turn site capabilities on for your hosted site (plan-aware)'">
