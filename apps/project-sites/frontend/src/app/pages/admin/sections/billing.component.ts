@@ -1636,6 +1636,29 @@ export class AdminBillingComponent implements OnInit {
     return null;
   }
 
+  /** Return a redirect URL only when it is https on a stripe.com host (checkout/billing/connect)
+   *  — a non-https / non-stripe value (e.g. a manipulated `javascript:` URL, which executes
+   *  when assigned to location.href) must never drive a navigation on the money flow. */
+  protected safeStripeUrl(url: string | undefined | null): string | null {
+    if (!url) return null;
+    try {
+      const u = new URL(url);
+      if (u.protocol === 'https:' && /(^|\.)stripe\.com$/.test(u.hostname)) return url;
+    } catch { /* malformed → reject */ }
+    return null;
+  }
+
+  /** Open a Stripe checkout/portal URL safely: validate, open in a new tab (noopener) with a
+   *  same-tab fallback, toast on an INVALID url. No-url → silent false (the caller messages). */
+  protected openStripeUrl(rawUrl: string | undefined | null): boolean {
+    if (!rawUrl) return false;
+    const url = this.safeStripeUrl(rawUrl);
+    if (!url) { this.toast.error('That checkout link looked invalid — please retry.'); return false; }
+    const win = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!win) window.location.href = url;
+    return true;
+  }
+
   purchaseAddon(addonId: string): void {
     if (this.purchasingAddon()) return;
     this.purchasingAddon.set(addonId);
@@ -1643,7 +1666,7 @@ export class AdminBillingComponent implements OnInit {
       next: (r) => {
         this.purchasingAddon.set(null);
         const url = (r as unknown as { data?: { checkout_url: string } }).data?.checkout_url ?? (r as { checkout_url?: string }).checkout_url;
-        if (url) { const win = window.open(url, '_blank', 'noopener,noreferrer'); if (!win) window.location.href = url; }
+        this.openStripeUrl(url);
       },
       error: () => { this.purchasingAddon.set(null); },
     });
@@ -1671,11 +1694,7 @@ export class AdminBillingComponent implements OnInit {
       next: (r) => {
         this.toppingUp.set(false);
         const url = (r as unknown as { data?: { checkout_url: string } }).data?.checkout_url ?? (r as { checkout_url?: string }).checkout_url;
-        if (url) {
-          this.topupRedirecting.set(true);
-          const win = window.open(url, '_blank', 'noopener,noreferrer');
-          if (!win) window.location.href = url;
-        }
+        if (this.openStripeUrl(url)) this.topupRedirecting.set(true);
       },
       error: () => { this.toppingUp.set(false); },
     });
@@ -1705,11 +1724,7 @@ export class AdminBillingComponent implements OnInit {
       next: (r) => {
         this.onboardingConnect.set(false);
         const url = (r as unknown as { data?: { onboarding_url: string } }).data?.onboarding_url ?? (r as { onboarding_url?: string }).onboarding_url;
-        if (url) {
-          this.connectOnboardingMsg.set('Redirecting to Stripe Connect…');
-          const win = window.open(url, '_blank', 'noopener,noreferrer');
-          if (!win) window.location.href = url;
-        }
+        if (this.openStripeUrl(url)) this.connectOnboardingMsg.set('Redirecting to Stripe Connect…');
       },
       error: (err: { error?: { error?: { message?: string } } }) => {
         this.onboardingConnect.set(false);
@@ -2279,11 +2294,8 @@ export class AdminBillingComponent implements OnInit {
         this.upgrading.set(false);
         const url = r.data?.url;
         if (url) {
-          const win = window.open(url, '_blank', 'noopener,noreferrer');
-          if (!win) {
-            // Popup blocked — fall back to a same-tab redirect rather than swallowing the click.
-            window.location.href = url;
-          }
+          // Validated new-tab open with a same-tab fallback when the popup is blocked.
+          this.openStripeUrl(url);
         } else {
           this.toast.info('Checkout opened');
         }
@@ -2293,7 +2305,12 @@ export class AdminBillingComponent implements OnInit {
   }
   manage(): void {
     this.api.post<{ data: { url?: string } }>('/billing/portal', {}).subscribe({
-      next: (r) => { if (r.data?.url) window.location.href = r.data.url; else this.toast.info('Portal opened'); },
+      next: (r) => {
+        const safe = this.safeStripeUrl(r.data?.url);
+        if (safe) window.location.href = safe;
+        else if (r.data?.url) this.toast.error('That billing-portal link looked invalid — please retry.');
+        else this.toast.info('Portal opened');
+      },
       error: () => { /* api.service already toasted */ },
     });
   }
@@ -2322,8 +2339,7 @@ export class AdminBillingComponent implements OnInit {
         this.buying.set(null);
         const url = r.data?.url;
         if (r.data?.mode === 'stripe' && url) {
-          const win = window.open(url, '_blank', 'noopener,noreferrer');
-          if (!win) window.location.href = url;
+          this.openStripeUrl(url);
         } else {
           this.toast.success(`Credits added — balance ${this.formatCredits(r.data?.balance ?? 0)}`);
           // Fires GA4 `purchase` via the conversion alias in TelemetryService.
@@ -2353,8 +2369,7 @@ export class AdminBillingComponent implements OnInit {
         this.buying.set(null);
         const url = r.data?.url;
         if (r.data?.mode === 'stripe' && url) {
-          const win = window.open(url, '_blank', 'noopener,noreferrer');
-          if (!win) window.location.href = url;
+          this.openStripeUrl(url);
         } else {
           this.toast.success(`Credits added — balance ${this.formatCredits(r.data?.balance ?? 0)}`);
           // Fires GA4 `purchase` via the conversion alias in TelemetryService.

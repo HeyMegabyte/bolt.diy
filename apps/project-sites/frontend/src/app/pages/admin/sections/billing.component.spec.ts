@@ -367,6 +367,36 @@ describe('AdminBillingComponent (embedded checkout iframe src is a sanitized Saf
     expect(validate('not a url')).withContext('malformed rejected').toBeNull();
     expect(validate('https://checkout.stripe.com/c/pay/ok')).withContext('trusted host allowed').not.toBeNull();
   });
+
+  // Every Stripe checkout/portal/onboard redirect (window.open _blank + same-tab
+  // fallback) routes through openStripeUrl/safeStripeUrl, which validate https + a
+  // stripe.com host before navigating — a manipulated `javascript:` / non-stripe
+  // URL must never reach window.open or location.href on the money flow.
+  it('safeStripeUrl accepts checkout/billing/connect.stripe.com (https), rejects look-alikes', () => {
+    const c = makeC(jasmine.createSpy('post').and.returnValue(of({ data: {} })));
+    const v = (c as unknown as { safeStripeUrl(u: string | null): string | null }).safeStripeUrl.bind(c);
+    expect(v('https://checkout.stripe.com/c/pay/x')).toBe('https://checkout.stripe.com/c/pay/x');
+    expect(v('https://billing.stripe.com/p/x')).not.toBeNull();
+    expect(v('https://connect.stripe.com/setup/x')).not.toBeNull();
+    expect(v('https://stripe.com/x')).not.toBeNull();
+    expect(v('https://evil-stripe.com/x')).withContext('hyphen-prefixed look-alike').toBeNull();
+    expect(v('https://stripe.com.evil.com/x')).withContext('suffix look-alike').toBeNull();
+    expect(v('http://checkout.stripe.com/x')).withContext('non-https').toBeNull();
+    expect(v('javascript:alert(1)')).withContext('js scheme').toBeNull();
+    expect(v(null)).toBeNull();
+  });
+
+  it('openStripeUrl opens a valid stripe URL in a noopener tab + returns true; refuses an invalid one', () => {
+    const c = makeC(jasmine.createSpy('post').and.returnValue(of({ data: {} })));
+    const openSpy = spyOn(window, 'open').and.returnValue({} as Window);
+    const open = (c as unknown as { openStripeUrl(u: string | null): boolean }).openStripeUrl.bind(c);
+    expect(open('https://checkout.stripe.com/c/pay/ok')).toBeTrue();
+    expect(openSpy).toHaveBeenCalledWith('https://checkout.stripe.com/c/pay/ok', '_blank', 'noopener,noreferrer');
+    openSpy.calls.reset();
+    expect(open('https://evil-stripe.com/x')).withContext('invalid → no navigation').toBeFalse();
+    expect(open(null)).withContext('no url → silent false').toBeFalse();
+    expect(openSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe('AdminBillingComponent (upgrade checkout is {silent})', () => {
