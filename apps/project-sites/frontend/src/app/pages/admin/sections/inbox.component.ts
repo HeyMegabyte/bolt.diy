@@ -25,6 +25,7 @@ import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../.
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { EmptyStateComponent, FlagGateNoticeComponent, ErrorCardComponent } from '../../../components/states';
 import { ChannelIconComponent } from '../../../components/channel-icon/channel-icon.component';
+import { SyncedPillComponent } from '../../../components/synced-pill/synced-pill.component';
 import { AiSparkComponent } from '../../../components/ai-spark/ai-spark.component';
 
 interface VisitorIdentity {
@@ -78,7 +79,7 @@ const STATUS_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-admin-inbox',
   standalone: true,
-  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, EmptyStateComponent, FlagGateNoticeComponent, ErrorCardComponent, ChannelIconComponent, AiSparkComponent],
+  imports: [RevealDirective, CommonModule, FormsModule, RouterModule, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, EmptyStateComponent, FlagGateNoticeComponent, ErrorCardComponent, ChannelIconComponent, AiSparkComponent, SyncedPillComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="inbox-shell" appReveal>
@@ -87,6 +88,7 @@ const STATUS_COLORS: Record<string, string> = {
         <div class="inbox-hdr-left">
           <span class="inbox-eyebrow">Unified Inbox</span>
           <h1 class="inbox-title">Visitor Conversations</h1>
+          <app-synced-pill [at]="syncedAt()" data-testid="inbox-synced" />
         </div>
         <!-- Stats derive from conversations() — show only once the load resolves so
              they never assert "0 open · 0 unread" over a still-loading / errored list. -->
@@ -454,6 +456,8 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
 
   conversations = signal<Conversation[]>([]);
   loading = signal(true);
+  /** When conversations last loaded — fed to <app-synced-pill> for a live freshness cue (auto-polls every 30s). */
+  syncedAt = signal<number | null>(null);
   /** Persistent non-404 conversations-load failure — so a fetch error shows a retry, not a fake "no conversations" empty state. */
   convError = signal<string | null>(null);
   /** Worker request_id from a non-404 conversations-load failure → copyable support reference on the shared error card. */
@@ -593,6 +597,7 @@ export class AdminInboxComponent implements OnInit, OnDestroy {
           this.flagEnabled.set(true);
           this.convError.set(null);
           this.loading.set(false);
+          this.syncedAt.set(Date.now());
         },
         error: (err) => {
           // 404 = flag off (handled by the disabled banner). A non-404 error must

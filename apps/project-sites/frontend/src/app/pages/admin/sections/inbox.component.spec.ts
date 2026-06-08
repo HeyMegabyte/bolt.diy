@@ -49,6 +49,15 @@ describe('AdminInboxComponent (live client-side search + filter no-match)', () =
     expect(c.filteredConversations().map((x) => x.id)).withContext('channel filter is reactive too').toEqual(['a']);
   });
 
+  // Freshness cue: the inbox auto-polls every 30s but showed no "last synced".
+  // syncedAt stamps on each successful load → feeds <app-synced-pill>.
+  it('stamps syncedAt after a successful conversations load (freshness pill)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ conversations: [], hasMore: false })));
+    expect(c.syncedAt()).withContext('null before any load').toBeNull();
+    c.loadConversations();
+    expect(typeof c.syncedAt()).withContext('a numeric timestamp after a successful load').toBe('number');
+  });
+
   it('filterNoMatch is true only when conversations exist but the client filter excludes every one', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(of({ conversations: [], hasMore: false })));
     seed(c);
