@@ -62,12 +62,12 @@ Auth seed for admin agents: `localStorage.ps_session = {token: E2E_API_KEY, iden
 - ✅ Discovery files all 200: robots.txt, sitemap.xml, humans.txt, security.txt,
   llms.txt, site.webmanifest, favicon.ico. JSON-LD = 5 blocks. canonical + og:image present.
   title ~46 chars (ok; could grow toward 50-60). meta description 144 chars (in range).
-- ⚠️ **P1 — homepage prerendered shell has 0 `<h1>`** (`curl https://projectsites.dev/`
-  shows no `<h1>` in the static HTML — it's client-rendered). Violates the Hard Gate
-  "exactly 1 H1 in the prerendered shell" + hurts SEO/a11y. FIX: ensure the marketing
-  homepage SSG/prerender emits the H1 in the static shell (not JS-injected). Verify
-  fix with `curl / | grep -c '<h1'` == 1. Deferred from this saturated session
-  (needs build + deploy + re-verify); first item for the fresh-session SEO/visual wave.
+- ◐ **P1 — homepage static `<h1>` — STOPGAP SHIPPED (7f2c63ae, 2026-06-08).** A
+  `<noscript>` SEO/a11y fallback (real hero `<h1>` + description + links) now lives
+  in `frontend/src/index.html`; deployed + verified live (`curl /` → exactly 1 real
+  `<h1>`, status 200). This closes the immediate gate for no-JS/social crawlers.
+  **DURABLE FIX still open:** real SSG/prerender of the marketing route (the SPA shell
+  is still empty for JS-rendering crawlers' first paint / LCP) — fresh-session work.
 
 ## Known-clean (per prior convergence — do NOT re-churn)
 Lying-UI catchError class, redundant-toast, dead class-bindings, error-card
