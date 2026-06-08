@@ -703,6 +703,7 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
         <app-error-card
           title="Couldn't load this instance"
           message="The instance failed to load — it may be a temporary network issue."
+          [correlationId]="loadErrorRef()"
           (retry)="load()" />
       } @else {
         <div class="card notice notice-red" role="alert">
@@ -935,6 +936,8 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
   logs = signal<readonly LogLine[]>([]);
   loading = signal<boolean>(false);
   loadFailed = signal<boolean>(false);
+  /** Worker request_id from a failed instance load → copyable support reference on the error card. */
+  loadErrorRef = signal('');
   logsLoading = signal<boolean>(false);
   busy = signal<boolean>(false);
 
@@ -960,6 +963,7 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
     if (!id) return;
     this.loading.set(true);
     this.loadFailed.set(false);
+    this.loadErrorRef.set('');
     this.api.get<{ instance: Record<string, unknown> }>(`/apps/instances/${id}`).subscribe({
       next: (r) => {
         const inst = r.instance ? adaptInstance(r.instance) : null;
@@ -975,14 +979,20 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
           }
         }
       },
-      error: () => {
+      error: (err) => {
         this.loading.set(false);
         this.instance.set(null);
         // Distinguish a network/server failure from a genuine not-found so
         // the user sees a retry affordance instead of a dead "not found".
         this.loadFailed.set(true);
+        this.loadErrorRef.set(this.requestIdFrom(err));
       },
     });
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: unknown): string {
+    return ((e as { error?: { error?: { request_id?: string } } } | undefined)?.error?.error?.request_id) ?? '';
   }
 
   refreshLogs(): void {

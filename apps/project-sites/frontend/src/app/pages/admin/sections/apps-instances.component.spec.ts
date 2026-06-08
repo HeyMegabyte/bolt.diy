@@ -313,6 +313,26 @@ describe('AppInstanceDetailComponent (destroy is modal-confirm-gated)', () => {
     expect(post).toHaveBeenCalledWith('/apps/instances/i1/stop', {});
   });
 
+  // The detail-panel load-error card carries a copyable worker request_id (its
+  // handler previously discarded the err → no support reference).
+  it('load() failure captures the request_id for the detail error card', () => {
+    TestBed.configureTestingModule({
+      imports: [AppInstanceDetailComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => throwError(() => ({ status: 500, error: { error: { request_id: 'req-det-1' } } })), post: () => of({}), patch: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'i1' } }, paramMap: of({ get: () => 'i1' }) } },
+        provideRouter([]),
+      ],
+    });
+    const c = TestBed.createComponent(AppInstanceDetailComponent).componentInstance;
+    c.instanceId.set('i1'); // ngOnInit (which reads the route) is skipped (no detectChanges)
+    c.load();
+    expect(c.loadFailed()).withContext('a failed load shows the retryable error card').toBeTrue();
+    expect(c.loadErrorRef()).withContext('support reference captured').toBe('req-det-1');
+  });
+
   // "Save & restart" PATCHes env_overrides then restarts the container. A catalog
   // env var that is required AND has no `auto` (platform-filled) AND no `default`
   // MUST be supplied by the user — saving it empty restarts the app into a broken
