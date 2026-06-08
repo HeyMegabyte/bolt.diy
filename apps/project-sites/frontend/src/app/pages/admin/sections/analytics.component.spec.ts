@@ -67,6 +67,23 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
     expect(host.querySelector('app-empty-state svg')).withContext('icon maps to a monochrome cyan SVG').toBeTruthy();
   });
 
+  // When analytics isn't available for the site (not provisioned), the date-range
+  // pills + Export are controls acting on data that can't exist yet — hide them
+  // (HEADER-CONTROLS-OUTSIDE-THE-GATE); only Refresh (re-check) makes sense.
+  it('hides the date-range pills + Export CSV while analytics is UNAVAILABLE, shows them once available', () => {
+    build({ id: 's1' });
+    const host = fixture.nativeElement as HTMLElement;
+    fixture.componentInstance.notAvailable.set(true);
+    fixture.detectChanges();
+    expect(host.querySelector('.range-chip-strip')).withContext('no range pills when unavailable').toBeNull();
+    expect(host.querySelector('[aria-label="Download visible data as CSV"]')).withContext('no Export when unavailable').toBeNull();
+    // Refresh stays — it's the one useful action (re-check).
+    expect(host.querySelector('[aria-label="Refresh analytics"]')).withContext('Refresh stays available').not.toBeNull();
+    fixture.componentInstance.notAvailable.set(false);
+    fixture.detectChanges();
+    expect(host.querySelector('.range-chip-strip')).withContext('range pills return when available').not.toBeNull();
+  });
+
   it('fetches analytics the instant the site resolves after mount (no poll tick)', () => {
     build(null);
     expect(getAnalytics).not.toHaveBeenCalled();

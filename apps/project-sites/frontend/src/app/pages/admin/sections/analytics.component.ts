@@ -122,23 +122,27 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" [class.spinning]="loading()"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             <span>{{ loading() ? 'Refreshing' : 'Refresh' }}</span>
           </button>
-          <div class="range-chip-strip" role="tablist" hlmTablist aria-label="Date range">
-            @for (r of ranges; track r.id) {
-              <button class="range-chip"
-                      type="button"
-                      role="tab"
-                      [class.active]="range() === r.id"
-                      [attr.aria-selected]="range() === r.id"
-                      [attr.aria-label]="'View ' + r.label"
-                      (click)="setRange(r.id)">{{ r.label }}</button>
-            }
-          </div>
-          <button class="btn-ghost"
-                  type="button"
-                  (click)="exportCsv()"
-                  [disabled]="!envelope()"
-                  aria-label="Download visible data as CSV"
-                  title="Download visible data as CSV">Export CSV</button>
+          <!-- Range pills + Export act on traffic data; hide them while analytics
+               is UNAVAILABLE (site not provisioned) — only Refresh re-checks. -->
+          @if (!notAvailable()) {
+            <div class="range-chip-strip" role="tablist" hlmTablist aria-label="Date range">
+              @for (r of ranges; track r.id) {
+                <button class="range-chip"
+                        type="button"
+                        role="tab"
+                        [class.active]="range() === r.id"
+                        [attr.aria-selected]="range() === r.id"
+                        [attr.aria-label]="'View ' + r.label"
+                        (click)="setRange(r.id)">{{ r.label }}</button>
+              }
+            </div>
+            <button class="btn-ghost"
+                    type="button"
+                    (click)="exportCsv()"
+                    [disabled]="!envelope()"
+                    aria-label="Download visible data as CSV"
+                    title="Download visible data as CSV">Export CSV</button>
+          }
         </div>
       </header>
 
