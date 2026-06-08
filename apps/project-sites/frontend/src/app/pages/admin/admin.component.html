@@ -583,4 +583,10 @@
      /admin/media so they land in the Library with their new assets. -->
 <app-global-drop-zone />
 
+<!-- AI Task Tray — passive top-right overlay (renders nothing when empty)
+     that polls /api/inbox/tasks and surfaces human-in-the-loop elicitation
+     prompts posted by long-running Workflows. Mounted once here per its
+     contract so a workflow's postAskUser card can appear on any admin route. -->
+<app-task-tray />
+
 } <!-- end @else (auth.isLoggedIn) -->
