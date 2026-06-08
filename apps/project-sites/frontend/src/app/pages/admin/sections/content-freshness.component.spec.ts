@@ -141,6 +141,22 @@ describe('AdminContentFreshnessComponent (aggregate stat strip + cohesion)', () 
     sorting.set([{ id: 'idle_days', desc: true }]);
     expect(component.table.getRowModel().rows.map((r) => (r.original as { idle_days: number }).idle_days)).toEqual([200, 100]);
   }));
+
+  it('the Refresh button reads "Refreshing…" + sets aria-busy while loading (a11y parity with "Run scan now")', fakeAsync(() => {
+    build(DRAFTS);
+    tick();
+    const btn = (): HTMLButtonElement => (fixture.nativeElement as HTMLElement).querySelector('[data-testid="cf-refresh"]') as HTMLButtonElement;
+    component.loading.set(false);
+    fixture.detectChanges();
+    expect(btn()).withContext('Refresh button rendered').not.toBeNull();
+    expect(btn().textContent?.trim()).toContain('Refresh');
+    expect(btn().getAttribute('aria-busy')).toBe('false');
+    component.loading.set(true);
+    fixture.detectChanges();
+    expect(btn().textContent?.trim()).withContext('label toggles to Refreshing…').toContain('Refreshing');
+    expect(btn().getAttribute('aria-busy')).withContext('SR busy state announced').toBe('true');
+    expect(btn().disabled).withContext('disabled while loading').toBeTrue();
+  }));
 });
 
 /**
