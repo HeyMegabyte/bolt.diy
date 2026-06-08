@@ -145,6 +145,7 @@ interface ToolUsage {
           <app-error-card
             title="Couldn't load tokens"
             [message]="tokensError()!"
+            [correlationId]="tokensErrorRef()"
             (retry)="loadTokens()" />
         } @else if (tokensLoading() && tokens().length === 0) {
           <div class="space-y-1.5">
@@ -195,6 +196,7 @@ interface ToolUsage {
           <app-error-card
             title="Couldn't load tools"
             [message]="toolsError()!"
+            [correlationId]="toolsErrorRef()"
             (retry)="loadTools()" />
         } @else if (toolsLoading() && tools().length === 0) {
           <div class="space-y-1.5">
@@ -298,6 +300,9 @@ export class SiteMcpServerComponent implements OnInit {
   readonly toolsLoading = signal(true);
   readonly tokensError = signal<string | null>(null);
   readonly toolsError = signal<string | null>(null);
+  /** Worker request_ids from a failed tokens/tools load → copyable support references on the error cards. */
+  readonly tokensErrorRef = signal('');
+  readonly toolsErrorRef = signal('');
   readonly minting = signal(false);
   readonly revoking = signal<string | null>(null);
   readonly newTokenRaw = signal<string | null>(null);
@@ -356,9 +361,10 @@ export class SiteMcpServerComponent implements OnInit {
   loadTokens(): void {
     this.tokensLoading.set(true);
     this.tokensError.set(null);
+    this.tokensErrorRef.set('');
     this.api
       .get<{ tokens: McpToken[] }>(`/sites/${this.siteId}/mcp/tokens`, undefined, { silent: true })
-      .pipe(catchError(() => { this.tokensError.set('The MCP token service did not respond.'); return of(null); }))
+      .pipe(catchError((err) => { this.tokensError.set('The MCP token service did not respond.'); this.tokensErrorRef.set(this.requestIdFrom(err)); return of(null); }))
       .subscribe((res) => {
         // A parseable-but-shapeless 200 (SPA/marketing HTML, `{}`) flows through
         // the success branch — ApiService only remaps UNPARSEABLE 2xx to 404.
@@ -376,9 +382,10 @@ export class SiteMcpServerComponent implements OnInit {
   loadTools(): void {
     this.toolsLoading.set(true);
     this.toolsError.set(null);
+    this.toolsErrorRef.set('');
     this.api
       .get<{ tools: ToolDef[] }>(`/sites/${this.siteId}/mcp/tools`, undefined, { silent: true })
-      .pipe(catchError(() => { this.toolsError.set('The MCP tool registry did not respond.'); return of(null); }))
+      .pipe(catchError((err) => { this.toolsError.set('The MCP tool registry did not respond.'); this.toolsErrorRef.set(this.requestIdFrom(err)); return of(null); }))
       .subscribe((res) => {
         // Shape-guard the success branch — a shapeless 200 must not fake-empty
         // the tool list (which would also fake-zero the Calls-Today stat).
@@ -399,6 +406,11 @@ export class SiteMcpServerComponent implements OnInit {
       // totalCallsToday()/callsForTool() reduce over it and would crash the
       // header pill + per-tool counts. Non-array → empty (usage is a soft stat).
       .subscribe((res) => this.usage.set(Array.isArray(res?.usage) ? res.usage : []));
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: unknown): string {
+    return ((e as { error?: { error?: { request_id?: string } } } | undefined)?.error?.error?.request_id) ?? '';
   }
 
   mintToken(): void {

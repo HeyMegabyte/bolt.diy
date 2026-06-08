@@ -156,6 +156,22 @@ describe('SiteMcpServerComponent (MCP token CRUD + playground)', () => {
     expect(c.toolsLoading()).toBe(false);
   });
 
+  // Both load-error cards carry a copyable worker request_id (the catchError
+  // previously discarded the err → no support reference).
+  it('loadTokens captures the request_id for the error card', () => {
+    const c = make({ get: jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req-tok-1' } } }))) }).c;
+    c.loadTokens();
+    expect(c.tokensError()).not.toBeNull();
+    expect(c.tokensErrorRef()).withContext('tokens support reference captured').toBe('req-tok-1');
+  });
+
+  it('loadTools captures the request_id for the error card', () => {
+    const c = make({ get: jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req-tool-1' } } }))) }).c;
+    c.loadTools();
+    expect(c.toolsError()).not.toBeNull();
+    expect(c.toolsErrorRef()).withContext('tools support reference captured').toBe('req-tool-1');
+  });
+
   // ── Stale-route fake-empty class (parseable-but-shapeless 200) ──────────────
   // ApiService's 2xx→404 remap only fires on an UNPARSEABLE body. A parseable
   // shapeless 200 (SPA/marketing HTML routed to the SPA, or `{}`) flows STRAIGHT
