@@ -68,6 +68,69 @@ const SITE_FEATURE_CATALOG_DISPLAY: ReadonlyArray<Omit<SiteFeature, 'entitled' |
   { key: 'site_mcp_server', name: 'AI Assistant Access', description: 'Make your site queryable by Siri, Claude, and ChatGPT via a per-site MCP server.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
 ];
 
+/**
+ * Per-feature "What's included" checklist — the concrete capabilities each
+ * feature ships, surfaced as a ✓ list on every card so owners can scan exactly
+ * what they get before flipping it on. Keyed by feature key so it applies to
+ * both the live `/api/site-features` catalog and the read-only fallback.
+ */
+const FEATURE_CAPABILITIES: Readonly<Record<string, readonly string[]>> = {
+  donations_engine: [
+    'One-tap donate page with suggested amounts',
+    'Stripe-secured cards + Apple Pay / Google Pay',
+    'One-time and recurring gifts',
+    'Automatic emailed receipts',
+  ],
+  email_marketing: [
+    'Branded signup form embedded on your site',
+    'Campaign composer — send from your own domain',
+    'Subscriber list with consent tracking',
+    'Open + click reporting',
+  ],
+  seo_autopilot: [
+    'AI-written titles + meta descriptions per page',
+    'AI-search "quotable answer" blocks',
+    'Stale-section refresh suggestions',
+    'You approve every change before it ships',
+  ],
+  gbp_assist: [
+    'Guided Google Business Profile setup',
+    'AI-optimized description + posts',
+    'Local-search + Maps visibility',
+    'Drafted replies to customer reviews',
+  ],
+  search_engine_submit: [
+    'Auto-ping Google + Bing the moment you publish',
+    'New and updated URLs submitted automatically',
+    'Index-status tracking per page',
+    'No manual Search Console steps',
+  ],
+  pseo_matrix_v2: [
+    'Auto-built location landing pages',
+    'Service × city page matrix',
+    'Content generated from real data',
+    'Targets "near me" / local intent queries',
+  ],
+  unified_inbox: [
+    'Forms, chat + messages in one inbox',
+    'AI-drafted replies you can edit + send',
+    'Assign, snooze + mark resolved',
+    'Full per-site conversation history',
+  ],
+  automation_builder: [
+    'No-code "when this → do that" recipes',
+    'e.g. new lead → email + Slack ping',
+    'Scheduled and event-based triggers',
+    'Multi-step flows with conditions',
+  ],
+  site_mcp_server: [
+    'Per-site MCP endpoint',
+    'Queryable by Claude, ChatGPT + Siri',
+    'Read-only by default',
+    'Token-gated access you control',
+  ],
+};
+
 /** Mirror of the worker's entitlement logic for the read-only fallback (assumes the free tier — the live API supplies the real plan). */
 function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): EntitlementState {
   if (requiredPlan === 'free') return 'available';
@@ -161,6 +224,16 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
 
               <app-flag-badge-row [badges]="badgesFor(f)" />
               <p class="sf-desc">{{ f.description }}</p>
+              @if (capabilitiesFor(f).length) {
+                <ul class="sf-checklist" data-testid="sf-checklist" [attr.aria-label]="'What you get with ' + f.name">
+                  @for (cap of capabilitiesFor(f); track cap) {
+                    <li class="sf-check">
+                      <svg class="sf-check-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                      <span>{{ cap }}</span>
+                    </li>
+                  }
+                </ul>
+              }
               <p class="sf-why" data-testid="sf-why">{{ whyFor(f) }}</p>
 
               @if (f.entitled === 'available') {
@@ -279,6 +352,9 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
     .sf-switch:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
     .sf-switch:disabled { opacity: .5; cursor: progress; }
     .sf-desc { color: color-mix(in oklch, currentColor 72%, transparent); margin: 0; font-size: .9rem; line-height: 1.45; }
+    .sf-checklist { list-style: none; margin: .1rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
+    .sf-check { display: flex; align-items: flex-start; gap: .45rem; font-size: .82rem; line-height: 1.35; color: color-mix(in oklch, currentColor 80%, transparent); }
+    .sf-check-ic { flex: none; margin-top: .12rem; color: var(--ps-accent, #00e5ff); }
     .sf-why { color: color-mix(in oklch, currentColor 56%, transparent); margin: 0; font-size: .8rem; font-style: italic; }
     .sf-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: auto; }
     .sf-btn { background: transparent; color: inherit; border: 1px solid color-mix(in oklch, currentColor 22%, transparent); padding: .35rem .75rem; border-radius: 8px; cursor: pointer; font: inherit; font-size: .82rem; min-height: 24px; }
@@ -398,6 +474,11 @@ export class AdminSiteFeaturesComponent implements OnInit {
     else if (f.entitled === 'addon-required') badges.push({ label: 'Add-on', tone: 'warn', title: 'Available as an add-on' });
     else badges.push({ label: `${f.requiredPlan}+`, tone: 'warn', title: `Requires the ${f.requiredPlan} plan` });
     return badges;
+  }
+
+  /** The "What's included" capability checklist for a feature (empty if none mapped). */
+  capabilitiesFor(f: SiteFeature): readonly string[] {
+    return FEATURE_CAPABILITIES[f.key] ?? [];
   }
 
   whyFor(f: SiteFeature): string {

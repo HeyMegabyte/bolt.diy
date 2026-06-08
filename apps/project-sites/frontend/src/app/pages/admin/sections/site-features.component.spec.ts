@@ -130,6 +130,20 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     expect(host.querySelectorAll('.sf-card').length).withContext('catalog shown read-only, not blank').toBe(9);
   });
 
+  it('renders a "What you get" ✓ capability checklist on each feature card', async () => {
+    await build({ features: [] }, 404); // read-only fallback shows the full 9-card catalog
+    const host = fixture.nativeElement as HTMLElement;
+    const donations = host.querySelector('[data-testid="sf-card-donations_engine"]') as HTMLElement;
+    expect(donations).withContext('donations card present').not.toBeNull();
+    const checklist = donations.querySelector('[data-testid="sf-checklist"]') as HTMLElement;
+    expect(checklist).withContext('capability checklist rendered').not.toBeNull();
+    const items = checklist.querySelectorAll('.sf-check');
+    expect(items.length).withContext('several concrete capability bullets').toBeGreaterThanOrEqual(3);
+    expect(checklist.textContent ?? '').toContain('Stripe');
+    // every bullet carries the ✓ glyph (checklist affordance)
+    expect(checklist.querySelectorAll('.sf-check-ic').length).toBe(items.length);
+  });
+
   it('falls back to the read-only catalog + provisioning banner when the route returns no JSON catalog', async () => {
     // The live worker route isn't deployed yet → the SPA serves HTML / a shapeless
     // body with no features[]. The page must show the catalog, never blank.
