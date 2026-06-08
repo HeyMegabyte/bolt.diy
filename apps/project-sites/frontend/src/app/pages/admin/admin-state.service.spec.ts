@@ -239,3 +239,56 @@ describe('AdminStateService — copyUrl (clipboard + graceful failure)', () => {
     expect(success).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * External `window.open(url, '_blank')` MUST pass 'noopener,noreferrer' — without
+ * it the opened tab gets `window.opener` and can redirect the admin tab to a
+ * phishing page (reverse tabnabbing). visitSite (published site, possibly a custom
+ * domain) + openBilling (Stripe portal) are fire-and-forget opens, so noopener is safe.
+ */
+describe('AdminStateService — external opens are reverse-tabnabbing-safe (noopener,noreferrer)', () => {
+  let openSpy: jasmine.Spy;
+
+  function build(portalUrl: string | null): AdminStateService {
+    const api = {
+      listSites: () => of({ data: [] }),
+      getDomainSummary: () => of({ data: { total: 0, active: 0, pending: 0, failed: 0 } }),
+      getSubscription: () => of({ data: null }),
+      getMe: () => of({ data: { org_id: 'o', is_super_admin: true } }),
+      getAnalytics: () => of({ data: null }),
+      getBillingPortal: () => of({ data: portalUrl ? { portal_url: portalUrl } : {} }),
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        AdminStateService,
+        { provide: ApiService, useValue: api },
+        { provide: AuthService, useValue: { isLoggedIn: () => true } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, toasts: () => [] } },
+        { provide: TelemetryService, useValue: { track: () => undefined } },
+        { provide: Router, useValue: { navigate: () => undefined, url: '/admin' } },
+        { provide: DomSanitizer, useValue: { bypassSecurityTrustResourceUrl: (u: string) => u } },
+        { provide: Dialog, useValue: { open: () => ({ closed: of(undefined) }) } },
+      ],
+    });
+    return TestBed.inject(AdminStateService);
+  }
+
+  beforeEach(() => { openSpy = spyOn(window, 'open').and.returnValue(null); });
+  afterEach(() => {
+    try { (TestBed.inject(AdminStateService) as unknown as { stopLiveRefresh(): void }).stopLiveRefresh(); } catch { /* */ }
+    TestBed.resetTestingModule();
+  });
+
+  it('visitSite opens the published site with noopener,noreferrer', () => {
+    build(null).visitSite({ id: 's1', slug: 'demo', business_name: 'Demo', status: 'published' } as never);
+    expect(openSpy).toHaveBeenCalled();
+    const feat = String(openSpy.calls.mostRecent().args[2] ?? '');
+    expect(feat).withContext('noopener present').toContain('noopener');
+    expect(feat).withContext('noreferrer present').toContain('noreferrer');
+  });
+
+  it('openBilling opens the Stripe portal with noopener,noreferrer', () => {
+    build('https://billing.stripe.com/p/session/xyz').openBilling();
+    expect(openSpy).toHaveBeenCalledWith('https://billing.stripe.com/p/session/xyz', '_blank', 'noopener,noreferrer');
+  });
+});

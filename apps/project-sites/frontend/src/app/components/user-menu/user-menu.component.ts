@@ -234,7 +234,7 @@ export class UserMenuComponent {
     // the portal URL can't be minted (no subscription yet / API error).
     this.api.getBillingPortal(window.location.href).subscribe({
       next: (res) => {
-        if (res.data?.portal_url) window.open(res.data.portal_url, '_blank');
+        if (res.data?.portal_url) window.open(res.data.portal_url, '_blank', 'noopener,noreferrer');
         else this.router.navigate(['/admin/billing']);
       },
       error: () => this.router.navigate(['/admin/billing']),

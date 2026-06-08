@@ -298,7 +298,8 @@ export class AdminStateService {
   }
 
   visitSite(site: Site): void {
-    window.open(this.getSiteUrl(site), '_blank');
+    // noopener,noreferrer: the opened tab must not get window.opener (reverse-tabnabbing).
+    window.open(this.getSiteUrl(site), '_blank', 'noopener,noreferrer');
   }
 
   copyUrl(site: Site): void {
@@ -359,7 +360,7 @@ export class AdminStateService {
   openBilling(): void {
     this.api.getBillingPortal(window.location.href).subscribe({
       next: (res) => {
-        if (res.data?.portal_url) window.open(res.data.portal_url, '_blank');
+        if (res.data?.portal_url) window.open(res.data.portal_url, '_blank', 'noopener,noreferrer');
       },
       error: () => this.toast.error('Failed to open billing portal'),
     });
