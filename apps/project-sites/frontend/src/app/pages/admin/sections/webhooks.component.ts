@@ -121,7 +121,7 @@ interface Delivery {
           <app-skeleton variant="table" [rows]="3" />
         } @else if (!error() && !flagDisabled() && endpoints().length === 0) {
           <app-empty-state icon="↪" title="No webhook endpoints"
-            body="Add an endpoint above to receive a signed callback whenever your selected events fire." />
+            message="Add an endpoint above to receive a signed callback whenever your selected events fire." />
         } @else if (endpoints().length > 0) {
           <ul class="flex flex-col gap-2">
             @for (e of endpoints(); track e.id) {

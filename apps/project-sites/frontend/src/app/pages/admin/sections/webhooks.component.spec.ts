@@ -82,6 +82,30 @@ describe('AdminWebhooksComponent', () => {
     expect(q('[data-testid="webhooks-create-btn"]')).toBeNull();
   });
 
+  // The "No webhook endpoints" empty state must render its guidance line. The
+  // kit <app-empty-state> input is `message=`, NOT `body=` — passing `body=`
+  // silently drops the supporting text (the @if(message) never fires).
+  it('the no-endpoints empty state renders its guidance message (kit input is message=)', () => {
+    const g = jasmine.createSpy('get').and.callFake((path: string) =>
+      path.endsWith('/deliveries') ? of({ ok: true, deliveries: [] }) : of({ ok: true, endpoints: [] }),
+    );
+    TestBed.configureTestingModule({
+      imports: [AdminWebhooksComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: g, post: jasmine.createSpy('post'), delete: jasmine.createSpy('delete') } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: ConfirmService, useValue: { confirm: jasmine.createSpy('confirm') } },
+        { provide: AdminStateService, useValue: { selectedSite: () => ({ id: 's1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminWebhooksComponent);
+    fx.detectChanges();
+    const msg = (fx.nativeElement as HTMLElement).querySelector('app-empty-state .es-msg');
+    expect(msg).withContext('supporting message paragraph renders').not.toBeNull();
+    expect(msg?.textContent).toContain('signed callback');
+  });
+
   it('lists the site endpoints + recent deliveries', () => {
     build({ id: 's1' });
     expect(get).toHaveBeenCalledWith('/sites/s1/webhooks', undefined, { silent: true });

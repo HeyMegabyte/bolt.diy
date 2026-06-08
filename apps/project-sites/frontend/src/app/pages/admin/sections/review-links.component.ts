@@ -78,7 +78,7 @@ interface ReviewLink {
           <app-skeleton variant="table" [rows]="3" data-testid="review-links-loading" />
         } @else if (!error() && !flagDisabled() && links().length === 0) {
           <app-empty-state data-testid="review-links-none" icon="🔗" title="No review links yet"
-            body="Create a shareable approval link above so a stakeholder can preview and sign off before publish." />
+            message="Create a shareable approval link above so a stakeholder can preview and sign off before publish." />
         } @else if (links().length > 0) {
           <ul class="flex flex-col gap-2">
             @for (l of links(); track l.id) {

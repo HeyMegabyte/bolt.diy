@@ -50,6 +50,28 @@ describe('AdminReviewLinksComponent', () => {
     expect(get).not.toHaveBeenCalled();
   });
 
+  // The "No review links yet" empty state must render its guidance line. The kit
+  // <app-empty-state> input is `message=`, NOT `body=` — passing `body=` silently
+  // drops the supporting text (the @if(message) never fires).
+  it('the no-links empty state renders its guidance message (kit input is message=)', () => {
+    selectedSite = signal<{ id: string } | null>({ id: 's1' });
+    const g = jasmine.createSpy('get').and.returnValue(of({ ok: true, links: [] }));
+    TestBed.configureTestingModule({
+      imports: [AdminReviewLinksComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: g, post: jasmine.createSpy('post') } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: AdminStateService, useValue: { selectedSite } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminReviewLinksComponent);
+    fx.detectChanges();
+    const msg = (fx.nativeElement as HTMLElement).querySelector('app-empty-state .es-msg');
+    expect(msg).withContext('supporting message paragraph renders').not.toBeNull();
+    expect(msg?.textContent).toContain('sign off before publish');
+  });
+
   it('lists the site review links with their status', () => {
     build({ id: 's1' });
     // {silent:true} — the component owns the inline error banner + Retry, so the

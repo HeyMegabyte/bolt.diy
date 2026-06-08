@@ -124,7 +124,7 @@ interface Recipe {
           <app-skeleton variant="table" [rows]="3" />
         } @else if (recipes().length === 0 && !loadError()) {
           <app-empty-state icon="⚡" title="No automations yet"
-            body="Create a recipe above to auto-run an action whenever a site event fires." />
+            message="Create a recipe above to auto-run an action whenever a site event fires." />
         } @else {
           <ul class="flex flex-col gap-2">
             @for (r of recipes(); track r.id) {

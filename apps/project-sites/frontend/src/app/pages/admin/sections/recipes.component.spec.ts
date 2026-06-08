@@ -73,6 +73,28 @@ describe('AdminRecipesComponent', () => {
     expect(q('[data-testid="recipes-create-btn"]')).toBeNull();
   });
 
+  // The "No automations yet" empty state must render its guidance line. The kit
+  // <app-empty-state> input is `message=`, NOT `body=` — passing `body=` silently
+  // drops the supporting text (the @if(message) never fires).
+  it('the no-recipes empty state renders its guidance message (kit input is message=)', () => {
+    const g = jasmine.createSpy('get').and.returnValue(of({ ok: true, recipes: [] }));
+    TestBed.configureTestingModule({
+      imports: [AdminRecipesComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: g, post: jasmine.createSpy('post'), delete: jasmine.createSpy('delete') } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: ConfirmService, useValue: { confirm: jasmine.createSpy('confirm') } },
+        { provide: AdminStateService, useValue: { selectedSite: () => ({ id: 's1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminRecipesComponent);
+    fx.detectChanges();
+    const msg = (fx.nativeElement as HTMLElement).querySelector('app-empty-state .es-msg');
+    expect(msg).withContext('supporting message paragraph renders').not.toBeNull();
+    expect(msg?.textContent).toContain('site event fires');
+  });
+
   it('lists the site recipes', () => {
     build({ id: 's1' });
     // Silent: the component owns its inline "Automations are not available"
