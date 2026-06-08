@@ -22,6 +22,8 @@ describe('CmdGlyphComponent', () => {
   const KNOWN = [
     'globe', 'camera', 'rocket', 'inbox', 'shield', 'chart', 'credit-card',
     'download', 'calendar', 'clock', 'grid', 'book', 'help', 'code', 'message',
+    'image', 'layers', 'search', 'share', 'phone', 'activity', 'list', 'gear',
+    'command', 'keyboard', 'life-buoy',
   ];
 
   for (const name of KNOWN) {

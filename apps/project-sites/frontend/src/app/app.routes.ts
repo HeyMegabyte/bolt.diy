@@ -70,8 +70,9 @@ export const routes: Routes = [
       import('./pages/admin/admin.component').then((m) => m.AdminComponent),
     children: [
       {
-        // /admin → new Perplexity-like AI dashboard. The bolt.diy editor
-        // experience moved to /admin/editor (untouched). /admin/welcome
+        // /admin → Getting Started hub: a purpose-grouped guide to every admin
+        // section + tips + helpful links (replaced the former AI chat dashboard).
+        // The bolt.diy editor lives at /admin/editor (untouched). /admin/welcome
         // keeps the empty-state editor card around for onboarding links.
         path: '',
         loadComponent: () =>
