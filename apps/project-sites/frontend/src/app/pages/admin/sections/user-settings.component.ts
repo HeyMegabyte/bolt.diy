@@ -10,6 +10,7 @@ import { DialogShellComponent } from '../../../components/dialog-shell/dialog-sh
 import { HlmInputDirective, HlmSelectDirective } from '../../../ui';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
+import { ErrorCardComponent } from '../../../components/states';
 
 /** Row shape returned by `GET /admin/api-keys` and rendered in the keys table. */
 interface ApiKeyRow {
@@ -82,7 +83,7 @@ interface NotificationGroup {
 @Component({
   selector: 'app-user-settings',
   standalone: true,
-  imports: [RevealDirective, FormsModule, DatePipe, DialogShellComponent, MiniEmptyComponent, HlmInputDirective, HlmSelectDirective],
+  imports: [RevealDirective, FormsModule, DatePipe, DialogShellComponent, MiniEmptyComponent, HlmInputDirective, HlmSelectDirective, ErrorCardComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <!-- ─────────────────── HEADER ─────────────────── -->
@@ -248,13 +249,12 @@ interface NotificationGroup {
             }
           </div>
         } @else if (keysError()) {
-          <div class="error-tile" role="alert">
-            <div>
-              <strong>Couldn't load your keys.</strong>
-              <span class="block text-[0.72rem] mt-0.5">{{ keysError() }}</span>
-            </div>
-            <button class="btn-ghost" type="button" (click)="loadApiKeys()">Retry</button>
-          </div>
+          <app-error-card data-testid="user-settings-keys-error" class="block"
+            title="Couldn't load your keys"
+            [message]="keysError() ?? ''"
+            [correlationId]="keysErrorRef()"
+            [retryLabel]="loadingKeys() ? 'Retrying…' : 'Retry'"
+            (retry)="loadApiKeys()" />
         } @else if (apiKeys().length === 0) {
           <div class="empty-state-pretty">
             <div class="empty-glyph" aria-hidden="true">
@@ -1034,17 +1034,6 @@ interface NotificationGroup {
       -webkit-background-clip: text; background-clip: text; color: transparent;
     }
 
-    /* ── Error tile ── */
-    .error-tile {
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      padding: 0.85rem 1rem;
-      border-radius: 10px;
-      background: rgba(248, 113, 113, 0.06);
-      border: 1px solid rgba(248, 113, 113, 0.28);
-      color: #fecaca;
-      font-size: 0.78rem;
-    }
-
     /* ── Skeleton ── */
     .skel {
       position: relative; overflow: hidden;
@@ -1166,6 +1155,8 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
   apiKeys = signal<ApiKeyRow[]>([]);
   loadingKeys = signal(false);
   keysError = signal<string | null>(null);
+  /** Worker request_id from a failed keys load, shown as a copyable support reference on the error card. */
+  keysErrorRef = signal('');
   createOpen = signal(false);
   generatingKey = signal(false);
   createError = signal<string | null>(null);
@@ -1390,6 +1381,7 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
   loadApiKeys(): void {
     this.loadingKeys.set(true);
     this.keysError.set(null);
+    this.keysErrorRef.set('');
     this.api.get<{ data: ApiKeyRow[] }>('/admin/api-keys').subscribe({
       next: (r) => {
         // A stale `/api/admin/api-keys` returns 200 with the SPA/marketing HTML
@@ -1411,6 +1403,7 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
         this.loadingKeys.set(false);
         const msg = err?.error?.error?.message || err?.error?.message || 'Network or auth error — retry shortly.';
         this.keysError.set(msg);
+        this.keysErrorRef.set(err?.error?.error?.request_id ?? '');
       },
     });
   }

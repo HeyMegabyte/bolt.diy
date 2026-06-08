@@ -383,6 +383,27 @@ describe('AdminUserSettingsComponent (API-keys load — stale-route resilience)'
     expect(c.keysError()).toBe('boom');
     expect(c.apiKeys()).toEqual([]);
   });
+
+  // The shared <app-error-card> surfaces a copyable worker request_id so a stuck
+  // operator can hand it to support — capture it from the failed response body.
+  it('captures the worker request_id into keysErrorRef on a hard error', () => {
+    const { c, http } = make();
+    http.get.and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req-keys-7' } } })));
+    c.loadApiKeys();
+    expect(c.keysErrorRef()).toBe('req-keys-7');
+  });
+
+  it('keysErrorRef is empty for a stale-route shapeless 200 (no err object) + clears on a healthy reload', () => {
+    const { c, http } = make();
+    http.get.and.returnValue(of({})); // stale SPA-HTML → keysError set, but no err → no ref
+    c.loadApiKeys();
+    expect(c.keysError()).toBeTruthy();
+    expect(c.keysErrorRef()).toBe('');
+    http.get.and.returnValue(of({ data: [] }));
+    c.loadApiKeys();
+    expect(c.keysError()).toBeNull();
+    expect(c.keysErrorRef()).toBe('');
+  });
 });
 
 import { NEVER } from 'rxjs';
