@@ -87,6 +87,10 @@ describe('CommandPaletteActionsService (every sidebar section is quick-navigable
     '/admin/apps', '/admin/social', '/admin/bulk-ops', '/admin/deliverability', '/admin/webhooks',
     '/admin/recipes', '/admin/review-links', '/admin/feature-flags', '/admin/marketplace',
     '/admin/logs', '/admin/enterprise', '/admin/trust', '/admin/stripe-app-status',
+    // Core high-traffic sections — this guard list itself omitted them, so the
+    // palette could (and did) ship without Cmd+K nav to Sites/Inbox/Media/etc.
+    '/admin/sites', '/admin/inbox', '/admin/media', '/admin/pseo',
+    '/admin/content-freshness', '/admin/site-features',
   ];
 
   it('has a Navigation command that navigates to every sidebar route', () => {

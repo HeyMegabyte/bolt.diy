@@ -172,6 +172,16 @@ export class CommandPaletteActionsService {
       { id: 'nav-enterprise',   title: 'Go to Enterprise',    section: 'Navigation', icon: ICONS.shield,   keywords: ['contract', 'sla', 'sso', 'audit export'], href: navHref('/admin/enterprise'), run: () => go('/admin/enterprise') },
       { id: 'nav-trust',        title: 'Go to Trust Center',  section: 'Navigation', icon: ICONS.shield,   keywords: ['compliance', 'soc2', 'privacy', 'security', 'status'], href: navHref('/admin/trust'), run: () => go('/admin/trust') },
       { id: 'nav-stripe-app',   title: 'Go to Stripe Status', section: 'Navigation', icon: ICONS.dollar,   keywords: ['stripe app', 'installs', 'marketplace', 'lifecycle'], href: navHref('/admin/stripe-app-status'), run: () => go('/admin/stripe-app-status') },
+      // Core high-traffic sections — were missing from the palette ("everything
+      // is searchable") so Cmd+K → "sites"/"inbox"/"media" found nothing. No
+      // `shortcut` hints: these have no g-chord, and advertising a dead chord is
+      // the exact bug fixed in 7e1abc6d.
+      { id: 'nav-sites',         title: 'Go to Sites',             section: 'Navigation', icon: ICONS.globe,  keywords: ['websites', 'web vitals', 'lighthouse', 'cwv', 'heatmap', 'list'], href: navHref('/admin/sites'), run: () => go('/admin/sites') },
+      { id: 'nav-inbox',         title: 'Go to Inbox',             section: 'Navigation', icon: ICONS.bell,   keywords: ['conversations', 'messages', 'chat', 'visitor', 'unread', 'support'], href: navHref('/admin/inbox'), run: () => go('/admin/inbox') },
+      { id: 'nav-media',         title: 'Go to Media',             section: 'Navigation', icon: ICONS.layers, keywords: ['assets', 'images', 'upload', 'library', 'video', 'stock', 'podcast'], href: navHref('/admin/media'), run: () => go('/admin/media') },
+      { id: 'nav-pseo',          title: 'Go to pSEO',              section: 'Navigation', icon: ICONS.chart,  keywords: ['programmatic seo', 'pages', 'city', 'landing', 'generate'], href: navHref('/admin/pseo'), run: () => go('/admin/pseo') },
+      { id: 'nav-freshness',     title: 'Go to Content Freshness', section: 'Navigation', icon: ICONS.book,   keywords: ['stale', 'drafts', 'update', 'age', 'review', 'content'], href: navHref('/admin/content-freshness'), run: () => go('/admin/content-freshness') },
+      { id: 'nav-site-features', title: 'Go to Features',          section: 'Navigation', icon: ICONS.cog,    keywords: ['features', 'plan', 'entitlements', 'site', 'add-on', 'tenant', 'preview'], href: navHref('/admin/site-features'), run: () => go('/admin/site-features') },
 
       // ── Settings tabs (5) ────────────────────────────────────────
       { id: 'set-general', title: 'Settings: General',     section: 'Settings', icon: ICONS.cog, keywords: ['org', 'contact', 'tone'],       run: () => go('/admin/settings#general') },
