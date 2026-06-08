@@ -84,6 +84,7 @@ interface AggregateResponse {
         <app-error-card
           title="Couldn't load social analytics"
           [message]="error()"
+          [correlationId]="loadErrorRef()"
           hint="The analytics service didn't respond. Retry, or check your connected accounts."
           (retry)="reload()" />
       } @else if (data()) {
@@ -107,7 +108,7 @@ interface AggregateResponse {
               @for (p of data()!.platform_totals; track p.platform) {
                 <tr>
                   <th scope="row" class="platform" [attr.title]="p.platform">{{ p.platform }}</th>
-                  <td>{{ p.posts }}</td>
+                  <td>{{ p.posts | number }}</td>
                   <td>{{ p.impressions | number }}</td>
                   <td>{{ p.reach | number }}</td>
                   <td>{{ p.engagement | number }}</td>
@@ -166,6 +167,8 @@ export class AdminSocialAnalyticsComponent implements OnInit {
   days = signal<number>(30);
   loading = signal(true);
   error = signal('');
+  /** Worker request_id from a failed analytics load → copyable support reference on the error card. */
+  loadErrorRef = signal('');
   data = signal<AggregateResponse | null>(null);
 
   widgetProps = computed(() => {
@@ -191,6 +194,7 @@ export class AdminSocialAnalyticsComponent implements OnInit {
   private load(): void {
     this.loading.set(true);
     this.error.set('');
+    this.loadErrorRef.set('');
     this.api
       .get<AggregateResponse>(`/social/analytics/aggregate?days=${this.days()}`)
       .subscribe({
@@ -198,10 +202,16 @@ export class AdminSocialAnalyticsComponent implements OnInit {
           this.data.set(res);
           this.loading.set(false);
         },
-        error: () => {
+        error: (err: { error?: unknown }) => {
           this.error.set('Could not load analytics — try again.');
+          this.loadErrorRef.set(this.requestIdFrom(err));
           this.loading.set(false);
         },
       });
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: { error?: unknown } | undefined): string {
+    return (e?.error as { error?: { request_id?: string } } | undefined)?.error?.request_id ?? '';
   }
 }

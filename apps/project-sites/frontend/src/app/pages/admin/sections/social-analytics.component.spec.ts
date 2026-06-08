@@ -38,6 +38,13 @@ describe('AdminSocialAnalyticsComponent (aggregate load + window)', () => {
     expect(c.loading()).toBe(false);
   });
 
+  it('captures the request_id from a failed load (copyable support reference on the error card)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req-sa-3' } } }))));
+    c.reload();
+    expect(c.error()).toContain('Could not load');
+    expect(c.loadErrorRef()).withContext('support reference captured').toBe('req-sa-3');
+  });
+
   it('setDays switches the window and triggers a fresh load', () => {
     const get = jasmine.createSpy('get').and.returnValue(of({ platform_totals: [] }));
     const c = make(get);
@@ -110,5 +117,25 @@ describe('AdminSocialAnalyticsComponent (data-table a11y)', () => {
     const el = render();
     const rowHeader = el.querySelector('tbody tr th[scope="row"]');
     expect(rowHeader?.getAttribute('title')).toBe('instagram');
+  });
+
+  it('formats the posts count with thousands separators (consistent with impressions/reach/engagement)', () => {
+    const get = jasmine.createSpy('get').and.returnValue(
+      of({
+        window_days: 30,
+        generated_at: '',
+        platform_totals: [{ platform: 'x', posts: 1234, impressions: 5678, reach: 900, engagement: 87 }],
+        best_posts: [],
+        best_times: { platform: 'x', slots: [] },
+      }),
+    );
+    TestBed.configureTestingModule({
+      imports: [AdminSocialAnalyticsComponent],
+      providers: [provideRouter([]), { provide: ApiService, useValue: { get } }],
+    });
+    const fx = TestBed.createComponent(AdminSocialAnalyticsComponent);
+    fx.detectChanges();
+    const cells = Array.from((fx.nativeElement as HTMLElement).querySelectorAll('tbody tr td')).map((c) => c.textContent?.trim());
+    expect(cells).withContext('posts formatted like the other metric columns').toContain('1,234');
   });
 });
