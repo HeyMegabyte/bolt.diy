@@ -313,7 +313,7 @@ const POLL_INTERVAL_MS = 10_000;
                     </svg>
                     <span class="mcp-pill-label">{{ m.label }}</span>
                     @if (isMcpEnabled(m.provider)) {
-                      <span class="mcp-check" aria-hidden="true">✓</span>
+                      <span class="mcp-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
                     }
                   </button>
                 }
@@ -800,7 +800,10 @@ const POLL_INTERVAL_MS = 10_000;
       font-feature-settings: "calt", "liga";
       resize: vertical;
     }
-    .mcp-check { font-weight: 800; font-size: 0.72rem; line-height: 1; color: var(--brand); }
+    /* Enabled-MCP check is a monochrome SVG (cockpit semantic-glyph standard,
+       cross-OS consistent), inheriting the pill's --brand via currentColor. */
+    .mcp-check { line-height: 1; color: var(--brand); display: inline-flex; }
+    .mcp-check svg { width: 0.8rem; height: 0.8rem; display: block; }
     .skeleton { background: rgba(255,255,255,0.10); border-radius: 8px; animation: skel-pulse 1.4s ease-in-out infinite; }
     .skeleton-row { height: 44px; }
     @keyframes skel-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }

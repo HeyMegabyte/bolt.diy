@@ -101,6 +101,22 @@ describe('AdminFormsComponent (cohesion + a11y, convergence r17)', () => {
     expect(link.textContent?.trim()).toBe('jane@example.com');
   });
 
+  // The enabled-MCP check is a monochrome SVG (cockpit semantic-status-glyph
+  // standard, cross-OS consistent — matches domain-stack/swarm), inheriting the
+  // pill's --brand colour via currentColor; never a bare ✓ font char.
+  it('renders the enabled-MCP check as an SVG (not a bare ✓ char)', () => {
+    build({ id: 'site-1' });
+    component.designerOpen.set(true); // the MCP picker lives in the prompt-designer overlay
+    component.mcpConnections.set([{ provider: 'github', label: 'GitHub', color: '#00e5ff', desc: 'GitHub MCP' }]);
+    component.promptMcps.set(['github']); // enabled → the check shows on the pill
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const check = el.querySelector('.mcp-check');
+    expect(check).withContext('the enabled MCP pill shows its check').not.toBeNull();
+    expect(check!.querySelector('svg')).withContext('check is an SVG').not.toBeNull();
+    expect(check!.textContent).not.toContain('✓');
+  });
+
   it('renders a plain — (no mailto link) for an anonymous submission with no email', () => {
     build({ id: 'site-1' });
     component.submissions.set([
