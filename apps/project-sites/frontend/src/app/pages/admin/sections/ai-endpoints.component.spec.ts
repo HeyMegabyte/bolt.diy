@@ -280,6 +280,30 @@ describe('AdminAiEndpointsComponent — mutations pass {silent:true} (no generic
     c.saveDetail();
     expect(put).toHaveBeenCalledWith('/sites/s1/ai-endpoints/e9', jasmine.any(Object), { silent: true });
   });
+
+  it('saveDetail CLAMPS an out-of-bounds rate/TTL — no negative/absurd config reaches the server', () => {
+    const c = buildSpies();
+    c.detail.set({
+      id: 'e9', language: 'ts', files: [], bindings: [],
+      auth_mode: 'none', rate_limit_per_sec: -5, cache_ttl_seconds: 999999999, cron_expression: null,
+    } as never);
+    c.saveDetail();
+    const body = put.calls.mostRecent().args[1] as { rate_limit_per_sec: number; cache_ttl_seconds: number };
+    expect(body.rate_limit_per_sec).withContext('negative rate → clamped to 0').toBe(0);
+    expect(body.cache_ttl_seconds).withContext('absurd TTL → clamped to the 86400 max').toBe(86400);
+  });
+
+  it('saveDetail preserves a CLEARED (null) rate/TTL — server applies its default, not coerced to 0', () => {
+    const c = buildSpies();
+    c.detail.set({
+      id: 'e9', language: 'ts', files: [], bindings: [],
+      auth_mode: 'none', rate_limit_per_sec: null, cache_ttl_seconds: null, cron_expression: null,
+    } as never);
+    c.saveDetail();
+    const body = put.calls.mostRecent().args[1] as { rate_limit_per_sec: number | null; cache_ttl_seconds: number | null };
+    expect(body.rate_limit_per_sec).withContext('cleared field stays null → server default').toBeNull();
+    expect(body.cache_ttl_seconds).toBeNull();
+  });
 });
 
 /**

@@ -529,11 +529,15 @@ interface InlineEdit {
                 </label>
                 <label class="opt">
                   <span>Rate / s</span>
-                  <input hlmInput type="number" min="0" [(ngModel)]="d.rate_limit_per_sec" (ngModelChange)="markDetailDirty()" />
+                  <input hlmInput type="number" min="0" max="10000" step="1" placeholder="default 60"
+                         aria-label="Rate limit per second (0–10000)"
+                         [(ngModel)]="d.rate_limit_per_sec" (ngModelChange)="markDetailDirty()" />
                 </label>
                 <label class="opt">
                   <span>Cache TTL</span>
-                  <input hlmInput type="number" min="0" [(ngModel)]="d.cache_ttl_seconds" (ngModelChange)="markDetailDirty()" />
+                  <input hlmInput type="number" min="0" max="86400" step="1" placeholder="seconds"
+                         aria-label="Cache TTL in seconds (0–86400)"
+                         [(ngModel)]="d.cache_ttl_seconds" (ngModelChange)="markDetailDirty()" />
                 </label>
                 <label class="opt">
                   <span>Cron</span>
@@ -1208,6 +1212,17 @@ export class AdminAiEndpointsComponent implements OnInit {
 
   markDetailDirty(): void { this.detailDirty.set(true); }
 
+  /**
+   * Clamp a config integer to [0, max]. `null`/empty/NaN passes through as null
+   * so a CLEARED field lets the server apply its own default (never coerce it to
+   * 0). Guards against negative/absurd values reaching the server — the input's
+   * `min`/`max` only constrain the spinner, not a paste or typed value.
+   */
+  private clampConfigInt(v: number | null | undefined, max: number): number | null {
+    if (v == null || Number.isNaN(Number(v))) return null;
+    return Math.max(0, Math.min(max, Math.round(Number(v))));
+  }
+
   saveDetail(): void {
     // Busy-guard: the IDE Save button (`(click)="save.emit()"`, no [disabled]) always
     // emits, so a rapid double-click bypasses the overlay's [disabled]="saving()" guard
@@ -1224,8 +1239,8 @@ export class AdminAiEndpointsComponent implements OnInit {
       files: d.files,
       bindings: d.bindings,
       auth_mode: d.auth_mode,
-      rate_limit_per_sec: d.rate_limit_per_sec,
-      cache_ttl_seconds: d.cache_ttl_seconds,
+      rate_limit_per_sec: this.clampConfigInt(d.rate_limit_per_sec, 10000),
+      cache_ttl_seconds: this.clampConfigInt(d.cache_ttl_seconds, 86400),
       cron_expression: d.cron_expression,
     }, { silent: true }).subscribe({
       next: () => {
