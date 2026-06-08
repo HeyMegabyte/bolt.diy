@@ -57,14 +57,15 @@ interface SiteFeature {
  * with the worker catalog when features are added/removed.
  */
 const SITE_FEATURE_CATALOG_DISPLAY: ReadonlyArray<Omit<SiteFeature, 'entitled' | 'enabled' | 'preview'>> = [
-  { key: 'native_booking_engine', name: 'Online Booking', description: 'Let visitors book appointments with availability, deposits, and reminders — right on your site.', requiredPlan: 'pro', isAddon: false, category: 'Sell' },
-  { key: 'donations_engine', name: 'Donations', description: 'Accept one-time and recurring gifts with a beautiful donate page.', requiredPlan: 'free', isAddon: false, category: 'Sell' },
-  { key: 'newsletter_engine', name: 'Newsletter', description: 'Collect subscribers and send branded campaigns from your own domain.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
-  { key: 'ecommerce_engine', name: 'Online Store', description: 'Full product catalog, cart, and checkout backed by a real commerce engine.', requiredPlan: 'business', isAddon: false, category: 'Sell' },
-  { key: 'membership_paywall', name: 'Members & Paywall', description: 'Gate premium pages behind paid membership tiers.', requiredPlan: 'business', isAddon: false, category: 'Sell' },
-  { key: 'enterprise_sso', name: 'Single Sign-On (SSO)', description: 'SAML / OIDC login for your whole team via Okta, Azure AD, or Auth0.', requiredPlan: 'enterprise', isAddon: false, category: 'Trust' },
-  { key: 'brand_voice_clone', name: 'AI Voice Clone', description: 'A branded AI voice for podcasts, tours, and phone greetings.', requiredPlan: 'enterprise', isAddon: true, category: 'Grow' },
-  { key: 'site_mcp_server', name: 'AI Assistant Access', description: 'Make your site queryable by Siri, Claude, and ChatGPT.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
+  { key: 'donations_engine', name: 'Donations', description: 'Add a donate page to your site; payments are processed securely through Stripe via the site form handler.', requiredPlan: 'free', isAddon: false, category: 'Sell' },
+  { key: 'email_marketing', name: 'Newsletter', description: 'Collect subscribers and send branded email campaigns from your own domain.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
+  { key: 'seo_autopilot', name: 'AI SEO Autopilot', description: 'AI writes titles, meta, and answer blocks per page and keeps stale sections fresh — you approve before it applies.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
+  { key: 'gbp_assist', name: 'Google Business Profile', description: 'One-click setup + AI-optimized content for your Google Business Profile so you show up in local search and Maps.', requiredPlan: 'pro', isAddon: false, category: 'Grow' },
+  { key: 'search_engine_submit', name: 'Instant Indexing', description: 'Auto-submit new and updated pages to Google and Bing the moment you publish.', requiredPlan: 'free', isAddon: false, category: 'Grow' },
+  { key: 'pseo_matrix_v2', name: 'Local SEO Pages', description: 'Auto-generate location and service landing pages from real data to rank for "near me" searches.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
+  { key: 'unified_inbox', name: 'Visitor Inbox', description: 'Every form, chat, and message from your site in one inbox, with AI-drafted replies.', requiredPlan: 'pro', isAddon: false, category: 'Engage' },
+  { key: 'automation_builder', name: 'Automations', description: 'No-code "when this, do that" recipes — e.g. new lead → email + Slack ping.', requiredPlan: 'business', isAddon: false, category: 'Engage' },
+  { key: 'site_mcp_server', name: 'AI Assistant Access', description: 'Make your site queryable by Siri, Claude, and ChatGPT via a per-site MCP server.', requiredPlan: 'business', isAddon: false, category: 'Grow' },
 ];
 
 /** Mirror of the worker's entitlement logic for the read-only fallback (assumes the free tier — the live API supplies the real plan). */
@@ -92,7 +93,7 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
             <strong>@if (statsLoading()) { <span class="sf-stat-dots" aria-label="Loading">…</span> } @else { <app-rolling-counter [value]="enabledCount()" /> }</strong> enabled ·
             <strong>@if (statsLoading()) { <span class="sf-stat-dots" aria-label="Loading">…</span> } @else { <app-rolling-counter [value]="availableCount()" /> }</strong> available on your {{ plan() }} plan.
             Platform operators manage system flags under
-            <a routerLink="/admin/feature-flags" data-testid="sf-nav-system" class="sf-cross-link">System Administrator →</a>.
+            <a routerLink="/admin/feature-flags" data-testid="sf-nav-system" class="sf-cross-link">Feature Flags →</a>.
           </p>
         </div>
         <div class="sf-head-right">
@@ -123,6 +124,7 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
         <app-error-card
           title="Couldn't load features"
           [message]="error()!"
+          [correlationId]="loadErrorRef()"
           hint="The owner feature catalog lives behind GET /api/site-features. Retry, or check you're signed in."
           (retry)="reload()" />
       } @else if (features().length === 0) {
@@ -324,6 +326,8 @@ export class AdminSiteFeaturesComponent implements OnInit {
 
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+  /** Worker request_id from a transient catalog-load failure → copyable support reference on the error card. */
+  readonly loadErrorRef = signal('');
   readonly features = signal<SiteFeature[]>([]);
   readonly plan = signal<PlanTier>('free');
   /** Read-only fallback active: the live /api/site-features route isn't serving JSON yet, so the catalog is shown but not togglable. */
@@ -426,6 +430,7 @@ export class AdminSiteFeaturesComponent implements OnInit {
   async reload(): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
+    this.loadErrorRef.set('');
     try {
       const res = await firstValueFrom(
         this.api.get<{ features: SiteFeature[]; plan: PlanTier }>(`/site-features${this.siteQuery}`),
@@ -451,6 +456,7 @@ export class AdminSiteFeaturesComponent implements OnInit {
       const status = (e as { status?: number })?.status;
       if (status !== undefined && status >= 400 && status !== 404) {
         this.error.set((e as Error).message ?? 'unknown error');
+        this.loadErrorRef.set(this.requestIdFrom(e));
       } else {
         this.enterFallbackMode();
       }
@@ -472,6 +478,11 @@ export class AdminSiteFeaturesComponent implements OnInit {
         preview: false,
       })),
     );
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: unknown): string {
+    return ((e as { error?: { error?: { request_id?: string } } } | undefined)?.error?.error?.request_id) ?? '';
   }
 
   togglePreview(f: SiteFeature): void {

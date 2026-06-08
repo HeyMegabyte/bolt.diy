@@ -106,6 +106,15 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     expect(fixture.nativeElement.querySelector('app-skeleton')).toBeNull();
   });
 
+  it('captures the request_id from a transient (5xx) catalog failure (copyable support reference)', async () => {
+    await build(null); // GET pending → we flush a 5xx with a request_id body
+    httpMock.expectOne(GET_URL).flush({ error: { request_id: 'req-sf-9' } }, { status: 500, statusText: 'Error' });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(component.error()).withContext('transient failure shows the error card').toBeTruthy();
+    expect(component.loadErrorRef()).withContext('support reference captured').toBe('req-sf-9');
+  });
+
   it('a 404 (catalog route not provisioned for this site yet) → calm read-only fallback, NOT a scary red error card', async () => {
     // A 404 is permanent until the worker route is live — a red "Couldn't load /
     // Retry / check you're signed in" card is the wrong signal (Retry is futile,
@@ -118,7 +127,7 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     const host = fixture.nativeElement as HTMLElement;
     expect(host.querySelector('app-error-card')).withContext('no scary red error card for a 404').toBeNull();
     expect(host.querySelector('[data-testid="sf-provisioning"]')).withContext('calm provisioning banner instead').not.toBeNull();
-    expect(host.querySelectorAll('.sf-card').length).withContext('catalog shown read-only, not blank').toBe(8);
+    expect(host.querySelectorAll('.sf-card').length).withContext('catalog shown read-only, not blank').toBe(9);
   });
 
   it('falls back to the read-only catalog + provisioning banner when the route returns no JSON catalog', async () => {
@@ -128,7 +137,7 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     expect(component.degraded()).withContext('degraded fallback active').toBeTrue();
     const host = fixture.nativeElement as HTMLElement;
     expect(host.querySelector('[data-testid="sf-provisioning"]')).withContext('provisioning banner shown').not.toBeNull();
-    expect(host.querySelectorAll('.sf-card').length).withContext('8-feature catalog rendered, not blank').toBe(8);
+    expect(host.querySelectorAll('.sf-card').length).withContext('9-feature catalog rendered, not blank').toBe(9);
     expect(host.querySelector('app-empty-state')).withContext('no misleading "No features yet" empty-state').toBeNull();
   });
 
