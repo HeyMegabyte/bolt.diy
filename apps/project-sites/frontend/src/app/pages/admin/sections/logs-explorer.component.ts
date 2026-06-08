@@ -162,12 +162,12 @@ const LEVEL_COLORS: Record<string, string> = {
                   class="cost-bar-fill absolute inset-y-0 left-0 bg-[--ps-accent] opacity-20 rounded"
                   [style.width.%]="row.cost_share_pct"
                 ></div>
-                <span class="absolute inset-y-0 left-2 flex items-center text-[0.65rem] text-white/70">
-                  {{ row.request_count }} req · {{ row.avg_duration_ms | number:'1.0-0' }}ms avg
-                  @if (row.error_count > 0) { · <span class="text-red-400">{{ row.error_count }} err</span> }
+                <span class="absolute inset-y-0 left-2 flex items-center text-[0.65rem] text-white/70 tabular-nums">
+                  {{ row.request_count | number:'1.0-0' }} req · {{ row.avg_duration_ms | number:'1.0-0' }}ms avg
+                  @if (row.error_count > 0) { · <span class="text-red-400">{{ row.error_count | number:'1.0-0' }} err</span> }
                 </span>
               </div>
-              <span class="text-[0.65rem] text-[--ps-accent] w-12 text-right shrink-0">
+              <span class="text-[0.65rem] text-[--ps-accent] w-12 text-right shrink-0 tabular-nums">
                 {{ (row.cost_share_pct) | number:'1.1-1' }}%
               </span>
             </div>

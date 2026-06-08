@@ -248,4 +248,21 @@ describe('AdminLogsExplorerComponent — range pills hidden when flag-gated (rea
     expect(css).withContext('.chip focus-visible ring').toMatch(/\.chip\[[^\]]+\]:focus-visible/);
     expect(css).withContext('focus-visible rules use outline').toMatch(/:focus-visible\s*\{[^}]*outline/);
   });
+
+  // Cost-attribution rows: request/error counts are thousands-formatted (readability)
+  // and the numeric spans use tabular-nums so digits don't jiggle the row on refresh.
+  it('renders cost-row request/error counts with thousands separators + tabular-nums', () => {
+    const fx = render();
+    fx.componentInstance.costRows.set([
+      { route: '/api/ai/x', request_count: 12453, avg_duration_ms: 240, error_count: 1200, cost_share_pct: 42.5 } as never,
+    ]);
+    fx.detectChanges();
+    const host = fx.nativeElement as HTMLElement;
+    const row = host.querySelector('.cost-row');
+    expect(row).withContext('cost row renders').not.toBeNull();
+    expect(row!.textContent).withContext('request_count thousands-separated').toContain('12,453');
+    expect(row!.textContent).withContext('error_count thousands-separated').toContain('1,200');
+    // both numeric spans carry tabular-nums (no digit-width jiggle on update)
+    expect(row!.querySelectorAll('.tabular-nums').length).withContext('numeric spans use tabular-nums').toBeGreaterThanOrEqual(2);
+  });
 });
