@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { of, throwError } from 'rxjs';
 import { Router, provideRouter } from '@angular/router';
 import { AdminSitesComponent } from './sites.component';
+import { RevealDirective } from '../../../directives/reveal.directive';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 
@@ -457,5 +459,51 @@ describe('AdminSitesComponent (row-link focus ring)', () => {
         .withContext('every row link has the cyan focus-visible ring')
         .toContain('focus-visible:outline-[var(--ps-accent)]');
     }
+  });
+});
+
+/**
+ * Cinematic cohesion ([[cinematic-ui-patterns]]): the main /admin/sites list —
+ * the highest-traffic admin surface — must stagger-reveal its sections on first
+ * paint via `appReveal`, like every sibling list section (marketplace/audit/…).
+ * It previously used only a plain root `animate-fade-in` with no per-section
+ * reveal, reading as static next to the rest of the cockpit.
+ */
+describe('AdminSitesComponent (appReveal cinematic cohesion)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('reveals the header, filter row, and table region with appReveal', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminSitesComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: [], sites: [] }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, show: () => 0 } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSitesComponent);
+    fx.detectChanges();
+    // Load a row so the @else branch (filter row + table region) renders.
+    fx.componentInstance.rows.set([
+      {
+        site_id: 's1',
+        slug: 'acme',
+        business_name: 'Acme',
+        composite_score: 88,
+        daily: [],
+        latest: { lcp_ms: null, cls: null, inp_ms: null, lh_perf: null, captured_at: null },
+      },
+    ] as never);
+    fx.componentInstance.loading.set(false);
+    fx.detectChanges();
+    const revealed = fx.debugElement.queryAll(By.directive(RevealDirective));
+    // header + filter row + table region (≥3); siblings apply it to each section.
+    expect(revealed.length)
+      .withContext('header, filter, and table region each stagger-reveal')
+      .toBeGreaterThanOrEqual(3);
+    const host = fx.nativeElement as HTMLElement;
+    expect(host.querySelector('header')?.hasAttribute('appReveal'))
+      .withContext('the header element carries appReveal')
+      .toBe(true);
   });
 });

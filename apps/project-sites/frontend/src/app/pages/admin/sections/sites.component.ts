@@ -20,6 +20,7 @@ import {
 } from '../../../components/states';
 import { HlmCheckboxDirective } from '../../../ui';
 import { SyncedPillComponent } from '../../../components/synced-pill/synced-pill.component';
+import { RevealDirective } from '../../../directives/reveal.directive';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 
@@ -52,7 +53,7 @@ type SortKey = 'name' | 'lcp' | 'cls' | 'inp' | 'lh' | 'composite';
 type Tier = 'green' | 'yellow' | 'red' | 'neutral';
 
 @Component({
-  imports: [RouterModule, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, HlmCheckboxDirective, SyncedPillComponent],
+  imports: [RouterModule, RevealDirective, SkeletonComponent, EmptyStateComponent, ErrorCardComponent, HlmCheckboxDirective, SyncedPillComponent],
   selector: 'app-admin-sites',
   standalone: true,
   styles: [`
@@ -69,7 +70,7 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
   `],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-5">
-      <header class="flex items-center justify-between gap-4">
+      <header class="flex items-center justify-between gap-4" appReveal>
         <div>
           <h1 class="text-[1.4rem] font-semibold text-white">Sites — Web Vitals heatmap</h1>
           <p class="text-[0.82rem] text-white/55 mt-1">
@@ -126,7 +127,7 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
           (ctaClick)="createSite()" />
       } @else {
         <!-- Free-text filter: narrow a multi-site table by name/slug; composes with sort. -->
-        <div class="flex items-center gap-2.5">
+        <div class="flex items-center gap-2.5" appReveal>
           <div class="relative flex-1 max-w-xs">
             <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/35 pointer-events-none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             <input type="text" [value]="filterText()" (input)="filterText.set($any($event.target).value)"
@@ -156,7 +157,7 @@ type Tier = 'green' | 'yellow' | 'red' | 'neutral';
                     class="mt-2 text-[0.78rem] text-[var(--ps-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ps-accent)] rounded">Clear filter</button>
           </div>
         } @else {
-        <div class="rounded-xl border border-white/10 bg-white/[0.02] overflow-x-auto" tabindex="0" role="region" aria-label="Sites table — scroll horizontally">
+        <div class="rounded-xl border border-white/10 bg-white/[0.02] overflow-x-auto" tabindex="0" role="region" aria-label="Sites table — scroll horizontally" appReveal>
           <table class="w-full text-[0.85rem] text-left">
             <thead class="bg-white/[0.03] text-[0.7rem] uppercase tracking-wider text-white/60">
               <tr>
