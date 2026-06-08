@@ -595,6 +595,7 @@ const PROVIDERS = MCP_PROVIDERS;
                 } @else if (pasteMode() === p.id) {
                   <div class="mt-1 flex gap-2">
                     <input hlmInput type="password" class="flex-1 font-mono text-[0.72rem]"
+                           [attr.aria-label]="'API key for ' + p.id"
                            [placeholder]="pastePlaceholder(p.id)" [(ngModel)]="pastedKey" />
                     <button class="mcp-btn mcp-btn-solid" (click)="submitPaste(p.id)" [disabled]="pasteSaving()">{{ pasteSaving() ? 'Saving…' : 'Save' }}</button>
                   </div>

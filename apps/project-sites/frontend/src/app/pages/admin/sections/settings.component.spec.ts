@@ -499,6 +499,49 @@ describe('AdminSettingsComponent (2FA toggle async-save is announced to AT)', ()
 });
 
 /**
+ * WCAG 4.1.2 — the MCP paste-key flow renders a password <input> with only a
+ * dynamic [placeholder] and no <label>/aria-label, so a screen reader announced
+ * it with no purpose. It now carries a provider-scoped accessible name
+ * ('API key for ' + p.id). The paste branch only renders when the provider is
+ * NOT connected (connections() = []) and pasteMode() === p.id.
+ */
+describe('AdminSettingsComponent (MCP paste-key input accessible name)', () => {
+  function render(): ComponentFixture<AdminSettingsComponent> {
+    TestBed.configureTestingModule({
+      imports: [AdminSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: null }), put: () => of({}), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+        { provide: Router, useValue: { navigate: () => undefined } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'demo' }), loadData: () => undefined } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSettingsComponent);
+    fx.detectChanges();                    // ngOnInit may set the tab from the route
+    fx.componentInstance.tab.set('mcp');   // the provider catalogue lives in the MCP tab
+    return fx;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('gives the MCP paste-key input a provider-scoped accessible name', () => {
+    const fx = render();
+    const c = fx.componentInstance;
+    // First provider in the frozen catalogue (resend) — not connected by default
+    // (connections() = []), so the @else if (pasteMode() === p.id) branch renders.
+    const providerId = c.providers[0].id;
+    c.connections.set([]);
+    c.pasteMode.set(providerId);
+    fx.detectChanges();
+    const el = fx.nativeElement as HTMLElement;
+    const input = el.querySelector('input[type="password"][placeholder]') as HTMLInputElement | null;
+    expect(input).withContext('paste-key input rendered in the MCP tab').toBeTruthy();
+    expect(input!.getAttribute('aria-label')).toBe('API key for ' + providerId);
+  });
+});
+
+/**
  * MCP-connection disconnect is toast-armed (7s action, re-clickable mid-async).
  * A second disconnect of the same connection while one is in flight must NOT
  * fire a duplicate DELETE.

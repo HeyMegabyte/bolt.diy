@@ -261,6 +261,7 @@ function renderMarkdown(md: string): string {
               type="text"
               class="w-full mb-3"
               placeholder="Filter folders…"
+              aria-label="Filter folders"
               [(ngModel)]="folderQuery"
               (input)="loadFolders()"
             />

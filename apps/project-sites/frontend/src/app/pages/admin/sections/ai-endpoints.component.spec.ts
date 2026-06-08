@@ -380,6 +380,44 @@ describe('AdminAiEndpointsComponent — mutation handlers guard against double-s
   });
 });
 
+/**
+ * WCAG 4.1.2 — the "Describe an agent" suggest textarea (placeholder-only) and the
+ * quick-test request-body textarea (no placeholder at all) had no accessible name.
+ * Added aria-label to both. Both only render once their respective state signal is set
+ * (aiSuggesting / quickTesting), so we enter those states before asserting.
+ */
+describe('AdminAiEndpointsComponent (suggest + quick-test textarea accessible names)', () => {
+  function render() {
+    TestBed.configureTestingModule({
+      imports: [AdminAiEndpointsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({}), put: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    return TestBed.createComponent(AdminAiEndpointsComponent);
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('both the suggest textarea and the quick-test body textarea have accessible names', () => {
+    const fx = render();
+    fx.componentInstance.aiSuggesting.set(true);
+    fx.componentInstance.quickTesting.set({ id: 'e1', endpoint_slug: 'hello', language: 'js', method: 'GET' } as never);
+    fx.detectChanges();
+    const el = fx.nativeElement as HTMLElement;
+
+    const suggest = el.querySelector('[data-testid="ai-endpoint-suggest-input"]');
+    expect(suggest).withContext('suggest textarea renders when aiSuggesting is true').not.toBeNull();
+    expect(suggest!.getAttribute('aria-label')).toBe('Describe what your agent should do');
+
+    const body = el.querySelector('textarea[aria-label="Request body (JSON)"]');
+    expect(body).withContext('quick-test body textarea renders when quickTesting is set').not.toBeNull();
+    expect(body!.getAttribute('aria-label')).toBe('Request body (JSON)');
+  });
+});
+
 describe('AdminAiEndpointsComponent (⋯ popover Esc dismiss)', () => {
   afterEach(() => TestBed.resetTestingModule());
   it('Esc closes the open ⋯ popover (keyboard dismiss)', () => {
