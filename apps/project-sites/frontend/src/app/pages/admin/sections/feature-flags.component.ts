@@ -29,6 +29,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
 import { HttpClient } from '@angular/common/http';
+import { AuthService } from '../../../services/auth.service';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ToastService } from '../../../services/toast.service';
@@ -601,6 +602,19 @@ export class AdminFeatureFlagsComponent implements OnInit {
   private readonly state = inject(AdminStateService);
   private readonly flagSvc = inject(FeatureFlagService);
   private readonly route = inject(ActivatedRoute);
+  private readonly auth = inject(AuthService);
+
+  /**
+   * Bearer header for the super-admin (`/api/super-admin/*`) calls. This
+   * component uses raw HttpClient (not ApiService, to avoid ApiService's
+   * 401→/signin redirect on a fail-soft call), so it must attach the token
+   * itself — otherwise the operator-gated endpoints 401 (the console error on
+   * the Feature Flags page). The public `/api/feature-flags` reads need none.
+   */
+  private superAdminHeaders(): Record<string, string> {
+    const t = this.auth.getToken();
+    return t ? { Authorization: `Bearer ${t}` } : {};
+  }
 
   private static readonly MODE_KEY = 'ff.mode.system';
 
@@ -881,7 +895,7 @@ export class AdminFeatureFlagsComponent implements OnInit {
       if (this.state.isSuperAdmin()) {
         try {
           const ov = await firstValueFrom(
-            this.http.get<{ flags: { key: string; enabled_globally: number | boolean; rollout_pct: number; kill_switch: number | boolean }[] }>('/api/super-admin/feature-flags'),
+            this.http.get<{ flags: { key: string; enabled_globally: number | boolean; rollout_pct: number; kill_switch: number | boolean }[] }>('/api/super-admin/feature-flags', { headers: this.superAdminHeaders() }),
           );
           const byKey = new Map((ov.flags ?? []).map((o) => [o.key, o] as const));
           flags = flags.map((f) => {
@@ -929,7 +943,7 @@ export class AdminFeatureFlagsComponent implements OnInit {
     }
     // Per-flag audit history (super-admin only; fail-soft to empty).
     try {
-      const a = await firstValueFrom(this.http.get<{ entries: AuditEntry[] }>(`/api/super-admin/feature-flags/${flag.key}/audit`));
+      const a = await firstValueFrom(this.http.get<{ entries: AuditEntry[] }>(`/api/super-admin/feature-flags/${flag.key}/audit`, { headers: this.superAdminHeaders() }));
       this.auditDetail.set(a.entries ?? []);
     } catch {
       this.auditDetail.set([]);
@@ -1007,12 +1021,12 @@ export class AdminFeatureFlagsComponent implements OnInit {
     this.flags.update((flags) => flags.map((f) => (f.key === flag.key ? optimistic(f) : f)));
     this.busy.update((b) => ({ ...b, [flag.key]: true }));
     try {
-      await firstValueFrom(this.http.post('/api/super-admin/feature-flags', { key: flag.key, ...patch, ...(reason ? { reason } : {}) }));
+      await firstValueFrom(this.http.post('/api/super-admin/feature-flags', { key: flag.key, ...patch, ...(reason ? { reason } : {}) }, { headers: this.superAdminHeaders() }));
       this.flagSvc.invalidate(flag.key);
       this.toast.success(`${flag.key}: ${label}`);
       if (this.detailKey() === flag.key) {
         try {
-          const a = await firstValueFrom(this.http.get<{ entries: AuditEntry[] }>(`/api/super-admin/feature-flags/${flag.key}/audit`));
+          const a = await firstValueFrom(this.http.get<{ entries: AuditEntry[] }>(`/api/super-admin/feature-flags/${flag.key}/audit`, { headers: this.superAdminHeaders() }));
           this.auditDetail.set(a.entries ?? []);
         } catch { /* keep prior */ }
       }
@@ -1146,7 +1160,7 @@ export class AdminFeatureFlagsComponent implements OnInit {
     let fail = 0;
     for (const f of targets) {
       try {
-        await firstValueFrom(this.http.post('/api/super-admin/feature-flags', { key: f.key, kill_switch: true, enabled_globally: false, rollout_pct: 0, reason }));
+        await firstValueFrom(this.http.post('/api/super-admin/feature-flags', { key: f.key, kill_switch: true, enabled_globally: false, rollout_pct: 0, reason }, { headers: this.superAdminHeaders() }));
         this.flagSvc.invalidate(f.key);
         ok += 1;
       } catch {

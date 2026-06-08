@@ -222,11 +222,13 @@ export class AdminComponent implements OnInit, OnDestroy {
     this.state.loadData();
     this.state.startPolling();
     this.seedNotifications();
-    // Item 1 (perf): kick off the bolt.diy editor pre-warm the moment the
-    // user lands on /admin — even before a site is selected. By the time
-    // they click "Editor" the WebContainer cold-boot tax has been paid in a
-    // hidden tab. Idempotent + cleaned up on teardown.
-    this.bolt.prewarmEditor();
+    // NOTE: we deliberately do NOT prewarm the bolt.diy editor here anymore.
+    // Prewarming booted a full Node-in-browser WebContainer + Vite dev server on
+    // EVERY admin route (dashboard, feature-flags, …) — spamming the console with
+    // bolt/LLMManager/webcontainer logs and lagging the whole admin — and its
+    // `<link rel="prefetch">` to editor.projectsites.dev failed CORS anyway. The
+    // editor now boots lazily on first /admin/editor visit (see bootEffect) and
+    // stays warm thereafter.
   }
 
   ngAfterViewInit(): void {
@@ -236,13 +238,18 @@ export class AdminComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Effect: pre-boot the bolt.diy iframe as soon as a site is selected, even
-   * when the user is on a different admin sub-route. By the time they click
-   * "Editor" the iframe is already running.
+   * Effect: boot the bolt.diy iframe ONLY when the user is actually on the
+   * editor route. Booting it on every admin route ran a heavyweight
+   * WebContainer (Node + Vite + 22 LLM providers) in the background on the
+   * dashboard / feature-flags / etc. — the source of the console spam + lag.
+   * Once booted it stays loaded (persistent iframe) so returning to the editor
+   * is instant; non-editor routes never pay the cost until you open the editor.
    */
   private bootEffect = effect(() => {
     const site = this.state.selectedSite();
-    this.bolt.bootForSite(site ?? null);
+    if (this.isEditorRoute()) {
+      this.bolt.bootForSite(site ?? null);
+    }
   });
 
   ngOnDestroy(): void {
