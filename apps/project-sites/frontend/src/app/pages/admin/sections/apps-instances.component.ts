@@ -516,7 +516,17 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
     this.runAction(inst, this.api.post(`/apps/instances/${inst.id}/restart`, {}), `Restarting ${this.nameFor(inst)}…`);
   }
 
-  stopInstance(inst: AppInstance): void {
+  async stopInstance(inst: AppInstance): Promise<void> {
+    // Stopping a running instance takes the live service offline until someone
+    // manually restarts it — confirm so a misclick (Stop sits right above Delete
+    // in the ⋯ menu) never drops a customer-facing app. Reversible → non-danger.
+    const ok = await this.confirmSvc.confirm({
+      title: 'Stop instance',
+      message: `Stop "${this.nameFor(inst)}"? It goes offline until you restart it — visitors will see it as unavailable.`,
+      confirmLabel: 'Stop',
+      danger: false,
+    });
+    if (!ok) return;
     this.runAction(inst, this.api.post(`/apps/instances/${inst.id}/stop`, {}), `Stopping ${this.nameFor(inst)}…`);
   }
 

@@ -66,10 +66,20 @@ describe('AppInstancesComponent (instance lifecycle)', () => {
     expect(c.acting()).toBeNull();
   });
 
-  it('stopInstance POSTs to the stop endpoint', () => {
-    const { c, api } = make();
-    c.stopInstance(inst('i4'));
+  // Stopping a RUNNING instance takes a live customer-facing service offline
+  // (down until manually restarted) — a misclick in the ⋯ menu (right above
+  // Delete) shouldn't drop the app. Confirm-gated like delete (reversible, so
+  // non-danger), never a silent outage.
+  it('stopInstance POSTs to the stop endpoint only after the confirm is accepted', async () => {
+    const { c, api } = make({ confirm: () => Promise.resolve(true) });
+    await c.stopInstance(inst('i4'));
     expect(api.post).toHaveBeenCalledWith('/apps/instances/i4/stop', {});
+  });
+
+  it('stopInstance does NOT POST when the confirm is cancelled (no accidental outage)', async () => {
+    const { c, api } = make({ confirm: () => Promise.resolve(false) });
+    await c.stopInstance(inst('i4'));
+    expect(api.post).not.toHaveBeenCalled();
   });
 
   it('a second action is blocked while one is in flight (no double-run)', () => {
