@@ -307,10 +307,16 @@ interface AuditExport {
             </label>
             <label>
               Range end
-              <input hlmInput type="date" [ngModel]="rangeEnd()" (ngModelChange)="rangeEnd.set($event)" />
+              <input hlmInput type="date" [ngModel]="rangeEnd()" (ngModelChange)="rangeEnd.set($event)"
+                     [attr.aria-invalid]="rangeInvalid() || null"
+                     [attr.aria-describedby]="rangeInvalid() ? 'export-range-err' : null" />
             </label>
           </div>
-          <button class="btn-primary text-xs" (click)="enqueueExport()" [disabled]="enqueueing()">
+          @if (rangeInvalid()) {
+            <p id="export-range-err" class="text-[0.72rem] text-[#ff8888] m-0 mb-2" role="alert">End date must be on or after the start date.</p>
+          }
+          <button class="btn-primary text-xs" (click)="enqueueExport()" [disabled]="enqueueing() || rangeInvalid()"
+                  [attr.title]="rangeInvalid() ? 'Fix the date range before enqueueing' : null">
             {{ enqueueing() ? 'Enqueueing…' : 'Enqueue export' }}
           </button>
 
@@ -413,6 +419,14 @@ export class AdminEnterpriseComponent {
   readonly ssoMetadataUrl = signal<string | null>(null);
   readonly rangeStart = signal<string>('');
   readonly rangeEnd = signal<string>('');
+  /** A reversed range (end before start) is invalid input — gates the Enqueue
+   *  button + handler so it never reaches the server. ISO YYYY-MM-DD compares
+   *  lexically. An INCOMPLETE range isn't "invalid" here (the present-check owns it). */
+  readonly rangeInvalid = computed(() => {
+    const s = this.rangeStart();
+    const e = this.rangeEnd();
+    return !!s && !!e && e < s;
+  });
 
   readonly annualValueDollars = (): number =>
     Math.round(this.annualValueCents() / 100);
@@ -625,6 +639,10 @@ export class AdminEnterpriseComponent {
     if (this.enqueueing()) return;
     if (!this.rangeStart() || !this.rangeEnd()) {
       this.toast.error('Pick a start + end date');
+      return;
+    }
+    if (this.rangeInvalid()) {
+      this.toast.error('End date must be on or after the start date');
       return;
     }
     this.enqueueing.set(true);

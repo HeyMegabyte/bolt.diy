@@ -481,3 +481,57 @@ describe('AdminEnterpriseComponent (Save button hidden in the gated state — fu
     expect(acv!.getAttribute('step')).withContext('cents are whole numbers').toBe('1');
   });
 });
+
+/**
+ * Audit-export date-range validation: enqueueExport() checked both dates were
+ * PRESENT but not that end >= start, so a reversed range (end before start) got
+ * POSTed to the server as invalid input. `rangeInvalid()` gates the handler +
+ * the button. ISO `YYYY-MM-DD` strings compare lexically, so `end < start` works.
+ */
+describe('AdminEnterpriseComponent (audit-export date-range validation)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeRange(): { c: AdminEnterpriseComponent; post: jasmine.Spy; toastErr: jasmine.Spy } {
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: {} }));
+    const toastErr = jasmine.createSpy('error');
+    TestBed.configureTestingModule({
+      imports: [AdminEnterpriseComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), put: () => of({}), post } },
+        { provide: ToastService, useValue: { error: toastErr, success: () => 0 } },
+        { provide: FeatureFlagService, useValue: { isOn: () => of(false) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminEnterpriseComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminEnterpriseComponent).componentInstance, post, toastErr };
+  }
+
+  it('rangeInvalid() is true when the end date is before the start date', () => {
+    const { c } = makeRange();
+    c.rangeStart.set('2026-06-10'); c.rangeEnd.set('2026-06-01');
+    expect(c.rangeInvalid()).toBeTrue();
+  });
+
+  it('rangeInvalid() is false for a valid range and for an incomplete one', () => {
+    const { c } = makeRange();
+    c.rangeStart.set('2026-06-01'); c.rangeEnd.set('2026-06-10');
+    expect(c.rangeInvalid()).withContext('end after start').toBeFalse();
+    c.rangeEnd.set('');
+    expect(c.rangeInvalid()).withContext('incomplete range is not "invalid" — the present-check owns that').toBeFalse();
+  });
+
+  it('enqueueExport() rejects an inverted range — toast error, NEVER POSTs invalid input', () => {
+    const { c, post, toastErr } = makeRange();
+    c.rangeStart.set('2026-06-10'); c.rangeEnd.set('2026-06-01');
+    c.enqueueExport();
+    expect(post).withContext('never POST an invalid range to the server').not.toHaveBeenCalled();
+    expect(toastErr).toHaveBeenCalled();
+  });
+
+  it('enqueueExport() POSTs a valid range', () => {
+    const { c, post } = makeRange();
+    c.rangeStart.set('2026-06-01'); c.rangeEnd.set('2026-06-10');
+    c.enqueueExport();
+    expect(post).toHaveBeenCalled();
+  });
+});
