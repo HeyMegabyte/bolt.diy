@@ -9,6 +9,7 @@ import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { AdminStateService } from '../admin-state.service';
 import { FeatureFlagService } from '../../../services/feature-flag.service';
+import { AuthService } from '../../../services/auth.service';
 
 /**
  * First coverage for the Feature Flags admin section — the control surface for the
@@ -809,5 +810,59 @@ describe('AdminFeatureFlagsComponent (core_ sentinels are protected from disable
     expect(spy).withContext('no override path for a sentinel').not.toHaveBeenCalled();
     c.toggle(flag({ key: 'regular_feature', default_enabled: true }));
     expect(spy).withContext('non-sentinel still routes through requestOverride').toHaveBeenCalled();
+  });
+});
+
+/**
+ * Regression: the 401-on-update bug. This section calls the operator-gated
+ * `/api/super-admin/feature-flags` endpoints via raw HttpClient (deliberately,
+ * to dodge ApiService's 401→/signin redirect on the fail-soft super-admin
+ * overlay fetch), so it MUST attach the bearer itself — otherwise every flag
+ * mutation 401s ("Couldn't update <key> (HTTP 401 — sign in again). Reverted.").
+ * The auth-gap fix is `superAdminHeaders()`; this guards it from re-regressing.
+ */
+describe('AdminFeatureFlagsComponent (super-admin mutations carry the auth bearer)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  const flush = () => new Promise<void>((r) => setTimeout(r, 0));
+
+  function mkAuthed(post: jasmine.Spy, token: string | null): AdminFeatureFlagsComponent {
+    const get = jasmine.createSpy('get').and.callFake((url: string) =>
+      url.includes('/auth/me') ? of({ is_super_admin: false }) : of({ flags: [], count: 0 }));
+    TestBed.configureTestingModule({
+      imports: [AdminFeatureFlagsComponent],
+      providers: [
+        { provide: HttpClient, useValue: { get, post, patch: () => of({}) } },
+        { provide: AuthService, useValue: { getToken: () => token } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: AdminStateService, useValue: { selectedSite: signal(null), isSuperAdmin: () => false } },
+        { provide: FeatureFlagService, useValue: { invalidate: () => undefined, isOn: () => of(false) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
+      ],
+    });
+    TestBed.overrideComponent(AdminFeatureFlagsComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminFeatureFlagsComponent).componentInstance;
+  }
+
+  it('the override POST sends Authorization: Bearer <token> (the 401 fix)', async () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({}));
+    const c = mkAuthed(post, 'tok-abc');
+    // rollout 10 → 0 is a <25-pt drop ⇒ review-risk ⇒ direct apply ⇒ POST.
+    c.flags.set([flag({ key: 'site_analytics', default_enabled: true, default_rollout_percent: 10 })]);
+    c.toggle(c.flags()[0]);
+    await flush();
+    expect(post).toHaveBeenCalledTimes(1);
+    const opts = post.calls.mostRecent().args[2] as { headers?: Record<string, string> };
+    expect(opts?.headers?.['Authorization']).withContext('bearer attached → no 401').toBe('Bearer tok-abc');
+  });
+
+  it('omits the Authorization header when there is no session token (no "Bearer null")', async () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({}));
+    const c = mkAuthed(post, null);
+    c.flags.set([flag({ key: 'site_analytics', default_enabled: true, default_rollout_percent: 10 })]);
+    c.toggle(c.flags()[0]);
+    await flush();
+    const opts = post.calls.mostRecent().args[2] as { headers?: Record<string, string> };
+    expect(opts?.headers?.['Authorization']).withContext('no token → no bogus header').toBeUndefined();
   });
 });
