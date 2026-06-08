@@ -95,10 +95,20 @@ async function r2Size(key) {
   }
 }
 
-async function putWithRetry(key, file, ct) {
-  for (let a = 1; a <= 3; a++) {
+// Retries with EXPONENTIAL BACKOFF + jitter between attempts. Instant retries
+// (the old behaviour) all fire inside the same R2 hiccup and fail together —
+// a multi-second blip exhausted all 3 and dropped files (e.g. the 8 monaco
+// chunks on 2026-06-07, which needed a manual full re-run). Spacing 4 attempts
+// over ~3.5s rides out a transient blip. The success path adds ZERO delay
+// (the first `put` returns immediately), so a healthy deploy is unaffected.
+async function putWithRetry(key, file, ct, attempts = 4) {
+  for (let a = 1; a <= attempts; a++) {
     if (await put(key, file, ct)) return true;
-    process.stderr.write(`  retry ${a} ${key}\n`);
+    if (a < attempts) {
+      const delay = Math.min(2 ** (a - 1) * 500, 4000) + Math.floor(Math.random() * 250);
+      process.stderr.write(`  retry ${a}/${attempts - 1} in ${delay}ms: ${key}\n`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
   }
   return false;
 }
