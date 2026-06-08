@@ -140,6 +140,10 @@ interface InlineEdit {
             </select>
           }
           @if (hasActiveFilters()) {
+            <span class="text-[0.7rem] text-text-secondary tabular-nums"
+                  data-testid="ai-endpoints-filter-count" aria-live="polite">
+              {{ filteredEndpoints().length }} of {{ endpoints().length }}
+            </span>
             <button
               type="button"
               class="text-[0.7rem] text-primary hover:underline px-1"

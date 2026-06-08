@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AdminAiEndpointsComponent } from './ai-endpoints.component';
 import { ApiService } from '../../../services/api.service';
@@ -55,6 +56,36 @@ describe('AdminAiEndpointsComponent (filter no-match notice)', () => {
     c.endpoints.set([] as never);
     c.filterText.set('anything');
     expect(c.filterNoMatch()).toBeFalse();
+  });
+
+  // Filtered-result count chip ("N of M") — informs the user how many agents the
+  // active filter matched, parity with sites/feature-flags. Only when filtering.
+  it('shows a "N of M" count chip while filtering (and not when unfiltered)', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminAiEndpointsComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({}), put: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminAiEndpointsComponent);
+    fx.detectChanges();
+    fx.componentInstance.endpoints.set([
+      { id: '1', endpoint_slug: 'summarizer', method: 'POST', language: 'javascript', description: '' },
+      { id: '2', endpoint_slug: 'classifier', method: 'GET', language: 'python', description: '' },
+    ] as never);
+    fx.detectChanges();
+    const host = fx.nativeElement as HTMLElement;
+    expect(host.querySelector('[data-testid="ai-endpoints-filter-count"]'))
+      .withContext('no count chip when unfiltered').toBeNull();
+    fx.componentInstance.filterText.set('summar');
+    fx.detectChanges();
+    const chip = host.querySelector('[data-testid="ai-endpoints-filter-count"]');
+    expect(chip).withContext('count chip appears while filtering').not.toBeNull();
+    expect(chip?.textContent?.replace(/\s+/g, ' ').trim()).toBe('1 of 2');
   });
 });
 
