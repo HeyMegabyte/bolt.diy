@@ -656,7 +656,14 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
                   </label>
                 }
               </div>
-              <button class="btn-primary mt-3" type="button" (click)="saveEnv()" [disabled]="busy()">
+              @if (requiredEnvMissing().length) {
+                <p class="text-[0.72rem] m-0 mt-2" style="color: var(--ps-warning, #ffb454);" role="alert" data-testid="env-required-hint">
+                  Required before restart: {{ requiredEnvMissing().join(', ') }}
+                </p>
+              }
+              <button class="btn-primary mt-3" type="button" (click)="saveEnv()"
+                      [disabled]="busy() || requiredEnvMissing().length > 0"
+                      [attr.aria-disabled]="busy() || requiredEnvMissing().length > 0">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 Save &amp; restart
               </button>
@@ -1075,8 +1082,28 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Catalog env vars the USER must supply: required, NOT auto-resolved by the
+   * platform, NO default, and currently blank. Saving these empty would restart
+   * the container into a broken boot. Auto/defaulted required vars are filled by
+   * the worker, so they never count. Re-evals every CD (envValues is reactive
+   * via ngModel) so the button + hint stay live as the user types.
+   */
+  requiredEnvMissing(): string[] {
+    const app = this.catalogApp();
+    if (!app) return [];
+    return app.env
+      .filter((e) => e.required && !e.auto && e.default == null && !(this.envValues[e.key] ?? '').trim())
+      .map((e) => e.key);
+  }
+
   saveEnv(): void {
     const i = this.instance(); if (!i || this.busy()) return;
+    const missing = this.requiredEnvMissing();
+    if (missing.length) {
+      this.toast.error(`Fill required env before restart: ${missing.join(', ')}`);
+      return;
+    }
     this.busy.set(true);
     this.api.patch(`/apps/instances/${i.id}/env`, { env_overrides: this.envValues }).subscribe({
       next: () => { this.busy.set(false); this.toast.success('Env saved — restarting container'); this.load(); },

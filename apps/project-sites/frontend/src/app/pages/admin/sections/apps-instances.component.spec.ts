@@ -258,13 +258,14 @@ describe('AppInstancesComponent (⋯ row-menu Esc dismiss)', () => {
 import { ActivatedRoute } from '@angular/router';
 import { AppInstanceDetailComponent } from './apps-instances.component';
 describe('AppInstanceDetailComponent (destroy is modal-confirm-gated)', () => {
-  function makeDetail(confirm: () => Promise<boolean>): { c: AppInstanceDetailComponent; del: jasmine.Spy; post: jasmine.Spy } {
+  function makeDetail(confirm: () => Promise<boolean>): { c: AppInstanceDetailComponent; del: jasmine.Spy; post: jasmine.Spy; patch: jasmine.Spy } {
     const del = jasmine.createSpy('delete').and.returnValue(of({}));
     const post = jasmine.createSpy('post').and.returnValue(of({}));
+    const patch = jasmine.createSpy('patch').and.returnValue(of({}));
     TestBed.configureTestingModule({
       imports: [AppInstanceDetailComponent],
       providers: [
-        { provide: ApiService, useValue: { get: () => of({ instance: null }), post, delete: del } },
+        { provide: ApiService, useValue: { get: () => of({ instance: null }), post, patch, delete: del } },
         { provide: ToastService, useValue: { success: () => 0, error: () => 0, warning: () => 0 } },
         { provide: ConfirmService, useValue: { confirm } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'i1' } }, paramMap: of({ get: () => 'i1' }) } },
@@ -273,7 +274,7 @@ describe('AppInstanceDetailComponent (destroy is modal-confirm-gated)', () => {
     });
     const c = TestBed.createComponent(AppInstanceDetailComponent).componentInstance; // no detectChanges → skip ngOnInit
     c.instance.set({ id: 'i1', app_id: 'medusa' } as never);
-    return { c, del, post };
+    return { c, del, post, patch };
   }
   afterEach(() => TestBed.resetTestingModule());
 
@@ -302,6 +303,37 @@ describe('AppInstanceDetailComponent (destroy is modal-confirm-gated)', () => {
     const { c, post } = makeDetail(() => Promise.resolve(true));
     await c.stop();
     expect(post).toHaveBeenCalledWith('/apps/instances/i1/stop', {});
+  });
+
+  // "Save & restart" PATCHes env_overrides then restarts the container. A catalog
+  // env var that is required AND has no `auto` (platform-filled) AND no `default`
+  // MUST be supplied by the user — saving it empty restarts the app into a broken
+  // boot loop. `morphic` is the one catalog app with such a var (OPENAI_API_KEY),
+  // so saveEnv must block + flag the gap instead of silently restarting broken.
+  it('saveEnv blocks the PATCH/restart when a user-required env var (no auto/default) is empty', () => {
+    const { c, patch } = makeDetail(() => Promise.resolve(true));
+    c.instance.set({ id: 'i1', app_id: 'morphic', status: 'running' } as never);
+    c.envValues = {}; // OPENAI_API_KEY unfilled
+    expect(c.requiredEnvMissing()).toContain('OPENAI_API_KEY');
+    c.saveEnv();
+    expect(patch).not.toHaveBeenCalled(); // no restart into a broken config
+  });
+
+  it('saveEnv PATCHes once the required env var is filled', () => {
+    const { c, patch } = makeDetail(() => Promise.resolve(true));
+    c.instance.set({ id: 'i1', app_id: 'morphic', status: 'running' } as never);
+    c.envValues = { OPENAI_API_KEY: 'sk-test' };
+    expect(c.requiredEnvMissing()).toEqual([]);
+    c.saveEnv();
+    expect(patch).toHaveBeenCalledWith('/apps/instances/i1/env', { env_overrides: { OPENAI_API_KEY: 'sk-test' } });
+  });
+
+  it('requiredEnvMissing ignores auto-filled + defaulted required vars (only truly-user-required count)', () => {
+    const { c } = makeDetail(() => Promise.resolve(true));
+    // medusa: every required var is auto-filled or has a default → nothing to demand from the user
+    c.instance.set({ id: 'i1', app_id: 'medusa', status: 'running' } as never);
+    c.envValues = {};
+    expect(c.requiredEnvMissing()).toEqual([]);
   });
 });
 
