@@ -1,36 +1,55 @@
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
 import { TaskTrayComponent } from './task-tray.component';
+import { ApiService } from '../../services/api.service';
 
 /**
  * Resolve contract for the agent human-in-the-loop task tray. Resolving a task
  * does an OPTIMISTIC remove for snappy UX, but a failed POST must ROLL BACK
  * (re-add the task) so an agent's question is never silently lost — and a
  * second resolve while one is in flight, or an empty free-form answer, must be
- * a no-op. overrideComponent strips the template + we skip detectChanges so the
- * 8s poll never fires; resolve() is driven directly.
+ * a no-op.
+ *
+ * AUTH: the tray MUST go through `ApiService` (which injects the bearer token),
+ * NOT raw `HttpClient` — a raw call sends no Authorization header, so
+ * `/api/inbox/tasks` 401s every 8s on every admin route (console-error spam +
+ * a dead poll). The spec provides ONLY ApiService (no HttpClient) so a raw
+ * `inject(HttpClient)` would fail to construct — locking the authed path in.
+ *
+ * overrideComponent strips the template + we skip detectChanges so the 8s poll
+ * never fires; resolve() is driven directly.
  */
-function make(postResult: unknown = of({ ok: true })): { c: TaskTrayComponent; post: jasmine.Spy } {
-  const post = jasmine.createSpy('post').and.returnValue(postResult);
+function make(resolveResult: unknown = of({ ok: true })): {
+  c: TaskTrayComponent;
+  getInboxTasks: jasmine.Spy;
+  resolveInboxTask: jasmine.Spy;
+} {
+  const getInboxTasks = jasmine.createSpy('getInboxTasks').and.returnValue(of({ tasks: [] }));
+  const resolveInboxTask = jasmine.createSpy('resolveInboxTask').and.returnValue(resolveResult);
   TestBed.configureTestingModule({
     imports: [TaskTrayComponent],
-    providers: [{ provide: HttpClient, useValue: { post, get: () => of({ tasks: [] }) } }],
+    providers: [{ provide: ApiService, useValue: { getInboxTasks, resolveInboxTask } }],
   });
   TestBed.overrideComponent(TaskTrayComponent, { set: { template: '<div></div>', imports: [] } });
-  return { c: TestBed.createComponent(TaskTrayComponent).componentInstance, post };
+  return { c: TestBed.createComponent(TaskTrayComponent).componentInstance, getInboxTasks, resolveInboxTask };
 }
 const mkTask = (id: string): never =>
-  ({ id, prompt: 'q', options: ['yes', 'no'], defaultChoice: null, resolvedAt: null }) as never;
+  ({ id, taskKind: 'choice', prompt: 'q', options: ['yes', 'no'], defaultChoice: null, expiresAt: 0, createdAt: 0 }) as never;
 
 describe('TaskTrayComponent (agent inbox resolve)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
-  it('resolve() POSTs the choice + optimistically removes the task; on success it stays gone + busy clears', () => {
-    const { c, post } = make(of({ ok: true }));
+  it('loads tasks through the bearer-authed ApiService (never raw HttpClient → no 401 poll spam)', () => {
+    const { c, getInboxTasks } = make();
+    c.refreshNow();
+    expect(getInboxTasks).withContext('inbox poll goes through ApiService.getInboxTasks (bearer attached)').toHaveBeenCalled();
+  });
+
+  it('resolve() calls ApiService.resolveInboxTask + optimistically removes the task; on success it stays gone + busy clears', () => {
+    const { c, resolveInboxTask } = make(of({ ok: true }));
     c.tasks.set([mkTask('t1'), mkTask('t2')]);
     c.resolve(c.tasks()[0], 'yes');
-    expect(post).toHaveBeenCalledWith('/api/inbox/tasks/t1/resolve', { choice: 'yes' });
+    expect(resolveInboxTask).toHaveBeenCalledWith('t1', 'yes');
     expect(c.tasks().map((t) => t.id)).toEqual(['t2']);
     expect(c.busyId()).toBeNull();
   });
@@ -44,18 +63,18 @@ describe('TaskTrayComponent (agent inbox resolve)', () => {
   });
 
   it('ignores a second resolve while one is already in flight (busyId guard)', () => {
-    const { c, post } = make(of({ ok: true }));
+    const { c, resolveInboxTask } = make(of({ ok: true }));
     c.tasks.set([mkTask('t1'), mkTask('t2')]);
     c.busyId.set('t2'); // simulate an in-flight resolve
     c.resolve(c.tasks()[0], 'yes');
-    expect(post).not.toHaveBeenCalled();
+    expect(resolveInboxTask).not.toHaveBeenCalled();
   });
 
   it('resolveFreeform is a no-op on empty/whitespace input (never posts a blank choice)', () => {
-    const { c, post } = make();
+    const { c, resolveInboxTask } = make();
     c.tasks.set([mkTask('t1')]);
     c.freeformText['t1'] = '   ';
     c.resolveFreeform(c.tasks()[0]);
-    expect(post).not.toHaveBeenCalled();
+    expect(resolveInboxTask).not.toHaveBeenCalled();
   });
 });

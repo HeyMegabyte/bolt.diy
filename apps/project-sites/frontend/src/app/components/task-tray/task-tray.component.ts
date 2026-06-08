@@ -25,28 +25,9 @@ import {
   OnInit,
   signal,
 } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { catchError, of } from 'rxjs';
-
-/**
- * Hydrated task view returned by `GET /api/inbox/tasks`. Mirrors
- * `TaskInboxView` in `src/services/task_inbox.ts` (worker side).
- */
-interface TaskInboxView {
-  id: string;
-  orgId: string;
-  workflowInstanceId: string | null;
-  taskKind: string;
-  prompt: string;
-  options: string[];
-  defaultChoice: string | null;
-  expiresAt: number;
-  resolvedAt: number | null;
-  resolution: { choice: string } | null;
-  createdAt: number;
-  createdBy: string | null;
-}
+import { ApiService, type InboxTask } from '../../services/api.service';
 
 const POLL_INTERVAL_MS = 8_000;
 
@@ -306,10 +287,10 @@ const POLL_INTERVAL_MS = 8_000;
   },
 })
 export class TaskTrayComponent implements OnInit, OnDestroy {
-  private readonly http = inject(HttpClient);
+  private readonly api = inject(ApiService);
 
   /** Open tasks polled from the worker. */
-  readonly tasks = signal<TaskInboxView[]>([]);
+  readonly tasks = signal<InboxTask[]>([]);
   /** Task id currently being resolved (disables its buttons). */
   readonly busyId = signal<string | null>(null);
   /** Free-form input buffer per task id; map kept simple for template ngModel. */
@@ -343,13 +324,16 @@ export class TaskTrayComponent implements OnInit, OnDestroy {
    * server rejects (already resolved, expired, network), we silently
    * let the next poll refill the list.
    */
-  resolve(task: TaskInboxView, choice: string): void {
+  resolve(task: InboxTask, choice: string): void {
     if (this.busyId()) return;
     this.busyId.set(task.id);
     this.tasks.update((list) => list.filter((t) => t.id !== task.id));
 
-    this.http
-      .post<{ ok: boolean }>(`/api/inbox/tasks/${task.id}/resolve`, { choice })
+    // Through ApiService so the bearer token is attached (a raw HttpClient call
+    // sends no Authorization header → 401). ApiService also pipes the standard
+    // error/telemetry boundary; our catchError below still rolls the row back.
+    this.api
+      .resolveInboxTask(task.id, choice)
       .pipe(
         catchError(() => {
           // Restore the row on hard network failure so the user can retry.
@@ -370,7 +354,7 @@ export class TaskTrayComponent implements OnInit, OnDestroy {
    * Resolve a task with the user-typed free-form answer. No-op when the
    * input is empty so accidental Enter presses don't post blank choices.
    */
-  resolveFreeform(task: TaskInboxView): void {
+  resolveFreeform(task: InboxTask): void {
     const value = (this.freeformText[task.id] || '').trim();
     if (!value) return;
     this.resolve(task, value);
@@ -382,7 +366,7 @@ export class TaskTrayComponent implements OnInit, OnDestroy {
    *
    * @example expiresLabel({ expiresAt: Date.now() + 5*60_000, ...}) // 'in 5 min'
    */
-  expiresLabel(task: TaskInboxView): string {
+  expiresLabel(task: InboxTask): string {
     const ms = task.expiresAt - Date.now();
     if (ms <= 0) return 'shortly';
     const mins = Math.round(ms / 60_000);
@@ -392,10 +376,17 @@ export class TaskTrayComponent implements OnInit, OnDestroy {
     return `in ${hrs} hr`;
   }
 
+  /** Public hook so tests can drive a single poll without the 8s timer. */
+  refreshNow(): void {
+    this.refresh();
+  }
+
   private refresh(): void {
-    this.http
-      .get<{ tasks: TaskInboxView[] }>('/api/inbox/tasks')
-      .pipe(catchError(() => of({ tasks: [] as TaskInboxView[] })))
+    // ApiService.getInboxTasks() attaches the bearer token; a raw HttpClient
+    // call would 401 every poll on every admin route (console-error spam).
+    this.api
+      .getInboxTasks()
+      .pipe(catchError(() => of({ tasks: [] as InboxTask[] })))
       .subscribe((res) => {
         const next = Array.isArray(res?.tasks) ? res.tasks : [];
         this.tasks.set(next);
