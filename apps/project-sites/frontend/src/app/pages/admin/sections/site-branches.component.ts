@@ -314,10 +314,15 @@ export class SiteBranchesComponent implements OnInit {
   createBranch(): void {
     if (!this.newBranchName.trim()) return;
     this.creating.set(true);
+    // Clamp into [1,10]: the input's min/max only constrain the spinner, but a
+    // typed/pasted/cleared value reaches here raw. approvals_required:0 would be
+    // an approval-gate bypass (a branch that merges with zero approvals); null/
+    // NaN/absurd values break the approval math. >=1 approval is always required.
+    const approvalsRequired = Math.max(1, Math.min(10, Math.round(Number(this.newApprovalsRequired)) || 1));
     this.api
       .post<{ branch: Branch }>(`/sites/${this.siteId}/branches`, {
         branch_name: this.newBranchName.trim(),
-        approvals_required: this.newApprovalsRequired,
+        approvals_required: approvalsRequired,
       }, { silent: true })
       .pipe(catchError((err) => { this.toast.error(err?.error?.error ?? 'Failed to create branch'); return of(null); }))
       .subscribe((res) => {

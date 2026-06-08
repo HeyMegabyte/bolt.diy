@@ -217,4 +217,40 @@ describe('SiteBranchesComponent (cohesion + a11y)', () => {
     expect(confirmSpy).toHaveBeenCalled();
     httpMock.expectNone(`/api/sites/${SITE_ID}/branches/b1/merge`); // aborted before any request
   });
+  // Approval-gate integrity: the "Approvals required" input has min=1/max=10, but
+  // those only constrain the spinner — a typed/pasted/cleared value (0, null, 999,
+  // negative) reaches createBranch() raw. approvals_required:0 would create a branch
+  // that needs ZERO approvals = an approval-gate bypass (merges freely). The handler
+  // must clamp into [1,10].
+  it('createBranch clamps approvals_required:0 up to 1 — never POSTs a 0-approval (gate-bypass) branch', () => {
+    build();
+    component.newBranchName = 'homepage-redesign';
+    component.newApprovalsRequired = 0;
+    component.createBranch();
+    const req = httpMock.expectOne(`/api/sites/${SITE_ID}/branches`);
+    expect((req.request.body as { approvals_required: number }).approvals_required)
+      .withContext('0 → clamped to 1 (a branch always needs >=1 approval)').toBe(1);
+    req.flush({ branch: { id: 'b1', branch_name: 'homepage-redesign', approvals_required: 1 } });
+  });
+
+  it('createBranch clamps an absurd approvals_required down to the max of 10', () => {
+    build();
+    component.newBranchName = 'x';
+    component.newApprovalsRequired = 999;
+    component.createBranch();
+    const req = httpMock.expectOne(`/api/sites/${SITE_ID}/branches`);
+    expect((req.request.body as { approvals_required: number }).approvals_required).toBe(10);
+    req.flush({ branch: { id: 'b2', branch_name: 'x', approvals_required: 10 } });
+  });
+
+  it('createBranch coerces a cleared (null) approvals_required to 1', () => {
+    build();
+    component.newBranchName = 'x';
+    component.newApprovalsRequired = null as never;
+    component.createBranch();
+    const req = httpMock.expectOne(`/api/sites/${SITE_ID}/branches`);
+    expect((req.request.body as { approvals_required: number }).approvals_required).toBe(1);
+    req.flush({ branch: { id: 'b3', branch_name: 'x', approvals_required: 1 } });
+  });
+
 });
