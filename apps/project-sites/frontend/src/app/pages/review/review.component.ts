@@ -11,16 +11,19 @@
 
 import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { ToastService } from '../../services/toast.service';
-import { HlmButtonDirective } from '../../ui';
+import { HlmButtonDirective, HlmInputDirective } from '../../ui';
 
 interface ReviewView {
   id: string;
   site_id: string;
   status: string;
   expires_at: string;
+  /** When true, the reviewer must enter the link password before the review is shown. */
+  password_required?: boolean;
 }
 interface ReviewResponse {
   ok: boolean;
@@ -30,11 +33,15 @@ interface DecisionResponse {
   ok: boolean;
   status: string;
 }
+interface UnlockResponse {
+  ok: boolean;
+  required?: boolean;
+}
 
 @Component({
   selector: 'app-review',
   standalone: true,
-  imports: [CommonModule, HlmButtonDirective],
+  imports: [CommonModule, FormsModule, HlmButtonDirective, HlmInputDirective],
   template: `
     <main class="min-h-screen bg-dark text-light flex items-center justify-center px-5 py-10">
       <div class="w-full max-w-md rounded-2xl border border-white/[0.08] bg-white/[0.02] p-7">
@@ -45,6 +52,23 @@ interface DecisionResponse {
           <p data-testid="review-loading" class="text-text-secondary text-sm">Loading review…</p>
         } @else if (error()) {
           <p data-testid="review-error" role="alert" class="text-sm text-red-300">{{ error() }}</p>
+        } @else if (needsPassword()) {
+          <!-- Password gate — this shared link is protected; unlock before the review is shown. -->
+          <form data-testid="review-password-form" (ngSubmit)="unlock()" class="flex flex-col gap-3">
+            <p class="text-text-secondary text-sm">This review link is password-protected. Enter the password you were given to continue.</p>
+            <label for="review-password" class="sr-only">Review password</label>
+            <input hlmInput id="review-password" data-testid="review-password-input" type="password"
+                   [ngModel]="password()" (ngModelChange)="password.set($event)" name="password"
+                   autocomplete="current-password" placeholder="Password"
+                   [attr.aria-invalid]="!!unlockError()" aria-describedby="review-password-error" />
+            @if (unlockError(); as ue) {
+              <p id="review-password-error" data-testid="review-password-error" role="alert" class="text-sm text-red-300">{{ ue }}</p>
+            }
+            <button hlmBtn type="submit" data-testid="review-unlock" class="justify-center"
+                    [disabled]="unlocking() || password().length === 0" [attr.aria-busy]="unlocking()">
+              {{ unlocking() ? 'Unlocking…' : 'Unlock review' }}
+            </button>
+          </form>
         } @else if (review(); as r) {
           <div class="flex items-center gap-2 mb-5">
             <span class="text-text-secondary text-sm">Status:</span>
@@ -77,6 +101,14 @@ export class ReviewComponent {
   readonly review = signal<ReviewView | null>(null);
   readonly deciding = signal(false);
 
+  // Password gate (set by the link creator; verified via POST /api/review/:id/unlock).
+  readonly unlocked = signal(false);
+  readonly password = signal('');
+  readonly unlocking = signal(false);
+  readonly unlockError = signal<string | null>(null);
+
+  /** Show the password form when the link is protected and not yet unlocked this session. */
+  readonly needsPassword = computed(() => !!this.review()?.password_required && !this.unlocked());
   readonly canDecide = computed(() => this.review()?.status === 'pending');
 
   constructor() {
@@ -103,6 +135,35 @@ export class ReviewComponent {
       error: () => {
         this.error.set('This review link was not found or has expired.');
         this.loading.set(false);
+      },
+    });
+  }
+
+  /**
+   * Verify the link password via POST /api/review/:id/unlock. 200 → reveal the
+   * review; 401 → inline "incorrect"; 429 → rate-limit notice. {silent} so the
+   * ApiService generic toast doesn't double up with the inline error (a 401 on
+   * /review/* does NOT bounce to /signin — it's not a protected route).
+   */
+  unlock(): void {
+    const pw = this.password();
+    if (this.unlocking() || pw.length === 0) return;
+    this.unlocking.set(true);
+    this.unlockError.set(null);
+    this.api.post<UnlockResponse>(`/review/${this.id}/unlock`, { password: pw }, { silent: true }).subscribe({
+      next: () => {
+        this.unlocked.set(true);
+        this.unlocking.set(false);
+        this.password.set('');
+        this.toast.success('Unlocked.');
+      },
+      error: (err: { status?: number }) => {
+        this.unlockError.set(
+          err?.status === 429
+            ? 'Too many attempts — please wait a minute and try again.'
+            : 'Incorrect password — please try again.',
+        );
+        this.unlocking.set(false);
       },
     });
   }
