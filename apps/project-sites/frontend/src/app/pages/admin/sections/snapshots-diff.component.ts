@@ -22,6 +22,7 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { ErrorCardComponent } from '../../../components/states';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 interface DiffHunk {
   added: boolean;
@@ -56,10 +57,10 @@ interface DiffResponse {
 @Component({
   selector: 'app-admin-snapshots-diff',
   standalone: true,
-  imports: [RouterModule, RollingCounterComponent, ErrorCardComponent],
+  imports: [RouterModule, RollingCounterComponent, ErrorCardComponent, RevealDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6" data-testid="snapshots-diff-section">
-      <header class="flex items-start justify-between gap-4">
+      <header appReveal class="flex items-start justify-between gap-4">
         <div>
           <h1 class="text-[1.4rem] font-semibold text-white">Snapshot diff</h1>
           @if (diff(); as d) {
@@ -94,7 +95,7 @@ interface DiffResponse {
         @let d = diff()!;
         <!-- AI summary banner -->
         @if (d.summary) {
-          <section class="rounded-xl border border-[var(--ps-accent)]/20 bg-[var(--ps-accent)]/[0.04] p-4">
+          <section appReveal class="rounded-xl border border-[var(--ps-accent)]/20 bg-[var(--ps-accent)]/[0.04] p-4">
             <div class="text-[0.65rem] font-bold uppercase tracking-wider text-[var(--ps-accent)] mb-2">
               What changed (AI summary)
             </div>
@@ -104,7 +105,7 @@ interface DiffResponse {
 
         <!-- Stat row — category is tinted (emerald/red/amber), so each card is a
              labelled group so the count carries its category to AT (WCAG 1.4.1). -->
-        <div class="grid grid-cols-3 gap-3">
+        <div appReveal class="grid grid-cols-3 gap-3">
           <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] p-3"
                role="group" [attr.aria-label]="d.added.length + ' file' + (d.added.length === 1 ? '' : 's') + ' added'">
             <div class="text-[0.7rem] uppercase tracking-wide text-emerald-300/80">Added</div>
@@ -124,7 +125,7 @@ interface DiffResponse {
 
         <!-- Added files -->
         @if (d.added.length > 0) {
-          <section>
+          <section appReveal>
             <h2 class="text-[0.95rem] font-semibold text-emerald-200 mb-2">Added files</h2>
             <ul class="rounded-xl border border-white/10 bg-white/[0.02] divide-y divide-white/[0.06]">
               @for (f of d.added; track f.path) {
@@ -142,7 +143,7 @@ interface DiffResponse {
 
         <!-- Removed files -->
         @if (d.removed.length > 0) {
-          <section>
+          <section appReveal>
             <h2 class="text-[0.95rem] font-semibold text-red-200 mb-2">Removed files</h2>
             <ul class="rounded-xl border border-white/10 bg-white/[0.02] divide-y divide-white/[0.06]">
               @for (f of d.removed; track f.path) {
@@ -156,7 +157,7 @@ interface DiffResponse {
 
         <!-- Modified files -->
         @if (d.modified.length > 0) {
-          <section>
+          <section appReveal>
             <h2 class="text-[0.95rem] font-semibold text-amber-200 mb-2">Modified files</h2>
             <div class="space-y-4">
               @for (f of d.modified; track f.path) {

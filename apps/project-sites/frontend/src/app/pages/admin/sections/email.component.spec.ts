@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { of, throwError } from 'rxjs';
 import { AdminEmailComponent } from './email.component';
+import { RevealDirective } from '../../../directives/reveal.directive';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
@@ -272,6 +274,37 @@ describe('AdminEmailComponent (connect double-submit guard)', () => {
     c.connectingProvider.set(plain);
     c.submitConnect(plain);         // a genuine second connect must go through
     expect(create).withContext('second genuine submit goes through').toHaveBeenCalledTimes(2);
+  });
+});
+
+/**
+ * Cinematic cohesion: this section rendered FLAT while sibling list sections
+ * (marketing/audit/sites) stagger-reveal their header + top-level sections on
+ * first paint via `[appReveal]`. The header + each top-level layout <section>
+ * must carry the directive (NOT per-row elements inside @for). Full template
+ * render (no overrideComponent) with the real ApiService stubs.
+ */
+describe('AdminEmailComponent (first-paint appReveal cohesion)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('reveals the header + top-level sections on first paint (>=2 hosts, header included)', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminEmailComponent],
+      providers: [
+        // {data:[]} keeps every @for-bound signal iterable; {data:{}} would crash @for.
+        { provide: ApiService, useValue: { listFormSubmissions: () => of({ data: [] }), listIntegrations: () => of({ data: [] }), get: () => of({ data: [] }), post: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'demo' }), formatRelativeTime: () => 'now' } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminEmailComponent);
+    fx.detectChanges();
+
+    const reveals = fx.debugElement.queryAll(By.directive(RevealDirective));
+    expect(reveals.length).withContext('header + >=1 top-level section reveal').toBeGreaterThanOrEqual(2);
+
+    const host = fx.nativeElement as HTMLElement;
+    expect(host.querySelector('header')?.hasAttribute('appReveal')).withContext('header carries appReveal').toBeTrue();
   });
 });
 

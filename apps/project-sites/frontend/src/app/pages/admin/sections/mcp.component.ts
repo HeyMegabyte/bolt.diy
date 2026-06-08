@@ -6,6 +6,7 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { HlmInputDirective } from '../../../ui';
 import { ErrorCardComponent } from '../../../components/states';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 interface Conn { id: string; provider: string; display_name: string; status: string; connected_at: string; metadata?: Record<string, unknown>; }
 
@@ -36,10 +37,10 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
 @Component({
   selector: 'app-admin-mcp',
   standalone: true,
-  imports: [FormsModule, SlicePipe, HlmInputDirective, ErrorCardComponent],
+  imports: [FormsModule, SlicePipe, HlmInputDirective, ErrorCardComponent, RevealDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
-      <header>
+      <header appReveal>
         <div class="kicker">Integrations</div>
         <h2 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-2">
           MCP Connections
@@ -56,7 +57,7 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
       </header>
 
       @if (!state.selectedSite()) {
-        <div class="card notice notice-amber" role="status">
+        <div class="card notice notice-amber" role="status" appReveal>
           <strong>No site selected.</strong>
           Pick a site from the sidebar — MCP connections are scoped per-site.
         </div>
@@ -83,7 +84,7 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
             [correlationId]="loadErrorRef()"
             (retry)="load()" />
         }
-        <div class="grid md:grid-cols-2 gap-4">
+        <div class="grid md:grid-cols-2 gap-4" appReveal>
           @for (p of providers; track p.id) {
             <article class="card mcp-card" [attr.data-testid]="'mcp-card-' + p.id">
               <div class="flex items-start gap-3">

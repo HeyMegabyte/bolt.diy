@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { HlmInputDirective } from '../../../ui';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { InlineErrorComponent } from '../../../components/states';
+import { RevealDirective } from '../../../directives/reveal.directive';
 import { AdminStateService } from '../admin-state.service';
 import {
   ApiService,
@@ -35,7 +36,7 @@ const PROVIDERS: ProviderMeta[] = [
 @Component({
   selector: 'app-admin-email',
   standalone: true,
-  imports: [FormsModule, HlmInputDirective, DialogShellComponent, InlineErrorComponent],
+  imports: [FormsModule, HlmInputDirective, DialogShellComponent, InlineErrorComponent, RevealDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4" data-testid="email-section">
       @if (!state.selectedSite()) {
@@ -44,7 +45,7 @@ const PROVIDERS: ProviderMeta[] = [
           <p class="text-[0.9rem] max-w-[400px] m-0">Choose a site from the sidebar to manage its e-mail integrations and form submissions.</p>
         </div>
       } @else {
-        <header class="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <header appReveal class="mb-6 flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div class="kicker">Capture</div>
             <h1 class="section-h text-xl font-bold text-white m-0 mb-1">E-mail &amp; Forms</h1>
@@ -68,7 +69,7 @@ const PROVIDERS: ProviderMeta[] = [
               message="Couldn't load your connection states — the badges below may be out of date."
               (retry)="refreshIntegrations()" />
           }
-          <section class="grid grid-cols-3 gap-3 mb-7 max-lg:grid-cols-2 max-md:grid-cols-1">
+          <section appReveal class="grid grid-cols-3 gap-3 mb-7 max-lg:grid-cols-2 max-md:grid-cols-1">
             @for (provider of providers; track provider.id) {
               <article class="provider-card" [class.connected]="isConnected(provider.id)">
                 <header class="flex items-center gap-3 mb-2">
@@ -100,7 +101,7 @@ const PROVIDERS: ProviderMeta[] = [
             }
           </section>
 
-          <section class="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5">
+          <section appReveal class="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5">
             <header class="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div>
                 <h2 class="text-sm font-semibold text-white m-0">Drop-in script</h2>
@@ -114,7 +115,7 @@ const PROVIDERS: ProviderMeta[] = [
             </p>
           </section>
         } @else {
-          <section class="bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden">
+          <section appReveal class="bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden">
             <header class="flex items-center justify-between px-5 py-4 border-b border-white/[0.04]">
               <div>
                 <h2 class="text-sm font-semibold text-white m-0">Form submissions</h2>

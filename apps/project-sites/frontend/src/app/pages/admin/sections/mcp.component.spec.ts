@@ -1,10 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { of, throwError, Subject } from 'rxjs';
 import { AdminMcpComponent } from './mcp.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 /**
  * Guards the MCP connections load-error gating: a failed connections fetch sets
@@ -253,5 +255,37 @@ describe('AdminMcpComponent — performDisconnect in-flight guard (no double-DEL
     pd({ id: 'conn9', provider: 'stripe' }, 's1'); // re-entrant while the first is pending
     expect(del).withContext('no duplicate DELETE').toHaveBeenCalledTimes(1);
     expect((c as unknown as { isDisconnecting: (id: string) => boolean }).isDisconnecting('conn9')).toBeTrue();
+  });
+});
+
+/**
+ * Cinematic first-paint cohesion: the section must apply the cockpit `appReveal`
+ * stagger so its header + section/grid containers fade in on first paint, like
+ * every sibling admin section (rather than rendering flat). The directive is
+ * reduced-motion-safe, so this is a pure presentation upgrade. Full-render spec
+ * (NOT overrideComponent) so the real template wires the directive instances.
+ */
+describe('AdminMcpComponent — appReveal first-paint cohesion', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('wires appReveal on the header + top-level section containers', () => {
+    // {data:[]} keeps connections() iterable so the @for card grid renders the
+    // reveal wrapper; a {data:{}} stub would make the list non-iterable + crash @for.
+    TestBed.configureTestingModule({
+      imports: [AdminMcpComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: { connections: [] } }), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const fixture = TestBed.createComponent(AdminMcpComponent);
+    fixture.detectChanges();
+
+    const revealed = fixture.debugElement.queryAll(By.directive(RevealDirective));
+    expect(revealed.length).withContext('header + grid wrapper both reveal').toBeGreaterThanOrEqual(2);
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('header')?.hasAttribute('appReveal')).toBeTrue();
   });
 });

@@ -1,11 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { of, throwError } from 'rxjs';
 import { ActivatedRoute } from '@angular/router';
 import { AdminSnapshotsDiffComponent } from './snapshots-diff.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 /**
  * First coverage for the snapshot-diff viewer (untested) + the Retry added this round:
@@ -279,6 +281,52 @@ describe('AdminSnapshotsDiffComponent (KPI stat row groups — WCAG 1.4.1)', () 
     expect(labels).toContain('2 files added');
     expect(labels).toContain('1 file removed');
     expect(labels).toContain('0 files modified');
+  });
+});
+
+/**
+ * Cinematic first-paint cohesion: this section rendered FLAT while sibling
+ * admin sections stagger-reveal their header + top-level sections via the
+ * `appReveal` directive. The header + each top-level <section> must carry
+ * `appReveal` so the diff view fades+rises in on first paint (the directive
+ * is reduced-motion-safe — it snaps to final state when motion is reduced).
+ */
+describe('AdminSnapshotsDiffComponent (cinematic first-paint reveal)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('applies appReveal to the header + top-level sections so the view reveals on first paint', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminSnapshotsDiffComponent],
+      providers: [
+        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }) } },
+        { provide: ApiService, useValue: { get: () => of({ added: [], removed: [], modified: [] }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminSnapshotsDiffComponent);
+    fx.detectChanges();
+    fx.componentInstance.diff.set({
+      from: { name: 'A' },
+      to: { name: 'B' },
+      added: [{ path: 'a.html' }],
+      removed: [],
+      modified: [{ path: 'b.html', hunks: [] }],
+      summary: null,
+    } as never);
+    fx.componentInstance.loading.set(false);
+    fx.componentInstance.error.set(null);
+    fx.detectChanges();
+
+    const revealed = fx.debugElement.queryAll(By.directive(RevealDirective));
+    expect(revealed.length)
+      .withContext('header + top-level sections stagger-reveal on first paint')
+      .toBeGreaterThanOrEqual(2);
+
+    const host = fx.nativeElement as HTMLElement;
+    expect(host.querySelector('header')?.hasAttribute('appReveal'))
+      .withContext('section header reveals on first paint')
+      .toBe(true);
   });
 });
 
