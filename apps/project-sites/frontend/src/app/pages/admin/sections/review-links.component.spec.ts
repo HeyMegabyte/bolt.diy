@@ -72,6 +72,30 @@ describe('AdminReviewLinksComponent', () => {
     expect(msg?.textContent).toContain('sign off before publish');
   });
 
+  // Extra-mile: the empty state's CTA performs the first-result action (creates
+  // the first review link in one click), not just a passive "create one above".
+  it('the no-links empty state offers a one-click "Create a review link" CTA that creates it', () => {
+    selectedSite = signal<{ id: string } | null>({ id: 's1' });
+    const g = jasmine.createSpy('get').and.returnValue(of({ ok: true, links: [] }));
+    const p = jasmine.createSpy('post').and.returnValue(of({ ok: true, id: 'r9', url: '/review/r9', expiresAt: '2027-02-02T00:00:00.000Z' }));
+    TestBed.configureTestingModule({
+      imports: [AdminReviewLinksComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: g, post: p } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: AdminStateService, useValue: { selectedSite } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminReviewLinksComponent);
+    fx.detectChanges();
+    const cta = (fx.nativeElement as HTMLElement).querySelector('app-empty-state [data-testid="empty-cta"]') as HTMLButtonElement | null;
+    expect(cta).withContext('the empty state renders a first-action CTA').not.toBeNull();
+    expect(cta?.textContent?.trim()).toBe('Create a review link');
+    cta!.click();
+    expect(p).toHaveBeenCalledWith('/sites/s1/review-links', {}, { silent: true });
+  });
+
   it('lists the site review links with their status', () => {
     build({ id: 's1' });
     // {silent:true} — the component owns the inline error banner + Retry, so the
