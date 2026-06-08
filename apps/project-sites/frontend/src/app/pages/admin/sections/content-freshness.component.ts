@@ -175,6 +175,7 @@ type StatusFilter = 'pending' | 'approved' | 'rejected' | 'published';
         <app-error-card
           title="Couldn't load content freshness"
           [message]="error()!"
+          [correlationId]="loadErrorRef()"
           hint="The freshness service didn't respond. Retry, or pick a different site."
           (retry)="load()" />
       }
@@ -421,6 +422,8 @@ export class AdminContentFreshnessComponent implements OnInit {
   loading = signal(false);
   triggering = signal(false);
   error = signal<string | null>(null);
+  /** Worker request_id from a failed drafts load → copyable support reference on the error card. */
+  loadErrorRef = signal('');
   drafts = signal<FreshnessDraft[]>([]);
   total = signal(0);
   page = signal(1);
@@ -524,6 +527,7 @@ export class AdminContentFreshnessComponent implements OnInit {
   async load(): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
+    this.loadErrorRef.set('');
     try {
       const resp = await firstValueFrom(
         this.api.get<DraftsResponse>(
@@ -532,11 +536,17 @@ export class AdminContentFreshnessComponent implements OnInit {
       );
       this.drafts.set(resp.drafts);
       this.total.set(resp.total);
-    } catch {
+    } catch (err) {
       this.error.set('Failed to load drafts. Check your connection and try again.');
+      this.loadErrorRef.set(this.requestIdFrom(err));
     } finally {
       this.loading.set(false);
     }
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: unknown): string {
+    return ((e as { error?: { error?: { request_id?: string } } } | undefined)?.error?.error?.request_id) ?? '';
   }
 
   async approve(draftId: string): Promise<void> {

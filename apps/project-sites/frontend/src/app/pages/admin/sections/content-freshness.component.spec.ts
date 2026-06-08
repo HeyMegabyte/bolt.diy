@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AdminContentFreshnessComponent } from './content-freshness.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -194,5 +194,22 @@ describe('AdminContentFreshnessComponent (mutations are {silent})', () => {
     await c.triggerScan();
     expect(post.calls.mostRecent().args[0]).toBe('/content/freshness/trigger');
     expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
+  });
+
+  // The drafts-load error card carries a copyable worker request_id (the catch
+  // previously discarded the error → no support reference).
+  it('captures the request_id from a failed drafts load', async () => {
+    TestBed.configureTestingModule({
+      imports: [AdminContentFreshnessComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => throwError(() => ({ status: 500, error: { error: { request_id: 'req-cf-4' } } })), post: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: () => ({ id: 's' }) } },
+      ],
+    });
+    const c = TestBed.createComponent(AdminContentFreshnessComponent).componentInstance;
+    await c.load();
+    expect(c.error()).withContext('a failed load shows a retryable error').toContain('Failed to load');
+    expect(c.loadErrorRef()).withContext('support reference captured').toBe('req-cf-4');
   });
 });
