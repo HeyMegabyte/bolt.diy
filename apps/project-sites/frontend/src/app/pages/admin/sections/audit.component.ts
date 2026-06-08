@@ -203,8 +203,11 @@ function actionToFallbackMessage(action: string): string {
 
       <div class="grid grid-cols-4 gap-3 text-[0.78rem]">
         @if (loading() && displayRows().length === 0) {
-          @for (i of [0,1,2,3]; track i) {
-            <div class="card"><div class="muted-h">Loading</div><div class="skeleton skeleton-line"></div></div>
+          <!-- Labels stay mounted; only the numbers shimmer so the cards don't
+               reflow (header text + width) when the first fetch resolves —
+               mirrors the site-dna stats skeleton (premature-stat-during-load). -->
+          @for (label of statLabels; track label) {
+            <div class="card" aria-busy="true"><div class="muted-h">{{ label }}</div><div class="skeleton skeleton-line"></div></div>
           }
         } @else if (showStats()) {
           <!-- Hidden when the load errored with no data — definitive "0 events ·
@@ -399,6 +402,11 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
   private toast = inject(ToastService);
   state = inject(AdminStateService);
+  /** The four KPI stat-card headers — shared by the loading skeleton and the
+   *  loaded cards so the muted-h labels never swap from a generic "Loading"
+   *  (which reflowed text + card width on resolve). Keep in sync with the
+   *  loaded stat-card markup. */
+  readonly statLabels = ['Events', 'Unique actions', 'Last 24h', 'Actors'] as const;
   rows = signal<AuditRow[]>([]);
   loading = signal(false);
   /** Set when /audit-logs fails so we show a distinct error card instead of the

@@ -101,6 +101,16 @@ describe('AdminAuditComponent (load + KPI logic)', () => {
     expect(c.canExport()).toBeTrue();
   });
 
+  // The stats skeleton must persist the real KPI labels (not a generic
+  // "Loading" header ×4) so the muted-h text — and the card widths — don't
+  // reflow when the first fetch resolves. Mirrors the site-dna stats skeleton
+  // (labels stay mounted, numbers shimmer).
+  it('statLabels matches the four loaded stat-card headers (skeleton persists labels → no reflow)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    expect((c as unknown as { statLabels: readonly string[] }).statLabels)
+      .toEqual(['Events', 'Unique actions', 'Last 24h', 'Actors']);
+  });
+
   it('load() error clears loading + sets loadError (security log must not masquerade as empty)', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
     c.load();
@@ -278,6 +288,16 @@ describe('AdminAuditComponent (cohesion + a11y source contract)', () => {
       return;
     }
     expect(template()).toContain('role="status"');
+  });
+
+  it('the stats skeleton persists real labels — no generic ">Loading</div>" header that reflows on load', () => {
+    if (!reachable()) {
+      pending('decorator metadata not reachable');
+      return;
+    }
+    const t = template();
+    expect(t).withContext('skeleton loops the persisted KPI labels').toContain('statLabels');
+    expect(t).withContext('no generic "Loading" stat-card header (would reflow → real label)').not.toContain('>Loading</div>');
   });
 
   it('empty-state CTA + scope chip are real <button>s (keyboard-reachable)', () => {
