@@ -134,6 +134,7 @@ function resolveApp(id: string): CatalogApp | null {
         <app-error-card
           title="Couldn't load your apps"
           [message]="loadError()!"
+          [correlationId]="loadErrorRef()"
           (retry)="load()" />
       } @else if (instances().length === 0) {
         <app-empty-state
@@ -391,6 +392,8 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
   loading = signal<boolean>(false);
   /** Set when the instances fetch fails — so a load error shows a Retry card, NOT a fake "No app instances yet" empty state (which could prompt re-installing an app the user already has). */
   loadError = signal<string | null>(null);
+  /** Worker request_id from a failed instances load → copyable support reference on the error card. */
+  loadErrorRef = signal('');
   /** Epoch ms of the last successful instances load — feeds <app-synced-pill> (this list polls while apps provision). */
   syncedAt = signal<number | null>(null);
   runningCount = computed(() => this.instances().filter((i) => i.status === 'running').length);
@@ -427,6 +430,7 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
     if (!poll) {
       this.loading.set(true);
       this.loadError.set(null);
+      this.loadErrorRef.set('');
     }
     // {silent}: the inline <app-error-card> + Retry is the accurate, persistent
     // failure UX. Without {silent} ApiService's generic "Can't reach the server"
@@ -450,17 +454,23 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
         this.loading.set(false);
         this.maybeStartPolling();
       },
-      error: () => {
+      error: (err) => {
         if (poll) {
           this.toast.error('Couldn’t refresh your apps — showing the last known list.');
         } else {
           // Record the failure so the list shows a Retry card, not a fake empty.
           this.loadError.set('Your running apps are safe — nothing was lost.');
+          this.loadErrorRef.set(this.requestIdFrom(err));
           this.loading.set(false);
         }
         console.warn('[apps] load instances failed');
       },
     });
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: unknown): string {
+    return ((e as { error?: { error?: { request_id?: string } } } | undefined)?.error?.error?.request_id) ?? '';
   }
 
   private maybeStartPolling(): void {

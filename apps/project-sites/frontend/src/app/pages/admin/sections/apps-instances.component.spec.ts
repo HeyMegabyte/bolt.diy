@@ -139,6 +139,14 @@ describe('AppInstancesComponent (instance lifecycle)', () => {
     expect(c.loading()).toBeFalse();
   });
 
+  it('load() captures the request_id for the error card (copyable support reference)', () => {
+    const { c, api } = make();
+    api.get.and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req-apps-2' } } })));
+    c.load();
+    expect(c.loadError()).not.toBeNull();
+    expect(c.loadErrorRef()).withContext('support reference captured').toBe('req-apps-2');
+  });
+
   // The inline loadError <app-error-card> (+ Retry) is the accurate, persistent
   // failure UX, so the read must be {silent:true} — otherwise ApiService's
   // generic "Can't reach the server" toast double-fires on top of the card.
