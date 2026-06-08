@@ -34,6 +34,7 @@ import {
   type OnInit,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { ConfirmService } from '../../../../services/confirm.service';
 import { FormsModule } from '@angular/forms';
 import { HlmInputDirective } from '../../../../ui';
@@ -216,8 +217,8 @@ type MonacoLanguageId = 'typescript' | 'javascript' | 'python' | 'rust' | 'markd
                 }
                 @case ('preview') {
                   <p class="text-[0.7rem] text-text-secondary mb-2">Live preview iframe (HTML endpoints).</p>
-                  @if (liveUrl) {
-                    <iframe class="preview-frame" [src]="liveUrl" data-testid="ide-preview-frame"></iframe>
+                  @if (safeLiveUrl) {
+                    <iframe class="preview-frame" [src]="safeLiveUrl" data-testid="ide-preview-frame"></iframe>
                   } @else {
                     <p class="text-[0.7rem] text-text-secondary">Endpoint not deployed yet.</p>
                   }
@@ -339,6 +340,22 @@ export class IdeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Monaco internals — kept private; the public API stays files/language.
   private readonly confirmSvc = inject(ConfirmService);
+  private readonly sanitizer = inject(DomSanitizer);
+
+  /**
+   * Preview iframe src — a plain string in iframe[src] is blocked by Angular's
+   * resource-URL sanitizer (console error). Trust it ONLY when it's a well-formed
+   * https URL (the endpoint base hardcodes https://{verified-host}); reject
+   * anything else (javascript:/data:/http:/malformed) so nothing untrusted loads.
+   */
+  get safeLiveUrl(): SafeResourceUrl | null {
+    const url = this.liveUrl;
+    if (!url) return null;
+    try {
+      if (new URL(url).protocol === 'https:') return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+    } catch { /* malformed URL → reject */ }
+    return null;
+  }
   private monaco: MonacoNamespace | null = null;
   private editor: MonacoEditor | null = null;
   /** One Monaco model per file path, so per-file undo/redo + scroll position is preserved. */
