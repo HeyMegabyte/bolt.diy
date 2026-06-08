@@ -284,3 +284,55 @@ describe('SiteMcpServerComponent (MCP token CRUD + playground)', () => {
     expect(c.totalCallsToday()).toBe(7);
   });
 });
+
+/**
+ * Empty-state parity: the "Available Tools" list mirrored the "API Tokens"
+ * error/loading branches but was MISSING the `tools().length === 0` empty
+ * branch — so a genuinely-empty (loaded, no error) tools feed rendered a blank
+ * card with no explanation. It must show the cockpit cyan mini-empty, matching
+ * the "No tokens yet." treatment right above it.
+ */
+describe('SiteMcpServerComponent (Available Tools empty-state parity)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function renderFull(): import('@angular/core/testing').ComponentFixture<SiteMcpServerComponent> {
+    TestBed.configureTestingModule({
+      imports: [SiteMcpServerComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: () => of({ tokens: [], tools: [], usage: [] }), post: () => of({}), delete: () => of({}) } },
+        { provide: HttpClient, useValue: { get: () => of({}), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { params: { id: 's1' } }, parent: { snapshot: { params: { id: 's1' } } } } },
+      ],
+    });
+    return TestBed.createComponent(SiteMcpServerComponent);
+  }
+
+  it('renders a cyan mini-empty (not a blank card) when the tools feed is genuinely empty', () => {
+    const f = renderFull();
+    f.detectChanges();
+    f.componentInstance.toolsLoading.set(false);
+    f.componentInstance.toolsError.set(null);
+    f.componentInstance.tools.set([]);
+    f.detectChanges();
+    const el = f.nativeElement as HTMLElement;
+    const empty = el.querySelector('[data-testid="mcp-tools-empty"]');
+    expect(empty).withContext('empty Available Tools shows a mini-empty, not a blank card').not.toBeNull();
+    expect(empty!.querySelector('svg')).withContext('cockpit cyan empty-state glyph present').not.toBeNull();
+    expect(el.querySelector('[data-testid^="tool-row-"]')).withContext('no tool rows when empty').toBeNull();
+  });
+
+  it('renders tool rows (no empty-state) when the tools feed has items', () => {
+    const f = renderFull();
+    f.detectChanges();
+    f.componentInstance.toolsLoading.set(false);
+    f.componentInstance.toolsError.set(null);
+    f.componentInstance.tools.set([{ name: 'read_page', description: 'd' } as never]);
+    f.detectChanges();
+    const el = f.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="mcp-tools-empty"]')).withContext('no empty-state when tools exist').toBeNull();
+    expect(el.querySelector('[data-testid="tool-row-read_page"]')).withContext('tool row rendered').not.toBeNull();
+  });
+});
