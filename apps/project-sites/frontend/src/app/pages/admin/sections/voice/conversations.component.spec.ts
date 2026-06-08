@@ -65,3 +65,43 @@ describe('VoiceConversationsComponent (load error ≠ fake empty)', () => {
     expect(c.loadError()).toBeNull();
   });
 });
+
+/**
+ * Honest empty-state: the feed's empty branch said "No conversations yet" even
+ * when conversations EXIST but an active search/channel/escalated filter
+ * excludes them all — implying the caller's records vanished. It must instead
+ * say "no match" + offer Clear. The filters are signals so the list re-filters
+ * live (a Clear button that resets plain props would never update the view).
+ */
+describe('VoiceConversationsComponent (filter no-match ≠ truly empty)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+  const conv = (id: string, over: Record<string, unknown> = {}) =>
+    ({ id, from_number: '+15551234567', channel: 'call', status: 'open', message_preview: '', summary: '', created_at: new Date().toISOString(), ...over }) as never;
+
+  it('conversations exist but the filter excludes all → filterNoMatch (not a fake "No conversations yet")', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.conversations.set([conv('a'), conv('b')]);
+    c.searchQ.set('zzz-nothing-matches');
+    expect(c.filtered().length).withContext('filter excludes all').toBe(0);
+    expect(c.filterNoMatch()).withContext('no-match, not truly empty').toBeTrue();
+  });
+
+  it('truly empty (no conversations at all) → NOT filterNoMatch', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.conversations.set([]);
+    c.searchQ.set('anything');
+    expect(c.filterNoMatch()).withContext('genuinely empty is not a filter problem').toBeFalse();
+  });
+
+  it('clearFilters() resets search + channel + escalated and reveals the rows (live, signal-reactive)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.conversations.set([conv('a'), conv('b')]);
+    c.searchQ.set('zzz'); c.channelFilter.set('sms'); c.escalatedOnly.set(true);
+    expect(c.filtered().length).withContext('filtered to none').toBe(0);
+    c.clearFilters();
+    expect(c.searchQ()).toBe('');
+    expect(c.channelFilter()).toBe('all');
+    expect(c.escalatedOnly()).toBeFalse();
+    expect(c.filtered().length).withContext('all rows visible after clear').toBe(2);
+  });
+});

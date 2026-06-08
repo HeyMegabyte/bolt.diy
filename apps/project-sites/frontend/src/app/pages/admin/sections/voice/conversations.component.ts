@@ -103,18 +103,18 @@ type DayGroup = { label: string; items: Conversation[] };
             <span class="sr-only">Search phone or text</span>
             <input hlmInput class="w-full font-mono min-h-[40px]"
                    type="search"
-                   [(ngModel)]="searchQ"
-                   (ngModelChange)="onFilterChange()"
+                   [ngModel]="searchQ()"
+                   (ngModelChange)="searchQ.set($event)"
                    placeholder="Search phone or text"
                    aria-label="Search conversations" />
           </label>
-          <select hlmSelect class="font-mono min-h-[40px]" [(ngModel)]="channelFilter" (ngModelChange)="onFilterChange()" aria-label="Channel">
+          <select hlmSelect class="font-mono min-h-[40px]" [ngModel]="channelFilter()" (ngModelChange)="channelFilter.set($event)" aria-label="Channel">
             <option value="all">All channels</option>
             <option value="call">Calls</option>
             <option value="sms">SMS</option>
           </select>
           <label class="ck">
-            <input type="checkbox" [(ngModel)]="escalatedOnly" (ngModelChange)="onFilterChange()" />
+            <input type="checkbox" [ngModel]="escalatedOnly()" (ngModelChange)="escalatedOnly.set($event)" />
             <span>Escalated only</span>
           </label>
           <button class="btn-ghost text-xs" type="button" (click)="refresh()">Refresh</button>
@@ -132,6 +132,14 @@ type DayGroup = { label: string; items: Conversation[] };
           [message]="loadError()!"
           (retry)="refresh()"
           data-testid="conversations-error" />
+      } @else if (filterNoMatch()) {
+        <app-empty-state
+          icon="🔍"
+          title="No conversations match your filters"
+          body="Try a different search term or channel — your calls are still here."
+          primary="Clear filters"
+          (primaryClick)="clearFilters()"
+        />
       } @else if (filtered().length === 0) {
         <app-empty-state
           icon="💬"
@@ -359,9 +367,12 @@ export class VoiceConversationsComponent implements OnDestroy {
   loadError = signal<string | null>(null);
   detail = signal<Conversation | null>(null);
 
-  searchQ = '';
-  channelFilter: 'all' | 'call' | 'sms' = 'all';
-  escalatedOnly = false;
+  // Signals (not plain props) so the list re-filters LIVE on keystroke and a
+  // Clear button that resets them actually updates the view (a `computed`
+  // doesn't react to plain-property mutation).
+  searchQ = signal('');
+  channelFilter = signal<'all' | 'call' | 'sms'>('all');
+  escalatedOnly = signal(false);
 
   private pollTimer?: ReturnType<typeof setInterval>;
   private visibilityHandler = (): void => {
@@ -370,10 +381,12 @@ export class VoiceConversationsComponent implements OnDestroy {
   };
 
   filtered = computed(() => {
-    const q = this.searchQ.toLowerCase().trim();
+    const q = this.searchQ().toLowerCase().trim();
+    const channel = this.channelFilter();
+    const escalatedOnly = this.escalatedOnly();
     return this.conversations().filter((c) => {
-      if (this.channelFilter !== 'all' && c.channel !== this.channelFilter) return false;
-      if (this.escalatedOnly && c.status !== 'escalated') return false;
+      if (channel !== 'all' && c.channel !== channel) return false;
+      if (escalatedOnly && c.status !== 'escalated') return false;
       if (q) {
         const blob = `${c.from_number} ${c.message_preview ?? ''} ${c.summary ?? ''}`.toLowerCase();
         if (!blob.includes(q)) return false;
@@ -381,6 +394,17 @@ export class VoiceConversationsComponent implements OnDestroy {
       return true;
     });
   });
+
+  /** True when calls EXIST but the active filter hides them all — so the empty
+   *  state reads "no match" + offers Clear, never a misleading "No conversations yet". */
+  readonly filterNoMatch = computed(() => this.conversations().length > 0 && this.filtered().length === 0);
+
+  /** Reset every filter so the full feed returns (signal-reactive → updates live). */
+  clearFilters(): void {
+    this.searchQ.set('');
+    this.channelFilter.set('all');
+    this.escalatedOnly.set(false);
+  }
 
   grouped = computed<DayGroup[]>(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -464,7 +488,6 @@ export class VoiceConversationsComponent implements OnDestroy {
     if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = undefined; }
   }
 
-  onFilterChange(): void { /* signals + computed handle re-render */ }
 
   openDetail(c: Conversation): void {
     if (c.transcript) { this.detail.set(c); return; }
