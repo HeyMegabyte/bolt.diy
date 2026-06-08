@@ -75,6 +75,52 @@ describe('AdminSocialComponent (site-reactive load)', () => {
     expect(get).toHaveBeenCalledWith('/social/accounts', { site_id: 'site-b' }, { silent: true });
   });
 
+  // Live composer character counter — every pro composer (Buffer/Typefully)
+  // shows a count against the tightest selected-platform limit AT the cursor.
+  // The platform chips show per-platform; this is the at-composer summary.
+  it('composerLimit picks the tightest char limit among selected platforms that use the main copy', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.selected.set(['twitter', 'linkedin']); // 280 vs 3000 → twitter wins
+    fixture.detectChanges();
+    expect(c.composerLimit()).toEqual({ limit: 280, platform: 'X / Twitter' });
+  });
+
+  it('composerCharState flips ok → near → over as the main copy approaches the tightest limit', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.selected.set(['twitter']); // 280
+    c.content.set('a'.repeat(100));
+    fixture.detectChanges();
+    expect(c.composerCharState()).toBe('ok');
+    c.content.set('a'.repeat(255)); // ≥ 90% of 280 (252)
+    fixture.detectChanges();
+    expect(c.composerCharState()).toBe('near');
+    c.content.set('a'.repeat(281)); // over 280
+    fixture.detectChanges();
+    expect(c.composerCharState()).toBe('over');
+  });
+
+  it('renders the live composer counter with count/limit (data-testid=composer-counter)', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.selected.set(['twitter']);
+    c.content.set('hello world'); // 11 chars
+    fixture.detectChanges();
+    const ct = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="composer-counter"]');
+    expect(ct).withContext('counter renders when a main-copy platform is selected').not.toBeNull();
+    expect(ct?.textContent).toContain('11/280');
+  });
+
+  it('hides the composer counter when every selected platform has its own override', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.selected.set(['twitter']);
+    c.perPlatform.set({ twitter: 'custom tweet' }); // twitter counts against its override, not the main copy
+    fixture.detectChanges();
+    expect(c.composerLimit()).withContext('no main-copy platform left → no composer counter').toBeNull();
+  });
+
   it('flags accountsError on a failed accounts load (connected platforms not silently shown disconnected)', () => {
     build(null);
     get.and.callFake((path: string) => {

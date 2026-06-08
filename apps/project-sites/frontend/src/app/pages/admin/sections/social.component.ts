@@ -411,6 +411,20 @@ const PLATFORMS: readonly PlatformDef[] = [
             </div>
           }
 
+          <!-- Live composer counter — count against the tightest selected
+               platform that uses the main copy. The platform chips show each
+               platform; this is the at-cursor summary (Buffer/Typefully style).
+               Cyan-muted → amber (≥90%) → red (over). Tailwind only (social is
+               over its SCSS budget). -->
+          @if (composerLimit(); as cl) {
+            <div class="flex justify-end mt-1">
+              <span [class]="composerCtClass()" data-testid="composer-counter" role="status" aria-live="polite"
+                    [attr.aria-label]="content().length + ' of ' + cl.limit + ' characters; tightest limit is ' + cl.platform">
+                {{ content().length }}/{{ cl.limit }}@if (composerCharState() === 'over') {&nbsp;· over {{ cl.platform }}}
+              </span>
+            </div>
+          }
+
           <!-- Per-platform override surfaces -->
           @for (p of platforms; track p.id) {
             @if (hasOverride(p.id)) {
@@ -1688,6 +1702,48 @@ export class AdminSocialComponent implements OnInit {
   readonly content = signal('');
   readonly selected = signal<PlatformId[]>([]);
   readonly perPlatform = signal<Partial<Record<PlatformId, string>>>({});
+  /**
+   * Tightest char limit among selected platforms that use the MAIN composer copy
+   * (a platform with its own override counts against that override, via the
+   * override's own counter — not here). Drives the live composer counter so a
+   * long post shows its strictest budget at the cursor. `null` when nothing is
+   * selected, or every selected platform has an override → no main-copy counter.
+   */
+  readonly composerLimit = computed<{ limit: number; platform: string } | null>(() => {
+    let min = Infinity;
+    let platform = '';
+    for (const pid of this.selected()) {
+      if (this.hasOverride(pid)) continue;
+      const def = this.defOf(pid);
+      if (def && def.charLimit < min) {
+        min = def.charLimit;
+        platform = def.label;
+      }
+    }
+    return min === Infinity ? null : { limit: min, platform };
+  });
+  /** Composer copy length vs the tightest main-copy limit → ok | near (≥90%) | over. */
+  readonly composerCharState = computed<'ok' | 'near' | 'over'>(() => {
+    const cl = this.composerLimit();
+    if (!cl) return 'ok';
+    const n = this.content().length;
+    if (n > cl.limit) return 'over';
+    if (n >= cl.limit * 0.9) return 'near';
+    return 'ok';
+  });
+  /** Full class string for the composer counter (Tailwind only — social is over
+   *  its SCSS budget, so no new component CSS). Cyan-muted → amber → red. */
+  readonly composerCtClass = computed(() => {
+    const base = 'text-[0.72rem] tabular-nums transition-colors';
+    switch (this.composerCharState()) {
+      case 'over':
+        return `${base} text-red-400 font-semibold`;
+      case 'near':
+        return `${base} text-amber-400`;
+      default:
+        return `${base} text-white/55`;
+    }
+  });
   readonly media = signal<MediaItem[]>([]);
   readonly hashtags = signal<string[]>([]);
   readonly link = signal('');
