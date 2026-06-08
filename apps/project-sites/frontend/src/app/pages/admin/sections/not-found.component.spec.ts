@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Meta } from '@angular/platform-browser';
-import { AdminNotFoundComponent } from './not-found.component';
+import { AdminNotFoundComponent, suggestRoute, levenshtein } from './not-found.component';
 
 /**
  * The admin-scoped 404 keeps unknown `/admin/*` paths inside the cockpit shell.
@@ -39,6 +39,43 @@ describe('AdminNotFoundComponent', () => {
     const el = render().nativeElement as HTMLElement;
     const hrefs = Array.from(el.querySelectorAll('.anf-link')).map((a) => a.getAttribute('href'));
     expect(hrefs).toEqual(['/admin/sites', '/admin/analytics', '/admin/feature-flags', '/admin/snapshots']);
+  });
+
+  // "Did you mean …" recovery — turn a stale/typo'd /admin/* path into a one-click
+  // jump to the closest real route (extra-mile 404 → Levenshtein suggestion).
+  describe('suggestRoute()', () => {
+    it('suggests the closest route for a mistyped segment', () => {
+      expect(suggestRoute('analitics')?.path).toBe('analytics');
+      expect(suggestRoute('sitez')?.path).toBe('sites');
+      expect(suggestRoute('feature-flag')?.path).toBe('feature-flags'); // missing trailing s
+    });
+
+    it('maps a known renamed route (stale bookmark) to its current path', () => {
+      expect(suggestRoute('ai-logs')?.path).toBe('traces'); // ai-logs → traces
+      expect(suggestRoute('github')?.path).toBe('snapshots'); // github → snapshots
+    });
+
+    it('returns null for an empty or far-off garbage segment (no misleading guess)', () => {
+      expect(suggestRoute('')).toBeNull();
+      expect(suggestRoute('zzzzzzzzqqq')).toBeNull();
+    });
+
+    it('levenshtein computes a correct edit distance', () => {
+      expect(levenshtein('sites', 'sitez')).toBe(1);
+      expect(levenshtein('', 'abc')).toBe(3);
+      expect(levenshtein('same', 'same')).toBe(0);
+    });
+  });
+
+  it('renders the "Did you mean" suggestion link when a close match exists', () => {
+    const fx = render();
+    fx.componentInstance.suggestion = { path: 'analytics', label: 'Analytics' };
+    fx.detectChanges();
+    const el = fx.nativeElement as HTMLElement;
+    const link = el.querySelector('[data-testid="admin-not-found-suggest"]') as HTMLAnchorElement;
+    expect(link).withContext('suggestion link renders').toBeTruthy();
+    expect(link.getAttribute('href')).toBe('/admin/analytics');
+    expect(link.textContent).toContain('Analytics');
   });
 
   it('sets a soft-404 noindex while mounted and restores the prior robots on destroy', () => {
