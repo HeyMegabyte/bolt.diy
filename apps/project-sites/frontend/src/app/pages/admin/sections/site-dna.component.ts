@@ -116,7 +116,7 @@ interface DnaPrefsResp {
             } @else {
               <app-rolling-counter [value]="acceptCount()" suffix=" accepted" />
             }
-            <span class="dna-stat-label dna-stat-label--accept"><span class="dna-glyph" aria-hidden="true">✓</span> Accepted</span>
+            <span class="dna-stat-label dna-stat-label--accept"><span class="dna-glyph" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span> Accepted</span>
           </div>
           <div class="dna-stat">
             @if (showStatsSkeleton()) {
@@ -124,7 +124,7 @@ interface DnaPrefsResp {
             } @else {
               <app-rolling-counter [value]="rejectCount()" suffix=" rejected" />
             }
-            <span class="dna-stat-label dna-stat-label--reject"><span class="dna-glyph" aria-hidden="true">✕</span> Rejected</span>
+            <span class="dna-stat-label dna-stat-label--reject"><span class="dna-glyph" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span> Rejected</span>
           </div>
           <div class="dna-stat">
             @if (showStatsSkeleton()) {
@@ -132,7 +132,7 @@ interface DnaPrefsResp {
             } @else {
               <app-rolling-counter [value]="editCount()" suffix=" edited" />
             }
-            <span class="dna-stat-label dna-stat-label--edit"><span class="dna-glyph" aria-hidden="true">✎</span> Edited</span>
+            <span class="dna-stat-label dna-stat-label--edit"><span class="dna-glyph" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></span> Edited</span>
           </div>
           <div class="dna-stat">
             @if (showStatsSkeleton()) {
@@ -357,7 +357,8 @@ interface DnaPrefsResp {
          steady (no layout shift) while the first fetch is in flight. */
       .dna-stat-skel { display: inline-block; width: 56px; height: 15px; border-radius: 5px; margin-block: 1px; }
       .dna-stat-label { font-size: 11px; color: rgba(244,244,255,0.5); display: inline-flex; align-items: center; gap: 4px; }
-      .dna-glyph { font-size: 12px; line-height: 1; }
+      .dna-glyph { display: inline-flex; align-items: center; vertical-align: -2px; }
+      .dna-glyph svg { width: 12px; height: 12px; }
       .dna-stat-label--accept { color: var(--dna-accept); }
       .dna-stat-label--reject { color: var(--dna-reject); }
       .dna-stat-label--edit   { color: var(--dna-edit); }

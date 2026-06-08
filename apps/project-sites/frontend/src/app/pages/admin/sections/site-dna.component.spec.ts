@@ -60,6 +60,24 @@ describe('AdminSiteDnaComponent (taste pulse + a11y)', () => {
     expect(link.getAttribute('href')).toBe('/admin/feature-flags');
   });
 
+  // The accept/reject/edit stat labels must use semantic monochrome SVGs (check /
+  // x / pencil) inheriting their status colour — not bare ✓ ✕ ✎ chars — to match
+  // the cockpit glyph standard (bell status icons, ai-spark, etc.).
+  it('renders the accept/reject/edit stat glyphs as semantic SVGs (not bare ✓ ✕ ✎ chars)', () => {
+    build(true);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    for (const mod of ['accept', 'reject', 'edit']) {
+      const glyph = host.querySelector(`.dna-stat-label--${mod} .dna-glyph`);
+      expect(glyph).withContext(`${mod} stat label glyph present`).not.toBeNull();
+      expect(glyph!.querySelector('svg')).withContext(`${mod} glyph is an SVG`).not.toBeNull();
+    }
+    const labelsText = Array.from(host.querySelectorAll('.dna-stat-label')).map((s) => s.textContent ?? '').join('');
+    expect(labelsText).withContext('no bare check char').not.toContain('✓');
+    expect(labelsText).withContext('no bare x char').not.toContain('✕');
+    expect(labelsText).withContext('no bare pencil char').not.toContain('✎');
+  });
+
   // The icon-only Refresh button (↻) keeps its constant aria-label, but a screen
   // reader also needs the in-progress state — aria-busy — while history reloads.
   // Cohesion with the rest of /admin's Refresh affordances.
