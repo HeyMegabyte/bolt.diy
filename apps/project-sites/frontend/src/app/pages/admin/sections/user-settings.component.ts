@@ -618,12 +618,20 @@ interface NotificationGroup {
             <input
               type="text"
               hlmInput class="w-full"
+              [class.confirm-match]="deleteConfirm.trim().toLowerCase() === 'delete my account'"
               placeholder="delete my account"
               [ngModel]="deleteConfirm"
               (ngModelChange)="deleteConfirm = $event"
               data-testid="delete-account-confirm-input"
+              aria-label="Type the confirmation phrase: delete my account"
               autofocus
               autocomplete="off" />
+            @if (deleteConfirm.trim().toLowerCase() === 'delete my account') {
+              <p class="delete-ready" role="status" data-testid="delete-confirm-ready">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                Phrase confirmed — “Delete forever” is now active.
+              </p>
+            }
           </div>
 
           <div dialogFooter class="px-5 py-4 border-t border-white/[0.06] flex items-center justify-end gap-2">
@@ -1015,6 +1023,11 @@ interface NotificationGroup {
       display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
       padding: 2.4rem 1.2rem; text-align: center;
     }
+    /* Delete-confirm: cyan ring + "ready" cue the moment the exact phrase matches,
+       so the user sees WHY the disabled "Delete forever" button just activated. */
+    .confirm-match { box-shadow: 0 0 0 1px var(--ps-accent, #00E5FF), 0 0 0 4px color-mix(in oklch, var(--ps-accent, #00E5FF) 22%, transparent) !important; border-color: var(--ps-accent, #00E5FF) !important; }
+    .delete-ready { display: flex; align-items: center; gap: 0.4rem; margin: 0; font-size: 0.74rem; font-weight: 600; color: var(--ps-accent, #00E5FF); }
+    .delete-ready svg { flex: none; }
     .empty-glyph {
       width: 72px; height: 72px;
       display: flex; align-items: center; justify-content: center;

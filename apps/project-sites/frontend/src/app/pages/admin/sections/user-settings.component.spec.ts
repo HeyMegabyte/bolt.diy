@@ -479,3 +479,53 @@ describe('AdminUserSettingsComponent (disconnectCf error feedback)', () => {
     expect(error).withContext('failure surfaced, not silent').toHaveBeenCalled();
   });
 });
+
+/**
+ * Delete-account confirm UX (the most destructive action). The confirm-by-typing
+ * input needs (a) a programmatic accessible NAME — placeholder + a sibling <p> is
+ * not a label for a screen reader — and (b) a VISIBLE cue the moment the exact
+ * phrase matches, so the user understands WHY the disabled "Delete forever" button
+ * just became active. Full-render (the `make` harness strips the template).
+ */
+describe('AdminUserSettingsComponent (delete-account confirm: a11y name + visible match cue)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function render(): { fx: ReturnType<typeof TestBed.createComponent<AdminUserSettingsComponent>>; c: AdminUserSettingsComponent } {
+    const http = { get: () => of({}), post: () => of({}), put: () => of({}), delete: () => of({}), getCloudflareCredentialStatus: () => of({ data: null }) };
+    TestBed.configureTestingModule({
+      imports: [AdminUserSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: http },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AuthService, useValue: { email: () => 'test@megabyte.space', user: () => ({}), signOut: () => undefined, getToken: () => 'test-token', session: () => ({ role: 'owner', user_id: 'u1' }) } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: HttpClient, useValue: http },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminUserSettingsComponent);
+    fx.detectChanges();
+    return { fx, c: fx.componentInstance };
+  }
+
+  it('the confirm input carries a programmatic accessible name (aria-label)', () => {
+    const { fx, c } = render();
+    c.deleteOpen.set(true);
+    fx.detectChanges();
+    const input = (fx.nativeElement as HTMLElement).querySelector('[data-testid="delete-account-confirm-input"]') as HTMLInputElement;
+    expect(input).withContext('delete-confirm input renders').not.toBeNull();
+    expect((input.getAttribute('aria-label') || '').trim().length).withContext('input has a non-empty accessible name').toBeGreaterThan(0);
+  });
+
+  it('shows the cyan "phrase confirmed" cue ONLY once the exact phrase is typed', () => {
+    const { fx, c } = render();
+    c.deleteOpen.set(true);
+    c.deleteConfirm = 'delete';
+    fx.detectChanges();
+    expect((fx.nativeElement as HTMLElement).querySelector('[data-testid="delete-confirm-ready"]'))
+      .withContext('no cue while the phrase is incomplete').toBeNull();
+    c.deleteConfirm = 'Delete My Account'; // case-insensitive match
+    fx.detectChanges();
+    expect((fx.nativeElement as HTMLElement).querySelector('[data-testid="delete-confirm-ready"]'))
+      .withContext('cue appears when the phrase matches (case-insensitive)').not.toBeNull();
+  });
+});
