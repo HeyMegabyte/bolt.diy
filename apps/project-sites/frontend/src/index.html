@@ -332,5 +332,17 @@
   <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-T48Z6BJJ" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <app-root></app-root>
+  <!-- SEO/a11y static fallback for no-JS clients + non-rendering crawlers/social
+       scrapers. Hidden whenever JS runs (the SPA renders the real hero heading),
+       so there is no duplicate heading in the live DOM. Guarantees a real top-level
+       heading + content + links in the static shell. Proper SSG/prerender is the
+       durable fix (progress.md P1). -->
+  <noscript>
+    <main style="max-width:42rem;margin:4rem auto;padding:0 1.25rem;font-family:'Sora',system-ui,sans-serif;color:#f4f4ff;background:#060610;line-height:1.6">
+      <h1 style="font-size:2rem;font-weight:700">Your Website, Handled. Finally.</h1>
+      <p>AI builds your professional website in 15 minutes — just search for your business. ProjectSites delivers hosted, SSL-secured business websites, ready to go live.</p>
+      <p><a href="/admin" style="color:#00e5ff">Sign in</a> &middot; <a href="/blog" style="color:#00e5ff">Blog</a> &middot; <a href="/changelog" style="color:#00e5ff">Changelog</a> &middot; <a href="/status" style="color:#00e5ff">Status</a> &middot; <a href="/press" style="color:#00e5ff">Press</a></p>
+    </main>
+  </noscript>
 </body>
 </html>
