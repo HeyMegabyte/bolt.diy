@@ -88,6 +88,24 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(labels.some((l) => l.includes('0 team members'))).withContext('no false "0 team members" SR announcement').toBeFalse();
   });
 
+  // Team + invite emails are reply targets ([[always]] mailto mandate). The team
+  // rows aren't clickable, so a plain mailto link is the clean fix (no propagation).
+  it('renders team member + pending-invite emails as mailto: links', () => {
+    build({ id: 's', slug: 'demo' });
+    fixture.componentInstance.tab.set('team');
+    fixture.componentInstance.members.set([
+      { id: 'm1', email: 'team@example.com', role: 'admin', created_at: new Date().toISOString() } as never,
+    ]);
+    fixture.componentInstance.invites.set([
+      { id: 'i1', email: 'invite@example.com', role: 'editor', created_at: new Date().toISOString() } as never,
+    ]);
+    fixture.detectChanges();
+    const hrefs = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('a[href^="mailto:"]'))
+      .map((a) => a.getAttribute('href'));
+    expect(hrefs).withContext('member email is a mailto link').toContain('mailto:team@example.com');
+    expect(hrefs).withContext('pending-invite email is a mailto link').toContain('mailto:invite@example.com');
+  });
+
   it('marks the overview strip as a labelled group for AT users', () => {
     build({ id: 's', slug: 'demo' });
     const strip = (fixture.nativeElement as HTMLElement).querySelector('.stat-strip');

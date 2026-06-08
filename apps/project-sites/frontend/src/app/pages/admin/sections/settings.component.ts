@@ -273,7 +273,7 @@ const PROVIDERS = MCP_PROVIDERS;
               <tbody>
                 @for (m of members(); track m.id) {
                   <tr class="border-b border-white/[0.04]">
-                    <td class="p-2">{{ m.email }}</td>
+                    <td class="p-2"><a class="settings-email-link" [href]="'mailto:' + m.email" [title]="'Email ' + m.email">{{ m.email }}</a></td>
                     <td class="p-2"><span class="badge">{{ m.role }}</span></td>
                     <td class="p-2 text-text-secondary">{{ m.created_at | date:'short' }}</td>
                     <td class="p-2 text-right">
@@ -291,7 +291,7 @@ const PROVIDERS = MCP_PROVIDERS;
                 }
                 @for (i of invites(); track i.id) {
                   <tr class="border-b border-white/[0.04] bg-amber-500/[0.04]">
-                    <td class="p-2">{{ i.email }} <span class="text-[0.6rem] text-amber-300 ml-1">PENDING</span></td>
+                    <td class="p-2"><a class="settings-email-link" [href]="'mailto:' + i.email" [title]="'Email ' + i.email">{{ i.email }}</a> <span class="text-[0.6rem] text-amber-300 ml-1">PENDING</span></td>
                     <td class="p-2"><span class="badge">{{ i.role }}</span></td>
                     <td class="p-2 text-text-secondary">invited {{ i.created_at | date:'short' }}</td>
                     <td class="p-2 text-right"><button class="text-red-400 text-[0.72rem]" (click)="revokeInvite(i)">Revoke</button></td>
@@ -772,6 +772,10 @@ const PROVIDERS = MCP_PROVIDERS;
     .tab.active { background: color-mix(in oklch, var(--accent) 12%, transparent); color: var(--accent); border-color: color-mix(in oklch, var(--accent) 35%, transparent); }
     .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .badge { font-size: 0.6rem; text-transform: uppercase; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(0,229,255,0.1); color: #00E5FF; }
+    /* Teammate email = reply target: cyan mailto link (rows aren't clickable). */
+    .settings-email-link { color: var(--ps-accent, #00E5FF); text-decoration: none; }
+    .settings-email-link:hover { text-decoration: underline; }
+    .settings-email-link:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; border-radius: 3px; }
     /* All inputs/textareas/selects now carry Spartan hlmInput/hlmSelect — the
        old .input-field / select.input-field rules are gone (fully converged). */
     .btn-primary { padding: 0.5rem 1rem; border-radius: 8px; background: var(--ps-grad-primary); color: #060610; font-weight: 700; border: 1px solid color-mix(in oklch, #00d4ff 40%, transparent); cursor: pointer; font-size: 0.78rem; transition: transform 200ms ease, box-shadow 200ms ease; }
