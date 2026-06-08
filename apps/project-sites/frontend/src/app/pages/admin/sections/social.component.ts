@@ -374,7 +374,7 @@ const PLATFORMS: readonly PlatformDef[] = [
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path [attr.d]="p.glyph"/></svg>
                 <span>{{ p.label }}</span>
                 @if (on) {
-                  <span class="chip-ct" [class.over]="charsFor(p.id) > p.charLimit">{{ charsFor(p.id) }}/{{ p.charLimit }}</span>
+                  <span class="chip-ct" [class.near]="ctState(charsFor(p.id), p.charLimit) === 'near'" [class.over]="ctState(charsFor(p.id), p.charLimit) === 'over'">{{ charsFor(p.id) }}/{{ p.charLimit }}</span>
                 }
               </button>
             }
@@ -432,7 +432,7 @@ const PLATFORMS: readonly PlatformDef[] = [
                 <div class="override-h">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path [attr.d]="p.glyph"/></svg>
                   <span>{{ p.label }} override</span>
-                  <span class="override-ct" [class.over]="(perPlatform()[p.id]?.length || 0) > p.charLimit">
+                  <span class="override-ct" [class.near]="ctState(perPlatform()[p.id]?.length || 0, p.charLimit) === 'near'" [class.over]="ctState(perPlatform()[p.id]?.length || 0, p.charLimit) === 'over'">
                     {{ perPlatform()[p.id]?.length || 0 }}/{{ p.charLimit }}
                   </span>
                   <button type="button" class="override-x" (click)="removeOverride(p.id)" aria-label="Remove override">&times;</button>
@@ -1332,6 +1332,7 @@ const PLATFORMS: readonly PlatformDef[] = [
       .chip.is-override { box-shadow: 0 0 0 2px color-mix(in oklch, var(--brand) 24%, transparent); }
       .chip.is-off { opacity: 0.45; cursor: not-allowed; }
       .chip-ct { font-size: 0.62rem; opacity: 0.85; padding-left: 4px; border-left: 1px solid currentColor; margin-left: 2px; }
+      .chip-ct.near { color: #fbbf24; font-weight: 700; }
       .chip-ct.over { color: #ff6b8a; font-weight: 700; }
 
       /* .composer-ta removed — composer textareas now Spartan hlmInput [multiline] (min-h via Tailwind). */
@@ -1362,6 +1363,7 @@ const PLATFORMS: readonly PlatformDef[] = [
         display: flex; align-items: center; gap: 8px; font-size: 0.74rem; font-weight: 700; color: var(--brand);
       }
       .override-ct { margin-left: auto; font-size: 0.62rem; opacity: 0.85; }
+      .override-ct.near { color: #fbbf24; }
       .override-ct.over { color: #ff6b8a; }
       .override-x { border: none; background: transparent; color: inherit; cursor: pointer; font-size: 1.1rem; line-height: 1; }
 
@@ -2216,6 +2218,15 @@ export class AdminSocialComponent implements OnInit {
   }
   charsFor(pid: PlatformId): number {
     return (this.perPlatform()[pid] ?? this.content()).length;
+  }
+
+  /** Counter colour state for a platform char count: ok | near (≥90%) | over —
+   *  matches the main composer counter + the shared <app-char-count> so every
+   *  social counter warns amber BEFORE the hard red over-limit, not at it. */
+  ctState(len: number, limit: number): 'ok' | 'near' | 'over' {
+    if (len > limit) return 'over';
+    if (len >= limit * 0.9) return 'near';
+    return 'ok';
   }
 
   onContentChange(v: string): void {

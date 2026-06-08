@@ -121,6 +121,29 @@ describe('AdminSocialComponent (site-reactive load)', () => {
     expect(c.composerLimit()).withContext('no main-copy platform left → no composer counter').toBeNull();
   });
 
+  // The platform-chip + override counters warn amber BEFORE the hard red over —
+  // consistent with the main composer counter + the shared char-count primitive.
+  it('ctState returns ok → near (≥90%) → over for a platform char count', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    expect(c.ctState(100, 280)).toBe('ok');
+    expect(c.ctState(252, 280)).toBe('near'); // exactly 90%
+    expect(c.ctState(280, 280)).toBe('near'); // at the cap is still near, not over
+    expect(c.ctState(281, 280)).toBe('over');
+  });
+
+  it('the selected-platform chip counter gets the amber .near class as it approaches the limit', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.selected.set(['twitter']); // 280
+    c.content.set('a'.repeat(260)); // ≥90% of 280
+    fixture.detectChanges();
+    const chip = (fixture.nativeElement as HTMLElement).querySelector('.chip-ct') as HTMLElement;
+    expect(chip).withContext('chip counter renders for the selected platform').not.toBeNull();
+    expect(chip.classList.contains('near')).withContext('amber near class applied').toBeTrue();
+    expect(chip.classList.contains('over')).withContext('not over yet').toBeFalse();
+  });
+
   it('flags accountsError on a failed accounts load (connected platforms not silently shown disconnected)', () => {
     build(null);
     get.and.callFake((path: string) => {
