@@ -573,7 +573,7 @@ const PLATFORMS: readonly PlatformDef[] = [
               <button type="button" class="sched-btn" [class.is-on]="!scheduleAt()" (click)="scheduleAt.set(null)">Post now</button>
               <button type="button" class="sched-btn" [class.is-on]="!!scheduleAt()" (click)="openScheduler()">Schedule</button>
               @if (scheduleAt()) {
-                <input hlmInput type="datetime-local" [(ngModel)]="scheduleAt" aria-label="Scheduled time" />
+                <input hlmInput type="datetime-local" [(ngModel)]="scheduleAt" [min]="minSchedule" [attr.aria-invalid]="scheduledInPast() || null" aria-label="Scheduled time" />
                 <select hlmSelect [(ngModel)]="scheduleTz" aria-label="Time zone">
                   <option value="America/Los_Angeles">Los Angeles</option>
                   <option value="America/New_York">New York</option>
@@ -2465,9 +2465,25 @@ export class AdminSocialComponent implements OnInit {
       return `scheduled for ${new Date(at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })} ${this.scheduleTz()}`;
     } catch { return 'scheduled'; }
   }
+  /** True when a schedule time is set but already in the past — you can't
+   *  schedule backwards. The native [min] only guards the picker, so a typed
+   *  past value is blocked here (and surfaced via publishBlockReason). */
+  scheduledInPast(): boolean {
+    const at = this.scheduleAt();
+    if (!at) return false;
+    const t = new Date(at).getTime();
+    return Number.isFinite(t) && t <= Date.now();
+  }
+
+  /** Lower bound for the schedule picker — now, in the input's local format. */
+  get minSchedule(): string {
+    return toDatetimeLocal(new Date());
+  }
+
   canPublish(): boolean {
     if (!this.content().trim() && this.media().length === 0) return false;
     if (this.selected().length === 0) return false;
+    if (this.scheduledInPast()) return false;
     // Char-limit enforcement per selected platform
     for (const pid of this.selected()) {
       const def = this.defOf(pid);
@@ -2491,6 +2507,7 @@ export class AdminSocialComponent implements OnInit {
         return `${def.label} is ${this.charsFor(pid) - def.charLimit} character${this.charsFor(pid) - def.charLimit === 1 ? '' : 's'} over its ${def.charLimit.toLocaleString()} limit.`;
       }
     }
+    if (this.scheduledInPast()) return 'Scheduled time is in the past — pick a future time or switch to Post now.';
     return null;
   }
 

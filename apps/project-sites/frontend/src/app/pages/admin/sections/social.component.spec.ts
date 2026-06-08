@@ -144,6 +144,37 @@ describe('AdminSocialComponent (site-reactive load)', () => {
     expect(chip.classList.contains('over')).withContext('not over yet').toBeFalse();
   });
 
+  // You can't schedule a post in the past — the datetime-local [min] only guards
+  // the picker, so a typed past time must block Publish + explain (else the POST
+  // sends a past schedule_at that fails or publishes immediately).
+  // datetime-local strings are LOCAL time (no Z) — build them the same way the
+  // component does, else a UTC toISOString() skews by the tz offset.
+  const localDt = (offsetMs: number): string => {
+    const d = new Date(Date.now() + offsetMs);
+    const p = (n: number): string => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  };
+
+  it('scheduledInPast: unset = ok, future = ok, past = blocked', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    expect(c.scheduledInPast()).withContext('no schedule → post-now, valid').toBeFalse();
+    c.scheduleAt.set(localDt(3_600_000));
+    expect(c.scheduledInPast()).withContext('future schedule valid').toBeFalse();
+    c.scheduleAt.set(localDt(-3_600_000));
+    expect(c.scheduledInPast()).withContext('past schedule blocked').toBeTrue();
+  });
+
+  it('canPublish is false + publishBlockReason explains when the schedule time is in the past', () => {
+    build({ id: 's1' });
+    const c = fixture.componentInstance;
+    c.selected.set(['twitter']);
+    c.content.set('ready to post');
+    c.scheduleAt.set(localDt(-3_600_000));
+    expect(c.canPublish()).withContext('a past schedule blocks publish').toBeFalse();
+    expect(c.publishBlockReason()).withContext('the disabled Publish is explained').toContain('past');
+  });
+
   it('flags accountsError on a failed accounts load (connected platforms not silently shown disconnected)', () => {
     build(null);
     get.and.callFake((path: string) => {
