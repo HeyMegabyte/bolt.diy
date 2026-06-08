@@ -245,7 +245,8 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
         <span>Automations</span>
       </a>
-      <!-- Review Links moved to the navbar "Actions" dropdown (route /admin/review-links kept). -->
+      <!-- "Share link" lives in the navbar "Actions" dropdown — it opens a modal
+           (the /admin/review-links page was removed 2026-06-08). -->
       <!-- Two-layer feature control plane. LAYER 1 "Feature Flags" (platform-ops
            flags) is operator-only — gated to sys-admin identities. LAYER 2
            "Features" (site-scoped, plan-aware) shows to every site owner. The
@@ -345,10 +346,10 @@
                   @if (!isEditorRoute()) { <span class="sa-hint">open the editor</span> }
                 </button>
                 <div class="sa-sep" role="separator"></div>
-                <a class="sa-item" routerLink="/admin/review-links" (click)="closeSiteActions()" data-testid="sa-review-links">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                  <span class="sa-label">Review &amp; Approval Links</span>
-                </a>
+                <button class="sa-item" type="button" (click)="openShareLink()" data-testid="sa-share-link">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                  <span class="sa-label">Share link</span>
+                </button>
               </div>
             }
           </div>
@@ -574,5 +575,11 @@
      prompts posted by long-running Workflows. Mounted once here per its
      contract so a workflow's postAskUser card can appear on any admin route. -->
 <app-task-tray />
+
+<!-- Share-link dialog — opened from the navbar Actions menu or the Cmd+K palette
+     (via ShareLinkService). Replaces the removed /admin/review-links page. -->
+@if (shareLinkOpen() && state.selectedSite(); as site) {
+  <app-share-link-dialog [siteId]="site.id" (closed)="closeShareLink()" />
+}
 
 } <!-- end @else (auth.isLoggedIn) -->

@@ -29,7 +29,7 @@ const ROUTES = [
   '/admin/ai-endpoints', '/admin/docs', '/admin/features', '/admin/traces',
   '/admin/apps', '/admin/inbox', '/admin/marketplace', '/admin/trust',
   '/admin/enterprise', '/admin/user', '/admin/logs', '/admin/bulk-ops',
-  '/admin/deliverability', '/admin/webhooks', '/admin/review-links', '/admin/stripe-app-status',
+  '/admin/deliverability', '/admin/webhooks', '/admin/stripe-app-status',
   '/admin/recipes',
 ];
 

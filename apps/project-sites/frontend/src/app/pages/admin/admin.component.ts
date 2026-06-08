@@ -21,6 +21,8 @@ import { FocusTrapDirective } from '../../directives/focus-trap.directive';
 import { DomainPickerComponent } from '../../components/domain-picker/domain-picker.component';
 import { GlobalDropZoneComponent } from '../../components/global-drop-zone/global-drop-zone.component';
 import { TaskTrayComponent } from '../../components/task-tray/task-tray.component';
+import { ShareLinkDialogComponent } from '../../components/share-link-dialog/share-link-dialog.component';
+import { ShareLinkService } from '../../services/share-link.service';
 import { EditorTabsComponent, type EditorTab } from '../../components/editor-tabs/editor-tabs.component';
 import { AdminMediaComponent } from './sections/media.component';
 import { AdminAiEndpointsComponent } from './sections/ai-endpoints.component';
@@ -54,7 +56,7 @@ export const G_CHORD_ROUTES: Readonly<Record<string, string>> = {
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective, DomainPickerComponent, GlobalDropZoneComponent, TaskTrayComponent, EditorTabsComponent, AdminMediaComponent, AdminAiEndpointsComponent, ...BrnTooltipImports],
+  imports: [FormsModule, RouterModule, CommandPaletteComponent, ShortcutsOverlayComponent, AiChatWidgetComponent, SectionErrorBoundaryComponent, FocusTrapDirective, DomainPickerComponent, GlobalDropZoneComponent, TaskTrayComponent, ShareLinkDialogComponent, EditorTabsComponent, AdminMediaComponent, AdminAiEndpointsComponent, ...BrnTooltipImports],
   providers: [AdminStateService, provideHlmTooltip()],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',
@@ -176,6 +178,20 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   private routerSub?: Subscription;
 
+  // ── Share-link dialog ──
+  /** Inline-rendered "Share link" modal open state (replaces the old /admin/review-links page). */
+  shareLinkOpen = signal(false);
+  private shareLink = inject(ShareLinkService);
+  /** Any surface (navbar Actions menu, Cmd+K palette) can request the dialog via ShareLinkService. */
+  private shareLinkSub = this.shareLink.open$.subscribe(() => this.openShareLink());
+
+  /** Open the Share-link dialog (closes the Site-actions dropdown first). */
+  openShareLink(): void {
+    this.siteActionsOpen.set(false);
+    if (this.state.selectedSite()) this.shareLinkOpen.set(true);
+  }
+  closeShareLink(): void { this.shareLinkOpen.set(false); }
+
   private updateRouteState(url: string): void {
     // `/admin` is the DASHBOARD, not the editor — only `/admin/editor[/...]`
     // lifts the persistent bolt iframe into place. See isEditorPath().
@@ -254,6 +270,7 @@ export class AdminComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.routerSub?.unsubscribe();
+    this.shareLinkSub?.unsubscribe();
     this.state.stopPolling();
     this.bolt.teardown();
   }

@@ -21,6 +21,7 @@ import { catchError, map } from 'rxjs/operators';
 import { ApiService } from '../../services/api.service';
 import { ConfirmService } from '../../services/confirm.service';
 import { BoltEmbedService, type BoltFileEntry } from '../../services/bolt-embed.service';
+import { ShareLinkService } from '../../services/share-link.service';
 
 /** Row returned by the AI natural-language search endpoint (#94). */
 export interface AiSearchRow {
@@ -164,7 +165,7 @@ export class CommandPaletteActionsService {
       { id: 'nav-deliverability', title: 'Go to Deliverability', section: 'Navigation', icon: ICONS.shield, keywords: ['spf', 'dkim', 'dmarc', 'email', 'spam', 'inbox placement'], href: navHref('/admin/deliverability'), run: () => go('/admin/deliverability') },
       { id: 'nav-webhooks',     title: 'Go to Webhooks',      section: 'Navigation', icon: ICONS.zap,      keywords: ['events', 'callbacks', 'endpoints', 'deliveries'], href: navHref('/admin/webhooks'), run: () => go('/admin/webhooks') },
       { id: 'nav-automations',  title: 'Go to Automations',   section: 'Navigation', icon: ICONS.zap,      keywords: ['recipes', 'triggers', 'workflows', 'rules'], href: navHref('/admin/recipes'), run: () => go('/admin/recipes') },
-      { id: 'nav-review-links', title: 'Go to Review Links',  section: 'Navigation', icon: ICONS.ext,      keywords: ['approval', 'client', 'preview', 'share', 'stakeholder'], href: navHref('/admin/review-links'), run: () => go('/admin/review-links') },
+      { id: 'cmd-share-link',   title: 'Share link…',         section: 'Actions',    icon: ICONS.ext,      keywords: ['approval', 'client', 'preview', 'share', 'stakeholder', 'review', 'password', 'link'], run: () => this.shareLinkSvc.open() },
       { id: 'nav-flags',        title: 'Go to Feature Flags', section: 'Navigation', icon: ICONS.cog,      keywords: ['flags', 'rollout', 'toggle', 'experimental', 'killswitch'], href: navHref('/admin/feature-flags'), run: () => go('/admin/feature-flags') },
       // Core high-traffic sections — were missing from the palette ("everything
       // is searchable") so Cmd+K → "sites"/"inbox"/"media" found nothing. No
@@ -274,6 +275,7 @@ export class CommandPaletteActionsService {
    *  provide a stub when they're only exercising the static action list. */
   private boltSvc = inject(BoltEmbedService);
   private confirmSvc = inject(ConfirmService);
+  private shareLinkSvc = inject(ShareLinkService);
 
   /**
    * Item 45 — query the embedded bolt.diy iframe for its file list and

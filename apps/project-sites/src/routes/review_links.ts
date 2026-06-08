@@ -27,8 +27,17 @@ import { createReviewLink, listReviewLinks } from '../services/review_approval.j
 const NOT_FOUND = { error: { code: 'NOT_FOUND', message: 'Not found' } } as const;
 const UNAUTH = { error: { code: 'UNAUTHORIZED', message: 'Auth required' } } as const;
 
-/** Optional ttl in days (1–90); defaults to the service's 7-day default. */
-const CreateBody = z.object({ ttlDays: z.number().int().min(1).max(90).optional() }).strict();
+/**
+ * Optional ttl in days (1–90; defaults to the service's 7-day default) +
+ * optional password (6–128 chars) — when set, the reviewer must enter it before
+ * the `/review/:id` page reveals the site.
+ */
+const CreateBody = z
+  .object({
+    ttlDays: z.number().int().min(1).max(90).optional(),
+    password: z.string().min(6).max(128).optional(),
+  })
+  .strict();
 
 const reviewLinks = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -56,11 +65,14 @@ reviewLinks.post('/api/sites/:siteId/review-links', async (c) => {
     return c.json({ error: { code: 'BAD_REQUEST', message: 'Invalid request', details: parsed.error.issues } }, 400);
   }
   const ttlMs = parsed.data.ttlDays ? parsed.data.ttlDays * 86_400_000 : undefined;
-  const res = await createReviewLink(c.env, g.orgId, c.req.param('siteId'), ttlMs ? { ttlMs } : {});
+  const res = await createReviewLink(c.env, g.orgId, c.req.param('siteId'), {
+    ...(ttlMs ? { ttlMs } : {}),
+    ...(parsed.data.password ? { password: parsed.data.password } : {}),
+  });
   if (!res.ok) {
     return c.json({ error: { code: 'INTERNAL_ERROR', message: res.error ?? 'Could not create review link' } }, 500);
   }
-  return c.json({ ok: true, id: res.id, url: res.url, expiresAt: res.expiresAt });
+  return c.json({ ok: true, id: res.id, url: res.url, expiresAt: res.expiresAt, passwordProtected: res.passwordProtected });
 });
 
 export { reviewLinks };

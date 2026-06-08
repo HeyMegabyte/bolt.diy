@@ -30,7 +30,7 @@ export const ADMIN_SECTION_LABELS: Readonly<Record<string, string>> = {
   // Coverage gap closed: these routed sections fell back to 'Editor' → stale
   // document title (WCAG 2.4.2). Verified live the titles stayed "Editor".
   deliverability: 'Deliverability', webhooks: 'Webhooks',
-  'review-links': 'Review Links', 'api-tokens': 'API Tokens',
+  'api-tokens': 'API Tokens',
   recipes: 'Automations',
   'accept-invite': 'Accept Invite',
 };

@@ -29,6 +29,7 @@ import {
   getReviewLink,
   recordReviewDecision,
   recordReviewComment,
+  verifyReviewPassword,
   effectiveApprovalStatus,
   MAX_REVIEW_COMMENT_LEN,
   type ApprovalStatus,
@@ -61,8 +62,42 @@ reviewPublic.get('/api/review/:id', async (c) => {
     { status: (row.decision as ApprovalStatus) ?? 'pending', expiresAt: row.expires_at },
     new Date().toISOString(),
   );
-  return c.json({ ok: true, review: { id: row.id, site_id: row.site_id, status, expires_at: row.expires_at } });
+  return c.json({
+    ok: true,
+    review: {
+      id: row.id,
+      site_id: row.site_id,
+      status,
+      expires_at: row.expires_at,
+      // Signal the reviewer page to prompt for a password (the hash never leaves the server).
+      password_required: !!row.password_hash,
+    },
+  });
 });
+
+// Verify a review link's password. Rate-limited per IP to blunt brute-force.
+// Returns { ok: true } on a match; 401 on a wrong password; 404 for an unknown
+// id / flag-off org. An open (no-password) link reports { ok: true, required: false }.
+reviewPublic.post(
+  '/api/review/:id/unlock',
+  rateLimitMiddleware({ maxRequests: 10, windowSeconds: 60, prefix: 'rl:review-unlock' }),
+  async (c) => {
+    const { id } = c.req.param();
+    const row = await getReviewLink(c.env, id);
+    if (!row) return c.json(NOT_FOUND, 404);
+    if (!(await isFlagOn(c.env, 'approval_workflow', { orgId: row.agency_org_id }))) {
+      return c.json(NOT_FOUND, 404);
+    }
+    const parsed = z.object({ password: z.string().min(1).max(128) }).strict().safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return c.json({ error: { code: 'BAD_REQUEST', message: 'password is required' } }, 400);
+    }
+    const check = await verifyReviewPassword(c.env, id, parsed.data.password);
+    if (!check.required) return c.json({ ok: true, required: false });
+    if (!check.ok) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Incorrect password' } }, 401);
+    return c.json({ ok: true, required: true });
+  },
+);
 
 // Public mutation endpoint → rate-limit per IP (10/min) to blunt abuse/brute-force.
 reviewPublic.post(

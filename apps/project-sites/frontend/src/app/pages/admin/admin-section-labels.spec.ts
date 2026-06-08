@@ -9,7 +9,6 @@ describe('adminSectionLabel (per-route title map)', () => {
   it('labels the mapped routes (no "Editor"/"Dashboard" fallback)', () => {
     expect(adminSectionLabel('deliverability')).toBe('Deliverability');
     expect(adminSectionLabel('webhooks')).toBe('Webhooks');
-    expect(adminSectionLabel('review-links')).toBe('Review Links');
     expect(adminSectionLabel('api-tokens')).toBe('API Tokens');
     expect(adminSectionLabel('accept-invite')).toBe('Accept Invite');
     expect(adminSectionLabel('recipes')).toBe('Automations');
@@ -20,7 +19,9 @@ describe('adminSectionLabel (per-route title map)', () => {
   it('retired sections (removed from the sidebar 2026-06-08) fall back to Dashboard', () => {
     // bulk-ops/enterprise/trust/stripe-app-status/marketplace deleted; audit
     // redirects to /admin/logs so its bare segment is no longer mapped.
-    for (const seg of ['bulk-ops', 'enterprise', 'trust', 'stripe-app-status', 'marketplace', 'audit']) {
+    // review-links: the page was removed 2026-06-08 — sharing is now a modal
+    // opened from the navbar Actions menu / Cmd+K, so the bare segment is unmapped.
+    for (const seg of ['bulk-ops', 'enterprise', 'trust', 'stripe-app-status', 'marketplace', 'audit', 'review-links']) {
       expect(adminSectionLabel(seg)).withContext(seg).toBe('Dashboard');
     }
   });

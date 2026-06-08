@@ -98,6 +98,62 @@ async function sha256Hex(input: string): Promise<string> {
     .join('');
 }
 
+/** PBKDF2 work factor for review-link passwords (OWASP-aligned for SHA-256). */
+const PBKDF2_ITERATIONS = 100_000;
+
+/** Hex-encode a byte array. */
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/** Decode a hex string to bytes. */
+function fromHex(hex: string): Uint8Array {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return out;
+}
+
+/**
+ * Derive a PBKDF2-SHA256 hash of a review-link password. Returns the hash + the
+ * salt (both hex). A fresh 16-byte salt is generated unless one is injected
+ * (the inject-the-salt seam makes verification + tests deterministic). Web
+ * Crypto `subtle` is available in Workers AND the Jest (Node) runtime.
+ */
+export async function hashReviewPassword(
+  password: string,
+  saltHex?: string,
+): Promise<{ hash: string; salt: string }> {
+  const salt = saltHex ? fromHex(saltHex) : crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    key,
+    256,
+  );
+  return { hash: toHex(new Uint8Array(bits)), salt: toHex(salt) };
+}
+
+/**
+ * Constant-time-ish compare of a candidate password against a stored hash+salt.
+ * Re-derives with the stored salt and compares the hex digests; a length/char
+ * mismatch returns false. Missing hash/salt (an open link) returns false too —
+ * callers gate on `passwordProtected` first.
+ */
+export async function verifyReviewPasswordHash(
+  password: string,
+  storedHash: string | null | undefined,
+  storedSalt: string | null | undefined,
+): Promise<boolean> {
+  if (!storedHash || !storedSalt) return false;
+  const { hash } = await hashReviewPassword(password, storedSalt);
+  if (hash.length !== storedHash.length) return false;
+  let diff = 0;
+  for (let i = 0; i < hash.length; i++) diff |= hash.charCodeAt(i) ^ storedHash.charCodeAt(i);
+  return diff === 0;
+}
+
 /** Default review-link lifetime: 7 days. */
 export const DEFAULT_REVIEW_TTL_MS = 7 * 86_400_000;
 
@@ -109,6 +165,8 @@ export interface CreateReviewLinkResult {
   url?: string;
   /** ISO-8601 UTC expiry. */
   expiresAt?: string;
+  /** True when the link requires a password before the review page reveals the site. */
+  passwordProtected?: boolean;
   error?: string;
 }
 
@@ -133,20 +191,23 @@ export async function createReviewLink(
   env: Env,
   orgId: string,
   siteId: string,
-  opts: { ttlMs?: number; nowMs?: number } = {},
+  opts: { ttlMs?: number; nowMs?: number; password?: string } = {},
 ): Promise<CreateReviewLinkResult> {
   const ttlMs = opts.ttlMs ?? DEFAULT_REVIEW_TTL_MS;
   const nowMs = opts.nowMs ?? Date.now();
   const id = crypto.randomUUID();
   const expiresAt = new Date(nowMs + ttlMs).toISOString();
   const tokenHash = await sha256Hex(`${id}.${siteId}.${orgId}.${expiresAt}`);
+  // Optional password gate — store a PBKDF2 hash + per-link salt, never the plaintext.
+  const pw = opts.password?.trim();
+  const creds = pw ? await hashReviewPassword(pw) : null;
   const res = await dbExecute(
     env.DB,
-    'INSERT INTO review_tokens (id, site_id, agency_org_id, token_hash, expires_at) VALUES (?, ?, ?, ?, ?)',
-    [id, siteId, orgId, tokenHash, expiresAt],
+    'INSERT INTO review_tokens (id, site_id, agency_org_id, token_hash, expires_at, password_hash, password_salt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [id, siteId, orgId, tokenHash, expiresAt, creds?.hash ?? null, creds?.salt ?? null],
   );
   if (res.error) return { ok: false, error: res.error };
-  return { ok: true, id, url: `/review/${id}`, expiresAt };
+  return { ok: true, id, url: `/review/${id}`, expiresAt, passwordProtected: !!creds };
 }
 
 export interface ReviewLinkSummary {
@@ -157,6 +218,8 @@ export interface ReviewLinkSummary {
   url: string;
   expiresAt: string;
   usedAt: string | null;
+  /** True when the link requires a password (never exposes the hash). */
+  passwordProtected: boolean;
 }
 
 /**
@@ -172,9 +235,9 @@ export async function listReviewLinks(
   siteId: string,
   nowIso: string = new Date().toISOString(),
 ): Promise<ReviewLinkSummary[]> {
-  const { data } = await dbQuery<{ id: string; decision: string | null; expires_at: string; used_at: string | null }>(
+  const { data } = await dbQuery<{ id: string; decision: string | null; expires_at: string; used_at: string | null; password_hash: string | null }>(
     env.DB,
-    `SELECT id, decision, expires_at, used_at FROM review_tokens
+    `SELECT id, decision, expires_at, used_at, password_hash FROM review_tokens
      WHERE agency_org_id = ? AND site_id = ? ORDER BY expires_at DESC`,
     [orgId, siteId],
   );
@@ -184,6 +247,7 @@ export async function listReviewLinks(
     url: `/review/${r.id}`,
     expiresAt: r.expires_at,
     usedAt: r.used_at,
+    passwordProtected: !!r.password_hash,
   }));
 }
 
@@ -193,15 +257,40 @@ export interface ReviewLinkRow {
   agency_org_id: string;
   decision: string | null;
   expires_at: string;
+  password_hash: string | null;
+  password_salt: string | null;
 }
 
 /** Load a review link by its (unguessable UUID) id — the public bearer credential. */
 export async function getReviewLink(env: Env, id: string): Promise<ReviewLinkRow | null> {
   return dbQueryOne<ReviewLinkRow>(
     env.DB,
-    'SELECT id, site_id, agency_org_id, decision, expires_at FROM review_tokens WHERE id = ?',
+    'SELECT id, site_id, agency_org_id, decision, expires_at, password_hash, password_salt FROM review_tokens WHERE id = ?',
     [id],
   );
+}
+
+export interface ReviewPasswordCheck {
+  /** The link exists. */
+  found: boolean;
+  /** The link requires a password (vs. an open link). */
+  required: boolean;
+  /** The supplied password matched (only meaningful when `required`). */
+  ok: boolean;
+}
+
+/**
+ * Verify a candidate password for a review link by id. Returns `found:false`
+ * when the id is unknown, `required:false` for an open link (no gate), and
+ * `ok` reflecting the PBKDF2 compare for a protected link. The hash/salt never
+ * leave this module.
+ */
+export async function verifyReviewPassword(env: Env, id: string, password: string): Promise<ReviewPasswordCheck> {
+  const row = await getReviewLink(env, id);
+  if (!row) return { found: false, required: false, ok: false };
+  if (!row.password_hash) return { found: true, required: false, ok: false };
+  const ok = await verifyReviewPasswordHash(password, row.password_hash, row.password_salt);
+  return { found: true, required: true, ok };
 }
 
 export interface ReviewDecisionResult {

@@ -6,6 +6,8 @@ import {
   getReviewLink,
   createReviewLink,
   listReviewLinks,
+  hashReviewPassword,
+  verifyReviewPasswordHash,
   DEFAULT_REVIEW_TTL_MS,
   type ApprovalLinkState,
 } from '../services/review_approval.js';
@@ -193,16 +195,16 @@ describe('listReviewLinks', () => {
 
   it('maps rows and derives effective status (org+site scoped, injected clock)', async () => {
     const { env, captured } = listEnv([
-      { id: 'a', decision: null, expires_at: FUTURE, used_at: null }, // pending, not expired
-      { id: 'b', decision: null, expires_at: PAST, used_at: null }, // pending, past expiry → expired
-      { id: 'c', decision: 'approved', expires_at: PAST, used_at: NOW }, // terminal → unchanged
+      { id: 'a', decision: null, expires_at: FUTURE, used_at: null, password_hash: 'deadbeef' }, // pending, not expired, password-protected
+      { id: 'b', decision: null, expires_at: PAST, used_at: null, password_hash: null }, // pending, past expiry → expired
+      { id: 'c', decision: 'approved', expires_at: PAST, used_at: NOW }, // terminal → unchanged (no password column)
     ]);
     const rows = await listReviewLinks(env, 'org-1', 'site-1', NOW);
 
     expect(rows).toEqual([
-      { id: 'a', status: 'pending', url: '/review/a', expiresAt: FUTURE, usedAt: null },
-      { id: 'b', status: 'expired', url: '/review/b', expiresAt: PAST, usedAt: null },
-      { id: 'c', status: 'approved', url: '/review/c', expiresAt: PAST, usedAt: NOW },
+      { id: 'a', status: 'pending', url: '/review/a', expiresAt: FUTURE, usedAt: null, passwordProtected: true },
+      { id: 'b', status: 'expired', url: '/review/b', expiresAt: PAST, usedAt: null, passwordProtected: false },
+      { id: 'c', status: 'approved', url: '/review/c', expiresAt: PAST, usedAt: NOW, passwordProtected: false },
     ]);
     expect(captured.args).toEqual(['org-1', 'site-1']);
   });
@@ -320,5 +322,34 @@ describe('recordReviewDecision — audit on success', () => {
     expect(res).toEqual({ ok: true, status: 'approved' });
     expect(audits.length).toBe(1);
     expect(audits[0]?.some((a) => typeof a === 'string' && a.includes('approved with notes'))).toBe(true);
+  });
+});
+
+describe('review-link password hashing', () => {
+  it('hashReviewPassword: same password + same salt → identical hash (deterministic)', async () => {
+    const a = await hashReviewPassword('Correct-Horse-42', 'a1b2c3d4e5f60718a1b2c3d4e5f60718');
+    const b = await hashReviewPassword('Correct-Horse-42', 'a1b2c3d4e5f60718a1b2c3d4e5f60718');
+    expect(a.hash).toBe(b.hash);
+    expect(a.salt).toBe('a1b2c3d4e5f60718a1b2c3d4e5f60718');
+    expect(a.hash).not.toContain('Correct-Horse-42'); // never the plaintext
+  });
+
+  it('hashReviewPassword: omitting the salt generates a fresh 16-byte (32-hex) salt', async () => {
+    const a = await hashReviewPassword('pw-one');
+    const b = await hashReviewPassword('pw-one');
+    expect(a.salt).toHaveLength(32);
+    expect(a.salt).not.toBe(b.salt); // random per call
+    expect(a.hash).not.toBe(b.hash); // different salt → different hash
+  });
+
+  it('verifyReviewPasswordHash: true for the right password, false for the wrong one', async () => {
+    const { hash, salt } = await hashReviewPassword('s3cret-pass');
+    await expect(verifyReviewPasswordHash('s3cret-pass', hash, salt)).resolves.toBe(true);
+    await expect(verifyReviewPasswordHash('wrong-pass', hash, salt)).resolves.toBe(false);
+  });
+
+  it('verifyReviewPasswordHash: false when hash or salt is missing (open link)', async () => {
+    await expect(verifyReviewPasswordHash('anything', null, null)).resolves.toBe(false);
+    await expect(verifyReviewPasswordHash('anything', 'h', null)).resolves.toBe(false);
   });
 });

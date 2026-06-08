@@ -34,7 +34,7 @@ const ROUTES = [
   '/admin/snapshots', '/admin/forms', '/admin/api-tokens', '/admin/settings',
   '/admin/pseo', '/admin/docs', '/admin/features', '/admin/traces',
   '/admin/inbox', '/admin/marketplace', '/admin/trust', '/admin/enterprise',
-  '/admin/logs', '/admin/bulk-ops', '/admin/review-links', '/admin/stripe-app-status',
+  '/admin/logs', '/admin/bulk-ops', '/admin/stripe-app-status',
   '/admin/recipes',
 ];
 

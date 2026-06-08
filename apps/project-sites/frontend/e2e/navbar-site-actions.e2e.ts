@@ -1,13 +1,13 @@
 /**
  * navbar-site-actions.e2e.ts — the navbar "Actions" dropdown consolidates
- * Preview + Save & Deploy + Review & Approval Links, and the standalone
- * "Review Links" sidebar entry is gone (route /admin/review-links kept).
+ * Preview + Save & Deploy + Share link. The /admin/review-links PAGE was removed
+ * 2026-06-08; "Share link" is now a dropdown item that opens a modal (no route).
  *
- * Guards the 2026-06-06 navbar-consolidation pass:
+ * Guards:
  *   - sidebar no longer surfaces a "Review Links" nav item (decluttered)
- *   - a single "Actions" dropdown opens with Preview / Save & Deploy / Review
- *     & Approval Links menu items (real-user click, SPA — no full reload)
- *   - the Review & Approval Links entry navigates to /admin/review-links
+ *   - a single "Actions" dropdown opens with Preview / Save & Deploy / Share link
+ *     menu items (real-user click, SPA — no full reload)
+ *   - clicking "Share link" opens the Share-link modal (NOT a navigation)
  *
  * Seeds ps_session from E2E_API_KEY (real psk_test_ row in prod D1), same as
  * admin-nav-links.e2e.ts. Run:
@@ -43,7 +43,7 @@ test.describe('navbar Site-actions dropdown', () => {
     await expect(nav.getByRole('link', { name: /^Review Links$/ })).toHaveCount(0);
   });
 
-  test('the Actions dropdown opens with Preview / Save & Deploy / Review & Approval Links, and Review routes (SPA)', async ({ page }) => {
+  test('the Actions dropdown opens with Preview / Save & Deploy / Share link, and Share link opens the modal', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
 
@@ -75,15 +75,21 @@ test.describe('navbar Site-actions dropdown', () => {
     await expect(menu.locator('[data-testid="sa-preview"]')).toBeVisible();
     await expect(menu.locator('[data-testid="sa-copy-url"]')).toBeVisible();
     await expect(menu.locator('[data-testid="sa-deploy"]')).toBeVisible();
-    await expect(menu.locator('[data-testid="sa-review-links"]')).toBeVisible();
+    await expect(menu.locator('[data-testid="sa-share-link"]')).toBeVisible();
 
-    // Real-user nav: click Review & Approval Links → /admin/review-links (SPA).
-    await menu.locator('[data-testid="sa-review-links"]').click();
-    await expect(page).toHaveURL(/\/admin\/review-links$/, { timeout: 10_000 });
-    // SPA nav — the shell nav is still mounted (no full reload).
+    const urlBefore = page.url();
+    // Real-user action: click "Share link" → opens the modal (no navigation).
+    await menu.locator('[data-testid="sa-share-link"]').click();
+    await expect(page.getByText('Share link', { exact: true })).toBeVisible();
+    await expect(page.locator('[data-testid="share-link-create"]')).toBeVisible({ timeout: 10_000 });
+    // It's a modal, not a route change — URL is unchanged + the shell stays mounted.
+    expect(page.url()).toBe(urlBefore);
     await expect(page.locator('nav[aria-label="Admin sections"]')).toBeVisible();
-    // The menu closed on selection.
+    // The dropdown closed when the dialog opened.
     await expect(menu).toHaveCount(0);
+    // Esc closes the dialog (DialogShell focus-trap + Esc).
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-testid="share-link-create"]')).toHaveCount(0);
 
     const fatal = consoleErrors.filter(
       (e) =>

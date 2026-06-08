@@ -85,7 +85,7 @@ describe('CommandPaletteActionsService (every sidebar section is quick-navigable
     '/admin/editor', '/admin/snapshots', '/admin/analytics', '/admin/forms', '/admin/traces',
     '/admin/voice', '/admin/billing', '/admin/settings', '/admin/user', '/admin/docs',
     '/admin/apps', '/admin/social', '/admin/deliverability', '/admin/webhooks',
-    '/admin/recipes', '/admin/review-links', '/admin/feature-flags',
+    '/admin/recipes', '/admin/feature-flags',
     // Unified logging dashboard (audit + log explorer merged 2026-06-08).
     '/admin/logs',
     // Core high-traffic sections — this guard list itself omitted them, so the
@@ -104,6 +104,22 @@ describe('CommandPaletteActionsService (every sidebar section is quick-navigable
       cmd!.run();
       expect(go).withContext(`${cmd!.id} should navigate to ${route}`).toHaveBeenCalledWith(route);
     }
+  });
+
+  // The old "Go to Review Links" nav command was replaced by a "Share link…"
+  // Action that opens the modal (the page was removed 2026-06-08).
+  it('exposes a "Share link…" Action that opens the Share-link dialog (not a nav route)', async () => {
+    const { ShareLinkService } = await import('../../services/share-link.service');
+    const s = svc();
+    const shareLink = TestBed.inject(ShareLinkService);
+    const openSpy = spyOn(shareLink, 'open');
+    const actions = s.build(ctxOf().ctx as never);
+    const cmd = actions.find((a) => a.id === 'cmd-share-link');
+    expect(cmd).withContext('share-link command present').toBeTruthy();
+    expect(cmd!.section).toBe('Actions');
+    expect(cmd!.href).withContext('opens a modal, not a route').toBeUndefined();
+    cmd!.run();
+    expect(openSpy).toHaveBeenCalled();
   });
 });
 

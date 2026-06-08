@@ -244,6 +244,24 @@ describe('POST /api/sites/:siteId/review-links', () => {
     expect(mockCreateReviewLink).toHaveBeenCalledWith(env, 'org-1', SITE_ID, { ttlMs: 14 * 86_400_000 });
   });
 
+  it('forwards a password to the service and echoes passwordProtected', async () => {
+    const created = { ok: true, id: 'rl-pw', url: '/review/rl-pw', expiresAt: '2026-07-01T00:00:00.000Z', passwordProtected: true };
+    mockCreateReviewLink.mockResolvedValue(created);
+    const env = makeEnv();
+    const res = await post(makeApp(AUTH), { password: 'hunter2!' }, env);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { passwordProtected?: boolean };
+    expect(json.passwordProtected).toBe(true);
+    expect(mockCreateReviewLink).toHaveBeenCalledWith(env, 'org-1', SITE_ID, { password: 'hunter2!' });
+  });
+
+  it('rejects a too-short password (min 6) with 400 — never reaches the service', async () => {
+    const env = makeEnv();
+    const res = await post(makeApp(AUTH), { password: 'abc' }, env);
+    expect(res.status).toBe(400);
+    expect(mockCreateReviewLink).not.toHaveBeenCalled();
+  });
+
   it('returns 500 with the service error when createReviewLink fails', async () => {
     mockCreateReviewLink.mockResolvedValue({ ok: false, error: 'D1 insert failed' });
     const env = makeEnv();

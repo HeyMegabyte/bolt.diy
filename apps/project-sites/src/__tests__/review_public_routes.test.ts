@@ -24,6 +24,7 @@ jest.mock('../services/review_approval.js', () => ({
   getReviewLink: jest.fn(),
   recordReviewDecision: jest.fn(),
   recordReviewComment: jest.fn(),
+  verifyReviewPassword: jest.fn(),
   // Pure helper the route calls directly — re-implement the real derivation so
   // the GET view reflects expiry without us mocking the clock everywhere.
   effectiveApprovalStatus: jest.fn(
@@ -42,12 +43,14 @@ import {
   getReviewLink,
   recordReviewDecision,
   recordReviewComment,
+  verifyReviewPassword,
 } from '../services/review_approval.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 
 const mockGetReviewLink = getReviewLink as unknown as jest.Mock;
 const mockRecordDecision = recordReviewDecision as unknown as jest.Mock;
 const mockRecordComment = recordReviewComment as unknown as jest.Mock;
+const mockVerifyPassword = verifyReviewPassword as unknown as jest.Mock;
 const mockIsFlagOn = isFlagOn as unknown as jest.Mock;
 
 // ─── Boundary mocks ──────────────────────────────────────────────────────────
@@ -334,5 +337,74 @@ describe('POST /api/review/:id/decision', () => {
     // Rate-limited before the link is even loaded.
     expect(mockGetReviewLink).not.toHaveBeenCalled();
     expect(mockRecordDecision).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Password protection (GET password_required + POST /unlock) ───────────────
+
+describe('review-link password protection', () => {
+  function postUnlock(app: ReturnType<typeof makeApp>, id: string, body: unknown, env: Env, rawBody?: string) {
+    return app.request(
+      `/api/review/${id}/unlock`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: rawBody !== undefined ? rawBody : body === undefined ? undefined : JSON.stringify(body),
+      },
+      env,
+      makeCtx(),
+    );
+  }
+
+  it('GET reports password_required=false for an open link', async () => {
+    mockGetReviewLink.mockResolvedValue({ ...ROW, password_hash: null });
+    const res = await getReview(makeApp(), 'rev-1', makeEnv());
+    const json = (await res.json()) as { review: { password_required: boolean } };
+    expect(json.review.password_required).toBe(false);
+  });
+
+  it('GET reports password_required=true when a hash is stored (never exposes the hash)', async () => {
+    mockGetReviewLink.mockResolvedValue({ ...ROW, password_hash: 'deadbeef', password_salt: 'cafe' });
+    const res = await getReview(makeApp(), 'rev-1', makeEnv());
+    const json = (await res.json()) as { review: Record<string, unknown> };
+    expect(json.review.password_required).toBe(true);
+    expect(JSON.stringify(json.review)).not.toContain('deadbeef'); // hash stays server-side
+  });
+
+  it('POST /unlock returns ok for a correct password', async () => {
+    mockGetReviewLink.mockResolvedValue({ ...ROW, password_hash: 'h', password_salt: 's' });
+    mockVerifyPassword.mockResolvedValue({ found: true, required: true, ok: true });
+    const res = await postUnlock(makeApp(), 'rev-1', { password: 'hunter2!' }, makeEnv());
+    expect(res.status).toBe(200);
+    expect((await res.json()) as { ok: boolean }).toMatchObject({ ok: true, required: true });
+    expect(mockVerifyPassword).toHaveBeenCalledWith(expect.anything(), 'rev-1', 'hunter2!');
+  });
+
+  it('POST /unlock returns 401 for a wrong password', async () => {
+    mockGetReviewLink.mockResolvedValue({ ...ROW, password_hash: 'h', password_salt: 's' });
+    mockVerifyPassword.mockResolvedValue({ found: true, required: true, ok: false });
+    const res = await postUnlock(makeApp(), 'rev-1', { password: 'nope' }, makeEnv());
+    expect(res.status).toBe(401);
+    expect((await res.json()) as { error: { code: string } }).toMatchObject({ error: { code: 'UNAUTHORIZED' } });
+  });
+
+  it('POST /unlock on an open link returns ok required=false (no gate)', async () => {
+    mockGetReviewLink.mockResolvedValue({ ...ROW, password_hash: null });
+    mockVerifyPassword.mockResolvedValue({ found: true, required: false, ok: false });
+    const res = await postUnlock(makeApp(), 'rev-1', { password: 'anything' }, makeEnv());
+    expect(res.status).toBe(200);
+    expect((await res.json()) as { required: boolean }).toMatchObject({ ok: true, required: false });
+  });
+
+  it('POST /unlock returns 404 for an unknown id', async () => {
+    mockGetReviewLink.mockResolvedValue(null);
+    const res = await postUnlock(makeApp(), 'missing', { password: 'x' }, makeEnv());
+    expect(res.status).toBe(404);
+  });
+
+  it('POST /unlock returns 400 when the password is missing', async () => {
+    mockGetReviewLink.mockResolvedValue({ ...ROW, password_hash: 'h', password_salt: 's' });
+    const res = await postUnlock(makeApp(), 'rev-1', {}, makeEnv());
+    expect(res.status).toBe(400);
   });
 });

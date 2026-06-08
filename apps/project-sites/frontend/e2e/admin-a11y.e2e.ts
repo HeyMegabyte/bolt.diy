@@ -49,8 +49,8 @@ const SECTIONS = [
   // Coverage gap closed (this round): four routed admin sections that had real
   // components but ZERO axe coverage in this suite. All verified axe-clean live
   // (WCAG 2.0/2.1/2.2 AA, 0 violations) before adding — bulk-ops 26 passes,
-  // deliverability 28, webhooks 26, review-links 24.
-  '/admin/bulk-ops', '/admin/deliverability', '/admin/webhooks', '/admin/review-links',
+  // deliverability 28, webhooks 26.
+  '/admin/bulk-ops', '/admin/deliverability', '/admin/webhooks',
   '/admin/recipes',
 ];
 
