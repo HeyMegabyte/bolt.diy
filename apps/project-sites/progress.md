@@ -44,11 +44,13 @@ Auth seed for admin agents: `localStorage.ps_session = {token: E2E_API_KEY, iden
   `apps/project-sites/docs/perf-wave-ag-grid-to-tanstack.md` (read it; dead-ends are
   documented — `@defer`/single-importer do NOT work, only removing ag-grid does).
   TanStack already in prod (`api-tokens` + `content-freshness` use `createAngularTable`).
-- **R2 — Reviewer password-gate UI (P1):** worker is ready (`GET /api/review/:id`
-  returns `password_required`; rate-limited `POST /api/review/:id/unlock` → 200/401).
-  Build the public `/review/:id` reviewer page password prompt that calls `/unlock`
-  before revealing the site. Confirm whether a reviewer Angular route exists first;
-  if not, this is a new public route + component + unlock flow + Playwright spec.
+- **R2 — Reviewer password-gate UI — ✅ DONE + DEPLOYED (83609dc4, 2026-06-08).**
+  `ReviewComponent` (`/review/:id`) now reads `password_required` and shows an
+  unlock form → `POST /api/review/:id/unlock` before revealing status/approve/reject
+  (401→inline error, 429→rate-limit notice). +4 Karma tests; 1393 green; frontend
+  deployed to R2; route serves 200 live. REMAINING for a fresh session: a live
+  Playwright E2E of the full password flow (needs `approval_workflow` ON + a created
+  protected link via authed admin).
 - **R3 — Re-run prod gates:** after today's deploys, re-run `npm run test:e2e:prod`
   (marketing-a11y/responsive, admin-a11y/reflow, contact-form) with `E2E_API_KEY`;
   re-check Lighthouse on `/`. Wire the `*.e2e.ts` prod suite into CI (decision +
