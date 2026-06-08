@@ -192,6 +192,26 @@ describe('AdminAiEndpointsComponent (control accessible names)', () => {
     expect(hasName(el, '[data-testid="ai-endpoint-create-method"]')).withContext('method').toBeTrue();
     expect(hasName(el, '[data-testid="ai-endpoint-create-slug"]')).withContext('slug').toBeTrue();
   });
+
+  // The inline-edit affordance glyphs (✎ edit / ✓ save / ✕ cancel) render as
+  // monochrome SVGs (cockpit semantic-status-glyph standard, cross-OS consistent
+  // — matches site-dna ✓✕✎), inheriting their colour via currentColor.
+  it('the inline-edit edit/save/cancel glyphs are SVGs, not bare ✎/✓/× chars', () => {
+    const fx = render();
+    const c = fx.componentInstance;
+    c.endpoints.set([{ id: 'e1', endpoint_slug: 'hello', language: 'js', method: 'GET' } as never]);
+    fx.detectChanges();
+    const el = fx.nativeElement as HTMLElement;
+    const editBtn = el.querySelector('.icon-edit');
+    expect(editBtn).withContext('the per-row edit button renders').not.toBeNull();
+    expect(editBtn!.querySelector('svg')).withContext('edit glyph is an SVG').not.toBeNull();
+    // Enter inline-edit → the save + cancel buttons render as SVGs.
+    c.editingId.set('e1');
+    fx.detectChanges();
+    expect(el.querySelector('.btn-ok svg')).withContext('save glyph is an SVG').not.toBeNull();
+    expect(el.querySelector('.btn-cancel svg')).withContext('cancel glyph is an SVG').not.toBeNull();
+    expect(el.textContent).withContext('no bare edit/save chars').not.toMatch(/[✎✓]/);
+  });
 });
 
 /**

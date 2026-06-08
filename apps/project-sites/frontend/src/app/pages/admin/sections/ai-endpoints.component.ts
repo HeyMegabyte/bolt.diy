@@ -213,11 +213,11 @@ interface InlineEdit {
                       (keydown.enter)="saveInlineEdit(e)"
                       [attr.data-testid]="'ai-endpoint-slug-input-' + e.endpoint_slug"
                       autofocus />
-                    <button class="btn-ok" (click)="saveInlineEdit(e)" title="Save (Enter)" aria-label="Save slug" [attr.data-testid]="'ai-endpoint-slug-save-' + e.endpoint_slug">✓</button>
-                    <button class="btn-cancel" (click)="cancelInlineEdit()" title="Cancel (Esc)" aria-label="Cancel edit">×</button>
+                    <button class="btn-ok" (click)="saveInlineEdit(e)" title="Save (Enter)" aria-label="Save slug" [attr.data-testid]="'ai-endpoint-slug-save-' + e.endpoint_slug"><svg class="ie-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
+                    <button class="btn-cancel" (click)="cancelInlineEdit()" title="Cancel (Esc)" aria-label="Cancel edit"><svg class="ie-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                   } @else {
                     <a class="url-slug" [href]="endpointUrl(e)" target="_blank" rel="noopener" [attr.data-testid]="'ai-endpoint-url-' + e.endpoint_slug">{{ e.endpoint_slug }}</a>
-                    <button class="icon-edit" (click)="startInlineEdit(e)" title="Edit slug + method" aria-label="Edit slug and method" [attr.data-testid]="'ai-endpoint-edit-url-' + e.endpoint_slug">✎</button>
+                    <button class="icon-edit" (click)="startInlineEdit(e)" title="Edit slug + method" aria-label="Edit slug and method" [attr.data-testid]="'ai-endpoint-edit-url-' + e.endpoint_slug"><svg class="ie-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
                   }
                   <span class="grow"></span>
                   <span class="status-pill" [class.live]="e.deploy_status === 'live'" [class.error]="e.deploy_status === 'error'">{{ e.deploy_status }}</span>
@@ -594,8 +594,13 @@ interface InlineEdit {
     .url-slug { color: #00E5FF; text-decoration: none; margin-left: -8px; }
     .url-slug:hover { text-decoration: underline; }
     .slug-input { background: transparent; border: 1px dashed rgba(0,229,255,0.4); color: #00E5FF; font-family: inherit; font-size: inherit; padding: 2px 6px; border-radius: 6px; outline: none; min-width: 140px; }
-    .icon-edit { background: transparent; border: 0; color: rgba(255,255,255,0.35); cursor: pointer; font-size: 0.85rem; }
+    .icon-edit { background: transparent; border: 0; color: rgba(255,255,255,0.35); cursor: pointer; font-size: 0.85rem; display: inline-flex; align-items: center; }
     .icon-edit:hover { color: #00E5FF; }
+    /* Inline-edit affordance glyphs are SVGs (cockpit semantic-glyph standard,
+       cross-OS consistent); each inherits its colour from the wrapping button
+       via currentColor (.btn-ok green / .btn-cancel grey / .icon-edit cyan-hover). */
+    .ie-glyph { width: 0.82rem; height: 0.82rem; display: block; }
+    .btn-ok, .btn-cancel { display: inline-flex; align-items: center; }
     .btn-ok { background: rgba(74,222,128,0.16); color: #4ade80; border: 1px solid rgba(74,222,128,0.4); border-radius: 6px; padding: 2px 8px; cursor: pointer; }
     .btn-cancel { background: transparent; border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.6); border-radius: 6px; padding: 2px 8px; cursor: pointer; }
     .grow { flex: 1; }
