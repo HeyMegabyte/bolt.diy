@@ -276,6 +276,32 @@ describe('AdminAiLogsComponent (all four KPI tiles roll — cinematic-ui)', () =
   });
 });
 
+describe('AdminAiLogsComponent (empty-state glyph cohesion — SVG-in-cyan-halo)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  // The empty state must use the cockpit SVG-in-cyan-halo glyph (matching media /
+  // pseo / billing), not a floating unicode ◇ char — visual cohesion across /admin.
+  it('renders the cockpit SVG-in-halo glyph (not a bare ◇ char) when there are no traces', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminAiLogsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+        { provide: Router, useValue: { navigate: () => 0, navigateByUrl: () => 0, events: of() } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminAiLogsComponent);
+    fx.detectChanges();
+    const empty = (fx.nativeElement as HTMLElement).querySelector('[data-testid="ai-logs-empty"]');
+    expect(empty).withContext('empty state renders when no traces').not.toBeNull();
+    const glyph = empty!.querySelector('.empty-glyph');
+    expect(glyph).not.toBeNull();
+    expect(glyph!.querySelector('svg')).withContext('glyph is the cockpit SVG-in-halo, not a unicode char').not.toBeNull();
+    expect(glyph!.textContent ?? '').withContext('no bare ◇ diamond char remains').not.toContain('◇');
+  });
+});
+
 describe('AdminAiLogsComponent — bounded auto-poll retry (error-recovery max 3)', () => {
   afterEach(() => TestBed.resetTestingModule());
 

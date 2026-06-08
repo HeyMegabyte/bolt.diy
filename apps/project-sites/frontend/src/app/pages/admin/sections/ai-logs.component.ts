@@ -279,7 +279,9 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
         </div>
       } @else if (gridEmpty()) {
         <div class="card text-center py-10" data-testid="ai-logs-empty">
-          <div class="empty-glyph" aria-hidden="true">◇</div>
+          <div class="empty-glyph" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </div>
           <p class="text-white text-sm font-semibold m-0 mt-3">No AI traces yet</p>
           <p class="text-text-secondary text-[0.78rem] m-0 mt-1 max-w-sm mx-auto">
             Every AI invocation this site makes — prompts, outputs, tool calls — will appear here in real time.
@@ -400,7 +402,9 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
     .sk-line { height: 14px; border-radius: 6px; margin: 10px 0; background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(0,229,255,0.10) 50%, rgba(255,255,255,0.04) 75%); background-size: 200% 100%; animation: skShimmer 1.4s ease-in-out infinite; }
     .sk-line--head { width: 38%; height: 18px; margin-bottom: 18px; }
     @keyframes skShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-    .empty-glyph { font-size: 2.4rem; line-height: 1; color: var(--ps-accent, #00e5ff); opacity: 0.7; text-shadow: 0 0 18px rgba(0,229,255,0.35); }
+    /* Cockpit empty-state glyph: SVG in a circular cyan halo (matches media /
+       pseo / billing) — replaces the off-standard floating unicode char. */
+    .empty-glyph { width: 56px; height: 56px; margin-inline: auto; display: grid; place-items: center; border-radius: 50%; color: var(--ps-accent, #00e5ff); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 9%, transparent); border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 24%, transparent); }
     @media (prefers-reduced-motion: reduce) { .sk-line { animation: none; } }
 
     /* ─── Live pill ──────────────────────────────────────────────────── */
