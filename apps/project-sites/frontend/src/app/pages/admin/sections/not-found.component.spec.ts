@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { Meta } from '@angular/platform-browser';
+import { Meta, By } from '@angular/platform-browser';
 import { AdminNotFoundComponent, suggestRoute, levenshtein } from './not-found.component';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 /**
  * The admin-scoped 404 keeps unknown `/admin/*` paths inside the cockpit shell.
@@ -39,6 +40,15 @@ describe('AdminNotFoundComponent', () => {
     const el = render().nativeElement as HTMLElement;
     const hrefs = Array.from(el.querySelectorAll('.anf-link')).map((a) => a.getAttribute('href'));
     expect(hrefs).toEqual(['/admin/sites', '/admin/analytics', '/admin/feature-flags', '/admin/snapshots']);
+  });
+
+  it('reveals the 404 card on first paint via appReveal (cockpit cohesion)', () => {
+    const fx = render();
+    const host = fx.nativeElement as HTMLElement;
+    expect(fx.debugElement.queryAll(By.directive(RevealDirective)).length)
+      .withContext('the 404 card stagger-reveals like every other admin surface').toBeGreaterThanOrEqual(1);
+    expect(host.querySelector('.anf-card')?.hasAttribute('appReveal'))
+      .withContext('the card carries appReveal').toBe(true);
   });
 
   // "Did you mean …" recovery — turn a stale/typo'd /admin/* path into a one-click

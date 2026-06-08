@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
+import { RevealDirective } from '../../../directives/reveal.directive';
 
 /** A navigable top-level admin route + its friendly label (for "Did you mean"). */
 export interface AdminRouteHint {
@@ -112,10 +113,10 @@ export function suggestRoute(segment: string): AdminRouteHint | null {
 @Component({
   selector: 'app-admin-not-found',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, RevealDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto max-md:p-4 flex items-center justify-center min-h-[60vh]" data-testid="admin-not-found">
-      <div class="anf-card" role="status" aria-live="polite">
+      <div class="anf-card" role="status" aria-live="polite" appReveal>
         <div class="anf-glyph" aria-hidden="true">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="7" />
