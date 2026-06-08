@@ -85,6 +85,18 @@ describe('AdminMarketplaceComponent (cohesion r8)', () => {
     expect(all('.mkt-header__stats app-rolling-counter').length).toBe(2);
   });
 
+  // The forked-state fork button must show a monochrome check SVG (cockpit
+  // semantic-status-glyph standard, matching site-dna/bell), not a bare ✓ char.
+  it('the forked fork button renders a check SVG (not a bare ✓ char)', () => {
+    (fixture.componentInstance as unknown as { forkedIds: { set(v: Set<string>): void } }).forkedIds.set(new Set(['s1']));
+    fixture.detectChanges();
+    const btn = q('[data-testid="marketplace-grid"] .mkt-card__fork-btn--done') ?? q('.mkt-card__fork-btn--done');
+    expect(btn).withContext('a forked fork button renders').not.toBeNull();
+    expect(btn!.querySelector('svg')).withContext('check is an SVG').not.toBeNull();
+    expect(btn!.textContent).withContext('shows the Forked label').toContain('Forked');
+    expect(btn!.textContent).withContext('no bare ✓ char').not.toContain('✓');
+  });
+
   // Slot keys (cta/faq/donor-wall) must render as human labels — capitalize would
   // mangle the CTA/FAQ initialisms ("Cta"/"Faq") + leave the hyphen, so a label map.
   it('slotLabel maps slot keys to human labels (CTA/FAQ initialisms, not capitalize)', () => {

@@ -211,7 +211,13 @@ const SLOT_LABELS: Record<string, string> = {
                     [attr.aria-busy]="forking().has(section.id) ? 'true' : null"
                     (click)="fork(section.id)"
                     [attr.aria-label]="'Fork ' + section.name">
-              {{ forkedIds().has(section.id) ? '✓ Forked' : forking().has(section.id) ? 'Forking…' : 'Fork' }}
+              @if (forkedIds().has(section.id)) {
+                <svg class="mkt-fork-ic" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Forked
+              } @else if (forking().has(section.id)) {
+                Forking…
+              } @else {
+                Fork
+              }
             </button>
             <button class="mkt-card__preview-btn"
                     type="button"
@@ -306,6 +312,7 @@ const SLOT_LABELS: Record<string, string> = {
     .mkt-card__actions { display: flex; gap: 0.375rem; margin-top: auto; }
     .mkt-card__fork-btn { flex: 1; min-height: 24px; background: var(--mkt-accent-wash); border: 1px solid var(--mkt-accent-line); color: var(--mkt-accent); padding: 0.25rem; border-radius: 9999px; font-size: 0.65rem; cursor: pointer; transition: background 0.2s; }
     .mkt-card__fork-btn--done { background: color-mix(in oklch, var(--mkt-ok) 12%, transparent); border-color: color-mix(in oklch, var(--mkt-ok) 30%, transparent); color: var(--mkt-ok); }
+    .mkt-fork-ic { vertical-align: -1px; }
     .mkt-card__fork-btn--busy { opacity: 0.6; cursor: progress; }
     .mkt-card__fork-btn:disabled { cursor: progress; }
     .mkt-card__preview-btn { min-height: 24px; background: var(--mkt-surface); border: 1px solid var(--mkt-line); color: inherit; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.65rem; cursor: pointer; }
