@@ -193,6 +193,12 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     // The SMTP card is an informative feature-preview (benefit bullets), not a bare stub.
     const benefits = el.querySelectorAll('[data-testid="email-smtp-card"] .smtp-benefits li');
     expect(benefits.length).withContext('SMTP benefits previewed').toBe(3);
+    // The "Coming soon" pill uses the cyan-token class (cockpit cohesion), NOT a
+    // hardcoded amber inline style (brand-token drift).
+    const soon = el.querySelector('[data-testid="email-smtp-soon"]') as HTMLElement | null;
+    expect(soon).withContext('coming-soon pill present').toBeTruthy();
+    expect(soon!.classList.contains('coming-soon-pill')).withContext('uses the shared cyan-token pill class').toBeTrue();
+    expect(soon!.getAttribute('style')).withContext('no hardcoded inline color/amber').toBeNull();
     // Deliverability (SPF/DKIM/DMARC) is embedded under the same tab.
     expect(el.querySelector('app-admin-deliverability')).withContext('deliverability embedded').toBeTruthy();
   });

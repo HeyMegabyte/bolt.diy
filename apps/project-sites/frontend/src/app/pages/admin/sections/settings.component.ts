@@ -680,7 +680,7 @@ const PROVIDERS = MCP_PROVIDERS;
                   Send from your own mail server instead of the shared sender — encrypted credentials, set per project.
                 </p>
               </div>
-              <span class="shrink-0 text-[0.6rem] font-semibold uppercase tracking-wider px-2 py-1 rounded-full" style="color:#fcd34d;background:rgba(252,211,77,0.12);border:1px solid rgba(252,211,77,0.3);">Coming soon</span>
+              <span class="coming-soon-pill shrink-0" data-testid="email-smtp-soon">Coming soon</span>
             </header>
             <ul class="smtp-benefits" role="list">
               <li>
@@ -762,6 +762,16 @@ const PROVIDERS = MCP_PROVIDERS;
        forces brand cyan for the email-sender + allowance figures (axe contrast). */
     .text-accent { color: var(--ps-accent, #00e5ff); }
     /* Email tab — disabled "Configure SMTP" coming-soon affordance (not a dead button). */
+    /* "Coming soon" feature-preview badge — cyan via --ps-accent to match the
+       cockpit standard (apps-detail .soon-badge); replaces a hardcoded amber
+       inline style (brand-token drift on the cyan/black cockpit). */
+    .coming-soon-pill {
+      font-size: 0.6rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 999px;
+      color: var(--ps-accent, #00E5FF);
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 12%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 30%, transparent);
+    }
     .smtp-benefits { list-style: none; margin: 0 0 0.9rem; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
     .smtp-benefits li { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.72rem; color: rgba(255,255,255,0.62); line-height: 1.35; }
     .smtp-benefits li svg { flex: 0 0 auto; margin-top: 0.12rem; }
