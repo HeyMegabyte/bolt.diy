@@ -32,6 +32,7 @@ import {
 import { WidgetRendererComponent } from './dashboard/widgets';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { AdminUpgradesShellComponent } from '../../../components/admin-upgrades/admin-upgrades-shell.component';
+import { CmdGlyphComponent } from '../../../components/cmd-glyph/cmd-glyph.component';
 import { AdminStateService } from '../admin-state.service';
 import { AuthService } from '../../../services/auth.service';
 import { isSysAdminEmail } from '../sys-admin';
@@ -40,7 +41,7 @@ import { isSysAdminEmail } from '../sys-admin';
   selector: 'app-admin-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, WidgetRendererComponent, RevealDirective, AdminUpgradesShellComponent],
+  imports: [FormsModule, RouterLink, WidgetRendererComponent, RevealDirective, AdminUpgradesShellComponent, CmdGlyphComponent],
   template: `
     <section class="dash" aria-label="Dashboard">
       <!-- 30 admin-dashboard upgrades shell — all features mounted here so
@@ -141,7 +142,7 @@ import { isSysAdminEmail } from '../sys-admin';
             [disabled]="chat.streaming()"
             (click)="pillClick(cmd)"
           >
-            <span class="g" aria-hidden="true">{{ glyph(cmd.glyph) }}</span>
+            <span class="g" aria-hidden="true"><app-cmd-glyph [name]="cmd.glyph" /></span>
             <span>{{ cmd.label }}</span>
           </button>
         }
@@ -190,7 +191,7 @@ import { isSysAdminEmail } from '../sys-admin';
                 (mousedown)="$event.preventDefault(); pickPalette(m)"
                 (mouseenter)="paletteIdx.set(i)"
               >
-                <span class="p-g">{{ glyph(m.glyph) }}</span>
+                <span class="p-g" aria-hidden="true"><app-cmd-glyph [name]="m.glyph" /></span>
                 <span class="p-tx">
                   <span class="p-id"
                     >/{{ m.id }}
@@ -794,26 +795,5 @@ export class AdminDashboardComponent {
     this.inputRef?.nativeElement.focus();
     if (!this.draft.startsWith('/')) this.draft = '/';
     this.onInput();
-  }
-
-  glyph(name: string): string {
-    const map: Record<string, string> = {
-      globe: '🌐',
-      camera: '📸',
-      rocket: '🚀',
-      inbox: '📥',
-      shield: '🛡',
-      chart: '📈',
-      'credit-card': '💳',
-      download: '⬇',
-      calendar: '📅',
-      clock: '⏱',
-      grid: '▦',
-      book: '📖',
-      help: '?',
-      code: '⌨',
-      message: '💬',
-    };
-    return map[name] ?? '✦';
   }
 }
