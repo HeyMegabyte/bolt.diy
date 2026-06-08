@@ -5,6 +5,7 @@ import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { HlmInputDirective } from '../../../ui';
+import { ErrorCardComponent } from '../../../components/states';
 
 interface Conn { id: string; provider: string; display_name: string; status: string; connected_at: string; metadata?: Record<string, unknown>; }
 
@@ -35,7 +36,7 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
 @Component({
   selector: 'app-admin-mcp',
   standalone: true,
-  imports: [FormsModule, SlicePipe, HlmInputDirective],
+  imports: [FormsModule, SlicePipe, HlmInputDirective, ErrorCardComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header>
@@ -76,10 +77,11 @@ const PROVIDERS: ReadonlyArray<{ id: string; label: string; desc: string; color:
         </div>
       } @else {
         @if (loadError()) {
-          <div class="card notice notice-amber" role="alert" data-testid="mcp-load-error">
-            <strong>{{ loadError() }}</strong>
-            <button class="btn-ghost text-xs ml-2" data-testid="mcp-retry" (click)="load()">Retry</button>
-          </div>
+          <app-error-card data-testid="mcp-load-error" class="block mb-4"
+            title="Couldn't load connections"
+            message="Shown statuses may be stale — check your connection and retry."
+            [correlationId]="loadErrorRef()"
+            (retry)="load()" />
         }
         <div class="grid md:grid-cols-2 gap-4">
           @for (p of providers; track p.id) {
@@ -342,6 +344,8 @@ export class AdminMcpComponent implements OnInit {
   isDisconnecting(id: string): boolean { return this.disconnectingIds().has(id); }
   /** Persistent load failure — without it, a failed fetch shows every provider as "not connected" (stale/misleading). */
   loadError = signal<string | null>(null);
+  /** Worker request_id from the failed load, surfaced as a copyable support reference on the error card. */
+  loadErrorRef = signal('');
   pasteMode = signal<string | null>(null);
   pastedKey = '';
   /** In-flight guard for the paste-key save — blocks double-submit + drives the "Saving…" affordance. */
@@ -375,21 +379,31 @@ export class AdminMcpComponent implements OnInit {
     const s = this.state.selectedSite(); if (!s) return;
     this.loading.set(true);
     this.loadError.set(null);
+    this.loadErrorRef.set('');
     this.api.get<{ data: { connections: Conn[] } }>(`/sites/${s.id}/mcp/connections`, undefined, { silent: true }).subscribe({
       next: (r) => {
         this.connections.set(r.data?.connections ?? []);
         this.loadError.set(null);
+        this.loadErrorRef.set('');
         this.loading.set(false);
       },
-      error: () => {
+      error: (err: { error?: unknown }) => {
         this.loading.set(false);
         // Persistent banner — otherwise the provider cards below render every
         // provider as "not connected", making a failed load look like a clean slate.
         // Persistent inline banner only — a transient toast on top of a sticky
         // banner (and the now-silenced generic ApiService toast) was triple feedback.
         this.loadError.set('Could not load connection status — shown statuses may be stale.');
+        // Capture the worker request_id so the shared error card can offer a
+        // copyable support reference for a stuck user.
+        this.loadErrorRef.set(this.requestIdFrom(err));
       },
     });
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: { error?: unknown } | undefined): string {
+    return (e?.error as { error?: { request_id?: string } } | undefined)?.error?.request_id ?? '';
   }
 
   isConnected(provider: string): Conn | null {

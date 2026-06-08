@@ -63,6 +63,36 @@ describe('AdminMcpComponent (connections load-error gating)', () => {
     c.load();
     expect(c.loadError()).toBeNull();
   });
+
+  // The shared <app-error-card> surfaces a copyable worker request_id so a stuck
+  // user can hand it to support — capture it from the failed response body.
+  it('captures the worker request_id into loadErrorRef for the support reference', () => {
+    const get = jasmine.createSpy('get').and.returnValue(
+      throwError(() => ({ status: 500, error: { error: { request_id: 'req-abc-123' } } })),
+    );
+    const { c } = make(get);
+    c.load();
+    expect(c.loadErrorRef()).toBe('req-abc-123');
+  });
+
+  it('loadErrorRef is an empty string when the failed response carries no request_id', () => {
+    const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 })));
+    const { c } = make(get);
+    c.load();
+    expect(c.loadErrorRef()).toBe('');
+  });
+
+  it('a successful load clears loadErrorRef (no stale support reference)', () => {
+    const get = jasmine.createSpy('get').and.returnValues(
+      throwError(() => ({ status: 500, error: { error: { request_id: 'req-stale' } } })),
+      of({ data: { connections: [] } }),
+    );
+    const { c } = make(get);
+    c.load();
+    expect(c.loadErrorRef()).toBe('req-stale');
+    c.load();
+    expect(c.loadErrorRef()).toBe('');
+  });
 });
 
 describe('AdminMcpComponent — mutations pass {silent:true} (own toast.error → no generic double-toast)', () => {
