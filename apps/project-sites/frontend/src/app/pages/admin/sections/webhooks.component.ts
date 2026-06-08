@@ -58,6 +58,11 @@ interface Delivery {
           <p class="text-text-secondary text-sm">Select a site from <strong class="text-light">Sites</strong> to manage its webhooks.</p>
         </div>
       } @else {
+        @if (flagDisabled()) {
+          <!-- Flag OFF (404) → calm cohesive notice ABOVE the form so the user learns it's
+               disabled FIRST (mirrors the recipes gold-standard). Shared primitive; NOT red. -->
+          <app-flag-gate-notice feature="Webhooks" flag="outbound_webhooks" [plural]="true" testid="webhooks-flag-gate" margin="mb-5" />
+        }
         @if (createdSecret(); as s) {
           <div data-testid="webhooks-secret" role="status" class="mb-5 rounded-xl border border-primary/30 bg-primary/[0.06] p-4">
             <p class="text-sm text-light font-semibold mb-1">Signing secret — copy it now, it won't be shown again</p>
@@ -72,10 +77,11 @@ interface Delivery {
         }
 
         <!-- Create -->
-        <div class="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5 flex flex-col gap-4 mb-6">
+        <div class="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5 flex flex-col gap-4 mb-6 transition-opacity" [class.opacity-60]="flagDisabled()">
           <label class="flex flex-col gap-1.5">
             <span class="text-[0.72rem] uppercase tracking-wide text-text-secondary">Endpoint URL (https)</span>
             <input hlmInput data-testid="webhooks-url" type="url" inputmode="url" placeholder="https://hooks.yourapp.com/projectsites"
+              [disabled]="flagDisabled()"
               [ngModel]="urlModel()" (ngModelChange)="urlModel.set($event)"
               [attr.aria-invalid]="urlInvalid()" [attr.aria-describedby]="urlInvalid() ? 'webhooks-url-hint' : null"
               [class.ring-1]="urlInvalid()" [class.ring-red-500/60]="urlInvalid()" [class.border-red-500/50]="urlInvalid()" />
@@ -91,6 +97,7 @@ interface Delivery {
               @for (ev of eventTypes; track ev) {
                 <label class="inline-flex items-center gap-2 cursor-pointer text-sm text-light">
                   <input type="checkbox" hlmCheckbox [attr.data-testid]="'webhooks-event-' + ev"
+                    [disabled]="flagDisabled()"
                     [checked]="selected().includes(ev)" (change)="toggleEvent(ev)" />
                   <span>{{ ev }}</span>
                 </label>
@@ -105,10 +112,7 @@ interface Delivery {
           </div>
         </div>
 
-        @if (flagDisabled()) {
-          <!-- Flag OFF (404) → calm cohesive notice (NOT alarming red). Shared primitive. -->
-          <app-flag-gate-notice feature="Webhooks" flag="outbound_webhooks" [plural]="true" testid="webhooks-flag-gate" margin="mb-5" />
-        } @else if (error()) {
+        @if (error()) {
           <app-error-card data-testid="webhooks-error" class="block mb-5"
             title="Couldn't load webhooks"
             message="Check your connection and retry."

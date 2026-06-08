@@ -76,6 +76,52 @@ describe('AdminWebhooksComponent', () => {
     expect((gate?.querySelector('a') as HTMLAnchorElement | null)?.getAttribute('href')).toBe('/admin/feature-flags');
   });
 
+  it('flag OFF → gate notice renders ABOVE a dimmed, fully-disabled create form (matches the recipes gold-standard, not a live-looking form over a disabled notice)', async () => {
+    const g = jasmine.createSpy('get').and.callFake((path: string) =>
+      path.endsWith('/deliveries')
+        ? of({ ok: true, deliveries: [] })
+        : throwError(() => new HttpErrorResponse({ status: 404, statusText: 'Not Found' })),
+    );
+    TestBed.configureTestingModule({
+      imports: [AdminWebhooksComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: { get: g, post: jasmine.createSpy('post'), delete: jasmine.createSpy('delete') } },
+        { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+        { provide: ConfirmService, useValue: { confirm: jasmine.createSpy('confirm') } },
+        { provide: AdminStateService, useValue: { selectedSite: () => ({ id: 'site-1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(AdminWebhooksComponent);
+    fx.detectChanges();
+    // ngModel propagates [disabled] in a microtask — let it settle before reading native .disabled.
+    await fx.whenStable();
+    fx.detectChanges();
+    const el = fx.nativeElement as HTMLElement;
+    expect(fx.componentInstance.flagDisabled()).toBeTrue();
+
+    const gate = el.querySelector('[data-testid="webhooks-flag-gate"]')!;
+    const urlInput = el.querySelector('[data-testid="webhooks-url"]') as HTMLInputElement;
+    expect(gate).withContext('gate notice present').toBeTruthy();
+    expect(urlInput).withContext('create form still rendered (as a disabled preview)').toBeTruthy();
+
+    // (1) Notice precedes the form in DOM order — the user learns it's disabled FIRST.
+    const order = gate.compareDocumentPosition(urlInput);
+    expect(order & Node.DOCUMENT_POSITION_FOLLOWING)
+      .withContext('flag-gate notice must render ABOVE the create form, not below it').toBeTruthy();
+
+    // (2) Every input is disabled — not just the submit button (no interactive form over a disabled feature).
+    expect(urlInput.disabled).withContext('URL input disabled when flag off').toBeTrue();
+    const firstCheckbox = el.querySelector('[data-testid^="webhooks-event-"]') as HTMLInputElement;
+    expect(firstCheckbox?.disabled).withContext('event checkboxes disabled when flag off').toBeTrue();
+    const addBtn = el.querySelector('[data-testid="webhooks-create-btn"]') as HTMLButtonElement;
+    expect(addBtn.disabled).withContext('Add endpoint disabled when flag off').toBeTrue();
+
+    // (3) The form is visibly dimmed so it reads as a disabled preview.
+    const formWrap = urlInput.closest('.opacity-60');
+    expect(formWrap).withContext('create form wrapper is dimmed (opacity-60) when flag off').toBeTruthy();
+  });
+
   it('shows the empty state with no selected site', () => {
     build(null);
     expect(q('[data-testid="webhooks-empty"]')).not.toBeNull();
