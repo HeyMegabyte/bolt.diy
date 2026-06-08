@@ -161,7 +161,7 @@ test.describe('A — Core User Journeys', () => {
     const sections = [
       '/admin/editor', '/admin/snapshots', '/admin/analytics',
       '/admin/email', '/admin/social', '/admin/forms',
-      '/admin/integrations', '/admin/billing', '/admin/audit', '/admin/settings',
+      '/admin/integrations', '/admin/billing', '/admin/logs', '/admin/settings',
     ];
 
     for (const url of sections) {

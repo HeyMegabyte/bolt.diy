@@ -152,7 +152,7 @@ export class CommandPaletteActionsService {
       { id: 'nav-endpoints',  title: 'Go to AI Endpoints',  section: 'Navigation', icon: ICONS.endpoint, keywords: ['api', 'worker', 'prompt'], href: navHref('/admin/ai-endpoints'), run: () => go('/admin/ai-endpoints') },
       { id: 'nav-voice',      title: 'Go to Voice',         section: 'Navigation', shortcut: 'G V', icon: ICONS.bell,    keywords: ['phone', 'call', 'sms', 'twilio', 'hotline', 'voicemail'], href: navHref('/admin/voice'), run: () => go('/admin/voice') },
       { id: 'nav-billing',    title: 'Go to Billing & Plan', section: 'Navigation', shortcut: 'G B', icon: ICONS.dollar, keywords: ['credits', 'stripe', 'plan', 'invoice'], href: navHref('/admin/billing'), run: () => go('/admin/billing') },
-      { id: 'nav-audit',      title: 'Go to Audit Log',     section: 'Navigation', icon: ICONS.shield,  keywords: ['who', 'what', 'when', 'log'], href: navHref('/admin/audit'), run: () => go('/admin/audit') },
+      { id: 'nav-logs',       title: 'Go to Logs',          section: 'Navigation', icon: ICONS.book,    keywords: ['audit', 'who', 'what', 'when', 'log', 'logs', 'correlation', 'request id', 'search', 'structured', 'trace'], href: navHref('/admin/logs'), run: () => go('/admin/logs') },
       { id: 'nav-domains',    title: 'Go to Domains',       section: 'Navigation', shortcut: 'G D', icon: ICONS.globe,   keywords: ['hostname', 'dns', 'custom'], href: navHref('/admin/domains'), run: () => go('/admin/domains') },
       { id: 'nav-docs',       title: 'Go to API Docs',      section: 'Navigation', icon: ICONS.book,    keywords: ['openapi', 'reference', 'tryit'], href: navHref('/admin/docs'), run: () => go('/admin/docs') },
       { id: 'nav-settings',   title: 'Go to Settings',      section: 'Navigation', icon: ICONS.cog,     keywords: ['org', 'team', 'mcp'], href: navHref('/admin/settings'), run: () => go('/admin/settings') },
@@ -161,17 +161,11 @@ export class CommandPaletteActionsService {
       // colliding with the global shortcut handler; search/click discoverable).
       { id: 'nav-apps',         title: 'Go to Apps',          section: 'Navigation', icon: ICONS.layers,   keywords: ['marketplace', 'install', 'self-host', 'container', 'medusa'], href: navHref('/admin/apps'), run: () => go('/admin/apps') },
       { id: 'nav-social',       title: 'Go to Social',        section: 'Navigation', icon: ICONS.globe,    keywords: ['posts', 'schedule', 'twitter', 'linkedin', 'bluesky', 'auto-pilot'], href: navHref('/admin/social'), run: () => go('/admin/social') },
-      { id: 'nav-bulk-ops',     title: 'Go to Bulk Ops',      section: 'Navigation', icon: ICONS.copy,     keywords: ['batch', 'archive', 'set flag', 'all sites'], href: navHref('/admin/bulk-ops'), run: () => go('/admin/bulk-ops') },
       { id: 'nav-deliverability', title: 'Go to Deliverability', section: 'Navigation', icon: ICONS.shield, keywords: ['spf', 'dkim', 'dmarc', 'email', 'spam', 'inbox placement'], href: navHref('/admin/deliverability'), run: () => go('/admin/deliverability') },
       { id: 'nav-webhooks',     title: 'Go to Webhooks',      section: 'Navigation', icon: ICONS.zap,      keywords: ['events', 'callbacks', 'endpoints', 'deliveries'], href: navHref('/admin/webhooks'), run: () => go('/admin/webhooks') },
       { id: 'nav-automations',  title: 'Go to Automations',   section: 'Navigation', icon: ICONS.zap,      keywords: ['recipes', 'triggers', 'workflows', 'rules'], href: navHref('/admin/recipes'), run: () => go('/admin/recipes') },
       { id: 'nav-review-links', title: 'Go to Review Links',  section: 'Navigation', icon: ICONS.ext,      keywords: ['approval', 'client', 'preview', 'share', 'stakeholder'], href: navHref('/admin/review-links'), run: () => go('/admin/review-links') },
       { id: 'nav-flags',        title: 'Go to Feature Flags', section: 'Navigation', icon: ICONS.cog,      keywords: ['flags', 'rollout', 'toggle', 'experimental', 'killswitch'], href: navHref('/admin/feature-flags'), run: () => go('/admin/feature-flags') },
-      { id: 'nav-marketplace',  title: 'Go to Marketplace',   section: 'Navigation', icon: ICONS.layers,   keywords: ['sections', 'bento', 'fork', 'templates', 'catalog'], href: navHref('/admin/marketplace'), run: () => go('/admin/marketplace') },
-      { id: 'nav-logs',         title: 'Go to Log Explorer',  section: 'Navigation', icon: ICONS.book,     keywords: ['logs', 'correlation', 'request id', 'search', 'structured'], href: navHref('/admin/logs'), run: () => go('/admin/logs') },
-      { id: 'nav-enterprise',   title: 'Go to Enterprise',    section: 'Navigation', icon: ICONS.shield,   keywords: ['contract', 'sla', 'sso', 'audit export'], href: navHref('/admin/enterprise'), run: () => go('/admin/enterprise') },
-      { id: 'nav-trust',        title: 'Go to Trust Center',  section: 'Navigation', icon: ICONS.shield,   keywords: ['compliance', 'soc2', 'privacy', 'security', 'status'], href: navHref('/admin/trust'), run: () => go('/admin/trust') },
-      { id: 'nav-stripe-app',   title: 'Go to Stripe Status', section: 'Navigation', icon: ICONS.dollar,   keywords: ['stripe app', 'installs', 'marketplace', 'lifecycle'], href: navHref('/admin/stripe-app-status'), run: () => go('/admin/stripe-app-status') },
       // Core high-traffic sections — were missing from the palette ("everything
       // is searchable") so Cmd+K → "sites"/"inbox"/"media" found nothing. No
       // `shortcut` hints: these have no g-chord, and advertising a dead chord is
@@ -353,7 +347,7 @@ export class CommandPaletteActionsService {
         entity,
         title: `${String(row['action'] ?? 'audit event')} — ${id.slice(0, 8)}`,
         description: row['target_type'] ? `${row['target_type']} · ${row['target_id'] ?? ''}` : undefined,
-        navigateTo: '/admin/audit',
+        navigateTo: '/admin/logs',
         raw: row,
       };
     }

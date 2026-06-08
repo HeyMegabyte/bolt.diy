@@ -168,15 +168,17 @@ export const routes: Routes = [
           import('./pages/admin/sections/billing.component').then((m) => m.AdminBillingComponent),
       },
       {
+        // Audit Log merged into the unified /admin/logs dashboard (2026-06-08).
+        // Legacy bookmark → Logs (Audit Trail tab is the default).
         path: 'audit',
-        loadComponent: () =>
-          import('./pages/admin/sections/audit.component').then((m) => m.AdminAuditComponent),
+        redirectTo: 'logs',
+        pathMatch: 'full',
       },
       {
-        // Bulk Site Ops (#17) — preview a change across all sites (flag: bulk_site_ops).
+        // Bulk Ops removed from the admin (2026-06-08) → dashboard.
         path: 'bulk-ops',
-        loadComponent: () =>
-          import('./pages/admin/sections/bulk-ops.component').then((m) => m.AdminBulkOpsComponent),
+        redirectTo: '',
+        pathMatch: 'full',
       },
       {
         // Email Deliverability (#12) moved UNDER Settings (2026-06-07) — now part
@@ -395,12 +397,12 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/admin/sections/domain-stack.component').then((m) => m.AdminDomainStackComponent),
       },
-      // Worker Tail Log Explorer — 30-day FTS + cost attribution per route.
-      // Feature-flagged: log_explorer.
+      // Unified logging dashboard (2026-06-08) — Audit Trail + structured Log
+      // Explorer combined into one tabbed surface (?tab=audit|explorer).
       {
         path: 'logs',
         loadComponent: () =>
-          import('./pages/admin/sections/logs-explorer.component').then((m) => m.AdminLogsExplorerComponent),
+          import('./pages/admin/sections/logs-dashboard.component').then((m) => m.AdminLogsDashboardComponent),
       },
       // ─── Apps store ───────────────────────────────────────────────
       // Catalog of self-hostable apps deployable to Cloudflare Workers
@@ -495,38 +497,14 @@ export const routes: Routes = [
             (m) => m.AdminSwarmComponent,
           ),
       },
-      {
-        // #8 Vertical Section Marketplace — /admin/marketplace
-        path: 'marketplace',
-        loadComponent: () =>
-          import('./pages/admin/sections/marketplace.component').then(
-            (m) => m.AdminMarketplaceComponent,
-          ),
-      },
-      {
-        // #50 Trust Center — /admin/trust
-        path: 'trust',
-        loadComponent: () =>
-          import('./pages/admin/sections/trust-center.component').then(
-            (m) => m.AdminTrustCenterComponent,
-          ),
-      },
-      {
-        // #44 Enterprise Plan — /admin/enterprise
-        path: 'enterprise',
-        loadComponent: () =>
-          import('./pages/admin/sections/enterprise.component').then(
-            (m) => m.AdminEnterpriseComponent,
-          ),
-      },
-      {
-        // #36 Stripe App Marketplace status — /admin/stripe-app-status
-        path: 'stripe-app-status',
-        loadComponent: () =>
-          import('./pages/admin/sections/stripe-app-status.component').then(
-            (m) => m.AdminStripeAppStatusComponent,
-          ),
-      },
+      // Removed from the admin (2026-06-08): Marketplace, Trust Center,
+      // Enterprise, Stripe App. Components deleted; legacy paths redirect to the
+      // dashboard so old bookmarks don't 404. (Worker /api/* routes for these
+      // stay dormant + flag-gated; cleaned up separately.)
+      { path: 'marketplace', redirectTo: '', pathMatch: 'full' },
+      { path: 'trust', redirectTo: '', pathMatch: 'full' },
+      { path: 'enterprise', redirectTo: '', pathMatch: 'full' },
+      { path: 'stripe-app-status', redirectTo: '', pathMatch: 'full' },
       {
         // Admin-scoped 404 — MUST be last. Catches any unknown `/admin/*` path
         // (stale bookmark to a renamed route, or a param-route hit without its

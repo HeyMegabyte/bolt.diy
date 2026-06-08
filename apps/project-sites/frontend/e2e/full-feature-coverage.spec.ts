@@ -390,10 +390,12 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('21 - Audit section shows log entries', async ({ authedPage: page }) => {
+    // Audit Log merged into the unified /admin/logs dashboard (2026-06-08);
+    // /admin/audit redirects there (Audit Trail tab is the default).
     await page.goto('/admin/audit');
     await page.waitForLoadState('networkidle');
 
-    expect(page.url()).toContain('/admin/audit');
+    expect(page.url()).toContain('/admin/logs');
     // Should show audit log content (timestamps/actions from mock data)
     // Wait briefly for data to load
     await page.waitForTimeout(1000);

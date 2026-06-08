@@ -83,10 +83,11 @@ describe('CommandPaletteActionsService (every sidebar section is quick-navigable
   // The sidebar's routerLink targets — Cmd+K must be able to reach each one.
   const SIDEBAR_ROUTES = [
     '/admin/editor', '/admin/snapshots', '/admin/analytics', '/admin/forms', '/admin/traces',
-    '/admin/voice', '/admin/billing', '/admin/audit', '/admin/settings', '/admin/user', '/admin/docs',
-    '/admin/apps', '/admin/social', '/admin/bulk-ops', '/admin/deliverability', '/admin/webhooks',
-    '/admin/recipes', '/admin/review-links', '/admin/feature-flags', '/admin/marketplace',
-    '/admin/logs', '/admin/enterprise', '/admin/trust', '/admin/stripe-app-status',
+    '/admin/voice', '/admin/billing', '/admin/settings', '/admin/user', '/admin/docs',
+    '/admin/apps', '/admin/social', '/admin/deliverability', '/admin/webhooks',
+    '/admin/recipes', '/admin/review-links', '/admin/feature-flags',
+    // Unified logging dashboard (audit + log explorer merged 2026-06-08).
+    '/admin/logs',
     // Core high-traffic sections — this guard list itself omitted them, so the
     // palette could (and did) ship without Cmd+K nav to Sites/Inbox/Media/etc.
     '/admin/sites', '/admin/inbox', '/admin/media', '/admin/pseo',
@@ -123,7 +124,7 @@ describe('CommandPaletteActionsService (advertised chords are all implemented)',
   it('AI Traces uses the real G L chord (not the old mislabelled G T)', () => {
     const { actions } = build();
     expect(actions.find((a) => a.id === 'nav-traces')?.shortcut).toBe('G L');
-    // audit no longer falsely claims G L (that chord goes to Traces)
-    expect(actions.find((a) => a.id === 'nav-audit')?.shortcut).toBeFalsy();
+    // logs (the merged audit + log-explorer nav) does not claim G L (→ Traces)
+    expect(actions.find((a) => a.id === 'nav-logs')?.shortcut).toBeFalsy();
   });
 });

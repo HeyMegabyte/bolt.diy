@@ -199,6 +199,12 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
         <span>Apps</span>
       </a>
+      <!-- Features (site-scoped, plan-aware) sits directly under Apps — they're
+           the two "turn capabilities on for your site" surfaces. -->
+      <a class="nav-item" routerLink="/admin/site-features" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" data-testid="nav-features" [brnTooltip]="'Features — turn site capabilities on for your hosted site (plan-aware)'">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
+        <span>Features</span>
+      </a>
       <!-- Pulse Social — compose once, publish to 11 networks (X, LinkedIn,
            Facebook, Instagram, Threads, Bluesky, Reddit, Mastodon, Discord,
            Slack, Telegram). Megaphone glyph signals outbound broadcast.
@@ -224,13 +230,11 @@
 
       <div class="h-px mx-3.5 my-2 bg-white/[0.06]"></div>
 
-      <a class="nav-item" routerLink="/admin/audit" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span>Audit Log</span>
-      </a>
-      <a class="nav-item" routerLink="/admin/bulk-ops" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" [brnTooltip]="'Bulk Site Ops — preview a change across all your sites at once'">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        <span>Bulk Ops</span>
+      <!-- Unified logging dashboard — Audit Trail + structured Log Explorer
+           combined into one tabbed /admin/logs surface. -->
+      <a class="nav-item" routerLink="/admin/logs" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" [brnTooltip]="'Logs — audit trail + structured request / AI / job logs in one dashboard'">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7 8 3 3-3 3"/><line x1="13" y1="14" x2="17" y2="14"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>
+        <span>Logs</span>
       </a>
       <!-- Email Deliverability moved under Settings (2026-06-07) → /admin/settings#email
            (the /admin/deliverability route redirects there). Removed as a top-level nav item. -->
@@ -252,30 +256,8 @@
         <span>Feature Flags</span>
       </a>
       }
-      <a class="nav-item" routerLink="/admin/site-features" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" data-testid="nav-features" [brnTooltip]="'Features — turn site capabilities on for your hosted site (plan-aware)'">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
-        <span>Features</span>
-      </a>
-      <a class="nav-item" routerLink="/admin/marketplace" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" [brnTooltip]="'Section Marketplace — browse + install prebuilt site sections'">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9 4 4h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 22V12h6v10"/></svg>
-        <span>Marketplace</span>
-      </a>
-      <a class="nav-item" routerLink="/admin/logs" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" [brnTooltip]="'Log Explorer — search structured request / AI / job logs by correlation id'">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7 8 3 3-3 3"/><line x1="13" y1="14" x2="17" y2="14"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>
-        <span>Log Explorer</span>
-      </a>
-      <a class="nav-item" routerLink="/admin/enterprise" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" [brnTooltip]="'Enterprise — SSO, SLAs, seat management, dedicated support'">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M19 21V11a1 1 0 0 0-1-1h-3"/><line x1="9" y1="7" x2="11" y2="7"/><line x1="9" y1="11" x2="11" y2="11"/><line x1="9" y1="15" x2="11" y2="15"/></svg>
-        <span>Enterprise</span>
-      </a>
-      <a class="nav-item" routerLink="/admin/trust" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" [brnTooltip]="'Trust Center — security, compliance, subprocessors, live status'">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-        <span>Trust Center</span>
-      </a>
-      <a class="nav-item" routerLink="/admin/stripe-app-status" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" [brnTooltip]="'Stripe App — Marketplace install status + connected account'">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-        <span>Stripe App</span>
-      </a>
+      <!-- Removed from the sidebar (2026-06-08): Marketplace, Log Explorer
+           (merged into Logs), Enterprise, Trust Center, Stripe App. -->
       <!-- ZALEWSKI-UNIQ-MARKER-PXQVT8 -->
       <a class="nav-item" routerLink="/admin/docs" routerLinkActive="nav-item-active" ariaCurrentWhenActive="page" [brnTooltip]="'Interactive API explorer — every endpoint, live calls from your session'">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>

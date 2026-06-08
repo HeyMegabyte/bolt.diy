@@ -26,6 +26,7 @@ import { AdminMediaComponent } from './sections/media.component';
 import { AdminAiEndpointsComponent } from './sections/ai-endpoints.component';
 import { adminSectionLabelFromPath } from './admin-section-labels';
 import { isSysAdminEmail } from './sys-admin';
+import { isEditorPath } from './admin-route.util';
 
 interface Notification { id: string; title: string; time: string; kind: 'info' | 'warn' | 'ok'; read: boolean; ts?: number; href?: string; }
 
@@ -176,7 +177,9 @@ export class AdminComponent implements OnInit, OnDestroy {
   private routerSub?: Subscription;
 
   private updateRouteState(url: string): void {
-    this.isEditorRoute.set(url === '/admin' || url.startsWith('/admin/editor'));
+    // `/admin` is the DASHBOARD, not the editor — only `/admin/editor[/...]`
+    // lifts the persistent bolt iframe into place. See isEditorPath().
+    this.isEditorRoute.set(isEditorPath(url));
     // Mobile: auto-close the overlay drawer after navigating so the user sees
     // the section they just picked instead of the nav covering it.
     if (typeof window !== 'undefined' && window.innerWidth < 768) {

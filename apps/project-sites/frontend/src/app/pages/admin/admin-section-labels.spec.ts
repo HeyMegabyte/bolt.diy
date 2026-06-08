@@ -6,17 +6,23 @@ import { adminSectionLabel, adminSectionLabelFromPath, ADMIN_SECTION_LABELS } fr
  * route (the live bug this fixes for bulk-ops/deliverability/webhooks/etc.).
  */
 describe('adminSectionLabel (per-route title map)', () => {
-  it('labels the previously-missing routes (no more "Editor" fallback)', () => {
-    expect(adminSectionLabel('bulk-ops')).toBe('Bulk Ops');
+  it('labels the mapped routes (no "Editor"/"Dashboard" fallback)', () => {
     expect(adminSectionLabel('deliverability')).toBe('Deliverability');
     expect(adminSectionLabel('webhooks')).toBe('Webhooks');
     expect(adminSectionLabel('review-links')).toBe('Review Links');
     expect(adminSectionLabel('api-tokens')).toBe('API Tokens');
-    expect(adminSectionLabel('enterprise')).toBe('Enterprise');
-    expect(adminSectionLabel('trust')).toBe('Trust Center');
-    expect(adminSectionLabel('stripe-app-status')).toBe('Stripe Status');
     expect(adminSectionLabel('accept-invite')).toBe('Accept Invite');
     expect(adminSectionLabel('recipes')).toBe('Automations');
+    // Unified logging dashboard (Audit Trail + Log Explorer merged 2026-06-08).
+    expect(adminSectionLabel('logs')).toBe('Logs');
+  });
+
+  it('retired sections (removed from the sidebar 2026-06-08) fall back to Dashboard', () => {
+    // bulk-ops/enterprise/trust/stripe-app-status/marketplace deleted; audit
+    // redirects to /admin/logs so its bare segment is no longer mapped.
+    for (const seg of ['bulk-ops', 'enterprise', 'trust', 'stripe-app-status', 'marketplace', 'audit']) {
+      expect(adminSectionLabel(seg)).withContext(seg).toBe('Dashboard');
+    }
   });
 
   it('keeps the established labels intact', () => {

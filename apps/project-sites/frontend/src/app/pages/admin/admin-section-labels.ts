@@ -18,20 +18,20 @@ export const ADMIN_SECTION_LABELS: Readonly<Record<string, string>> = {
   forms: 'Forms', traces: 'AI Traces', 'ai-logs': 'AI Traces',
   'ai-endpoints': 'AI Agents', domains: 'Domains', docs: 'Docs',
   user: 'User Settings', apps: 'Apps', instances: 'App Instances',
-  billing: 'Billing', audit: 'Audit Log', settings: 'Settings',
+  billing: 'Billing', settings: 'Settings',
   voice: 'Voice', media: 'Media',
   'feature-flags': 'Feature Flags',
   'site-features': 'Features', social: 'Social',
   pseo: 'pSEO', 'content-freshness': 'Content Freshness', logs: 'Logs',
-  mcp: 'MCP', seo: 'SEO', inbox: 'Inbox', marketplace: 'Marketplace',
+  mcp: 'MCP', seo: 'SEO', inbox: 'Inbox',
   import: 'Import', sites: 'Sites', welcome: 'Welcome', email: 'Email',
   swarm: 'Swarm', copilot: 'Copilot', dna: 'Site DNA', branches: 'Branches',
   'mcp-server': 'MCP Server', stack: 'Domain Stack', diff: 'Snapshot Diff',
   // Coverage gap closed: these routed sections fell back to 'Editor' → stale
   // document title (WCAG 2.4.2). Verified live the titles stayed "Editor".
-  'bulk-ops': 'Bulk Ops', deliverability: 'Deliverability', webhooks: 'Webhooks',
-  'review-links': 'Review Links', 'api-tokens': 'API Tokens', enterprise: 'Enterprise',
-  recipes: 'Automations', trust: 'Trust Center', 'stripe-app-status': 'Stripe Status',
+  deliverability: 'Deliverability', webhooks: 'Webhooks',
+  'review-links': 'Review Links', 'api-tokens': 'API Tokens',
+  recipes: 'Automations',
   'accept-invite': 'Accept Invite',
 };
 
