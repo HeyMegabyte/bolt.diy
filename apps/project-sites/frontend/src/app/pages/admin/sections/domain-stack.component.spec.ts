@@ -171,6 +171,32 @@ describe('AdminDomainStackComponent (r13 cohesion + a11y)', () => {
     expect(loadingCard?.getAttribute('role')).toBe('status');
   });
 
+  // Tile status glyphs render as monochrome SVGs (cockpit semantic-status-glyph
+  // standard, cross-OS consistent — matches site-dna ✓✕✎), inheriting their
+  // semantic colour via currentColor, never bare ✓/✗/○/⟳ font chars.
+  it('renders tile status glyphs as SVGs (not bare unicode chars)', () => {
+    build({ id: 's1', primary_hostname: 'acme.dev' });
+    component.tiles.set([
+      { step: 'dns', label: 'DNS', status: 'done', error: null, data: null },
+      { step: 'ssl', label: 'SSL', status: 'in_progress', error: null, data: null },
+      { step: 'gsc', label: 'Search Console', status: 'pending', error: null, data: null },
+      { step: 'email', label: 'Email Auth', status: 'error', error: 'boom', data: null },
+    ]);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const icons = Array.from(host.querySelectorAll('.tile-icon'));
+    expect(icons.length).withContext('one status glyph per tile').toBe(4);
+    for (const ic of icons) {
+      expect(ic.querySelector('svg')).withContext('tile status glyph is an SVG').not.toBeNull();
+    }
+    // No bare status chars survive anywhere in the rendered board.
+    expect(host.textContent).not.toContain('✓');
+    expect(host.textContent).not.toContain('✗');
+    expect(host.textContent).not.toContain('⟳');
+    // The spinning in_progress glyph keeps its rotation hook for the spinner.
+    expect(host.querySelector('.tile-spin svg')).withContext('in-progress glyph spins').not.toBeNull();
+  });
+
   // Double-submit guard: advance() is the async mutation behind BOTH the
   // "Advance" button (button-level [disabled]) AND the "Start Wizard" button
   // (which has NO [disabled] in the no-run empty state). A rapid double-click on

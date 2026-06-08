@@ -131,10 +131,10 @@ interface StackAdvanceResponse {
                  [attr.aria-label]="tile.label + ': ' + statusLabel(tile.status)">
               <!-- Status icon -->
               <div class="tile-icon" aria-hidden="true">
-                @if (tile.status === 'done') { <span class="tile-done">✓</span> }
-                @if (tile.status === 'in_progress') { <span class="tile-spin tile-run">⟳</span> }
-                @if (tile.status === 'pending') { <span class="text-text-secondary">○</span> }
-                @if (tile.status === 'error') { <span class="tile-err">✗</span> }
+                @if (tile.status === 'done') { <span class="tile-done"><svg class="tile-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span> }
+                @if (tile.status === 'in_progress') { <span class="tile-spin tile-run"><svg class="tile-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg></span> }
+                @if (tile.status === 'pending') { <span class="text-text-secondary"><svg class="tile-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg></span> }
+                @if (tile.status === 'error') { <span class="tile-err"><svg class="tile-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span> }
               </div>
               <p class="tile-label">{{ tile.label }}</p>
               @if (tile.error) {
@@ -171,7 +171,7 @@ interface StackAdvanceResponse {
       @if (!featureDisabled() && hostname() && tiles().length === 0 && loading()) {
         <div class="empty-card" role="status" aria-live="polite" aria-busy="true" data-testid="domain-stack-loading">
           <p class="text-text-secondary text-sm flex items-center gap-2">
-            <span class="tile-spin tile-run" aria-hidden="true">⟳</span>
+            <span class="tile-spin tile-run" aria-hidden="true"><svg class="tile-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg></span>
             Checking stack status for <strong class="text-white">{{ hostname() }}</strong>…
           </p>
         </div>
@@ -212,7 +212,12 @@ interface StackAdvanceResponse {
     .stack-tile[data-status="in_progress"] { border-color: color-mix(in oklch, var(--ds-warn) 45%, transparent); animation: pulse 1.5s infinite; }
     .stack-tile[data-status="error"]       { border-color: color-mix(in oklch, var(--ds-err) 45%, transparent); }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.62} }
-    .tile-icon { font-size:1.2rem; line-height:1; }
+    .tile-icon { font-size:1.2rem; line-height:1; display:flex; align-items:center; justify-content:center; min-height:1.2rem; }
+    /* Status glyphs are SVGs (cockpit semantic-glyph standard, cross-OS
+       consistent); each inherits its semantic colour from the wrapping
+       .tile-done/.tile-err/.tile-run/text-secondary span via currentColor. */
+    .tile-glyph { width:1.15rem; height:1.15rem; display:block; }
+    .tile-icon > span { display:inline-flex; }
     .tile-done { color: var(--ds-accent); }
     .tile-err  { color: var(--ds-err); }
     .tile-run  { color: var(--ds-warn); }
