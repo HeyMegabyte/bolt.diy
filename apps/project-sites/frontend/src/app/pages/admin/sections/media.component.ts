@@ -159,6 +159,9 @@ interface BoltMediaAttachMessage {
               <!-- Load errored with no assets → the count is UNKNOWN, not 0.
                    Show "—" (mirrors the loading "…"), never a false "0 assets". -->
               <span aria-hidden="true" class="count-chip-loading">—</span>&nbsp;<span aria-hidden="true">assets</span>
+            } @else if (hasLibraryFilters()) {
+              <app-rolling-counter [value]="filteredAssets().length" [duration]="900" aria-hidden="true" />
+              <span aria-hidden="true">of {{ assets().length }} {{ assets().length === 1 ? 'asset' : 'assets' }}</span>
             } @else {
               <app-rolling-counter [value]="assets().length" [duration]="900" aria-hidden="true" />
               <span aria-hidden="true">{{ assets().length === 1 ? 'asset' : 'assets' }}</span>
@@ -1269,9 +1272,15 @@ export class AdminMediaComponent implements OnInit, OnDestroy, AfterViewInit {
     });
   });
 
-  readonly assetCountLabel = computed(
-    () => `${this.assets().length} assets in library`,
-  );
+  readonly assetCountLabel = computed(() => {
+    const total = this.assets().length;
+    // While filtering, the chip shows the FILTERED count over the total so it
+    // never misreads as "47 assets" when only 3 match the active filter.
+    if (this.hasLibraryFilters()) {
+      return `${this.filteredAssets().length} of ${total} assets in library`;
+    }
+    return `${total} assets in library`;
+  });
 
   // ─── Stock Search state ───────────────────────────────────────────────────
   stockQuery = '';

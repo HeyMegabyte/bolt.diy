@@ -74,6 +74,29 @@ describe('AdminMediaComponent (cyan/black cohesion + a11y)', () => {
     expect(c.podcastReady()).withContext('whitespace-only title → not ready').toBeFalse();
   });
 
+  it('the count chip is filter-aware: shows "N of M" while filtering, total otherwise', () => {
+    build();
+    const c = fixture.componentInstance;
+    c.loadingLibrary.set(false);
+    c.libraryError.set(null);
+    c.assets.set([
+      { id: '1', name: 'hero.png', kind: 'image' },
+      { id: '2', name: 'promo.mp4', kind: 'video' },
+      { id: '3', name: 'logo.png', kind: 'image' },
+    ] as never);
+    // Unfiltered → total only, no "of".
+    expect(c.assetCountLabel()).toBe('3 assets in library');
+    // Filter to images (2 of 3) → "N of M".
+    c.kindFilter.set('image');
+    expect(c.assetCountLabel()).toBe('2 of 3 assets in library');
+    fixture.detectChanges();
+    const chip = (fixture.nativeElement as HTMLElement).querySelector('.count-chip')!;
+    expect(chip.textContent).withContext('visible chip shows the "of total" form while filtering').toContain('of 3');
+    // Clearing the filter returns to the plain total.
+    c.kindFilter.set('all');
+    expect(c.assetCountLabel()).toBe('3 assets in library');
+  });
+
   it('renders the asset count through <app-rolling-counter> (numeric stat mandate)', () => {
     build();
     const el: HTMLElement = fixture.nativeElement;
