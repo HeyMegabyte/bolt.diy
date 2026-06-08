@@ -135,3 +135,28 @@ describe('VoiceConversationsComponent (top-caller click-to-call)', () => {
     expect(c.topCaller()).toBe('');
   });
 });
+
+// Every displayed caller number must be dialable per the [[always]] tel: mandate.
+// The detail-panel header (where you've drilled in to call the person back) is the
+// primary call surface — it must render a tel: link, not bare text.
+describe('VoiceConversationsComponent (detail caller is click-to-call)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('the detail-panel caller header renders a dialable tel: link with the formatted number', () => {
+    TestBed.configureTestingModule({
+      imports: [VoiceConversationsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: jasmine.createSpy('get').and.returnValue(of({ data: [] })) } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0, info: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    const fx = TestBed.createComponent(VoiceConversationsComponent);
+    fx.componentInstance.detail.set({ id: 'd1', from_number: '+12015551234', channel: 'call', status: 'open', started_at: new Date().toISOString() } as never);
+    fx.detectChanges();
+    const link = (fx.nativeElement as HTMLElement).querySelector('a[href^="tel:"]');
+    expect(link).withContext('detail caller renders a tel: link').not.toBeNull();
+    expect(link!.getAttribute('href')).toBe('tel:+12015551234');
+    expect(link!.textContent?.trim()).withContext('shows the formatted number').toBe('(201) 555-1234');
+  });
+});

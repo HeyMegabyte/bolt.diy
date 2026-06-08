@@ -196,7 +196,12 @@ type DayGroup = { label: string; items: Conversation[] };
 
     <!-- Detail panel -->
     <app-side-panel [open]="!!detail()" [widthFraction]="0.55" ariaLabel="Conversation detail" (closed)="closeDetail()">
-      <span panelTitle>{{ detail() ? format(detail()!.from_number) : '' }}</span>
+      <span panelTitle>
+        @if (detail(); as d) {
+          <a class="stat-tel" [href]="'tel:' + telHref(d.from_number)"
+             [title]="'Call ' + format(d.from_number)" [attr.aria-label]="'Call ' + format(d.from_number)">{{ format(d.from_number) }}</a>
+        }
+      </span>
       <span panelSubtitle>
         @if (detail()) {
           {{ detail()!.channel }} · {{ detail()!.started_at | date:'medium' }}
