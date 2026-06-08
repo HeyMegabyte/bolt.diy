@@ -1,6 +1,6 @@
 /**
  * /admin/feature-flags — LAYER 1 of the two-layer feature-flag control plane:
- * the **System Administrator** surface. Platform-ops flags for the super-admin
+ * the **Feature Flags** surface. Platform-ops flags for the super-admin
  * (the operator), fed by `/api/super-admin/feature-flags` merged onto the
  * `/api/feature-flags` registry.
  *
@@ -111,7 +111,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
       <header class="ff-header">
         <div class="ff-head-left">
           <p class="ff-kicker">Control plane · Layer 1</p>
-          <h1 data-testid="ff-layer-heading">System Administrator</h1>
+          <h1 data-testid="ff-layer-heading">Feature Flags</h1>
           <p class="ff-sub">
             Platform-ops flags for the operator.
             <strong>@if (statsLoading()) { <span class="ff-stat-dots" aria-label="Loading">…</span> } @else { <app-rolling-counter [value]="flagCount()" /> }</strong> registered ·
@@ -121,7 +121,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
           </p>
         </div>
         <div class="ff-head-right">
-          <app-flag-mode-switcher [mode]="mode()" (modeChange)="setMode($event)" label="Disclosure mode (System Administrator)" />
+          <app-flag-mode-switcher [mode]="mode()" (modeChange)="setMode($event)" label="Disclosure mode (Feature Flags)" />
           <button class="ff-refresh" (click)="reload()" [disabled]="loading()" [attr.aria-busy]="loading()" aria-label="Refresh flag list">↻ {{ loading() ? 'Refreshing…' : 'Refresh' }}</button>
           <button class="ff-emergency" (click)="openEmergency()" data-testid="ff-emergency-open"
                   aria-label="Open emergency kill-switch console"><span class="ff-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg></span>Emergency</button>
@@ -185,6 +185,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
         <app-error-card
           title="Couldn't load feature flags"
           [message]="error()!"
+          [correlationId]="loadErrorRef()"
           hint="The flag registry lives behind GET /api/feature-flags. Retry, or check you're signed in as a super-admin."
           (retry)="reload()" />
       } @else if (flags().length === 0) {
@@ -609,6 +610,8 @@ export class AdminFeatureFlagsComponent implements OnInit {
   readonly search = signal('');
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+  /** Worker request_id from a failed flag-registry load → copyable support reference on the error card. */
+  readonly loadErrorRef = signal('');
   readonly flags = signal<FlagDefinition[]>([]);
   readonly detailKey = signal<string | null>(null);
   readonly resolvedDetail = signal<ResolvedFlag | null>(null);
@@ -871,6 +874,7 @@ export class AdminFeatureFlagsComponent implements OnInit {
   async reload(): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
+    this.loadErrorRef.set('');
     try {
       const res = await firstValueFrom(this.http.get<{ flags: FlagDefinition[]; count: number }>('/api/feature-flags'));
       let flags = res.flags ?? [];
@@ -892,9 +896,15 @@ export class AdminFeatureFlagsComponent implements OnInit {
       this.flags.set(flags);
     } catch (e) {
       this.error.set((e as Error).message ?? 'unknown error');
+      this.loadErrorRef.set(this.requestIdFrom(e));
     } finally {
       this.loading.set(false);
     }
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: unknown): string {
+    return ((e as { error?: { error?: { request_id?: string } } } | undefined)?.error?.error?.request_id) ?? '';
   }
 
   async openDetail(flag: FlagDefinition): Promise<void> {

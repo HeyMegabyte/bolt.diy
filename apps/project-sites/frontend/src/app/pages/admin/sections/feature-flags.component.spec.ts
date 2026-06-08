@@ -144,6 +144,13 @@ describe('AdminFeatureFlagsComponent (flag control surface)', () => {
     expect(c.loading()).toBe(false);
   });
 
+  it('reload() failure captures the request_id for the error card (copyable support reference)', async () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500, error: { error: { request_id: 'req-ff-7' } } }))));
+    await c.reload();
+    expect(c.error()).not.toBeNull();
+    expect(c.loadErrorRef()).withContext('support reference captured').toBe('req-ff-7');
+  });
+
   // ── ?disabled=<key> handoff from featureFlagGuard ─────────────────────────
   const flagsGet = () =>
     jasmine.createSpy('get').and.callFake((url: string) =>
