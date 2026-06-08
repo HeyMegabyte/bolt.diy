@@ -261,15 +261,21 @@ const ALL_SCOPES = [
             type="datetime-local"
             [(ngModel)]="newExpiry"
             [min]="nowLocal"
+            [attr.aria-invalid]="expiryInvalid() || null"
+            [attr.aria-describedby]="expiryInvalid() ? 'token-expiry-err' : null"
             placeholder="Never expires"
             class="w-full" />
-          <span class="at-field-hint">Leave blank for a token that never expires.</span>
+          @if (expiryInvalid()) {
+            <span id="token-expiry-err" data-testid="token-expiry-err" class="block text-[0.7rem] text-[#ff8888] mt-1" role="alert">Expiry must be in the future — leave blank for a token that never expires.</span>
+          } @else {
+            <span class="at-field-hint">Leave blank for a token that never expires.</span>
+          }
         </div>
       </div>
       <div footer>
         <button hlmBtn variant="ghost" size="sm" type="button" (click)="closeCreateModal()">Cancel</button>
         <button hlmBtn variant="primary" size="sm" type="button"
-          [disabled]="creating() || !newName.trim()" (click)="createToken()">
+          [disabled]="creating() || !newName.trim() || expiryInvalid()" (click)="createToken()">
           <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" [class.at-spin]="creating()"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>
           {{ creating() ? 'Creating…' : 'Create Token' }}
         </button>
@@ -461,6 +467,18 @@ export class AdminApiTokensComponent {
     .slice(0, 16);
   selectedScopes = signal<Set<string>>(new Set(['sites:read']));
 
+  /**
+   * True when a (typed/pasted) expiry is set but already in the past. The native
+   * `[min]` only constrains the date picker — a hand-typed past value would mint
+   * a token born expired, so the Create action is blocked here too (disabled
+   * button + a no-op guard). Blank = "never expires" (valid); future = valid.
+   */
+  expiryInvalid(): boolean {
+    if (!this.newExpiry) return false;
+    const t = new Date(this.newExpiry).getTime();
+    return Number.isFinite(t) && t <= Date.now();
+  }
+
   createdToken = signal<CreateTokenResponse | null>(null);
   /** Derived dialog visibility — mirrors the createdToken signal. */
   get revealVisible(): boolean { return this.createdToken() !== null; }
@@ -541,7 +559,7 @@ export class AdminApiTokensComponent {
   }
 
   createToken(): void {
-    if (!this.newName.trim() || this.creating()) return;
+    if (!this.newName.trim() || this.creating() || this.expiryInvalid()) return;
     this.creating.set(true);
 
     const body = {

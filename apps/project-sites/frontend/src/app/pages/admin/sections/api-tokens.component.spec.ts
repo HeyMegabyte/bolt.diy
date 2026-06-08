@@ -91,6 +91,29 @@ describe('AdminApiTokensComponent (token CRUD)', () => {
     expect(c.createModalVisible).toBe(false);
   });
 
+  // The native [min] only guards the picker — a typed/pasted PAST expiry would
+  // mint a token born expired. expiryInvalid() blocks it (disables Create + a
+  // no-op guard), while blank (never-expires) and a future date stay valid.
+  it('expiryInvalid: blank = valid, future = valid, past = invalid', () => {
+    const { c } = make();
+    c.newExpiry = '';
+    expect(c.expiryInvalid()).withContext('blank → never expires, valid').toBeFalse();
+    c.newExpiry = new Date(Date.now() + 86_400_000).toISOString().slice(0, 16); // +1d, datetime-local
+    expect(c.expiryInvalid()).withContext('future expiry valid').toBeFalse();
+    c.newExpiry = new Date(Date.now() - 86_400_000).toISOString().slice(0, 16); // -1d
+    expect(c.expiryInvalid()).withContext('past expiry invalid').toBeTrue();
+  });
+
+  it('createToken is a no-op when the expiry is in the past (never mints a born-expired token)', () => {
+    const { c, http } = make();
+    c.openCreateModal();
+    c.newName = 'Deploy bot';
+    c.newExpiry = new Date(Date.now() - 86_400_000).toISOString().slice(0, 16);
+    c.createToken();
+    expect(http.post).withContext('no POST for an already-expired token').not.toHaveBeenCalled();
+    expect(c.creating()).toBe(false);
+  });
+
   it('toggleScope adds then removes a scope', () => {
     const { c } = make();
     c.toggleScope('media:write');
