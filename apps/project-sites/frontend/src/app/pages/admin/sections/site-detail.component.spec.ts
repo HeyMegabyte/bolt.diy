@@ -64,6 +64,32 @@ describe('AdminSiteDetailComponent (tabs + logs + SQL console)', () => {
     expect(c.logsEmptyText()).withContext('back to no filter → no-logs-yet copy').toContain('No logs yet');
   });
 
+  // The snapshots load-error now renders through the shared <app-error-card>, which
+  // surfaces a copyable worker request_id — capture it from the failed response so
+  // a stuck operator can hand it to support.
+  it('loadSnapshots captures the worker request_id into snapshotsErrorRef on a hard failure', () => {
+    const { c } = make();
+    (TestBed.inject(ApiService).get as jasmine.Spy).and.returnValue(
+      throwError(() => ({ status: 500, error: { error: { request_id: 'req-snap-9' } } })),
+    );
+    c.loadSnapshots('site-1');
+    expect(c.snapshotsError()).toBeTruthy();
+    expect(c.snapshotsErrorRef()).toBe('req-snap-9');
+  });
+
+  it('loadSnapshots leaves snapshotsErrorRef empty on a shapeless 200 (no err) + clears on a healthy reload', () => {
+    const { c } = make();
+    const get = TestBed.inject(ApiService).get as jasmine.Spy;
+    get.and.returnValue(of({})); // stale SPA-HTML 200 → error set, but no err object
+    c.loadSnapshots('site-1');
+    expect(c.snapshotsError()).toBeTruthy();
+    expect(c.snapshotsErrorRef()).toBe('');
+    get.and.returnValue(of({ snapshots: [] }));
+    c.loadSnapshots('site-1');
+    expect(c.snapshotsError()).toBeNull();
+    expect(c.snapshotsErrorRef()).toBe('');
+  });
+
   it('setTab switches the active tab', () => {
     const { c } = make();
     expect(c.tab()).toBe('logs');

@@ -31,6 +31,7 @@ import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
+import { ErrorCardComponent } from '../../../components/states';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { of } from 'rxjs';
 import { catchError, switchMap, timer } from 'rxjs';
@@ -70,7 +71,7 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
 @Component({
   selector: 'app-admin-site-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, MiniEmptyComponent],
+  imports: [CommonModule, FormsModule, RouterModule, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, MiniEmptyComponent, ErrorCardComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="site-detail animate-fade-in" data-testid="site-detail">
@@ -170,10 +171,11 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
       @if (tab() === 'snapshots') {
         <div class="site-detail__panel" role="tabpanel" id="sd-panel-snapshots" aria-labelledby="sd-tab-snapshots" data-testid="site-snapshots-panel">
           @if (snapshotsError()) {
-            <p class="snapshots-load-error" role="alert" data-testid="snapshots-load-error">
-              {{ snapshotsError() }}
-              <button type="button" class="snapshots-retry" (click)="loadSnapshots(siteId())">Retry</button>
-            </p>
+            <app-error-card data-testid="snapshots-load-error" class="block mb-3"
+              title="Couldn't load snapshots"
+              [message]="snapshotsError() ?? ''"
+              [correlationId]="snapshotsErrorRef()"
+              (retry)="loadSnapshots(siteId())" />
           }
           <ul class="snapshot-list" data-testid="site-snapshots-list">
             @for (s of snapshots(); track s.id) {
@@ -396,12 +398,6 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
       border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent);
     }
     .rollback-error { margin-top: 0.5rem; color: #ff7e8a; font-size: 0.85rem; }
-    /* Shapeless-200 load error — calm amber notice with an inline Retry, not a
-       red alarm (the data didn't fail destructively, the route was unexpected). */
-    .snapshots-load-error { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.75rem; padding: 0.55rem 0.75rem; border-radius: 8px; font-size: 0.85rem; color: #ffd166; background: color-mix(in oklch, #ffd166 9%, transparent); border: 1px solid color-mix(in oklch, #ffd166 28%, transparent); }
-    .snapshots-retry { margin-left: auto; padding: 0.25rem 0.7rem; border-radius: 6px; cursor: pointer; font: inherit; font-size: 0.78rem; color: var(--ps-accent, #00e5ff); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 9%, transparent); border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 32%, transparent); }
-    .snapshots-retry:hover { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 18%, transparent); }
-    .snapshots-retry:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
     .sql-history { margin-top: 1rem; }
     .sql-history ul { list-style: none; padding: 0; margin: 0.5rem 0 0; display: grid; gap: 0.25rem; }
     .sql-history li { padding: 0.25rem 0.5rem; background: rgba(255,255,255,0.03); border-radius: 4px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.8rem; }
@@ -457,6 +453,8 @@ export class AdminSiteDetailComponent {
    *  (no snapshots array) so the panel shows a retryable notice instead of a
    *  fake "no snapshots yet" empty state. */
   readonly snapshotsError = signal<string | null>(null);
+  /** Worker request_id from a failed snapshots load, surfaced as a copyable support reference on the error card. */
+  readonly snapshotsErrorRef = signal('');
   readonly pendingRollback = signal<SnapshotRow | null>(null);
   readonly rollbackResult = signal<string | null>(null);
   readonly rollbackError = signal<string | null>(null);
@@ -616,12 +614,18 @@ export class AdminSiteDetailComponent {
   // ── Snapshots ────────────────────────────────────────────────────────
   /** Public so the panel's Retry button can re-fire it after a shapeless-200. */
   loadSnapshots(id: string): void {
+    this.snapshotsErrorRef.set('');
     this.api
       .get<{ snapshots: SnapshotRow[] }>(`/sites/${id}/snapshots`, undefined, { silent: true })
       // catchError → null so a genuine network/404 is distinguishable from a
       // healthy-but-shapeless 200 (which reaches the subscriber as a non-array).
+      // Capture the worker request_id off the real error so the shared error card
+      // can offer a copyable support reference (the shapeless-200 path has no err).
       .pipe(
-        catchError(() => of(null)),
+        catchError((err: { error?: unknown }) => {
+          this.snapshotsErrorRef.set(this.requestIdFrom(err));
+          return of(null);
+        }),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((res) => {
@@ -632,12 +636,18 @@ export class AdminSiteDetailComponent {
         // keep the list a safe empty array.
         if (!res || !Array.isArray(res.snapshots)) {
           this.snapshots.set([]);
-          this.snapshotsError.set("Couldn't load snapshots — the response was unexpected. Retry.");
+          this.snapshotsError.set('The snapshots response was unexpected — check your connection and retry.');
           return;
         }
         this.snapshotsError.set(null);
+        this.snapshotsErrorRef.set('');
         this.snapshots.set(res.snapshots);
       });
+  }
+
+  /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
+  private requestIdFrom(e: { error?: unknown } | undefined): string {
+    return (e?.error as { error?: { request_id?: string } } | undefined)?.error?.request_id ?? '';
   }
 
   /** Rolling back OVERWRITES the live production site — the single most
