@@ -258,6 +258,23 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
     expect(el.querySelector('[data-testid="analytics-unavailable"]')).withContext('calm not-available notice shown').not.toBeNull();
     expect(el.querySelector('app-error-card')).withContext('no red error card for a 404').toBeNull();
     expect(el.querySelector('[data-testid="kpi-pageviews"]')).withContext('KPI body hidden under the notice').toBeNull();
+    // HONESTY: when auto-refresh is paused (404/unavailable), the header must NOT
+    // claim "refreshes every Ns" and must NOT show the "Live" kicker — both lie.
+    const headerText = (el.querySelector('header')?.textContent ?? '').replace(/\s+/g, ' ');
+    expect(headerText).withContext('no false "refreshes every" claim when paused').not.toContain('refreshes every');
+    expect(el.querySelector('.kicker')?.textContent?.trim() ?? '').withContext('no "Live" kicker when unavailable').not.toBe('Live');
+  });
+
+  it('live state shows the "Live" kicker AND the "refreshes every Ns" cadence', () => {
+    build({ id: 'site-live' });
+    fixture.detectChanges();
+    const c = fixture.componentInstance;
+    expect(c.notAvailable()).withContext('healthy load → available').toBeFalse();
+    expect(c.autoRefreshPaused()).withContext('healthy load → not paused').toBeFalse();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.kicker')?.textContent?.trim()).withContext('Live kicker shown when refreshing').toBe('Live');
+    expect((el.querySelector('header')?.textContent ?? '').replace(/\s+/g, ' '))
+      .withContext('cadence shown when live').toContain('refreshes every');
   });
 });
 

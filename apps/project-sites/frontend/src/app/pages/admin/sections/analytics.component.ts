@@ -63,7 +63,9 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
       <!-- ─────────────────── HEADER ─────────────────── -->
       <header class="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <div class="kicker">Live</div>
+          @if (liveKicker()) {
+            <div class="kicker">{{ liveKicker() }}</div>
+          }
           <h2 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-2">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" class="text-accent"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
             Analytics
@@ -85,7 +87,9 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
                 <path d="M7 17 17 7"/><path d="M8 7h9v9"/>
               </svg>
             </a>
-            — refreshes every {{ refreshIntervalSec }}s.
+            @if (!notAvailable() && !autoRefreshPaused()) {
+              — refreshes every {{ refreshIntervalSec }}s.
+            }
             <span class="countdown" aria-live="polite" [title]="refreshedAt() ? 'Last refreshed ' + (refreshedAt() | date:'medium') : 'Not yet loaded'">
               @if (loading()) {
                 <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
@@ -95,8 +99,9 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
                      explains. No countdown — there is nothing to refresh toward. -->
               } @else if (autoRefreshPaused()) {
                 <!-- Stopped auto-hammering a persistently-failing endpoint (max 3);
-                     the manual Retry on the error card still works. -->
-                Auto-refresh paused
+                     the manual Retry on the error card still works. The leading
+                     "—" stands in for the now-hidden "refreshes every" clause. -->
+                — Auto-refresh paused
               } @else if (error()) {
                 <!-- Auto-refresh keeps polling after a failure — say "Retrying",
                      not "Refreshing", so it's honest alongside the error card. -->
@@ -746,6 +751,17 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   private static readonly MAX_AUTO_RETRIES = 3;
   readonly consecutiveErrors = signal(0);
   readonly autoRefreshPaused = computed(() => this.consecutiveErrors() >= AdminAnalyticsComponent.MAX_AUTO_RETRIES || this.notAvailable());
+  /**
+   * Header eyebrow that reflects the REAL refresh state so it never lies:
+   * 'Live' only while the 60s poll is actually running; 'Paused' when auto-
+   * refresh stopped after repeated failures; '' (hidden) when the endpoint is
+   * unavailable for this site (the status pill + notice carry that state).
+   */
+  readonly liveKicker = computed(() => {
+    if (this.notAvailable()) return '';
+    if (this.autoRefreshPaused()) return 'Paused';
+    return 'Live';
+  });
   refreshedAt = signal<Date | null>(null);
   secondsUntilRefresh = signal<number>(REFRESH_INTERVAL_SEC);
   readonly refreshIntervalSec = REFRESH_INTERVAL_SEC;
