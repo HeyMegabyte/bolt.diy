@@ -756,8 +756,8 @@ export class DocsSpecService {
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
                   <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                 </svg>
-                <div>No endpoints match &ldquo;{{ endpointSearchQuery() }}&rdquo;.</div>
-                <button class="btn-ghost-mini" type="button" (click)="endpointSearchQuery.set('')" aria-label="Clear search filter">Clear filter</button>
+                <div>{{ endpointEmptyHint() }}</div>
+                <button class="btn-ghost-mini" type="button" (click)="clearEndpointFilters()" aria-label="Clear endpoint filters">Clear filters</button>
               </div>
             }
           </nav>
@@ -1184,6 +1184,26 @@ export class AdminDocsComponent implements OnInit {
       .map(([category, items]) => ({ category, items, open: true }))
       .sort((a, b) => a.category.localeCompare(b.category));
   });
+
+  /**
+   * Human no-match hint for the rail's empty branch. Names whichever filter(s)
+   * are active so a verb-only filter doesn't render the misleading `No endpoints
+   * match ""` (empty quotes) the old single-query message produced.
+   */
+  readonly endpointEmptyHint = computed<string>(() => {
+    const q = this.endpointSearchQuery().trim();
+    const v = this.verbFilter();
+    if (q && v) return `No ${v} endpoints match “${q}”.`;
+    if (q) return `No endpoints match “${q}”.`;
+    if (v) return `No ${v} endpoints.`;
+    return 'No endpoints.';
+  });
+
+  /** Reset BOTH rail filters (search + verb) so a single "Clear" always restores results. */
+  clearEndpointFilters(): void {
+    this.endpointSearchQuery.set('');
+    this.verbFilter.set(null);
+  }
 
   toggleVerb(v: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'): void {
     this.verbFilter.set(this.verbFilter() === v ? null : v);

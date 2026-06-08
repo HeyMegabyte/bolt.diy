@@ -180,4 +180,25 @@ describe('AdminDocsComponent (cohesion r7)', () => {
     const authRow = q('[data-testid="docs-nav-endpoint-get_api_auth_me"]');
     expect(authRow?.getAttribute('aria-current')).withContext('inactive rows have no aria-current').toBeNull();
   });
+
+  it('verb-filter-only no-match: notice names the verb (not empty quotes) + Clear resets BOTH filters', () => {
+    const c = fixture.componentInstance;
+    // SPEC has only GET endpoints → a DELETE verb filter excludes everything (no search query).
+    c.verbFilter.set('DELETE');
+    fixture.detectChanges();
+
+    const empty = q('.docs-rail-empty');
+    expect(empty).withContext('no-match notice renders when the verb filter excludes all').not.toBeNull();
+    // With no search query, the old message showed `No endpoints match ""` — must instead name the verb.
+    expect(empty!.textContent).withContext('message names the active verb').toContain('DELETE');
+    expect(empty!.textContent).not.withContext('no misleading empty quotes').toContain('""');
+
+    // "Clear" must reset the verb filter too — not just the (empty) search — or results never return.
+    const clearBtn = empty!.querySelector('button') as HTMLButtonElement;
+    clearBtn.click();
+    fixture.detectChanges();
+    expect(c.verbFilter()).withContext('verb filter cleared').toBeNull();
+    expect(c.endpointSearchQuery()).withContext('search query cleared').toBe('');
+    expect(host.querySelectorAll('.endpoint-row').length).withContext('rows restored after full clear').toBe(2);
+  });
 });
