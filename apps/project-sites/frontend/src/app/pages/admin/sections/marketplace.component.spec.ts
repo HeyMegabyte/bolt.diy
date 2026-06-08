@@ -85,6 +85,26 @@ describe('AdminMarketplaceComponent (cohesion r8)', () => {
     expect(all('.mkt-header__stats app-rolling-counter').length).toBe(2);
   });
 
+  // Slot keys (cta/faq/donor-wall) must render as human labels — capitalize would
+  // mangle the CTA/FAQ initialisms ("Cta"/"Faq") + leave the hyphen, so a label map.
+  it('slotLabel maps slot keys to human labels (CTA/FAQ initialisms, not capitalize)', () => {
+    const c = fixture.componentInstance;
+    expect(c.slotLabel('cta')).toBe('CTA');
+    expect(c.slotLabel('faq')).toBe('FAQ');
+    expect(c.slotLabel('donor-wall')).toBe('Donor wall');
+    expect(c.slotLabel('hero')).toBe('Hero');
+    expect(c.slotLabel('all')).toBe('All');
+    expect(c.slotLabel('future-slot')).withContext('titlecase fallback for unmapped slots').toBe('Future slot');
+  });
+
+  it('the slot filter chips render human labels (CTA/FAQ/Donor wall), not raw lowercase keys', () => {
+    const chips = all('.mkt-slot-chip').map((b) => (b.textContent ?? '').trim());
+    expect(chips).withContext('CTA initialism uppercased').toContain('CTA');
+    expect(chips).withContext('FAQ initialism uppercased').toContain('FAQ');
+    expect(chips).withContext('hyphenated key spaced + cased').toContain('Donor wall');
+    expect(chips.join(' ')).withContext('no raw lowercase hyphenated key').not.toContain('donor-wall');
+  });
+
   // A definitive "0 sections · 0 industries" must NOT show over the "Couldn't
   // load" error card (or a loading skeleton) — 0 is wrong there, the count is
   // unknown. The header stats appear only once the catalog genuinely resolves.
@@ -344,9 +364,9 @@ describe('AdminMarketplaceComponent — flag-gate (404) vs transient error', () 
     expect(host.querySelector('.mkt-header__stats')).withContext('header stats hidden when flag-gated').toBeNull();
     const link = host.querySelector('[data-testid="marketplace-flag-gate"] a');
     expect(link?.getAttribute('href')).withContext('SPA link to the platform-flags section').toBe('/admin/feature-flags');
-    // The section was renamed "System Admin" (2026-06-07) — the inline label must
+    // The section was renamed "Feature Flags" (2026-06-07) — the inline label must
     // match the nav, never the stale "Feature Flags".
-    expect(link?.textContent?.replace(/\s+/g, ' ').trim()).withContext('label matches the renamed System Admin section').toBe('System Admin');
+    expect(link?.textContent?.replace(/\s+/g, ' ').trim()).withContext('label matches the renamed Feature Flags section').toBe('Feature Flags');
   });
 
   it('a non-404 (500) → the transient error card with Retry, NOT the flag-gate notice', () => {

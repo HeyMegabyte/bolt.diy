@@ -60,6 +60,12 @@ const SLOT_COLORS: Record<string, string> = {
   'donor-wall': '#f59e0b', faq: '#3b82f6', cta: '#ec4899',
 };
 
+/** Human labels for slot keys — initialisms (CTA/FAQ) can't be `text-transform:capitalize`'d. */
+const SLOT_LABELS: Record<string, string> = {
+  all: 'All', hero: 'Hero', services: 'Services', testimonials: 'Testimonials',
+  'donor-wall': 'Donor wall', faq: 'FAQ', cta: 'CTA',
+};
+
 @Component({
   selector: 'app-admin-marketplace',
   standalone: true,
@@ -126,9 +132,9 @@ const SLOT_COLORS: Record<string, string> = {
               [class.mkt-slot-chip--active]="activeSlot() === slot"
               [style.--slot-color]="slotColor(slot)"
               [attr.aria-pressed]="activeSlot() === slot"
-              [attr.aria-label]="'Filter by ' + slot + ' slot'"
+              [attr.aria-label]="'Filter by ' + slotLabel(slot) + ' slot'"
               (click)="setSlot(slot)">
-        {{ slot }}
+        {{ slotLabel(slot) }}
       </button>
     }
   </div>
@@ -169,7 +175,7 @@ const SLOT_COLORS: Record<string, string> = {
             </span>
             <span class="mkt-card__industry">{{ section.industry }}</span>
             <span class="mkt-card__slot" [style.--slot-color]="slotColor(section.slot)">
-              {{ section.slot }}
+              {{ slotLabel(section.slot) }}
             </span>
           </div>
 
@@ -525,4 +531,11 @@ export class AdminMarketplaceComponent implements OnInit {
 
   industryIcon(ind: string) { return INDUSTRY_ICONS[ind] ?? '📦'; }
   slotColor(slot: string) { return SLOT_COLORS[slot] ?? 'var(--ps-accent, #00e5ff)'; }
+
+  /** Human label for a slot key — initialisms upper (CTA/FAQ); unmapped keys → sentence-case, hyphens spaced. */
+  slotLabel(slot: string): string {
+    if (SLOT_LABELS[slot]) return SLOT_LABELS[slot];
+    const words = slot.split('-');
+    return words.map((w, i) => (i === 0 && w ? w.charAt(0).toUpperCase() + w.slice(1) : w)).join(' ');
+  }
 }
