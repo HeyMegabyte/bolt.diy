@@ -579,9 +579,16 @@
             + red `role=alert` hints per field; extended the Save gate (`generalSettingsInvalid`)
             + a save() guard. Values preserved (ngModel two-way, no reset). 3 unit specs (1431
             Karma green). Deployed.
-      - [ ] P6-rest — sweep other admin forms for typed values POSTed without a client Zod/
-            field-error guard (number/url/range inputs); worker `routes/features.ts` `as`-cast
-            handlers stay per-feature-on-flag-promotion (CLAUDE.md), NOT a blind sweep. Next fire(s).
+      - [x] P6-branch-name (2026-06-09): site-branches create posted `branch_name` with only
+            `.trim()` — but it becomes a preview SUBDOMAIN, so a non-slug name ("Homepage
+            Redesign!", "feature/login") yields a broken preview URL / generic server reject.
+            Added `BranchNameSchema` (Zod DNS-label) + `branchNameInvalid()`; aria-invalid +
+            red `role=alert` hint; extended submit-disable + createBranch guard. (approvals
+            number already clamped 1–10.) 2 unit specs, 1433 Karma green. Deployed.
+      - [ ] P6-rest — remaining admin number/url inputs already carry validation signals
+            (ai-endpoints/billing/email/social/webhooks audited: each has invalid()/min/
+            aria-invalid). Worker `routes/features.ts` `as`-casts stay per-feature-on-flag-
+            promotion (CLAUDE.md), NOT a blind sweep. P6 client-form coverage substantially done.
 - [ ] P7 — Perf+a11y: lazy routes, defer heavy panels/charts/grids, RxJS cleanup, cancel
       stale requests, trackBy; WCAG 2.2 AA; axe + Playwright a11y; 8.33ms frame budget.
 - [ ] P8 — Proof: lint + typecheck + build + `npm run test:e2e` green; final report.

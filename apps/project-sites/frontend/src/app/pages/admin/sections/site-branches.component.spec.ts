@@ -253,4 +253,27 @@ describe('SiteBranchesComponent (cohesion + a11y)', () => {
     req.flush({ branch: { id: 'b3', branch_name: 'x', approvals_required: 1 } });
   });
 
+  // P6 validation: branch name becomes a preview subdomain → must be a DNS-label
+  // slug. A bad name ("Homepage Redesign!") must NOT POST (would break the URL).
+  it('flags a non-slug branch name + blocks the POST', () => {
+    build();
+    for (const bad of ['Homepage Redesign', 'feature/login', 'UPPER', '-leading', 'trailing-', 'spaces here', 'emoji🎯']) {
+      component.newBranchName = bad;
+      expect(component.branchNameInvalid()).withContext(bad).toBe(true);
+      component.createBranch();
+      httpMock.expectNone(`/api/sites/${SITE_ID}/branches`);
+    }
+    expect((TestBed.inject(ToastService).error as jasmine.Spy)).toHaveBeenCalled();
+  });
+
+  it('accepts a valid slug name (POSTs)', () => {
+    build();
+    component.newBranchName = 'homepage-redesign-2';
+    expect(component.branchNameInvalid()).toBe(false);
+    component.createBranch();
+    const req = httpMock.expectOne(`/api/sites/${SITE_ID}/branches`);
+    expect((req.request.body as { branch_name: string }).branch_name).toBe('homepage-redesign-2');
+    req.flush({ branch: { id: 'b4', branch_name: 'homepage-redesign-2', approvals_required: 1 } });
+  });
+
 });

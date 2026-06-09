@@ -16,6 +16,7 @@ import {
   signal,
   type OnInit,
 } from '@angular/core';
+import { z } from 'zod';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { RouterModule, ActivatedRoute } from '@angular/router';
@@ -27,6 +28,12 @@ import { RollingCounterComponent } from '../../../components/rolling-counter/rol
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
 import { HlmInputDirective, HlmButtonDirective } from '../../../ui';
+
+/** A branch name becomes a preview subdomain, so it must be a valid DNS label:
+ *  lowercase alphanumeric + hyphen, no leading/trailing hyphen, ≤63 chars. An
+ *  unvalidated name ("Homepage Redesign!") yields a broken preview URL or a
+ *  generic server reject — validate at the boundary instead. */
+export const BranchNameSchema = z.string().trim().regex(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/);
 
 interface Branch {
   id: string;
@@ -133,13 +140,17 @@ interface Branch {
         <form class="flex items-end gap-3 flex-wrap mb-4 rounded-xl border border-primary/20 bg-primary/4 p-4" (submit)="$event.preventDefault(); createBranch()" appReveal>
           <label class="flex flex-col gap-1 text-[0.72rem] text-text-secondary flex-1 min-w-[200px]">
             Branch name
-            <input hlmInput type="text" name="branchName" [(ngModel)]="newBranchName" placeholder="e.g. homepage-redesign" data-testid="branch-name-input" />
+            <input hlmInput type="text" name="branchName" [(ngModel)]="newBranchName" placeholder="e.g. homepage-redesign" data-testid="branch-name-input"
+              [attr.aria-invalid]="branchNameInvalid() || null" [attr.aria-describedby]="branchNameInvalid() ? 'branch-name-hint' : null" />
+            @if (branchNameInvalid()) {
+              <span id="branch-name-hint" role="alert" class="text-red-400">Lowercase letters, numbers, hyphens only — it becomes a preview subdomain.</span>
+            }
           </label>
           <label class="flex flex-col gap-1 text-[0.72rem] text-text-secondary w-32">
             Approvals required
             <input hlmInput type="number" name="approvals" min="1" max="10" [(ngModel)]="newApprovalsRequired" />
           </label>
-          <button hlmBtn variant="primary" size="sm" type="submit" [disabled]="creating() || !newBranchName.trim()" data-testid="branch-create-submit">
+          <button hlmBtn variant="primary" size="sm" type="submit" [disabled]="creating() || !newBranchName.trim() || branchNameInvalid()" data-testid="branch-create-submit">
             {{ creating() ? 'Creating…' : 'Create branch' }}
           </button>
         </form>
@@ -311,8 +322,18 @@ export class SiteBranchesComponent implements OnInit {
     return fromBody || e?.headers?.get?.('X-Request-ID') || '';
   }
 
+  /** True when a typed branch name isn't a valid DNS-label slug (gates create). */
+  branchNameInvalid(): boolean {
+    const v = this.newBranchName.trim();
+    return v !== '' && !BranchNameSchema.safeParse(v).success;
+  }
+
   createBranch(): void {
     if (!this.newBranchName.trim()) return;
+    if (this.branchNameInvalid()) {
+      this.toast.error('Branch name must be lowercase letters, numbers, and hyphens (e.g. homepage-redesign).');
+      return;
+    }
     this.creating.set(true);
     // Clamp into [1,10]: the input's min/max only constrain the spinner, but a
     // typed/pasted/cleared value reaches here raw. approvals_required:0 would be
