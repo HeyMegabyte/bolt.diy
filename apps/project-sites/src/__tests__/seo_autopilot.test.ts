@@ -355,10 +355,10 @@ describe('siteOrgId', () => {
 // Route layer: tenant isolation on :siteId routes
 // ---------------------------------------------------------------------------
 describe('seo_autopilot handler (route layer — tenant isolation)', () => {
-  // db.js is globally mocked, so the route's siteOrgId/dbQuery calls resolve via
-  // mockQueryOne/mockQuery. isFlagOn reads CACHE_KV (flagKv); on the flag-OFF
-  // path it falls through to env.DB.prepare — this stub makes that resolve to
-  // the registry default (off) instead of throwing.
+  // db.js is globally mocked. SEO Autopilot is now a per-site FEATURE: the route's
+  // guard reads the tenant `flag_overrides` row (via dbQueryOne) instead of isFlagOn,
+  // so we wire mockQueryOne by SQL — order-independent across guard / siteOrgId /
+  // owner-lookup. `on` toggles the Features override; the harness flag bool is moot.
   const routeDb = () =>
     ({
       prepare: () => ({
@@ -370,27 +370,42 @@ describe('seo_autopilot handler (route layer — tenant isolation)', () => {
       }),
     }) as unknown as D1Database;
 
+  /** Resolve dbQueryOne by which table the SQL hits — feature toggle / site owner / draft owner. */
+  const wireQueryOne = (opts: {
+    on?: boolean;
+    siteOrg?: string | null;
+    owner?: { site_id: string; org_id: string } | null;
+  }): void => {
+    mockQueryOne.mockImplementation((async (_db: unknown, sql: string) => {
+      if (sql.includes('flag_overrides')) return opts.on ? { value_json: '{"enabled":true}' } : null;
+      if (sql.includes('seo_meta_drafts')) return opts.owner ?? null;
+      if (sql.includes('FROM sites')) return opts.siteOrg ? { org_id: opts.siteOrg } : null;
+      return null;
+    }) as any);
+  };
+
   it('401 when unauthenticated', async () => {
     const app = authApp(seoAutopilot);
     const res = await app.request('/site1/drafts', {}, harnessEnv(routeDb(), true));
     expect(res.status).toBe(401);
   });
 
-  it('404 when the flag is off', async () => {
+  it('404 when the site feature is off', async () => {
+    wireQueryOne({ on: false, siteOrg: 'org-a' });
     const app = authApp(seoAutopilot, { userId: 'u', orgId: 'org-a' });
     const res = await app.request('/site1/drafts', {}, harnessEnv(routeDb(), false));
     expect(res.status).toBe(404);
   });
 
   it('404 listing drafts for a site owned by another org', async () => {
-    mockQueryOne.mockResolvedValueOnce({ org_id: 'OTHER_ORG' } as any); // siteOrgId
+    wireQueryOne({ on: true, siteOrg: 'OTHER_ORG' });
     const app = authApp(seoAutopilot, { userId: 'u', orgId: 'org-a' });
     const res = await app.request('/site1/drafts', {}, harnessEnv(routeDb(), true));
     expect(res.status).toBe(404);
   });
 
-  it('200 listing drafts for an org-owned site', async () => {
-    mockQueryOne.mockResolvedValueOnce({ org_id: 'org-a' } as any); // siteOrgId
+  it('200 listing drafts for an org-owned site (feature on)', async () => {
+    wireQueryOne({ on: true, siteOrg: 'org-a' });
     mockQuery.mockResolvedValueOnce({ data: [], error: null });
     const app = authApp(seoAutopilot, { userId: 'u', orgId: 'org-a' });
     const res = await app.request('/site1/drafts', {}, harnessEnv(routeDb(), true));
@@ -398,7 +413,7 @@ describe('seo_autopilot handler (route layer — tenant isolation)', () => {
   });
 
   it('404 approving a draft owned by another org', async () => {
-    mockQueryOne.mockResolvedValueOnce({ site_id: 'site1', org_id: 'OTHER_ORG' } as any);
+    wireQueryOne({ on: true, owner: { site_id: 'site1', org_id: 'OTHER_ORG' } });
     const app = authApp(seoAutopilot, { userId: 'u', orgId: 'org-a' });
     const res = await app.request(
       '/drafts/d1/approve',

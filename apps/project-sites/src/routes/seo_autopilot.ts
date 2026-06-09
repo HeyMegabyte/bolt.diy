@@ -20,7 +20,6 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../types/env.js';
-import { isFlagOn } from '../modules/feature_flags/services.js';
 import {
   approveDraft,
   buildJsonLd,
@@ -34,19 +33,38 @@ import {
   JsonLdKindSchema,
 } from '../../libs/features/seo_autopilot/feature.schemas.js';
 
-const FLAG_KEY = 'seo_autopilot';
-
 type AppContext = Context<{ Bindings: Env; Variables: Variables }>;
 
 const seoAutopilot = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-/** Shared guard: require auth + flag on. Returns a Response when blocked, else null. */
+/**
+ * SEO Autopilot is a site-FEATURE (owner-facing, enabled per-site in
+ * /admin/site-features), NOT a platform feature-flag — turning it on for a site
+ * means "fully automatic". So the gate reads the per-site Features toggle (the
+ * tenant `flag_overrides` row that routes/features.ts writes), not isFlagOn.
+ * An unset / disabled / non-site-scoped request is OFF.
+ */
+async function autopilotOn(c: AppContext, siteId?: string): Promise<boolean> {
+  if (!siteId) return false;
+  const row = await dbQueryOne<{ value_json: string }>(
+    c.env.DB,
+    "SELECT value_json FROM flag_overrides WHERE scope = 'tenant' AND scope_id = ? AND flag_key = 'seo_autopilot' AND deleted_at IS NULL",
+    [siteId],
+  );
+  if (!row) return false;
+  try {
+    return !!(JSON.parse(row.value_json) as { enabled?: boolean }).enabled;
+  } catch {
+    return false;
+  }
+}
+
+/** Shared guard: require auth + the site-feature on. Returns a Response when blocked, else null. */
 async function guard(c: AppContext, siteId?: string): Promise<Response | null> {
   const userId = c.get('userId');
   if (!userId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
 
-  const on = await isFlagOn(c.env, FLAG_KEY, { siteId, orgId: c.get('orgId') });
-  if (!on) return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
+  if (!(await autopilotOn(c, siteId))) return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
 
   return null;
 }
@@ -148,8 +166,7 @@ seoAutopilot.post('/drafts/:draftId/approve', async (c) => {
   );
   const siteId = owner?.site_id;
 
-  const on = await isFlagOn(c.env, FLAG_KEY, { siteId, orgId: c.get('orgId') });
-  if (!on) return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
+  if (!(await autopilotOn(c, siteId))) return c.json({ error: { code: 'NOT_FOUND', message: 'Not found' } }, 404);
 
   // Missing draft OR a draft owned by another org → 404 (never leak existence).
   if (!owner || owner.org_id !== c.get('orgId')) {
