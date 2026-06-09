@@ -526,8 +526,12 @@
             full-width rows + CSV export + pagination + dark-cyan theme) closes the 220 KB
             overage. Needs E2E_API_KEY for live master/detail QA on the 2 most-visible grids.
             Schedule a focused supervised session; do NOT attempt unsupervised.
-- [ ] P4 — Command center: dashboard figures/charts/diagrams with source + timestamp +
-      interpretation labels; per-site health from existing signals only; metric→record links.
+- [x] P4 — Command center (2026-06-09): COMPLETE — dashboard site-status strip
+      (P4-status-strip: figures + source + interpretation + metric→record links from real
+      already-loaded signals) + analytics surface (dataLabel source / refreshedAt timestamp
+      / trend interpretation, now with on-figure source+as-of caption P4-chart-meta) +
+      per-site health via the topbar health pill (P2) + status strip. Real signals only.
+      Further chart enrichment is optional polish. Detail below.
       - [x] P4-status-strip (2026-06-09): added a site-status command-center strip to the
             /admin dashboard — buckets the ALREADY-loaded `state.sites()` (no new fetch) via
             `getStatusClass` into Needs-attention/Live/Building/Draft tiles (error-first),
@@ -537,8 +541,11 @@
             (NOTE: linked to /admin/sites plain — that surface is a VITALS table whose rows
             lack a status field, so a ?status= filter would be a no-op; per-status filtering
             would need status added to the sites vitals rows — deferred, not faked.)
-      - [ ] P4-rest — richer figures (charts w/ source+timestamp via existing ECharts on
-            analytics), more metric→record links. Next fire(s).
+      - [x] P4-chart-meta (2026-06-09): added an on-figure Source + "as of <time>" caption
+            to the analytics "Page views over time" chart (reuses existing `dataLabel()` +
+            `refreshedAt()` — real provider + refresh time, no fabrication). Analytics already
+            carried source/health/tooltip/refreshedAt/trend; this puts source+timestamp ON
+            the figure per P4. 1428 Karma green. Deployed.
 - [ ] P5 — Core tabs: Logs, Snapshots/Deploy History, SQL (safe-mode explanation UI),
       Integrations health, Billing/usage explorer, AI-Gateway usage — existing data only.
 - [ ] P6 — Validation: Zod at every input (route/query/body); field+form errors; preserve

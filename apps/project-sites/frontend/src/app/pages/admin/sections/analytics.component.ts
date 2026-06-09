@@ -312,12 +312,18 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
 
       <!-- ─────────────────── MAIN CHART ─────────────────── -->
       <section class="card" appReveal>
-        <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <div class="flex items-center justify-between mb-1 gap-2 flex-wrap">
           <h3 class="section-h m-0 text-base font-semibold text-white">Page views over time</h3>
           <span class="text-[0.7rem] text-text-secondary">
             {{ envelope()?.series?.length || 0 }} days · peak {{ formatCount(peakDayVisits()) }}
           </span>
         </div>
+        <!-- On-figure source + as-of label (P4 — figures carry source+timestamp). -->
+        <p class="chart-meta" aria-live="polite">
+          <span class="chart-meta-src">Source: {{ dataLabel() }}</span>
+          <span class="chart-meta-sep" aria-hidden="true">·</span>
+          <span>{{ refreshedAt() ? ('as of ' + (refreshedAt() | date:'shortTime')) : 'not yet loaded' }}</span>
+        </p>
         @if (loading() && !envelope()) {
           <div class="skel skel-chart" aria-hidden="true"></div>
         } @else if ((envelope()?.series?.length ?? 0) === 0 || peakDayVisits() === 0) {
@@ -445,6 +451,15 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
     }
     .section-h { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
     .text-accent { color: var(--ps-accent, #00E5FF); }
+    /* On-figure source + as-of caption (P4). */
+    .chart-meta {
+      margin: 0 0 12px; display: flex; gap: 7px; align-items: center; flex-wrap: wrap;
+      font-family: var(--ps-font-code, 'Fira Code', ui-monospace, monospace);
+      font-size: 0.62rem; letter-spacing: 0.03em;
+      color: var(--ps-text-muted, rgba(255,255,255,0.45));
+    }
+    .chart-meta-src { color: color-mix(in oklch, var(--ps-accent, #00e5ff) 60%, #b7cfd6); }
+    .chart-meta-sep { opacity: 0.5; }
 
     .host-link {
       display: inline-flex; align-items: center; gap: 4px;
