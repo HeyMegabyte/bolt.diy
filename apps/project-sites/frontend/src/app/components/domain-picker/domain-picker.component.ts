@@ -334,9 +334,18 @@ const LOW_BALANCE_CENTS = 500;
         background: transparent;
         border: none;
         outline: none;
+        box-shadow: none;
         color: inherit;
         font: inherit;
         font-size: 0.86rem;
+      }
+      /* No focus highlight on the INPUT — the wrapper (.dp-search:focus-within)
+         owns the ring. Beats the global input:focus-visible rule in _polish.scss. */
+      .dp-search input:focus,
+      .dp-search input:focus-visible {
+        outline: none;
+        box-shadow: none;
+        border: none;
       }
       .dp-search input::placeholder {
         color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 65%, transparent);
@@ -978,7 +987,7 @@ const LOW_BALANCE_CENTS = 500;
           <div class="dp-footer">
             <div class="dp-foot-line">
               Manage your own DNS? Point a CNAME to
-              <code class="dp-mono">projectsites.dev</code>
+              <code class="dp-mono">{{ cnameTarget() }}</code>
               <button type="button" class="dp-copy" (click)="copyCname()" title="Copy CNAME target">
                 Copy
               </button>
@@ -1113,6 +1122,17 @@ export class DomainPickerComponent {
     if (site.primary_hostname) return site.primary_hostname;
     if (site.slug) return `${site.slug}.projectsites.dev`;
     return 'projectsites.dev';
+  });
+
+  /**
+   * CNAME target for "manage your own DNS". Point at the site's OWN
+   * `{slug}.projectsites.dev` subdomain, not the apex — the subdomain already
+   * resolves the tenant at the edge (no apex host-resolution hop), so it's the
+   * faster CNAME target. Falls back to the apex when there's no slug yet.
+   */
+  cnameTarget = computed<string>(() => {
+    const slug = this.state.selectedSite()?.slug;
+    return slug ? `${slug}.projectsites.dev` : 'projectsites.dev';
   });
 
   /** Human label for "AI picks for {biz}" header — falls back to "your site". */
@@ -1262,14 +1282,37 @@ export class DomainPickerComponent {
     try {
       const res = await this.fetchSuggestEndpoint(`/domains/suggest?site_id=${encodeURIComponent(siteId)}&count=${AI_SUGGESTION_COUNT}`, 'GET');
       const results = (res?.results ?? []) as DomainSuggestion[];
-      this.suggestions.set(results.slice(0, AI_SUGGESTION_COUNT));
-      this.telemetry.track('domain.suggestions_shown', { count: results.length });
+      // Never show an empty dropdown — fall back to brand-derived idea fillers so
+      // there are always 8-12 starting options before the user types anything.
+      this.suggestions.set(results.length ? results.slice(0, AI_SUGGESTION_COUNT) : this.brandFallbackSuggestions());
+      this.telemetry.track('domain.suggestions_shown', { count: this.suggestions().length, fallback: results.length === 0 });
     } catch (err) {
       console.warn('domain-picker AI suggestions failed', err);
-      this.suggestions.set([]);
+      this.suggestions.set(this.brandFallbackSuggestions());
     } finally {
       this.suggestionsLoading.set(false);
     }
+  }
+
+  /**
+   * Deterministic brand-derived idea fillers (no network). Used when the AI
+   * suggest endpoint returns nothing, so the dropdown always opens with 8-12
+   * on-brand starting options. These are IDEAS — no availability is claimed
+   * (no status badge); typing one into the search checks it live.
+   */
+  private brandFallbackSuggestions(): DomainSuggestion[] {
+    const raw = (this.state.selectedSite()?.business_name || this.state.selectedSite()?.slug || 'yourbrand').toLowerCase();
+    const root = raw.replace(/[^a-z0-9]/g, '').slice(0, 24) || 'yourbrand';
+    const candidates = [
+      `${root}.com`, `${root}.io`, `${root}.app`, `${root}.co`, `${root}.ai`,
+      `get${root}.com`, `try${root}.com`, `${root}hq.com`, `use${root}.com`, `${root}.studio`,
+      `join${root}.com`, `${root}.dev`,
+    ];
+    const seen = new Set<string>();
+    return candidates
+      .filter((d) => { const k = d.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
+      .slice(0, AI_SUGGESTION_COUNT)
+      .map((domain) => ({ domain, reason: 'Brand-fit idea — type it to check availability.' } as DomainSuggestion));
   }
 
   /** "Show me different ones" — POST refine endpoint with current 10 excluded. */
@@ -1692,8 +1735,9 @@ export class DomainPickerComponent {
   }
 
   copyCname(): void {
-    navigator.clipboard?.writeText('projectsites.dev').then(
-      () => this.toast.success('CNAME target copied — projectsites.dev'),
+    const target = this.cnameTarget();
+    navigator.clipboard?.writeText(target).then(
+      () => this.toast.success(`CNAME target copied — ${target}`),
       () => this.toast.error('Copy failed.'),
     );
   }
