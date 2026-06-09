@@ -464,6 +464,16 @@
             on /admin (marketing stays Sora, LCP untouched). Deployed + curl-verified live.
       - [ ] P1b — normalize cards/buttons/inputs/tabs/tables to the tokens (audit per-section
             hardcoded values); premium loading/empty/error states sweep. Next fire(s).
+            - [x] P1b-inputs/focus (2026-06-09): swept all admin sections for the wrapped-control
+                  focus/hover anti-pattern (ring on inner input instead of the fused wrapper).
+                  `/admin/apps` `.search-wrap` already had `:focus-within`; added the missing
+                  `:hover` affordance on the wrapper per gorgeous-by-default. Verified the rest
+                  are NOT the anti-pattern: docs `.docs-search` = overlay (full-width input +
+                  absolute icon/kbd, input ring correct); logs-explorer `.search-bar` = plain
+                  flex row of standalone controls; api-tokens/apps-instances/email = vertical
+                  label+input field groups. No other fused-wrapper fix needed.
+            - [ ] P1b-rest — cards/buttons/tabs/tables token audit + premium loading/empty/error
+                  states. Next fire(s).
 - [ ] P2 — Layout+nav: admin shell, grouped sidebar, premium header (env/search/⌘K/account/
       health/active-site), breadcrumbs with real names, **fade-only** route transitions
       (remove slide-in-up), reduced-motion, deep-link + SPA refresh correctness.

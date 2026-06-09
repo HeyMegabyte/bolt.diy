@@ -308,6 +308,11 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       border-radius: var(--ps-radius-lg, 14px);
       transition: border-color 160ms ease, background 160ms ease;
     }
+    /* Hover affordance lives on the WHOLE wrapper (icon + input + kbd), mirroring
+       the focus treatment — never just the inner <input>. */
+    .search-wrap:hover {
+      border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 28%, transparent);
+    }
     .search-wrap.is-focused {
       border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 45%, transparent);
       background: color-mix(in oklch, var(--ps-accent, #00E5FF) 4%, rgba(0, 0, 0, 0.32));
