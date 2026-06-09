@@ -46,6 +46,7 @@ import { visionQa } from './routes/vision_qa.js';
 import { concierge } from './routes/concierge.js';
 import { pageAudio } from './routes/page_audio.js';
 import { storefront } from './routes/storefront.js';
+import { agenticCommerce } from './routes/agentic_commerce.js';
 import { webhooks } from './routes/webhooks.js';
 import { assets } from './routes/assets.js';
 import { forms } from './routes/forms.js';
@@ -425,6 +426,7 @@ app.route('/', visionQa); // /api/vision-qa — Browser Rendering screenshot + W
 app.route('/', concierge); // /api/sites/:id/concierge — "Ask my site" RAG concierge (flag: ai_concierge_widget)
 app.route('/', pageAudio); // /api/sites/:id/page-audio — TTS page narration → R2 (flag: page_audio)
 app.route('/', storefront); // /api/sites/:id/products[/:productId] — product catalog CRUD (flag: storefront_ecommerce)
+app.route('/', agenticCommerce); // /api/sites/:id/commerce/feed — agent-readable product feed (flag: agentic_commerce)
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
 app.route('/', assets); // Asset uploads + build-assets listing
 app.route('/', forms); // Public form ingest + auth-gated submissions/integrations CRUD
