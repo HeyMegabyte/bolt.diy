@@ -24,6 +24,7 @@ import {
   HostListener,
   type OnDestroy,
   computed,
+  effect,
   inject,
   input,
   output,
@@ -149,7 +150,7 @@ interface E2eSpec {
               <p class="fd-rail-h">On this page</p>
               <ul>
                 @for (t of toc(); track t.slug) {
-                  <li><button type="button" class="fd-toc-link" (click)="goTo(t.slug)">{{ t.title }}</button></li>
+                  <li><button type="button" class="fd-toc-link" [class.fd-toc-link--active]="activeToc() === t.slug" [attr.aria-current]="activeToc() === t.slug ? 'true' : null" (click)="goTo(t.slug)">{{ t.title }}</button></li>
                 }
               </ul>
             </nav>
@@ -250,6 +251,8 @@ interface E2eSpec {
     .fd-toc-link { background: none; border: 0; color: color-mix(in oklch, currentColor 70%, transparent); font: inherit; font-size: .82rem; text-align: left; padding: .25rem .35rem; border-radius: 6px; cursor: pointer; width: 100%; transition: color .333s ease, background .333s ease; }
     .fd-toc-link:hover { color: var(--ps-accent, #00e5ff); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 8%, transparent); }
     .fd-toc-link:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; }
+    /* Scroll-spy: the section currently in view. */
+    .fd-toc-link--active { color: var(--ps-accent, #00e5ff); font-weight: 700; background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent); box-shadow: inset 2px 0 0 var(--ps-accent, #00e5ff); }
     /* Paper — the gorgeous rendered markdown column. */
     .fd-paper { background: color-mix(in oklch, var(--ps-bg, #060610) 35%, #fff 2%); border: 1px solid color-mix(in oklch, currentColor 12%, transparent); border-radius: 16px; padding: clamp(1.25rem, 3vw, 2.75rem); box-shadow: var(--ps-shadow-modal, 0 16px 50px rgba(0,0,0,.5)); max-width: 860px; }
     .fd-paper :first-child { margin-top: 0; }
@@ -316,6 +319,51 @@ export class FeatureDossierComponent implements OnDestroy {
 
   readonly stages = STAGES;
   readonly circumference = 2 * Math.PI * 52;
+
+  /** Scroll-spy: the slug of the section currently in view (highlights the TOC). */
+  readonly activeToc = signal('');
+  private tocObserver?: IntersectionObserver;
+  private readonly tocVisible = new Set<string>();
+
+  constructor() {
+    // Re-wire the scroll-spy whenever the dossier opens or its rendered content
+    // changes (html() depends on the model). setTimeout lets the innerHTML paint.
+    effect(() => {
+      const isOpen = this.open();
+      this.html(); // dependency: re-run when the rendered body changes
+      this.teardownTocSpy();
+      if (isOpen) setTimeout(() => this.setupTocSpy(), 60);
+    });
+  }
+
+  private setupTocSpy(): void {
+    const el = this.body()?.nativeElement;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const heads = Array.from(el.querySelectorAll<HTMLElement>('h2[id]'));
+    if (!heads.length) return;
+    const order = heads.map((h) => h.id);
+    this.tocVisible.clear();
+    this.tocObserver = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const id = (e.target as HTMLElement).id;
+          if (e.isIntersecting) this.tocVisible.add(id);
+          else this.tocVisible.delete(id);
+        }
+        const active = order.find((id) => this.tocVisible.has(id));
+        if (active) this.activeToc.set(active);
+      },
+      { root: el.closest('.fd-scroll'), rootMargin: '0px 0px -70% 0px', threshold: 0 },
+    );
+    for (const h of heads) this.tocObserver.observe(h);
+    this.activeToc.set(order[0]);
+  }
+
+  private teardownTocSpy(): void {
+    this.tocObserver?.disconnect();
+    this.tocObserver = undefined;
+    this.tocVisible.clear();
+  }
 
   /** Assembled GFM dossier. */
   readonly markdown = computed(() => {
@@ -404,6 +452,7 @@ export class FeatureDossierComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.stopPolling();
+    this.teardownTocSpy();
   }
 
   /** Safe rendered HTML — same pipeline as agent-message, plus heading anchors. */
