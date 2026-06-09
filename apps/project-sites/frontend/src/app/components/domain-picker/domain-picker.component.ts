@@ -406,7 +406,7 @@ const LOW_BALANCE_CENTS = 500;
         display: flex;
         flex-direction: column;
         gap: 4px;
-        padding: 8px 10px;
+        padding: 6px 10px;
         border-radius: var(--ps-radius-sm, 8px);
         background: rgba(255, 255, 255, 0.02);
         border: 1px solid transparent;
@@ -542,12 +542,30 @@ const LOW_BALANCE_CENTS = 500;
         background: rgba(52, 211, 153, 0.1);
       }
       .dp-status--no {
-        color: #f87171;
-        background: rgba(248, 113, 113, 0.1);
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 52%, transparent);
+        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 9%, transparent);
       }
       .dp-status--load {
         color: #f59e0b;
         background: rgba(245, 158, 11, 0.12);
+      }
+      /* Taken domains: a single compact, calmly-grayed line (no reason/pitch/CTA,
+         no hover-lift — it isn't actionable). Keeps the dropdown tight. */
+      .dp-row--taken {
+        padding: 5px 10px;
+        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 1.5%, transparent);
+        opacity: 0.82;
+      }
+      .dp-row--taken:hover {
+        transform: none;
+        border-color: rgba(255, 255, 255, 0.06);
+        box-shadow: none;
+        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 3%, transparent);
+      }
+      .dp-row--taken .dp-mono {
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 48%, transparent);
+        text-decoration: line-through;
+        text-decoration-color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 24%, transparent);
       }
       .dp-price {
         margin-left: auto;
@@ -916,12 +934,14 @@ const LOW_BALANCE_CENTS = 500;
             </div>
           }
 
-          <!-- 3b. AI-SUGGESTIONS — always-on when search is empty; shimmer while loading. -->
-          @if (query().length < 2) {
+          <!-- 3b. AI-SUGGESTIONS — brand-perfect available names. Shown when idle
+               AND below live results during a search (recommendations the AI
+               thinks fit the brand, not just TLD swaps). -->
+          @if (suggestionsLoading() || suggestions().length > 0) {
             <div class="dp-section">
               <div class="dp-section-label dp-section-label--ai">
                 <span class="dp-ai-dot" aria-hidden="true"></span>
-                AI picks for {{ businessLabel() }}
+                {{ query().length >= 2 ? 'More ideas perfect for ' : 'AI picks for ' }}{{ businessLabel() }}
               </div>
 
               @if (suggestionsLoading()) {
@@ -975,6 +995,7 @@ const LOW_BALANCE_CENTS = 500;
           [class.dp-row--focused]="focusedSection() === section && focusedIndex() === i"
           [class.dp-row--purchased]="purchasedDomains().has(s.domain)"
           [class.dp-row--checking]="s.checking"
+          [class.dp-row--taken]="s.status === 'taken' && !purchasedDomains().has(s.domain)"
           (mouseenter)="onSuggestionHover(section, i, s)"
         >
           <div class="dp-row-head">
@@ -995,49 +1016,49 @@ const LOW_BALANCE_CENTS = 500;
               <span class="dp-price">\${{ s.price_usd_yr }}/yr</span>
             }
           </div>
-          @if (s.reason) {
-            <div class="dp-reason"><em>{{ s.reason }}</em></div>
-          }
-          @if (s.pitch) {
-            <div class="dp-pitch">{{ s.pitch }}</div>
-          }
-          @if (purchasedDomains().has(s.domain)) {
-            <button type="button" class="dp-register dp-register--purchased" disabled>
-              ✓ Yours. SSL pending.
-            </button>
-            <div class="dp-sparkles" aria-hidden="true">
-              <span class="dp-sparkle dp-sparkle--a">✦</span>
-              <span class="dp-sparkle dp-sparkle--b">✧</span>
-              <span class="dp-sparkle dp-sparkle--c">✦</span>
-            </div>
-          } @else if (s.can_register_inline) {
-            <button
-              type="button"
-              class="dp-register"
-              [disabled]="registering() === s.domain"
-              (click)="register(s)"
-            >
-              @if (registering() === s.domain) {
-                <span class="dp-spinner dp-spinner--mini dp-spinner--ink" aria-hidden="true"></span>
-                Buying…
-              } @else {
-                {{ registerCtaLabel(s) }}
-              }
-            </button>
-          } @else if (s.available && s.fallback_url) {
-            <a
-              class="dp-register dp-register--porkbun"
-              [href]="s.fallback_url"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="CF Registrar doesn't carry this TLD — buy at Porkbun, then add via the custom-domain wizard."
-            >
-              Buy at Porkbun ↗
-            </a>
-          } @else if (!s.checking) {
-            <button type="button" class="dp-register" disabled>
-              Taken
-            </button>
+          <!-- Reason/pitch + register CTA only for non-taken rows — a taken
+               domain stays a single compact, grayed line (the badge says it all). -->
+          @if (s.status !== 'taken' || purchasedDomains().has(s.domain)) {
+            @if (s.reason) {
+              <div class="dp-reason"><em>{{ s.reason }}</em></div>
+            }
+            @if (s.pitch) {
+              <div class="dp-pitch">{{ s.pitch }}</div>
+            }
+            @if (purchasedDomains().has(s.domain)) {
+              <button type="button" class="dp-register dp-register--purchased" disabled>
+                ✓ Yours. SSL pending.
+              </button>
+              <div class="dp-sparkles" aria-hidden="true">
+                <span class="dp-sparkle dp-sparkle--a">✦</span>
+                <span class="dp-sparkle dp-sparkle--b">✧</span>
+                <span class="dp-sparkle dp-sparkle--c">✦</span>
+              </div>
+            } @else if (s.can_register_inline) {
+              <button
+                type="button"
+                class="dp-register"
+                [disabled]="registering() === s.domain"
+                (click)="register(s)"
+              >
+                @if (registering() === s.domain) {
+                  <span class="dp-spinner dp-spinner--mini dp-spinner--ink" aria-hidden="true"></span>
+                  Buying…
+                } @else {
+                  {{ registerCtaLabel(s) }}
+                }
+              </button>
+            } @else if (s.available && s.fallback_url) {
+              <a
+                class="dp-register dp-register--porkbun"
+                [href]="s.fallback_url"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="CF Registrar doesn't carry this TLD — buy at Porkbun, then add via the custom-domain wizard."
+              >
+                Buy at Porkbun ↗
+              </a>
+            }
           }
         </div>
       </ng-template>
@@ -1136,14 +1157,26 @@ export class DomainPickerComponent {
             return of(null);
           }
           // Seed per-TLD spinner rows so the UI feels alive even before RDAP returns.
+          // For a full domain ("heyo.com"), search by the ROOT so the typed domain
+          // shows alongside query-weighted sibling-TLD alternatives — a taken exact
+          // match then surfaces available options right below it. Plain text works
+          // the same way (any text → root.{tld} options).
           const looksLikeDomain = /^[a-z0-9-]+\.[a-z]{2,}$/i.test(trimmed);
-          const seedRows: LiveDomainRow[] = looksLikeDomain
-            ? [this.makeCheckingRow(trimmed)]
-            : SEARCH_TLDS.map((tld) => this.makeCheckingRow(`${trimmed}.${tld}`));
+          const root = looksLikeDomain ? trimmed.split('.')[0] : trimmed;
+          const typedTld = looksLikeDomain ? trimmed.slice(root.length + 1).toLowerCase() : '';
+          // Typed TLD leads (so the user's exact domain is first), then the rest.
+          const tldOrder = typedTld && SEARCH_TLDS.includes(typedTld)
+            ? [typedTld, ...SEARCH_TLDS.filter((t) => t !== typedTld)]
+            : SEARCH_TLDS;
+          const seen = new Set<string>();
+          const seedRows: LiveDomainRow[] = tldOrder
+            .map((tld) => `${root}.${tld}`)
+            .filter((d) => { const k = d.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
+            .map((d) => this.makeCheckingRow(d));
           this.liveResults.set(seedRows);
           this.availabilityChecking.set(true);
           const business = this.state.selectedSite()?.business_name || '';
-          return this.api.searchDomainsEnriched(trimmed, business).pipe(
+          return this.api.searchDomainsEnriched(root, business).pipe(
             catchError((err) => {
               console.warn('domain-picker availability check failed', err);
               return of({ results: [] as DomainSuggestion[] });
