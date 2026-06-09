@@ -17,7 +17,7 @@ on:
         default: '5'
 
 env:
-  NODE_VERSION: '20.18.0'
+  NODE_VERSION: '20.19.0'
   SHARD_COUNT: ${{ github.event.inputs.shard_count || '5' }}
 
 jobs:
