@@ -570,3 +570,52 @@ describe('AdminSettingsComponent (disconnect in-flight guard)', () => {
     expect((c as unknown as { isDisconnecting: (id: string) => boolean }).isDisconnecting('conn9')).toBeTrue();
   });
 });
+
+import { HexColorSchema } from './settings.component';
+
+/**
+ * P6 validation: brand color hex inputs are free text. A malformed value
+ * ("blue", "#zzz") must NOT round-trip to the worker / corrupt the generated
+ * theme — `hexInvalid` gates the General-settings Save (mirrors the email gate).
+ */
+describe('HexColorSchema (brand color boundary)', () => {
+  it('accepts #rrggbb and #rgb', () => {
+    expect(HexColorSchema.safeParse('#00E5FF').success).toBe(true);
+    expect(HexColorSchema.safeParse('#0ef').success).toBe(true);
+    expect(HexColorSchema.safeParse('  #7C3AED  ').success).toBe(true); // trimmed
+  });
+  it('rejects non-hex / wrong-length / missing-hash', () => {
+    for (const bad of ['blue', '#zzz', '00E5FF', '#12', '#1234', '#1234567', 'rgb(0,0,0)']) {
+      expect(HexColorSchema.safeParse(bad).success).withContext(bad).toBe(false);
+    }
+  });
+});
+
+describe('AdminSettingsComponent (brand hex validation gate)', () => {
+  function build(): AdminSettingsComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: null }), put: () => of({}), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+        { provide: Router, useValue: { navigate: () => undefined } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 's' }), loadData: () => undefined } },
+      ],
+    });
+    return TestBed.createComponent(AdminSettingsComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('flags a malformed brand hex + gates Save; blank/valid pass', () => {
+    const c = build();
+    c.settings.brand_primary = 'blue';
+    expect(c.hexInvalid('blue')).toBe(true);
+    expect(c.brandColorsInvalid()).toBe(true);
+    expect(c.generalSettingsInvalid()).toBe(true);
+    c.settings.brand_primary = '#00E5FF';
+    c.settings.brand_accent = '';
+    expect(c.brandColorsInvalid()).toBe(false);
+  });
+});

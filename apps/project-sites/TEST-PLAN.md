@@ -572,6 +572,16 @@
             surface it only if/when the worker exposes a real gateway-usage endpoint.
 - [ ] P6 — Validation: Zod at every input (route/query/body); field+form errors; preserve
       entered values; server-side ownership/permission; tests per path.
+      - [x] P6-brand-hex (2026-06-09): settings General form validated emails/business fields
+            but the brand-color hex inputs (brand_primary/brand_accent) were free text — "blue"
+            / "#zzz" round-tripped to the worker + corrupted the generated theme. Added
+            `HexColorSchema` (Zod, exported) + `hexInvalid`/`brandColorsInvalid`; aria-invalid
+            + red `role=alert` hints per field; extended the Save gate (`generalSettingsInvalid`)
+            + a save() guard. Values preserved (ngModel two-way, no reset). 3 unit specs (1431
+            Karma green). Deployed.
+      - [ ] P6-rest — sweep other admin forms for typed values POSTed without a client Zod/
+            field-error guard (number/url/range inputs); worker `routes/features.ts` `as`-cast
+            handlers stay per-feature-on-flag-promotion (CLAUDE.md), NOT a blind sweep. Next fire(s).
 - [ ] P7 — Perf+a11y: lazy routes, defer heavy panels/charts/grids, RxJS cleanup, cancel
       stale requests, trackBy; WCAG 2.2 AA; axe + Playwright a11y; 8.33ms frame budget.
 - [ ] P8 — Proof: lint + typecheck + build + `npm run test:e2e` green; final report.

@@ -1,4 +1,5 @@
 import { Component, HostListener, inject, signal, type OnInit } from '@angular/core';
+import { z } from 'zod';
 import { DatePipe, SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -20,6 +21,11 @@ import { AiSparkComponent } from '../../../components/ai-spark/ai-spark.componen
 interface Member { id: string; email: string; name: string | null; role: string; created_at: string; }
 interface Invite { id: string; email: string; role: string; created_at: string; expires_at: string; }
 interface GeneralSettings { contact_email: string | null; reply_email: string | null; brand_tone: string | null; brand_primary?: string | null; brand_accent?: string | null; timezone?: string | null; default_locale?: string | null; }
+
+/** Brand color must be a 3- or 6-digit hex (`#abc` / `#00E5FF`). The free-text
+ *  hex input accepts anything; this guards the value the worker persists + the
+ *  site renders (a garbage color would corrupt the generated theme). */
+export const HexColorSchema = z.string().trim().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
 interface Conn { id: string; provider: string; display_name: string; status: string; connected_at: string; metadata?: Record<string, unknown>; }
 
 // Settings tabs are SCOPED TO THE CURRENTLY-SELECTED PROJECT. Each tab loads
@@ -167,15 +173,23 @@ const PROVIDERS = MCP_PROVIDERS;
             <span class="muted-h">Brand primary color</span>
             <div class="flex items-center gap-2 mt-1">
               <input type="color" aria-label="Brand primary color swatch" class="ps-swatch h-9 w-12 cursor-pointer" [(ngModel)]="settings.brand_primary" />
-              <input hlmInput type="text" aria-label="Brand primary color hex value" class="flex-1 font-mono" placeholder="#00E5FF" [(ngModel)]="settings.brand_primary" />
+              <input hlmInput type="text" aria-label="Brand primary color hex value" class="flex-1 font-mono" placeholder="#00E5FF" [(ngModel)]="settings.brand_primary"
+                [attr.aria-invalid]="hexInvalid(settings.brand_primary) || null" [attr.aria-describedby]="hexInvalid(settings.brand_primary) ? 'brand-primary-hint' : null" />
             </div>
+            @if (hexInvalid(settings.brand_primary)) {
+              <span id="brand-primary-hint" role="alert" class="text-xs text-red-400 mt-1 block">Enter a hex color like #00E5FF or #0EF (or leave blank).</span>
+            }
           </label>
           <label class="block">
             <span class="muted-h">Brand accent color</span>
             <div class="flex items-center gap-2 mt-1">
               <input type="color" aria-label="Brand accent color swatch" class="ps-swatch h-9 w-12 cursor-pointer" [(ngModel)]="settings.brand_accent" />
-              <input hlmInput type="text" aria-label="Brand accent color hex value" class="flex-1 font-mono" placeholder="#7C3AED" [(ngModel)]="settings.brand_accent" />
+              <input hlmInput type="text" aria-label="Brand accent color hex value" class="flex-1 font-mono" placeholder="#7C3AED" [(ngModel)]="settings.brand_accent"
+                [attr.aria-invalid]="hexInvalid(settings.brand_accent) || null" [attr.aria-describedby]="hexInvalid(settings.brand_accent) ? 'brand-accent-hint' : null" />
             </div>
+            @if (hexInvalid(settings.brand_accent)) {
+              <span id="brand-accent-hint" role="alert" class="text-xs text-red-400 mt-1 block">Enter a hex color like #7C3AED or #ABC (or leave blank).</span>
+            }
           </label>
           <!-- Live brand preview -->
           <div class="md:col-span-2">
@@ -189,7 +203,7 @@ const PROVIDERS = MCP_PROVIDERS;
 
           <div class="md:col-span-2 flex justify-end gap-2">
             <button class="btn-ghost" (click)="loadGeneral()">Cancel</button>
-            <button class="btn-primary" [disabled]="saving() || generalEmailsInvalid()" (click)="save()">{{ saving() ? 'Saving…' : 'Save general settings' }}</button>
+            <button class="btn-primary" [disabled]="saving() || generalSettingsInvalid()" (click)="save()">{{ saving() ? 'Saving…' : 'Save general settings' }}</button>
           </div>
         </section>
       }
@@ -1335,12 +1349,31 @@ export class AdminSettingsComponent implements OnInit {
     return this.emailInvalid(this.settings.contact_email) || this.emailInvalid(this.settings.reply_email);
   }
 
+  /** True when a brand hex is present but not a valid #rgb / #rrggbb. */
+  hexInvalid(v: string | null | undefined): boolean {
+    return !!v && v.trim() !== '' && !HexColorSchema.safeParse(v).success;
+  }
+
+  /** True when EITHER brand color is a malformed hex — also gates Save. */
+  brandColorsInvalid(): boolean {
+    return this.hexInvalid(this.settings.brand_primary) || this.hexInvalid(this.settings.brand_accent);
+  }
+
+  /** Single gate for the General-settings Save button (emails + brand hex). */
+  generalSettingsInvalid(): boolean {
+    return this.generalEmailsInvalid() || this.brandColorsInvalid();
+  }
+
   save(): void {
     // Real client-side validation before the PUT — a typo'd contact/reply email
     // otherwise round-trips as a silent garbage save (the CRUD "real validation +
     // useful errors" bar; mirrors the invite-email gate in this same component).
     if (this.generalEmailsInvalid()) {
       this.toast.error('Enter valid contact + reply email addresses (or leave them blank).');
+      return;
+    }
+    if (this.brandColorsInvalid()) {
+      this.toast.error('Brand colors must be a hex value like #00E5FF (or leave them blank).');
       return;
     }
     const s = this.state.selectedSite(); if (!s) return;
