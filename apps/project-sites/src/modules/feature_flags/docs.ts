@@ -64,6 +64,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Submit a form on the published site → counts increment within the refresh window',
       'Disable the flag → the route 404s',
     ],
+    e2e_tests: ['e2e/admin/analytics.spec.ts'],
   },
   visitor_events_core: {
     checklist: [
@@ -182,6 +183,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'curl https://projectsites.dev/.well-known/mcp → 200 JSON with tools[] array',
       'curl https://projectsites.dev/.well-known/oauth-protected-resource → 200 JSON with resource + authorization_servers + scopes_supported',
     ],
+    e2e_tests: ['e2e/mcp/mcp-providers.spec.ts'],
   },
   public_api: {
     checklist: [
@@ -209,6 +211,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
     smoke_test: [
       'GET /api/pwa/manifest?org_id=demo-org → returns manifest with screenshots[] (3), shortcuts[] (3), share_target, file_handlers, protocol_handlers',
     ],
+    e2e_tests: ['e2e/pwa.spec.ts'],
   },
   site_mcp_server: {
     checklist: [
@@ -226,6 +229,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       "GET {slug}.projectsites.dev/.well-known/mcp from a Claude/Cursor client → tool list resolves",
       'POST {slug}.projectsites.dev/ask {"q":"what are your hours?"} → Schema.org JSON answer',
     ],
+    e2e_tests: ['e2e/site-mcp/site-mcp.spec.ts'],
   },
   ai_auto_router: {
     checklist: [
@@ -283,6 +287,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'POST /api/sites/:id/pseo/generate → returns the planned page matrix + unique-data ratio per page',
       'Generated page renders real Places/review/pricing data, not boilerplate',
     ],
+    e2e_tests: ['e2e/pseo/pseo-matrix.spec.ts'],
   },
   unified_inbox: {
     checklist: [
@@ -314,6 +319,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'POST /api/email-deliverability {domain} → {score, spf, dkim, dmarc, fixes[]}',
       'A domain missing DMARC → score drops + a fix record appears',
     ],
+    e2e_tests: ['e2e/admin/deliverability.spec.ts'],
   },
   outbound_webhooks: {
     checklist: [
@@ -328,6 +334,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'POST /api/sites/:siteId/webhooks {url, events[]} → 201 + signing secret',
       'Trigger a site event → endpoint receives a signed POST; bad sig is rejected',
     ],
+    e2e_tests: ['e2e/webhook/webhooks.spec.ts'],
   },
   abuse_takedown: {
     checklist: [
@@ -357,6 +364,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'GET /api/sites/:id/video → {status, r2_url, duration_s}',
       'Published page serves the film via /cdn-cgi/media device-adaptive URL',
     ],
+    e2e_tests: ['e2e/media-video-studio.spec.ts'],
   },
   editor_vision_qa: {
     checklist: [
@@ -455,6 +463,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'GET /api/billing/entitlements → plan entitlement set',
       'POST /webhooks/stripe with a valid signature → subscription state updates (duplicate event ignored)',
     ],
+    e2e_tests: ['e2e/_fortress/billing/happy-path.spec.ts', 'e2e/_fortress/billing/adversarial.spec.ts'],
   },
 };
 
