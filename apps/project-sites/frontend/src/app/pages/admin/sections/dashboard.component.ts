@@ -6,9 +6,6 @@
  * and help links. The former welcome hero + features-banner were removed; the
  * page now opens straight on a search bar over the "Build your site" content.
  *
- * The cross-route admin chrome (route progress, topbar extras, floating AI
- * FAB, drawers) still mounts here via {@link AdminUpgradesShellComponent} so
- * it renders across every `/admin/*` route through the persistent host.
  */
 import { ChangeDetectionStrategy, Component, HostListener, computed, inject, signal, viewChild, type ElementRef } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
@@ -16,7 +13,6 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
 import { RevealDirective } from '../../../directives/reveal.directive';
-import { AdminUpgradesShellComponent } from '../../../components/admin-upgrades/admin-upgrades-shell.component';
 import { CmdGlyphComponent } from '../../../components/cmd-glyph/cmd-glyph.component';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { AdminStateService } from '../admin-state.service';
@@ -56,13 +52,9 @@ const RECENT_KEY = 'ps_dash_recents';
   selector: 'app-admin-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, FormsModule, RouterLink, RevealDirective, AdminUpgradesShellComponent, CmdGlyphComponent, RollingCounterComponent],
+  imports: [NgTemplateOutlet, FormsModule, RouterLink, RevealDirective, CmdGlyphComponent, RollingCounterComponent],
   template: `
     <section class="dash" aria-label="Getting started">
-      <!-- Persistent admin chrome (route progress, topbar extras, AI FAB,
-           drawers) — mounted here so it renders across every /admin/* route. -->
-      <app-admin-upgrades-shell></app-admin-upgrades-shell>
-
       <!-- ── Search ─────────────────────────────────────────────── -->
       <div class="search-wrap" appReveal role="search">
         <span class="search-ic" aria-hidden="true"><app-cmd-glyph name="search" /></span>

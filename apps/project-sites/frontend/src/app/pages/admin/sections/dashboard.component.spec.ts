@@ -11,9 +11,8 @@ import { AuthService } from '../../../services/auth.service';
  *   - the site-count / has-sites computeds track AdminStateService.sites,
  *   - the Feature Flags discovery card is gated to operator emails only.
  *
- * Logic-level (overrideComponent strips the heavy template + AdminUpgradesShell
- * DI graph); the template's routerLink/aria bindings are AOT-verified by
- * `ng build`.
+ * Logic-level (overrideComponent strips the heavy template DI graph); the
+ * template's routerLink/aria bindings are AOT-verified by `ng build`.
  */
 function make(email: string, sites: number): AdminDashboardComponent {
   TestBed.resetTestingModule();
