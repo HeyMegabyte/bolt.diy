@@ -42,14 +42,6 @@ jest.mock('../modules/feature_flags/services.js', () => ({
   isFlagOn: jest.fn().mockResolvedValue(false),
 }));
 
-jest.mock('../../libs/features/contacts_core/service.js', () => ({
-  recordContact: jest.fn().mockResolvedValue({ id: 'contact-1' }),
-}));
-
-jest.mock('../../libs/features/contacts_core/mappers.js', () => ({
-  formSubmissionToContactInput: jest.fn(() => ({ orgId: 'org-1', email: 'v@x.com', metadata: {} })),
-}));
-
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
@@ -59,7 +51,6 @@ import { dispatchToIntegrations } from '../services/newsletter_dispatch.js';
 import { improveRouterPrompt } from '../services/form_router.js';
 import { writeAuditLog } from '../services/audit.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
-import { recordContact } from '../../libs/features/contacts_core/service.js';
 
 const mockDbQuery = dbQuery as unknown as jest.Mock;
 const mockDbQueryOne = dbQueryOne as unknown as jest.Mock;
@@ -69,7 +60,6 @@ const mockDispatch = dispatchToIntegrations as unknown as jest.Mock;
 const mockImprove = improveRouterPrompt as unknown as jest.Mock;
 const mockAudit = writeAuditLog as unknown as jest.Mock;
 const mockIsFlagOn = isFlagOn as unknown as jest.Mock;
-const mockRecordContact = recordContact as unknown as jest.Mock;
 
 // ─── Env + AI mock ───────────────────────────────────────────────────────────
 
@@ -310,40 +300,6 @@ describe('POST /api/v1/forms/submit', () => {
     expect(json.data.failed).toBe(1);
   });
 
-  it('does NOT call recordContact when the contacts_core flag is off (default)', async () => {
-    mockDbQueryOne.mockResolvedValueOnce(SITE_ROW);
-    mockDbQuery
-      .mockResolvedValueOnce({ data: [], error: null })
-      .mockResolvedValueOnce({ data: [], error: null });
-    const env = makeEnv();
-    await request(
-      makeApp(),
-      '/api/v1/forms/submit',
-      { method: 'POST', headers: { 'X-Site-Slug': 'acme' }, body: { form_name: 'contact' } },
-      env,
-    );
-    expect(mockIsFlagOn).toHaveBeenCalledWith(expect.anything(), 'contacts_core', expect.anything());
-    expect(mockRecordContact).not.toHaveBeenCalled();
-  });
-
-  it('records a contact when the contacts_core flag is ON, and survives a CRM failure', async () => {
-    mockDbQueryOne.mockResolvedValueOnce(SITE_ROW);
-    mockDbQuery
-      .mockResolvedValueOnce({ data: [], error: null })
-      .mockResolvedValueOnce({ data: [], error: null });
-    mockIsFlagOn.mockResolvedValueOnce(true);
-    mockRecordContact.mockRejectedValueOnce(new Error('CRM down'));
-    const env = makeEnv();
-    const res = await request(
-      makeApp(),
-      '/api/v1/forms/submit',
-      { method: 'POST', headers: { 'X-Site-Slug': 'acme' }, body: { form_name: 'contact', email: 'v@x.com' } },
-      env,
-    );
-    // CRM failure is caught + non-fatal → submission still 200.
-    expect(res.status).toBe(200);
-    expect(mockRecordContact).toHaveBeenCalledTimes(1);
-  });
 });
 
 // ════════════════════════════════════════════════════════════════════════════

@@ -27,18 +27,6 @@
 
 import type { Env } from '../types/env.js';
 
-// ── Mock the two cross-module dependencies big_bets imports ──────────
-// (newsletterSubscribe → isFlagOn + recordContact). Both are best-effort.
-jest.mock('../modules/feature_flags/services.js', () => ({
-  isFlagOn: jest.fn(async () => false),
-}));
-jest.mock('../../libs/features/contacts_core/service.js', () => ({
-  recordContact: jest.fn(async () => ({ id: 'contact-1' })),
-}));
-
-import { isFlagOn } from '../modules/feature_flags/services.js';
-import { recordContact } from '../../libs/features/contacts_core/service.js';
-
 import {
   visualEditorSave,
   ecommerceListProducts,
@@ -138,13 +126,8 @@ function createMockEnv(opts: DbOpts = {}): {
   return { env, prepare, binds, sqls };
 }
 
-const mockIsFlagOn = isFlagOn as unknown as jest.Mock;
-const mockRecordContact = recordContact as unknown as jest.Mock;
-
 beforeEach(() => {
   jest.clearAllMocks();
-  mockIsFlagOn.mockResolvedValue(false);
-  mockRecordContact.mockResolvedValue({ id: 'contact-1' });
 });
 
 // ─────────────────────────────────────────────────────────────────────
@@ -346,58 +329,16 @@ describe('newsletterCreateCampaign', () => {
 });
 
 describe('newsletterSubscribe', () => {
-  it('returns the double-opt-in shape and does NOT call recordContact when the flag is off', async () => {
-    // site row resolves (org found) but contacts_core flag is OFF → no CRM write
+  it('returns the double-opt-in shape', async () => {
     const { env } = createMockEnv({ firstResult: { org_id: 'org-1' } });
-    mockIsFlagOn.mockResolvedValue(false);
-    const r = await newsletterSubscribe(env, { siteId: 'site-1', email: 'a@b.co' });
+    const r = await newsletterSubscribe(env, { siteId: 'site-1', email: 'a@b.co', segment: 'weekly' });
     expect(r).toMatchObject({ confirm_email_sent: true, double_opt_in_required: true });
-    expect(mockIsFlagOn).toHaveBeenCalledWith(
-      env,
-      'contacts_core',
-      expect.objectContaining({ orgId: 'org-1', siteId: 'site-1' }),
-    );
-    expect(mockRecordContact).not.toHaveBeenCalled();
   });
 
-  it('records the contact (CRM dedupe) when the flag is ON', async () => {
-    const { env } = createMockEnv({ firstResult: { org_id: 'org-7' } });
-    mockIsFlagOn.mockResolvedValue(true);
-    await newsletterSubscribe(env, { siteId: 'site-1', email: 'sub@b.co', segment: 'weekly' });
-    expect(mockRecordContact).toHaveBeenCalledTimes(1);
-    const arg = mockRecordContact.mock.calls[0][1];
-    expect(arg).toMatchObject({
-      orgId: 'org-7',
-      siteId: 'site-1',
-      email: 'sub@b.co',
-      source: 'newsletter',
-    });
-    expect(arg.tags).toEqual(expect.arrayContaining(['newsletter', 'weekly']));
-    expect(arg.metadata.doubleOptInPending).toBe(true);
-  });
-
-  it('skips the CRM write when no site/org is found', async () => {
-    const { env } = createMockEnv({ firstResult: null });
-    mockIsFlagOn.mockResolvedValue(true);
-    const r = await newsletterSubscribe(env, { siteId: 'missing', email: 'a@b.co' });
-    expect(r.double_opt_in_required).toBe(true);
-    expect(mockRecordContact).not.toHaveBeenCalled();
-  });
-
-  it('never throws even if the CRM recordContact rejects (best-effort)', async () => {
-    const { env } = createMockEnv({ firstResult: { org_id: 'org-1' } });
-    mockIsFlagOn.mockResolvedValue(true);
-    mockRecordContact.mockRejectedValue(new Error('crm down'));
-    const r = await newsletterSubscribe(env, { siteId: 'site-1', email: 'a@b.co' });
-    expect(r.confirm_email_sent).toBe(true);
-  });
-
-  it('survives the site lookup query throwing', async () => {
+  it('survives the subscribe insert throwing (best-effort)', async () => {
     const { env } = createMockEnv({ throwOn: 'first' });
-    mockIsFlagOn.mockResolvedValue(true);
     const r = await newsletterSubscribe(env, { siteId: 'site-1', email: 'a@b.co' });
     expect(r.double_opt_in_required).toBe(true);
-    expect(mockRecordContact).not.toHaveBeenCalled();
   });
 });
 

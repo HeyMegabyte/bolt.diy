@@ -33,9 +33,6 @@ import { dbExecute, dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { dispatchToIntegrations, type IntegrationRow } from '../services/newsletter_dispatch.js';
 import { improveRouterPrompt } from '../services/form_router.js';
 import * as auditService from '../services/audit.js';
-import { isFlagOn } from '../modules/feature_flags/services.js';
-import { recordContact } from '../../libs/features/contacts_core/service.js';
-import { formSubmissionToContactInput } from '../../libs/features/contacts_core/mappers.js';
 
 /** Workers AI model used for reply drafting. NEVER use the bare alias. */
 const REPLY_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast' as const;
@@ -152,36 +149,6 @@ forms.post('/api/v1/forms/submit', async (c) => {
     status,
     created_at: submittedAt,
   });
-
-  // Contacts Core (CRM) — dedupe this submitter into the shared `contacts` store.
-  // Additive + flag-gated (`contacts_core`, default off) so it's a no-op until
-  // enabled; a CRM failure must NEVER break the form submission, hence try/catch.
-  try {
-    if (await isFlagOn(c.env, 'contacts_core', { orgId: site.org_id, siteId: site.id })) {
-      const contactInput = formSubmissionToContactInput({
-        orgId: site.org_id,
-        siteId: site.id,
-        formName: validated.form_name,
-        email: validated.email,
-        fields: validated.fields as Record<string, unknown> | null,
-      });
-      if (contactInput) {
-        contactInput.metadata = { ...contactInput.metadata, submissionId };
-        await recordContact(c.env, contactInput);
-      }
-    }
-  } catch (err) {
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        service: 'forms',
-        message: 'contacts_core recordContact failed (non-fatal)',
-        feature_slug: 'contacts_core',
-        site_id: site.id,
-        error: err instanceof Error ? err.message : String(err),
-      }),
-    );
-  }
 
   // Audit: form submission processed (routes to integrations or just recorded)
   const successfulProviders = successful.map((r) => r.provider).join(', ');

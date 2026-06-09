@@ -23,7 +23,6 @@ import { FLAG_REGISTRY } from '../modules/feature_flags/services.js';
  */
 const LIVE_ROUTE_FLAGS = [
   // own-file route modules
-  'contacts_core',
   'unified_inbox',
   'outbound_webhooks',
   'email_deliverability_wizard',

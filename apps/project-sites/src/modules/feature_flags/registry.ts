@@ -38,7 +38,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   //    and the drift validator's TEST_NOT_LINKED check resolves.
   // Compete-or-die (items 1-8)
   token_burn_meter: { key: 'token_burn_meter', description: 'Live token-burn meter in editor with monthly projection', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
-  contacts_core: { key: 'contacts_core', description: 'Shared contacts/CRM core — one person/lead store every capture surface dedupes into via recordContact()', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   site_analytics: { key: 'site_analytics', description: 'Owner-facing per-site analytics summary aggregating contacts, form submissions, newsletter subs and donations', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   visitor_events_core: { key: 'visitor_events_core', description: 'Public pageview/click/conversion beacon ingest from published sites; feeds site_analytics traffic block', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   email_marketing: { key: 'email_marketing', description: 'Real newsletter-campaign send to consented contacts + confirmed subscribers via Resend (replaces the stub recipient count)', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },

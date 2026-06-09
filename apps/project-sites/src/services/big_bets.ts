@@ -8,8 +8,6 @@
  */
 
 import type { Env } from '../types/env.js';
-import { isFlagOn } from '../modules/feature_flags/services.js';
-import { recordContact } from '../../libs/features/contacts_core/service.js';
 
 const uuid = () => crypto.randomUUID();
 const nowIso = () => new Date().toISOString();
@@ -221,34 +219,6 @@ export async function newsletterSubscribe(
     .bind(id, p.siteId, p.email, p.segment ?? null, 0, nowIso())
     .run()
     .catch(() => {});
-
-  // Contacts Core (CRM) — dedupe the subscriber into the shared `contacts` store.
-  // 2nd consumer of recordContact() (after forms.ts). Resolve org from site,
-  // flag-gated (default off → no-op), non-fatal. consent is NOT asserted here:
-  // this is double-opt-in pending, so consentEmail stays unset until confirmed.
-  try {
-    const site = await env.DB.prepare(
-      'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
-    )
-      .bind(p.siteId)
-      .first<{ org_id: string }>()
-      .catch(() => null);
-    if (
-      site?.org_id &&
-      (await isFlagOn(env, 'contacts_core', { orgId: site.org_id, siteId: p.siteId }))
-    ) {
-      await recordContact(env, {
-        orgId: site.org_id,
-        siteId: p.siteId,
-        email: p.email,
-        source: 'newsletter',
-        tags: ['newsletter', ...(p.segment ? [p.segment] : [])],
-        metadata: { subscriberId: id, segment: p.segment ?? null, doubleOptInPending: true },
-      });
-    }
-  } catch {
-    // CRM write is best-effort; a failure must never break the subscribe flow.
-  }
 
   return { id, ...p, confirm_email_sent: true, double_opt_in_required: true };
 }

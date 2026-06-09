@@ -88,7 +88,6 @@ import { seoAutopilot } from './routes/seo_autopilot.js';
 // ── Marketplace + Creator Economy (IDEAS-50 #39/#40/#41/#42)
 // Feature modules (libs/features/*) — ideas #33, #34, #36, #46
 import { tokenBurnMeter } from '../libs/features/token_burn_meter/handlers.js'; // #13 per-tenant token-burn meter + budget killswitch (flag: token_burn_meter)
-import { contactsCore } from '../libs/features/contacts_core/handlers.js'; // shared contacts/CRM core (flag: contacts_core)
 import { siteAnalytics } from '../libs/features/site_analytics/handlers.js'; // owner-facing per-site analytics summary (flag: site_analytics)
 import { visitorEvents } from '../libs/features/visitor_events_core/handlers.js'; // public pageview/event beacon ingest (flag: visitor_events_core)
 import { recordPageviewFromRequest } from '../libs/features/visitor_events_core/service.js'; // edge-recorded per-request pageview (no flag — core site analytics)
@@ -455,7 +454,6 @@ app.route('/api/sites', pseoMatrixV2Routes); // pSEO v2 (#29) — /api/sites/:id
 app.route('/api/seo', seoAutopilot); // SEO/GEO Autopilot — idea #23: AI title/meta/JSON-LD/answer-block drafts per route
 // libs/features/* — viral + billing + audit-chain modules (ideas #33, #34, #36, #46)
 app.route('/', tokenBurnMeter); // /api/usage/budget + /api/admin/usage/budget — #13 per-tenant token-burn meter + budget killswitch (flag: token_burn_meter)
-app.route('/', contactsCore); // /api/contacts{,/:id} — shared contacts/CRM core (flag: contacts_core)
 app.route('/', siteAnalytics); // /api/sites/:siteId/analytics — owner analytics summary (flag: site_analytics). Must precede `api` so the :siteId/analytics suffix wins.
 app.route('/', visitorEvents); // POST /api/v1/events — public beacon ingest (flag: visitor_events_core)
 app.route('/', emailMarketing); // /api/marketing/campaigns/:id/{recipients,send} + /api/marketing/unsubscribe — real campaign send (flag: email_marketing)
