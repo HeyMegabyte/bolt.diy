@@ -429,3 +429,59 @@
 > When a feature can't go green without a secret, leave its box unchecked and write a line here:
 >
 > `BLOCKER FLAG-twilio_*: needs TWILIO_ACCOUNT_SID — https://console.twilio.com/us1/account/keys-credentials/api-keys`
+
+---
+
+# ADMIN EXCELLENCE LOOP — billionaire-class black+cyan command center
+> Resumable checkpoint for the 30m cron `22c26a18`. Work the lowest unchecked phase
+> per fire, in small patches; production code only (never edit specs); lint +
+> `npm run test:e2e` green before commit. **Supervised mega-wave** — each fire does
+> ONE bounded slice, not the whole thing.
+
+## Package strategy (decide in Phase 0, BEFORE refactors)
+- Theme black+cyan; fonts Inter (body) / Montserrat (display) / Fira Code (code).
+- NOT centered on PrimeNG or ag-grid. Prefer **TanStack Table/Query/Virtual** +
+  **Spartan-style headless** (already partly in repo per `spartan-expansion-plan`
+  memory) where they fit. Justify every new dep (bundle/a11y/Angular/test).
+- Reuse existing prod patterns: `createAngularTable` (api-tokens, content-freshness);
+  cmd-glyph; DialogShell; `--ps-*` tokens; ApiService (bearer); `appReveal`.
+
+## Phase checkpoints (tick when its E2E is green)
+- [ ] P0 — Audit: read ~/.agentskills + ~/.claude + package.json/nx/angular.json +
+      existing /admin code; locate every PrimeNG/ag-grid usage; write the compatibility
+      matrix below. Decide replace/wrap/defer per item.
+- [ ] P1 — Design system: black+cyan tokens (bg/surface/elevated/border/cyan/cyan-muted/
+      success/warn/destructive/text-{primary,secondary,muted}/focus-ring/code-surface);
+      wire Inter+Montserrat+Fira Code efficiently; normalize cards/buttons/inputs/tabs/
+      tables/log+code blocks; premium loading/empty/error states.
+- [ ] P2 — Layout+nav: admin shell, grouped sidebar, premium header (env/search/⌘K/account/
+      health/active-site), breadcrumbs with real names, **fade-only** route transitions
+      (remove slide-in-up), reduced-motion, deep-link + SPA refresh correctness.
+- [ ] P3 — Tables/search: TanStack composable tables (migrate the 2 ag-grid grids —
+      audit.component + ai-logs.component per docs/perf-wave-ag-grid-to-tanstack.md),
+      URL-synced state, saved views, virtualization; no workflow regressions.
+- [ ] P4 — Command center: dashboard figures/charts/diagrams with source + timestamp +
+      interpretation labels; per-site health from existing signals only; metric→record links.
+- [ ] P5 — Core tabs: Logs, Snapshots/Deploy History, SQL (safe-mode explanation UI),
+      Integrations health, Billing/usage explorer, AI-Gateway usage — existing data only.
+- [ ] P6 — Validation: Zod at every input (route/query/body); field+form errors; preserve
+      entered values; server-side ownership/permission; tests per path.
+- [ ] P7 — Perf+a11y: lazy routes, defer heavy panels/charts/grids, RxJS cleanup, cancel
+      stale requests, trackBy; WCAG 2.2 AA; axe + Playwright a11y; 8.33ms frame budget.
+- [ ] P8 — Proof: lint + typecheck + build + `npm run test:e2e` green; final report.
+
+## Guardrails (do NOT)
+- No CSP L3 strict-dynamic / Security+Trust headers. No build validators.
+- Never edit/skip a spec to pass. Preserve homepage-resurrection guards.
+- All LLM calls via Cloudflare AI Gateway; preserve the direct-provider-URL ESLint guard.
+- Preserve per-site D1 isolation, Workers patterns, WS log streaming, Stripe test/live split.
+
+## Compatibility matrix (fill in P0)
+_(package · recommended-by · repo-status · bundle · a11y · ng-compat · testability · verdict)_
+
+## Already-done foundations (don't redo — from the 2026-06 campaign, git log)
+- Dashboard already rebuilt: live search + pins + recents + 14 improvements (28fa5a35).
+- Black+cyan `--ps-*` tokens + cmd-glyph + DialogShell + ApiService(bearer) exist.
+- 6 legacy flags removed; registry lean (ad9145e3). seo_autopilot is a site-feature.
+- TanStack `createAngularTable` already in prod (api-tokens, content-freshness) — the P3
+  migration is "apply the existing pattern", not "introduce TanStack".
