@@ -48,8 +48,8 @@
   // Nested admin sub-route swap (e.g. /admin/billing → /admin/snapshots).
   app-admin router-outlet + *, app-admin router-outlet ~ * { view-transition-name: ps-section; }
 }
-// Crossfade the content area: old fades out, new fades + slides up gently.
-// Same treatment for both page-level and admin section-level transitions.
+// Crossfade the content area: old fades out, new fades in — fade-only, no slide
+// (P2). Same treatment for both page-level and admin section-level transitions.
 ::view-transition-old(ps-content),
 ::view-transition-old(ps-section) {
   animation: psContentOut 180ms cubic-bezier(0.4, 0, 1, 1) both;
@@ -67,15 +67,18 @@
 ::view-transition-new(ps-recents) {
   animation: none;
 }
+// Fade-only route transitions (P2) — opacity crossfade, NO translateY. Slides
+// caused the "whole thing jumps up a few pixels" complaint after every nav.
 @keyframes psContentOut {
-  to { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 0; }
 }
 @keyframes psContentIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(ps-content), ::view-transition-new(ps-content) { animation-duration: 1ms !important; }
+  ::view-transition-old(ps-content), ::view-transition-new(ps-content),
+  ::view-transition-old(ps-section), ::view-transition-new(ps-section) { animation-duration: 1ms !important; }
 }
 
 // Override Tailwind's default `animate-fade-in` so it's opacity-only — the

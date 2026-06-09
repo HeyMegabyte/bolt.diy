@@ -715,8 +715,9 @@ html { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparen
 ::view-transition-new(root) {
   animation: 320ms cubic-bezier(0.16,1,0.3,1) both psVtIn;
 }
-@keyframes psVtOut { to { opacity: 0; transform: translateY(-4px); filter: blur(2px); } }
-@keyframes psVtIn  { from { opacity: 0; transform: translateY(6px); filter: blur(2px); } }
+// Fade-only route transitions (P2) — opacity crossfade only, no slide/blur.
+@keyframes psVtOut { to { opacity: 0; } }
+@keyframes psVtIn  { from { opacity: 0; } }
 
 // Friendly tags (chips) for badges
 .glow-chip {

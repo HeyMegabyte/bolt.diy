@@ -451,10 +451,13 @@
       deps/imports), ag-grid live in exactly 2 grids (audit + ai-logs), TanStack +
       Spartan + CDK + ECharts + Monaco + Uppy all correct. Compatibility matrix below
       filled; only substantive migration = ag-grid→TanStack in P3 (supervised session).
-- [ ] P1 — Design system: black+cyan tokens (bg/surface/elevated/border/cyan/cyan-muted/
-      success/warn/destructive/text-{primary,secondary,muted}/focus-ring/code-surface);
-      wire Inter+Montserrat+Fira Code efficiently; normalize cards/buttons/inputs/tabs/
-      tables/log+code blocks; premium loading/empty/error states.
+- [x] P1 — Design system (2026-06-09): tokens + fonts + code-surface (P1a), input
+      focus/hover normalization (P1b-inputs), premium states audited clean across 41
+      sections (err/empty/load components broadly wired incl. domains skeleton+error-card;
+      bare "Loading…" copy only in the dead ai-chat-extras section). Remaining cards/
+      buttons/tabs/tables token audit = mass hex/radius churn explicitly DEFERRED per the
+      `admin-brand-token-drift` memory ("NOT worth the churn"; brand-tokens.spec already
+      CI-guards drift). Sub-detail below.
       - [x] P1a (2026-06-09): black+cyan token set already complete in `_cockpit.scss`
             (canvas/surfaces/cyan-ramp/3-border/text/status/radii/elevation/viz/motion).
             Filled the 2 gaps: **code-surface** token (`--ck-code-surface`/`-ink`/`-border`
@@ -477,6 +480,13 @@
 - [ ] P2 — Layout+nav: admin shell, grouped sidebar, premium header (env/search/⌘K/account/
       health/active-site), breadcrumbs with real names, **fade-only** route transitions
       (remove slide-in-up), reduced-motion, deep-link + SPA refresh correctness.
+      - [x] P2-fade (2026-06-09): converted ALL route view-transitions to fade-only (removed
+            slide-in-up). `psContentOut/In` + `psContentOpacityOnly` (_polish.scss, admin
+            page+section) and `psVtOut/In` (styles.scss, root) now pure opacity — dropped the
+            `translateY(±4-10px)` + `blur(2px)`. Extended reduced-motion snap to `ps-section`.
+            Sidebar/topbar already `animation: none`. Deployed + curl-verified live.
+      - [ ] P2-rest — grouped sidebar audit, premium header completeness, breadcrumb real
+            names, deep-link + SPA-refresh correctness. Next fire(s).
 - [ ] P3 — Tables/search: TanStack composable tables (migrate the 2 ag-grid grids —
       audit.component + ai-logs.component per docs/perf-wave-ag-grid-to-tanstack.md),
       URL-synced state, saved views, virtualization; no workflow regressions.
