@@ -308,7 +308,11 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
               <article class="mcp-card" [attr.data-testid]="'mcp-provider-card-' + p.key">
                 <header>
                   <strong>{{ p.name }}</strong>
-                  <span class="mcp-status">{{ p.status }}</span>
+                  <span class="mcp-status" [class.is-connected]="p.status === 'connected'"
+                        role="status"
+                        [attr.aria-label]="p.name + (p.status === 'connected' ? ' connected' : ' not connected')">
+                    <span class="mcp-dot" aria-hidden="true"></span>{{ p.status === 'connected' ? 'Connected' : 'Not connected' }}
+                  </span>
                 </header>
                 @if (p.status === 'connected') {
                   <button
@@ -423,7 +427,10 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
     .mcp-list { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
     .mcp-card { padding: 1rem; background: rgba(255,255,255,0.04); border-radius: 8px; }
     .mcp-card header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
-    .mcp-status { font-size: 0.8rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent); }
+    .mcp-status { display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 600; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
+    .mcp-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 35%, transparent); }
+    .mcp-status.is-connected { color: var(--ps-success, #4dffb5); }
+    .mcp-status.is-connected .mcp-dot { background: var(--ps-success, #4dffb5); box-shadow: 0 0 8px color-mix(in oklch, var(--ps-success, #4dffb5) 55%, transparent); }
     .mcp-paste-key-form { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
     .mcp-paste-key-form input { flex: 1; }
     .muted { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }

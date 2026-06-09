@@ -554,8 +554,13 @@
             visible safe-mode explainer ("Safe mode: SELECT · EXPLAIN · WITH only. Writes
             … blocked to protect your live site database") — touch + SR accessible. Reuses
             existing (tested) write-rejection logic; presentational. 1428 Karma green. Deployed.
-      - [ ] P5-rest — Logs/Snapshots-Deploy-History/Integrations-health/Billing-usage/
-            AI-Gateway-usage tab audits (existing data only). Next fire(s).
+      - [x] P5-integrations-health (2026-06-09): the site-detail Integrations tab showed each
+            provider's `status` as raw muted text ("connected"). Upgraded to a health indicator
+            — green dot + glow + "Connected" / muted dot + "Not connected", `role=status` +
+            per-provider aria-label. Real data (`p.status`); mirrors the logs ws-dot + cockpit
+            status pattern. 1428 Karma green. Deployed.
+      - [ ] P5-rest — Logs / Snapshots-Deploy-History / Billing-usage / AI-Gateway-usage tab
+            audits (existing data only). Next fire(s).
 - [ ] P6 — Validation: Zod at every input (route/query/body); field+form errors; preserve
       entered values; server-side ownership/permission; tests per path.
 - [ ] P7 — Perf+a11y: lazy routes, defer heavy panels/charts/grids, RxJS cleanup, cancel
