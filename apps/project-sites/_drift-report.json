@@ -1,43 +1,18 @@
 {
-  "generated_at": "2026-06-08T14:17:49.590Z",
-  "quick_mode": false,
+  "generated_at": "2026-06-09T04:49:28.264Z",
+  "quick_mode": true,
   "stats": {
-    "flagCount": 33,
-    "manifestCount": 23,
-    "missingManifestCount": 0,
+    "flagCount": 28,
+    "manifestCount": 16,
+    "missingManifestCount": 1,
     "routeCount": 1,
-    "handlerCount": 60,
-    "fortressCount": 7
+    "handlerCount": 54,
+    "fortressCount": 6
   },
-  "violations": [
-    {
-      "type": "IMPL_WITHOUT_FLAG",
-      "handler": "contactsCore",
-      "message": "app.route handler \"contactsCore\" in src/index.ts: source file does not appear to use isFlagOn/requireFlag and is not in the base allowlist",
-      "severity": "warn"
-    },
-    {
-      "type": "IMPL_WITHOUT_FLAG",
-      "handler": "siteAnalytics",
-      "message": "app.route handler \"siteAnalytics\" in src/index.ts: source file does not appear to use isFlagOn/requireFlag and is not in the base allowlist",
-      "severity": "warn"
-    },
-    {
-      "type": "IMPL_WITHOUT_FLAG",
-      "handler": "emailMarketing",
-      "message": "app.route handler \"emailMarketing\" in src/index.ts: source file does not appear to use isFlagOn/requireFlag and is not in the base allowlist",
-      "severity": "warn"
-    },
-    {
-      "type": "IMPL_WITHOUT_FLAG",
-      "handler": "dataExport",
-      "message": "app.route handler \"dataExport\" in src/index.ts: source file does not appear to use isFlagOn/requireFlag and is not in the base allowlist",
-      "severity": "warn"
-    }
-  ],
+  "violations": [],
   "summary": {
-    "total": 4,
+    "total": 0,
     "errors": 0,
-    "warnings": 4
+    "warnings": 0
   }
 }

@@ -1,24 +1,25 @@
 {
   "tasks": [
     {
-      "id": "bf3f93c1",
-      "cron": "*/10 * * * *",
-      "prompt": "Visual-census loop. Pick the next route NOT yet captured in apps/project-sites/_VISUAL_CENSUS.md (marketing + every /admin section). Screenshot it at 6 breakpoints (375/390/768/1024/1280/1920) against the prod URL, authed via E2E_API_KEY (get-secret) + playwright.prod.config.ts — use the repo's headless Playwright + Cloudflare Browser Rendering REST API (the playwright/chrome-devtools MCP may be offline). Run the AI-vision rubric per ~/.claude e2e-visual-inspection: layout sane / WCAG-AA contrast / cyan-black cockpit brand / no AI-slop / score >=8. Append the route's screenshot paths + per-breakpoint score + notes to _VISUAL_CENSUS.md. READ-ONLY — never edit app code; surface any sub-8 route as a finding with a concrete fix. One route per fire; end with the running census coverage count (X of N routes).",
-      "createdAt": 1780933623458,
+      "id": "22c26a18",
+      "cron": "*/30 * * * *",
+      "prompt": "Execute the next phase of the /admin excellence mission in apps/project-sites/TEST-PLAN.md. Work the lowest unchecked phase, in small patches, fixing production code never tests; run lint + npm run test:e2e; commit only on green; update TEST-PLAN.md checkpoints. Black+cyan, Inter/Montserrat/Fira Code, SPA fade-only routes, TanStack-not-ag-grid, Spartan-style headless UI, Zod validation, real data sources only. Scan ~/.agentskills + repo first if Phase 0 incomplete.",
+      "createdAt": 1780977126601,
       "recurring": true,
-      "createdBySessionId": "63491509-1393-4ad6-a553-8898add3142e",
-      "createdByPid": 85061,
-      "createdByProcStart": "Sun Jun  7 23:06:40 2026"
+      "createdBySessionId": "8f61ccdc-307f-4113-902b-60f3909681c4",
+      "createdByPid": 96738,
+      "createdByProcStart": "Mon Jun  8 16:48:10 2026",
+      "lastFiredAt": 1780980632680
     },
     {
-      "id": "599f7352",
-      "cron": "2,12,22,32,42,52 * * * *",
-      "prompt": "Accessibility loop. Run axe-core at 6 breakpoints (375/390/768/1024/1280/1920) on the next /admin route NOT yet in apps/project-sites/_A11Y_AUDIT.md, authed via E2E_API_KEY + playwright.prod.config.ts (repo headless Playwright). Fix every violation in-turn — component-local edits only, SKIP any file showing as concurrently modified in `git status`. Also check the WCAG 2.2 AA manual-review criteria (focus appearance, 24px target size, focus-not-obscured, consistent help, redundant entry). Log route + violations + fixes to _A11Y_AUDIT.md. Gate: `npx tsc --noEmit` + the component spec + `ng build` all green; zero axe violations to pass. Commit locally, do NOT push (Brian pushes). One route per fire.",
-      "createdAt": 1780933629407,
+      "id": "b3823d45",
+      "cron": "*/10 * * * *",
+      "prompt": "Verify and polish the projectsites.dev feature-flag plane (both the operator-facing /admin/feature-flags section and the owner-facing /admin/site-features section, plus the worker modules/feature_flags registry/docs/routes and /api/feature-flags endpoints). Each fire: (1) git pull/check state, run the worker FF jest tests + frontend AOT build as gates; (2) verify prod /api/feature-flags + /api/feature-flags/:key return 200 with intact per-flag checklist/docs payloads; (3) find ONE incremental, tested, deployable polish slice (a11y, copy clarity Flesch>=50, missing checklist/smoke/e2e metadata on a flag, stale flag cleanup, cyan/black cohesion, double-submit/empty-state/error-card gaps) — write a failing test first, implement, build, deploy frontend R2 + worker, verify live; (4) if nothing worth shipping, report \"FF plane clean\" and stop without churn. Never rebuild what exists. Stay on the FF plane only.",
+      "createdAt": 1780980241055,
       "recurring": true,
-      "createdBySessionId": "63491509-1393-4ad6-a553-8898add3142e",
-      "createdByPid": 85061,
-      "createdByProcStart": "Sun Jun  7 23:06:40 2026"
+      "createdBySessionId": "3871b6b2-19e8-412d-bdde-dfaed5d39109",
+      "createdByPid": 96738,
+      "createdByProcStart": "Mon Jun  8 16:48:10 2026"
     }
   ]
 }
