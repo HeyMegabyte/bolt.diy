@@ -85,6 +85,17 @@
   --ck-viz-grid: color-mix(in oklch, var(--ck-muted) 18%, transparent);
   --ck-viz-area: color-mix(in oklch, var(--ck-cyan-500) 12%, transparent);
 
+  // --- Typography: Inter (body) / Montserrat (display) / Fira Code (code) ---
+  // Loaded via the admin-scoped <link> in index.html. Marketing stays on Sora.
+  --ck-font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --ck-font-display: 'Montserrat', 'Inter', system-ui, sans-serif;
+  --ck-font-code: 'Fira Code', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  // --- Code / log surface: one canonical token for <pre>/<code>/log blocks ---
+  --ck-code-surface: color-mix(in oklch, #ffffff 4%, var(--ck-bg));
+  --ck-code-ink: var(--ck-text-2);
+  --ck-code-border: color-mix(in oklch, var(--ck-cyan-500) 16%, transparent);
+
   // --- Motion: route-only View Transitions; durations + emphasized easing ---
   --ck-dur-fast: 120ms;
   --ck-dur-base: 200ms;
@@ -116,6 +127,42 @@
   --ps-shadow-sm: var(--ck-shadow-sm);
   --ps-shadow-md: var(--ck-shadow-md);
   --ps-shadow-lg: var(--ck-shadow-lg);
+  --ps-font-body: var(--ck-font-body);
+  --ps-font-display: var(--ck-font-display);
+  --ps-font-code: var(--ck-font-code);
+  --ps-code-surface: var(--ck-code-surface);
+  --ps-code-ink: var(--ck-code-ink);
+  --ps-code-border: var(--ck-code-border);
+}
+
+// =============================================================================
+// Typography application — Inter body, Montserrat display, Fira Code code.
+// Scoped to the cockpit so the marketing surface keeps its Sora brand fonts.
+// =============================================================================
+[data-cockpit="v2"] {
+  font-family: var(--ck-font-body);
+}
+[data-cockpit="v2"] h1,
+[data-cockpit="v2"] h2,
+[data-cockpit="v2"] h3,
+[data-cockpit="v2"] .section-h {
+  font-family: var(--ck-font-display);
+}
+[data-cockpit="v2"] code,
+[data-cockpit="v2"] pre,
+[data-cockpit="v2"] .mono,
+[data-cockpit="v2"] kbd,
+[data-cockpit="v2"] samp {
+  font-family: var(--ck-font-code);
+}
+// Normalized log/code block surface (one token, no per-section hardcoded bg).
+[data-cockpit="v2"] pre,
+[data-cockpit="v2"] .code-block,
+[data-cockpit="v2"] .log-block {
+  background: var(--ck-code-surface);
+  color: var(--ck-code-ink);
+  border: 1px solid var(--ck-code-border);
+  border-radius: var(--ck-radius-md);
 }
 
 // Compact density default for the cockpit (denser than legacy), overridable

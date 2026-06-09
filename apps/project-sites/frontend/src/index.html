@@ -300,6 +300,12 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" crossorigin="anonymous">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" crossorigin="anonymous">
 
+  <!-- Admin cockpit fonts (Inter body / Montserrat display / Fira Code code). Scoped to
+       [data-cockpit="v2"] in _cockpit.scss, so the woff2 files only download on the admin
+       surface — marketing renders in Sora and never fetches these. Separate <link> keeps
+       the marketing font request's cache key unchanged. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700&family=Fira+Code:wght@400;500&display=swap" crossorigin="anonymous">
+
   <!-- Metric-adjusted fallback so the system-ui → Sora swap is visually invisible -->
   <style>
     @font-face {

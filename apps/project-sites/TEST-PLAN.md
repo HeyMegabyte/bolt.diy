@@ -455,6 +455,15 @@
       success/warn/destructive/text-{primary,secondary,muted}/focus-ring/code-surface);
       wire Inter+Montserrat+Fira Code efficiently; normalize cards/buttons/inputs/tabs/
       tables/log+code blocks; premium loading/empty/error states.
+      - [x] P1a (2026-06-09): black+cyan token set already complete in `_cockpit.scss`
+            (canvas/surfaces/cyan-ramp/3-border/text/status/radii/elevation/viz/motion).
+            Filled the 2 gaps: **code-surface** token (`--ck-code-surface`/`-ink`/`-border`
+            + `--ps-*` remap, applied to cockpit `<pre>`/`.code-block`/`.log-block`) and
+            **typography** — Inter(body)/Montserrat(display)/Fira Code(code) scoped to
+            `[data-cockpit="v2"]`; loaded via an admin-only `<link>` so woff2 only download
+            on /admin (marketing stays Sora, LCP untouched). Deployed + curl-verified live.
+      - [ ] P1b — normalize cards/buttons/inputs/tabs/tables to the tokens (audit per-section
+            hardcoded values); premium loading/empty/error states sweep. Next fire(s).
 - [ ] P2 — Layout+nav: admin shell, grouped sidebar, premium header (env/search/⌘K/account/
       health/active-site), breadcrumbs with real names, **fade-only** route transitions
       (remove slide-in-up), reduced-motion, deep-link + SPA refresh correctness.
