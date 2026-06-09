@@ -181,7 +181,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       "Assign a thread + draft an AI reply → status transitions",
       "POST /api/inbox/tasks/:id/resolve → thread closes",
     ],
-    e2e_tests: ['e2e/_fortress/inbox/happy-path.spec.ts', 'e2e/_fortress/inbox/adversarial.spec.ts'],
+    e2e_tests: ['e2e/_fortress/unified_inbox/happy-path.spec.ts', 'e2e/_fortress/unified_inbox/adversarial.spec.ts'],
   },
   // (billing is always-on core, not a registry flag — its fortress specs
   //  e2e/_fortress/billing/* exist but there's no flag key to attach docs to.)

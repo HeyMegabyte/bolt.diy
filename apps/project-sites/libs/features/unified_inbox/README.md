@@ -36,8 +36,8 @@ visitor identity and surfaced in a 3-pane admin UI.
 | Suite | Count | Files |
 |-------|-------|-------|
 | E2E | 12 tests | `e2e/inbox/inbox.spec.ts` |
-| E2E fortress happy | 7 tests | `e2e/_fortress/inbox/happy-path.spec.ts` |
-| E2E fortress adversarial | 8 tests | `e2e/_fortress/inbox/adversarial.spec.ts` |
+| E2E fortress happy | 7 tests | `e2e/_fortress/unified_inbox/happy-path.spec.ts` |
+| E2E fortress adversarial | 8 tests | `e2e/_fortress/unified_inbox/adversarial.spec.ts` |
 | Unit | **0** | DRIFT — `src/__tests__/inbox.test.ts` missing |
 
 ## Drift notes

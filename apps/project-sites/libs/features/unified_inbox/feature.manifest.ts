@@ -41,8 +41,8 @@ export default defineFeatureManifest({
   // ---- tests ----
   e2eTests: [
     'inbox/inbox.spec.ts',
-    '_fortress/inbox/happy-path.spec.ts',
-    '_fortress/inbox/adversarial.spec.ts',
+    '_fortress/unified_inbox/happy-path.spec.ts',
+    '_fortress/unified_inbox/adversarial.spec.ts',
   ],
   unitTests: [
     // DRIFT: no dedicated unit test

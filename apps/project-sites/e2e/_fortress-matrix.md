@@ -21,7 +21,7 @@ Status as of 2026-05-28 — Phase 1 (12 highest-value features).
 | SWARM-editor — 7-specialist run + SSE stream + conflict detect + Site DNA feedback | `_fortress/swarm-editor/` | `happy-path.spec.ts` | `adversarial.spec.ts` | flag-off 404 / SSE disconnect mid-run / specialist conflict surfaced / DNA upsert idempotent | ✓ wired |
 | MARKETPLACE — industry filter → section card → fork → quality score | `_fortress/marketplace/` | `happy-path.spec.ts` | `(pending — agent ran out of turn)` | (will write next pass: fork-of-fork / industry tab race / quality-score regression) | ⚠ partial — 1 of 2 |
 | PUBLIC-API-v1 — token mint → curl /v1/sites → revoke → 401 → re-mint | `_fortress/public-api/` | `happy-path.spec.ts` | `adversarial.spec.ts` | scope-mismatch / expired / flag-off 503 / rate-limit on bare token | ✓ wired |
-| UNIFIED-INBOX — assign → AI-draft → channel-native send → SLA tick | `_fortress/inbox/` | `happy-path.spec.ts` | `adversarial.spec.ts` | conversation race (two reviewers) / SLA breach badge / AI-draft retry / channel send fail | ✓ wired |
+| UNIFIED-INBOX — assign → AI-draft → channel-native send → SLA tick | `_fortress/unified_inbox/` | `happy-path.spec.ts` | `adversarial.spec.ts` | conversation race (two reviewers) / SLA breach badge / AI-draft retry / channel send fail | ✓ wired |
 | MULTIMODAL-COPILOT — visitor photo+voice+text → intent → admin reply | `(pending — agent stopped early)` | `(pending)` | `(pending)` | (will write next pass) | ✗ not started |
 
 ## Summary
