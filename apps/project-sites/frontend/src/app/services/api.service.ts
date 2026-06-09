@@ -24,12 +24,37 @@
  */
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
-import { Observable, throwError, TimeoutError } from 'rxjs';
-import { catchError, timeout } from 'rxjs/operators';
+import { Observable, of, throwError, TimeoutError } from 'rxjs';
+import { catchError, map, timeout } from 'rxjs/operators';
+import { z } from 'zod';
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { ToastService } from './toast.service';
 import { TelemetryService } from './telemetry.service';
+
+/**
+ * Shape of the worker `GET /health` envelope (KV + R2 probe). `passthrough` so
+ * extra fields (version, region, timestamp) don't fail validation — we only
+ * depend on `status`, `environment`, and `checks` for the topbar status pill.
+ */
+export const HealthStatusSchema = z
+  .object({
+    status: z.enum(['ok', 'degraded']),
+    environment: z.string().optional(),
+    latency_ms: z.number().optional(),
+    checks: z
+      .record(
+        z.string(),
+        z.object({
+          status: z.enum(['ok', 'error']),
+          latency_ms: z.number().optional(),
+          message: z.string().optional(),
+        }),
+      )
+      .optional(),
+  })
+  .passthrough();
+export type HealthStatus = z.infer<typeof HealthStatusSchema>;
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -156,6 +181,23 @@ export class ApiService {
    */
   get<T>(path: string, params?: Record<string, string>, opts?: { silent?: boolean }): Observable<T> {
     return this.http.get<T>(`/api${path}`, { headers: this.headers(), params }).pipe(this.handleError(opts?.silent));
+  }
+
+  /**
+   * Worker `/health` probe (KV + R2). Lives OUTSIDE `/api`, needs no auth, and
+   * must fail SAFE — a probe error resolves to `null` so the topbar status pill
+   * shows "unknown" rather than spamming a toast. Zod-validated at the boundary
+   * (real data only; an unexpected shape resolves to `null`, never a fake "ok").
+   * @see HealthStatusSchema
+   */
+  health(): Observable<HealthStatus | null> {
+    return this.http.get<unknown>('/health').pipe(
+      map((raw) => {
+        const parsed = HealthStatusSchema.safeParse(raw);
+        return parsed.success ? parsed.data : null;
+      }),
+      catchError(() => of(null)),
+    );
   }
 
   /**

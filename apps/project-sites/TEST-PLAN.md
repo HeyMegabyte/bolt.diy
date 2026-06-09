@@ -495,8 +495,14 @@
             clusters — Workspace / Capabilities / Operations / Account — via decorative
             `.nav-group-label` Fira-Code micro-eyebrows (cockpit `--ps-font-code` + muted
             cyan). No reorder, no route change; replaced the lone hairline divider. Deployed.
-      - [ ] P2-rest — premium header completeness (env/⌘K/account/health/active-site),
-            deep-link + SPA-refresh correctness. Next fire(s).
+      - [x] P2-header (2026-06-09): premium header completeness. ⌘K/account/active-site/
+            notifications already present; added the missing **system-health pill + env
+            badge** — one Zod-validated `/health` probe (KV+R2) polled 60s drives a
+            green/amber/grey dot + environment chip + per-check tooltip. Fail-safe
+            (`api.health()`→null on error, grey "unknown", no toast). New
+            `HealthStatusSchema` + 6 unit specs (1415 Karma green). Deployed + verified.
+      - [ ] P2-rest — deep-link + SPA-refresh correctness audit (bookmarkable ?tab=/#frag
+            across all multi-tab sections). Next fire.
 - [ ] P3 — Tables/search: TanStack composable tables (migrate the 2 ag-grid grids —
       audit.component + ai-logs.component per docs/perf-wave-ag-grid-to-tanstack.md),
       URL-synced state, saved views, virtualization; no workflow regressions.
