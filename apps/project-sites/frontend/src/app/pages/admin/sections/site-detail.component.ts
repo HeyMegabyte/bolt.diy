@@ -239,6 +239,14 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
             <span class="sql-readonly-pill" data-testid="sql-readonly-pill"
                   title="This console runs SELECT / EXPLAIN / WITH queries only — writes are rejected.">Read-only</span>
           </div>
+          <!-- Persistent, visible safe-mode explainer (P5) — the read-only contract
+               must be obvious without hovering the pill (touch + SR accessible). -->
+          <p class="sql-safe-note" data-testid="sql-safe-note">
+            <span class="sql-safe-glyph" aria-hidden="true">🛡</span>
+            Safe mode: <strong>SELECT · EXPLAIN · WITH</strong> only. Writes
+            (INSERT / UPDATE / DELETE / DROP / ALTER…) are blocked to protect your live
+            site database.
+          </p>
 
           @if (sqlError()) {
             <p class="sql-error" data-testid="sql-error">{{ sqlError() }}</p>
@@ -398,6 +406,16 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
       background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent);
       border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent);
     }
+    .sql-safe-note {
+      margin: -0.5rem 0 1rem; display: flex; gap: 0.5rem; align-items: baseline;
+      font-size: 0.72rem; line-height: 1.45;
+      color: var(--ps-text-secondary, rgba(255,255,255,0.6));
+      padding: 0.5rem 0.7rem; border-radius: var(--ps-radius-sm, 8px);
+      background: color-mix(in oklch, var(--ps-accent, #00e5ff) 5%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 16%, transparent);
+    }
+    .sql-safe-note strong { color: var(--ps-accent, #00e5ff); font-weight: 600; }
+    .sql-safe-glyph { flex-shrink: 0; }
     .rollback-error { margin-top: 0.5rem; color: #ff7e8a; font-size: 0.85rem; }
     .sql-history { margin-top: 1rem; }
     .sql-history ul { list-style: none; padding: 0; margin: 0.5rem 0 0; display: grid; gap: 0.25rem; }
