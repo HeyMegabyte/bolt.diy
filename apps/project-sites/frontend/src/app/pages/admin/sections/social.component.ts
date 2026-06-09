@@ -770,60 +770,6 @@ const PLATFORMS: readonly PlatformDef[] = [
       }
     </section>
 
-    <!-- ─────────── RIGHT: PREVIEWS ─────────── -->
-    <aside class="pane-previews" appReveal aria-label="Post previews">
-      <div class="pane-h">Live preview</div>
-      @if (selected().length === 0) {
-        <div class="prev-empty">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-          <p>Select a platform to preview.</p>
-        </div>
-      } @else {
-        @for (pid of selected(); track pid) {
-          @let p = defOf(pid)!;
-          @let txt = perPlatform()[pid] || content();
-          <article class="prev-card" [style.--brand]="p.color">
-            <header class="prev-h">
-              <span class="prev-glyph"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path [attr.d]="p.glyph"/></svg></span>
-              <span class="prev-name">{{ p.label }}</span>
-              <span class="prev-handle">{{ accountFor(pid)?.handle || '@you' }}</span>
-            </header>
-            <div class="prev-body">
-              <div class="prev-avatar"></div>
-              <div class="prev-content">
-                <div class="prev-author">Your brand</div>
-                <p class="prev-txt">{{ txt || 'Your post preview will appear here…' }}</p>
-                @if (hashtags().length > 0) {
-                  <p class="prev-tags">@for (t of hashtags(); track t) { <span>#{{ t }}</span> }</p>
-                }
-                @if (media().length > 0) {
-                  <div class="prev-media" [attr.data-count]="media().length">
-                    @for (m of media().slice(0, 4); track m.id) {
-                      <img [src]="m.thumb_url || m.url" [alt]="m.alt" loading="lazy" />
-                    }
-                  </div>
-                }
-                @if (og(); as o) {
-                  <div class="prev-og">
-                    @if (o.image) { <img [src]="o.image" [alt]="o.title" /> }
-                    <div>
-                      <div class="prev-og-site">{{ o.site_name }}</div>
-                      <div class="prev-og-title">{{ o.title }}</div>
-                    </div>
-                  </div>
-                }
-                <div class="prev-actions" aria-hidden="true">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z"/></svg>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-                </div>
-              </div>
-            </div>
-          </article>
-        }
-      }
-    </aside>
 
   </div>
 
@@ -1232,6 +1178,10 @@ const PLATFORMS: readonly PlatformDef[] = [
         background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 5%, transparent);
         border-radius: 12px; border: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 8%, transparent);
         flex-wrap: wrap;
+        /* Hug content height — it's a flex child of the row .social-header, whose
+           default align-items:stretch was stretching this pill to the tall title
+           block's height (the "too much vertical height" bug). */
+        align-self: flex-start;
       }
       .tab {
         padding: 7px 14px; border-radius: 8px; border: none; cursor: pointer;
@@ -1251,12 +1201,12 @@ const PLATFORMS: readonly PlatformDef[] = [
         background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 10%, transparent); color: inherit;
       }
 
-      /* ── 3-pane layout ── */
+      /* ── 2-pane layout (live-preview pane removed) ── */
       .three-pane {
-        display: grid; grid-template-columns: 220px 1fr 320px;
+        display: grid; grid-template-columns: 220px 1fr;
         gap: 16px; min-height: 0; flex: 1;
       }
-      @media (max-width: 1200px) { .three-pane { grid-template-columns: 200px 1fr; } .pane-previews { display: none; } }
+      @media (max-width: 1200px) { .three-pane { grid-template-columns: 200px 1fr; } }
       @media (max-width: 800px)  { .three-pane { grid-template-columns: 1fr; } .pane-accounts { display: none; } }
 
       .pane-h {
@@ -1608,48 +1558,6 @@ const PLATFORMS: readonly PlatformDef[] = [
       .cal-time { font-weight: 700; }
       .cal-txt { opacity: 0.85; text-overflow: ellipsis; overflow: hidden; }
 
-      /* ── Right: previews ── */
-      .pane-previews { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-      .prev-empty {
-        padding: 40px 14px; text-align: center; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 50%, transparent);
-        display: flex; flex-direction: column; align-items: center; gap: 8px;
-      }
-      .prev-empty svg { opacity: 0.4; }
-      .prev-card {
-        --brand: var(--ps-accent, #00e5ff);
-        padding: 12px; border-radius: 14px;
-        background: color-mix(in oklch, var(--ps-bg, #060610) 75%, transparent);
-        border: 1px solid color-mix(in oklch, var(--brand) 22%, transparent);
-        backdrop-filter: blur(8px);
-        box-shadow: 0 1px 0 color-mix(in oklch, var(--brand) 18%, transparent);
-      }
-      .prev-h { display: flex; align-items: center; gap: 7px; padding-bottom: 8px; border-bottom: 1px solid color-mix(in oklch, var(--ps-ink, #f4f4ff) 6%, transparent); }
-      .prev-glyph { width: 22px; height: 22px; border-radius: 5px; background: color-mix(in oklch, var(--brand) 16%, transparent); color: var(--brand); display: grid; place-items: center; }
-      .prev-name { font-size: 0.74rem; font-weight: 700; color: var(--brand); }
-      .prev-handle { margin-left: auto; font-size: 0.66rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
-      .prev-body { display: grid; grid-template-columns: 34px 1fr; gap: 8px; padding-top: 10px; }
-      .prev-avatar {
-        width: 34px; height: 34px; border-radius: 50%;
-        background: linear-gradient(135deg, var(--brand), color-mix(in oklch, var(--brand) 60%, var(--ps-accent-secondary, #7c3aed)));
-      }
-      .prev-content { min-width: 0; }
-      .prev-author { font-size: 0.76rem; font-weight: 700; color: var(--ps-ink, #f4f4ff); }
-      .prev-txt { font-size: 0.78rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 90%, transparent); margin: 4px 0; white-space: pre-wrap; line-height: 1.45; }
-      .prev-tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
-      .prev-tags span { color: var(--brand); font-size: 0.72rem; }
-      .prev-media { display: grid; gap: 3px; border-radius: 9px; overflow: hidden; margin-top: 6px; }
-      .prev-media[data-count="1"] { grid-template-columns: 1fr; }
-      .prev-media[data-count="2"] { grid-template-columns: 1fr 1fr; }
-      .prev-media[data-count="3"], .prev-media[data-count="4"] { grid-template-columns: 1fr 1fr; }
-      .prev-media img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
-      .prev-og {
-        margin-top: 8px; padding: 6px; display: grid; grid-template-columns: 50px 1fr; gap: 7px;
-        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 4%, transparent); border-radius: 8px;
-      }
-      .prev-og img { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; }
-      .prev-og-site { font-size: 0.58rem; text-transform: uppercase; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
-      .prev-og-title { font-size: 0.72rem; font-weight: 600; color: var(--ps-ink, #f4f4ff); }
-      .prev-actions { display: flex; gap: 18px; margin-top: 10px; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 50%, transparent); font-size: 0.86rem; }
 
       @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 

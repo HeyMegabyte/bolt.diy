@@ -210,20 +210,8 @@ describe('AdminSocialComponent (site-reactive load)', () => {
     expect(pill!.textContent ?? '').withContext('shows the unknown dash').toContain('—');
   });
 
-  it('post-preview action row is decorative (aria-hidden) with monochrome SVG icons, not emoji', () => {
-    build({ id: 'site-x' });
-    // selecting a platform renders a live-preview card whose footer mimics a
-    // social post's reply/repost/like/share bar — a pure visual mockup.
-    fixture.componentInstance.selected.set(['twitter']);
-    fixture.detectChanges();
-    const actions = (fixture.nativeElement as HTMLElement).querySelector('.prev-actions');
-    expect(actions).withContext('preview action row renders for a selected platform').toBeTruthy();
-    // it was raw emoji (💬 colorful + ↻♡↗ mono = inconsistent) with no aria-hidden →
-    // a screen reader read all four as noise. Now: decorative + monochrome line icons.
-    expect(actions!.getAttribute('aria-hidden')).withContext('decorative preview row hidden from SR').toBe('true');
-    expect(actions!.querySelectorAll('svg').length).withContext('4 monochrome line icons, not emoji').toBe(4);
-    expect(actions!.textContent ?? '').withContext('no leftover emoji glyphs').not.toMatch(/[\u{1F4AC}↻♡↗]/u);
-  });
+  // (Removed) The live-preview pane + its decorative action row were taken out
+  // of the Social tab — the post-preview-action-row test no longer applies.
 
   it('shows the connected-count rolling-counter once accounts resolve', () => {
     build({ id: 'site-x' });
