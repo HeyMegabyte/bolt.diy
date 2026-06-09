@@ -36,7 +36,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   // ── Alias sentinel keys — thin manifest dirs that alias an already-canonical manifest.
   //    Created so that e2e/_fortress/<slug>/ directories have a matching libs/features/<slug>/
   //    and the drift validator's TEST_NOT_LINKED check resolves.
-  alias_inbox: { key: 'alias_inbox', description: 'Alias dir for _fortress/inbox → libs/features/unified_inbox. Resolves TEST_NOT_LINKED drift warning.', default_enabled: false, default_rollout_percent: 0, stage: 'deprecated', owner_email: 'brian@megabyte.space' },
   // Compete-or-die (items 1-8)
   token_burn_meter: { key: 'token_burn_meter', description: 'Live token-burn meter in editor with monthly projection', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   contacts_core: { key: 'contacts_core', description: 'Shared contacts/CRM core — one person/lead store every capture surface dedupes into via recordContact()', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
@@ -78,7 +77,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   // ── #24 Unified Visitor Inbox + #25 Multimodal Site Copilot
   unified_inbox: { key: 'unified_inbox', description: 'Unified Visitor Inbox: forms+chat+voice+email+SMS under one identity, assignable, SLA-tracked, AI-drafted replies', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   // ── #5+#6+#7+#8 Swarm editor + live stream + Site DNA + section marketplace
-  section_marketplace: { key: 'section_marketplace', description: '#8 Vertical Section Marketplace: curated bento sections per industry (nonprofit/restaurant/lawyer/salon/medical), 30 seed entries, admin UI at /admin/marketplace', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   // ── Native editor enforcement (rec #3 from 2026-05-28 close-the-loop) — was localStorage-only; now real server-side flag so killswitch works without redeploy
   // ── AI wave (ideas #1/#23/#24, 2026-05-28)
   email_deliverability_wizard: { key: 'email_deliverability_wizard', description: 'Email Deliverability Wizard (#12): checks a sending domain SPF, DKIM and DMARC via DNS-over-HTTPS and returns a 0-100 score plus concrete DNS fixes. Read-only, persists nothing.', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
@@ -87,7 +85,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   // ── Marketplace + Creator Economy (ideas #39/#40/#41/#42 — 2026-05-28)
   // ── Viral + Billing + Audit-Chain (ideas #33, #34, #36, #46 — 2026-05-28)
   // ── Enterprise wave (Trust Center / Enterprise Plan / Stripe App status / Agent SDK+MCP, 2026-05-28)
-  trust_center: { key: 'trust_center', description: 'Per-org and per-published-site Trust Center: AI models, content provenance, audit-log policy, data residency, AI-outage fallback. EU AI Act high-risk Aug 2 2026.', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   // ── Compliance / safety / revenue (added 2026-06-07 per UNFINISHED_FEATURES §9b)
   abuse_takedown: { key: 'abuse_takedown', description: 'Abuse report intake + content takedown workflow for published sites (DMCA / illegal-content handling). Hosting-platform necessity.', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
 };

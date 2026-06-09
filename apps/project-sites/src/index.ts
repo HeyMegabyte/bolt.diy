@@ -80,15 +80,12 @@ import { inbox } from './routes/inbox.js';
 import { copilot } from './routes/copilot.js';
 import { siteDetailTabs } from './routes/site_detail_tabs.js';
 import { siteDna } from './routes/site_dna.js';
-import { sectionMarketplace } from './routes/section_marketplace.js';
 import { emailDeliverabilityRoutes } from './routes/email_deliverability.js';
 import { reviewPublic } from './routes/review_public.js';
 import { reviewLinks } from './routes/review_links.js';
 import { webhooksAdmin } from './routes/webhooks_admin.js';
 import { seoAutopilot } from './routes/seo_autopilot.js';
 // ── Marketplace + Creator Economy (IDEAS-50 #39/#40/#41/#42)
-import { sectionMarketplaceSubmissions } from './routes/section_marketplace_submissions.js';
-import { trustCenter } from './routes/trust_center.js';
 // Feature modules (libs/features/*) — ideas #33, #34, #36, #46
 import { tokenBurnMeter } from '../libs/features/token_burn_meter/handlers.js'; // #13 per-tenant token-burn meter + budget killswitch (flag: token_burn_meter)
 import { contactsCore } from '../libs/features/contacts_core/handlers.js'; // shared contacts/CRM core (flag: contacts_core)
@@ -432,7 +429,6 @@ app.route('/', appsRoutes); // /admin/apps tab — catalog + per-org app_instanc
 app.route('/', snapshotQuality); // /api/sites/:siteId/snapshots/:snapshotId/{capture,metrics,screenshot.png} — must precede `api` so the param order matches first
 app.route('/', siteDetailTabs); // /api/sites/:siteId/{logs/tail,snapshots/:id/rollback,sql/exec,integrations} — must precede `api` so the param order matches first
 app.route('/', siteDna);          // /api/site-dna/:siteId/{feedback,preferences,history} — #7 Site DNA Taste Graph
-app.route('/', sectionMarketplace); // /api/section-marketplace + /sections — #8 Vertical Section Marketplace
 app.route('/', dashboard); // /api/dashboard/chat (SSE) + /api/calendar/* — Perplexity-like dashboard surface
 app.route('/', pulseAnalytics); // /api/social/analytics/aggregate — must precede social catch-alls
 app.route('/', socialOauthRoutes); // /api/social/:platform/{connect,callback,paste} — Pulse Social OAuth
@@ -458,8 +454,6 @@ app.route('/', publicRoutes); // /changelog.json + /feed.xml + /api/public/{road
 app.route('/api/pseo', pseoRoutes); // pSEO Matrix Builder — feature #17: service×city×intent×season generator
 app.route('/api/sites', pseoMatrixV2Routes); // pSEO v2 (#29) — /api/sites/:id/pseo/v2/* — user-tasks + 40% unique-data floor
 app.route('/api/seo', seoAutopilot); // SEO/GEO Autopilot — idea #23: AI title/meta/JSON-LD/answer-block drafts per route
-app.route('/', sectionMarketplaceSubmissions); // /api/marketplace/sections/* — IDEAS-50 #40 Section Marketplace creator submissions + admin curation
-app.route('/', trustCenter); // Trust Center — idea #50: per-org admin /admin/trust + per-site public /trust (flag: trust_center). Routes are prefixed with /api/trust + /api/public/trust internally
 // libs/features/* — viral + billing + audit-chain modules (ideas #33, #34, #36, #46)
 app.route('/', tokenBurnMeter); // /api/usage/budget + /api/admin/usage/budget — #13 per-tenant token-burn meter + budget killswitch (flag: token_burn_meter)
 app.route('/', contactsCore); // /api/contacts{,/:id} — shared contacts/CRM core (flag: contacts_core)

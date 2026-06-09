@@ -183,17 +183,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
     ],
     e2e_tests: ['e2e/_fortress/inbox/happy-path.spec.ts', 'e2e/_fortress/inbox/adversarial.spec.ts'],
   },
-  section_marketplace: {
-    explanation:
-      "Vertical Section Marketplace: curated bento sections per industry (nonprofit/restaurant/lawyer/salon/medical), 30 seed entries, creator revenue-share. Admin UI at /admin/marketplace. When OFF the marketplace routes 404.",
-    smoke_test: [
-      "/admin/marketplace → browse seed sections filtered by industry",
-      "GET /api/marketplace/sections?industry=nonprofit → returns curated entries",
-      "Add a section to a site → it renders in the editor",
-      "Creator submission flow → admin review → publish",
-    ],
-    e2e_tests: ['e2e/_fortress/marketplace/happy-path.spec.ts'],
-  },
   // (billing is always-on core, not a registry flag — its fortress specs
   //  e2e/_fortress/billing/* exist but there's no flag key to attach docs to.)
 };
