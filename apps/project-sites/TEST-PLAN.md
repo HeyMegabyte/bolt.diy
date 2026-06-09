@@ -526,6 +526,18 @@
             full-width rows + CSV export + pagination + dark-cyan theme) closes the 220 KB
             overage. Needs E2E_API_KEY for live master/detail QA on the 2 most-visible grids.
             Schedule a focused supervised session; do NOT attempt unsupervised.
+            **READY TO EXECUTE (2026-06-09): approval secured (Brian "proceed"); blueprint
+            re-verified current (docs/perf-wave-ag-grid-to-tanstack.md); a11y baseline GREEN
+            desktop+mobile+param (regression now detectable); TanStack pattern proven in prod
+            (api-tokens + content-freshness url-sort). Scope confirmed = ai-logs (1405 ln,
+            master/detail + latency chart + KPIs + polling) FIRST, then audit (900 ln,
+            compliance + CSV + site-filter). MUST run as its OWN fresh session (full headroom)
+            — not force-started in a saturated loop session (saturation HARD STOP +
+            partial-commit-ships-broken-compliance-grid risk note). Per-grid: build a
+            <th>-sortable paginated TanStack <table> reusing the existing data-testids + the
+            46 grid-agnostic Karma specs as the regression backstop, write RED-first DOM tests,
+            remove ag-grid imports, then live-QA with E2E_API_KEY. Budget closes only after
+            BOTH grids drop ag-grid + the deps are removed from package.json.**
 - [x] P4 — Command center (2026-06-09): COMPLETE — dashboard site-status strip
       (P4-status-strip: figures + source + interpretation + metric→record links from real
       already-loaded signals) + analytics surface (dataLabel source / refreshedAt timestamp
@@ -600,6 +612,7 @@
             E2E_API_KEY across ~35 authed /admin routes → GREEN (0 serious/critical/unnamed-
             control violations). 3 flaky (snapshots/audit/feature-flags — the heavier ag-grid
             pages, slower load) passed on retry. Desktop admin WCAG 2.2 AA axe posture verified.
+            **Mobile @390px + /admin/sites/:id param-route axe ALSO GREEN (2026-06-09).**
       - [x] P7-rxjs/trackBy audited (2026-06-09): RxJS cleanup clean (inbox uses
             takeUntil(destroy$)+ngOnDestroy; no leaking interval/fromEvent); only `track $index`
             is snapshots-diff hunks (positional diff data — correct). Lazy routes + monaco/
