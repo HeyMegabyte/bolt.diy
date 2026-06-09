@@ -528,6 +528,17 @@
             Schedule a focused supervised session; do NOT attempt unsupervised.
 - [ ] P4 — Command center: dashboard figures/charts/diagrams with source + timestamp +
       interpretation labels; per-site health from existing signals only; metric→record links.
+      - [x] P4-status-strip (2026-06-09): added a site-status command-center strip to the
+            /admin dashboard — buckets the ALREADY-loaded `state.sites()` (no new fetch) via
+            `getStatusClass` into Needs-attention/Live/Building/Draft tiles (error-first),
+            each a metric→record link to /admin/sites, with a "Live · auto-refreshed 30s"
+            source label + per-bucket interpretation sublabel + status-colored dots + rolling
+            counters. `siteStatusSummary` computed + 4 unit specs (1428 Karma green). Deployed.
+            (NOTE: linked to /admin/sites plain — that surface is a VITALS table whose rows
+            lack a status field, so a ?status= filter would be a no-op; per-status filtering
+            would need status added to the sites vitals rows — deferred, not faked.)
+      - [ ] P4-rest — richer figures (charts w/ source+timestamp via existing ECharts on
+            analytics), more metric→record links. Next fire(s).
 - [ ] P5 — Core tabs: Logs, Snapshots/Deploy History, SQL (safe-mode explanation UI),
       Integrations health, Billing/usage explorer, AI-Gateway usage — existing data only.
 - [ ] P6 — Validation: Zod at every input (route/query/body); field+form errors; preserve

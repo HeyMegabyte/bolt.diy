@@ -103,6 +103,31 @@ const RECENT_KEY = 'ps_dash_recents';
           </section>
         }
       } @else {
+        <!-- ── Site status command-center strip (P4) ──────────────
+             Real data from the already-loaded sites list; each tile is a
+             metric→record link into the filtered /admin/sites view. -->
+        @if (hasSites() && siteStatusSummary().length > 0) {
+          <section class="group" appReveal aria-labelledby="grp-status">
+            <h2 class="group-title" id="grp-status"><app-cmd-glyph name="activity" /> Site status</h2>
+            <p class="status-source">Live · from your account, auto-refreshed every 30s</p>
+            <ul class="status-strip" aria-label="Site status summary">
+              @for (b of siteStatusSummary(); track b.key) {
+                <li>
+                  <a class="status-tile" [class]="'tone-' + b.tone"
+                     routerLink="/admin/sites"
+                     (click)="recordOpen('/admin/sites')"
+                     [attr.aria-label]="b.count + ' ' + b.label + ' — ' + b.interp + '. View your sites.'">
+                    <span class="status-dot" aria-hidden="true"></span>
+                    <app-rolling-counter class="status-count" [value]="b.count" />
+                    <span class="status-label">{{ b.label }}</span>
+                    <span class="status-interp">{{ b.interp }}</span>
+                  </a>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+
         <!-- ── Pinned ─────────────────────────────────────────── -->
         @if (pinnedCards().length > 0) {
           <section class="group" appReveal aria-labelledby="grp-pinned">
@@ -574,6 +599,38 @@ const RECENT_KEY = 'ps_dash_recents';
         font-size: 0.9rem;
         opacity: 0.7;
       }
+      /* ── Site-status command-center strip (P4) ── */
+      .status-source {
+        margin: -2px 0 10px;
+        font-family: var(--ps-font-code, 'Fira Code', ui-monospace, monospace);
+        font-size: 0.62rem; letter-spacing: 0.04em; text-transform: uppercase;
+        color: var(--ps-text-muted, rgba(255,255,255,0.45));
+      }
+      .status-strip {
+        list-style: none; margin: 0; padding: 0;
+        display: grid; gap: 10px;
+        grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+      }
+      .status-tile {
+        display: grid; grid-template-columns: auto auto 1fr; align-items: center;
+        gap: 4px 8px; padding: 12px 14px; text-decoration: none;
+        background: var(--ps-surface-1, rgba(255,255,255,0.03));
+        border: 1px solid var(--ps-hairline, rgba(255,255,255,0.08));
+        border-radius: var(--ps-radius-lg, 14px);
+        transition: border-color 0.333s ease, transform 0.333s cubic-bezier(0.16,1,0.3,1), background 0.333s ease;
+      }
+      .status-tile:hover { transform: translateY(-2px); border-color: var(--ps-accent, #00e5ff); }
+      .status-tile:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+      .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ps-text-muted, #7aa7b3); }
+      .status-count { grid-column: 2; font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; color: #e8fbff; }
+      .status-label { grid-column: 1 / -1; font-size: 0.82rem; font-weight: 600; color: #e8fbff; }
+      .status-interp { grid-column: 1 / -1; font-size: 0.68rem; color: var(--ps-text-muted, rgba(255,255,255,0.5)); }
+      .status-tile.tone-published .status-dot { background: var(--ps-success, #4dffb5); }
+      .status-tile.tone-building  .status-dot { background: var(--ps-accent, #00e5ff); }
+      .status-tile.tone-draft     .status-dot { background: rgba(255,255,255,0.4); }
+      .status-tile.tone-error     .status-dot { background: #ff4d6d; }
+      .status-tile.tone-error { border-color: color-mix(in oklch, #ff4d6d 30%, transparent); }
+      @media (prefers-reduced-motion: reduce) { .status-tile:hover { transform: none; } }
       .stat app-rolling-counter {
         font-weight: 700;
         color: var(--ps-accent, #00e5ff);
@@ -637,6 +694,24 @@ export class AdminDashboardComponent {
   readonly isSysAdmin = computed(() => isSysAdminEmail(this.auth.email()));
   readonly siteCount = computed(() => this.state.sites().length);
   readonly hasSites = computed(() => this.siteCount() > 0);
+
+  /**
+   * Command-center site-status summary (P4) — derived from the ALREADY-loaded
+   * `state.sites()` (no new fetch), bucketed via the shared `getStatusClass`
+   * map. Each bucket is a metric→record link to `/admin/sites?status=<bucket>`.
+   * Only non-zero buckets render; `attention` (error/failed) is surfaced first.
+   */
+  readonly siteStatusSummary = computed(() => {
+    const buckets: Record<string, number> = { published: 0, building: 0, draft: 0, error: 0 };
+    for (const s of this.state.sites()) buckets[this.state.getStatusClass(s.status)] = (buckets[this.state.getStatusClass(s.status)] ?? 0) + 1;
+    const defs: { key: string; label: string; interp: string; tone: string }[] = [
+      { key: 'error', label: 'Needs attention', interp: 'build failed — open to retry', tone: 'error' },
+      { key: 'published', label: 'Live', interp: 'published + serving', tone: 'published' },
+      { key: 'building', label: 'Building', interp: 'generating or deploying', tone: 'building' },
+      { key: 'draft', label: 'Draft', interp: 'not yet published', tone: 'draft' },
+    ];
+    return defs.filter((d) => buckets[d.key] > 0).map((d) => ({ ...d, count: buckets[d.key] }));
+  });
 
   /** Live search query. Empty → grouped view; non-empty → flat filtered results. */
   readonly query = signal('');

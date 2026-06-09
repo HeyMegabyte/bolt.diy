@@ -73,3 +73,56 @@ describe('AdminDashboardComponent (Getting Started hub)', () => {
     expect(make('brian@megabyte.space', 1).isSysAdmin()).toBe(true);
   });
 });
+
+/**
+ * P4 command-center: the site-status summary buckets the already-loaded sites
+ * via AdminStateService.getStatusClass and surfaces only non-zero buckets,
+ * `error` (needs attention) first. Real data only — no fetch.
+ */
+describe('AdminDashboardComponent (site-status command-center strip)', () => {
+  const STATUS_MAP: Record<string, string> = {
+    published: 'published', building: 'building', queued: 'building',
+    collecting: 'building', generating: 'building', uploading: 'building',
+    error: 'error', failed: 'error', draft: 'draft',
+  };
+  function buildWith(statuses: string[]): AdminDashboardComponent {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [AdminDashboardComponent],
+      providers: [
+        {
+          provide: AdminStateService,
+          useValue: {
+            sites: signal(statuses.map((status, i) => ({ id: `s${i}`, status }))),
+            getStatusClass: (s: string) => STATUS_MAP[s] ?? 'draft',
+          },
+        },
+        { provide: AuthService, useValue: { email: signal('owner@example.com') } },
+      ],
+    });
+    TestBed.overrideComponent(AdminDashboardComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminDashboardComponent).componentInstance;
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('buckets sites by status class and counts them', () => {
+    const c = buildWith(['published', 'published', 'generating', 'draft', 'error']);
+    const byKey = Object.fromEntries(c.siteStatusSummary().map((b) => [b.key, b.count]));
+    expect(byKey).toEqual({ error: 1, published: 2, building: 1, draft: 1 });
+  });
+
+  it('omits zero-count buckets', () => {
+    const c = buildWith(['published', 'published']);
+    expect(c.siteStatusSummary().map((b) => b.key)).toEqual(['published']);
+  });
+
+  it('surfaces "Needs attention" (error) first', () => {
+    const c = buildWith(['published', 'failed']);
+    expect(c.siteStatusSummary()[0].key).toBe('error');
+    expect(c.siteStatusSummary()[0].label).toBe('Needs attention');
+  });
+
+  it('is empty when there are no sites', () => {
+    expect(buildWith([]).siteStatusSummary()).toEqual([]);
+  });
+});
