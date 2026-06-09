@@ -121,12 +121,6 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
             <a routerLink="/admin/site-features" data-testid="ff-nav-site-features" class="ff-cross-link">Features →</a>.
           </p>
         </div>
-        <div class="ff-head-right">
-          <app-flag-mode-switcher [mode]="mode()" (modeChange)="setMode($event)" label="Disclosure mode (Feature Flags)" />
-          <button class="ff-refresh" (click)="reload()" [disabled]="loading()" [attr.aria-busy]="loading()" aria-label="Refresh flag list">↻ {{ loading() ? 'Refreshing…' : 'Refresh' }}</button>
-          <button class="ff-emergency" (click)="openEmergency()" data-testid="ff-emergency-open"
-                  aria-label="Open emergency kill-switch console"><span class="ff-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg></span>Emergency</button>
-        </div>
       </header>
 
       @if (blockedFeature(); as key) {

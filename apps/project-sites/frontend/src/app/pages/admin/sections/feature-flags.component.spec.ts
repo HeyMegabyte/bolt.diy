@@ -351,22 +351,6 @@ describe('AdminFeatureFlagsComponent (flag-card rollout bar)', () => {
     expect(link.textContent).toContain('brian@megabyte.space');
   });
 
-  it('the Refresh button shows "Refreshing…" + aria-busy while loading (feedback, not inert)', () => {
-    const f = render();
-    f.detectChanges();
-    f.componentInstance.loading.set(true);
-    f.detectChanges();
-    const btn = (f.nativeElement as HTMLElement).querySelector('button[aria-label="Refresh flag list"]') as HTMLButtonElement;
-    expect(btn).withContext('refresh button rendered').toBeTruthy();
-    expect(btn.disabled).withContext('disabled while loading').toBeTrue();
-    expect(btn.getAttribute('aria-busy')).toBe('true');
-    expect(btn.textContent).toContain('Refreshing…');
-    f.componentInstance.loading.set(false);
-    f.detectChanges();
-    expect(btn.textContent).toContain('Refresh');
-    expect(btn.textContent).not.toContain('Refreshing');
-  });
-
   it('dims the rollout fill when the flag is off (rollout is moot)', () => {
     const f = render();
     f.detectChanges();
@@ -643,35 +627,6 @@ describe('AdminFeatureFlagsComponent (Expert eval-trace test-subject builder)', 
   });
 });
 
-/**
- * The System-Admin flag console's emergency/danger affordances must use
- * monochrome stroke SVGs (inherit the red danger ink), never the colourful
- * ⛔ (U+26D4) / ⚠ (U+26A0) emoji that broke the cyan/black cockpit.
- */
-describe('AdminFeatureFlagsComponent (emergency/danger icons are SVGs, not emoji)', () => {
-  afterEach(() => TestBed.resetTestingModule());
-
-  it('renders the Emergency button glyph as an SVG, no ⛔ emoji', () => {
-    TestBed.configureTestingModule({
-      imports: [AdminFeatureFlagsComponent],
-      providers: [
-        provideRouter([]),
-        { provide: HttpClient, useValue: { get: () => of({ data: [] }), patch: () => of({}), post: () => of({}) } },
-        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
-        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
-        { provide: AdminStateService, useValue: { selectedSite: signal(null), isSuperAdmin: () => false } },
-        { provide: FeatureFlagService, useValue: { invalidate: () => undefined, isOn: () => of(false) } },
-        { provide: ActivatedRoute, useValue: { queryParamMap: of({ get: () => null }), snapshot: { queryParamMap: { get: () => null } } } },
-      ],
-    });
-    const f = TestBed.createComponent(AdminFeatureFlagsComponent);
-    f.detectChanges();
-    const btn = (f.nativeElement as HTMLElement).querySelector('[data-testid="ff-emergency-open"]');
-    expect(btn).withContext('emergency button renders').toBeTruthy();
-    expect(btn!.querySelector('svg')).withContext('button glyph is an SVG').toBeTruthy();
-    expect(btn!.textContent ?? '').withContext('no ⛔ emoji').not.toContain('⛔');
-  });
-});
 
 /**
  * Expert-mode "diff": before Apply, show exactly which fields the edited JSON
