@@ -42,7 +42,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   site_analytics: { key: 'site_analytics', description: 'Owner-facing per-site analytics summary aggregating contacts, form submissions, newsletter subs and donations', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   visitor_events_core: { key: 'visitor_events_core', description: 'Public pageview/click/conversion beacon ingest from published sites; feeds site_analytics traffic block', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   email_marketing: { key: 'email_marketing', description: 'Real newsletter-campaign send to consented contacts + confirmed subscribers via Resend (replaces the stub recipient count)', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
-  data_export: { key: 'data_export', description: 'Owner data portability — export org contacts as RFC4180 CSV with OWASP CSV-injection neutralization', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
   // Multi-tenant + agency (items 9-13)
   // CWV (items 14-19, 15 already shipped)
   speculation_rules: { key: 'speculation_rules', description: 'Speculation Rules auto-injection on marketing HTML', default_enabled: true, default_rollout_percent: 100, stage: 'stable', owner_email: 'brian@megabyte.space' },

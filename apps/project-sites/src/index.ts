@@ -93,7 +93,6 @@ import { siteAnalytics } from '../libs/features/site_analytics/handlers.js'; // 
 import { visitorEvents } from '../libs/features/visitor_events_core/handlers.js'; // public pageview/event beacon ingest (flag: visitor_events_core)
 import { recordPageviewFromRequest } from '../libs/features/visitor_events_core/service.js'; // edge-recorded per-request pageview (no flag — core site analytics)
 import { emailMarketing } from '../libs/features/email_marketing/handlers.js'; // real campaign send to consented audience (flag: email_marketing)
-import { dataExport } from '../libs/features/data_export/handlers.js'; // owner contacts CSV export (flag: data_export)
 // IDEAS-50 wave 3 — GEO + reputation + growth
 import { searchSubmit } from '../libs/features/search_submit/handlers.js'; // #3 IndexNow + Bing/Google submit on publish (flag: search_engine_submit)
 import { gbpAssist } from '../libs/features/gbp_assist/handlers.js'; // #9 Google Business Profile setup + optimizer (flag: gbp_assist)
@@ -460,7 +459,6 @@ app.route('/', contactsCore); // /api/contacts{,/:id} — shared contacts/CRM co
 app.route('/', siteAnalytics); // /api/sites/:siteId/analytics — owner analytics summary (flag: site_analytics). Must precede `api` so the :siteId/analytics suffix wins.
 app.route('/', visitorEvents); // POST /api/v1/events — public beacon ingest (flag: visitor_events_core)
 app.route('/', emailMarketing); // /api/marketing/campaigns/:id/{recipients,send} + /api/marketing/unsubscribe — real campaign send (flag: email_marketing)
-app.route('/', dataExport); // /api/exports/contacts.csv — owner data portability (flag: data_export)
 app.route('/', emailDeliverabilityRoutes); // /api/sites/:siteId/deliverability — SPF/DKIM/DMARC score + fixes (flag: email_deliverability_wizard)
 app.route('/', reviewPublic); // GET/POST /api/review/:id{,/decision} — public reviewer approve/reject (flag: approval_workflow, scoped to review's org)
 app.route('/', reviewLinks); // GET/POST /api/sites/:siteId/review-links — admin create/list review links (flag: approval_workflow, assertSiteOwned)
