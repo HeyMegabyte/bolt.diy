@@ -156,7 +156,7 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
             @for (row of filteredLogs(); track row.ts + row.message) {
               <div class="log-row" data-testid="site-logs-row" [attr.data-level]="row.level">
                 <time [attr.datetime]="row.ts">{{ formatTs(row.ts) }}</time>
-                <span class="log-level">{{ row.level }}</span>
+                <span class="log-level" [attr.data-level]="row.level">{{ row.level }}</span>
                 <span class="log-message">{{ row.message }}</span>
               </div>
             } @empty {
@@ -361,6 +361,19 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
     .log-row { display: grid; grid-template-columns: 12rem 5rem 1fr; gap: 0.75rem; padding: 0.25rem 0; }
     .log-row[data-level="error"] { color: #ff7e8a; }
     .log-row[data-level="warn"] { color: #ffd166; }
+    /* Level badge — conveys level via text+shape+color (not row-tint alone),
+       WCAG 1.4.1 use-of-color. Distinct from the subtle whole-row tint. */
+    .log-level {
+      align-self: center; justify-self: start; text-transform: uppercase;
+      font-size: 0.6rem; font-weight: 700; letter-spacing: 0.05em;
+      padding: 1px 7px; border-radius: 999px; line-height: 1.5;
+      color: var(--ps-text-secondary, rgba(255,255,255,0.6));
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .log-level[data-level="error"] { color: #ff7e8a; background: color-mix(in oklch, #ff4d6d 14%, transparent); border-color: color-mix(in oklch, #ff4d6d 34%, transparent); }
+    .log-level[data-level="warn"]  { color: #ffd166; background: color-mix(in oklch, #ffd166 14%, transparent); border-color: color-mix(in oklch, #ffd166 34%, transparent); }
+    .log-level[data-level="info"]  { color: var(--ps-accent, #00e5ff); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent); border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent); }
     /* Status dot + text — matches the cockpit live-status pattern (ai-logs
        live-pill, apps-instances status-pill). The dot inherits the state colour. */
     .ws-status { display: inline-flex; align-items: center; gap: 5px; }

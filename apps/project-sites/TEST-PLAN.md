@@ -546,8 +546,10 @@
             `refreshedAt()` — real provider + refresh time, no fabrication). Analytics already
             carried source/health/tooltip/refreshedAt/trend; this puts source+timestamp ON
             the figure per P4. 1428 Karma green. Deployed.
-- [ ] P5 — Core tabs: Logs, Snapshots/Deploy History, SQL (safe-mode explanation UI),
-      Integrations health, Billing/usage explorer, AI-Gateway usage — existing data only.
+- [x] P5 — Core tabs (2026-06-09): COMPLETE — tabs functionally wired (TAB-* suite) +
+      enrichment gaps closed: SQL safe-mode explainer, Integrations health dot, Logs level
+      badges. Snapshots/Deploy-History + Billing-usage already adequate. AI-Gateway-usage has
+      no real data source (not faked — gated on a worker endpoint). Existing data only. Below.
       - [x] P5-sql-safemode (2026-06-09): the site-detail SQL console already rejects writes
             client-side (WRITE_LEAD regex → specific error) + read-only pill, but the
             explanation was tooltip-gated (hidden on touch/by default). Added a PERSISTENT,
@@ -559,8 +561,15 @@
             — green dot + glow + "Connected" / muted dot + "Not connected", `role=status` +
             per-provider aria-label. Real data (`p.status`); mirrors the logs ws-dot + cockpit
             status pattern. 1428 Karma green. Deployed.
-      - [ ] P5-rest — Logs / Snapshots-Deploy-History / Billing-usage / AI-Gateway-usage tab
-            audits (existing data only). Next fire(s).
+      - [x] P5-log-levels (2026-06-09): logs-tab level rendered as raw text relying on subtle
+            whole-row tint alone (color-only — WCAG 1.4.1). Added a distinct per-level BADGE
+            (uppercase pill, error/warn/info color + border, text+shape+color) — scannable +
+            color-independent. 1428 Karma green. Deployed.
+      - [x] P5-rest audited (2026-06-09): Logs (search + ws-dot live + empty + now level badges),
+            Snapshots/Deploy-History (TAB-03..06 wired), Billing-usage (usage events + upcoming
+            invoice BILL-08/09), Integrations-health (dot), SQL (safe-mode explainer) all
+            covered. AI-Gateway-usage = NO live data source exists → not built (would be faked);
+            surface it only if/when the worker exposes a real gateway-usage endpoint.
 - [ ] P6 — Validation: Zod at every input (route/query/body); field+form errors; preserve
       entered values; server-side ownership/permission; tests per path.
 - [ ] P7 — Perf+a11y: lazy routes, defer heavy panels/charts/grids, RxJS cleanup, cancel
