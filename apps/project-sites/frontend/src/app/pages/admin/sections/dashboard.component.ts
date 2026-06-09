@@ -1,16 +1,18 @@
 /**
  * Getting Started hub at `/admin`.
  *
- * Replaces the former Perplexity-like AI chat dashboard. Instead of a
- * conversation surface, this is an orientation page: it introduces every
- * admin section grouped by purpose, surfaces tips + keyboard tricks, and
- * links out to the places a customer is most likely heading next.
+ * Orientation page: introduces every admin section grouped by purpose, with a
+ * live search that filters all sections, pinned + recently-opened rows, tips,
+ * and help links. The former welcome hero + features-banner were removed; the
+ * page now opens straight on a search bar over the "Build your site" content.
  *
  * The cross-route admin chrome (route progress, topbar extras, floating AI
  * FAB, drawers) still mounts here via {@link AdminUpgradesShellComponent} so
  * it renders across every `/admin/*` route through the persistent host.
  */
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, computed, inject, signal, viewChild, type ElementRef } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
 import { RevealDirective } from '../../../directives/reveal.directive';
@@ -26,6 +28,8 @@ interface SectionCard {
   desc: string;
   link: string;
   glyph: string;
+  /** Extra search tokens + rendered as pills (gorgeous-by-default Half 1). */
+  keywords?: readonly string[];
 }
 
 interface SectionGroup {
@@ -38,117 +42,176 @@ interface Tip {
   text: string;
 }
 
+/** Text split around the active query match — rendered with a <mark> (no innerHTML). */
+interface HlParts {
+  pre: string;
+  hit: string;
+  post: string;
+}
+
+const FAV_KEY = 'ps_dash_favs';
+const RECENT_KEY = 'ps_dash_recents';
+
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, RevealDirective, AdminUpgradesShellComponent, CmdGlyphComponent, RollingCounterComponent],
+  imports: [NgTemplateOutlet, FormsModule, RouterLink, RevealDirective, AdminUpgradesShellComponent, CmdGlyphComponent, RollingCounterComponent],
   template: `
     <section class="dash" aria-label="Getting started">
       <!-- Persistent admin chrome (route progress, topbar extras, AI FAB,
            drawers) — mounted here so it renders across every /admin/* route. -->
       <app-admin-upgrades-shell></app-admin-upgrades-shell>
 
-      <!-- ── Welcome hero ─────────────────────────────────────── -->
-      <header class="hero" appReveal>
-        <div class="halo" aria-hidden="true"></div>
-        <p class="eyebrow">Getting started</p>
-        <h1 class="h">Welcome to your command center</h1>
-        <p class="s">
-          Everything you can do with your sites lives here. Explore a section below, pick up a
-          keyboard trick, or jump straight back into the editor.
-        </p>
-
-        <div class="hero-actions">
-          @if (hasSites()) {
-            <a class="cta cta-primary" routerLink="/admin/editor" data-testid="dash-resume">
-              <app-cmd-glyph name="code" /> Open the editor
-            </a>
-            <a class="cta cta-ghost" routerLink="/create">Create a new site</a>
-          } @else {
-            <a class="cta cta-primary" routerLink="/create" data-testid="dash-create-first">
-              <app-cmd-glyph name="rocket" /> Create your first site
-            </a>
-          }
-        </div>
-
-        @if (hasSites()) {
-          <p class="stat" aria-live="polite">
-            <app-rolling-counter [value]="siteCount()" />
-            {{ siteCount() === 1 ? 'site' : 'sites' }} in your account
-          </p>
+      <!-- ── Search ─────────────────────────────────────────────── -->
+      <div class="search-wrap" appReveal role="search">
+        <span class="search-ic" aria-hidden="true"><app-cmd-glyph name="search" /></span>
+        <input
+          #searchInput
+          class="search-input"
+          type="search"
+          [ngModel]="query()"
+          (ngModelChange)="query.set($event)"
+          placeholder="Search the dashboard — sections, tools, anything…"
+          aria-label="Search dashboard sections"
+          autocomplete="off"
+          spellcheck="false"
+          data-testid="dash-search"
+        />
+        @if (query()) {
+          <button class="search-clear" type="button" (click)="clear()" aria-label="Clear search" data-testid="dash-search-clear">✕</button>
+        } @else {
+          <span class="search-kbd" aria-hidden="true"><kbd>/</kbd></span>
         }
-      </header>
+      </div>
+      <p class="sr-only" role="status" aria-live="polite">{{ resultAnnounce() }}</p>
 
-      <!-- Two-layer feature plane discovery banner. LAYER 2 "Features"
-           (owner-facing, site-scoped) shows to everyone; LAYER 1 "Feature Flags"
-           (platform-ops flags) is operator-only. -->
-      <section class="features-banner" role="navigation" aria-label="Feature control plane">
-        <a class="features-banner-card" routerLink="/admin/site-features" data-testid="dash-features-card">
-          <span class="features-banner-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>
-          <span class="features-banner-body">
-            <strong>Features</strong>
-            <span class="features-banner-sub">Turn site capabilities on for your hosted site — plan-aware, previewable, undoable. Upgrade-locked add-ons surface here.</span>
-          </span>
-          <span class="features-banner-cta" aria-hidden="true">→</span>
-        </a>
-        @if (isSysAdmin()) {
-        <a class="features-banner-card features-banner-card-alt" routerLink="/admin/feature-flags" data-testid="dash-system-admin-card">
-          <span class="features-banner-icon features-banner-icon--alt" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></span>
-          <span class="features-banner-body">
-            <strong>Feature Flags</strong>
-            <span class="features-banner-sub">Platform-ops control plane — toggle, roll out, killswitch 50+ feature flags. Stage filter, per-flag inspect, hash-chain audit trail.</span>
-          </span>
-          <span class="features-banner-cta" aria-hidden="true">→</span>
-        </a>
+      @if (filtered(); as results) {
+        <!-- ── Flat filtered results ──────────────────────────── -->
+        @if (results.length === 0) {
+          <div class="no-match" appReveal data-testid="dash-no-match">
+            <span class="no-match-glyph" aria-hidden="true"><app-cmd-glyph name="search" /></span>
+            <p class="no-match-title">No sections match “{{ query() }}”</p>
+            <p class="no-match-sub">Try a different word, or browse everything below.</p>
+            <button class="cta cta-ghost" type="button" (click)="clear()" data-testid="dash-no-match-clear">Clear search</button>
+          </div>
+        } @else {
+          <section class="group" aria-label="Search results">
+            <h2 class="group-title">
+              {{ results.length }} {{ results.length === 1 ? 'result' : 'results' }}
+              <span class="muted">for “{{ query() }}”</span>
+            </h2>
+            <ul class="cards">
+              @for (card of results; track card.link) {
+                <li class="card-cell" [style.animation-delay.ms]="$index * 28">
+                  <ng-container [ngTemplateOutlet]="cardTpl" [ngTemplateOutletContext]="{ card: card }" />
+                </li>
+              }
+            </ul>
+          </section>
         }
-      </section>
+      } @else {
+        <!-- ── Pinned ─────────────────────────────────────────── -->
+        @if (pinnedCards().length > 0) {
+          <section class="group" appReveal aria-labelledby="grp-pinned">
+            <h2 class="group-title" id="grp-pinned"><app-cmd-glyph name="star" /> Pinned</h2>
+            <ul class="cards">
+              @for (card of pinnedCards(); track card.link) {
+                <li class="card-cell" [style.animation-delay.ms]="$index * 28">
+                  <ng-container [ngTemplateOutlet]="cardTpl" [ngTemplateOutletContext]="{ card: card }" />
+                </li>
+              }
+            </ul>
+          </section>
+        }
 
-      <!-- ── Section guide ────────────────────────────────────── -->
-      @for (group of groups; track group.title) {
-        <section class="group" appReveal aria-labelledby="grp-{{ $index }}">
-          <h2 class="group-title" id="grp-{{ $index }}">{{ group.title }}</h2>
-          <ul class="cards">
-            @for (card of group.cards; track card.link) {
-              <li>
-                <a class="sec-card" [routerLink]="card.link" [attr.data-testid]="'dash-sec-' + card.glyph">
-                  <span class="sec-glyph" aria-hidden="true"><app-cmd-glyph [name]="card.glyph" /></span>
-                  <span class="sec-body">
-                    <strong class="sec-label">{{ card.label }}</strong>
-                    <span class="sec-desc">{{ card.desc }}</span>
-                  </span>
-                  <span class="sec-cta" aria-hidden="true">→</span>
-                </a>
+        <!-- ── Recently opened ────────────────────────────────── -->
+        @if (recentCards().length > 0) {
+          <section class="group" appReveal aria-labelledby="grp-recent">
+            <h2 class="group-title" id="grp-recent"><app-cmd-glyph name="activity" /> Jump back in</h2>
+            <ul class="cards">
+              @for (card of recentCards(); track card.link) {
+                <li class="card-cell" [style.animation-delay.ms]="$index * 28">
+                  <ng-container [ngTemplateOutlet]="cardTpl" [ngTemplateOutletContext]="{ card: card }" />
+                </li>
+              }
+            </ul>
+          </section>
+        }
+
+        <!-- ── Section guide ──────────────────────────────────── -->
+        @for (group of displayGroups(); track group.title) {
+          <section class="group" appReveal aria-labelledby="grp-{{ $index }}">
+            <h2 class="group-title" id="grp-{{ $index }}">{{ group.title }}</h2>
+            <ul class="cards">
+              @for (card of group.cards; track card.link) {
+                <li class="card-cell" [style.animation-delay.ms]="$index * 28">
+                  <ng-container [ngTemplateOutlet]="cardTpl" [ngTemplateOutletContext]="{ card: card }" />
+                </li>
+              }
+            </ul>
+          </section>
+        }
+
+        <!-- ── Tips & tricks ──────────────────────────────────── -->
+        <section class="group" appReveal aria-labelledby="grp-tips">
+          <h2 class="group-title" id="grp-tips">Tips &amp; tricks</h2>
+          <ul class="tips">
+            @for (tip of tips; track tip.text) {
+              <li class="tip">
+                <span class="tip-glyph" aria-hidden="true"><app-cmd-glyph [name]="tip.glyph" /></span>
+                <span class="tip-text">{{ tip.text }}</span>
               </li>
             }
           </ul>
         </section>
-      }
 
-      <!-- ── Tips & tricks ────────────────────────────────────── -->
-      <section class="group" appReveal aria-labelledby="grp-tips">
-        <h2 class="group-title" id="grp-tips">Tips &amp; tricks</h2>
-        <ul class="tips">
-          @for (tip of tips; track tip.text) {
-            <li class="tip">
-              <span class="tip-glyph" aria-hidden="true"><app-cmd-glyph [name]="tip.glyph" /></span>
-              <span class="tip-text">{{ tip.text }}</span>
-            </li>
+        <!-- ── Helpful links ──────────────────────────────────── -->
+        <section class="group links-group" appReveal aria-labelledby="grp-links">
+          <h2 class="group-title" id="grp-links">Need a hand?</h2>
+          <nav class="links" aria-label="Helpful links">
+            <a routerLink="/admin/docs"><app-cmd-glyph name="book" /> Read the API docs</a>
+            <a routerLink="/admin/sites"><app-cmd-glyph name="grid" /> Browse all your sites</a>
+            <a routerLink="/admin/user"><app-cmd-glyph name="gear" /> Account &amp; preferences</a>
+            <a routerLink="/contact"><app-cmd-glyph name="life-buoy" /> Contact support</a>
+          </nav>
+          @if (hasSites()) {
+            <p class="stat" aria-live="polite">
+              <app-rolling-counter [value]="siteCount()" />
+              {{ siteCount() === 1 ? 'site' : 'sites' }} in your account
+            </p>
           }
-        </ul>
-      </section>
-
-      <!-- ── Helpful links ────────────────────────────────────── -->
-      <section class="group links-group" appReveal aria-labelledby="grp-links">
-        <h2 class="group-title" id="grp-links">Need a hand?</h2>
-        <nav class="links" aria-label="Helpful links">
-          <a routerLink="/admin/docs"><app-cmd-glyph name="book" /> Read the API docs</a>
-          <a routerLink="/admin/sites"><app-cmd-glyph name="grid" /> Browse all your sites</a>
-          <a routerLink="/admin/user"><app-cmd-glyph name="gear" /> Account &amp; preferences</a>
-          <a routerLink="/contact"><app-cmd-glyph name="life-buoy" /> Contact support</a>
-        </nav>
-      </section>
+        </section>
+      }
     </section>
+
+    <!-- ── Reusable section-card (anchor + pin button sibling) ──── -->
+    <ng-template #cardTpl let-card="card">
+      <a class="sec-card" [routerLink]="card.link" (click)="recordOpen(card.link)" [attr.data-testid]="'dash-sec-' + card.glyph">
+        <span class="sec-glyph" aria-hidden="true"><app-cmd-glyph [name]="card.glyph" /></span>
+        <span class="sec-body">
+          <strong class="sec-label">@for (p of parts(card.label); track $index) {<span>{{ p.pre }}</span>@if (p.hit) {<mark>{{ p.hit }}</mark>}<span>{{ p.post }}</span>}</strong>
+          <span class="sec-desc">{{ card.desc }}</span>
+          @if (card.keywords?.length) {
+            <span class="sec-tags" aria-hidden="true">
+              @for (kw of card.keywords; track kw) {<span class="tag">{{ kw }}</span>}
+            </span>
+          }
+        </span>
+        <span class="sec-cta" aria-hidden="true">→</span>
+      </a>
+      <button
+        class="sec-pin"
+        type="button"
+        (click)="toggleFav(card.link)"
+        [class.is-pinned]="isFav(card.link)"
+        [attr.aria-pressed]="isFav(card.link)"
+        [attr.aria-label]="(isFav(card.link) ? 'Unpin ' : 'Pin ') + card.label"
+        [attr.data-testid]="'dash-pin-' + card.glyph"
+      >
+        <app-cmd-glyph name="star" />
+      </button>
+    </ng-template>
   `,
   styles: [
     `
@@ -165,182 +228,118 @@ interface Tip {
         color: var(--ps-ink, #f4f4ff);
       }
 
-      /* Hero */
-      .hero {
-        text-align: center;
-        padding: 56px 12px 12px;
-        position: relative;
+      /* Search */
+      .search-wrap {
+        position: sticky;
+        top: 8px;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 14px;
+        height: 54px;
+        border-radius: 16px;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 78%, transparent);
+        border: 1px solid rgba(0, 229, 255, 0.22);
+        box-shadow: 0 18px 48px -28px rgba(0, 229, 255, 0.5);
+        backdrop-filter: blur(14px) saturate(140%);
+        -webkit-backdrop-filter: blur(14px) saturate(140%);
+        transition: border-color 0.333s ease, box-shadow 0.333s ease;
       }
-      .halo {
-        position: absolute;
-        inset: -40px 10% auto 10%;
-        height: 280px;
-        background:
-          radial-gradient(ellipse 60% 100% at 50% 0%, rgba(0, 229, 255, 0.18), transparent 70%),
-          radial-gradient(ellipse 40% 80% at 30% 30%, rgba(124, 58, 237, 0.18), transparent 70%);
-        filter: blur(40px);
-        z-index: -1;
-        pointer-events: none;
+      .search-wrap:focus-within {
+        border-color: var(--ps-accent, #00e5ff);
+        box-shadow: 0 22px 60px -26px rgba(0, 229, 255, 0.7);
       }
-      .eyebrow {
+      .search-ic {
+        color: var(--ps-accent, #00e5ff);
+        font-size: 1.15rem;
+        display: inline-flex;
+      }
+      .search-input {
+        flex: 1;
+        min-width: 0;
+        background: transparent;
+        border: 0;
+        outline: none;
+        color: var(--ps-ink, #f4f4ff);
+        font: inherit;
+        font-size: 1rem;
+      }
+      .search-input::placeholder {
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 45%, transparent);
+      }
+      .search-input::-webkit-search-cancel-button {
+        display: none;
+      }
+      .search-kbd kbd {
         font-family: 'JetBrains Mono', monospace;
         font-size: 0.72rem;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: color-mix(in oklch, var(--ps-accent, #00e5ff) 80%, var(--ps-ink, #f4f4ff) 20%);
-        margin: 0 0 8px;
-      }
-      .h {
-        font-family: 'Sora', system-ui, sans-serif;
-        font-size: clamp(1.9rem, 4vw, 3.1rem);
-        font-weight: 600;
-        letter-spacing: -0.02em;
-        margin: 0 0 14px;
-        background: linear-gradient(135deg, #00e5ff 0%, #7c3aed 50%, #f4f4ff 100%);
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-        text-wrap: balance;
-      }
-      .s {
-        font-size: 1rem;
-        opacity: 0.75;
-        max-width: 600px;
-        margin: 0 auto;
-        text-wrap: pretty;
-        line-height: 1.55;
-      }
-      .hero-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        justify-content: center;
-        margin: 26px 0 0;
-      }
-      .cta {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        min-height: 44px;
-        padding: 0 20px;
-        border-radius: 999px;
-        font: inherit;
-        font-weight: 600;
-        text-decoration: none;
-        cursor: pointer;
-        transition:
-          transform 180ms ease,
-          box-shadow 180ms ease,
-          border-color 180ms ease;
-      }
-      .cta app-cmd-glyph {
-        font-size: 1.05rem;
-      }
-      .cta-primary {
-        background: linear-gradient(135deg, #00e5ff, #7c3aed);
-        color: #060610;
-      }
-      .cta-primary:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 16px 36px -16px rgba(0, 229, 255, 0.6);
-      }
-      .cta-ghost {
-        background: rgba(0, 229, 255, 0.05);
+        padding: 2px 8px;
+        border-radius: 7px;
+        background: rgba(0, 229, 255, 0.08);
         border: 1px solid rgba(0, 229, 255, 0.22);
+        color: color-mix(in oklch, var(--ps-accent, #00e5ff) 85%, var(--ps-ink) 15%);
+      }
+      .search-clear {
+        flex-shrink: 0;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.04);
         color: var(--ps-ink, #f4f4ff);
+        cursor: pointer;
+        transition: border-color 0.333s ease, transform 0.333s ease, background 0.333s ease;
       }
-      .cta-ghost:hover {
-        transform: translateY(-1px);
+      .search-clear:hover {
         border-color: rgba(0, 229, 255, 0.5);
+        transform: translateY(-1px);
       }
-      .cta:focus-visible {
+      .search-clear:focus-visible {
         outline: 2px solid var(--ps-accent, #00e5ff);
         outline-offset: 2px;
-      }
-      .stat {
-        margin: 18px 0 0;
-        font-size: 0.9rem;
-        opacity: 0.7;
-      }
-      .stat app-rolling-counter {
-        font-weight: 700;
-        color: var(--ps-accent, #00e5ff);
-        font-variant-numeric: tabular-nums;
       }
 
-      /* Features banner (unchanged discovery surface) */
-      .features-banner {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.85rem;
-        padding: 1.5rem 0 0;
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
       }
-      @media (max-width: 720px) {
-        .features-banner {
-          grid-template-columns: 1fr;
-        }
+
+      /* No match */
+      .no-match {
+        text-align: center;
+        padding: 54px 16px;
       }
-      .features-banner-card {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 1rem 1.15rem;
-        background: color-mix(in oklch, var(--ps-bg, #060610) 50%, transparent);
-        border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent);
-        border-radius: 14px;
-        text-decoration: none;
-        color: inherit;
-        transition:
-          border-color 0.15s ease,
-          transform 0.15s ease;
-      }
-      .features-banner-card:hover {
-        border-color: var(--ps-accent, #00e5ff);
-        transform: translateY(-1px);
-      }
-      .features-banner-card:focus-visible {
-        outline: 2px solid var(--ps-accent, #00e5ff);
-        outline-offset: 2px;
-      }
-      .features-banner-card-alt {
-        border-color: color-mix(in oklch, #fbbf24 30%, transparent);
-      }
-      .features-banner-card-alt:hover {
-        border-color: #fbbf24;
-      }
-      .features-banner-icon {
-        flex-shrink: 0;
+      .no-match-glyph {
         display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        font-size: 1.5rem;
         color: var(--ps-accent, #00e5ff);
+        background: rgba(0, 229, 255, 0.08);
+        border: 1px solid rgba(0, 229, 255, 0.2);
+        margin-bottom: 16px;
       }
-      .features-banner-icon svg {
-        width: 26px;
-        height: 26px;
-        display: block;
+      .no-match-title {
+        font-family: 'Sora', system-ui, sans-serif;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0 0 6px;
       }
-      .features-banner-icon--alt {
-        color: #fbbf24;
-      }
-      .features-banner-body {
-        display: flex;
-        flex-direction: column;
-        gap: 0.15rem;
-        flex: 1;
-      }
-      .features-banner-body strong {
-        font-size: 1.05rem;
-      }
-      .features-banner-sub {
-        font-size: 0.8rem;
-        color: color-mix(in oklch, currentColor 65%, transparent);
-        line-height: 1.45;
-      }
-      .features-banner-cta {
-        font-size: 1.4rem;
+      .no-match-sub {
         opacity: 0.65;
-      }
-      .features-banner-card:hover .features-banner-cta {
-        opacity: 1;
+        font-size: 0.9rem;
+        margin: 0 0 18px;
       }
 
       /* Section groups */
@@ -348,11 +347,23 @@ interface Tip {
         margin-top: 38px;
       }
       .group-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
         font-family: 'Sora', system-ui, sans-serif;
         font-size: 1.05rem;
         font-weight: 600;
         margin: 0 0 14px;
         letter-spacing: -0.01em;
+      }
+      .group-title app-cmd-glyph {
+        color: var(--ps-accent, #00e5ff);
+        font-size: 1rem;
+      }
+      .group-title .muted {
+        font-weight: 400;
+        opacity: 0.55;
+        font-size: 0.92rem;
       }
       .cards {
         list-style: none;
@@ -361,6 +372,20 @@ interface Tip {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
         gap: 12px;
+      }
+      .card-cell {
+        position: relative;
+        animation: dashCardIn 0.333s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+      @keyframes dashCardIn {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
       .sec-card {
         display: flex;
@@ -373,15 +398,13 @@ interface Tip {
         border-radius: 14px;
         text-decoration: none;
         color: inherit;
-        transition:
-          border-color 0.15s ease,
-          transform 0.15s ease,
-          background 0.15s ease;
+        transition: border-color 0.333s ease, transform 0.333s ease, background 0.333s ease, box-shadow 0.333s ease;
       }
       .sec-card:hover {
         border-color: rgba(0, 229, 255, 0.5);
         background: rgba(0, 229, 255, 0.04);
         transform: translateY(-2px);
+        box-shadow: 0 16px 40px -26px rgba(0, 229, 255, 0.55);
       }
       .sec-card:focus-visible {
         outline: 2px solid var(--ps-accent, #00e5ff);
@@ -399,11 +422,15 @@ interface Tip {
         color: var(--ps-accent, #00e5ff);
         background: rgba(0, 229, 255, 0.08);
         border: 1px solid rgba(0, 229, 255, 0.18);
+        transition: transform 0.333s ease;
+      }
+      .sec-card:hover .sec-glyph {
+        transform: scale(1.06);
       }
       .sec-body {
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 4px;
         flex: 1;
         min-width: 0;
       }
@@ -411,25 +438,80 @@ interface Tip {
         font-size: 0.95rem;
         font-weight: 600;
       }
+      .sec-label mark {
+        background: rgba(0, 229, 255, 0.28);
+        color: inherit;
+        border-radius: 3px;
+        padding: 0 1px;
+      }
       .sec-desc {
         font-size: 0.8rem;
         line-height: 1.45;
         color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 62%, transparent);
         text-wrap: pretty;
       }
+      .sec-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 4px;
+      }
+      .tag {
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: rgba(124, 58, 237, 0.14);
+        border: 1px solid rgba(124, 58, 237, 0.22);
+        color: color-mix(in oklch, #b794f6 70%, var(--ps-ink) 30%);
+      }
       .sec-cta {
         align-self: center;
         font-size: 1.1rem;
         opacity: 0;
         transform: translateX(-4px);
-        transition:
-          opacity 0.15s ease,
-          transform 0.15s ease;
+        transition: opacity 0.333s ease, transform 0.333s ease;
         color: var(--ps-accent, #00e5ff);
       }
       .sec-card:hover .sec-cta {
         opacity: 1;
         transform: translateX(0);
+      }
+      .sec-pin {
+        position: absolute;
+        top: 9px;
+        right: 9px;
+        width: 26px;
+        height: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 40%, transparent);
+        cursor: pointer;
+        opacity: 0;
+        font-size: 0.85rem;
+        transition: opacity 0.333s ease, color 0.333s ease, border-color 0.333s ease, transform 0.333s ease;
+      }
+      .card-cell:hover .sec-pin,
+      .sec-pin:focus-visible,
+      .sec-pin.is-pinned {
+        opacity: 1;
+      }
+      .sec-pin:hover {
+        color: var(--ps-accent, #00e5ff);
+        border-color: rgba(0, 229, 255, 0.4);
+        transform: translateY(-1px);
+      }
+      .sec-pin.is-pinned {
+        color: #fbbf24;
+      }
+      .sec-pin:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff);
+        outline-offset: 2px;
       }
 
       /* Tips */
@@ -451,6 +533,11 @@ interface Tip {
         border-radius: 12px;
         font-size: 0.86rem;
         line-height: 1.4;
+        transition: border-color 0.333s ease, transform 0.333s ease;
+      }
+      .tip:hover {
+        border-color: rgba(124, 58, 237, 0.4);
+        transform: translateY(-1px);
       }
       .tip-glyph {
         flex-shrink: 0;
@@ -476,9 +563,7 @@ interface Tip {
         color: var(--ps-ink, #f4f4ff);
         text-decoration: none;
         font-size: 0.85rem;
-        transition:
-          border-color 0.15s ease,
-          transform 0.15s ease;
+        transition: border-color 0.333s ease, transform 0.333s ease;
       }
       .links a app-cmd-glyph {
         font-size: 1rem;
@@ -492,13 +577,59 @@ interface Tip {
         outline: 2px solid var(--ps-accent, #00e5ff);
         outline-offset: 2px;
       }
+      .stat {
+        margin: 16px 0 0;
+        font-size: 0.9rem;
+        opacity: 0.7;
+      }
+      .stat app-rolling-counter {
+        font-weight: 700;
+        color: var(--ps-accent, #00e5ff);
+        font-variant-numeric: tabular-nums;
+      }
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 42px;
+        padding: 0 18px;
+        border-radius: 999px;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        transition: transform 0.333s ease, border-color 0.333s ease;
+      }
+      .cta-ghost {
+        background: rgba(0, 229, 255, 0.05);
+        border: 1px solid rgba(0, 229, 255, 0.22);
+        color: var(--ps-ink, #f4f4ff);
+      }
+      .cta-ghost:hover {
+        transform: translateY(-1px);
+        border-color: rgba(0, 229, 255, 0.5);
+      }
+      .cta:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff);
+        outline-offset: 2px;
+      }
 
       @media (max-width: 720px) {
         .dash {
           padding: 18px 14px 72px;
         }
-        .hero {
-          padding: 32px 6px 8px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .card-cell,
+        .sec-card,
+        .sec-glyph,
+        .sec-cta,
+        .sec-pin,
+        .tip,
+        .search-wrap,
+        .links a {
+          animation: none !important;
+          transition: none !important;
         }
       }
     `,
@@ -508,56 +639,170 @@ export class AdminDashboardComponent {
   private state = inject(AdminStateService);
   private auth = inject(AuthService);
 
+  private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
+
   /** Operator-only gate for the "Feature Flags" discovery card — mirrors the sidebar nav + sysAdminGuard. */
   readonly isSysAdmin = computed(() => isSysAdminEmail(this.auth.email()));
   readonly siteCount = computed(() => this.state.sites().length);
   readonly hasSites = computed(() => this.siteCount() > 0);
+
+  /** Live search query. Empty → grouped view; non-empty → flat filtered results. */
+  readonly query = signal('');
+
+  private readonly favorites = signal<readonly string[]>(this.readList(FAV_KEY));
+  private readonly recents = signal<readonly string[]>(this.readList(RECENT_KEY));
 
   /** Section guide, grouped by what a customer is trying to do. Every link resolves to a live admin route. */
   readonly groups: readonly SectionGroup[] = [
     {
       title: 'Build your site',
       cards: [
-        { label: 'Editor', desc: 'Edit your site’s code and content in the live Bolt editor.', link: '/admin/editor', glyph: 'code' },
-        { label: 'Snapshots', desc: 'Frozen versions of every build — preview, restore, or roll back.', link: '/admin/snapshots', glyph: 'camera' },
-        { label: 'Media', desc: 'Upload, generate, and organize images, video, and audio.', link: '/admin/media', glyph: 'image' },
-        { label: 'Domains', desc: 'Connect a custom domain and manage your hostnames.', link: '/admin/domains', glyph: 'globe' },
+        { label: 'Editor', desc: 'Edit your site’s code and content in the live Bolt editor.', link: '/admin/editor', glyph: 'code', keywords: ['bolt', 'code', 'content', 'build'] },
+        { label: 'Snapshots', desc: 'Frozen versions of every build — preview, restore, or roll back.', link: '/admin/snapshots', glyph: 'camera', keywords: ['versions', 'restore', 'rollback', 'history'] },
+        { label: 'Media', desc: 'Upload, generate, and organize images, video, and audio.', link: '/admin/media', glyph: 'image', keywords: ['images', 'video', 'audio', 'assets', 'upload'] },
+        { label: 'Domains', desc: 'Connect a custom domain and manage your hostnames.', link: '/admin/domains', glyph: 'globe', keywords: ['dns', 'hostname', 'custom', 'ssl'] },
       ],
     },
     {
       title: 'Grow your audience',
       cards: [
-        { label: 'Analytics', desc: 'Traffic, conversions, and funnel insight for every site.', link: '/admin/analytics', glyph: 'chart' },
-        { label: 'SEO', desc: 'Titles, meta, structured data, and search readiness.', link: '/admin/seo', glyph: 'search' },
-        { label: 'Social', desc: 'Compose, schedule, and measure posts across 11 networks.', link: '/admin/social', glyph: 'share' },
-        { label: 'Forms', desc: 'Every form submission, routed and searchable.', link: '/admin/forms', glyph: 'inbox' },
+        { label: 'Analytics', desc: 'Traffic, conversions, and funnel insight for every site.', link: '/admin/analytics', glyph: 'chart', keywords: ['traffic', 'conversions', 'funnel', 'metrics'] },
+        { label: 'SEO', desc: 'Titles, meta, structured data, and search readiness.', link: '/admin/seo', glyph: 'search', keywords: ['meta', 'schema', 'keywords', 'ranking'] },
+        { label: 'Social', desc: 'Compose, schedule, and measure posts across 11 networks.', link: '/admin/social', glyph: 'share', keywords: ['posts', 'schedule', 'twitter', 'linkedin'] },
+        { label: 'Forms', desc: 'Every form submission, routed and searchable.', link: '/admin/forms', glyph: 'inbox', keywords: ['submissions', 'leads', 'contact'] },
       ],
     },
     {
       title: 'Operate & monitor',
       cards: [
-        { label: 'Voice', desc: 'A phone number, SMS, and a browser test console.', link: '/admin/voice', glyph: 'phone' },
-        { label: 'Apps', desc: 'A self-hostable app store on Cloudflare Containers.', link: '/admin/apps', glyph: 'grid' },
-        { label: 'Traces', desc: 'Every AI call — forms, chat, endpoints, and search.', link: '/admin/traces', glyph: 'activity' },
-        { label: 'Logs', desc: 'Audit trail plus structured request, AI, and job logs.', link: '/admin/logs', glyph: 'list' },
+        { label: 'Voice', desc: 'A phone number, SMS, and a browser test console.', link: '/admin/voice', glyph: 'phone', keywords: ['phone', 'sms', 'call', 'number'] },
+        { label: 'Apps', desc: 'A self-hostable app store on Cloudflare Containers.', link: '/admin/apps', glyph: 'grid', keywords: ['marketplace', 'install', 'containers', 'self-host'] },
+        { label: 'Traces', desc: 'Every AI call — forms, chat, endpoints, and search.', link: '/admin/traces', glyph: 'activity', keywords: ['ai', 'llm', 'observability', 'calls'] },
+        { label: 'Logs', desc: 'Audit trail plus structured request, AI, and job logs.', link: '/admin/logs', glyph: 'list', keywords: ['audit', 'requests', 'jobs', 'debug'] },
       ],
     },
     {
       title: 'Account & help',
       cards: [
-        { label: 'Settings', desc: 'Site preferences, integrations, and notifications.', link: '/admin/settings', glyph: 'gear' },
-        { label: 'Billing', desc: 'Your plan, credits, and invoices in one place.', link: '/admin/billing', glyph: 'credit-card' },
-        { label: 'API Docs', desc: 'An interactive explorer — call any endpoint from your session.', link: '/admin/docs', glyph: 'book' },
-        { label: 'Features', desc: 'Turn site capabilities on — plan-aware and reversible.', link: '/admin/site-features', glyph: 'layers' },
+        { label: 'Settings', desc: 'Site preferences, integrations, and notifications.', link: '/admin/settings', glyph: 'gear', keywords: ['preferences', 'integrations', 'mcp', 'webhooks'] },
+        { label: 'Billing', desc: 'Your plan, credits, and invoices in one place.', link: '/admin/billing', glyph: 'credit-card', keywords: ['plan', 'credits', 'invoices', 'subscription'] },
+        { label: 'API Docs', desc: 'An interactive explorer — call any endpoint from your session.', link: '/admin/docs', glyph: 'book', keywords: ['openapi', 'reference', 'endpoints'] },
+        { label: 'Features', desc: 'Turn site capabilities on — plan-aware and reversible.', link: '/admin/site-features', glyph: 'layers', keywords: ['capabilities', 'addons', 'plan', 'autopilot'] },
       ],
     },
   ];
 
+  /** Operator-only discovery card (Feature Flags) appended when the user is a sysadmin. */
+  private readonly operatorCard: SectionCard = {
+    label: 'Feature Flags',
+    desc: 'Platform-ops control plane — toggle, roll out, and killswitch feature flags.',
+    link: '/admin/feature-flags',
+    glyph: 'gear',
+    keywords: ['flags', 'rollout', 'killswitch', 'ops'],
+  };
+
+  /** Groups shown in the default view — appends an operator-only "Operator" group when applicable. */
+  readonly displayGroups = computed<readonly SectionGroup[]>(() =>
+    this.isSysAdmin() ? [...this.groups, { title: 'Operator', cards: [this.operatorCard] }] : this.groups,
+  );
+
+  /** Flat list of every visible card (operator card included only for sysadmins). */
+  private readonly allCards = computed<readonly SectionCard[]>(() => this.displayGroups().flatMap((g) => g.cards));
+
+  private byLink(links: readonly string[]): readonly SectionCard[] {
+    const all = this.allCards();
+    return links.map((l) => all.find((c) => c.link === l)).filter((c): c is SectionCard => !!c);
+  }
+
+  readonly pinnedCards = computed(() => this.byLink(this.favorites()));
+  readonly recentCards = computed(() => this.byLink(this.recents()).slice(0, 4));
+
+  /** Filtered results when a query is active; null when the box is empty (→ grouped view). */
+  readonly filtered = computed<readonly SectionCard[] | null>(() => {
+    const q = this.query().trim().toLowerCase();
+    if (!q) return null;
+    return this.allCards().filter((c) => {
+      const hay = `${c.label} ${c.desc} ${(c.keywords ?? []).join(' ')}`.toLowerCase();
+      return hay.includes(q);
+    });
+  });
+
+  /** SR-only live announcement of the result count. */
+  readonly resultAnnounce = computed(() => {
+    const f = this.filtered();
+    if (f === null) return '';
+    return f.length === 0 ? `No results for ${this.query()}` : `${f.length} ${f.length === 1 ? 'result' : 'results'}`;
+  });
+
   /** Keyboard + workflow tricks most customers never discover on their own. */
   readonly tips: readonly Tip[] = [
     { glyph: 'command', text: 'Press ⌘K (or Ctrl+K) to jump to any section or action instantly.' },
-    { glyph: 'keyboard', text: 'Press ? anywhere to see the full list of keyboard shortcuts.' },
-    { glyph: 'code', text: 'Type g then e to open the editor — g v opens Voice.' },
+    { glyph: 'search', text: 'Press / to focus this search and filter every section as you type.' },
+    { glyph: 'star', text: 'Hover a card and tap the ☆ to pin your most-used sections to the top.' },
     { glyph: 'image', text: 'Drag a file onto any admin page to add it to your Media library.' },
   ];
+
+  /** Split a label around the active query match so the template can wrap the hit in <mark> (no innerHTML). */
+  parts(label: string): readonly HlParts[] {
+    const q = this.query().trim();
+    if (!q) return [{ pre: label, hit: '', post: '' }];
+    const idx = label.toLowerCase().indexOf(q.toLowerCase());
+    if (idx < 0) return [{ pre: label, hit: '', post: '' }];
+    return [{ pre: label.slice(0, idx), hit: label.slice(idx, idx + q.length), post: label.slice(idx + q.length) }];
+  }
+
+  clear(): void {
+    this.query.set('');
+    this.searchInput()?.nativeElement.focus();
+  }
+
+  isFav(link: string): boolean {
+    return this.favorites().includes(link);
+  }
+
+  toggleFav(link: string): void {
+    const next = this.isFav(link) ? this.favorites().filter((l) => l !== link) : [...this.favorites(), link];
+    this.favorites.set(next);
+    this.writeList(FAV_KEY, next);
+  }
+
+  /** Record an opened section (most-recent-first, deduped, capped) for the "Jump back in" row. */
+  recordOpen(link: string): void {
+    const next = [link, ...this.recents().filter((l) => l !== link)].slice(0, 8);
+    this.recents.set(next);
+    this.writeList(RECENT_KEY, next);
+  }
+
+  /** Focus the search box on "/" (unless already typing in a field). */
+  @HostListener('document:keydown./', ['$event'])
+  onSlash(ev: Event): void {
+    const t = ev.target as HTMLElement | null;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    ev.preventDefault();
+    this.searchInput()?.nativeElement.focus();
+  }
+
+  /** Esc clears an active query. */
+  @HostListener('document:keydown.escape')
+  onEsc(): void {
+    if (this.query()) this.clear();
+  }
+
+  private readList(key: string): readonly string[] {
+    try {
+      const raw = localStorage.getItem(key);
+      const arr = raw ? (JSON.parse(raw) as unknown) : [];
+      return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private writeList(key: string, val: readonly string[]): void {
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch {
+      /* private mode / quota — non-fatal */
+    }
+  }
 }
