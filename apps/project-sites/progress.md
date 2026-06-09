@@ -10,6 +10,17 @@
 > **HOW TO RESUME:** open a new Claude Code session in this repo and say:
 > *"Execute apps/project-sites/progress.md."* Clean context → the fan-out spawns fine.
 
+## ✅ QUEUE DRAINED (2026-06-09) — only supervised architectural waves remain
+Q1 dashboard ✅ · Q2 all 6 flags ✅ · `.ff-head-right` ✅ · cosmetic drift tidy ✅
+(quick gate 0/0). The ONLY remaining `progress.md` items are large, supervised,
+all-or-nothing waves — NOT safe for the unattended 10m cron (`8578aa3e`), which
+should now be CronDelete'd or repointed:
+- **R1 perf-wave** (ag-grid→TanStack, 2 grids) — dedicated session; project memory:
+  "perf-wave stalls in autonomous loops — supervise". Blueprint: docs/perf-wave-ag-grid-to-tanstack.md.
+- **P1-durable** SSG/prerender of marketing (the `<h1>` stopgap is live; real
+  prerender is an architecture change). Needs a focused session + full CWV verify.
+- **R3** wire `*.e2e.ts` prod suite into CI (needs the `E2E_API_KEY` GH secret — your action).
+
 ## Current production state (verified live 2026-06-08, all deployed)
 - **Feature-flag 401 fix** — live (super-admin mutations carry the bearer).
 - **Share link feature** — worker live (version `7ad8c0a7`); D1 `0537` applied
