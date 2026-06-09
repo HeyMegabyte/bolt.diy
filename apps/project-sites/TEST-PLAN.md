@@ -447,9 +447,10 @@
   cmd-glyph; DialogShell; `--ps-*` tokens; ApiService (bearer); `appReveal`.
 
 ## Phase checkpoints (tick when its E2E is green)
-- [ ] P0 — Audit: read ~/.agentskills + ~/.claude + package.json/nx/angular.json +
-      existing /admin code; locate every PrimeNG/ag-grid usage; write the compatibility
-      matrix below. Decide replace/wrap/defer per item.
+- [x] P0 — Audit (2026-06-09): scanned deps + `/admin` source; PrimeNG absent (0
+      deps/imports), ag-grid live in exactly 2 grids (audit + ai-logs), TanStack +
+      Spartan + CDK + ECharts + Monaco + Uppy all correct. Compatibility matrix below
+      filled; only substantive migration = ag-grid→TanStack in P3 (supervised session).
 - [ ] P1 — Design system: black+cyan tokens (bg/surface/elevated/border/cyan/cyan-muted/
       success/warn/destructive/text-{primary,secondary,muted}/focus-ring/code-surface);
       wire Inter+Montserrat+Fira Code efficiently; normalize cards/buttons/inputs/tabs/
@@ -476,8 +477,24 @@
 - All LLM calls via Cloudflare AI Gateway; preserve the direct-provider-URL ESLint guard.
 - Preserve per-site D1 isolation, Workers patterns, WS log streaming, Stripe test/live split.
 
-## Compatibility matrix (fill in P0)
-_(package · recommended-by · repo-status · bundle · a11y · ng-compat · testability · verdict)_
+## Compatibility matrix (filled P0 — 2026-06-09)
+
+> Scan basis: `frontend/package.json` deps + `/usr/bin/grep` over `src/app/**/*.ts`.
+> No PrimeNG anywhere (0 deps, 0 imports — the `p-dialog` grep hits were the
+> `app-dialog-shell` substring). Legacy admin is already PrimeNG-free.
+
+| Package | Recommended-by | Repo status | Bundle | a11y | ng-compat | Testability | Verdict |
+|---|---|---|---|---|---|---|---|
+| `ag-grid-community` + `ag-grid-angular` | package-preference-registry (Community-only, 100k+ rows) | LIVE in exactly 2 grids: `audit.component.ts`, `ai-logs.component.ts` | heavy (~hundreds KB) | custom (not CDK) | official Angular wrapper | Karma specs exist | **REPLACE** → TanStack (P3). Neither grid needs enterprise/100k rows; master/detail is Enterprise-only anyway. **Supervised session — all-or-nothing, NOT a blind loop fire.** |
+| `@tanstack/angular-table` | package-preference-registry (headless smart tables) | LIVE: `api-tokens`, `content-freshness` (`createAngularTable`) | light headless | manual (`aria-sort` wired) | signal-bound state | Karma sort spec | **KEEP + EXPAND** — the P3 target pattern; "apply existing pattern", not "introduce". |
+| `@spartan-ng/brain` | code-style + spartan-ui-only (THE only Angular kit) | LIVE: `admin.component` + ~11 sections + `ui/` wrappers (`tooltip`) | headless primitives | CDK-backed | native standalone | fine | **KEEP + EXPAND** — wrap more primitives per occasion. |
+| `@angular/cdk` | package-preference-registry | LIVE (overlay/a11y backing Spartan) | tree-shaken | strong | native | fine | **KEEP**. |
+| `echarts` | visualization-maps-diagrams-supervisor | LIVE (analytics cockpit, lazy chunk) | ~1.16MB → own lazy chunk | `role=img`+aria-label | dynamic import in `afterNextRender` | fine | **KEEP** — decision-supporting charts only. |
+| `monaco-editor` | package-preference-registry | LIVE (logs viewer) | ~5MB → own lazy chunk | read-only viewer | dynamic import, stub worker | fine | **KEEP** — never in initial bundle. |
+| `@uppy/core` + `@uppy/xhr-upload` | package-preference-registry | LIVE (media section) | core-only (no dashboard) | own Spartan UI | XHRUpload + bearer | fine | **KEEP** — lean integration, no `@uppy/dashboard`. |
+| PrimeNG | (old default, reversed 2026-05-29) | **ABSENT** (0 deps, 0 imports) | — | — | — | — | **N/A — already removed.** No migration needed; the legacy-PrimeNG→Spartan framing is stale. |
+
+**P0 decision summary:** the ONLY substantive package migration left is **ag-grid → TanStack** on the 2 grids (`audit` + `ai-logs`) in **P3** — a dedicated supervised session (all-or-nothing budget + master/detail QA), never a blind cron fire. Everything else is KEEP/EXPAND on the already-correct stack (Spartan + TanStack + CDK + ECharts + Monaco + Uppy). PrimeNG is a no-op.
 
 ## Already-done foundations (don't redo — from the 2026-06 campaign, git log)
 - Dashboard already rebuilt: live search + pins + recents + 14 improvements (28fa5a35).
