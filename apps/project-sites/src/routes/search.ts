@@ -297,6 +297,98 @@ search.get('/api/sites/search', async (c) => {
   });
 });
 
+// ─── Command-palette search (⌘K smart results) ──────────────
+// Powers the full-screen ⌘K "Smart results" group: static admin-route catalog +
+// the caller's own sites (by name) + best-effort AutoRAG enrichment over indexed
+// content. Returns the palette's command shape. AutoRAG is optional — when the
+// instance isn't configured the handler still returns catalog + site matches.
+
+interface CommandResult {
+  id: string;
+  label: string;
+  icon: string;
+  route?: string;
+  url?: string;
+  detail?: string;
+}
+
+const ADMIN_COMMAND_CATALOG: ReadonlyArray<CommandResult> = [
+  { id: 'cs-dashboard', label: 'Dashboard', icon: 'dashboard', route: '/admin', detail: 'Admin' },
+  { id: 'cs-sites', label: 'Sites', icon: 'dashboard', route: '/admin/sites', detail: 'Admin' },
+  { id: 'cs-editor', label: 'Editor', icon: 'edit', route: '/admin/editor', detail: 'Admin' },
+  { id: 'cs-media', label: 'Media library', icon: 'document', route: '/admin/media', detail: 'Admin' },
+  { id: 'cs-analytics', label: 'Analytics', icon: 'status', route: '/admin/analytics', detail: 'Admin' },
+  { id: 'cs-forms', label: 'Forms', icon: 'document', route: '/admin/forms', detail: 'Admin' },
+  { id: 'cs-seo', label: 'SEO', icon: 'search', route: '/admin/seo', detail: 'Admin' },
+  { id: 'cs-social', label: 'Social', icon: 'changelog', route: '/admin/social', detail: 'Admin' },
+  { id: 'cs-apps', label: 'Apps', icon: 'plus', route: '/admin/apps', detail: 'Admin' },
+  { id: 'cs-domains', label: 'Domains', icon: 'lock', route: '/admin/domains', detail: 'Admin' },
+  { id: 'cs-billing', label: 'Billing', icon: 'billing', route: '/admin/billing', detail: 'Admin' },
+  { id: 'cs-feature-flags', label: 'Feature Flags', icon: 'settings', route: '/admin/feature-flags', detail: 'Admin' },
+  { id: 'cs-features', label: 'Features', icon: 'sparkle', route: '/admin/site-features', detail: 'Admin' },
+  { id: 'cs-settings', label: 'Settings', icon: 'settings', route: '/admin/settings', detail: 'Admin' },
+  { id: 'cs-docs', label: 'API Docs', icon: 'document', route: '/admin/docs', detail: 'Admin' },
+  { id: 'cs-status', label: 'System Status', icon: 'status', route: '/status', detail: 'Public' },
+];
+
+/** Pure catalog matcher — exported for unit tests. Case-insensitive substring on label or route. */
+export function matchCommandCatalog(q: string, limit = 6): CommandResult[] {
+  const term = q.trim().toLowerCase();
+  if (!term) return [];
+  return ADMIN_COMMAND_CATALOG
+    .filter((cmd) => cmd.label.toLowerCase().includes(term) || (cmd.route ?? '').toLowerCase().includes(term))
+    .slice(0, limit);
+}
+
+search.get('/api/search/command', async (c) => {
+  const q = (c.req.query('q') ?? '').trim();
+  if (q.length < 2) return c.json({ results: [] });
+  const bounded = q.slice(0, 100);
+  const results: CommandResult[] = [...matchCommandCatalog(bounded)];
+
+  // The caller's own sites by name → jump straight to that site in the admin.
+  const orgId = c.get('orgId');
+  if (orgId) {
+    try {
+      const { data } = await dbQuery<{ id: string; slug: string; business_name: string }>(
+        c.env.DB,
+        'SELECT id, slug, business_name FROM sites WHERE org_id = ? AND business_name LIKE ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 5',
+        [orgId, `%${bounded}%`],
+      );
+      for (const s of data) {
+        results.push({
+          id: `cs-site-${s.id}`,
+          label: s.business_name || s.slug,
+          icon: 'dashboard',
+          route: `/admin?site=${encodeURIComponent(s.id)}`,
+          detail: 'Your site',
+        });
+      }
+    } catch {
+      /* site search is best-effort */
+    }
+  }
+
+  // Best-effort AutoRAG enrichment over indexed content (skipped when unconfigured).
+  try {
+    const ai = c.env.AI as unknown as {
+      autorag?: (name: string) => { search: (opts: { query: string }) => Promise<{ data?: Array<{ filename?: string; attributes?: Record<string, unknown> }> }> };
+    };
+    if (ai?.autorag) {
+      const rag = await ai.autorag('projectsites-rag').search({ query: bounded });
+      for (const d of (rag?.data ?? []).slice(0, 4)) {
+        const title = String(d.attributes?.['title'] ?? d.filename ?? 'Result');
+        const url = d.attributes?.['url'] ? String(d.attributes['url']) : undefined;
+        results.push({ id: `cs-rag-${title}`, label: title, icon: 'sparkle', url, detail: 'AI · AutoRAG' });
+      }
+    }
+  } catch {
+    /* AutoRAG optional */
+  }
+
+  return c.json({ results: results.slice(0, 14) });
+});
+
 // ─── Site Lookup ────────────────────────────────────────────
 
 interface SiteRow {

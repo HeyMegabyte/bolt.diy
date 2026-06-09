@@ -42,7 +42,7 @@ import { type DisclosureMode } from './feature-flags/mode-switcher.component';
 import { FlagBadgeRowComponent, type FlagBadge } from './feature-flags/badge-row.component';
 import { FlagAuditTimelineComponent, type AuditEntry } from './feature-flags/audit-timeline.component';
 import { FeatureDossierComponent } from '../../../components/feature-dossier/feature-dossier.component';
-import { type DossierModel } from '../../../components/feature-dossier/dossier.model';
+import { type DossierModel, englishSmoke } from '../../../components/feature-dossier/dossier.model';
 import {
   bucketFor,
   classifyChange,
@@ -267,7 +267,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
                     <p class="ff-explanation">{{ docs.explanation }}</p>
                     <h3>Smoke test</h3>
                     <ol class="ff-smoke">
-                      @for (step of docs.smoke_test; track $index) { <li><code class="ff-step">{{ step }}</code></li> }
+                      @for (step of englishSmoke(docs.smoke_test, flag.key, 'Feature Flag'); track $index) { <li>{{ step }}</li> }
                     </ol>
                     @if (docs.e2e_tests && docs.e2e_tests.length) {
                       <h3>Automated coverage</h3>
@@ -639,6 +639,8 @@ export class AdminFeatureFlagsComponent implements OnInit {
   private static readonly MODE_KEY = 'ff.mode.system';
 
   readonly blockedFeature = signal<string | null>(null);
+  /** Exposed for the template — renders the smoke test as plain English (no curl/HTTP). */
+  protected readonly englishSmoke = englishSmoke;
   readonly stages: StageFilter[] = ['all', 'experimental', 'beta', 'stable', 'deprecated', 'killswitch'];
   readonly stage = signal<StageFilter>('all');
   readonly search = signal('');
