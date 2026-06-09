@@ -383,6 +383,11 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
     .sf-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 1rem; }
     .sf-card { background: color-mix(in oklch, var(--ps-bg, #060610) 55%, transparent); border: 1px solid color-mix(in oklch, currentColor 14%, transparent); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: .65rem; transition: border-color .15s ease; }
     .sf-card:hover { border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent); }
+    /* Calm, simply-styled Features cards: opt out of the global
+       [class*="-card"]:hover translateY lift (_polish.scss) so neither the card
+       nor its inner title bar/section raises on hover. .sf-page prefix wins the
+       specificity battle against the global rule. */
+    .sf-page .sf-card:hover, .sf-page .sf-card-head:hover, .sf-page .sf-card-title:hover { transform: none; }
     .sf-card-on { border-color: color-mix(in oklch, #4ade80 38%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklch, #4ade80 16%, transparent); }
     .sf-card[data-entitled="upgrade-required"], .sf-card[data-entitled="addon-required"] { opacity: .92; }
     .sf-card-head { display: flex; align-items: start; justify-content: space-between; gap: .75rem; }

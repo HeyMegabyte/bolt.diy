@@ -38,7 +38,10 @@ export interface FlagBadge {
     .br-chip[data-tone="stage"] { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 22%, transparent); color: var(--ps-accent, #00e5ff); }
     .br-chip[data-tone="risk"] { background: color-mix(in oklch, #f87171 28%, transparent); color: #fecaca; }
     .br-chip[data-tone="scope"] { background: color-mix(in oklch, #a78bfa 26%, transparent); color: #ede9fe; }
-    .br-chip[data-tone="warn"] { background: color-mix(in oklch, #fbbf24 30%, transparent); color: #1c1917; }
+    /* Solid bright amber + dark ink = dark-on-bright (was near-black on a
+       translucent-amber-over-dark = dark-on-dark, failing contrast). Mirrors
+       the 'on' tone's solid treatment so plan-lock badges (pro+, Add-on) read. */
+    .br-chip[data-tone="warn"] { background: #fbbf24; color: #1c1917; }
     .br-chip[data-tone="neutral"] { background: color-mix(in oklch, currentColor 12%, transparent); }
   `],
 })
