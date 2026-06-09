@@ -4,6 +4,7 @@ import { AdminContentFreshnessComponent } from './content-freshness.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
+import { provideRouter } from '@angular/router';
 
 /**
  * Convergence r14 — locks the cyan/black aggregate stat strip added to the
@@ -30,6 +31,7 @@ describe('AdminContentFreshnessComponent (aggregate stat strip + cohesion)', () 
         { provide: ApiService, useValue: { get: getSpy, post: jasmine.createSpy('post').and.returnValue(of({})) } },
         { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success'), info: jasmine.createSpy('info') } },
         { provide: AdminStateService, useValue: { selectedSite: () => ({ id: 's' }) } },
+        provideRouter([]),
       ],
     });
     fixture = TestBed.createComponent(AdminContentFreshnessComponent);
@@ -174,6 +176,7 @@ describe('AdminContentFreshnessComponent (mutations are {silent})', () => {
         { provide: ApiService, useValue: { get: () => of({ drafts: [], total: 0 }), post } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0 } },
         { provide: AdminStateService, useValue: { selectedSite: () => ({ id: 's' }) } },
+        provideRouter([]),
       ],
     });
     return TestBed.createComponent(AdminContentFreshnessComponent).componentInstance;
@@ -205,6 +208,7 @@ describe('AdminContentFreshnessComponent (mutations are {silent})', () => {
         { provide: ApiService, useValue: { get: () => throwError(() => ({ status: 500, error: { error: { request_id: 'req-cf-4' } } })), post: () => of({}) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0 } },
         { provide: AdminStateService, useValue: { selectedSite: () => ({ id: 's' }) } },
+        provideRouter([]),
       ],
     });
     const c = TestBed.createComponent(AdminContentFreshnessComponent).componentInstance;

@@ -515,8 +515,10 @@
             tables. New shared pure util `table-sort-url.ts` (`formatSort`/`parseSort` with
             column-id allow-list — a hand-edited `?sort=` can't set an unknown/non-sortable
             col) + 6 unit specs. Wired api-tokens (`?sort=<id>.<asc|desc>`, restore on init,
-            write on sort, replaceUrl+merge). 1424 Karma green. Deployed. (content-freshness
-            = next safe slice; same util.)
+            write on sort, replaceUrl+merge). Deployed. **content-freshness wired the same
+            way 2026-06-09** (`?sort=` over section_key/idle_days/dwell_seconds_avg/status/
+            created_at; provideRouter([]) → its 3 spec setups). BOTH existing TanStack tables
+            now URL-sort-synced. 1424 Karma green.
       - [ ] P3-MIGRATION (⚠️ SUPERVISED, ALL-OR-NOTHING — NOT a blind cron fire): ag-grid →
             TanStack on audit + ai-logs. Per docs/perf-wave-ag-grid-to-tanstack.md +
             frontend/CLAUDE.md the @defer / single-importer routes are DEAD ENDS; esbuild

@@ -33,6 +33,8 @@
  */
 
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { formatSort, parseSort } from '../table-sort-url';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../../services/api.service';
@@ -410,6 +412,10 @@ export class AdminContentFreshnessComponent implements OnInit {
   private api = inject(ApiService);
   private adminState = inject(AdminStateService);
   private toast = inject(ToastService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  /** Sortable column ids — allow-list guarding a hand-edited `?sort=`. */
+  private static readonly SORT_IDS = ['section_key', 'idle_days', 'dwell_seconds_avg', 'status', 'created_at'] as const;
 
   readonly statuses: StatusFilter[] = ['pending', 'approved', 'published', 'rejected'];
   /** Options for the toggle-group status filter (label/value pairs). */
@@ -440,7 +446,21 @@ export class AdminContentFreshnessComponent implements OnInit {
   };
   /** Right-aligned numeric columns (template adds .cf-num-col). */
   readonly numCol: Record<string, boolean> = { idle_days: true, dwell_seconds_avg: true };
-  private readonly sorting = signal<SortingState>([]);
+  // Initial sort restored from ?sort= (bookmarkable / refresh-safe — P3).
+  private readonly sorting = signal<SortingState>(
+    parseSort(this.route.snapshot.queryParamMap.get('sort'), AdminContentFreshnessComponent.SORT_IDS),
+  );
+
+  /** Apply a TanStack sorting update + reflect it in `?sort=` (SPA nav, merge). */
+  private applySorting(next: SortingState): void {
+    this.sorting.set(next);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { sort: formatSort(next) },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
   private readonly columns: ColumnDef<FreshnessDraft>[] = [
     { id: 'section_key', accessorKey: 'section_key' },
     { id: 'idle_days', accessorKey: 'idle_days' },
@@ -454,7 +474,7 @@ export class AdminContentFreshnessComponent implements OnInit {
     columns: this.columns,
     state: { sorting: this.sorting() },
     onSortingChange: (updater) =>
-      this.sorting.update((prev) => (typeof updater === 'function' ? updater(prev) : updater)),
+      this.applySorting(typeof updater === 'function' ? updater(this.sorting()) : updater),
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
   }));
