@@ -31,7 +31,7 @@ import { AdminStateService } from '../admin-state.service';
 import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
-import { FlagModeSwitcherComponent, type DisclosureMode } from './feature-flags/mode-switcher.component';
+import { type DisclosureMode } from './feature-flags/mode-switcher.component';
 import { FlagBadgeRowComponent, type FlagBadge } from './feature-flags/badge-row.component';
 import { type EntitlementState, type PlanTier } from './feature-flags/flag-logic';
 import { FeatureDossierComponent } from '../../../components/feature-dossier/feature-dossier.component';
@@ -181,7 +181,7 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
   imports: [
     CommonModule, FormsModule, RouterLink, RevealDirective, HlmInputDirective,
     SkeletonComponent, EmptyStateComponent, ErrorCardComponent, RollingCounterComponent,
-    FlagModeSwitcherComponent, FlagBadgeRowComponent, FeatureDossierComponent,
+    FlagBadgeRowComponent, FeatureDossierComponent,
   ],
   template: `
     <section class="sf-page" appReveal>
@@ -196,10 +196,6 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
             Platform operators manage system flags under
             <a routerLink="/admin/feature-flags" data-testid="sf-nav-system" class="sf-cross-link">Feature Flags →</a>.
           </p>
-        </div>
-        <div class="sf-head-right">
-          <app-flag-mode-switcher [mode]="mode()" (modeChange)="setMode($event)" label="Disclosure mode (Features)" />
-          <button class="sf-refresh" (click)="reload()" [disabled]="loading()" [attr.aria-busy]="loading()" aria-label="Refresh features">↻ {{ loading() ? 'Refreshing…' : 'Refresh' }}</button>
         </div>
       </header>
 

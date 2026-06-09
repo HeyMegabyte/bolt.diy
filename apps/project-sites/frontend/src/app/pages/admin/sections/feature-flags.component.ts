@@ -38,7 +38,7 @@ import { FeatureFlagService } from '../../../services/feature-flag.service';
 import { SkeletonComponent, EmptyStateComponent, ErrorCardComponent } from '../../../components/states';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
-import { FlagModeSwitcherComponent, type DisclosureMode } from './feature-flags/mode-switcher.component';
+import { type DisclosureMode } from './feature-flags/mode-switcher.component';
 import { FlagBadgeRowComponent, type FlagBadge } from './feature-flags/badge-row.component';
 import { FlagAuditTimelineComponent, type AuditEntry } from './feature-flags/audit-timeline.component';
 import { FeatureDossierComponent } from '../../../components/feature-dossier/feature-dossier.component';
@@ -109,7 +109,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
     CommonModule, FormsModule, RouterLink, RevealDirective, A11yModule,
     HlmInputDirective, HlmTablistDirective,
     SkeletonComponent, EmptyStateComponent, ErrorCardComponent, RollingCounterComponent,
-    FlagModeSwitcherComponent, FlagBadgeRowComponent, FlagAuditTimelineComponent,
+    FlagBadgeRowComponent, FlagAuditTimelineComponent,
     FeatureDossierComponent,
   ],
   template: `
