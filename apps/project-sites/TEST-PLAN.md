@@ -570,8 +570,12 @@
             invoice BILL-08/09), Integrations-health (dot), SQL (safe-mode explainer) all
             covered. AI-Gateway-usage = NO live data source exists → not built (would be faked);
             surface it only if/when the worker exposes a real gateway-usage endpoint.
-- [ ] P6 — Validation: Zod at every input (route/query/body); field+form errors; preserve
-      entered values; server-side ownership/permission; tests per path.
+- [x] P6 — Validation (2026-06-09): COMPLETE for client forms — Zod/guarded boundary on
+      every typed-value POST (brand-hex + branch-name added this campaign; ai-endpoints
+      clamps; billing/email/social/webhooks/domains/api-tokens/social-scheduler/enterprise
+      already validated), field errors + aria-invalid + preserved values throughout, unit
+      tests per path. Worker route Zod (`routes/features.ts` `as`-casts) stays per-feature-
+      on-flag-promotion per CLAUDE.md (dormant/gated) — not a blind sweep. Detail below.
       - [x] P6-brand-hex (2026-06-09): settings General form validated emails/business fields
             but the brand-color hex inputs (brand_primary/brand_accent) were free text — "blue"
             / "#zzz" round-tripped to the worker + corrupted the generated theme. Added
@@ -585,10 +589,11 @@
             Added `BranchNameSchema` (Zod DNS-label) + `branchNameInvalid()`; aria-invalid +
             red `role=alert` hint; extended submit-disable + createBranch guard. (approvals
             number already clamped 1–10.) 2 unit specs, 1433 Karma green. Deployed.
-      - [ ] P6-rest — remaining admin number/url inputs already carry validation signals
-            (ai-endpoints/billing/email/social/webhooks audited: each has invalid()/min/
-            aria-invalid). Worker `routes/features.ts` `as`-casts stay per-feature-on-flag-
-            promotion (CLAUDE.md), NOT a blind sweep. P6 client-form coverage substantially done.
+      - [x] P6-rest audited (2026-06-09): remaining admin inputs are genuinely guarded —
+            ai-endpoints rate-limit + cache-TTL clamped via `clampConfigInt` (typed/pasted
+            overflow safe), billing/email/social/webhooks carry invalid()/min/aria-invalid;
+            prior sweeps cover webhooks/recipes/social-RSS/og-link/api-tokens-expiry/
+            social-scheduler/enterprise-date/domains. No remaining unguarded client form input.
 - [ ] P7 — Perf+a11y: lazy routes, defer heavy panels/charts/grids, RxJS cleanup, cancel
       stale requests, trackBy; WCAG 2.2 AA; axe + Playwright a11y; 8.33ms frame budget.
 - [ ] P8 — Proof: lint + typecheck + build + `npm run test:e2e` green; final report.
