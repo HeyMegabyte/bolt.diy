@@ -41,6 +41,8 @@ import { RollingCounterComponent } from '../../../components/rolling-counter/rol
 import { FlagModeSwitcherComponent, type DisclosureMode } from './feature-flags/mode-switcher.component';
 import { FlagBadgeRowComponent, type FlagBadge } from './feature-flags/badge-row.component';
 import { FlagAuditTimelineComponent, type AuditEntry } from './feature-flags/audit-timeline.component';
+import { FeatureDossierComponent } from '../../../components/feature-dossier/feature-dossier.component';
+import { type DossierModel } from '../../../components/feature-dossier/dossier.model';
 import {
   bucketFor,
   classifyChange,
@@ -108,6 +110,7 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
     HlmInputDirective, HlmTablistDirective,
     SkeletonComponent, EmptyStateComponent, ErrorCardComponent, RollingCounterComponent,
     FlagModeSwitcherComponent, FlagBadgeRowComponent, FlagAuditTimelineComponent,
+    FeatureDossierComponent,
   ],
   template: `
     <section class="ff-page" appReveal>
@@ -228,6 +231,9 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
                 </button>
                 <button class="ff-btn" (click)="openDetail(flag)"
                         [attr.aria-expanded]="detailKey() === flag.key" [attr.aria-label]="'Inspect ' + flag.key">Inspect</button>
+                <button class="ff-btn" (click)="openDossier(flag)" data-testid="ff-spec"
+                        [disabled]="dossierBusy()[flag.key]"
+                        [attr.aria-label]="'Open the full spec sheet for ' + flag.key" title="Full-screen spec sheet — docs, metrics, integration guide">Spec ↗</button>
                 @if (flag.kill_switch || flag.stage === 'killswitch') {
                   <button class="ff-btn ff-btn-restore" (click)="restore(flag)" [disabled]="busy()[flag.key]"
                           [attr.aria-label]="'Restore ' + flag.key + ' from killswitch'"
@@ -436,6 +442,9 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
           </div>
         </div>
       }
+
+      <!-- Full-screen spec sheet (docs + metrics + integration guide) -->
+      <app-feature-dossier [model]="dossier()" [open]="dossierOpen()" (closed)="dossierOpen.set(false)" />
     </section>
   `,
   styles: [`
@@ -644,6 +653,12 @@ export class AdminFeatureFlagsComponent implements OnInit {
   readonly auditDetail = signal<AuditEntry[]>([]);
   readonly rolloutDraft = signal<{ key: string; pct: number } | null>(null);
   readonly busy = signal<Record<string, boolean>>({});
+
+  /** Full-screen spec-sheet (feature-dossier) state. */
+  readonly dossier = signal<DossierModel | null>(null);
+  readonly dossierOpen = signal(false);
+  /** Per-flag "loading the spec docs" guard so the Spec button can't double-fire. */
+  readonly dossierBusy = signal<Record<string, boolean>>({});
 
   readonly mode = signal<DisclosureMode>(this.readMode());
   readonly expiryDraft = signal<Record<string, string>>({});
@@ -959,6 +974,46 @@ export class AdminFeatureFlagsComponent implements OnInit {
     } catch {
       this.auditDetail.set([]);
     }
+  }
+
+  /**
+   * Open the full-screen spec sheet for a flag — fetches its docs (checklist /
+   * explanation / smoke_test / e2e_tests) so the dossier is complete, then
+   * builds the normalized model and opens the takeover. Falls back to the
+   * registry-only summary if the docs fetch fails.
+   */
+  async openDossier(flag: FlagDefinition): Promise<void> {
+    if (this.dossierBusy()[flag.key]) return;
+    this.dossierBusy.update((b) => ({ ...b, [flag.key]: true }));
+    let docs: FlagDocs | null = null;
+    let resolved: ResolvedFlag | null = null;
+    try {
+      const res = await firstValueFrom(
+        this.http.get<{ definition: FlagDefinition; resolved: ResolvedFlag; docs: FlagDocs | null }>(`/api/feature-flags/${flag.key}`),
+      );
+      docs = res.docs;
+      resolved = res.resolved;
+    } catch {
+      /* registry-only fallback */
+    } finally {
+      this.dossierBusy.update((b) => ({ ...b, [flag.key]: false }));
+    }
+    this.dossier.set({
+      kind: 'Feature Flag',
+      key: flag.key,
+      name: flag.key,
+      summary: flag.description,
+      explanation: docs?.explanation,
+      checklist: docs?.checklist,
+      smokeTest: docs?.smoke_test,
+      e2eTests: docs?.e2e_tests,
+      references: docs?.references,
+      stage: resolved?.stage ?? flag.stage,
+      rolloutPercent: resolved?.rollout_percent ?? flag.default_rollout_percent,
+      owner: flag.owner_email,
+      enabled: this.resolvedOn(flag),
+    });
+    this.dossierOpen.set(true);
   }
 
   /**

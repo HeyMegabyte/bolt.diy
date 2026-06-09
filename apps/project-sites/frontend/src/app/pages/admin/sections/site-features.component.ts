@@ -34,6 +34,8 @@ import { RollingCounterComponent } from '../../../components/rolling-counter/rol
 import { FlagModeSwitcherComponent, type DisclosureMode } from './feature-flags/mode-switcher.component';
 import { FlagBadgeRowComponent, type FlagBadge } from './feature-flags/badge-row.component';
 import { type EntitlementState, type PlanTier } from './feature-flags/flag-logic';
+import { FeatureDossierComponent } from '../../../components/feature-dossier/feature-dossier.component';
+import { type DossierModel } from '../../../components/feature-dossier/dossier.model';
 import { firstValueFrom } from 'rxjs';
 
 interface SiteFeature {
@@ -179,7 +181,7 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
   imports: [
     CommonModule, FormsModule, RouterLink, RevealDirective, HlmInputDirective,
     SkeletonComponent, EmptyStateComponent, ErrorCardComponent, RollingCounterComponent,
-    FlagModeSwitcherComponent, FlagBadgeRowComponent,
+    FlagModeSwitcherComponent, FlagBadgeRowComponent, FeatureDossierComponent,
   ],
   template: `
     <section class="sf-page" appReveal>
@@ -272,6 +274,12 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
               }
               <p class="sf-why" data-testid="sf-why">{{ whyFor(f) }}</p>
 
+              <div class="sf-spec-row">
+                <button type="button" class="sf-btn" data-testid="sf-spec" (click)="openDossier(f)"
+                        [attr.aria-label]="'Open the full spec sheet for ' + f.name"
+                        title="Full-screen spec sheet — docs, metrics, integration guide">Spec ↗</button>
+              </div>
+
               @if (f.entitled === 'available') {
                 <div class="sf-actions">
                   <button type="button" class="sf-btn" data-testid="sf-preview" (click)="togglePreview(f)"
@@ -337,6 +345,9 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
           <button type="button" class="sf-undo-btn" (click)="undo()" [disabled]="busy()[lc.key]">Undo</button>
         </div>
       }
+
+      <!-- Full-screen spec sheet (docs + metrics + integration guide) -->
+      <app-feature-dossier [model]="dossier()" [open]="dossierOpen()" (closed)="dossierOpen.set(false)" />
     </section>
   `,
   styles: [`
@@ -392,6 +403,7 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
     .sf-check { display: flex; align-items: flex-start; gap: .45rem; font-size: .82rem; line-height: 1.35; color: color-mix(in oklch, currentColor 80%, transparent); }
     .sf-check-ic { flex: none; margin-top: .12rem; color: var(--ps-accent, #00e5ff); }
     .sf-why { color: color-mix(in oklch, currentColor 56%, transparent); margin: 0; font-size: .8rem; font-style: italic; }
+    .sf-spec-row { display: flex; }
     .sf-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: auto; }
     .sf-btn { background: transparent; color: inherit; border: 1px solid color-mix(in oklch, currentColor 22%, transparent); padding: .35rem .75rem; border-radius: 8px; cursor: pointer; font: inherit; font-size: .82rem; min-height: 24px; }
     .sf-btn:hover { border-color: var(--ps-accent, #00e5ff); color: var(--ps-accent, #00e5ff); }
@@ -448,6 +460,10 @@ export class AdminSiteFeaturesComponent implements OnInit {
   readonly busy = signal<Record<string, boolean>>({});
   readonly previewKey = signal<string | null>(null);
   readonly mode = signal<DisclosureMode>(this.readMode());
+
+  /** Full-screen spec-sheet (feature-dossier) state. */
+  readonly dossier = signal<DossierModel | null>(null);
+  readonly dossierOpen = signal(false);
   /** Last toggle, for the undo bar. */
   readonly lastChange = signal<{ key: string; name: string; enabled: boolean } | null>(null);
   /**
@@ -604,6 +620,25 @@ export class AdminSiteFeaturesComponent implements OnInit {
 
   togglePreview(f: SiteFeature): void {
     this.previewKey.set(this.previewKey() === f.key ? null : f.key);
+  }
+
+  /**
+   * Open the full-screen spec sheet for an owner feature. All data is local
+   * (catalog + capability checklist + entitlement), so no fetch is needed —
+   * the dossier renders the integration guide + coverage signal client-side.
+   */
+  openDossier(f: SiteFeature): void {
+    this.dossier.set({
+      kind: 'Feature',
+      key: f.key,
+      name: f.name,
+      summary: f.description,
+      checklist: this.capabilitiesFor(f),
+      requiredPlan: f.requiredPlan,
+      category: f.category,
+      enabled: f.enabled,
+    });
+    this.dossierOpen.set(true);
   }
 
   async toggle(f: SiteFeature): Promise<void> {
