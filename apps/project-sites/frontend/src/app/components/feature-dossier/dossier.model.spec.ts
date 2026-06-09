@@ -1,6 +1,7 @@
 import {
   buildDossierMarkdown,
   coverageSignal,
+  englishSmoke,
   readMinutes,
   tableOfContents,
   wordCount,
@@ -69,6 +70,30 @@ describe('dossier.model', () => {
     it('notes the missing-E2E gate when no specs are linked', () => {
       expect(buildDossierMarkdown(featureModel)).toContain('No E2E specs linked yet');
     });
+  });
+
+  describe('englishSmoke', () => {
+    it('drops HTTP/curl request lines, keeps human steps', () => {
+      const out = englishSmoke(
+        ['GET /api/x → 200', 'POST /api/y', 'UI: open the editor and click Save', 'Confirm the chip appears'],
+        'Token Meter', 'Feature Flag',
+      );
+      expect(out).toEqual(['open the editor and click Save', 'Confirm the chip appears']);
+      expect(out.join(' ')).not.toMatch(/\b(GET|POST)\b|curl|\/api\//);
+    });
+
+    it('falls back to a generic English recipe when every step is a request line', () => {
+      const out = englishSmoke(['GET /api/x', 'POST /api/y'], 'Online Store', 'Feature');
+      expect(out.length).toBeGreaterThanOrEqual(3);
+      expect(out.join(' ')).toContain('Online Store');
+      expect(out.join(' ')).not.toMatch(/\b(GET|POST)\b|curl|\/api\//);
+    });
+  });
+
+  it('the assembled smoke-test section never contains GET/POST/curl', () => {
+    const md = buildDossierMarkdown(flagModel); // flagModel.smokeTest is all request lines
+    const smoke = md.slice(md.indexOf('## Smoke test'), md.indexOf('## Automated coverage'));
+    expect(smoke).not.toMatch(/\b(GET|POST|PUT|DELETE|PATCH)\b|curl|\/api\//);
   });
 
   describe('coverageSignal', () => {

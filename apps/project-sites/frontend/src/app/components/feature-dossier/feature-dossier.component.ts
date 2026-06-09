@@ -22,19 +22,23 @@ import {
   Component,
   ElementRef,
   HostListener,
+  type OnDestroy,
   computed,
   inject,
   input,
   output,
+  signal,
   viewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { A11yModule } from '@angular/cdk/a11y';
 import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
+import { firstValueFrom } from 'rxjs';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { hardenExternalLinks } from '../agent-message/harden-links';
 import { ToastService } from '../../services/toast.service';
+import { ApiService } from '../../services/api.service';
 import {
   buildDossierMarkdown,
   coverageSignal,
@@ -44,6 +48,12 @@ import {
   STAGES,
   type DossierModel,
 } from './dossier.model';
+
+interface E2eSpec {
+  path: string;
+  status: 'idle' | 'queued' | 'running' | 'passed' | 'failed';
+  durationMs?: number;
+}
 
 @Component({
   selector: 'app-feature-dossier',
@@ -144,7 +154,41 @@ import {
             </nav>
           </aside>
 
-          <article #body class="fd-paper" data-testid="fd-body" [innerHTML]="html()"></article>
+          <div class="fd-main">
+            <!-- E2E coverage table + parallel runner (Cloudflare-backed) -->
+            <section class="fd-e2e" data-testid="fd-e2e" aria-label="End-to-end test coverage">
+              <header class="fd-e2e-head">
+                <h2>E2E coverage</h2>
+                <button type="button" class="fd-run-btn" data-testid="fd-run-e2e"
+                        (click)="runE2e()" [disabled]="e2eSpecs().length === 0 || e2eRunning()"
+                        [attr.aria-label]="'Run all ' + e2eSpecs().length + ' E2E tests for ' + m.name + ' in parallel'">
+                  {{ e2eRunning() ? 'Running…' : 'Run all in parallel ▶' }}
+                </button>
+              </header>
+              @if (e2eError(); as err) {
+                <p class="fd-e2e-note" role="status">{{ err }}</p>
+              }
+              @if (e2eSpecs().length === 0) {
+                <p class="fd-e2e-empty">No E2E specs linked yet. A flag must carry at least one before it reaches <code>beta</code>.</p>
+              } @else {
+                <p class="fd-e2e-sub">{{ e2eSpecs().length }} spec{{ e2eSpecs().length === 1 ? '' : 's' }} cover this {{ m.kind === 'Feature Flag' ? 'flag' : 'feature' }}. They run concurrently on Cloudflare — status updates live.</p>
+                <table class="fd-e2e-table">
+                  <thead><tr><th>Spec</th><th>Status</th><th class="fd-e2e-dur">Time</th></tr></thead>
+                  <tbody>
+                    @for (s of e2eSpecs(); track s.path) {
+                      <tr>
+                        <td><code [attr.title]="s.path">{{ s.path }}</code></td>
+                        <td><span class="fd-e2e-status" [attr.data-st]="s.status">{{ s.status }}</span></td>
+                        <td class="fd-e2e-dur">{{ s.durationMs ? (s.durationMs + 'ms') : '—' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            </section>
+
+            <article #body class="fd-paper" data-testid="fd-body" [innerHTML]="html()"></article>
+          </div>
         </div>
       </div>
     }
@@ -219,9 +263,30 @@ import {
     .fd-paper th { color: var(--ps-accent, #00e5ff); font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
     .fd-paper a { color: var(--ps-accent, #00e5ff); text-decoration: underline; text-underline-offset: 2px; word-break: break-word; }
     .fd-paper a:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+    .fd-main { min-width: 0; display: flex; flex-direction: column; gap: 1.5rem; }
+    /* E2E coverage panel + parallel runner. */
+    .fd-e2e { background: color-mix(in oklch, var(--ps-bg, #060610) 55%, transparent); border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 18%, transparent); border-radius: 16px; padding: 1.1rem 1.25rem; }
+    .fd-e2e-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .fd-e2e-head h2 { margin: 0; font-size: 1.05rem; }
+    .fd-run-btn { background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); border: 0; border-radius: 8px; padding: .5rem .9rem; font: inherit; font-weight: 700; font-size: .82rem; cursor: pointer; transition: filter .333s ease; }
+    .fd-run-btn:hover:not(:disabled) { filter: brightness(1.08); }
+    .fd-run-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .fd-run-btn:focus-visible { outline: 2px solid var(--ps-ink, #f4f4ff); outline-offset: 2px; }
+    .fd-e2e-sub, .fd-e2e-note, .fd-e2e-empty { font-size: .82rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 65%, transparent); margin: .6rem 0 .4rem; }
+    .fd-e2e-note { color: color-mix(in oklch, #fbbf24 85%, var(--ps-ink, #f4f4ff)); }
+    .fd-e2e-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    .fd-e2e-table th { text-align: left; padding: .4rem .5rem; font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; color: var(--ps-accent, #00e5ff); border-bottom: 1px solid color-mix(in oklch, currentColor 14%, transparent); }
+    .fd-e2e-table td { padding: .45rem .5rem; border-bottom: 1px solid color-mix(in oklch, currentColor 8%, transparent); }
+    .fd-e2e-table code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: .76rem; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 88%, transparent); word-break: break-all; }
+    .fd-e2e-dur { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 55%, transparent); }
+    .fd-e2e-status { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; padding: .12rem .5rem; border-radius: 999px; white-space: nowrap;
+      background: color-mix(in oklch, currentColor 14%, transparent); color: color-mix(in oklch, currentColor 70%, transparent); }
+    .fd-e2e-status[data-st="running"], .fd-e2e-status[data-st="queued"] { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 20%, transparent); color: var(--ps-accent, #00e5ff); }
+    .fd-e2e-status[data-st="passed"] { background: #4ade80; color: #052e16; }
+    .fd-e2e-status[data-st="failed"] { background: #f87171; color: #190606; }
     /* Print / Save-as-PDF — drop chrome, white paper, black ink. */
     @media print {
-      .fd-bar, .fd-rail { display: none !important; }
+      .fd-bar, .fd-rail, .fd-e2e { display: none !important; }
       .fd-root { position: static; background: #fff; color: #111; }
       .fd-scroll { display: block; padding: 0; }
       .fd-paper { box-shadow: none; border: 0; background: #fff; color: #111; max-width: none; }
@@ -233,9 +298,10 @@ import {
     }
   `],
 })
-export class FeatureDossierComponent {
+export class FeatureDossierComponent implements OnDestroy {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly toast = inject(ToastService);
+  private readonly api = inject(ApiService);
 
   readonly model = input<DossierModel | null>(null);
   readonly open = input(false);
@@ -260,6 +326,85 @@ export class FeatureDossierComponent {
   readonly toc = computed(() => tableOfContents(this.markdown()));
   readonly readTime = computed(() => readMinutes(wordCount(this.markdown())));
   readonly dashOffset = computed(() => this.circumference * (1 - this.cov().score / 100));
+
+  // ── E2E coverage table + Cloudflare-backed parallel runner ──
+  /** Live per-spec status keyed by spec path (merged into e2eSpecs()). */
+  private readonly e2eStatus = signal<Record<string, { status: E2eSpec['status']; durationMs?: number }>>({});
+  readonly e2eRunning = signal(false);
+  readonly e2eError = signal<string | null>(null);
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+
+  readonly e2eSpecs = computed<E2eSpec[]>(() => {
+    const paths = this.model()?.e2eTests ?? [];
+    const st = this.e2eStatus();
+    return paths.map((p) => ({ path: p, status: st[p]?.status ?? 'idle', durationMs: st[p]?.durationMs }));
+  });
+
+  /**
+   * Kick off all of this feature's E2E specs in parallel on Cloudflare. The
+   * worker dispatches them concurrently (Browser Rendering / Containers) and we
+   * poll the run for live per-spec status (same effect as streaming). Degrades
+   * gracefully when the runner endpoint isn't deployed yet.
+   */
+  async runE2e(): Promise<void> {
+    const m = this.model();
+    if (!m || this.e2eRunning()) return;
+    const specs = m.e2eTests ?? [];
+    if (specs.length === 0) return;
+    this.e2eError.set(null);
+    this.e2eRunning.set(true);
+    this.e2eStatus.set(Object.fromEntries(specs.map((p) => [p, { status: 'queued' as const }])));
+    try {
+      const res = await firstValueFrom(
+        this.api.post<{ runId?: string }>(`/feature-e2e/${encodeURIComponent(m.key)}/run`, { specs }),
+      );
+      if (!res?.runId) throw new Error('no runId');
+      this.startPolling(res.runId);
+    } catch (e) {
+      this.stopPolling();
+      this.e2eRunning.set(false);
+      this.e2eStatus.set({});
+      const status = (e as { status?: number })?.status;
+      this.e2eError.set(
+        status === 404 || status === 501
+          ? 'Live E2E runner is provisioning — the specs are listed below and run once it’s deployed.'
+          : 'Couldn’t start the E2E run. Try again in a moment.',
+      );
+    }
+  }
+
+  private startPolling(runId: string): void {
+    this.stopPolling();
+    this.pollTimer = setInterval(() => void this.poll(runId), 1200);
+    void this.poll(runId);
+  }
+
+  private async poll(runId: string): Promise<void> {
+    try {
+      const res = await firstValueFrom(
+        this.api.get<{ status?: string; specs?: Array<{ path: string; status: E2eSpec['status']; durationMs?: number }> }>(
+          `/feature-e2e/runs/${encodeURIComponent(runId)}`,
+        ),
+      );
+      const map: Record<string, { status: E2eSpec['status']; durationMs?: number }> = {};
+      for (const s of res?.specs ?? []) map[s.path] = { status: s.status, durationMs: s.durationMs };
+      this.e2eStatus.set(map);
+      const done = res?.status && res.status !== 'running' && res.status !== 'queued';
+      if (done) { this.stopPolling(); this.e2eRunning.set(false); }
+    } catch {
+      this.stopPolling();
+      this.e2eRunning.set(false);
+      this.e2eError.set('Lost contact with the E2E runner. Partial results shown.');
+    }
+  }
+
+  private stopPolling(): void {
+    if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
+  }
+
+  ngOnDestroy(): void {
+    this.stopPolling();
+  }
 
   /** Safe rendered HTML — same pipeline as agent-message, plus heading anchors. */
   readonly html = computed<SafeHtml>(() => {

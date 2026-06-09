@@ -72,6 +72,33 @@ function bullet(items: readonly string[] | undefined, prefix = '- '): string {
 }
 
 /**
+ * Plain-English smoke-test steps — NO HTTP verbs, no curl, no /api paths. The
+ * spec sheet is read by non-engineers, so testing directions must be in English.
+ * Drops any step that's a raw request line; if nothing human remains, returns a
+ * generic English recipe keyed to the feature name + kind.
+ */
+export function englishSmoke(steps: readonly string[] | undefined, name: string, kind: DossierModel['kind']): string[] {
+  const isReqLine = (s: string) => /\b(GET|POST|PUT|DELETE|PATCH)\b/.test(s) || /\bcurl\b/i.test(s) || /\/api\//.test(s);
+  // Keep human steps; for kept "UI: …" style steps, strip a leading "UI:" label.
+  const human = (steps ?? [])
+    .filter((s) => !isReqLine(s))
+    .map((s) => s.replace(/^\s*UI:\s*/i, '').trim())
+    .filter(Boolean);
+  if (human.length) return human;
+  return kind === 'Feature Flag'
+    ? [
+        `Open the admin and enable ${name}.`,
+        `Visit a page where ${name} appears and confirm each capability in the checklist above works.`,
+        `Disable ${name} again and confirm the surface is gone (no errors).`,
+      ]
+    : [
+        `Open this site's Features and turn ${name} on.`,
+        `Open the published site and confirm each capability in the checklist above is live.`,
+        `Turn ${name} off and confirm it's removed from the live site.`,
+      ];
+}
+
+/**
  * Assemble the full GFM dossier. Pure + deterministic so a snapshot test can
  * assert section presence. The output is intentionally integration-complete:
  * the "Integration guide" section carries the exact server + UI guard snippets,
@@ -119,11 +146,11 @@ export function buildDossierMarkdown(m: DossierModel): string {
       : `Owner-facing capability${m.requiredPlan ? ` included on the **${m.requiredPlan}** plan and above` : ''}. Toggling is entitlement-checked server-side and tenant-isolated; the live site updates instantly and the change is undoable.`,
   );
 
-  if (m.smokeTest?.length) {
-    out.push('');
-    out.push('## Smoke test (2-minute verification)');
-    out.push(m.smokeTest.map((s, i) => `${i + 1}. \`${s}\``).join('\n'));
-  }
+  out.push('');
+  out.push('## Smoke test (2-minute verification)');
+  out.push('Plain-English steps anyone can follow — no commands needed:');
+  out.push('');
+  out.push(englishSmoke(m.smokeTest, m.name, m.kind).map((s, i) => `${i + 1}. ${s}`).join('\n'));
 
   out.push('');
   out.push('## Automated coverage');

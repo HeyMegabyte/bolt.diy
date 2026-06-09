@@ -302,7 +302,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
     .search-wrap {
       position: relative;
       display: flex; align-items: center; gap: 8px;
-      padding: 0 0.85rem;
+      padding: 0.6rem 0.85rem;
       background: rgba(0, 0, 0, 0.32);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: var(--ps-radius-lg, 14px);
@@ -312,6 +312,15 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 45%, transparent);
       background: color-mix(in oklch, var(--ps-accent, #00E5FF) 4%, rgba(0, 0, 0, 0.32));
     }
+    /* Focus affordance surrounds the WHOLE control (icon + input + kbd), not just
+       the inner <input>: ring lives on the wrapper via :focus-within, and the
+       inner control's own ring is suppressed so it isn't doubled / clipped. */
+    .search-wrap:focus-within {
+      outline: var(--ps-ring-focus, 2px solid #00E5FF);
+      outline-offset: 2px;
+      border-color: color-mix(in oklch, var(--ps-accent, #00E5FF) 45%, transparent);
+    }
+    .search-input:focus, .search-input:focus-visible { outline: none; box-shadow: none; }
     .search-glyph { color: var(--text-secondary, rgba(255,255,255,0.55)); flex-shrink: 0; }
     /* .search-input base/placeholder now Spartan hlmInput [seamless]; keep only the native search-cancel reset. */
     .search-input::-webkit-search-cancel-button { -webkit-appearance: none; }
@@ -424,10 +433,11 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       .app-card { transition: none; }
       .app-card:hover { transform: none; }
     }
-
-    .app-card-head {
-      display: flex; align-items: flex-start; gap: 0.7rem;
-    }
+    /* The inner title section (.app-card-head) + RAM/cost footer (.app-card-foot)
+       both match the global [class*="-card"]:hover translateY lift (_polish.scss),
+       so they raised independently on top of the card. Opt them out — only the
+       card raises, as one unit. .app-card prefix wins the specificity battle. */
+    .app-card .app-card-head:hover, .app-card .app-card-foot:hover { transform: none; }
     .app-glyph {
       flex-shrink: 0;
       width: 44px; height: 44px;
