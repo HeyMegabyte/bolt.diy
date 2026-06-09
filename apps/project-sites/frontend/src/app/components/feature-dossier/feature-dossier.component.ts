@@ -42,6 +42,7 @@ import { ToastService } from '../../services/toast.service';
 import { ApiService } from '../../services/api.service';
 import { VisionQaComponent } from '../vision-qa/vision-qa.component';
 import { SiteConciergeComponent } from '../site-concierge/site-concierge.component';
+import { StorefrontManagerComponent } from '../storefront-manager/storefront-manager.component';
 import {
   buildDossierMarkdown,
   coverageSignal,
@@ -61,7 +62,7 @@ interface E2eSpec {
 @Component({
   selector: 'app-feature-dossier',
   standalone: true,
-  imports: [CommonModule, A11yModule, VisionQaComponent, SiteConciergeComponent],
+  imports: [CommonModule, A11yModule, VisionQaComponent, SiteConciergeComponent, StorefrontManagerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (open() && model(); as m) {
@@ -196,6 +197,9 @@ interface E2eSpec {
             @if (m.key === 'ai_concierge_widget' && m.siteId) {
               <app-site-concierge [siteId]="m.siteId" />
             }
+            @if (m.key === 'storefront_ecommerce' && m.siteId) {
+              <app-storefront-manager [siteId]="m.siteId" />
+            }
 
             <article #body class="fd-paper" data-testid="fd-body" [innerHTML]="html()"></article>
           </div>
@@ -298,7 +302,7 @@ interface E2eSpec {
     .fd-e2e-status[data-st="failed"] { background: #f87171; color: #190606; }
     /* Print / Save-as-PDF — drop chrome, white paper, black ink. */
     @media print {
-      .fd-bar, .fd-rail, .fd-e2e, app-vision-qa, app-site-concierge { display: none !important; }
+      .fd-bar, .fd-rail, .fd-e2e, app-vision-qa, app-site-concierge, app-storefront-manager { display: none !important; }
       .fd-root { position: static; background: #fff; color: #111; }
       .fd-scroll { display: block; padding: 0; }
       .fd-paper { box-shadow: none; border: 0; background: #fff; color: #111; max-width: none; }
