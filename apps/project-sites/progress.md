@@ -71,7 +71,31 @@ Auth seed for admin agents: `localStorage.ps_session = {token: E2E_API_KEY, iden
 
 ## QUEUED (2026-06-08, from a saturated session — fresh-session work)
 
-### Q1 — Dashboard redesign (`pages/admin/sections/dashboard.component.ts`)
+### ✅ DONE 2026-06-09 (deployed)
+- **Q1 dashboard redesign** — SHIPPED (28fa5a35): hero+banner removed, live search
+  (filter/highlight/match-count/no-match/`/`-focus/Esc), pinned + recently-opened
+  rows, keyword pills, operator FF card, gorgeous 0.333s treatment. 1396 Karma + AOT.
+- **Q2 batch A** — SHIPPED (4d0d4952, worker `8df0d0cc` live): removed
+  **trust_center**, **section_marketplace**, **alias_inbox** (registry+routes+services+
+  libs modules+tests+index mounts+docs). `/api/feature-flags` confirms gone live.
+  4315 jest + drift errors=0.
+- **`.ff-head-right` toolbar** — SHIPPED (d7c545be): mode switcher + Refresh +
+  Emergency removed from the Feature Flags header.
+
+### ⏳ Q2 batch B — REMAINING (entangled; the 10m cron `8578aa3e` runs these in fresh ctx)
+- **data_export** — delete `libs/features/data_export/` + index import/mount + registry
+  + the data_export case in `src/__tests__/feature_guard_gating.test.ts` (SHARED with
+  contacts_core — edit, don't delete the file) + the JSDoc `@example` in `lib/feature_guard.ts`.
+- **contacts_core** — ⚠️ gates the LIVE `src/routes/forms.ts` + `services/big_bets.ts`
+  + in `flag_route_coherence.test.ts` LIVE_ROUTE_FLAGS. Rewire/remove those call-sites
+  FIRST (forms must still work), then delete `libs/features/contacts_core/` + 3 libs
+  tests + registry + index + `feature_guard_gating.test.ts` case. Verify forms_routes.test.
+- **seo_autopilot** — NOT a deletion: remove from `feature_flags` REGISTRY only; KEEP
+  `routes/seo_autopilot.ts` + service + the site-features catalog entry; flip its gate
+  from `isFlagOn('seo_autopilot')` to the site-feature entitlement check so that turning
+  it on in Features = fully automatic (no sub-toggles). Update `seo_autopilot.test.ts`.
+
+### Q1 — Dashboard redesign (`pages/admin/sections/dashboard.component.ts`) [DONE — see above]
 - Remove EVERYTHING above the "Build your site" group: the `<header class="hero">`
   block AND the `<section class="features-banner">` block (+ their CSS). The first
   visible thing becomes the "Build your site" content.
