@@ -42,9 +42,16 @@ for (const k of ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_API_KEY', 'CLOUDFLARE_EMAIL
     /* secret unavailable — the explicit check below surfaces the gap */
   }
 }
-if (!process.env.CLOUDFLARE_API_TOKEN) {
+// wrangler 4.x authenticates R2 object ops with EITHER a scoped CLOUDFLARE_API_TOKEN
+// OR the Global API Key pair (CLOUDFLARE_API_KEY + CLOUDFLARE_EMAIL) — verified
+// 2026-06-09 (`wrangler r2 object get` succeeds with the Global API Key). Accept
+// either so CI (which exposes API_KEY+EMAIL, not a token) can deploy without a new
+// secret. Only abort when NEITHER credential path is present.
+const hasToken = Boolean(process.env.CLOUDFLARE_API_TOKEN);
+const hasGlobalKey = Boolean(process.env.CLOUDFLARE_API_KEY && process.env.CLOUDFLARE_EMAIL);
+if (!hasToken && !hasGlobalKey) {
   console.error(
-    '✘ CLOUDFLARE_API_TOKEN not set and not in get-secret — wrangler r2 uploads will fail. Aborting.',
+    '✘ No Cloudflare auth in env — set CLOUDFLARE_API_TOKEN, or CLOUDFLARE_API_KEY + CLOUDFLARE_EMAIL. wrangler r2 uploads will fail. Aborting.',
   );
   process.exit(1);
 }
