@@ -28,6 +28,22 @@ export const ProductInput = z.object({
 });
 export type ProductInput = z.infer<typeof ProductInput>;
 
+/** Partial update — only provided fields change; no defaults injected; unknown keys rejected. */
+export const ProductPatch = z
+  .object({
+    name: z.string().trim().min(1).max(200),
+    description: z.string().trim().max(4000),
+    price_cents: z.number().int().min(0).max(100_000_000),
+    currency: z.string().trim().length(3).toUpperCase(),
+    image_url: z.string().url().startsWith('https://').max(2048).nullable(),
+    sku: z.string().trim().max(64).nullable(),
+    stock: z.number().int().min(0).max(1_000_000).nullable(),
+    status: z.enum(['active', 'hidden', 'archived']),
+  })
+  .partial()
+  .strict();
+export type ProductPatch = z.infer<typeof ProductPatch>;
+
 interface ProductRow {
   id: string;
   name: string;
@@ -86,6 +102,31 @@ storefront.post('/api/sites/:id/products', async (c) => {
   });
   if (error) return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Could not save the product.' } }, 500);
   return c.json({ id }, 201);
+});
+
+storefront.patch('/api/sites/:id/products/:productId', async (c) => {
+  if (!(await gate(c))) return c.notFound();
+  const orgId = c.get('orgId');
+  if (!orgId) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Sign in to manage products.' } }, 401);
+
+  const parsed = ProductPatch.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'Check the fields you’re changing (image must be https).' } }, 400);
+  }
+  const updates: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(parsed.data)) if (v !== undefined) updates[k] = v;
+  if (Object.keys(updates).length === 0) {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'No fields to update.' } }, 400);
+  }
+  const { changes } = await dbUpdate(
+    c.env.DB,
+    'storefront_products',
+    updates,
+    'id = ? AND org_id = ? AND site_id = ? AND deleted_at IS NULL',
+    [c.req.param('productId'), orgId, c.req.param('id')],
+  );
+  if (!changes) return c.json({ error: { code: 'NOT_FOUND', message: 'Product not found.' } }, 404);
+  return c.json({ ok: true });
 });
 
 storefront.delete('/api/sites/:id/products/:productId', async (c) => {

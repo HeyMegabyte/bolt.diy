@@ -31,11 +31,14 @@ interface Product {
       <h3 class="sm-h">Products</h3>
       @if (error(); as e) { <p class="sm-note" role="status">{{ e }}</p> }
 
-      <form class="sm-form" (ngSubmit)="add()">
+      <form class="sm-form" (ngSubmit)="submit()">
         <input class="sm-in sm-in--name" name="name" [(ngModel)]="name" [disabled]="busy()" placeholder="Product name" aria-label="Product name" data-testid="sm-name" />
         <input class="sm-in sm-in--price" name="price" type="number" min="0" step="0.01" [(ngModel)]="priceDollars" [disabled]="busy()" placeholder="0.00" aria-label="Price" data-testid="sm-price" />
         <input class="sm-in sm-in--img" name="image" [(ngModel)]="imageUrl" [disabled]="busy()" placeholder="https://image… (optional)" aria-label="Image URL" />
-        <button class="sm-add" type="submit" [disabled]="busy() || !canAdd()" data-testid="sm-add">{{ busy() ? 'Saving…' : 'Add' }}</button>
+        <button class="sm-add" type="submit" [disabled]="busy() || !canAdd()" data-testid="sm-add">{{ busy() ? 'Saving…' : editingId() ? 'Save' : 'Add' }}</button>
+        @if (editingId()) {
+          <button class="sm-cancel" type="button" (click)="cancelEdit()" [disabled]="busy()">Cancel</button>
+        }
       </form>
 
       @if (loading()) {
@@ -45,10 +48,11 @@ interface Product {
       } @else {
         <ul class="sm-list" data-testid="sm-list">
           @for (p of products(); track p.id) {
-            <li class="sm-row">
+            <li class="sm-row" [class.sm-row--editing]="editingId() === p.id">
               @if (p.image_url) { <img class="sm-thumb" [src]="p.image_url" [alt]="p.name" loading="lazy" /> } @else { <span class="sm-thumb sm-thumb--blank" aria-hidden="true"></span> }
               <span class="sm-name">{{ p.name }}</span>
               <span class="sm-price">{{ p.price_cents / 100 | currency: p.currency }}</span>
+              <button class="sm-edit" type="button" (click)="startEdit(p)" [disabled]="busy()" [attr.aria-label]="'Edit ' + p.name" data-testid="sm-edit">Edit</button>
               <button class="sm-del" type="button" (click)="remove(p)" [disabled]="busy()" [attr.aria-label]="'Delete ' + p.name">✕</button>
             </li>
           }
@@ -76,6 +80,12 @@ interface Product {
     .sm-del { background: none; border: 1px solid color-mix(in oklch, currentColor 22%, transparent); color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 60%, transparent); border-radius: 6px; width: 26px; height: 26px; cursor: pointer; flex: none; }
     .sm-del:hover:not(:disabled) { border-color: #f87171; color: #f87171; }
     .sm-del:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; }
+    .sm-edit { background: none; border: 1px solid color-mix(in oklch, currentColor 22%, transparent); color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 70%, transparent); border-radius: 6px; padding: .2rem .55rem; font: inherit; font-size: .72rem; cursor: pointer; flex: none; }
+    .sm-edit:hover:not(:disabled) { border-color: var(--ps-accent, #00e5ff); color: var(--ps-accent, #00e5ff); }
+    .sm-edit:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 1px; }
+    .sm-cancel { background: none; border: 1px solid color-mix(in oklch, currentColor 24%, transparent); color: inherit; border-radius: 8px; padding: .45rem .8rem; font: inherit; font-size: .82rem; cursor: pointer; }
+    .sm-cancel:hover:not(:disabled) { border-color: var(--ps-accent, #00e5ff); }
+    .sm-row--editing { box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--ps-accent, #00e5ff) 40%, transparent); }
   `],
 })
 export class StorefrontManagerComponent implements OnInit {
@@ -87,6 +97,8 @@ export class StorefrontManagerComponent implements OnInit {
   readonly loading = signal(true);
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
+  /** Product id being edited (null = the form adds a new product). */
+  readonly editingId = signal<string | null>(null);
 
   name = '';
   priceDollars: number | null = null;
@@ -94,6 +106,46 @@ export class StorefrontManagerComponent implements OnInit {
 
   canAdd(): boolean {
     return this.name.trim().length > 0 && this.priceDollars != null && this.priceDollars >= 0;
+  }
+
+  startEdit(p: Product): void {
+    this.editingId.set(p.id);
+    this.name = p.name;
+    this.priceDollars = p.price_cents / 100;
+    this.imageUrl = p.image_url ?? '';
+    this.error.set(null);
+  }
+
+  cancelEdit(): void {
+    this.editingId.set(null);
+    this.name = ''; this.priceDollars = null; this.imageUrl = '';
+  }
+
+  /** Add a new product or save the one being edited. */
+  submit(): void {
+    if (this.editingId()) void this.save();
+    else void this.add();
+  }
+
+  private async save(): Promise<void> {
+    const id = this.editingId();
+    if (!id || this.busy() || !this.canAdd()) return;
+    this.busy.set(true);
+    this.error.set(null);
+    try {
+      const body: Record<string, unknown> = {
+        name: this.name.trim(),
+        price_cents: Math.round((this.priceDollars ?? 0) * 100),
+        image_url: this.imageUrl.trim() ? this.imageUrl.trim() : null,
+      };
+      await firstValueFrom(this.api.patch(`/sites/${encodeURIComponent(this.siteId())}/products/${encodeURIComponent(id)}`, body, { silent: true }));
+      this.cancelEdit();
+      await this.reload();
+    } catch {
+      this.error.set('Couldn’t save changes (image must be https).');
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   async ngOnInit(): Promise<void> {

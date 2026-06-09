@@ -1,4 +1,4 @@
-import { ProductInput } from '../routes/storefront';
+import { ProductInput, ProductPatch } from '../routes/storefront';
 
 describe('storefront ProductInput schema', () => {
   it('accepts a minimal valid product and applies defaults', () => {
@@ -28,5 +28,29 @@ describe('storefront ProductInput schema', () => {
   it('only allows known statuses', () => {
     expect(ProductInput.safeParse({ name: 'x', price_cents: 1, status: 'on-sale' }).success).toBe(false);
     expect(ProductInput.safeParse({ name: 'x', price_cents: 1, status: 'hidden' }).success).toBe(true);
+  });
+});
+
+describe('storefront ProductPatch schema', () => {
+  it('accepts a single-field partial update (no defaults injected)', () => {
+    const r = ProductPatch.parse({ price_cents: 2000 });
+    expect(r).toEqual({ price_cents: 2000 }); // only the provided key
+  });
+
+  it('accepts an empty object (handler rejects empty; schema does not)', () => {
+    expect(ProductPatch.safeParse({}).success).toBe(true);
+  });
+
+  it('allows nulling optional fields', () => {
+    expect(ProductPatch.parse({ image_url: null, sku: null, stock: null })).toEqual({ image_url: null, sku: null, stock: null });
+  });
+
+  it('rejects unknown keys (strict)', () => {
+    expect(ProductPatch.safeParse({ color: 'red' }).success).toBe(false);
+  });
+
+  it('still validates provided fields (price int, https image)', () => {
+    expect(ProductPatch.safeParse({ price_cents: -5 }).success).toBe(false);
+    expect(ProductPatch.safeParse({ image_url: 'http://x/y.png' }).success).toBe(false);
   });
 });
