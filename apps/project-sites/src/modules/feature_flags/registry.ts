@@ -84,6 +84,10 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   // ── Enterprise wave (Trust Center / Enterprise Plan / Stripe App status / Agent SDK+MCP, 2026-05-28)
   // ── Compliance / safety / revenue (added 2026-06-07 per UNFINISHED_FEATURES §9b)
   abuse_takedown: { key: 'abuse_takedown', description: 'Abuse report intake + content takedown workflow for published sites (DMCA / illegal-content handling). Hosting-platform necessity.', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
+  // ── Idea-merge wave 2026-06-08: genuinely-new platform flags (the rest of the
+  //    30 ideas fold into existing flag scopes as extra checklist checkpoints).
+  site_video_gen: { key: 'site_video_gen', description: 'Per-site narrative video: storyboard → Veo clips → ~56s brand film assembled in the build Workflow, delivered device-adaptive via Media Transformations.', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
+  editor_vision_qa: { key: 'editor_vision_qa', description: 'In-editor live AI vision critique: Browser-Rendering screenshot → vision model scores layout/contrast/brand 0-10 with inline fixes (distinct from the post-build snapshot QA).', default_enabled: false, default_rollout_percent: 0, stage: 'experimental', owner_email: 'brian@megabyte.space' },
 };
 
 export type FlagKey = keyof typeof FLAG_REGISTRY;

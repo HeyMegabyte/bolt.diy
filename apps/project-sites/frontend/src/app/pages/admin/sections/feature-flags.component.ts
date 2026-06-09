@@ -69,6 +69,8 @@ interface ResolvedFlag {
 }
 
 interface FlagDocs {
+  /** 3-6 short "what this does" checkpoints — rendered as a ✓ list. */
+  checklist?: string[];
   explanation: string;
   smoke_test: string[];
   e2e_tests?: string[];
@@ -244,6 +246,17 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
               @if (detailKey() === flag.key) {
                 @if (docsDetail(); as docs) {
                   <div class="ff-detail">
+                    @if (docs.checklist?.length) {
+                      <h3>Checklist — what it does</h3>
+                      <ul class="ff-checklist" data-testid="ff-checklist" [attr.aria-label]="'What ' + flag.key + ' does'">
+                        @for (item of docs.checklist; track item) {
+                          <li class="ff-check">
+                            <svg class="ff-check-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span>{{ item }}</span>
+                          </li>
+                        }
+                      </ul>
+                    }
                     <h3>What this does</h3>
                     <p class="ff-explanation">{{ docs.explanation }}</p>
                     <h3>Smoke test</h3>
@@ -523,6 +536,10 @@ const FLAG_CONSTRAINTS: FlagConstraint[] = [
     .ff-explanation { line-height: 1.55; margin: 0; color: color-mix(in oklch, currentColor 85%, transparent); font-size: .9rem; }
     .ff-smoke { padding-left: 1.25rem; margin: 0; display: flex; flex-direction: column; gap: .35rem; }
     .ff-smoke li { line-height: 1.45; font-size: .85rem; }
+    /* "What it does" checkpoint list — the scannable contract above the prose. */
+    .ff-checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
+    .ff-check { display: flex; align-items: flex-start; gap: .45rem; font-size: .85rem; line-height: 1.4; color: color-mix(in oklch, currentColor 82%, transparent); }
+    .ff-check-ic { flex: none; margin-top: .12rem; color: var(--ps-accent, #00e5ff); }
     .ff-step { font-family: var(--ps-mono, ui-monospace, monospace); font-size: .82rem; background: color-mix(in oklch, currentColor 8%, transparent); padding: .15rem .4rem; border-radius: 4px; word-break: break-word; }
     .ff-e2e, .ff-refs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .3rem; }
     .ff-e2e li, .ff-refs li { font-size: .8rem; }
