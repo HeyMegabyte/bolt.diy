@@ -69,6 +69,50 @@ Auth seed for admin agents: `localStorage.ps_session = {token: E2E_API_KEY, iden
   **DURABLE FIX still open:** real SSG/prerender of the marketing route (the SPA shell
   is still empty for JS-rendering crawlers' first paint / LCP) — fresh-session work.
 
+## QUEUED (2026-06-08, from a saturated session — fresh-session work)
+
+### Q1 — Dashboard redesign (`pages/admin/sections/dashboard.component.ts`)
+- Remove EVERYTHING above the "Build your site" group: the `<header class="hero">`
+  block AND the `<section class="features-banner">` block (+ their CSS). The first
+  visible thing becomes the "Build your site" content.
+- BEFORE deleting features-banner: fold its 2 discovery links into the card groups so
+  they're not lost — "Features" card already exists in the "Account & help" group;
+  add a Feature Flags card gated by `isSysAdmin()` to a group (operator-only).
+- Add a **search bar** at the new top that live-filters ALL section cards by
+  label/desc + new per-card `keywords: string[]`; show match count + a "no matches"
+  empty state w/ Clear; `/` focuses it, Esc clears; highlight matched text; when a
+  query is active render a single flat result grid instead of the groups.
+- Measurably improve + make gorgeous per [[gorgeous-by-default]]: keyword pills per
+  card, 0.333s transitions, hover lift, focus-visible rings, staggered reveal,
+  localStorage "Pinned"/favorites row + "recently opened" row (self-contained).
+- Plus brainstorm + implement 14 best dashboard improvements (search is #1).
+- Spec asserts to keep green: `dashboard.component.spec.ts` checks groups>0, cards
+  have real routes+glyphs, no dup links, tips, site-count, Feature-Flags-card gated.
+
+### Q2 — Remove 6 feature flags (each = cross-layer; do one at a time, gate-verify)
+Per-flag removal recipe: delete `libs/features/<slug>/` module + `src/routes/<slug>.ts`
++ `src/services/<slug>*.ts`; remove the `app.route('/', <x>)` mount + import in
+`src/index.ts`; remove the registry entry in `src/modules/feature_flags/registry.ts`;
+remove from `src/routes/features.ts` catalog + `frontend` site-features catalog +
+`app.routes.ts`; remove from `flag_route_coherence.test.ts` `LIVE_ROUTE_FLAGS`;
+add a `DROP TABLE IF EXISTS` migration if it owns a table; run worker jest +
+`npm run validate:features` (feature-drift) + frontend Karma; deploy.
+- **trust_center** — full module + route + service exist → full removal.
+- **section_marketplace** — remove module/routes/services (marketplace + submissions);
+  the intent is "users see modules via template.projectsites.dev" instead. Also drop
+  the `section_marketplace` branch in `components/states/flag-gate-notice.component.ts`.
+- **data_export** — `libs/features/data_export/` + `src/lib/feature_guard.ts` ref.
+- **contacts_core** — ⚠️ gates a LIVE path (`src/routes/forms.ts` + `services/big_bets.ts`
+  reference it) — must rewire/remove those call-sites first or forms breaks.
+- **alias_inbox** — ⚠️ MEMORY [[feedback_alias_modules_intentional]] says inbox/public-api/
+  swarm-editor aliases are deprecated drift-SHIMS, "never delete". USER OVERRIDES: remove
+  it. Canonical is `unified_inbox` — confirm nothing routes through `libs/features/inbox`
+  before deleting; keep `unified_inbox` intact.
+- **seo_autopilot** — NOT a deletion: remove from the `feature_flags` REGISTRY (so it's
+  not a platform flag) but KEEP it as a Features (site-features) capability that, when
+  ON, is "fully automatic" (assume autopilot — no sub-toggles). Keep `src/routes/seo_autopilot.ts`
+  + service; flip the gate from `isFlagOn('seo_autopilot')` to the site-feature check.
+
 ## Known-clean (per prior convergence — do NOT re-churn)
 Lying-UI catchError class, redundant-toast, dead class-bindings, error-card
 standardization, premature-stat-during-load, icon-button a11y names, flag links,
