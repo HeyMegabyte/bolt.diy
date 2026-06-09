@@ -63,14 +63,16 @@ const CHECK_REGISTRY: Readonly<Record<string, readonly E2eCheck[]>> = {
     { label: 'robots.txt names AI crawlers', kind: 'http', url: '/robots.txt', expectStatus: 200, bodyIncludes: 'GPTBot' },
   ],
   mcp_server: [{ label: '/.well-known/mcp lists tools', kind: 'http', url: '/.well-known/mcp', expectStatus: 200, bodyIncludes: 'tools' }],
-  public_api: [{ label: 'OpenAPI 3.1 spec served', kind: 'http', url: '/api/openapi.json', expectStatus: 200 }],
+  public_api: [{ label: 'OpenAPI 3.1 spec served', kind: 'http', url: '/api/openapi.json', expectStatus: 200, bodyIncludes: 'openapi' }],
+  search_engine_submit: [{ label: 'sitemap.xml served for indexing', kind: 'http', url: '/sitemap.xml', expectStatus: 200 }],
+  pwa_manifest_full: [{ label: 'homepage links a PWA manifest', kind: 'http', url: '/', expectStatus: 200, bodyIncludes: 'rel="manifest"' }],
   structured_data_autopilot: [{ label: 'JSON-LD on homepage', kind: 'http', url: '/', expectStatus: 200, bodyIncludes: 'application/ld+json' }],
   quotable_answer_block: [{ label: 'data-quotable block present', kind: 'http', url: '/', expectStatus: 200, bodyIncludes: 'data-quotable' }],
   speculation_rules: [{ label: 'speculation rules injected', kind: 'http', url: '/', expectStatus: 200, bodyIncludes: 'speculationrules' }],
   accessibility_statement: [{ label: '/accessibility renders WCAG statement', kind: 'http', url: '/accessibility', expectStatus: 200, bodyIncludes: 'WCAG' }],
   site_mcp_server: [{ label: 'platform MCP discovery responds', kind: 'http', url: '/.well-known/mcp', expectStatus: 200 }],
   core_feature_flags: [{ label: 'Feature Flags admin shell renders', kind: 'browser', url: '/admin/feature-flags', selector: '[data-testid="ff-layer-heading"]' }],
-  core_site_create: [{ label: 'Homepage create funnel renders', kind: 'browser', url: '/', selector: 'body' }],
+  core_site_create: [{ label: 'Homepage renders with a heading', kind: 'browser', url: '/', selector: 'h1' }],
 };
 
 /** Pure resolver — exported for tests. Falls back to a homepage smoke check. */

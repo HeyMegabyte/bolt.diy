@@ -20,6 +20,16 @@ describe('feature_e2e check registry', () => {
     expect(c.selector).toContain('ff-layer-heading');
   });
 
+  it('covers the newly-added public surfaces (verified against prod)', () => {
+    expect(checksFor('search_engine_submit')[0].url).toBe('/sitemap.xml');
+    expect(checksFor('pwa_manifest_full')[0].bodyIncludes).toBe('rel="manifest"');
+    expect(checksFor('public_api')[0].bodyIncludes).toBe('openapi');
+    // core_site_create asserts a real heading via a browser check
+    const csc = checksFor('core_site_create')[0];
+    expect(csc.kind).toBe('browser');
+    expect(csc.selector).toBe('h1');
+  });
+
   it('falls back to a homepage smoke check for unknown keys', () => {
     const checks = checksFor('totally_unknown_flag');
     expect(checks).toHaveLength(1);
