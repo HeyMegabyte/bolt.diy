@@ -596,6 +596,17 @@
             social-scheduler/enterprise-date/domains. No remaining unguarded client form input.
 - [ ] P7 — Perf+a11y: lazy routes, defer heavy panels/charts/grids, RxJS cleanup, cancel
       stale requests, trackBy; WCAG 2.2 AA; axe + Playwright a11y; 8.33ms frame budget.
+      - [x] P7-a11y-verify (2026-06-09): ran `admin-a11y.e2e.ts` (axe-core) against PROD with
+            E2E_API_KEY across ~35 authed /admin routes → GREEN (0 serious/critical/unnamed-
+            control violations). 3 flaky (snapshots/audit/feature-flags — the heavier ag-grid
+            pages, slower load) passed on retry. Desktop admin WCAG 2.2 AA axe posture verified.
+      - [x] P7-rxjs/trackBy audited (2026-06-09): RxJS cleanup clean (inbox uses
+            takeUntil(destroy$)+ngOnDestroy; no leaking interval/fromEvent); only `track $index`
+            is snapshots-diff hunks (positional diff data — correct). Lazy routes + monaco/
+            echarts defer already in place.
+      - [ ] P7-rest — defer heavy GRIDS (audit + ai-logs ag-grid) = the supervised P3-MIGRATION
+            (also closes the 220 KB initial-bundle overage); mobile + param-route axe runs +
+            8.33ms frame-budget profiling. Next (migration supervised).
 - [ ] P8 — Proof: lint + typecheck + build + `npm run test:e2e` green; final report.
 
 ## Guardrails (do NOT)
