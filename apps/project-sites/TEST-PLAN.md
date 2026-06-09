@@ -491,8 +491,12 @@
             in ("Branches · Vito's Mens Salon · ProjectSites") via a reactive `effect` so a
             hard-refresh upgrades the title once the site loads (was imperative, generic
             "Sites · ProjectSites"). routeAnnouncement enriched the same way. Deployed + verified.
-      - [ ] P2-rest — grouped sidebar audit, premium header completeness (env/⌘K/account/
-            health/active-site), deep-link + SPA-refresh correctness. Next fire(s).
+      - [x] P2-sidebar (2026-06-09): grouped the flat 14-item sidebar into 4 labelled
+            clusters — Workspace / Capabilities / Operations / Account — via decorative
+            `.nav-group-label` Fira-Code micro-eyebrows (cockpit `--ps-font-code` + muted
+            cyan). No reorder, no route change; replaced the lone hairline divider. Deployed.
+      - [ ] P2-rest — premium header completeness (env/⌘K/account/health/active-site),
+            deep-link + SPA-refresh correctness. Next fire(s).
 - [ ] P3 — Tables/search: TanStack composable tables (migrate the 2 ag-grid grids —
       audit.component + ai-logs.component per docs/perf-wave-ag-grid-to-tanstack.md),
       URL-synced state, saved views, virtualization; no workflow regressions.

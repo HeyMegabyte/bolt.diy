@@ -278,6 +278,21 @@ aside::before {
 // Nav Items — glow-up · compact density (cyan/black progression 2026-05-28)
 // Reduced padding 8.5/14 → 7/12, font 0.82 → 0.795, gap 11 → 9 for
 // tighter information per pixel without hurting tap target.
+// Grouped-sidebar section labels (P2). Quiet Fira-Code micro-eyebrows that
+// cluster the flat nav into Workspace / Capabilities / Operations / Account.
+.nav-group-label {
+  margin: 14px 0 4px;
+  padding: 0 12px;
+  font-family: var(--ps-font-code, 'Fira Code', ui-monospace, monospace);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: color-mix(in oklch, var(--ps-accent, #00e5ff) 62%, #7aa7b3);
+  user-select: none;
+  &:first-child { margin-top: 2px; }
+}
+
 .nav-item {
   display: flex; align-items: center; gap: 9px; width: 100%;
   padding: 7px 12px; border: none; background: transparent;
