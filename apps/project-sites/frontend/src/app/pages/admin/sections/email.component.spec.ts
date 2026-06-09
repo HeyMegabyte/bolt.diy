@@ -7,6 +7,7 @@ import { RevealDirective } from '../../../directives/reveal.directive';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
+import { ActivatedRoute, Router } from '@angular/router';
 
 /**
  * Guards the email/submissions load-error gating (first coverage): a failed
@@ -22,6 +23,8 @@ function make(list: jasmine.Spy, listIntegrations?: jasmine.Spy): AdminEmailComp
       { provide: ApiService, useValue: { listFormSubmissions: list, listIntegrations: listIntegrations ?? (() => of({ data: [] })), get: () => of({ data: [] }), post: () => of({}) } },
       { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
       { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }), formatRelativeTime: () => 'now' } },
+      { provide: Router, useValue: { navigate: jasmine.createSpy("navigate").and.resolveTo(true) } },
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
     ],
   });
   TestBed.overrideComponent(AdminEmailComponent, { set: { template: '<div></div>', imports: [] } });
@@ -89,6 +92,8 @@ describe('AdminEmailComponent (webhook URL validation before connect)', () => {
         { provide: ApiService, useValue: { createIntegration, listFormSubmissions: () => of({ data: [] }), get: () => of({ data: [] }), post: () => of({}) } },
         { provide: ToastService, useValue: { error, success: () => 0, warning: () => 0 } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }), formatRelativeTime: () => 'now' } },
+      { provide: Router, useValue: { navigate: jasmine.createSpy("navigate").and.resolveTo(true) } },
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
       ],
     });
     TestBed.overrideComponent(AdminEmailComponent, { set: { template: '<div></div>', imports: [] } });
@@ -171,6 +176,8 @@ describe('AdminEmailComponent (submissions loading skeleton)', () => {
         { provide: ApiService, useValue: { listFormSubmissions: () => NEVER, listIntegrations: () => of({ data: [] }), get: () => of({ data: [] }), post: () => of({}) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }), formatRelativeTime: () => 'now' } },
+      { provide: Router, useValue: { navigate: jasmine.createSpy("navigate").and.resolveTo(true) } },
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
       ],
     });
     const fx = TestBed.createComponent(AdminEmailComponent);
@@ -199,6 +206,8 @@ describe('AdminEmailComponent (disconnect guard + error feedback)', () => {
         { provide: ApiService, useValue: { deleteIntegration: del, listFormSubmissions: () => of({ data: [] }), listIntegrations: () => of({ data: [] }), get: () => of({ data: [] }), post: () => of({}) } },
         { provide: ToastService, useValue: { error, success: () => 0, warning: () => 0 } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }), formatRelativeTime: () => 'now' } },
+      { provide: Router, useValue: { navigate: jasmine.createSpy("navigate").and.resolveTo(true) } },
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
       ],
     });
     TestBed.overrideComponent(AdminEmailComponent, { set: { template: '<div></div>', imports: [] } });
@@ -246,6 +255,8 @@ describe('AdminEmailComponent (connect double-submit guard)', () => {
         { provide: ApiService, useValue: { createIntegration, listFormSubmissions: () => of({ data: [] }), listIntegrations: () => of({ data: [] }), get: () => of({ data: [] }), post: () => of({}) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0 } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }), formatRelativeTime: () => 'now' } },
+      { provide: Router, useValue: { navigate: jasmine.createSpy("navigate").and.resolveTo(true) } },
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
       ],
     });
     TestBed.overrideComponent(AdminEmailComponent, { set: { template: '<div></div>', imports: [] } });
@@ -295,6 +306,8 @@ describe('AdminEmailComponent (first-paint appReveal cohesion)', () => {
         { provide: ApiService, useValue: { listFormSubmissions: () => of({ data: [] }), listIntegrations: () => of({ data: [] }), get: () => of({ data: [] }), post: () => of({}) } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, warning: () => 0 } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'demo' }), formatRelativeTime: () => 'now' } },
+      { provide: Router, useValue: { navigate: jasmine.createSpy("navigate").and.resolveTo(true) } },
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
       ],
     });
     const fx = TestBed.createComponent(AdminEmailComponent);
@@ -324,6 +337,8 @@ describe('AdminEmailComponent (toggleActive error feedback)', () => {
         { provide: ApiService, useValue: { updateIntegration: update, listFormSubmissions: () => of({ data: [] }), listIntegrations: () => of({ data: [] }), get: () => of({ data: [] }), post: () => of({}) } },
         { provide: ToastService, useValue: { error, success: () => 0, warning: () => 0 } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }), formatRelativeTime: () => 'now' } },
+      { provide: Router, useValue: { navigate: jasmine.createSpy("navigate").and.resolveTo(true) } },
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
       ],
     });
     TestBed.overrideComponent(AdminEmailComponent, { set: { template: '<div></div>', imports: [] } });
@@ -331,5 +346,52 @@ describe('AdminEmailComponent (toggleActive error feedback)', () => {
     c.integrations.set([{ id: 'i1', provider: 'webhook', active: true } as never]);
     c.toggleActive('webhook' as never);
     expect(error).withContext('failure surfaced, not silent').toHaveBeenCalled();
+  });
+});
+
+/**
+ * P2 deep-link correctness: the integrations/submissions tab must be
+ * bookmarkable + survive a hard refresh. setTab writes ?tab=, and ngOnInit
+ * restores a valid ?tab= (unknown → default 'integrations').
+ */
+describe('AdminEmailComponent (tab deep-link / SPA-refresh)', () => {
+  function build(tabParam: string | null): { c: AdminEmailComponent; navigate: jasmine.Spy } {
+    const navigate = jasmine.createSpy('navigate').and.resolveTo(true);
+    TestBed.configureTestingModule({
+      imports: [AdminEmailComponent],
+      providers: [
+        { provide: ApiService, useValue: { listFormSubmissions: () => of({ data: [] }), listIntegrations: () => of({ data: [] }), get: () => of({ data: [] }), post: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }), formatRelativeTime: () => 'now' } },
+        { provide: Router, useValue: { navigate } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => tabParam } } } },
+      ],
+    });
+    TestBed.overrideComponent(AdminEmailComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminEmailComponent).componentInstance, navigate };
+  }
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('restores a valid ?tab= on init (deep link / refresh)', () => {
+    const { c } = build('submissions');
+    c.ngOnInit();
+    expect(c.tab()).toBe('submissions');
+  });
+
+  it('ignores an unknown ?tab= and keeps the default', () => {
+    const { c } = build('bogus');
+    c.ngOnInit();
+    expect(c.tab()).toBe('integrations');
+  });
+
+  it('setTab writes the tab to ?tab= (bookmarkable, replaceUrl, merge)', () => {
+    const { c, navigate } = build(null);
+    c.setTab('submissions');
+    expect(c.tab()).toBe('submissions');
+    expect(navigate).toHaveBeenCalled();
+    const opts = navigate.calls.mostRecent().args[1];
+    expect(opts.queryParams).toEqual({ tab: 'submissions' });
+    expect(opts.replaceUrl).toBe(true);
+    expect(opts.queryParamsHandling).toBe('merge');
   });
 });

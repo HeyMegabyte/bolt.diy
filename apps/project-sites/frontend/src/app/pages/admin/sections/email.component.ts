@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal, type OnInit } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HlmInputDirective } from '../../../ui';
 import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
@@ -56,7 +57,7 @@ const PROVIDERS: ProviderMeta[] = [
           </div>
           <div class="flex gap-1 bg-white/[0.03] rounded-xl p-1 border border-white/[0.06]">
             @for (t of tabs; track t.id) {
-              <button class="tab-btn" [class.active]="tab() === t.id" (click)="tab.set(t.id)">{{ t.label }}</button>
+              <button class="tab-btn" [class.active]="tab() === t.id" [attr.aria-selected]="tab() === t.id" (click)="setTab(t.id)">{{ t.label }}</button>
             }
           </div>
         </header>
@@ -329,6 +330,23 @@ export class AdminEmailComponent implements OnInit {
   readonly providers = PROVIDERS;
 
   tab = signal<'integrations' | 'submissions'>('integrations');
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+
+  /**
+   * Switch tab + reflect it in `?tab=` so the view is bookmarkable and survives
+   * a hard refresh (deep-link correctness). SPA nav only — replaceUrl avoids
+   * back-button spam, merge keeps any sibling params.
+   */
+  setTab(id: 'integrations' | 'submissions'): void {
+    this.tab.set(id);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: id },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
   integrations = signal<NewsletterIntegration[]>([]);
   /** Integration ids with an in-flight disconnect — guards the toast-armed action
    *  against a double-DELETE + drives the row's "Disconnecting…" state. */
@@ -363,6 +381,10 @@ export class AdminEmailComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    // Open the tab named in ?tab= (validated against the known ids; unknown →
+    // default 'integrations') so a bookmarked / refreshed deep link restores it.
+    const t = this.route.snapshot.queryParamMap.get('tab');
+    if (t === 'integrations' || t === 'submissions') this.tab.set(t);
     this.refreshIntegrations();
     this.refreshSubmissions();
   }

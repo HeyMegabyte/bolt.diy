@@ -477,9 +477,10 @@
                   label+input field groups. No other fused-wrapper fix needed.
             - [ ] P1b-rest — cards/buttons/tabs/tables token audit + premium loading/empty/error
                   states. Next fire(s).
-- [ ] P2 — Layout+nav: admin shell, grouped sidebar, premium header (env/search/⌘K/account/
-      health/active-site), breadcrumbs with real names, **fade-only** route transitions
-      (remove slide-in-up), reduced-motion, deep-link + SPA refresh correctness.
+- [x] P2 — Layout+nav (2026-06-09): COMPLETE — fade-only routes (P2-fade), real-name
+      title/announcer (P2-names), grouped sidebar (P2-sidebar), premium header health
+      pill + env badge (P2-header), deep-link/SPA-refresh ?tab= sync (P2-deeplink). All
+      sub-slices deployed + verified live. Detail below.
       - [x] P2-fade (2026-06-09): converted ALL route view-transitions to fade-only (removed
             slide-in-up). `psContentOut/In` + `psContentOpacityOnly` (_polish.scss, admin
             page+section) and `psVtOut/In` (styles.scss, root) now pure opacity — dropped the
@@ -501,8 +502,12 @@
             green/amber/grey dot + environment chip + per-check tooltip. Fail-safe
             (`api.health()`→null on error, grey "unknown", no toast). New
             `HealthStatusSchema` + 6 unit specs (1415 Karma green). Deployed + verified.
-      - [ ] P2-rest — deep-link + SPA-refresh correctness audit (bookmarkable ?tab=/#frag
-            across all multi-tab sections). Next fire.
+      - [x] P2-deeplink (2026-06-09): audited all 8 multi-tab sections for ?tab= URL-sync.
+            billing/media/site-detail/logs-dashboard/voice/settings/social already sync;
+            **email.component was the one gap (0 sync)** — added `setTab()` (writes ?tab=,
+            replaceUrl+merge) + ngOnInit read of a validated ?tab= (mirrors billing). 3 new
+            deep-link unit specs + Router/ActivatedRoute DI added to its 7 TestBed setups
+            (1418 Karma green). Deployed + verified.
 - [ ] P3 — Tables/search: TanStack composable tables (migrate the 2 ag-grid grids —
       audit.component + ai-logs.component per docs/perf-wave-ag-grid-to-tanstack.md),
       URL-synced state, saved views, virtualization; no workflow regressions.
