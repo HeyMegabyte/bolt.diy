@@ -82,10 +82,22 @@ Auth seed for admin agents: `localStorage.ps_session = {token: E2E_API_KEY, iden
 - **`.ff-head-right` toolbar** — SHIPPED (d7c545be): mode switcher + Refresh +
   Emergency removed from the Feature Flags header.
 
-### ⏳ Q2 batch B — REMAINING (entangled; the 10m cron `8578aa3e` runs these in fresh ctx)
-- **data_export** — delete `libs/features/data_export/` + index import/mount + registry
-  + the data_export case in `src/__tests__/feature_guard_gating.test.ts` (SHARED with
-  contacts_core — edit, don't delete the file) + the JSDoc `@example` in `lib/feature_guard.ts`.
+### ⏳ Q2 batch B — REMAINING (2 of 3; deep live-route + test-harness rewires)
+- ✅ **data_export** — DONE (c7beb3ca, worker `1d3f384b` live; confirmed gone from
+  `/api/feature-flags`). (feature_guard_gating.test.ts was generic — no edit needed.)
+- ⚠️ **seo_autopilot** — NOT a simple deletion + NOT a simple de-register. `isFlagOn`
+  returns FALSE for any key absent from FLAG_REGISTRY (services.ts:75 — does NOT fall
+  through to overrides), so de-registering alone 404s the route. The fix is a GATE
+  REWIRE: in `routes/seo_autopilot.ts` replace the 2 `isFlagOn(env,'seo_autopilot',…)`
+  calls (guard() ~:48 + the draft handler ~:151) with a tenant-override read
+  (`SELECT value_json FROM flag_overrides WHERE scope='tenant' AND scope_id=siteId AND
+  flag_key='seo_autopilot'` → enabled) so the Features toggle (which writes that row via
+  routes/features.ts) drives it = "on in Features ⇒ automatic". THEN remove from registry.
+  ⚠️ `seo_autopilot.test.ts`'s route-layer harness (`harnessEnv(db, true/false)`) toggles
+  the flag via CACHE_KV/isFlagOn — rewiring the guard BREAKS that harness; the "200 listing
+  drafts" + "404 flag off" tests must be rewritten to drive the override read (mock
+  dbQueryOne for the tenant override) instead of the KV flag. Keep it in the site-features
+  catalog (features.ts:281 + frontend site-features.component.ts:62/89 — already present).
 - **contacts_core** — ⚠️ gates the LIVE `src/routes/forms.ts` + `services/big_bets.ts`
   + in `flag_route_coherence.test.ts` LIVE_ROUTE_FLAGS. Rewire/remove those call-sites
   FIRST (forms must still work), then delete `libs/features/contacts_core/` + 3 libs
