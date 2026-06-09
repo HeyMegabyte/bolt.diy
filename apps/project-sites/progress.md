@@ -82,7 +82,16 @@ Auth seed for admin agents: `localStorage.ps_session = {token: E2E_API_KEY, iden
 - **`.ff-head-right` toolbar** — SHIPPED (d7c545be): mode switcher + Refresh +
   Emergency removed from the Feature Flags header.
 
-### ⏳ Q2 batch B — REMAINING (1 of 3 left; contacts_core)
+### ✅ Q2 COMPLETE — all 6 flags removed (worker `69a03df5` live; feed confirms all gone)
+- trust_center · section_marketplace · alias_inbox · data_export ✅
+- seo_autopilot → site-feature (gate rewired to Features toggle) ✅
+- contacts_core ✅ (ad9145e3) — forms.ts + big_bets.ts CRM arm removed (additive/non-fatal
+  → forms + newsletter still work), module + registry + index + coherence + dead tests gone.
+- Residual: 1 cosmetic TEST_NOT_LINKED warning (e2e/_fortress/inbox ↔ removed alias_inbox);
+  errors=0. Optional tidy: rename _fortress/inbox → _fortress/unified_inbox + update that
+  manifest's e2eTests paths to clear it.
+
+### ⏳ Q2 batch B — (historical) contacts_core notes
 - ✅ **data_export** — DONE (c7beb3ca, worker `1d3f384b` live; confirmed gone).
 - ✅ **seo_autopilot** — DONE (eb34ef4e, worker `3257a56f` live; confirmed gone from
   flags). Now a site-FEATURE: route gate reads the tenant `flag_overrides` toggle
