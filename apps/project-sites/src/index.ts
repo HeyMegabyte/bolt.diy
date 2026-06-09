@@ -41,6 +41,7 @@ import { addBreadcrumb as sentryBreadcrumb, setTag as sentrySetTag } from './lib
 import { health } from './routes/health.js';
 import { api } from './routes/api.js';
 import { search } from './routes/search.js';
+import { featureE2e } from './routes/feature_e2e.js';
 import { webhooks } from './routes/webhooks.js';
 import { assets } from './routes/assets.js';
 import { forms } from './routes/forms.js';
@@ -415,6 +416,7 @@ app.route('/', health);
 app.route('/', bolt); // Bolt admin: chat-state mirror, transcribe, vision OCR, prompt suggestions
 app.route('/', editorChats); // Native Angular editor chat persistence + LLM stream proxy
 app.route('/', search); // Must come before api so /api/sites/search wins over /api/sites/:id
+app.route('/', featureE2e); // /api/feature-e2e/:key/run + /runs/:id — Browser Rendering E2E check runner
 app.route('/', autofill); // POST /api/sites/autofill — must come before api so it wins over /api/sites/:id
 app.route('/', assets); // Asset uploads + build-assets listing
 app.route('/', forms); // Public form ingest + auth-gated submissions/integrations CRUD

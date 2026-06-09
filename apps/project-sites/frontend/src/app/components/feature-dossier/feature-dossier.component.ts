@@ -327,47 +327,46 @@ export class FeatureDossierComponent implements OnDestroy {
   readonly readTime = computed(() => readMinutes(wordCount(this.markdown())));
   readonly dashOffset = computed(() => this.circumference * (1 - this.cov().score / 100));
 
-  // ── E2E coverage table + Cloudflare-backed parallel runner ──
-  /** Live per-spec status keyed by spec path (merged into e2eSpecs()). */
-  private readonly e2eStatus = signal<Record<string, { status: E2eSpec['status']; durationMs?: number }>>({});
+  // ── E2E coverage table + Cloudflare-backed (Browser Rendering) parallel runner ──
+  /** The runner's returned checks once a run starts (null = show the static spec list). */
+  private readonly runSpecs = signal<E2eSpec[] | null>(null);
   readonly e2eRunning = signal(false);
   readonly e2eError = signal<string | null>(null);
   private pollTimer: ReturnType<typeof setInterval> | null = null;
 
   readonly e2eSpecs = computed<E2eSpec[]>(() => {
-    const paths = this.model()?.e2eTests ?? [];
-    const st = this.e2eStatus();
-    return paths.map((p) => ({ path: p, status: st[p]?.status ?? 'idle', durationMs: st[p]?.durationMs }));
+    const live = this.runSpecs();
+    if (live) return live;
+    return (this.model()?.e2eTests ?? []).map((p) => ({ path: p, status: 'idle' as const }));
   });
 
   /**
-   * Kick off all of this feature's E2E specs in parallel on Cloudflare. The
-   * worker dispatches them concurrently (Browser Rendering / Containers) and we
-   * poll the run for live per-spec status (same effect as streaming). Degrades
-   * gracefully when the runner endpoint isn't deployed yet.
+   * Kick off this feature's checks in parallel on Cloudflare Browser Rendering
+   * (no Docker). The worker fans HTTP + Playwright checks concurrently; we poll
+   * the run for live per-check status (streaming-equivalent). The runner returns
+   * its own check list (HTTP smokes + browser assertions), which replaces the
+   * static spec list once a run starts. Degrades gracefully if not yet deployed.
    */
   async runE2e(): Promise<void> {
     const m = this.model();
     if (!m || this.e2eRunning()) return;
-    const specs = m.e2eTests ?? [];
-    if (specs.length === 0) return;
+    if (this.e2eSpecs().length === 0) return;
     this.e2eError.set(null);
     this.e2eRunning.set(true);
-    this.e2eStatus.set(Object.fromEntries(specs.map((p) => [p, { status: 'queued' as const }])));
     try {
       const res = await firstValueFrom(
-        this.api.post<{ runId?: string }>(`/feature-e2e/${encodeURIComponent(m.key)}/run`, { specs }),
+        this.api.post<{ runId?: string; specs?: E2eSpec[] }>(`/feature-e2e/${encodeURIComponent(m.key)}/run`, {}),
       );
       if (!res?.runId) throw new Error('no runId');
+      if (res.specs?.length) this.runSpecs.set(res.specs);
       this.startPolling(res.runId);
     } catch (e) {
       this.stopPolling();
       this.e2eRunning.set(false);
-      this.e2eStatus.set({});
       const status = (e as { status?: number })?.status;
       this.e2eError.set(
         status === 404 || status === 501
-          ? 'Live E2E runner is provisioning — the specs are listed below and run once it’s deployed.'
+          ? 'Live E2E runner is provisioning — the checks above run once it’s deployed.'
           : 'Couldn’t start the E2E run. Try again in a moment.',
       );
     }
@@ -382,13 +381,9 @@ export class FeatureDossierComponent implements OnDestroy {
   private async poll(runId: string): Promise<void> {
     try {
       const res = await firstValueFrom(
-        this.api.get<{ status?: string; specs?: Array<{ path: string; status: E2eSpec['status']; durationMs?: number }> }>(
-          `/feature-e2e/runs/${encodeURIComponent(runId)}`,
-        ),
+        this.api.get<{ status?: string; specs?: E2eSpec[] }>(`/feature-e2e/runs/${encodeURIComponent(runId)}`),
       );
-      const map: Record<string, { status: E2eSpec['status']; durationMs?: number }> = {};
-      for (const s of res?.specs ?? []) map[s.path] = { status: s.status, durationMs: s.durationMs };
-      this.e2eStatus.set(map);
+      if (res?.specs?.length) this.runSpecs.set(res.specs);
       const done = res?.status && res.status !== 'running' && res.status !== 'queued';
       if (done) { this.stopPolling(); this.e2eRunning.set(false); }
     } catch {
