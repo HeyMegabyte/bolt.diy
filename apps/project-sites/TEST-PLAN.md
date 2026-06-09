@@ -511,6 +511,19 @@
 - [ ] P3 — Tables/search: TanStack composable tables (migrate the 2 ag-grid grids —
       audit.component + ai-logs.component per docs/perf-wave-ag-grid-to-tanstack.md),
       URL-synced state, saved views, virtualization; no workflow regressions.
+      - [x] P3-urlsort (2026-06-09): URL-synced table sort for the EXISTING TanStack
+            tables. New shared pure util `table-sort-url.ts` (`formatSort`/`parseSort` with
+            column-id allow-list — a hand-edited `?sort=` can't set an unknown/non-sortable
+            col) + 6 unit specs. Wired api-tokens (`?sort=<id>.<asc|desc>`, restore on init,
+            write on sort, replaceUrl+merge). 1424 Karma green. Deployed. (content-freshness
+            = next safe slice; same util.)
+      - [ ] P3-MIGRATION (⚠️ SUPERVISED, ALL-OR-NOTHING — NOT a blind cron fire): ag-grid →
+            TanStack on audit + ai-logs. Per docs/perf-wave-ag-grid-to-tanstack.md +
+            frontend/CLAUDE.md the @defer / single-importer routes are DEAD ENDS; esbuild
+            hoists ag-grid eager regardless → only a full per-grid rewrite (master/detail
+            full-width rows + CSV export + pagination + dark-cyan theme) closes the 220 KB
+            overage. Needs E2E_API_KEY for live master/detail QA on the 2 most-visible grids.
+            Schedule a focused supervised session; do NOT attempt unsupervised.
 - [ ] P4 — Command center: dashboard figures/charts/diagrams with source + timestamp +
       interpretation labels; per-site health from existing signals only; metric→record links.
 - [ ] P5 — Core tabs: Logs, Snapshots/Deploy History, SQL (safe-mode explanation UI),

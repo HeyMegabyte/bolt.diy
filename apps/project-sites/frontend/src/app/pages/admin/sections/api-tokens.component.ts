@@ -31,7 +31,8 @@
  */
 
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { formatSort, parseSort } from '../table-sort-url';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -417,6 +418,10 @@ export class AdminApiTokensComponent {
   private api = inject(ApiService);
   private toast = inject(ToastService);
   private adminState = inject(AdminStateService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  /** Sortable column ids — allow-list guarding a hand-edited `?sort=`. */
+  private static readonly SORT_IDS = ['name', 'last_used_at', 'expires_at', 'created_at'] as const;
 
   tokens = signal<ApiToken[]>([]);
   loading = signal(true);
@@ -428,7 +433,21 @@ export class AdminApiTokensComponent {
     name: 'Name', scopes: 'Scopes', last_used_at: 'Last used',
     expires_at: 'Expires', created_at: 'Created', actions: '',
   };
-  private readonly sorting = signal<SortingState>([]);
+  // Initial sort restored from ?sort= (bookmarkable / refresh-safe — P3).
+  private readonly sorting = signal<SortingState>(
+    parseSort(this.route.snapshot.queryParamMap.get('sort'), AdminApiTokensComponent.SORT_IDS),
+  );
+
+  /** Apply a TanStack sorting update + reflect it in `?sort=` (SPA nav, merge). */
+  private applySorting(next: SortingState): void {
+    this.sorting.set(next);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { sort: formatSort(next) },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
   private readonly columns: ColumnDef<ApiToken>[] = [
     { id: 'name', accessorKey: 'name' },
     { id: 'scopes', enableSorting: false },
@@ -442,7 +461,7 @@ export class AdminApiTokensComponent {
     columns: this.columns,
     state: { sorting: this.sorting() },
     onSortingChange: (updater) =>
-      this.sorting.update((prev) => (typeof updater === 'function' ? updater(prev) : updater)),
+      this.applySorting(typeof updater === 'function' ? updater(this.sorting()) : updater),
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
   }));

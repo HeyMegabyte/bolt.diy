@@ -34,6 +34,7 @@ function make(over: { get?: jasmine.Spy; post?: jasmine.Spy; delete?: jasmine.Sp
       { provide: HttpClient, useValue: http },
       { provide: ToastService, useValue: { show } },
       { provide: AdminStateService, useValue: { orgId: signal(over.orgId ?? 'org1') } },
+      provideRouter([]), // component now injects Router + ActivatedRoute for ?sort= sync
     ],
   });
   TestBed.overrideComponent(AdminApiTokensComponent, { set: { template: '<div></div>', imports: [] } });
