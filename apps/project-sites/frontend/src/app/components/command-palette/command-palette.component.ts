@@ -1,9 +1,12 @@
 import { Component, inject, input, signal, computed, ElementRef, ViewChild, type AfterViewInit, type OnDestroy, EventEmitter, Output } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
+import { Subject, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 import { scaleFade, listStagger } from '../../animations/motion';
 import { FocusTrapDirective } from '../../directives/focus-trap.directive';
 import { FeatureFlagService } from '../../services/feature-flag.service';
+import { ApiService } from '../../services/api.service';
 
 /** localStorage key holding the per-command execution tally that drives the
  *  "Predicted" Cmd+K group: `{ [commandId]: { n: count, last: epochMs } }`. */
@@ -15,6 +18,10 @@ export interface PaletteCommand {
   icon: string;
   route?: string;
   action?: string;
+  /** External/site URL for AI "smart" results (opened in a new tab). */
+  url?: string;
+  /** Optional context line shown under smart results (e.g. "Docs · AutoRAG"). */
+  detail?: string;
 }
 
 const COMMANDS: PaletteCommand[] = [
@@ -114,8 +121,37 @@ const COMMANDS: PaletteCommand[] = [
               }
             </li>
           }
-          @if (flatItems().length === 0) {
-            <li class="palette-empty">No commands found</li>
+          <!-- AI smart results (AutoRAG + Cloudflare Search) — appended after the
+               instant command matches; keyboard-navigable, opens in a new tab. -->
+          @if (smartLoading() || smartResults().length > 0) {
+            <li class="palette-group" role="presentation" data-testid="command-smart-header">
+              <span class="palette-group-spark" [innerHTML]="getIcon('sparkle')"></span>
+              Smart results
+              @if (smartLoading()) { <span class="palette-smart-load">searching…</span> }
+            </li>
+            @for (cmd of smartResults(); track cmd.id; let i = $index) {
+              <li
+                class="palette-item"
+                [class.active]="(i + smartOffset()) === activeIndex()"
+                [attr.aria-selected]="(i + smartOffset()) === activeIndex()"
+                [id]="'ps-palette-opt-' + (i + smartOffset())"
+                role="option"
+                (click)="execute(cmd)"
+                (mouseenter)="activeIndex.set(i + smartOffset())"
+                [attr.data-testid]="'command-smart-' + cmd.id"
+              >
+                <span class="palette-item-icon" [innerHTML]="getIcon(cmd.icon || 'sparkle')"></span>
+                <span class="palette-item-label">{{ cmd.label }}</span>
+                @if (cmd.detail) {
+                  <span class="palette-item-hint">{{ cmd.detail }}</span>
+                } @else if (cmd.route) {
+                  <span class="palette-item-hint">{{ cmd.route }}</span>
+                }
+              </li>
+            }
+          }
+          @if (flatItems().length === 0 && !smartLoading()) {
+            <li class="palette-empty">No results — try a different search</li>
           }
         </ul>
         <div class="palette-footer">
@@ -135,14 +171,18 @@ const COMMANDS: PaletteCommand[] = [
     .palette-backdrop {
       position: fixed; inset: 0; z-index: 9999;
       display: flex; align-items: flex-start; justify-content: center;
-      padding-top: min(22vh, 180px);
-      background: rgba(2, 2, 12, 0.72);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      padding: min(7vh, 64px) 16px;
+      background: rgba(2, 2, 12, 0.78);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       animation: fadeInBg 0.15s ease;
     }
+    /* Near-full-screen experience: a large panel that shows the whole catalog at
+       once, then filters instantly + appends AI smart results. */
     .palette-modal {
-      width: 100%; max-width: 560px;
+      width: 100%; max-width: 880px;
+      height: min(86vh, 820px);
+      display: flex; flex-direction: column;
       background: #0d0d1a;
       border: 1px solid rgba(0, 229, 255, 0.15);
       border-radius: 16px;
@@ -152,6 +192,7 @@ const COMMANDS: PaletteCommand[] = [
         0 0 60px rgba(0, 229, 255, 0.04);
       overflow: hidden;
     }
+    @media (max-width: 640px) { .palette-backdrop { padding: 0; } .palette-modal { height: 100%; max-width: none; border-radius: 0; } }
     @media (prefers-reduced-motion: reduce) {
       .palette-backdrop { animation: none; }
     }
@@ -189,7 +230,11 @@ const COMMANDS: PaletteCommand[] = [
     /* List */
     .palette-list {
       list-style: none; margin: 0; padding: 6px;
-      max-height: 360px; overflow-y: auto;
+      flex: 1; min-height: 0; overflow-y: auto;
+    }
+    .palette-smart-load {
+      margin-left: auto; font-size: 0.6rem; font-weight: 600; letter-spacing: 0.04em;
+      color: rgba(0, 229, 255, 0.5); text-transform: none;
     }
     .palette-list::-webkit-scrollbar { width: 4px; }
     .palette-list::-webkit-scrollbar-track { background: transparent; }
@@ -278,6 +323,39 @@ export class CommandPaletteComponent implements AfterViewInit, OnDestroy {
 
   private router = inject(Router);
   private flags = inject(FeatureFlagService);
+  private api = inject(ApiService);
+
+  // ── AI "smart" results (AutoRAG + Cloudflare Search), appended after the
+  //    instant client-filtered commands. Debounced; degrades gracefully when
+  //    the worker search endpoint isn't deployed. ──
+  readonly smartResults = signal<PaletteCommand[]>([]);
+  readonly smartLoading = signal(false);
+  private readonly smartSubject = new Subject<string>();
+
+  constructor() {
+    this.smartSubject
+      .pipe(
+        debounceTime(220),
+        distinctUntilChanged(),
+        switchMap((q) => {
+          const term = q.trim();
+          if (term.length < 2) {
+            this.smartLoading.set(false);
+            return of({ results: [] as PaletteCommand[] });
+          }
+          this.smartLoading.set(true);
+          return this.api
+            .get<{ results?: PaletteCommand[] }>(`/search/command?q=${encodeURIComponent(term)}`)
+            .pipe(catchError(() => of({ results: [] as PaletteCommand[] })));
+        }),
+      )
+      .subscribe((res) => {
+        this.smartLoading.set(false);
+        const rows = Array.isArray(res?.results) ? res.results : [];
+        // Namespaced ids so they never collide with command ids in keyboard nav.
+        this.smartResults.set(rows.slice(0, 8).map((r, i) => ({ ...r, id: r.id || `smart-${i}` })));
+      });
+  }
 
   /** Gates the Predicted group. Flag `predicted_actions` (default off). */
   private readonly predictedEnabled = toSignal(this.flags.isOn('predicted_actions'), {
@@ -330,7 +408,10 @@ export class CommandPaletteComponent implements AfterViewInit, OnDestroy {
 
   /** Flat keyboard-nav order: predicted first, then the rest. activeIndex
    *  indexes into this combined list. */
-  readonly flatItems = computed<PaletteCommand[]>(() => [...this.predicted(), ...this.restList()]);
+  readonly flatItems = computed<PaletteCommand[]>(() => [...this.predicted(), ...this.restList(), ...this.smartResults()]);
+
+  /** Keyboard index where the smart-results group starts. */
+  readonly smartOffset = computed<number>(() => this.predicted().length + this.restList().length);
 
   /** id of the active option for the input's aria-activedescendant — so screen
    *  readers announce the highlighted command as the user arrows (APG combobox). */
@@ -406,6 +487,14 @@ export class CommandPaletteComponent implements AfterViewInit, OnDestroy {
     const value = (event.target as HTMLInputElement).value;
     this.query.set(value);
     this.activeIndex.set(0);
+    // Instant client filter happens via query(); kick the AI/AutoRAG enrichment.
+    if (value.trim().length >= 2) {
+      this.smartLoading.set(true);
+    } else {
+      this.smartLoading.set(false);
+      this.smartResults.set([]);
+    }
+    this.smartSubject.next(value);
   }
 
   onBackdropClick(event: MouseEvent): void {
@@ -445,6 +534,10 @@ export class CommandPaletteComponent implements AfterViewInit, OnDestroy {
     this.closed.emit();
     if (cmd.action === 'showShortcuts') {
       this.showShortcuts.emit();
+      return;
+    }
+    if (cmd.url) {
+      window.open(cmd.url, '_blank', 'noopener,noreferrer');
       return;
     }
     if (cmd.route) {
