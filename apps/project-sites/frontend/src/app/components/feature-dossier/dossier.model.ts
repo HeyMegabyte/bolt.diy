@@ -34,6 +34,8 @@ export interface DossierModel {
   requiredPlan?: string;
   category?: string;
   entitled?: string;
+  /** Live URL to offer an on-demand AI vision critique (per-site features). */
+  previewUrl?: string;
 }
 
 const STAGES = ['experimental', 'beta', 'stable', 'deprecated'] as const;

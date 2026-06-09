@@ -629,6 +629,14 @@ export class AdminSiteFeaturesComponent implements OnInit {
    * the dossier renders the integration guide + coverage signal client-side.
    */
   openDossier(f: SiteFeature): void {
+    const site = this.state.selectedSite();
+    // Live URL for the on-demand AI vision critique — custom hostname if set,
+    // else the {slug}.projectsites.dev subdomain.
+    const previewUrl = site?.primary_hostname
+      ? `https://${site.primary_hostname}`
+      : site?.slug
+        ? `https://${site.slug}.projectsites.dev`
+        : undefined;
     this.dossier.set({
       kind: 'Feature',
       key: f.key,
@@ -638,6 +646,7 @@ export class AdminSiteFeaturesComponent implements OnInit {
       requiredPlan: f.requiredPlan,
       category: f.category,
       enabled: f.enabled,
+      previewUrl,
     });
     this.dossierOpen.set(true);
   }
