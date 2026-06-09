@@ -485,8 +485,14 @@
             page+section) and `psVtOut/In` (styles.scss, root) now pure opacity — dropped the
             `translateY(±4-10px)` + `blur(2px)`. Extended reduced-motion snap to `ps-section`.
             Sidebar/topbar already `animation: none`. Deployed + curl-verified live.
-      - [ ] P2-rest — grouped sidebar audit, premium header completeness, breadcrumb real
-            names, deep-link + SPA-refresh correctness. Next fire(s).
+      - [x] P2-names (2026-06-09): real site name in the document title + SR route-announcer
+            on `/admin/sites/:id*` routes (WCAG 2.4.2). Added pure `isSiteDetailPath()` to
+            admin-section-labels; `documentTitle` computed folds `selectedSite().business_name`
+            in ("Branches · Vito's Mens Salon · ProjectSites") via a reactive `effect` so a
+            hard-refresh upgrades the title once the site loads (was imperative, generic
+            "Sites · ProjectSites"). routeAnnouncement enriched the same way. Deployed + verified.
+      - [ ] P2-rest — grouped sidebar audit, premium header completeness (env/⌘K/account/
+            health/active-site), deep-link + SPA-refresh correctness. Next fire(s).
 - [ ] P3 — Tables/search: TanStack composable tables (migrate the 2 ag-grid grids —
       audit.component + ai-logs.component per docs/perf-wave-ag-grid-to-tanstack.md),
       URL-synced state, saved views, virtualization; no workflow regressions.

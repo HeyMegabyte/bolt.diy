@@ -26,7 +26,7 @@ import { ShareLinkService } from '../../services/share-link.service';
 import { EditorTabsComponent, type EditorTab } from '../../components/editor-tabs/editor-tabs.component';
 import { AdminMediaComponent } from './sections/media.component';
 import { AdminAiEndpointsComponent } from './sections/ai-endpoints.component';
-import { adminSectionLabelFromPath } from './admin-section-labels';
+import { adminSectionLabelFromPath, isSiteDetailPath } from './admin-section-labels';
 import { isSysAdminEmail } from './sys-admin';
 import { isEditorPath } from './admin-route.util';
 
@@ -116,6 +116,25 @@ export class AdminComponent implements OnInit, OnDestroy {
   sidebarCollapsed = signal(typeof window !== 'undefined' && window.innerWidth < 768);
   isEditorRoute = signal(false);
   currentSection = signal('Editor');
+  /** Full current admin URL — feeds the real-name title/announcer (P2). */
+  readonly currentUrl = signal('');
+
+  /**
+   * Document title with REAL site name on site-detail routes (P2 — breadcrumbs
+   * with real names / WCAG 2.4.2). `/admin/sites/:id*` → "Branches · Vito's Mens
+   * Salon · ProjectSites"; everywhere else → "<Section> · ProjectSites". Computed
+   * (not imperative) so a hard-refresh that loads `selectedSite` AFTER the nav
+   * still upgrades the title once the site resolves.
+   */
+  readonly documentTitle = computed(() => {
+    const section = this.currentSection();
+    const site = this.state.selectedSite();
+    if (isSiteDetailPath(this.currentUrl()) && site?.business_name) {
+      return `${section} · ${site.business_name} · ProjectSites`;
+    }
+    return `${section} · ProjectSites`;
+  });
+  private readonly _titleEffect = effect(() => this.titleService.setTitle(this.documentTitle()));
 
   /**
    * SPA route announcer text. SR users get NO signal that the section changed on
@@ -126,7 +145,12 @@ export class AdminComponent implements OnInit, OnDestroy {
    */
   readonly routeAnnouncement = computed(() => {
     const s = this.currentSection();
-    return s ? `${s} section` : '';
+    if (!s) return '';
+    const site = this.state.selectedSite();
+    if (isSiteDetailPath(this.currentUrl()) && site?.business_name) {
+      return `${s} for ${site.business_name} section`;
+    }
+    return `${s} section`;
   });
 
   /**
@@ -206,10 +230,11 @@ export class AdminComponent implements OnInit, OnDestroy {
     // mislabel to "Dashboard" (the last segment is a param value / unmapped tail).
     const section = adminSectionLabelFromPath(url);
     this.currentSection.set(section);
-    // Per-route meta swap — only the title + description change; the shell
-    // (sidebar + topbar) is never touched. Keeps each tab a distinct, share-
-    // able, bookmark-correct view without a full document load.
-    this.titleService.setTitle(`${section} · ProjectSites`);
+    this.currentUrl.set(url);
+    // Per-route meta swap — the description changes here; the document TITLE is
+    // owned by the reactive `_titleEffect` (so it can fold in the real site name
+    // once `selectedSite` resolves on a hard refresh). The shell (sidebar +
+    // topbar) is never touched — each tab stays a distinct, bookmark-correct view.
     this.metaService.updateTag({
       name: 'description',
       content: `${section} — your ProjectSites admin dashboard.`,

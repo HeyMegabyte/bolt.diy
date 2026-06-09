@@ -68,3 +68,17 @@ export function adminSectionLabelFromPath(url: string): string {
   }
   return 'Dashboard';
 }
+
+/**
+ * True when the URL targets a specific site's detail view (`/admin/sites/:id`
+ * or any sub-path like `/admin/sites/:id/branches`). Used to enrich the
+ * document title + SR route-announcer with the REAL site name (P2 — breadcrumbs
+ * with real names) instead of the generic "Sites" section label. The list view
+ * `/admin/sites` (no id segment) returns false — it stays "Sites".
+ */
+export function isSiteDetailPath(url: string): boolean {
+  const path = url.split('?')[0].split('#')[0];
+  const segments = path.split('/').filter(Boolean);
+  const afterAdmin = segments[0] === 'admin' ? segments.slice(1) : segments;
+  return afterAdmin[0] === 'sites' && afterAdmin.length >= 2 && !!afterAdmin[1];
+}
