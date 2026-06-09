@@ -140,6 +140,7 @@ candidates_full() {
     -not -name '*.lock' \
     -not -name '*.test.*' \
     -not -name '*.spec.*' \
+    -not -name '*.e2e.*' \
     -print 2>/dev/null \
     | sed 's|^\./||' \
     | sort -u
@@ -152,7 +153,7 @@ candidates_staged() {
   fi
   git diff --cached --name-only --diff-filter=ACMR \
     | grep -iE '(home|homepage|landing|marketing-home).*\.(html|ts|tsx|scss|css|vue|svelte)$' \
-    | grep -viE '\.(test|spec)\.' \
+    | grep -viE '\.(test|spec|e2e)\.' \
     | sort -u
 }
 
@@ -162,7 +163,7 @@ content_offenders() {
   # shellcheck disable=SC2046
   files=$(find . \( $(build_prune_expr) \) -prune -o \
     -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.html' -o -name '*.vue' -o -name '*.svelte' \) \
-    -not -name '*.test.*' -not -name '*.spec.*' \
+    -not -name '*.test.*' -not -name '*.spec.*' -not -name '*.e2e.*' \
     -print 2>/dev/null)
   if [ -z "$files" ]; then
     return 0
