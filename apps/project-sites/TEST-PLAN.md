@@ -621,6 +621,13 @@
             (also closes the 220 KB initial-bundle overage); mobile + param-route axe runs +
             8.33ms frame-budget profiling. Next (migration supervised).
 - [ ] P8 — Proof: lint + typecheck + build + `npm run test:e2e` green; final report.
+      - [x] P8-gates (2026-06-09): consolidated proof pass GREEN — SPA `tsc -p tsconfig.app.json`
+            (LINT-03) ✓, worker `tsc --noEmit` (LINT-02) ✓, `ng build` prod AOT ✓, full Karma
+            **1433/1433** ✓, prod smoke `verify:production` (homepage + /admin/dashboard → 200,
+            Angular bundle confirmed live) ✓, admin axe desktop+mobile+param GREEN (P7).
+      - [ ] P8-final — can only fully close after P3-MIGRATION lands (the initial-bundle
+            budget WARNING persists until both ag-grid grids → TanStack). Everything else
+            across P0–P7 is shipped + verified live. Final report on migration completion.
 
 ## Guardrails (do NOT)
 - No CSP L3 strict-dynamic / Security+Trust headers. No build validators.
