@@ -647,6 +647,7 @@ export class AdminSiteFeaturesComponent implements OnInit {
       category: f.category,
       enabled: f.enabled,
       previewUrl,
+      siteId: site?.id,
     });
     this.dossierOpen.set(true);
   }

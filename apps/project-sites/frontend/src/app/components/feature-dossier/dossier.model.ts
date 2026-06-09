@@ -36,6 +36,8 @@ export interface DossierModel {
   entitled?: string;
   /** Live URL to offer an on-demand AI vision critique (per-site features). */
   previewUrl?: string;
+  /** Selected site id — enables the "Ask your site" concierge tester. */
+  siteId?: string;
 }
 
 const STAGES = ['experimental', 'beta', 'stable', 'deprecated'] as const;
