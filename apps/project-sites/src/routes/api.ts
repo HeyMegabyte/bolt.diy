@@ -3466,7 +3466,11 @@ api.patch('/api/sites/:id', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('id');
-  const body = (await c.req.json()) as {
+  // `.catch(() => null)` + null-guard: a malformed body is a 400, while a valid
+  // empty `{}` (every field here is optional) stays a legitimate no-op below.
+  // (Using `.catch(() => ({}))` would wrongly mask a malformed body as that
+  // no-op — see fire-16 lesson in progress.md.)
+  const body = (await c.req.json().catch(() => null)) as {
     business_name?: string;
     slug?: string;
     business_address?: string | null;
@@ -3476,7 +3480,10 @@ api.patch('/api/sites/:id', async (c) => {
     original_prompt?: string | null;
     logo_url?: string | null;
     app_icon_url?: string | null;
-  };
+  } | null;
+  if (!body || typeof body !== 'object') {
+    throw badRequest('Request body must be a JSON object');
+  }
 
   // Verify ownership
   const site = await dbQueryOne<{ id: string; slug: string; org_id: string }>(
