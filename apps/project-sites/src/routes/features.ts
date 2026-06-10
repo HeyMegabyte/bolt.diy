@@ -23,7 +23,7 @@ import { assertSiteOwned } from '../services/site_ownership.js';
 import { createReviewLink } from '../services/review_approval.js';
 import * as F from '../services/features.js';
 import * as B from '../services/brilliant.js';
-import { isFlagOn, resolveFlag, FLAG_REGISTRY } from '../modules/feature_flags/services.js';
+import { isFlagOn, resolveFlag, invalidateFlagCache, FLAG_REGISTRY } from '../modules/feature_flags/services.js';
 import { listFlags } from '../modules/feature_flags/registry.js';
 import { FLAG_DOCS, getDocs } from '../modules/feature_flags/docs.js';
 
@@ -400,6 +400,10 @@ features.post('/api/site-features/:key', async (c) => {
   } catch {
     /* best-effort during rollout; the override table is created by migration 0500 */
   }
+  // Bust the 60s KV cache `resolveFlag` keeps per `flag:<key>:<siteId>:<orgId>`,
+  // or the just-written tenant override stays invisible to `isFlagOn` for up to
+  // KV_TTL — a toggle that silently no-ops from the owner's perspective.
+  await invalidateFlagCache(c.env, key);
   return c.json({ ok: true, key, enabled: !!body.enabled, preview: !!body.preview });
 });
 
