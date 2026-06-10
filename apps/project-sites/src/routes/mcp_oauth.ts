@@ -26,10 +26,14 @@
  * @packageDocumentation
  */
 import { Hono } from 'hono';
+import { z } from 'zod';
 import type { Env, Variables } from '../types/env.js';
 import { getAdapter, type Provider } from '../services/mcp_client.js';
 import { encrypt } from '../services/ai_crypto.js';
 import * as auditService from '../services/audit.js';
+
+/** Boundary contract for the paste-key flow — a non-empty secret string. */
+const PasteKeyBodySchema = z.object({ api_key: z.string().min(1) });
 
 export const mcpOauth = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -191,7 +195,10 @@ mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
       redirectUri: `https://projectsites.dev/api/mcp/${provider}/callback`,
     });
   } catch (err) {
-    return c.json({ error: { message: err instanceof Error ? err.message : 'exchange failed' } }, 502);
+    return c.json(
+      { error: { message: err instanceof Error ? err.message : 'exchange failed' } },
+      502,
+    );
   }
   const enc = await encrypt(c.env, exchange.access_token);
   const encRefresh = exchange.refresh_token ? await encrypt(c.env, exchange.refresh_token) : null;
@@ -239,7 +246,10 @@ mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
     }),
   );
 
-  return Response.redirect(`https://projectsites.dev${stateRow.return_url}?connected=${provider}`, 302);
+  return Response.redirect(
+    `https://projectsites.dev${stateRow.return_url}?connected=${provider}`,
+    302,
+  );
 });
 
 /**
@@ -260,12 +270,20 @@ mcpOauth.post('/api/mcp/:provider/paste', async (c) => {
   if (!orgId) return c.json({ error: { message: 'auth required' } }, 401);
   const provider = c.req.param('provider') as Provider;
   const state = c.req.query('state');
-  const { api_key } = (await c.req.json()) as { api_key: string };
-  if (!api_key) return c.json({ error: { message: 'api_key required' } }, 400);
+  // Zod boundary (zod-everywhere): a malformed JSON body previously threw an
+  // unhandled 500; now both unparseable JSON and a missing/non-string api_key
+  // resolve to a clean 400. The key is a secret — never trust the cast.
+  let raw: unknown;
+  try {
+    raw = await c.req.json();
+  } catch {
+    return c.json({ error: { message: 'api_key required' } }, 400);
+  }
+  const parsed = PasteKeyBodySchema.safeParse(raw);
+  if (!parsed.success) return c.json({ error: { message: 'api_key required' } }, 400);
+  const { api_key } = parsed.data;
   const stateRow = state
-    ? await c.env.DB.prepare(
-        `SELECT site_id FROM mcp_oauth_states WHERE state = ? AND org_id = ?`,
-      )
+    ? await c.env.DB.prepare(`SELECT site_id FROM mcp_oauth_states WHERE state = ? AND org_id = ?`)
         .bind(state, orgId)
         .first<{ site_id: string }>()
     : null;
@@ -284,7 +302,8 @@ mcpOauth.post('/api/mcp/:provider/paste', async (c) => {
   )
     .bind(id, orgId, siteId, provider, `${provider} (pasted key)`, enc)
     .run();
-  if (state) await c.env.DB.prepare(`DELETE FROM mcp_oauth_states WHERE state = ?`).bind(state).run();
+  if (state)
+    await c.env.DB.prepare(`DELETE FROM mcp_oauth_states WHERE state = ?`).bind(state).run();
 
   c.executionCtx.waitUntil(
     auditService.writeAuditLog(c.env.DB, {

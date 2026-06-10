@@ -60,10 +60,12 @@ interface BoundStatement {
  * lookup (`.first()`), `allRows` answers the connections list (`.all()`); every
  * INSERT/DELETE just records its bound params for assertion.
  */
-function makeDb(opts: {
-  firstRow?: Record<string, unknown> | null;
-  allRows?: Array<Record<string, unknown>>;
-} = {}) {
+function makeDb(
+  opts: {
+    firstRow?: Record<string, unknown> | null;
+    allRows?: Array<Record<string, unknown>>;
+  } = {},
+) {
   const statements: BoundStatement[] = [];
   const prepare = jest.fn((sql: string) => {
     const bind = jest.fn((...params: unknown[]) => {
@@ -82,18 +84,18 @@ function makeDb(opts: {
   };
 }
 
-function makeAdapter(over: Partial<{
-  authorizeUrl: jest.Mock;
-  exchangeCode: jest.Mock;
-}> = {}) {
+function makeAdapter(
+  over: Partial<{
+    authorizeUrl: jest.Mock;
+    exchangeCode: jest.Mock;
+  }> = {},
+) {
   return {
     provider: 'github',
     authorizeUrl:
-      over.authorizeUrl ??
-      jest.fn(() => 'https://github.com/login/oauth/authorize?state=abc'),
+      over.authorizeUrl ?? jest.fn(() => 'https://github.com/login/oauth/authorize?state=abc'),
     exchangeCode:
-      over.exchangeCode ??
-      jest.fn(async () => ({ access_token: 'gho_secret', expires_in: 3600 })),
+      over.exchangeCode ?? jest.fn(async () => ({ access_token: 'gho_secret', expires_in: 3600 })),
     tools: jest.fn(() => []),
     execute: jest.fn(async () => ({ ok: true })),
   };
@@ -192,9 +194,14 @@ describe('GET /api/mcp/:provider/connect', () => {
     const authorizeUrl = jest.fn(() => 'https://github.com/login/oauth/authorize?x=1');
     mockGetAdapter.mockReturnValue(makeAdapter({ authorizeUrl }));
     const env = makeEnv();
-    const res = await req(makeApp(AUTH), '/api/mcp/github/connect?site_id=s1&return_url=/admin/mcp', env, {
-      redirect: 'manual',
-    });
+    const res = await req(
+      makeApp(AUTH),
+      '/api/mcp/github/connect?site_id=s1&return_url=/admin/mcp',
+      env,
+      {
+        redirect: 'manual',
+      },
+    );
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe('https://github.com/login/oauth/authorize?x=1');
 
@@ -227,7 +234,13 @@ describe('GET /api/mcp/:provider/connect', () => {
     const res = await req(makeApp(AUTH), '/api/mcp/resend/connect?site_id=s1', env);
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
-      data: { mode: string; provider: string; state: string; post_to: string; instructions: string };
+      data: {
+        mode: string;
+        provider: string;
+        state: string;
+        post_to: string;
+        instructions: string;
+      };
     };
     expect(json.data.mode).toBe('paste_key');
     expect(json.data.provider).toBe('resend');
@@ -290,19 +303,33 @@ describe('GET /api/mcp/:provider/callback', () => {
     }));
     mockGetAdapter.mockReturnValue(makeAdapter({ exchangeCode }));
     const db = makeDb({
-      firstRow: { org_id: 'org-1', site_id: 's1', code_verifier: 'verifier-x', return_url: '/admin/mcp' },
+      firstRow: {
+        org_id: 'org-1',
+        site_id: 's1',
+        code_verifier: 'verifier-x',
+        return_url: '/admin/mcp',
+      },
     });
     const env = makeEnv({ DB: db });
-    const res = await req(makeApp({ requestId: 'req-1' }), '/api/mcp/github/callback?code=auth_code&state=state_x', env, {
-      redirect: 'manual',
-    });
+    const res = await req(
+      makeApp({ requestId: 'req-1' }),
+      '/api/mcp/github/callback?code=auth_code&state=state_x',
+      env,
+      {
+        redirect: 'manual',
+      },
+    );
 
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe('https://projectsites.dev/admin/mcp?connected=github');
 
     // PKCE: the persisted code_verifier was sent to the exchange.
     expect(exchangeCode).toHaveBeenCalledTimes(1);
-    const exOpts = exchangeCode.mock.calls[0][1] as { code: string; codeVerifier: string; redirectUri: string };
+    const exOpts = exchangeCode.mock.calls[0][1] as {
+      code: string;
+      codeVerifier: string;
+      redirectUri: string;
+    };
     expect(exOpts.code).toBe('auth_code');
     expect(exOpts.codeVerifier).toBe('verifier-x');
     expect(exOpts.redirectUri).toBe('https://projectsites.dev/api/mcp/github/callback');
@@ -344,7 +371,9 @@ describe('GET /api/mcp/:provider/callback', () => {
         firstRow: { org_id: 'org-1', site_id: 's1', code_verifier: 'v', return_url: '/admin/mcp' },
       }),
     });
-    const res = await req(makeApp(), '/api/mcp/github/callback?code=c&state=s', env, { redirect: 'manual' });
+    const res = await req(makeApp(), '/api/mcp/github/callback?code=c&state=s', env, {
+      redirect: 'manual',
+    });
     expect(res.status).toBe(302);
     expect(mockEncrypt).toHaveBeenCalledTimes(1);
     expect(mockEncrypt.mock.calls[0][1]).toBe('only_access');
@@ -377,6 +406,24 @@ describe('POST /api/mcp/:provider/paste', () => {
     expect(json.error.message).toBe('api_key required');
   });
 
+  it('returns 400 (not a 500) on a malformed JSON body — never reaches encrypt', async () => {
+    const env = makeEnv();
+    const res = await req(makeApp(AUTH), '/api/mcp/resend/paste?site_id=s1', env, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: 'not-json',
+    });
+    expect(res.status).toBe(400);
+    expect(mockEncrypt).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when api_key is a non-string (boundary type check)', async () => {
+    const env = makeEnv();
+    const res = await postPaste(env, '/api/mcp/resend/paste?site_id=s1', { api_key: 123 });
+    expect(res.status).toBe(400);
+    expect(mockEncrypt).not.toHaveBeenCalled();
+  });
+
   it('returns 400 when site_id cannot be resolved (no state, no query)', async () => {
     const env = makeEnv();
     const res = await postPaste(env, '/api/mcp/resend/paste', { api_key: 're_x' });
@@ -388,7 +435,9 @@ describe('POST /api/mcp/:provider/paste', () => {
   it('encrypts the pasted key, upserts the connection, and audit-logs (site_id from query)', async () => {
     const db = makeDb();
     const env = makeEnv({ DB: db });
-    const res = await postPaste(env, '/api/mcp/resend/paste?site_id=s1', { api_key: 're_live_key' });
+    const res = await postPaste(env, '/api/mcp/resend/paste?site_id=s1', {
+      api_key: 're_live_key',
+    });
     expect(res.status).toBe(200);
     const json = (await res.json()) as { data: { connected: boolean } };
     expect(json.data.connected).toBe(true);
@@ -436,7 +485,14 @@ describe('GET /api/mcp/connections', () => {
   it('lists the org connections and NEVER selects encrypted token columns', async () => {
     const db = makeDb({
       allRows: [
-        { id: 'c1', site_id: 's1', provider: 'github', display_name: 'github connection', status: 'active', scopes_json: '["repo"]' },
+        {
+          id: 'c1',
+          site_id: 's1',
+          provider: 'github',
+          display_name: 'github connection',
+          status: 'active',
+          scopes_json: '["repo"]',
+        },
       ],
     });
     const env = makeEnv({ DB: db });
