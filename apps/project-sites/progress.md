@@ -11,6 +11,12 @@
 
 > Honest note on round counts: the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 10/50 — per loop doctrine §2. The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
 
+## Fire 2026-06-10 (fire 6) — 2 SECURITY rounds + email-injection sweep closed
+- **R1 (ab694ef3):** contact-form HTML-injection — public/unauth submitter could inject `<a>`/`<script>` into the email sent to the site OWNER (phishing-the-owner). New escapeHtml() entity-encodes every field. +3 tests.
+- **R2 (3fa52f31):** inbox reply email — owner reply wrapped in `<p>${body}</p>` unescaped (correctness + hardening). escapeHtml + newline→<br>. +2 tests.
+Swept the whole email-HTML class: contact.ts already-safe, forms send-reply owner-authored (correctly left), site_serving charset-safe. Full suite 4410 green. NOT pushed (Brian gates prod).
+Tech-debt logged: 4 escapeHtml copies → consolidate into shared (ledger P2).
+
 ## Fire 2026-06-09 (fire 5) — 2 high-value SECURITY rounds
 - **R1 (d4cff843):** CRITICAL — container SQL-exec/R2-write endpoints had an auth-BYPASS when ANTHROPIC_API_KEY was unset (`undefined !== undefined` skipped the 401). Now constant-time `containerAuthorized()` + sql validation + malformed-JSON 400. +3 tests.
 - **R2 (87c35133):** public /api/donate payment boundary hardened — integer amount (≤ Stripe max), https-only redirect URLs (blocks javascript:/data: injection), malformed-JSON 400. +6 tests (new donate_route.test.ts).
