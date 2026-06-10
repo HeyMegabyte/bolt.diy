@@ -23,6 +23,20 @@
 import type { Env } from '../types/env.js';
 import type { VisitorIdentityRow } from './visitor_identity.js';
 
+/**
+ * HTML-entity-escape an owner-authored plain-text reply before wrapping it in
+ * the outbound email HTML. Without this, a literal `<` / `&` in a reply renders
+ * broken (and any markup would be injected) in the visitor's inbox.
+ */
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export interface ConversationRow {
   id: string;
   org_id: string;
@@ -179,13 +193,8 @@ function rowToConvWithVisitor(r: Record<string, unknown>): ConversationWithVisit
 /**
  * Fetches all messages for a conversation, oldest-first.
  */
-export async function getMessages(
-  env: Env,
-  conversationId: string,
-): Promise<MessageRow[]> {
-  return env.DB.prepare(
-    `SELECT * FROM messages WHERE conversation_id = ? ORDER BY sent_at ASC`,
-  )
+export async function getMessages(env: Env, conversationId: string): Promise<MessageRow[]> {
+  return env.DB.prepare(`SELECT * FROM messages WHERE conversation_id = ? ORDER BY sent_at ASC`)
     .bind(conversationId)
     .all<MessageRow>()
     .then((r) => r.results ?? [])
@@ -207,7 +216,15 @@ export async function appendMessage(
     aiDrafted?: boolean;
   },
 ): Promise<MessageRow> {
-  const { conversationId, direction, authorType, authorId, body, channel, aiDrafted = false } = params;
+  const {
+    conversationId,
+    direction,
+    authorType,
+    authorId,
+    body,
+    channel,
+    aiDrafted = false,
+  } = params;
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 
@@ -217,8 +234,19 @@ export async function appendMessage(
          (id, conversation_id, direction, author_type, author_id, body, channel,
           ai_drafted, sent_at, metadata_json, created_at)
        VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-    ).bind(id, conversationId, direction, authorType, authorId ?? null, body, channel,
-           aiDrafted ? 1 : 0, now, '{}', now),
+    ).bind(
+      id,
+      conversationId,
+      direction,
+      authorType,
+      authorId ?? null,
+      body,
+      channel,
+      aiDrafted ? 1 : 0,
+      now,
+      '{}',
+      now,
+    ),
 
     env.DB.prepare(
       `UPDATE conversations
@@ -326,11 +354,17 @@ ${thread}
 Draft reply:`;
 
   try {
-    const response = (await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast' as Parameters<typeof env.AI.run>[0], {
-      prompt,
-      max_tokens: 200,
-    })) as { response?: string };
-    return (response?.response ?? '').trim() || 'Thank you for reaching out. We will get back to you shortly.';
+    const response = (await env.AI.run(
+      '@cf/meta/llama-3.3-70b-instruct-fp8-fast' as Parameters<typeof env.AI.run>[0],
+      {
+        prompt,
+        max_tokens: 200,
+      },
+    )) as { response?: string };
+    return (
+      (response?.response ?? '').trim() ||
+      'Thank you for reaching out. We will get back to you shortly.'
+    );
   } catch {
     return 'Thank you for reaching out. We will get back to you shortly.';
   }
@@ -361,8 +395,16 @@ export async function sendViaChannel(
     if (!env.RESEND_API_KEY) return { sent: false, reason: 'resend_not_configured' };
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: 'noreply@projectsites.dev', to: email, subject: 'Re: Your inquiry', html: `<p>${body}</p>` }),
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'noreply@projectsites.dev',
+        to: email,
+        subject: 'Re: Your inquiry',
+        html: `<p>${escapeHtml(body).replace(/\n/g, '<br>')}</p>`,
+      }),
     }).catch(() => null);
     return { sent: res?.ok ?? false, reason: res?.ok ? undefined : 'resend_error' };
   }
