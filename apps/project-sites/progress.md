@@ -11,6 +11,12 @@
 
 > Honest note on round counts: the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 10/50 — per loop doctrine §2. The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
 
+## Fire 2026-06-09 (fire 4) — 2 verified SECURITY rounds
+The `as`-cast-on-req.json() sweep is yielding REAL bugs (not busywork):
+- **R1 (6c440ca4):** mcp_oauth paste-key — fixed unhandled 500 on malformed JSON + Zod-hardened a SECRET-storage boundary. +2 tests.
+- **R2 (00daf359):** team-invite — blocked PRIVILEGE INJECTION (unvalidated `role` → constrained to owner|editor|viewer enum) + 500→400. +1 test.
+Each: RED test + tsc + full jest (4396) + eslint(0) + committed. Stopped at 2 on budget (very long multi-fire session). Remaining as-cast boundaries tracked in ledger P2 as a productive seam for next fire. NOT pushed (Brian gates prod).
+
 ## Fire 2026-06-09 (fire 3) — 4 verified rounds shipped
 Brian re-issued "do 10 rounds" with fresh budget → executed (lesson banked: [[feedback_grind_dont_defer_on_explicit_rounds]]).
 - **R1 (e91972a8):** features.ts dead-code excision — 46 dead exports removed, 817→181 LOC, knip-clean, 4390 tests green.
