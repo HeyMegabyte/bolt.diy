@@ -67,6 +67,7 @@ _Append newly-discovered items here each iteration (TODO/FIXME sweeps, knip, sem
 ## Unit-coverage backlog (autonomous — no Brian; repo mandates 100%)
 - [x] `build_budget.ts` — AI-spend gate `checkBudget`/`recordSpend` (fire-23, 10 tests).
 - [x] `build_events.ts` — event-sourced build stream `appendBuildEvent`/`replayBuildEvents`/`isTerminalBuildEvent` + schema (fire-24, 16 tests). **All `src/services/*.ts` now have a referencing test.**
-- [ ] **NEXT: `src/durable_objects/voice_browse_helpers.ts` (171L)** — helpers = likely pure fns, ideal unit targets. VERIFY first it isn't already covered by the colocated `voice_browse_agent.test.ts`.
-- [ ] Then: `src/prompts/social_persona.ts` (195L), `dashboard_persona.ts` (89L); `src/workflows/social-publish.ts` (224L), `pseo-generation-workflow.ts` (78L). (NOTE: `voice_browse_agent.ts` IS tested — colocated `*.test.ts`, my find-scan false-flagged it.)
-- [ ] Deeper: run an actual coverage report to find under-covered BRANCHES within already-referenced files (the find-scan only finds files with zero references, not shallow coverage).
+- [x] `voice_browse_helpers.ts` — ALREADY covered by colocated `voice_browse_agent.test.ts` (all 5 helpers + edge cases). NOT a gap; find-scan false-flagged it (fire-25 verified).
+- [x] `src/prompts/social_persona.ts` — `SOCIAL_PERSONA_SYSTEM_PROMPT` alias map / `reddit:sub` parse / LinkedIn fallback / composition (fire-25, 6 tests).
+- [ ] **Low-value / deferred (NOT worth a round each):** `dashboard_persona.ts` = a pure const STRING (testing = asserting substrings of itself, near-zero value). `social-publish.ts` + `pseo-generation-workflow.ts` = `WorkflowEntrypoint` classes needing a step-runner harness (higher effort, orchestration-heavy) — defer to a focused workflow-test session.
+- [ ] **NEXT real lever: run `npm run test:coverage`** to find under-covered BRANCHES inside already-referenced files (the find-scan only catches zero-reference files). Target the lowest-coverage real-logic modules. This is the right way to keep mining once the zero-reference files are exhausted.

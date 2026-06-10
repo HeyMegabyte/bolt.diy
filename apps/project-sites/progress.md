@@ -3,11 +3,11 @@
 > Read this + `git log --oneline -15` + `_LOOP_LEDGER.md` FIRST each fresh iteration.
 > Loop doctrine: `_ULTIMATE_LOOP.prompt.md`. Cron `45b46ee7` fires every 30m.
 
-## ⚑ CONVERGENCE STATUS — read FIRST (updated fire-24, 2026-06-11)
+## ⚑ CONVERGENCE STATUS — read FIRST (updated fire-25, 2026-06-11)
 **Security + reliability BUG-classes are closed** (XSS/SSRF/open-redirect/auth-bypass/header-injection/rate-limits/Zod-boundaries/no-catch-malformed-body/canonical-gate). The fire-19/20 "frontier EXHAUSTED / no-op" call was an OVERCLAIM — it only considered bug-classes, NOT **unit-coverage gaps** (the repo mandates 100% coverage). **Untested services with real logic ARE autonomous work** and the right thing to mine when bug-classes are dry.
 - **Coverage-gap backlog (autonomous, no Brian):** find services without a dedicated test via the recipe below; write characterization tests for their branchy logic. DONE: `build_budget.ts` (fire-23, 10 tests) + `build_events.ts` (fire-24, 16 tests) — all `src/services/*.ts` now referenced. **NEXT: `src/durable_objects/voice_browse_helpers.ts` (171L)** + the backlog in `_LOOP_LEDGER.md` § Unit-coverage backlog.
   - Find-untested recipe: `for f in src/services/*.ts; do base=$(basename $f .ts); /usr/bin/grep -rlq "$base" src/__tests__ || echo "NO-TEST $f"; done` (then VERIFY it's a real gap — a comment-only mention isn't coverage, e.g. token_burn_meter.test only *mentions* build_budget; and a COLOCATED `*.test.ts` next to the source counts as covered even though it's not in `__tests__/`).
-  - **fire-24:** all `src/services/*.ts` now referenced. Coverage frontier moved to other dirs — NEXT is `src/durable_objects/voice_browse_helpers.ts` (171L). Backlog of remaining untested non-service files is in `_LOOP_LEDGER.md` § Unit-coverage backlog.
+  - **fire-24/25:** all `src/services/*.ts` referenced; `voice_browse_helpers` already covered (colocated test); `social_persona` covered (fire-25). Zero-reference real-logic files now largely exhausted (remaining: pure-string `dashboard_persona` = skip; 2 WorkflowEntrypoint classes = need a harness, defer). **NEXT real lever: `npm run test:coverage` → target under-covered BRANCHES in already-referenced files.** Backlog in `_LOOP_LEDGER.md` § Unit-coverage backlog.
 - Still Brian-gated (NOT autonomous): P0 `E2E_TEST_PASSWORD` prod-secret + `/signin`; 7 P1 features; supervised perf-wave; CI wiring; 24 P3 admin E2E specs (need the test-login harness).
 - **Fast-confirm for next fire:** (1) `git log d2e53755..HEAD` only loop-docs? (2) `E2E_TEST_PASSWORD` still absent? (3) bare `(await c.req.json()) as ` count still 1? (4) no new rule? → if all yes, the BUG-class frontier is unchanged, so go straight to the coverage-gap backlog (build_events next) — that's real work, NOT a no-op. Only no-op when coverage gaps are ALSO dry.
 
@@ -18,6 +18,13 @@
 - Repo `*.md` consolidated 277→73; all 16 generation prompts enhanced; convergence prompt rewritten with 2026 SOTA.
 
 > Honest note on round counts: the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 10/50 — per loop doctrine §2. The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
+
+## Fire 2026-06-11 (fire 25) — unit-coverage on the social-persona prompt builder
+- **R1:** Covered `prompts/social_persona.ts` → `SOCIAL_PERSONA_SYSTEM_PROMPT` (`social_persona.test.ts`, 6 tests): canonical platform→block (×10), short aliases (x/fb/ig/bsky/tg), `reddit:sub` subreddit parse (+ bare reddit→r/all), case/whitespace insensitivity, unknown/empty/undefined→LinkedIn fallback, and the [dashboard persona, platform block, output contract] composition order.
+- **Verified `voice_browse_helpers.ts` is NOT a gap** — the colocated `voice_browse_agent.test.ts` already covers all 5 helpers with edge cases (fire-24's find-scan false-flagged it; colocated `*.test.ts` ≠ in `__tests__/`).
+- Zero-reference real-logic files now largely mined. Remaining backlog is low-value (pure-string `dashboard_persona`) or needs-a-harness (2 WorkflowEntrypoint classes). **The next real coverage lever is `npm run test:coverage`** to find under-covered branches inside already-referenced files.
+- Gates: worker tsc clean + 4489 jest green; eslint 0-err. NOT pushed (Brian gates prod).
+> Fire-25: 1 verified coverage round. NEXT: run a coverage report + target the lowest-coverage real-logic module (the find-scan approach is now exhausted for zero-reference files).
 
 ## Fire 2026-06-11 (fire 24) — unit-coverage on the event-sourced build stream
 - **R1:** Covered `build_events.ts` (was untested) — `build_events.test.ts` (16 tests): `isTerminalBuildEvent` (publish.completed/build.failed→true, mid-stream→false); `BuildEventSchema` discriminated union (defaults, unknown discriminator, non-ISO ts, build.failed-without-reason all rejected); `appendBuildEvent` (validate→persist→return, append-order, throw-ZodError-no-persist on invalid, swallow persistence failure); `replayBuildEvents` (empty, drop-corrupt-keep-valid, non-JSON→[], non-array→[], KV.get-throws→[], ts ordering oldest→newest). In-memory KV mock for append→replay round-trips.
