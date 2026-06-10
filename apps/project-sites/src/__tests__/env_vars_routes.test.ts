@@ -355,6 +355,20 @@ describe('PATCH /api/env-vars/:id', () => {
     expect(body.error.code).toBe('BAD_REQUEST');
   });
 
+  it('returns 400 (VALIDATION_ERROR) at the boundary on a type-invalid field — never fetches/sets', async () => {
+    const env = makeEnv();
+    const res = await req(makeApp(AUTH), '/api/env-vars/ev-1', env, {
+      ...json({ isSecret: 'yes' }), // boolean expected
+      method: 'PATCH',
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    // Rejected before the current-row fetch + the service call.
+    expect(mockDbQueryOne).not.toHaveBeenCalled();
+    expect(mockSetEnvVar).not.toHaveBeenCalled();
+  });
+
   it('returns 404 (org-scoped non-leak) when no row matches in the caller org', async () => {
     mockDbQueryOne.mockResolvedValue(null);
     const env = makeEnv();

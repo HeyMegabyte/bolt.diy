@@ -45,6 +45,18 @@ const SetEnvVarBodySchema = z.object({
   exposedToAi: z.boolean().optional(),
 });
 
+/**
+ * Zod boundary contract for `PATCH /api/env-vars/:id`. All fields optional —
+ * an empty `{}` body is valid (triggers the decrypt-and-re-set value-preserving
+ * path). Replaces the old `as typeof body` cast.
+ */
+const PatchEnvVarBodySchema = z.object({
+  value: z.string().optional(),
+  description: z.string().nullable().optional(),
+  isSecret: z.boolean().optional(),
+  exposedToAi: z.boolean().optional(),
+});
+
 /** Standard error envelope matching the rest of the worker. */
 function errorJson(code: string, message: string, requestId?: string) {
   return { error: { code, message, request_id: requestId } };
@@ -239,17 +251,26 @@ envVarsRoutes.patch('/api/env-vars/:id', async (c) => {
   const id = c.req.param('id');
   if (!id) return c.json(errorJson('BAD_REQUEST', 'id required', requestId), 400);
 
-  let body: {
-    value?: string;
-    description?: string | null;
-    isSecret?: boolean;
-    exposedToAi?: boolean;
-  };
+  let raw: unknown;
   try {
-    body = (await c.req.json()) as typeof body;
+    raw = await c.req.json();
   } catch {
     return c.json(errorJson('BAD_REQUEST', 'invalid JSON body', requestId), 400);
   }
+  const parsed = PatchEnvVarBodySchema.safeParse(raw);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const field = issue?.path[0];
+    return c.json(
+      errorJson(
+        'VALIDATION_ERROR',
+        `${field ?? 'body'}: ${issue?.message ?? 'invalid'}`,
+        requestId,
+      ),
+      400,
+    );
+  }
+  const body = parsed.data;
 
   // Fetch current row to merge against.
   const row = await dbQueryOne<{
