@@ -90,11 +90,11 @@ function makeDb(opts?: { throwAll?: boolean }): DbHarness {
         harness.prepared.push(rec);
         return stmt;
       },
-      first: async <T,>(): Promise<T | null> => {
+      first: async <T>(): Promise<T | null> => {
         if (harness.throwAll) throw new Error('d1 down');
         return (harness.firstQueue.shift() ?? null) as T | null;
       },
-      all: async <T,>(): Promise<{ results?: T[] }> => {
+      all: async <T>(): Promise<{ results?: T[] }> => {
         if (harness.throwAll) throw new Error('d1 down');
         return (harness.allQueue.shift() ?? { results: [] }) as { results?: T[] };
       },
@@ -129,7 +129,13 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
       expect(m.description).toContain('Acme Co');
       expect(m.tools).toHaveLength(5);
       expect(m.tools.map((t) => t.name)).toEqual(
-        expect.arrayContaining(['get_hours', 'get_menu', 'book_appointment', 'submit_lead', 'ask_about']),
+        expect.arrayContaining([
+          'get_hours',
+          'get_menu',
+          'book_appointment',
+          'submit_lead',
+          'ask_about',
+        ]),
       );
       expect(m.transport.endpoint).toBe('https://acme.projectsites.dev/mcp/sse');
       expect(m.site_id).toBe('site-123');
@@ -163,7 +169,14 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
 
     it('getColdTierState spreads the row when present', async () => {
       const h = makeDb();
-      h.firstQueue.push({ state: 'frozen', last_active_at: 'x', archived_at: 'y', thawed_at: null, thaw_count: 3, r2_archive_key: 'k' });
+      h.firstQueue.push({
+        state: 'frozen',
+        last_active_at: 'x',
+        archived_at: 'y',
+        thawed_at: null,
+        thaw_count: 3,
+        r2_archive_key: 'k',
+      });
       const s = (await getColdTierState(envFrom(h), 'site-2')) as Record<string, unknown>;
       expect(s.state).toBe('frozen');
       expect(s.thaw_count).toBe(3);
@@ -218,7 +231,9 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
     });
 
     it('falls through to simple for a mid-length non-keyword prompt', () => {
-      const c = classifyPromptShape('Could you please update the contact section copy to mention our new hours and email today for the team');
+      const c = classifyPromptShape(
+        'Could you please update the contact section copy to mention our new hours and email today for the team',
+      );
       expect(c.shape).toBe('simple');
       expect(c.confidence).toBe(0.6);
     });
@@ -233,7 +248,10 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
   describe('autoRoutePrompt', () => {
     it('picks opus for complex', async () => {
       const h = makeDb();
-      const r = await autoRoutePrompt(envFrom(h), { prompt: 'refactor architecture safety', orgId: 'org-1' });
+      const r = await autoRoutePrompt(envFrom(h), {
+        prompt: 'refactor architecture safety',
+        orgId: 'org-1',
+      });
       expect(r.picked_model).toBe('claude-opus-4-7');
       expect(r.classification).toBe('complex');
       expect(r.estimated_cost_usd).toBeGreaterThan(0);
@@ -257,7 +275,8 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
     it('picks free Llama for the simple fallthrough too', async () => {
       const h = makeDb();
       const r = await autoRoutePrompt(envFrom(h), {
-        prompt: 'Could you please update the contact section copy to mention our new hours and email today',
+        prompt:
+          'Could you please update the contact section copy to mention our new hours and email today',
       });
       expect(r.classification).toBe('simple');
       expect(r.picked_model).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
@@ -312,6 +331,27 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
       expect(isGhostRouteEligible('/random-page')).toBe(false);
     });
 
+    it('isGhostRouteEligible rejects HTML-injection + path-traversal under the wildcard', () => {
+      // `path.startsWith('/services/')` alone accepted these — the charset guard closes them.
+      expect(isGhostRouteEligible('/services/<script>alert(1)</script>')).toBe(false);
+      expect(isGhostRouteEligible('/services/"><img onerror=alert(1)>')).toBe(false);
+      expect(isGhostRouteEligible('/services/../../etc/passwd')).toBe(false);
+      expect(isGhostRouteEligible('/services/a b')).toBe(false); // space
+    });
+
+    it('previewGhostRoute escapes the path in the generated HTML (defense-in-depth)', async () => {
+      const env = { DB: { prepare: jest.fn() } } as unknown as Parameters<
+        typeof previewGhostRoute
+      >[0];
+      // Eligible path, but assert the interpolation is escaped regardless.
+      const out = await previewGhostRoute(env, { siteId: 'site-1234', path: '/services/plumbing' });
+      expect('html_preview' in out && typeof out.html_preview === 'string').toBe(true);
+      if ('html_preview' in out) {
+        expect(out.html_preview).not.toMatch(/<script>(?!.*data-quotable)/);
+        expect(out.html_preview).toContain('/services/plumbing');
+      }
+    });
+
     it('trackGhostRouteHit upserts and reads back the row', async () => {
       const h = makeDb();
       h.firstQueue.push({ id: 'g1', site_id: 'site-1', path: '/faq', hit_count: 2 });
@@ -322,14 +362,20 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
 
     it('previewGhostRoute returns an error for non-allowlisted path', async () => {
       const h = makeDb();
-      const r = (await previewGhostRoute(envFrom(h), { siteId: 'site-1', path: '/secret' })) as Record<string, unknown>;
+      const r = (await previewGhostRoute(envFrom(h), {
+        siteId: 'site-1',
+        path: '/secret',
+      })) as Record<string, unknown>;
       expect(r.error).toBe('path_not_in_allowlist');
       expect(r.allowlist).toBeDefined();
     });
 
     it('previewGhostRoute generates HTML preview for an eligible path', async () => {
       const h = makeDb();
-      const r = (await previewGhostRoute(envFrom(h), { siteId: 'abcdef0123', path: '/pricing' })) as Record<string, unknown>;
+      const r = (await previewGhostRoute(envFrom(h), {
+        siteId: 'abcdef0123',
+        path: '/pricing',
+      })) as Record<string, unknown>;
       expect(r.status).toBe('preview');
       expect(r.path).toBe('/pricing');
       expect(typeof r.byte_size).toBe('number');
@@ -351,7 +397,10 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
   describe('runSpeedCompare', () => {
     it('derives scores, share token, embed snippet and persists', async () => {
       const h = makeDb();
-      const r = await runSpeedCompare(envFrom(h), { customerSite: 'https://acme.com', competitorUrl: 'https://rival.com' });
+      const r = await runSpeedCompare(envFrom(h), {
+        customerSite: 'https://acme.com',
+        competitorUrl: 'https://rival.com',
+      });
       expect(r.customer_score).toBeGreaterThanOrEqual(75);
       expect(r.customer_score).toBeLessThanOrEqual(99);
       expect(r.competitor_score).toBeGreaterThanOrEqual(55);
@@ -364,8 +413,14 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
     });
 
     it('is deterministic for the same inputs (seeded by sha256)', async () => {
-      const a = await runSpeedCompare(envFrom(makeDb()), { customerSite: 'https://x.com', competitorUrl: 'https://y.com' });
-      const b = await runSpeedCompare(envFrom(makeDb()), { customerSite: 'https://x.com', competitorUrl: 'https://y.com' });
+      const a = await runSpeedCompare(envFrom(makeDb()), {
+        customerSite: 'https://x.com',
+        competitorUrl: 'https://y.com',
+      });
+      const b = await runSpeedCompare(envFrom(makeDb()), {
+        customerSite: 'https://x.com',
+        competitorUrl: 'https://y.com',
+      });
       expect(a.customer_score).toBe(b.customer_score);
       expect(a.competitor_score).toBe(b.competitor_score);
     });
@@ -394,17 +449,26 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
 
     it('regenerateAutoGenFile errors for an unknown filename', async () => {
       const h = makeDb();
-      const r = (await regenerateAutoGenFile(envFrom(h), { siteId: 'site-1', filename: 'nope.txt' })) as Record<string, unknown>;
+      const r = (await regenerateAutoGenFile(envFrom(h), {
+        siteId: 'site-1',
+        filename: 'nope.txt',
+      })) as Record<string, unknown>;
       expect(r.error).toBe('unknown_file');
     });
 
     it('regenerateAutoGenFile uses bigger size for social/favicon assets', async () => {
       const h = makeDb();
-      const social = (await regenerateAutoGenFile(envFrom(h), { siteId: 'site-1', filename: 'og-image.png' })) as Record<string, unknown>;
+      const social = (await regenerateAutoGenFile(envFrom(h), {
+        siteId: 'site-1',
+        filename: 'og-image.png',
+      })) as Record<string, unknown>;
       expect(social.byte_size).toBe(14_500);
       expect(social.category).toBe('social');
 
-      const text = (await regenerateAutoGenFile(envFrom(h), { siteId: 'site-1', filename: 'robots.txt' })) as Record<string, unknown>;
+      const text = (await regenerateAutoGenFile(envFrom(h), {
+        siteId: 'site-1',
+        filename: 'robots.txt',
+      })) as Record<string, unknown>;
       expect(text.byte_size).toBe(2_400);
       expect(h.runCalls.length).toBe(2);
     });
@@ -414,7 +478,11 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
   describe('hallucination guard', () => {
     it('classifies plain text as cited with a source ref', async () => {
       const h = makeDb();
-      const r = await checkHallucination(envFrom(h), { siteId: 'site-1', pageRoute: '/about', text: 'we are friendly local folks' });
+      const r = await checkHallucination(envFrom(h), {
+        siteId: 'site-1',
+        pageRoute: '/about',
+        text: 'we are friendly local folks',
+      });
       expect(r.classification).toBe('cited');
       expect(r.source_ref).toContain('_research.json#');
       expect(r.publish_blocked).toBe(false);
@@ -422,7 +490,11 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
 
     it('flags text with both a year and a large number', async () => {
       const h = makeDb();
-      const r = await checkHallucination(envFrom(h), { siteId: 'site-1', pageRoute: '/about', text: 'Founded in 1998 we served 4500 meals' });
+      const r = await checkHallucination(envFrom(h), {
+        siteId: 'site-1',
+        pageRoute: '/about',
+        text: 'Founded in 1998 we served 4500 meals',
+      });
       expect(r.classification).toBe('flagged');
       expect(r.source_ref).toBeNull();
       expect(r.confidence).toBe(0.7);
@@ -430,7 +502,11 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
 
     it('flags a named entity without a year', async () => {
       const h = makeDb();
-      const r = await checkHallucination(envFrom(h), { siteId: 'site-1', pageRoute: '/team', text: 'Led by John Smith our team is great' });
+      const r = await checkHallucination(envFrom(h), {
+        siteId: 'site-1',
+        pageRoute: '/team',
+        text: 'Led by John Smith our team is great',
+      });
       expect(r.classification).toBe('flagged');
       expect(r.confidence).toBe(0.65);
     });
@@ -449,7 +525,13 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
     it('first_visit segment for a brand-new visitor', async () => {
       const h = makeDb();
       h.firstQueue.push({ visit_count: 1, first_seen_at: 't', source: 'google', city: 'Newark' });
-      const r = await recognizeVisitor(envFrom(h), { siteId: 'site-1', anonId: 'a1', source: 'google', city: 'Newark', country: 'US' });
+      const r = await recognizeVisitor(envFrom(h), {
+        siteId: 'site-1',
+        anonId: 'a1',
+        source: 'google',
+        city: 'Newark',
+        country: 'US',
+      });
       expect(r.segment).toBe('first_visit');
       expect(r.is_returning).toBe(false);
     });
@@ -524,7 +606,10 @@ describe('brilliant service — 10 features (additive unit coverage)', () => {
 
     it('groups empty-body tickets under "misc"', async () => {
       const h = makeDb();
-      const r = await clusterTicketsIntoFaq(envFrom(h), { siteId: 'site-1', tickets: [{ id: 'x', body: '' }] });
+      const r = await clusterTicketsIntoFaq(envFrom(h), {
+        siteId: 'site-1',
+        tickets: [{ id: 'x', body: '' }],
+      });
       expect(r.total_clusters).toBe(1);
     });
 

@@ -9,6 +9,7 @@
  * Each function flag-gated upstream via requireFlag() middleware.
  */
 
+import { escapeHtml } from '@project-sites/shared';
 import type { Env } from '../types/env.js';
 
 const uuid = () => crypto.randomUUID();
@@ -37,11 +38,60 @@ export async function buildSiteMcpManifest(env: Env, siteId: string) {
   const name = site?.name ?? 'Demo customer site';
 
   const tools: McpToolSpec[] = [
-    { name: 'get_hours', description: `Get opening hours for ${name}`, input_schema: { type: 'object', properties: { day: { type: 'string', enum: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'today', 'tomorrow'] } } } },
-    { name: 'get_menu', description: `Get the menu / service list for ${name}`, input_schema: { type: 'object', properties: { category: { type: 'string' } } } },
-    { name: 'book_appointment', description: `Book an appointment at ${name}`, input_schema: { type: 'object', required: ['name', 'phone', 'when'], properties: { name: { type: 'string' }, phone: { type: 'string' }, when: { type: 'string', description: 'ISO-8601 datetime' } } } },
-    { name: 'submit_lead', description: `Submit a contact form to ${name}`, input_schema: { type: 'object', required: ['name', 'message'], properties: { name: { type: 'string' }, email: { type: 'string', format: 'email' }, phone: { type: 'string' }, message: { type: 'string' } } } },
-    { name: 'ask_about', description: `Ask any question about ${name}; AI-answered from the site's content`, input_schema: { type: 'object', required: ['question'], properties: { question: { type: 'string' } } } },
+    {
+      name: 'get_hours',
+      description: `Get opening hours for ${name}`,
+      input_schema: {
+        type: 'object',
+        properties: {
+          day: {
+            type: 'string',
+            enum: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'today', 'tomorrow'],
+          },
+        },
+      },
+    },
+    {
+      name: 'get_menu',
+      description: `Get the menu / service list for ${name}`,
+      input_schema: { type: 'object', properties: { category: { type: 'string' } } },
+    },
+    {
+      name: 'book_appointment',
+      description: `Book an appointment at ${name}`,
+      input_schema: {
+        type: 'object',
+        required: ['name', 'phone', 'when'],
+        properties: {
+          name: { type: 'string' },
+          phone: { type: 'string' },
+          when: { type: 'string', description: 'ISO-8601 datetime' },
+        },
+      },
+    },
+    {
+      name: 'submit_lead',
+      description: `Submit a contact form to ${name}`,
+      input_schema: {
+        type: 'object',
+        required: ['name', 'message'],
+        properties: {
+          name: { type: 'string' },
+          email: { type: 'string', format: 'email' },
+          phone: { type: 'string' },
+          message: { type: 'string' },
+        },
+      },
+    },
+    {
+      name: 'ask_about',
+      description: `Ask any question about ${name}; AI-answered from the site's content`,
+      input_schema: {
+        type: 'object',
+        required: ['question'],
+        properties: { question: { type: 'string' } },
+      },
+    },
   ];
 
   return {
@@ -62,7 +112,14 @@ export async function buildSiteMcpManifest(env: Env, siteId: string) {
 export async function getColdTierState(env: Env, siteId: string) {
   const row = await env.DB.prepare('SELECT * FROM cold_tier_state WHERE site_id = ?')
     .bind(siteId)
-    .first<{ state: string; last_active_at: string; archived_at: string | null; thawed_at: string | null; thaw_count: number; r2_archive_key: string | null }>()
+    .first<{
+      state: string;
+      last_active_at: string;
+      archived_at: string | null;
+      thawed_at: string | null;
+      thaw_count: number;
+      r2_archive_key: string | null;
+    }>()
     .catch(() => null);
   if (!row) return { site_id: siteId, state: 'warm', last_active_at: nowIso(), thaw_count: 0 };
   return { site_id: siteId, ...row };
@@ -79,7 +136,13 @@ export async function archiveSiteToColdTier(env: Env, siteId: string) {
     .bind(siteId, t, t, r2Key, t)
     .run()
     .catch(() => {});
-  return { site_id: siteId, state: 'frozen', archived_at: t, r2_archive_key: r2Key, estimated_storage_savings_pct: 88 };
+  return {
+    site_id: siteId,
+    state: 'frozen',
+    archived_at: t,
+    r2_archive_key: r2Key,
+    estimated_storage_savings_pct: 88,
+  };
 }
 
 export async function thawSiteFromColdTier(env: Env, siteId: string) {
@@ -93,19 +156,37 @@ export async function thawSiteFromColdTier(env: Env, siteId: string) {
     .bind(siteId, t, t, t)
     .run()
     .catch(() => {});
-  return { site_id: siteId, state: 'warm', thawed_at: t, thaw_duration_ms: Date.now() - start, target_thaw_ms: 30_000 };
+  return {
+    site_id: siteId,
+    state: 'warm',
+    thawed_at: t,
+    thaw_duration_ms: Date.now() - start,
+    target_thaw_ms: 30_000,
+  };
 }
 
 // ── #3 AI auto-router (workload-aware) ─────────────────────────────
 
-type ModelChoice = 'claude-opus-4-7' | 'claude-sonnet-4-6' | '@cf/meta/llama-3.3-70b-instruct-fp8-fast' | 'gpt-5';
+type ModelChoice =
+  | 'claude-opus-4-7'
+  | 'claude-sonnet-4-6'
+  | '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
+  | 'gpt-5';
 
-export function classifyPromptShape(prompt: string): { shape: 'simple' | 'complex' | 'creative' | 'free_eligible'; confidence: number } {
+export function classifyPromptShape(prompt: string): {
+  shape: 'simple' | 'complex' | 'creative' | 'free_eligible';
+  confidence: number;
+} {
   const text = (prompt ?? '').toLowerCase();
   const length = text.length;
-  const hasArchitecturalKeywords = /(refactor|architect|design pattern|migration|cross-cutting|invariant|safety)/.test(text);
-  const hasCreativeKeywords = /(write copy|catchy|punchy|brand voice|tone|tagline|microcopy|cinematic)/.test(text);
-  const hasSimpleKeywords = /^(format|fix typo|rename|cleanup|sort|list|count|grep|show|extract|what|where|when|who)/.test(text);
+  const hasArchitecturalKeywords =
+    /(refactor|architect|design pattern|migration|cross-cutting|invariant|safety)/.test(text);
+  const hasCreativeKeywords =
+    /(write copy|catchy|punchy|brand voice|tone|tagline|microcopy|cinematic)/.test(text);
+  const hasSimpleKeywords =
+    /^(format|fix typo|rename|cleanup|sort|list|count|grep|show|extract|what|where|when|who)/.test(
+      text,
+    );
   if (hasArchitecturalKeywords || length > 1500) return { shape: 'complex', confidence: 0.84 };
   if (hasCreativeKeywords) return { shape: 'creative', confidence: 0.78 };
   if (hasSimpleKeywords || length < 80) return { shape: 'free_eligible', confidence: 0.91 };
@@ -123,20 +204,48 @@ export async function autoRoutePrompt(env: Env, params: { prompt: string; orgId?
           ? '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
           : '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
   const alternatives: Array<{ model: ModelChoice; reason: string; cost_delta_usd: number }> = [
-    { model: 'claude-opus-4-7', reason: 'Use for highest quality on critical surface', cost_delta_usd: 0.025 },
+    {
+      model: 'claude-opus-4-7',
+      reason: 'Use for highest quality on critical surface',
+      cost_delta_usd: 0.025,
+    },
     { model: 'claude-sonnet-4-6', reason: 'Balanced quality + cost', cost_delta_usd: 0.005 },
-    { model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', reason: 'Free on Workers AI', cost_delta_usd: 0 },
+    {
+      model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      reason: 'Free on Workers AI',
+      cost_delta_usd: 0,
+    },
   ];
   const id = uuid();
   const tokens = Math.max(1, Math.ceil((params.prompt ?? '').length / 4));
-  const estCost = model === 'claude-opus-4-7' ? tokens * 0.000015 : model === 'claude-sonnet-4-6' ? tokens * 0.000003 : 0;
+  const estCost =
+    model === 'claude-opus-4-7'
+      ? tokens * 0.000015
+      : model === 'claude-sonnet-4-6'
+        ? tokens * 0.000003
+        : 0;
   await env.DB.prepare(
     'INSERT INTO ai_router_decisions (id, prompt_shape, picked_model, org_id, prompt_length, classification_confidence, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
   )
-    .bind(id, cls.shape, model, params.orgId ?? null, (params.prompt ?? '').length, cls.confidence, nowIso())
+    .bind(
+      id,
+      cls.shape,
+      model,
+      params.orgId ?? null,
+      (params.prompt ?? '').length,
+      cls.confidence,
+      nowIso(),
+    )
     .run()
     .catch(() => {});
-  return { decision_id: id, classification: cls.shape, picked_model: model, confidence: cls.confidence, estimated_cost_usd: Number(estCost.toFixed(6)), alternatives };
+  return {
+    decision_id: id,
+    classification: cls.shape,
+    picked_model: model,
+    confidence: cls.confidence,
+    estimated_cost_usd: Number(estCost.toFixed(6)),
+    alternatives,
+  };
 }
 
 export async function getRouterStats(env: Env, orgId: string) {
@@ -164,16 +273,39 @@ export async function getRouterStats(env: Env, orgId: string) {
     by_model: byModel,
     estimated_actual_usd: Number(actualUsd.toFixed(2)),
     always_opus_baseline_usd: Number(opusBaselineUsd.toFixed(2)),
-    savings_pct: opusBaselineUsd > 0 ? Math.round(((opusBaselineUsd - actualUsd) / opusBaselineUsd) * 100) : 0,
+    savings_pct:
+      opusBaselineUsd > 0 ? Math.round(((opusBaselineUsd - actualUsd) / opusBaselineUsd) * 100) : 0,
   };
 }
 
 // ── #4 Ghost routes ────────────────────────────────────────────────
 
-const GHOST_ROUTE_ALLOWLIST = ['/pricing', '/about', '/contact', '/faq', '/services', '/services/.*', '/team', '/blog', '/portfolio', '/case-studies'];
+const GHOST_ROUTE_ALLOWLIST = [
+  '/pricing',
+  '/about',
+  '/contact',
+  '/faq',
+  '/services',
+  '/services/.*',
+  '/team',
+  '/blog',
+  '/portfolio',
+  '/case-studies',
+];
 
+/**
+ * A ghost route is eligible only when it (a) matches the allowlist AND (b)
+ * contains nothing but safe URL-path characters. The charset guard is the
+ * security control behind the `/services/.*` wildcard: without it
+ * `path.startsWith('/services/')` accepted `/services/<script>…` (→ HTML
+ * injection into the generated page) and `/services/../../x` (→ path traversal
+ * in the derived R2 key). `[a-z0-9/-]` admits no `.`, `<`, `>`, quote, or space.
+ */
 export function isGhostRouteEligible(path: string): boolean {
-  return GHOST_ROUTE_ALLOWLIST.some((p) => (p.endsWith('.*') ? path.startsWith(p.slice(0, -2)) : path === p));
+  if (!/^\/[a-z0-9/-]*$/.test(path)) return false;
+  return GHOST_ROUTE_ALLOWLIST.some((p) =>
+    p.endsWith('.*') ? path.startsWith(p.slice(0, -2)) : path === p,
+  );
 }
 
 export async function trackGhostRouteHit(env: Env, siteId: string, path: string) {
@@ -194,16 +326,31 @@ export async function trackGhostRouteHit(env: Env, siteId: string, path: string)
 }
 
 export async function previewGhostRoute(env: Env, params: { siteId: string; path: string }) {
-  if (!isGhostRouteEligible(params.path)) return { error: 'path_not_in_allowlist', allowlist: GHOST_ROUTE_ALLOWLIST };
+  if (!isGhostRouteEligible(params.path))
+    return { error: 'path_not_in_allowlist', allowlist: GHOST_ROUTE_ALLOWLIST };
   const t = nowIso();
   const slug = params.siteId.slice(0, 8);
   // Mock-real preview HTML; production calls Workers AI Llama with research_data context.
-  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${params.path.replace('/', '').replace(/-/g, ' ') || 'Home'} — Ghost-generated</title><meta name="x-ghost-route" content="true"></head><body><main><h1>${params.path}</h1><p data-quotable>This page was auto-generated by Project Sites because a visitor requested ${params.path} but no explicit page existed. Content draws from the site's research data + Workers AI free Llama. The owner can refine or override.</p><section class="auto-gen"><h2>About this section</h2><p>Generated content placeholder. Production pulls 3-5 sections from _research.json + brand tone.</p></section></main></body></html>`;
-  return { site_id: params.siteId, path: params.path, status: 'preview', generated_at: t, byte_size: html.length, r2_key: `sites/${slug}${params.path}.html`, html_preview: html };
+  // Defense-in-depth: the charset guard above already blocks markup, but escape
+  // on interpolation too so the HTML is safe even if the allowlist is loosened.
+  const safePath = escapeHtml(params.path);
+  const safeTitle = escapeHtml(params.path.replace('/', '').replace(/-/g, ' ') || 'Home');
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${safeTitle} — Ghost-generated</title><meta name="x-ghost-route" content="true"></head><body><main><h1>${safePath}</h1><p data-quotable>This page was auto-generated by Project Sites because a visitor requested ${safePath} but no explicit page existed. Content draws from the site's research data + Workers AI free Llama. The owner can refine or override.</p><section class="auto-gen"><h2>About this section</h2><p>Generated content placeholder. Production pulls 3-5 sections from _research.json + brand tone.</p></section></main></body></html>`;
+  return {
+    site_id: params.siteId,
+    path: params.path,
+    status: 'preview',
+    generated_at: t,
+    byte_size: html.length,
+    r2_key: `sites/${slug}${params.path}.html`,
+    html_preview: html,
+  };
 }
 
 export async function listGhostRoutes(env: Env, siteId: string) {
-  const rows = await env.DB.prepare('SELECT * FROM ghost_routes WHERE site_id = ? ORDER BY hit_count DESC LIMIT 100')
+  const rows = await env.DB.prepare(
+    'SELECT * FROM ghost_routes WHERE site_id = ? ORDER BY hit_count DESC LIMIT 100',
+  )
     .bind(siteId)
     .all()
     .catch(() => ({ results: [] }));
@@ -212,7 +359,10 @@ export async function listGhostRoutes(env: Env, siteId: string) {
 
 // ── #5 Speed-compare widget ────────────────────────────────────────
 
-export async function runSpeedCompare(env: Env, params: { customerSite: string; competitorUrl: string }) {
+export async function runSpeedCompare(
+  env: Env,
+  params: { customerSite: string; competitorUrl: string },
+) {
   // Mock realistic Lighthouse-like scores; production calls real Lighthouse via Browser Rendering.
   const seedC = await sha256Hex(params.customerSite);
   const seedX = await sha256Hex(params.competitorUrl);
@@ -223,7 +373,19 @@ export async function runSpeedCompare(env: Env, params: { customerSite: string; 
   await env.DB.prepare(
     'INSERT INTO speed_compare_runs (id, customer_site, competitor_url, customer_lcp_ms, competitor_lcp_ms, customer_inp_ms, competitor_inp_ms, customer_score, competitor_score, share_token, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   )
-    .bind(id, params.customerSite, params.competitorUrl, 1800, 3400, 120, 280, customerScore, competitorScore, shareToken, nowIso())
+    .bind(
+      id,
+      params.customerSite,
+      params.competitorUrl,
+      1800,
+      3400,
+      120,
+      280,
+      customerScore,
+      competitorScore,
+      shareToken,
+      nowIso(),
+    )
     .run()
     .catch(() => {});
   return {
@@ -307,10 +469,14 @@ export const AUTO_GEN_FILE_REGISTRY: Array<{ filename: string; category: string 
 ];
 
 export async function listAutoGenFiles(env: Env, siteId: string) {
-  const rows = await env.DB.prepare('SELECT filename, generated_at, byte_size FROM auto_gen_files WHERE site_id = ?')
+  const rows = await env.DB.prepare(
+    'SELECT filename, generated_at, byte_size FROM auto_gen_files WHERE site_id = ?',
+  )
     .bind(siteId)
     .all<{ filename: string; generated_at: string; byte_size: number }>()
-    .catch(() => ({ results: [] as Array<{ filename: string; generated_at: string; byte_size: number }> }));
+    .catch(() => ({
+      results: [] as Array<{ filename: string; generated_at: string; byte_size: number }>,
+    }));
   const existing = new Map((rows.results ?? []).map((r) => [r.filename, r]));
   return {
     site_id: siteId,
@@ -326,9 +492,13 @@ export async function listAutoGenFiles(env: Env, siteId: string) {
   };
 }
 
-export async function regenerateAutoGenFile(env: Env, params: { siteId: string; filename: string }) {
+export async function regenerateAutoGenFile(
+  env: Env,
+  params: { siteId: string; filename: string },
+) {
   const entry = AUTO_GEN_FILE_REGISTRY.find((f) => f.filename === params.filename);
-  if (!entry) return { error: 'unknown_file', allowlist: AUTO_GEN_FILE_REGISTRY.map((f) => f.filename) };
+  if (!entry)
+    return { error: 'unknown_file', allowlist: AUTO_GEN_FILE_REGISTRY.map((f) => f.filename) };
   const r2Key = `sites/${params.siteId}/auto/${params.filename}`;
   const id = uuid();
   // Mocked size — production renders via Satori (OG) / Sharp (favicons) / template (text)
@@ -341,12 +511,22 @@ export async function regenerateAutoGenFile(env: Env, params: { siteId: string; 
     .bind(id, params.siteId, params.filename, r2Key, nowIso(), byteSize)
     .run()
     .catch(() => {});
-  return { site_id: params.siteId, filename: params.filename, r2_key: r2Key, byte_size: byteSize, generated_at: nowIso(), category: entry.category };
+  return {
+    site_id: params.siteId,
+    filename: params.filename,
+    r2_key: r2Key,
+    byte_size: byteSize,
+    generated_at: nowIso(),
+    category: entry.category,
+  };
 }
 
 // ── #7 Hallucination guard ─────────────────────────────────────────
 
-export async function checkHallucination(env: Env, params: { siteId: string; pageRoute: string; text: string }) {
+export async function checkHallucination(
+  env: Env,
+  params: { siteId: string; pageRoute: string; text: string },
+) {
   // Heuristic classifier — production: Workers AI vision + research_data RAG.
   const text = params.text;
   const hasYear = /\b(19|20)\d{2}\b/.test(text);
@@ -367,14 +547,23 @@ export async function checkHallucination(env: Env, params: { siteId: string; pag
   await env.DB.prepare(
     'INSERT INTO hallucination_flags (id, site_id, page_route, claim_text, classification, confidence, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
   )
-    .bind(id, params.siteId, params.pageRoute, text.slice(0, 1000), classification, confidence, nowIso())
+    .bind(
+      id,
+      params.siteId,
+      params.pageRoute,
+      text.slice(0, 1000),
+      classification,
+      confidence,
+      nowIso(),
+    )
     .run()
     .catch(() => {});
   return {
     id,
     classification,
     confidence,
-    source_ref: classification === 'cited' ? `_research.json#${(await sha256Hex(text)).slice(0, 8)}` : null,
+    source_ref:
+      classification === 'cited' ? `_research.json#${(await sha256Hex(text)).slice(0, 8)}` : null,
     page_route: params.pageRoute,
     publish_blocked: false, // 'fabricated' path is reserved for the production AI-vision classifier; heuristic version flags but never blocks
   };
@@ -382,7 +571,7 @@ export async function checkHallucination(env: Env, params: { siteId: string; pag
 
 export async function listHallucinationFlags(env: Env, siteId: string) {
   const rows = await env.DB.prepare(
-    "SELECT id, page_route, claim_text, classification, confidence, created_at FROM hallucination_flags WHERE site_id = ? AND resolved_at IS NULL ORDER BY created_at DESC LIMIT 100",
+    'SELECT id, page_route, claim_text, classification, confidence, created_at FROM hallucination_flags WHERE site_id = ? AND resolved_at IS NULL ORDER BY created_at DESC LIMIT 100',
   )
     .bind(siteId)
     .all()
@@ -392,14 +581,25 @@ export async function listHallucinationFlags(env: Env, siteId: string) {
 
 // ── #8 Visitor recognition ─────────────────────────────────────────
 
-export async function recognizeVisitor(env: Env, params: { siteId: string; anonId: string; source?: string; city?: string; country?: string }) {
+export async function recognizeVisitor(
+  env: Env,
+  params: { siteId: string; anonId: string; source?: string; city?: string; country?: string },
+) {
   const t = nowIso();
   await env.DB.prepare(
     `INSERT INTO visitor_sessions (anon_id, site_id, first_seen_at, last_seen_at, visit_count, source, city, country)
      VALUES (?, ?, ?, ?, 1, ?, ?, ?)
      ON CONFLICT(anon_id) DO UPDATE SET last_seen_at=excluded.last_seen_at, visit_count=visitor_sessions.visit_count+1, source=COALESCE(visitor_sessions.source, excluded.source)`,
   )
-    .bind(params.anonId, params.siteId, t, t, params.source ?? null, params.city ?? null, params.country ?? null)
+    .bind(
+      params.anonId,
+      params.siteId,
+      t,
+      t,
+      params.source ?? null,
+      params.city ?? null,
+      params.country ?? null,
+    )
     .run()
     .catch(() => {});
   const row = await env.DB.prepare('SELECT * FROM visitor_sessions WHERE anon_id = ?')
@@ -408,52 +608,112 @@ export async function recognizeVisitor(env: Env, params: { siteId: string; anonI
     .catch(() => null);
   const visitCount = row?.visit_count ?? 1;
   const segment = visitCount >= 5 ? 'engaged' : visitCount >= 2 ? 'returning' : 'first_visit';
-  return { anon_id: params.anonId, visit_count: visitCount, segment, is_returning: visitCount > 1, first_seen_at: row?.first_seen_at, source: row?.source, city: row?.city };
+  return {
+    anon_id: params.anonId,
+    visit_count: visitCount,
+    segment,
+    is_returning: visitCount > 1,
+    first_seen_at: row?.first_seen_at,
+    source: row?.source,
+    city: row?.city,
+  };
 }
 
 export async function getPersonalizedHero(env: Env, params: { siteId: string; anonId: string }) {
-  const row = await env.DB.prepare('SELECT visit_count, source, city FROM visitor_sessions WHERE anon_id = ? AND site_id = ?')
+  const row = await env.DB.prepare(
+    'SELECT visit_count, source, city FROM visitor_sessions WHERE anon_id = ? AND site_id = ?',
+  )
     .bind(params.anonId, params.siteId)
     .first<{ visit_count: number; source: string; city: string }>()
     .catch(() => null);
   if (!row || row.visit_count < 2) {
-    return { variant: 'default', headline: 'Your website—handled. Finally.', sub: 'AI builds your business website in minutes.' };
+    return {
+      variant: 'default',
+      headline: 'Your website—handled. Finally.',
+      sub: 'AI builds your business website in minutes.',
+    };
   }
   if (row.visit_count >= 5) {
-    return { variant: 'engaged', headline: 'Welcome back. Ready to ship?', sub: `Last visit from ${row.city ?? 'your city'}. Pick up where you left off.`, cta: 'Resume building' };
+    return {
+      variant: 'engaged',
+      headline: 'Welcome back. Ready to ship?',
+      sub: `Last visit from ${row.city ?? 'your city'}. Pick up where you left off.`,
+      cta: 'Resume building',
+    };
   }
-  return { variant: 'returning', headline: 'Welcome back.', sub: `Still thinking it over? Watch a 90-second demo.`, cta: 'Watch demo' };
+  return {
+    variant: 'returning',
+    headline: 'Welcome back.',
+    sub: `Still thinking it over? Watch a 90-second demo.`,
+    cta: 'Watch demo',
+  };
 }
 
 // ── #9 FAQ-from-tickets ────────────────────────────────────────────
 
-export async function clusterTicketsIntoFaq(env: Env, params: { siteId: string; tickets: Array<{ id: string; body: string }> }) {
+export async function clusterTicketsIntoFaq(
+  env: Env,
+  params: { siteId: string; tickets: Array<{ id: string; body: string }> },
+) {
   // Production: Vectorize 768-dim embeddings + k-means. Mock: group by first 30 chars (proxy).
   const groups = new Map<string, Array<{ id: string; body: string }>>();
   for (const t of params.tickets ?? []) {
-    const key = (t.body ?? '').slice(0, 40).toLowerCase().replace(/[^a-z ]/g, '').trim() || 'misc';
+    const key =
+      (t.body ?? '')
+        .slice(0, 40)
+        .toLowerCase()
+        .replace(/[^a-z ]/g, '')
+        .trim() || 'misc';
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(t);
   }
-  const drafts: Array<{ id: string; question: string; answer: string; cluster_size: number; source_ticket_ids: string[] }> = [];
+  const drafts: Array<{
+    id: string;
+    question: string;
+    answer: string;
+    cluster_size: number;
+    source_ticket_ids: string[];
+  }> = [];
   for (const [key, items] of groups) {
     if (items.length < 1) continue;
     const draftId = uuid();
     const question = `${items[0].body.slice(0, 80)}${items[0].body.length > 80 ? '…' : ''}`;
     const answer = `Common question from ${items.length} customer ticket${items.length > 1 ? 's' : ''}. Production: Workers AI generates a synthesized answer drawing from the cluster + research_data.`;
-    drafts.push({ id: draftId, question, answer, cluster_size: items.length, source_ticket_ids: items.map((t) => t.id) });
+    drafts.push({
+      id: draftId,
+      question,
+      answer,
+      cluster_size: items.length,
+      source_ticket_ids: items.map((t) => t.id),
+    });
     await env.DB.prepare(
       'INSERT INTO faq_drafts (id, site_id, question, answer, cluster_size, source_ticket_ids_json, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     )
-      .bind(draftId, params.siteId, question, answer, items.length, JSON.stringify(items.map((t) => t.id)), 'draft', nowIso())
+      .bind(
+        draftId,
+        params.siteId,
+        question,
+        answer,
+        items.length,
+        JSON.stringify(items.map((t) => t.id)),
+        'draft',
+        nowIso(),
+      )
       .run()
       .catch(() => {});
   }
-  return { site_id: params.siteId, drafts, total_clusters: drafts.length, total_tickets: (params.tickets ?? []).length };
+  return {
+    site_id: params.siteId,
+    drafts,
+    total_clusters: drafts.length,
+    total_tickets: (params.tickets ?? []).length,
+  };
 }
 
 export async function listFaqDrafts(env: Env, siteId: string) {
-  const rows = await env.DB.prepare("SELECT * FROM faq_drafts WHERE site_id = ? AND status = 'draft' ORDER BY cluster_size DESC")
+  const rows = await env.DB.prepare(
+    "SELECT * FROM faq_drafts WHERE site_id = ? AND status = 'draft' ORDER BY cluster_size DESC",
+  )
     .bind(siteId)
     .all()
     .catch(() => ({ results: [] }));
@@ -466,10 +726,29 @@ export async function scanCompetitors(env: Env, orgId: string) {
   // Mock realistic alerts; production: daily Workflow scrapes + AI vision diff.
   const seed = orgId.charCodeAt(0) ?? 1;
   const alerts = [
-    { id: uuid(), alert_type: 'new_section' as const, competitor_url: 'https://competitor-a.example.com', diff_summary: 'Competitor added a "Made in Newark" badge above their hero — they are leaning into local-pride messaging' },
-    { id: uuid(), alert_type: 'pricing_change' as const, competitor_url: 'https://competitor-b.example.com', diff_summary: 'Competitor dropped Pro plan from $35 to $25/mo; matches your tier' },
+    {
+      id: uuid(),
+      alert_type: 'new_section' as const,
+      competitor_url: 'https://competitor-a.example.com',
+      diff_summary:
+        'Competitor added a "Made in Newark" badge above their hero — they are leaning into local-pride messaging',
+    },
+    {
+      id: uuid(),
+      alert_type: 'pricing_change' as const,
+      competitor_url: 'https://competitor-b.example.com',
+      diff_summary: 'Competitor dropped Pro plan from $35 to $25/mo; matches your tier',
+    },
     ...(seed % 2 === 0
-      ? [{ id: uuid(), alert_type: 'feature_ship' as const, competitor_url: 'https://competitor-a.example.com', diff_summary: 'Competitor shipped a free Speed-Test widget — we already have #5 in flight, accelerate' }]
+      ? [
+          {
+            id: uuid(),
+            alert_type: 'feature_ship' as const,
+            competitor_url: 'https://competitor-a.example.com',
+            diff_summary:
+              'Competitor shipped a free Speed-Test widget — we already have #5 in flight, accelerate',
+          },
+        ]
       : []),
   ];
   for (const a of alerts) {
@@ -484,7 +763,9 @@ export async function scanCompetitors(env: Env, orgId: string) {
 }
 
 export async function listCompetitorAlerts(env: Env, orgId: string) {
-  const rows = await env.DB.prepare("SELECT * FROM competitor_alerts WHERE org_id = ? AND status IN ('new', 'reviewing') ORDER BY detected_at DESC LIMIT 50")
+  const rows = await env.DB.prepare(
+    "SELECT * FROM competitor_alerts WHERE org_id = ? AND status IN ('new', 'reviewing') ORDER BY detected_at DESC LIMIT 50",
+  )
     .bind(orgId)
     .all()
     .catch(() => ({ results: [] }));
