@@ -3,6 +3,11 @@
 > Read this + `git log --oneline -15` + `_LOOP_LEDGER.md` FIRST each fresh iteration.
 > Loop doctrine: `_ULTIMATE_LOOP.prompt.md`. Cron `45b46ee7` fires every 30m.
 
+## ⚑ CONVERGENCE STATUS — read FIRST (updated fire-20, 2026-06-11)
+**The autonomous frontier is EXHAUSTED.** All cheap security + reliability classes are closed (XSS/SSRF/open-redirect/auth-bypass/header-injection/rate-limits/Zod-boundaries/no-catch-malformed-body/canonical-gate). Every remaining ledger item is Brian-gated: P0 `E2E_TEST_PASSWORD` prod-secret + `/signin` wiring; 7 P1 features (40-80h); supervised perf-wave; CI wiring; 24 P3 E2E specs (blocked on the test-login harness).
+- **No-op fires logged:** fire-20 (nothing clean+autonomous; awaiting Brian).
+- **Fast-confirm recipe for the next fire** (don't re-investigate from scratch — just run these; if all unchanged → no-op): (1) `git log d2e53755..HEAD` empty? (2) `E2E_TEST_PASSWORD` still absent from wrangler.toml/.dev.vars? (3) repo-wide `(await c.req.json()) as ` count still 1 (the try/catch api.ts:3893)? (4) no new always.md/rule via system-reminder? → all yes = NO-OP honestly, do NOT manufacture churn. Only act if Brian unblocked something (new commit / provisioned secret / new ledger item).
+
 ## Done
 - **Iter 1:** worker test-login seam — `authenticateTestLogin` + `POST /api/auth/test-login` (secret-gated by `E2E_TEST_PASSWORD`, 404 when unset, constant-time compare, idempotent owner upsert, real session). 7 Jest tests green.
 - **Iter 2 (partial):** `scripts/e2e-seed.mjs` + `e2e:seed` npm script (idempotent seed via the seam). `node --check` + eslint clean.
