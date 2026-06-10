@@ -58,6 +58,11 @@ const createApp = () => {
     throw notFound('Missing resource');
   });
 
+  // Route whose error message echoes attacker-controlled input (reflected-XSS probe).
+  app.get('/throw-xss-message', (c) => {
+    throw badRequest('Slug "<script>alert(1)</script>" is already taken');
+  });
+
   // Route that triggers a ZodError
   app.get('/throw-zod-error', (c) => {
     z.string().parse(123);
@@ -232,6 +237,22 @@ describe('errorHandler - Unknown error handling', () => {
 });
 
 // ─── General behavior ──────────────────────────────────────────
+
+describe('errorHandler - reflected-XSS defense (HTML error page)', () => {
+  it('escapes an attacker-controlled error message in the served HTML page', async () => {
+    const app = createApp();
+    const res = await app.request('/throw-xss-message', {
+      headers: { Accept: 'text/html' },
+    });
+    expect(res.status).toBe(400);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    const html = await res.text();
+    // The raw <script> must NOT survive into the served HTML…
+    expect(html).not.toContain('<script>alert(1)</script>');
+    // …it's entity-escaped in the diagnostics pane instead.
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+  });
+});
 
 describe('errorHandler - General behavior', () => {
   it('uses unknown as request_id when not set', async () => {
