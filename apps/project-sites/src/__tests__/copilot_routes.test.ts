@@ -20,6 +20,8 @@
 
 jest.mock('../modules/feature_flags/services.js', () => ({
   isFlagOn: jest.fn(),
+  // The config PUT busts the resolveFlag KV cache after writing the override.
+  invalidateFlagCache: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('../services/site_ownership.js', () => ({
@@ -35,11 +37,12 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { copilot } from '../routes/copilot.js';
-import { isFlagOn } from '../modules/feature_flags/services.js';
+import { isFlagOn, invalidateFlagCache } from '../modules/feature_flags/services.js';
 import { assertSiteOwned } from '../services/site_ownership.js';
 import { processMultimodalIntent, saveCopilotSession } from '../services/multimodal_intent.js';
 
 const mockIsFlagOn = isFlagOn as unknown as jest.Mock;
+const mockInvalidateFlagCache = invalidateFlagCache as unknown as jest.Mock;
 const mockAssertSiteOwned = assertSiteOwned as unknown as jest.Mock;
 const mockProcessIntent = processMultimodalIntent as unknown as jest.Mock;
 const mockSaveSession = saveCopilotSession as unknown as jest.Mock;
@@ -465,5 +468,7 @@ describe('PUT /api/sites/:siteId/copilot/config', () => {
     // value_json carries the new toggle; set_by carries the authenticated user.
     expect(upsertArgs).toContain(JSON.stringify({ enabled: true }));
     expect(upsertArgs).toContain('user-1');
+    // The 60s resolveFlag KV cache is busted so the toggle is visible at once.
+    expect(mockInvalidateFlagCache).toHaveBeenCalledWith(env, 'multimodal_copilot');
   });
 });

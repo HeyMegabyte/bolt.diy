@@ -19,7 +19,7 @@ import type { Context } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
-import { isFlagOn } from '../modules/feature_flags/services.js';
+import { isFlagOn, invalidateFlagCache } from '../modules/feature_flags/services.js';
 import { assertSiteOwned } from '../services/site_ownership.js';
 import { processMultimodalIntent, saveCopilotSession } from '../services/multimodal_intent.js';
 
@@ -229,6 +229,11 @@ copilotRoutes.put('/api/sites/:siteId/copilot/config', zValidator('json', Copilo
       userId ?? null, now, now, now)
     .run()
     .catch(() => null);
+
+  // The route guard reads this flag via isFlagOn → resolveFlag's 60s KV cache
+  // (`flag:multimodal_copilot:<siteId>:<orgId>`). Without this bust, a just-
+  // toggled copilot stays 404 (or stays on) for up to KV_TTL.
+  await invalidateFlagCache(c.env, 'multimodal_copilot');
 
   return c.json({ ok: true, site_id: siteId, enabled: body.enabled });
 });
