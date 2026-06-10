@@ -34,14 +34,25 @@
  */
 import { Hono } from 'hono';
 import type { Context } from 'hono';
+import { z } from 'zod';
 import type { Env, Variables } from '../types/env.js';
 import { getBalance, topupCredits, CREDIT_BUNDLES, type BundleKey } from '../services/credits.js';
-import { transferOwnership, canInviteMember, countSeatUsage, resolveSeatLimit } from '../services/team_seats.js';
+import {
+  transferOwnership,
+  canInviteMember,
+  countSeatUsage,
+  resolveSeatLimit,
+} from '../services/team_seats.js';
 import { getOrgEntitlements } from '../services/billing.js';
 import { allProviders } from '../services/mcp_client.js';
 import { DEFAULT_ROUTER_PROMPT, DEFAULT_CHAT_SYSTEM_PROMPT } from '../services/form_router.js';
 import { DASHBOARD_PERSONA_SYSTEM_PROMPT } from '../prompts/dashboard_persona.js';
-import { uploadUserWorker, deleteUserWorker, SUPPORTED_LANGUAGES, isWfpConfigured } from '../services/wfp_dispatch.js';
+import {
+  uploadUserWorker,
+  deleteUserWorker,
+  SUPPORTED_LANGUAGES,
+  isWfpConfigured,
+} from '../services/wfp_dispatch.js';
 import {
   deployEndpointFromFiles,
   normaliseSlug,
@@ -51,10 +62,7 @@ import {
   type EndpointAuthMode,
 } from '../services/ai_endpoints_ide.js';
 import { recordEvent, loadOverview } from '../services/cf_analytics.js';
-import {
-  extractContext,
-  MAX_CONTEXT_FILE_BYTES,
-} from '../services/ai_context_extract.js';
+import { extractContext, MAX_CONTEXT_FILE_BYTES } from '../services/ai_context_extract.js';
 import {
   buildAuthUrl,
   getAccessToken,
@@ -84,15 +92,25 @@ function need(c: Ctx): { orgId: string; userId: string } {
 }
 
 class HTTPError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
 }
 
 aiAdmin.onError((err, c) => {
-  if (err instanceof HTTPError) return c.json({ error: { message: err.message } }, err.status as 400);
+  if (err instanceof HTTPError)
+    return c.json({ error: { message: err.message } }, err.status as 400);
   return c.json({ error: { message: err.message || 'internal error' } }, 500);
 });
 
-async function siteOwned(c: Ctx, orgId: string, siteId: string): Promise<{ slug: string; business_name: string | null }> {
+async function siteOwned(
+  c: Ctx,
+  orgId: string,
+  siteId: string,
+): Promise<{ slug: string; business_name: string | null }> {
   const row = await c.env.DB.prepare(
     `SELECT slug, business_name FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
   )
@@ -104,7 +122,11 @@ async function siteOwned(c: Ctx, orgId: string, siteId: string): Promise<{ slug:
 
 function safeJson(s: string | null | undefined): unknown {
   if (!s) return null;
-  try { return JSON.parse(s); } catch { return s; }
+  try {
+    return JSON.parse(s);
+  } catch {
+    return s;
+  }
 }
 
 /* ────────────────────────── Form Submissions + AI Logs ────────────────────────── */
@@ -220,9 +242,7 @@ aiAdmin.get('/api/sites/:siteId/ai-logs', async (c) => {
 aiAdmin.get('/api/sites/:siteId/ai-logs/:logId', async (c) => {
   const { orgId } = need(c);
   await siteOwned(c, orgId, c.req.param('siteId'));
-  const row = await c.env.DB.prepare(
-    `SELECT * FROM ai_form_logs WHERE id = ? AND site_id = ?`,
-  )
+  const row = await c.env.DB.prepare(`SELECT * FROM ai_form_logs WHERE id = ? AND site_id = ?`)
     .bind(c.req.param('logId'), c.req.param('siteId'))
     .first();
   if (!row) throw new HTTPError(404, 'Log not found');
@@ -293,7 +313,11 @@ aiAdmin.post('/api/sites/:siteId/ai-chat/context-files', async (c) => {
     httpMetadata: { contentType: file.type || 'application/octet-stream' },
   });
   let extracted: string | null = null;
-  if (file.type.startsWith('text/') || file.type === 'application/json' || file.type === 'text/markdown') {
+  if (
+    file.type.startsWith('text/') ||
+    file.type === 'application/json' ||
+    file.type === 'text/markdown'
+  ) {
     extracted = new TextDecoder().decode(buf).slice(0, 60_000);
   }
   await c.env.DB.prepare(
@@ -311,12 +335,20 @@ aiAdmin.post('/api/sites/:siteId/ai-chat/context-files', async (c) => {
       message: `AI chat context file '${file.name}' uploaded to site '${siteId}' (${Math.round(file.size / 1024)} KB)`,
       target_type: 'ai_chat_context_file',
       target_id: id,
-      metadata_json: { site_id: siteId, filename: file.name, size_bytes: file.size, indexed: !!extracted },
+      metadata_json: {
+        site_id: siteId,
+        filename: file.name,
+        size_bytes: file.size,
+        indexed: !!extracted,
+      },
       request_id: c.get('requestId'),
     }),
   );
 
-  return c.json({ data: { id, filename: file.name, size_bytes: file.size, indexed: !!extracted } }, 201);
+  return c.json(
+    { data: { id, filename: file.name, size_bytes: file.size, indexed: !!extracted } },
+    201,
+  );
 });
 
 /**
@@ -448,7 +480,8 @@ aiAdmin.put('/api/sites/:siteId/ai-settings', async (c) => {
   if ('allow_web_research' in body) {
     fields['allow_web_research'] = body['allow_web_research'] ? 1 : 0;
   }
-  if ('search_synonyms' in body) fields['search_synonyms_json'] = JSON.stringify(body['search_synonyms']);
+  if ('search_synonyms' in body)
+    fields['search_synonyms_json'] = JSON.stringify(body['search_synonyms']);
   const existing = await c.env.DB.prepare(`SELECT 1 FROM ai_site_settings WHERE site_id = ?`)
     .bind(siteId)
     .first();
@@ -461,7 +494,9 @@ aiAdmin.put('/api/sites/:siteId/ai-settings', async (c) => {
   } else {
     const cols = ['site_id', ...Object.keys(fields)];
     const placeholders = cols.map(() => '?').join(', ');
-    await c.env.DB.prepare(`INSERT INTO ai_site_settings (${cols.join(', ')}) VALUES (${placeholders})`)
+    await c.env.DB.prepare(
+      `INSERT INTO ai_site_settings (${cols.join(', ')}) VALUES (${placeholders})`,
+    )
       .bind(siteId, ...Object.keys(fields).map((k) => fields[k]))
       .run();
   }
@@ -471,10 +506,15 @@ aiAdmin.put('/api/sites/:siteId/ai-settings', async (c) => {
       org_id: orgId,
       actor_id: c.get('userId') ?? null,
       action: 'ai_settings.updated',
-      message: `AI settings updated for site '${siteId}' (${Object.keys(fields).filter((k) => k !== 'updated_at').join(', ')})`,
+      message: `AI settings updated for site '${siteId}' (${Object.keys(fields)
+        .filter((k) => k !== 'updated_at')
+        .join(', ')})`,
       target_type: 'ai_site_settings',
       target_id: siteId,
-      metadata_json: { site_id: siteId, fields_changed: Object.keys(fields).filter((k) => k !== 'updated_at') },
+      metadata_json: {
+        site_id: siteId,
+        fields_changed: Object.keys(fields).filter((k) => k !== 'updated_at'),
+      },
       request_id: c.get('requestId'),
     }),
   );
@@ -589,11 +629,21 @@ aiAdmin.post('/api/sites/:siteId/ai-endpoints', async (c) => {
   };
   const slug = normaliseSlug(body.endpoint_slug);
   if (!slug) throw new HTTPError(400, 'slug must be lowercase a-z 0-9 dashes, 2-64 chars');
-  const language: IdeLanguage = body.language ?? (body.kind === 'worker' ? ((body.worker_language as IdeLanguage) ?? 'javascript') : 'ai-prompt');
+  const language: IdeLanguage =
+    body.language ??
+    (body.kind === 'worker'
+      ? ((body.worker_language as IdeLanguage) ?? 'javascript')
+      : 'ai-prompt');
   const kind: 'prompt' | 'worker' = language === 'ai-prompt' ? 'prompt' : 'worker';
-  const files = body.files && Object.keys(body.files).length > 0 ? body.files : LANGUAGE_STARTERS[language];
+  const files =
+    body.files && Object.keys(body.files).length > 0 ? body.files : LANGUAGE_STARTERS[language];
   const id = crypto.randomUUID();
-  const deploy = await deployEndpointFromFiles(c.env, { siteId, endpointSlug: slug, language, files });
+  const deploy = await deployEndpointFromFiles(c.env, {
+    siteId,
+    endpointSlug: slug,
+    language,
+    files,
+  });
   if (!deploy.ok) throw new HTTPError((deploy.status ?? 502) as 400, deploy.error);
   await c.env.DB.prepare(
     `INSERT INTO ai_endpoints (id, org_id, site_id, endpoint_slug, display_name, description,
@@ -642,15 +692,18 @@ aiAdmin.post('/api/sites/:siteId/ai-endpoints', async (c) => {
     }),
   );
 
-  return c.json({
-    data: {
-      id,
-      endpoint_slug: slug,
-      url: `https://projectsites.dev/api/ai/${site.slug}/${slug}`,
-      runtime_pending: deploy.runtimePending,
-      language,
+  return c.json(
+    {
+      data: {
+        id,
+        endpoint_slug: slug,
+        url: `https://projectsites.dev/api/ai/${site.slug}/${slug}`,
+        runtime_pending: deploy.runtimePending,
+        language,
+      },
     },
-  }, 201);
+    201,
+  );
 });
 
 /**
@@ -675,7 +728,13 @@ aiAdmin.put('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
     `SELECT id, endpoint_slug, kind, wfp_script_name, language FROM ai_endpoints WHERE id = ? AND site_id = ?`,
   )
     .bind(c.req.param('endpointId'), siteId)
-    .first<{ id: string; endpoint_slug: string; kind: string; wfp_script_name: string | null; language: string | null }>();
+    .first<{
+      id: string;
+      endpoint_slug: string;
+      kind: string;
+      wfp_script_name: string | null;
+      language: string | null;
+    }>();
   if (!existing) throw new HTTPError(404, 'Endpoint not found');
 
   // Slug change: validate, ensure unique on site, allow rename of the WFP script.
@@ -686,7 +745,9 @@ aiAdmin.put('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
     if (proposed !== existing.endpoint_slug) {
       const dupe = await c.env.DB.prepare(
         `SELECT id FROM ai_endpoints WHERE site_id = ? AND endpoint_slug = ? AND id != ?`,
-      ).bind(siteId, proposed, existing.id).first();
+      )
+        .bind(siteId, proposed, existing.id)
+        .first();
       if (dupe) throw new HTTPError(409, `Endpoint slug "${proposed}" already exists on this site`);
       nextSlug = proposed;
     }
@@ -695,7 +756,8 @@ aiAdmin.put('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
   // Method validation if present.
   if (typeof body['method'] === 'string') {
     const allowed = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'BOTH'];
-    if (!allowed.includes(body['method'] as string)) throw new HTTPError(400, 'method must be one of ' + allowed.join(', '));
+    if (!allowed.includes(body['method'] as string))
+      throw new HTTPError(400, 'method must be one of ' + allowed.join(', '));
   }
 
   // Re-deploy if files or language changed.
@@ -704,9 +766,16 @@ aiAdmin.put('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
   let deployedAt: string | null = null;
   let deployError: string | null = null;
   if (body['files'] || body['language']) {
-    const language = ((body['language'] as IdeLanguage | undefined) ?? (existing.language as IdeLanguage | null) ?? 'ai-prompt') as IdeLanguage;
+    const language = ((body['language'] as IdeLanguage | undefined) ??
+      (existing.language as IdeLanguage | null) ??
+      'ai-prompt') as IdeLanguage;
     const files = (body['files'] as Record<string, string> | undefined) ?? {};
-    const result = await deployEndpointFromFiles(c.env, { siteId, endpointSlug: nextSlug, language, files });
+    const result = await deployEndpointFromFiles(c.env, {
+      siteId,
+      endpointSlug: nextSlug,
+      language,
+      files,
+    });
     if (!result.ok) {
       deployStatus = 'error';
       deployError = result.error;
@@ -720,7 +789,11 @@ aiAdmin.put('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
     const up = await uploadUserWorker(c.env, {
       siteId,
       endpointSlug: nextSlug,
-      language: ((body['worker_language'] as string) ?? 'javascript') as 'javascript' | 'typescript' | 'python' | 'rust-wasm',
+      language: ((body['worker_language'] as string) ?? 'javascript') as
+        | 'javascript'
+        | 'typescript'
+        | 'python'
+        | 'rust-wasm',
       code: body['worker_code'] as string,
     });
     if (!up.ok) throw new HTTPError(502, `WFP upload failed: ${up.error}`);
@@ -728,7 +801,20 @@ aiAdmin.put('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
   }
 
   const updates: Record<string, unknown> = {};
-  const direct = ['display_name', 'description', 'method', 'prompt_template', 'worker_language', 'worker_code', 'enabled', 'language', 'auth_mode', 'rate_limit_per_sec', 'cache_ttl_seconds', 'cron_expression'];
+  const direct = [
+    'display_name',
+    'description',
+    'method',
+    'prompt_template',
+    'worker_language',
+    'worker_code',
+    'enabled',
+    'language',
+    'auth_mode',
+    'rate_limit_per_sec',
+    'cache_ttl_seconds',
+    'cron_expression',
+  ];
   for (const k of direct) if (k in body) updates[k] = body[k];
   if (nextSlug !== existing.endpoint_slug) updates['endpoint_slug'] = nextSlug;
   if (body['files']) updates['files_json'] = JSON.stringify(body['files']);
@@ -745,7 +831,9 @@ aiAdmin.put('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
   await c.env.DB.prepare(`UPDATE ai_endpoints SET ${set} WHERE id = ?`)
     .bind(...cols.map((k) => updates[k]), c.req.param('endpointId'))
     .run();
-  return c.json({ data: { saved: true, slug: nextSlug, deploy_status: deployStatus, deploy_error: deployError } });
+  return c.json({
+    data: { saved: true, slug: nextSlug, deploy_status: deployStatus, deploy_error: deployError },
+  });
 });
 
 /* ────────────────────────── AI Endpoints IDE: deploy + helpers ────────────────────────── */
@@ -762,18 +850,30 @@ aiAdmin.post('/api/sites/:siteId/ai-endpoints/:endpointId/deploy', async (c) => 
   const endpointId = c.req.param('endpointId');
   const row = await c.env.DB.prepare(
     `SELECT endpoint_slug, language FROM ai_endpoints WHERE id = ? AND site_id = ?`,
-  ).bind(endpointId, siteId).first<{ endpoint_slug: string; language: string | null }>();
+  )
+    .bind(endpointId, siteId)
+    .first<{ endpoint_slug: string; language: string | null }>();
   if (!row) throw new HTTPError(404, 'Endpoint not found');
-  const body = (await c.req.json().catch(() => ({}))) as { files?: Record<string, string>; language?: IdeLanguage };
+  const body = (await c.req.json().catch(() => ({}))) as {
+    files?: Record<string, string>;
+    language?: IdeLanguage;
+  };
   const language = (body.language ?? row.language ?? 'ai-prompt') as IdeLanguage;
   const files = body.files ?? {};
-  const result = await deployEndpointFromFiles(c.env, { siteId, endpointSlug: row.endpoint_slug, language, files });
+  const result = await deployEndpointFromFiles(c.env, {
+    siteId,
+    endpointSlug: row.endpoint_slug,
+    language,
+    files,
+  });
   const deployStatus = !result.ok ? 'error' : result.runtimePending ? 'idle' : 'live';
   const deployError = result.ok ? null : result.error;
   const deployedAt = result.ok && !result.runtimePending ? new Date().toISOString() : null;
   await c.env.DB.prepare(
     `UPDATE ai_endpoints SET language = ?, files_json = ?, deploy_status = ?, deploy_error = ?, deployed_at = COALESCE(?, deployed_at), updated_at = datetime('now') WHERE id = ?`,
-  ).bind(language, JSON.stringify(files), deployStatus, deployError, deployedAt, endpointId).run();
+  )
+    .bind(language, JSON.stringify(files), deployStatus, deployError, deployedAt, endpointId)
+    .run();
 
   c.executionCtx.waitUntil(
     auditService.writeAuditLog(c.env.DB, {
@@ -821,7 +921,10 @@ aiAdmin.get('/api/sites/:siteId/ai-endpoints/:endpointId/logs', async (c) => {
     `SELECT id, status, latency_ms, created_at FROM ai_form_logs WHERE endpoint_slug IN
        (SELECT endpoint_slug FROM ai_endpoints WHERE id = ?)
      ORDER BY created_at DESC LIMIT 20`,
-  ).bind(endpointId).all().catch(() => ({ results: [] as unknown[] }));
+  )
+    .bind(endpointId)
+    .all()
+    .catch(() => ({ results: [] as unknown[] }));
   return c.json({ data: rows.results ?? [] });
 });
 
@@ -834,14 +937,19 @@ aiAdmin.post('/api/sites/:siteId/ai-endpoints/:endpointId/duplicate', async (c) 
   const siteId = c.req.param('siteId');
   const site = await siteOwned(c, orgId, siteId);
   const endpointId = c.req.param('endpointId');
-  const src = await c.env.DB.prepare(
-    `SELECT * FROM ai_endpoints WHERE id = ? AND site_id = ?`,
-  ).bind(endpointId, siteId).first<Record<string, unknown>>();
+  const src = await c.env.DB.prepare(`SELECT * FROM ai_endpoints WHERE id = ? AND site_id = ?`)
+    .bind(endpointId, siteId)
+    .first<Record<string, unknown>>();
   if (!src) throw new HTTPError(404, 'Endpoint not found');
   let candidate = `${src['endpoint_slug']}-copy`;
   let i = 1;
-  while (await c.env.DB.prepare(`SELECT id FROM ai_endpoints WHERE site_id = ? AND endpoint_slug = ?`).bind(siteId, candidate).first()) {
-    i += 1; candidate = `${src['endpoint_slug']}-copy-${i}`;
+  while (
+    await c.env.DB.prepare(`SELECT id FROM ai_endpoints WHERE site_id = ? AND endpoint_slug = ?`)
+      .bind(siteId, candidate)
+      .first()
+  ) {
+    i += 1;
+    candidate = `${src['endpoint_slug']}-copy-${i}`;
   }
   const id = crypto.randomUUID();
   await c.env.DB.prepare(
@@ -850,16 +958,40 @@ aiAdmin.post('/api/sites/:siteId/ai-endpoints/:endpointId/duplicate', async (c) 
        language, files_json, bindings_json, auth_mode, rate_limit_per_sec, cache_ttl_seconds,
        cron_expression, tags_json)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).bind(
-    id, orgId, siteId, candidate,
-    `${src['display_name']} (copy)`, src['description'] ?? null,
-    src['kind'], src['method'], src['prompt_template'] ?? null, src['worker_language'] ?? null,
-    src['worker_code'] ?? null, src['mcp_tools_json'] ?? null,
-    src['language'] ?? 'ai-prompt', src['files_json'] ?? null, src['bindings_json'] ?? null,
-    src['auth_mode'] ?? 'open', src['rate_limit_per_sec'] ?? 60, src['cache_ttl_seconds'] ?? 0,
-    src['cron_expression'] ?? null, src['tags_json'] ?? null,
-  ).run();
-  return c.json({ data: { id, endpoint_slug: candidate, url: `https://projectsites.dev/api/ai/${site.slug}/${candidate}` } }, 201);
+  )
+    .bind(
+      id,
+      orgId,
+      siteId,
+      candidate,
+      `${src['display_name']} (copy)`,
+      src['description'] ?? null,
+      src['kind'],
+      src['method'],
+      src['prompt_template'] ?? null,
+      src['worker_language'] ?? null,
+      src['worker_code'] ?? null,
+      src['mcp_tools_json'] ?? null,
+      src['language'] ?? 'ai-prompt',
+      src['files_json'] ?? null,
+      src['bindings_json'] ?? null,
+      src['auth_mode'] ?? 'open',
+      src['rate_limit_per_sec'] ?? 60,
+      src['cache_ttl_seconds'] ?? 0,
+      src['cron_expression'] ?? null,
+      src['tags_json'] ?? null,
+    )
+    .run();
+  return c.json(
+    {
+      data: {
+        id,
+        endpoint_slug: candidate,
+        url: `https://projectsites.dev/api/ai/${site.slug}/${candidate}`,
+      },
+    },
+    201,
+  );
 });
 
 /**
@@ -872,7 +1004,10 @@ aiAdmin.post('/api/sites/:siteId/ai-endpoints/:endpointId/ai-helper', async (c) 
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
   await siteOwned(c, orgId, siteId);
-  const body = (await c.req.json().catch(() => ({}))) as { intent?: string; target_language?: string };
+  const body = (await c.req.json().catch(() => ({}))) as {
+    intent?: string;
+    target_language?: string;
+  };
   // Stub: surface a friendly "coming soon" to the IDE.
   return c.json({
     data: {
@@ -919,7 +1054,11 @@ aiAdmin.delete('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
       message: `AI endpoint '${row.endpoint_slug}' deleted`,
       target_type: 'ai_endpoint',
       target_id: endpointId,
-      metadata_json: { site_id: siteId, endpoint_slug: row.endpoint_slug, wfp_script_name: row.wfp_script_name },
+      metadata_json: {
+        site_id: siteId,
+        endpoint_slug: row.endpoint_slug,
+        wfp_script_name: row.wfp_script_name,
+      },
       request_id: c.get('requestId'),
     }),
   );
@@ -996,11 +1135,11 @@ aiAdmin.post('/api/billing/credits/topup', async (c) => {
     return c.json({ data: { mode: 'dev', balance: fresh } });
   }
   const params = new URLSearchParams({
-    'mode': 'payment',
+    mode: 'payment',
     'line_items[0][price]': priceId,
     'line_items[0][quantity]': '1',
-    'success_url': `https://projectsites.dev/admin/billing?topup=success&bundle=${bundle}`,
-    'cancel_url': `https://projectsites.dev/admin/billing?topup=cancel`,
+    success_url: `https://projectsites.dev/admin/billing?topup=success&bundle=${bundle}`,
+    cancel_url: `https://projectsites.dev/admin/billing?topup=cancel`,
     'metadata[org_id]': orgId,
     'metadata[bundle]': bundle,
     'metadata[credits]': String(cfg.credits),
@@ -1052,7 +1191,8 @@ aiAdmin.post('/api/billing/credits/topup', async (c) => {
  */
 aiAdmin.get('/api/billing/site-costs', async (c) => {
   const { orgId } = need(c);
-  const sinceDay = c.req.query('since') ?? new Date(Date.now() - 30 * 86400 * 1000).toISOString().slice(0, 10);
+  const sinceDay =
+    c.req.query('since') ?? new Date(Date.now() - 30 * 86400 * 1000).toISOString().slice(0, 10);
   const rows = await c.env.DB.prepare(
     `SELECT site_id, SUM(ai_calls) AS ai_calls, SUM(ai_credits) AS ai_credits,
             SUM(bandwidth_bytes) AS bandwidth_bytes, SUM(storage_bytes) AS storage_bytes,
@@ -1193,8 +1333,21 @@ aiAdmin.get('/api/team', async (c) => {
  */
 aiAdmin.post('/api/team/invites', async (c) => {
   const { orgId, userId } = need(c);
-  const { email, role } = (await c.req.json()) as { email: string; role: 'owner' | 'editor' | 'viewer' };
-  if (!email || !role) throw new HTTPError(400, 'email + role required');
+  // Zod boundary (zod-everywhere): `role` is privilege-bearing — the old cast
+  // let ANY string land in `team_invites.role` (e.g. an injected 'superadmin'),
+  // and a malformed JSON body threw an unhandled 500. Constrain role to the real
+  // enum + require a non-empty email; every failure → the same 400.
+  let raw: unknown;
+  try {
+    raw = await c.req.json();
+  } catch {
+    throw new HTTPError(400, 'email + role required');
+  }
+  const parsed = z
+    .object({ email: z.string().min(1), role: z.enum(['owner', 'editor', 'viewer']) })
+    .safeParse(raw);
+  if (!parsed.success) throw new HTTPError(400, 'email + role required');
+  const { email, role } = parsed.data;
 
   // Seat-cap enforcement (#8): active members + pending invites both consume a
   // seat. The limit is resolved from the org's plan entitlements (free=1,
@@ -1205,9 +1358,11 @@ aiAdmin.post('/api/team/invites', async (c) => {
 
   const id = crypto.randomUUID();
   const token = crypto.randomUUID().replace(/-/g, '');
-  const tokenHash = Array.from(new Uint8Array(
-    await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token)),
-  )).map((b) => b.toString(16).padStart(2, '0')).join('');
+  const tokenHash = Array.from(
+    new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))),
+  )
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
   const expires = new Date(Date.now() + 14 * 86400 * 1000).toISOString();
   await c.env.DB.prepare(
     `INSERT INTO team_invites (id, org_id, email, role, token_hash, invited_by, expires_at)
@@ -1293,7 +1448,9 @@ aiAdmin.delete('/api/team/invites/:id', async (c) => {
   const inviteId = c.req.param('id');
   const invite = await c.env.DB.prepare(
     `SELECT email, role FROM team_invites WHERE id = ? AND org_id = ?`,
-  ).bind(inviteId, orgId).first<{ email: string; role: string }>();
+  )
+    .bind(inviteId, orgId)
+    .first<{ email: string; role: string }>();
   await c.env.DB.prepare(`DELETE FROM team_invites WHERE id = ? AND org_id = ?`)
     .bind(inviteId, orgId)
     .run();
@@ -1334,13 +1491,20 @@ aiAdmin.delete('/api/team/members/:userId', async (c) => {
   // client-side disabled state on the Settings → Team list.
   const target = await c.env.DB.prepare(
     `SELECT role FROM memberships WHERE user_id = ? AND org_id = ? AND deleted_at IS NULL`,
-  ).bind(targetUserId, orgId).first<{ role: string }>();
+  )
+    .bind(targetUserId, orgId)
+    .first<{ role: string }>();
   if (target?.role === 'owner') {
     const ownerCount = await c.env.DB.prepare(
       `SELECT COUNT(*) AS n FROM memberships WHERE org_id = ? AND role = 'owner' AND deleted_at IS NULL`,
-    ).bind(orgId).first<{ n: number }>();
+    )
+      .bind(orgId)
+      .first<{ n: number }>();
     if ((ownerCount?.n ?? 0) <= 1) {
-      throw new HTTPError(409, 'Cannot remove the last owner. Promote another member to owner first.');
+      throw new HTTPError(
+        409,
+        'Cannot remove the last owner. Promote another member to owner first.',
+      );
     }
   }
   await c.env.DB.prepare(`DELETE FROM memberships WHERE user_id = ? AND org_id = ?`)
@@ -1422,10 +1586,13 @@ aiAdmin.get('/api/analytics/overview', async (c) => {
     const data = await loadOverview(c.env, orgId, days);
     return c.json({ data, range: rangeRaw, days });
   } catch (err) {
-    return c.json({
-      error: { message: err instanceof Error ? err.message : 'analytics unavailable' },
-      data: null,
-    }, 200);
+    return c.json(
+      {
+        error: { message: err instanceof Error ? err.message : 'analytics unavailable' },
+        data: null,
+      },
+      200,
+    );
   }
 });
 
@@ -1478,30 +1645,51 @@ aiAdmin.post('/api/team/invites/accept', async (c) => {
   const raw = (body.token ?? '').trim();
   if (!raw) return c.json({ error: { code: 'BAD_REQUEST', message: 'token required' } }, 400);
   const hashBytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
-  const tokenHash = Array.from(new Uint8Array(hashBytes)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  const tokenHash = Array.from(new Uint8Array(hashBytes))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
   const invite = await c.env.DB.prepare(
     `SELECT id, org_id, email, role, expires_at FROM team_invites
      WHERE token_hash = ? AND accepted_at IS NULL AND deleted_at IS NULL`,
-  ).bind(tokenHash).first<{ id: string; org_id: string; email: string; role: string; expires_at: string }>();
-  if (!invite) return c.json({ error: { code: 'NOT_FOUND', message: 'Invite not found or already used' } }, 404);
+  )
+    .bind(tokenHash)
+    .first<{ id: string; org_id: string; email: string; role: string; expires_at: string }>();
+  if (!invite)
+    return c.json(
+      { error: { code: 'NOT_FOUND', message: 'Invite not found or already used' } },
+      404,
+    );
   if (new Date(invite.expires_at).getTime() < Date.now()) {
-    return c.json({ error: { code: 'EXPIRED', message: 'Invite expired — ask the owner to resend' } }, 410);
+    return c.json(
+      { error: { code: 'EXPIRED', message: 'Invite expired — ask the owner to resend' } },
+      410,
+    );
   }
-  const me = await c.env.DB.prepare(`SELECT email FROM users WHERE id = ?`).bind(userId).first<{ email: string }>();
+  const me = await c.env.DB.prepare(`SELECT email FROM users WHERE id = ?`)
+    .bind(userId)
+    .first<{ email: string }>();
   if (me?.email?.toLowerCase() !== invite.email.toLowerCase()) {
-    return c.json({
-      error: { code: 'WRONG_USER', message: `This invite was sent to ${invite.email}; sign in as that account first.` },
-    }, 403);
+    return c.json(
+      {
+        error: {
+          code: 'WRONG_USER',
+          message: `This invite was sent to ${invite.email}; sign in as that account first.`,
+        },
+      },
+      403,
+    );
   }
   // Insert membership (ignore conflict if user already in org).
   await c.env.DB.prepare(
     `INSERT INTO memberships (id, org_id, user_id, role, created_at, updated_at)
      VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
      ON CONFLICT(org_id, user_id) DO UPDATE SET role = excluded.role, deleted_at = NULL`,
-  ).bind(crypto.randomUUID(), invite.org_id, userId, invite.role).run();
-  await c.env.DB.prepare(
-    `UPDATE team_invites SET accepted_at = datetime('now') WHERE id = ?`,
-  ).bind(invite.id).run();
+  )
+    .bind(crypto.randomUUID(), invite.org_id, userId, invite.role)
+    .run();
+  await c.env.DB.prepare(`UPDATE team_invites SET accepted_at = datetime('now') WHERE id = ?`)
+    .bind(invite.id)
+    .run();
 
   c.executionCtx.waitUntil(
     auditService.writeAuditLog(c.env.DB, {
@@ -1525,9 +1713,17 @@ aiAdmin.get('/api/admin/security', async (c) => {
   const row = await c.env.DB.prepare(
     `SELECT session_hours, idle_minutes, allowed_domains, require_2fa, updated_at
      FROM org_security WHERE org_id = ?`,
-  ).bind(orgId).first();
+  )
+    .bind(orgId)
+    .first();
   return c.json({
-    data: row ?? { session_hours: 168, idle_minutes: 60, allowed_domains: null, require_2fa: 0, updated_at: null },
+    data: row ?? {
+      session_hours: 168,
+      idle_minutes: 60,
+      allowed_domains: null,
+      require_2fa: 0,
+      updated_at: null,
+    },
   });
 });
 /**
@@ -1540,7 +1736,10 @@ aiAdmin.get('/api/admin/security', async (c) => {
 aiAdmin.put('/api/admin/security', async (c) => {
   const { orgId } = need(c);
   const body = (await c.req.json().catch(() => ({}))) as {
-    session_hours?: number; idle_minutes?: number; allowed_domains?: string | null; require_2fa?: boolean;
+    session_hours?: number;
+    idle_minutes?: number;
+    allowed_domains?: string | null;
+    require_2fa?: boolean;
   };
   const sessionHours = Math.max(1, Math.min(720, Number(body.session_hours) || 168));
   const idleMinutes = Math.max(5, Math.min(240, Number(body.idle_minutes) || 60));
@@ -1555,8 +1754,18 @@ aiAdmin.put('/api/admin/security', async (c) => {
        allowed_domains = excluded.allowed_domains,
        require_2fa = excluded.require_2fa,
        updated_at = excluded.updated_at`,
-  ).bind(orgId, sessionHours, idleMinutes, allowed, require2fa).run();
-  return c.json({ data: { saved: true, session_hours: sessionHours, idle_minutes: idleMinutes, allowed_domains: allowed, require_2fa: require2fa } });
+  )
+    .bind(orgId, sessionHours, idleMinutes, allowed, require2fa)
+    .run();
+  return c.json({
+    data: {
+      saved: true,
+      session_hours: sessionHours,
+      idle_minutes: idleMinutes,
+      allowed_domains: allowed,
+      require_2fa: require2fa,
+    },
+  });
 });
 
 /* ────────────────────────── AI Chat field "Improve with AI" ────────────────────────── */
@@ -1580,32 +1789,54 @@ aiAdmin.post('/api/sites/:siteId/ai-settings/improve', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
   await siteOwned(c, orgId, siteId);
-  const body = (await c.req.json().catch(() => ({}))) as { field?: 'persona' | 'system'; value?: string };
+  const body = (await c.req.json().catch(() => ({}))) as {
+    field?: 'persona' | 'system';
+    value?: string;
+  };
   const field = body.field === 'persona' || body.field === 'system' ? body.field : 'persona';
   const value = (body.value ?? '').trim();
 
   const brand = await c.env.DB.prepare(
     `SELECT brand_tone, contact_email FROM ai_site_settings WHERE site_id = ?`,
-  ).bind(siteId).first<{ brand_tone: string | null; contact_email: string | null }>();
+  )
+    .bind(siteId)
+    .first<{ brand_tone: string | null; contact_email: string | null }>();
   const tone = brand?.brand_tone?.trim() || 'warm, plainspoken, never pushy';
 
-  const goal = field === 'persona'
-    ? 'Rewrite the chat persona — one short sentence (≤15 words) describing the voice the AI should use.'
-    : 'Rewrite this AI chat system prompt to be tighter, clearer, more actionable. Keep all factual constraints. Add 1-3 concrete behavioral rules if the original lacks them. Plain English, no marketing fluff.';
+  const goal =
+    field === 'persona'
+      ? 'Rewrite the chat persona — one short sentence (≤15 words) describing the voice the AI should use.'
+      : 'Rewrite this AI chat system prompt to be tighter, clearer, more actionable. Keep all factual constraints. Add 1-3 concrete behavioral rules if the original lacks them. Plain English, no marketing fluff.';
   const sys = `You are a senior brand copy editor. Brand tone: "${tone}". ${goal} Return ONLY the rewritten text — no quotes, no preamble.`;
-  const user = value || (field === 'persona' ? 'A helpful concierge.' : 'You are a helpful AI for this business. Be concise.');
+  const user =
+    value ||
+    (field === 'persona'
+      ? 'A helpful concierge.'
+      : 'You are a helpful AI for this business. Be concise.');
 
   try {
     const result = (await c.env.AI.run(
       '@cf/meta/llama-3.1-8b-instruct-fp8' as Parameters<typeof c.env.AI.run>[0],
-      { messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], max_tokens: 250 } as Parameters<typeof c.env.AI.run>[1],
+      {
+        messages: [
+          { role: 'system', content: sys },
+          { role: 'user', content: user },
+        ],
+        max_tokens: 250,
+      } as Parameters<typeof c.env.AI.run>[1],
     )) as { response?: string };
     const improved = (result?.response ?? '').replace(/^["']|["']$/g, '').trim();
     return c.json({ data: { field, original: value, improved: improved || value, tone } });
   } catch (err) {
-    return c.json({
-      error: { code: 'AI_UNAVAILABLE', message: err instanceof Error ? err.message : 'AI is offline right now' },
-    }, 502);
+    return c.json(
+      {
+        error: {
+          code: 'AI_UNAVAILABLE',
+          message: err instanceof Error ? err.message : 'AI is offline right now',
+        },
+      },
+      502,
+    );
   }
 });
 
@@ -1614,22 +1845,41 @@ aiAdmin.post('/api/admin/org/delete', async (c) => {
   const { orgId, userId } = need(c);
   const body = (await c.req.json().catch(() => ({}))) as { confirm?: string };
   if (body.confirm !== 'DELETE') {
-    return c.json({ error: { code: 'BAD_REQUEST', message: 'Confirmation text must be "DELETE"' } }, 400);
+    return c.json(
+      { error: { code: 'BAD_REQUEST', message: 'Confirmation text must be "DELETE"' } },
+      400,
+    );
   }
   const me = await c.env.DB.prepare(
     `SELECT role FROM memberships WHERE org_id = ? AND user_id = ? AND deleted_at IS NULL`,
-  ).bind(orgId, userId).first<{ role: string }>();
+  )
+    .bind(orgId, userId)
+    .first<{ role: string }>();
   if (me?.role !== 'owner') {
-    return c.json({ error: { code: 'FORBIDDEN', message: 'Only the org owner can delete it' } }, 403);
+    return c.json(
+      { error: { code: 'FORBIDDEN', message: 'Only the org owner can delete it' } },
+      403,
+    );
   }
   const now = new Date().toISOString();
   // Soft-delete cascade: org → sites → memberships → invites → api_keys.
   await c.env.DB.batch([
-    c.env.DB.prepare(`UPDATE sites SET deleted_at = ? WHERE org_id = ? AND deleted_at IS NULL`).bind(now, orgId),
-    c.env.DB.prepare(`UPDATE memberships SET deleted_at = ? WHERE org_id = ? AND deleted_at IS NULL`).bind(now, orgId),
-    c.env.DB.prepare(`UPDATE team_invites SET deleted_at = ? WHERE org_id = ? AND deleted_at IS NULL`).bind(now, orgId),
-    c.env.DB.prepare(`UPDATE api_keys SET revoked_at = ? WHERE org_id = ? AND revoked_at IS NULL`).bind(now, orgId),
-    c.env.DB.prepare(`UPDATE orgs SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`).bind(now, orgId),
+    c.env.DB.prepare(
+      `UPDATE sites SET deleted_at = ? WHERE org_id = ? AND deleted_at IS NULL`,
+    ).bind(now, orgId),
+    c.env.DB.prepare(
+      `UPDATE memberships SET deleted_at = ? WHERE org_id = ? AND deleted_at IS NULL`,
+    ).bind(now, orgId),
+    c.env.DB.prepare(
+      `UPDATE team_invites SET deleted_at = ? WHERE org_id = ? AND deleted_at IS NULL`,
+    ).bind(now, orgId),
+    c.env.DB.prepare(
+      `UPDATE api_keys SET revoked_at = ? WHERE org_id = ? AND revoked_at IS NULL`,
+    ).bind(now, orgId),
+    c.env.DB.prepare(`UPDATE orgs SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`).bind(
+      now,
+      orgId,
+    ),
   ]);
 
   c.executionCtx.waitUntil(
@@ -1654,7 +1904,9 @@ aiAdmin.post('/api/admin/org/export', async (c) => {
   const id = crypto.randomUUID();
   await c.env.DB.prepare(
     `INSERT INTO org_exports (id, org_id, requested_by, status) VALUES (?, ?, ?, 'queued')`,
-  ).bind(id, orgId, userId).run();
+  )
+    .bind(id, orgId, userId)
+    .run();
 
   c.executionCtx.waitUntil(
     auditService.writeAuditLog(c.env.DB, {
@@ -1671,36 +1923,58 @@ aiAdmin.post('/api/admin/org/export', async (c) => {
 
   // Fire-and-forget: bundle the org's D1 rows into a JSON file in R2.
   // Image/asset bundling stays deferred; this hits the 80% "give me my data" case.
-  c.executionCtx.waitUntil((async () => {
-    try {
-      const tables = ['sites', 'site_snapshots', 'ai_site_settings', 'ai_endpoints', 'ai_form_logs', 'hostnames'];
-      const dump: Record<string, unknown[]> = {};
-      for (const t of tables) {
-        const rows = await c.env.DB.prepare(
-          `SELECT * FROM ${t} WHERE ${t === 'sites' ? 'org_id' : 'site_id'} IN
+  c.executionCtx.waitUntil(
+    (async () => {
+      try {
+        const tables = [
+          'sites',
+          'site_snapshots',
+          'ai_site_settings',
+          'ai_endpoints',
+          'ai_form_logs',
+          'hostnames',
+        ];
+        const dump: Record<string, unknown[]> = {};
+        for (const t of tables) {
+          const rows = await c.env.DB.prepare(
+            `SELECT * FROM ${t} WHERE ${t === 'sites' ? 'org_id' : 'site_id'} IN
              (SELECT id FROM sites WHERE org_id = ? AND deleted_at IS NULL) OR
              ${t === 'sites' ? 'org_id = ?' : '0'}`,
-        ).bind(orgId, orgId).all().catch(() => ({ results: [] as unknown[] }));
-        dump[t] = rows.results ?? [];
-      }
-      const memberships = await c.env.DB.prepare(
-        `SELECT m.*, u.email, u.display_name FROM memberships m
+          )
+            .bind(orgId, orgId)
+            .all()
+            .catch(() => ({ results: [] as unknown[] }));
+          dump[t] = rows.results ?? [];
+        }
+        const memberships = await c.env.DB.prepare(
+          `SELECT m.*, u.email, u.display_name FROM memberships m
          JOIN users u ON u.id = m.user_id WHERE m.org_id = ?`,
-      ).bind(orgId).all().catch(() => ({ results: [] }));
-      dump['team'] = memberships.results ?? [];
+        )
+          .bind(orgId)
+          .all()
+          .catch(() => ({ results: [] }));
+        dump['team'] = memberships.results ?? [];
 
-      const r2Key = `exports/${orgId}/${id}.json`;
-      const body = new TextEncoder().encode(JSON.stringify(dump, null, 2));
-      await c.env.SITES_BUCKET.put(r2Key, body, { httpMetadata: { contentType: 'application/json' } });
-      await c.env.DB.prepare(
-        `UPDATE org_exports SET status = 'ready', r2_key = ?, size_bytes = ?, completed_at = datetime('now') WHERE id = ?`,
-      ).bind(r2Key, body.byteLength, id).run();
-    } catch (err) {
-      await c.env.DB.prepare(
-        `UPDATE org_exports SET status = 'error', error = ?, completed_at = datetime('now') WHERE id = ?`,
-      ).bind(err instanceof Error ? err.message : String(err), id).run().catch(() => undefined);
-    }
-  })());
+        const r2Key = `exports/${orgId}/${id}.json`;
+        const body = new TextEncoder().encode(JSON.stringify(dump, null, 2));
+        await c.env.SITES_BUCKET.put(r2Key, body, {
+          httpMetadata: { contentType: 'application/json' },
+        });
+        await c.env.DB.prepare(
+          `UPDATE org_exports SET status = 'ready', r2_key = ?, size_bytes = ?, completed_at = datetime('now') WHERE id = ?`,
+        )
+          .bind(r2Key, body.byteLength, id)
+          .run();
+      } catch (err) {
+        await c.env.DB.prepare(
+          `UPDATE org_exports SET status = 'error', error = ?, completed_at = datetime('now') WHERE id = ?`,
+        )
+          .bind(err instanceof Error ? err.message : String(err), id)
+          .run()
+          .catch(() => undefined);
+      }
+    })(),
+  );
   return c.json({ data: { id, status: 'queued', poll: `/api/admin/org/export/${id}` } });
 });
 
@@ -1716,15 +1990,23 @@ aiAdmin.get('/api/admin/org/export/:id', async (c) => {
   const row = await c.env.DB.prepare(
     `SELECT id, status, size_bytes, error, created_at, completed_at, r2_key FROM org_exports
      WHERE id = ? AND org_id = ?`,
-  ).bind(c.req.param('id'), orgId).first<{
-    id: string; status: string; size_bytes: number | null; error: string | null;
-    created_at: string; completed_at: string | null; r2_key: string | null;
-  }>();
+  )
+    .bind(c.req.param('id'), orgId)
+    .first<{
+      id: string;
+      status: string;
+      size_bytes: number | null;
+      error: string | null;
+      created_at: string;
+      completed_at: string | null;
+      r2_key: string | null;
+    }>();
   if (!row) return c.json({ error: { code: 'NOT_FOUND', message: 'Export not found' } }, 404);
   return c.json({
     data: {
       ...row,
-      download_url: row.status === 'ready' && row.r2_key ? `/api/admin/org/export/${row.id}/download` : null,
+      download_url:
+        row.status === 'ready' && row.r2_key ? `/api/admin/org/export/${row.id}/download` : null,
     },
   });
 });
@@ -1746,7 +2028,9 @@ aiAdmin.get('/api/admin/org/export/:id/download', async (c) => {
   const { orgId } = need(c);
   const row = await c.env.DB.prepare(
     `SELECT r2_key FROM org_exports WHERE id = ? AND org_id = ? AND status = 'ready'`,
-  ).bind(c.req.param('id'), orgId).first<{ r2_key: string }>();
+  )
+    .bind(c.req.param('id'), orgId)
+    .first<{ r2_key: string }>();
   if (!row?.r2_key) return c.json({ error: { code: 'NOT_READY' } }, 404);
   const obj = await c.env.SITES_BUCKET.get(row.r2_key);
   if (!obj) return c.json({ error: { code: 'GONE' } }, 410);
@@ -1765,7 +2049,9 @@ aiAdmin.get('/api/admin/org/export/:id/download', async (c) => {
 // present either a session token (existing) or one of these keys.
 async function hashApiKey(secret: string): Promise<string> {
   const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret));
-  return Array.from(new Uint8Array(bytes)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  return Array.from(new Uint8Array(bytes))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 /**
@@ -1783,12 +2069,16 @@ aiAdmin.get('/api/admin/api-keys', async (c) => {
   const rows = await c.env.DB.prepare(
     `SELECT id, name, prefix, scopes_json, last_used_at, expires_at, created_at, revoked_at
      FROM api_keys WHERE org_id = ? ORDER BY created_at DESC LIMIT 200`,
-  ).bind(orgId).all();
+  )
+    .bind(orgId)
+    .all();
   return c.json({
     data: (rows.results ?? []).map((r) => ({
       ...r,
       scopes: r['scopes_json'] ? safeJson(r['scopes_json'] as string) : [],
-      active: !r['revoked_at'] && (!r['expires_at'] || new Date(r['expires_at'] as string).getTime() > Date.now()),
+      active:
+        !r['revoked_at'] &&
+        (!r['expires_at'] || new Date(r['expires_at'] as string).getTime() > Date.now()),
     })),
   });
 });
@@ -1805,31 +2095,55 @@ aiAdmin.get('/api/admin/api-keys', async (c) => {
  */
 aiAdmin.post('/api/admin/api-keys', async (c) => {
   const { orgId, userId } = need(c);
-  const body = (await c.req.json().catch(() => ({}))) as { name?: string; scopes?: string[]; expires_in_days?: number };
+  const body = (await c.req.json().catch(() => ({}))) as {
+    name?: string;
+    scopes?: string[];
+    expires_in_days?: number;
+  };
   const name = (body.name ?? '').trim() || 'untitled key';
   // 48 url-safe chars of entropy = ~288 bits.
   const random = Array.from(crypto.getRandomValues(new Uint8Array(36)))
-    .map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 48);
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 48);
   const secret = `psk_live_${random}`;
   const prefix = secret.slice(0, 16); // "psk_live_AbCdEfGh"
   const hash = await hashApiKey(secret);
   const id = crypto.randomUUID();
   const expiresAt = body.expires_in_days
-    ? new Date(Date.now() + Math.max(1, Math.min(365, body.expires_in_days)) * 86400 * 1000).toISOString()
+    ? new Date(
+        Date.now() + Math.max(1, Math.min(365, body.expires_in_days)) * 86400 * 1000,
+      ).toISOString()
     : null;
   await c.env.DB.prepare(
     `INSERT INTO api_keys (id, org_id, created_by, name, prefix, hash, scopes_json, expires_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).bind(id, orgId, userId, name, prefix, hash, JSON.stringify(body.scopes ?? ['read', 'write']), expiresAt).run();
-  return c.json({
-    data: {
-      id, name, prefix,
-      secret, // returned ONCE — never again.
-      expires_at: expiresAt,
-      scopes: body.scopes ?? ['read', 'write'],
-      note: 'Copy this secret now — it cannot be shown again. Send as `Authorization: Bearer <secret>`.',
+  )
+    .bind(
+      id,
+      orgId,
+      userId,
+      name,
+      prefix,
+      hash,
+      JSON.stringify(body.scopes ?? ['read', 'write']),
+      expiresAt,
+    )
+    .run();
+  return c.json(
+    {
+      data: {
+        id,
+        name,
+        prefix,
+        secret, // returned ONCE — never again.
+        expires_at: expiresAt,
+        scopes: body.scopes ?? ['read', 'write'],
+        note: 'Copy this secret now — it cannot be shown again. Send as `Authorization: Bearer <secret>`.',
+      },
     },
-  }, 201);
+    201,
+  );
 });
 
 /**
@@ -1846,7 +2160,9 @@ aiAdmin.delete('/api/admin/api-keys/:id', async (c) => {
   const { orgId } = need(c);
   await c.env.DB.prepare(
     `UPDATE api_keys SET revoked_at = datetime('now') WHERE id = ? AND org_id = ? AND revoked_at IS NULL`,
-  ).bind(c.req.param('id'), orgId).run();
+  )
+    .bind(c.req.param('id'), orgId)
+    .run();
   return c.json({ data: { revoked: true } });
 });
 
@@ -1864,8 +2180,14 @@ aiAdmin.get('/api/admin/domains', async (c) => {
   const { orgId } = need(c);
   const sites = await c.env.DB.prepare(
     `SELECT id, slug, business_name FROM sites WHERE org_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`,
-  ).bind(orgId).all();
-  const siteRows = (sites.results ?? []) as { id: string; slug: string; business_name: string | null }[];
+  )
+    .bind(orgId)
+    .all();
+  const siteRows = (sites.results ?? []) as {
+    id: string;
+    slug: string;
+    business_name: string | null;
+  }[];
   if (siteRows.length === 0) return c.json({ data: { sites: [] } });
   const placeholders = siteRows.map(() => '?').join(',');
   const hosts = await c.env.DB.prepare(
@@ -1873,8 +2195,13 @@ aiAdmin.get('/api/admin/domains', async (c) => {
             verification_errors, last_verified_at, created_at
      FROM hostnames WHERE site_id IN (${placeholders}) AND deleted_at IS NULL
      ORDER BY is_primary DESC, created_at DESC`,
-  ).bind(...siteRows.map((s) => s.id)).all();
-  const byId = new Map<string, { site: { id: string; slug: string; business_name: string | null }; hostnames: unknown[] }>();
+  )
+    .bind(...siteRows.map((s) => s.id))
+    .all();
+  const byId = new Map<
+    string,
+    { site: { id: string; slug: string; business_name: string | null }; hostnames: unknown[] }
+  >();
   for (const s of siteRows) byId.set(s.id, { site: s, hostnames: [] });
   for (const h of (hosts.results ?? []) as Record<string, unknown>[]) {
     const bucket = byId.get(h['site_id'] as string);
@@ -1949,7 +2276,10 @@ aiAdmin.post('/api/admin/cloudflare/auto-setup', async (c) => {
   };
   const accountId = env.CF_ACCOUNT_ID;
   if (!accountId) {
-    return c.json({ error: { code: 'NO_ACCOUNT', message: 'CF_ACCOUNT_ID env var is not set' } }, 503);
+    return c.json(
+      { error: { code: 'NO_ACCOUNT', message: 'CF_ACCOUNT_ID env var is not set' } },
+      503,
+    );
   }
   const headers: Record<string, string> = { 'User-Agent': 'project-sites-admin/1.0' };
   if (env.CF_API_TOKEN) {
@@ -1965,16 +2295,21 @@ aiAdmin.post('/api/admin/cloudflare/auto-setup', async (c) => {
     `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/dispatch/namespaces`,
     { headers },
   );
-  const verifyBody = (await verifyRes.json().catch(() => null)) as
-    | { success: boolean; result?: { namespace_name: string }[]; errors?: { code: number; message: string }[] }
-    | null;
+  const verifyBody = (await verifyRes.json().catch(() => null)) as {
+    success: boolean;
+    result?: { namespace_name: string }[];
+    errors?: { code: number; message: string }[];
+  } | null;
   if (!verifyRes.ok || !verifyBody?.success) {
-    return c.json({
-      error: {
-        code: 'CF_AUTH_FAILED',
-        message: verifyBody?.errors?.[0]?.message ?? `CF API returned ${verifyRes.status}`,
+    return c.json(
+      {
+        error: {
+          code: 'CF_AUTH_FAILED',
+          message: verifyBody?.errors?.[0]?.message ?? `CF API returned ${verifyRes.status}`,
+        },
       },
-    }, 502);
+      502,
+    );
   }
   const wantNamespace = env.WFP_NAMESPACE_NAME ?? 'project-sites-endpoints';
   const existsAlready = verifyBody.result?.some((n) => n.namespace_name === wantNamespace) ?? false;
@@ -1988,11 +2323,20 @@ aiAdmin.post('/api/admin/cloudflare/auto-setup', async (c) => {
         body: JSON.stringify({ name: wantNamespace }),
       },
     );
-    const createBody = (await createRes.json().catch(() => null)) as { success: boolean; errors?: { message: string }[] } | null;
+    const createBody = (await createRes.json().catch(() => null)) as {
+      success: boolean;
+      errors?: { message: string }[];
+    } | null;
     if (!createRes.ok || !createBody?.success) {
-      return c.json({
-        error: { code: 'NAMESPACE_CREATE_FAILED', message: createBody?.errors?.[0]?.message ?? `${createRes.status}` },
-      }, 502);
+      return c.json(
+        {
+          error: {
+            code: 'NAMESPACE_CREATE_FAILED',
+            message: createBody?.errors?.[0]?.message ?? `${createRes.status}`,
+          },
+        },
+        502,
+      );
     }
     created = true;
   }
@@ -2035,7 +2379,8 @@ aiAdmin.post('/api/admin/ai-chat', async (c) => {
     messages?: { role: 'user' | 'assistant' | 'system'; content: string }[];
   };
   const msgs = Array.isArray(body.messages) ? body.messages.slice(-10) : [];
-  if (!msgs.length) return c.json({ error: { code: 'BAD_REQUEST', message: 'messages required' } }, 400);
+  if (!msgs.length)
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'messages required' } }, 400);
 
   let persona = '';
   let systemPrompt = DEFAULT_CHAT_SYSTEM_PROMPT;
@@ -2043,11 +2388,15 @@ aiAdmin.post('/api/admin/ai-chat', async (c) => {
     // Confirm the site belongs to this org, then read settings (single-table schema, site_id is PK).
     const owned = await c.env.DB.prepare(
       `SELECT id FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
-    ).bind(body.site_id, orgId).first();
+    )
+      .bind(body.site_id, orgId)
+      .first();
     if (owned) {
       const row = await c.env.DB.prepare(
         `SELECT chat_persona, chat_system_prompt FROM ai_site_settings WHERE site_id = ?`,
-      ).bind(body.site_id).first<{ chat_persona: string | null; chat_system_prompt: string | null }>();
+      )
+        .bind(body.site_id)
+        .first<{ chat_persona: string | null; chat_system_prompt: string | null }>();
       if (row?.chat_persona) persona = row.chat_persona;
       if (row?.chat_system_prompt) systemPrompt = row.chat_system_prompt;
     }
@@ -2055,18 +2404,27 @@ aiAdmin.post('/api/admin/ai-chat', async (c) => {
 
   // Persona prepended as the topmost system block — every dashboard chat call
   // reads from `prompts/dashboard_persona.ts` (single source of truth).
-  const sysContent = [DASHBOARD_PERSONA_SYSTEM_PROMPT, systemPrompt, persona ? `Persona: ${persona}` : '']
-    .filter(Boolean).join('\n\n');
+  const sysContent = [
+    DASHBOARD_PERSONA_SYSTEM_PROMPT,
+    systemPrompt,
+    persona ? `Persona: ${persona}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 
   try {
     const result = (await c.env.AI.run(
       '@cf/meta/llama-3.3-70b-instruct-fp8-fast' as Parameters<typeof c.env.AI.run>[0],
-      { messages: [{ role: 'system', content: sysContent }, ...msgs] } as Parameters<typeof c.env.AI.run>[1],
+      { messages: [{ role: 'system', content: sysContent }, ...msgs] } as Parameters<
+        typeof c.env.AI.run
+      >[1],
     )) as { response?: string };
     return c.json({ data: { reply: result?.response ?? '(no reply)' } });
   } catch (err) {
     return c.json({
-      data: { reply: `(AI temporarily unavailable: ${err instanceof Error ? err.message : 'unknown'})` },
+      data: {
+        reply: `(AI temporarily unavailable: ${err instanceof Error ? err.message : 'unknown'})`,
+      },
     });
   }
 });
@@ -2076,7 +2434,9 @@ aiAdmin.get('/api/sites/:siteId/credit-cap', async (c) => {
   const { orgId } = need(c);
   const row = await c.env.DB.prepare(
     `SELECT site_id, monthly_credit_cap, updated_at FROM site_credit_caps WHERE org_id = ? AND site_id = ?`,
-  ).bind(orgId, c.req.param('siteId')).first<{ site_id: string; monthly_credit_cap: number; updated_at: string }>();
+  )
+    .bind(orgId, c.req.param('siteId'))
+    .first<{ site_id: string; monthly_credit_cap: number; updated_at: string }>();
   return c.json({ data: row ?? { site_id: c.req.param('siteId'), monthly_credit_cap: null } });
 });
 
@@ -2095,12 +2455,17 @@ aiAdmin.get('/api/sites/:siteId/credit-cap', async (c) => {
 aiAdmin.put('/api/sites/:siteId/credit-cap', async (c) => {
   const { orgId } = need(c);
   const body = (await c.req.json().catch(() => ({}))) as { monthly_credit_cap?: number | null };
-  const cap = body.monthly_credit_cap == null ? null : Math.max(0, Math.min(1_000_000, Number(body.monthly_credit_cap) || 0));
+  const cap =
+    body.monthly_credit_cap == null
+      ? null
+      : Math.max(0, Math.min(1_000_000, Number(body.monthly_credit_cap) || 0));
   await c.env.DB.prepare(
     `INSERT INTO site_credit_caps (org_id, site_id, monthly_credit_cap, updated_at)
      VALUES (?, ?, ?, datetime('now'))
      ON CONFLICT(org_id, site_id) DO UPDATE SET monthly_credit_cap = excluded.monthly_credit_cap, updated_at = excluded.updated_at`,
-  ).bind(orgId, c.req.param('siteId'), cap).run();
+  )
+    .bind(orgId, c.req.param('siteId'), cap)
+    .run();
   return c.json({ data: { site_id: c.req.param('siteId'), monthly_credit_cap: cap } });
 });
 
@@ -2113,17 +2478,22 @@ aiAdmin.post('/api/team/transfer', async (c) => {
     return c.json({ error: { code: 'BAD_REQUEST', message: 'valid to_email required' } }, 400);
   }
   // Caller must be owner.
-  const me = await c.env.DB.prepare(
-    `SELECT role FROM memberships WHERE org_id = ? AND user_id = ?`,
-  ).bind(orgId, userId).first<{ role: string }>();
+  const me = await c.env.DB.prepare(`SELECT role FROM memberships WHERE org_id = ? AND user_id = ?`)
+    .bind(orgId, userId)
+    .first<{ role: string }>();
   if (me?.role !== 'owner') {
-    return c.json({ error: { code: 'FORBIDDEN', message: 'Only the owner can transfer ownership.' } }, 403);
+    return c.json(
+      { error: { code: 'FORBIDDEN', message: 'Only the owner can transfer ownership.' } },
+      403,
+    );
   }
   const id = crypto.randomUUID();
   await c.env.DB.prepare(
     `INSERT INTO org_transfers (id, org_id, from_user_id, to_email, status, expires_at, created_at)
      VALUES (?, ?, ?, ?, 'pending', datetime('now','+14 days'), datetime('now'))`,
-  ).bind(id, orgId, userId, toEmail).run();
+  )
+    .bind(id, orgId, userId, toEmail)
+    .run();
   return c.json({ data: { id, to_email: toEmail, status: 'pending', expires_in_days: 14 } });
 });
 
@@ -2138,7 +2508,9 @@ aiAdmin.get('/api/team/transfer', async (c) => {
   const rows = await c.env.DB.prepare(
     `SELECT id, to_email, status, expires_at, created_at FROM org_transfers
      WHERE org_id = ? AND status = 'pending' ORDER BY created_at DESC LIMIT 5`,
-  ).bind(orgId).all();
+  )
+    .bind(orgId)
+    .all();
   return c.json({ data: rows.results ?? [] });
 });
 
@@ -2153,7 +2525,9 @@ aiAdmin.delete('/api/team/transfer/:id', async (c) => {
   const { orgId } = need(c);
   await c.env.DB.prepare(
     `UPDATE org_transfers SET status = 'cancelled' WHERE id = ? AND org_id = ? AND status = 'pending'`,
-  ).bind(c.req.param('id'), orgId).run();
+  )
+    .bind(c.req.param('id'), orgId)
+    .run();
   return c.json({ data: { cancelled: true } });
 });
 
@@ -2255,9 +2629,7 @@ aiAdmin.delete('/api/sites/:siteId/ai/context/files/:fileId', async (c) => {
     .first<{ r2_key: string }>();
   if (!row) throw new HTTPError(404, 'File not found');
   await c.env.SITES_BUCKET.delete(row.r2_key).catch(() => {});
-  await c.env.DB.prepare(
-    `UPDATE ai_context_files SET deleted_at = datetime('now') WHERE id = ?`,
-  )
+  await c.env.DB.prepare(`UPDATE ai_context_files SET deleted_at = datetime('now') WHERE id = ?`)
     .bind(c.req.param('fileId'))
     .run();
   return c.json({ data: { deleted: true } });
@@ -2314,9 +2686,7 @@ aiAdmin.post('/api/sites/:siteId/ai/drive/select-folder', async (c) => {
   if (!body.folder_id || !body.folder_name) {
     throw new HTTPError(400, 'folder_id and folder_name required');
   }
-  const existing = await c.env.DB.prepare(
-    `SELECT 1 FROM ai_site_settings WHERE site_id = ?`,
-  )
+  const existing = await c.env.DB.prepare(`SELECT 1 FROM ai_site_settings WHERE site_id = ?`)
     .bind(siteId)
     .first();
   if (existing) {
@@ -2505,7 +2875,9 @@ function renderContextMarkdown(input: {
   lines.push('');
   lines.push('## System prompt');
   lines.push('');
-  lines.push(input.systemPrompt ? '```\n' + input.systemPrompt + '\n```' : '_Using platform default._');
+  lines.push(
+    input.systemPrompt ? '```\n' + input.systemPrompt + '\n```' : '_Using platform default._',
+  );
   lines.push('');
   lines.push('## Web research');
   lines.push('');
@@ -2752,15 +3124,21 @@ aiAdmin.post('/api/admin/ai/stream/palette', async (c) => {
     c.env.CACHE_KV.put(rateKey, String(rateCount + 1), { expirationTtl: 300 }),
   );
 
-  const ctxSite = body.context?.selected_site_id ? `Selected site id: ${body.context.selected_site_id}.` : '';
-  const ctxRoute = body.context?.current_route ? `Current admin route: ${body.context.current_route}.` : '';
+  const ctxSite = body.context?.selected_site_id
+    ? `Selected site id: ${body.context.selected_site_id}.`
+    : '';
+  const ctxRoute = body.context?.current_route
+    ? `Current admin route: ${body.context.current_route}.`
+    : '';
   const systemPrompt = [
     "You are the AI assistant inside the Project Sites admin dashboard's command palette.",
     'Answer concisely (≤4 sentences).',
     'When the user asks how to do something in the dashboard, suggest the specific admin route (e.g. /admin/forms, /admin/snapshots, /admin/billing, /admin/audit, /admin/ai-endpoints) AND offer to navigate them there in your response.',
     ctxSite,
     ctxRoute,
-  ].filter(Boolean).join(' ');
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   const model = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
   const started = Date.now();
@@ -2784,80 +3162,89 @@ aiAdmin.post('/api/admin/ai/stream/palette', async (c) => {
   );
 
   const encoder = new TextEncoder();
-  const writeFrame = (writer: WritableStreamDefaultWriter<Uint8Array>, payload: unknown): Promise<void> =>
-    writer.write(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+  const writeFrame = (
+    writer: WritableStreamDefaultWriter<Uint8Array>,
+    payload: unknown,
+  ): Promise<void> => writer.write(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
 
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
   const writer = writable.getWriter();
 
   // Drive the LLM in the background; the response returns immediately so
   // Hono ships the headers + opens the stream to the client.
-  c.executionCtx.waitUntil((async () => {
-    try {
-      const upstream = (await c.env.AI.run(
-        model as Parameters<typeof c.env.AI.run>[0],
-        {
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: query },
-          ],
-          stream: true,
-          max_tokens: 512,
-        } as Parameters<typeof c.env.AI.run>[1],
-      )) as ReadableStream<Uint8Array>;
+  c.executionCtx.waitUntil(
+    (async () => {
+      try {
+        const upstream = (await c.env.AI.run(
+          model as Parameters<typeof c.env.AI.run>[0],
+          {
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: query },
+            ],
+            stream: true,
+            max_tokens: 512,
+          } as Parameters<typeof c.env.AI.run>[1],
+        )) as ReadableStream<Uint8Array>;
 
-      // Workers AI streams SSE-formatted Uint8Array chunks: `data: {"response":"…"}\n\n`.
-      // Re-frame each token as a clean `{"chunk":"…"}` envelope so the UI never
-      // has to know the upstream wire format.
-      const reader = upstream.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-        for (const raw of lines) {
-          const line = raw.trim();
-          if (!line.startsWith('data:')) continue;
-          const json = line.slice(5).trim();
-          if (!json || json === '[DONE]') continue;
-          try {
-            const parsed = JSON.parse(json) as { response?: string };
-            const token = parsed.response ?? '';
-            if (token) await writeFrame(writer, { chunk: token });
-          } catch {
-            // Non-JSON keep-alive or padding — skip silently.
+        // Workers AI streams SSE-formatted Uint8Array chunks: `data: {"response":"…"}\n\n`.
+        // Re-frame each token as a clean `{"chunk":"…"}` envelope so the UI never
+        // has to know the upstream wire format.
+        const reader = upstream.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+          for (const raw of lines) {
+            const line = raw.trim();
+            if (!line.startsWith('data:')) continue;
+            const json = line.slice(5).trim();
+            if (!json || json === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(json) as { response?: string };
+              const token = parsed.response ?? '';
+              if (token) await writeFrame(writer, { chunk: token });
+            } catch {
+              // Non-JSON keep-alive or padding — skip silently.
+            }
           }
         }
+        await writeFrame(writer, { done: true, model, ms: Date.now() - started });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'AI is offline right now';
+        // Fallback chunk + structured error frame so the UI can render BOTH
+        // the friendly sentence inline AND know to show the "Open full chat"
+        // escape hatch.
+        try {
+          await writeFrame(writer, {
+            chunk:
+              'Sorry — the AI service is unavailable right now. Try the full chat for a retry.',
+          });
+          await writeFrame(writer, { error: { code: 'AI_UNAVAILABLE', message: msg } });
+        } catch {
+          /* writer already closed by client abort — nothing to do */
+        }
+      } finally {
+        try {
+          await writer.close();
+        } catch {
+          /* already closed */
+        }
       }
-      await writeFrame(writer, { done: true, model, ms: Date.now() - started });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'AI is offline right now';
-      // Fallback chunk + structured error frame so the UI can render BOTH
-      // the friendly sentence inline AND know to show the "Open full chat"
-      // escape hatch.
-      try {
-        await writeFrame(writer, {
-          chunk: "Sorry — the AI service is unavailable right now. Try the full chat for a retry.",
-        });
-        await writeFrame(writer, { error: { code: 'AI_UNAVAILABLE', message: msg } });
-      } catch {
-        /* writer already closed by client abort — nothing to do */
-      }
-    } finally {
-      try { await writer.close(); } catch { /* already closed */ }
-    }
-  })());
+    })(),
+  );
 
   return new Response(readable, {
     status: 200,
     headers: {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
     },
   });
@@ -2914,12 +3301,35 @@ aiAdmin.post('/api/admin/ai/stream/palette', async (c) => {
  * `~/lib/tools/dispatcher`.
  */
 const EDITOR_TOOL_SURFACE: { name: string; description: string }[] = [
-  { name: 'openFile', description: 'openFile({"path":"src/App.tsx"}) — opens the file in the editor and returns its contents + language + line_count.' },
-  { name: 'jumpToLine', description: 'jumpToLine({"path":"src/App.tsx","line":42,"column":4}) — scrolls the editor to a coordinate. 1-based line/column.' },
-  { name: 'runCommand', description: 'runCommand({"command":"npm test","cwd":"."}) — runs in the WebContainer terminal. Output truncated at 8KB.' },
-  { name: 'search', description: 'search({"query":"useEffect","regex":false,"file_pattern":"src/**/*.tsx"}) — grep across the workbench, up to 50 hits.' },
-  { name: 'getSelection', description: 'getSelection({}) — returns the active editor selection {path,text,from,to}.' },
-  { name: 'replaceSelection', description: 'replaceSelection({"text":"…"}) — replaces the active selection. Always run getSelection first.' },
+  {
+    name: 'openFile',
+    description:
+      'openFile({"path":"src/App.tsx"}) — opens the file in the editor and returns its contents + language + line_count.',
+  },
+  {
+    name: 'jumpToLine',
+    description:
+      'jumpToLine({"path":"src/App.tsx","line":42,"column":4}) — scrolls the editor to a coordinate. 1-based line/column.',
+  },
+  {
+    name: 'runCommand',
+    description:
+      'runCommand({"command":"npm test","cwd":"."}) — runs in the WebContainer terminal. Output truncated at 8KB.',
+  },
+  {
+    name: 'search',
+    description:
+      'search({"query":"useEffect","regex":false,"file_pattern":"src/**/*.tsx"}) — grep across the workbench, up to 50 hits.',
+  },
+  {
+    name: 'getSelection',
+    description: 'getSelection({}) — returns the active editor selection {path,text,from,to}.',
+  },
+  {
+    name: 'replaceSelection',
+    description:
+      'replaceSelection({"text":"…"}) — replaces the active selection. Always run getSelection first.',
+  },
 ];
 
 /**
@@ -2937,11 +3347,16 @@ aiAdmin.post('/api/admin/ai/stream/chat', async (c) => {
   const { orgId, userId } = need(c);
   const body = (await c.req.json().catch(() => ({}))) as {
     conversation?: { role?: string; content?: string }[];
-    context?: { selected_site_id?: string | null; current_route?: string | null; surface?: 'admin' | 'editor' };
+    context?: {
+      selected_site_id?: string | null;
+      current_route?: string | null;
+      surface?: 'admin' | 'editor';
+    };
   };
 
   const turns = Array.isArray(body.conversation) ? body.conversation : [];
-  if (turns.length === 0) throw new HTTPError(400, 'conversation must contain at least one message');
+  if (turns.length === 0)
+    throw new HTTPError(400, 'conversation must contain at least one message');
   if (turns.length > 24) throw new HTTPError(413, 'conversation must be ≤ 24 messages');
 
   const cleaned: { role: 'user' | 'assistant'; content: string }[] = [];
@@ -2973,15 +3388,16 @@ aiAdmin.post('/api/admin/ai/stream/chat', async (c) => {
   const currentRoute = body.context?.current_route ?? null;
   const surface = body.context?.surface === 'editor' ? 'editor' : 'admin';
 
-  const editorToolLines = surface === 'editor'
-    ? [
-        '',
-        'EDITOR TOOLS — these execute IMMEDIATELY (no confirmation card). Use them to drive the editor.',
-        'Emit EXACTLY this envelope with a unique id: <tool_call name="<name>" id="<unique_id>">{"args":{…}}</tool_call>. The client will reply with <tool_result id="<unique_id>">…</tool_result>.',
-        ...EDITOR_TOOL_SURFACE.map((t) => `  - ${t.description}`),
-        'Workflow: explain in 1 sentence WHY you are running the tool, emit the envelope, wait for the tool_result, then continue. You may chain calls but never emit two tool_calls in one message.',
-      ]
-    : [];
+  const editorToolLines =
+    surface === 'editor'
+      ? [
+          '',
+          'EDITOR TOOLS — these execute IMMEDIATELY (no confirmation card). Use them to drive the editor.',
+          'Emit EXACTLY this envelope with a unique id: <tool_call name="<name>" id="<unique_id>">{"args":{…}}</tool_call>. The client will reply with <tool_result id="<unique_id>">…</tool_result>.',
+          ...EDITOR_TOOL_SURFACE.map((t) => `  - ${t.description}`),
+          'Workflow: explain in 1 sentence WHY you are running the tool, emit the envelope, wait for the tool_result, then continue. You may chain calls but never emit two tool_calls in one message.',
+        ]
+      : [];
 
   const systemPrompt = [
     surface === 'editor'
@@ -3036,117 +3452,116 @@ aiAdmin.post('/api/admin/ai/stream/chat', async (c) => {
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
   const writer = writable.getWriter();
 
-  c.executionCtx.waitUntil((async () => {
-    try {
-      const upstream = (await c.env.AI.run(
-        model as Parameters<typeof c.env.AI.run>[0],
-        {
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...cleaned,
-          ],
-          stream: true,
-          max_tokens: 1024,
-        } as Parameters<typeof c.env.AI.run>[1],
-      )) as ReadableStream<Uint8Array>;
+  c.executionCtx.waitUntil(
+    (async () => {
+      try {
+        const upstream = (await c.env.AI.run(
+          model as Parameters<typeof c.env.AI.run>[0],
+          {
+            messages: [{ role: 'system', content: systemPrompt }, ...cleaned],
+            stream: true,
+            max_tokens: 1024,
+          } as Parameters<typeof c.env.AI.run>[1],
+        )) as ReadableStream<Uint8Array>;
 
-      const reader = upstream.getReader();
-      const decoder = new TextDecoder();
-      let lineBuffer = '';
-      // Rolling buffer of fully-emitted assistant text so we can scan it for
-      // complete `<tool>…</tool>` envelopes across chunk boundaries.
-      let assembled = '';
-      let nextToolScanFrom = 0;
+        const reader = upstream.getReader();
+        const decoder = new TextDecoder();
+        let lineBuffer = '';
+        // Rolling buffer of fully-emitted assistant text so we can scan it for
+        // complete `<tool>…</tool>` envelopes across chunk boundaries.
+        let assembled = '';
+        let nextToolScanFrom = 0;
 
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        lineBuffer += decoder.decode(value, { stream: true });
-        const lines = lineBuffer.split('\n');
-        lineBuffer = lines.pop() ?? '';
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          lineBuffer += decoder.decode(value, { stream: true });
+          const lines = lineBuffer.split('\n');
+          lineBuffer = lines.pop() ?? '';
 
-        for (const raw of lines) {
-          const line = raw.trim();
-          if (!line.startsWith('data:')) continue;
-          const json = line.slice(5).trim();
-          if (!json || json === '[DONE]') continue;
-          try {
-            const parsed = JSON.parse(json) as { response?: string };
-            const token = parsed.response ?? '';
-            if (!token) continue;
-            assembled += token;
-            await writeFrame(writer, { chunk: token });
+          for (const raw of lines) {
+            const line = raw.trim();
+            if (!line.startsWith('data:')) continue;
+            const json = line.slice(5).trim();
+            if (!json || json === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(json) as { response?: string };
+              const token = parsed.response ?? '';
+              if (!token) continue;
+              assembled += token;
+              await writeFrame(writer, { chunk: token });
 
-            // Scan the new region for any completed tool envelopes.
-            TOOL_RE.lastIndex = nextToolScanFrom;
-            let match: RegExpExecArray | null;
-            while ((match = TOOL_RE.exec(assembled)) !== null) {
-              const envelope = match[1];
-              if (!envelope) continue;
-              try {
-                const tool = JSON.parse(envelope) as {
-                  name?: string;
-                  args?: Record<string, unknown>;
-                };
-                const allowed = ['navigate', 'set_theme', 'open_help_topic'];
-                if (tool.name && allowed.includes(tool.name)) {
-                  // Coerce arg values to strings (the UI handlers expect strings).
-                  const args: Record<string, string> = {};
-                  for (const [k, v] of Object.entries(tool.args ?? {})) {
-                    args[k] = String(v ?? '');
+              // Scan the new region for any completed tool envelopes.
+              TOOL_RE.lastIndex = nextToolScanFrom;
+              let match: RegExpExecArray | null;
+              while ((match = TOOL_RE.exec(assembled)) !== null) {
+                const envelope = match[1];
+                if (!envelope) continue;
+                try {
+                  const tool = JSON.parse(envelope) as {
+                    name?: string;
+                    args?: Record<string, unknown>;
+                  };
+                  const allowed = ['navigate', 'set_theme', 'open_help_topic'];
+                  if (tool.name && allowed.includes(tool.name)) {
+                    // Coerce arg values to strings (the UI handlers expect strings).
+                    const args: Record<string, string> = {};
+                    for (const [k, v] of Object.entries(tool.args ?? {})) {
+                      args[k] = String(v ?? '');
+                    }
+                    await writeFrame(writer, { tool: { name: tool.name, args } });
+
+                    // Audit tool emissions (fire-and-forget).
+                    c.executionCtx.waitUntil(
+                      auditService.writeAuditLog(c.env.DB, {
+                        org_id: orgId,
+                        actor_id: userId,
+                        action: 'chat.ai.tool_call',
+                        message: `AI proposed tool '${tool.name}'`,
+                        target_type: 'ai_chat_tool',
+                        metadata_json: { tool: tool.name, args },
+                        request_id: c.get('requestId'),
+                      }),
+                    );
                   }
-                  await writeFrame(writer, { tool: { name: tool.name, args } });
-
-                  // Audit tool emissions (fire-and-forget).
-                  c.executionCtx.waitUntil(
-                    auditService.writeAuditLog(c.env.DB, {
-                      org_id: orgId,
-                      actor_id: userId,
-                      action: 'chat.ai.tool_call',
-                      message: `AI proposed tool '${tool.name}'`,
-                      target_type: 'ai_chat_tool',
-                      metadata_json: { tool: tool.name, args },
-                      request_id: c.get('requestId'),
-                    }),
-                  );
+                } catch {
+                  /* malformed tool envelope — skip silently. */
                 }
-              } catch {
-                /* malformed tool envelope — skip silently. */
+                nextToolScanFrom = TOOL_RE.lastIndex;
               }
-              nextToolScanFrom = TOOL_RE.lastIndex;
+            } catch {
+              // Non-JSON keep-alive / padding — skip silently.
             }
-          } catch {
-            // Non-JSON keep-alive / padding — skip silently.
           }
         }
+        await writeFrame(writer, { done: true, model, ms: Date.now() - started });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'AI is offline right now';
+        try {
+          await writeFrame(writer, {
+            chunk: 'Sorry — the AI service is unavailable right now. Try again in a moment.',
+          });
+          await writeFrame(writer, { error: { code: 'AI_UNAVAILABLE', message: msg } });
+        } catch {
+          /* writer already closed by client abort */
+        }
+      } finally {
+        try {
+          await writer.close();
+        } catch {
+          /* already closed */
+        }
       }
-      await writeFrame(writer, { done: true, model, ms: Date.now() - started });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'AI is offline right now';
-      try {
-        await writeFrame(writer, {
-          chunk: 'Sorry — the AI service is unavailable right now. Try again in a moment.',
-        });
-        await writeFrame(writer, { error: { code: 'AI_UNAVAILABLE', message: msg } });
-      } catch {
-        /* writer already closed by client abort */
-      }
-    } finally {
-      try {
-        await writer.close();
-      } catch {
-        /* already closed */
-      }
-    }
-  })());
+    })(),
+  );
 
   return new Response(readable, {
     status: 200,
     headers: {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
     },
   });

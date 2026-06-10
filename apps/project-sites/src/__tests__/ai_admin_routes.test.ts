@@ -69,7 +69,10 @@ function makeDb(rules: Array<{ match: string; resp: Responder }>) {
 }
 
 /** Site row that `siteOwned()` resolves for the happy path. */
-const OWNED_SITE = { match: 'FROM sites WHERE id = ?', resp: { first: { slug: 'apple', business_name: 'Apple' } } };
+const OWNED_SITE = {
+  match: 'FROM sites WHERE id = ?',
+  resp: { first: { slug: 'apple', business_name: 'Apple' } },
+};
 /** Site row that does NOT exist for the caller's org → 404 non-leak. */
 const NO_SITE = { match: 'FROM sites WHERE id = ?', resp: { first: null } };
 
@@ -151,7 +154,7 @@ describe('ai_admin — auth gate', () => {
     const db = makeDb([]);
     const env = makeEnv(db);
     await req(makeApp(), 'GET', '/api/team', env);
-    expect((db.prepare as jest.Mock)).not.toHaveBeenCalled();
+    expect(db.prepare as jest.Mock).not.toHaveBeenCalled();
   });
 });
 
@@ -170,7 +173,10 @@ describe('ai_admin — site org scoping (404 non-leak)', () => {
     const env = makeEnv(
       makeDb([
         OWNED_SITE,
-        { match: 'FROM form_submissions', resp: { all: [{ id: 'sub1', payload: '{"email":"a@b.c"}' }] } },
+        {
+          match: 'FROM form_submissions',
+          resp: { all: [{ id: 'sub1', payload: '{"email":"a@b.c"}' }] },
+        },
       ]),
     );
     const res = await req(makeApp(AUTH), 'GET', '/api/sites/s1/form-submissions', env);
@@ -202,8 +208,14 @@ describe('GET /api/team', () => {
   it('returns active members + pending invites for the org', async () => {
     const env = makeEnv(
       makeDb([
-        { match: 'FROM memberships m JOIN users', resp: { all: [{ id: 'user-1', email: 'a@b.c', role: 'owner' }] } },
-        { match: 'FROM team_invites', resp: { all: [{ id: 'inv1', email: 'x@y.z', role: 'viewer' }] } },
+        {
+          match: 'FROM memberships m JOIN users',
+          resp: { all: [{ id: 'user-1', email: 'a@b.c', role: 'owner' }] },
+        },
+        {
+          match: 'FROM team_invites',
+          resp: { all: [{ id: 'inv1', email: 'x@y.z', role: 'viewer' }] },
+        },
       ]),
     );
     const res = await req(makeApp(AUTH), 'GET', '/api/team', env);
@@ -225,24 +237,46 @@ describe('POST /api/team/invites', () => {
     expect(json.error?.message).toBe('email + role required');
   });
 
+  it('rejects a role outside the owner|editor|viewer enum (privilege boundary)', async () => {
+    const env = makeEnv(makeDb([]));
+    const res = await req(makeApp(AUTH), 'POST', '/api/team/invites', env, {
+      email: 'x@y.z',
+      role: 'superadmin',
+    });
+    expect(res.status).toBe(400);
+    // The injected role never reaches the team_invites INSERT or the audit log.
+    expect(mockWriteAuditLog).not.toHaveBeenCalled();
+  });
+
   it('returns 409 when the seat cap is reached', async () => {
     mockCanInvite.mockReturnValue({ allowed: false, reason: 'Seat limit reached (1/1)' });
     const env = makeEnv(makeDb([]));
-    const res = await req(makeApp(AUTH), 'POST', '/api/team/invites', env, { email: 'x@y.z', role: 'viewer' });
+    const res = await req(makeApp(AUTH), 'POST', '/api/team/invites', env, {
+      email: 'x@y.z',
+      role: 'viewer',
+    });
     expect(res.status).toBe(409);
     const json = (await res.json()) as { error?: { message?: string } };
     expect(json.error?.message).toContain('Seat limit');
   });
 
   it('creates an invite (201) + writes an audit row when seats are available', async () => {
-    const env = makeEnv(makeDb([{ match: 'INSERT INTO team_invites', resp: { run: { success: true } } }]));
-    const res = await req(makeApp(AUTH), 'POST', '/api/team/invites', env, { email: 'x@y.z', role: 'editor' });
+    const env = makeEnv(
+      makeDb([{ match: 'INSERT INTO team_invites', resp: { run: { success: true } } }]),
+    );
+    const res = await req(makeApp(AUTH), 'POST', '/api/team/invites', env, {
+      email: 'x@y.z',
+      role: 'editor',
+    });
     expect(res.status).toBe(201);
     const json = (await res.json()) as { data: { id: string; token: string } };
     expect(json.data.id).toBeTruthy();
     expect(json.data.token).toBeTruthy();
     expect(mockWriteAuditLog).toHaveBeenCalledTimes(1);
-    expect(mockWriteAuditLog.mock.calls[0][1]).toMatchObject({ action: 'team.invite_sent', org_id: 'org-1' });
+    expect(mockWriteAuditLog.mock.calls[0][1]).toMatchObject({
+      action: 'team.invite_sent',
+      org_id: 'org-1',
+    });
   });
 
   it('does not send an email when RESEND_API_KEY is absent', async () => {
@@ -256,11 +290,18 @@ describe('POST /api/team/invites', () => {
 describe('DELETE /api/team/invites/:id', () => {
   it('revokes a pending invite + audits', async () => {
     const env = makeEnv(
-      makeDb([{ match: 'FROM team_invites WHERE id = ?', resp: { first: { email: 'x@y.z', role: 'viewer' } } }]),
+      makeDb([
+        {
+          match: 'FROM team_invites WHERE id = ?',
+          resp: { first: { email: 'x@y.z', role: 'viewer' } },
+        },
+      ]),
     );
     const res = await req(makeApp(AUTH), 'DELETE', '/api/team/invites/inv1', env);
     expect(res.status).toBe(200);
-    expect((await res.json()) as { data: { revoked: boolean } }).toEqual({ data: { revoked: true } });
+    expect((await res.json()) as { data: { revoked: boolean } }).toEqual({
+      data: { revoked: true },
+    });
     expect(mockWriteAuditLog.mock.calls[0][1]).toMatchObject({ action: 'team.invite_revoked' });
   });
 });
@@ -280,7 +321,9 @@ describe('POST /api/team/transfer-ownership', () => {
   it('returns 400 when the transfer policy rejects', async () => {
     mockTransfer.mockResolvedValue({ ok: false, error: 'Only the owner can transfer' });
     const env = makeEnv(makeDb([]));
-    const res = await req(makeApp(AUTH), 'POST', '/api/team/transfer-ownership', env, { targetUserId: 'u2' });
+    const res = await req(makeApp(AUTH), 'POST', '/api/team/transfer-ownership', env, {
+      targetUserId: 'u2',
+    });
     expect(res.status).toBe(400);
     expect((await res.json()) as { error?: { message?: string } }).toMatchObject({
       error: { message: 'Only the owner can transfer' },
@@ -289,11 +332,15 @@ describe('POST /api/team/transfer-ownership', () => {
 
   it('transfers ownership (ok:true) + audits on success', async () => {
     const env = makeEnv(makeDb([]));
-    const res = await req(makeApp(AUTH), 'POST', '/api/team/transfer-ownership', env, { targetUserId: 'u2' });
+    const res = await req(makeApp(AUTH), 'POST', '/api/team/transfer-ownership', env, {
+      targetUserId: 'u2',
+    });
     expect(res.status).toBe(200);
     expect((await res.json()) as { ok: boolean }).toEqual({ ok: true });
     expect(mockTransfer).toHaveBeenCalledWith(expect.anything(), 'org-1', 'user-1', 'u2');
-    expect(mockWriteAuditLog.mock.calls[0][1]).toMatchObject({ action: 'team.ownership_transferred' });
+    expect(mockWriteAuditLog.mock.calls[0][1]).toMatchObject({
+      action: 'team.ownership_transferred',
+    });
   });
 });
 
@@ -303,7 +350,10 @@ describe('DELETE /api/team/members/:userId', () => {
   it('returns 409 when removing the last owner', async () => {
     const env = makeEnv(
       makeDb([
-        { match: 'SELECT role FROM memberships WHERE user_id = ?', resp: { first: { role: 'owner' } } },
+        {
+          match: 'SELECT role FROM memberships WHERE user_id = ?',
+          resp: { first: { role: 'owner' } },
+        },
         { match: "role = 'owner'", resp: { first: { n: 1 } } },
       ]),
     );
@@ -316,18 +366,28 @@ describe('DELETE /api/team/members/:userId', () => {
 
   it('removes a non-owner member (200) + audits', async () => {
     const env = makeEnv(
-      makeDb([{ match: 'SELECT role FROM memberships WHERE user_id = ?', resp: { first: { role: 'editor' } } }]),
+      makeDb([
+        {
+          match: 'SELECT role FROM memberships WHERE user_id = ?',
+          resp: { first: { role: 'editor' } },
+        },
+      ]),
     );
     const res = await req(makeApp(AUTH), 'DELETE', '/api/team/members/u9', env);
     expect(res.status).toBe(200);
-    expect((await res.json()) as { data: { removed: boolean } }).toEqual({ data: { removed: true } });
+    expect((await res.json()) as { data: { removed: boolean } }).toEqual({
+      data: { removed: true },
+    });
     expect(mockWriteAuditLog.mock.calls[0][1]).toMatchObject({ action: 'team.member_removed' });
   });
 
   it('allows removing an owner when more than one owner exists', async () => {
     const env = makeEnv(
       makeDb([
-        { match: 'SELECT role FROM memberships WHERE user_id = ?', resp: { first: { role: 'owner' } } },
+        {
+          match: 'SELECT role FROM memberships WHERE user_id = ?',
+          resp: { first: { role: 'owner' } },
+        },
         { match: "role = 'owner'", resp: { first: { n: 2 } } },
       ]),
     );
@@ -343,14 +403,18 @@ describe('POST /api/team/invites/accept', () => {
     const env = makeEnv(makeDb([]));
     const res = await req(makeApp(AUTH), 'POST', '/api/team/invites/accept', env, {});
     expect(res.status).toBe(400);
-    expect((await res.json()) as { error?: { code?: string } }).toMatchObject({ error: { code: 'BAD_REQUEST' } });
+    expect((await res.json()) as { error?: { code?: string } }).toMatchObject({
+      error: { code: 'BAD_REQUEST' },
+    });
   });
 
   it('returns 404 when no matching pending invite exists', async () => {
     const env = makeEnv(makeDb([{ match: 'FROM team_invites', resp: { first: null } }]));
     const res = await req(makeApp(AUTH), 'POST', '/api/team/invites/accept', env, { token: 'abc' });
     expect(res.status).toBe(404);
-    expect((await res.json()) as { error?: { code?: string } }).toMatchObject({ error: { code: 'NOT_FOUND' } });
+    expect((await res.json()) as { error?: { code?: string } }).toMatchObject({
+      error: { code: 'NOT_FOUND' },
+    });
   });
 
   it('returns 410 when the invite is expired', async () => {
@@ -360,7 +424,10 @@ describe('POST /api/team/invites/accept', () => {
           match: 'FROM team_invites',
           resp: {
             first: {
-              id: 'inv1', org_id: 'org-2', email: 'x@y.z', role: 'viewer',
+              id: 'inv1',
+              org_id: 'org-2',
+              email: 'x@y.z',
+              role: 'viewer',
               expires_at: new Date(Date.now() - 1000).toISOString(),
             },
           },
@@ -369,7 +436,9 @@ describe('POST /api/team/invites/accept', () => {
     );
     const res = await req(makeApp(AUTH), 'POST', '/api/team/invites/accept', env, { token: 'abc' });
     expect(res.status).toBe(410);
-    expect((await res.json()) as { error?: { code?: string } }).toMatchObject({ error: { code: 'EXPIRED' } });
+    expect((await res.json()) as { error?: { code?: string } }).toMatchObject({
+      error: { code: 'EXPIRED' },
+    });
   });
 
   it('returns 403 when the signed-in user email does not match the invite', async () => {
@@ -379,17 +448,25 @@ describe('POST /api/team/invites/accept', () => {
           match: 'FROM team_invites',
           resp: {
             first: {
-              id: 'inv1', org_id: 'org-2', email: 'invitee@y.z', role: 'viewer',
+              id: 'inv1',
+              org_id: 'org-2',
+              email: 'invitee@y.z',
+              role: 'viewer',
               expires_at: new Date(Date.now() + 86400_000).toISOString(),
             },
           },
         },
-        { match: 'SELECT email FROM users WHERE id = ?', resp: { first: { email: 'someoneelse@y.z' } } },
+        {
+          match: 'SELECT email FROM users WHERE id = ?',
+          resp: { first: { email: 'someoneelse@y.z' } },
+        },
       ]),
     );
     const res = await req(makeApp(AUTH), 'POST', '/api/team/invites/accept', env, { token: 'abc' });
     expect(res.status).toBe(403);
-    expect((await res.json()) as { error?: { code?: string } }).toMatchObject({ error: { code: 'WRONG_USER' } });
+    expect((await res.json()) as { error?: { code?: string } }).toMatchObject({
+      error: { code: 'WRONG_USER' },
+    });
   });
 
   it('joins the org (200) when the token + email match', async () => {
@@ -399,7 +476,10 @@ describe('POST /api/team/invites/accept', () => {
           match: 'FROM team_invites',
           resp: {
             first: {
-              id: 'inv1', org_id: 'org-2', email: 'me@y.z', role: 'editor',
+              id: 'inv1',
+              org_id: 'org-2',
+              email: 'me@y.z',
+              role: 'editor',
               expires_at: new Date(Date.now() + 86400_000).toISOString(),
             },
           },
@@ -423,20 +503,35 @@ describe('org API keys', () => {
       makeDb([
         {
           match: 'FROM api_keys WHERE org_id = ? ORDER BY',
-          resp: { all: [{ id: 'k1', name: 'CI', prefix: 'psk_live_xx', scopes_json: '["read"]', revoked_at: null, expires_at: null }] },
+          resp: {
+            all: [
+              {
+                id: 'k1',
+                name: 'CI',
+                prefix: 'psk_live_xx',
+                scopes_json: '["read"]',
+                revoked_at: null,
+                expires_at: null,
+              },
+            ],
+          },
         },
       ]),
     );
     const res = await req(makeApp(AUTH), 'GET', '/api/admin/api-keys', env);
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { data: Array<{ active: boolean; scopes: string[]; secret?: string }> };
+    const json = (await res.json()) as {
+      data: Array<{ active: boolean; scopes: string[]; secret?: string }>;
+    };
     expect(json.data[0].active).toBe(true);
     expect(json.data[0].scopes).toEqual(['read']);
     expect(json.data[0].secret).toBeUndefined();
   });
 
   it('mints a key (201) and returns the raw secret exactly once', async () => {
-    const env = makeEnv(makeDb([{ match: 'INSERT INTO api_keys', resp: { run: { success: true } } }]));
+    const env = makeEnv(
+      makeDb([{ match: 'INSERT INTO api_keys', resp: { run: { success: true } } }]),
+    );
     const res = await req(makeApp(AUTH), 'POST', '/api/admin/api-keys', env, { name: 'CI key' });
     expect(res.status).toBe(201);
     const json = (await res.json()) as { data: { secret: string; prefix: string; name: string } };
@@ -446,10 +541,14 @@ describe('org API keys', () => {
   });
 
   it('revokes a key (200)', async () => {
-    const env = makeEnv(makeDb([{ match: 'UPDATE api_keys SET revoked_at', resp: { run: { success: true } } }]));
+    const env = makeEnv(
+      makeDb([{ match: 'UPDATE api_keys SET revoked_at', resp: { run: { success: true } } }]),
+    );
     const res = await req(makeApp(AUTH), 'DELETE', '/api/admin/api-keys/k1', env);
     expect(res.status).toBe(200);
-    expect((await res.json()) as { data: { revoked: boolean } }).toEqual({ data: { revoked: true } });
+    expect((await res.json()) as { data: { revoked: boolean } }).toEqual({
+      data: { revoked: true },
+    });
   });
 });
 
@@ -460,26 +559,46 @@ describe('POST /api/admin/org/delete', () => {
     const env = makeEnv(makeDb([]));
     const res = await req(makeApp(AUTH), 'POST', '/api/admin/org/delete', env, { confirm: 'nope' });
     expect(res.status).toBe(400);
-    expect((await res.json()) as { error?: { code?: string } }).toMatchObject({ error: { code: 'BAD_REQUEST' } });
+    expect((await res.json()) as { error?: { code?: string } }).toMatchObject({
+      error: { code: 'BAD_REQUEST' },
+    });
   });
 
   it('returns 403 when the caller is not the org owner', async () => {
     const env = makeEnv(
-      makeDb([{ match: 'FROM memberships WHERE org_id = ? AND user_id = ?', resp: { first: { role: 'editor' } } }]),
+      makeDb([
+        {
+          match: 'FROM memberships WHERE org_id = ? AND user_id = ?',
+          resp: { first: { role: 'editor' } },
+        },
+      ]),
     );
-    const res = await req(makeApp(AUTH), 'POST', '/api/admin/org/delete', env, { confirm: 'DELETE' });
+    const res = await req(makeApp(AUTH), 'POST', '/api/admin/org/delete', env, {
+      confirm: 'DELETE',
+    });
     expect(res.status).toBe(403);
-    expect((await res.json()) as { error?: { code?: string } }).toMatchObject({ error: { code: 'FORBIDDEN' } });
+    expect((await res.json()) as { error?: { code?: string } }).toMatchObject({
+      error: { code: 'FORBIDDEN' },
+    });
   });
 
   it('soft-deletes the org (200) when an owner confirms', async () => {
-    const db = makeDb([{ match: 'FROM memberships WHERE org_id = ? AND user_id = ?', resp: { first: { role: 'owner' } } }]);
+    const db = makeDb([
+      {
+        match: 'FROM memberships WHERE org_id = ? AND user_id = ?',
+        resp: { first: { role: 'owner' } },
+      },
+    ]);
     const env = makeEnv(db);
-    const res = await req(makeApp(AUTH), 'POST', '/api/admin/org/delete', env, { confirm: 'DELETE' });
+    const res = await req(makeApp(AUTH), 'POST', '/api/admin/org/delete', env, {
+      confirm: 'DELETE',
+    });
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { data: { deleted: boolean; scheduled_purge_after_days: number } };
+    const json = (await res.json()) as {
+      data: { deleted: boolean; scheduled_purge_after_days: number };
+    };
     expect(json.data).toMatchObject({ deleted: true, scheduled_purge_after_days: 30 });
-    expect((db.batch as jest.Mock)).toHaveBeenCalledTimes(1);
+    expect(db.batch as jest.Mock).toHaveBeenCalledTimes(1);
     expect(mockWriteAuditLog.mock.calls[0][1]).toMatchObject({ action: 'org.deleted' });
   });
 });
@@ -488,7 +607,9 @@ describe('POST /api/admin/org/delete', () => {
 
 describe('org security defaults', () => {
   it('GET returns sane defaults when no row exists', async () => {
-    const env = makeEnv(makeDb([{ match: 'FROM org_security WHERE org_id = ?', resp: { first: null } }]));
+    const env = makeEnv(
+      makeDb([{ match: 'FROM org_security WHERE org_id = ?', resp: { first: null } }]),
+    );
     const res = await req(makeApp(AUTH), 'GET', '/api/admin/security', env);
     expect(res.status).toBe(200);
     const json = (await res.json()) as { data: { session_hours: number; require_2fa: number } };
@@ -497,8 +618,13 @@ describe('org security defaults', () => {
   });
 
   it('PUT clamps session_hours into the [1,720] range', async () => {
-    const env = makeEnv(makeDb([{ match: 'INSERT INTO org_security', resp: { run: { success: true } } }]));
-    const res = await req(makeApp(AUTH), 'PUT', '/api/admin/security', env, { session_hours: 99999, idle_minutes: 1 });
+    const env = makeEnv(
+      makeDb([{ match: 'INSERT INTO org_security', resp: { run: { success: true } } }]),
+    );
+    const res = await req(makeApp(AUTH), 'PUT', '/api/admin/security', env, {
+      session_hours: 99999,
+      idle_minutes: 1,
+    });
     expect(res.status).toBe(200);
     const json = (await res.json()) as { data: { session_hours: number; idle_minutes: number } };
     expect(json.data.session_hours).toBe(720); // clamped down
@@ -511,11 +637,15 @@ describe('org security defaults', () => {
 describe('GET /api/billing/credits', () => {
   it('returns balance + bundles + ledger', async () => {
     const env = makeEnv(
-      makeDb([{ match: 'FROM ai_credits_ledger', resp: { all: [{ delta: 1000, reason: 'topup' }] } }]),
+      makeDb([
+        { match: 'FROM ai_credits_ledger', resp: { all: [{ delta: 1000, reason: 'topup' }] } },
+      ]),
     );
     const res = await req(makeApp(AUTH), 'GET', '/api/billing/credits', env);
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { data: { balance: number; bundles: unknown; ledger: unknown[] } };
+    const json = (await res.json()) as {
+      data: { balance: number; bundles: unknown; ledger: unknown[] };
+    };
     expect(json.data.balance).toBe(1234);
     expect(json.data.bundles).toBeTruthy();
     expect(json.data.ledger).toHaveLength(1);
@@ -526,13 +656,21 @@ describe('GET /api/billing/site-costs', () => {
   it('rolls up per-site spend and enriches with site names', async () => {
     const env = makeEnv(
       makeDb([
-        { match: 'FROM site_cost_daily', resp: { all: [{ site_id: 's1', ai_credits: 50, estimated_cost_micro_usd: 100 }] } },
-        { match: 'FROM sites WHERE org_id = ? AND deleted_at', resp: { all: [{ id: 's1', slug: 'apple', business_name: 'Apple' }] } },
+        {
+          match: 'FROM site_cost_daily',
+          resp: { all: [{ site_id: 's1', ai_credits: 50, estimated_cost_micro_usd: 100 }] },
+        },
+        {
+          match: 'FROM sites WHERE org_id = ? AND deleted_at',
+          resp: { all: [{ id: 's1', slug: 'apple', business_name: 'Apple' }] },
+        },
       ]),
     );
     const res = await req(makeApp(AUTH), 'GET', '/api/billing/site-costs', env);
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { data: { rows: Array<{ slug?: string; business_name?: string }> } };
+    const json = (await res.json()) as {
+      data: { rows: Array<{ slug?: string; business_name?: string }> };
+    };
     expect(json.data.rows[0]).toMatchObject({ slug: 'apple', business_name: 'Apple' });
   });
 });
@@ -577,7 +715,9 @@ describe('GET /api/sites/:siteId/mcp/connections', () => {
     );
     const res = await req(makeApp(AUTH), 'GET', '/api/sites/s1/mcp/connections', env);
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { data: { providers: unknown; connections: Array<{ metadata: unknown }> } };
+    const json = (await res.json()) as {
+      data: { providers: unknown; connections: Array<{ metadata: unknown }> };
+    };
     expect(json.data.providers).toBeTruthy();
     expect(json.data.connections[0].metadata).toEqual({ login: 'x' });
   });
