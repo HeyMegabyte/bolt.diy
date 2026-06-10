@@ -11,6 +11,12 @@
 
 > Honest note on round counts: the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 10/50 — per loop doctrine §2. The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
 
+## Fire 2026-06-09 (fire 5) — 2 high-value SECURITY rounds
+- **R1 (d4cff843):** CRITICAL — container SQL-exec/R2-write endpoints had an auth-BYPASS when ANTHROPIC_API_KEY was unset (`undefined !== undefined` skipped the 401). Now constant-time `containerAuthorized()` + sql validation + malformed-JSON 400. +3 tests.
+- **R2 (87c35133):** public /api/donate payment boundary hardened — integer amount (≤ Stripe max), https-only redirect URLs (blocks javascript:/data: injection), malformed-JSON 400. +6 tests (new donate_route.test.ts).
+Verified-safe (no change): ai_admin bundle (lookup-validated), social_oauth (zValidator), mcp_site bearer (hash-lookup). Full suite 4405 green. NOT pushed (Brian gates prod).
+⚠️ OPEN REC: /api/donate cross-host redirect still possible (https://evil.com) — needs Brian's allowed-host policy call.
+
 ## Fire 2026-06-09 (fire 4) — 2 verified SECURITY rounds
 The `as`-cast-on-req.json() sweep is yielding REAL bugs (not busywork):
 - **R1 (6c440ca4):** mcp_oauth paste-key — fixed unhandled 500 on malformed JSON + Zod-hardened a SECRET-storage boundary. +2 tests.
