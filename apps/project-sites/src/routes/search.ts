@@ -69,6 +69,22 @@ function containerAuthorized(env: Env, secretHeader: string | undefined): boolea
   return !!expected && !!secretHeader && timingSafeEqual(secretHeader, expected);
 }
 
+/**
+ * HTML-entity-escape untrusted text before interpolating it into an HTML
+ * document/email. `sanitizeHtml` only strips *dangerous* constructs (scripts,
+ * event handlers) — a benign `<a href="https://evil.com">` survives it, which
+ * is still a phishing vector inside a contact-form email delivered to a site
+ * owner. Escaping renders ALL user markup as inert text.
+ */
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const search = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // ─── Google Places Search ───────────────────────────────────
@@ -1178,7 +1194,14 @@ search.post('/api/contact-form/:slug', async (c) => {
         400,
       );
 
-    const htmlBody = `<h2>New Contact Form Submission</h2><p><strong>From:</strong> ${body.name} (${body.email})</p>${body.phone ? `<p><strong>Phone:</strong> ${body.phone}</p>` : ''}<p><strong>Message:</strong></p><p>${body.message.replace(/\n/g, '<br>')}</p><hr><p style="color:#888;font-size:12px;">Sent via ${site.business_name} on projectsites.dev</p>`;
+    // Escape every untrusted field BEFORE interpolation (the message keeps its
+    // line breaks via <br>, applied AFTER escaping so injected markup is inert).
+    const safeName = escapeHtml(body.name);
+    const safeEmail = escapeHtml(body.email);
+    const safePhone = body.phone ? escapeHtml(body.phone) : '';
+    const safeMessage = escapeHtml(body.message).replace(/\n/g, '<br>');
+    const safeBusiness = escapeHtml(site.business_name);
+    const htmlBody = `<h2>New Contact Form Submission</h2><p><strong>From:</strong> ${safeName} (${safeEmail})</p>${safePhone ? `<p><strong>Phone:</strong> ${safePhone}</p>` : ''}<p><strong>Message:</strong></p><p>${safeMessage}</p><hr><p style="color:#888;font-size:12px;">Sent via ${safeBusiness} on projectsites.dev</p>`;
 
     if (c.env.SENDGRID_API_KEY) {
       await fetch('https://api.sendgrid.com/v3/mail/send', {
