@@ -187,7 +187,11 @@ describe('GET /api/env-vars', () => {
   it('threads scope + scoping filters through to the service', async () => {
     mockListEnvVars.mockResolvedValue([]);
     const env = makeEnv();
-    const res = await req(makeApp(AUTH), '/api/env-vars?scope=site&siteId=site-9&mcpProvider=stripe', env);
+    const res = await req(
+      makeApp(AUTH),
+      '/api/env-vars?scope=site&siteId=site-9&mcpProvider=stripe',
+      env,
+    );
     expect(res.status).toBe(200);
     const [, orgId, opts] = mockListEnvVars.mock.calls[0];
     expect(orgId).toBe('org-1');
@@ -209,7 +213,12 @@ describe('GET /api/env-vars', () => {
 describe('POST /api/env-vars', () => {
   it('returns 401 when org context is missing', async () => {
     const env = makeEnv();
-    const res = await req(makeApp(), '/api/env-vars', env, json({ scope: 'org', key: 'K', value: 'v' }));
+    const res = await req(
+      makeApp(),
+      '/api/env-vars',
+      env,
+      json({ scope: 'org', key: 'K', value: 'v' }),
+    );
     expect(res.status).toBe(401);
     expect(mockSetEnvVar).not.toHaveBeenCalled();
   });
@@ -237,6 +246,19 @@ describe('POST /api/env-vars', () => {
     expect(mockSetEnvVar).not.toHaveBeenCalled();
   });
 
+  it('returns 400 (VALIDATION_ERROR) at the boundary when key is missing — setEnvVar never called', async () => {
+    // The Zod boundary (zod-everywhere) rejects a keyless body BEFORE the
+    // service layer, replacing the old `as string` cast that let `undefined`
+    // reach setEnvVar.
+    const env = makeEnv();
+    const res = await req(makeApp(AUTH), '/api/env-vars', env, json({ scope: 'org', value: 'v' }));
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(body.error.message).toMatch(/key/);
+    expect(mockSetEnvVar).not.toHaveBeenCalled();
+  });
+
   it('hands the plaintext to setEnvVar (encryption-at-rest) and returns ONLY the masked record', async () => {
     mockSetEnvVar.mockResolvedValue(maskedRecord({ key: 'API_TOKEN' }));
     const env = makeEnv();
@@ -251,7 +273,11 @@ describe('POST /api/env-vars', () => {
 
     // The plaintext is delivered to the service layer (which AES-GCM encrypts at rest).
     expect(mockSetEnvVar).toHaveBeenCalledTimes(1);
-    const args = mockSetEnvVar.mock.calls[0][1] as { orgId: string; value: string; createdBy: string };
+    const args = mockSetEnvVar.mock.calls[0][1] as {
+      orgId: string;
+      value: string;
+      createdBy: string;
+    };
     expect(args.orgId).toBe('org-1');
     expect(args.value).toBe('super-secret-value');
     expect(args.createdBy).toBe('user-1');
@@ -273,7 +299,12 @@ describe('POST /api/env-vars', () => {
   it('returns 400 when the service rejects the args (e.g. siteId required for scope=site)', async () => {
     mockSetEnvVar.mockRejectedValue(new Error('siteId required when scope=site'));
     const env = makeEnv();
-    const res = await req(makeApp(AUTH), '/api/env-vars', env, json({ scope: 'site', key: 'K', value: 'v' }));
+    const res = await req(
+      makeApp(AUTH),
+      '/api/env-vars',
+      env,
+      json({ scope: 'site', key: 'K', value: 'v' }),
+    );
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string; message: string } };
     expect(body.error.code).toBe('VALIDATION_ERROR');
@@ -304,7 +335,10 @@ describe('PATCH /api/env-vars/:id', () => {
 
   it('returns 401 when org context is missing', async () => {
     const env = makeEnv();
-    const res = await req(makeApp(), '/api/env-vars/ev-1', env, { ...json({ value: 'x' }), method: 'PATCH' });
+    const res = await req(makeApp(), '/api/env-vars/ev-1', env, {
+      ...json({ value: 'x' }),
+      method: 'PATCH',
+    });
     expect(res.status).toBe(401);
     expect(mockDbQueryOne).not.toHaveBeenCalled();
   });
@@ -348,7 +382,11 @@ describe('PATCH /api/env-vars/:id', () => {
     // New value supplied → no decrypt round-trip needed.
     expect(mockDecrypt).not.toHaveBeenCalled();
     expect(mockSetEnvVar).toHaveBeenCalledTimes(1);
-    const args = mockSetEnvVar.mock.calls[0][1] as { value: string; exposedToAi: boolean; key: string };
+    const args = mockSetEnvVar.mock.calls[0][1] as {
+      value: string;
+      exposedToAi: boolean;
+      key: string;
+    };
     expect(args.value).toBe('rotated-secret');
     expect(args.exposedToAi).toBe(false);
     expect(args.key).toBe('API_TOKEN');
@@ -440,7 +478,12 @@ describe('DELETE /api/env-vars/:id', () => {
 describe('POST /api/env-vars/import', () => {
   it('returns 401 when org context is missing', async () => {
     const env = makeEnv();
-    const res = await req(makeApp(), '/api/env-vars/import', env, json({ scope: 'org', dotenv: 'A=1' }));
+    const res = await req(
+      makeApp(),
+      '/api/env-vars/import',
+      env,
+      json({ scope: 'org', dotenv: 'A=1' }),
+    );
     expect(res.status).toBe(401);
     expect(mockSetEnvVar).not.toHaveBeenCalled();
   });
@@ -463,7 +506,12 @@ describe('POST /api/env-vars/import', () => {
 
   it('returns {imported:0} no-op for an all-comment / empty dotenv blob', async () => {
     const env = makeEnv();
-    const res = await req(makeApp(AUTH), '/api/env-vars/import', env, json({ scope: 'org', dotenv: '# only a comment\n\n' }));
+    const res = await req(
+      makeApp(AUTH),
+      '/api/env-vars/import',
+      env,
+      json({ scope: 'org', dotenv: '# only a comment\n\n' }),
+    );
     expect(res.status).toBe(200);
     const body = (await res.json()) as { imported: number; failed: number };
     expect(body.imported).toBe(0);
@@ -473,7 +521,12 @@ describe('POST /api/env-vars/import', () => {
   it('returns 413 when the dotenv blob exceeds the import cap', async () => {
     const lines = Array.from({ length: 101 }, (_, i) => `K_${i}=v${i}`).join('\n');
     const env = makeEnv();
-    const res = await req(makeApp(AUTH), '/api/env-vars/import', env, json({ scope: 'org', dotenv: lines }));
+    const res = await req(
+      makeApp(AUTH),
+      '/api/env-vars/import',
+      env,
+      json({ scope: 'org', dotenv: lines }),
+    );
     expect(res.status).toBe(413);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('PAYLOAD_TOO_LARGE');
@@ -493,14 +546,22 @@ describe('POST /api/env-vars/import', () => {
       json({ scope: 'org', dotenv: 'TOKEN_A="alpha-secret"\n2BAD=beta' }),
     );
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { imported: number; failed: number; errors: Array<{ key: string }> };
+    const body = (await res.json()) as {
+      imported: number;
+      failed: number;
+      errors: Array<{ key: string }>;
+    };
     expect(body.imported).toBe(1);
     expect(body.failed).toBe(1);
     expect(body.errors[0].key).toBe('2BAD');
 
     // Each pair's PLAINTEXT was handed to the encrypt-at-rest service layer.
     expect(mockSetEnvVar).toHaveBeenCalledTimes(2);
-    const firstArgs = mockSetEnvVar.mock.calls[0][1] as { key: string; value: string; orgId: string };
+    const firstArgs = mockSetEnvVar.mock.calls[0][1] as {
+      key: string;
+      value: string;
+      orgId: string;
+    };
     expect(firstArgs.key).toBe('TOKEN_A');
     expect(firstArgs.value).toBe('alpha-secret'); // quotes stripped by parseDotenv
     expect(firstArgs.orgId).toBe('org-1');

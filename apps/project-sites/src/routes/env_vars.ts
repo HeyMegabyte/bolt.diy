@@ -14,20 +14,36 @@
  * caller to hold an `owner` membership row in the active org.
  */
 import { Hono } from 'hono';
+import { z } from 'zod';
 import type { Env, Variables } from '../types/env.js';
 import { dbQueryOne } from '../services/db.js';
-import {
-  setEnvVar,
-  listEnvVars,
-  deleteEnvVar,
-  type EnvVarScope,
-  type SetEnvVarArgs,
-} from '../services/ai_env_vars.js';
+import { setEnvVar, listEnvVars, deleteEnvVar, type EnvVarScope } from '../services/ai_env_vars.js';
 import * as auditService from '../services/audit.js';
 
 export const envVarsRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 const IMPORT_CAP = 100;
+
+/**
+ * Zod boundary contract for `POST /api/env-vars`. Replaces the old
+ * `as Partial<SetEnvVarArgs>` cast (per `zod-everywhere` — validate at the
+ * boundary, pass a typed object inward). Per-scope conditional requirements
+ * (siteId when scope=site, etc.) stay in `setEnvVar`→`validateScopeFields`;
+ * this schema enforces the unconditional shape (scope enum + key/value
+ * required). Unknown keys are stripped, never trusted.
+ */
+const SetEnvVarBodySchema = z.object({
+  scope: z.enum(['org', 'site', 'mcp', 'endpoint', 'agent']),
+  key: z.string().min(1, 'key required'),
+  value: z.string(),
+  siteId: z.string().optional(),
+  mcpProvider: z.string().optional(),
+  endpointId: z.string().optional(),
+  agentId: z.string().optional(),
+  description: z.string().optional(),
+  isSecret: z.boolean().optional(),
+  exposedToAi: z.boolean().optional(),
+});
 
 /** Standard error envelope matching the rest of the worker. */
 function errorJson(code: string, message: string, requestId?: string) {
@@ -124,12 +140,14 @@ envVarsRoutes.get('/api/env-vars', async (c) => {
     });
     return c.json({ vars });
   } catch (err) {
-    console.warn(JSON.stringify({
-      service: 'env_vars',
-      event: 'list_failed',
-      orgId,
-      error: err instanceof Error ? err.message : String(err),
-    }));
+    console.warn(
+      JSON.stringify({
+        service: 'env_vars',
+        event: 'list_failed',
+        orgId,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
     return c.json(
       errorJson('INTERNAL_ERROR', err instanceof Error ? err.message : 'list failed', requestId),
       500,
@@ -146,31 +164,38 @@ envVarsRoutes.post('/api/env-vars', async (c) => {
   const requestId = c.get('requestId');
   if (!orgId) return c.json(errorJson('UNAUTHORIZED', 'auth required', requestId), 401);
 
-  let body: Partial<SetEnvVarArgs>;
+  let raw: unknown;
   try {
-    body = (await c.req.json()) as Partial<SetEnvVarArgs>;
+    raw = await c.req.json();
   } catch {
     return c.json(errorJson('BAD_REQUEST', 'invalid JSON body', requestId), 400);
   }
 
-  const scope = parseScope(body.scope);
-  if (!scope) {
-    return c.json(
-      errorJson('VALIDATION_ERROR', 'scope must be org|site|mcp|endpoint|agent', requestId),
-      400,
-    );
+  const parsed = SetEnvVarBodySchema.safeParse(raw);
+  if (!parsed.success) {
+    // First issue's message is human-safe (e.g. "key required", or the scope
+    // enum message). Preserves the VALIDATION_ERROR envelope existing callers
+    // + tests expect for a malformed body.
+    const issue = parsed.error.issues[0];
+    const field = issue?.path[0];
+    const msg =
+      field === 'scope'
+        ? 'scope must be org|site|mcp|endpoint|agent'
+        : `${field ?? 'body'}: ${issue?.message ?? 'invalid'}`;
+    return c.json(errorJson('VALIDATION_ERROR', msg, requestId), 400);
   }
+  const body = parsed.data;
 
   try {
     const stored = await setEnvVar(c.env, {
       orgId,
-      scope,
+      scope: body.scope,
       siteId: body.siteId,
       mcpProvider: body.mcpProvider,
       endpointId: body.endpointId,
       agentId: body.agentId,
-      key: body.key as string,
-      value: body.value as string,
+      key: body.key,
+      value: body.value,
       description: body.description,
       isSecret: body.isSecret,
       exposedToAi: body.exposedToAi,
@@ -214,7 +239,12 @@ envVarsRoutes.patch('/api/env-vars/:id', async (c) => {
   const id = c.req.param('id');
   if (!id) return c.json(errorJson('BAD_REQUEST', 'id required', requestId), 400);
 
-  let body: { value?: string; description?: string | null; isSecret?: boolean; exposedToAi?: boolean };
+  let body: {
+    value?: string;
+    description?: string | null;
+    isSecret?: boolean;
+    exposedToAi?: boolean;
+  };
   try {
     body = (await c.req.json()) as typeof body;
   } catch {
@@ -257,7 +287,11 @@ envVarsRoutes.patch('/api/env-vars/:id', async (c) => {
       valueToStore = await decrypt(c.env, row.value_encrypted);
     } catch (err) {
       return c.json(
-        errorJson('INTERNAL_ERROR', `decrypt failed: ${err instanceof Error ? err.message : String(err)}`, requestId),
+        errorJson(
+          'INTERNAL_ERROR',
+          `decrypt failed: ${err instanceof Error ? err.message : String(err)}`,
+          requestId,
+        ),
         500,
       );
     }
@@ -273,7 +307,10 @@ envVarsRoutes.patch('/api/env-vars/:id', async (c) => {
       agentId: row.agent_id ?? undefined,
       key: row.key,
       value: valueToStore,
-      description: body.description === undefined ? (row.description ?? undefined) : body.description ?? undefined,
+      description:
+        body.description === undefined
+          ? (row.description ?? undefined)
+          : (body.description ?? undefined),
       isSecret: body.isSecret === undefined ? row.is_secret === 1 : body.isSecret,
       exposedToAi: body.exposedToAi === undefined ? row.exposed_to_ai === 1 : body.exposedToAi,
       createdBy: userId,
@@ -447,7 +484,10 @@ envVarsRoutes.get('/api/env-vars/export', async (c) => {
     if (!userId) return c.json(errorJson('UNAUTHORIZED', 'auth required', requestId), 401);
     const owner = await isOrgOwner(c.env, orgId, userId);
     if (!owner) {
-      return c.json(errorJson('FORBIDDEN', 'org owner required for plaintext export', requestId), 403);
+      return c.json(
+        errorJson('FORBIDDEN', 'org owner required for plaintext export', requestId),
+        403,
+      );
     }
   }
 
@@ -480,7 +520,9 @@ envVarsRoutes.get('/api/env-vars/export', async (c) => {
     agentId ? `# agent_id=${agentId}` : null,
     includeValues ? '# include_values=1 (plaintext)' : '# include_values=0 (values masked)',
     '',
-  ].filter((line) => line !== null).join('\n');
+  ]
+    .filter((line) => line !== null)
+    .join('\n');
 
   const body = vars
     .map((v) => {
@@ -489,12 +531,13 @@ envVarsRoutes.get('/api/env-vars/export', async (c) => {
       const escaped = valRaw.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
       const valOut = needsQuotes ? `"${escaped}"` : escaped;
       const prefix = v.description ? `# ${v.description.replace(/\n/g, ' ')}\n` : '';
-      const scopeTag = `# scope=${v.scope}`
-        + (v.site_id ? ` site_id=${v.site_id}` : '')
-        + (v.mcp_provider ? ` mcp_provider=${v.mcp_provider}` : '')
-        + (v.endpoint_id ? ` endpoint_id=${v.endpoint_id}` : '')
-        + (v.agent_id ? ` agent_id=${v.agent_id}` : '')
-        + ` exposed_to_ai=${v.exposed_to_ai ? '1' : '0'}`;
+      const scopeTag =
+        `# scope=${v.scope}` +
+        (v.site_id ? ` site_id=${v.site_id}` : '') +
+        (v.mcp_provider ? ` mcp_provider=${v.mcp_provider}` : '') +
+        (v.endpoint_id ? ` endpoint_id=${v.endpoint_id}` : '') +
+        (v.agent_id ? ` agent_id=${v.agent_id}` : '') +
+        ` exposed_to_ai=${v.exposed_to_ai ? '1' : '0'}`;
       return `${prefix}${scopeTag}\n${v.key}=${valOut}`;
     })
     .join('\n\n');
