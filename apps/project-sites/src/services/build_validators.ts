@@ -342,6 +342,60 @@ export const validateColorScheme = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
+/**
+ * Canonical integrity. Every indexable route HTML file must carry a
+ * `<link rel="canonical">` (warn when absent), AND distinct routes must NOT
+ * share one canonical href — the site-wide `canonical=/` collapse that de-dupes
+ * every page to a single indexable URL (per `always.md` § Every page; reference
+ * incident: njsk.org shipped `canonical=/` on all 32 routes). Non-route HTML
+ * (offline / 404 / 500 / error shells) is excluded — those legitimately share
+ * or omit a canonical and are not indexable targets.
+ */
+const NON_ROUTE_HTML = /(?:^|\/)(?:offline|404|500|error)\.html$/i;
+const canonicalHref = (html: string): string | undefined => {
+  const m =
+    html.match(/<link\s+[^>]*rel=["']canonical["'][^>]*href=["']([^"']*)["']/i) ??
+    html.match(/<link\s+[^>]*href=["']([^"']*)["'][^>]*rel=["']canonical["']/i);
+  return m?.[1]?.trim() || undefined;
+};
+export const validateCanonical = (files: BuildFile[]): Violation[] => {
+  const out: Violation[] = [];
+  const byHref = new Map<string, string[]>();
+  for (const file of files) {
+    if (!isHtml(file.path) || !file.text || NON_ROUTE_HTML.test(file.path)) continue;
+    const href = canonicalHref(file.text);
+    if (!href) {
+      out.push({
+        code: 'meta.canonical_missing',
+        severity: 'warn',
+        message:
+          'Missing <link rel="canonical"> — every indexable route needs a self-referencing canonical.',
+        file: file.path,
+      });
+      continue;
+    }
+    byHref.set(href, [...(byHref.get(href) ?? []), file.path]);
+  }
+  // Collapse signature: ≥2 distinct route files sharing one canonical href.
+  // Only meaningful for multi-route sites (a single page legitimately points
+  // its lone canonical at itself).
+  const routeCount = [...byHref.values()].reduce((n, list) => n + list.length, 0);
+  if (routeCount > 1) {
+    for (const [href, list] of byHref) {
+      if (list.length < 2) continue;
+      for (const path of list) {
+        out.push({
+          code: 'meta.canonical_collapsed',
+          severity: 'error',
+          message: `${list.length} routes share canonical "${href}" — each route must self-reference its own URL (site-wide canonical collapse).`,
+          file: path,
+        });
+      }
+    }
+  }
+  return out;
+};
+
 /** Sitemap — every <url> must have <lastmod>. */
 export const validateSitemapLastmod = (files: BuildFile[]): Violation[] => {
   const sitemap = files.find((f) => f.path === 'sitemap.xml');
@@ -628,6 +682,7 @@ export const validateBuildAst = async (
     ...validateJsonLdCount(files),
     ...astH1,
     ...validateColorScheme(files),
+    ...validateCanonical(files),
     ...validateSitemapLastmod(files),
     ...astBanned,
     ...validateJsBundleSize(files),
@@ -663,6 +718,7 @@ export const validateBuild = (
     ...validateJsonLdCount(files),
     ...validateH1InShell(files),
     ...validateColorScheme(files),
+    ...validateCanonical(files),
     ...validateSitemapLastmod(files),
     ...validateBannedWords(files),
     ...validateJsBundleSize(files),

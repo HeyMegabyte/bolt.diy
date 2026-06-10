@@ -7,6 +7,7 @@ import {
   validateJsonLdCount,
   validateH1InShell,
   validateColorScheme,
+  validateCanonical,
   validateSitemapLastmod,
   validateBannedWords,
   validateJsBundleSize,
@@ -371,5 +372,60 @@ describe('validateBuild (integration)', () => {
     expect(codes).toContain('sitemap.missing_lastmod');
     expect(codes).toContain('lightbox.zoomable_missing');
     expect(codes).toContain('lightbox.gallery_missing');
+  });
+});
+
+describe('validateCanonical — per-route self-referencing canonical (no site-wide collapse)', () => {
+  it('warns when an HTML route has no <link rel="canonical">', () => {
+    // The default html() helper injects no canonical.
+    const out = validateCanonical([file('index.html', html('<p>Home</p>'))]);
+    const codes = out.map((v) => v.code);
+    expect(codes).toContain('meta.canonical_missing');
+  });
+
+  it('flags the collapse: two routes sharing one canonical (the njsk canonical=/ bug)', () => {
+    const head = '<link rel="canonical" href="https://acme.projectsites.dev/">';
+    const out = validateCanonical([
+      file('index.html', html('<p>Home</p>', head)),
+      file('about.html', html('<p>About</p>', head)),
+    ]);
+    const collapsed = out.filter((v) => v.code === 'meta.canonical_collapsed');
+    // Both route files must be flagged, at error severity.
+    expect(collapsed.length).toBe(2);
+    expect(collapsed.every((v) => v.severity === 'error')).toBe(true);
+  });
+
+  it('passes when each route self-references a distinct canonical', () => {
+    const out = validateCanonical([
+      file('index.html', html('<p>Home</p>', '<link rel="canonical" href="https://acme.projectsites.dev/">')),
+      file('about.html', html('<p>About</p>', '<link rel="canonical" href="https://acme.projectsites.dev/about">')),
+    ]);
+    expect(out.length).toBe(0);
+  });
+
+  it('does not flag collapse on a single-page site with a canonical', () => {
+    const out = validateCanonical([
+      file('index.html', html('<p>Home</p>', '<link rel="canonical" href="https://acme.projectsites.dev/">')),
+    ]);
+    expect(out.filter((v) => v.code === 'meta.canonical_collapsed').length).toBe(0);
+    expect(out.filter((v) => v.code === 'meta.canonical_missing').length).toBe(0);
+  });
+
+  it('matches rel/href in either attribute order', () => {
+    const out = validateCanonical([
+      file('index.html', html('<p>Home</p>', '<link href="https://acme.projectsites.dev/" rel="canonical">')),
+    ]);
+    expect(out.length).toBe(0);
+  });
+
+  it('ignores non-route HTML (offline/404) in the collapse check', () => {
+    const head = '<link rel="canonical" href="https://acme.projectsites.dev/">';
+    const out = validateCanonical([
+      file('index.html', html('<p>Home</p>', head)),
+      file('offline.html', html('<p>Offline</p>', head)),
+      file('404.html', html('<p>Missing</p>', head)),
+    ]);
+    // Only index.html is a route → no collapse, no missing.
+    expect(out.length).toBe(0);
   });
 });
