@@ -11,6 +11,10 @@
 
 > Honest note on round counts: the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 10/50 — per loop doctrine §2. The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
 
+## Fire 2026-06-11 (fire 11) — rate-limit config single-sourced (drift-proof)
+- **R1 (099d6317):** extracted the 26 hand-mirrored rate-limit budgets → `RATE_LIMIT_RULES` + `applyRateLimits()` in rate_limit.ts; index.ts loops (−124 LOC); auth-rate-limit.test.ts imports the SAME array (no mirror) + config invariant. Worker 4422 green.
+> 11 fires done. EVERY cheap autonomous vein is now closed+gated (XSS/email-injection, auth-bypass, privilege-injection, open-redirect-all-sinks, payment input, rate-limits added+drift-proofed, IDOR verified-clean, Zod boundaries, dead code) + 1 detector + escapeHtml/safeRelativePath utils. NEXT SUBSTANTIVE WORK REQUIRES BRIAN: pick a P1 feature (40-80h) OR authorize Turnstile-on-contact-form (coordinated frontend change). Loop will otherwise yield ~0-1 marginal items/fire.
+
 ## Fire 2026-06-10 (fire 10) — public cost-endpoint rate-limits
 - **R1 (1b5cafb7):** `/api/donate` (Stripe sessions), `/api/contact-form/*` (emails), `/api/search/address` (paid Google) were public + unthrottled → cost/spam abuse. Added KV per-IP rate-limits (10/5/30 per 60s) matching the auth-surface pattern; test mirrors index.ts + asserts 429 past budget. Worker 4421 green.
 Logged (focused/coordinated, not safe quick rounds): extract 26 rate-limit rules to one shared source (drift-proof); Turnstile on contact-form (needs frontend token). NOT pushed.
