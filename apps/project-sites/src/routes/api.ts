@@ -5008,7 +5008,7 @@ api.post('/api/domains/register', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
 
-  const body = (await c.req.json()) as { domain?: string; site_id?: string };
+  const body = (await c.req.json().catch(() => ({}))) as { domain?: string; site_id?: string };
   const domain = (body.domain || '').trim().toLowerCase();
   const siteId = (body.site_id || '').trim();
   if (!domain || !siteId) throw badRequest('domain and site_id are required');
@@ -6831,7 +6831,7 @@ api.post('/api/sites/:siteId/snapshots', async (c) => {
   const userId = c.get('userId');
   if (!orgId) throw unauthorized('Must be authenticated');
   const siteId = c.req.param('siteId');
-  const body = (await c.req.json()) as {
+  const body = (await c.req.json().catch(() => ({}))) as {
     name: string;
     description?: string;
     build_version?: string;
@@ -7096,7 +7096,7 @@ api.post('/api/sites/:siteId/snapshots/revert', async (c) => {
   const userId = c.get('userId');
   if (!orgId) throw unauthorized('Must be authenticated');
   const siteId = c.req.param('siteId');
-  const body = (await c.req.json()) as { commit_id: string };
+  const body = (await c.req.json().catch(() => ({}))) as { commit_id: string };
 
   if (!body.commit_id?.trim()) {
     throw badRequest('commit_id is required');
@@ -9906,7 +9906,7 @@ api.post('/api/billing/connect/disconnect', async (c) => {
 api.post('/api/billing/usage', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
-  const body = (await c.req.json()) as {
+  const body = (await c.req.json().catch(() => ({}))) as {
     metric?: string;
     value?: number;
     site_id?: string | null;
