@@ -12,7 +12,7 @@
 ## P0 — Test-harness setup (finish before the feature loop runs hot)
 - [x] **Worker test-login seam** — `brian@megabyte.space` + `E2E_TEST_PASSWORD`, idempotent owner upsert, real session. Unit-tested.
 - [ ] **Wire `/signin` UI to the seam** — render a password field when `?test=1`/build flag is active; submit to `POST /api/auth/test-login`; store bearer; redirect to `/admin`. (~6h)
-- [ ] **`scripts/e2e-seed.mjs` + `e2e:seed` npm script** — idempotent D1 upsert of the owner account (or one call to the seam); document. (~3h)
+- [x] **`scripts/e2e-seed.mjs` + `e2e:seed` npm script** — idempotent seed via the seam (real-UA, 404/401-aware). `node --check` + eslint clean. Verifies end-to-end once the secret is provisioned + worker deployed.
 - [ ] **Provision `E2E_TEST_PASSWORD`** — `wrangler secret put` (prod) + `.dev.vars` (local); wire into `playwright.prod.config.ts`. (~1h)
 - [ ] **Base journey spec** — `e2e/journey-auth-admin.e2e.ts`: homepage → Sign in → test password → land on `/admin`, axe-clean, console-clean. Then deploy + prod-E2E green. (~5h)
 
