@@ -6296,6 +6296,18 @@ api.get('/api/sites/:id/files/:path{.+}', async (c) => {
 });
 
 /**
+ * Body contract for `PUT /api/sites/:id/files/:path`. `content_type` (optional
+ * override of the extension-derived type) is constrained to a well-formed MIME
+ * token — it lands in the served R2 object's Content-Type header, so a
+ * CRLF/control-char value is a header-injection vector. Malformed JSON → 400.
+ */
+const MIME_TOKEN_RE = /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/i;
+const FileWriteSchema = z.object({
+  content: z.string(),
+  content_type: z.string().max(128).regex(MIME_TOKEN_RE).optional(),
+});
+
+/**
  * Create or overwrite a single R2 file for a site. Used by the in-app
  * editor's save action and by bolt.diy's "publish from editor" path.
  * Differentiates `file.created` vs. `file.updated` in audit logs by
@@ -6352,8 +6364,11 @@ api.put('/api/sites/:id/files/:path{.+}', async (c) => {
     throw forbidden('Access denied to this file path');
   }
 
-  const body = (await c.req.json()) as { content: string; content_type?: string };
-  if (typeof body.content !== 'string') throw badRequest('Content must be a string');
+  const parsed = FileWriteSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) {
+    throw badRequest('Body must be { content: string, content_type?: <valid MIME type> }');
+  }
+  const body = parsed.data;
 
   const contentType =
     body.content_type ||
