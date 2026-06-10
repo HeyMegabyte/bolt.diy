@@ -11,6 +11,11 @@
 
 > Honest note on round counts: the open ledger is dominated by 40–80h P1 features + the supervised ag-grid→TanStack perf-wave. A single session closes a handful of *verified* rounds, not 10/50 — per loop doctrine §2. The cron advances it incrementally; don't fake `<promise>DONE>` to hit a count.
 
+## Fire 2026-06-10 (fire 10) — public cost-endpoint rate-limits
+- **R1 (1b5cafb7):** `/api/donate` (Stripe sessions), `/api/contact-form/*` (emails), `/api/search/address` (paid Google) were public + unthrottled → cost/spam abuse. Added KV per-IP rate-limits (10/5/30 per 60s) matching the auth-surface pattern; test mirrors index.ts + asserts 429 past budget. Worker 4421 green.
+Logged (focused/coordinated, not safe quick rounds): extract 26 rate-limit rules to one shared source (drift-proof); Turnstile on contact-form (needs frontend token). NOT pushed.
+> 10 fires of autonomous security/quality work done (~21 fixes + 2 detectors + safeRelativePath/escapeHtml utils). Cheap veins exhausted+gated; substantive remainder = P1 features needing Brian's scope call.
+
 ## Fire 2026-06-10 (fire 9) — open-redirect sweep (3 fixes) + IDOR verified clean
 - **R1 (cf4c8f22):** `/api/donate` cross-host redirect → `pickSafeRedirect` own-domains-only (shipped the 4-fire-deferred host-policy with the safe default). +4 tests.
 - **R2 (b9460894):** mcp + social OAuth `return_url` userinfo-bypass (`@evil.com`→host evil.com when composed `https://projectsites.dev${return_url}`). New shared `safeRelativePath()`. +7 tests.
